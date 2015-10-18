@@ -1,0 +1,23 @@
+Main author:
+
+Benoit Chachuat, project leader (Imperial College London)
+
+Contributors:
+
+- Ali Sahlodin (McMaster University, MIT)
+
+  Coding, testing, debugging of Taylor model module
+  
+- Jai Rajyaguru, Mario Villanueva, Nikola Peric, Akshay Shah (Imperial College London)
+
+  Coding, testing, debugging of spectral bound, ellipsoidal bound and Chebyshev model modules
+  
+- Alexander Mitsos (MIT, RWTH Aachen)
+  Joe Scott (MIT, Clemson University)
+  Paul Barton (MIT)
+
+  Testing, debugging of McCormick relaxation module
+  
+- Ruth Misener (Imperial College London)
+
+  Installing, testing
