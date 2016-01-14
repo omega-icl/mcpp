@@ -1,29 +1,26 @@
-# Executable name
-EXE = POLTEST
-
+# Third-Party Libraries -->> CHANGE ACCORDINGLY <<--
 PATH_MC = $(shell cd ../../ ; pwd)
-LIB_MC = -L$(PATH_MC)/lib
+LIB_MC = -llapack -lblas
 INC_MC = -I$(PATH_MC)/include
+include $(PATH_MC)/src/makeoptions.mk
 
 PATH_GUROBI = $(GUROBI_HOME)
 LIB_GUROBI = -L$(PATH_GUROBI)/lib -lgurobi_c++ -lgurobi56 -pthread
 INC_GUROBI = -I$(PATH_GUROBI)/include
 
-# Compilation options
-include $(PATH_MC)/src/makeoptions.mk
-
-OBJS = test.o
+FLAG_ALL = $(FLAGS_CPP)
+LIB_ALL  = $(LIB_MC) $(LIB_LAPACK) $(LIB_FADBAD) $(LIB_PROFIL) $(LIB_FILIB) $(LIB_GUROBI)
+INC_ALL  = $(INC_MC) $(INC_LAPACK) $(INC_FADBAD) $(INC_PROFIL) $(INC_FILIB) $(INC_GUROBI)
 
 #####
 
-$(EXE) : $(OBJS)
-	$(LINK) $(PROF) $(FLAGS_LINK) -o $(EXE) $(OBJS) $(LIB_MC) $(LIB_PROFIL) $(LIB_FILIB) $(LIB_LAPACK) $(LIB_GUROBI)
+all: test0 test1D test2D
 
-test.o: test.cpp
-	$(CPP) -c $(PROF) $(FLAGS_CPP) $(INC_MC) $(INC_FADBAD) $(INC_LAPACK) $(INC_PROFIL) $(INC_FILIB) $(INC_GUROBI) -o test.o test.cpp
+test% : test%.o
+	g++ -o $@ $< $(LIB_ALL)
 
-test2D.o: test2D.cpp
-	$(CPP) -c $(PROF) $(FLAGS_CPP) $(INC_MC) $(INC_FADBAD) $(INC_LAPACK) $(INC_PROFIL) $(INC_FILIB) $(INC_GUROBI) -o test2D.o test2D.cpp
+test%.o: test%.cpp
+	g++ -c $(FLAG_ALL) -I../../src $(INC_ALL) -o $@ $<
 
 #####
 
@@ -41,5 +38,5 @@ gensvg :
 #####
 
 clean :
-	rm -f $(EXE) $(OBJS) *.dot *.svg *.out *.eps *.lp *~
+	rm -f test? test?D *.o *~ *.eps *.lp *.dot *.svg *.out
 

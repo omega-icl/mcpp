@@ -560,7 +560,7 @@ public:
   static std::pair<double,double> spectral_bound
     ( const fadbad::F< fadbad::F< T > >& D2X );
 
-  //! @brief Compute spectral bound of symmetric interval matrix <tt>S</tt> of size <tt>N<\tt>. The bounding method is selected via mc::Specbnd::Options::HESSBND.
+  //! @brief Compute spectral bound of symmetric interval matrix <tt>S</tt> of size <tt>N</tt>. The bounding method is selected via mc::Specbnd::Options::HESSBND.
   static std::pair<double,double> spectral_bound
     ( const unsigned N, const T*S );
 

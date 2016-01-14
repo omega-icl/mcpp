@@ -1384,6 +1384,11 @@ public:
     ( std::list<const FFOp*>&opDep, U*opRes, const std::vector<const FFVar*>&vDep,
       const std::vector< std::pair<const FFVar*,U> >&vVar );
 
+  //! @brief Evaluate the dependents in array <a>pDep</a> indexed by <a>ndxDep</a> in U arithmetic for the <a>nVar</a> variable in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result in <a>vDep</a> (or add the result to <a>vDep</a> if <a>add</a>==true) -- This function creates the subgraph for the dependent variables internally
+  template <typename U> void eval
+    ( const std::set<unsigned>&ndxDep, const FFVar*pDep, U*vDep,
+      const unsigned nVar, const FFVar*pVar, const U*vVar, const bool add=false );
+
   //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> in U arithmetic for the <a>nVar</a> variable in array <a>pVar</a> whose values are specified in <a>vVar</a> and write the result in <a>vDep</a> (or add the result to <a>vDep</a> if <a>add</a>==true) -- This function creates the subgraph for the dependent variables internally
   template <typename U> void eval
     ( const unsigned nDep, const FFVar*pDep, U*vDep,
@@ -2538,14 +2543,19 @@ cheb
     }
   }
 
-  // Case integer exponent is 0 or 1
-  if( iOrd == 0 ) return( 1. );
-  if( iOrd == 1 ) return Var;
+  switch( iOrd ){
+    case 0: return( 1. );
+    case 1: return Var;
+    case 2: return 2.*sqr(Var)-1.;
+    case 3: return (4.*sqr(Var)-3.)*Var;
+    default: break;
+  }
 
   // Append new intermediate variable and corresponding operation
   // (only if operation does not exist already)
   // Also append constant iOrd if not defined
-  FFVar VarRecu = 2.*Var*cheb(Var,iOrd-1) - cheb(Var,iOrd-2);
+  //FFVar VarRecu = 2.*Var*cheb(Var,iOrd-1) - cheb(Var,iOrd-2);
+  FFVar VarRecu = iOrd%2? 2.*cheb(Var,iOrd/2)*cheb(Var,iOrd/2+1)-Var: 2.*sqr(cheb(Var,iOrd/2))-1.;
   FFVar VarCheb = FFGraph::_insert_binary_operation( FFOp::CHEB, cheb(Var._dep,iOrd), Var, (int)iOrd );
   return inter( VarRecu, VarCheb );
 }
@@ -4393,13 +4403,32 @@ FFGraph::eval
 
 template <typename U> inline void
 FFGraph::eval
+( const std::set<unsigned>&ndxDep, const FFVar*pDep, U*vDep,
+  const unsigned nVar, const FFVar*pVar, const U*vVar, const bool add )
+{
+  // Nothing to do!
+  if( ndxDep.empty() ) return;
+
+  std::vector<FFVar> vpDep( ndxDep.size() );
+  std::vector<U> vvDep( ndxDep.size() );
+  std::set<unsigned>::const_iterator it = ndxDep.cbegin();
+  for( unsigned iDep=0; it != ndxDep.cend(); ++it, iDep++ ) vpDep[iDep] = pDep[*it];
+
+  eval( vvDep.size(), vpDep.data(), vvDep.data(), nVar, pVar, vVar, add );
+
+  it = ndxDep.cbegin();
+  for( unsigned iDep=0; it != ndxDep.cend(); ++it, iDep++ ) vDep[*it] = vvDep[iDep];
+}
+
+template <typename U> inline void
+FFGraph::eval
 ( const unsigned nDep, const FFVar*pDep, U*vDep, const unsigned nVar,
   const FFVar*pVar, const U*vVar, const bool add )
 {
   // Nothing to do!
   if( !nDep ) return;
 
-  // Generate subgraph -- This can be the most time consuming step!!!
+  // Generate subgraph -- This may be the most time consuming step!!!
   std::list<const FFOp*> opDep = subgraph( nDep, pDep );
 
   return eval( opDep, nDep, pDep, vDep, nVar, pVar, vVar, add );

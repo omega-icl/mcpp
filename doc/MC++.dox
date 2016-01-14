@@ -742,8 +742,7 @@ WARN_LOGFILE           =
 # spaces.
 # Note: If this tag is empty the current directory is searched.
 
-INPUT                  = MC++.txt \
-                         ../src/mc/
+INPUT                  = MC++.txt ../src/mc/mcfunc.hpp ../src/mc/mcop.hpp ../src/mc/mcfilib.hpp ../src/mc/mcprofil.hpp ../src/mc/mcfadbad.hpp ../src/mc/mclapack.hpp ../src/mc/ffdep.hpp ../src/mc/ffunc.hpp ../src/mc/interval.hpp ../src/mc/mccormick.hpp ../src/mc/specbnd.hpp ../src/mc/polymodel.hpp ../src/mc/tmodel.hpp ../src/mc/cmodel.hpp ../src/mc/ellipsoid.hpp ../src/mc/ellimage.hpp ../src/mc/polimage.hpp
 
 # This tag can be used to specify the character encoding of the source files
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding. Doxygen uses

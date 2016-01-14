@@ -1,4 +1,4 @@
-resfile  = 'POLIMG-2D.out'
+resfile  = 'test2D.out'
 
 set xlabel 'x'
 set xlabel 'y'

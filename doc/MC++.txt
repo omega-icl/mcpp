@@ -3,9 +3,9 @@
 @mainpage MC++ (version 2.0): Toolkit for Construction, Manipulation and Bounding of Factorable Functions
 
 @author Benoit C. Chachuat <tt>(b.chachuat@imperial.ac.uk)</tt> and OMEGA Research Group (http://www3.imperial.ac.uk/environmentenergyoptimisation)
-@date 2006-2014
+@date 2006-2016
 
-MC++ (version 2.0) provides a collection of C++ classes for construction, manipulation and bounding of factorable functions. The bounding methods include interval bounds, spectral bounds, convex/concave relaxations, Taylor and Chebyshev model estimators, and ellipsoidal calculus. The implementation of MC++ relies on operator/function overloading and templates. Our main emphasis in developing MC++ is to make the computation of bounds as simple and natural as possible, similar to computing function values in real arithmetics. The use of DAGs to define factorable functions is recommended for efficiency with complex bounding types and allows manipulating functions, including forward/backward/Taylor automatic differentiation. We hope that you will find MC++ most useful for the fast prototyping and testing of new algorithms and ideas, for instance in areas such as global and robust optimization.
+MC++ (version 2.0) provides a collection of C++ classes for construction, manipulation and bounding of factorable functions. The bounding methods include interval bounds, spectral bounds, convex/concave relaxations, Taylor and Chebyshev model estimators, ellipsoidal bounds, and polyhedral relaxations. The implementation of MC++ relies on operator/function overloading and templates. Our main emphasis in developing MC++ is to make the computation of bounds as simple and natural as possible, similar to computing function values in real arithmetics. The use of DAGs to define factorable functions is recommended for efficiency with complex bounding types and allows manipulating functions, including forward/backward/Taylor automatic differentiation. We hope that you will find MC++ most useful for the fast prototyping and testing of new algorithms and ideas, for instance in areas such as global and robust optimization.
 
 
 \section sec_MC_install How Do I Install and Test MC++?
@@ -69,6 +69,7 @@ A description of the main bounding components of MC++ can be found under <A HREF
 - \ref page_TAYLOR
 - \ref page_CHEBYSHEV
 - \ref page_ELLIPSOID
+- \ref page_POLYHEDRAL
 .
 Information about the DAG construction and manipulation in MC++ can also be found under <A HREF="pages.html">Related Pages</A>:
 - \ref page_FFUNC

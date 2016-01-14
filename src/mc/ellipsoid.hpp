@@ -965,6 +965,8 @@ inline Ellipsoid minksum_ea
   for( int i=0; i<E._Q.n; i++ ){
     trQ += E._Q(i,i)/(E._Q(i,i)+TOL);
     sqrR(i) = I.first(i)/std::sqrt(E._Q(i,i)+TOL);
+    // std::cout << "std::sqrt(E._Q(i,i)+TOL) =" << std::sqrt(E._Q(i,i)+TOL)
+    //           << "  " << E._Q(i,i)+TOL << std::endl;
   }
   trQ = std::sqrt(trQ);
   double kappa = trQ;

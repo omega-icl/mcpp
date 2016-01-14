@@ -1,6 +1,6 @@
-#define TEST_EXP	// <-- select test function here
+#define TEST_TRIG2	// <-- select test function here
 const int NX = 500;	// <-- select discretization here
-const int NE = 1;	// <-- select polynomial model expansion here
+const int NE = 5;	// <-- select polynomial model expansion here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
 #undef  USE_POLYMOD     // <-- specify whether to use a Chebyshev expansion before relaxation
 #undef  ADD_BREAKPOINT  // <-- specify whether to use a Chebyshev expansion before relaxation
@@ -83,16 +83,19 @@ T myfunc
 {
   //return x*(x+1);
   //return pow(x+1,2);
+  //return mc::fstep(x) * mc::sqr(x) + mc::bstep(x) * x;
   //return pow(x+2.5,-3);
   //return x/(1+pow(x,2));
   //return 1/(x+3.);
   //return pow(x,3);
   //return mc::sqr(x);
   //return exp(x)+log(x+3);
-  //return log(x+3)+sqrt(x+3);
-  //return x*exp(-pow(x,2));
+  //return log(x+3)*(1+2*sqrt(x+3));
+  //T pi = mc::PI;
+  return x*exp(-pow(x,2));
+  //return x*exp(-pow(x,2)+2*x+1);
   //return x*exp(pow(x,3));
-  return exp(1.+3./(10.+x));
+  //return exp(1.+3./(10.+x));
   //return (-2e0)/(x+1e0);
 }
 
@@ -127,19 +130,22 @@ T myfunc
 }
 
 #elif defined( TEST_TRIG )
-const double XL   = -4*PI;	// <-- range lower bound
-const double XU   =  PI/3.;	// <-- range upper bound
+const double XL   =  mc::PI/2.;	// <-- range lower bound
+const double XU   =  5.*mc::PI/4.;	// <-- range upper bound
+//const double XL   =  -mc::PI;	// <-- range lower bound
+//const double XU   =  mc::PI;	// <-- range upper bound
 template <class T>
 T myfunc
 ( const T&x )
 {
-  return cos(x);
+  //return cos(x-mc::PI/2);
+  return sin(x);
   //return tan(cos(x*atan(x)));
 }
 
 #elif defined( TEST_TRIG2 )
-const double XL   =  PI/6.;	// <-- range lower bound
-const double XU   =  PI/3.;	// <-- range upper bound
+const double XL   =  mc::PI/6.;	// <-- range lower bound
+const double XU   =  mc::PI/3.;	// <-- range upper bound
 template <class T>
 T myfunc
 ( const T&x )
@@ -285,19 +291,13 @@ void append_cut
 
 ////////////////////////////////////////////////////////////////////////
 
-int main()
+void relax()
 {
-
 #ifdef SAVE_RESULTS
-  #ifndef USE_POLYMOD
-    std::ofstream res( "POLIMG-1D.out", std::ios_base::out );
-  #else
-    std::ofstream res( "POLIMG-PM-1D.out", std::ios_base::out );
-  #endif
+    std::ofstream res( "test1D.out", std::ios_base::out );
     res << std::scientific << std::setprecision(5) << std::right;
 #endif
 
-  try{ 
     I IX = { XL, XU };
 
     mc::FFGraph DAG;
@@ -309,15 +309,16 @@ int main()
     //return 0;
 
     mc::PolImg<I> PolEnv;
+    PolEnv.options.AGGREG_LIN = true;
     PolEnv.options.SANDWICH_MAXCUT = 5;
     mc::PolVar<I> X_Pol( &PolEnv, X, IX ), F_Pol;
     DAG.eval( 1, &F, &F_Pol, 1, &X, &X_Pol );
-    std::cout << PolEnv;
+    //return 0;
 
  #ifdef ADD_BREAKPOINT
     PolEnv.options.BREAKPOINT_TYPE = mc::PolImg<I>::Options::SOS2;//NONE;
     // Add breakpoints to all variables (incl. auxiliaries) in DAG
-    const unsigned NDIV = 5;
+    const unsigned NDIV = 3;
     for( auto it=PolEnv.Vars().begin(); it!=PolEnv.Vars().end(); ++it )
       for( unsigned i=0; i<NDIV; i++ ){
         double pt = mc::Op<I>::l(it->second->range())
@@ -327,7 +328,6 @@ int main()
     PolEnv.reset_cuts();
     X_Pol = *PolEnv.Vars().find(&X)->second;
     DAG.eval( 1, &F, &F_Pol, 1, &X, &X_Pol );
-    std::cout << PolEnv;
  #endif
     //return 0;
 
@@ -345,13 +345,12 @@ int main()
     Y[1].set( &DAG );
     mc::FFVar**Xrcheb = PMenv.get_basis( NE, Y );
     mc::FFVar F = PMenv.get_bound( PMF.coefmon().second, Xrcheb, &Y[1], PM::Options::NAIVE );
-    //mc::FFVar F = mc::inter( myfunc( X ), 
-    //  PMenv.get_bound( PMF.coefmon().second, Xrcheb, &Y[1], PM::Options::NAIVE ) );
     std::cout << DAG;
 
     // Relax polynomial model range
     mc::PolImg<I> PolEnv;
-    PolEnv.options.SANDWICH_MAXCUT = 5;
+    PolEnv.options.SANDWICH_MAXCUT = 10;
+    PolEnv.options.AGGREG_LIN = true;
     mc::PolVar<I> X_Pol, Y_Pol[2], F_Pol;
     Y_Pol[0].set( &PolEnv, Y[0], IX );
     Y_Pol[1].set( &PolEnv, Y[1], PMF.R() );
@@ -360,10 +359,13 @@ int main()
     std::cout << PolEnv;
     {int dum; std::cin >> dum;}
 
-    F = myfunc( X );
-    std::cout << DAG;
-    //return 0;
+    //F = myfunc( X );
+    //std::cout << DAG;
+    //return;
 #endif
+
+    PolEnv.generate_cuts( 1, &F_Pol, true );
+    std::cout << PolEnv;
 
     //DAG.output( DAG.subgraph( 1, &F ) );
     //std::ofstream o_F( "F.dot", std::ios_base::out );
@@ -385,6 +387,8 @@ int main()
     auto itobj = PolEnv.Vars().find( &F_Pol.var() );
     auto jtvar = DAGVars.end(), jtobj = DAGVars.end();
     for( auto itv=PolEnv.Vars().begin(); itv!=PolEnv.Vars().end(); ++itv ){
+      if( !itv->second->cuts() ) continue;
+      //std::cout << itv->second << ": " << itv->second->cuts() << std::endl;
       GRBVar DAGVar = GRBmodel.addVar( mc::Op<I>::l(itv->second->range()),
           mc::Op<I>::u(itv->second->range()), 0.0, GRB_CONTINUOUS,
           itv->second->name() );
@@ -429,7 +433,7 @@ int main()
 
       GRBmodel.set( GRB_IntAttr_ModelSense, 1 ); // MIN:1, MAX:-1
       GRBmodel.update();
-      GRBmodel.write( "POLIMG.lp" );
+      GRBmodel.write( "test1D.lp" );
       GRBmodel.optimize();
       double Zcv = GRBmodel.get( GRB_DoubleAttr_ObjVal );
       //return 0;
@@ -454,6 +458,16 @@ int main()
     delete[] Xrcheb[0];
     delete[] Xrcheb;
 #endif
+
+  return;
+}
+
+////////////////////////////////////////////////////////////////////////
+
+int main()
+{
+  try{ 
+    relax();
   }
   catch(GRBException& ex) {
     std::cerr << "Error code = " << ex.getErrorCode() << std::endl;
@@ -462,8 +476,6 @@ int main()
 
   return 0;
 }
-
-
 
 
 

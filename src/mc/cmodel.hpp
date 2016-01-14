@@ -5,7 +5,7 @@
 \page page_CHEBYSHEV Chebyshev Model Arithmetic for Factorable Functions
 \author Jai Rajyaguru, Mario E. Villanueva, Beno&icirc;t Chachuat
 
-A \f$q\f$th-order Chebyshev model of a multivariate function \f$f:\mathbb{R}^n\to\mathbb{R}\f$ that is (at least) \f$(q+1)\f$-times continuously differentiable on the domain \f$D\f$, consists of the \f$q^{\rm th}\f$-order multivariate polynomial \f$\mathcal P\f$, matching either the truncated Chebyshev expansion of \f$\mathcal P\f$ up to order \f$q^{\rm th}\f$ or the \f$q^{\rm th}\f$-order Chebyshev interpolated polynomial, plus a remainder term \f$\mathcal R\f$, so that
+A \f$q\f$th-order Chebyshev model of a Lipschitz-continuous function \f$f:\mathbb{R}^n\to\mathbb{R}\f$ on the domain \f$D\f$, consists of a \f$q^{\rm th}\f$-order multivariate polynomial \f$\mathcal P\f$ in Chebyshev basis , plus a remainder term \f$\mathcal R\f$, so that
 \f{align*}
   f({x}) \in \mathcal P({x}-\hat{x}) \oplus \mathcal R, \quad \forall {x}\in D.
 \f}
@@ -199,7 +199,9 @@ Moreover, exceptions may be thrown by the template parameter class itself.
 #undef  MC__CMODEL_CHECK_PMODEL
 #undef  MC__CVAR_DEBUG_EXP
 #undef  MC__CVAR_DEBUG_BERNSTEIN
-//#define MC__CVAR_PROTECT_SQRT
+
+//#undef MC__CVAR_FABS_SQRT
+//#undef MC__CVAR_FORCE_REM_DERIV
 
 namespace mc
 {
@@ -215,7 +217,8 @@ template <typename T> class CVar;
 //! remainder bound.
 ////////////////////////////////////////////////////////////////////////
 template <typename T>
-class CModel: public PolyModel
+class CModel
+: public PolyModel
 ////////////////////////////////////////////////////////////////////////
 {
   friend class CVar<T>;
@@ -242,10 +245,19 @@ public:
   //! @brief Get Chebyshev basis functions in U arithmetic for variable array <a>X</a>
   template <typename U> U** get_basis
     ( const unsigned nord, const U*X, const bool scaled=false ) const;
+ 
+  //! @brief Get Chebyshev monomial bounds in U arithmetic for variable array <a>X</a>
+  // template <typename U> std::pair<unsigned,U*> get_bndmon
+  //  ( const unsigned nord, const U*X, const bool scaled=false ) const;
 
   //! @brief Get Chebyshev monomial bounds in U arithmetic for variable array <a>X</a>
-  template <typename U> std::pair<unsigned,U*> get_bndmon
-    ( const unsigned nord, const U*X, const bool scaled=false ) const;
+  template <typename U> void get_bndmon
+    ( const unsigned nord, U*bndmon, const U*X, const bool scaled=false ) const;
+
+  //! @brief Get Chebyshev monomial bounds in U arithmetic for variable array <a>X</a> and monomial indexes in <a>ndxmon</a>
+  template <typename U> void get_bndmon
+    ( const unsigned nord, U*bndmon, const std::set<unsigned>&ndxmon,
+      const U*X, const bool scaled=false ) const;
 
   //! @brief Polynomial range bounder using specified bounder <a>type</a> with basis functions <a>bndbasis</a> in U arithmetic and monomial coefficients <a>coefmon</a> in C arithmetic
   template <typename C, typename U> U get_bound
@@ -706,6 +718,13 @@ public:
     ( const double*x ) const
     { return polynomial( x ); }
 
+  //! @brief Return new Chebyshev variable corresponding to the derivative model with respect to variable <a>i</a> and a zero remainder
+// dTn/dx = 2*n* sum'(k=0,...,n-1 w/ n-p-k even:  
+  CVar<T> polydiff
+    ( const unsigned i )
+    const
+    { CVar<T> var = *this; *(var._bndrem) = 0.; return var; }
+
   //! @brief Return new Chebyshev variable with same multivariate polynomial part but zero remainder
   CVar<T> polynomial
     ()
@@ -1070,9 +1089,7 @@ CModel<T>::get_basis
                         _get_bndpow( nord, Xvar[i], _refvar[i], _scalvar[i] );
   return Xrcheb;
 }
-
-// introduce a sparse version of get_bndmon
-
+/*
 template <typename T> template <typename U> inline std::pair<unsigned,U*>
 CModel<T>::get_bndmon
 ( const unsigned nord, const U*Xvar, const bool scaled ) const
@@ -1101,6 +1118,67 @@ CModel<T>::get_bndmon
   mc::display( 1, nmon, bndmon, 1, "bndmon", std::cout );
 #endif
   return std::make_pair(nmon,bndmon);
+}
+*/
+template <typename T> template <typename U> inline void
+CModel<T>::get_bndmon
+( const unsigned nord, U*bndmon, const U*Xvar, const bool scaled ) const
+{
+  if( !bndmon ) return;
+  const unsigned maxord = nord>_nord? _nord: nord;
+  U**basis = get_basis( maxord, Xvar, scaled );
+  const unsigned nmon = _posord[maxord+1];
+  bndmon[0] = 1.;
+  for( unsigned i=1; i<nmon; i++ ){
+    bool first = true;
+    for( unsigned j=0; j<_nvar; j++){
+      if( !basis[j] ) continue;
+      if( first ){
+        bndmon[i] = basis[j][_expmon[i*_nvar+j]];
+        first = false;
+      }
+      else
+        bndmon[i] *= basis[j][_expmon[i*_nvar+j]];
+    }
+  }
+  for( unsigned j=0; j<_nvar; j++) delete[] basis[j];
+  delete[] basis;
+
+#ifdef MC__CMODEL_DEBUG
+  mc::display( 1, nmon, bndmon, 1, "bndmon", std::cout );
+#endif
+  return;
+}
+
+template <typename T> template <typename U> inline void
+CModel<T>::get_bndmon
+( const unsigned nord, U*bndmon, const std::set<unsigned>&ndxmon,
+  const U*Xvar, const bool scaled ) const
+{
+  if( !bndmon || ndxmon.empty() ) return;
+  const unsigned maxord = nord>_nord? _nord: nord;
+  U**basis = get_basis( maxord, Xvar, scaled );
+  std::set<unsigned>::const_iterator it = ndxmon.begin();
+  if( !*it ){ bndmon[0] = 1.; ++it; }
+  for( ; it != ndxmon.end() && *it < _posord[maxord+1]; ++it ){
+    bool first = true;
+    for( unsigned j=0; j<_nvar; j++){
+      if( !basis[j] ) continue;
+      if( first ){
+        bndmon[*it] = basis[j][_expmon[(*it)*_nvar+j]];
+        first = false;
+      }
+      else
+        bndmon[*it] *= basis[j][_expmon[(*it)*_nvar+j]];
+    }
+  }
+  for( unsigned j=0; j<_nvar; j++) delete[] basis[j];
+  delete[] basis;
+
+#ifdef MC__CMODEL_DEBUG
+  mc::display( 1, nmon, bndmon, 1, "bndmon", std::cout );
+#endif
+  return;
 }
 
 template <typename T> inline CVar<T>
@@ -2529,14 +2607,19 @@ inv
   double* coefmon = CV._coefinterp();
   CV._interpolation( coefmon, mc::inv );
 
-  double b(Op<T>::mid(CV.B())), a(Op<T>::u(CV.B())-b), rem, ub(0), lb(0);
+  double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B())-m), rem;
+#ifndef MC__CVAR_FORCE_REM_DERIV
+  double ub(0), lb(0);
   for (unsigned i(0); i<=CV.nord(); i++) {
     ub += coefmon[i];
     lb += std::pow(-1.,i)*coefmon[i];
-    }
-  rem = std::max(std::fabs(mc::inv(a+b)-ub), std::fabs(mc::inv(b-a)-lb));
+  }
+  rem = std::max(std::fabs(mc::inv(r+m)-ub), std::fabs(mc::inv(m-r)-lb));
+#else
+  rem = 4.*std::pow(r,double(CV.nord()+2));
+#endif
 
-  CVI = CV._rescale(a,b);
+  CVI = CV._rescale(r,m);
   CV2 = CVI._composition( coefmon );
   //CV2 += T(-rem, rem);
   CV2 += (2.*Op<T>::zeroone()-1.)*rem;
@@ -2587,16 +2670,23 @@ exp
   double* coefmon = CV._coefinterp();
   CV._interpolation( coefmon, std::exp );
 
-  double b(Op<T>::mid(CV.B())), a(Op<T>::u(CV.B())-b), rem, ub(0), lb(0);
+  double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B())-m), rem;
+#ifndef MC__CVAR_FORCE_REM_DERIV
+  double ub(0), lb(0);
   for (unsigned i(0); i<=CV.nord(); i++) {
     ub += coefmon[i];
     lb += std::pow(-1.,i)*coefmon[i];
-    }
-  rem = std::max(std::fabs(std::exp(a+b)-ub), std::fabs(std::exp(b-a)-lb));
+  }
+  rem = std::max(std::fabs(std::exp(r+m)-ub), std::fabs(std::exp(m-r)-lb));
+#else
+  double fact(1);
+  for (unsigned i(1); i<=CV.nord()+1; i++) fact *= double(i);
+  double M = Op<T>::abs(Op<T>::exp(CV.B()));
+  rem = 2.*M*std::pow(r/2.,double(CV.nord()+1))/fact;
+#endif
 
-  CVI = CV._rescale(a,b);
+  CVI = CV._rescale(r,m);
   CV2 = CVI._composition( coefmon );
-  //CV2 += T(-rem, rem);
   CV2 += (2.*Op<T>::zeroone()-1.)*rem;
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::exp(CV.B()) );
@@ -2621,7 +2711,7 @@ log
   for (unsigned i(0); i<=CV.nord(); i++) {
     ub += coefmon[i];
     lb += std::pow(-1.,i)*coefmon[i];
-    }
+  }
   rem = std::max(std::fabs(std::log(a+b)-ub), std::fabs(std::log(b-a)-lb));
 
   CVI = CV._rescale(a,b);
@@ -2714,11 +2804,13 @@ cos
   double* coefmon = CV._coefinterp();
   CV._interpolation( coefmon, std::cos );
 
-  double b(Op<T>::mid(CV.B())), a(Op<T>::u(CV.B())-b), rem, fact(1);
+  double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B())-m), rem, fact(1);
   for (unsigned i(1); i<=CV.nord()+1; i++) fact *= double(i);
-  rem = 4.*std::pow(a/2.,double(CV.nord()+1))/fact;
+  double M = CV.nord()%2? Op<T>::abs(Op<T>::cos(CV.B())):
+                          Op<T>::abs(Op<T>::sin(CV.B()));
+  rem = 2.*M*std::pow(r/2.,double(CV.nord()+1))/fact;
 
-  CVI = CV._rescale(a,b);
+  CVI = CV._rescale(r,m);
   CV2 = CVI._composition( coefmon );
   CV2 += (2.*Op<T>::zeroone()-1.)*rem;
 
@@ -2793,11 +2885,39 @@ fabs
 {
   if( !CV._CM )
     return CVar<T>( Op<T>::fabs(CV._coefmon[0] + *(CV._bndrem)) );
+  if ( Op<T>::l(CV.B()) >= 0. )
+    return CV;
+  if ( Op<T>::u(CV.B()) <= 0. )
+    return -CV;
 
-  return sqrt( sqr( CV ) );
+#ifdef MC__CVAR_FABS_SQRT
   CVar<T> CV2( sqrt( sqr(CV) ) );
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::fabs(CV.B()) );
   return CV2;
+
+#else
+  if( CV.nord() < 2 ){
+    CVar<T> CV2( sqrt( sqr(CV) ) );
+    if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::fabs(CV.B()) );
+    return CV2;
+  }
+
+  CVar<T> CVI( CV._CM, 0. ), CV2( CV._CM, 0. );
+  double* coefmon = CV._coefinterp();
+  CV._interpolation( coefmon, std::fabs );
+
+  double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B())-m), rem, fact(1);
+  for (unsigned i(1); i<=CV.nord()+1; i++) fact *= double(i);
+  rem = 2./mc::PI*r/double(CV.nord()-1);
+  //rem = 4.*std::pow(a/2.,double(CV.nord()+1))/fact;
+
+  CVI = CV._rescale(r,m);
+  CV2 = CVI._composition( coefmon );
+  CV2 += (2.*Op<T>::zeroone()-1.)*rem;
+
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::fabs(CV.B()) );
+  return CV2;
+#endif
 /*
   CVar<T> CVI( CV._CM, 0. ), CV2( CV._CM, 0. );
   //REMAINDER TO BE IMPLEMENTED

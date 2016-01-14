@@ -1,4 +1,4 @@
-#define TEST_EXP	// <-- select test function here
+#define TEST_TRIG	// <-- select test function here
 const int NX = 40;	// <-- select discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
 
@@ -46,10 +46,113 @@ template <class T>
 T myfunc
 ( const T*x )
 {
-  //return x[0]/x[1];
   return exp( 1 - x[0]/x[1] - x[0]*log(x[1]) );
+  //return x[0]*x[1]*(x[0]*(exp(x[0])-exp(-x[0]))-x[1]*(exp(x[1])-exp(-x[1])));
+  //return pow(x[0]*exp(fabs(x[0])/x[1]),3);
+  //return x[0]*exp(x[0]+pow(x[1],2))-pow(x[1],2);
 }
 
+#elif defined( TEST_FRAC )
+const double X0L   = -.5; // <-- range lower bound
+const double X0U   =  .5; // <-- range upper bound
+const double X1L   =  0.5; // <-- range lower bound
+const double X1U   =  1.5; // <-- range upper bound
+template< class T >
+T myfunc
+( const T*x )
+{
+  return x[0]/x[1];
+}
+
+#elif defined( TEST_FABS )
+const double X0L   = -1.; // <-- range lower bound
+const double X0U   =  2.; // <-- range upper bound
+const double X1L   = -2.; // <-- range lower bound
+const double X1U   =  1.; // <-- range upper bound
+template< class T >
+T myfunc
+( const T*x )
+{
+  return sqrt(fabs(x[0]*x[1]));
+}
+
+#elif defined( TEST_FSTEP )
+const double X0L   = -1.; // <-- range lower bound
+const double X0U   =  .5; // <-- range upper bound
+const double X1L   = -.5; // <-- range lower bound
+const double X1U   =  1.; // <-- range upper bound
+template< class T >
+T myfunc
+( const T*x )
+{
+  return mc::fstep(x[0]*x[1])*mc::sqr(x[0]) + mc::bstep(x[0]*x[1])*pow(x[1],3);
+}
+
+#elif defined( TEST_TRIG )
+const double X0L   = -1.; // <-- range lower bound
+const double X0U   =  2.; // <-- range upper bound
+const double X1L   = -2.; // <-- range lower bound
+const double X1U   =  1.; // <-- range upper bound
+template< class T >
+T myfunc
+( const T*x )
+{
+  return 1.+x[0]-sin(2.*x[0]+3.*x[1])-cos(3.*x[0]-5.*x[1]);
+}
+
+#elif defined( TEST_INV )
+const double X0L   = 0.; // <-- range lower bound
+const double X0U   = 7.; // <-- range upper bound
+const double X1L   = 0.; // <-- range lower bound
+const double X1U   = 7.; // <-- range upper bound
+template< class T >
+T myfunc
+( const T*x )
+{
+  return -1./(pow(x[0]-4.,2) + pow(x[1]-4.,2) + 0.1)
+         -1./(pow(x[0]-1.,2) + pow(x[1]-1.,2) + 0.2)
+         -1./(pow(x[0]-8.,2) + pow(x[1]-8.,2) + 0.2);
+}
+
+#elif defined( TEST_MAX )
+const double X0L   = -2.; // <-- range lower bound
+const double X0U   =  1.; // <-- range upper bound
+const double X1L   = -1.; // <-- range lower bound
+const double X1U   =  2.; // <-- range upper bound
+template< class T >
+T myfunc
+( const T*x )
+{
+  T f[3] = { -pow(x[0]+x[1]-2.,2), -pow(x[0]+x[1],2), -pow(x[0]+x[1]+2.,2) };
+  return mc::max( (unsigned)3, f );
+}
+/*
+
+///////////////////////////////////////////////////////////
+template< class T >
+T func_pow_inv
+( const T&x, const T&y )
+///////////////////////////////////////////////////////////
+{
+  T f = -1./(pow(x-4.,2)+pow(y-4.,2)+0.1)
+        -1./(pow(x-1.,2)+pow(y-1.,2)+0.2)
+        -1./(pow(x-8.,2)+pow(y-8.,2)+0.2);
+//   T f = +1./(pow(x-1.,3)+pow(y-1.,3)+0.1)
+//         -1./(pow(x-2.,2)+pow(y-3.,4)+0.2)
+//         +1./(pow(x-3.,3)+pow(y-2.,1)+0.2);
+  return f;
+}
+
+///////////////////////////////////////////////////////////
+template< class T >
+T func_max
+( const T&x, const T&y )
+///////////////////////////////////////////////////////////
+{
+  T f[3] = { -pow(x+y-2.,2), -pow(x+y,2), -pow(x+y+2.,2) };
+  return max( 3, f );
+}
+*/
 #endif
 
 ////////////////////////////////////////////////////////////////////////
@@ -104,7 +207,7 @@ int main()
 {
 
 #ifdef SAVE_RESULTS
-  std::ofstream res( "POLIMG-2D.out", std::ios_base::out );
+  std::ofstream res( "test2D.out", std::ios_base::out );
   res << std::scientific << std::setprecision(5) << std::right;
 #endif
 
@@ -124,6 +227,7 @@ int main()
     X_Pol[0].set( &PolEnv, X[0], IX[0] );
     X_Pol[1].set( &PolEnv, X[1], IX[1] );
     DAG.eval( 1, &F, &F_Pol, 2, X, X_Pol );
+    PolEnv.generate_cuts( 1, &F_Pol, true );
     std::cout << PolEnv;
 
     //DAG.output( DAG.subgraph( 1, &F ) );
@@ -192,7 +296,7 @@ int main()
 
       GRBmodel.set( GRB_IntAttr_ModelSense, 1 ); // MIN:1, MAX:-1
       GRBmodel.update();
-      //GRBmodel.write( "POLIMG.lp" );
+      GRBmodel.write( "test2D.lp" );
       GRBmodel.optimize();
       double Zcv = GRBmodel.get( GRB_DoubleAttr_ObjVal );
       //return 0;

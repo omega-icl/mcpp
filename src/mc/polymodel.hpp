@@ -1113,10 +1113,6 @@ const
 {
   if( !_PM ) return _coefmon[0];
   const unsigned imon = _PM->loc_expmon( iexp );
-  //if( !_ndxmon.empty() ){
-  //  auto it = _ndxmon.find(imon);
-  //  return( it!=_ndxmon.end()? _coefmon[*it]: 0. );
-  //}
   return( imon<nmon()? _coefmon[imon]: 0. );
 }
 

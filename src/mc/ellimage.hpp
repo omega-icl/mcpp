@@ -94,8 +94,8 @@ x \in \left\{
 4 & 5 \\
 \end{array} \right)^{1/2}v
 :
-v^{\rm T}v\leq 1 \right\}
-\f].
+v^{\rm T}v\leq 1 \right\}.
+\f]
 
 For simplicity, the underlying interval bounds are propagated using the default interval type mc::Interval, the required header files 
 are:
