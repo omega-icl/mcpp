@@ -31,6 +31,8 @@ class Ellipsoid;
 
 template <typename T> Ellipsoid minksum_ea
  ( const Ellipsoid&E, const T*I, const double&TOL, const double EPS=machprec() );
+Ellipsoid minksum_ea
+ ( const Ellipsoid&E1, const Ellipsoid&E2, const double EPS=machprec() );
 Ellipsoid ellintersection_ia
  ( const std::vector< std::pair<CPPL::dcovector,double> >&HP,
    const double&TOL=1e-4, const unsigned&MAXIT=100 );
@@ -59,6 +61,8 @@ class Ellipsoid
       const double&TOL, const double EPS );
   template <typename T> friend Ellipsoid minksum_ea
     ( const Ellipsoid&E, const T*I, const double&TOL, const double EPS );
+  friend Ellipsoid minksum_ea
+    ( const Ellipsoid&E1, const Ellipsoid&E2, const double EPS );
   friend Ellipsoid inv
     ( const Ellipsoid&E );
   friend std::vector<Ellipsoid> inv
@@ -975,6 +979,30 @@ inline Ellipsoid minksum_ea
   CPPL::dsymatrix Q_EA( E._Q*kappa/(trQ+EPS) );
   for( int i=0; i<E._Q.n; i++ )
     Q_EA(i,i) += I.first(i)*I.first(i)*kappa/(sqrR(i)+sqr(EPS))+sqr(EPS);
+
+  return EA.set(Q_EA,c_EA);  
+}
+
+inline Ellipsoid minksum_ea
+( const Ellipsoid&E1, const Ellipsoid&E2, const double EPS )
+{
+#ifdef MC__ELLIPSOID_DEBUG
+  assert( E1._Q.n == E2._Q.n );
+#endif
+  Ellipsoid EA;
+  const int n = E1._Q.n;
+  if( !n ) return EA;
+
+  // Construct center and shape matrix
+  CPPL::dcovector c_EA = E1._c + E2._c;
+
+  double trQ1 = 0., trQ2 = 0.;
+  for( int i=0; i<n; i++ ){
+    trQ1 += E1._Q(i,i);
+    trQ2 += E2._Q(i,i);
+  }
+  double s1 = std::sqrt(trQ1) + EPS, s2 = std::sqrt(trQ2) + EPS;
+  CPPL::dsymatrix Q_EA = ( E1._Q/s1 + E2._Q/s2 ) / (s1+s2);
 
   return EA.set(Q_EA,c_EA);  
 }
