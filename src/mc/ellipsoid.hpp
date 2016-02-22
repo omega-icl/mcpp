@@ -1002,7 +1002,7 @@ inline Ellipsoid minksum_ea
     trQ2 += E2._Q(i,i);
   }
   double s1 = std::sqrt(trQ1) + EPS, s2 = std::sqrt(trQ2) + EPS;
-  CPPL::dsymatrix Q_EA = ( E1._Q/s1 + E2._Q/s2 ) / (s1+s2);
+  CPPL::dsymatrix Q_EA = ( E1._Q/s1 + E2._Q/s2 ) * (s1+s2);
 
   return EA.set(Q_EA,c_EA);  
 }
