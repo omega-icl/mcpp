@@ -28,10 +28,10 @@ plot  file0  tit ""          w filledcurves lt 1 lc rgb "#FFA346", \
 pause -1 "PRESS <ENTER> TO CONTINUE"
 
 set term post eps enh solid color 18
-set out 'ELL-2D.eps'
+set out 'test1.eps'
 rep
-set term wxt
+set term x11
 set out
-!ps2eps -B -l -f ELL-2D.eps
-!mv ELL-2D.eps.eps ELL-2D.eps
+!ps2eps -B -l -f test1.eps
+!mv test1.eps.eps test1.eps
 

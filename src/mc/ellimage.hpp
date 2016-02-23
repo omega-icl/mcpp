@@ -3036,6 +3036,7 @@ template <> template<typename T> struct Op< mc::EllVar<T> >
   static EV hull(const EV& x, const EV& y) { throw typename mc::EllImg<T>::Exceptions( EllImg<T>::Exceptions::UNDEF ); }
   static EV min (const EV& x, const EV& y) { throw typename mc::EllImg<T>::Exceptions( EllImg<T>::Exceptions::UNDEF ); }
   static EV max (const EV& x, const EV& y) { throw typename mc::EllImg<T>::Exceptions( EllImg<T>::Exceptions::UNDEF ); }
+  static EV cheb(const EV& x, const EV& y) { throw typename mc::EllImg<T>::Exceptions( EllImg<T>::Exceptions::UNDEF ); }
   template <typename X, typename Y> static EV pow(const X& x, const Y& y) { return mc::pow(x,y); }
   static EV monomial (const unsigned int n, const EV* x, const int* k) { throw typename mc::EllImg<T>::Exceptions( EllImg<T>::Exceptions::UNDEF ); }
   static bool inter(EV& xIy, const EV& x, const EV& y) { return false; }
