@@ -49,7 +49,7 @@ class Ellipsoid
   friend std::ostream& operator<<
     ( std::ostream&, const Ellipsoid& );
   friend Ellipsoid ell_unitball
-    ( const unsigned int n );
+    ( const unsigned n );
   friend Ellipsoid mtimes
     ( const Ellipsoid&E, const CPPL::dgematrix&A, const CPPL::dcovector&b );
   friend Ellipsoid minksum_ea
@@ -146,7 +146,7 @@ public:
   {
     //! @brief Constructor
     Options():
-      PSDCHK(false), PSDTOL(machprec()*1e2), RKTOLA(machprec()), RKTOLR(1e6*mc::machprec()),
+      PSDCHK(false), PSDTOL(machprec()*1e2), RKTOLA(machprec()), RKTOLR(mc::machprec()),
       ROOTTOL(1e-10), ROOTSECANT(false), ROOTMAXIT(0)
       {}
     //! @brief Whether or not to check positive semi-definiteness of shape matrices (default=false)
@@ -162,7 +162,7 @@ public:
     //! @brief Whether to use the secant method for root finding (default=false)
     bool ROOTSECANT;
     //! @brief Maximum number of iteration for root-finding method (default=0 - no maximum)
-    unsigned int ROOTMAXIT;
+    unsigned ROOTMAXIT;
   } options;
 
   //! @brief Ellipsoid exceptions
@@ -223,18 +223,18 @@ public:
 
   //! @brief Constructor for ellipsoid of dimension \f$n\f$ with center \f$c\f$ and shape matrix \f$Q\f$ (lower triangular part stored contiguously and columnwise)
   Ellipsoid
-    ( const unsigned int n, const double*Q, const double*c=0 ):
+    ( const unsigned n, const double*Q, const double*c=0 ):
     _PSDchecked(false)
     {
 #ifdef MC__ELLIPSOID_DEBUG
       assert( n && Q );
 #endif
       _Q.resize(n);
-      for( unsigned int j=0,k=0; j<n; j++ )
-        for( unsigned int i=j; i<n; i++ )
+      for( unsigned j=0,k=0; j<n; j++ )
+        for( unsigned i=j; i<n; i++ )
           _Q(i,j) = Q[k++];
       _c.resize(_Q.n);
-      for( unsigned int i=0; i<n; i++ )
+      for( unsigned i=0; i<n; i++ )
         _c(i) = ( c? c[i]: 0. );
 
       if( options.PSDCHK ){
@@ -256,7 +256,7 @@ public:
       assert( !c.l || r.l == c.l );
 #endif
       if( options.PSDCHK ){
-        for( unsigned int i=0; i<r.l; i++ ) if( r(i) < 0 ){
+        for( unsigned i=0; i<r.l; i++ ) if( r(i) < 0 ){
           std::cout << "Interval radius: " << r(i) << " < 0 !" << std::endl;
           throw Exceptions( Exceptions::NONPSD );
         }
@@ -264,7 +264,7 @@ public:
       }
       _Q.zero();
       double nrm2_r = CPPL::nrm2( r );
-      for( unsigned int i=0; i<r.l; i++ ) _Q(i,i) = r(i)*nrm2_r;
+      for( unsigned i=0; i<r.l; i++ ) _Q(i,i) = r(i)*nrm2_r;
       if( _c.l != _Q.n ){ _c.resize(_Q.n); _c.zero(); }
     }
 
@@ -284,7 +284,7 @@ public:
         _c(i) = Op<T>::mid(B[i]);
       }
       double nrm2_r = CPPL::nrm2( r );
-      for( unsigned int i=0; i<n; i++ ) _Q(i,i) = r(i)*nrm2_r;
+      for( unsigned i=0; i<n; i++ ) _Q(i,i) = r(i)*nrm2_r;
     }
 
   //! @brief Copy constructor
@@ -296,6 +296,16 @@ public:
   //! @brief Destructor
   virtual ~Ellipsoid()
     {}
+
+  //! @brief Define ellipsoid of dimension \f$n\f$ with center \f$c\f$ and shape matrix \f$Q\f$
+  Ellipsoid& unitball
+    ( const unsigned n )
+    {
+      _reset_auxiliary();
+      _Q.resize(n).identity();
+      if( _c.l != n ){ _c.resize(_Q.n); _c.zero(); }
+      return *this;
+    }
 
   //! @brief Define ellipsoid of dimension \f$n\f$ with center \f$c\f$ and shape matrix \f$Q\f$
   Ellipsoid& set
@@ -321,17 +331,17 @@ public:
 
   //! @brief Define ellipsoid of dimension \f$n\f$ with center \f$c\f$ and shape matrix \f$Q\f$ (lower triangular part stored contiguously and columnwise)
   Ellipsoid& set
-    ( const unsigned int n, const double*Q, const double*c=0 )
+    ( const unsigned n, const double*Q, const double*c=0 )
     {
 #ifdef MC__ELLIPSOID_DEBUG
       assert( n && Q );
 #endif
       _Q.resize(n);
-      for( unsigned int j=0,k=0; j<n; j++ )
-        for( unsigned int i=j; i<n; i++ )
+      for( unsigned j=0,k=0; j<n; j++ )
+        for( unsigned i=j; i<n; i++ )
           _Q(i,j) = Q[k++];
       _c.resize(_Q.n);
-      for( unsigned int i=0; i<n; i++ )
+      for( unsigned i=0; i<n; i++ )
         _c(i) = ( c? c[i]: 0. );
  
       _reset_auxiliary();
@@ -355,7 +365,7 @@ public:
 #endif
       _reset_auxiliary();
       if( options.PSDCHK ){
-        for( unsigned int i=0; i<r.l; i++ ) if( r(i) < 0 ){
+        for( unsigned i=0; i<r.l; i++ ) if( r(i) < 0 ){
           std::cout << "Interval radius: " << r(i) << " < 0 !" << std::endl;
           throw Exceptions( Exceptions::NONPSD );
         }
@@ -364,7 +374,7 @@ public:
       _Q.resize( r.l );
       _Q.zero();
       double nrm2_r = nrm2( r );
-      for( unsigned int i=0; i<r.l; i++ ) _Q(i,i) = r(i)*nrm2_r;
+      for( unsigned i=0; i<r.l; i++ ) _Q(i,i) = r(i)*nrm2_r;
       _c = c;
       if( _c.l != _Q.n ){ _c.resize(_Q.n); _c.zero(); }
       return *this;
@@ -404,13 +414,13 @@ public:
       _reset_auxiliary();
       CPPL::dsymatrix Qext(_Q.n+1);
       CPPL::dcovector cext(_Q.n+1);
-      for( unsigned int i=0; i<_Q.n; i++ ){
+      for( unsigned i=0; i<_Q.n; i++ ){
         cext(i) = _c(i);
-        for( unsigned int j=0; j<=i; j++ )
+        for( unsigned j=0; j<=i; j++ )
           Qext(i,j) = _Q(i,j);
       }
       cext(_Q.n) = ci;
-      for( unsigned int i=0; i<=_Q.n; i++ )
+      for( unsigned i=0; i<=_Q.n; i++ )
         Qext(_Q.n,i) = Qi(i);
       _c = cext;
       _Q = Qext;
@@ -423,7 +433,7 @@ public:
       return Ellipsoid(_Q);
     }
   //! @brief Return dimension of ellipsoid
-  unsigned int n() const
+  unsigned n() const
     {
       return _Q.n;
     }
@@ -439,7 +449,7 @@ public:
     }
   //! @brief Return center coefficient
   double c
-    ( unsigned int i ) const
+    ( unsigned i ) const
     {
 #ifdef MC__ELLIPSOID_DEBUG
       assert( i<_Q.n );
@@ -453,7 +463,7 @@ public:
     }
   //! @brief Return shape matrix coefficient
   double Q
-    ( unsigned int i, unsigned int j ) const
+    ( unsigned i, unsigned j ) const
     {
 #ifdef MC__ELLIPSOID_DEBUG
       assert( i<_Q.n && j<_Q.n );
@@ -462,7 +472,7 @@ public:
     }
   //! @brief Return/set shape matrix coefficient
   double& Q
-    ( unsigned int i, unsigned int j )
+    ( unsigned i, unsigned j )
     {
 #ifdef MC__ELLIPSOID_DEBUG
       assert( i<_Q.n && j<_Q.n );
@@ -475,7 +485,7 @@ public:
     {
       if( !_Q.n ) return 0.;
       double tr(_Q(0,0));
-      for( unsigned int i=1; i<_Q.n; i++ ) tr += _Q(i,i);
+      for( unsigned i=1; i<_Q.n; i++ ) tr += _Q(i,i);
       return tr;
     }
 
@@ -508,11 +518,11 @@ public:
     }
 
   //! @brief Return rank of shape matrix
-  unsigned int rankQ()
+  unsigned rankQ()
     {
       svdQ();
-      unsigned int rank = _Q.n;
-      for( unsigned int i=0; i<_Q.n; i++, rank-- )
+      unsigned rank = _Q.n;
+      for( unsigned i=0; i<_Q.n; i++, rank-- )
         if( _svdQ.first(_Q.n-i-1) > options.RKTOLA
          && _svdQ.first(_Q.n-i-1) > options.RKTOLR*_svdQ.first(0) ) break;
       return rank;
@@ -529,7 +539,7 @@ public:
   //! @brief Return pointer to regularized shape matrix
   const CPPL::dsymatrix& regQ()
     {
-      const unsigned int r = rankQ();
+      const unsigned r = rankQ();
 #ifdef MC__ELLIPSOID_DEBUG_REGQ
       std::cout << "***Ellipsoid::regQ -- r = " << r << std::endl;
 #endif
@@ -537,15 +547,15 @@ public:
 
       CPPL::dgbmatrix E(_Q.n,_Q.n,0,0); E.zero();
       const double eps = std::max( options.RKTOLA, options.RKTOLR*svdQ().first(0) );
-      for( unsigned int i=0; i<_Q.n-r; i++ ) E(r+i,r+i) = eps;
+      for( unsigned i=0; i<_Q.n-r; i++ ) E(r+i,r+i) = eps;
       CPPL::dgematrix UEUT = svdQ().second.first * E * t(svdQ().second.first);
 #ifdef MC__ELLIPSOID_DEBUG_REGQ
       std::cout << "***Ellipsoid::regQ -- UEUT = " << UEUT << std::endl;
 #endif
-      for( unsigned int i=r; i<_Q.n; i++ )
+      for( unsigned i=r; i<_Q.n; i++ )
         _svdQ.first(i) += eps;
-      for( unsigned int i=0; i<_Q.n; i++ ){
-        for( unsigned int j=0; j<=i; j++ )
+      for( unsigned i=0; i<_Q.n; i++ ){
+        for( unsigned j=0; j<=i; j++ )
           _Q(i,j) += 0.5*(UEUT(i,j)+UEUT(j,i));
       }
 #ifdef MC__ELLIPSOID_DEBUG_REGQ
@@ -561,6 +571,14 @@ public:
       return _invQ;
     }
 
+  //! @brief Return pointer to inverse shape matrix
+  const double& invQ
+    ( unsigned i, unsigned j )
+    {
+      if( !_invQ.n ) _inv( _Q, _invQ );
+      return _invQ(i,j);
+    }
+
   //! @brief Computes an orthogonal matrix rotating the vector <a>x</a> so that it is parallel to the vector <a>v</a>
   CPPL::dgematrix align
     ( const CPPL::dcovector&v, const CPPL::dcovector&x ) const
@@ -569,7 +587,7 @@ public:
         return CPPL::dgematrix();
 
        CPPL::dgematrix vmat( v.l, 1 ), xmat( x.l, 1 );
-       for( unsigned int i=0; i<v.l; i++ ){
+       for( unsigned i=0; i<v.l; i++ ){
          vmat( i, 0 ) = v( i );
          xmat( i, 0 ) = x( i );
        }
@@ -582,7 +600,7 @@ public:
 
   //! @brief Return lower bound for \f$x_i\f$ for index \f$i\in\{0,...,n-1\}\f$
   double l
-    ( const unsigned int i ) const
+    ( const unsigned i ) const
     {
 #ifdef MC__ELLIPSOID_DEBUG
       assert( i>=0 && i<_Q.n );
@@ -591,7 +609,7 @@ public:
     }
   //! @brief Return upper bound for \f$x_i\f$ for index \f$i\in\{0,...,n-1\}\f$
   double u
-    ( const unsigned int i ) const
+    ( const unsigned i ) const
     {
 #ifdef MC__ELLIPSOID_DEBUG
       assert( i>=0 && i<_Q.n );
@@ -600,7 +618,7 @@ public:
     }
   //! @brief Return maximum radius for \f$x_i\f$ for index \f$i\in\{0,...,n-1\}\f$
   double r
-    ( const unsigned int i ) const
+    ( const unsigned i ) const
     {
 #ifdef MC__ELLIPSOID_DEBUG
       assert( i>=0 && i<_Q.n );
@@ -645,27 +663,27 @@ private:
   //! @brief Prototype function for finding junction points in convex/concave envelopes of univariate terms
   typedef double (puniv)
     ( const double x, const CPPL::dcovector&c1, const CPPL::dsymatrix&W1,
-      const CPPL::dcovector&c2, const CPPL::dsymatrix&W2, const unsigned int n );
+      const CPPL::dcovector&c2, const CPPL::dsymatrix&W2, const unsigned n );
   //! @brief Secant method for root finding 
   static double _secant
     ( const double x0, const double x1, const double xL, const double xU,
       puniv f, const CPPL::dcovector&c1, const CPPL::dsymatrix&W1,
-      const CPPL::dcovector&c2, const CPPL::dsymatrix&W2, const unsigned int n );
+      const CPPL::dcovector&c2, const CPPL::dsymatrix&W2, const unsigned n );
   //! @brief Golden section search method for root finding 
   static double _goldsect
     ( const double xL, const double xU, puniv f, const CPPL::dcovector&c1,
       const CPPL::dsymatrix&W1, const CPPL::dcovector&c2, const CPPL::dsymatrix&W2,
-      const unsigned int n );
+      const unsigned n );
   //! @brief Golden section search iterations 
   static double _goldsect_iter
     ( const bool init, const double a, const double fa, const double b,
       const double fb, const double c, const double fc, puniv f,
       const CPPL::dcovector&c1, const CPPL::dsymatrix&W1, const CPPL::dcovector&c2,
-      const CPPL::dsymatrix&W2, const unsigned int n );
+      const CPPL::dsymatrix&W2, const unsigned n );
   //! @brief Function whose root in the interval (0, 1) determines the minimal volume ellipsoid overapproximating the intersection of two ellipsoids
   static double _ell_fusionlambda
     ( const double a, const CPPL::dcovector&c1, const CPPL::dsymatrix&W1,
-      const CPPL::dcovector&c2, const CPPL::dsymatrix&W2, const unsigned int n );
+      const CPPL::dcovector&c2, const CPPL::dsymatrix&W2, const unsigned n );
   //! @brief Function to find parameter value for minimal volume ellipsoid in ellispoid intersection
   static double _ell_get_lambda
     ( const CPPL::dcovector&c1, const CPPL::dsymatrix&W1,
@@ -676,7 +694,7 @@ private:
     ( const M&W )
     {
       double trace = 0.;
-      for( unsigned int i=0; i<W.n; i++ ) trace += W(i,i);
+      for( unsigned i=0; i<W.n; i++ ) trace += W(i,i);
       return trace;
     }
 
@@ -685,7 +703,7 @@ private:
     ( const CPPL::dcovector&eigW )
     {
       double det = 1.;
-      for( unsigned int i=0; i<eigW.l; i++ ) det *= eigW(i);
+      for( unsigned i=0; i<eigW.l; i++ ) det *= eigW(i);
       return det;
     }
 
@@ -713,7 +731,7 @@ Ellipsoid::_eigen
   if( S.dsyev( vD ) ) throw Exceptions( Exceptions::LAPACK );
   D.resize( Q.n );
   typename std::vector<double>::const_iterator Di = vD.begin();
-  for( unsigned int i=0; Di!=vD.end(); ++Di, i++ ) D(i) = *Di;
+  for( unsigned i=0; Di!=vD.end(); ++Di, i++ ) D(i) = *Di;
   return;
 }
 
@@ -731,11 +749,11 @@ Ellipsoid::_eigen
   if( S.dsyev( vD, vU ) ) throw Exceptions( Exceptions::LAPACK );
   D.resize( Q.n );
   typename std::vector<double>::const_iterator Di = vD.begin();
-  for( unsigned int i=0; Di!=vD.end(); ++Di, i++ ) D(i) = *Di;
+  for( unsigned i=0; Di!=vD.end(); ++Di, i++ ) D(i) = *Di;
   U.resize( Q.n, Q.m );
   typename std::vector<CPPL::dcovector>::const_iterator Uj = vU.begin();
-  for( unsigned int j=0; Uj!=vU.end(); ++Uj, j++ )
-    for( unsigned int i=0; i<(*Uj).l; i++ ) U(i,j) = (*Uj)(i);
+  for( unsigned j=0; Uj!=vU.end(); ++Uj, j++ )
+    for( unsigned i=0; i<(*Uj).l; i++ ) U(i,j) = (*Uj)(i);
   return;
 }
 
@@ -759,7 +777,7 @@ Ellipsoid::_isPSD
 #endif
     PSD = false;
   }
-  for( unsigned int i=0; i<D.l; i++ ){
+  for( unsigned i=0; i<D.l; i++ ){
     if( !options.PSDCHK && D(i) < 0. ) D(i) = 0.;
     else break; // b/c eigenvalues are returned in increasing order
   }
@@ -779,12 +797,12 @@ Ellipsoid::_sqrt
   if( !D.l || !U.n || !U.m ){ sqrtQ.clear(); return; }
 
   CPPL::dgbmatrix sqrtD(D.l,D.l,0,0);
-  for( unsigned int i=0; i<sqrtD.n; i++ )
+  for( unsigned i=0; i<sqrtD.n; i++ )
     sqrtD(i,i) = std::sqrt( D(i) );
   CPPL::dgematrix sqrtQ_ge = U*sqrtD*t(U);
   sqrtQ.resize( sqrtQ_ge.n );
-  for( unsigned int i=0; i<sqrtQ_ge.n; i++ )
-    for( unsigned int j=0; j<=i; j++ )
+  for( unsigned i=0; i<sqrtQ_ge.n; i++ )
+    for( unsigned j=0; j<=i; j++ )
       sqrtQ(i,j) = 0.5*(sqrtQ_ge(i,j)+sqrtQ_ge(j,i));
 
 #ifdef MC__ELLIPSOID_DEBUG_SQRT
@@ -836,8 +854,8 @@ Ellipsoid::_inv
 #endif
   //Qinv = R;
   Qinv.resize( Q.n );
-  for( unsigned int i=0; i<Q.n; i++ )
-    for( unsigned int j=0; j<=i; j++ )
+  for( unsigned i=0; i<Q.n; i++ )
+    for( unsigned j=0; j<=i; j++ )
       Qinv(i,j) = 0.5 * ( invRQ_R(i,j) + invRQ_R(j,i) ); 
 #ifdef MC__ELLIPSOID_DEBUG_INV
   std::cout << "***Ellispoid: inv(Q) (proper)\n" << invRQ_R;
@@ -862,8 +880,8 @@ inline Ellipsoid mtimes
   // Transformed shape
   CPPL::dgematrix AQAT = A * E._Q * t(A);
   AE._Q.resize( A.m );
-  for( unsigned int i=0; i<A.m; i++ )
-    for( unsigned int j=0; j<=i; j++ )
+  for( unsigned i=0; i<A.m; i++ )
+    for( unsigned j=0; j<=i; j++ )
       AE._Q(i,j) = 0.5*(AQAT(i,j)+AQAT(j,i));
 #ifdef MC__ELLIPSOID_DEBUG
   bool PSD; AE._isPSD( AE._Q, AE._eigQ.first, PSD ); assert( PSD );
@@ -878,7 +896,7 @@ inline Ellipsoid minksum_ea
   if( !E.size() ) return EA;
 
   // Check size
-  const unsigned int n = (*E.begin())._Q.n;
+  const unsigned n = (*E.begin())._Q.n;
   typename std::vector<Ellipsoid>::const_iterator Ei = E.begin();
 #ifdef MC__ELLIPSOID_DEBUG
   for( ; Ei!=E.end(); ++Ei ) assert( (*Ei)._Q.n == n );
@@ -909,7 +927,7 @@ inline std::vector<Ellipsoid> minksum_ea
   if( !E.size() || !D.size() ) return EA;
 
   // Check size
-  const unsigned int n = (*E.begin())._Q.n;
+  const unsigned n = (*E.begin())._Q.n;
   typename std::vector<CPPL::dcovector>::const_iterator Di = D.begin();
   typename std::vector<Ellipsoid>::const_iterator Ei = E.begin();
 #ifdef MC__ELLIPSOID_DEBUG
@@ -1061,7 +1079,7 @@ inline Ellipsoid intersection_ea
     std::cerr << "mc::intersection_ea: ellipsoids must be of the same dimension.\n";
     return Ellipsoid();
   }
-  const unsigned int n = E1._Q.n;
+  const unsigned n = E1._Q.n;
   if( !n || dist(E1,E2) > 0. ) return Ellipsoid();
 
   Ellipsoid EM1 = inv( E1 );
@@ -1098,7 +1116,7 @@ inline Ellipsoid intersection_ea
     std::cerr << "mc::intersection_ea: ellipsoid and hyperplane must be of the same dimension.\n";
     return Ellipsoid();
   }
-  const unsigned int n = E._Q.n;
+  const unsigned n = E._Q.n;
   if( !n ) return Ellipsoid();
 
   CPPL::dcovector v = -HP.first / std::sqrt( HP.first % HP.first );
@@ -1119,10 +1137,10 @@ inline Ellipsoid intersection_ea
   Ellipsoid EM( E );
   CPPL::dsymatrix W2(n);
   CPPL::dgematrix vmat(n,1);
-  for( unsigned int i=0; i<n; i++ ) vmat(i,0) = v(i);
+  for( unsigned i=0; i<n; i++ ) vmat(i,0) = v(i);
   CPPL::dgematrix vmatvmatT = vmat * t(vmat);
-  for( unsigned int i=0; i<n; i++ )
-    for( unsigned int j=0; j<=i; j++ )
+  for( unsigned i=0; i<n; i++ )
+    for( unsigned j=0; j<=i; j++ )
       W2(i,j) = 0.5 * ( vmatvmatT(i,j) + vmatvmatT(j,i) )
               / ( 4.*EM.eigQ().first(n-1) ); 
   Ellipsoid Einter = hpintersection( EM, HP );
@@ -1167,7 +1185,7 @@ Ellipsoid::_ell_get_lambda
   const CPPL::dcovector&c2, const CPPL::dsymatrix&W2, const bool isHP )
 {
   assert( c1.l == W1.n && c2.l == W2.n && c1.l == c2.l );
-  const unsigned int n = c1.l;
+  const unsigned n = c1.l;
 
   double a;
   if( options.ROOTSECANT ){
@@ -1195,13 +1213,13 @@ inline double
 Ellipsoid::_secant
 ( const double x0, const double x1, const double xL, const double xU,
   puniv f, const CPPL::dcovector&c1, const CPPL::dsymatrix&W1,
-  const CPPL::dcovector&c2, const CPPL::dsymatrix&W2, const unsigned int n )
+  const CPPL::dcovector&c2, const CPPL::dsymatrix&W2, const unsigned n )
 {
   double xkm = std::max(xL,std::min(xU,x0));
   double fkm = f(xkm,c1,W1,c2,W2,n);
   double xk = std::max(xL,std::min(xU,x1));
   
-  for( unsigned int it=0; !options.ROOTMAXIT || it<options.ROOTMAXIT; it++ ){
+  for( unsigned it=0; !options.ROOTMAXIT || it<options.ROOTMAXIT; it++ ){
     double fk = f(xk,c1,W1,c2,W2,n);
 #ifdef MC__ELLIPSOID_DEBUG_INTERSECTION_EA
     std::cout << "xk (fk):" << xk << "  (" << fk << ")" << std::endl;
@@ -1223,7 +1241,7 @@ inline double
 Ellipsoid::_goldsect
 ( const double xL, const double xU, puniv f, const CPPL::dcovector&c1,
   const CPPL::dsymatrix&W1, const CPPL::dcovector&c2, const CPPL::dsymatrix&W2,
-  const unsigned int n )
+  const unsigned n )
 {
   const double phi = 2.-(1.+std::sqrt(5.))/2.;
   const double fL = f(xL,c1,W1,c2,W2,n), fU = f(xU,c1,W1,c2,W2,n);
@@ -1241,11 +1259,11 @@ Ellipsoid::_goldsect_iter
 ( const bool init, const double a, const double fa, const double b,
   const double fb, const double c, const double fc, puniv f,
   const CPPL::dcovector&c1, const CPPL::dsymatrix&W1, const CPPL::dcovector&c2,
-  const CPPL::dsymatrix&W2, const unsigned int n )
+  const CPPL::dsymatrix&W2, const unsigned n )
 // a and c are the current bounds; the minimum is between them.
 // b is a center point
 {
-  static unsigned int iter;
+  static unsigned iter;
   iter = ( init? 1: iter+1 );
   const double phi = 2.-(1.+std::sqrt(5.))/2.;
   bool b_then_x = ( c-b > b-a );
@@ -1268,7 +1286,7 @@ Ellipsoid::_goldsect_iter
 inline double
 Ellipsoid::_ell_fusionlambda
 ( const double a, const CPPL::dcovector&c1, const CPPL::dsymatrix&W1,
-  const CPPL::dcovector&c2, const CPPL::dsymatrix&W2, const unsigned int n )
+  const CPPL::dcovector&c2, const CPPL::dsymatrix&W2, const unsigned n )
 {
   CPPL::dsymatrix W = a*W1 + (1-a)*W2;
   CPPL::dsymatrix Winv( n ); Ellipsoid::_inv( W, Winv );
@@ -1289,7 +1307,7 @@ inline Ellipsoid hpintersection
     std::cerr << "mc::intersection_ea: ellipsoid and hyperplane must be of the same dimension.\n";
     return Ellipsoid();
   }
-  const unsigned int n = E._Q.n;
+  const unsigned n = E._Q.n;
   if( !n ) return Ellipsoid();
 
 #ifdef MC__ELLIPSOID_DEBUG_HPINTERSECTION
@@ -1327,8 +1345,8 @@ inline Ellipsoid hpintersection
 
   CPPL::dsymatrix W( n-1 );
   CPPL::dcovector w( n-1 );
-  for( unsigned int i=1; i<n; i++ ){
-    for( unsigned int j=i; j<n; j++ )
+  for( unsigned i=1; i<n; i++ ){
+    for( unsigned j=i; j<n; j++ )
       W(i-1,j-1) = EM.invQ()(i,j);
     w(i-1) = EM.invQ()(i,0);
   }
@@ -1352,8 +1370,8 @@ inline Ellipsoid hpintersection
 
   CPPL::dsymatrix Z( n ); Z.zero();
   CPPL::dcovector z( EM._c ); z(0) = 0.; 
-  for( unsigned int i=1; i<n; i++ ){
-    for( unsigned int j=i; j<n; j++ )
+  for( unsigned i=1; i<n; i++ ){
+    for( unsigned j=i; j<n; j++ )
       Z(i,j) = (1.-h) * Winv(i-1,j-1);
     z(i) += EM._c(0) * Winv_w(i-1);
   }
@@ -1381,7 +1399,7 @@ inline Ellipsoid hpintersection
 }
 
 inline Ellipsoid ell_unitball
-( const unsigned int n )
+( const unsigned n )
 {
   Ellipsoid Eunit;
   Eunit._c.resize(n); Eunit._c.zero();
@@ -1559,8 +1577,8 @@ inline Ellipsoid ellintersection_ia
   }
   CPPL::dgematrix Q0 = Z*Z;
   CPPL::dsymatrix Q(n);
-  for( unsigned int i=0; i<n; i++ )
-    for( unsigned int j=0; j<=i; j++ )
+  for( unsigned i=0; i<n; i++ )
+    for( unsigned j=0; j<=i; j++ )
       Q(i,j) = 0.5*(Q0(i,j)+Q0(j,i));
 #ifdef MC__ELLIPSOID_DEBUG_ELLINTERSECTION_IA
   std::cout << "Inner ellipsoid:" << Ellipsoid(Q,c);
