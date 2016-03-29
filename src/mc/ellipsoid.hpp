@@ -497,7 +497,7 @@ public:
       return _eigQ;
     }
 
-  //! @brief Return square root of shape matrix
+  //! @brief Return whether or not shape matrix is positive-semi definite
   bool psdQ()
     {
       bool PSD; _isPSD( _Q, _eigQ.first, PSD );

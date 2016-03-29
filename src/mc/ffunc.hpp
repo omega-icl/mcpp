@@ -3628,9 +3628,9 @@ FFGraph::FAD
 {
   auto sDep_F = SFAD( vDep, vIndep, vDir );
   const FFVar*pZero = _add_constant( 0. );
-  std::vector<const FFVar*> vDep_F( vIndep.size()*vDep.size(), pZero );
+  std::vector<const FFVar*> vDep_F( (vDir.size()?1:vIndep.size())*vDep.size(), pZero );
   for( unsigned ie(0); ie<std::get<2>(sDep_F).size(); ie++ ){
-    unsigned pDep_F = std::get<0>(sDep_F)[ie]*vIndep.size()+std::get<1>(sDep_F)[ie];
+    unsigned pDep_F = std::get<0>(sDep_F)[ie]*(vDir.size()?1:vIndep.size())+std::get<1>(sDep_F)[ie];
     vDep_F[pDep_F] = std::get<2>(sDep_F)[ie];
   }
   return vDep_F;

@@ -994,7 +994,7 @@ int test_DAG2()
   mc::FFGraph DAG;
   mc::FFVar X[NX];
   for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
-  mc::FFVar F[NF] = { X[0]*exp(X[1]), pow(X[1],3)*sqrt(X[0]) };
+  mc::FFVar F[NF] = { sqrt(X[0])*exp(X[1])*X[0], pow(X[1],3)*sqrt(X[0]) };
   std::cout << DAG;
 
   // Display DAG for f1,f2
@@ -1003,6 +1003,31 @@ int test_DAG2()
   DAG.dot_script( NF, F, o_F );
   o_F.close();
 
+  // Derivatives
+  const mc::FFVar* dFdX = DAG.FAD( NF, F, NX, X );
+  std::ofstream o_dFdX( "dFdX.dot", std::ios_base::out );
+  DAG.dot_script( NF*NX, dFdX, o_dFdX );
+
+  // Evaluate
+  double dX[NX] = { 1., 2. }, dF[2];
+  DAG.eval( NF, F, dF, NX, X, dX );
+  std::cout << "F1 = " << dF[0] << std::endl;
+  std::cout << "F2 = " << dF[1] << std::endl;
+
+  double ddFdX[NX*NF];
+  DAG.eval( NF*NX, dFdX, ddFdX, NX, X, dX );
+  std::cout << "dF1dX1 = " << ddFdX[0] << std::endl;
+  std::cout << "dF2dX1 = " << ddFdX[2] << std::endl;
+  std::cout << "dF1dX2 = " << ddFdX[1] << std::endl;
+  std::cout << "dF2dX2 = " << ddFdX[3] << std::endl;
+
+  // Evaluate
+  I IX[NX] = { I(1.,2.), I(2.,3.) }, IF[2];
+  DAG.eval( NF, F, IF, NX, X, IX );
+  std::cout << "F1 = " << IF[0] << std::endl;
+  std::cout << "F2 = " << IF[1] << std::endl;
+
+/*
   // Display DAG for f1 alone
   std::list<const mc::FFOp*> F0_op = DAG.subgraph( 1, F );     DAG.output( F0_op );
   std::ofstream o_F0( "F0.dot", std::ios_base::out );
@@ -1026,7 +1051,7 @@ int test_DAG2()
   EI F_EI = X_EI.get( NF, F_EV ) ;
   std::cout <<"\nEllipsoidal Image:" << F_EI << std::endl;
 
-/*
+
   // Evaluate DAG for f1,f2 in Taylor model with ellipsoidal arithmetic
   X_EI.set( X_Q, X_c );
   for( unsigned i=0; i<NX; ++i ) X_EV[i].set( X_EI, i );
@@ -1128,19 +1153,22 @@ int test_sparseder()
 int test_dirder()
 {
   mc::FFGraph DAG;
-  mc::FFVar X[2], F, D[2];
+  mc::FFVar X[2], F[2], D[2];
   X[0].set( &DAG );
   X[1].set( &DAG );
-  F = sqrt(X[0])*X[1];
-  D[0].set( &DAG, 1. );
-  D[1].set( &DAG, 1. );
-  //D[0] = 1.;
-  //D[1] = 1.;
+  F[0] = sqrt(X[0])*X[1];
+  F[1] = X[0]*X[1];
+  //D[0].set( &DAG, 1. );
+  //D[1].set( &DAG, 1. );
+  //F = X[0]*X[1];
+  D[0] = 1.;
+  D[1] = 1.;
   std::cout << DAG;
 
-  const mc::FFVar* dFdXxD = DAG.FAD( 1, &F, 2, X, D );
-  //std::cout << DAG;
+  const mc::FFVar* dFdXxD = DAG.FAD( 2, F, 2, X, D );
+  std::cout << DAG;
   DAG.output( DAG.subgraph( 1, dFdXxD ) );
+  DAG.output( DAG.subgraph( 1, dFdXxD+1 ) );
 
   std::ofstream o_dFdXxD( "directional.dot", std::ios_base::out );
   DAG.dot_script( 1, dFdXxD, o_dFdXxD );
@@ -1288,9 +1316,9 @@ int main()
     //test_DAG2();
     //test_TAD(10);
     //test_comp();
-    //test_dirder();
-    test_sparseder();
-    test_badiff();
+    test_dirder();
+    //test_sparseder();
+    //test_badiff();
     //test_eval();
 
     //for( unsigned i=0; i<10; i++ ) AD_F_ODE();
