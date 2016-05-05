@@ -1364,11 +1364,6 @@ public:
     ( const unsigned nDepOut, const FFVar*pDepOut, const unsigned nDepIn,
       const FFVar*pVarOut,  const FFVar*pDepIn );
 
-  //! @brief Decompose the dependent <a>pDep</a> as a linear combination of: (i) <a>nLin</a> variables <a>pLin</a> with coefficients <a>cLin</a>; and (ii) <a>nNLin</a> nonlinear terms <a>pNLin</a> with coefficients <a>cNLin</a> -- This function does not introduce extra variables in the DAG
-  void decompose
-    ( const FFVar&pDep, unsigned&nLin, double*cLin, FFVar*pLin,
-      unsigned&nNLin, double*cNLin, FFVar*pNLin );
-
   //! @brief Evaluate the dependents in <a>vDep</a> in U arithmetic for the variable values specified in <a>vVar</a> -- This function creates the subgraph for the dependent variables internally
   template <typename U> std::vector<U> eval
     ( const std::vector<const FFVar*>&vDep,
@@ -3695,7 +3690,7 @@ FFGraph::SFAD
   auto itd = vDep.begin();
   for( unsigned i=0; itd!=vDep.end(); ++itd, i++ ){
     // Obtain pointer to dependent variable in FFGraph
-    FFVar* pF = _find_var( (*itd)->id() );
+    FFVar* pF = !(*itd)->cst()? _find_var( (*itd)->id() ): 0;
     auto iti = vIndep.begin();
     // Push corresponding evaluation in fadbad::F into result vector
     for( unsigned j=0; iti!=vIndep.end(); ++iti, j++ ){
@@ -3974,7 +3969,7 @@ FFGraph::SBAD
   auto itd = vDeps.begin();
   for( unsigned i=0; itd!=vDeps.end(); ++itd, i++ ){
     // Obtain pointer to dependent variable in FFGraph
-    FFVar* pF = _find_var( (*itd).id() );
+    FFVar* pF = !(*itd).cst()? _find_var( (*itd).id() ): 0;
     if( !pF ) continue;
 
     auto itv = vVars.begin();
@@ -4204,13 +4199,6 @@ FFGraph::compose
   return vDepNew;
 }
 
-inline void
-FFGraph::decompose
-( const FFVar&pDep, unsigned&nLin, double*cLin, FFVar*pLin,
-  unsigned&nNLin, double*cNLin, FFVar*pNLin )
-{
-}
-
 template <typename U> inline std::vector<U>
 FFGraph::eval
 ( const std::vector<const FFVar*>&vDep,
@@ -4219,7 +4207,7 @@ FFGraph::eval
   // Nothing to do!
   if( !vDep.size() ) return std::vector<U>();
 
-  // Generate subgraph -- This can be the most time consuming step!!!
+  // Generate subgraph -- This may be the most time consuming step!!!
   std::list<const FFOp*> opDep = subgraph( vDep );
 
   return eval( opDep, vDep, vVar );
@@ -4283,9 +4271,9 @@ FFGraph::eval
     auto itd = vDep.begin();
     for( ; itd!=vDep.end(); ++itd ){
       // Obtain pointer to dependent variable in FFGraph
-      FFVar* pF = _find_var( (*itd)->id() );
+      FFVar* pF = !(*itd)->cst()? _find_var( (*itd)->id() ): 0;
       // Push corresponding evaluation in U type into result vector
-      if( pF ) vDep_U.push_back( U( *static_cast<U*>( pF->val() ) ) );
+      if( pF && pF->val() ) vDep_U.push_back( U( *static_cast<U*>( pF->val() ) ) );
       else switch( (*itd)->num().t ){
         case FFNum::INT:
           vDep_U.push_back( (*itd)->num().n );
@@ -4381,7 +4369,7 @@ FFGraph::eval
   auto itd = vDep.begin();
   for( ; itd!=vDep.end(); ++itd ){
     // Obtain pointer to dependent variable in FFGraph
-    FFVar* pF = _find_var( (*itd)->id() );
+    FFVar* pF = !(*itd)->cst()? _find_var( (*itd)->id() ): 0;
     // Push corresponding evaluation in U type into result vector
     if( pF ) vDep_U.push_back( U( *static_cast<U*>( pF->val() ) ) );
     else switch( (*itd)->num().t ){
@@ -4521,7 +4509,7 @@ FFGraph::eval
 #endif
     for( unsigned i=0; i<nDep; i++ ){
       // Obtain pointer to dependent variable in FFGraph
-      FFVar* pF = _find_var( pDep[i].id() );
+      FFVar* pF = !pDep[i].cst()? _find_var( pDep[i].id() ): 0;
       // Write/add corresponding evaluation in U type into/to result vector
       if( !add && pF ) vDep[i] = *static_cast<U*>( pF->val() );
       else if( pF )   vDep[i] += *static_cast<U*>( pF->val() );
@@ -4746,7 +4734,7 @@ FFGraph::eval
 #endif
   for( unsigned i=0; i<nDep; i++ ){
     // Obtain pointer to dependent variable in FFGraph
-    FFVar* pF = _find_var( pDep[i].id() );
+    FFVar* pF = !pDep[i].cst()? _find_var( pDep[i].id() ): 0;
     // Write/add corresponding evaluation in U type into/to result vector
     if( !add && pF ) vDep[i] = *static_cast<U*>( pF->val() );
     else if( pF )   vDep[i] += *static_cast<U*>( pF->val() );
