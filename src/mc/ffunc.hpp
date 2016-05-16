@@ -1179,7 +1179,7 @@ public:
       INTER, 		//!< Error due to an empty intersection between constant variables
       MISSVAR,		//!< Error due to a missing independent variable for evaluating a given subgraph using FFGraph::eval
       EVAL,		//!< Error during subgraph evaluation using FFGraph::eval
-      CONST,		//!< Error due to trying to attach a value field to a constant FFVAR
+      CONSTVAL,		//!< Error due to trying to attach a value field to a constant FFVAR
       INTERN = -1, 	//!< Internal error
       UNDEF = -33, 	//!< Error due to calling a function/feature not yet implemented in MC++
     };
@@ -1200,7 +1200,7 @@ public:
         return "Missing independent variable during subgraph evaluation";
       case EVAL:
         return "Exception thrown during subgraph evaluation";
-      case CONST:
+      case CONSTVAL:
         return "Trying to override a constant variable during subgraph evaluation";
       case UNDEF:
         return "Feature not yet implemented in mc::FFGraph";
@@ -2845,7 +2845,7 @@ FFOp::evaluate
       if( !pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::MISSVAR );
       return;
     }
-    //if( pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::CONST );
+    //if( pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::CONSTVAL );
 
    case FFOp::CNST:
     //if( pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::INTERN );
@@ -3011,7 +3011,7 @@ FFOp::evaluate
    case FFOp::VAR:
     if( !pres->cst() ) break; // do not override constant value if set
     //if( !pres->cst() || pUres ) break; // override constant value if set
-    //if( pUres ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::CONST );
+    //if( pUres ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::CONSTVAL );
 
    case FFOp::CNST:
     switch( pres->num().t ){
