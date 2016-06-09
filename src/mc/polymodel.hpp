@@ -830,6 +830,11 @@ public:
     ()
     const;
 
+  //! @brief Get const pointer to kth monomial exponents
+  const unsigned* expmon
+    ( const unsigned k )
+    const;
+
   //! @brief Get set of monomial indices in sparse representation
   const std::set<unsigned>& ndxmon
     ()
@@ -1127,7 +1132,15 @@ template <typename T> inline std::pair<unsigned, const unsigned*>
 PolyVar<T>::expmon()
 const
 {
-  return std::make_pair( (_PM?nmon()*nvar():1), _PM->expmon );
+  return std::make_pair( (_PM?nmon()*nvar():1), _PM->expmon() );
+}
+
+template <typename T> inline const unsigned*
+PolyVar<T>::expmon
+( const unsigned imon )
+const
+{
+  return( _PM && imon<nmon()? _PM->expmon()+imon*nvar(): 0 );
 }
 
 template <typename T> inline const std::set<unsigned>&
