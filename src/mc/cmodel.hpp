@@ -5,6 +5,11 @@
 \page page_CHEBYSHEV Chebyshev Model Arithmetic for Factorable Functions
 \author Jai Rajyaguru, Mario E. Villanueva, Beno&icirc;t Chachuat
 
+template <typename T> inline void
+CModel<T>::_sdisp1D
+( const std::vector<std::map<unsigned,double>>&CVmap,
+  const unsigned ndxvar, std::string&CVname, ostream&os )
+const
 A \f$q\f$th-order Chebyshev model of a Lipschitz-continuous function \f$f:\mathbb{R}^n\to\mathbb{R}\f$ on the domain \f$D\f$, consists of a \f$q^{\rm th}\f$-order multivariate polynomial \f$\mathcal P\f$ in Chebyshev basis , plus a remainder term \f$\mathcal R\f$, so that
 \f{align*}
   f({x}) \in \mathcal P({x}-\hat{x}) \oplus \mathcal R, \quad \forall {x}\in D.
@@ -202,6 +207,7 @@ Moreover, exceptions may be thrown by the template parameter class itself.
 
 //#undef MC__CVAR_FABS_SQRT
 //#undef MC__CVAR_FORCE_REM_DERIV
+//#undef MC__CVAR_SPARSE_PRODUCT_FULL
 
 namespace mc
 {
@@ -289,6 +295,7 @@ public:
       INIT=-1,	//!< Failed to construct Chebyshev variable
       INCON=-2, //!< Chebyshev model bound does not intersect with bound in template parameter arithmetic
       CMODEL=-3,//!< Operation between Chebyshev variables linked to different Chebyshev models
+      INTERNAL = -4,//!< Internal error
       UNDEF=-33 //!< Feature not yet implemented in mc::CModel
     };
     //! @brief Constructor for error <a>ierr</a>
@@ -318,6 +325,8 @@ public:
         return "mc::CModel\t Operation between Chebyshev variables in different Chebyshev model environment not allowed";
       case UNDEF:
         return "mc::CModel\t Feature not yet implemented in mc::CModel class";
+      case INTERNAL:
+        return "mc::CModel\t Internal error";
       default:
         return "mc::CModel\t Undocumented error";
       }
@@ -482,6 +491,55 @@ private:
   template <typename C, typename U> U _polybound
     ( const C*coefmon, const U*const*bndbasis, const int type,
       const std::set<unsigned>&ndxmon=std::set<unsigned>() );
+
+  //! @brief Scaling of Chebyshev coefficient maps
+  void _sscal1D
+    ( const std::map<unsigned,double>&CVmap, const double&coefscal,
+      std::map<unsigned,double>&CVRmap ) const;
+
+  //! @brief Recursive product of univariate Chebyshev polynomials
+  void _sprod1D
+    ( const std::vector<std::map<unsigned,double>>&CV1map,
+      const std::vector<std::map<unsigned,double>>&CV2map,
+      std::map<unsigned,double>&CVRmap, double&coefrem,
+      const unsigned ndxmon ) const;
+
+  //! @brief Lifting of Chebyshev coefficient maps
+  void _slift1D
+    ( const std::map<unsigned,double>&CVmap, const double dscal,
+      std::map<unsigned,double>&CVRmap ) const;
+
+  //! @brief Lifting of Chebyshev coefficient maps
+  void _slift1D
+    ( const std::map<unsigned,double>&CVmap, const double dscal,
+      std::map<unsigned,double>&CVRmap, double&coefrem,
+      const unsigned ndxvar, const unsigned ndxord, unsigned*iexp ) const;
+
+  //! @brief Lifting of Chebyshev coefficient maps
+  void _slift1D
+    ( const std::map<unsigned,double>&CVmap, double&coefrem ) const;
+
+  //! @brief Display of recursive univariate Chebyshev polynomials
+  void _sdisp1D
+    ( const std::vector<std::map<unsigned,double>>&CVmap,
+      const unsigned ndxvar, const std::string&CVname="",
+      std::ostream&os=std::cout ) const;
+
+  //! @brief Display of recursive univariate Chebyshev polynomials
+  void _sdisp1D
+    ( const std::map<unsigned,double>&CVmap,
+      const unsigned ndxvar, const std::string&CVname="",
+      std::ostream&os=std::cout ) const;
+
+  //! @brief Product of multivariate Chebyshev polynomials in sparse format
+  void _sprod
+    ( const CVar<T>&CV1, const CVar<T>&CV2, double*coefmon,
+      std::set<unsigned>&ndxmon, double&coefrem ) const;
+
+  //! @brief Squaring of multivariate Chebyshev polynomials in sparse format
+  void _ssqr
+    ( const CVar<T>&CV, double*coefmon,
+      std::set<unsigned>&ndxmon, double&coefrem ) const;
 };
 
 template <typename T> const std::string CModel<T>::Options::BOUNDER_NAME[5]
@@ -625,6 +683,18 @@ private:
   //! @brief Array of Chebyshev interpolant coefficients
   double* _coefinterp() const
     { return _CM->_resize_coefinterp(); };
+
+  //! @brief Product of multivariate Chebyshev polynomials in sparse format
+  void _sprod
+    ( const CVar<T>&CV1, const CVar<T>&CV2, double*coefmon,
+      std::set<unsigned>&ndxmon, double&coefrem ) const
+    { return _CM->_sprod( CV1, CV2, coefmon, ndxmon, coefrem ); }
+
+  //! @brief Squaring of multivariate Chebyshev polynomials in sparse format
+  void _ssqr
+    ( const CVar<T>&CV, double*coefmon,
+      std::set<unsigned>&ndxmon, double&coefrem ) const
+    { return _CM->_ssqr( CV, coefmon, ndxmon, coefrem ); }
 
 public:
   /** @addtogroup CHEBYSHEV Chebyshev Model Arithmetic for Factorable Functions
@@ -851,7 +921,12 @@ template <typename T> inline void
 CModel<T>::_size
 ()
 {
+#ifndef MC__CVAR_SPARSE_PRODUCT_NAIVE
+  if( !_sparse ) _set_prodmon();
+  else           _prodmon = 0;
+#else
   _set_prodmon();
+#endif
   _bndpow = new T*[_nvar];
   for( unsigned i=0; i<_nvar; i++ ) _bndpow[i] = 0;
   _bndmon = new T[_nmon];  
@@ -887,7 +962,7 @@ CModel<T>::_reset()
 template <typename T> inline void
 CModel<T>::_cleanup()
 {
-  for( unsigned i=0; i<_nmon; i++ ){
+  for( unsigned i=0; _prodmon && i<_nmon; i++ ){
     for( unsigned j=0; j<=i; j++ )
       delete[] _prodmon[i][j];
     delete[] _prodmon[i];
@@ -1269,6 +1344,229 @@ CModel<T>::_composition
 //std::cout << "CV1:" << CV1;
 //std::cout << "CVinner * CV1:" << CVinner * CV1;
   return coefouter[0] + CVinner * CV1 - CV2;
+}
+
+template <typename T> inline void
+CModel<T>::_sscal1D
+( const std::map<unsigned,double>&CVmap, const double&coefscal,
+  std::map<unsigned,double>&CVRmap )
+const
+{
+  if( coefscal == 0. ) return;
+  CVRmap = CVmap;
+  if( coefscal == 1. ) return;
+  for( auto it=CVRmap.begin(); it!=CVRmap.end(); ++it )
+    it->second *= coefscal;
+  return;
+}
+
+template <typename T> inline void
+CModel<T>::_slift1D
+( const std::map<unsigned,double>&CVmap, const double dscal,
+  std::map<unsigned,double>&CVRmap )
+const
+{
+  for( auto it=CVmap.begin(); it!=CVmap.end(); ++it ){
+    auto pmon = CVRmap.insert( *it );
+    if( pmon.second ){ if( dscal != 1. ) pmon.first->second *= dscal; }
+    else{              pmon.first->second += dscal==1.? it->second: it->second * dscal; }
+  }
+}
+
+template <typename T> inline void
+CModel<T>::_slift1D
+( const std::map<unsigned,double>&CVmap, const double dscal,
+  std::map<unsigned,double>&CVRmap, double&coefrem,
+  const unsigned ndxvar, const unsigned ndxord, unsigned*iexp )
+const
+{
+  for( auto it=CVmap.begin(); it!=CVmap.end(); ++it ){
+    unsigned nexp = iexp[ndxvar] = ndxord; // initialize total index
+    for( unsigned ivar=ndxvar+1; ivar<_nvar; ivar++ )
+      nexp += iexp[ivar] = expmon(it->first)[ivar]; // build total index
+    if( nexp > _nord ){ // append to remainder coefficient if total order too large
+      coefrem += std::fabs( dscal==1.? it->second: it->second * dscal );
+      continue;
+    }
+    auto pmon = CVRmap.insert( std::make_pair( _loc_expmon(iexp), dscal==1.? it->second: it->second * dscal ) );
+    if( !pmon.second ) pmon.first->second += dscal==1.? it->second: it->second * dscal;
+  }
+}
+
+template <typename T> inline void
+CModel<T>::_slift1D
+( const std::map<unsigned,double>&CVmap, double&coefrem )
+const
+{
+  for( auto it=CVmap.begin(); it!=CVmap.end(); ++it )
+    coefrem += std::fabs( it->second );
+}
+
+template <typename T> inline void
+CModel<T>::_sdisp1D
+( const std::map<unsigned,double>&CVmap,
+  const unsigned ndxvar, const std::string&CVname, std::ostream&os )
+const
+{
+  os << CVname;
+  for( auto it=CVmap.begin(); it!=CVmap.end(); ++it ){
+    if( it != CVmap.begin() ) os << " + ";
+    os << it->second;
+    for( unsigned ivar=ndxvar; ivar<_nvar; ivar++ ) 
+      if( expmon(it->first)[ivar] ) os << "·T" << expmon(it->first)[ivar] << "(X" << ivar << ")";
+  }
+  os << std::endl;
+}
+
+template <typename T> inline void
+CModel<T>::_sdisp1D
+( const std::vector<std::map<unsigned,double>>&CVmap,
+  const unsigned ndxvar, const std::string&CVname, std::ostream&os )
+const
+{
+  os << CVname;
+  for( unsigned i=0; i<=_nord; i++ ){
+    if( i ) os << " + T" << i << "(X" << ndxvar << ") ·";
+    os << " [ ";
+    for( auto it=CVmap[i].begin(); it!=CVmap[i].end(); ++it ){
+      if( it != CVmap[i].begin() ) os << " + ";
+      os << it->second;
+      for( unsigned ivar=ndxvar+1; ivar<_nvar; ivar++ ) 
+        if( expmon(it->first)[ivar] ) os << "·T" << expmon(it->first)[ivar] << "(X" << ivar << ")";
+    }
+    os << " ]";
+  }
+  os << std::endl;
+}
+
+template <typename T> inline void
+CModel<T>::_sprod1D
+( const std::vector<std::map<unsigned,double>>&CV1map,
+  const std::vector<std::map<unsigned,double>>&CV2map,
+  std::map<unsigned,double>&CVRmap, double&coefrem,
+  const unsigned ndxvar )
+const
+{
+  std::vector<unsigned> vexp( _nvar, 0 ); unsigned* iexp = vexp.data();
+
+  // construct product matrix of polynomial coefficients
+  std::vector<std::map<unsigned,double>> CV12map( (_nord+1)*(_nord+1) );
+  for( unsigned iord1=0; iord1<=_nord; iord1++ ){
+    if( CV1map[iord1].empty() ) continue; // no term
+    if( CV1map[iord1].size() == 1 && !CV1map[iord1].begin()->first ){ // constant term only
+      for( unsigned iord2=0; iord2<=_nord; iord2++ )
+        _sscal1D( CV2map[iord2], CV1map[iord1].begin()->second, CV12map[iord1*(_nord+1)+iord2] );
+      continue;
+    }
+    for( unsigned iord2=0; iord2<=_nord; iord2++ ){ // general polynomial
+      if( CV2map[iord2].empty() ) continue; // no term
+      if( CV2map[iord2].size() == 1 && !CV2map[iord2].begin()->first ){ // constant term only
+        _sscal1D( CV1map[iord1], CV2map[iord2].begin()->second, CV12map[iord1*(_nord+1)+iord2] );
+        continue;
+      }
+#ifdef MC__POLYMODEL_DEBUG_SPROD
+      std::cout << "Term (" << iord1 << "," << iord2 << "):\n";
+#endif
+      std::vector<std::map<unsigned,double>> CV11map( _nord+1 ), CV22map( _nord+1 ); // component maps for both coefficients
+      for( auto it=CV1map[iord1].begin(); it!=CV1map[iord1].end(); ++it ){
+        for( unsigned ivar=ndxvar+2; ivar<_nvar; ivar++ ) iexp[ivar] = expmon(it->first)[ivar];
+        CV11map[ expmon(it->first)[ndxvar+1] ].insert( std::make_pair( _loc_expmon(iexp), it->second ) );
+      }
+#ifdef MC__POLYMODEL_DEBUG_SPROD
+      _sdisp1D( CV11map, ndxvar+1, "Var #1: " );
+#endif
+      for( auto it=CV2map[iord2].begin(); it!=CV2map[iord2].end(); ++it ){
+        for( unsigned ivar=ndxvar+2; ivar<_nvar; ivar++ ) iexp[ivar] = expmon(it->first)[ivar];
+        CV22map[ expmon(it->first)[ndxvar+1] ].insert( std::make_pair( _loc_expmon(iexp), it->second ) );
+      }
+#ifdef MC__POLYMODEL_DEBUG_SPROD
+      _sdisp1D( CV22map, ndxvar+1, "Var #2: " );
+#endif
+      _sprod1D( CV11map, CV22map, CV12map[iord1*(_nord+1)+iord2], coefrem, ndxvar+1 );
+    }
+  }
+
+  // construct result map and augment remainder as appropriate
+  CVRmap.clear();
+  for( unsigned l=0; l<=_nord; l++ )
+    _slift1D( CV12map[l*(_nord+1)+l], l?1.:2., CVRmap );
+  for( unsigned k=1; k<=_nord; k++ ){
+    for( unsigned l=0; l<=k; l++ )
+      _slift1D( CV12map[(k-l)*(_nord+1)+l], l&&k-l?1.:2., CVRmap, coefrem, ndxvar, k, iexp );
+    for( unsigned l=1; l+k<=_nord; l++ ){
+      _slift1D( CV12map[l*(_nord+1)+l+k],   1., CVRmap, coefrem, ndxvar, k, iexp );
+      _slift1D( CV12map[(l+k)*(_nord+1)+l], 1., CVRmap, coefrem, ndxvar, k, iexp );
+    }
+  }
+  for( unsigned k=_nord+1; k<=2*_nord; k++ )
+    for( unsigned l=k-_nord; l<=_nord; l++ )
+      _slift1D( CV12map[(k-l)*(_nord+1)+l], coefrem );
+  // rescale the coefficients by 0.5
+  for( auto it=CVRmap.begin(); it!=CVRmap.end(); ++it ) it->second *= 0.5;
+#ifdef MC__POLYMODEL_DEBUG_SPROD
+  _sdisp1D( CVRmap, ndxvar, "Prod: " );
+#endif
+}
+
+template <typename T> inline void
+CModel<T>::_sprod
+( const CVar<T>&CV1, const CVar<T>&CV2, double*coefmon,
+  std::set<unsigned>&ndxmon, double&coefrem )
+const
+{
+  // Construct vectors of coefficients for variable #0
+  std::vector<unsigned> vexp( _nvar, 0 ); unsigned* iexp = vexp.data();
+  std::vector<std::map<unsigned,double>> CV1map( _nord+1 ), CV2map( _nord+1 );
+  for( auto it=CV1._ndxmon.begin(); it!=CV1._ndxmon.end(); ++it ){
+    for( unsigned ivar=1; ivar<_nvar; ivar++ ) iexp[ivar] = expmon(*it)[ivar];
+    CV1map[ expmon(*it)[0] ].insert( std::make_pair( _loc_expmon(iexp), CV1._coefmon[*it] ) );
+  }
+#ifdef MC__POLYMODEL_DEBUG_SPROD
+  _sdisp1D( CV1map, 0, "Var #1: " );
+#endif
+  for( auto it=CV2._ndxmon.begin(); it!=CV2._ndxmon.end(); ++it ){
+    for( unsigned ivar=1; ivar<_nvar; ivar++ ) iexp[ivar] = expmon(*it)[ivar];
+    CV2map[ expmon(*it)[0] ].insert( std::make_pair( _loc_expmon(iexp), CV2._coefmon[*it] ) );
+  }
+#ifdef MC__POLYMODEL_DEBUG_SPROD
+  _sdisp1D( CV2map, 0, "Var #2: " );
+#endif
+
+  // Initialize recursive product of univariate Chebyshev polynomials
+  std::map<unsigned,double> CVRmap;
+  _sprod1D( CV1map, CV2map, CVRmap, coefrem, 0 );
+
+  // Populate index set, coefficient values and higher-order term bound
+  for( auto it=CVRmap.begin(); it!=CVRmap.end(); ++it )
+    coefmon[*(ndxmon.insert( it->first ).first)] = it->second;
+  coefrem *= 0.5;
+}
+
+template <typename T> inline void
+CModel<T>::_ssqr
+( const CVar<T>&CV, double*coefmon,
+  std::set<unsigned>&ndxmon, double&coefrem )
+const
+{
+  // Construct vectors of coefficients for variable #0
+  std::vector<unsigned> vexp( _nvar, 0 ); unsigned* iexp = vexp.data();
+  std::vector<std::map<unsigned,double>> CVmap( _nord+1 );
+  for( auto it=CV._ndxmon.begin(); it!=CV._ndxmon.end(); ++it ){
+    for( unsigned ivar=1; ivar<_nvar; ivar++ ) iexp[ivar] = expmon(*it)[ivar];
+    CVmap[ expmon(*it)[0] ].insert( std::make_pair( _loc_expmon(iexp), CV._coefmon[*it] ) );
+  }
+#ifdef MC__POLYMODEL_DEBUG_SSQR
+  _sdisp1D( CVmap, 0, "Var: " );
+#endif
+
+  // Initialize recursive product of univariate Chebyshev polynomials
+  std::map<unsigned,double> CVRmap;
+  _sprod1D( CVmap, CVmap, CVRmap, coefrem, 0 );
+
+  // Populate index set, coefficient values and higher-order term bound
+  for( auto it=CVRmap.begin(); it!=CVRmap.end(); ++it )
+    coefmon[*(ndxmon.insert( it->first ).first)] = it->second;
+  coefrem *= 0.5;
 }
 
 // ==> account for sparse format
@@ -1733,7 +2031,7 @@ CVar<T>::_set
   _coefmon[0] = ref;
   for( unsigned i=1; i<nmon(); i++ ) _coefmon[i] = 0.;
   if( nord() > 0 ) _coefmon[nvar()-ivar] = Op<T>::diam(X)/2.;//scaling;
-  if( _CM->sparse() ){ _ndxmon.insert(0); _ndxmon.insert(nvar()-ivar); }
+  if( _CM->sparse() ){ if( ref != 0. ) _ndxmon.insert(0); _ndxmon.insert(nvar()-ivar); }
 
   // Populate _bndord w/ bounds on CVar terms
   _bndord[0] = _coefmon[0];
@@ -1910,6 +2208,8 @@ CVar<T>::scale
   CVar<T> CVscal( *this );
   // Return *this if null pointer to model _CM or variable ranges X
   for( unsigned i=0; _CM && X && i<nvar(); i++ ){
+    // Nothing to do for variable i if X[i] = [-1,1]
+    if( Op<T>::l(X[i]) == -1 && Op<T>::u(X[i]) == 1 ) continue;
     // Perform caling for variable i
     CVar<T> CVinner( _CM ); CVinner._set( i, X[i] );
     //std::cout << "CVinner[" << i << ":" << CVinner;
@@ -2262,6 +2562,7 @@ operator*
 
   // Populate _coefmon and _bndrem for product of polynomial parts
   double coefrem = 0.;
+#ifdef MC__CVAR_SPARSE_PRODUCT_NAIVE
   // Case: sparse storage
   for( auto it=CV1._ndxmon.begin(); it!=CV1._ndxmon.end(); ++it ){
     for( auto jt=CV2._ndxmon.begin(); jt!=CV2._ndxmon.end(); ++jt ){
@@ -2275,6 +2576,9 @@ operator*
           * ( 1. - (double)prodij[1] / (double)prodij[0] );
     }
   }
+#else
+  CV1._sprod( CV1, CV2, CV3._coefmon, CV3._ndxmon, coefrem );
+#endif
   // Case: dense storage
   for( unsigned i=0; CV1._ndxmon.empty() && i<CV1.nmon(); i++ ){
     // dense x sparse
@@ -2328,6 +2632,8 @@ operator*
   CV3._bndord_uptd = false;
   if( CV3._CM->options.MIXED_IA ) CV3._set_bndT( CV1.B()*CV2.B() );
   else CV3._unset_bndT();
+  
+  // std::cout << CV3;
   return CV3;
 }
 
@@ -2349,6 +2655,7 @@ sqr
 
   // Populate _coefmon and _bndrem for product of polynomial parts
   double coefrem = 0.;
+#ifdef MC__CVAR_SPARSE_PRODUCT_NAIVE
   // Case: sparse storage
   for( auto it=CV._ndxmon.begin(); it!=CV._ndxmon.end(); ++it ){
     for( auto jt=CV._ndxmon.begin(); jt!=it; ++jt ){
@@ -2370,6 +2677,9 @@ sqr
     coefrem += std::fabs( CV._coefmon[*it] * CV._coefmon[*it] )
         * ( 1. - (double)prodii[1] / (double)prodii[0] );
   }
+#else
+  CV._ssqr( CV, CV2._coefmon, CV2._ndxmon, coefrem );
+#endif
   // Case: dense storage
   for( unsigned i=0; CV._ndxmon.empty() && i<CV.nmon(); i++ ){
     for( unsigned j=0; j<i; j++ ){

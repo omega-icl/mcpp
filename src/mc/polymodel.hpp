@@ -10,8 +10,9 @@
 #include <typeinfo>
 #include <sstream>
 #include <string>
-#include <set>
 #include <vector>
+#include <set>
+#include <map>
 #include <stdarg.h>
 #include <cassert>
 #include <climits>
@@ -84,6 +85,12 @@ public:
     ()
     const
     { return _expmon; };
+
+  //! @brief Const pointer to array of size <a>nvar</a> of variable exponents in monomial term <tt>imon</tt> of polynomial model
+  const unsigned* expmon
+    ( const unsigned imon )
+    const
+    { return _expmon+imon*_nvar; }
 
   //! @brief Index of monomial term whose variable exponents are the same as those in array <tt>iexp</tt> (of size <tt>nvar()</tt>)
   unsigned loc_expmon
@@ -603,7 +610,7 @@ protected:
   const unsigned* _expmon
     ( const unsigned imon )
     const
-    { return _PM->expmon()+imon*nvar(); };
+    { return _PM->expmon(imon); };
 
   //! @brief Index of monomial term whose variable exponents are the same as those in array <tt>iexp</tt> (of size <tt>nvar()</tt>)
   const unsigned _loc_expmon
@@ -1106,6 +1113,7 @@ PolyVar<T>::_center()
 {
   const double remmid = Op<T>::mid(*_bndrem);
   _coefmon[0] += remmid;
+  if( !_ndxmon.empty() ) _ndxmon.insert(0);
   if( _PM && _bndord_uptd ) _bndord[0] = _coefmon[0];
   *_bndrem -= remmid;
   if( _bndpol ) *_bndpol += remmid;

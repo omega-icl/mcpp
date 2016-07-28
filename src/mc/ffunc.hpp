@@ -1384,6 +1384,11 @@ public:
     ( const std::set<unsigned>&ndxDep, const FFVar*pDep, U*vDep,
       const unsigned nVar, const FFVar*pVar, const U*vVar, const bool add=false );
 
+  //! @brief Evaluate the dependents in the map <a>pDep</a> in U arithmetic for the <a>nVar</a> variable in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result in the map <a>vDep</a> -- This function creates the subgraph for the dependent variables internally
+  template <typename U, typename V> void eval
+    ( const std::map<V,FFVar>&pDep, std::map<V,U>&vDep,
+      const unsigned nVar, const FFVar*pVar, const U*vVar );
+
   //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> in U arithmetic for the <a>nVar</a> variable in array <a>pVar</a> whose values are specified in <a>vVar</a> and write the result in <a>vDep</a> (or add the result to <a>vDep</a> if <a>add</a>==true) -- This function creates the subgraph for the dependent variables internally
   template <typename U> void eval
     ( const unsigned nDep, const FFVar*pDep, U*vDep,
@@ -4394,8 +4399,7 @@ FFGraph::eval
 ( const std::set<unsigned>&ndxDep, const FFVar*pDep, U*vDep,
   const unsigned nVar, const FFVar*pVar, const U*vVar, const bool add )
 {
-  // Nothing to do!
-  if( ndxDep.empty() ) return;
+  if( ndxDep.empty() ) return; // Nothing to do!
 
   std::vector<FFVar> vpDep( ndxDep.size() );
   std::vector<U> vvDep( ndxDep.size() );
@@ -4406,6 +4410,27 @@ FFGraph::eval
 
   it = ndxDep.cbegin();
   for( unsigned iDep=0; it != ndxDep.cend(); ++it, iDep++ ) vDep[*it] = vvDep[iDep];
+}
+
+template <typename U, typename V> inline void
+FFGraph::eval
+( const std::map<V,FFVar>&pDep, std::map<V,U>&vDep,
+  const unsigned nVar, const FFVar*pVar, const U*vVar )
+{
+  vDep.clear(); 
+  if( pDep.empty() ) return; // Nothing to do!
+
+  std::vector<FFVar> vpDep( pDep.size() );
+  std::vector<U> vvDep( pDep.size() );
+  auto it = pDep.cbegin();
+  for( unsigned iDep=0; it != pDep.cend(); ++it, iDep++ )
+    vpDep[iDep] = it->second;
+
+  eval( pDep.size(), vpDep.data(), vvDep.data(), nVar, pVar, vVar );
+
+  it = pDep.cbegin();
+  for( unsigned iDep=0; it != pDep.cend(); ++it, iDep++ )
+    vDep.insert( vDep.end(), std::make_pair( it->first, vvDep[iDep] ) );
 }
 
 template <typename U> inline void
