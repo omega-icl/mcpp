@@ -651,7 +651,7 @@ private:
     ( const CPPL::dgematrix&Q, CPPL::dcovector&S, CPPL::dgematrix&U,
       CPPL::dgematrix&VT );
 
-  //! @brief Wrapper to LAPACK function <TT>_dgesvd</TT> doing singular value decomposition of a general matrix
+  //! @brief Wrapper to LAPACK function <TT>_dgesvd</TT> doing singular value decomposition of a symmetric matrix
   static void _svd
     ( const CPPL::dsymatrix&Q, CPPL::dcovector&S, CPPL::dgematrix&U,
       CPPL::dgematrix&VT );
@@ -982,6 +982,21 @@ inline Ellipsoid minksum_ea
   CPPL::dcovector c_EA( E._c );
   if( I.second.l ) c_EA += I.second;
 
+  double trQ_scal = 0.0;
+  CPPL::dcovector rad_scal(E._Q.n);
+  for( int i=0; i<E._Q.n; i++ ){
+    trQ_scal += E._Q(i,i) / ( E._Q(i,i) + TOL );
+    rad_scal(i) = I.first(i) / std::sqrt( E._Q(i,i) + TOL ) + EPS;
+  }
+  double sqrt_trQ_scal = std::sqrt(trQ_scal) + EPS;
+  double sum = sqrt_trQ_scal;
+  for( int i=0; i<E._Q.n; i++ ) sum += rad_scal(i);
+
+  CPPL::dsymatrix Q_EA( E._Q / sqrt_trQ_scal );
+  for( int i=0; i<E._Q.n; i++ )
+    Q_EA(i,i) += sqr(I.first(i)) / rad_scal(i);
+  Q_EA *= sum;
+/*
   double trQ = 0.0;
   CPPL::dcovector sqrR(E._Q.n);
   for( int i=0; i<E._Q.n; i++ ){
@@ -997,7 +1012,7 @@ inline Ellipsoid minksum_ea
   CPPL::dsymatrix Q_EA( E._Q*kappa/(trQ+EPS) );
   for( int i=0; i<E._Q.n; i++ )
     Q_EA(i,i) += I.first(i)*I.first(i)*kappa/(sqrR(i)+sqr(EPS))+sqr(EPS);
-
+*/
   return EA.set(Q_EA,c_EA);  
 }
 

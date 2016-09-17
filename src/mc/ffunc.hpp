@@ -654,6 +654,7 @@ class FFVar
   friend std::ostream& operator<< ( std::ostream&, const FFOp& );
 
   // friends of this class for operator and function overloading
+  friend bool operator== ( const FFVar&, const FFVar& );
   friend std::ostream& operator<< ( std::ostream&, const FFVar& );
   friend FFVar operator+ ( const FFVar& );
   friend FFVar operator+ ( const FFVar&, const FFVar& );
@@ -1607,6 +1608,13 @@ inline void FFVar::unset
   if( !_dag ) return;
   _dag->_unset_constant( this );
   return;
+}
+
+inline bool
+operator==
+( const FFVar&Var1, const FFVar&Var2 )
+{
+  return( Var1.id() == Var2.id() );
 }
 
 inline std::ostream&
@@ -2739,7 +2747,6 @@ bstep
 {
   return ( fstep( -Var ) );
 }
-
 
 ////////////////////////////////// FFOp ////////////////////////////////////////
 

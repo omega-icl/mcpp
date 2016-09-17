@@ -45,7 +45,7 @@ template< typename U > inline void display
   }
   os << std::endl;
 
-  if( os == std::cout || os == std::cerr ) pause();
+  //if( os.rdbuf() == std::cout.rdbuf() || os.rdbuf() == std::cerr.rdbuf() ) pause();
 }
 
 //! @brief Wrapper to LAPACK function <tt>_dsyev<tt> doing eigenvalue decomposition of symmetric <tt>n</tt>-by-<tt>n</tt> matrix <tt>A</tt>. A pointer to an array containing the eignenvalues is returned - NULL pointer if the eigenvalue decomposition was unsuccessful. If <tt>eigv</tt> is set to <tt>true</tt> eigenvector too are computed and returned in <tt>A</tt>, which is therefore alterred. Note that <tt>A</tt> is altered even if eigenvector are not computed.

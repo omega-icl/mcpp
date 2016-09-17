@@ -2808,7 +2808,7 @@ PolImg<T>::_semilinear_cuts
   const typename PolCut<T>::TYPE sense, p_dUniv f, const double*rpar, const int*ipar )
 {
   switch( options.BREAKPOINT_TYPE ){
-   case options.BIN:{
+   case Options::BIN:{
     const std::vector<double>& subint = X.create_subdiv( XL, XU );
     const unsigned nsubint = subint.size()-1;
     if( nsubint > 1 ){
@@ -2823,7 +2823,7 @@ PolImg<T>::_semilinear_cuts
     }
     break;
    }
-   case options.SOS2:{
+   case Options::SOS2:{
     const std::vector<double>& subint = X.create_subdiv( XL, XU );
     const unsigned nsubint = subint.size();
     if( nsubint > 2 ){
