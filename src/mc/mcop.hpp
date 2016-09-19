@@ -1,5 +1,6 @@
-// Copyright (C) 2009-2014 Benoit Chachuat, Imperial College London.
+// Copyright (C) 2009-2016 Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
+// This code is published under the Eclipse Public License.
 
 #ifndef MC__MCOP_HPP
 #define MC__MCOP_HPP
@@ -8,9 +9,9 @@
 
 namespace mc
 {
-  //! @brief C++ structure to allow usage of various template parameters in the types mc::McCormick, mc::TModel, mc::TVar, and mc::SpecBnd of MC++ _ Specialization of this structure is required for the template parameters can be found in the header files defining the types mc::McCormick, mc::TModel, mc::TVar, and mc::SpecBnd.
-template <typename T>
-struct Op
+
+//! @brief C++ structure to allow usage of MC++ types for DAG evluation and as template parameters in other MC++ types.
+template <typename T> struct Op
 {
   static T point( const double c ) { return T(c); } // { throw std::runtime_error("mc::Op<T>::point -- Function not overloaded"); }
   static T zeroone() { return T(0,1); }
@@ -52,6 +53,7 @@ struct Op
   static bool gt(const T& x, const T& y) { return x>y;  }
   static bool ge(const T& x, const T& y) { return x>=y; }
 };
+
 }
 
 #include <cmath>
@@ -59,9 +61,9 @@ struct Op
 
 namespace mc
 {
+
 //! @brief Specialization of the structure mc::Op to allow usage of doubles as a template parameter
-template <>
-struct Op<double>
+template <> struct Op< double >
 {
   typedef double T;
   static T inv (const T& x) { return 1./x;  }
@@ -96,5 +98,6 @@ struct Op<double>
   static bool gt(const T& x, const T& y) { return x>y;  }
   static bool ge(const T& x, const T& y) { return x>=y; }
 };
+
 }
 #endif

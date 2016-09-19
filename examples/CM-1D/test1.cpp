@@ -1,10 +1,13 @@
-#define TEST_TRIG	// <-- select test function here
-const int NTE = 2;	// <-- select Chebyshev expansion order here
-const int NX = 200;	// <-- select X discretization here
+#define TEST_EXP1	    // <-- select test function here
+const int NTE = 2;	    // <-- select Chebyshev expansion order here
+const int NX = 200;	    // <-- select X discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
-#undef USE_PROFIL	// <-- specify to use PROFIL for interval arithmetic
-#undef USE_FILIB	// <-- specify to use FILIB++ for interval arithmetic
-
+#define TEST_CVG        // <-- specify whether to save results to file
+#undef USE_PROFIL   	// <-- specify to use PROFIL for interval arithmetic
+#undef USE_FILIB	    // <-- specify to use FILIB++ for interval arithmetic
+#undef  MC__CVAR_FABS_SQRT
+#undef  MC__CVAR_SPARSE_PRODUCT_NAIVE
+#undef  MC__POLYMODEL_DEBUG_SPROD
 ////////////////////////////////////////////////////////////////////////
 
 #include <fstream>
@@ -31,9 +34,6 @@ typedef mc::CModel<I> CM;
 typedef mc::CVar<I> CV;
 typedef mc::CModel<MC> CMMC;
 typedef mc::CVar<MC> CVMC;
-
-//#include "mcfadbad.hpp"
-//typedef fadbad::F<CVMC> FCVMC;
 
 using namespace std;
 using namespace mc;
@@ -75,22 +75,16 @@ T myfunc
   //return pow(x,6)+8.6*pow(x,5)+24.33*pow(x,4)+17.2*pow(x,3)-28.27*pow(x,2)-36.3*x;
 }
 
-#elif defined( TEST_EXP )
-const double XL   = -1.5;	// <-- X range lower bound
-const double XU   =  1.;	// <-- X range upper bound
+#elif defined( TEST_EXP1 )
+const double XL   = 0.;	// <-- X range lower bound
+const double XU   = 1.;	// <-- X range upper bound
 const double Xref =  0.;	// <-- X ref point for McCormick
 template <class T>
 T myfunc
 ( const T&x )
 {
-  //return exp(-pow(x,-2));//fabs(x);
   //return sqrt(x*x-x+.5)/sqrt(x*x+.5);
   return x*exp(-pow(x,2));
-  //return exp(-pow(x,2));
-  //return exp(pow(x,3));
-  //return -pow(x,2);
-  //return x*exp(-x);
-  //return x*pow(x,3);
 }
 
 #elif defined( TEST_EXP2 )
@@ -102,7 +96,6 @@ T myfunc
 ( const T&x )
 {
   return exp(x)*pow(x+2,-3);
-  //return 1./pow(x+2,3);
 }
 
 #elif defined( TEST_MIX )
@@ -137,9 +130,19 @@ template <class T>
 T myfunc
 ( const T&x )
 {
-  //return x;
-  //return 1./x;
   return sqrt(1./x);
+}
+
+#elif defined( TEST_FABS )
+const double XL   = -PI/2.;	// <-- range lower bound
+const double XU   =  PI/4.;	// <-- range upper bound
+const double Xref =  0.;	// <-- X ref point for McCormick
+template <class T>
+T myfunc
+( const T&x )
+{
+  //return fabs(x);
+  return sin(fabs(x));
 }
 
 #elif defined( TEST_TRIG )
@@ -172,46 +175,8 @@ int main()
 ////////////////////////////////////////////////////////////////////////
 {
 
-  //CM modCM2( 4, 3 );//, true );
-  //CV p[4];
-  //for( unsigned i=0; i<4; i++ ) p[i].set( &modCM2, i, I(1,2) );
-  //std::cout << p[0];
-/*  CV x = -p[0]+p[1]-2*p[2];
-  std::cout << x;
-  x += p[0];
-  std::cout << x;
-  x -= p[1];
-  std::cout << x;
-  CV y = p[0]*p[1]*p[2]*p[3];
-  std::cout << y;
-  CV z = p[2]*p[3];
-  std::cout << z;
-  z *= p[0]*p[1];
-  std::cout << z;
-  z *= z;
-  std::cout << z;
-  z *= y;
-  y += z;
-  std::cout << y;*/
-  //CV w = exp(p[1]/inv(p[0]));
-  //std::cout << w;
-  //return 0;
-/*
-  for( unsigned iord=0; iord<5; iord++ ){
-    for( unsigned ivar=1; ivar<20; ivar++ )
-      CM modCM2( ivar, iord );
-    std::cout << std::endl;
-  }
-
-  CM modCM2( 4, 3 );
-  CV p[4];
-  for( unsigned i=0; i<4; i++ ) p[i].set( &modCM2, i, I(1,5) );
-  CV f = (p[0]*p[3])*(p[0]+p[1]+p[2])+p[2];
-  std::cout << f;
-  return 0;
-*/
 #ifdef SAVE_RESULTS
-  ofstream res( "CM-1D.out", ios_base::out );
+  ofstream res( "test1.out", ios_base::out );
   res << std::scientific << std::setprecision(5) << std::right;
 #endif
 
@@ -222,12 +187,12 @@ int main()
     CMMC modCMMC( 1, NTE );
 
     // <-- set options here -->
-    MC::options.MVCOMP_USE = false;
+    MC::options.MVCOMP_USE = true;
     //modCM.options.BOUNDER_TYPE = CM::Options::BERNSTEIN;
     //modCM.options.BOUNDER_ORDER = 40;
     modCM.options.DISPLAY_DIGITS = 10;
-    modCM.options.INTERP_EXTRA   = 0;//100;
-    modCM.options.MIXED_IA       = true;
+    //modCM.options.INTERP_EXTRA   = 1000;
+    modCM.options.MIXED_IA       = true;//true;
     modCMMC.options = modCM.options;
 
     // Define variable X, and evaluate Taylor model
@@ -244,15 +209,6 @@ int main()
     std::cout << "\nMcCormick-Chebyshev model of x:" << CVMCX;
     CVMC CVMCF = myfunc( CVMCX );
     std::cout << "\nMcCormick-Chebyshev model of f(x):" << CVMCF;
-    //std::cout << "\nBernstein bounder:" << CVMCF.bound(CMMC::Options::BERNSTEIN) << std::endl;
-
-//return 0;
-
-    // Evaluate Taylor models of first derivatives using FADBAD++
-    //FCVMC FCVMCX = CVMCX;
-    //FCVMCX.diff(0,1);
-    //FCVMC FCVMCF = myfunc( FCVMCX );
-    //std::cout << "\nMcCormick-Chebyshev model of df/dx: " << FCVMCF.d(0) << std::endl;
 
     // Repeated calculations at grid points (for display)
     for( int iX=0; iX<NX; iX++ ){ 
@@ -265,12 +221,12 @@ int main()
       MC MCBF = CVMCF.B();
       double PF = CVMCF.P( &DX );
       MC MCF = PF + CVMCF.R();
-      std::cout << "CVMCF: " << CVMCF << std::endl;
+      //std::cout << "CVMCF: " << CVMCF << std::endl;
 
       double a = CVMCF.linear(0,true);
-      std::cout << "CVMCF - lin: " << CVMCF << std::endl;
+      //std::cout << "CVMCF - lin: " << CVMCF << std::endl;
       MC MCRF = CVMCF.B();
-      std::cout << "MCRF: " << MCRF << std::endl;
+      //std::cout << "MCRF: " << MCRF << std::endl;
 
 #ifdef SAVE_RESULTS
       const unsigned IPREC = 9;
@@ -285,25 +241,26 @@ int main()
           << std::endl;
 #endif
     }
-/*
+
+#ifdef TEST_CVG
     // Repeated calculations for convergence test at range mid-point
     const unsigned N = 20;
     const double r = 2.;
     I Xred = I(XL,XU);
-    CV CVXred( &mod, 0, Xred );
+    CV CVXred( &modCM, 0, Xred );
     CV CVFred = myfunc( CVXred );
+    std::cout << "\n  Range        Error         Order\n";
     for( unsigned i=0; i<N; i++ ){
       CV CVXred0 = CVXred;
       CV CVFred0 = CVFred;
       Xred = (Xred-Op<I>::mid(Xred))/r + Op<I>::mid(Xred);
-      CVXred.set( &mod, 0, Xred );
+      CVXred.set( &modCM, 0, Xred );
       CVFred = myfunc( CVXred );
       std::cout << Op<I>::diam(Xred) << "  " << Op<I>::diam(CVFred.R()) << "  "
                 << (log(Op<I>::diam(CVFred0.R()))-log(Op<I>::diam(CVFred.R())))
                   /(log(Op<I>::diam(CVXred0.B()))-log(Op<I>::diam(CVXred.B()))) << std::endl;
     }
-*/
-
+#endif
 
   }
   

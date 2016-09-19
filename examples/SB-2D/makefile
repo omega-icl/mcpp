@@ -1,6 +1,6 @@
 PATH_MC = $(shell cd ../../ ; pwd)
-LIB_MC = -L$(PATH_MC)/lib
-INC_MC = -I$(PATH_MC)/include
+LIB_MC = -L$(PATH_MC)/lib $(LIB_PROFIL) $(LIB_FILIB) $(LIB_LAPACK)
+INC_MC = -I$(PATH_MC)/include $(INC_FADBAD) $(INC_LAPACK) $(INC_PROFIL) $(INC_FILIB)
 
 # Compilation options
 include $(PATH_MC)/src/makeoptions.mk
@@ -9,24 +9,13 @@ include $(PATH_MC)/src/makeoptions.mk
 
 test: test1 test2
 
-test1: test1.o
-	$(LINK) $(PROF) $(FLAGS_LINK) -o test1 test1.o $(LIB_MC) $(LIB_PROFIL) $(LIB_FILIB) $(LIB_LAPACK)
-       
-test1.o: test1.cpp
-	$(CPP) -c $(PROF) $(FLAGS_CPP) $(INC_MC) $(INC_FADBAD) $(INC_LAPACK) $(INC_PROFIL) $(INC_FILIB) -o test1.o test1.cpp
+test% : test%.o
+	$(LINK) $(PROF) $(FLAGS_LINK) -o $@ $< $(LIB_MC)
 
-test2: test2.o
-	$(LINK) $(PROF) $(FLAGS_LINK) -o test2 test2.o $(LIB_MC) $(LIB_PROFIL) $(LIB_FILIB) $(LIB_LAPACK)
-       
-test2.o: test2.cpp
-	$(CPP) -c $(PROF) $(FLAGS_CPP) $(INC_MC) $(INC_FADBAD) $(INC_LAPACK) $(INC_PROFIL) $(INC_FILIB) -o test2.o test2.cpp
-
-#####
-
-MC:
-	(cd $(PATH_MC)/src; make; make install)
+test%.o: test%.cpp
+	$(CPP) -c $(PROF) $(FLAGS_CPP) $(INC_MC) -o $@ $<
 
 #####
 
 clean:
-	rm -f test? test?.o *.out *.eps
+	rm -f test? *.o *.out *.eps *~

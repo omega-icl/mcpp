@@ -1,4 +1,4 @@
-// Copyright (C) 2009-2014 Benoit Chachuat, Imperial College London.
+// Copyright (C) 2009-2016 Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
@@ -3003,8 +3003,8 @@ operator<<
 namespace mc
 {
 
-//! @brief C++ structure for specialization of the mc::Op templated structure to allow usage of the Ellipsoidal Image Type mc::EllVar inside other MC++ type, e.g. mc::McCormick
-template <> template<typename T> struct Op< mc::EllVar<T> >
+//! @brief Specialization of the structure mc::Op to allow usage of the type mc::Interval for DAG evaluation or as a template parameter in other MC++ classes
+template<typename T> struct Op< mc::EllVar<T> >
 {
   typedef mc::EllVar<T> EV;
   static EV point( const double c ) { return EV( c ); }

@@ -1,5 +1,6 @@
-// Copyright (C) 2009-2013 Benoit Chachuat, Imperial College London.
+// Copyright (C) 2009-2016 Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
+// This code is published under the Eclipse Public License.
 
 /*!
 \page page_INTERVAL Non-Verified Interval Arithmetic for Factorable Functions
@@ -915,7 +916,7 @@ operator>
 namespace mc
 {
 
-//! @brief Specialization of the structure mc::Op to allow usage of the type mc::Interval as a template parameter in the classes mc::McCormick, mc::TModel, mc::TVar, and mc::SpecBnd
+//! @brief Specialization of the structure mc::Op to allow usage of the type mc::Interval for DAG evaluation or as a template parameter in other MC++ classes
 template <> struct Op<mc::Interval>
 {
   typedef mc::Interval T;

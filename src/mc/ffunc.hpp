@@ -1,5 +1,6 @@
-// Copyright (C) 2013-2014 Benoit Chachuat, Imperial College London.
+// Copyright (C) 2009-2016 Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
+// This code is published under the Eclipse Public License.
 
 /*!
 \page page_FFUNC Construction, Manipulation and Evaluation of Factorable Functions
@@ -535,7 +536,6 @@ Differentiation</A></I>, SIAM, 2009
 #include <tuple>
 #include <algorithm>
 #include <stdexcept>
-#include <sys/time.h>
 
 #include "mcfadbad.hpp"
 #include "mcfunc.hpp"
@@ -545,7 +545,11 @@ Differentiation</A></I>, SIAM, 2009
 #undef  MC__FFUNC_DEBUG
 #undef  MC__FFUNC_DEBUG_TAD
 #undef  MC__FFUNC_DEBUG_DEPMAP
-#undef  MC__FFUNC_CPU_EVAL
+
+//#undef  MC__FFUNC_CPU_EVAL
+#ifdef MC__FFUNC_CPU_EVAL
+  #include "mctime.hpp"
+#endif
 
 namespace mc
 {
@@ -1415,12 +1419,6 @@ public:
   template <typename U> void eval
     ( std::list<const FFOp*>&opDep, U*opRes, const unsigned nDep, const FFVar*pDep,
       U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, const bool add=false );
-
-  //! @brief Return current clock time
-  static double cpuclock()
-    { timeval time; gettimeofday(&time, 0) ;
-      return time.tv_sec + time.tv_usec*1e-6; }
-
   /** @} */
    
 protected:
@@ -2795,7 +2793,7 @@ operator <<
     case FFOp::ATAN:  out << "ATAN( " << FFVar::_name( Op.plop->id() ) << " )\n"; break;
     case FFOp::ERF:   out << "ERF( " << FFVar::_name( Op.plop->id() ) << " )\n"; break;
     case FFOp::FSTEP: out << "FSTEP( " << FFVar::_name( Op.plop->id() ) << " )\n"; break;
-    default:;
+    default: break;
   } 
   return out;
 }
@@ -4049,10 +4047,10 @@ FFGraph::TAD
   for( ; itv!=_Vars.end() && (*itv)->_id.first<=FFVar::VAR; ++itv ){
     fadbad::T<mc::FFVar>* pXi_T = new fadbad::T<mc::FFVar>( **itv );
     typename std::vector<const FFVar*>::const_iterator iti = vVar.begin();
-    // Time
+    // Independent variable
     if( pIndep && (*itv)->id().second == pIndep->id().second )
       (*pXi_T)[1] = 1.;
-    // Time-dependents
+    // Dependent variables
     for( unsigned int i=0; iti!=vVar.end(); ++iti, i++ ){
       if( (*itv)->id().second == (*iti)->id().second ){
         pX_T[i] = pXi_T;
@@ -4948,7 +4946,7 @@ FFGraph::depmap
 namespace mc
 {
 
-//! @brief Specialization of the structure mc::Op to allow usage of the type mc::FFVar as a template parameter in other MC++ types
+//! @brief Specialization of the structure mc::Op for use of the type mc::FFVar as a template parameter in other MC++ types
 template <> struct Op< mc::FFVar >
 {
   typedef mc::FFVar FV;
@@ -4997,41 +4995,44 @@ template <> struct Op< mc::FFVar >
 
 namespace fadbad
 {
-  //! @brief Specialization of the structure fadbad::Op to allow usage of the type mc::FFVar as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T in FADBAD++
-  template <> struct Op<mc::FFVar>{
-    typedef double Base;
-    typedef mc::FFVar FV;
-    static Base myInteger( const int i ) { return Base(i); }
-    static Base myZero() { return myInteger(0); }
-    static Base myOne() { return myInteger(1);}
-    static Base myTwo() { return myInteger(2); }
-    static double myPI() { return mc::PI; }
-    static FV myPos( const FV& x ) { return  x; }
-    static FV myNeg( const FV& x ) { return -x; }
-    template <typename U> static FV& myCadd( FV& x, const U& y ) { return x+=y; }
-    template <typename U> static FV& myCsub( FV& x, const U& y ) { return x-=y; }
-    template <typename U> static FV& myCmul( FV& x, const U& y ) { return x*=y; }
-    template <typename U> static FV& myCdiv( FV& x, const U& y ) { return x/=y; }
-    static FV myInv( const FV& x ) { return mc::inv( x ); }
-    static FV mySqr( const FV& x ) { return mc::pow( x, 2 ); }
-    template <typename X, typename Y> static FV myPow( const X& x, const Y& y ) { return mc::pow( x, y ); }
-    static FV myCheb( const FV& x, const unsigned n ) { return mc::cheb( x, n ); }
-    static FV mySqrt( const FV& x ) { return mc::sqrt( x ); }
-    static FV myLog( const FV& x ) { return mc::log( x ); }
-    static FV myExp( const FV& x ) { return mc::exp( x ); }
-    static FV mySin( const FV& x ) { return mc::sin( x ); }
-    static FV myCos( const FV& x ) { return mc::cos( x ); }
-    static FV myTan( const FV& x ) { return mc::tan( x ); }
-    static FV myAsin( const FV& x ) { return mc::asin( x ); }
-    static FV myAcos( const FV& x ) { return mc::acos( x ); }
-    static FV myAtan( const FV& x ) { return mc::atan( x ); }
-    static bool myEq( const FV& x, const FV& y ) { throw std::runtime_error("fadbad::Op<FFVar>::myEq -- operation not permitted"); }
-    static bool myNe( const FV& x, const FV& y ) { throw std::runtime_error("fadbad::Op<FFVar>::myNe -- operation not permitted"); }
-    static bool myLt( const FV& x, const FV& y ) { throw std::runtime_error("fadbad::Op<FFVar>::myLt -- operation not permitted"); }
-    static bool myLe( const FV& x, const FV& y ) { throw std::runtime_error("fadbad::Op<FFVar>::myLe -- operation not permitted"); }
-    static bool myGt( const FV& x, const FV& y ) { throw std::runtime_error("fadbad::Op<FFVar>::myGt -- operation not permitted"); }
-    static bool myGe( const FV& x, const FV& y ) { throw std::runtime_error("fadbad::Op<FFVar>::myGe -- operation not permitted"); }
-  };
+
+//! @brief Specialization of the structure fadbad::Op for use of the type mc::FFVar as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T in FADBAD++
+template <> struct Op< mc::FFVar >
+{
+  typedef double Base;
+  typedef mc::FFVar FV;
+  static Base myInteger( const int i ) { return Base(i); }
+  static Base myZero() { return myInteger(0); }
+  static Base myOne() { return myInteger(1);}
+  static Base myTwo() { return myInteger(2); }
+  static double myPI() { return mc::PI; }
+  static FV myPos( const FV& x ) { return  x; }
+  static FV myNeg( const FV& x ) { return -x; }
+  template <typename U> static FV& myCadd( FV& x, const U& y ) { return x+=y; }
+  template <typename U> static FV& myCsub( FV& x, const U& y ) { return x-=y; }
+  template <typename U> static FV& myCmul( FV& x, const U& y ) { return x*=y; }
+  template <typename U> static FV& myCdiv( FV& x, const U& y ) { return x/=y; }
+  static FV myInv( const FV& x ) { return mc::inv( x ); }
+  static FV mySqr( const FV& x ) { return mc::pow( x, 2 ); }
+  template <typename X, typename Y> static FV myPow( const X& x, const Y& y ) { return mc::pow( x, y ); }
+  static FV myCheb( const FV& x, const unsigned n ) { return mc::cheb( x, n ); }
+  static FV mySqrt( const FV& x ) { return mc::sqrt( x ); }
+  static FV myLog( const FV& x ) { return mc::log( x ); }
+  static FV myExp( const FV& x ) { return mc::exp( x ); }
+  static FV mySin( const FV& x ) { return mc::sin( x ); }
+  static FV myCos( const FV& x ) { return mc::cos( x ); }
+  static FV myTan( const FV& x ) { return mc::tan( x ); }
+  static FV myAsin( const FV& x ) { return mc::asin( x ); }
+  static FV myAcos( const FV& x ) { return mc::acos( x ); }
+  static FV myAtan( const FV& x ) { return mc::atan( x ); }
+  static bool myEq( const FV& x, const FV& y ) { throw std::runtime_error("fadbad::Op<FFVar>::myEq -- operation not permitted"); }
+  static bool myNe( const FV& x, const FV& y ) { throw std::runtime_error("fadbad::Op<FFVar>::myNe -- operation not permitted"); }
+  static bool myLt( const FV& x, const FV& y ) { throw std::runtime_error("fadbad::Op<FFVar>::myLt -- operation not permitted"); }
+  static bool myLe( const FV& x, const FV& y ) { throw std::runtime_error("fadbad::Op<FFVar>::myLe -- operation not permitted"); }
+  static bool myGt( const FV& x, const FV& y ) { throw std::runtime_error("fadbad::Op<FFVar>::myGt -- operation not permitted"); }
+  static bool myGe( const FV& x, const FV& y ) { throw std::runtime_error("fadbad::Op<FFVar>::myGe -- operation not permitted"); }
+};
+
 } // end namespace fadbad
 
 #endif

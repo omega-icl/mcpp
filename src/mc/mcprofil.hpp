@@ -1,5 +1,6 @@
-// Copyright (C) 2009-2013 Benoit Chachuat, Imperial College London.
+// Copyright (C) 2009-2016 Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
+// This code is published under the Eclipse Public License.
 
 #ifndef MC__MCPROFIL_HPP
 #define MC__MCPROFIL_HPP
@@ -11,7 +12,8 @@
 #include <Constants.h>
 namespace mc
 {
-//! @brief Specialization of the structure mc::Op to allow usage of the type INTERVAL of <A href="http://www.ti3.tu-harburg.de/Software/PROFILEnglisch.html">PROFIL</A> as a template parameter in the classes mc::McCormick, mc::TModel, mc::TVar, and mc::SpecBnd
+
+//! @brief Specialization of the structure mc::Op for use of the type INTERVAL of <A href="http://www.ti3.tu-harburg.de/Software/PROFILEnglisch.html">PROFIL</A> as a template parameter in the other MC++ types
 template <> struct Op< ::INTERVAL >
 {
   typedef ::INTERVAL T;

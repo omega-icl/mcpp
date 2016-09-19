@@ -1,5 +1,6 @@
-// Copyright (C) 2009-2013 Benoit Chachuat, Imperial College London.
+// Copyright (C) 2009-2016 Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
+// This code is published under the Eclipse Public License.
 
 #ifndef MC__MCFADBAD_HPP
 #define MC__MCFADBAD_HPP
@@ -14,191 +15,198 @@
 
 namespace fadbad
 {
-  //! @brief Specialization of the structure fadbad::Op to allow usage of the type mc::Interval of MC++ as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
-  template <> struct Op<mc::Interval>{
-    typedef double Base;
-    typedef mc::Interval I;
-    static Base myInteger( const int i ) { return Base(i); }
-    static Base myZero() { return myInteger(0); }
-    static Base myOne() { return myInteger(1);}
-    static Base myTwo() { return myInteger(2); }
-    static double myPI() { return mc::PI; }
-    static I myPos( const I& x ) { return  x; }
-    static I myNeg( const I& x ) { return -x; }
-    template <typename U> static I& myCadd( I& x, const U& y ) { return x+=y; }
-    template <typename U> static I& myCsub( I& x, const U& y ) { return x-=y; }
-    template <typename U> static I& myCmul( I& x, const U& y ) { return x*=y; }
-    template <typename U> static I& myCdiv( I& x, const U& y ) { return x/=y; }
-    static I myInv( const I& x ) { return mc::inv( x ); }
-    static I mySqr( const I& x ) { return mc::pow( x, 2 ); }
-    template <typename X, typename Y> static I myPow( const X& x, const Y& y ) { return mc::pow( x, y ); }
-    static I myCheb( const I& x, const unsigned n ) { return mc::cheb( x, n ); }
-    static I mySqrt( const I& x ) { return mc::sqrt( x ); }
-    static I myLog( const I& x ) { return mc::log( x ); }
-    static I myExp( const I& x ) { return mc::exp( x ); }
-    static I mySin( const I& x ) { return mc::sin( x ); }
-    static I myCos( const I& x ) { return mc::cos( x ); }
-    static I myTan( const I& x ) { return mc::tan( x ); }
-    static I myAsin( const I& x ) { return mc::asin( x ); }
-    static I myAcos( const I& x ) { return mc::acos( x ); }
-    static I myAtan( const I& x ) { return mc::atan( x ); }
-    static bool myEq( const I& x, const I& y ) { return x==y; }
-    static bool myNe( const I& x, const I& y ) { return x!=y; }
-    static bool myLt( const I& x, const I& y ) { return x<y; }
-    static bool myLe( const I& x, const I& y ) { return x<=y; }
-    static bool myGt( const I& x, const I& y ) { return x>y; }
-    static bool myGe( const I& x, const I& y ) { return x>=y; }
-  };
 
-  //! @brief Specialization of the structure fadbad::Op to allow usage of the type mc::McCormick of MC++ as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
-  template <> template<typename T> struct Op< mc::McCormick<T> >{ 
-    typedef mc::McCormick<T> MC;
-    typedef double Base;
-    static Base myInteger( const int i ) { return Base(i); }
-    static Base myZero() { return myInteger(0); }
-    static Base myOne() { return myInteger(1);}
-    static Base myTwo() { return myInteger(2); }
-    static double myPI() { return mc::PI; }
-    static MC myPos( const MC& x ) { return  x; }
-    static MC myNeg( const MC& x ) { return -x; }
-    template <typename U> static MC& myCadd( MC& x, const U& y ) { return x+=y; }
-    template <typename U> static MC& myCsub( MC& x, const U& y ) { return x-=y; }
-    template <typename U> static MC& myCmul( MC& x, const U& y ) { return x*=y; }
-    template <typename U> static MC& myCdiv( MC& x, const U& y ) { return x/=y; }
-    static MC myInv( const MC& x ) { return mc::inv( x ); }
-    static MC mySqr( const MC& x ) { return mc::pow( x, 2 ); }
-    template <typename X, typename Y> static MC myPow( const X& x, const Y& y ) { return mc::pow( x, y ); }
-    static MC myCheb( const MC& x, const unsigned n ) { return mc::cheb( x, n ); }
-    static MC mySqrt( const MC& x ) { return mc::sqrt( x ); }
-    static MC myLog( const MC& x ) { return mc::log( x ); }
-    static MC myExp( const MC& x ) { return mc::exp( x ); }
-    static MC mySin( const MC& x ) { return mc::sin( x ); }
-    static MC myCos( const MC& x ) { return mc::cos( x ); }
-    static MC myTan( const MC& x ) { return mc::tan( x ); }
-    static MC myAsin( const MC& x ) { return mc::asin( x ); }
-    static MC myAcos( const MC& x ) { return mc::acos( x ); }
-    static MC myAtan( const MC& x ) { return mc::atan( x ); }
-    static bool myEq( const MC& x, const MC& y ) { return x==y; }
-    static bool myNe( const MC& x, const MC& y ) { return x!=y; }
-    static bool myLt( const MC& x, const MC& y ) { return x<y; }
-    static bool myLe( const MC& x, const MC& y ) { return x<=y; }
-    static bool myGt( const MC& x, const MC& y ) { return x>y; }
-    static bool myGe( const MC& x, const MC& y ) { return x>=y; }
-  };
+//! @brief Specialization of the structure fadbad::Op for use of the type mc::Interval of MC++ as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
+template <> struct Op<mc::Interval>
+{
+  typedef double Base;
+  typedef mc::Interval I;
+  static Base myInteger( const int i ) { return Base(i); }
+  static Base myZero() { return myInteger(0); }
+  static Base myOne() { return myInteger(1);}
+  static Base myTwo() { return myInteger(2); }
+  static double myPI() { return mc::PI; }
+  static I myPos( const I& x ) { return  x; }
+  static I myNeg( const I& x ) { return -x; }
+  template <typename U> static I& myCadd( I& x, const U& y ) { return x+=y; }
+  template <typename U> static I& myCsub( I& x, const U& y ) { return x-=y; }
+  template <typename U> static I& myCmul( I& x, const U& y ) { return x*=y; }
+  template <typename U> static I& myCdiv( I& x, const U& y ) { return x/=y; }
+  static I myInv( const I& x ) { return mc::inv( x ); }
+  static I mySqr( const I& x ) { return mc::pow( x, 2 ); }
+  template <typename X, typename Y> static I myPow( const X& x, const Y& y ) { return mc::pow( x, y ); }
+  static I myCheb( const I& x, const unsigned n ) { return mc::cheb( x, n ); }
+  static I mySqrt( const I& x ) { return mc::sqrt( x ); }
+  static I myLog( const I& x ) { return mc::log( x ); }
+  static I myExp( const I& x ) { return mc::exp( x ); }
+  static I mySin( const I& x ) { return mc::sin( x ); }
+  static I myCos( const I& x ) { return mc::cos( x ); }
+  static I myTan( const I& x ) { return mc::tan( x ); }
+  static I myAsin( const I& x ) { return mc::asin( x ); }
+  static I myAcos( const I& x ) { return mc::acos( x ); }
+  static I myAtan( const I& x ) { return mc::atan( x ); }
+  static bool myEq( const I& x, const I& y ) { return x==y; }
+  static bool myNe( const I& x, const I& y ) { return x!=y; }
+  static bool myLt( const I& x, const I& y ) { return x<y; }
+  static bool myLe( const I& x, const I& y ) { return x<=y; }
+  static bool myGt( const I& x, const I& y ) { return x>y; }
+  static bool myGe( const I& x, const I& y ) { return x>=y; }
+};
+
+//! @brief Specialization of the structure fadbad::Op to allow usage of the type mc::McCormick of MC++ as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
+template<typename T> struct Op< mc::McCormick<T> >
+{
+  typedef mc::McCormick<T> MC;
+  typedef double Base;
+  static Base myInteger( const int i ) { return Base(i); }
+  static Base myZero() { return myInteger(0); }
+  static Base myOne() { return myInteger(1);}
+  static Base myTwo() { return myInteger(2); }
+  static double myPI() { return mc::PI; }
+  static MC myPos( const MC& x ) { return  x; }
+  static MC myNeg( const MC& x ) { return -x; }
+  template <typename U> static MC& myCadd( MC& x, const U& y ) { return x+=y; }
+  template <typename U> static MC& myCsub( MC& x, const U& y ) { return x-=y; }
+  template <typename U> static MC& myCmul( MC& x, const U& y ) { return x*=y; }
+  template <typename U> static MC& myCdiv( MC& x, const U& y ) { return x/=y; }
+  static MC myInv( const MC& x ) { return mc::inv( x ); }
+  static MC mySqr( const MC& x ) { return mc::pow( x, 2 ); }
+  template <typename X, typename Y> static MC myPow( const X& x, const Y& y ) { return mc::pow( x, y ); }
+  static MC myCheb( const MC& x, const unsigned n ) { return mc::cheb( x, n ); }
+  static MC mySqrt( const MC& x ) { return mc::sqrt( x ); }
+  static MC myLog( const MC& x ) { return mc::log( x ); }
+  static MC myExp( const MC& x ) { return mc::exp( x ); }
+  static MC mySin( const MC& x ) { return mc::sin( x ); }
+  static MC myCos( const MC& x ) { return mc::cos( x ); }
+  static MC myTan( const MC& x ) { return mc::tan( x ); }
+  static MC myAsin( const MC& x ) { return mc::asin( x ); }
+  static MC myAcos( const MC& x ) { return mc::acos( x ); }
+  static MC myAtan( const MC& x ) { return mc::atan( x ); }
+  static bool myEq( const MC& x, const MC& y ) { return x==y; }
+  static bool myNe( const MC& x, const MC& y ) { return x!=y; }
+  static bool myLt( const MC& x, const MC& y ) { return x<y; }
+  static bool myLe( const MC& x, const MC& y ) { return x<=y; }
+  static bool myGt( const MC& x, const MC& y ) { return x>y; }
+  static bool myGe( const MC& x, const MC& y ) { return x>=y; }
+};
+    
+//! @brief Specialization of the structure fadbad::Op for use of the type mc::TVar of MC++ as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
+template< typename T > struct Op< mc::TVar<T> >
+{ 
+  typedef mc::TVar<T> TM;
+  typedef double Base;
+  static Base myInteger( const int i ) { return Base(i); }
+  static Base myZero() { return myInteger(0); }
+  static Base myOne() { return myInteger(1);}
+  static Base myTwo() { return myInteger(2); }
+  static double myPI() { return mc::PI; }
+  static TM myPos( const TM& x ) { return  x; }
+  static TM myNeg( const TM& x ) { return -x; }
+  template <typename U> static TM& myCadd( TM& x, const U& y ) { return x+=y; }
+  template <typename U> static TM& myCsub( TM& x, const U& y ) { return x-=y; }
+  template <typename U> static TM& myCmul( TM& x, const U& y ) { return x*=y; }
+  template <typename U> static TM& myCdiv( TM& x, const U& y ) { return x/=y; }
+  static TM myInv( const TM& x ) { return mc::inv( x ); }
+  static TM mySqr( const TM& x ) { return mc::pow( x, 2 ); }
+  template <typename X, typename Y> static TM myPow( const X& x, const Y& y ) { return mc::pow( x, y ); }
+  static TM myCheb( const TM& x, const unsigned n ) { return mc::cheb( x, n ); }
+  static TM mySqrt( const TM& x ) { return mc::sqrt( x ); }
+  static TM myLog( const TM& x ) { return mc::log( x ); }
+  static TM myExp( const TM& x ) { return mc::exp( x ); }
+  static TM mySin( const TM& x ) { return mc::sin( x ); }
+  static TM myCos( const TM& x ) { return mc::cos( x ); }
+  static TM myTan( const TM& x ) { return mc::tan( x ); }
+  static TM myAsin( const TM& x ) { return mc::asin( x ); }
+  static TM myAcos( const TM& x ) { return mc::acos( x ); }
+  static TM myAtan( const TM& x ) { return mc::atan( x ); }
+  static bool myEq( const TM& x, const TM& y ) { return mc::Op<T>::eq(const_cast<TM*>(&x)->bound(),const_cast<TM*>(&y)->bound()); } 
+  static bool myNe( const TM& x, const TM& y ) { return mc::Op<T>::ne(const_cast<TM*>(&x)->bound(),const_cast<TM*>(&y)->bound()); }
+  static bool myLt( const TM& x, const TM& y ) { return mc::Op<T>::lt(const_cast<TM*>(&x)->bound(),const_cast<TM*>(&y)->bound()); }
+  static bool myLe( const TM& x, const TM& y ) { return mc::Op<T>::le(const_cast<TM*>(&x)->bound(),const_cast<TM*>(&y)->bound()); }
+  static bool myGt( const TM& x, const TM& y ) { return mc::Op<T>::gt(const_cast<TM*>(&x)->bound(),const_cast<TM*>(&y)->bound()); }
+  static bool myGe( const TM& x, const TM& y ) { return mc::Op<T>::ge(const_cast<TM*>(&x)->bound(),const_cast<TM*>(&y)->bound()); }
+};
      
-  //! @brief Specialization of the structure fadbad::Op to allow usage of the type mc::TVar of MC++ as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
-  template <> template<typename T> struct Op< mc::TVar<T> >{ 
-    typedef mc::TVar<T> TM;
-    typedef double Base;
-    static Base myInteger( const int i ) { return Base(i); }
-    static Base myZero() { return myInteger(0); }
-    static Base myOne() { return myInteger(1);}
-    static Base myTwo() { return myInteger(2); }
-    static double myPI() { return mc::PI; }
-    static TM myPos( const TM& x ) { return  x; }
-    static TM myNeg( const TM& x ) { return -x; }
-    template <typename U> static TM& myCadd( TM& x, const U& y ) { return x+=y; }
-    template <typename U> static TM& myCsub( TM& x, const U& y ) { return x-=y; }
-    template <typename U> static TM& myCmul( TM& x, const U& y ) { return x*=y; }
-    template <typename U> static TM& myCdiv( TM& x, const U& y ) { return x/=y; }
-    static TM myInv( const TM& x ) { return mc::inv( x ); }
-    static TM mySqr( const TM& x ) { return mc::pow( x, 2 ); }
-    template <typename X, typename Y> static TM myPow( const X& x, const Y& y ) { return mc::pow( x, y ); }
-    static TM myCheb( const TM& x, const unsigned n ) { return mc::cheb( x, n ); }
-    static TM mySqrt( const TM& x ) { return mc::sqrt( x ); }
-    static TM myLog( const TM& x ) { return mc::log( x ); }
-    static TM myExp( const TM& x ) { return mc::exp( x ); }
-    static TM mySin( const TM& x ) { return mc::sin( x ); }
-    static TM myCos( const TM& x ) { return mc::cos( x ); }
-    static TM myTan( const TM& x ) { return mc::tan( x ); }
-    static TM myAsin( const TM& x ) { return mc::asin( x ); }
-    static TM myAcos( const TM& x ) { return mc::acos( x ); }
-    static TM myAtan( const TM& x ) { return mc::atan( x ); }
-    static bool myEq( const TM& x, const TM& y ) { return mc::Op<T>::eq(const_cast<TM*>(&x)->bound(),const_cast<TM*>(&y)->bound()); } 
-    static bool myNe( const TM& x, const TM& y ) { return mc::Op<T>::ne(const_cast<TM*>(&x)->bound(),const_cast<TM*>(&y)->bound()); }
-    static bool myLt( const TM& x, const TM& y ) { return mc::Op<T>::lt(const_cast<TM*>(&x)->bound(),const_cast<TM*>(&y)->bound()); }
-    static bool myLe( const TM& x, const TM& y ) { return mc::Op<T>::le(const_cast<TM*>(&x)->bound(),const_cast<TM*>(&y)->bound()); }
-    static bool myGt( const TM& x, const TM& y ) { return mc::Op<T>::gt(const_cast<TM*>(&x)->bound(),const_cast<TM*>(&y)->bound()); }
-    static bool myGe( const TM& x, const TM& y ) { return mc::Op<T>::ge(const_cast<TM*>(&x)->bound(),const_cast<TM*>(&y)->bound()); }
-  };
-     
-  //! @brief Specialization of the structure fadbad::Op to allow usage of the type mc::CVar of MC++ as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
-  template <> template<typename T> struct Op< mc::CVar<T> >{ 
-    typedef mc::CVar<T> CM;
-    typedef double Base;
-    static Base myInteger( const int i ) { return Base(i); }
-    static Base myZero() { return myInteger(0); }
-    static Base myOne() { return myInteger(1);}
-    static Base myTwo() { return myInteger(2); }
-    static double myPI() { return mc::PI; }
-    static CM myPos( const CM& x ) { return  x; }
-    static CM myNeg( const CM& x ) { return -x; }
-    template <typename U> static CM& myCadd( CM& x, const U& y ) { return x+=y; }
-    template <typename U> static CM& myCsub( CM& x, const U& y ) { return x-=y; }
-    template <typename U> static CM& myCmul( CM& x, const U& y ) { return x*=y; }
-    template <typename U> static CM& myCdiv( CM& x, const U& y ) { return x/=y; }
-    static CM myInv( const CM& x ) { return mc::inv( x ); }
-    static CM mySqr( const CM& x ) { return mc::pow( x, 2 ); }
-    template <typename X, typename Y> static CM myPow( const X& x, const Y& y ) { return mc::pow( x, y ); }
-    static CM myCheb( const CM& x, const unsigned n ) { return mc::cheb( x, n ); }
-    static CM mySqrt( const CM& x ) { return mc::sqrt( x ); }
-    static CM myLog( const CM& x ) { return mc::log( x ); }
-    static CM myExp( const CM& x ) { return mc::exp( x ); }
-    static CM mySin( const CM& x ) { return mc::sin( x ); }
-    static CM myCos( const CM& x ) { return mc::cos( x ); }
-    static CM myTan( const CM& x ) { return mc::tan( x ); }
-    static CM myAsin( const CM& x ) { return mc::asin( x ); }
-    static CM myAcos( const CM& x ) { return mc::acos( x ); }
-    static CM myAtan( const CM& x ) { return mc::atan( x ); }
-    static bool myEq( const CM& x, const CM& y ) { return mc::Op<T>::eq(const_cast<CM*>(&x)->bound(),const_cast<CM*>(&y)->bound()); } 
-    static bool myNe( const CM& x, const CM& y ) { return mc::Op<T>::ne(const_cast<CM*>(&x)->bound(),const_cast<CM*>(&y)->bound()); }
-    static bool myLt( const CM& x, const CM& y ) { return mc::Op<T>::lt(const_cast<CM*>(&x)->bound(),const_cast<CM*>(&y)->bound()); }
-    static bool myLe( const CM& x, const CM& y ) { return mc::Op<T>::le(const_cast<CM*>(&x)->bound(),const_cast<CM*>(&y)->bound()); }
-    static bool myGt( const CM& x, const CM& y ) { return mc::Op<T>::gt(const_cast<CM*>(&x)->bound(),const_cast<CM*>(&y)->bound()); }
-    static bool myGe( const CM& x, const CM& y ) { return mc::Op<T>::ge(const_cast<CM*>(&x)->bound(),const_cast<CM*>(&y)->bound()); }
-  };
+//! @brief Specialization of the structure fadbad::Op for use of the type mc::CVar of MC++ as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
+template< typename T > struct Op< mc::CVar<T> >
+{ 
+  typedef mc::CVar<T> CM;
+  typedef double Base;
+  static Base myInteger( const int i ) { return Base(i); }
+  static Base myZero() { return myInteger(0); }
+  static Base myOne() { return myInteger(1);}
+  static Base myTwo() { return myInteger(2); }
+  static double myPI() { return mc::PI; }
+  static CM myPos( const CM& x ) { return  x; }
+  static CM myNeg( const CM& x ) { return -x; }
+  template <typename U> static CM& myCadd( CM& x, const U& y ) { return x+=y; }
+  template <typename U> static CM& myCsub( CM& x, const U& y ) { return x-=y; }
+  template <typename U> static CM& myCmul( CM& x, const U& y ) { return x*=y; }
+  template <typename U> static CM& myCdiv( CM& x, const U& y ) { return x/=y; }
+  static CM myInv( const CM& x ) { return mc::inv( x ); }
+  static CM mySqr( const CM& x ) { return mc::pow( x, 2 ); }
+  template <typename X, typename Y> static CM myPow( const X& x, const Y& y ) { return mc::pow( x, y ); }
+  static CM myCheb( const CM& x, const unsigned n ) { return mc::cheb( x, n ); }
+  static CM mySqrt( const CM& x ) { return mc::sqrt( x ); }
+  static CM myLog( const CM& x ) { return mc::log( x ); }
+  static CM myExp( const CM& x ) { return mc::exp( x ); }
+  static CM mySin( const CM& x ) { return mc::sin( x ); }
+  static CM myCos( const CM& x ) { return mc::cos( x ); }
+  static CM myTan( const CM& x ) { return mc::tan( x ); }
+  static CM myAsin( const CM& x ) { return mc::asin( x ); }
+  static CM myAcos( const CM& x ) { return mc::acos( x ); }
+  static CM myAtan( const CM& x ) { return mc::atan( x ); }
+  static bool myEq( const CM& x, const CM& y ) { return mc::Op<T>::eq(const_cast<CM*>(&x)->bound(),const_cast<CM*>(&y)->bound()); } 
+  static bool myNe( const CM& x, const CM& y ) { return mc::Op<T>::ne(const_cast<CM*>(&x)->bound(),const_cast<CM*>(&y)->bound()); }
+  static bool myLt( const CM& x, const CM& y ) { return mc::Op<T>::lt(const_cast<CM*>(&x)->bound(),const_cast<CM*>(&y)->bound()); }
+  static bool myLe( const CM& x, const CM& y ) { return mc::Op<T>::le(const_cast<CM*>(&x)->bound(),const_cast<CM*>(&y)->bound()); }
+  static bool myGt( const CM& x, const CM& y ) { return mc::Op<T>::gt(const_cast<CM*>(&x)->bound(),const_cast<CM*>(&y)->bound()); }
+  static bool myGe( const CM& x, const CM& y ) { return mc::Op<T>::ge(const_cast<CM*>(&x)->bound(),const_cast<CM*>(&y)->bound()); }
+};
  
-  //! @brief Specialization of the structure fadbad::Op to allow usage of the type mc::Specbnd of MC++ as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
-  template <> template<typename T> struct Op< mc::Specbnd<T> >{ 
-    typedef mc::Specbnd<T> SB;
-    typedef double Base;
-    static Base myInteger( const int i ) { return Base(i); }
-    static Base myZero() { return myInteger(0); }
-    static Base myOne() { return myInteger(1);}
-    static Base myTwo() { return myInteger(2); }
-    static double myPI() { return mc::PI; }
-    static SB myPos( const SB& x ) { return  x; }
-    static SB myNeg( const SB& x ) { return -x; }
-    template <typename U> static SB& myCadd( SB& x, const U& y ) { return x+=y; }
-    template <typename U> static SB& myCsub( SB& x, const U& y ) { return x-=y; }
-    template <typename U> static SB& myCmul( SB& x, const U& y ) { return x*=y; }
-    template <typename U> static SB& myCdiv( SB& x, const U& y ) { return x/=y; }
-    static SB myInv( const SB& x ) { return mc::inv( x ); }
-    static SB mySqr( const SB& x ) { return mc::sqr( x ); }
-    template <typename X, typename Y> static SB myPow( const X& x, const Y& y ) { return mc::pow( x, y ); }
-    static SB myCheb( const SB& x, const unsigned n ) { return mc::cheb( x, n ); }
-    static SB mySqrt( const SB& x ) { return mc::sqrt( x ); }
-    static SB myLog( const SB& x ) { return mc::log( x ); }
-    static SB myExp( const SB& x ) { return mc::exp( x ); }
-    static SB mySin( const SB& x ) { return mc::sin( x ); }
-    static SB myCos( const SB& x ) { return mc::cos( x ); }
-    static SB myTan( const SB& x ) { return mc::tan( x ); }
-    static SB myAsin( const SB& x ) { return mc::asin( x ); }
-    static SB myAcos( const SB& x ) { return mc::acos( x ); }
-    static SB myAtan( const SB& x ) { return mc::atan( x ); }
-    static bool myEq( const SB& x, const SB& y ) { return mc::Op<T>::eq(x.SI(),y.SI()); } 
-    static bool myNe( const SB& x, const SB& y ) { return mc::Op<T>::ne(x.SI(),y.SI()); }
-    static bool myLt( const SB& x, const SB& y ) { return mc::Op<T>::lt(x.SI(),y.SI()); }
-    static bool myLe( const SB& x, const SB& y ) { return mc::Op<T>::le(x.SI(),y.SI()); }
-    static bool myGt( const SB& x, const SB& y ) { return mc::Op<T>::gt(x.SI(),y.SI()); }
-    static bool myGe( const SB& x, const SB& y ) { return mc::Op<T>::ge(x.SI(),y.SI()); }
-  };
+//! @brief Specialization of the structure fadbad::Op for use of the type mc::Specbnd of MC++ as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
+template<typename T> struct Op< mc::Specbnd<T> >{ 
+  typedef mc::Specbnd<T> SB;
+  typedef double Base;
+  static Base myInteger( const int i ) { return Base(i); }
+  static Base myZero() { return myInteger(0); }
+  static Base myOne() { return myInteger(1);}
+  static Base myTwo() { return myInteger(2); }
+  static double myPI() { return mc::PI; }
+  static SB myPos( const SB& x ) { return  x; }
+  static SB myNeg( const SB& x ) { return -x; }
+  template <typename U> static SB& myCadd( SB& x, const U& y ) { return x+=y; }
+  template <typename U> static SB& myCsub( SB& x, const U& y ) { return x-=y; }
+  template <typename U> static SB& myCmul( SB& x, const U& y ) { return x*=y; }
+  template <typename U> static SB& myCdiv( SB& x, const U& y ) { return x/=y; }
+  static SB myInv( const SB& x ) { return mc::inv( x ); }
+  static SB mySqr( const SB& x ) { return mc::sqr( x ); }
+  template <typename X, typename Y> static SB myPow( const X& x, const Y& y ) { return mc::pow( x, y ); }
+  static SB myCheb( const SB& x, const unsigned n ) { return mc::cheb( x, n ); }
+  static SB mySqrt( const SB& x ) { return mc::sqrt( x ); }
+  static SB myLog( const SB& x ) { return mc::log( x ); }
+  static SB myExp( const SB& x ) { return mc::exp( x ); }
+  static SB mySin( const SB& x ) { return mc::sin( x ); }
+  static SB myCos( const SB& x ) { return mc::cos( x ); }
+  static SB myTan( const SB& x ) { return mc::tan( x ); }
+  static SB myAsin( const SB& x ) { return mc::asin( x ); }
+  static SB myAcos( const SB& x ) { return mc::acos( x ); }
+  static SB myAtan( const SB& x ) { return mc::atan( x ); }
+  static bool myEq( const SB& x, const SB& y ) { return mc::Op<T>::eq(x.SI(),y.SI()); } 
+  static bool myNe( const SB& x, const SB& y ) { return mc::Op<T>::ne(x.SI(),y.SI()); }
+  static bool myLt( const SB& x, const SB& y ) { return mc::Op<T>::lt(x.SI(),y.SI()); }
+  static bool myLe( const SB& x, const SB& y ) { return mc::Op<T>::le(x.SI(),y.SI()); }
+  static bool myGt( const SB& x, const SB& y ) { return mc::Op<T>::gt(x.SI(),y.SI()); }
+  static bool myGe( const SB& x, const SB& y ) { return mc::Op<T>::ge(x.SI(),y.SI()); }
+};
+
 } // end namespace fadbad
 
 #include "fadiff.h"
 
 namespace fadbad
 {
+
 template <typename T, unsigned int N>
 INLINE2 FTypeName<T,N> pow2(const FTypeName<T,N>& a, const int b)
 {
@@ -209,6 +217,7 @@ INLINE2 FTypeName<T,N> pow2(const FTypeName<T,N>& a, const int b)
 	for(unsigned int i=0;i<N;++i) c[i]=tmp*a[i];
 	return c;
 }
+
 template <typename T >
 INLINE2 FTypeName<T,0> pow2(const FTypeName<T,0>& a, const int b)
 {
@@ -219,6 +228,7 @@ INLINE2 FTypeName<T,0> pow2(const FTypeName<T,0>& a, const int b)
 	for(unsigned int i=0;i<c.size();++i) c[i]=tmp*a[i];
 	return c;
 }
+
 template <typename T, unsigned int N>
 INLINE2 FTypeName<T,N> cheb(const FTypeName<T,N>& a, const unsigned b)
 {
@@ -240,6 +250,7 @@ INLINE2 FTypeName<T,N> cheb(const FTypeName<T,N>& a, const unsigned b)
 	for(unsigned int i=0;i<N;++i) c[i]=tmp*a[i];
 	return c;
 }
+
 template <typename T>
 INLINE2 FTypeName<T,0> cheb(const FTypeName<T,0>& a, const unsigned b)
 {
@@ -261,12 +272,14 @@ INLINE2 FTypeName<T,0> cheb(const FTypeName<T,0>& a, const unsigned b)
 	for(unsigned int i=0;i<c.size();++i) c[i]=tmp*a[i];
 	return c;
 }
+
 } // end namespace fadbad
 
 #include "tadiff.h"
 
 namespace fadbad
 {
+
 template <typename U, int N>
 struct TTypeNamePOW3 : public UnTTypeNameHV<U,N>
 {
@@ -330,6 +343,7 @@ struct TTypeNamePOW3 : public UnTTypeNameHV<U,N>
 private:
 	void operator=(const TTypeNamePOW3<U,N>&){} // not allowed
 };
+
 template <typename U, int N>
 TTypeName<U,N> pow(const TTypeName<U,N>& val, const int b)
 {
@@ -343,14 +357,13 @@ TTypeName<U,N> pow(const TTypeName<U,N>& val, const int b)
 
 #include "badiff.h"
 
-
 #include "mcop.hpp"
 
 namespace mc
 {
 
-//! @brief C++ structure for specialization of the mc::Op templated structure to allow usage of the FADBAD type fadbad::F inside other MC++ type, e.g. mc::McCormick
-template <> template<typename U> struct Op< fadbad::F<U> >
+//! @brief C++ structure for specialization of the mc::Op templated structure for use of the FADBAD type fadbad::F inside other MC++ types
+template< typename U > struct Op< fadbad::F<U> >
 {
   typedef fadbad::F<U> TU;
   static TU point( const double c ) { throw std::runtime_error("mc::Op<fadbad::F<U>>::point -- operation not permitted"); }
@@ -394,8 +407,8 @@ template <> template<typename U> struct Op< fadbad::F<U> >
   static bool ge(const TU& x, const TU& y) { throw std::runtime_error("mc::Op<fadbad::F<U>>::ge -- operation not permitted"); }
 };
 
-//! @brief C++ structure for specialization of the mc::Op templated structure to allow usage of the FADBAD type fadbad::B inside other MC++ type, e.g. mc::McCormick
-template <> template<typename U> struct Op< fadbad::B<U> >
+//! @brief C++ structure for specialization of the mc::Op templated structure for use of the FADBAD type fadbad::B inside other MC++ types
+template< typename U > struct Op< fadbad::B<U> >
 {
   typedef fadbad::B<U> TU;
   static TU point( const double c ) { throw std::runtime_error("mc::Op<fadbad::B<U>>::point -- operation not permitted"); }
@@ -439,8 +452,8 @@ template <> template<typename U> struct Op< fadbad::B<U> >
   static bool ge(const TU& x, const TU& y) { throw std::runtime_error("mc::Op<fadbad::B<U>>::ge -- operation not permitted"); }
 };
 
-//! @brief C++ structure for specialization of the mc::Op templated structure to allow usage of the FADBAD type fadbad::T inside other MC++ type, e.g. mc::McCormick
-template <> template<typename U> struct Op< fadbad::T<U> >
+//! @brief C++ structure for specialization of the mc::Op templated structure for use of the FADBAD type fadbad::T inside other MC++ types
+template< typename U > struct Op< fadbad::T<U> >
 {
   typedef fadbad::T<U> TU;
   static TU point( const double c ) { throw std::runtime_error("mc::Op<fadbad::T<U>>::point -- operation not permitted"); }

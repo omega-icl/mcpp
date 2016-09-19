@@ -1,5 +1,6 @@
-// Copyright (C) 2009-2013 Benoit Chachuat, Imperial College London.
+// Copyright (C) 2009-2016 Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
+// This code is published under the Eclipse Public License.
 
 #ifndef MC__MCFILIB_HPP
 #define MC__MCFILIB_HPP
@@ -7,9 +8,11 @@
 #include "mcop.hpp"
 #include "mcfunc.hpp"
 #include "interval/interval.hpp"
+
 namespace mc
 {
-//! @brief Specialization of the structure mc::Op to allow usage of the type filib::interval<double> of <A href="http://www.math.uni-wuppertal.de/~xsc/software/filib.html">FILIB++</A> as a template parameter in the classes mc::McCormick, mc::TModel, mc::TVar, and mc::SpecBnd
+
+//! @brief Specialization of the structure mc::Op for use of the type filib::interval<double> of <A href="http://www.math.uni-wuppertal.de/~xsc/software/filib.html">FILIB++</A> as a template parameter in other MC++ types
 template <> struct Op< filib::interval<double> >
 {
   typedef filib::interval<double> T;
@@ -55,7 +58,7 @@ template <> struct Op< filib::interval<double> >
   static bool ge(const T& x, const T& y) { return x.sge(y); }
 };
 
-//! @brief Specialization of the structure mc::Op to allow usage of the type filib::interval<double,filib::native_switched,filib::i_mode_extended> of <A href="http://www.math.uni-wuppertal.de/~xsc/software/filib.html">FILIB++</A> as a template parameter in the classes mc::McCormick, mc::TModel, mc::TVar, and mc::SpecBnd of MC++
+//! @brief Specialization of the structure mc::Op for use of the type filib::interval<double,filib::native_switched,filib::i_mode_extended> of <A href="http://www.math.uni-wuppertal.de/~xsc/software/filib.html">FILIB++</A> as a template parameter in other MC++ types
 template <> struct Op< filib::interval<double,filib::native_switched,filib::i_mode_extended> >
 {
   typedef filib::interval<double,filib::native_switched,filib::i_mode_extended> T;

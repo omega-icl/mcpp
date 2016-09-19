@@ -1,4 +1,4 @@
-// Copyright (C) 2009-2014 Benoit Chachuat, Imperial College London.
+// Copyright (C) 2009-2016 Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
@@ -3630,8 +3630,8 @@ PolImg<T>::_lineq_FSTEP
 namespace mc
 {
 
-//! @brief Specialization of the mc::Op templated structure to allow usage of type mc::PolVar as template type in other MC++ classes
-template <> template<typename T> struct Op< mc::PolVar<T> >
+//! @brief Specialization of the mc::Op templated structure for use of type mc::PolVar as template type in other MC++ classes
+template< typename T > struct Op< mc::PolVar<T> >
 {
   typedef mc::PolVar<T> PV;
   static PV point( const double c ) { return PV(c); }

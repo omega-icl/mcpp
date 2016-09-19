@@ -1,5 +1,6 @@
-// Copyright (C) 2009-2013 Benoit Chachuat, Imperial College London.
+// Copyright (C) 2009-2016 Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
+// This code is published under the Eclipse Public License.
 
 /*!
 \page page_FFDEP Structure and Dependency Detection for Factorable Functions
@@ -676,7 +677,7 @@ operator>
 namespace mc
 {
 
-//! @brief Specialization of the structure mc::Op to allow usage of the type mc::FFVar as a template parameter in other MC++ types
+//! @brief Specialization of the structure mc::Op to allow usage of the type mc::Interval for DAG evaluation or as a template parameter in other MC++ classes
 template <> struct Op< mc::FFDep >
 {
   typedef mc::FFDep FV;

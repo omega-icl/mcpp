@@ -1,5 +1,6 @@
-// Copyright (C) 2013-2014 Benoit Chachuat, Imperial College London.
+// Copyright (C) 2009-2016 Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
+// This code is published under the Eclipse Public License.
 
 /*!
 \page page_CHEBYSHEV Chebyshev Model Arithmetic for Factorable Functions
@@ -2684,8 +2685,8 @@ inter
 namespace mc
 {
 
-//! @brief C++ structure for specialization of the mc::Op templated structure to allow usage of the Chebyshev model type mc::SCVar from DAG evaluation and as template parameter inside other MC++ types
-template <> template<typename T> struct Op< mc::SCVar<T> >
+//! @brief C++ structure for specialization of the mc::Op templated structure for use of mc::SCVar in DAG evaluation and as template parameter in other MC++ types
+template< typename T > struct Op< mc::SCVar<T> >
 {
   typedef mc::SCVar<T> CV;
   static CV point( const double c ) { return CV(c); }

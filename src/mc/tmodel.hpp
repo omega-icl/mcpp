@@ -1,4 +1,4 @@
-// Copyright (C) 2009-2014 Benoit Chachuat, Imperial College London.
+// Copyright (C) 2009-2016 Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
@@ -3014,8 +3014,8 @@ inter
 namespace mc
 {
 
-//! @brief C++ structure for specialization of the mc::Op templated structure to allow usage of the Taylor model type mc::TVar inside other MC++ type, e.g. mc::McCormick
-template <> template<typename T> struct Op< mc::TVar<T> >
+//! @brief C++ structure for specialization of the mc::Op templated structure for use of mc::TVar in other MC++ classes
+template< typename T > struct Op< mc::TVar<T> >
 {
   typedef mc::TVar<T> TV;
   static TV point( const double c ) { return TV(c); }

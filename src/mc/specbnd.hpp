@@ -1,5 +1,6 @@
-// Copyright (C) 2009-2013 Benoit Chachuat, Imperial College London.
+// Copyright (C) 2009-2016 Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
+// This code is published under the Eclipse Public License.
 
 /*!
 \page page_SPECBND Eigenvalue Arithmetic for Factorable Functions
@@ -1625,8 +1626,8 @@ erfc
 namespace mc
 {
 
-//! @brief C++ structure for specialization of the mc::Op templated structure to allow usage of the type mc::Specbnd inside other classes in MC++ such as mc::TModel and mc::TVar
-template <> template<typename T> struct Op< mc::Specbnd<T> >
+//! @brief C++ structure for specialization of the mc::Op templated structure for use of mc::Specbnd in other MC++ classes
+template< typename T > struct Op< mc::Specbnd<T> >
 {
   typedef mc::Specbnd<T> SB;
   static SB point( const double c ) { return SB(c); }

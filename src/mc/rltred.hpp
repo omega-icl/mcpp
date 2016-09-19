@@ -1,11 +1,11 @@
-// Copyright (C) 2016 Benoit Chachuat, Imperial College London.
+// Copyright (C) 2009-2016 Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
 //TODO: 
 //- [TO DO] Simultaneous RLT reduction w.r.t. candidate variables
 //BUGS: 
-//- [OPEN] For division reduction, constants need to be taken into account
+//- [RESOLVED] For division reduction, constants need to be taken into account
 
 #ifndef MC__RLTRED_HPP
 #define MC__RLTRED_HPP

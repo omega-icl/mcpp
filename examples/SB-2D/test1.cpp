@@ -1,4 +1,4 @@
-#define TEST_CHEB	// <-- select test function here
+#define TEST_TRIG	// <-- select test function here
 const int NX = 50;	// <-- select X discretization here
 const int NY = 50;	// <-- select Y discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
@@ -193,8 +193,8 @@ T myfunc
 #endif
 
 ////////////////////////////////////////////////////////////////////////
+
 int main()
-////////////////////////////////////////////////////////////////////////
 {  
 
 #ifdef SAVE_RESULTS
@@ -209,12 +209,6 @@ int main()
     res << std::scientific << std::setprecision(5) << std::right;
 #endif
 
-    // Compute spectral bounds using eigenvalue arithmetic
-    SB SBX( I(XL,XU), 0, 2 );
-    SB SBY( I(YL,YU), 1, 2 );
-    SB SBF = myfunc( SBX, SBY );
-    std::cout << "\nSpectral bound (eigenvalue arithmetic):\n" << SBF;
-
     // Compute spectrum at reference point (forward-forward)
     FD FXref = Xref; FXref.diff(0,2);
     FD FYref = Yref; FYref.diff(1,2);
@@ -224,7 +218,13 @@ int main()
     std::pair<double,double> specF = SB::spectrum( FFFref );
     std::cout << "\nSpectrum at reference point: " << I(specF.first,specF.second)
               << std::endl;
-/*
+
+    // Compute spectral bounds using eigenvalue arithmetic
+    SB SBX( I(XL,XU), 0, 2 );
+    SB SBY( I(YL,YU), 1, 2 );
+    SB SBF = myfunc( SBX, SBY );
+    std::cout << "\nSpectral bound (eigenvalue arithmetic):\n" << SBF;
+
     // Compute spectral bounds from interval Hessian matrix (forward-forward)
     FI FX = I(XL,XU); FX.diff(0,2);
     FI FY = I(YL,YU); FY.diff(1,2);
@@ -286,7 +286,6 @@ int main()
       res << endl;
     }
 #endif
-*/
   }
 
 #ifndef USE_PROFIL
@@ -300,7 +299,6 @@ int main()
   }
 #endif
 #endif
-/*
   catch( MC::Exceptions &eObj ){
     cerr << "Error " << eObj.ierr()
          << " in McCormick relaxation:" << endl
@@ -322,7 +320,7 @@ int main()
          << "Aborts." << endl;
     return eObj.ierr();
   }
-*/
+
 #ifdef SAVE_RESULTS
   res.close();
 #endif

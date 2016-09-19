@@ -1,13 +1,12 @@
-// Copyright (C) 2009-2013 Benoit Chachuat, Imperial College London.
+// Copyright (C) 2009-2016 Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
+// This code is published under the Eclipse Public License.
 
 #ifndef MC__MCFUNC_HPP
 #define MC__MCFUNC_HPP
 
 #include <cmath>
 #include <cfloat>
-#include <sys/resource.h>
-#include <sys/times.h>
 
 namespace mc
 {
@@ -249,15 +248,6 @@ isequal
   double gap = std::fabs(real1-real2);
   double ave = 0.5*std::fabs(real1+real2);
   return( gap<atol+ave*rtol? true: false );
-}
-
-inline double
-time()
-{
-  // Return current time [seconds]
-  struct rusage ruse;
-  getrusage (RUSAGE_SELF, &ruse);
-  return ((double)(ruse.ru_utime.tv_sec + ruse.ru_utime.tv_usec / 1e6));
 }
 
 } // namespace mc

@@ -1,12 +1,12 @@
 #define TEST_EXP	// <-- select test function here
-const int NTE = 2;	// <-- select Taylor expansion order here
+const int NTE = 5;	// <-- select Taylor expansion order here
 const int NX = 50;	// <-- select X discretization here
 const int NY = 50;	// <-- select Y discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
 #undef USE_PROFIL	// <-- specify to use PROFIL for interval arithmetic
 #undef USE_FILIB	// <-- specify to use FILIB++ for interval arithmetic
-#undef USE_SPARSE	// <-- specify to use sparse models
-
+#define USE_SPARSE	// <-- specify to use sparse models
+#undef  MC__CVAR_SPARSE_PRODUCT_NAIVE
 ////////////////////////////////////////////////////////////////////////
 
 #include <fstream>
@@ -58,11 +58,25 @@ template <class T>
 T myfunc
 ( const T&x, const T&y )
 {
-  //return pow(x,y)/(0.5+pow(x,y));
-  return 1./(1.+0.5*pow(x,-y));
+  return pow(x,y)/(0.5+pow(x,y));
+  //return 1./(1.+0.5*pow(x,-y));
 }
 
 #elif defined( TEST_EXP )
+const double XL   =  -2.;	// <-- X range lower bound
+const double XU   =   0.;	// <-- X range upper bound
+const double Xref =  -1.;	// <-- X ref point for McCormick
+const double YL   =  0.;	// <-- Y range lower bound
+const double YU   =  2.;	// <-- Y range upper bound
+const double Yref =  1.;	// <-- Y ref point for McCormick
+template <class T>
+T myfunc
+( const T&x, const T&y )
+{
+  return exp(x*y);
+}
+
+#elif defined( TEST_EXP1 )
 const double XL   =  1.;	// <-- X range lower bound
 const double XU   =  2.;	// <-- X range upper bound
 const double Xref =  1.5;	// <-- X ref point for McCormick
@@ -125,17 +139,31 @@ T myfunc
 }
 
 #elif defined( TEST_TRIG )
-const double XL   = -0.5;	// <-- X range lower bound
-const double XU   =  0.5;	// <-- X range upper bound
+const double XL   = -0.7;	// <-- X range lower bound
+const double XU   =  0.7;	// <-- X range upper bound
 const double Xref =  0.;	// <-- X ref point for McCormick
-const double YL   = -0.5;	// <-- Y range lower bound
-const double YU   =  0.5;	// <-- Y range upper bound
+const double YL   = -0.7;	// <-- Y range lower bound
+const double YU   =  0.7;	// <-- Y range upper bound
 const double Yref =  0.;	// <-- Y ref point for McCormick
 template <class T>
 T myfunc
 ( const T&x, const T&y )
 {
   return 1.+x-sin(2.*x+3.*y)-cos(3.*x-5.*y);
+}
+
+#elif defined( TEST_TRIG2 )
+const double XL   = -0.6;	// <-- X range lower bound
+const double XU   =  0.6;	// <-- X range upper bound
+const double Xref =  0.;	// <-- X ref point for McCormick
+const double YL   = -0.6;	// <-- Y range lower bound
+const double YU   =  0.6;	// <-- Y range upper bound
+const double Yref =  0.;	// <-- Y ref point for McCormick
+template <class T>
+T myfunc
+( const T&x, const T&y )
+{
+  return exp(-sqr(x)-sqr(y)) * cos(2*PI*(sqr(x)+sqr(y)));
 }
 
 #elif defined( TEST_NORM )
@@ -154,12 +182,12 @@ T myfunc
 #endif
 
 ////////////////////////////////////////////////////////////////////////
+
 int main()
-////////////////////////////////////////////////////////////////////////
-{  
+{
 
 #ifdef SAVE_RESULTS
-  ofstream res( "CM-2D.out", ios_base::out );
+  ofstream res( "test1.out", ios_base::out );
   res << std::scientific << std::setprecision(5) << std::right;
 #endif
 
@@ -173,16 +201,16 @@ int main()
 #endif
 
     // <-- set options here -->
-    mod.options.BOUNDER_TYPE = CM::Options::LSB;//BERNSTEIN;
-    mod.options.BOUNDER_ORDER = 20;
+    mod.options.BOUNDER_TYPE = CM::Options::NAIVE;//LSB;//BERNSTEIN;
+    //mod.options.BOUNDER_ORDER = 20;
     mod.options.MIXED_IA = true;
-
+    
     // Define variables X and Y, and evaluate Chebyshev model
     CV CVX( &mod, 0, I(XL,XU) );
     CV CVY( &mod, 1, I(YL,YU) );
     CV CVF = myfunc( CVX, CVY );
     std::cout << "\nChebyshev model of f(x,y):" << CVF;
-    std::cout << "\nBernstein bounder:" << CVF.bound(CM::Options::BERNSTEIN) << std::endl;
+    //std::cout << "\nBernstein bounder:" << CVF.bound(CM::Options::BERNSTEIN) << std::endl;
 /*
     XL = XL+0.25*(XU-XL); YU = YU-0.5*(YU-YL);
     I IXY[2] = { I(XL,XU), I(YL,YU) };

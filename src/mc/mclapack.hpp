@@ -1,5 +1,6 @@
-// Copyright (C) 2009-2014 Benoit Chachuat, Imperial College London.
+// Copyright (C) 2009-2016 Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
+// This code is published under the Eclipse Public License.
 
 #ifndef MC__MCLAPACK_H
 #define MC__MCLAPACK_H

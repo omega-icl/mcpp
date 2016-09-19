@@ -10,11 +10,12 @@ unsigned int NTM = 5;	// <-- select Taylor model order here
 
 #define _DEBUG
 #define _TRACE
-#include "ffunc.hpp"
 #include <fstream>
 #include <iomanip>
 #include <sys/time.h>
 
+#include "ffunc.hpp"
+#include "rltred.hpp"
 #ifdef USE_PROFIL
   #include "mcprofil.hpp"
   typedef INTERVAL I;
@@ -1309,6 +1310,48 @@ int test_badiff()
   return 0;
 }
 
+int test_rltred()
+{
+  mc::FFGraph DAG;
+  const unsigned NX = 5, NF = 3;
+  mc::FFVar X[NX], &FT = X[0], &F1 = X[1], &F2 = X[2], &x1 = X[3], &x2 = X[4];
+  for( unsigned i(0); i<NX; i++ )  X[i].set( &DAG );
+  mc::FFVar F[NF];
+  F[0] = x1 * FT - F1;
+  F[1] = x2 * FT - F2;
+  //F[2] = x1 + x2 -1.;
+  F[2] = F1 + F2 - FT;
+  std::cout << DAG;
+
+  mc::RLTRED RRLT( &DAG );
+  RRLT.options.DISPLAY = 1;
+  RRLT.options.LEVEL   = mc::RLTRED::Options::FULLSEQ;
+  RRLT.options.NODIV   = false;
+  RRLT.search( NF, F );
+
+  return 0;
+}
+
+int test_rltred2()
+{
+  mc::FFGraph DAG;
+  const unsigned NX = 2, NF = 2;
+  mc::FFVar X[NX];
+  for( unsigned i(0); i<NX; i++ )  X[i].set( &DAG );
+  mc::FFVar F[NF];
+  F[0] = X[0] + X[1] - 1.;
+  F[1] = sqr(X[0]) - sqr(X[1]);
+  std::cout << DAG;
+
+  mc::RLTRED RRLT( &DAG );
+  RRLT.options.DISPLAY = 2;
+  RRLT.options.LEVEL   = mc::RLTRED::Options::FULLSEQ;
+  RRLT.options.NODIV   = false;
+  RRLT.search( NF, F );
+
+  return 0;
+}
+
 int main()
 {
   try{
@@ -1316,10 +1359,12 @@ int main()
     //test_DAG2();
     //test_TAD(10);
     //test_comp();
-    test_dirder();
+    //test_dirder();
     //test_sparseder();
     //test_badiff();
     //test_eval();
+    test_rltred();
+    //test_rltred2();
 
     //for( unsigned i=0; i<10; i++ ) AD_F_ODE();
     //for( unsigned i=0; i<10; i++ ) test_F_ODE( true );

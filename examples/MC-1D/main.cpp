@@ -1,8 +1,9 @@
-#define TEST_CHEB	// <-- select test function here
-const int NX = 500;	// <-- select discretization here
+#define TEST_DISC       // <-- select test function here
+const int NX = 500;	    // <-- select discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
-#define USE_PROFIL	// <-- specify to use PROFIL for interval arithmetic
-#undef USE_FILIB	// <-- specify to use FILIB++ for interval arithmetic
+#define USE_PROFIL      // <-- specify to use PROFIL for interval arithmetic
+#undef USE_FILIB        // <-- specify to use FILIB++ for interval arithmetic
+#undef USE_DAG          // <-- specify to evaluate via a DAG of the function
 
 ////////////////////////////////////////////////////////////////////////
 
@@ -104,8 +105,7 @@ template <class T>
 T myfunc
 ( const T&x )
 {
-  return cos(x);
-  //return tan(cos(x*atan(x)));
+  return tan(cos(x*atan(x)));
 }
 
 #elif defined( TEST_TRIG2 )
@@ -217,16 +217,17 @@ T myfunc
 
 #endif
 
+#ifndef USE_DAG
 ////////////////////////////////////////////////////////////////////////
 int main()
 ////////////////////////////////////////////////////////////////////////
 {  
 
   // <-- set options here -->
-  MC::options.ENVEL_USE=true;
-  MC::options.ENVEL_MAXIT=100;
-  MC::options.ENVEL_TOL=1e-12;
-  MC::options.MVCOMP_USE=true;
+  MC::options.ENVEL_USE   = true;
+  MC::options.ENVEL_MAXIT = 100;
+  MC::options.ENVEL_TOL   = 1e-12;
+  MC::options.MVCOMP_USE  = true;
 
 #ifdef SAVE_RESULTS
   ofstream res( "MC-1D.out", ios_base::out );
@@ -289,3 +290,100 @@ int main()
 #endif
   return 0;
 }
+
+#else
+
+#include "ffunc.hpp"
+
+////////////////////////////////////////////////////////////////////////
+int main()
+////////////////////////////////////////////////////////////////////////
+{  
+
+  // <-- set options here -->
+  MC::options.ENVEL_USE   = true;
+  MC::options.ENVEL_MAXIT = 100;
+  MC::options.ENVEL_TOL   = 1e-12;
+  MC::options.MVCOMP_USE  = true;
+
+#ifdef SAVE_RESULTS
+  ofstream res( "MC-1D.out", ios_base::out );
+  res << scientific << setprecision(5) << right;
+#endif
+
+  try{ 
+    // Construct DAG representation of the factorable function
+    FFGraph DAG;
+    FFVar X( &DAG );
+    FFVar Z = myfunc( X );
+#ifdef SAVE_RESULTS
+    DAG.output( DAG.subgraph( 1, &Z ) );
+    ofstream dag( "MC-1D.dot", ios_base::out );
+    DAG.dot_script( 1, &Z, dag );
+    dag.close();
+#endif
+
+    // Calculate relaxations & subgradient at point Xref
+    MC Xrel( I(XL,XU), Xref );
+    Xrel.sub(1,0); 
+    MC Zref;
+    DAG.eval( 1, &Z, &Zref, 1, &X, &Xrel );
+    cout << "Relaxation at reference point:\n" << Zref << endl;
+
+    // Repeated calculations at grid points
+    for( int iX=0; iX<NX; iX++ ){ 
+
+      double Xval = XL+iX*(XU-XL)/(NX-1.);
+      double Zval = myfunc( Xval );
+
+      MC Xrel( I(XL,XU), Xval );
+
+      // Calculate relaxations + propagate subgradient component
+      Xrel.sub(1,0);
+      MC Zrel;
+      DAG.eval( 1, &Z, &Zrel, 1, &X, &Xrel );
+
+#ifdef SAVE_RESULTS
+      res << setw(14) << Xval          << setw(14) << Zval
+          << setw(14) << Zrel.l()      << setw(14) << Zrel.u()
+          << setw(14) << Zrel.cv()     << setw(14) << Zrel.cc()
+          << setw(14) << Zrel.cvsub(0) << setw(14) << Zrel.ccsub(0)
+          << setw(14) << Zref.cv()+Zref.cvsub(0)*(Xval-Xref)
+          << setw(14) << Zref.cc()+Zref.ccsub(0)*(Xval-Xref)
+          << endl;
+#endif
+    }
+
+  }
+#ifndef USE_PROFIL
+#ifndef USE_FILIB
+  catch( I::Exceptions &eObj ){
+    cerr << "Error " << eObj.ierr()
+         << " in natural interval extension:" << endl
+	 << eObj.what() << endl
+         << "Aborts." << endl;
+    return eObj.ierr();
+  }
+#endif
+#endif
+  catch( MC::Exceptions &eObj ){
+    cerr << "Error " << eObj.ierr()
+         << " in McCormick relaxation:" << endl
+	 << eObj.what() << endl
+         << "Aborts." << endl;
+    return eObj.ierr();
+  }
+  catch( FFGraph::Exceptions &eObj ){
+    cerr << "Error " << eObj.ierr()
+         << " in DAG evaluation:" << endl
+	 << eObj.what() << endl
+         << "Aborts." << endl;
+    return eObj.ierr();
+  }
+
+#ifdef SAVE_RESULTS
+  res.close();
+#endif
+  return 0;
+}
+#endif
