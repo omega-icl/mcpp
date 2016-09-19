@@ -80,7 +80,7 @@ Information about the DAG construction and manipulation in MC++ can also be foun
 Change into the <tt>examples</tt> directory, and select one of the subdirectories, e.g.
 
 <tt>
-$ cd examples/MC-1D
+$ cd examples/test1
 </tt>
 
 At the command line, type:
@@ -92,13 +92,13 @@ $ make
 to create the executable file <tt>MC-1D</tt> and run it as:
 
 <tt>
-$ ./MC-1D
+$ ./test1
 </tt>
 
 This executable generates a file containing the McCormick relaxations and subgradients called <tt>MC-1D.out</tt>. If the plotting program <A href="http://www.gnuplot.info/">GNUPLOT</A> is installed on your computer, the resulting bounds and relaxations can be visualized by typing:
 
 <tt>
-$ gnuplot MC-1D.g
+$ gnuplot test1.g
 </tt>
 
 <CENTER><TABLE border="1">

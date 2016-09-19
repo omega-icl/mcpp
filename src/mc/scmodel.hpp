@@ -385,7 +385,7 @@ public:
   {
     //! @brief Constructor of mc::SCModel::Options
     Options():
-      INTERP_EXTRA(0), BOUNDER_TYPE(LSB), BOUNDER_ORDER(0), MIXED_IA(false),
+      INTERP_EXTRA(0), BOUNDER_TYPE(LSB), BOUNDER_ORDER(0), MIXED_IA(true),
       REF_POLY(0.), DISPLAY_DIGITS(5)
       {}
     //! @brief Copy constructor of mc::SCModel::Options

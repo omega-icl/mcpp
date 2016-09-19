@@ -6,7 +6,7 @@
 \page page_FFUNC Construction, Manipulation and Evaluation of Factorable Functions
 \author Benoit Chachuat & OMEGA Research Group (http://www3.imperial.ac.uk/environmentenergyoptimisation)
 \version 1.0
-\date 2014
+\date 2016
 \bug No known bugs.
 
 Originally introduced by McCormick [McCormick, 1976] for the development of a convex/concave relaxation arithmetic, <B>factorable functions</B> cover an extremely inclusive class of functions which can be represented finitely on a computer by means of a code list or a computational graph involving atom operations. These are typically unary and binary operations within a library of atom operators, which can be based for example on the C-code library <tt>math.h</tt>. Besides convex/concave relaxations, factorable functions find applications in automatic differentiation (AD) [Naumann, 2009] as well as in interval analysis [Moore <I>et al.</I>, 2009] and Taylor model arithmetic [Neumaier, 2002].
@@ -32,10 +32,10 @@ The constructions require the header file <tt>ffunc.hpp</tt> to be included:
 An environment <a>mc::FFGraph</a> is first defined for recording the factorable function DAG. All four variables <a>mc::FFVar</a> participating in that function are then defined in the enviornment using the method <a>mc::FFVar::set</a>:
 
 \code
-      mc::FFGraph FF;
+      mc::FFGraph DAG;
       const unsigned int NX = 4;
       mc::FFVar X[NX];
-      for( unsigned int i=0; i<NX; i++ ) X[i].set( &FF );
+      for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
 \endcode
 
 The two components of the factorable function can be defined next:
@@ -45,7 +45,7 @@ The two components of the factorable function can be defined next:
       mc::FFVar F[NF]
         = { X[2]*X[3]-X[0],
             X[0]*pow(exp(X[2]*X[3])+3.,4)+X[1] };
-      std::cout << FF;
+      std::cout << DAG;
 \endcode
 
 The last line displays the following information about the factorable function DAG:
@@ -74,8 +74,8 @@ Observe that 9 auxiliary variables, \f$z_0,\ldots,z_8\f$, have been created in t
 At this point, the member function <a>mc::FFGraph::subgraph</a> can be used to generate the subgraph of a DAG corresponding to a given subset of dependent variables. This function returns a list of const pointers <a>mc::FFOp*</a> to the operations participating in the subgraph in order of appearance, which can then be displayed using the member function <a>mc::FFGraph::output</a>:
 
 \code
-      std::list<const mc::FFOp*> op_F  = FF.subgraph( NF, F );    FF.output( op_F );
-      std::list<const mc::FFOp*> op_F0 = FF.subgraph( 1, F );     FF.output( op_F0 );
+      DAG.output( DAG.subgraph( NF, F ) );
+      DAG.output( DAG.subgraph( 1, &F[0] ) );
 \endcode
 
 The member function <a>FFGraph::subgraph</a> 
@@ -109,11 +109,11 @@ The obtained subgraphs can also be depicted using the (open source) graph plotti
 
 \code
       std::ofstream o_F( "F.dot", std::ios_base::out );
-      FF.dot_script( NF, F, o_F );
+      DAG.dot_script( NF, F, o_F );
       o_F.close();
 
       std::ofstream o_F0( "F0.dot", std::ios_base::out );
-      FF.dot_script( 1, F, o_F0 );
+      DAG.dot_script( 1, F, o_F0 );
       o_F0.close();
 \endcode
 
@@ -126,8 +126,8 @@ The graphs can be visualized, e.g., after generating SVG files using the command
 
 <CENTER><TABLE BORDER=0>
 <TR>
-<TD><h2>Graph for file <tt>F.dot</tt></h2>\image html F.png</TD>
-<TD><h2>Graph for file <tt>F0.dot</tt></h2>\image html F0.png</TD>
+<TD><h3>Graph for file <tt>F.dot</tt></h2>\image html F.png</TD>
+<TD><h3>Graph for file <tt>F0.dot</tt></h2>\image html F0.png</TD>
 </TR>
 </TABLE></CENTER>
 
@@ -139,11 +139,8 @@ Derivatives of a factorable function in mc::FFGraph can be obtained with the met
 In the forward mode of AD, for instance, entries of the Jacobian matrix of the factorable function \f$f\f$ considered in the previous section can be added to the DAG as follows:
 
 \code
-      std::vector<const mc::FFVar*> v_X, v_F;
-      for( unsigned int i=0; i<NX; i++ ) v_X.push_back( &X[i] );
-      for( unsigned int j=0; j<NF; j++ ) v_F.push_back( &F[j] );
-      std::vector<const mc::FFVar*> v_dFdX = FF.FAD( v_F, v_X );
-      std::cout << FF;
+      const mc::FFVar* dFdX_FAD = DAG.FAD( NF, F, NX, X );
+      std::cout << DAG;
 \endcode
 
 The last line displays the following information about the DAG of the factorable function and its Jacobian:
@@ -180,42 +177,169 @@ The last line displays the following information about the DAG of the factorable
       Z13   <=  4(D)                 => { Z14 }
 \endverbatim
 
-Observe that 13 extra auxiliary variables, \f$z_9,\ldots,z_{21}\f$, have been created in the DAG after the application of forward AD. Moreover, the function mc:FFGraph::FAD returns a vector of pointers to the dependent variables representing the entries \f$\frac{\partial f_i}{\partial x_j}\f$ of the Jacobian matrix of \f$f\f$ in the DAG, ordered column-wise as \f$\frac{\partial f_1}{\partial x_1},\ldots,\frac{\partial f_1}{\partial x_n},\frac{\partial f_2}{\partial x_1},\ldots,\frac{\partial f_2}{\partial x_n},\ldots\f$. 
+Observe that 13 extra auxiliary variables, \f$z_9,\ldots,z_{21}\f$, have been created in the DAG after the application of forward AD. The function mc:FFGraph::FAD returns a const array, whose entries correspond to \f$\frac{\partial f_i}{\partial x_j}\f$ of the Jacobian matrix of \f$f\f$ in the DAG, ordered column-wise as \f$\frac{\partial f_1}{\partial x_1},\ldots,\frac{\partial f_1}{\partial x_n},\frac{\partial f_2}{\partial x_1},\ldots,\frac{\partial f_2}{\partial x_n},\ldots\f$. To prevent memory leaks, this const array should be deleted before becoming out of scope.
 
 As previously, subgraphs can be constructed for all or part of the derivatives, and dot file can be generated for these subgraphs too, e.g.:
 
-
 \code
-      std::vector<const mc::FFVar*> v_F_dFdX = v_F; v_F_dFdX.insert( v_F_dFdX.end(), v_dFdX.begin(), v_dFdX.end() );
-      std::list<const mc::FFOp*> op_F_dFdX = FF.subgraph( v_F_dFdX );
-      std::ofstream o_F_dFdX( "F_dFdX.dot", std::ios_base::out );
-      FF.dot_script( v_F_dFdX, o_F_dFdX );
-      o_F_dFdX.close();
+      std::ofstream o_dFdX_FAD( "dFdX_FAD.dot", std::ios_base::out );
+      DAG.dot_script( NX*NF, dFdX_FAD, o_dFdX_FAD );
+      o_dFdX_FAD.close();
       
-      std::vector<const mc::FFVar*> v_dF1dX3; v_dF1dX3.insert( v_dF1dX3.end(), v_dFdX[NX+3] );
-      std::list<const mc::FFOp*> op_dF1dX3 = FF.subgraph( v_dF1dX3 );
-      std::ofstream o_dF1dX3( "dF1dX3.dot", std::ios_base::out );
-      FF.dot_script( v_dF1dX3, o_dF1dX3 );
-      o_dF1dX3.close();
+      std::ofstream o_dF1dX3_FAD( "dF1dX3_FAD.dot", std::ios_base::out );
+      DAG.dot_script( 1, &dFdX_FAD[NX+3], o_dF1dX3_FAD );
+      o_dF1dX3_FAD.close();
+
+      delete[] dFdX_FAD;
 \endcode
 
 The first subgraph created above corresponds to both components of the factorable function \f$f\f$ as well as all eight component of its Jacobian matrix \f$\frac{\partial {\bf f}}{\partial {\bf x}}\f$; the second subgraph is for the Jacobian element  \f$\frac{\partial f_1}{\partial x_3}\f$. The corresponding graphs are shown below.
 
 <CENTER><TABLE BORDER=0>
 <TR>
-<TD><h2>Graph for file <tt>F_dFdX.dot (forward AD)</tt></h2>\image html F_dFdX_FAD.png</TD>
-<TD><h2>Graph for file <tt>dF1dX3.dot (forward AD)</tt></h2>\image html dF1dX3_FAD.png</TD>
+<TD><h3>Graph for file <tt>dFdX_FAD.dot</tt> (forward AD)</h2>\image html dFdX_FAD.png</TD>
+<TD><h3>Graph for file <tt>dF1dX3_FAD.dot</tt> (forward AD)</h2>\image html dF1dX3_FAD.png</TD>
 </TR>
 </TABLE></CENTER>
 
-The reserve method of AD can be applied in a likewise manner using the method mc::FFGraph::BAD instead of mc::FFGRAPH::FAD, everything else remaining the same. The corresponding graphs are shown below. Note that, in constrast to forward AD, the reverse mode only requires 11 extra auxiliary variables to construct the DAG of the Jacobian matrix.
+The backward (or adjoint) method of AD can be applied in a likewise manner using the method mc::FFGraph::BAD instead of mc::FFGRAPH::FAD, everything else being the same.
+
+\code
+      const mc::FFVar* dFdX = DAG.BAD( NF, F, NX, X );
+
+      std::ofstream o_dFdX_BAD( "dFdX_BAD.dot", std::ios_base::out );
+      DAG.dot_script( NX*NF, dFdX_BAD, o_dFdX_BAD );
+      o_dFdX_BAD.close();
+      
+      std::ofstream o_dF1dX3_BAD( "dF1dX3_BAD.dot", std::ios_base::out );
+      DAG.dot_script( 1, &dFdX_BAD[NX+3], o_dF1dX3_BAD );
+      o_dF1dX3_BAD.close();
+
+      delete[] dFdX_BAD;
+\endcode
+
+
+The corresponding graphs are shown below. Note that the reverse mode leads to a DAG of the Jacobian matrix with 10 operations (+,*,pow,exp) only, whereas the forward mode needs 12 operations.
 
 <CENTER><TABLE BORDER=0>
 <TR>
-<TD><h2>Graph for file <tt>F_dFdX.dot (reverse AD)</tt></h2>\image html F_dFdX_BAD.png</TD>
-<TD><h2>Graph for file <tt>dF1dX3.dot (reverse AD)</tt></h2>\image html dF1dX3_BAD.png</TD>
+<TD><h3>Graph for file <tt>dFdX_BAD.dot</tt> (reverse AD)</h2>\image html dFdX_BAD.png</TD>
+<TD><h3>Graph for file <tt>dF1dX3_BAD.dot</tt> (reverse AD)</h2>\image html dF1dX3_BAD.png</TD>
 </TR>
 </TABLE></CENTER>
+
+The class mc::FFGraph also supports sparse derivatives, both in forward and backward modes, as well as directional derivatives in forward mode.
+
+
+\section sec_FFUNC_eval How Do I Evaluate the DAG of a Factorable Function in a Given Arithmetic?
+
+Having created the DAG of a factorable function or its derivatives, one can evaluate these functions in any arithmetic implemented in MC++ using the method mc::FFGraph::eval.
+
+Coming back to our initial example, suppose that we want to compute interval bounds on the first-order derivatives of the factorable function 
+\f{align*}
+  {\bf f} = \left(\begin{array}{c} x_2x_3-x_0\\ x_0(\exp(x_2x_3)+3.0)^4)+x_1\end{array}\right)
+\f}
+in the direction \f$(0,1,1,0)\f$, with \f$x_0\in[0,0.5]\f$, \f$x_1\in[1,2]\f$, \f$x_2\in[-1,-0.8]\f$, and \f$x_3\in[0.5,1]\f$.
+
+For simplicity, the default interval type mc::Interval of MC++ is used here:
+
+\code
+      #include "ffunc.hpp"
+      #include "interval.hpp"
+      typedef mc::Interval I;
+\endcode
+
+A DAG of the directional derivatives of \f$f\f$ is constructed first:
+
+\code
+  // DAG environment
+  mc::FFGraph DAG;
+
+  // Independent variables and derivative direction
+  const unsigned int NX = 4;
+  mc::FFVar X[NX], D[NX] = { 0., 1., 1., 0. };
+  for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
+
+  // Dependent variables
+  const unsigned int NF = 2;
+  mc::FFVar F[NF]
+    = { X[2]*X[3]-X[0],
+        X[0]*pow(exp(X[2]*X[3])+3.,4)+X[1] };
+
+  // DAG of second-order derivatives
+  const mc::FFVar* dFdXdir = DAG.FAD( NF, F, NX, X, D );
+\endcode
+
+In a second step, the DAG of directional derivatives is evaluated in real-arithmetic as follows:
+
+\code
+  // Evaluation in interval arithmetic
+  I IX[NX] = { I(0,0.5), I(1,2), I(-1,-0.8), I(0.5,1) }, IdFdXdir[NF];
+  DAG.eval( NF, dFdXdir, IdFdXdir, NX, X, IX );
+
+  // Display results
+  for( unsigned i=0; i<NF; i++ )
+    std::cout << "  dF("<< i << ")dX·D = " << IdFdXdir[i] << std::endl;
+\endcode
+
+The DAG evaluation can be carried out in sparse Chebyshev model arithmetic likewise:
+
+\code
+  #include "scmodel.hpp"
+  typedef mc::SCModel<I> SCM;
+  typedef mc::SCVar<I> SCV;
+\endcode
+
+\code
+  // Evaluation in 3rd-order Chebyshev model arithmetic
+  const unsigned ORD = 3;
+  SCM CMenv( ORD );
+  SCV CMX[NX], CMdFdXdir[NF];
+  for( unsigned i=0; i<NX; i++ ) CMX[i].set( &CMenv, i, IX[i] );
+  DAG.eval( NF, dFdXdir, CMdFdXdir, NX, X, CMX );
+
+  // Display results
+  for( unsigned i=0; i<NF; i++ )
+    std::cout << "  dF("<< i << ")dX·D = " << CMdFdXdir[i] << std::endl;
+\endcode
+
+
+These evaluations produce the following results:
+
+<h3>Evaluation in Interval Arithmetic</h2>
+\verbatim
+  dF(0)dX·D = [  5.00000e-01 :  1.00000e+00 ]
+  dF(1)dX·D = [  1.00000e+00 :  6.72863e+01 ]
+\endverbatim
+
+<h3>Evaluation in Taylor Model Arithmetic</h2>
+\verbatim
+  dF(0)dX·D = 
+     7.50000e-01   
+     2.50000e-01   T1[3] 
+       R     =  [  0.00000e+00 :  0.00000e+00 ]
+       B     =  [  5.00000e-01 :  1.00000e+00 ]
+
+  dF(1)dX·D = 
+     1.71660e+01   
+     1.61660e+01   T1[0] 
+     1.73038e+00   T1[2] 
+     3.45209e-01   T1[3] 
+     1.73038e+00   T1[0] T1[2] 
+     3.45209e-01   T1[0] T1[3] 
+     5.09515e-01   T1[2] T1[3] 
+     5.64787e-02   T2[2] 
+    -3.95484e-01   T2[3] 
+     5.09515e-01   T1[0] T1[2] T1[3] 
+     5.64787e-02   T1[0] T2[2] 
+    -3.95484e-01   T1[0] T2[3] 
+    -5.04161e-02   T1[2] T2[3] 
+     3.06189e-02   T2[2] T1[3] 
+     1.49579e-03   T3[2] 
+     4.80200e-02   T3[3] 
+       R     =  [ -1.87089e-01 :  1.87089e-01 ]
+       B     =  [  1.00000e+00 :  3.91087e+01 ]
+\endverbatim
 
 \section sec_FFUNC_TAD How Do I Obtain the DAG of the Taylor Expansion of ODE solutions?
 
@@ -241,20 +365,21 @@ As a simple illustrative example, consider the scalar linear ODE \f$\dot{x}(t) =
 A DAG of these Taylor coefficients can be generated by mc::FFGraph as follows:
 
 \code
-      mc::FFGraph FF;
-      mc::FFVar X( &FF ); std::vector<const mc::FFVar*> v_X; v_X.push_back(&X);
-      mc::FFVar F = X;    std::vector<const mc::FFVar*> v_F; v_F.push_back(&F);
+  mc::FFGraph DAG;
+  mc::FFVar T( &DAG );
+  mc::FFVar X( &DAG ); 
+  mc::FFVar F = X;
 
-      const unsigned int TEORDER = 10;
-      std::vector<const mc::FFVar*> v_FTE = FF.TAD( TEORDER, v_F, v_X );
-      std::cout << FF;
+  const unsigned NTE = 10;
+  const mc::FFVar* F_TAD = DAG.TAD( NTE, 1, &F, 1, &X, &T );
+  std::cout << DAG;
 
-      std::list<const mc::FFOp*> op_FTE = FF.subgraph( v_FTE );
-      FF.output( op_FTE );
+  DAG.output( DAG.subgraph( NTE+1, F_TAD ) );
+  std::ofstream o_TAD( "FTE.dot", std::ios_base::out );
+  DAG.dot_script( NTE+1, F_TAD, o_TAD );
+  o_TAD.close();
 
-      std::ofstream o_FTE( "FTE.dot", std::ios_base::out );
-      FF.dot_script( v_FTE, o_FTE );
-      o_FTE.close();
+  delete[] F_TAD;
 \endcode
 
 The resulting DAG of the Taylor coefficients up to order 10 is shown below.
@@ -307,192 +432,12 @@ FACTORS IN SUBGRAPH:
   Z16   <=  0.1(D)
   Z17   <=  Z15 * Z16
 \endverbatim
-<TD><h2>Graph for file <tt>TFE.dot</tt></h2>\image html FTE.png</TD>
+<TD><h3>Graph for file <tt>TFE.dot</tt></h2>\image html FTE.png</TD>
 </TR>
 </TABLE></CENTER>
 
-Naturally, the resulting DAG of Taylor coefficients can be differentiated using mc::FFGraph::FAD or mc::FFGraph::BAD in turn, or evaluated in any compatible arithmetic as explained next.
+In turn, the resulting DAG of Taylor coefficients may be differentiated using mc::FFGraph::FAD or mc::FFGraph::BAD, or evaluated in any compatible arithmetic as explained next.
 
-
-\section sec_FFUNC_eval How Do I Evaluate the DAG of a Factorable Function in a Given Arithmetic?
-
-Having created the DAG of a factorable function as well as its derivatives or Taylor coefficients, one can evaluate these functions in any compatible arithmetic using the method mc::FFGraph::eval.
-
-Coming back to our initial example, suppose that we want to compute interval bounds on the second derivatives of the factorable function 
-\f{align*}
-  {\bf f} = \left(\begin{array}{c} x_2x_3-x_0\\ x_0(\exp(x_2x_3)+3.0)^4)+x_1\end{array}\right)
-\f}
-with \f$x_0\in[0,0.5]\f$, \f$x_1\in[1,2]\f$, \f$x_2\in[-1,-0.8]\f$, and \f$x_3\in[0.5,1]\f$. For simplicity, the default interval type mc::Interval of MC++ is used here:
-
-\code
-      #include "ffunc.hpp"
-      #include "interval.hpp"
-      typedef mc::Interval I;
-\endcode
-
-First, a DAG of the second-order derivatives of \f$f\f$ is constructed as explained above---here using forward AD twice:
-
-\code
-      // DAG environment
-      mc::FFGraph FF;
-
-      // Independent variables
-      const unsigned int NX = 4;
-      mc::FFVar X[NX];
-      std::vector<const mc::FFVar*> v_X;
-      for( unsigned int i=0; i<NX; i++ ){
-        X[i].set( &FF );
-        v_X.push_back(&X[i]);
-      }
-
-      // Dependent variables
-      const unsigned int NF = 2;
-      mc::FFVar F[NF]
-        = { X[2]*X[3]-X[0],
-            X[0]*pow(exp(X[2]*X[3])+3.,4)+X[1] };
-      std::vector<const mc::FFVar*> v_F;
-      for( unsigned int j=0; j<NF; j++ )
-        v_F.push_back( &F[j] );
-
-      // DAG of second-order derivatives
-      std::vector<const mc::FFVar*> v_d2FdX2 = FF.FAD( FF.FAD( v_F, v_X ), v_X );
-\endcode
-
-In a second step, the DAG of second-order derivatives is evaluated in real-arithmetic as follows:
-
-\code
-      // Evaluation in interval arithmetic
-      I IX[NX] = { I(0,0.5), I(1,2), I(-1,-0.8), I(0.5,1) };
-      std::vector< std::pair<const mc::FFVar*,I> > v_IX;
-      for( unsigned int i=0; i<NX; i++ )
-        v_IX.push_back( std::make_pair( &X[i], IX[i] ) );
-      std::vector<I> v_Id2FdX2 = FF.eval( v_d2FdX2, v_IX );
-
-      // Display results
-      for( unsigned i=0, k=0; i<v_Id2FdX2.size(); i++ ){
-        std::cout << "  d2FdX2(" << i << ") = " << v_Id2FdX2[i] << std::endl;
-        if( ++k == NX ){ std::cout << std::endl; k = 0; }
-      }
-\endcode
-
-The DAG evaluation can be carried out in Taylor model arithmetic likewise:
-
-\code
-      #include "tmodel.hpp"
-      typedef mc::TModel<I> TM;
-      typedef mc::TVar<I> TV;
-\endcode
-
-\code
-      // Evaluation in 5th-order Taylor model arithmetic
-      TM TM_env( NX, 5 );
-      TV TVX[NX];
-      std::vector< std::pair<const mc::FFVar*,TV> > v_TVX;
-      for( unsigned int i=0; i<NX; i++ ){
-        TVX[i].set( &TM_env, i, IX[i] );
-        v_TVX.push_back( std::make_pair( &X[i], TVX[i] ) );
-      }
-      std::vector<TV> v_TVd2FdX2 = FF.eval( v_d2FdX2, v_TVX );
-
-      // Display results
-      for( unsigned i=0, k=0; i<v_TVd2FdX2.size(); i++ ){
-        std::cout << "  d2FdX2(" << i << ") = " << v_TVd2FdX2[i].B() << std::endl;
-        if( ++k == NX ){ std::cout << std::endl; k = 0; }
-\endcode
-
-
-These evaluations produce the following results:
-<CENTER><TABLE BORDER=0>
-<TR>
-<TD><h2>Evaluation in Interval Arithmetic</h2>
-\verbatim
-  d2FdX2(0) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(1) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(2) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(3) = [  0.00000e+00 :  0.00000e+00 ]
-
-  d2FdX2(4) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(5) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(6) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(7) = [  0.00000e+00 :  0.00000e+00 ]
-
-  d2FdX2(8) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(9) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(10) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(11) = [  1.00000e+00 :  1.00000e+00 ]
-
-  d2FdX2(12) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(13) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(14) = [  1.00000e+00 :  1.00000e+00 ]
-  d2FdX2(15) = [  0.00000e+00 :  0.00000e+00 ]
-
-  d2FdX2(16) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(17) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(18) = [  2.81064e+01 :  1.32573e+02 ]
-  d2FdX2(19) = [ -1.32573e+02 : -4.49702e+01 ]
-
-  d2FdX2(20) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(21) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(22) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(23) = [  0.00000e+00 :  0.00000e+00 ]
-
-  d2FdX2(24) = [  2.81064e+01 :  1.32573e+02 ]
-  d2FdX2(25) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(26) = [  0.00000e+00 :  1.02604e+02 ]
-  d2FdX2(27) = [ -6.62258e+01 :  4.80507e+01 ]
-
-  d2FdX2(28) = [ -1.32573e+02 : -4.49702e+01 ]
-  d2FdX2(29) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(30) = [ -6.62258e+01 :  4.80507e+01 ]
-  d2FdX2(31) = [  0.00000e+00 :  1.02604e+02 ]
-\endverbatim
-<TD><h2>Evaluation in Taylor Model Arithmetic</h2>
- \verbatim
-  d2FdX2(0) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(1) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(2) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(3) = [  0.00000e+00 :  0.00000e+00 ]
-
-  d2FdX2(4) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(5) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(6) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(7) = [  0.00000e+00 :  0.00000e+00 ]
-
-  d2FdX2(8) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(9) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(10) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(11) = [  1.00000e+00 :  1.00000e+00 ]
-
-  d2FdX2(12) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(13) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(14) = [  1.00000e+00 :  1.00000e+00 ]
-  d2FdX2(15) = [  0.00000e+00 :  0.00000e+00 ]
-
-  d2FdX2(16) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(17) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(18) = [  5.19577e+01 :  7.71431e+01 ]
-  d2FdX2(19) = [ -1.14333e+02 : -5.32913e+01 ]
-
-  d2FdX2(20) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(21) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(22) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(23) = [  0.00000e+00 :  0.00000e+00 ]
-
-  d2FdX2(24) = [  5.19577e+01 :  7.71431e+01 ]
-  d2FdX2(25) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(26) = [ -1.97513e+01 :  5.36111e+01 ]
-  d2FdX2(27) = [ -1.92705e+01 :  2.57043e+01 ]
-
-  d2FdX2(28) = [ -1.14333e+02 : -5.32913e+01 ]
-  d2FdX2(29) = [  0.00000e+00 :  0.00000e+00 ]
-  d2FdX2(30) = [ -1.92681e+01 :  2.57022e+01 ]
-  d2FdX2(31) = [ -3.07240e+01 :  8.59907e+01 ]
-\endverbatim
-</TR>
-</TABLE></CENTER>
-
-
-\section sec_FFUNC_eval How Do I Evaluate the DAG of a Factorable Function in a Given Arithmetic?
 
 \section sec_FFUNC_err What Errors Can I Encounter While Creating or Manipulating the DAG of a Factorable Function?
 
@@ -503,9 +448,11 @@ Possible errors encountered during the creation/manipulation of a DAG are:
 <TABLE border="1">
 <CAPTION><EM>Errors during the Creation/Manipulation of a DAG</EM></CAPTION>
      <TR><TH><b>Number</b> <TD><b>Description</b>
-     <TR><TH><tt>1</tt> <TD>Invalid mc::FFGraph* pointer in initialization of an mc::FFVar variable
+     <TR><TH><tt>1</tt> <TD>Invalid DAG pointer passed for initilization of a variable
      <TR><TH><tt>2</tt> <TD>Operation between variables linked to different DAGs
-     <TR><TH><tt>3</tt> <TD>Subgraph cannot be evaluated because an independent variable is missing
+     <TR><TH><tt>3</tt> <TD>Empty intersection between constant variables
+     <TR><TH><tt>4</tt> <TD>Missing independent variable during subgraph evaluation
+     <TR><TH><tt>5</tt> <TD>Exception thrown during DAG evaluation
      <TR><TH><tt>-1</tt> <TD>Internal Error
      <TR><TH><tt>-33</tt> <TD>Feature not yet implemented in mc::FFGraph
 </TABLE>
