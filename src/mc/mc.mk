@@ -7,8 +7,7 @@ include $(srcpath)/makeoptions.mk
 incobjs = mcfunc.hpp mctime.hpp mcop.hpp interval.hpp mccormick.hpp polymodel.hpp \
           tmodel.hpp cmodel.hpp spolymodel.hpp scmodel.hpp specbnd.hpp \
           ellipsoid.hpp ellimage.hpp polimage.hpp mcprofil.hpp mcfilib.hpp \
-          mcfadiff.hpp mcbadiff.hpp mctadiff.hpp mcfadbad.hpp mclapack.hpp \
-          ffdep.hpp ffunc.hpp rltred.hpp
+          mcfadbad.hpp mclapack.hpp ffdep.hpp ffunc.hpp rltred.hpp
 
 #####
 
