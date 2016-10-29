@@ -871,6 +871,7 @@ struct lt_FFVar
   bool operator()
     ( const FFVar*Var1, const FFVar*Var2 ) const
     {
+      assert( Var1 && Var2 );
       // Order variables/constants w.r.t. their types first
       if( Var1->_id.first < Var2->_id.first ) return true;
       if( Var1->_id.first > Var2->_id.first ) return false;

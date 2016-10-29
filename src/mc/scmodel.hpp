@@ -1760,7 +1760,7 @@ SCVar<T>::polynomial
       valmon *= _scalvar(ie->first)!=0.?
                 mc::cheb((x[ie->first]-_refvar(ie->first))/_scalvar(ie->first),ie->second):
                 _refvar(ie->first);
-    Pval += _coefmon[*it] * valmon;
+    Pval += it->second * valmon;
   }
   return Pval;
 }
