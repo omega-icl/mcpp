@@ -551,7 +551,7 @@ public:
       SQRT,	//!< Square-root with nonpositive values in range
       ASIN,	//!< Inverse sine or cosine with values outside of \f$[-1,1]\f$ range
       TAN,	//!< Tangent with values outside of \f$[-\frac{\pi}{2}+k\pi,\frac{\pi}{2}+k\pi]\f$ range
-      CHEB,	//!< Chebyshev basis function outside of [-1,1] range
+      CHEB,	//!< Chebyshev basis function different from [-1,1] range
       MULTSUB=-3,	//!< Failed to propagate subgradients for a product term with Tsoukalas & Mitsos's multivariable composition result
       ENVEL, 	//!< Failed to compute the convex or concave envelope of a univariate term
       SUB	//!< Inconsistent subgradient dimension between two mc::McCormick variables
@@ -903,6 +903,16 @@ private:
   //! @brief Compute residual derivative for junction points in the envelope of odd power terms
   static double _oddpowenv_dfunc
     ( const double x, const double*rusr, const int*iusr );
+
+  //! @brief Compute convex envelope of odd Chebyshev terms
+  static double* _oddchebcv
+    ( const double x, const int iord, const double xL, const double xU );
+  //! @brief Compute concave envelope of odd Chebyshev terms
+  static double* _oddchebcc
+    ( const double x, const int iord, const double xL, const double xU );
+  //! @brief Compute convex envelope of even Chebyshev terms
+  static double* _evenchebcv
+    ( const double x, const int iord, const double xL, const double xU );
 
   //! @brief Compute convex envelope of erf terms
   static double* _erfcv
@@ -2055,6 +2065,48 @@ McCormick<T>::_oddpowenv_dfunc
 {
   // f'(z) = p*(p-1)*z^{p-1} - a*p*(p-1)*z^{p-2}
   return ((*iusr)*(*iusr-1)*x-(*rusr)*(*iusr)*(*iusr-1))*std::pow(x,*iusr-2);
+}
+
+template <typename T> inline double*
+McCormick<T>::_evenchebcv
+( const double x, const int iord, const double xL, const double xU )
+{
+  double xjL = std::cos(PI-PI/(double)iord);
+  double xjU = std::cos(PI/(double)iord);
+  static double cv[2];
+  if( x <= xjL || x >= xjU )
+    cv[0] = mc::cheb(x,iord), cv[1] = iord*mc::cheb2(x,iord-1);
+  else
+    cv[0] = -1., cv[1] = 0.;
+  return cv;
+}
+
+template <typename T> inline double*
+McCormick<T>::_oddchebcv
+( const double x, const int iord, const double xL, const double xU )
+{
+  static double cv[2];
+  double xj = std::cos(PI/(double)iord);
+  if( x >= xj ){	 // convex part
+    cv[0] = mc::cheb(x,iord), cv[1] = iord*mc::cheb2(x,iord-1);
+    return cv;
+  }
+  cv[0] = -1., cv[1] = 0.;
+  return cv;
+}
+
+template <typename T> inline double*
+McCormick<T>::_oddchebcc
+( const double x, const int iord, const double xL, const double xU )
+{
+  static double cc[2];
+  double xj = std::cos(PI-PI/(double)iord);
+  if( x <= xj ){	 // concave part
+    cc[0] = mc::cheb(x,iord), cc[1] = iord*mc::cheb2(x,iord-1);
+    return cc;
+  }
+  cc[0] = 1., cc[1] = 0.;
+  return cc;
 }
 
 template <typename T> inline double*
@@ -3244,15 +3296,54 @@ template <typename T> inline McCormick<T>
 cheb
 ( const McCormick<T> &MC, const unsigned n )
 {
-  if ( Op<T>::l(MC._I) < -1.-1e1*machprec() || Op<T>::u(MC._I) > 1.+1e1*machprec() )
+  if ( !isequal(Op<T>::l(MC._I),-1.) || !isequal(Op<T>::u(MC._I),1.) )
     throw typename McCormick<T>::Exceptions( McCormick<T>::Exceptions::CHEB );
+
   switch( n ){
     case 0:  return 1.;
     case 1:  return MC;
+    case 2:  return 2*sqr(MC)-1;
     default: break;
   }
-  McCormick<T> MCcheb = 2.*MC*cheb(MC,n-1)-cheb(MC,n-2);
-  return( inter( MCcheb, MCcheb, McCormick<T>(T(-1.,1.)) )? MCcheb: McCormick<T>(T(-1.,1.)) );
+
+  McCormick<T> MC2;
+  MC2._sub( MC._nsub, MC._const );
+  MC2._I = Op<T>::cheb( MC._I, n );
+  if( !(n%2) ){ 
+    { int imid = -1;
+      const double* cvenv = McCormick<T>::_evenchebcv( mid( MC._cv,
+        MC._cc, Op<T>::l(MC._I), imid ), n, Op<T>::l(MC._I), Op<T>::u(MC._I) );
+      MC2._cv = cvenv[0];
+      for( unsigned int i=0; i<MC2._nsub; i++ ){
+        MC2._cvsub[i] = mid( MC._cvsub, MC._ccsub, i, imid ) * cvenv[1];
+      }
+    }
+    { MC2._cc = 1.;
+      for( unsigned int i=0; i<MC2._nsub; i++ )
+        MC2._ccsub[i] = 0.;
+    }
+  }
+  else{
+    { int imid = -1;
+      const double* cvenv = McCormick<T>::_oddchebcv( mid( MC._cv,
+        MC._cc, Op<T>::l(MC._I), imid ), n, Op<T>::l(MC._I), Op<T>::u(MC._I) );
+      MC2._cv = cvenv[0];
+      for( unsigned int i=0; i<MC2._nsub; i++ ){
+        MC2._cvsub[i] = mid( MC._cvsub, MC._ccsub, i, imid ) * cvenv[1];
+      }
+    }
+    { int imid = -1;
+      const double* ccenv = McCormick<T>::_oddchebcc( mid( MC._cv,
+        MC._cc, Op<T>::u(MC._I), imid ), n, Op<T>::l(MC._I), Op<T>::u(MC._I) );
+      MC2._cc = ccenv[0];
+      for( unsigned int i=0; i<MC2._nsub; i++ ){
+        MC2._ccsub[i] = mid( MC._cvsub, MC._ccsub, i, imid ) * ccenv[1];
+      }
+    }
+  }
+  //McCormick<T> MCcheb = 2.*MC*cheb(MC,n-1)-cheb(MC,n-2);
+  //return( inter( MCcheb, MCcheb, McCormick<T>(T(-1.,1.)) )? MCcheb: McCormick<T>(T(-1.,1.)) 
+  return MC2.cut();
 }
 
 template <typename T> inline McCormick<T>

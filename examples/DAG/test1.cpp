@@ -8,7 +8,7 @@
 
 #include "mctime.hpp"
 #include "ffunc.hpp"
-#include "rltred.hpp"
+#include "rltred_new.hpp"
 
 #ifdef USE_PROFIL
   #include "mcprofil.hpp"
@@ -466,8 +466,8 @@ int test_rltred1()
   std::cout << DAG;
 
   mc::RLTRED RRLT( &DAG );
-  RRLT.options.DISPLAY = 1;
-  RRLT.options.LEVEL   = mc::RLTRED::Options::FULLSEQ;
+  RRLT.options.DISPLAY = 2;
+  RRLT.options.LEVEL   = mc::RLTRED::Options::PRIMSEQ;
   RRLT.options.NODIV   = false;
   RRLT.search( NF, F );
 
@@ -498,6 +498,34 @@ int test_rltred2()
 
 ///////////////////////////////////////////////////////////////////////////////
 
+int test_rltred3()
+{
+  mc::FFGraph DAG;
+  const unsigned NX = 7, NF = 5;
+  mc::FFVar X[NX];
+  for( unsigned i(0); i<NX; i++ ) X[i].set( &DAG );
+  mc::FFVar F[NF];
+  F[0] =   X[0]          + 2*X[2]          +   X[4] +   X[5] - 1;
+  F[1] = 2*X[0] -   X[1]          +   X[3]          + 3*X[5] - 2;
+  F[2] =            X[1]          + 6*X[3] + 2*X[4] - 3*X[5] + 1;
+  F[3] = 2*X[0]                   +   X[3] + 3*X[4]          - 1;
+  F[4] = X[6] - X[0]*X[0] - X[1]*X[1] - 3*(X[3]*X[3]) - X[4]*X[4] - 2*(X[5]*X[5])
+       - 2*(X[0]*X[3]) - X[0]*X[4] - 2*(X[0]*X[5]) - X[1]*X[3] + X[1]*X[4]
+       - 2*(X[1]*X[5]) + X[2]*X[3] - 4*(X[2]*X[4]) - 3*(X[2]*X[5]) -6*(X[3]*X[4])
+       - 9*(X[3]*X[5]) - X[4]*X[5];
+  std::cout << DAG;
+
+  mc::RLTRED RRLT( &DAG );
+  RRLT.options.DISPLAY = 2;
+  RRLT.options.LEVEL   = mc::RLTRED::Options::PRIMSEQ;
+  RRLT.options.NODIV   = false;
+  RRLT.search( NF, F );
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 int main()
 {
   try{
@@ -508,9 +536,10 @@ int main()
     //test_dirder();
     //test_sparseder();
     //test_badiff();
-    test_eval();
+    //test_eval();
     //test_rltred1();
     //test_rltred2();
+    test_rltred3();
   }
 
 #ifndef USE_PROFIL

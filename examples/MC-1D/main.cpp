@@ -1,9 +1,9 @@
-#define TEST_DISC       // <-- select test function here
+#define TEST_CHEB       // <-- select test function here
 const int NX = 500;	    // <-- select discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
 #define USE_PROFIL      // <-- specify to use PROFIL for interval arithmetic
 #undef USE_FILIB        // <-- specify to use FILIB++ for interval arithmetic
-#undef USE_DAG          // <-- specify to evaluate via a DAG of the function
+#define USE_DAG          // <-- specify to evaluate via a DAG of the function
 
 ////////////////////////////////////////////////////////////////////////
 
@@ -184,7 +184,7 @@ template <class T>
 T myfunc
 ( const T&x )
 {
-  return cheb(x,2)+0.5*cheb(x,3);
+  return cheb(x,2)+0.5*cheb(x,3)-0.3*cheb(x,4);
 }
 
 #elif defined( TEST_INTER )
@@ -318,9 +318,9 @@ int main()
     FFVar Z = myfunc( X );
 #ifdef SAVE_RESULTS
     DAG.output( DAG.subgraph( 1, &Z ) );
-    ofstream dag( "MC-1D.dot", ios_base::out );
-    DAG.dot_script( 1, &Z, dag );
-    dag.close();
+    ofstream ofdag( "MC-1D.dot", ios_base::out );
+    DAG.dot_script( 1, &Z, ofdag );
+    ofdag.close();
 #endif
 
     // Calculate relaxations & subgradient at point Xref

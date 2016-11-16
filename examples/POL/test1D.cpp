@@ -1,4 +1,4 @@
-#define TEST_TRIG2	// <-- select test function here
+#define TEST_CHEB	// <-- select test function here
 const int NX = 500;	// <-- select discretization here
 const int NE = 5;	// <-- select polynomial model expansion here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
@@ -212,7 +212,9 @@ template <class T>
 T myfunc
 ( const T&x )
 {
-  return cheb(x,2)+0.5*cheb(x,3);
+  using mc::cheb;
+  //return cheb(x,5);
+  return cheb(x,2)+0.5*cheb(x,3)-0.3*cheb(x,4);
 }
 
 #elif defined( TEST_INTER )
@@ -301,19 +303,26 @@ void relax()
     I IX = { XL, XU };
 
     mc::FFGraph DAG;
+    DAG.options.CHEBRECURS = true;
     mc::FFVar X( &DAG );
 
 #ifndef USE_POLYMOD
     mc::FFVar F = myfunc( X );
     std::cout << DAG;
-    //return 0;
+#ifdef SAVE_RESULTS
+    DAG.output( DAG.subgraph( 1, &F ) );
+    std::ofstream ofdag( "test1D.dot", std::ios_base::out );
+    DAG.dot_script( 1, &F, ofdag );
+    ofdag.close();
+#endif
+    //return;
 
     mc::PolImg<I> PolEnv;
     PolEnv.options.AGGREG_LIN = true;
     PolEnv.options.SANDWICH_MAXCUT = 5;
     mc::PolVar<I> X_Pol( &PolEnv, X, IX ), F_Pol;
     DAG.eval( 1, &F, &F_Pol, 1, &X, &X_Pol );
-    //return 0;
+    //return;
 
  #ifdef ADD_BREAKPOINT
     PolEnv.options.BREAKPOINT_TYPE = mc::PolImg<I>::Options::SOS2;//NONE;
@@ -329,7 +338,7 @@ void relax()
     X_Pol = *PolEnv.Vars().find(&X)->second;
     DAG.eval( 1, &F, &F_Pol, 1, &X, &X_Pol );
  #endif
-    //return 0;
+    //return;
 
 #else
     // Compute polynomial model
@@ -366,6 +375,7 @@ void relax()
 
     PolEnv.generate_cuts( 1, &F_Pol, true );
     std::cout << PolEnv;
+    //return;
 
     //DAG.output( DAG.subgraph( 1, &F ) );
     //std::ofstream o_F( "F.dot", std::ios_base::out );

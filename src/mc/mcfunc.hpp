@@ -41,8 +41,20 @@ inline double cheb
   switch( n ){
     case 0:  return 1.;
     case 1:  return x;
-    default: return 2.*x*cheb(x,n-1)-cheb(x,n-2);
-    //default: return std::cos(n*std::acos(x));
+    case 2:  return 2.*x*x-1.;
+    //default: return 2.*x*cheb(x,n-1)-cheb(x,n-2);
+    default: return std::cos(n*std::acos(x));
+  }
+}
+
+inline double cheb2
+( const double x, const unsigned n )
+{
+  switch( n ){
+    case 0:  return 1.;
+    case 1:  return 2.*x;
+    case 2:  return 4.*x*x-1.;
+    default: return 2.*x*cheb2(x,n-1)-cheb2(x,n-2);
   }
 }
 

@@ -166,11 +166,11 @@ public:
   virtual SPolyVar<T>& set
     ( const T& bndrem )
     { _bndrem = bndrem; return *this; }
-/*
-  //! @brief Set multivariate polynomial coefficients and remainder term equal to those in variable <tt>var</tt>, possibly defined in another polynomial model environment with less variables or with a different expansion order. Coefficients involving other variables or higher order are initialized to 0 if <tt>reset=true</tt> (default), otherwise they are left unmodified. Higher-order terms in TV are bounded and added to the remainder bound.
+
+  //! @brief Set multivariate polynomial coefficients and remainder term equal to those in variable <tt>var</tt>, possibly defined in another polynomial model environment with fewer variables or with a different expansion order. Coefficients involving other variables or higher order are initialized to 0 if <tt>reset=true</tt> (default), otherwise they are left unmodified. Higher-order terms in TV are bounded and added to the remainder bound.
   virtual SPolyVar<T>& set
     ( const SPolyVar<T>& var, const bool reset=true );
-
+/*
   //! @brief Copy multivariate polynomial coefficients from current variable into variable <tt>var</tt>, possibly defined in another polynomial model environment with less variables or with a lower expansion order. Copied coefficients are reset to 0 in current Taylor variable if <tt>reset=true</tt>, otherwise they are left unmodified (default).
   virtual SPolyVar<T>& get
     ( SPolyVar<T>&var, const bool reset=false );
@@ -192,6 +192,12 @@ public:
   T bndpol() const
     { if( !_bndpol ) _bndpol = new T( _polybound() );
       return *_bndpol; }
+
+  //! @brief Retreive bound on all terms with (total) order <tt>minord</tt> or higher in polynomial part
+  virtual T bndord
+    ( const unsigned minord )
+    const
+    = 0;
 
   //! @brief Order of polynomial model
   virtual unsigned maxord
@@ -297,21 +303,21 @@ SPolyVar<T>::_set
 
   return *this;
 }
-/*
+
 template <typename T> inline SPolyVar<T>&
 SPolyVar<T>::set
 ( const SPolyVar<T>& var, const bool reset )
 {
   if( reset ) _coefmon.clear();
-  auto itord = var._coefmon.upper_bound( std::make_pair(nord(),std::map<unsigned,unsigned>()) );
+  auto itord = var._coefmon.upper_bound( std::make_pair(maxord(),std::map<unsigned,unsigned>()) );
   _coefmon.insert( var._coefmon.begin(), itord );
-  _bndrem  = var._bndrem + var.bndord(nord()+1);  // var may have a higher order than *this
+  _bndrem  = var._bndrem + var.bndord(maxord()+1);  // var may have a higher order than *this
   _unset_bndT();
   _unset_bndpol();
 
   return *this;
 }
-
+/*
 template <typename T> inline SPolyVar<T>&
 SPolyVar<T>::get
 ( SPolyVar<T>& var, const bool reset )

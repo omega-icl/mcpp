@@ -5,8 +5,8 @@ INC_MC = -I$(PATH_MC)/include
 include $(PATH_MC)/src/makeoptions.mk
 
 PATH_GUROBI = $(GUROBI_HOME)
-LIB_GUROBI = -L$(PATH_GUROBI)/lib -lgurobi_c++ -lgurobi56 -pthread
-INC_GUROBI = -I$(PATH_GUROBI)/include
+LIB_GUROBI  = -L$(PATH_GUROBI)/lib -lgurobi_c++ -lgurobi65 -pthread
+INC_GUROBI  = -I$(PATH_GUROBI)/include
 
 FLAG_ALL = $(FLAGS_CPP)
 LIB_ALL  = $(LIB_MC) $(LIB_LAPACK) $(LIB_FADBAD) $(LIB_PROFIL) $(LIB_FILIB) $(LIB_GUROBI)

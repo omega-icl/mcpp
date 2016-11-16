@@ -1164,18 +1164,18 @@ public:
   private:
     TYPE _ierr;
   };
-/*
+
   //! @brief Options of mc::FFGraph
   struct Options
   {
     //! @brief Constructor
     Options():
-      DCDECOMPOSE(false)
+      CHEBRECURS(true)
       {}
-    //! @brief Whether or not to append DC decomposition of product/division terms
-    bool DCDECOMPOSE;
+    //! @brief Whether or not to intersect Chebyshev variables with their recursive expressions -- this may be used to build redundancy in constructing tighter relaxations
+    bool CHEBRECURS;
   } options;
-*/
+
   //! @brief Current operation in DAG evaluation
   const FFOp* curOp() const
     { return _curOp; }
@@ -2497,21 +2497,30 @@ cheb
     }
   }
 
+  // Case integer exponent is 0,1, or 2
   switch( iOrd ){
     case 0: return( 1. );
     case 1: return Var;
     case 2: return 2.*sqr(Var)-1.;
-    case 3: return (4.*sqr(Var)-3.)*Var;
     default: break;
   }
-
+  
   // Append new intermediate variable and corresponding operation
   // (only if operation does not exist already)
   // Also append constant iOrd if not defined
-  //FFVar VarRecu = 2.*Var*cheb(Var,iOrd-1) - cheb(Var,iOrd-2);
-  FFVar VarRecu = iOrd%2? 2.*cheb(Var,iOrd/2)*cheb(Var,iOrd/2+1)-Var: 2.*sqr(cheb(Var,iOrd/2))-1.;
+  if( !Var._dag || !Var._dag->options.CHEBRECURS )
+    return FFGraph::_insert_binary_operation( FFOp::CHEB, cheb(Var._dep,iOrd), Var, (int)iOrd );
+
+  if( iOrd==3 ){
+    FFVar VarRecu = (4.*sqr(Var)-3.)*Var;
+    FFVar VarCheb = FFGraph::_insert_binary_operation( FFOp::CHEB, cheb(Var._dep,iOrd), Var, (int)iOrd );
+    return inter( VarCheb, VarRecu );
+  }
+    
+  FFVar VarRecu = iOrd==3? (4.*sqr(Var)-3.)*Var: 2.*Var*cheb(Var,iOrd-1)-cheb(Var,iOrd-2);
+  VarRecu = inter( VarRecu, iOrd%2? 2.*cheb(Var,iOrd/2)*cheb(Var,iOrd/2+1)-Var: 2.*sqr(cheb(Var,iOrd/2))-1. );
   FFVar VarCheb = FFGraph::_insert_binary_operation( FFOp::CHEB, cheb(Var._dep,iOrd), Var, (int)iOrd );
-  return inter( VarRecu, VarCheb );
+  return inter( VarCheb, VarRecu );
 }
 
 inline FFVar
