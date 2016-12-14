@@ -1203,9 +1203,9 @@ SCModel<T>::_svec1D
 const
 {
   auto ie = it->first.second.begin();
-  if( !it->first.first || ie->first != ndxvar ) // no dependence on variable #0 
+  if( !it->first.first || ie->first != ndxvar ) // no dependence on variable #ndxvar 
     vec[ 0 ].insert( *it );
-  else      // dependence on variable #0 of order ie
+  else      // dependence on variable #ndxvar of order ie
     vec[ ie->second ].insert( std::make_pair( std::make_pair( it->first.first-ie->second,
       std::map<unsigned,unsigned>( ++it->first.second.begin(),it->first.second.end() ) ),
       it->second ) );

@@ -309,7 +309,7 @@ SPolyVar<T>::set
 ( const SPolyVar<T>& var, const bool reset )
 {
   if( reset ) _coefmon.clear();
-  auto itord = var._coefmon.upper_bound( std::make_pair(maxord(),std::map<unsigned,unsigned>()) );
+  auto itord = var._coefmon.upper_bound( std::make_pair(maxord()+1,std::map<unsigned,unsigned>()) );
   _coefmon.insert( var._coefmon.begin(), itord );
   _bndrem  = var._bndrem + var.bndord(maxord()+1);  // var may have a higher order than *this
   _unset_bndT();

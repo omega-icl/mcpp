@@ -4674,7 +4674,7 @@ FFGraph::eval
   if( galexcp ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::EVAL );
   return;
 }
-*/
+
 template <typename U> inline void
 FFGraph::eval
 ( std::list<const FFOp*>&opDep, U*opRes, const unsigned nDep, const FFVar*pDep,
@@ -4745,6 +4745,70 @@ FFGraph::eval
 #ifdef MC__FFUNC_CPU_EVAL
   cputime += cpuclock();
   std::cout << "Dep. collect. time: " << std::fixed << cputime << std::endl;
+#endif
+
+  return;
+}
+*/
+
+template <typename U> inline void
+FFGraph::eval
+( std::list<const FFOp*>&opDep, U*opRes, const unsigned nDep, const FFVar*pDep,
+  U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, const bool add )
+{
+  //unsigned curdep = 0;
+
+  // Nothing to do!
+  if( !nDep ) return;
+  //assert( opDep.size() && opRes ); <-- Don't test otherwise fails with constant dependents
+  assert( pDep && vDep );
+  assert( !nVar || ( pVar && vVar ) );
+
+  // Propagate values in U arithmetic through subgraph
+#ifdef MC__FFUNC_CPU_EVAL
+  double cputime = -cpuclock();
+  std::cerr << "#operations " << opDep.size() << std::endl;
+#endif
+  //std::set<unsigned> ndxdep;
+  //for( unsigned i=0; i<nDep; i++ ) ndxdep.insert( i );
+  auto ito = opDep.begin();
+  for( U*pUres=opRes; ito!=opDep.end(); ++ito, pUres++ ){
+    // Initialize variable using values in vVar
+    if( (*ito)->type == FFOp::VAR ){
+      FFVar* pF = 0;
+      for( unsigned i=0; i<nVar; i++ ){
+        if( (*ito)->pres->id() != pVar[i].id() ) continue;
+        pF = (*ito)->pres;
+        *pUres = vVar[i];
+        break;
+      }
+      if( !pF ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::MISSVAR );
+    }
+    // Evaluate current operation
+    _curOp = *ito;
+    _curOp->evaluate( pUres );
+    // Copy values of dependent variables in vDep 
+    for( unsigned i=0; i<nDep; i++ ){
+      if( pDep[i].cst() || (*ito)->pres->id() != pDep[i].id() ) continue;
+      if( !add ) vDep[i]  = *static_cast<U*>( (*ito)->pres->val() );
+      else       vDep[i] += *static_cast<U*>( (*ito)->pres->val() );
+      //ndxset.erase( i );
+      //curdep++; std::cout << i << std::endl;
+      //break;
+    }
+  }
+  // Copy values of dependent constants in vDep 
+  for( unsigned i=0; i<nDep; i++ ){
+    if( !pDep[i].cst() ) continue;
+    if( !add ) vDep[i]  = pDep[i].num().val(); //std::cout << "constant: " << pDep[i] << " = " << pDep[i].num().val() << std::endl; }
+    else       vDep[i] += pDep[i].num().val();
+    //curdep++; std::cout << i << std::endl;
+  }
+
+  //std::cout << "#assigned dependents: " << curdep << std::endl;
+#ifdef MC__FFUNC_CPU_EVAL
+  cputime += cpuclock();
+  std::cout << "\nEvaluation time: " << std::fixed << cputime << std::endl;
 #endif
 
   return;
