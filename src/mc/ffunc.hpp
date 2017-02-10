@@ -498,6 +498,12 @@ Differentiation</A></I>, SIAM, 2009
   #include "mctime.hpp"
 #endif
 
+// For block decomposition
+extern "C" void mc13d_
+  ( const int*, const int*, const int*, const int*, const int*, int*, int*, int*, int* );
+extern "C" void mc21a_
+  ( const int*, const int*, const int*, const int*, const int*, int*, int*, int* );
+
 namespace mc
 {
 class FFOp;
@@ -1367,6 +1373,12 @@ public:
   template <typename U> void eval
     ( std::list<const FFOp*>&opDep, U*opRes, const unsigned nDep, const FFVar*pDep,
       U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, const bool add=false );
+
+  //! @brief Perform lower triangular block reaarangement of a square system
+  bool MC13
+    ( const unsigned nDep, const FFVar*pDep, const FFVar*pIndep,
+      int*IPERM, int*IOR, int*IB, int&NB, const bool disp=false,
+      std::ostream&os=std::cout );
   /** @} */
    
 protected:
@@ -4960,6 +4972,106 @@ FFGraph::depmap
   }
   
   return depmap;
+}
+
+inline bool
+FFGraph::MC13
+( const unsigned nDep, const FFVar*pDep, const FFVar*pIndep,
+  int*IPERM, int*IOR, int*IB, int&NB, const bool disp, std::ostream&os )
+{
+  // Get list of operations
+  std::vector<FFVar> pVar( pIndep, pIndep+nDep );
+  std::vector<FFDep> vVar( nDep );
+  for( unsigned i=0; i<nDep; i++ ) vVar[i].indep(i);
+  auto opDep = subgraph( nDep, pDep );
+  for( auto ito=opDep.begin(); ito!=opDep.end(); ++ito ){
+    // Operation not a variable
+    if( (*ito)->type != FFOp::VAR ) continue;
+    bool isParam = true;
+    // Operation is a current independent
+    for( unsigned i=0; isParam && i<nDep; i++ )
+      if( (*ito)->pres->id() == pIndep[i].id() ) isParam = false;
+    if( !isParam ) continue;
+    // Add dummy variable for parameter
+    pVar.push_back( *(*ito)->pres );
+    vVar.push_back( FFDep() );
+  }
+  const unsigned nVar = pVar.size();
+  std::vector<FFDep> wkDep( opDep.size() );
+  std::vector<FFDep> vDep( nDep );
+  //for( unsigned i=0; i<nVar; i++ )
+  //  std::cout << pVar[i] << " = " << vVar[i] << std::endl;
+  eval( opDep, wkDep.data(), nDep, pDep, vDep.data(), nVar, pVar.data(), vVar.data() );
+
+  // Populate sparse arrays
+  std::vector<int> IP(nDep), LENR(nDep), ICN;
+  for( unsigned i=0; i<nDep; i++ ){
+    IP[i] = ICN.size()+1;
+    LENR[i] = vDep[i].dep().size();
+    std::map<int,bool>::const_iterator cit = vDep[i].dep().begin();
+    for( ; cit != vDep[i].dep().end(); ++cit )
+      ICN.push_back( (*cit).first+1 );
+  }
+
+  // Make a row permutation to remove nonzeros on diagonal: MC21A
+  int N = IP.size(), LICN = ICN.size();
+  std::vector<int> IW(4*nDep);
+#ifdef MC__MC13_DISABLE_MC21A
+  for( unsigned i=0; i<nDep; i++ ) IPERM[i] = i+1;
+  bool singDep = false;
+#else
+  int NUMNZ; 
+  mc21a_( &N, ICN.data(), &LICN, IP.data(), LENR.data(), IPERM,
+          &NUMNZ, IW.data() );
+  bool singDep = NUMNZ<N? true: false;
+#ifdef MC__MC13_DEBUG
+  std::cout << "Structural singularity: " << (singDep?'Y':'N') << std::endl;
+#endif
+  if( singDep ) return false;
+
+  // Permute order of equation system using IPERM (!!Fortran style indices!!)
+  ICN.clear();
+  for( unsigned i=0; i<nDep; i++ ){
+    IP[i] = ICN.size()+1;
+    LENR[i] = vDep[IPERM[i]-1].dep().size();
+    std::map<int,bool>::const_iterator cit = vDep[IPERM[i]-1].dep().begin();
+    for( ; cit != vDep[IPERM[i]-1].dep().end(); ++cit )
+      ICN.push_back( (*cit).first+1 );
+  }
+#ifdef MC__MC13_DEBUG
+  std::cout << "Row reordering: ";
+  for( unsigned i=0; i<nDep; i++) std::cout << " " << IPERM[i];
+  std::cout << std::endl;
+#endif
+#endif
+
+  // Make a block lower-triangular decomposition: MC13D
+  mc13d_( &N, ICN.data(), &LICN, IP.data(), LENR.data(), IOR,
+          IB, &NB, IW.data() );
+#ifdef MC__MC13_DEBUG
+  std::cout << "Number of blocks in permuted matrix: " << NB << std::endl;
+  std::cout << "Row/Column reordering: ";
+  for( unsigned i=0; i<nDep; i++) std::cout << " " << IOR[i];
+  std::cout << std::endl;
+#endif
+
+  // Display permuted system structure
+  if( disp ){
+    std::cout << std::endl << "Number of Blocks: " << NB << std::endl;
+    os << "Lower-triangular block structure:" << std::endl
+       << "   ";
+    for( unsigned j=0; j<nDep; j++ )
+      os << " " << std::setw(3) << IOR[j]-1;
+    os << std::endl;
+    for( unsigned i=0; i<nDep; i++ ){
+      os << std::setw(3) << IPERM[IOR[i]-1]-1;
+      for( unsigned j=0; j<nDep; j++ )
+        os << std::setw(3) << " "
+           << (vDep[IPERM[IOR[i]-1]-1].dep(IOR[j]-1).first?"X":" ");
+      os << std::endl;
+    }
+  }
+  return true;
 }
 
 } // namespace mc
