@@ -1,5 +1,5 @@
 #define TEST_EXP1        // <-- select test function here
-const int NTE = 5;      // <-- select Taylor expansion order here
+const int NTE = 3;      // <-- select Taylor expansion order here
 #undef USE_PROFIL       // <-- specify to use PROFIL for interval arithmetic
 #undef USE_FILIB        // <-- specify to use FILIB++ for interval arithmetic
 ////////////////////////////////////////////////////////////////////////
@@ -190,4 +190,5 @@ int main()
   std::cout << F;
  }
   return 0;
-}
+} 
+

@@ -1727,7 +1727,7 @@ public:
       BREAKPOINT_ATOL(1e-8), BREAKPOINT_RTOL(1e-5), DCDECOMP_SCALE(false)
       {}
     //! @brief Assignment operator
-    Options& operator= ( Options&options ){
+    Options& operator= ( const Options&options ){
         AGGREG_LIN      = options.AGGREG_LIN;
         ROOT_USE        = options.ROOT_USE;
         ROOT_MAXIT      = options.ROOT_MAXIT;

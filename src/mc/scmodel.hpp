@@ -517,6 +517,11 @@ private:
 
   //! @brief Display of recursive univariate Chebyshev polynomials
   void _sdisp1D
+    ( const std::vector<SCVar<T>>& coefmon, const unsigned ndxvar,
+      const std::string&name="", std::ostream&os=std::cout ) const;
+
+  //! @brief Display of recursive univariate Chebyshev polynomials
+  void _sdisp1D
     ( const std::vector<t_coefmon>& coefmon, const unsigned ndxvar,
       const std::string&name="", std::ostream&os=std::cout ) const;
 
@@ -524,6 +529,11 @@ private:
   void _sdisp1D
     ( const t_coefmon& coefmon, const std::string&name="",
       std::ostream&os=std::cout ) const;
+
+  //! @brief Build 1D vector of Chebyshev coefficients
+  void _svec1Dfull
+    ( const unsigned ndxvar, typename t_coefmon::const_iterator it,
+      std::vector<SCVar<T>>& vec ) const;
 
   //! @brief Build 1D vector of Chebyshev coefficients
   void _svec1D
@@ -652,7 +662,7 @@ private:
 
   //! @brief Set Chebyshev variable with index <a>ix</a> (starting from 0) and bounded by <a>X</a>
   SCVar<T>& _set
-    ( const unsigned ivar, const T&X );
+    ( const unsigned ivar, const T&X, const bool updMod=true );
 
   //! @brief Product of multivariate Chebyshev polynomials in sparse format
   void _sprod
@@ -801,20 +811,16 @@ public:
   //! @brief Get coefficients of linear term for variable <tt>ivar</tt> in Chebyshev variable. The value of this coefficient is reset to 0 if <tt>reset=true</tt>, otherwise it is left unmodified (default).
   double linear
     ( const unsigned ivar, const bool reset=false );
-/*
-  //! @brief Get pointer to array of size <tt>nvar</tt> with coefficients of linear term in Chebyshev variable. Optional argument <tt>X</tt> is the actual variable range, e.g. in case some scaling has been applied (see mc::SCVar::scale)
-  double* linear
-    () const;
-    //( const T*X=0 ) const;
 
-  //! @brief Get coefficients of linear term for variable <tt>ivar</tt> in Chebyshev variable. The value of this coefficient is reset to 0 if <tt>reset=true</tt>, otherwise it is left unmodified (default). Optional argument <tt>Xvar</tt> is the actual range for variable <tt>ivar</tt>, e.g. in case some scaling has been applied (see mc::SCVar::scale)
-  //double linear
-  //  ( const unsigned ivar, const T&Xvar, const bool reset );
-
-  //! @brief Scale coefficients in Chebyshev variable for the reduced variable <a>X</a>
-  SCVar<T> scale
-    ( const T*X ) const;
-*/
+  //! @brief Scale coefficients in Chebyshev variable for the modified range <a>X</a> of variable i
+  SCVar<T>& scale
+    ( const unsigned i, const T&X );
+  //! @brief Scale coefficients in Chebyshev variable for the modified variable ranges <a>X</a>
+  SCVar<T>& scale
+    ( const T*X );
+  //! @brief Simplify the model by appending coefficient less than TOL to the remainder term
+  SCVar<T>& simplify
+    ( const double TOL=machprec() );
  /** @} */
 
   SCVar<T>& operator =
@@ -886,6 +892,11 @@ private:
   SCVar<T> _rescale
     ( const double w, const double c ) const
     { return( !isequal(w,0.)? (*this-c)/w: c ); }
+
+  //! @brief Scale object
+  template <typename U> static U _rescale
+    ( U&X, const double w, const double c )
+    { return( !isequal(w,0.)? (X-c)/w: c ); }
 
   //! @brief Return an array of Chebyshev variables representing the coefficients in the univariate polynomial for variable <a>ivar</a> only
   SCVar<T>* _single
@@ -1133,6 +1144,27 @@ const
 }
 
 template <typename T> inline void
+SCModel<T>::_sdisp1D
+( const std::vector<SCVar<T>>& vec, const unsigned ndxvar, 
+  const std::string&name, std::ostream&os )
+const
+{
+  os << name;
+  for( unsigned i=0; i<=_maxord; i++ ){
+    if( i ) os << " + T" << i << "[" << ndxvar << "] ·";
+    os << " { ";
+    for( auto it=vec[i].coefmon().begin(); it!=vec[i].coefmon().end(); ++it ){
+      if( it != vec[i].coefmon().begin() ) os << " + ";
+      os << it->second;
+      for( auto ie=it->first.second.begin(); ie!=it->first.second.end(); ++ie )
+        os << "·T" << ie->second << "[" << ie->first << "]";
+    }
+    os << " }";
+  }
+  os << std::endl;
+}
+
+template <typename T> inline void
 SCModel<T>::_sprod1D
 ( const std::vector<t_coefmon>& CV1vec,
   const std::vector<t_coefmon>& CV2vec,
@@ -1209,6 +1241,22 @@ const
     vec[ ie->second ].insert( std::make_pair( std::make_pair( it->first.first-ie->second,
       std::map<unsigned,unsigned>( ++it->first.second.begin(),it->first.second.end() ) ),
       it->second ) );
+}
+
+template <typename T> inline void
+SCModel<T>::_svec1Dfull
+( const unsigned ndxvar, typename t_coefmon::const_iterator it,
+  std::vector<SCVar<T>>& vec )
+const
+{
+  auto ie = it->first.second.find( ndxvar );
+  if( ie == it->first.second.end() ) // no dependence on variable #ndxvar 
+    vec[ 0 ].coefmon().insert( *it );
+  else{
+    t_expmon ex( it->first.first-ie->second, it->first.second );
+    ex.second.erase( ndxvar ); // remove T[ndx] entry
+    vec[ ie->second ].coefmon().insert( std::make_pair( ex, it->second ) );
+  }
 }
 
 template <typename T> inline void
@@ -1716,32 +1764,32 @@ SCVar<T>::SCVar
 
 template <typename T> inline SCVar<T>&
 SCVar<T>::_set
-( const unsigned i, const T&X )
+( const unsigned i, const T&X, const bool updMod )
 {
   if( !_CM ) throw typename SCModel<T>::Exceptions( SCModel<T>::Exceptions::INIT );  
 
   // Keep data for variable #ivar in model environment
-  _CM->_set( i, X );
+  if( updMod ) _CM->_set( i, X );
 
   // Populate model variable
   _coefmon.clear();
-  if( !isequal(_refvar(i),0.) )
+  if( !isequal(_scalvar(i),0.) )
     _coefmon.insert( std::make_pair( std::make_pair(0,std::map<unsigned,unsigned>()),_refvar(i) ) );
   if( _CM->_maxord && !isequal(_scalvar(i),0.) ){
     std::map<unsigned,unsigned> ndx_i; ndx_i.insert( std::make_pair(i,1) );
     _coefmon.insert( std::make_pair( std::make_pair(1,ndx_i),_scalvar(i) ) );
-    _set_bndpol( X );
+    _set_bndpol( _bndvar(i) );
     _bndrem = 0.;
   }
   else{
     _set_bndpol( _refvar(i) );
-    _bndrem = X - _refvar(i);
+    _bndrem = _bndvar(i) - _refvar(i);
   }
   //std::cout << "coefmon size: " << _coefmon.size() << std::endl;
 
   // Interval bounds
   //_unset_bndT();
-  if( _CM->options.MIXED_IA ) _set_bndT( X );
+  if( _CM->options.MIXED_IA ) _set_bndT( _bndvar(i) );
 
   return *this;
 }
@@ -1794,50 +1842,6 @@ SCVar<T>::linear
   return coeflin;
 }
 /*
-template <typename T> inline double*
-SCVar<T>::linear
-() const
-{
-  if( !nvar() || !maxord() ) return 0;
-
-  double*plin = new double[nvar()];
-  for( unsigned i=0; i<nvar(); i++ )
-    plin[i] = (_ndxmon.empty() || _ndxmon.find(nvar()-i)!=_ndxmon.end())?
-              _coefmon[nvar()-i]/_scalvar(i): 0.;
-  return plin;
-}
-
-template <typename T> inline SCVar<T>*
-SCVar<T>::_single
-( const unsigned ivar )
-{
-  SCVar<T>* CVcoef = new SCVar<T>[maxord()+1];
-  for( unsigned q=0; q<maxord()+1; q++ ) CVcoef[q].set( _CM, true );
-
-  // Separate constant term in case polynomial environment is NULL
-  CVcoef[0]._coefmon[0] = (_ndxmon.empty() || _ndxmon.find(0)!=_ndxmon.end())? _coefmon[0]: 0.;
-  if( !_CM ) return CVcoef;
-  unsigned*kappa = new unsigned[nvar()];
-  // Case: sparse storage
-  for( auto it=_ndxmon.begin(); it!=_ndxmon.end(); ++it ){
-    if( !*it ) continue; // To avoid double-counting of the constant term
-    for( unsigned i=0; i<nvar(); i++ ) kappa[i] = _expmon(*it)[i];
-    const unsigned q = kappa[ivar];
-    kappa[ivar] = 0;
-    CVcoef[q]._coefmon[_loc_expmon(kappa)] = _coefmon[*it];
-  }
-  // Case: dense storage
-  for( unsigned k=1; _ndxmon.empty() && k<nmon(); k++ ){
-    for( unsigned i=0; i<nvar(); i++ ) kappa[i] = _expmon(k)[i];
-    const unsigned q = kappa[ivar];
-    kappa[ivar] = 0;
-    CVcoef[q]._coefmon[_loc_expmon(kappa)] = _coefmon[k];
-  }
-  delete[] kappa;
-
-  return CVcoef;
-}
-
 template <typename T> inline SCVar<T>
 SCVar<T>::scale
 ( const T*X ) const
@@ -1845,21 +1849,134 @@ SCVar<T>::scale
   SCVar<T> CVscal( *this );
   // Return *this if null pointer to model _CM or variable ranges X
   for( unsigned i=0; _CM && X && i<nvar(); i++ ){
-    // Nothing to do for variable i if X[i] = [-1,1]
-    if( Op<T>::l(X[i]) == -1 && Op<T>::u(X[i]) == 1 ) continue;
-    // Perform caling for variable i
-    SCVar<T> CVinner( _CM ); CVinner._set( i, X[i] );
-    //std::cout << "CVinner[" << i << ":" << CVinner;
-    CVinner = CVinner._rescale( _scalvar(i), _refvar(i) );
-    //std::cout << "CVinner[" << i << "]:" << CVinner;
-    SCVar<T>*CVcoefi = CVscal._single( i );
-    CVscal = CVinner._composition( CVcoefi );
-    CVscal += *_bndrem;
-    delete[] CVcoefi;
+    // Nothing to scale if range of current variable #i did not change
+    if( isequal( Op<T>::l(X[i]), Op<T>::l(_bndvar(i)) )
+     && isequal( Op<T>::u(X[i]), Op<T>::u(_bndvar(i)) ) ) continue;
+
+    // Get coefficients in univariate polynomial representation w.r.t variable #i
+    std::vector<SCVar<T>> CVcoefi( maxord()+1 );
+    for( auto it=CVscal._coefmon.begin(); it!=CVscal._coefmon.end(); ++it )
+      _CM->_svec1D( i, it, CVcoefi );
+#ifdef MC__POLYMODEL_DEBUG_SCALE
+    _CM->_sdisp1D( CVcoefi, i, "Var #i: " );
+#endif
+
+    // Nothing to scale if independent of current variable #i
+    bool nodep = true;
+    for( unsigned k=1; nodep && k<=maxord(); k++ )
+      if( !CVcoefi[k].coefmon().empty() ) nodep = false;
+    if( nodep ) continue;
+
+    // Compose with rescaled inner variable
+    SCVar<T> CVi( _CM ); CVi._set( i, X[i], false );
+#ifdef MC__POLYMODEL_DEBUG_SCALE
+    std::cout << "CVi[" << i << "]:" << CVi;
+#endif
+    if( !isequal(_scalvar(i),0.) ){
+      CVi.constant( true );
+      CVi *= Op<T>::diam(X[i]) / (2.*_scalvar(i) );
+      CVi += Op<T>::mid(X[i]);
+    }
+#ifdef MC__POLYMODEL_DEBUG_SCALE
+    std::cout << "CVi[" << i << "]:" << CVi;
+#endif
+    CVi = CVi._rescale( _scalvar(i), _refvar(i) );
+#ifdef MC__POLYMODEL_DEBUG_SCALE
+    std::cout << "CVi[" << i << "]:" << CVi;
+#endif
+    CVscal = CVi._composition( CVcoefi.data() );
+    CVscal += _bndrem;
+    CVscal._unset_bndpol();
+    CVscal._unset_bndT();
   }
   return CVscal;
 }
 */
+template <typename T> inline SCVar<T>&
+SCVar<T>::scale
+( const unsigned i, const T&X )
+{
+  // Nothing to do if model _CM is NULL, i is outside of variable range,
+  // or variable range X did not change
+  if( !_CM || i >= nvar()
+   || ( isequal( Op<T>::l(X), Op<T>::l(_bndvar(i)) )
+     && isequal( Op<T>::u(X), Op<T>::u(_bndvar(i)) ) ) ) return *this;
+
+  // Get coefficients in univariate polynomial representation w.r.t variable #i
+  std::vector<SCVar<T>> CVcoefi( maxord()+1 );
+  for( auto it=_coefmon.begin(); it!=_coefmon.end(); ++it )
+    _CM->_svec1Dfull( i, it, CVcoefi );
+#ifdef MC__POLYMODEL_DEBUG_SCALE
+  _CM->_sdisp1D( CVcoefi, i, "Var #i: " );
+#endif
+
+  // Nothing to scale if independent of current variable #i
+  bool nodep = true;
+  for( unsigned k=1; nodep && k<=maxord(); k++ )
+    if( !CVcoefi[k].coefmon().empty() ) nodep = false;
+  if( nodep ) return *this;
+
+  // Compose with rescaled inner variable
+  SCVar<T> CVi( _CM ); CVi._set( i, X, false );
+#ifdef MC__POLYMODEL_DEBUG_SCALE
+  std::cout << "CVi[" << i << "]:" << CVi;
+#endif
+  if( !isequal(_scalvar(i),0.) ){
+    CVi -= _refvar(i); //CVi.constant( true );
+    CVi *= Op<T>::diam(X) / (2.*_scalvar(i) );
+    CVi += Op<T>::mid(X);
+  }
+#ifdef MC__POLYMODEL_DEBUG_SCALE
+  std::cout << "CVi[" << i << "]:" << CVi;
+#endif
+  CVi = CVi._rescale( _scalvar(i), _refvar(i) );
+#ifdef MC__POLYMODEL_DEBUG_SCALE
+  std::cout << "CVi[" << i << "]:" << CVi;
+#endif
+/*
+  // Compose with rescaled inner variable
+  const double scalvar0 = _scalvar(i), refvar0 = _refvar(i);
+  SCVar<T> CVi( _CM ); CVi._set( i, X );
+#ifdef MC__POLYMODEL_DEBUG_SCALE
+  std::cout << "CVi[" << i << "]:" << CVi;
+#endif
+  CVi = CVi._rescale( scalvar0, refvar0 );
+#ifdef MC__POLYMODEL_DEBUG_SCALE
+  std::cout << "CVi[" << i << "]:" << CVi;
+#endif
+*/
+  _coefmon = CVi._composition( CVcoefi.data() ).coefmon();
+  _unset_bndpol();
+  _unset_bndT();
+  return *this;
+}
+
+template <typename T> inline SCVar<T>&
+SCVar<T>::scale
+( const T*X )
+{
+  // Return *this if null pointer to model _CM or variable ranges X
+  for( unsigned i=0; _CM && X && i<nvar(); i++ )
+    scale( i, X[i] );
+  return *this;
+}
+
+template <typename T> inline SCVar<T>&
+SCVar<T>::simplify
+( const double TOL )
+{
+  // Sparse multivariate polynomial
+  for( auto it=_coefmon.begin(); it!=_coefmon.end(); ){
+    if( std::fabs(it->second) < TOL ){
+      _bndrem += it->second * (2.*Op<T>::zeroone()-1.);
+      it = _coefmon.erase( it );
+      continue;
+    }
+    ++it;
+  }
+  return *this;
+}
+
 template <typename T> inline std::ostream&
 operator<<
 ( std::ostream&out, const SCVar<T>&CV )
@@ -2651,11 +2768,20 @@ inter
 
   // Second operand not associated to SCModel
   else if( !CV2._CM ){
-    T R1 = CV1.R(), B2 = CV2.B();
+    // First intersect in T arithmetic
+    T B2 = CV2.B(), BR;
+    if( CV1._CM->options.MIXED_IA && !Op<T>::inter( BR, CV1.B(), B2 ) )
+      return false;
+
+    // Perform intersection in PM arithmetic
+    T R1 = CV1.R();
     CVR = CV1.P();
     if( !Op<T>::inter(CVR._bndrem, R1, B2-CVR.B()) )
       return false;
     CVR._center();
+
+    if( CVR._CM->options.MIXED_IA ) CVR._set_bndT( BR );
+    else CVR._unset_bndT();
     return true;
   }
 
@@ -2663,7 +2789,12 @@ inter
   else if( CV1._CM != CV2._CM )
     throw typename SCModel<T>::Exceptions( SCModel<T>::Exceptions::SCMODEL );
 
-  // Perform intersection
+  // First intersect in T arithmetic
+  T BR;
+  if( CV1._CM->options.MIXED_IA && !Op<T>::inter( BR, CV1.B(), CV2.B() ) )
+    return false;
+
+  // Perform intersection in PM arithmetic
   SCVar<T> CV1C( CV1 ), CV2C( CV2 );
   const double eta = CV1._CM->options.REF_POLY;
   T R1C = CV1C.C().R(), R2C = CV2C.C().R(); 
@@ -2675,6 +2806,9 @@ inter
   if( !Op<T>::inter( CVR._bndrem, R1C+eta*BCVD, R2C+(eta-1.)*BCVD ) )
     return false;
   CVR._center();
+
+  if( CVR._CM->options.MIXED_IA ) CVR._set_bndT( BR );
+  else CVR._unset_bndT();
   return true;
 }
 

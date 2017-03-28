@@ -342,7 +342,7 @@ public:
       {}
     //! @brief Copy constructor of mc::CModel::Options
     template <typename U> Options
-      ( U&options )
+      ( const U&options )
       : INTERP_EXTRA( options.INTERP_EXTRA ),
         BOUNDER_TYPE( options.BOUNDER_TYPE ),
         BOUNDER_ORDER( options.BOUNDER_ORDER ),
@@ -352,7 +352,7 @@ public:
       {}
     //! @brief Assignment of mc::CModel::Options
     template <typename U> Options& operator =
-      ( U&options ){
+      ( const U&options ){
         INTERP_EXTRA     = options.INTERP_EXTRA;
         BOUNDER_TYPE     = (BOUNDER)options.BOUNDER_TYPE;
         BOUNDER_ORDER    = options.BOUNDER_ORDER;
@@ -3304,11 +3304,20 @@ inter
 
   // Second operand not associated to CModel
   else if( !CV2._CM ){
-    T R1 = CV1.R(), B2 = CV2.B();
+    // First intersect in T arithmetic
+    T B2 = CV2.B(), BR;
+    if( CV1._CM->options.MIXED_IA && !Op<T>::inter( BR, CV1.B(), B2 ) )
+      return false;
+
+    // Perform intersection in PM arithmetic
+    T R1 = CV1.R();
     CVR = CV1.P();
     if( !Op<T>::inter(*(CVR._bndrem), R1, B2-CVR.B()) )
       return false;
     CVR._center();
+
+    if( CVR._CM->options.MIXED_IA ) CVR._set_bndT( BR );
+    else CVR._unset_bndT();
     return true;
   }
 
@@ -3316,7 +3325,12 @@ inter
   else if( CV1._CM != CV2._CM )
     throw typename CModel<T>::Exceptions( CModel<T>::Exceptions::CMODEL );
 
-  // Perform intersection
+  // First intersect in T arithmetic
+  T BR;
+  if( CV1._CM->options.MIXED_IA && !Op<T>::inter( BR, CV1.B(), CV2.B() ) )
+    return false;
+
+  // Perform intersection in PM arithmetic
   CVar<T> CV1C( CV1 ), CV2C( CV2 );
   const double eta = CV1._CM->options.REF_POLY;
   T R1C = CV1C.C().R(), R2C = CV2C.C().R(); 
@@ -3328,6 +3342,9 @@ inter
   if( !Op<T>::inter( *(CVR._bndrem), R1C+eta*BCVD, R2C+(eta-1.)*BCVD ) )
     return false;
   CVR._center();
+
+  if( CVR._CM->options.MIXED_IA ) CVR._set_bndT( BR );
+  else CVR._unset_bndT();
   return true;
 }
 

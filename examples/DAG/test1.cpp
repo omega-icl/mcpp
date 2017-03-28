@@ -502,9 +502,9 @@ int test_rltred3()
 {
   mc::FFGraph DAG;
   const unsigned NX = 7, NF = 5;
-  mc::FFVar X[NX];
+  std::vector<mc::FFVar> X(NX);
   for( unsigned i(0); i<NX; i++ ) X[i].set( &DAG );
-  mc::FFVar F[NF];
+  std::vector<mc::FFVar> F(NF);
   F[0] =   X[0]          + 2*X[2]          +   X[4] +   X[5] - 1;
   F[1] = 2*X[0] -   X[1]          +   X[3]          + 3*X[5] - 2;
   F[2] =            X[1]          + 6*X[3] + 2*X[4] - 3*X[5] + 1;
@@ -516,10 +516,19 @@ int test_rltred3()
   std::cout << DAG;
 
   mc::RLTRED RRLT( &DAG );
-  RRLT.options.DISPLAY = 2;
+  RRLT.options.DISPLAY = 1;
   RRLT.options.LEVEL   = mc::RLTRED::Options::PRIMSEQ;
   RRLT.options.NODIV   = false;
-  RRLT.search( NF, F );
+  RRLT.search( NF, F.data() );
+  std::vector<const mc::FFVar*> FRED = RRLT.constraints();
+  const unsigned NFRED = FRED.size();
+  for( auto it=FRED.begin(); it!=FRED.end(); ++it ) F.push_back(**it);
+
+  std::vector<int> IP(NF+NFRED), IQ(NX), IPROF(NX), IFLAG(3);
+  DAG.MC33( NF, F.data(), NX, X.data(), IP.data(), IQ.data(),
+            IPROF.data(), IFLAG.data(), true );
+  DAG.MC33( NF+NFRED, F.data(), NX, X.data(), IP.data(), IQ.data(),
+            IPROF.data(), IFLAG.data(), true );
 
   return 0;
 }

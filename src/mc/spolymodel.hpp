@@ -65,6 +65,7 @@ template <typename T>
 class SPolyVar
 ////////////////////////////////////////////////////////////////////////
 {
+  // Monomial representation: <total order, <variable index, order>>
   typedef std::pair< unsigned, std::map< unsigned, unsigned > > t_expmon;
   typedef std::map< t_expmon, double > t_coefmon;
 
@@ -160,7 +161,8 @@ public:
   //! @brief Set multivariate polynomial coefficients in variable as <tt>coefmon</tt>
   virtual SPolyVar<T>& set
     ( t_coefmon& coefmon )
-    { _coefmon = coefmon; return *this; } // this is assuming the same order and number of variables
+    { _coefmon = coefmon; _unset_bndT(); _unset_bndpol();
+      return *this; } // this is assuming the same order and number of variables
 
   //! @brief Set remainder term in variable as <tt>bndrem</tt>
   virtual SPolyVar<T>& set
@@ -241,10 +243,15 @@ public:
     const
     { return remainder(); }
 
-  //! @brief Get map of monomial coefficients
+  //! @brief Get const map of monomial coefficients
   const t_coefmon& coefmon
     ()
     const
+    { return _coefmon; }
+
+  //! @brief Get map of monomial coefficients
+  t_coefmon& coefmon
+    ()
     { return _coefmon; }
 
   //! @brief Overloaded operator '=' for polynomial model variables

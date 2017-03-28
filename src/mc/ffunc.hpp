@@ -503,6 +503,9 @@ extern "C" void mc13d_
   ( const int*, const int*, const int*, const int*, const int*, int*, int*, int*, int* );
 extern "C" void mc21a_
   ( const int*, const int*, const int*, const int*, const int*, int*, int*, int* );
+extern "C" void mc33ad_
+  ( const int*, const int*, const int*, int*, const int*, double*, int*, int*, int*,
+    int*, int*, int*, int*, int*, int* );
 
 namespace mc
 {
@@ -1264,7 +1267,7 @@ public:
     ( const unsigned nDep, const FFVar* const pDep, const unsigned nIndep,
       const FFVar* const pIndep, const FFVar* const pDir=0 );
 
-  //! @brief Expand DAG with derivatives of of <a>nDep</a> dependents in array <a>pDep</a> with respect to <a>nIndep</a> independents in array <a>pIndep</a> using fadbad::F -- Returns a 4-tuple of size and arrays with the row index, column index, and actual Jacobian element for each non-zero entry in the lower (LUopt=true) or upper (LUopt=false) traingular part of the Jacobian matrix
+  //! @brief Expand DAG with derivatives of of <a>nDep</a> dependents in array <a>pDep</a> with respect to <a>nIndep</a> independents in array <a>pIndep</a> using fadbad::F -- Returns a 4-tuple of size and arrays with the row index, column index, and actual Jacobian element for each non-zero entry in the lower (LUopt=true) or upper (LUopt=false) triangular part of the Jacobian matrix
   std::tuple< unsigned, const unsigned*, const unsigned*, const FFVar* > SFAD
     ( const unsigned nDep, const FFVar* const pDep, const unsigned nIndep,
       const FFVar* const pIndep, const bool LUopt );
@@ -1379,6 +1382,45 @@ public:
     ( const unsigned nDep, const FFVar*pDep, const FFVar*pIndep,
       int*IPERM, int*IOR, int*IB, int&NB, const bool disp=false,
       std::ostream&os=std::cout );
+  //! @brief Perform bordered-block triangular reaarangement of a possibly non-square system
+  bool MC33
+    ( const unsigned nDep, const FFVar*pDep, const unsigned nIndep,
+      const FFVar*pIndep, int*IP, int*IQ, int*IPROF, int*IFLAG, const bool disp=false,
+      std::ostream&os=std::cout );
+
+  //! @brief Compute (symbolic) trace of a square matrix
+  static FFVar trace
+    ( const unsigned n, const FFVar*A );
+
+  //! @brief Compute (symbolic) sum of two matrices
+  static FFVar* sum
+    ( const unsigned m, const unsigned n,
+      const FFVar*A, const FFVar*B );
+  static void sum
+    ( const unsigned m, const unsigned n, const FFVar*A,
+      const FFVar*B, FFVar*AB );
+
+  //! @brief Compute (symbolic) difference of two matrices
+  static FFVar* sub
+    ( const unsigned m, const unsigned n,
+      const FFVar*A, const FFVar*B );
+  static void sub
+    ( const unsigned m, const unsigned n, const FFVar*A,
+      const FFVar*B, FFVar*AB );
+
+  //! @brief Compute (symbolic) product of two matrices
+  static FFVar* prod
+    ( const unsigned m, const unsigned n, const unsigned p,
+      const FFVar*A, const FFVar*B );
+  static void prod
+    ( const unsigned m, const unsigned n, const unsigned p,
+      const FFVar*A, const FFVar*B, FFVar*AB );
+
+  //! @brief Compute (symbolic) determinant of a square matrix
+  static FFVar* polchar
+    ( const unsigned n, const FFVar*A );
+  static FFVar det
+    ( const unsigned n, const FFVar*A );
   /** @} */
    
 protected:
@@ -1681,39 +1723,6 @@ operator+
       return FFGraph::_insert_binary_operation( FFOp::PLUS, Var1._dep+Var2._dep, Var1, Var2 );
     }
   }
-/*
-  // Case either or both operands are (unreferenced) numeric constants
-  if( Var1._id.second == FFVar::NOREF && Var2._id.second == FFVar::NOREF ){
-    switch( Var1._num.t ){
-      case FFNum::INT:
-      switch( Var2._num.t ){
-        case FFNum::INT:   return( Var1._num.n + Var2._num.n );
-        case FFNum::REAL:  return( Var1._num.n + Var2._num.x );
-      }
-      case FFNum::REAL:
-      switch( Var2._num.t ){
-        case FFNum::INT:   return( Var1._num.x + Var2._num.n );
-        case FFNum::REAL:  return( Var1._num.x + Var2._num.x );
-      }
-    }
-  }
-  if( Var1._id.second == FFVar::NOREF ){
-    switch( Var1._num.t ){
-      case FFNum::INT:   return( Var2 + Var1._num.n );
-      case FFNum::REAL:  return( Var2 + Var1._num.x );
-    }
-  }
-  if( Var2._id.second == FFVar::NOREF ){
-    switch( Var2._num.t ){
-      case FFNum::INT:   return( Var1 + Var2._num.n );
-      case FFNum::REAL:  return( Var1 + Var2._num.x );
-    }
-  }
-
-  // Append new intermediate variable and corresponding operation
-  // (only if operation does not exist already)
-  return FFGraph::_insert_binary_operation( FFOp::PLUS, Var1._dep+Var2._dep, Var1, Var2 );
-*/
 }
 
 template <typename U> inline FFVar
@@ -1731,20 +1740,6 @@ operator+
   default:
     return FFGraph::_insert_binary_operation( FFOp::PLUS, Cst1+Var2._dep, (double)Cst1, Var2 );
   }
-/*
-  // Case right operand is (unreferenced) numeric constrants
-  if( Var2._id.second == FFVar::NOREF ){
-    switch( Var2._num.t ){
-      case FFNum::INT:   return( Cst1 + Var2._num.n );
-      case FFNum::REAL:  return( Cst1 + Var2._num.x );
-    }
-  }
-
-  // Append new intermediate variable and corresponding operation
-  // (only if operation does not exist already)
-  // Also append constant Cst1 if not defined
-  return FFGraph::_insert_binary_operation( FFOp::PLUS, Cst1+Var2._dep, (double)Cst1, Var2 );
-*/
 }
 
 template <typename U> inline FFVar
@@ -1771,19 +1766,6 @@ operator-
   default:
     return FFGraph::_insert_unary_operation( FFOp::NEG, -Var._dep, Var );
   }
-/*
-  // Case right operand is a numeric constant
-  if( Var._id.second == FFVar::NOREF ){
-    switch( Var._num.t ){
-      case FFNum::INT:   return( -Var._num.n );
-      case FFNum::REAL:  return( -Var._num.x );
-    }
-  }
-
-  // Append new intermediate variable and corresponding operation
-  // (only if operation does not exist already)
-  return FFGraph::_insert_unary_operation( FFOp::NEG, -Var._dep, Var );
-*/
 }
 
 template <typename U> inline FFVar&
@@ -1830,42 +1812,6 @@ operator-
       return FFGraph::_insert_binary_operation( FFOp::MINUS, Var1._dep-Var2._dep, Var1, Var2 );
     }
   }
-/*
-  // Case either or both operands are numeric constants
-  if( Var1._id.second == FFVar::NOREF
-   && Var2._id.second == FFVar::NOREF ){
-    switch( Var1._num.t ){
-      case FFNum::INT:
-      switch( Var2._num.t ){
-        case FFNum::INT:   return( Var1._num.n - Var2._num.n );
-        case FFNum::REAL:  return( Var1._num.n - Var2._num.x );
-      }
-      case FFNum::REAL:
-      switch( Var2._num.t ){
-        case FFNum::INT:   return( Var1._num.x - Var2._num.n );
-        case FFNum::REAL:  return( Var1._num.x - Var2._num.x );
-      }
-    }
-  }
-
-  if( Var1._id.second == FFVar::NOREF ){
-    switch( Var1._num.t ){
-      case FFNum::INT:   return( (double)Var1._num.n - Var2 );
-      case FFNum::REAL:  return( Var1._num.x - Var2 );
-    }
-  }
-  
-  if( Var2._id.second == FFVar::NOREF ){
-    switch( Var2._num.t ){
-      case FFNum::INT:   return( Var1 - (double)Var2._num.n );
-      case FFNum::REAL:  return( Var1 - Var2._num.x );
-    }
-  }
-
-  // Append new intermediate variable and corresponding operation
-  // (only if operation does not exist already)
-  return FFGraph::_insert_binary_operation( FFOp::MINUS, Var1._dep-Var2._dep, Var1, Var2 );
-*/
 }
 
 template <typename U> inline FFVar
@@ -1883,23 +1829,6 @@ operator-
   default:
     return FFGraph::_insert_binary_operation( FFOp::MINUS, Var1._dep-Cst2, Var1, (double)Cst2 );
   }
-/*
-  // Case constant is zero
-  if( Cst2 == 0. ) return Var1;
-
-  // Case right operand is a numeric constant
-  if( Var1._id.second == FFVar::NOREF ){
-    switch( Var1._num.t ){
-      case FFNum::INT:   return( Var1._num.n - Cst2 );
-      case FFNum::REAL:  return( Var1._num.x - Cst2 );
-    }
-  }
-
-  // Append new intermediate variable and corresponding operation
-  // (only if operation does not exist already)
-  // Also append constant Cst2 if not defined
-  return FFGraph::_insert_binary_operation( FFOp::MINUS, Var1._dep-Cst2, Var1, (double)Cst2 );
-*/
 }
 
 template <typename U> inline FFVar
@@ -1917,20 +1846,6 @@ operator-
   default:
     return FFGraph::_insert_binary_operation( FFOp::MINUS, Cst1-Var2._dep, (double)Cst1, Var2 );
   }
-/*
-  // Case right operand is a numeric constant
-  if( Var2._id.second == FFVar::NOREF ){
-    switch( Var2._num.t ){
-      case FFNum::INT:   return( Cst1 - Var2._num.n );
-      case FFNum::REAL:  return( Cst1 - Var2._num.x );
-    }
-  }
-
-  // Append new intermediate variable and corresponding operation
-  // (only if operation does not exist already)
-  // Also append constant Cst1 if not defined
-  return FFGraph::_insert_binary_operation( FFOp::MINUS, Cst1-Var2._dep, (double)Cst1, Var2 );
-*/
 }
 
 template <typename U> inline FFVar&
@@ -1980,41 +1895,6 @@ operator*
      }
     }
   }
-/*
-  // Case either or both operands are numeric constants
-  if( Var1._id.second == FFVar::NOREF && Var2._id.second == FFVar::NOREF ){
-    switch( Var1._num.t ){
-      case FFNum::INT:
-      switch( Var2._num.t ){
-        case FFNum::INT:   return( Var1._num.n * Var2._num.n );
-        case FFNum::REAL:  return( Var1._num.n * Var2._num.x );
-      }
-      case FFNum::REAL:
-      switch( Var2._num.t ){
-        case FFNum::INT:   return( Var1._num.x * Var2._num.n );
-        case FFNum::REAL:  return( Var1._num.x * Var2._num.x );
-      }
-    }
-  }
-
-  if( Var1._id.second == FFVar::NOREF ){
-    switch( Var1._num.t ){
-      case FFNum::INT:   return( (double)Var1._num.n * Var2 );
-      case FFNum::REAL:  return( Var1._num.x * Var2 );
-    }
-  }
-  
-  if( Var2._id.second == FFVar::NOREF ){
-    switch( Var2._num.t ){
-      case FFNum::INT:   return( Var1 * (double)Var2._num.n );
-      case FFNum::REAL:  return( Var1 * Var2._num.x );
-    }
-  }
-
-  // Append new intermediate variable and corresponding operation
-  // (only if operation does not exist already)
-  return FFGraph::_insert_binary_operation( FFOp::TIMES, Var1._dep*Var2._dep, Var1, Var2 );
-*/
 }
 
 template <typename U> inline FFVar
@@ -2043,20 +1923,6 @@ operator*
   default:
     return FFGraph::_insert_binary_operation( FFOp::SCALE, Cst1*Var2._dep, (double)Cst1, Var2 );
   }
-/*
-  // Case right operand is a numeric constant
-  if( Var2._id.second == FFVar::NOREF ){
-    switch( Var2._num.t ){
-      case FFNum::INT:   return( Cst1 * Var2._num.n );
-      case FFNum::REAL:  return( Cst1 * Var2._num.x );
-    }
-  }
-
-  // Append new intermediate variable and corresponding operation
-  // (only if operation does not exist already)
-  // Also append constant Cst1 if not defined
-  return FFGraph::_insert_binary_operation( FFOp::SCALE, Cst1*Var2._dep, (double)Cst1, Var2 );
-*/
 }
 
 template <typename U> inline FFVar&
@@ -2106,40 +1972,6 @@ operator/
      }
     }
   }
-/*
-  // Case either or both operands are numeric constants
-  if( Var1._id.second == FFVar::NOREF && Var2._id.second == FFVar::NOREF ){
-    switch( Var1._num.t ){
-      case FFNum::INT:
-      switch( Var2._num.t ){
-        case FFNum::INT:   return( Var1._num.n / Var2._num.n );
-        case FFNum::REAL:  return( Var1._num.n / Var2._num.x );
-      }
-      case FFNum::REAL:
-      switch( Var2._num.t ){
-        case FFNum::INT:   return( Var1._num.x / Var2._num.n );
-        case FFNum::REAL:  return( Var1._num.x / Var2._num.x );
-      }
-    }
-  }
-
-  if( Var1._id.second == FFVar::NOREF ){
-    switch( Var1._num.t ){
-      case FFNum::INT:   return( Var1._num.n / Var2 );
-      case FFNum::REAL:  return( Var1._num.x / Var2 );
-    }
-  }
-  
-  if( Var2._id.second == FFVar::NOREF ){
-    switch( Var2._num.t ){
-      case FFNum::INT:   return( Var1 / Var2._num.n );
-      case FFNum::REAL:  return( Var1 / Var2._num.x );
-    }
-  }
-  // Append new intermediate variable and corresponding operation
-  // (only if operation does not exist already)
-  return FFGraph::_insert_binary_operation( FFOp::DIV, Var1._dep/Var2._dep, Var1, Var2 );
-*/
 }
 
 template <typename U> inline FFVar
@@ -2167,20 +1999,6 @@ operator/
     return FFGraph::_insert_binary_operation( FFOp::DIV, Cst1/Var2._dep, (double)Cst1, Var2 );
    }
   }
-/*
-  // Case right operand is a numeric constant
-  if( Var2._id.second == FFVar::NOREF ){
-    switch( Var2._num.t ){
-      case FFNum::INT:   return( Cst1 / Var2._num.n );
-      case FFNum::REAL:  return( Cst1 / Var2._num.x );
-    }
-  }
-
-  // Append new intermediate variable and corresponding operation
-  // (only if operation does not exist already)
-  // Also append constant Cst1 if not defined
-  return FFGraph::_insert_binary_operation( FFOp::DIV, Cst1/Var2._dep, (double)Cst1, Var2 );
-*/
 }
 
 inline FFVar
@@ -2835,13 +2653,15 @@ FFOp::evaluate
 
    case FFOp::PLUS:
     //if( pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::INTERN );
+#ifdef MC__FFUNC_DEBUG_EVAL
+    std::cout << "FFOp::PLUS:" << std::endl;
+    std::cout << "plop: " << *plop << "   plop->val(): " << *plop->val() << std::endl;
+    std::cout << "prop: " << *prop << "   prop->val(): " << *prop->val() << std::endl;
+#endif
     pres->val() = new U( *static_cast<U*>( plop->val() )
                        + *static_cast<U*>( prop->val() ) );
 #ifdef MC__FFUNC_DEBUG_EVAL
-    std::cout << "FFOp::PLUS:" << std::endl;
-    std::cout << "plop: " << plop << "   plop->val(): " << plop->val() << std::endl;
-    std::cout << "prop: " << prop << "   prop->val(): " << prop->val() << std::endl;
-    std::cout << "pres: " << pres << "   pres->val(): " << pres->val() << std::endl;
+    std::cout << "pres: " << *pres << "   pres->val(): " << *pres->val() << std::endl;
 #endif
     return;
 
@@ -3126,10 +2946,10 @@ FFOp::append_dot_script
   case FFOp::CNST:  return append_dot_script_variable( os, true,  14 );
   case FFOp::PLUS:  return append_dot_script_factor( os, " + ",   false, 18 );
   case FFOp::NEG:   return append_dot_script_factor( os, " - ",   true,  18 );
-  case FFOp::MINUS: return append_dot_script_factor( os, " - ",   false, 18 );
+  case FFOp::MINUS: return append_dot_script_factor( os, " - ",   false, 18, true );
   case FFOp::SCALE: return append_dot_script_factor( os, " x ",   false, 18 );
   case FFOp::TIMES: return append_dot_script_factor( os, " x ",   false, 18 );
-  case FFOp::DIV:   return append_dot_script_factor( os, " / ",   false, 18 );
+  case FFOp::DIV:   return append_dot_script_factor( os, " / ",   false, 18, true );
   case FFOp::MINF:  return append_dot_script_factor( os, "min",   false, 14 );
   case FFOp::MAXF:  return append_dot_script_factor( os, "max",   false, 14 );
   case FFOp::INTER: return append_dot_script_factor( os, "inter", false, 14 );
@@ -3163,13 +2983,10 @@ FFOp::append_dot_script_factor
   os << "  " << pres->name() << " [shape=record,fontname=\"Arial\",color="
      << op_color.str().c_str() << ",label=\"<f0> " << fname.c_str() << "|<f1> "
      << pres->name() << "\"];\n";
-  //os << "  \"" << plop->name() << "\":f0 -> \"" << pres->name() << "\":f0;\n";
   os << "  " << plop->name() << " -> " << pres->name() << " [arrowsize=0.7];\n";
   if( unary ) return;
   os << "  " << prop->name() << " -> " << pres->name() << " [arrowsize=0.7"
-     << (dotted? ",style=dotted];\n": "];\n");
-  //os << "  \"" << prop->name() << "\":f0 -> \"" << pres->name() << "\":f0 "
-  //   << (dotted? "[style=dotted];\n": ";\n");
+     << (dotted? ",style=dashed];\n": "];\n");
 }
 
 inline void
@@ -3636,12 +3453,12 @@ FFGraph::SFAD
   if( !vIndep.size() || !vDep.size() ) return std::make_tuple( std::vector<unsigned>(),
     std::vector<unsigned>(), std::vector<const FFVar*>() );
   assert( !vDir.size() || vIndep.size() == vDir.size() );
-  //fadbad::F<mc::FFVar> FFVar_dum();
+  //fadbad::F<FFVar> FFVar_dum();
 
   // Initialize of all independent variables participating in the dependent ones
   it_Vars itv = _Vars.begin();
   for( ; itv!=_Vars.end() && (*itv)->_id.first<=FFVar::VAR; ++itv ){
-    fadbad::F<mc::FFVar>* pX_F = new fadbad::F<mc::FFVar>( **itv );
+    fadbad::F<FFVar>* pX_F = new fadbad::F<FFVar>( **itv );
     auto iti = vIndep.begin();
     auto itd = vDir.begin();
     for( unsigned int i=0; iti!=vIndep.end(); ++iti, ++itd, i++ )
@@ -3649,7 +3466,7 @@ FFGraph::SFAD
         if( vDir.size() ) pX_F->diff( 0, 1 ) = **itd;
         else pX_F->diff( i, vIndep.size() ); 
       }
-    // Attach fadbad::F<mc::FFVar>* variable to corresponding variable in _Vars
+    // Attach fadbad::F<FFVar>* variable to corresponding variable in _Vars
     (*itv)->val() = pX_F;
   }
   // THIS IS DOING A BIT TOO MUCH WORK AS ONLY THE INDEPENDENT VARIABLES
@@ -3661,7 +3478,7 @@ FFGraph::SFAD
   auto ito = opDep.begin();
   for( ; ito!=opDep.end(); ++ito ){
     _curOp = *ito;
-    _curOp->evaluate( fadbad::F<mc::FFVar>() );
+    _curOp->evaluate( fadbad::F<FFVar>() );
   }
   // Retreive dependents variables in fadbad::F as given by vDep
   std::tuple< std::vector<unsigned>, std::vector<unsigned>,
@@ -3676,7 +3493,7 @@ FFGraph::SFAD
       if( !pF ) continue;
       // THE FOLLOWING MATCHING IS NECESSARY BECAUSE THE VARIABLES CREATED
       // BY FFOp::evaluate ARE NOT THE SAME AS THOSE STORED IN FFGraph
-      fadbad::F<mc::FFVar>* pF_F = static_cast<fadbad::F<mc::FFVar>*>( pF->val() );
+      fadbad::F<FFVar>* pF_F = static_cast<fadbad::F<FFVar>*>( pF->val() );
       const FFVar* pdFdX = _find_var( pF_F->deriv(j).id() );
       if( !pdFdX ){
         const FFNum& num = pF_F->deriv(j).num();
@@ -3693,16 +3510,16 @@ FFGraph::SFAD
     }
   }
 
-  // Reset mc::FFVAR_val field to NULL
+  // Reset FFVAR_val field to NULL
   itv = _Vars.begin();
   for( ; itv!=_Vars.end() && (*itv)->_id.first<=FFVar::VAR; ++itv )
-    (*itv)->reset_val( fadbad::F<mc::FFVar>() );
+    (*itv)->reset_val( fadbad::F<FFVar>() );
 
   _reset_operations();
   itd = vDep.begin();
   for( ; itd!=vDep.end(); ++itd ){
     if( !(*itd)->ops().first ) continue;
-    (*itd)->ops().first->reset_val_subgraph( fadbad::F<mc::FFVar>() );
+    (*itd)->ops().first->reset_val_subgraph( fadbad::F<FFVar>() );
   }
 
   return vDep_F;
@@ -3807,112 +3624,6 @@ FFGraph::BAD
   }
   return vDep_B;
 }
-/*
-inline std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<const FFVar*> >
-FFGraph::SBAD
-( const std::vector<const FFVar*>&vDep, const std::vector<const FFVar*>&vIndep )
-{
-  // Nothing to do!
-  if( !vIndep.size() || !vDep.size() ) return std::make_tuple( std::vector<unsigned>(),
-    std::vector<unsigned>(), std::vector<const FFVar*>() );
-
-  // Initialize of all independent variables participating in the dependent ones
-  it_Vars itv = _Vars.begin();
-  for( ; itv!=_Vars.end() && (*itv)->_id.first<=FFVar::VAR; ++itv ){
-    fadbad::B<mc::FFVar>* pX_B = new fadbad::B<mc::FFVar>( **itv );
-    // Attach fadbad::B<mc::FFVar>* variable to corresponding variable in _Vars
-    (*itv)->val() = pX_B;
-    //std::cout << "*itv: " << *itv << "   pX_B: " << pX_B << std::endl;
-  }
-  // THIS IS DOING A BIT TOO MUCH WORK AS ONLY THE INDEPENDENT VARIABLES
-  // PARTICIPATING IN THE DEPENDENTS SHOULD BE TAKEN INTO ACCOUNT REALLY
-  // (E.G., THIS COULD BE DONE USING THE .dep() FIELD IN THE DEPENDENTS)
-
-  // Propagate dependents given by vDep in fadbad::B type
-  std::list<const FFOp*> opDep = subgraph( vDep );
-  typename std::list<const FFOp*>::iterator ito = opDep.begin();
-  for( ; ito!=opDep.end(); ++ito ) (*ito)->evaluate( fadbad::B<mc::FFVar>() );
-
-  // Propagate derivatives of dependents using fadbad::B
-  typename std::vector<const FFVar*>::const_iterator itd = vDep.begin();
-  //itd = vDep.begin();
-  for( unsigned j=0; itd!=vDep.end(); ++itd, j++ ){
-    // Obtain pointer to dependent variable in FFGraph
-    FFVar* pF = _find_var( (*itd)->id() );
-    //std::cout << "pF: " << pF;
-    if( !pF ) continue;
-    fadbad::B<mc::FFVar>* pF_B = static_cast<fadbad::B<mc::FFVar>*>( pF->val() );
-    pF_B->diff( j, vDep.size() );
-    *pF_B = 0.;
-    //fadbad::B<mc::FFVar> F_B = *static_cast<fadbad::B<mc::FFVar>*>( pF->val() );
-    //F_B.diff( j, vDep.size() );
-    //std::cout << "   pF_B: " << pF_B << std::endl;
-  }
-
-  // Erase pointers to intermediate so they go out of scope
-  // OTHERWISE BADIFF COMPLAINS
-  _reset_operations();
-  itd = vDep.begin();
-  //typename std::vector<const FFVar*>::const_iterator itd = vDep.begin();
-  for( ; itd!=vDep.end(); ++itd ){
-    if( !(*itd)->ops().first ) continue;
-    (*itd)->ops().first->reset_val_subgraph( fadbad::B<mc::FFVar>(), vDep, vIndep );
-  }
-
-  // Retreive dependents variables in fadbad::B as given by vDep
-  std::tuple< std::vector<unsigned>, std::vector<unsigned>,
-              std::vector<const FFVar*> > vDep_B; // <- vector holding the results in sparse format
-  itd = vDep.begin();
-  for( unsigned i=0; itd!=vDep.end(); ++itd, i++ ){
-    // Obtain pointer to dependent variable in FFGraph
-    FFVar* pF = _find_var( (*itd)->id() );
-    typename std::vector<const FFVar*>::const_iterator iti = vIndep.begin();
-    // Push corresponding evaluation in fadbad::B into result vector
-    for( unsigned j=0; iti!=vIndep.end(); ++iti, j++ ){
-      if( !pF ) continue;
-      // Obtain pointer to independent variable in FFGraph
-      FFVar* pX = _find_var( (*iti)->id() );
-      // THE FOLLOWING MATCHING IS NECESSARY BECAUSE THE VARIABLES CREATED
-      // BY FFOp::evaluate ARE NOT THE SAME AS THOSE STORED IN FFGraph
-      fadbad::B<mc::FFVar>* pX_B = static_cast<fadbad::B<mc::FFVar>*>( pX->val() );
-      std::cout << "before\n";
-      FFVar* dXj = &pX_B->d(i);
-      std::cout << "after\n";
-      const FFVar* pdFdX = 0;
-      // Check if dependent matches the independent
-      //if( pX == pF )
-      //  pdFdX = _add_constant( 1. );
-      //else{
-        pdFdX = _find_var( dXj->id() );
-        if( !pdFdX ){
-          const FFNum& num = dXj->num();
-          switch( num.t ){
-            case FFNum::INT:  if( num.n )       pdFdX = _add_constant( num.n ); break;
-            case FFNum::REAL: if( num.x != 0. ) pdFdX = _add_constant( num.x ); break;
-          }
-          if( !pdFdX ) continue;
-        }
-      //}
-      std::get<0>(vDep_B).push_back( i ); // add row index
-      std::get<1>(vDep_B).push_back( j ); // add column index
-      std::get<2>(vDep_B).push_back( pdFdX ); // add Jacobian element
-    }
-  }
-
-  // Reset mc::FFVAR::_val field to NULL in dependent and independent variables
-  itv = _Vars.begin();
-  for( ; itv!=_Vars.end() && (*itv)->_id.first<=FFVar::VAR; ++itv )
-    (*itv)->reset_val( fadbad::B<mc::FFVar>() );
-
-  itd = vDep.begin();
-  for( ; itd!=vDep.end(); ++itd ){
-    FFVar*pF = _find_var( (*itd)->id() );
-    if( pF ) pF->reset_val( fadbad::B<mc::FFVar>() );
-  }
-
-  return vDep_B;
-}
-*/
 
 inline std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<const FFVar*> >
 FFGraph::SBAD
@@ -3923,8 +3634,8 @@ FFGraph::SBAD
     std::vector<unsigned>(), std::vector<const FFVar*>() );
 
   // Initialize of all independent variables participating in the dependent ones
-  std::vector< mc::FFVar > vVars, vDeps;
-  std::vector< fadbad::B<mc::FFVar> > vVars_B, vDeps_B( vDep.size() );
+  std::vector<FFVar> vVars, vDeps;
+  std::vector<fadbad::B<FFVar>> vVars_B, vDeps_B( vDep.size() );
   for( auto itv = _Vars.begin(); itv!=_Vars.end() && (*itv)->_id.first<=FFVar::VAR; ++itv ){
     vVars.push_back( **itv );
     vVars_B.push_back( **itv );
@@ -4007,14 +3718,14 @@ FFGraph::TAD
   // Check dependent and independent vector sizes
   if( !vVar.size() || !vDep.size() || vVar.size() != vDep.size() )
     return std::vector<const FFVar*>();
-  //fadbad::T<mc::FFVar> FFVar_dum();
+  //fadbad::T<FFVar> FFVar_dum();
   std::vector<const FFVar*> vDep_T; // <- vector holding the results
 
   // Initialize of all independent variables participating in the dependent ones
-  fadbad::T<mc::FFVar>** pX_T = new fadbad::T<mc::FFVar>*[ vVar.size() ];
+  fadbad::T<FFVar>** pX_T = new fadbad::T<FFVar>*[ vVar.size() ];
   it_Vars itv = _Vars.begin();
   for( ; itv!=_Vars.end() && (*itv)->_id.first<=FFVar::VAR; ++itv ){
-    fadbad::T<mc::FFVar>* pXi_T = new fadbad::T<mc::FFVar>( **itv );
+    fadbad::T<FFVar>* pXi_T = new fadbad::T<FFVar>( **itv );
     typename std::vector<const FFVar*>::const_iterator iti = vVar.begin();
     // Independent variable
     if( pIndep && (*itv)->id().second == pIndep->id().second )
@@ -4030,7 +3741,7 @@ FFGraph::TAD
 #endif
       }
     }
-    // Attach fadbad::F<mc::FFVar>* variable to corresponding variable in _Vars
+    // Attach fadbad::F<FFVar>* variable to corresponding variable in _Vars
     (*itv)->val() = pXi_T;
   }
   // THIS IS DOING A BIT TOO MUCH WORK AS ONLY THE INDEPENDENT VARIABLES
@@ -4042,15 +3753,15 @@ FFGraph::TAD
   typename std::list<const FFOp*>::iterator ito = opDep.begin();
   for( ; ito!=opDep.end(); ++ito ){
     _curOp = *ito;
-    _curOp->evaluate( fadbad::T<mc::FFVar>() );
+    _curOp->evaluate( fadbad::T<FFVar>() );
   }
 
   // Set pointers to the dependents
-  fadbad::T<mc::FFVar>** pF_T = new fadbad::T<mc::FFVar>*[ vDep.size() ];
+  fadbad::T<FFVar>** pF_T = new fadbad::T<FFVar>*[ vDep.size() ];
   typename std::vector<const FFVar*>::const_iterator itd = vDep.begin();
   for( unsigned j=0; itd!=vDep.end(); ++itd, j++ ){
     FFVar*pF = _find_var( (*itd)->id() );
-    pF_T[j] = ( pF? static_cast<fadbad::T<mc::FFVar>*>( pF->val() ): 0 );
+    pF_T[j] = ( pF? static_cast<fadbad::T<FFVar>*>( pF->val() ): 0 );
   }
 
   // Evaluate Taylor coefficients recursively
@@ -4064,8 +3775,8 @@ FFGraph::TAD
       // Evaluate qth-order Taylor coefficient for jth dependent
       pF_T[j]->eval(q);
       // Set result as (q+1)-th Taylor coefficient for x[i]
-      mc::FFVar Xjq = (*pF_T[j])[q]/double(q+1);
-      //mc::FFVar& Xjq = (*pF_T[j])[q];
+      FFVar Xjq = (*pF_T[j])[q]/double(q+1);
+      //FFVar& Xjq = (*pF_T[j])[q];
       FFVar*pXjq = _find_var( Xjq.id() );
       if( !pXjq ) switch( Xjq.num().t ){
         case FFNum::INT:
@@ -4088,16 +3799,16 @@ FFGraph::TAD
     }
   }
 
-  // Reset mc::FFVAR_val field to NULL
+  // Reset FFVAR_val field to NULL
   itv = _Vars.begin();
   for( ; itv!=_Vars.end() && (*itv)->_id.first<=FFVar::VAR; ++itv )
-    (*itv)->reset_val( fadbad::T<mc::FFVar>() );
+    (*itv)->reset_val( fadbad::T<FFVar>() );
 
   _reset_operations();
   itd = vDep.begin();
   for( ; itd!=vDep.end(); ++itd ){
     if( !(*itd)->ops().first ) continue;
-    (*itd)->ops().first->reset_val_subgraph( fadbad::T<mc::FFVar>() );
+    (*itd)->ops().first->reset_val_subgraph( fadbad::T<FFVar>() );
   }
 
   delete[] pX_T;
@@ -4274,7 +3985,7 @@ FFGraph::eval
     galexcp = true;
   }
 
-  // Reset mc::FFVAR_val field to NULL
+  // Reset FFVAR_val field to NULL
 #ifdef MC__FFUNC_CPU_EVAL
   cputime = -cpuclock();
 #endif
@@ -4541,7 +4252,7 @@ FFGraph::eval
     galexcp = true;
   }
 
-  // Reset mc::FFVAR_val field to NULL
+  // Reset FFVAR_val field to NULL
 #ifdef MC__FFUNC_CPU_EVAL
   cputime = -cpuclock();
 #endif
@@ -4571,197 +4282,6 @@ FFGraph::eval
   if( galexcp ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::EVAL );
   return;
 }
-/*
-template <typename U> inline void
-FFGraph::eval
-( std::list<const FFOp*>&opDep, const unsigned nDep, const FFVar*pDep,
-  U*vDep, const unsigned nVar, const FFVar*pVar, const U*vVar, const bool add )
-{
-  // Nothing to do!
-  if( !nDep ) return;
-  assert( pDep && vDep );
-  assert( !nVar || ( pVar && vVar ) );
-#ifdef MC__FFUNC_CPU_EVAL
-  double cputime;
-#endif
-
-  // Initialize all independent variables participating in the dependent ones
-#ifdef MC__FFUNC_CPU_EVAL
-  cputime = -cpuclock();
-#endif
-  for( unsigned int i=0; i<nVar; i++ ){
-    FFVar* pF = _find_var( pVar[i].id() );
-    if( pF ){
-      pF->val() = new U( vVar[i] );
-#ifdef MC__FFUNC_DEBUG_EVAL
-      std::cout << pVar[i] << "  " << vVar[i] << std::endl;
-#endif
-    }
-  }
-#ifdef MC__FFUNC_CPU_EVAL
-  cputime += cpuclock();
-  std::cout << "\nIndep. init. time: " << std::fixed << cputime << std::endl;
-#endif
-  // THIS IS DOING A BIT TOO MUCH WORK AS ONLY THE INDEPENDENT VARIABLES
-  // PARTICIPATING IN THE DEPENDENTS SHOULD BE TAKEN INTO ACCOUNT STRICTLY
-  // (E.G., THIS COULD BE DONE USING THE .dep() FIELD IN THE DEPENDENTS)
-
-  bool ffexcp = false, galexcp = false;
-  FFGraph::Exceptions ffexcpobj;
-  try{
-#ifdef MC__FFUNC_CPU_EVAL
-    cputime = -cpuclock();
-#endif
-    // Evaluate dependents given by vDep in U type
-    typename std::list<const FFOp*>::iterator ito = opDep.begin();
-    for( ; ito!=opDep.end(); ++ito ) (*ito)->evaluate( U() );
-#ifdef MC__FFUNC_CPU_EVAL
-    cputime += cpuclock();
-    std::cout << "Evaluation time: " << std::fixed << cputime << std::endl;
-#endif
-
-    // Retreive dependents variables in U type as given by vDep
-#ifdef MC__FFUNC_CPU_EVAL
-    cputime = -cpuclock();
-#endif
-    for( unsigned i=0; i<nDep; i++ ){
-      // Obtain pointer to dependent variable in FFGraph
-      FFVar* pF = _find_var( pDep[i].id() );
-      // Write/add corresponding evaluation in U type into/to result vector
-      if( !add && pF ) vDep[i] = *static_cast<U*>( pF->val() );
-      else if( pF )   vDep[i] += *static_cast<U*>( pF->val() );
-      else if( !add ) switch( pDep[i].num().t ){
-        case FFNum::INT:
-          vDep[i] = pDep[i].num().n;
-          break;
-        case FFNum::REAL:
-          vDep[i] = pDep[i].num().x;
-          break;
-      }
-      else switch( pDep[i].num().t ){
-        case FFNum::INT:
-          vDep[i] += pDep[i].num().n;
-          break;
-        case FFNum::REAL:
-          vDep[i] += pDep[i].num().x;
-          break;
-      }
-    }
-#ifdef MC__FFUNC_CPU_EVAL
-    cputime += cpuclock();
-    std::cout << "Dep. collect. time: " << std::fixed << cputime << std::endl;
-#endif
-  }
-  catch( FFGraph::Exceptions &eObj ){
-    ffexcp = true; ffexcpobj = eObj;
-  }
-  catch(...){
-    galexcp = true;
-  }
-
-  // Reset mc::FFVAR_val field to NULL
-#ifdef MC__FFUNC_CPU_EVAL
-  cputime = -cpuclock();
-#endif
-  for( unsigned int i=0; i<nVar; i++ ){
-    FFVar* pF = _find_var( pVar[i].id() );
-    if( pF ) pF->reset_val( U() );
-  }
-  //it_Vars itv = _Vars.begin();
-  //for( ; itv!=_Vars.end() && (*itv)->_id.first<=FFVar::VAR; ++itv )
-  //  (*itv)->reset_val( U() );
-  
-  typename std::list<const FFOp*>::iterator ito = opDep.begin();
-  for( ; ito!=opDep.end(); ++ito ) (*ito)->flag( false );
-  for( unsigned i=0; i<nDep; i++ ){
-    if( !pDep[i].ops().first ) continue;
-    pDep[i].ops().first->reset_val_subgraph( U() );
-  }
-#ifdef MC__FFUNC_CPU_EVAL
-  cputime += cpuclock();
-  std::cout << "Clean-up time: " << std::fixed << cputime << std::endl;
-#endif
-
-  if( ffexcp )  throw ffexcpobj;
-  if( galexcp ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::EVAL );
-  return;
-}
-
-template <typename U> inline void
-FFGraph::eval
-( std::list<const FFOp*>&opDep, U*opRes, const unsigned nDep, const FFVar*pDep,
-  U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, const bool add )
-{
-  // Nothing to do!
-  if( !nDep ) return;
-  //assert( opDep.size() && opRes ); <-- Don't test otherwise fails with constant dependents
-  assert( pDep && vDep );
-  assert( !nVar || ( pVar && vVar ) );
-#ifdef MC__FFUNC_CPU_EVAL
-  double cputime;
-#endif
-
-  // Propagate values in U arithmetic through subgraph
-#ifdef MC__FFUNC_CPU_EVAL
-  double cputime = -cpuclock();
-#endif
-  typename std::list<const FFOp*>::iterator ito = opDep.begin();
-  for( U*pUres=opRes; ito!=opDep.end(); ++ito, pUres++ ){
-    // Initialize variable using values in vVar
-    if( (*ito)->type == FFOp::VAR ){
-      FFVar* pF = 0;
-      for( unsigned i=0; i<nVar; i++ ){
-        if( (*ito)->pres->id() == pVar[i].id() ){
-          pF = (*ito)->pres; //_find_var( (*iti).first->id() );
-          *pUres = vVar[i];
-          break;
-        }
-      }
-      if( !pF ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::MISSVAR );
-    }
-    _curOp = *ito;
-    _curOp->evaluate( pUres );
-  }
-#ifdef MC__FFUNC_CPU_EVAL
-  cputime += cpuclock();
-  std::cout << "\nEvaluation time: " << std::fixed << cputime << std::endl;
-#endif
-
-  // Retreive dependents variables in U type as given by vDep
-#ifdef MC__FFUNC_CPU_EVAL
-  cputime = -cpuclock();
-#endif
-  for( unsigned i=0; i<nDep; i++ ){
-    // Obtain pointer to dependent variable in FFGraph
-    FFVar* pF = !pDep[i].cst()? _find_var( pDep[i].id() ): 0;
-    // Write/add corresponding evaluation in U type into/to result vector
-    if( !add && pF ) vDep[i] = *static_cast<U*>( pF->val() );
-    else if( pF )   vDep[i] += *static_cast<U*>( pF->val() );
-    else if( !add ) switch( pDep[i].num().t ){
-      case FFNum::INT:
-        vDep[i] = pDep[i].num().n;
-        break;
-      case FFNum::REAL:
-        vDep[i] = pDep[i].num().x;
-        break;
-    }
-    else switch( pDep[i].num().t ){
-      case FFNum::INT:
-        vDep[i] += pDep[i].num().n;
-        break;
-      case FFNum::REAL:
-        vDep[i] += pDep[i].num().x;
-        break;
-    }
-  }
-#ifdef MC__FFUNC_CPU_EVAL
-  cputime += cpuclock();
-  std::cout << "Dep. collect. time: " << std::fixed << cputime << std::endl;
-#endif
-
-  return;
-}
-*/
 
 template <typename U> inline void
 FFGraph::eval
@@ -4825,6 +4345,124 @@ FFGraph::eval
 
   return;
 }
+
+inline FFVar
+FFGraph::trace
+( const unsigned n, const FFVar*A )
+{
+  if( !n || !A ) return 0;
+  FFVar trA = A[0];
+  for( unsigned i=1; i<n; i++ ) trA += A[i*n+i];
+  return trA;
+}
+
+inline FFVar*
+FFGraph::sum
+( const unsigned m, const unsigned n,
+  const FFVar*A, const FFVar*B )
+{
+  if( !n || !m || !A || !B ) return 0;
+  FFVar*AB = new FFVar[m*n];
+  FFGraph::sum( m, n, A, B, AB );
+  return AB;
+}
+
+inline void
+FFGraph::sum
+( const unsigned m, const unsigned n, const FFVar*A,
+  const FFVar*B, FFVar*AB )
+{
+  if( !m || !n || !A || !B ) return;
+  assert( AB );
+  for( unsigned i=0; i<m; i++ )
+    for( unsigned j=0; j<n; j++ )
+      AB[i+j*m] = A[i+j*m] + B[i+j*m];
+}
+
+inline FFVar*
+FFGraph::sub
+( const unsigned m, const unsigned n,
+  const FFVar*A, const FFVar*B )
+{
+  if( !n || !m || !A || !B ) return 0;
+  FFVar*AB = new FFVar[m*n];
+  FFGraph::sub( m, n, A, B, AB );
+  return AB;
+}
+
+inline void
+FFGraph::sub
+( const unsigned m, const unsigned n, const FFVar*A,
+  const FFVar*B, FFVar*AB )
+{
+  if( !m || !n || !A || !B ) return;
+  assert( AB );
+  for( unsigned i=0; i<m; i++ )
+    for( unsigned j=0; j<n; j++ )
+      AB[i+j*m] = A[i+j*m] - B[i+j*m];
+}
+
+inline FFVar*
+FFGraph::prod
+( const unsigned m, const unsigned n, const unsigned p,
+  const FFVar*A, const FFVar*B )
+{
+  if( !m || !n || !p || !A || !B ) return 0;
+  FFVar*AB = new FFVar[m*p];
+  FFGraph::prod( m, n, p, A, B, AB );
+  return AB;
+}
+
+inline void
+FFGraph::prod
+( const unsigned m, const unsigned n, const unsigned p,
+  const FFVar*A, const FFVar*B, FFVar*AB )
+{
+  if( !n || !m || !p || !A || !B ) return;
+  assert( AB );
+  for( unsigned i=0; i<m; i++ ){
+    for( unsigned j=0; j<p; j++ ){
+      AB[i+j*m] = 0.;
+      for( unsigned k=0; k<n; k++ )
+        AB[i+j*m] += A[i+k*m] * B[k+j*n];
+    }
+  }
+}
+
+inline FFVar*
+FFGraph::polchar
+( const unsigned n, const FFVar*A )
+{
+  if( !n || !A ) return 0;
+
+  // Initialization
+  std::vector<FFVar> Bkm1( A, A+n*n ), Bk( n*n );
+  FFVar* c = new FFVar[n];
+  c[0] = FFGraph::trace( n, Bkm1.data() );
+
+  // Main Loop  
+  for( unsigned l=1; l<n; ++l, Bk.swap( Bkm1 ) ){
+    // Auxmat = (B_{k-1} - c_{k_1}*I)  
+    for( unsigned i=0; i<n; ++i )
+      Bkm1[i+i*n] -= c[l-1];
+	// B_k = Jacobian*Auxmat
+    FFGraph::prod( n, n, n, A, Bkm1.data(), Bk.data() );
+	// pcoeff_stack[l] = tr(Bk) 
+    c[l] = FFGraph::trace( n, Bk.data() ) / ( l+1 );
+  }
+  return c;
+}
+
+inline FFVar
+FFGraph::det
+( const unsigned n, const FFVar*A )
+{
+  if( !n || !A ) return 0.;
+  FFVar* c = FFGraph::polchar( n, A );
+  FFVar d = ( n%2? c[n-1]: -c[n-1] );
+  delete[] c;
+  return d;
+} 
 
 inline CPPL::dssmatrix
 FFGraph::depmap
@@ -5059,18 +4697,102 @@ FFGraph::MC13
   if( disp ){
     std::cout << std::endl << "Number of Blocks: " << NB << std::endl;
     os << "Lower-triangular block structure:" << std::endl
-       << "   ";
+       << std::right << "     ";
     for( unsigned j=0; j<nDep; j++ )
-      os << " " << std::setw(3) << IOR[j]-1;
+    //  os << " " << std::setw(3) << IOR[j]-1;
+      os << " " << std::setw(4) << pIndep[IOR[j]-1];
     os << std::endl;
     for( unsigned i=0; i<nDep; i++ ){
-      os << std::setw(3) << IPERM[IOR[i]-1]-1;
+      //os << std::setw(3) << IPERM[IOR[i]-1]-1 << " ";
+      os << std::setw(4) << pDep[IPERM[IOR[i]-1]-1] << " ";
       for( unsigned j=0; j<nDep; j++ )
         os << std::setw(3) << " "
-           << (vDep[IPERM[IOR[i]-1]-1].dep(IOR[j]-1).first?"X":" ");
+           << (vDep[IPERM[IOR[i]-1]-1].dep(IOR[j]-1).first?"X ":"  ");
       os << std::endl;
     }
+    os << std::endl;
   }
+  return true;
+}
+
+inline bool
+FFGraph::MC33
+( const unsigned nDep, const FFVar*pDep, const unsigned nIndep,
+  const FFVar*pIndep, int*IP, int*IQ, int*IPROF, int*IFLAG, const bool disp,
+  std::ostream&os )
+{
+  // Get list of operations
+  std::vector<FFVar> pVar( pIndep, pIndep+nIndep );
+  std::vector<FFDep> vVar( nIndep );
+  for( unsigned i=0; i<nIndep; i++ ) vVar[i].indep(i);
+  auto opDep = subgraph( nDep, pDep );
+  for( auto ito=opDep.begin(); ito!=opDep.end(); ++ito ){
+    // Operation not a variable
+    if( (*ito)->type != FFOp::VAR ) continue;
+    bool isParam = true;
+    // Operation is a current independent
+    for( unsigned i=0; isParam && i<nIndep; i++ )
+      if( (*ito)->pres->id() == pIndep[i].id() ) isParam = false;
+    if( !isParam ) continue;
+    // Add dummy variable for parameter
+    pVar.push_back( *(*ito)->pres );
+    vVar.push_back( FFDep() );
+  }
+  const unsigned nVar = pVar.size();
+  std::vector<FFDep> wkDep( opDep.size() );
+  std::vector<FFDep> vDep( nDep );
+  //for( unsigned i=0; i<nVar; i++ )
+  //  std::cout << pVar[i] << " = " << vVar[i] << std::endl;
+  eval( opDep, wkDep.data(), nDep, pDep, vDep.data(), nVar, pVar.data(), vVar.data() );
+
+  // Populate sparse arrays
+  std::vector<int> IRN, JCN;
+  std::vector<double> A;
+  for( unsigned i=0; i<nDep; i++ ){
+    std::map<int,bool>::const_iterator cit = vDep[i].dep().begin();
+    for( ; cit != vDep[i].dep().end(); ++cit ){
+      IRN.push_back( i+1 );
+      JCN.push_back( (*cit).first+1 );
+      A.push_back( IRN.size() );
+    }
+  }
+
+  // Make a bordered-block lower-triangular decomposition: MC33A
+  const int ITYPE = 5;
+  const int M = nDep, N = nIndep, NZI = IRN.size();
+  int NZO, IERR;
+  std::vector<int> IW(M+N), IW1(9*N+3*M);
+  mc33ad_( &M, &N, &NZI, &NZO, &ITYPE, A.data(), IRN.data(), JCN.data(),
+           IP, IQ, IPROF, IFLAG, IW.data(), IW1.data(), &IERR );
+  if( IERR ) return false;
+#ifdef MC__MC33_DEBUG
+  std::cout << "Width of bordered block: " << IFLAG[2] << std::endl;
+  std::cout << "Row reordering: ";
+  for( unsigned i=0; i<nDep; i++) std::cout << " " << IP[i];
+  std::cout << "Column reordering: ";
+  for( unsigned i=0; i<nIndep; i++) std::cout << " " << IQ[i];
+  std::cout << std::endl;
+#endif
+
+  // Display permuted system structure
+  if( disp ){
+    os << std::endl << "Bordered-block Lower-triangular structure:" << std::endl
+       << std::right << "   ";
+    for( unsigned j=0; j<nIndep; j++ )
+      os << (j+IFLAG[2]-IFLAG[1]?" ":" | ") << std::setw(4) << pIndep[IQ[j]-1];
+    os << std::endl;
+    for( unsigned i=0; i<nDep; i++ ){
+      //os << std::setw(3) << IP[i]-1;
+      os << std::setw(4) << pDep[IP[i]-1];
+      for( unsigned j=0; j<nIndep; j++ ){
+        os << (j+IFLAG[2]-IFLAG[1]?"   ":"|    ")
+           << (vDep[IP[i]-1].dep(IQ[j]-1).first?"X ":"  ");
+      }
+      os << std::endl;
+    }
+    os /* << "  Border bandwidth:" << IFLAG[2] */ << std::endl;
+  }
+
   return true;
 }
 
