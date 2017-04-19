@@ -1,6 +1,6 @@
 Main author:
 
-Benoit Chachuat, project leader (Imperial College London)
+- Benoit Chachuat, project leader (Imperial College London)
 
 Contributors:
 
@@ -15,9 +15,12 @@ Contributors:
 - Alexander Mitsos (MIT, RWTH Aachen)
   Joe Scott (MIT, Clemson University)
   Paul Barton (MIT)
+  Angelos Tsoukalas (MIT, American University of Beirut)
+  Jaromil Najmana, Dominik Bongartza (RWTH Aachen)
 
   Testing, debugging of McCormick relaxation module
   
 - Ruth Misener (Imperial College London)
 
   Installing, testing
+
