@@ -1375,7 +1375,7 @@ public:
   //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> in U arithmetic for the <a>nVar</a> variable in array <a>pVar</a> whose values are specified in <a>vVar</a> and write the result in <a>vDep</a> (or add the result to <a>vDep</a> if <a>add</a>==true) -- This function uses the subgraph for the dependent variables given in <a>opDep</a> as well as the preallocated array <a>opRes</a> of size <a>opDep.size()</a> to store intermediate results during the evaluation
   template <typename U> void eval
     ( std::list<const FFOp*>&opDep, U*opRes, const unsigned nDep, const FFVar*pDep,
-      U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, const bool add=false );
+      U*vDep, const unsigned nVar, const FFVar*pVar, const U*vVar, const bool add=false );
 
   //! @brief Perform lower triangular block reaarangement of a square system
   bool MC13
@@ -4286,7 +4286,7 @@ FFGraph::eval
 template <typename U> inline void
 FFGraph::eval
 ( std::list<const FFOp*>&opDep, U*opRes, const unsigned nDep, const FFVar*pDep,
-  U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, const bool add )
+  U*vDep, const unsigned nVar, const FFVar*pVar, const U*vVar, const bool add )
 {
   //unsigned curdep = 0;
 
@@ -4304,7 +4304,7 @@ FFGraph::eval
   //std::set<unsigned> ndxdep;
   //for( unsigned i=0; i<nDep; i++ ) ndxdep.insert( i );
   auto ito = opDep.begin();
-  for( U*pUres=opRes; ito!=opDep.end(); ++ito, pUres++ ){
+  for( auto pUres=opRes; ito!=opDep.end(); ++ito, pUres++ ){
     // Initialize variable using values in vVar
     if( (*ito)->type == FFOp::VAR ){
       FFVar* pF = 0;
