@@ -404,6 +404,13 @@ public:
       return *this;
     }
 
+  //! @brief Reset ellipsoid
+  Ellipsoid& reset_aux()
+    {
+      _reset_auxiliary();
+      return *this;
+    }
+
   //! @brief Extend dimension by one, by appending row <a>Qi</a> to shape matrix and entry <a>ci</a> to center
   Ellipsoid& extend
     ( const CPPL::drovector& Qi, const double& ci=0. )
