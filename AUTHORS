@@ -8,7 +8,7 @@ Contributors:
 
   Coding, testing, debugging of Taylor model module
   
-- Jai Rajyaguru, Mario Villanueva, Nikola Peric, Akshay Shah (Imperial College London)
+- Jai Rajyaguru, Mario Eduardo Villanueva, Nikola Peric, Akshay Shah (Imperial College London)
 
   Coding, testing, debugging of spectral bound, ellipsoidal bound and Chebyshev model modules
   
@@ -24,3 +24,6 @@ Contributors:
 
   Installing, testing
 
+- Mario Eduardo Villanueva 
+
+  Releasing MC++ (version 2.0.0) in GitHub and mantaining the GitHub site
