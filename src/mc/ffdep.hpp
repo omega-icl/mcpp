@@ -230,8 +230,7 @@ public:
   std::pair<bool,bool> dep
     ( const int ind )
     { cit_FFDep it = _dep.find(ind);
-      return( it==_dep.end()? std::make_pair(false,true):
-        std::make_pair(true,it->second) ); }
+      return( it==_dep.end()? std::make_pair(false,true): std::make_pair(true,it->second) ); }
 
   //! @brief Returns the dependency set
   const t_FFDep& dep() const
