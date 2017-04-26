@@ -1,6 +1,6 @@
 # THIRD-PARTY LIBRARIES <<-- CHANGE AS APPROPRIATE -->>
 
-PATH_3RD_PARTY = $(HOME)/Programs/Devel/MC++/MC++_2.0/src/3rdparty
+PATH_3RD_PARTY = $(shell cd ../../src/ ; pwd )/3rdparty
 
 PATH_PROFIL  = $(HOME)/Programs/ThirdParty/Profil-2.0.8
 LIB_PROFIL = -L$(PATH_PROFIL)/lib -lProfilPackages -lProfil -lBias -llr
