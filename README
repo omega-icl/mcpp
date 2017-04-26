@@ -1,10 +1,16 @@
 
-                                 MC++
+                                 MC++  ( version 2.0.0 )
                                  ----
 
 This directory contains the C++ implementation of the library MC++
 for manipulation and bounding of factorable functions.
 
-For more information, see
+For more information, visit 
 
-doc/html/index.html
+	https://omega-icl.github.com/mcpp
+
+or generate MC++'s Doxygen documentation and open
+
+	doc/html/index.html
+
+with your favorite browser.
