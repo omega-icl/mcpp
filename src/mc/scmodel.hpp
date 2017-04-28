@@ -299,8 +299,8 @@ public:
     { return _maxord; };
 
   //! @brief Const reference to the bounds of the model variables
-  const std::vector<double>& bndvar() const
-    { return _scalvar; }
+  const std::vector<T>& bndvar() const
+    { return _bndvar; }
 
   //! @brief Const reference to reference points for the model variables
   const std::vector<double>& refvar() const
@@ -563,9 +563,6 @@ template <typename T>
 class SCVar: public SPolyVar<T>
 ////////////////////////////////////////////////////////////////////////
 {
-  typedef std::pair< unsigned, std::map< unsigned, unsigned > > t_expmon;
-  typedef std::map< t_expmon, double > t_coefmon;
-
   template <typename U> friend class SCVar;
   template <typename U> friend class SCModel;
 
@@ -627,6 +624,9 @@ class SCVar: public SPolyVar<T>
     ( SCVar<U>&, const SCVar<U>&, const SCVar<U>& );
 
 public:
+  typedef std::pair< unsigned, std::map< unsigned, unsigned > > t_expmon;
+  typedef std::map< t_expmon, double > t_coefmon;
+
   using SPolyVar<T>::_coefmon;
   using SPolyVar<T>::_bndrem;
   using SPolyVar<T>::_bndT;
@@ -1808,7 +1808,8 @@ SCVar<T>::polynomial
       valmon *= _scalvar(ie->first)!=0.?
                 mc::cheb((x[ie->first]-_refvar(ie->first))/_scalvar(ie->first),ie->second):
                 _refvar(ie->first);
-    Pval += it->second * valmon;
+    Pval += valmon;
+    //std::cout << Pval << " += " << it->second << " x " << valmon << std::endl;
   }
   return Pval;
 }
