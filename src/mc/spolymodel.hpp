@@ -65,6 +65,7 @@ template <typename T>
 class SPolyVar
 ////////////////////////////////////////////////////////////////////////
 {
+public:
   // Monomial representation: <total order, <variable index, order>>
   typedef std::pair< unsigned, std::map< unsigned, unsigned > > t_expmon;
   typedef std::map< t_expmon, double > t_coefmon;

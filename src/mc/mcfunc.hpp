@@ -42,8 +42,8 @@ inline double cheb
     case 0:  return 1.;
     case 1:  return x;
     case 2:  return 2.*x*x-1.;
-    //default: return 2.*x*cheb(x,n-1)-cheb(x,n-2);
-    default: return std::cos(n*std::acos(x));
+    default: return 2.*x*cheb(x,n-1)-cheb(x,n-2);
+    //default: return std::cos(n*std::acos(x));
   }
 }
 

@@ -386,6 +386,21 @@ public:
   } options;
   /** @} */
 
+  //! @brief Original bounds on variable <tt>ivar</tt>
+  const T& bndvar
+    ( const unsigned ivar ) const
+    { return _bndvar[ivar]; };
+
+  //! @brief Reference point for variable <tt>ivar</tt> in Chebyshev model
+  double refvar
+    ( const unsigned ivar ) const
+    { return _refvar[ivar]; };
+
+  //! @brief Scaling for variable <tt>ivar</tt> in Cheyshev model
+  double scalvar
+    ( const unsigned ivar ) const
+    { return _scalvar[ivar]; };
+
 private:  
   //! @brief Triple array of size <tt>(_nmon+1,<=_nmon,2^_nvar)</tt> with indices of terms from product of two monomial terms <tt>imon=1,...,_nmon</tt> and <tt>jmon=1,...,_nmon</tt> in Chebyshev model
   unsigned ***_prodmon;
@@ -2126,6 +2141,7 @@ CVar<T>::polynomial
       else valmon *= mc::cheb((x[k]-_refvar(k))/_scalvar(k),iexp[k]);
     }
     Pval += _coefmon[i] * valmon;
+    //std::cout << Pval << " += " << _coefmon[i] << " x " << valmon << std::endl;
   }
   return Pval;
 }
