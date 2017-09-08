@@ -1,0 +1,6 @@
+MC++ 2.1:
+- FADBAD++ library updated to include hyperbolic function (https://github.com/modsim/CADET-semi-analytic/tree/master/ThirdParty/FADBAD++)
+- CPPLapack library updated to version 2015.05.11-1 (http://cpplapack.sourceforge.net/doc/html/index.html)
+- New functions added in the DAG and computer algebra classes: cosh, sinh, tanh, lmtd, rlmtd, xlog
+- New dependence types in mc::FFDep: polynomial and rational, in addition to linear and nonlinear
+
