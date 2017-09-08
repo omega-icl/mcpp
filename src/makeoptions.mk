@@ -11,7 +11,7 @@ LIB_FILIB = -L$(PATH_FILIB)/lib -lprim
 INC_FILIB = -I$(PATH_FILIB)/include/
 FLAGS_FILIB = -frounding-math -ffloat-store
 
-PATH_LAPACK = $(PATH_3RD_PARTY)/cpplapack
+PATH_LAPACK = $(PATH_3RD_PARTY)/cpplapack-2015.05.11-1
 LIB_LAPACK = -llapack -lblas
 INC_LAPACK = -I$(PATH_LAPACK)/include
 
@@ -19,8 +19,8 @@ PATH_FADBAD = $(PATH_3RD_PARTY)/fadbad++
 LIB_FADBAD = 
 INC_FADBAD = -I$(PATH_FADBAD)
 
-LIB_SDPA   = -lsdpa -ldmumps_seq
-INC_SDPA   = #-I/usr/include/
+#LIB_SDPA   = -lsdpa -ldmumps_seq
+#INC_SDPA   = #-I/usr/include/
 
 LIB_HSL = -lmc13 -lmc21 -lmc33 -lgfortran
 INC_HSL = 
@@ -32,7 +32,7 @@ LIB_CPPUNIT = -lcppunit
 # PROF = -pg
 # OPTIM = -O2
 DEBUG = -g
-WARN  = -Wall
+WARN  = -Wall -Wno-unknown-pragmas
 CPP11 = -std=c++11
 
 CC = gcc

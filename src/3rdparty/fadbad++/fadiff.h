@@ -1,4 +1,5 @@
 // Copyright (C) 1996-2007 Ole Stauning & Claus Bendtsen (fadbad@uning.dk)
+// Modifications copyright (C) 2015 Samuel Leweke (s.leweke@fz-juelich.de)
 // All rights reserved.
 
 // This code is provided "as is", without any warranty of any kind,
@@ -26,6 +27,13 @@
 // ANY USE OF THIS CODE CONSTITUTES ACCEPTANCE OF THE TERMS OF THE
 //                         COPYRIGHT NOTICE
 // ***************************************************************
+
+// ***************************************************************
+// Changes by Samuel Leweke 
+// Forschungszentrum Jülich GmbH, IBG-1, Juelich, Germany
+// ***************************************************************
+// 
+// * Add support for cot, sinh, cosh, tanh, and coth functions
 
 #ifndef _FADIFF_H
 #define _FADIFF_H
@@ -840,28 +848,6 @@ INLINE2 FTypeName<T,0> pow2(const FTypeName<T,0>& a, const U& b)
 	for(unsigned int i=0;i<c.size();++i) c[i]=tmp*a[i];
 	return c;
 }
-/*
-template <typename T, unsigned int N>
-INLINE2 FTypeName<T,N> pow2(const FTypeName<T,N>& a, const int b)
-{
-	FTypeName<T,N> c(Op<T>::myPow(a.val(),b));
-	if (!a.depend()) return c;
-	T tmp(b*Op<T>::myPow(a.val(),b-1));
-	c.setDepend(a);
-	for(unsigned int i=0;i<N;++i) c[i]=tmp*a[i];
-	return c;
-}
-template <typename T >
-INLINE2 FTypeName<T,0> pow2(const FTypeName<T,0>& a, const int b)
-{
-	FTypeName<T,0> c(Op<T>::myPow(a.val(),b));
-	if (!a.depend()) return c;
-	T tmp(b*Op<T>::myPow(a.val(),b-1));
-	c.setDepend(a);
-	for(unsigned int i=0;i<c.size();++i) c[i]=tmp*a[i];
-	return c;
-}
-*/
 
 template <typename T, unsigned int N, typename U>
 INLINE2 FTypeName<T,N> pow (const U& a, const FTypeName<T,N>& b)
@@ -1093,6 +1079,27 @@ INLINE2 FTypeName<T,0> tan (const FTypeName<T,0>& a)
 }
 
 template <typename T, unsigned int N>
+INLINE2 FTypeName<T,N> cot (const FTypeName<T,N>& a)
+{
+	FTypeName<T,N> c(Op<T>::myCot(a.val()));
+	if (!a.depend()) return c;
+	T tmp(-Op<T>::myOne()-Op<T>::mySqr(c.val()));
+	c.setDepend(a);
+	for(unsigned int i=0;i<N;++i)  c[i]=a[i]*tmp;
+	return c;
+}
+template <typename T>
+INLINE2 FTypeName<T,0> cot (const FTypeName<T,0>& a)
+{
+	FTypeName<T,0> c(Op<T>::myCot(a.val()));
+	if (!a.depend()) return c;
+	T tmp(-Op<T>::myOne()-Op<T>::mySqr(c.val()));
+	c.setDepend(a);
+	for(unsigned int i=0;i<c.size();++i)  c[i]=a[i]*tmp;
+	return c;
+}
+
+template <typename T, unsigned int N>
 INLINE2 FTypeName<T,N> asin (const FTypeName<T,N>& a)
 {
 	FTypeName<T,N> c(Op<T>::myAsin(a.val()));
@@ -1155,6 +1162,90 @@ INLINE2 FTypeName<T,0> atan (const FTypeName<T,0>& a)
 	return c;
 }
 
+template <typename T, unsigned int N>
+INLINE2 FTypeName<T,N> sinh (const FTypeName<T,N>& a)
+{
+	FTypeName<T,N> c(Op<T>::mySinh(a.val()));
+	if (!a.depend()) return c;
+	T tmp(Op<T>::myCosh(a.val()));
+	c.setDepend(a);
+	for(unsigned int i=0;i<N;++i) c[i]=a[i]*tmp;
+	return c;
+}
+template <typename T>
+INLINE2 FTypeName<T,0> sinh (const FTypeName<T,0>& a)
+{
+	FTypeName<T,0> c(Op<T>::mySinh(a.val()));
+	if (!a.depend()) return c;
+	T tmp(Op<T>::myCosh(a.val()));
+	c.setDepend(a);
+	for(unsigned int i=0;i<c.size();++i) c[i]=a[i]*tmp;
+	return c;
+}
+
+template <typename T, unsigned int N>
+INLINE2 FTypeName<T,N> cosh (const FTypeName<T,N>& a)
+{
+	FTypeName<T,N> c(Op<T>::myCosh(a.val()));
+	if (!a.depend()) return c;
+	T tmp(Op<T>::mySinh(a.val()));
+	c.setDepend(a);
+	for(unsigned int i=0;i<N;++i) c[i]=a[i]*tmp;
+	return c;
+}
+template <typename T>
+INLINE2 FTypeName<T,0> cosh (const FTypeName<T,0>& a)
+{
+	FTypeName<T,0> c(Op<T>::myCosh(a.val()));
+	if (!a.depend()) return c;
+	T tmp(Op<T>::mySinh(a.val()));
+	c.setDepend(a);
+	for(unsigned int i=0;i<c.size();++i) c[i]=a[i]*tmp;
+	return c;
+}
+
+template <typename T, unsigned int N>
+INLINE2 FTypeName<T,N> tanh (const FTypeName<T,N>& a)
+{
+	FTypeName<T,N> c(Op<T>::myTanh(a.val()));
+	if (!a.depend()) return c;
+	T tmp(Op<T>::myOne()-Op<T>::mySqr(c.val()));
+	c.setDepend(a);
+	for(unsigned int i=0;i<N;++i)  c[i]=a[i]*tmp;
+	return c;
+}
+template <typename T>
+INLINE2 FTypeName<T,0> tanh (const FTypeName<T,0>& a)
+{
+	FTypeName<T,0> c(Op<T>::myTanh(a.val()));
+	if (!a.depend()) return c;
+	T tmp(Op<T>::myOne()-Op<T>::mySqr(c.val()));
+	c.setDepend(a);
+	for(unsigned int i=0;i<c.size();++i)  c[i]=a[i]*tmp;
+	return c;
+}
+
+template <typename T, unsigned int N>
+INLINE2 FTypeName<T,N> coth (const FTypeName<T,N>& a)
+{
+	FTypeName<T,N> c(Op<T>::myCoth(a.val()));
+	if (!a.depend()) return c;
+	T tmp(Op<T>::myOne()-Op<T>::mySqr(c.val()));
+	c.setDepend(a);
+	for(unsigned int i=0;i<N;++i)  c[i]=a[i]*tmp;
+	return c;
+}
+template <typename T>
+INLINE2 FTypeName<T,0> coth (const FTypeName<T,0>& a)
+{
+	FTypeName<T,0> c(Op<T>::myCoth(a.val()));
+	if (!a.depend()) return c;
+	T tmp(Op<T>::myOne()-Op<T>::mySqr(c.val()));
+	c.setDepend(a);
+	for(unsigned int i=0;i<c.size();++i)  c[i]=a[i]*tmp;
+	return c;
+}
+
 template <typename U, unsigned int N> struct Op< FTypeName<U,N> >
 {
 	typedef FTypeName<U,N> T;
@@ -1181,9 +1272,14 @@ template <typename U, unsigned int N> struct Op< FTypeName<U,N> >
 	static T mySin(const T& x) { return fadbad::sin(x); }
 	static T myCos(const T& x) { return fadbad::cos(x); }
 	static T myTan(const T& x) { return fadbad::tan(x); }
+	static T myCot(const T& x) { return fadbad::cot(x); }
 	static T myAsin(const T& x) { return fadbad::asin(x); }
 	static T myAcos(const T& x) { return fadbad::acos(x); }
 	static T myAtan(const T& x) { return fadbad::atan(x); }
+	static T mySinh(const T& x) { return fadbad::sinh(x); }
+	static T myCosh(const T& x) { return fadbad::cosh(x); }
+	static T myTanh(const T& x) { return fadbad::tanh(x); }
+	static T myCoth(const T& x) { return fadbad::coth(x); }
 	static bool myEq(const T& x, const T& y) { return x==y; }
 	static bool myNe(const T& x, const T& y) { return x!=y; }
 	static bool myLt(const T& x, const T& y) { return x<y; }

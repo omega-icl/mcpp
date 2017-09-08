@@ -1,11 +1,9 @@
 # This is the main makefile for MC++
 # - `make install' creates the subsdirectory `include' (if not already
 #   existing, and creates links toheader files therein
-# - `make test' runs unit testing for various components of MC++ using
-#   CppUnit
 # - `make cleaninstall' removes the links and cleans src/test
 
-export version = 2.0
+export version = 2.1
 
 export rootpath = $(shell cd .. ; pwd)
 export srcpath  = $(rootpath)/src
@@ -29,13 +27,6 @@ dirs :
 
 mc_install:
 	-(cd $(mcpath); make -f mc.mk install)
-
-#####
-
-test: mc_test
-
-mc_test:
-	-(cd $(testpath); make -f test.mk)
 
 #####
 

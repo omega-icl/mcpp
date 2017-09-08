@@ -1,4 +1,4 @@
-// Copyright (C) 2009-2016 Benoit Chachuat, Imperial College London.
+// Copyright (C) 2009-2017 Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
@@ -27,16 +27,22 @@ template <> struct Op< filib::interval<double> >
   static T inv (const T& x) { return T(1.)/x;  }
   static T sqr (const T& x) { return filib::sqr(x);  }
   static T sqrt(const T& x) { return filib::sqrt(x); }
+  static T exp (const T& x) { return filib::exp(x);  }
   static T log (const T& x) { return filib::log(x);  }
   static T xlog(const T& x) { return filib::log(x)*x; }
+  // !!THE RESULT IS NOT VERIFIED!!
+  static T lmtd(const T& x,const T& y) { return T(mc::lmtd(filib::inf(x),filib::inf(y)),mc::lmtd(filib::sup(x),filib::sup(y)) ) ; }
+  static T rlmtd(const T& x,const T& y) { return T(mc::rlmtd(filib::sup(x),filib::sup(y)),mc::rlmtd(filib::inf(x),filib::inf(y)) ) ; }
   static T fabs(const T& x) { return filib::abs(x); }
-  static T exp (const T& x) { return filib::exp(x);  }
   static T sin (const T& x) { return filib::sin(x);  }
   static T cos (const T& x) { return filib::cos(x);  }
   static T tan (const T& x) { return filib::tan(x);  }
   static T asin(const T& x) { return filib::asin(x); }
   static T acos(const T& x) { return filib::acos(x); }
   static T atan(const T& x) { return filib::atan(x); }
+  static T sinh(const T& x) { return filib::sinh(x); }
+  static T cosh(const T& x) { return filib::cosh(x); }
+  static T tanh(const T& x) { return filib::tanh(x); }
   static T erf (const T& x) { throw std::runtime_error("operation not permitted"); }
   static T erfc(const T& x) { throw std::runtime_error("operation not permitted"); }
   static T fstep(const T& x) { throw std::runtime_error("operation not permitted"); }
@@ -48,7 +54,7 @@ template <> struct Op< filib::interval<double> >
   static T cheb (const T& x, const unsigned n) { return T(-1.,1.); }
   template <typename X> static T pow(const X& x, const int n) { return filib::power(x,n); }
   template <typename X, typename Y> static T pow(const X& x, const Y& y) { return filib::pow(x,y); }
-  static T monomial (const unsigned int n, const T* x, const int* k) { return n? filib::power(x[0], k[0]) * monomial(n-1, x+1, k+1): 1.; }
+  static T monom (const unsigned int n, const T* x, const unsigned* k) { return n? filib::power(x[0], k[0]) * monom(n-1, x+1, k+1): 1.; }
   static bool inter(T& xIy, const T& x, const T& y) { xIy = x.intersect(y); return true; }  
   static bool eq(const T& x, const T& y) { return x.seq(y); }
   static bool ne(const T& x, const T& y) { return x.sne(y); }
@@ -73,16 +79,22 @@ template <> struct Op< filib::interval<double,filib::native_switched,filib::i_mo
   static T inv (const T& x) { return T(1.)/x;  }
   static T sqr (const T& x) { return filib::sqr(x);  }
   static T sqrt(const T& x) { return filib::sqrt(x); }
+  static T exp (const T& x) { return filib::exp(x);  }
   static T log (const T& x) { return filib::log(x);  }
   static T xlog(const T& x) { return filib::log(x)*x; }
+  // !!THE RESULT IS NOT VERIFIED!!
+  static T lmtd(const T& x,const T& y) { return T(mc::lmtd(filib::inf(x),filib::inf(y)),mc::lmtd(filib::sup(x),filib::sup(y)) ) ; }
+  static T rlmtd(const T& x,const T& y) { return T(mc::rlmtd(filib::sup(x),filib::sup(y)),mc::rlmtd(filib::inf(x),filib::inf(y)) ) ; }
   static T fabs(const T& x) { return filib::abs(x); }
-  static T exp (const T& x) { return filib::exp(x);  }
   static T sin (const T& x) { return filib::sin(x);  }
   static T cos (const T& x) { return filib::cos(x);  }
   static T tan (const T& x) { return filib::tan(x);  }
   static T asin(const T& x) { return filib::asin(x); }
   static T acos(const T& x) { return filib::acos(x); }
   static T atan(const T& x) { return filib::atan(x); }
+  static T sinh(const T& x) { return filib::sinh(x); }
+  static T cosh(const T& x) { return filib::cosh(x); }
+  static T tanh(const T& x) { return filib::tanh(x); }
   static T hull(const T& x, const T& y) { return x.hull(y); }
   static T min (const T& x, const T& y) { return x.imin(y); }
   static T max (const T& x, const T& y) { return x.imax(y); }
@@ -90,7 +102,7 @@ template <> struct Op< filib::interval<double,filib::native_switched,filib::i_mo
   static T cheb (const T& x, const unsigned n) { return T(-1.,1.); }
   template <typename X> static T pow(const X& x, const int n) { return filib::power(x,n); }
   template <typename X, typename Y> static T pow(const X& x, const Y& y) { return filib::pow(x,y); }
-  static T monomial (const unsigned int n, const T* x, const int* k) { return n? filib::power(x[0], k[0]) * monomial(n-1, x+1, k+1): 1.; }
+  static T monom (const unsigned int n, const T* x, const unsigned* k) { return n? filib::power(x[0], k[0]) * monom(n-1, x+1, k+1): 1.; }
   static bool inter(T& xIy, const T& x, const T& y) { xIy = x.intersect(y); return !xIy.isEmpty(); }  
   static bool eq(const T& x, const T& y) { return x.seq(y); }
   static bool ne(const T& x, const T& y) { return x.sne(y); }

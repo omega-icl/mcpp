@@ -1,12 +1,12 @@
-// Copyright (C) 2009-2016 Benoit Chachuat, Imperial College London.
+// Copyright (C) 2017 Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
 /*!
 \page page_FFUNC Construction, Manipulation and Evaluation of Factorable Functions
 \author Benoit Chachuat & OMEGA Research Group (http://www3.imperial.ac.uk/environmentenergyoptimisation)
-\version 1.0
-\date 2016
+\version 1.1
+\date 2017
 \bug No known bugs.
 
 Originally introduced by McCormick [McCormick, 1976] for the development of a convex/concave relaxation arithmetic, <B>factorable functions</B> cover an extremely inclusive class of functions which can be represented finitely on a computer by means of a code list or a computational graph involving atom operations. These are typically unary and binary operations within a library of atom operators, which can be based for example on the C-code library <tt>math.h</tt>. Besides convex/concave relaxations, factorable functions find applications in automatic differentiation (AD) [Naumann, 2009] as well as in interval analysis [Moore <I>et al.</I>, 2009] and Taylor model arithmetic [Neumaier, 2002].
@@ -469,6 +469,12 @@ Differentiation</A></I>, SIAM, 2009
 - Schichl, H., A. Neumaier, <a href="http://dx.doi.org/10.1007/s10898-005-0937-x">Interval Analysis on Directed Acyclic Graphs for Global Optimization</a>, <i>Journal of Global Optimization</i>, <b>33</b>:541–562, 2005
 */
 
+// TO DO:
+// - Allow FFGraph::eval both with allocation on the fly or preallocation
+// - Extend FFGraph eval for multiple variable arrays (use variadic templates)
+// - What to do with monomials?
+// - Allow flatening of rational expressions?
+
 #ifndef MC__FFUNC_HPP
 #define MC__FFUNC_HPP
 
@@ -483,6 +489,7 @@ Differentiation</A></I>, SIAM, 2009
 #include <tuple>
 #include <algorithm>
 #include <stdexcept>
+#include <cassert>
 
 #include "mcfadbad.hpp"
 #include "mcfunc.hpp"
@@ -493,12 +500,14 @@ Differentiation</A></I>, SIAM, 2009
 #undef  MC__FFUNC_DEBUG_TAD
 #undef  MC__FFUNC_DEBUG_DEPMAP
 
+// For time evaluation
 //#undef  MC__FFUNC_CPU_EVAL
 #ifdef MC__FFUNC_CPU_EVAL
   #include "mctime.hpp"
 #endif
 
 // For block decomposition
+#ifdef MC__HSL_USE
 extern "C" void mc13d_
   ( const int*, const int*, const int*, const int*, const int*, int*, int*, int*, int* );
 extern "C" void mc21a_
@@ -506,6 +515,7 @@ extern "C" void mc21a_
 extern "C" void mc33ad_
   ( const int*, const int*, const int*, int*, const int*, double*, int*, int*, int*,
     int*, int*, int*, int*, int*, int* );
+#endif
 
 namespace mc
 {
@@ -645,6 +655,13 @@ class FFVar
   friend FFVar sqr   ( const FFVar& );
   friend FFVar exp   ( const FFVar& );
   friend FFVar log   ( const FFVar& );
+  friend FFVar xlog  ( const FFVar& );
+  friend FFVar lmtd  ( const FFVar&, const FFVar& );
+  template <typename V> friend FFVar lmtd  ( const V&, const FFVar& );
+  template <typename V> friend FFVar lmtd  ( const FFVar&, const V& );
+  friend FFVar rlmtd  ( const FFVar&, const FFVar& );
+  template <typename V> friend FFVar rlmtd  ( const V&, const FFVar& );
+  template <typename V> friend FFVar rlmtd  ( const FFVar&, const V& );
   friend FFVar sqrt  ( const FFVar& );
   friend FFVar fabs  ( const FFVar& );
   friend FFVar cos   ( const FFVar& );
@@ -653,6 +670,9 @@ class FFVar
   friend FFVar acos  ( const FFVar& );
   friend FFVar asin  ( const FFVar& );
   friend FFVar atan  ( const FFVar& );
+  friend FFVar cosh  ( const FFVar& );
+  friend FFVar sinh  ( const FFVar& );
+  friend FFVar tanh  ( const FFVar& );
   friend FFVar erf   ( const FFVar& );
   friend FFVar erfc  ( const FFVar& );
   friend FFVar fstep ( const FFVar& );
@@ -916,9 +936,10 @@ public:
   //! @brief Enumeration type for unary and binary operations
   enum TYPE{
     CNST=0, VAR,
-    PLUS, NEG, MINUS, TIMES, SCALE, DIV,
-    EXP, LOG, SQRT, SQR, IPOW, POW, SIN, COS, TAN, ASIN, ACOS, ATAN,
-    FABS, ERF, FSTEP, MINF, MAXF, INTER, CHEB
+    PLUS, SHIFT, NEG, MINUS, TIMES, SCALE, DIV, INV,
+    IPOW, DPOW, POW, CHEB, SQR, SQRT, EXP, LOG, XLOG,
+    SIN, COS, TAN, ASIN, ACOS, ATAN, COSH, SINH, TANH,
+    FABS, ERF, FSTEP, MINF, MAXF, INTER, LMTD, RLMTD
   };
 
   //! @brief Constructor
@@ -1067,6 +1088,13 @@ class FFGraph
   friend FFVar sqr   ( const FFVar& );
   friend FFVar exp   ( const FFVar& );
   friend FFVar log   ( const FFVar& );
+  friend FFVar xlog  ( const FFVar& );
+  friend FFVar lmtd  ( const FFVar&, const FFVar& );
+  template <typename V> friend FFVar lmtd  ( const V&, const FFVar& );
+  template <typename V> friend FFVar lmtd  ( const FFVar&, const V& );  
+  friend FFVar rlmtd  ( const FFVar&, const FFVar& );
+  template <typename V> friend FFVar rlmtd  ( const V&, const FFVar& );
+  template <typename V> friend FFVar rlmtd  ( const FFVar&, const V& ); 
   friend FFVar sqrt  ( const FFVar& );
   friend FFVar fabs  ( const FFVar& );
   friend FFVar cos   ( const FFVar& );
@@ -1075,6 +1103,9 @@ class FFGraph
   friend FFVar acos  ( const FFVar& );
   friend FFVar asin  ( const FFVar& );
   friend FFVar atan  ( const FFVar& );
+  friend FFVar cosh  ( const FFVar& );
+  friend FFVar sinh  ( const FFVar& );
+  friend FFVar tanh  ( const FFVar& );
   friend FFVar erf   ( const FFVar& );
   friend FFVar erfc  ( const FFVar& );
   friend FFVar fstep ( const FFVar& );
@@ -1377,6 +1408,7 @@ public:
     ( std::list<const FFOp*>&opDep, U*opRes, const unsigned nDep, const FFVar*pDep,
       U*vDep, const unsigned nVar, const FFVar*pVar, const U*vVar, const bool add=false );
 
+#ifdef MC__HSL_USE
   //! @brief Perform lower triangular block reaarangement of a square system
   bool MC13
     ( const unsigned nDep, const FFVar*pDep, const FFVar*pIndep,
@@ -1387,6 +1419,7 @@ public:
     ( const unsigned nDep, const FFVar*pDep, const unsigned nIndep,
       const FFVar*pIndep, int*IP, int*IQ, int*IPROF, int*IFLAG, const bool disp=false,
       std::ostream&os=std::cout );
+#endif
 
   //! @brief Compute (symbolic) trace of a square matrix
   static FFVar trace
@@ -1738,7 +1771,7 @@ operator+
   case FFVar::CINT:
     return( Cst1 + Var2._num.n );
   default:
-    return FFGraph::_insert_binary_operation( FFOp::PLUS, Cst1+Var2._dep, (double)Cst1, Var2 );
+    return FFGraph::_insert_binary_operation( FFOp::SHIFT, Cst1+Var2._dep, (double)Cst1, Var2 );
   }
 }
 
@@ -1827,7 +1860,7 @@ operator-
   case FFVar::CINT:
     return( Var1._num.n - Cst2 );
   default:
-    return FFGraph::_insert_binary_operation( FFOp::MINUS, Var1._dep-Cst2, Var1, (double)Cst2 );
+    return FFGraph::_insert_binary_operation( FFOp::SHIFT, Var1._dep-Cst2, Var1, -(double)Cst2 );
   }
 }
 
@@ -1835,6 +1868,8 @@ template <typename U> inline FFVar
 operator-
 ( const U&Cst1, const FFVar&Var2 )
 {
+  return( Cst1 + (-Var2) );
+/*
   // Case constant is zero
   if( Cst1 == U(0) ) return -Var2;
 
@@ -1846,6 +1881,7 @@ operator-
   default:
     return FFGraph::_insert_binary_operation( FFOp::MINUS, Cst1-Var2._dep, (double)Cst1, Var2 );
   }
+*/
 }
 
 template <typename U> inline FFVar&
@@ -1890,8 +1926,6 @@ operator*
       return( Var1 * Var2._num.n );
     default:{
       return FFGraph::_insert_binary_operation( FFOp::TIMES, Var1._dep*Var2._dep, Var1, Var2 );
-      //FFVar VarR = FFGraph::_insert_binary_operation( FFOp::TIMES, Var1._dep*Var2._dep, Var1, Var2 );
-      //return !Var1._dag->options.DCDECOMPOSE? VarR: inter( VarR, (sqr(Var1+Var2)-sqr(Var1-Var2))/4. );
      }
     }
   }
@@ -1939,6 +1973,7 @@ operator/
 ( const FFVar&Var1, const FFVar&Var2 )
 {
   if( &Var1 == &Var2 ) return 1.;
+  if( Var2._id.first == FFVar::CREAL || Var2._id.first == FFVar::CINT ) return std::numeric_limits<double>::quiet_NaN();
 
   switch( Var1._id.first ){
   case FFVar::CREAL:
@@ -1967,8 +2002,6 @@ operator/
       return( Var1 / Var2._num.n );
     default:{
       return FFGraph::_insert_binary_operation( FFOp::DIV, Var1._dep/Var2._dep, Var1, Var2 );
-      //FFVar VarR = FFGraph::_insert_binary_operation( FFOp::DIV, Var1._dep/Var2._dep, Var1, Var2 );
-      //return !Var1._dag->options.DCDECOMPOSE? VarR: inter( VarR, Var1*pow(Var2,-1) );
      }
     }
   }
@@ -1978,6 +2011,7 @@ template <typename U> inline FFVar
 operator/
 ( const FFVar&Var1, const U&Cst2 )
 {
+  if( Cst2 == U(0) ) return std::numeric_limits<double>::quiet_NaN();
   return( ( 1. / Cst2 ) * Var1 );
 }
 
@@ -1994,9 +2028,7 @@ operator/
   case FFVar::CINT:
     return( Cst1 / Var2._num.n );
   default:{
-    //FFVar VarR = FFGraph::_insert_binary_operation( FFOp::DIV, Cst1/Var2._dep, (double)Cst1, Var2 );
-    //return !Var2._dag->options.DCDECOMPOSE? VarR: inter( VarR, Cst1*pow(Var2,-1) );
-    return FFGraph::_insert_binary_operation( FFOp::DIV, Cst1/Var2._dep, (double)Cst1, Var2 );
+    return FFGraph::_insert_binary_operation( FFOp::INV, Cst1/Var2._dep, (double)Cst1, Var2 );
    }
   }
 }
@@ -2005,7 +2037,574 @@ inline FFVar
 inv
 ( const FFVar&Var )
 {
-  return( pow( Var, -1 ) );
+  //return( pow( Var, -1 ) );
+  return( 1. / Var );
+}
+
+inline FFVar
+sqr
+( const FFVar&Var )
+{
+  // Case operand is a numeric constant
+  if( Var._id.second == FFVar::NOREF ){
+    switch( Var._num.t ){
+      case FFNum::INT:   return( mc::sqr( Var._num.n ) );
+      case FFNum::REAL:  return( mc::sqr( Var._num.x ) );
+    }
+  }
+
+  // Append new intermediate variable and corresponding operation
+  // (only if operation does not exist already)
+  return FFGraph::_insert_unary_operation( FFOp::SQR, sqr(Var._dep), Var );
+}
+
+inline FFVar
+sqrt
+( const FFVar&Var )
+{
+  // Case operand is a numeric constant
+  if( Var._id.second == FFVar::NOREF ){
+    switch( Var._num.t ){
+      case FFNum::INT:   return( std::sqrt( Var._num.n ) );
+      case FFNum::REAL:  return( std::sqrt( Var._num.x ) );
+    }
+  }
+
+  // Append new intermediate variable and corresponding operation
+  // (only if operation does not exist already)
+  return FFGraph::_insert_unary_operation( FFOp::SQRT, sqrt(Var._dep), Var );
+}
+
+inline FFVar
+pow
+( const FFVar&Var, const int iExp )
+{
+  // Case operand is a numeric constant
+  if( Var._id.second == FFVar::NOREF ){
+    switch( Var._num.t ){
+      case FFNum::INT:   return( std::pow( Var._num.n, iExp ) );
+      case FFNum::REAL:  return( std::pow( Var._num.x, iExp ) );
+    }
+  }
+
+  // Case integer exponent is 0,1, or 2
+  if( iExp == 0 )  return( 1. );
+  if( iExp == 1 )  return Var;
+  if( iExp == 2 )  return sqr(Var);
+  if( iExp == -1 ) return 1./Var;
+
+  // Append new intermediate variable and corresponding operation
+  // (only if operation does not exist already)
+  // Also append constant iExp if not defined
+  return FFGraph::_insert_binary_operation( FFOp::IPOW, pow(Var._dep,iExp), Var, iExp );
+}
+
+inline FFVar
+pow
+( const FFVar&Var, const double dExp )
+{
+  // Case operand is a numeric constant
+  if( Var._id.second == FFVar::NOREF ){
+    switch( Var._num.t ){
+      case FFNum::INT:   return( std::pow( Var._num.n, dExp ) );
+      case FFNum::REAL:  return( std::pow( Var._num.x, dExp ) );
+    }
+  }
+
+  // Case exponent is negative: compute 1./(Var^dExp)
+  if( dExp<0. )  return 1./( pow(Var,-dExp) );
+
+  // Case integer exponent is 0,1, or 2
+  if( dExp==0. )  return( 1. );
+  if( dExp==1. )  return Var;
+  if( dExp==2. )  return sqr(Var);
+  if( dExp==0.5 ) return sqrt(Var);
+
+  // Append new intermediate variable and corresponding operation
+  // (only if operation does not exist already)
+  // Also append constant dExp if not defined
+  return FFGraph::_insert_binary_operation( FFOp::DPOW, pow(Var._dep,dExp), Var, dExp );
+  //return exp( dExp * log( Var ) );
+}
+
+inline FFVar
+pow
+( const FFVar&Var1, const FFVar&Var2 )
+{
+  // Case exponent is integer constant
+  if( Var2._id.second == FFVar::NOREF && Var2._num.t == FFNum::INT )
+    return pow( Var1, Var2._num.n );
+
+  return exp( Var2 * log( Var1 ) );
+}
+
+inline FFVar
+pow
+( const double Cst1, const FFVar&Var2 )
+{
+  // Case exponent is integer constant
+  if( Var2._id.second == FFVar::NOREF && Var2._num.t == FFNum::INT )
+    return std::pow( Cst1, Var2._num.n );
+
+  return exp( Var2 * std::log( Cst1 ) );
+}
+
+inline FFVar
+cheb
+( const FFVar&Var, const unsigned iOrd )
+{
+  // Case operand is a numeric constant
+  if( Var._id.second == FFVar::NOREF ){
+    switch( Var._num.t ){
+      case FFNum::INT:   return( mc::cheb( Var._num.n, iOrd ) );
+      case FFNum::REAL:  return( mc::cheb( Var._num.x, iOrd ) );
+    }
+  }
+
+  // Case integer exponent is 0,1, or 2
+  switch( iOrd ){
+    case 0: return( 1. );
+    case 1: return Var;
+    case 2: return 2.*sqr(Var)-1.;
+    default: break;
+  }
+  
+  // Append new intermediate variable and corresponding operation
+  // (only if operation does not exist already)
+  // Also append constant iOrd if not defined
+  if( !Var._dag || !Var._dag->options.CHEBRECURS )
+    return FFGraph::_insert_binary_operation( FFOp::CHEB, cheb(Var._dep,iOrd), Var, (int)iOrd );
+
+  if( iOrd==3 ){
+    FFVar VarRecu = (4.*sqr(Var)-3.)*Var;
+    FFVar VarCheb = FFGraph::_insert_binary_operation( FFOp::CHEB, cheb(Var._dep,iOrd), Var, (int)iOrd );
+    return inter( VarCheb, VarRecu );
+  }
+    
+  FFVar VarRecu = iOrd==3? (4.*sqr(Var)-3.)*Var: 2.*Var*cheb(Var,iOrd-1)-cheb(Var,iOrd-2);
+  VarRecu = inter( VarRecu, iOrd%2? 2.*cheb(Var,iOrd/2)*cheb(Var,iOrd/2+1)-Var: 2.*sqr(cheb(Var,iOrd/2))-1. );
+  FFVar VarCheb = FFGraph::_insert_binary_operation( FFOp::CHEB, cheb(Var._dep,iOrd), Var, (int)iOrd );
+  return inter( VarCheb, VarRecu );
+}
+
+inline FFVar
+exp
+( const FFVar&Var )
+{
+  // Case operand is a numeric constant
+  if( Var._id.second == FFVar::NOREF ){
+    switch( Var._num.t ){
+      case FFNum::INT:   return( std::exp( Var._num.n ) );
+      case FFNum::REAL:  return( std::exp( Var._num.x ) );
+    }
+  }
+
+  // Append new intermediate variable and corresponding operation
+  // (only if operation does not exist already)
+  return FFGraph::_insert_unary_operation( FFOp::EXP, exp(Var._dep), Var );
+}
+
+inline FFVar
+log
+( const FFVar&Var )
+{
+  // Case operand is a numeric constant
+  if( Var._id.second == FFVar::NOREF ){
+    switch( Var._num.t ){
+      case FFNum::INT:   return( std::log( Var._num.n ) );
+      case FFNum::REAL:  return( std::log( Var._num.x ) );
+    }
+  }
+
+  // Append new intermediate variable and corresponding operation
+  // (only if operation does not exist already)
+  return FFGraph::_insert_unary_operation( FFOp::LOG, log(Var._dep), Var );
+}
+
+inline FFVar
+xlog
+( const FFVar&Var )
+{
+  // Case operand is a numeric constant
+  if( Var._id.second == FFVar::NOREF ){
+    switch( Var._num.t ){
+      case FFNum::INT:   return( Var._num.n*std::log( Var._num.n ) );
+      case FFNum::REAL:  return( Var._num.x*std::log( Var._num.x ) );
+    }
+  }
+
+  // Append new intermediate variable and corresponding operation
+  // (only if operation does not exist already)
+  return FFGraph::_insert_unary_operation( FFOp::XLOG, xlog(Var._dep), Var );
+}
+
+inline FFVar
+lmtd
+( const FFVar&Var1, const FFVar&Var2  )
+{
+  if( &Var1 == &Var2 ) return( Var1 );
+
+  switch( Var1._id.first ){
+  case FFVar::CREAL:
+    switch( Var2._id.first ){
+    case FFVar::CREAL:
+      if(isequal(Var1._num.x,Var2._num.x)){
+	return Var1._num.x;
+      }
+      return (Var1._num.x-Var2._num.x)/(std::log(Var1._num.x)-std::log(Var2._num.x)); 
+    case FFVar::CINT:
+      if(isequal(Var1._num.x,Var2._num.n)){
+	return Var1._num.x;
+      }
+      return (Var1._num.x-Var2._num.n)/(std::log(Var1._num.x)-std::log(Var2._num.n));     
+    default:
+      return( lmtd(Var1._num.x, Var2) );
+    }
+  case FFVar::CINT:
+    switch( Var2._id.first ){
+    case FFVar::CREAL:
+      if(isequal(Var1._num.n,Var2._num.x)){
+	return Var1._num.n;
+      }
+      return (Var1._num.n-Var2._num.x)/(std::log(Var1._num.n)-std::log(Var2._num.x)); 
+    case FFVar::CINT:
+      if(isequal(Var1._num.n,Var2._num.n)){
+	return Var1._num.n;
+      }
+      return (Var1._num.n-Var2._num.n)/(std::log(Var1._num.n)-std::log(Var2._num.n)); 
+    default:
+      return( lmtd((double)Var1._num.n, Var2)  );
+    }
+  default:
+    switch( Var2._id.first ){
+    case FFVar::CREAL:
+      return lmtd(Var1, Var2._num.x);
+    case FFVar::CINT:
+      return lmtd(Var1, (double)Var2._num.n);
+    default:
+      return FFGraph::_insert_binary_operation( FFOp::LMTD, lmtd(Var1._dep,Var2._dep), Var1, Var2 );
+    }
+  }
+}
+
+template <typename U> inline FFVar
+lmtd
+( const U&Cst1, const FFVar&Var2 )
+{
+  // Case constant is zero
+  if( Cst1 == U(1) ) return (1-Var2)/log(Var2);
+
+  switch( Var2._id.first ){
+  case FFVar::CREAL:
+    return( lmtd(Cst1, Var2._num.x) );
+  case FFVar::CINT:
+    return( lmtd(Cst1, (double)Var2._num.n) );
+  default:
+    return FFGraph::_insert_binary_operation( FFOp::LMTD, lmtd(Cst1,Var2._dep), (double)Cst1, Var2 );
+  }
+
+}
+
+template <typename U> inline FFVar
+lmtd
+( const FFVar&Var1, const U&Cst2 )
+{
+  return( lmtd(Cst2, Var1) );
+}
+
+inline FFVar
+rlmtd
+( const FFVar&Var1, const FFVar&Var2  )
+{
+  if( &Var1 == &Var2 ) return( 1./Var1 );
+
+  switch( Var1._id.first ){
+  case FFVar::CREAL:
+    switch( Var2._id.first ){
+    case FFVar::CREAL:
+      if(isequal(Var1._num.x,Var2._num.x)){
+		return 1./Var1._num.x;
+      }
+      return (std::log(Var1._num.x)-std::log(Var2._num.x))/(Var1._num.x-Var2._num.x); 
+    case FFVar::CINT:
+      if(isequal(Var1._num.x,Var2._num.n)){
+		return 1./Var1._num.x;
+      }
+      return (std::log(Var1._num.x)-std::log((double)Var2._num.n))/(Var1._num.x-Var2._num.n);     
+    default:
+      return( rlmtd(Var1._num.x, Var2) );
+    }
+  case FFVar::CINT:
+    switch( Var2._id.first ){
+    case FFVar::CREAL:
+      if(isequal(Var1._num.n,Var2._num.x)){
+		return 1./Var1._num.n;
+      }
+      return (std::log((double)Var1._num.n)-std::log(Var2._num.x))/(Var1._num.n-Var2._num.x); 
+    case FFVar::CINT:
+      if(isequal(Var1._num.n,Var2._num.n)){
+		return 1./Var1._num.n;
+      }
+      return (std::log((double)Var1._num.n)-std::log((double)Var2._num.n))/(Var1._num.n-Var2._num.n); 
+    default:
+      return( rlmtd((double)Var1._num.n, Var2)  );
+    }
+  default:
+    switch( Var2._id.first ){
+    case FFVar::CREAL:
+      return rlmtd(Var1, Var2._num.x);
+    case FFVar::CINT:
+      return rlmtd(Var1, (double)Var2._num.n);
+    default:
+      return FFGraph::_insert_binary_operation( FFOp::RLMTD, rlmtd(Var1._dep,Var2._dep), Var1, Var2 );
+    }
+  }
+}
+
+template <typename U> inline FFVar
+rlmtd
+( const U&Cst1, const FFVar&Var2 )
+{
+  // Case constant is one
+   if( Cst1 == U(1) ){ 
+	FFVar Var1(1.);
+	return rlmtd(Var1,Var2);
+  }
+
+  switch( Var2._id.first ){
+  case FFVar::CREAL:
+    return( rlmtd(Cst1, Var2._num.x) );
+  case FFVar::CINT:
+    return( rlmtd(Cst1, (double)Var2._num.n) );
+  default:
+    return FFGraph::_insert_binary_operation( FFOp::RLMTD, rlmtd(Cst1,Var2._dep), (double)Cst1, Var2 );
+  }
+}
+
+template <typename U> inline FFVar
+rlmtd
+( const FFVar&Var1, const U&Cst2 )
+{
+  return( rlmtd(Cst2, Var1) );
+}
+
+inline FFVar
+fabs
+( const FFVar&Var )
+{
+  // Case operand is a numeric constant
+  if( Var._id.second == FFVar::NOREF ){
+    switch( Var._num.t ){
+      case FFNum::INT:   return( std::fabs( Var._num.n ) );
+      case FFNum::REAL:  return( std::fabs( Var._num.x ) );
+    }
+  }
+
+  // Append new intermediate variable and corresponding operation
+  // (only if operation does not exist already)
+  return FFGraph::_insert_unary_operation( FFOp::FABS, fabs(Var._dep), Var );
+}
+
+inline FFVar
+cos
+( const FFVar&Var )
+{
+  // Case operand is a numeric constant
+  if( Var._id.second == FFVar::NOREF ){
+    switch( Var._num.t ){
+      case FFNum::INT:   return( std::cos( Var._num.n ) );
+      case FFNum::REAL:  return( std::cos( Var._num.x ) );
+    }
+  }
+
+  // Append new intermediate variable and corresponding operation
+  // (only if operation does not exist already)
+  return FFGraph::_insert_unary_operation( FFOp::COS, cos(Var._dep), Var );
+}
+
+inline FFVar
+sin
+( const FFVar&Var )
+{
+  // Case operand is a numeric constant
+  if( Var._id.second == FFVar::NOREF ){
+    switch( Var._num.t ){
+      case FFNum::INT:   return( std::sin( Var._num.n ) );
+      case FFNum::REAL:  return( std::sin( Var._num.x ) );
+    }
+  }
+
+  // Append new intermediate variable and corresponding operation
+  // (only if operation does not exist already)
+  return FFGraph::_insert_unary_operation( FFOp::SIN, sin(Var._dep), Var );
+}
+
+inline FFVar
+tan
+( const FFVar&Var )
+{
+  // Case operand is a numeric constant
+  if( Var._id.second == FFVar::NOREF ){
+    switch( Var._num.t ){
+      case FFNum::INT:   return( std::tan( Var._num.n ) );
+      case FFNum::REAL:  return( std::tan( Var._num.x ) );
+
+    }
+  }
+
+  // Append new intermediate variable and corresponding operation
+  // (only if operation does not exist already)
+  return FFGraph::_insert_unary_operation( FFOp::TAN, tan(Var._dep), Var );
+}
+
+inline FFVar
+asin
+( const FFVar&Var )
+{
+  // Case operand is a numeric constant
+  if( Var._id.second == FFVar::NOREF ){
+    switch( Var._num.t ){
+      case FFNum::INT:   return( std::asin( Var._num.n ) );
+      case FFNum::REAL:  return( std::asin( Var._num.x ) );
+    }
+  }
+
+  // Append new intermediate variable and corresponding operation
+  // (only if operation does not exist already)
+  return FFGraph::_insert_unary_operation( FFOp::ASIN, asin(Var._dep), Var );
+}
+
+inline FFVar
+acos
+( const FFVar&Var )
+{
+  // Case operand is a numeric constant
+  if( Var._id.second == FFVar::NOREF ){
+    switch( Var._num.t ){
+      case FFNum::INT:   return( std::acos( Var._num.n ) );
+      case FFNum::REAL:  return( std::acos( Var._num.x ) );
+    }
+  }
+
+  // Append new intermediate variable and corresponding operation
+  // (only if operation does not exist already)
+  return FFGraph::_insert_unary_operation( FFOp::ACOS, acos(Var._dep), Var );
+}
+
+inline FFVar
+atan
+( const FFVar&Var )
+{
+  // Case operand is a numeric constant
+  if( Var._id.second == FFVar::NOREF ){
+    switch( Var._num.t ){
+      case FFNum::INT:   return( std::atan( Var._num.n ) );
+      case FFNum::REAL:  return( std::atan( Var._num.x ) );
+    }
+  }
+
+  // Append new intermediate variable and corresponding operation
+  // (only if operation does not exist already)
+  return FFGraph::_insert_unary_operation( FFOp::ATAN, atan(Var._dep), Var );
+}
+
+inline FFVar
+sinh
+( const FFVar&Var )
+{
+  // Case operand is a numeric constant
+  if( Var._id.second == FFVar::NOREF ){
+    switch( Var._num.t ){
+      case FFNum::INT:   return( std::sinh( Var._num.n ) );
+      case FFNum::REAL:  return( std::sinh( Var._num.x ) );
+    }
+  }
+
+  // Append new intermediate variable and corresponding operation
+  // (only if operation does not exist already)
+  return FFGraph::_insert_unary_operation( FFOp::SINH, sinh(Var._dep), Var );
+}
+
+inline FFVar
+cosh
+( const FFVar&Var )
+{
+  // Case operand is a numeric constant
+  if( Var._id.second == FFVar::NOREF ){
+    switch( Var._num.t ){
+      case FFNum::INT:   return( std::cosh( Var._num.n ) );
+      case FFNum::REAL:  return( std::cosh( Var._num.x ) );
+    }
+  }
+
+  // Append new intermediate variable and corresponding operation
+  // (only if operation does not exist already)
+  return FFGraph::_insert_unary_operation( FFOp::COSH, cosh(Var._dep), Var );
+}
+
+inline FFVar
+tanh
+( const FFVar&Var )
+{
+  // Case operand is a numeric constant
+  if( Var._id.second == FFVar::NOREF ){
+    switch( Var._num.t ){
+      case FFNum::INT:   return( std::tanh( Var._num.n ) );
+      case FFNum::REAL:  return( std::tanh( Var._num.x ) );
+    }
+  }
+
+  // Append new intermediate variable and corresponding operation
+  // (only if operation does not exist already)
+  return FFGraph::_insert_unary_operation( FFOp::TANH, tanh(Var._dep), Var );
+}
+
+inline FFVar
+erf
+( const FFVar&Var )
+{
+  // Case operand is a numeric constant
+  if( Var._id.second == FFVar::NOREF ){
+    switch( Var._num.t ){
+      case FFNum::INT:   return( ::erf( Var._num.n ) );
+      case FFNum::REAL:  return( ::erf( Var._num.x ) );
+    }
+  }
+
+  // Append new intermediate variable and corresponding operation
+  // (only if operation does not exist already)
+  return FFGraph::_insert_unary_operation( FFOp::ERF, erf(Var._dep), Var );
+}
+
+inline FFVar
+erfc
+( const FFVar&Var )
+{
+  return ( 1. - erf( Var ) );
+}
+
+inline FFVar
+fstep
+( const FFVar&Var )
+{
+  // Case operand is a numeric constant
+  if( Var._id.second == FFVar::NOREF ){
+    switch( Var._num.t ){
+      case FFNum::INT:   return( mc::fstep( Var._num.n ) );
+      case FFNum::REAL:  return( mc::fstep( Var._num.x ) );
+    }
+  }
+
+  // Append new intermediate variable and corresponding operation
+  // (only if operation does not exist already)
+  return FFGraph::_insert_unary_operation( FFOp::FSTEP, fstep(Var._dep), Var );
+}
+
+inline FFVar
+bstep
+( const FFVar&Var )
+{
+  return ( fstep( -Var ) );
 }
 
 inline FFVar
@@ -2188,7 +2787,7 @@ template <typename U> inline FFVar
 inter
 ( const U&Cst1, const FFVar&Var2 )
 {
-  // Case right operand is a numeric constant
+  // Case right operand is a numerhic constant
   if( Var2._id.second == FFVar::NOREF ){
     if( Cst1 != Var2._num.val() )
       throw typename FFGraph::Exceptions( FFGraph::Exceptions::INTER ); 
@@ -2205,332 +2804,6 @@ inter
 ( const FFVar&Var1, const U&Cst2 )
 {
   return( inter( Cst2, Var1 ) );
-}
-
-inline FFVar
-exp
-( const FFVar&Var )
-{
-  // Case operand is a numeric constant
-  if( Var._id.second == FFVar::NOREF ){
-    switch( Var._num.t ){
-      case FFNum::INT:   return( std::exp( Var._num.n ) );
-      case FFNum::REAL:  return( std::exp( Var._num.x ) );
-    }
-  }
-
-  // Append new intermediate variable and corresponding operation
-  // (only if operation does not exist already)
-  return FFGraph::_insert_unary_operation( FFOp::EXP, exp(Var._dep), Var );
-}
-
-inline FFVar
-log
-( const FFVar&Var )
-{
-  // Case operand is a numeric constant
-  if( Var._id.second == FFVar::NOREF ){
-    switch( Var._num.t ){
-      case FFNum::INT:   return( std::log( Var._num.n ) );
-      case FFNum::REAL:  return( std::log( Var._num.x ) );
-    }
-  }
-
-  // Append new intermediate variable and corresponding operation
-  // (only if operation does not exist already)
-  return FFGraph::_insert_unary_operation( FFOp::LOG, log(Var._dep), Var );
-}
-
-inline FFVar
-sqr
-( const FFVar&Var )
-{
-  // Case operand is a numeric constant
-  if( Var._id.second == FFVar::NOREF ){
-    switch( Var._num.t ){
-      case FFNum::INT:   return( mc::sqr( Var._num.n ) );
-      case FFNum::REAL:  return( mc::sqr( Var._num.x ) );
-    }
-  }
-
-  // Append new intermediate variable and corresponding operation
-  // (only if operation does not exist already)
-  return FFGraph::_insert_unary_operation( FFOp::SQR, sqr(Var._dep), Var );
-}
-
-inline FFVar
-sqrt
-( const FFVar&Var )
-{
-  // Case operand is a numeric constant
-  if( Var._id.second == FFVar::NOREF ){
-    switch( Var._num.t ){
-      case FFNum::INT:   return( std::sqrt( Var._num.n ) );
-      case FFNum::REAL:  return( std::sqrt( Var._num.x ) );
-    }
-  }
-
-  // Append new intermediate variable and corresponding operation
-  // (only if operation does not exist already)
-  return FFGraph::_insert_unary_operation( FFOp::SQRT, sqrt(Var._dep), Var );
-}
-
-inline FFVar
-fabs
-( const FFVar&Var )
-{
-  // Case operand is a numeric constant
-  if( Var._id.second == FFVar::NOREF ){
-    switch( Var._num.t ){
-      case FFNum::INT:   return( std::fabs( Var._num.n ) );
-      case FFNum::REAL:  return( std::fabs( Var._num.x ) );
-    }
-  }
-
-  // Append new intermediate variable and corresponding operation
-  // (only if operation does not exist already)
-  return FFGraph::_insert_unary_operation( FFOp::FABS, fabs(Var._dep), Var );
-}
-
-inline FFVar
-pow
-( const FFVar&Var, const int iExp )
-{
-  // Case operand is a numeric constant
-  if( Var._id.second == FFVar::NOREF ){
-    switch( Var._num.t ){
-      case FFNum::INT:   return( std::pow( Var._num.n, iExp ) );
-      case FFNum::REAL:  return( std::pow( Var._num.x, iExp ) );
-    }
-  }
-
-  // Case integer exponent is 0,1, or 2
-  if( iExp == 0 ) return( 1. );
-  if( iExp == 1 ) return Var;
-  if( iExp == 2 ) return sqr(Var);
-
-  // Append new intermediate variable and corresponding operation
-  // (only if operation does not exist already)
-  // Also append constant iExp if not defined
-  return FFGraph::_insert_binary_operation( FFOp::IPOW, pow(Var._dep,iExp), Var, iExp );
-}
-
-inline FFVar
-cheb
-( const FFVar&Var, const unsigned iOrd )
-{
-  // Case operand is a numeric constant
-  if( Var._id.second == FFVar::NOREF ){
-    switch( Var._num.t ){
-      case FFNum::INT:   return( mc::cheb( Var._num.n, iOrd ) );
-      case FFNum::REAL:  return( mc::cheb( Var._num.x, iOrd ) );
-    }
-  }
-
-  // Case integer exponent is 0,1, or 2
-  switch( iOrd ){
-    case 0: return( 1. );
-    case 1: return Var;
-    case 2: return 2.*sqr(Var)-1.;
-    default: break;
-  }
-  
-  // Append new intermediate variable and corresponding operation
-  // (only if operation does not exist already)
-  // Also append constant iOrd if not defined
-  if( !Var._dag || !Var._dag->options.CHEBRECURS )
-    return FFGraph::_insert_binary_operation( FFOp::CHEB, cheb(Var._dep,iOrd), Var, (int)iOrd );
-
-  if( iOrd==3 ){
-    FFVar VarRecu = (4.*sqr(Var)-3.)*Var;
-    FFVar VarCheb = FFGraph::_insert_binary_operation( FFOp::CHEB, cheb(Var._dep,iOrd), Var, (int)iOrd );
-    return inter( VarCheb, VarRecu );
-  }
-    
-  FFVar VarRecu = iOrd==3? (4.*sqr(Var)-3.)*Var: 2.*Var*cheb(Var,iOrd-1)-cheb(Var,iOrd-2);
-  VarRecu = inter( VarRecu, iOrd%2? 2.*cheb(Var,iOrd/2)*cheb(Var,iOrd/2+1)-Var: 2.*sqr(cheb(Var,iOrd/2))-1. );
-  FFVar VarCheb = FFGraph::_insert_binary_operation( FFOp::CHEB, cheb(Var._dep,iOrd), Var, (int)iOrd );
-  return inter( VarCheb, VarRecu );
-}
-
-inline FFVar
-pow
-( const FFVar&Var1, const double Cst2 )
-{
-  return exp( Cst2 * log( Var1 ) );
-}
-
-inline FFVar
-pow
-( const FFVar&Var1, const FFVar&Var2 )
-{
-  // Case exponent is integer constant
-  if( Var2._id.second == FFVar::NOREF && Var2._num.t == FFNum::INT )
-    return pow( Var1, Var2._num.n );
-
-  return exp( Var2 * log( Var1 ) );
-}
-
-inline FFVar
-pow
-( const double Cst1, const FFVar&Var2 )
-{
-  // Case exponent is integer constant
-  if( Var2._id.second == FFVar::NOREF && Var2._num.t == FFNum::INT )
-    return std::pow( Cst1, Var2._num.n );
-
-  return exp( Var2 * std::log( Cst1 ) );
-}
-
-inline FFVar
-cos
-( const FFVar&Var )
-{
-  // Case operand is a numeric constant
-  if( Var._id.second == FFVar::NOREF ){
-    switch( Var._num.t ){
-      case FFNum::INT:   return( std::cos( Var._num.n ) );
-      case FFNum::REAL:  return( std::cos( Var._num.x ) );
-    }
-  }
-
-  // Append new intermediate variable and corresponding operation
-  // (only if operation does not exist already)
-  return FFGraph::_insert_unary_operation( FFOp::COS, cos(Var._dep), Var );
-}
-
-inline FFVar
-sin
-( const FFVar&Var )
-{
-  // Case operand is a numeric constant
-  if( Var._id.second == FFVar::NOREF ){
-    switch( Var._num.t ){
-      case FFNum::INT:   return( std::sin( Var._num.n ) );
-      case FFNum::REAL:  return( std::sin( Var._num.x ) );
-    }
-  }
-
-  // Append new intermediate variable and corresponding operation
-  // (only if operation does not exist already)
-  return FFGraph::_insert_unary_operation( FFOp::SIN, sin(Var._dep), Var );
-}
-
-inline FFVar
-tan
-( const FFVar&Var )
-{
-  // Case operand is a numeric constant
-  if( Var._id.second == FFVar::NOREF ){
-    switch( Var._num.t ){
-      case FFNum::INT:   return( std::tan( Var._num.n ) );
-      case FFNum::REAL:  return( std::tan( Var._num.x ) );
-
-    }
-  }
-
-  // Append new intermediate variable and corresponding operation
-  // (only if operation does not exist already)
-  return FFGraph::_insert_unary_operation( FFOp::TAN, tan(Var._dep), Var );
-}
-
-inline FFVar
-asin
-( const FFVar&Var )
-{
-  // Case operand is a numeric constant
-  if( Var._id.second == FFVar::NOREF ){
-    switch( Var._num.t ){
-      case FFNum::INT:   return( std::asin( Var._num.n ) );
-      case FFNum::REAL:  return( std::asin( Var._num.x ) );
-    }
-  }
-
-  // Append new intermediate variable and corresponding operation
-  // (only if operation does not exist already)
-  return FFGraph::_insert_unary_operation( FFOp::ASIN, asin(Var._dep), Var );
-}
-
-inline FFVar
-acos
-( const FFVar&Var )
-{
-  // Case operand is a numeric constant
-  if( Var._id.second == FFVar::NOREF ){
-    switch( Var._num.t ){
-      case FFNum::INT:   return( std::acos( Var._num.n ) );
-      case FFNum::REAL:  return( std::acos( Var._num.x ) );
-    }
-  }
-
-  // Append new intermediate variable and corresponding operation
-  // (only if operation does not exist already)
-  return FFGraph::_insert_unary_operation( FFOp::ACOS, acos(Var._dep), Var );
-}
-
-inline FFVar
-atan
-( const FFVar&Var )
-{
-  // Case operand is a numeric constant
-  if( Var._id.second == FFVar::NOREF ){
-    switch( Var._num.t ){
-      case FFNum::INT:   return( std::atan( Var._num.n ) );
-      case FFNum::REAL:  return( std::atan( Var._num.x ) );
-    }
-  }
-
-  // Append new intermediate variable and corresponding operation
-  // (only if operation does not exist already)
-  return FFGraph::_insert_unary_operation( FFOp::ATAN, atan(Var._dep), Var );
-}
-
-inline FFVar
-erf
-( const FFVar&Var )
-{
-  // Case operand is a numeric constant
-  if( Var._id.second == FFVar::NOREF ){
-    switch( Var._num.t ){
-      case FFNum::INT:   return( ::erf( Var._num.n ) );
-      case FFNum::REAL:  return( ::erf( Var._num.x ) );
-    }
-  }
-
-  // Append new intermediate variable and corresponding operation
-  // (only if operation does not exist already)
-  return FFGraph::_insert_unary_operation( FFOp::ERF, erf(Var._dep), Var );
-}
-
-inline FFVar
-erfc
-( const FFVar&Var )
-{
-  return ( 1. - erf( Var ) );
-}
-
-inline FFVar
-fstep
-( const FFVar&Var )
-{
-  // Case operand is a numeric constant
-  if( Var._id.second == FFVar::NOREF ){
-    switch( Var._num.t ){
-      case FFNum::INT:   return( mc::fstep( Var._num.n ) );
-      case FFNum::REAL:  return( mc::fstep( Var._num.x ) );
-    }
-  }
-
-  // Append new intermediate variable and corresponding operation
-  // (only if operation does not exist already)
-  return FFGraph::_insert_unary_operation( FFOp::FSTEP, fstep(Var._dep), Var );
-}
-
-inline FFVar
-bstep
-( const FFVar&Var )
-{
-  return ( fstep( -Var ) );
 }
 
 ////////////////////////////////// FFOp ////////////////////////////////////////
@@ -2556,30 +2829,39 @@ operator <<
   switch( Op.type ){
     case FFOp::CNST:  out << Op.pres->num() << "\t"; break;
     case FFOp::VAR:   out << "VARIABLE"; break;
-    case FFOp::PLUS:  out << FFVar::_name( Op.plop->id() ) << " + " << FFVar::_name( Op.prop->id() ) << "\t"; break;
+    case FFOp::PLUS:
+    case FFOp::SHIFT: out << FFVar::_name( Op.plop->id() ) << " + " << FFVar::_name( Op.prop->id() ) << "\t"; break;
     case FFOp::NEG:   out << "- " << FFVar::_name( Op.plop->id() ) << "\t" ; break;
     case FFOp::MINUS: out << FFVar::_name( Op.plop->id() ) << " - " << FFVar::_name( Op.prop->id() ) << "\t"; break;
     case FFOp::TIMES:
     case FFOp::SCALE: out << FFVar::_name( Op.plop->id() ) << " * " << FFVar::_name( Op.prop->id() ) << "\t"; break;
-    case FFOp::DIV:   out << FFVar::_name( Op.plop->id() ) << " / " << FFVar::_name( Op.prop->id() ) << "\t"; break;
+    case FFOp::DIV:
+    case FFOp::INV:   out << FFVar::_name( Op.plop->id() ) << " / " << FFVar::_name( Op.prop->id() ) << "\t"; break;
+    case FFOp::IPOW:
+    case FFOp::DPOW:  out << "POW( " << FFVar::_name( Op.plop->id() ) << ", " << FFVar::_name( Op.prop->id() ) << " )"; break;
+    case FFOp::CHEB:  out << "CHEB( " << FFVar::_name( Op.plop->id() ) << ", " << FFVar::_name( Op.prop->id() ) << " )"; break;
+    case FFOp::SQR:   out << "SQR( " << FFVar::_name( Op.plop->id() ) << " )\t"; break;
+    case FFOp::SQRT:  out << "SQRT( " << FFVar::_name( Op.plop->id() ) << " )\t"; break;
+    case FFOp::EXP:   out << "EXP( " << FFVar::_name( Op.plop->id() ) << " )\t"; break;
+    case FFOp::LOG:   out << "LOG( " << FFVar::_name( Op.plop->id() ) << " )\t"; break;
+    case FFOp::XLOG:  out << "XLOG( " << FFVar::_name( Op.plop->id() ) << " )\t"; break;
+    case FFOp::LMTD:  out << "LMTD( " << FFVar::_name( Op.plop->id() ) << "," << FFVar::_name( Op.prop->id() ) << " )\t"; break;
+    case FFOp::RLMTD: out << "RLMTD( "<< FFVar::_name( Op.plop->id() ) << "," << FFVar::_name( Op.prop->id() ) << " )\t"; break;
+    case FFOp::COS:   out << "COS( " << FFVar::_name( Op.plop->id() ) << " )\t"; break;
+    case FFOp::SIN:   out << "SIN( " << FFVar::_name( Op.plop->id() ) << " )\t"; break;
+    case FFOp::TAN:   out << "TAN( " << FFVar::_name( Op.plop->id() ) << " )\t"; break;
+    case FFOp::ASIN:  out << "ASIN( " << FFVar::_name( Op.plop->id() ) << " )\t"; break;
+    case FFOp::ACOS:  out << "ACOS( " << FFVar::_name( Op.plop->id() ) << " )\t"; break;
+    case FFOp::ATAN:  out << "ATAN( " << FFVar::_name( Op.plop->id() ) << " )\t"; break;
+    case FFOp::SINH:  out << "SINH( " << FFVar::_name( Op.plop->id() ) << " )\t"; break;
+    case FFOp::COSH:  out << "COSH( " << FFVar::_name( Op.plop->id() ) << " )\t"; break;
+    case FFOp::TANH:  out << "TANH( " << FFVar::_name( Op.plop->id() ) << " )\t"; break;
+    case FFOp::ERF:   out << "ERF( " << FFVar::_name( Op.plop->id() ) << " )\t"; break;
+    case FFOp::FABS:  out << "FABS( " << FFVar::_name( Op.plop->id() ) << " )\t"; break;
+    case FFOp::FSTEP: out << "FSTEP( " << FFVar::_name( Op.plop->id() ) << " )\t"; break;
     case FFOp::MINF:  out << "MIN( " << FFVar::_name( Op.plop->id() ) << ", " << FFVar::_name( Op.prop->id() ) << " )"; break;
     case FFOp::MAXF:  out << "MAX( " << FFVar::_name( Op.plop->id() ) << ", " << FFVar::_name( Op.prop->id() ) << " )"; break;
     case FFOp::INTER: out << "INTER( " << FFVar::_name( Op.plop->id() ) << ", " << FFVar::_name( Op.prop->id() ) << " )"; break;
-    case FFOp::EXP:   out << "EXP( " << FFVar::_name( Op.plop->id() ) << " )\t"; break;
-    case FFOp::LOG:   out << "LOG( " << FFVar::_name( Op.plop->id() ) << " )\t"; break;
-    case FFOp::SQR:   out << "SQR( " << FFVar::_name( Op.plop->id() ) << " )\t"; break;
-    case FFOp::SQRT:  out << "SQRT( " << FFVar::_name( Op.plop->id() ) << " )\t"; break;
-    case FFOp::FABS:  out << "FABS( " << FFVar::_name( Op.plop->id() ) << " )\t"; break;
-    case FFOp::IPOW:  out << "POW( " << FFVar::_name( Op.plop->id() ) << ", " << FFVar::_name( Op.prop->id() ) << " )"; break;
-    case FFOp::CHEB:  out << "CHEB( " << FFVar::_name( Op.plop->id() ) << ", " << FFVar::_name( Op.prop->id() ) << " )"; break;
-    case FFOp::COS:   out << "COS( " << FFVar::_name( Op.plop->id() ) << " )\n"; break;
-    case FFOp::SIN:   out << "SIN( " << FFVar::_name( Op.plop->id() ) << " )\n"; break;
-    case FFOp::TAN:   out << "TAN( " << FFVar::_name( Op.plop->id() ) << " )\n"; break;
-    case FFOp::ASIN:  out << "ASIN( " << FFVar::_name( Op.plop->id() ) << " )\n"; break;
-    case FFOp::ACOS:  out << "ACOS( " << FFVar::_name( Op.plop->id() ) << " )\n"; break;
-    case FFOp::ATAN:  out << "ATAN( " << FFVar::_name( Op.plop->id() ) << " )\n"; break;
-    case FFOp::ERF:   out << "ERF( " << FFVar::_name( Op.plop->id() ) << " )\n"; break;
-    case FFOp::FSTEP: out << "FSTEP( " << FFVar::_name( Op.plop->id() ) << " )\n"; break;
     default: break;
   } 
   return out;
@@ -2638,49 +2920,47 @@ FFOp::evaluate
   switch( type ){
    case FFOp::VAR:
     if( !pres->cst() ){ // do not override constant value if set
-    //if( !pres->cst() || pres->val() ){ // override constant value if set
       if( !pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::MISSVAR );
       return;
     }
     //if( pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::CONSTVAL );
 
    case FFOp::CNST:
-    //if( pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::INTERN );
     switch( pres->num().t ){
       case FFNum::INT:  pres->val() = new U( pres->num().n ); return;
       case FFNum::REAL: pres->val() = new U( pres->num().x ); return;
     }
 
+   case FFOp::SHIFT:
+    pres->val() = new U( *static_cast<U*>( plop->val() ) + prop->num().val() );
+    return;
+
    case FFOp::PLUS:
-    //if( pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::INTERN );
 #ifdef MC__FFUNC_DEBUG_EVAL
     std::cout << "FFOp::PLUS:" << std::endl;
     std::cout << "plop: " << *plop << "   plop->val(): " << *plop->val() << std::endl;
     std::cout << "prop: " << *prop << "   prop->val(): " << *prop->val() << std::endl;
 #endif
-    pres->val() = new U( *static_cast<U*>( plop->val() )
-                       + *static_cast<U*>( prop->val() ) );
+    pres->val() = new U( *static_cast<U*>( plop->val() ) + *static_cast<U*>( prop->val() ) );
 #ifdef MC__FFUNC_DEBUG_EVAL
     std::cout << "pres: " << *pres << "   pres->val(): " << *pres->val() << std::endl;
 #endif
     return;
 
    case FFOp::NEG:
-    //if( pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::INTERN );
     pres->val() = new U( - *static_cast<U*>( plop->val() ) );
     return;
 
    case FFOp::MINUS:
-    //if( pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::INTERN );
-    pres->val() = new U( *static_cast<U*>( plop->val() )
-                       - *static_cast<U*>( prop->val() ) );
+    pres->val() = new U( *static_cast<U*>( plop->val() ) - *static_cast<U*>( prop->val() ) );
     return;
 
    case FFOp::SCALE:
+    pres->val() = new U( *static_cast<U*>( plop->val() ) * prop->num().val() );
+    return;
+      
    case FFOp::TIMES:
-    //if( pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::INTERN );
-    pres->val() = new U( *static_cast<U*>( plop->val() )
-                       * *static_cast<U*>( prop->val() ) );
+    pres->val() = new U( *static_cast<U*>( plop->val() ) * *static_cast<U*>( prop->val() ) );
 #ifdef MC__FFUNC_DEBUG_EVAL
     std::cout << "FFOp::TIMES:" << std::endl;
     std::cout << "plop: " << plop << "   plop->val(): " << plop->val() << std::endl;
@@ -2689,36 +2969,28 @@ FFOp::evaluate
 #endif
     return;
 
-   case FFOp::DIV:  
-    //if( pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::INTERN );
-    pres->val() = new U( *static_cast<U*>( plop->val() )
-                       / *static_cast<U*>( prop->val() ) );
+   case FFOp::INV:
+    pres->val() = new U( prop->num().val() / *static_cast<U*>( plop->val() ) );
+    return;
+
+   case FFOp::DIV:
+    pres->val() = new U( *static_cast<U*>( plop->val() ) / *static_cast<U*>( prop->val() ) );
     return;
 
    case FFOp::IPOW:
-    //if( pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::INTERN );
-    pres->val() = new U( Op<U>::pow( *static_cast<U*>( plop->val() ),
-                                     prop->num().n ) );
+    pres->val() = new U( Op<U>::pow( *static_cast<U*>( plop->val() ), prop->num().n ) );
+    return;
+
+   case FFOp::DPOW:
+    pres->val() = new U( Op<U>::pow( *static_cast<U*>( plop->val() ), prop->num().x ) );
     return;
 
    case FFOp::CHEB:
-    //if( pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::INTERN );
     pres->val() = new U( Op<U>::cheb( *static_cast<U*>( plop->val() ),
                                       prop->num().n ) );
     return;
 
-   case FFOp::EXP:  
-    //if( pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::INTERN );
-    pres->val() = new U( Op<U>::exp( *static_cast<U*>( plop->val() ) ) );
-    return;
-
-   case FFOp::LOG:  
-    //if( pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::INTERN );
-    pres->val() = new U( Op<U>::log( *static_cast<U*>( plop->val() ) ) );
-    return;
-
    case FFOp::SQR:  
-    //if( pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::INTERN );
     pres->val() = new U( Op<U>::sqr( *static_cast<U*>( plop->val() ) ) );
 #ifdef MC__FFUNC_DEBUG_EVAL
     std::cout << "FFOp::SQR:" << std::endl;
@@ -2728,69 +3000,88 @@ FFOp::evaluate
     return;
 
    case FFOp::SQRT: 
-    //if( pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::INTERN );
     pres->val() = new U( Op<U>::sqrt( *static_cast<U*>( plop->val() ) ) );
     return;
 
+   case FFOp::EXP:
+    pres->val() = new U( Op<U>::exp( *static_cast<U*>( plop->val() ) ) );
+    return;
+
+   case FFOp::LOG:
+    pres->val() = new U( Op<U>::log( *static_cast<U*>( plop->val() ) ) );
+    return;
+
+   case FFOp::XLOG:
+    pres->val() = new U( Op<U>::xlog( *static_cast<U*>( plop->val() ) ) );
+    return;
+    
+   case FFOp::LMTD: 
+    pres->val() = new U( Op<U>::lmtd( *static_cast<U*>( plop->val() ), *static_cast<U*>( prop->val() ) ) );
+    return;
+   
+   case FFOp::RLMTD: 
+    pres->val() = new U( Op<U>::rlmtd( *static_cast<U*>( plop->val() ), *static_cast<U*>( prop->val() ) ) );
+    return;
+
    case FFOp::COS:  
-    //if( pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::INTERN );
     pres->val() = new U( Op<U>::cos( *static_cast<U*>( plop->val() ) ) );
     return;
 
    case FFOp::SIN:  
-    //if( pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::INTERN );
     pres->val() = new U( Op<U>::sin( *static_cast<U*>( plop->val() ) ) );
     return;
 
    case FFOp::TAN:  
-    //if( pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::INTERN );
     pres->val() = new U( Op<U>::tan( *static_cast<U*>( plop->val() ) ) );
     return;
 
    case FFOp::ACOS: 
-    //if( pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::INTERN );
     pres->val() = new U( Op<U>::acos( *static_cast<U*>( plop->val() ) ) );
     return;
 
    case FFOp::ASIN: 
-    //if( pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::INTERN );
     pres->val() = new U( Op<U>::asin( *static_cast<U*>( plop->val() ) ) );
     return;
 
    case FFOp::ATAN: 
-    //if( pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::INTERN );
     pres->val() = new U( Op<U>::atan( *static_cast<U*>( plop->val() ) ) );
     return;
 
+   case FFOp::COSH: 
+    pres->val() = new U( Op<U>::cosh( *static_cast<U*>( plop->val() ) ) );
+    return;
+
+   case FFOp::SINH: 
+    pres->val() = new U( Op<U>::sinh( *static_cast<U*>( plop->val() ) ) );
+    return;
+
+   case FFOp::TANH: 
+    pres->val() = new U( Op<U>::tanh( *static_cast<U*>( plop->val() ) ) );
+    return;
+
    case FFOp::ERF:  
-    //if( pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::INTERN );
     pres->val() = new U( Op<U>::erf( *static_cast<U*>( plop->val() ) ) );
     return;
 
    case FFOp::FABS: 
-    //if( pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::INTERN );
     pres->val() = new U( Op<U>::fabs( *static_cast<U*>( plop->val() ) ) );
     return;
 
    case FFOp::FSTEP:
-    //if( pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::INTERN );
     pres->val() = new U( Op<U>::fstep( *static_cast<U*>( plop->val() ) ) );
     return;
 
    case FFOp::MINF: 
-    //if( pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::INTERN );
     pres->val() = new U( Op<U>::min( *static_cast<U*>( plop->val() ),
                                      *static_cast<U*>( prop->val() ) ) );
     return;
 
    case FFOp::MAXF: 
-    //if( pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::INTERN );
     pres->val() = new U( Op<U>::max( *static_cast<U*>( plop->val() ),
                                      *static_cast<U*>( prop->val() ) ) );
     return;
 
    case FFOp::INTER: 
-    //if( pres->val() ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::INTERN );
     pres->val() = new U;
     if( !Op<U>::inter( *static_cast<U*>( pres->val() ), *static_cast<U*>( plop->val() ),
                        *static_cast<U*>( prop->val() ) ) )
@@ -2809,7 +3100,6 @@ FFOp::evaluate
   switch( type ){
    case FFOp::VAR:
     if( !pres->cst() ) break; // do not override constant value if set
-    //if( !pres->cst() || pUres ) break; // override constant value if set
     //if( pUres ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::CONSTVAL );
 
    case FFOp::CNST:
@@ -2817,6 +3107,10 @@ FFOp::evaluate
       case FFNum::INT:  *pUres = pres->num().n; break;
       case FFNum::REAL: *pUres = pres->num().x; break;
     }
+    break;
+
+   case FFOp::SHIFT:
+    *pUres = *static_cast<U*>( plop->val() ) + prop->num().val();
     break;
 
    case FFOp::PLUS:
@@ -2832,8 +3126,15 @@ FFOp::evaluate
     break;
 
    case FFOp::SCALE:
+    *pUres = *static_cast<U*>( plop->val() ) * prop->num().val();
+    break;
+
    case FFOp::TIMES:
     *pUres = *static_cast<U*>( plop->val() ) * *static_cast<U*>( prop->val() );
+    break;
+
+   case FFOp::INV:
+    *pUres = prop->num().val() / *static_cast<U*>( plop->val() );
     break;
 
    case FFOp::DIV:  
@@ -2844,8 +3145,20 @@ FFOp::evaluate
     *pUres = Op<U>::pow( *static_cast<U*>( plop->val() ), prop->num().n );
     break;
 
+   case FFOp::DPOW:
+    *pUres = Op<U>::pow( *static_cast<U*>( plop->val() ), prop->num().x );
+    break;
+
    case FFOp::CHEB:
     *pUres = Op<U>::cheb( *static_cast<U*>( plop->val() ), prop->num().n );
+    break;
+
+   case FFOp::SQR:  
+    *pUres = Op<U>::sqr( *static_cast<U*>( plop->val() ) );
+    break;
+
+   case FFOp::SQRT: 
+    *pUres = Op<U>::sqrt( *static_cast<U*>( plop->val() ) );
     break;
 
    case FFOp::EXP:  
@@ -2856,12 +3169,16 @@ FFOp::evaluate
     *pUres = Op<U>::log( *static_cast<U*>( plop->val() ) );
     break;
 
-   case FFOp::SQR:  
-    *pUres = Op<U>::sqr( *static_cast<U*>( plop->val() ) );
-    break;
-
-   case FFOp::SQRT: 
-    *pUres = Op<U>::sqrt( *static_cast<U*>( plop->val() ) );
+   case FFOp::XLOG:  
+    *pUres = Op<U>::xlog( *static_cast<U*>( plop->val() ) );
+    break; 
+    
+   case FFOp::LMTD: 
+    *pUres = Op<U>::lmtd( *static_cast<U*>( plop->val() ), *static_cast<U*>( prop->val() ) );
+    break;   
+   
+   case FFOp::RLMTD: 
+    *pUres = Op<U>::rlmtd( *static_cast<U*>( plop->val() ), *static_cast<U*>( prop->val() ) );
     break;
 
    case FFOp::COS:  
@@ -2886,6 +3203,18 @@ FFOp::evaluate
 
    case FFOp::ATAN: 
     *pUres = Op<U>::atan( *static_cast<U*>( plop->val() ) );
+    break;
+
+   case FFOp::COSH: 
+    *pUres = Op<U>::cosh( *static_cast<U*>( plop->val() ) );
+    break;
+
+   case FFOp::SINH: 
+    *pUres = Op<U>::sinh( *static_cast<U*>( plop->val() ) );
+    break;
+
+   case FFOp::TANH: 
+    *pUres = Op<U>::tanh( *static_cast<U*>( plop->val() ) );
     break;
 
    case FFOp::ERF:  
@@ -2942,33 +3271,42 @@ FFOp::append_dot_script
   std::ostringstream aux_color; aux_color << "blue";
   std::ostringstream op_color;  op_color  << "black";
   switch( type ){
-  case FFOp::VAR:   return append_dot_script_variable( os, pres->cst()?true:false, 14 );
-  case FFOp::CNST:  return append_dot_script_variable( os, true,  14 );
-  case FFOp::PLUS:  return append_dot_script_factor( os, " + ",   false, 18 );
-  case FFOp::NEG:   return append_dot_script_factor( os, " - ",   true,  18 );
-  case FFOp::MINUS: return append_dot_script_factor( os, " - ",   false, 18, true );
-  case FFOp::SCALE: return append_dot_script_factor( os, " x ",   false, 18 );
-  case FFOp::TIMES: return append_dot_script_factor( os, " x ",   false, 18 );
-  case FFOp::DIV:   return append_dot_script_factor( os, " / ",   false, 18, true );
-  case FFOp::MINF:  return append_dot_script_factor( os, "min",   false, 14 );
-  case FFOp::MAXF:  return append_dot_script_factor( os, "max",   false, 14 );
-  case FFOp::INTER: return append_dot_script_factor( os, "inter", false, 14 );
-  case FFOp::IPOW:  return append_dot_script_factor( os, "pow",   false, 14, true );
-  case FFOp::CHEB:  return append_dot_script_factor( os, "cheb",  false, 14, true );
-  case FFOp::EXP:   return append_dot_script_factor( os, "exp",   true,  14 );
-  case FFOp::LOG:   return append_dot_script_factor( os, "log",   true,  14 );
-  case FFOp::FABS:  return append_dot_script_factor( os, "fabs",  true,  14 );
-  case FFOp::SQR:   return append_dot_script_factor( os, "sqr",   true,  14 );
-  case FFOp::SQRT:  return append_dot_script_factor( os, "sqrt",  true,  14 );
-  case FFOp::COS:   return append_dot_script_factor( os, "cos",   true,  14 );
-  case FFOp::SIN:   return append_dot_script_factor( os, "sin",   true,  14 );
-  case FFOp::TAN:   return append_dot_script_factor( os, "tan",   true,  14 );
-  case FFOp::ACOS:  return append_dot_script_factor( os, "acos",  true,  14 );
-  case FFOp::ASIN:  return append_dot_script_factor( os, "asin",  true,  14 );
-  case FFOp::ATAN:  return append_dot_script_factor( os, "atan",  true,  14 );
-  case FFOp::ERF:   return append_dot_script_factor( os, "erf",   true,  14 );
-  case FFOp::FSTEP: return append_dot_script_factor( os, "fstep", true,  14 );
-  default: os << "/* a factor was not displayed */\n";
+   case FFOp::VAR:   return append_dot_script_variable( os, pres->cst()?true:false, 14 );
+   case FFOp::CNST:  return append_dot_script_variable( os, true,  14 );
+   case FFOp::SHIFT:
+   case FFOp::PLUS:  return append_dot_script_factor( os, " + ",   false, 18 );
+   case FFOp::NEG:   return append_dot_script_factor( os, " - ",   true,  18 );
+   case FFOp::MINUS: return append_dot_script_factor( os, " - ",   false, 18, true );
+   case FFOp::SCALE:
+   case FFOp::TIMES: return append_dot_script_factor( os, " x ",   false, 18 );
+   case FFOp::INV:
+   case FFOp::DIV:   return append_dot_script_factor( os, " / ",   false, 18, true );
+   case FFOp::MINF:  return append_dot_script_factor( os, "min",   false, 14 );
+   case FFOp::MAXF:  return append_dot_script_factor( os, "max",   false, 14 );
+   case FFOp::INTER: return append_dot_script_factor( os, "inter", false, 14 );
+   case FFOp::IPOW:
+   case FFOp::DPOW:  return append_dot_script_factor( os, "pow",   false, 14, true );
+   case FFOp::CHEB:  return append_dot_script_factor( os, "cheb",  false, 14, true );
+   case FFOp::SQR:   return append_dot_script_factor( os, "sqr",   true,  14 );
+   case FFOp::SQRT:  return append_dot_script_factor( os, "sqrt",  true,  14 );
+   case FFOp::EXP:   return append_dot_script_factor( os, "exp",   true,  14 );
+   case FFOp::LOG:   return append_dot_script_factor( os, "log",   true,  14 );
+   case FFOp::XLOG:  return append_dot_script_factor( os, "xlog",  true,  14 );
+   case FFOp::LMTD:  return append_dot_script_factor( os, "lmtd",  false, 14 );
+   case FFOp::RLMTD: return append_dot_script_factor( os, "rlmtd", false, 14 );
+   case FFOp::FABS:  return append_dot_script_factor( os, "fabs",  true,  14 );
+   case FFOp::COS:   return append_dot_script_factor( os, "cos",   true,  14 );
+   case FFOp::SIN:   return append_dot_script_factor( os, "sin",   true,  14 );
+   case FFOp::TAN:   return append_dot_script_factor( os, "tan",   true,  14 );
+   case FFOp::ACOS:  return append_dot_script_factor( os, "acos",  true,  14 );
+   case FFOp::ASIN:  return append_dot_script_factor( os, "asin",  true,  14 );
+   case FFOp::ATAN:  return append_dot_script_factor( os, "atan",  true,  14 );
+   case FFOp::COSH:  return append_dot_script_factor( os, "acos",  true,  14 );
+   case FFOp::SINH:  return append_dot_script_factor( os, "asin",  true,  14 );
+   case FFOp::TANH:  return append_dot_script_factor( os, "atan",  true,  14 );
+   case FFOp::ERF:   return append_dot_script_factor( os, "erf",   true,  14 );
+   case FFOp::FSTEP: return append_dot_script_factor( os, "fstep", true,  14 );
+   default: os << "/* a factor was not displayed */\n";
   }
   return;
 }
@@ -3012,13 +3350,15 @@ FFOp::is_univariate
 {
   switch( type ){
   case FFOp::PLUS: case FFOp::MINUS: case FFOp::TIMES: case FFOp::DIV:
-  case FFOp::MINF: case FFOp::MAXF: case FFOp::INTER:
+  case FFOp::LMTD: case FFOp::RLMTD: case FFOp::MINF:  case FFOp::MAXF:
+  case FFOp::INTER:
     return false;
-  case FFOp::NEG:  case FFOp::SCALE: case FFOp::IPOW: case FFOp::CHEB:
-  case FFOp::EXP:  case FFOp::LOG:   case FFOp::FABS: case FFOp::SQR:
-  case FFOp::SQRT: case FFOp::COS:   case FFOp::SIN:  case FFOp::TAN:
-  case FFOp::ACOS: case FFOp::ASIN:  case FFOp::ATAN: case FFOp::ERF:
-  case FFOp::FSTEP:
+  case FFOp::NEG:  case FFOp::SHIFT: case FFOp::SCALE: case FFOp::INV:
+  case FFOp::IPOW: case FFOp::DPOW:  case FFOp::CHEB:  case FFOp::EXP:
+  case FFOp::LOG:  case FFOp::XLOG:  case FFOp::FABS:  case FFOp::SQR:
+  case FFOp::SQRT: case FFOp::COS:   case FFOp::SIN:   case FFOp::TAN:
+  case FFOp::ACOS: case FFOp::ASIN:  case FFOp::ATAN:  case FFOp::COSH:
+  case FFOp::SINH: case FFOp::TANH:  case FFOp::ERF:   case FFOp::FSTEP:
   default:
     return true;
   }
@@ -3262,7 +3602,7 @@ FFGraph::subgraph
   _reset_operations();
   typename std::vector<const FFVar*>::const_iterator it = vDep.begin();
   for( ; it!=vDep.end(); ++it ){
-    if( !(*it)->ops().first ) continue;
+    if( !((*it)->ops().first) ) continue;
     (*it)->ops().first->propagate_subgraph( Ops );
   }
   return Ops;
@@ -4522,7 +4862,7 @@ FFGraph::depmap
   for(std::list<const FFOp*>::const_iterator i=opDep.begin(); i!=opDep.end(); ++i)
     switch((*i) -> pres ->id().first){
       case FFVar::AUX:
-        if( (*i)->type == mc::FFOp::TIMES && !contains_product ){
+        if( (*i)->type == FFOp::TIMES && !contains_product ){
           contains_product = true;
           prod_index = vindex;
           vindex  += 6;  // Add block for product
@@ -4612,6 +4952,7 @@ FFGraph::depmap
   return depmap;
 }
 
+#ifdef MC__HSL_USE
 inline bool
 FFGraph::MC13
 ( const unsigned nDep, const FFVar*pDep, const FFVar*pIndep,
@@ -4795,6 +5136,7 @@ FFGraph::MC33
 
   return true;
 }
+#endif
 
 } // namespace mc
 
@@ -4816,16 +5158,21 @@ template <> struct Op< mc::FFVar >
   static FV inv (const FV& x) { return mc::inv(x);  }
   static FV sqr (const FV& x) { return mc::sqr(x);  }
   static FV sqrt(const FV& x) { return mc::sqrt(x); }
-  static FV log (const FV& x) { return mc::log(x);  }
-  static FV xlog(const FV& x) { return x*mc::log(x); }
-  static FV fabs(const FV& x) { return mc::fabs(x); }
   static FV exp (const FV& x) { return mc::exp(x);  }
+  static FV log (const FV& x) { return mc::log(x);  }
+  static FV xlog(const FV& x) { return mc::xlog(x); }
+  static FV lmtd(const FV& x,const FV& y) { return mc::lmtd(x,y); }
+  static FV rlmtd(const FV& x,const FV& y) { return mc::rlmtd(x,y); }
+  static FV fabs(const FV& x) { return mc::fabs(x); }
   static FV sin (const FV& x) { return mc::sin(x);  }
   static FV cos (const FV& x) { return mc::cos(x);  }
   static FV tan (const FV& x) { return mc::tan(x);  }
   static FV asin(const FV& x) { return mc::asin(x); }
   static FV acos(const FV& x) { return mc::acos(x); }
   static FV atan(const FV& x) { return mc::atan(x); }
+  static FV sinh(const FV& x) { return mc::asin(x); }
+  static FV cosh(const FV& x) { return mc::acos(x); }
+  static FV tanh(const FV& x) { return mc::atan(x); }
   static FV erf (const FV& x) { return mc::erf(x);  }
   static FV erfc(const FV& x) { return mc::erfc(x); }
   static FV fstep(const FV& x) { return mc::fstep(x); }
@@ -4834,9 +5181,9 @@ template <> struct Op< mc::FFVar >
   static FV min (const FV& x, const FV& y) { return mc::min(x,y);  }
   static FV max (const FV& x, const FV& y) { return mc::max(x,y);  }
   static FV arh (const FV& x, const double k) { return mc::exp(-k/x); }
-  static FV cheb(const FV& x, const unsigned n) { return mc::cheb(x,n); }
   template <typename X, typename Y> static FV pow(const X& x, const Y& y) { return mc::pow(x,y); }
-  static FV monomial (const unsigned int n, const FV* x, const int* k) { throw typename FFGraph::Exceptions( FFGraph::Exceptions::UNDEF ); }
+  static FV cheb(const FV& x, const unsigned n) { return mc::cheb(x,n); }
+  static FV monom(const unsigned int n, const FV* x, const int* k) { throw typename FFGraph::Exceptions( FFGraph::Exceptions::UNDEF ); }
   static bool inter(FV& xIy, const FV& x, const FV& y) { throw typename FFGraph::Exceptions( FFGraph::Exceptions::UNDEF ); }
   static bool eq(const FV& x, const FV& y) { throw typename FFGraph::Exceptions( FFGraph::Exceptions::UNDEF ); }
   static bool ne(const FV& x, const FV& y) { throw typename FFGraph::Exceptions( FFGraph::Exceptions::UNDEF ); }
@@ -4880,6 +5227,9 @@ template <> struct Op< mc::FFVar >
   static FV myAsin( const FV& x ) { return mc::asin( x ); }
   static FV myAcos( const FV& x ) { return mc::acos( x ); }
   static FV myAtan( const FV& x ) { return mc::atan( x ); }
+  static FV mySinh( const FV& x ) { return mc::sinh( x ); }
+  static FV myCosh( const FV& x ) { return mc::cosh( x ); }
+  static FV myTanh( const FV& x ) { return mc::tanh( x ); }
   static bool myEq( const FV& x, const FV& y ) { throw std::runtime_error("fadbad::Op<FFVar>::myEq -- operation not permitted"); }
   static bool myNe( const FV& x, const FV& y ) { throw std::runtime_error("fadbad::Op<FFVar>::myNe -- operation not permitted"); }
   static bool myLt( const FV& x, const FV& y ) { throw std::runtime_error("fadbad::Op<FFVar>::myLt -- operation not permitted"); }

@@ -1,4 +1,4 @@
-// Copyright (C) 2009-2016 Benoit Chachuat, Imperial College London.
+// Copyright (C) 2009-2017 Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
@@ -7,6 +7,8 @@
 
 #include <cmath>
 #include <cfloat>
+#include <iostream>
+
 
 namespace mc
 {
@@ -82,7 +84,7 @@ inline double arh
 inline double dsqr
 ( const double x )
 {
-  // CReturn derivatvie of squared value
+  // Return derivative of squared value
   return 2.*x;
 }
 
@@ -93,17 +95,15 @@ inline double xlog
   return x*std::log( x );
 }
 
-inline double monomial
-(const unsigned int n, const double*x, const int*k)
+inline double monom
+(const unsigned int n, const double*x, const unsigned*k)
 {
-  // Return monomial term \sum_i pow( x[i], k[i] )
-  if( n == 0 ){
-    return 1.;
+  // Return monomial term \prod_i pow( x[i], k[i] )
+  switch( n ){
+   case 0:  return 1.;
+   case 1:  return std::pow( x[0], k[0] );
+   default: return std::pow( x[0], k[0] ) * monom( n-1, x+1, k+1 );
   }
-  if( n == 1 ){
-    return std::pow( x[0], k[0] );
-  }
-  return std::pow( x[0], k[0] ) * monomial( n-1, x+1, k+1 );
 }
 
 inline double fstep
@@ -196,6 +196,36 @@ inline double mid
   // enumeration enum{ ICUT = 0, ICONV, ICONC } defined abobe
   // in the mc namespace
   if( id < 0 ){
+    //AVT.SVT 15.03.2017 change: made inequality signs < and > to lessequal and greaterequal to avoid 
+    //setting id=ICUT=0 falsely, e.g., with < and > the subgradient of log(x) over X=[0.1,2] is 
+    //returned as 0 at 0.1 which is maybe not wrong, since it is a valid subgradient but it is not what 
+    //the user wants/expects 
+    if ( CUT <= CONV )      { id = ICONV; return CONV; }
+    else if ( CUT >= CONC ) { id = ICONC; return CONC; }
+    else                   { id = ICUT;  return CUT;  }
+  }
+
+  // If the argument <a>id</a> is specified (nonnegative value),
+  // the function simply returns the corresponding value, which
+  // is not necessarily the mid value
+  if      ( id == ICONV ) return CONV;
+  else if ( id == ICUT  ) return CUT;
+  else                    return CONC;
+}
+
+//added AVT.SVT 31.05.2017: had to add the old function for non differentiable relaxations 
+//                          such as max, min..., since we cannot directly determine the derivative at border points
+inline double mid_ndiff
+( const double CONV, const double CONC, const double CUT,
+  int &id )
+{
+  // Return the mid value of three scalars CONV, CONC and CUT,
+  // knowing that CONV <= CONC
+  // If the argument <a>id</a> is unspecified (negative value),
+  // the function indicates which value is the mid using the
+  // enumeration enum{ ICUT = 0, ICONV, ICONC } defined abobe
+  // in the mc namespace
+  if( id < 0 ){
     if ( CUT < CONV )      { id = ICONV; return CONV; }
     else if ( CUT > CONC ) { id = ICONC; return CONC; }
     else                   { id = ICUT;  return CUT;  }
@@ -262,5 +292,28 @@ isequal
   return( gap<atol+ave*rtol? true: false );
 }
 
+inline double lmtd
+( const double x, const double y )
+{
+  if( isequal(x,y,machprec(),machprec())){
+    return x;
+  }
+  // Return lmtd(x,y) term
+  return (x-y)/(std::log(x)-std::log(y));
+}
+
+inline double rlmtd
+( const double x, const double y )
+{
+  if( isequal(x,y,machprec(),machprec())){
+    return 1./x;
+  }
+  // Return lmtd(x,y) term
+  return (std::log(x)-std::log(y))/(x-y);
+}
+
 } // namespace mc
+
 #endif
+
+

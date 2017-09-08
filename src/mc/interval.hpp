@@ -201,12 +201,22 @@ class Interval
     ( const Interval& );
   friend Interval atan
     ( const Interval& );
+  friend Interval cosh
+    ( const Interval& );
+  friend Interval sinh
+    ( const Interval& );
+  friend Interval tanh
+    ( const Interval& );
   friend Interval fabs
     ( const Interval& );
   friend Interval sqrt
     ( const Interval& );
   friend Interval xlog
     ( const Interval& );
+  friend Interval lmtd
+    ( const Interval&, const Interval& );
+  friend Interval rlmtd
+    ( const Interval&, const Interval& );
   friend Interval erf
     ( const Interval& );
   friend Interval erfc
@@ -223,8 +233,8 @@ class Interval
     ( const Interval&, const double );
   friend Interval pow
     ( const Interval&, const Interval& );
-  friend Interval monomial
-    ( const unsigned int, const Interval*, const int* );
+  friend Interval monom
+    ( const unsigned int, const Interval*, const unsigned* );
   friend Interval cheb
     ( const Interval&, const unsigned );
   friend Interval hull
@@ -619,6 +629,26 @@ xlog
                    std::max(xlog(I._l),xlog(I._u)) );
 }
 
+//added AVT.SVT 06.06.2017
+inline Interval
+lmtd
+( const Interval&I1, const Interval&I2 )
+{
+  if ( I1._l <= 0. || I2._l <= 0. ) throw Interval::Exceptions( Interval::Exceptions::LOG );
+
+  return Interval( lmtd(I1._l,I2._l),lmtd(I1._u,I2._u) );
+}
+
+//added AVT.SVT 06.06.2017
+inline Interval
+rlmtd
+( const Interval&I1, const Interval&I2 )
+{
+  if ( I1._l <= 0. || I2._l <= 0. ) throw Interval::Exceptions( Interval::Exceptions::LOG );
+
+  return Interval( rlmtd(I1._l,I2._l),rlmtd(I1._u,I2._u) );
+}
+
 inline Interval
 erf
 ( const Interval &I )
@@ -672,16 +702,14 @@ pow
 }
 
 inline Interval
-monomial
-(const unsigned int n, const Interval*I, const int*k)
+monom
+(const unsigned int n, const Interval*I, const unsigned*k)
 {
-  if( n == 0 ){
-    return 1.;
+  switch( n){
+   case 0:  return 1.;
+   case 1:  return pow( I[0], (int)k[0] );
+   default: return pow( I[0], (int)k[0] ) * monom( n-1, I+1, k+1 );
   }
-  if( n == 1 ){
-    return pow( I[0], k[0] );
-  }
-  return pow( I[0], k[0] ) * monomial( n-1, I+1, k+1 );
 }
 
 inline Interval
@@ -832,6 +860,29 @@ atan
 }
 
 inline Interval
+cosh
+( const Interval &I )
+{
+  int imid = -1;
+  return Interval( std::cosh( mid(I._l,I._u,0.,imid) ),
+                   std::max(std::cosh(I._l),std::cosh(I._u)) );
+}
+
+inline Interval
+sinh
+( const Interval &I )
+{
+  return Interval( std::sinh(I._l), std::sinh(I._u) );
+}
+
+inline Interval
+tanh
+( const Interval &I )
+{
+  return Interval( std::tanh(I._l), std::tanh(I._u) );
+}
+
+inline Interval
 fstep
 ( const Interval &I )
 {
@@ -931,16 +982,21 @@ template <> struct Op<mc::Interval>
   static T inv (const T& x) { return mc::inv(x);  }
   static T sqr (const T& x) { return mc::sqr(x);  }
   static T sqrt(const T& x) { return mc::sqrt(x); }
+  static T exp (const T& x) { return mc::exp(x);  }
   static T log (const T& x) { return mc::log(x);  }
   static T xlog(const T& x) { return mc::xlog(x); }
+  static T lmtd(const T& x, const T& y) { return mc::lmtd(x,y); }
+  static T rlmtd(const T& x, const T& y) { return mc::rlmtd(x,y); }
   static T fabs(const T& x) { return mc::fabs(x); }
-  static T exp (const T& x) { return mc::exp(x);  }
   static T sin (const T& x) { return mc::sin(x);  }
   static T cos (const T& x) { return mc::cos(x);  }
   static T tan (const T& x) { return mc::tan(x);  }
   static T asin(const T& x) { return mc::asin(x); }
   static T acos(const T& x) { return mc::acos(x); }
   static T atan(const T& x) { return mc::atan(x); }
+  static T sinh(const T& x) { return mc::sinh(x); }
+  static T cosh(const T& x) { return mc::cosh(x); }
+  static T tanh(const T& x) { return mc::tanh(x); }
   static T erf (const T& x) { return mc::erf(x);  }
   static T erfc(const T& x) { return mc::erfc(x); }
   static T fstep(const T& x) { return mc::fstep(x); }
@@ -951,7 +1007,7 @@ template <> struct Op<mc::Interval>
   static T arh (const T& x, const double k) { return mc::arh(x,k); }
   static T cheb (const T& x, const unsigned n) { return mc::cheb(x,n); }
   template <typename X, typename Y> static T pow(const X& x, const Y& y) { return mc::pow(x,y); }
-  static T monomial (const unsigned int n, const T* x, const int* k) { return mc::monomial(n,x,k); }
+  static T monom (const unsigned int n, const T* x, const unsigned* k) { return mc::monom(n,x,k); }
   static bool inter(T& xIy, const T& x, const T& y) { return mc::inter(xIy,x,y); }
   static bool eq(const T& x, const T& y) { return x==y; }
   static bool ne(const T& x, const T& y) { return x!=y; }
