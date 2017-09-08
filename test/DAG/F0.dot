@@ -1,0 +1,19 @@
+
+digraph G {
+  X2 [shape=ellipse,fontname="Arial",color=red];
+  X3 [shape=ellipse,fontname="Arial",color=red];
+  Z3 [shape=record,fontname="Arial",color=black,label="<f0>  x |<f1> Z3"];
+  X2 -> Z3 [arrowsize=0.7];
+  X3 -> Z3 [arrowsize=0.7];
+  Z1 [shape=record,fontname="Arial",color=blue,label="<f0> 2(D)|<f1> Z1"];
+  X1 [shape=ellipse,fontname="Arial",color=red];
+  Z0 [shape=record,fontname="Arial",color=black,label="<f0>  + |<f1> Z0"];
+  X1 -> Z0 [arrowsize=0.7];
+  X2 -> Z0 [arrowsize=0.7];
+  Z2 [shape=record,fontname="Arial",color=black,label="<f0>  / |<f1> Z2"];
+  Z1 -> Z2 [arrowsize=0.7];
+  Z0 -> Z2 [arrowsize=0.7,style=dashed];
+  Z4 [shape=record,fontname="Arial",color=black,label="<f0>  - |<f1> Z4"];
+  Z3 -> Z4 [arrowsize=0.7];
+  Z2 -> Z4 [arrowsize=0.7,style=dashed];
+}
