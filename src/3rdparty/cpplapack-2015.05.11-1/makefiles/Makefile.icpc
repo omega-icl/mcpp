@@ -1,0 +1,92 @@
+###############################################################################
+##                               Makefile.icpc                               ##
+###############################################################################
+
+#######################################
+############### common ################
+#######################################
+
+CXX = LC_ALL=C icpc
+
+######## FLAGS ########
+FLAGS += -gcc-name=gcc -gxx-name=g++ ## -use-intel-optimized-headers
+#FLAGS += -std=c++11 # -std=c++98
+#FLAGS += -fp-model no-except -fp-speculation=strict
+FLAGS += -openmp
+FLAGS += -mkl
+#FLAGS += -DMKL_ILP64 
+#FLAGS += -ipp
+
+######## CFLAGS ########
+####CFLAGS += -Wall -w1 -Wshadow -Wcheck -Wno-unknown-pragmas -Wno-pragma-once
+
+######## LFLAGS ########
+####LFLAGS += -shared-intel -shared-libgcc
+LFLAGS += -static-intel -static-libgcc -static-libstdc++
+
+######## others ########
+INCLUDE_DIRS += -I./  -I$(HOME)/local/cpplapack/include
+LIB_DIRS += 
+#LIBS += -lm
+MACROS += 
+
+#######################################
+############ release mode #############
+#######################################
+ifdef RELEASE
+#### FLAGS ####
+#FLAGS += -fast
+#FLAGS += -xHOST -O3 -no-prec-div -static -fp-model fast=2 ## without -ipo
+#FLAGS += -axSSE2,SSE3,SSSE3,SSE4.1,SSE4.2,AVX,CORE-AVX2,CORE-AVX-I,MIC-AVX512,CORE-AVX512 -O3 -ipo -no-prec-div -static -fp-model fast=2 ## for various arch
+FLAGS += -axSSE2,SSE3,SSSE3,SSE4.1,SSE4.2,AVX,CORE-AVX2,CORE-AVX-I,MIC-AVX512,CORE-AVX512 -O3 -no-prec-div -static -fp-model fast=2 ## for various arch without -ipo
+#FLAGS += -funroll-loops -fno-math-errno #-mfpmath=sse
+FLAGS += -fomit-frame-pointer
+#### CFLAGS ####
+#CFLAGS += 
+#### LFLAGS ####
+#LFLAGS +=
+#### others ####
+MACROS += -DBOOST_DISABLE_ASSERTS
+endif
+
+#######################################
+############ profile mode #############
+#######################################
+ifdef PROFILE
+#### FLAGS ####
+FLAGS += -fast
+#### CFLAGS ####
+CFLAGS += -pg #-g
+#### LFLAGS ####
+LFLAGS += -pg #-g
+#### others ####
+MACROS += -DBOOST_DISABLE_ASSERTS
+endif
+
+#######################################
+############## debug mode #############
+#######################################
+ifdef DEBUG
+#### FLAGS ####
+FLAGS += -g -O0 -w1 -Wcheck -Wno-unknown-pragmas -Wconversion -Wreturn-type -Wshadow -Woverflow
+#### CFLAGS ####
+#CFLAGS += -mfp-trap-mode=sui 
+CFLAGS += -fp-stack-check -ftrapuv -fmath-errno #-ffpe-trap=invalid,zero,overflow,underflow
+#### LFLAGS ####
+#LFLAGS += -lefence
+#### others ####
+MACROS += -DDEBUG
+MACROS += -DCPPL_DEBUG
+endif
+
+#######################################
+############ verbose mode #############
+#######################################
+ifdef VERBOSE
+#### FLAGS ####
+#### CFLAGS ####
+#### LFLAGS ####
+#### others ####
+MACROS += -DVERBOSE
+####MACROS += -DCPPL_VERBOSE
+endif
