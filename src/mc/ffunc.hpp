@@ -1760,26 +1760,26 @@ operator+
 
 template <typename U> inline FFVar
 operator+
-( const U&Cst1, const FFVar&Var2 )
+( const U&Cst, const FFVar&Var )
 {
   // Case constant is zero
-  if( Cst1 == U(0) ) return Var2;
+  if( Cst == U(0) ) return Var;
 
-  switch( Var2._id.first ){
+  switch( Var._id.first ){
   case FFVar::CREAL:
-    return( Cst1 + Var2._num.x );
+    return( Cst + Var._num.x );
   case FFVar::CINT:
-    return( Cst1 + Var2._num.n );
+    return( Cst + Var._num.n );
   default:
-    return FFGraph::_insert_binary_operation( FFOp::SHIFT, Cst1+Var2._dep, (double)Cst1, Var2 );
+    return FFGraph::_insert_binary_operation( FFOp::SHIFT, Cst+Var._dep, Var, (double)Cst );
   }
 }
 
 template <typename U> inline FFVar
 operator+
-( const FFVar&Var1, const U&Cst2 )
+( const FFVar&Var, const U&Cst )
 {
-  return( Cst2 + Var1 );
+  return( Cst + Var );
 }
 
 inline FFVar
@@ -1849,39 +1849,26 @@ operator-
 
 template <typename U> inline FFVar
 operator-
-( const FFVar&Var1, const U&Cst2 )
+( const FFVar&Var, const U&Cst )
 {
   // Case constant is zero
-  if( Cst2 == U(0) ) return Var1;
+  if( Cst == U(0) ) return Var;
 
-  switch( Var1._id.first ){
+  switch( Var._id.first ){
   case FFVar::CREAL:
-    return( Var1._num.x - Cst2 );
+    return( Var._num.x - Cst );
   case FFVar::CINT:
-    return( Var1._num.n - Cst2 );
+    return( Var._num.n - Cst );
   default:
-    return FFGraph::_insert_binary_operation( FFOp::SHIFT, Var1._dep-Cst2, Var1, -(double)Cst2 );
+    return FFGraph::_insert_binary_operation( FFOp::SHIFT, Var._dep-Cst, Var, -(double)Cst );
   }
 }
 
 template <typename U> inline FFVar
 operator-
-( const U&Cst1, const FFVar&Var2 )
+( const U&Cst, const FFVar&Var )
 {
-  return( Cst1 + (-Var2) );
-/*
-  // Case constant is zero
-  if( Cst1 == U(0) ) return -Var2;
-
-  switch( Var2._id.first ){
-  case FFVar::CREAL:
-    return( Cst1 - Var2._num.x );
-  case FFVar::CINT:
-    return( Cst1 - Var2._num.n );
-  default:
-    return FFGraph::_insert_binary_operation( FFOp::MINUS, Cst1-Var2._dep, (double)Cst1, Var2 );
-  }
-*/
+  return( Cst + (-Var) );
 }
 
 template <typename U> inline FFVar&
@@ -1933,29 +1920,29 @@ operator*
 
 template <typename U> inline FFVar
 operator*
-( const FFVar&Var1, const U&Cst2 )
+( const FFVar&Var, const U&Cst )
 {
-  return( Cst2 * Var1 );
+  return( Cst * Var );
 }
 
 template <typename U> inline FFVar
 operator*
-( const U&Cst1, const FFVar&Var2 )
+( const U&Cst, const FFVar&Var )
 {
   // Case constant is zero
-  if( Cst1 == U(0) ) return 0.;
+  if( Cst == U(0) ) return 0.;
   // Case constant is one
-  if( Cst1 == U(1) ) return Var2;
-  // Case constant is one
-  if( Cst1 == U(-1) ) return -Var2;
+  if( Cst == U(1) ) return Var;
+  // Case constant is negative one
+  if( Cst == U(-1) ) return -Var;
 
-  switch( Var2._id.first ){
+  switch( Var._id.first ){
   case FFVar::CREAL:
-    return( Cst1 * Var2._num.x );
+    return( Cst * Var._num.x );
   case FFVar::CINT:
-    return( Cst1 * Var2._num.n );
+    return( Cst * Var._num.n );
   default:
-    return FFGraph::_insert_binary_operation( FFOp::SCALE, Cst1*Var2._dep, (double)Cst1, Var2 );
+    return FFGraph::_insert_binary_operation( FFOp::SCALE, Cst*Var._dep, Var, (double)Cst );
   }
 }
 
@@ -2009,26 +1996,26 @@ operator/
 
 template <typename U> inline FFVar
 operator/
-( const FFVar&Var1, const U&Cst2 )
+( const FFVar&Var, const U&Cst )
 {
-  if( Cst2 == U(0) ) return std::numeric_limits<double>::quiet_NaN();
-  return( ( 1. / Cst2 ) * Var1 );
+  if( Cst == U(0) ) return std::numeric_limits<double>::quiet_NaN();
+  return( ( 1. / Cst ) * Var );
 }
 
 template <typename U> inline FFVar
 operator/
-( const U&Cst1, const FFVar&Var2 )
+( const U&Cst, const FFVar&Var )
 {
   // Case constant is zero
-  if( Cst1 == U(0) ) return 0.;
+  if( Cst == U(0) ) return 0.;
 
-  switch( Var2._id.first ){
+  switch( Var._id.first ){
   case FFVar::CREAL:
-    return( Cst1 / Var2._num.x );
+    return( Cst / Var._num.x );
   case FFVar::CINT:
-    return( Cst1 / Var2._num.n );
+    return( Cst / Var._num.n );
   default:{
-    return FFGraph::_insert_binary_operation( FFOp::INV, Cst1/Var2._dep, (double)Cst1, Var2 );
+    return FFGraph::_insert_binary_operation( FFOp::INV, Cst/Var._dep, (double)Cst, Var );
    }
   }
 }
@@ -2970,7 +2957,7 @@ FFOp::evaluate
     return;
 
    case FFOp::INV:
-    pres->val() = new U( prop->num().val() / *static_cast<U*>( plop->val() ) );
+    pres->val() = new U( plop->num().val() / *static_cast<U*>( prop->val() ) );
     return;
 
    case FFOp::DIV:
@@ -3134,7 +3121,7 @@ FFOp::evaluate
     break;
 
    case FFOp::INV:
-    *pUres = prop->num().val() / *static_cast<U*>( plop->val() );
+    *pUres = plop->num().val() / *static_cast<U*>( prop->val() );
     break;
 
    case FFOp::DIV:  
@@ -4547,6 +4534,10 @@ FFGraph::eval
     for( ; ito!=opDep.end(); ++ito ){
       _curOp = *ito;
       _curOp->evaluate( U() );
+#ifdef MC__FFUNC_DEBUG_EVAL
+      U*tmp = static_cast<U*>( _curOp->pres->val() );
+      std::cout << *(_curOp->pres) << " <- " << static_cast<U*>( _curOp->pres->val() ) << std::endl;
+#endif
     }
 #ifdef MC__FFUNC_CPU_EVAL
     cputime += cpuclock();
