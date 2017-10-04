@@ -79,6 +79,8 @@ namespace fadbad
 		static T mySqr(const T& x) { return x*x; }
 		template <typename X, typename Y>
 		static T myPow(const X& x, const Y& y) { return ::pow(x,y); }
+        // Addition BC: 26-09-2017
+        //static T myCheb( const T& x, const unsigned n ) { switch( n ){ case 0: return myOne(); case 1: return x; default: return myTwo()*(x*myCheb(x,n-1))-myCheb(x,n-2); } }
 		static T mySqrt(const T& x) { return ::sqrt(x); }
 		static T myLog(const T& x) { return ::log(x); }
 		static T myExp(const T& x) { return ::exp(x); }

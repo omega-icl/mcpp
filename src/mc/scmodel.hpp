@@ -600,8 +600,10 @@ class SCVar: public SPolyVar<T>
     ( const double, const SCVar<U>& );
   template <typename U> friend SCVar<U> pow
     ( const SCVar<U>&, const SCVar<U>& );
-  template <typename U> friend SCVar<U> monomial
-    ( const unsigned int, const SCVar<U>*, const int* );
+  template <typename U> friend SCVar<U> prod
+    ( const unsigned int, const SCVar<U>* );
+  template <typename U> friend SCVar<U> monom
+    ( const unsigned int, const SCVar<U>*, const unsigned* );
   template <typename U> friend SCVar<U> cheb
     ( const SCVar<U>&, const unsigned );
   template <typename U> friend SCVar<U> cos
@@ -615,6 +617,12 @@ class SCVar: public SPolyVar<T>
   template <typename U> friend SCVar<U> asin
     ( const SCVar<U>& );
   template <typename U> friend SCVar<U> atan
+    ( const SCVar<U>& );
+  template <typename U> friend SCVar<U> cosh
+    ( const SCVar<U>& );
+  template <typename U> friend SCVar<U> sinh
+    ( const SCVar<U>& );
+  template <typename U> friend SCVar<U> tanh
     ( const SCVar<U>& );
   template <typename U> friend SCVar<U> fabs
     ( const SCVar<U>& );
@@ -2561,16 +2569,25 @@ pow
 }
 
 template <typename T> inline SCVar<T>
-monomial
-(const unsigned n, const SCVar<T>*CV, const int*k)
+prod
+( const unsigned n, const SCVar<T>*CV )
 {
-  if( n == 0 ){
-    return 1.;
+  switch( n ){
+   case 0:  return 1.;
+   case 1:  return CV[0];
+   default: return CV[0] * prod( n-1, CV+1 );
   }
-  if( n == 1 ){
-    return pow( CV[0], k[0] );
+}
+
+template <typename T> inline SCVar<T>
+monom
+( const unsigned n, const SCVar<T>*CV, const unsigned*k )
+{
+  switch( n ){
+   case 0:  return 1.;
+   case 1:  return pow( CV[0], (int)k[0] );
+   default: return pow( CV[0], (int)k[0] ) * monom( n-1, CV+1, k+1 );
   }
-  return pow( CV[0], k[0] ) * monomial( n-1, CV+1, k+1 );
 }
 
 template <typename T> inline SCVar<T>
@@ -2620,6 +2637,13 @@ sin
 }
 
 template <typename T> inline SCVar<T>
+tan
+( const SCVar<T> &CV )
+{
+  return sin( CV ) / cos( CV );
+}
+
+template <typename T> inline SCVar<T>
 acos
 ( const SCVar<T> &CV )
 {
@@ -2660,17 +2684,31 @@ asin
 }
 
 template <typename T> inline SCVar<T>
-tan
-( const SCVar<T> &CV )
-{
-  return sin( CV ) / cos( CV );
-}
-
-template <typename T> inline SCVar<T>
 atan
 ( const SCVar<T> &CV )
 {
   return asin( CV / sqrt( sqr( CV ) + 1. ) );
+}
+
+template <typename T> inline SCVar<T>
+sinh
+( const SCVar<T> &CV )
+{
+  return 0.5*(mc::exp(CV)-mc::exp(-CV));
+}
+
+template <typename T> inline SCVar<T>
+cosh
+( const SCVar<T> &CV )
+{
+  return 0.5*(mc::exp(CV)+mc::exp(-CV));
+}
+
+template <typename T> inline SCVar<T>
+tanh
+( const SCVar<T> &CV )
+{
+  return (mc::exp(2*CV)-1)/(mc::exp(2*CV)+1);
 }
 
 template <typename T> inline SCVar<T>
@@ -2815,7 +2853,57 @@ inter
 
 } // namespace mc
 
-#include "mcop.hpp"
+
+#include "mcfadbad.hpp"
+//#include "fadbad.h"
+
+namespace fadbad
+{
+
+//! @brief Specialization of the structure fadbad::Op for use of the type mc::SCVar of MC++ as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
+template< typename T > struct Op< mc::SCVar<T> >
+{ 
+  typedef mc::SCVar<T> CV;
+  typedef double Base;
+  static Base myInteger( const int i ) { return Base(i); }
+  static Base myZero() { return myInteger(0); }
+  static Base myOne() { return myInteger(1);}
+  static Base myTwo() { return myInteger(2); }
+  static double myPI() { return mc::PI; }
+  static CV myPos( const CV& x ) { return  x; }
+  static CV myNeg( const CV& x ) { return -x; }
+  template <typename U> static CV& myCadd( CV& x, const U& y ) { return x+=y; }
+  template <typename U> static CV& myCsub( CV& x, const U& y ) { return x-=y; }
+  template <typename U> static CV& myCmul( CV& x, const U& y ) { return x*=y; }
+  template <typename U> static CV& myCdiv( CV& x, const U& y ) { return x/=y; }
+  static CV myInv( const CV& x ) { return mc::inv( x ); }
+  static CV mySqr( const CV& x ) { return mc::pow( x, 2 ); }
+  template <typename X, typename Y> static CV myPow( const X& x, const Y& y ) { return mc::pow( x, y ); }
+  //static CV myCheb( const CV& x, const unsigned n ) { return mc::cheb( x, n ); }
+  static CV mySqrt( const CV& x ) { return mc::sqrt( x ); }
+  static CV myLog( const CV& x ) { return mc::log( x ); }
+  static CV myExp( const CV& x ) { return mc::exp( x ); }
+  static CV mySin( const CV& x ) { return mc::sin( x ); }
+  static CV myCos( const CV& x ) { return mc::cos( x ); }
+  static CV myTan( const CV& x ) { return mc::tan( x ); }
+  static CV myAsin( const CV& x ) { return mc::asin( x ); }
+  static CV myAcos( const CV& x ) { return mc::acos( x ); }
+  static CV myAtan( const CV& x ) { return mc::atan( x ); }
+  static CV mySinh( const CV& x ) { return mc::sinh( x ); }
+  static CV myCosh( const CV& x ) { return mc::cosh( x ); }
+  static CV myTanh( const CV& x ) { return mc::tanh( x ); }
+  static bool myEq( const CV& x, const CV& y ) { return mc::Op<T>::eq(const_cast<CV*>(&x)->bound(),const_cast<CV*>(&y)->bound()); } 
+  static bool myNe( const CV& x, const CV& y ) { return mc::Op<T>::ne(const_cast<CV*>(&x)->bound(),const_cast<CV*>(&y)->bound()); }
+  static bool myLt( const CV& x, const CV& y ) { return mc::Op<T>::lt(const_cast<CV*>(&x)->bound(),const_cast<CV*>(&y)->bound()); }
+  static bool myLe( const CV& x, const CV& y ) { return mc::Op<T>::le(const_cast<CV*>(&x)->bound(),const_cast<CV*>(&y)->bound()); }
+  static bool myGt( const CV& x, const CV& y ) { return mc::Op<T>::gt(const_cast<CV*>(&x)->bound(),const_cast<CV*>(&y)->bound()); }
+  static bool myGe( const CV& x, const CV& y ) { return mc::Op<T>::ge(const_cast<CV*>(&x)->bound(),const_cast<CV*>(&y)->bound()); }
+};
+
+} // end namespace fadbad
+
+
+//#include "mcop.hpp"
 
 namespace mc
 {
@@ -2837,6 +2925,8 @@ template< typename T > struct Op< mc::SCVar<T> >
   static CV sqrt(const CV& x) { return mc::sqrt(x); }
   static CV log (const CV& x) { return mc::log(x);  }
   static CV xlog(const CV& x) { return x*mc::log(x); }
+  static CV lmtd(const CV& x, const CV& y) { return (x-y)/(mc::log(x)-mc::log(y)); }
+  static CV rlmtd(const CV& x, const CV& y) { return (mc::log(x)-mc::log(y))/(x-y); }
   static CV fabs(const CV& x) { return mc::fabs(x); }
   static CV exp (const CV& x) { return mc::exp(x);  }
   static CV sin (const CV& x) { return mc::sin(x);  }
@@ -2845,6 +2935,9 @@ template< typename T > struct Op< mc::SCVar<T> >
   static CV asin(const CV& x) { return mc::asin(x); }
   static CV acos(const CV& x) { return mc::acos(x); }
   static CV atan(const CV& x) { return mc::atan(x); }
+  static CV sinh(const CV& x) { return mc::sinh(x); }
+  static CV cosh(const CV& x) { return mc::cosh(x); }
+  static CV tanh(const CV& x) { return mc::tanh(x); }
   static CV erf (const CV& x) { throw typename mc::SCModel<T>::Exceptions( SCModel<T>::Exceptions::UNDEF ); }
   static CV erfc(const CV& x) { throw typename mc::SCModel<T>::Exceptions( SCModel<T>::Exceptions::UNDEF ); }
   static CV fstep(const CV& x) { return CV( mc::Op<T>::fstep(x.B()) ); }
@@ -2853,9 +2946,10 @@ template< typename T > struct Op< mc::SCVar<T> >
   static CV min (const CV& x, const CV& y) { return mc::Op<T>::min(x.B(),y.B());  }
   static CV max (const CV& x, const CV& y) { return mc::Op<T>::max(x.B(),y.B());  }
   static CV arh (const CV& x, const double k) { return mc::exp(-k/x); }
-  static CV cheb(const CV& x, const unsigned n) { return mc::cheb(x,n); }
   template <typename X, typename Y> static CV pow(const X& x, const Y& y) { return mc::pow(x,y); }
-  static CV monomial (const unsigned n, const T* x, const int* k) { return mc::monomial(n,x,k); }
+  static CV cheb(const CV& x, const unsigned n) { return mc::cheb(x,n); }
+  static CV prod (const unsigned n, const CV* x) { return mc::prod(n,x); }
+  static CV monom (const unsigned n, const CV* x, const unsigned* k) { return mc::monom(n,x,k); }
   static bool inter(CV& xIy, const CV& x, const CV& y) { return mc::inter(xIy,x,y); }
   static bool eq(const CV& x, const CV& y) { return mc::Op<T>::eq(x.B(),y.B()); }
   static bool ne(const CV& x, const CV& y) { return mc::Op<T>::ne(x.B(),y.B()); }

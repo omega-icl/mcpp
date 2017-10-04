@@ -9,18 +9,21 @@ INC_MC = -I$(PATH_MC)/src/mc $(INC_FADBAD) $(INC_LAPACK) $(INC_PROFIL) $(INC_FIL
 
 #####
 
-all: DAG_compose DAG_differentiate DAG_evaluate DAG_analyze
+all: TM-1D TM-2D CM-1D CM-2D CM-SCM-2D
 
-DAG_compose : DAG_compose.o
+TM-1D : TM-1D.o
 	$(LINK) $(PROF) $(FLAGS_LINK) -o $@ $< $(LIB_MC)
 
-DAG_differentiate : DAG_differentiate.o
+TM-2D : TM-2D.o
 	$(LINK) $(PROF) $(FLAGS_LINK) -o $@ $< $(LIB_MC)
 
-DAG_evaluate : DAG_evaluate.o
+CM-1D : CM-1D.o
 	$(LINK) $(PROF) $(FLAGS_LINK) -o $@ $< $(LIB_MC)
 
-DAG_analyze : DAG_analyze.o
+CM-2D : CM-2D.o
+	$(LINK) $(PROF) $(FLAGS_LINK) -o $@ $< $(LIB_MC)
+
+CM-SCM-2D : CM-SCM-2D.o
 	$(LINK) $(PROF) $(FLAGS_LINK) -o $@ $< $(LIB_MC)
 
 %.o: %.cpp 
@@ -42,5 +45,5 @@ gensvg :
 #####
 
 clean :
-	rm -f DAG_compose DAG_differentiate DAG_evaluate DAG_analyze *.o *.out *.eps *.dot *.svg *~
+	rm -f TM-1D TM-2D CM-1D CM-2D CM-SCM-2D *.o *.out *.eps *.dot *.svg *~
 

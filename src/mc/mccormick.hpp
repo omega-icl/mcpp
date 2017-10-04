@@ -348,7 +348,7 @@ Possible errors encountered during the computation of a McCormick relaxation are
 #include <stdarg.h>
 #include <cassert>
 #include <string>
-using namespace std;
+//using namespace std;
 
 #include "mcfunc.hpp"
 #include "mcop.hpp"
@@ -472,6 +472,8 @@ class McCormick
     ( const double, const McCormick<U>& );
   template <typename U> friend McCormick<U> pow
     ( const McCormick<U>&, const McCormick<U>& );
+  template <typename U> friend McCormick<U> prod
+    ( const unsigned int, const McCormick<U>* );
   template <typename U> friend McCormick<U> monom
     ( const unsigned int, const McCormick<U>*, const unsigned* );
   template <typename U> friend McCormick<U> cheb
@@ -3718,8 +3720,19 @@ pow
 }
 
 template <typename T> inline McCormick<T>
+prod
+( const unsigned int n, const McCormick<T>*MC )
+{
+  switch( n ){
+   case 0:  return 1.;
+   case 1:  return MC[0];
+   default: return MC[0] * prod( n-1, MC+1 );
+  }
+}
+
+template <typename T> inline McCormick<T>
 monom
-(const unsigned int n, const McCormick<T>*MC, const unsigned*k)
+( const unsigned int n, const McCormick<T>*MC, const unsigned*k )
 {
   switch( n ){
    case 0:  return 1.;
@@ -4506,7 +4519,56 @@ template <typename T> typename McCormick<T>::Options McCormick<T>::options;
 } // namespace mc
 
 
-#include "mcop.hpp"
+#include "mcfadbad.hpp"
+//#include "fadbad.h"
+
+namespace fadbad
+{
+
+//! @brief Specialization of the structure fadbad::Op to allow usage of the type mc::McCormick of MC++ as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
+template<typename T> struct Op< mc::McCormick<T> >
+{
+  typedef mc::McCormick<T> MC;
+  typedef double Base;
+  static Base myInteger( const int i ) { return Base(i); }
+  static Base myZero() { return myInteger(0); }
+  static Base myOne() { return myInteger(1);}
+  static Base myTwo() { return myInteger(2); }
+  static double myPI() { return mc::PI; }
+  static MC myPos( const MC& x ) { return  x; }
+  static MC myNeg( const MC& x ) { return -x; }
+  template <typename U> static MC& myCadd( MC& x, const U& y ) { return x+=y; }
+  template <typename U> static MC& myCsub( MC& x, const U& y ) { return x-=y; }
+  template <typename U> static MC& myCmul( MC& x, const U& y ) { return x*=y; }
+  template <typename U> static MC& myCdiv( MC& x, const U& y ) { return x/=y; }
+  static MC myInv( const MC& x ) { return mc::inv( x ); }
+  static MC mySqr( const MC& x ) { return mc::pow( x, 2 ); }
+  template <typename X, typename Y> static MC myPow( const X& x, const Y& y ) { return mc::pow( x, y ); }
+  //static MC myCheb( const MC& x, const unsigned n ) { return mc::cheb( x, n ); }
+  static MC mySqrt( const MC& x ) { return mc::sqrt( x ); }
+  static MC myLog( const MC& x ) { return mc::log( x ); }
+  static MC myExp( const MC& x ) { return mc::exp( x ); }
+  static MC mySin( const MC& x ) { return mc::sin( x ); }
+  static MC myCos( const MC& x ) { return mc::cos( x ); }
+  static MC myTan( const MC& x ) { return mc::tan( x ); }
+  static MC myAsin( const MC& x ) { return mc::asin( x ); }
+  static MC myAcos( const MC& x ) { return mc::acos( x ); }
+  static MC myAtan( const MC& x ) { return mc::atan( x ); }
+  static MC mySinh( const MC& x ) { return mc::sinh( x ); }
+  static MC myCosh( const MC& x ) { return mc::cosh( x ); }
+  static MC myTanh( const MC& x ) { return mc::tanh( x ); }
+  static bool myEq( const MC& x, const MC& y ) { return x==y; }
+  static bool myNe( const MC& x, const MC& y ) { return x!=y; }
+  static bool myLt( const MC& x, const MC& y ) { return x<y; }
+  static bool myLe( const MC& x, const MC& y ) { return x<=y; }
+  static bool myGt( const MC& x, const MC& y ) { return x>y; }
+  static bool myGe( const MC& x, const MC& y ) { return x>=y; }
+};
+
+} // end namespace fadbad
+
+
+//#include "mcop.hpp"
 
 namespace mc
 {
@@ -4550,9 +4612,10 @@ template<typename T> struct Op< mc::McCormick<T> > // Modified at AVT.SVT in Jul
   static MC min (const MC& x, const MC& y) { return mc::min(x,y);  }
   static MC max (const MC& x, const MC& y) { return mc::max(x,y);  }
   static MC arh (const MC& x, const double k) { return mc::arh(x,k); }
-  static MC cheb (const MC& x, const unsigned n) { return mc::cheb(x,n); }
   template <typename X, typename Y> static MC pow(const X& x, const Y& y) { return mc::pow(x,y); }
-  static MC monom (const unsigned int n, const T* x, const unsigned* k) { return mc::monom(n,x,k); }
+  static MC cheb (const MC& x, const unsigned n) { return mc::cheb(x,n); }
+  static MC prod (const unsigned int n, const MC* x) { return mc::prod(n,x); }
+  static MC monom (const unsigned int n, const MC* x, const unsigned* k) { return mc::monom(n,x,k); }
   static bool inter(MC& xIy, const MC& x, const MC& y) { return mc::inter(xIy,x,y); }
   static bool eq(const MC& x, const MC& y) { return x==y; }
   static bool ne(const MC& x, const MC& y) { return x!=y; }

@@ -791,7 +791,6 @@ INPUT                  = MC++.txt \
                          ../src/mc/spolymodel.hpp \
                          ../src/mc/scmodel.hpp \
                          ../src/mc/ellipsoid.hpp \
-                         ../src/mc/ellimage.hpp \
                          ../src/mc/polimage.hpp
 
 # This tag can be used to specify the character encoding of the source files

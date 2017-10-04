@@ -1,4 +1,4 @@
-// Copyright (C) 2009-2016 Benoit Chachuat, Imperial College London.
+// Copyright (C) 2009-2017 Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
@@ -121,7 +121,7 @@ Spectral bound (Gershgorin, forward-forward): [ -2.63904e+01 :  3.85859e+01 ]
 Spectral bound (Hertz&Rohn, forward-forward): [ -2.11973e+01 :  3.05272e+01 ]
 \endverbatim
 
-In this case, the eigenvalue arithmetic provides tighter bounds than with Gershgorin's circle criterion, yet looser than with Herz & Rohn's method.
+In this case, the eigenvalue arithmetic provides tighter bounds than with Gershgorin's circle criterion. Moreover, the lower bound is also tighter than with Herz & Rohn's method, yet the upper bound is weaker.
 
 Spectral bounds for interval Hessian matrices generated with the forward-reverse mode of AD can also be computed:
 
@@ -298,10 +298,7 @@ Moreover, exceptions may be thrown by the template parameter class itself.
 #include <cmath>
 
 #include "mclapack.hpp"
-#include "mcop.hpp"
-#include "fadiff.h"
-//#include "mcfadiff.hpp"
-#include "badiff.h"
+#include "mcfadbad.hpp"
 
 #undef  MC__SPECBND_DEBUG_SPECTRUM
 #undef  MC__SPECBND_DEBUG_HESSBND
@@ -349,10 +346,13 @@ class Specbnd
   template <class U> friend Specbnd<U> xlog(const Specbnd<U> &y);
   template <class U> friend Specbnd<U> cos(const Specbnd<U> &y);
   template <class U> friend Specbnd<U> sin(const Specbnd<U> &y);
+  template <class U> friend Specbnd<U> tan(const Specbnd<U> &y);
   template <class U> friend Specbnd<U> acos(const Specbnd<U> &y);
   template <class U> friend Specbnd<U> asin(const Specbnd<U> &y);
-  template <class U> friend Specbnd<U> tan(const Specbnd<U> &y);
   template <class U> friend Specbnd<U> atan(const Specbnd<U> &y);
+  template <class U> friend Specbnd<U> cosh(const Specbnd<U> &y);
+  template <class U> friend Specbnd<U> sinh(const Specbnd<U> &y);
+  template <class U> friend Specbnd<U> tanh(const Specbnd<U> &y);
   template <class U> friend Specbnd<U> erf(const Specbnd<U> &y);
   template <class U> friend Specbnd<U> erfc(const Specbnd<U> &y);
   template <class U> friend std::ostream& operator<<(std::ostream&, const Specbnd<U>&);
@@ -370,18 +370,6 @@ private:
   //! @brief Internal function for spectral bound propagation in product terms
   static T _LambdaT( const fadbad::F<T> &a, const fadbad::F<T> &b, const unsigned int n );
 
-  ////! @brief Computing spectral bound of interval Hessian matrix (forward-reverse AD) using Gershgorin's circle criterion
-  //static std::pair<double,double> _gershgorin_bound
-  //  ( const fadbad::B< fadbad::F< T > >* D2X );
-  ////! @brief Computing spectral bound of interval Hessian matrix (forward-reverse AD) using Hertz & Rohn's method
-  //static std::pair<double,double> _hertzrohn_bound
-  //  ( const fadbad::B< fadbad::F< T > >* D2X );
-  ////! @brief Computing spectral bound of interval Hessian matrix (forward-forward AD) using Gershgorin's circle criterion
-  //static std::pair<double,double> _gershgorin_bound
-  //  ( const fadbad::F< fadbad::F< T > >& D2F );
-  ////! @brief Computing spectral bound of interval Hessian matrix (forward-forward AD) using Hertz & Rohn's method
-  //static std::pair<double,double> _hertzrohn_bound
-  //  ( const fadbad::F< fadbad::F< T > >& D2F );
   //! @brief Computing spectral bound of interval Hessian matrix using Gershgorin's circle criterion
   static std::pair<double,double> _gershgorin_bound
     ( const unsigned N, const T*D2F );
@@ -676,120 +664,7 @@ Specbnd<T>::spectral_bound
     return _hertzrohn_bound( N, pD2F );
   }
 }
-/*
-template <typename T> inline std::pair<double,double>
-Specbnd<T>::_gershgorin_bound
-( const fadbad::B< fadbad::F< T > >* D2X )
-{
-  const unsigned int N = D2X->val().size();
-  if( !N ) throw typename Specbnd<T>::Exceptions( Specbnd<T>::Exceptions::HESSBND );
 
-  std::pair<double,double> spbnd;
-  for( unsigned int i=0; i<N; i++ ){
-    double ri = 0.;
-    for( unsigned int j=0; j<N; j++ ){
-      if( j == i ) continue;
-      T D2Fij;
-      if( !inter( D2Fij, D2X[i].deriv(0).deriv(j), D2X[j].deriv(0).deriv(i) ) )
-        D2Fij = D2X[i].deriv(0).deriv(j); 
-      ri += Op<T>::abs( D2Fij );
-    }
-
-    if( !i ){
-      spbnd.first  = Op<T>::l(D2X[i].deriv(0).deriv(i)) - ri;
-      spbnd.second = Op<T>::u(D2X[i].deriv(0).deriv(i)) + ri;
-    }
-    else{
-      spbnd.first  = std::min( spbnd.first,  Op<T>::l(D2X[i].deriv(0).deriv(i)) - ri );
-      spbnd.second = std::max( spbnd.second, Op<T>::u(D2X[i].deriv(0).deriv(i)) + ri );
-    }
-  }
-  return spbnd;
-}
-
-template <typename T> inline std::pair<double,double>
-Specbnd<T>::_hertzrohn_bound
-( const fadbad::B< fadbad::F< T > >* D2X )
-{
-  const unsigned int N = D2X->val().size();
-  if( !N ) throw typename Specbnd<T>::Exceptions( Specbnd<T>::Exceptions::HESSBND );
-
-  // Form matrix S^{(N)} recursively
-  unsigned int col_S = 2;
-  short *S = new short[col_S];
-  S[0] = 1; S[1] = -1;
-#ifdef MC__SPECBND_DEBUG_HESSBND
-  mc::display( 1, col_S, S, 1, "\nMatrix S1", std::cout );
-#endif
-  for( unsigned int k=1; k<N; k++, col_S*=2 ){
-    short *Sprev = new short[k*col_S];
-    for( unsigned int i=0; i<k; i++ )
-      for( unsigned int j=0; j<col_S; j++ )
-        Sprev[j*k+i] = S[j*k+i];
-    delete[] S; S = new short[(k+1)*2*col_S];
-    for( unsigned int i=0; i<k; i++ ){
-      for( unsigned int j=0; j<col_S; j++ )
-        S[j*(k+1)+i] = S[(col_S+j)*(k+1)+i] = Sprev[j*k+i];
-    }
-    for( unsigned int j=0; j<col_S; j++ ){
-      S[j*(k+1)+k] = 1; S[(col_S+j)*(k+1)+k] = -1;
-    }
-    delete[] Sprev;
-#ifdef MC__SPECBND_DEBUG_HESSBND
-    mc::display( k+1, 2*col_S, S, k+1, "\nMatrix Sk", std::cout );
-#endif
-  }
-
-  // Compute lower and upper bound on spectral radius
-  std::pair<double,double> spbnd;
-  double *Lk = new double[N*N], *Uk = new double[N*N];
-  for( unsigned int k=0; k<col_S; k++ ){
-    
-    for( unsigned int j=0; j<N; j++ )
-      for( unsigned int i=j; i<N; i++ ){
-        if( i == j ){
-	  Lk[i*N+i] = Op<T>::l( D2X[i].deriv(0).deriv(i) );
-	  Uk[i*N+i] = Op<T>::u( D2X[i].deriv(0).deriv(i) );
-          continue;
-	}
-        T D2Fij;
-        if( !inter( D2Fij, D2X[i].deriv(0).deriv(j), D2X[j].deriv(0).deriv(i) ) )
-          D2Fij = D2X[i].deriv(0).deriv(j);
-        Lk[i*N+j] = Lk[j*N+i] = S[k*N+i]*S[k*N+j]==1? Op<T>::l( D2Fij ): Op<T>::u( D2Fij );
-        Uk[i*N+j] = Uk[j*N+i] = S[k*N+i]*S[k*N+j]==1? Op<T>::u( D2Fij ): Op<T>::l( D2Fij );
-      }
-#ifdef MC__SPECBND_DEBUG_HESSBND
-    mc::display( N, N, Lk, N, "\nMatrix Lk", std::cout );
-    mc::display( N, N, Uk, N, "\nMatrix Uk", std::cout );
-#endif
-
-    double*DLk = mc::dsyev_wrapper( N, Lk );
-    if( !DLk ){
-      delete[] Lk; delete[] Uk; delete[] S;
-      throw typename Specbnd<T>::Exceptions( Specbnd<T>::Exceptions::HESSBND );
-    }
-#ifdef MC__SPECBND_DEBUG_HESSBND
-    mc::display( 1, N, DLk, 1, "\nMatrix DLk", std::cout );
-#endif
-    spbnd.first = k? std::min( spbnd.first, min(N,DLk) ): min(N,DLk);
-    delete[] DLk;
-
-    double*DUk = mc::dsyev_wrapper( N, Uk );
-    if( !DUk ){
-      delete[] Lk; delete[] Uk; delete[] S;
-      throw typename Specbnd<T>::Exceptions( Specbnd<T>::Exceptions::HESSBND );
-    }
-#ifdef MC__SPECBND_DEBUG_HESSBND
-    mc::display( 1, N, DUk, 1, "\nMatrix DUk", std::cout );
-#endif
-    spbnd.second = k? std::max( spbnd.second, max(N,DUk) ): max(N,DUk);
-    delete[] DUk;
-
-  }
-  delete[] Lk; delete[] Uk; delete[] S;
-  return spbnd;
-}
-*/
 template <typename T> inline std::pair<double,double>
 Specbnd<T>::spectral_bound
 ( const fadbad::F< fadbad::F< T > >& D2F )
@@ -808,137 +683,6 @@ Specbnd<T>::spectral_bound
     return _hertzrohn_bound( N, pD2F );
   }
 }
-/*
-template <typename T> inline std::pair<double,double>
-Specbnd<T>::_gershgorin_bound
-( const fadbad::F< fadbad::F< T > >& D2F )
-{
-  const unsigned int N = D2F.size();
-  if( !N ) throw typename Specbnd<T>::Exceptions( Specbnd<T>::Exceptions::HESSBND );
-
-  std::pair<double,double> spbnd;
-  for( unsigned int i=0; i<N; i++ ){
-    double ri = 0.;
-    for( unsigned int j=0; j<N; j++ ){
-      if( j == i ) continue;
-      T D2Fij;
-      if( !inter( D2Fij, D2F.deriv(i).deriv(j), D2F.deriv(j).deriv(i) ) )
-        D2Fij = D2F.deriv(i).deriv(j); 
-      ri += Op<T>::abs( D2Fij );
-    }
-
-    if( !i ){
-      spbnd.first  = Op<T>::l(D2F.deriv(i).deriv(i)) - ri;
-      spbnd.second = Op<T>::u(D2F.deriv(i).deriv(i)) + ri;
-    }
-    else{
-      spbnd.first  = std::min( spbnd.first,  Op<T>::l(D2F.deriv(i).deriv(i)) - ri );
-      spbnd.second = std::max( spbnd.second, Op<T>::u(D2F.deriv(i).deriv(i)) + ri );
-    }
-  }
-  return spbnd;
-}
-
-template <typename T> inline std::pair<double,double>
-Specbnd<T>::_hertzrohn_bound
-( const fadbad::F< fadbad::F< T > >& D2F )
-{
-  const unsigned int N = D2F.size();
-  if( !N ) throw typename Specbnd<T>::Exceptions( Specbnd<T>::Exceptions::HESSBND );
-
-  // Form matrix S^{(N)} recursively
-  unsigned int col_S = 2;
-  short *S = new short[col_S];
-  S[0] = 1; S[1] = -1;
-#ifdef MC__SPECBND_DEBUG_HESSBND
-  mc::display( 1, col_S, S, 1, "\nMatrix S1", std::cout );
-#endif
-  for( unsigned int k=1; k<N; k++, col_S*=2 ){
-    short *Sprev = new short[k*col_S];
-    for( unsigned int i=0; i<k; i++ )
-      for( unsigned int j=0; j<col_S; j++ )
-        Sprev[j*k+i] = S[j*k+i];
-    delete[] S; S = new short[(k+1)*2*col_S];
-    for( unsigned int i=0; i<k; i++ ){
-      for( unsigned int j=0; j<col_S; j++ )
-        S[j*(k+1)+i] = S[(col_S+j)*(k+1)+i] = Sprev[j*k+i];
-    }
-    for( unsigned int j=0; j<col_S; j++ ){
-      S[j*(k+1)+k] = 1; S[(col_S+j)*(k+1)+k] = -1;
-    }
-    delete[] Sprev;
-#ifdef MC__SPECBND_DEBUG_HESSBND
-    mc::display( k+1, 2*col_S, S, k+1, "\nMatrix Sk", std::cout );
-#endif
-  }
-
-#ifdef MC__SPECBND_DEBUG_HESSBND
-  T *H = new T[N*N];
-  for( unsigned int j=0; j<N; j++ )
-    for( unsigned int i=j; i<N; i++ ){
-      if( i == j ){
-        H[i*N+i] = D2F.deriv(i).deriv(i);
-        continue;
-      }
-      T D2Fij;
-      if( !inter( D2Fij, D2F.deriv(i).deriv(j), D2F.deriv(j).deriv(i) ) )
-        D2Fij = D2F.deriv(i).deriv(j);
-      H[i*N+j] = H[j*N+i] = D2Fij;
-    }
-  mc::display( N, N, H, N, "\nMatrix H", std::cout );
-  delete[] H;
-#endif
-
-  // Compute lower and upper bound on spectral radius
-  std::pair<double,double> spbnd;
-  double *Lk = new double[N*N], *Uk = new double[N*N];
-  for( unsigned int k=0; k<col_S; k++ ){
-    
-    for( unsigned int j=0; j<N; j++ )
-      for( unsigned int i=j; i<N; i++ ){
-        if( i == j ){
-	  Lk[i*N+i] = Op<T>::l( D2F.deriv(i).deriv(i) );
-	  Uk[i*N+i] = Op<T>::u( D2F.deriv(i).deriv(i) );
-          continue;
-	}
-        T D2Fij;
-        if( !inter( D2Fij, D2F.deriv(i).deriv(j), D2F.deriv(j).deriv(i) ) )
-          D2Fij = D2F.deriv(i).deriv(j);
-        Lk[i*N+j] = Lk[j*N+i] = S[k*N+i]*S[k*N+j]==1? Op<T>::l( D2Fij ): Op<T>::u( D2Fij );
-        Uk[i*N+j] = Uk[j*N+i] = S[k*N+i]*S[k*N+j]==1? Op<T>::u( D2Fij ): Op<T>::l( D2Fij );
-      }
-#ifdef MC__SPECBND_DEBUG_HESSBND
-    mc::display( N, N, Lk, N, "\nMatrix Lk", std::cout );
-    mc::display( N, N, Uk, N, "\nMatrix Uk", std::cout );
-#endif
-
-    double*DLk = mc::dsyev_wrapper( N, Lk );
-    if( !DLk ){
-      delete[] Lk; delete[] Uk; delete[] S;
-      throw typename Specbnd<T>::Exceptions( Specbnd<T>::Exceptions::HESSBND );
-    }
-#ifdef MC__SPECBND_DEBUG_HESSBND
-    mc::display( 1, N, DLk, 1, "\nMatrix DLk", std::cout );
-#endif
-    spbnd.first = k? std::min( spbnd.first, min(N,DLk) ): min(N,DLk);
-    delete[] DLk;
-
-    double*DUk = mc::dsyev_wrapper( N, Uk );
-    if( !DUk ){
-      delete[] Lk; delete[] Uk; delete[] S;
-      throw typename Specbnd<T>::Exceptions( Specbnd<T>::Exceptions::HESSBND );
-    }
-#ifdef MC__SPECBND_DEBUG_HESSBND
-    mc::display( 1, N, DUk, 1, "\nMatrix DUk", std::cout );
-#endif
-    spbnd.second = k? std::max( spbnd.second, max(N,DUk) ): max(N,DUk);
-    delete[] DUk;
-
-  }
-  delete[] Lk; delete[] Uk; delete[] S;
-  return spbnd;
-}
-*/
 
 template <typename T> inline std::pair<double,double>
 Specbnd<T>::spectral_bound_re
@@ -1008,7 +752,7 @@ Specbnd<T>::_gershgorin_bound
     for( unsigned int j=0; j<N; j++ ){
       if( j == i ) continue;
       T D2Fij;
-      if( !inter( D2Fij, D2F[ndx::rw(i,j,N)], D2F[ndx::rw(j,i,N)] ) )
+      if( !Op<T>::inter( D2Fij, D2F[ndx::rw(i,j,N)], D2F[ndx::rw(j,i,N)] ) )
         D2Fij = D2F[ndx::rw(i,j,N)]; 
       ri += Op<T>::abs( D2Fij );
     }
@@ -1070,7 +814,7 @@ Specbnd<T>::_hertzrohn_bound
         continue;
       }
       T D2Fij;
-      if( !inter( D2Fij, D2F[ndx::rw(i,j,N)], D2F[ndx::rw(j,i,N)] ) )
+      if( !Op<T>::inter( D2Fij, D2F[ndx::rw(i,j,N)], D2F[ndx::rw(j,i,N)] ) )
         D2Fij = D2F[ndx::rw(i,j,N)];
       H[i*N+j] = H[j*N+i] = D2Fij;
     }
@@ -1091,7 +835,7 @@ Specbnd<T>::_hertzrohn_bound
           continue;
 	}
         T D2Fij;
-        if( !inter( D2Fij, D2F[ndx::rw(i,j,N)], D2F[ndx::rw(j,i,N)] ) )
+        if( !Op<T>::inter( D2Fij, D2F[ndx::rw(i,j,N)], D2F[ndx::rw(j,i,N)] ) )
           D2Fij = D2F[ndx::rw(i,j,N)];
         Lk[i*N+j] = Lk[j*N+i] = S[k*N+i]*S[k*N+j]==1? Op<T>::l( D2Fij ): Op<T>::u( D2Fij );
         Uk[i*N+j] = Uk[j*N+i] = S[k*N+i]*S[k*N+j]==1? Op<T>::u( D2Fij ): Op<T>::l( D2Fij );
@@ -1195,7 +939,7 @@ Specbnd<T>::operator+=
     throw typename Specbnd<T>::Exceptions( Specbnd<T>::Exceptions::SIZE );
   _FI += y._FI;
   _n = _FI.size();
-  _spec += y.spec;
+  _spec += y._spec;
   return *this;
 }
 
@@ -1322,8 +1066,7 @@ operator*
   Specbnd<T> z;
   z._FI = x._FI * y._FI;
   z._n = z._FI.size();
-  z._spec = x._FI.val() * y._spec + x._spec * y._FI.val()
-          + Specbnd<T>::_LambdaT( x._FI, y._FI, z._n );
+  z._spec = x._FI.val() * y._spec + x._spec * y._FI.val() + Specbnd<T>::_LambdaT( x._FI, y._FI, z._n );
   return z;
 }
 
@@ -1368,8 +1111,7 @@ pow
   Specbnd<T> z;
   z._n = y._n;
   z._FI = fadbad::pow( y._FI, m );
-  z._spec = (double)m * Op<T>::pow( y._FI.val(), m-2 )
-          * ( y._FI.val() * y._spec + (m-1) * Specbnd<T>::_LambdaS( y._FI, z._n ) );
+  z._spec = (double)m * Op<T>::pow( y._FI.val(), m-2 ) * ( y._FI.val() * y._spec + (m-1) * Specbnd<T>::_LambdaS( y._FI, z._n ) );
   return z;
 }
 
@@ -1380,8 +1122,7 @@ inv
   Specbnd<T> z;
   z._n = y._n;
   z._FI = 1./y._FI;
-  z._spec = Op<T>::sqr( z._FI.val() )
-         * ( 2. * z._FI.val() * Specbnd<T>::_LambdaS( y._FI, z._n ) - y._spec );
+  z._spec = Op<T>::sqr( z._FI.val() ) * ( 2. * z._FI.val() * Specbnd<T>::_LambdaS( y._FI, z._n ) - y._spec );
   return z;
 }
 
@@ -1427,8 +1168,7 @@ sqrt
   Specbnd<T> z;
   z._n = y._n;
   z._FI = fadbad::sqrt( y._FI );
-  z._spec = 1./(2.*Op<T>::sqr( z._FI.val() ))
-         * ( y._spec - Specbnd<T>::_LambdaS( y._FI, z._n ) / (2. * y._FI.val()) );
+  z._spec = 1./(2.*Op<T>::sqr( z._FI.val() )) * ( y._spec - Specbnd<T>::_LambdaS( y._FI, z._n ) / (2. * y._FI.val()) );
   return z;
 }
 
@@ -1461,8 +1201,7 @@ xlog
   Specbnd<T> z;
   z._n = y._n;
   z._FI = y._FI*fadbad::log( y._FI );
-  z._spec = (Op<T>::log(y._FI.val())+1.)*y._spec
-    + Specbnd<T>::_LambdaS( y._FI, z._n ) / y._FI.val();
+  z._spec = (Op<T>::log(y._FI.val())+1.)*y._spec + Specbnd<T>::_LambdaS( y._FI, z._n ) / y._FI.val();
   return z;
 }
 
@@ -1488,16 +1227,25 @@ pow
 }
 
 template <class T> inline Specbnd<T>
-monomial
-( const unsigned int n, const Specbnd<T>*x, const int*k )
+prod
+( const unsigned int n, const Specbnd<T>*x )
 {
-  if( n == 0 ){
-    return 1.;
+  switch( n ){
+   case 0:  return 1.;
+   case 1:  return x[0];
+   default: return x[0] * prod( n-1, x+1 );
   }
-  if( n == 1 ){
-    return pow( x[0], k[0] );
+}
+
+template <class T> inline Specbnd<T>
+monom
+( const unsigned int n, const Specbnd<T>*x, const unsigned*k )
+{
+  switch( n ){
+   case 0:  return 1.;
+   case 1:  return pow( x[0], (int)k[0] );
+   default: return pow( x[0], (int)k[0] ) * monom( n-1, x+1, k+1 );
   }
-  return pow( x[0], k[0] ) * monomial( n-1, x+1, k+1 );
 }
 
 template <typename T> inline Specbnd<T>
@@ -1526,7 +1274,8 @@ cos
   Specbnd<T> z;
   z._n = y._n;
   z._FI = fadbad::cos( y._FI );
-  z._spec = - z._FI.val() * ( y._spec + Specbnd<T>::_LambdaS( y._FI, z._n ) );
+  z._spec = -Op<T>::sin( y._FI.val() ) * y._spec - z._FI.val()*Specbnd<T>::_LambdaS( y._FI, z._n );
+  //z._spec = - z._FI.val() * ( y._spec + Specbnd<T>::_LambdaS( y._FI, z._n ) );
   return z;
 }
 
@@ -1537,7 +1286,8 @@ sin
   Specbnd<T> z;
   z._n = y._n;
   z._FI = fadbad::sin( y._FI );
-  z._spec = z._FI.val() * ( y._spec - Specbnd<T>::_LambdaS( y._FI, z._n ) );
+  z._spec = Op<T>::cos( y._FI.val() ) * y._spec - z._FI.val()*Specbnd<T>::_LambdaS( y._FI, z._n );
+  //z._spec = z._FI.val() * ( y._spec - Specbnd<T>::_LambdaS( y._FI, z._n ) );
   return z;
 }
 
@@ -1548,8 +1298,7 @@ tan
   Specbnd<T> z;
   z._n = y._n;
   z._FI = fadbad::tan( y._FI );
-  z._spec = ( Op<T>::sqr(z._FI.val()) + 1. ) * ( y._spec
-    + 2. * y._FI.val() * Specbnd<T>::_LambdaS( y._FI, z._n ) );
+  z._spec = ( Op<T>::sqr(z._FI.val()) + 1. ) * ( y._spec + 2. * z._FI.val() * Specbnd<T>::_LambdaS( y._FI, z._n ) );
   return z;
 }
 
@@ -1560,9 +1309,7 @@ acos
   Specbnd<T> z;
   z._n = y._n;
   z._FI = fadbad::acos( y._FI );
-  z._spec = - 1./Op<T>::sqrt(1.-Op<T>::sqr(y._FI.val())) * ( y._spec
-    + y._FI.val()/(1.-Op<T>::sqr(y._FI.val()))
-     *Specbnd<T>::_LambdaS( y._FI, z._n ) );
+  z._spec = - 1./Op<T>::sqrt(1.-Op<T>::sqr(y._FI.val())) * ( y._spec + y._FI.val()/(1.-Op<T>::sqr(y._FI.val()))*Specbnd<T>::_LambdaS( y._FI, z._n ) );
   return z;
 }
 
@@ -1573,9 +1320,7 @@ asin
   Specbnd<T> z;
   z._n = y._n;
   z._FI = fadbad::asin( y._FI );
-  z._spec = 1./Op<T>::sqrt(1.-Op<T>::sqr(y._FI.val())) * ( y._spec
-    + y._FI.val()/(1.-Op<T>::sqr(y._FI.val()))
-     *Specbnd<T>::_LambdaS( y._FI, z._n ) );
+  z._spec = 1./Op<T>::sqrt(1.-Op<T>::sqr(y._FI.val())) * ( y._spec + y._FI.val()/(1.-Op<T>::sqr(y._FI.val()))*Specbnd<T>::_LambdaS( y._FI, z._n ) );
   return z;
 }
 
@@ -1586,9 +1331,40 @@ atan
   Specbnd<T> z;
   z._n = y._n;
   z._FI = fadbad::atan( y._FI );
-  z._spec = 1./(Op<T>::sqr(y._FI.val())+1.) * ( y._spec
-    - 2.*y._FI.val()/(Op<T>::sqr(y._FI.val())+1.)
-     *Specbnd<T>::_LambdaS( y._FI, z._n ) );
+  z._spec = 1./(Op<T>::sqr(y._FI.val())+1.) * ( y._spec - 2.*y._FI.val()/(Op<T>::sqr(y._FI.val())+1.)*Specbnd<T>::_LambdaS( y._FI, z._n ) );
+  return z;
+}
+
+template <class T> inline Specbnd<T>
+cosh
+( const Specbnd<T> &y )
+{
+  Specbnd<T> z;
+  z._n = y._n;
+  z._FI = fadbad::cosh( y._FI );
+  z._spec = Op<T>::sinh( y._FI.val() ) * y._spec + z._FI.val()*Specbnd<T>::_LambdaS( y._FI, z._n );
+  return z;
+}
+
+template <class T> inline Specbnd<T>
+sinh
+( const Specbnd<T> &y )
+{
+  Specbnd<T> z;
+  z._n = y._n;
+  z._FI = fadbad::sinh( y._FI );
+  z._spec = Op<T>::cosh( y._FI.val() ) * y._spec + z._FI.val()*Specbnd<T>::_LambdaS( y._FI, z._n );
+  return z;
+}
+
+template <class T> inline Specbnd<T>
+tanh
+( const Specbnd<T> &y )
+{
+  Specbnd<T> z;
+  z._n = y._n;
+  z._FI = fadbad::tanh( y._FI );
+  z._spec = ( 1. - Op<T>::sqr(z._FI.val()) ) * ( y._spec - 2.*z._FI.val()*Specbnd<T>::_LambdaS( y._FI, z._n ) );
   return z;
 }
 
@@ -1620,8 +1396,53 @@ erfc
 
 } // namespace mc
 
+//#include "mcfadbad.hpp"
 
-#include "mcop.hpp"
+namespace fadbad{
+
+//! @brief Specialization of the structure fadbad::Op for use of the type mc::Specbnd of MC++ as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
+template< typename T > struct Op< mc::Specbnd<T> >
+{ 
+  typedef mc::Specbnd<T> SB;
+  typedef double Base;
+  static Base myInteger( const int i ) { return Base(i); }
+  static Base myZero() { return myInteger(0); }
+  static Base myOne() { return myInteger(1);}
+  static Base myTwo() { return myInteger(2); }
+  static double myPI() { return mc::PI; }
+  static SB myPos( const SB& x ) { return  x; }
+  static SB myNeg( const SB& x ) { return -x; }
+  template <typename U> static SB& myCadd( SB& x, const U& y ) { return x+=y; }
+  template <typename U> static SB& myCsub( SB& x, const U& y ) { return x-=y; }
+  template <typename U> static SB& myCmul( SB& x, const U& y ) { return x*=y; }
+  template <typename U> static SB& myCdiv( SB& x, const U& y ) { return x/=y; }
+  static SB myInv( const SB& x ) { return mc::inv( x ); }
+  static SB mySqr( const SB& x ) { return mc::sqr( x ); }
+  template <typename X, typename Y> static SB myPow( const X& x, const Y& y ) { return mc::pow( x, y ); }
+  //static SB myCheb( const SB& x, const unsigned n ) { return mc::cheb( x, n ); }
+  static SB mySqrt( const SB& x ) { return mc::sqrt( x ); }
+  static SB myLog( const SB& x ) { return mc::log( x ); }
+  static SB myExp( const SB& x ) { return mc::exp( x ); }
+  static SB mySin( const SB& x ) { return mc::sin( x ); }
+  static SB myCos( const SB& x ) { return mc::cos( x ); }
+  static SB myTan( const SB& x ) { return mc::tan( x ); }
+  static SB myAsin( const SB& x ) { return mc::asin( x ); }
+  static SB myAcos( const SB& x ) { return mc::acos( x ); }
+  static SB myAtan( const SB& x ) { return mc::atan( x ); }
+  static SB mySinh( const SB& x ) { return mc::sinh( x ); }
+  static SB myCosh( const SB& x ) { return mc::cosh( x ); }
+  static SB myTanh( const SB& x ) { return mc::tanh( x ); }
+  static bool myEq( const SB& x, const SB& y ) { return mc::Op<T>::eq(x.SI(),y.SI()); } 
+  static bool myNe( const SB& x, const SB& y ) { return mc::Op<T>::ne(x.SI(),y.SI()); }
+  static bool myLt( const SB& x, const SB& y ) { return mc::Op<T>::lt(x.SI(),y.SI()); }
+  static bool myLe( const SB& x, const SB& y ) { return mc::Op<T>::le(x.SI(),y.SI()); }
+  static bool myGt( const SB& x, const SB& y ) { return mc::Op<T>::gt(x.SI(),y.SI()); }
+  static bool myGe( const SB& x, const SB& y ) { return mc::Op<T>::ge(x.SI(),y.SI()); }
+};
+
+} // end namespace fadbad
+
+//#include "mcop.hpp"
 
 namespace mc
 {
@@ -1641,16 +1462,21 @@ template< typename T > struct Op< mc::Specbnd<T> >
   static SB inv (const SB& x) { return mc::inv(x);  }
   static SB sqr (const SB& x) { return mc::sqr(x);  }
   static SB sqrt(const SB& x) { return mc::sqrt(x); }
+  static SB exp (const SB& x) { return mc::exp(x);  }
   static SB log (const SB& x) { return mc::log(x);  }
   static SB xlog(const SB& x) { return x*mc::log(x); }
+  static SB lmtd(const SB& x, const SB& y) { return (x-y)/(mc::log(x)-mc::log(y)); }
+  static SB rlmtd(const SB& x, const SB& y) { return (mc::log(x)-mc::log(y))/(x-y); }
   static SB fabs(const SB& x) { return mc::fabs(x); }
-  static SB exp (const SB& x) { return mc::exp(x);  }
   static SB sin (const SB& x) { return mc::sin(x);  }
   static SB cos (const SB& x) { return mc::cos(x);  }
   static SB tan (const SB& x) { return mc::tan(x);  }
   static SB asin(const SB& x) { return mc::asin(x); }
   static SB acos(const SB& x) { return mc::acos(x); }
   static SB atan(const SB& x) { return mc::atan(x); }
+  static SB sinh(const SB& x) { return mc::sinh(x); }
+  static SB cosh(const SB& x) { return mc::cosh(x); }
+  static SB tanh(const SB& x) { return mc::tanh(x); }
   static SB erf (const SB& x) { throw typename mc::Specbnd<T>::Exceptions( Specbnd<T>::Exceptions::UNDEF ); }
   static SB erfc(const SB& x) { throw typename mc::Specbnd<T>::Exceptions( Specbnd<T>::Exceptions::UNDEF ); }
   static SB fstep(const SB& x) { throw typename mc::Specbnd<T>::Exceptions( Specbnd<T>::Exceptions::UNDEF ); }
@@ -1659,9 +1485,10 @@ template< typename T > struct Op< mc::Specbnd<T> >
   static SB min (const SB& x, const SB& y) { throw typename mc::Specbnd<T>::Exceptions( Specbnd<T>::Exceptions::UNDEF ); }
   static SB max (const SB& x, const SB& y) { throw typename mc::Specbnd<T>::Exceptions( Specbnd<T>::Exceptions::UNDEF ); }
   static SB arh (const SB& x, const double k) { return mc::exp(-k/x); }
-  static SB cheb (const SB& x, const unsigned n) { return mc::cheb(x,n); }
   template <typename X, typename Y> static SB pow(const X& x, const Y& y) { return mc::pow(x,y); }
-  static SB monomial (const unsigned int n, const T* x, const int* k) { return mc::monomial(n,x,k); }
+  static SB cheb (const SB& x, const unsigned n) { return mc::cheb(x,n); }
+  static SB prod (const unsigned int n, const SB* x) { return mc::prod(n,x); }
+  static SB monom (const unsigned int n, const SB* x, const unsigned* k) { return mc::monom(n,x,k); }
   static bool inter(SB& xIy, const SB& x, const SB& y) { throw typename mc::Specbnd<T>::Exceptions( Specbnd<T>::Exceptions::UNDEF ); }
   static bool eq(const SB& x, const SB& y) { return x.SI()==y.SI() && x.FI()==y.FI(); }
   static bool ne(const SB& x, const SB& y) { return x.SI()!=y.SI() || x.FI()==y.FI(); }

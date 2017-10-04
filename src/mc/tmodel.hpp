@@ -813,8 +813,10 @@ class TVar: public PolyVar<T>
     ( const double, const TVar<U>& );
   template <typename U> friend TVar<U> pow
     ( const TVar<U>&, const TVar<U>& );
-  template <typename U> friend TVar<U> monomial
-    ( const unsigned int, const TVar<U>*, const int* );
+  template <typename U> friend TVar<U> prod
+    ( const unsigned int, const TVar<U>* );
+  template <typename U> friend TVar<U> monom
+    ( const unsigned int, const TVar<U>*, const unsigned* );
   template <typename U> friend TVar<U> cheb
     ( const TVar<U>&, const unsigned );
   template <typename U> friend TVar<U> cos
@@ -828,6 +830,12 @@ class TVar: public PolyVar<T>
   template <typename U> friend TVar<U> asin
     ( const TVar<U>& );
   template <typename U> friend TVar<U> atan
+    ( const TVar<U>& );
+  template <typename U> friend TVar<U> cosh
+    ( const TVar<U>& );
+  template <typename U> friend TVar<U> sinh
+    ( const TVar<U>& );
+  template <typename U> friend TVar<U> tanh
     ( const TVar<U>& );
   template <typename U> friend TVar<U> hull
     ( const TVar<U>&, const TVar<U>& );
@@ -2760,16 +2768,25 @@ pow
 }
 
 template <typename T> inline TVar<T>
-monomial
-(const unsigned n, const TVar<T>*TV, const int*k)
+prod
+( const unsigned n, const TVar<T>*TV )
 {
-  if( n == 0 ){
-    return 1.;
+  switch( n ){
+   case 0:  return 1.;
+   case 1:  return TV[0];
+   default: return TV[0] * prod( n-1, TV+1 );
   }
-  if( n == 1 ){
-    return pow( TV[0], k[0] );
+}
+
+template <typename T> inline TVar<T>
+monom
+( const unsigned n, const TVar<T>*TV, const unsigned*k )
+{
+  switch( n ){
+   case 0:  return 1.;
+   case 1:  return pow( TV[0], (int)k[0] );
+   default: return pow( TV[0], (int)k[0] ) * monom( n-1, TV+1, k+1 );
   }
-  return pow( TV[0], k[0] ) * monomial( n-1, TV+1, k+1 );
 }
 
 template <typename T> inline TVar<T>
@@ -2842,6 +2859,13 @@ sin
 }
 
 template <typename T> inline TVar<T>
+tan
+( const TVar<T> &TV )
+{
+  return sin(TV) / cos(TV);
+}
+
+template <typename T> inline TVar<T>
 asin
 ( const TVar<T> &TV )
 {
@@ -2883,13 +2907,6 @@ acos
 }
 
 template <typename T> inline TVar<T>
-tan
-( const TVar<T> &TV )
-{
-  return sin(TV) / cos(TV);
-}
-
-template <typename T> inline TVar<T>
 atan
 ( const TVar<T> &TV )
 {
@@ -2914,6 +2931,27 @@ atan
   TV2._unset_bndpol();
   if( TV2._TM->options.CENTER_REMAINDER ) TV2._center();
   return TV2;
+}
+
+template <typename T> inline TVar<T>
+sinh
+( const TVar<T> &TV )
+{
+  return 0.5*(mc::exp(TV)-mc::exp(-TV));
+}
+
+template <typename T> inline TVar<T>
+cosh
+( const TVar<T> &TV )
+{
+  return 0.5*(mc::exp(TV)+mc::exp(-TV));
+}
+
+template <typename T> inline TVar<T>
+tanh
+( const TVar<T> &TV )
+{
+  return (mc::exp(2*TV)-1)/(mc::exp(2*TV)+1);
 }
 
 template <typename T> inline TVar<T>
@@ -3009,7 +3047,57 @@ inter
 
 } // namespace mc
 
-#include "mcop.hpp"
+
+#include "mcfadbad.hpp"
+//#include "fadbad.h"
+
+namespace fadbad
+{
+
+//! @brief Specialization of the structure fadbad::Op for use of the type mc::TVar of MC++ as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
+template< typename T > struct Op< mc::TVar<T> >
+{ 
+  typedef mc::TVar<T> TM;
+  typedef double Base;
+  static Base myInteger( const int i ) { return Base(i); }
+  static Base myZero() { return myInteger(0); }
+  static Base myOne() { return myInteger(1);}
+  static Base myTwo() { return myInteger(2); }
+  static double myPI() { return mc::PI; }
+  static TM myPos( const TM& x ) { return  x; }
+  static TM myNeg( const TM& x ) { return -x; }
+  template <typename U> static TM& myCadd( TM& x, const U& y ) { return x+=y; }
+  template <typename U> static TM& myCsub( TM& x, const U& y ) { return x-=y; }
+  template <typename U> static TM& myCmul( TM& x, const U& y ) { return x*=y; }
+  template <typename U> static TM& myCdiv( TM& x, const U& y ) { return x/=y; }
+  static TM myInv( const TM& x ) { return mc::inv( x ); }
+  static TM mySqr( const TM& x ) { return mc::pow( x, 2 ); }
+  template <typename X, typename Y> static TM myPow( const X& x, const Y& y ) { return mc::pow( x, y ); }
+  //static TM myCheb( const TM& x, const unsigned n ) { return mc::cheb( x, n ); }
+  static TM mySqrt( const TM& x ) { return mc::sqrt( x ); }
+  static TM myLog( const TM& x ) { return mc::log( x ); }
+  static TM myExp( const TM& x ) { return mc::exp( x ); }
+  static TM mySin( const TM& x ) { return mc::sin( x ); }
+  static TM myCos( const TM& x ) { return mc::cos( x ); }
+  static TM myTan( const TM& x ) { return mc::tan( x ); }
+  static TM myAsin( const TM& x ) { return mc::asin( x ); }
+  static TM myAcos( const TM& x ) { return mc::acos( x ); }
+  static TM myAtan( const TM& x ) { return mc::atan( x ); }
+  static TM mySinh( const TM& x ) { return mc::sinh( x ); }
+  static TM myCosh( const TM& x ) { return mc::cosh( x ); }
+  static TM myTanh( const TM& x ) { return mc::tanh( x ); }
+  static bool myEq( const TM& x, const TM& y ) { return mc::Op<T>::eq(const_cast<TM*>(&x)->bound(),const_cast<TM*>(&y)->bound()); } 
+  static bool myNe( const TM& x, const TM& y ) { return mc::Op<T>::ne(const_cast<TM*>(&x)->bound(),const_cast<TM*>(&y)->bound()); }
+  static bool myLt( const TM& x, const TM& y ) { return mc::Op<T>::lt(const_cast<TM*>(&x)->bound(),const_cast<TM*>(&y)->bound()); }
+  static bool myLe( const TM& x, const TM& y ) { return mc::Op<T>::le(const_cast<TM*>(&x)->bound(),const_cast<TM*>(&y)->bound()); }
+  static bool myGt( const TM& x, const TM& y ) { return mc::Op<T>::gt(const_cast<TM*>(&x)->bound(),const_cast<TM*>(&y)->bound()); }
+  static bool myGe( const TM& x, const TM& y ) { return mc::Op<T>::ge(const_cast<TM*>(&x)->bound(),const_cast<TM*>(&y)->bound()); }
+};
+
+} // end namespace fadbad
+
+
+//#include "mcop.hpp"
 
 namespace mc
 {
@@ -3031,6 +3119,8 @@ template< typename T > struct Op< mc::TVar<T> >
   static TV sqrt(const TV& x) { return mc::sqrt(x); }
   static TV log (const TV& x) { return mc::log(x);  }
   static TV xlog(const TV& x) { return x*mc::log(x); }
+  static TV lmtd(const TV& x, const TV& y) { return (x-y)/(mc::log(x)-mc::log(y)); }
+  static TV rlmtd(const TV& x, const TV& y) { return (mc::log(x)-mc::log(y))/(x-y); }
   static TV fabs(const TV& x) { return TV( mc::Op<T>::fabs(x.B()) ); }
   static TV exp (const TV& x) { return mc::exp(x);  }
   static TV sin (const TV& x) { return mc::sin(x);  }
@@ -3039,6 +3129,9 @@ template< typename T > struct Op< mc::TVar<T> >
   static TV asin(const TV& x) { return mc::asin(x); }
   static TV acos(const TV& x) { return mc::acos(x); }
   static TV atan(const TV& x) { return mc::atan(x); }
+  static TV sinh(const TV& x) { return mc::sinh(x); }
+  static TV cosh(const TV& x) { return mc::cosh(x); }
+  static TV tanh(const TV& x) { return mc::tanh(x); }
   static TV erf (const TV& x) { throw typename mc::TModel<T>::Exceptions( TModel<T>::Exceptions::UNDEF ); }
   static TV erfc(const TV& x) { throw typename mc::TModel<T>::Exceptions( TModel<T>::Exceptions::UNDEF ); }
   static TV fstep(const TV& x) { return TV( mc::Op<T>::fstep(x.B()) ); }
@@ -3047,9 +3140,10 @@ template< typename T > struct Op< mc::TVar<T> >
   static TV min (const TV& x, const TV& y) { return mc::Op<T>::min(x.B(),y.B());  }
   static TV max (const TV& x, const TV& y) { return mc::Op<T>::max(x.B(),y.B());  }
   static TV arh (const TV& x, const double k) { return mc::exp(-k/x); }
-  static TV cheb(const TV& x, const unsigned n) { return mc::cheb(x,n); }
   template <typename X, typename Y> static TV pow(const X& x, const Y& y) { return mc::pow(x,y); }
-  static TV monomial (const unsigned n, const T* x, const int* k) { return mc::monomial(n,x,k); }
+  static TV cheb(const TV& x, const unsigned n) { return mc::cheb(x,n); }
+  static TV prod (const unsigned n, const TV* x) { return mc::prod(n,x); }
+  static TV monom (const unsigned n, const TV* x, const unsigned* k) { return mc::monom(n,x,k); }
   static bool inter(TV& xIy, const TV& x, const TV& y) { return mc::inter(xIy,x,y); }
   static bool eq(const TV& x, const TV& y) { return mc::Op<T>::eq(x.B(),y.B()); }
   static bool ne(const TV& x, const TV& y) { return mc::Op<T>::ne(x.B(),y.B()); }

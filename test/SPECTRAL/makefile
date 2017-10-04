@@ -9,18 +9,12 @@ INC_MC = -I$(PATH_MC)/src/mc $(INC_FADBAD) $(INC_LAPACK) $(INC_PROFIL) $(INC_FIL
 
 #####
 
-all: DAG_compose DAG_differentiate DAG_evaluate DAG_analyze
+all: SB-TEST SB-2D
 
-DAG_compose : DAG_compose.o
+SB-TEST : SB-TEST.o
 	$(LINK) $(PROF) $(FLAGS_LINK) -o $@ $< $(LIB_MC)
 
-DAG_differentiate : DAG_differentiate.o
-	$(LINK) $(PROF) $(FLAGS_LINK) -o $@ $< $(LIB_MC)
-
-DAG_evaluate : DAG_evaluate.o
-	$(LINK) $(PROF) $(FLAGS_LINK) -o $@ $< $(LIB_MC)
-
-DAG_analyze : DAG_analyze.o
+SB-2D : SB-2D.o
 	$(LINK) $(PROF) $(FLAGS_LINK) -o $@ $< $(LIB_MC)
 
 %.o: %.cpp 
@@ -42,5 +36,5 @@ gensvg :
 #####
 
 clean :
-	rm -f DAG_compose DAG_differentiate DAG_evaluate DAG_analyze *.o *.out *.eps *.dot *.svg *~
+	rm -f SB-TEST SB-2D *.o *.out *.eps *.dot *.svg *~
 

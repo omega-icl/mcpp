@@ -1,4 +1,4 @@
-// Copyright (C) 2009-2016 Benoit Chachuat, Imperial College London.
+// Copyright (C) 2009-2017 Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
@@ -233,6 +233,8 @@ class Interval
     ( const Interval&, const double );
   friend Interval pow
     ( const Interval&, const Interval& );
+  friend Interval prod
+    ( const unsigned int, const Interval* );
   friend Interval monom
     ( const unsigned int, const Interval*, const unsigned* );
   friend Interval cheb
@@ -623,7 +625,7 @@ inline Interval
 xlog
 ( const Interval&I )
 {
-  if ( I._l <= 0. ) throw Interval::Exceptions( Interval::Exceptions::LOG );
+  if ( I._l < 0. ) throw Interval::Exceptions( Interval::Exceptions::LOG );
   int imid = -1;
   return Interval( xlog(mid(I._l,I._u,std::exp(-1.),imid)),
                    std::max(xlog(I._l),xlog(I._u)) );
@@ -702,10 +704,21 @@ pow
 }
 
 inline Interval
+prod
+(const unsigned int n, const Interval*I)
+{
+  switch( n ){
+   case 0:  return 1.;
+   case 1:  return I[0];
+   default: return I[0] * prod( n-1, I+1 );
+  }
+}
+
+inline Interval
 monom
 (const unsigned int n, const Interval*I, const unsigned*k)
 {
-  switch( n){
+  switch( n ){
    case 0:  return 1.;
    case 1:  return pow( I[0], (int)k[0] );
    default: return pow( I[0], (int)k[0] ) * monom( n-1, I+1, k+1 );
@@ -962,7 +975,55 @@ operator>
 
 } // namespace mc
 
-#include "mcop.hpp"
+#include "mcfadbad.hpp"
+//#include "fadbad.h"
+
+namespace fadbad
+{
+
+//! @brief Specialization of the structure fadbad::Op for use of the type mc::Interval of MC++ as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
+template <> struct Op<mc::Interval>
+{
+  typedef double Base;
+  typedef mc::Interval T;
+  static Base myInteger( const int i ) { return Base(i); }
+  static Base myZero() { return myInteger(0); }
+  static Base myOne() { return myInteger(1);}
+  static Base myTwo() { return myInteger(2); }
+  static double myPI() { return mc::PI; }
+  static T myPos( const T& x ) { return  x; }
+  static T myNeg( const T& x ) { return -x; }
+  template <typename U> static T& myCadd( T& x, const U& y ) { return x+=y; }
+  template <typename U> static T& myCsub( T& x, const U& y ) { return x-=y; }
+  template <typename U> static T& myCmul( T& x, const U& y ) { return x*=y; }
+  template <typename U> static T& myCdiv( T& x, const U& y ) { return x/=y; }
+  static T myInv( const T& x ) { return mc::inv( x ); }
+  static T mySqr( const T& x ) { return mc::pow( x, 2 ); }
+  template <typename X, typename Y> static T myPow( const X& x, const Y& y ) { return mc::pow( x, y ); }
+  //static T myCheb( const T& x, const unsigned n ) { return mc::cheb( x, n ); }
+  static T mySqrt( const T& x ) { return mc::sqrt( x ); }
+  static T myLog( const T& x ) { return mc::log( x ); }
+  static T myExp( const T& x ) { return mc::exp( x ); }
+  static T mySin( const T& x ) { return mc::sin( x ); }
+  static T myCos( const T& x ) { return mc::cos( x ); }
+  static T myTan( const T& x ) { return mc::tan( x ); }
+  static T myAsin( const T& x ) { return mc::asin( x ); }
+  static T myAcos( const T& x ) { return mc::acos( x ); }
+  static T myAtan( const T& x ) { return mc::atan( x ); }
+  static T mySinh( const T& x ) { return mc::sinh( x ); }
+  static T myCosh( const T& x ) { return mc::cosh( x ); }
+  static T myTanh( const T& x ) { return mc::tanh( x ); }
+  static bool myEq( const T& x, const T& y ) { return x==y; }
+  static bool myNe( const T& x, const T& y ) { return x!=y; }
+  static bool myLt( const T& x, const T& y ) { return x<y; }
+  static bool myLe( const T& x, const T& y ) { return x<=y; }
+  static bool myGt( const T& x, const T& y ) { return x>y; }
+  static bool myGe( const T& x, const T& y ) { return x>=y; }
+};
+
+} // end namespace fadbad
+
+//#include "mcop.hpp"
 
 namespace mc
 {
@@ -1005,8 +1066,9 @@ template <> struct Op<mc::Interval>
   static T min (const T& x, const T& y) { return mc::min(x,y);  }
   static T max (const T& x, const T& y) { return mc::max(x,y);  }
   static T arh (const T& x, const double k) { return mc::arh(x,k); }
-  static T cheb (const T& x, const unsigned n) { return mc::cheb(x,n); }
   template <typename X, typename Y> static T pow(const X& x, const Y& y) { return mc::pow(x,y); }
+  static T cheb (const T& x, const unsigned n) { return mc::cheb(x,n); }
+  static T prod (const unsigned int n, const T* x) { return mc::prod(n,x); }
   static T monom (const unsigned int n, const T* x, const unsigned* k) { return mc::monom(n,x,k); }
   static bool inter(T& xIy, const T& x, const T& y) { return mc::inter(xIy,x,y); }
   static bool eq(const T& x, const T& y) { return x==y; }

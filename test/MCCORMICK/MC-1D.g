@@ -11,6 +11,12 @@ plot 'MC-1D.out' u 1:2 tit 'function' w l lt 1, \
   '' u 1:5 tit 'relaxations' w l lt 3, \
   '' u 1:6 tit '' w l lt 3
  
+set term post eps enh solid color 18
+set out 'MC-1D.eps'
+rep
+set term pop
+set out
+
 pause -1 "<ENTER> TO CONTINUE"
 
 plot 'MC-1D.out' u 1:2 tit 'function' w l lt 1, \

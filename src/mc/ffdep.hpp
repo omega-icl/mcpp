@@ -812,6 +812,7 @@ template <> struct Op< mc::FFDep >
   static FV arh (const FV& x, const double k) { return mc::exp(-k/x); }
   template <typename X, typename Y> static FV pow(const X& x, const Y& y) { return mc::pow(x,y); }
   static FV cheb(const FV& x, const unsigned n) { return mc::cheb(x,n); }
+  static FV prod(const unsigned int n, const FV* x) { return mc::prod(n,x); }
   static FV monom(const unsigned int n, const FV* x, const unsigned* k) { return mc::monom(n,x,k); }
   static bool inter(FV& xIy, const FV& x, const FV& y) { xIy = mc::inter(x,y); return true; }
   static bool eq(const FV& x, const FV& y) { throw typename FFDep::Exceptions( FFDep::Exceptions::UNDEF ); }

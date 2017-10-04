@@ -88,24 +88,6 @@ inline double dsqr
   return 2.*x;
 }
 
-inline double xlog
-( const double x )
-{
-  // Return x*log(x) term
-  return x*std::log( x );
-}
-
-inline double monom
-(const unsigned int n, const double*x, const unsigned*k)
-{
-  // Return monomial term \prod_i pow( x[i], k[i] )
-  switch( n ){
-   case 0:  return 1.;
-   case 1:  return std::pow( x[0], k[0] );
-   default: return std::pow( x[0], k[0] ) * monom( n-1, x+1, k+1 );
-  }
-}
-
 inline double fstep
 ( const double x )
 {
@@ -120,22 +102,48 @@ inline double bstep
   return ( x>=0? 0: 1. );
 }
 
+inline double prod
+( const unsigned int n, const double*x )
+{
+  // Return product term \prod_i x[i]
+  switch( n ){
+   case 0:  return 1.;
+   case 1:  return x[0];
+   default: return x[0] * prod( n-1, x+1 );
+  }
+}
+
+inline double monom
+(const unsigned int n, const double*x, const unsigned*k)
+{
+  // Return monomial term \prod_i pow( x[i], k[i] )
+  switch( n ){
+   case 0:  return 1.;
+   case 1:  return std::pow( x[0], k[0] );
+   default: return std::pow( x[0], k[0] ) * monom( n-1, x+1, k+1 );
+  }
+}
+
 inline double max
 ( const unsigned int n, const double*x )
 {
   // Return maximum term \max_i { x[i] }
-  if( n == 0 ) return 0.;
-  if( n == 1 ) return x[0];
-  return std::max( x[0], max( n-1, x+1 ));
+  switch( n ){
+   case 0:  return 0.;
+   case 1:  return x[0];
+   default: return std::max( x[0], max( n-1, x+1 ));
+  }
 }
 
 inline double min
 ( const unsigned int n, const double*x )
 {
   // Return minimum term \min_i { x[i] }
-  if( n == 0 ) return 0.;
-  if( n == 1 ) return x[0];
-  return std::min( x[0], min( n-1, x+1 ));
+  switch( n ){
+   case 0:  return 0.;
+   case 1:  return x[0];
+   default: return std::min( x[0], min( n-1, x+1 ));
+  }
 }
 
 inline unsigned int argmin
@@ -292,12 +300,18 @@ isequal
   return( gap<atol+ave*rtol? true: false );
 }
 
+inline double xlog
+( const double x )
+{
+  if( isequal(x,0.) ) return 0.;
+  // Return x*log(x) term
+  return x * std::log( x );
+}
+
 inline double lmtd
 ( const double x, const double y )
 {
-  if( isequal(x,y,machprec(),machprec())){
-    return x;
-  }
+  if( isequal(x,y)) return x;
   // Return lmtd(x,y) term
   return (x-y)/(std::log(x)-std::log(y));
 }
@@ -305,9 +319,7 @@ inline double lmtd
 inline double rlmtd
 ( const double x, const double y )
 {
-  if( isequal(x,y,machprec(),machprec())){
-    return 1./x;
-  }
+  if( isequal(x,y)) return 1./x;
   // Return lmtd(x,y) term
   return (std::log(x)-std::log(y))/(x-y);
 }

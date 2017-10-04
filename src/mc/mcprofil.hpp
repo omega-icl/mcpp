@@ -5,16 +5,65 @@
 #ifndef MC__MCPROFIL_HPP
 #define MC__MCPROFIL_HPP
 
-#include "mcop.hpp"
 #include "mcfunc.hpp"
 #include <Interval.h>
 #include <Functions.h>
 #include <Constants.h>
 
+#include "fadbad.h"
+
+namespace fadbad
+{
+
+//! @brief Specialization of the structure fadbad::Op for use of the type ::INTERVAL of <A href="http://www.ti3.tu-harburg.de/Software/PROFILEnglisch.html">PROFIL</A> as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
+template <> struct Op< ::INTERVAL >
+{
+  typedef double Base;
+  typedef ::INTERVAL T;
+  static Base myInteger( const int i ) { return Base(i); }
+  static Base myZero() { return myInteger(0); }
+  static Base myOne() { return myInteger(1);}
+  static Base myTwo() { return myInteger(2); }
+  static double myPI() { return mc::PI; }
+  static T myPos( const T& x ) { return  x; }
+  static T myNeg( const T& x ) { return -x; }
+  template <typename U> static T& myCadd( T& x, const U& y ) { return x+=y; }
+  template <typename U> static T& myCsub( T& x, const U& y ) { return x-=y; }
+  template <typename U> static T& myCmul( T& x, const U& y ) { return x*=y; }
+  template <typename U> static T& myCdiv( T& x, const U& y ) { return x/=y; }
+  static T myInv( const T& x ) { return T(1.)/x; }
+  static T mySqr( const T& x ) { return ::Sqr(x); }
+  template <typename X> static T myPow( const X& x, const int n ) { return( (n>=3&&n%2)? ::Hull(::Power(Inf(x),n),::Power(Sup(x),n)): ::Power(x,n) ); }
+  template <typename X, typename Y> static T myPow( const X& x, const Y& y ) { return ::Power(x,y); }
+  //static T myCheb( const T& x, const unsigned n ) { return T(-1.,1.); }
+  static T mySqrt( const T& x ) { return ::Sqrt( x ); }
+  static T myLog( const T& x ) { return ::Log( x ); }
+  static T myExp( const T& x ) { return ::Exp( x ); }
+  static T mySin( const T& x ) { return ::Sin( x ); }
+  static T myCos( const T& x ) { return ::Cos( x ); }
+  static T myTan( const T& x ) { return ::Tan( x ); }
+  static T myAsin( const T& x ) { return ::ArcSin( x ); }
+  static T myAcos( const T& x ) { return ::ArcCos( x ); }
+  static T myAtan( const T& x ) { return ::ArcTan( x ); }
+  static T mySinh( const T& x ) { return ::Sinh( x ); }
+  static T myCosh( const T& x ) { return ::Cosh( x ); }
+  static T myTanh( const T& x ) { return ::Tanh( x ); }
+  static bool myEq( const T& x, const T& y ) { return x==y; }
+  static bool myNe( const T& x, const T& y ) { return x!=y; }
+  static bool myLt( const T& x, const T& y ) { return x<y; }
+  static bool myLe( const T& x, const T& y ) { return x<=y; }
+  static bool myGt( const T& x, const T& y ) { return y<x; }
+  static bool myGe( const T& x, const T& y ) { return y<=x; }
+};
+
+} // end namespace fadbad
+
+#include "mcop.hpp"
+
 namespace mc
 {
 
-//! @brief Specialization of the structure mc::Op for use of the type INTERVAL of <A href="http://www.ti3.tu-harburg.de/Software/PROFILEnglisch.html">PROFIL</A> as a template parameter in the other MC++ types
+//! @brief Specialization of the structure mc::Op for use of the type ::INTERVAL of <A href="http://www.ti3.tu-harburg.de/Software/PROFILEnglisch.html">PROFIL</A> as a template parameter in the other MC++ types
 template <> struct Op< ::INTERVAL >
 {
   typedef ::INTERVAL T;
@@ -53,9 +102,10 @@ template <> struct Op< ::INTERVAL >
   static T min (const T& x, const T& y) { return T( ::Pred(std::min(::Inf(x),::Inf(y))), ::Succ(std::min(::Sup(x),::Sup(y))) ); }
   static T max (const T& x, const T& y) { return T( ::Pred(std::max(::Inf(x),::Inf(y))), ::Succ(std::max(::Sup(x),::Sup(y))) ); }
   static T arh (const T& x, const double k) { return ::Exp(-x/k); }
-  static T cheb (const T& x, const unsigned n) { return T(-1.,1.); }
   template <typename X> static T pow(const X& x, const int n) { return( (n>=3&&n%2)? ::Hull(::Power(Inf(x),n),::Power(Sup(x),n)): ::Power(x,n) ); }
   template <typename X, typename Y> static T pow(const X& x, const Y& y) { return ::Power(x,y); }
+  static T cheb (const T& x, const unsigned n) { return T(-1.,1.); }
+  static T prod (const unsigned int n, const T* x) { return n? x[0] * prod(n-1, x+1): 1.; }
   static T monom (const unsigned int n, const T* x, const unsigned* k) { return n? ::Power(x[0], k[0]) * monom(n-1, x+1, k+1): 1.; }
   static bool inter(T& xIy, const T& x, const T& y) { return ::Intersection(xIy,x,y); }
   static bool eq(const T& x, const T& y) { return x==y; }

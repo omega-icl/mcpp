@@ -5,9 +5,98 @@
 #ifndef MC__MCFILIB_HPP
 #define MC__MCFILIB_HPP
 
-#include "mcop.hpp"
 #include "mcfunc.hpp"
 #include "interval/interval.hpp"
+
+#include "fadbad.h"
+
+namespace fadbad
+{
+
+//! @brief Specialization of the structure fadbad::Op for use of the type filib::interval<double> of <A href="http://www.math.uni-wuppertal.de/~xsc/software/filib.html">FILIB++</A> as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
+template <> struct Op< filib::interval<double> >
+{
+  typedef double Base;
+  typedef filib::interval<double> T;
+  static Base myInteger( const int i ) { return Base(i); }
+  static Base myZero() { return myInteger(0); }
+  static Base myOne() { return myInteger(1);}
+  static Base myTwo() { return myInteger(2); }
+  static double myPI() { return mc::PI; }
+  static T myPos( const T& x ) { return  x; }
+  static T myNeg( const T& x ) { return -x; }
+  template <typename U> static T& myCadd( T& x, const U& y ) { return x+=y; }
+  template <typename U> static T& myCsub( T& x, const U& y ) { return x-=y; }
+  template <typename U> static T& myCmul( T& x, const U& y ) { return x*=y; }
+  template <typename U> static T& myCdiv( T& x, const U& y ) { return x/=y; }
+  static T myInv( const T& x ) { return T(1.)/x; }
+  static T mySqr( const T& x ) { return filib::sqr(x); }
+  template <typename X> static T myPow( const X& x, const int n ) { return filib::power(x,n); }
+  template <typename X, typename Y> static T myPow( const X& x, const Y& y ) { return filib::pow(x,y); }
+  static T mySqrt( const T& x ) { return filib::sqrt(x); }
+  static T myLog( const T& x ) { return filib::log(x); }
+  static T myExp( const T& x ) { return filib::exp(x); }
+  static T mySin( const T& x ) { return filib::sin( x ); }
+  static T myCos( const T& x ) { return filib::cos( x ); }
+  static T myTan( const T& x ) { return filib::tan( x ); }
+  static T myAsin( const T& x ) { return filib::asin( x ); }
+  static T myAcos( const T& x ) { return filib::acos( x ); }
+  static T myAtan( const T& x ) { return filib::atan( x ); }
+  static T mySinh( const T& x ) { return filib::sinh( x ); }
+  static T myCosh( const T& x ) { return filib::cosh( x ); }
+  static T myTanh( const T& x ) { return filib::tanh( x ); }
+  static bool myEq( const T& x, const T& y ) { return x.seq(y); }
+  static bool myNe( const T& x, const T& y ) { return x.sne(y); }
+  static bool myLt( const T& x, const T& y ) { return x.slt(y); }
+  static bool myLe( const T& x, const T& y ) { return x.sle(y); }
+  static bool myGt( const T& x, const T& y ) { return x.sgt(y); }
+  static bool myGe( const T& x, const T& y ) { return x.sge(y); }
+
+};
+
+//! @brief Specialization of the structure fadbad::Op for use of the type filib::interval<double,filib::native_switched,filib::i_mode_extended> of <A href="http://www.math.uni-wuppertal.de/~xsc/software/filib.html">FILIB++</A> as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
+template <> struct Op< filib::interval<double,filib::native_switched,filib::i_mode_extended> >
+{
+  typedef double Base;
+  typedef filib::interval<double,filib::native_switched,filib::i_mode_extended> T;
+  static Base myInteger( const int i ) { return Base(i); }
+  static Base myZero() { return myInteger(0); }
+  static Base myOne() { return myInteger(1);}
+  static Base myTwo() { return myInteger(2); }
+  static double myPI() { return mc::PI; }
+  static T myPos( const T& x ) { return  x; }
+  static T myNeg( const T& x ) { return -x; }
+  template <typename U> static T& myCadd( T& x, const U& y ) { return x+=y; }
+  template <typename U> static T& myCsub( T& x, const U& y ) { return x-=y; }
+  template <typename U> static T& myCmul( T& x, const U& y ) { return x*=y; }
+  template <typename U> static T& myCdiv( T& x, const U& y ) { return x/=y; }
+  static T myInv( const T& x ) { return T(1.)/x; }
+  static T mySqr( const T& x ) { return filib::sqr(x); }
+  template <typename X> static T myPow( const X& x, const int n ) { return filib::power(x,n); }
+  template <typename X, typename Y> static T myPow( const X& x, const Y& y ) { return filib::pow(x,y); }
+  static T mySqrt( const T& x ) { return filib::sqrt(x); }
+  static T myLog( const T& x ) { return filib::log(x); }
+  static T myExp( const T& x ) { return filib::exp(x); }
+  static T mySin( const T& x ) { return filib::sin( x ); }
+  static T myCos( const T& x ) { return filib::cos( x ); }
+  static T myTan( const T& x ) { return filib::tan( x ); }
+  static T myAsin( const T& x ) { return filib::asin( x ); }
+  static T myAcos( const T& x ) { return filib::acos( x ); }
+  static T myAtan( const T& x ) { return filib::atan( x ); }
+  static T mySinh( const T& x ) { return filib::sinh( x ); }
+  static T myCosh( const T& x ) { return filib::cosh( x ); }
+  static T myTanh( const T& x ) { return filib::tanh( x ); }
+  static bool myEq( const T& x, const T& y ) { return x.seq(y); }
+  static bool myNe( const T& x, const T& y ) { return x.sne(y); }
+  static bool myLt( const T& x, const T& y ) { return x.slt(y); }
+  static bool myLe( const T& x, const T& y ) { return x.sle(y); }
+  static bool myGt( const T& x, const T& y ) { return x.sgt(y); }
+  static bool myGe( const T& x, const T& y ) { return x.sge(y); }
+};
+
+} // end namespace fadbad
+
+#include "mcop.hpp"
 
 namespace mc
 {
@@ -54,6 +143,7 @@ template <> struct Op< filib::interval<double> >
   static T cheb (const T& x, const unsigned n) { return T(-1.,1.); }
   template <typename X> static T pow(const X& x, const int n) { return filib::power(x,n); }
   template <typename X, typename Y> static T pow(const X& x, const Y& y) { return filib::pow(x,y); }
+  static T prod (const unsigned int n, const T* x) { return n? x[0] * prod(n-1, x+1): 1.; }
   static T monom (const unsigned int n, const T* x, const unsigned* k) { return n? filib::power(x[0], k[0]) * monom(n-1, x+1, k+1): 1.; }
   static bool inter(T& xIy, const T& x, const T& y) { xIy = x.intersect(y); return true; }  
   static bool eq(const T& x, const T& y) { return x.seq(y); }
@@ -102,6 +192,7 @@ template <> struct Op< filib::interval<double,filib::native_switched,filib::i_mo
   static T cheb (const T& x, const unsigned n) { return T(-1.,1.); }
   template <typename X> static T pow(const X& x, const int n) { return filib::power(x,n); }
   template <typename X, typename Y> static T pow(const X& x, const Y& y) { return filib::pow(x,y); }
+  static T prod (const unsigned int n, const T* x) { return n? x[0] * prod(n-1, x+1): 1.; }
   static T monom (const unsigned int n, const T* x, const unsigned* k) { return n? filib::power(x[0], k[0]) * monom(n-1, x+1, k+1): 1.; }
   static bool inter(T& xIy, const T& x, const T& y) { xIy = x.intersect(y); return !xIy.isEmpty(); }  
   static bool eq(const T& x, const T& y) { return x.seq(y); }

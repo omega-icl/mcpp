@@ -48,9 +48,10 @@ template <typename T> struct Op
   static T min (const T& x, const T& y) { return min(x,y);  }
   static T max (const T& x, const T& y) { return max(x,y);  }
   static T arh (const T& x, const double k) { return arh(x,k); }
-  static T cheb (const T& x, const unsigned n) { return cheb(x,n); }
   template <typename X, typename Y> static T pow(const X& x, const Y& y) { return pow(x,y); }
-  static T monom (const unsigned n, const T* x, const int* k) { return monom(n,x,k); }
+  static T cheb (const T& x, const unsigned n) { return cheb(x,n); }
+  static T prod (const unsigned n, const T* x) { return prod(n,x); }
+  static T monom (const unsigned n, const T* x, const unsigned* k) { return monom(n,x,k); }
   static bool inter(T& xIy, const T& x, const T& y) { return inter(xIy,x,y); }
   static bool eq(const T& x, const T& y) { return x==y; }
   static bool ne(const T& x, const T& y) { return x!=y; }
@@ -107,7 +108,8 @@ template <> struct Op< double >
   static double arh (const double& x, const double k) { return mc::arh(x,k); }
   static double cheb (const double& x, const unsigned n) { return mc::cheb(x,n); }
   template <typename X, typename Y> static double pow(const X& x, const Y& y) { return std::pow(x,y); }
-  static double monom (const unsigned int n, const double* x, const unsigned* k) { return mc::monom(n,x,k); }
+  static double prod (const unsigned n, const double* x) { return prod(n,x); }
+  static double monom (const unsigned n, const double* x, const unsigned* k) { return mc::monom(n,x,k); }
   static bool inter(double& xIy, const double& x, const double& y) { xIy = x; return true; }//{ throw std::runtime_error("mc::Op<double>::inter -- operation not permitted"); }
   static bool eq(const double& x, const double& y) { return x==y; }
   static bool ne(const double& x, const double& y) { return x!=y; }

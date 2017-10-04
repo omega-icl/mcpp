@@ -1,8 +1,8 @@
-#define TEST_CHEB       // <-- select test function here
+#define TEST_PROD       // <-- select test function here
 const int NX = 500;	    // <-- select discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
-#define USE_PROFIL      // <-- specify to use PROFIL for interval arithmetic
-#undef USE_FILIB        // <-- specify to use FILIB++ for interval arithmetic
+#undef USE_PROFIL      // <-- specify to use PROFIL for interval arithmetic
+#define USE_FILIB        // <-- specify to use FILIB++ for interval arithmetic
 #define USE_DAG          // <-- specify to evaluate via a DAG of the function
 
 ////////////////////////////////////////////////////////////////////////
@@ -208,6 +208,18 @@ T myfunc
 {
   return cheb(x,2)+0.5*cheb(x,3)-0.3*cheb(x,4);
   //return cheb(x,2)+0.5*cheb(x,3)-0.3*cheb(x,4);
+}
+
+#elif defined( TEST_PROD )
+const double XL   = -1.;	// <-- range lower bound
+const double XU   =  1.;	// <-- range upper bound
+const double Xref =  .5;	// <-- linearization point
+template <class T>
+T myfunc
+( const T&x )
+{
+  T m[3] = { x, x+.5, x-.5 };
+  return prod( 3, m );
 }
 
 #elif defined( TEST_INTER )
