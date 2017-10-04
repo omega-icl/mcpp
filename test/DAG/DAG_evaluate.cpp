@@ -125,8 +125,16 @@ int test_eval2()
   const unsigned NREP=10000;
 
   // Evaluate in interval arithmetic
+  std::vector<I> IWK;
   I IX[NX] = { I(1.,2.), I(2.,3.) }, IF[2];
   for( unsigned i=0; i<NX; i++ ) std::cout << "X[" << i << "] = " << IX[i] << std::endl;
+  cputime = -mc::cpuclock();
+  for( unsigned i=0; i<NREP; i++ )
+    DAG.eval( F_op, IWK, NF, F, IF, NX, X, IX );
+  cputime += mc::cpuclock();
+  std::cout << "\nDAG interval evaluation - with preallocation, no variadic template: " << (cputime/=NREP) << " CPU-sec\n";
+  for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << IF[i] << std::endl;
+
   cputime = -mc::cpuclock();
   for( unsigned i=0; i<NREP; i++ )
     DAG.eval( F_op, NF, F, IF, NX, X, IX );
@@ -134,11 +142,19 @@ int test_eval2()
   std::cout << "\nDAG interval evaluation - no preallocation, no variadic template: " << (cputime/=NREP) << " CPU-sec\n";
   for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << IF[i] << std::endl;
 
-  for( unsigned NTE=1; NTE<=5; NTE++ ){
+  for( unsigned NTE=1; NTE<=7; NTE++ ){
+    std::vector<SCV> SCWK;
     SCM modSCM( NTE );
     //modSCM.options.BOUNDER_TYPE = SCM::Options::LSB;
     modSCM.options.MIXED_IA = false;
     SCV SCX[NX] = {  SCV( &modSCM, 0, IX[0] ), SCV( &modSCM, 1, IX[1] ) }, SCF[2];
+    cputime = -mc::cpuclock();
+    for( unsigned i=0; i<NREP; i++ )
+      DAG.eval( F_op, SCWK, NF, F, SCF, NX, X, SCX );
+    cputime += mc::cpuclock();
+    std::cout << "\nDAG " << NTE << "th-order sparse Chebyshev model evaluation - with preallocation, no variadic template: " << (cputime/=NREP) << " CPU-sec\n";
+    for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << SCF[i].R() << std::endl;
+
     cputime = -mc::cpuclock();
     for( unsigned i=0; i<NREP; i++ )
       DAG.eval( F_op, NF, F, SCF, NX, X, SCX );
@@ -147,11 +163,19 @@ int test_eval2()
     for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << SCF[i].R() << std::endl;
   }
 
-  for( unsigned NTE=1; NTE<=5; NTE++ ){
+  for( unsigned NTE=1; NTE<=7; NTE++ ){
+    std::vector<CV> CWK;
     CM modCM( NX, NTE );
     //modSCM.options.BOUNDER_TYPE = SCM::Options::LSB;
     modCM.options.MIXED_IA = false;
     CV CX[NX] = {  CV( &modCM, 0, IX[0] ), CV( &modCM, 1, IX[1] ) }, CF[2];
+    cputime = -mc::cpuclock();
+    for( unsigned i=0; i<NREP; i++ )
+      DAG.eval( F_op, CWK, NF, F, CF, NX, X, CX );
+    cputime += mc::cpuclock();
+    std::cout << "\nDAG " << NTE << "th-order dense Chebyshev model evaluation - with preallocation, no variadic template: " << (cputime/=NREP) << " CPU-sec\n";
+    for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << CF[i].R() << std::endl;
+
     cputime = -mc::cpuclock();
     for( unsigned i=0; i<NREP; i++ )
       DAG.eval( F_op, NF, F, CF, NX, X, CX );
