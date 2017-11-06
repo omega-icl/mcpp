@@ -136,8 +136,9 @@ INLINE2 FTypeName<T,N> rlmtd (const FTypeName<T,N>& a, const FTypeName<T,N>& b)
 {   
     if(Op<T>::myEq(a.val(), b.val())){
       FTypeName<T,N> c(1./a.val());
+      if (!a.depend()) return c;
       c.setDepend(a,b);
-      for(unsigned int i=0;i<N;++i) c[i]=-1./(2.*a[i]*a[i])-1./(2.*b[i]*b[i]);
+      for(unsigned int i=0;i<N;++i) c[i]=-a[i]/(2.*std::pow(a.val(),2))-b[i]/(2.*std::pow(b.val(),2));
       return c;
     }
     FTypeName<T,N> c((log(a)-log(b))/(a-b));
@@ -148,8 +149,9 @@ INLINE2 FTypeName<T,0> rlmtd (const FTypeName<T,0>& a, const FTypeName<T,0>& b)
 {
     if(Op<T>::myEq(a.val(), b.val())){
       FTypeName<T,0> c(1./a.val());
+      if (!a.depend()) return c;
       c.setDepend(a,b);
-      for(unsigned int i=0;i<c.size();++i) c[i]=-1./(2.*a[i]*a[i])-1./(2.*b[i]*b[i]);
+      for(unsigned int i=0;i<c.size();++i) c[i]=-a[i]/(2.*std::pow(a.val(),2))-b[i]/(2.*std::pow(b.val(),2));
       return c;
     }
     FTypeName<T,0> c((log(a)-log(b))/(a-b));

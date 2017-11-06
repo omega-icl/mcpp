@@ -3020,6 +3020,8 @@ template<typename T> struct Op< mc::EllVar<T> >
   static EV sqrt(const EV& x) { return mc::sqrt(x); }
   static EV log (const EV& x) { return mc::log(x);  }
   static EV xlog(const EV& x) { return x*mc::log(x); }
+  static EV lmtd(const EV& x, const EV& y) { return ( x - y)/( mc::log( x ) - mc::log( y ) ); }
+  static EV rlmtd(const EV& x, const EV& y) { return ( mc::log( x ) - mc::log( y ) )/( x - y); }
   static EV fabs(const EV& x) { throw typename mc::EllImg<T>::Exceptions( EllImg<T>::Exceptions::UNDEF ); }
   static EV exp (const EV& x) { return mc::exp(x);  }
   static EV sin (const EV& x) { return mc::sin(x);  }

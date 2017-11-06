@@ -1037,9 +1037,15 @@ private:
   //! @brief Compute residual derivative for junction points in the envelope of tan terms
   static double _tanenv_dfunc
     ( const double x, const double*rusr, const int*iusr );
+
+  //! @brief  array containing precomputed roots of Q^k(x) up to power 2*k+1 for k=1,...,10 [Liberti & Pantelides (2002), "Convex envelopes of Monomial of Odd Degree]  
+  static double _Qroots[10];
 };
 
 ////////////////////////////////////////////////////////////////////////
+template <typename T>
+double McCormick<T>::_Qroots[10] = { -0.5000000000, -0.6058295862, -0.6703320476, -0.7145377272, -0.7470540749,
+                                     -0.7721416355, -0.7921778546, -0.8086048979, -0.8223534102, -0.8340533676 };
 
 template <typename T> inline void
 McCormick<T>::_sub_reset()
@@ -2218,12 +2224,19 @@ McCormick<T>::_oddpowcv
   }
     
   double xj;
-  try{
-    xj = _newton( xU, 0., xU, _oddpowenv_func, _oddpowenv_dfunc, &xL, &iexp );
+  if( iexp > 21 ){ // if the odd exponent is larger than 21, we use newton to compute the envelope
+    try{
+      xj = _newton( xU, 0., xU, _oddpowenv_func, _oddpowenv_dfunc, &xL, &iexp );
+    }
+    catch( McCormick<T>::Exceptions ){
+      xj = _goldsect( 0., xU, _oddpowenv_func, &xL, &iexp );
+    }
   }
-  catch( McCormick<T>::Exceptions ){
-    xj = _goldsect( 0., xU, _oddpowenv_func, &xL, &iexp );
+  else{// if the odd exponent is lesser or equal than 21, we use the tagnent points given in Table 1
+       // of [Liberti & Pantelides 2002, "Convex Envelopes of Monomials of Odd Degree"]
+    xj = _Qroots[ (iexp-1)/2-1 ] * xL;
   }
+
   if( x >= xj ){	 // convex part
     double v = std::pow(x,iexp-1);
     cv[0] = x*v, cv[1] = iexp*v;
@@ -2253,12 +2266,19 @@ McCormick<T>::_oddpowcc
   }
 
   double xj;
-  try{
-    xj = _newton( xL, xL, 0., _oddpowenv_func, _oddpowenv_dfunc, &xU, &iexp );
+  if( iexp > 21 ){ // if the odd exponent is larger than 21, we use newton to compute the envelope
+    try{
+      xj = _newton( xL, xL, 0., _oddpowenv_func, _oddpowenv_dfunc, &xU, &iexp );
+    }
+    catch( McCormick<T>::Exceptions ){
+      xj = _goldsect( xL, 0., _oddpowenv_func, &xU, &iexp );
+    }
   }
-  catch( McCormick<T>::Exceptions ){
-    xj = _goldsect( xL, 0., _oddpowenv_func, &xU, &iexp );
+  else{// if the odd exponent is lesser or equal than 21, we use the tagnent points given in Table 1
+       // of [Liberti & Pantelides 2002, "Convex Envelopes of Monomials of Odd Degree"]
+    xj = _Qroots[ (iexp-1)/2-1 ] * xU;
   }
+
   if( x <= xj ){	 // concave part
     double v = std::pow(x,iexp-1);
     cc[0] = x*v, cc[1] = iexp*v;

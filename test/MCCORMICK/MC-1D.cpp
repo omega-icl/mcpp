@@ -1,4 +1,4 @@
-#define TEST_PROD       // <-- select test function here
+#define TEST_EXP2       // <-- select test function here
 const int NX = 500;	    // <-- select discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
 #undef USE_PROFIL      // <-- specify to use PROFIL for interval arithmetic
