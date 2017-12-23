@@ -341,6 +341,7 @@ class PolVar
   template< class U > friend  PolVar<U> atan( const PolVar<U>& );
   template< class U > friend  PolVar<U> fabs( const PolVar<U>& );
   template< class U > friend  PolVar<U> fstep( const PolVar<U>& );
+  //template< class U > friend  PolVar<U> cmon( std::map< const PolVar<U>, const PolVar<U> >& );
 
   public:
     /** @ingroup POLYTOPE
@@ -953,7 +954,7 @@ PolVar<T>::generate_cuts_linear
 
 //! @brief C++ structure for holding information about bilinear terms in a polytopic image
 ////////////////////////////////////////////////////////////////////////
-//! mc::PolBilin is a C++ structure for holding information about
+//! mc::PolLinEq is a C++ structure for holding information about
 //! linear expressions (equalities) in a polytopic image.
 ////////////////////////////////////////////////////////////////////////
 template< class T >

@@ -15,7 +15,8 @@ PATH_LAPACK = $(PATH_3RD_PARTY)/cpplapack
 LIB_LAPACK = -llapack -lblas
 INC_LAPACK = -I$(PATH_LAPACK)/include
 
-PATH_FADBAD = $(PATH_3RD_PARTY)/fadbad++
+#PATH_FADBAD = $(PATH_3RD_PARTY)/fadbad++
+PATH_FADBAD = $(HOME)/Programs/Devel/MC++/MC++_2.1/src/3rdparty/fadbad++
 LIB_FADBAD = 
 INC_FADBAD = -I$(PATH_FADBAD)
 

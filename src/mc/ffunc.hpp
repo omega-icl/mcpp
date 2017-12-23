@@ -4306,7 +4306,7 @@ FFGraph::eval
   auto ito = opDep.begin();
   for( auto pUres=opRes; ito!=opDep.end(); ++ito, pUres++ ){
     // Initialize variable using values in vVar
-    if( (*ito)->type == FFOp::VAR ){
+    if( (*ito)->type == FFOp::VAR && !(*ito)->pres->cst() ){
       FFVar* pF = 0;
       for( unsigned i=0; i<nVar; i++ ){
         if( (*ito)->pres->id() != pVar[i].id() ) continue;
