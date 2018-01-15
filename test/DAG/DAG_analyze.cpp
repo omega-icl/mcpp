@@ -7,6 +7,7 @@
 #include "mctime.hpp"
 #include "ffunc.hpp"
 #include "rltred.hpp"
+#include "sratexpr.hpp"
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -149,13 +150,85 @@ int test_rltred3()
 
 ///////////////////////////////////////////////////////////////////////////////
 
+int test_spolyexpr()
+{
+  std::cout << "\n==============================================\ntest_spolyexpr:\n";
+
+  mc::FFGraph DAG;
+  const unsigned NX = 4;
+  mc::FFVar X[NX];
+  mc::SPolyExpr SPX[NX];
+  for( unsigned i(0); i<NX; i++ ){
+    X[i].set( &DAG );
+    SPX[i] = X[i];
+  }
+  mc::SPolyExpr SPF;
+
+  //mc::SPolyExpr::options.BASIS = mc::SPolyExpr::Options::MONOM;
+  //SPF = pow( SPX[0]+1, 4 );
+  //SPF = 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3;
+  //SPF = SPX[0] * SPX[1];
+  //SPF = ( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3 ) * SPX[1];
+  //SPF = ( SPX[0] - SPX[1] + 1 - SPX[1] ) * SPX[0];
+  //SPF = ( SPX[0] - SPX[1] + 1 - SPX[1] ) * ( SPX[0] + 1 );
+  //SPF = ( SPX[0] - SPX[1] + 1 - SPX[1] )*( SPX[0] - SPX[1] + 1 );
+  //SPF = sqr( SPX[0] - SPX[1] + 1 - SPX[1] );//*( SPX[0] - SPX[1] + 1 );
+  //SPF = pow( SPX[0] - SPX[1] + 1 - SPX[1], 3 );
+  SPF = pow( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3, 4 );
+  //SPF = pow( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3, 3 ) * ( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3);
+  //SPF = sqr( sqr( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3 ) );
+  //SPF = sqr( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3 ) * sqr( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3 );
+  std::cout << "Sparse polynomial expression: " << SPF << std::endl;
+
+  mc::SPolyExpr::options.BASIS = mc::SPolyExpr::Options::CHEB;
+  //SPF = SPX[0] * SPX[0] * SPX[0];
+  //SPF = 4*pow(SPX[0],3) - 3*SPX[0];
+  //SPF = 8*pow(SPX[0],4) - 8*pow(SPX[0],2) + 1;
+  //SPF = 32*pow(SPX[0],6) - 48*pow(SPX[0],4) + 18*pow(SPX[0],2) - 1;
+  SPF = pow( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3, 4 );
+  std::cout << "Sparse polynomial expression: " << SPF << std::endl;
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+int test_sratexpr()
+{
+  std::cout << "\n==============================================\ntest_sratexpr:\n";
+
+  mc::FFGraph DAG;
+  const unsigned NX = 4;
+  mc::FFVar X[NX];
+  mc::SRatExpr SRX[NX];
+  for( unsigned i(0); i<NX; i++ ){
+    X[i].set( &DAG );
+    SRX[i] = X[i];
+  }
+  mc::SRatExpr SRF;
+
+  mc::SPolyExpr::options.BASIS = mc::SPolyExpr::Options::MONOM;
+  //SRF = sqr( SRX[0]+1 );
+  //SRF = inv( SRX[0]+1 );
+  //SRF = pow( SRX[0]+1, -4 );
+  //SRF = SRX[0]+1/SRX[1];
+  SRF = pow( SRX[0]+1/SRX[1], 3 );
+  std::cout << "Sparse rational expression: " << SRF << std::endl;
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 int main()
 {
   try{
-    test_dependency();
-    test_rltred1();
-    test_rltred2();
-    test_rltred3();
+//    test_dependency();
+//    test_rltred1();
+//    test_rltred2();
+//    test_rltred3();
+//    test_spolyexpr();
+    test_sratexpr();
   }
   catch( mc::FFGraph::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()

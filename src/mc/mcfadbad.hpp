@@ -138,7 +138,7 @@ INLINE2 FTypeName<T,N> rlmtd (const FTypeName<T,N>& a, const FTypeName<T,N>& b)
       FTypeName<T,N> c(1./a.val());
       if (!a.depend()) return c;
       c.setDepend(a,b);
-      for(unsigned int i=0;i<N;++i) c[i]=-a[i]/(2.*std::pow(a.val(),2))-b[i]/(2.*std::pow(b.val(),2));
+      for(unsigned int i=0;i<N;++i) c[i]=-a[i]/(2.*pow(a.val(),2))-b[i]/(2.*pow(b.val(),2));
       return c;
     }
     FTypeName<T,N> c((log(a)-log(b))/(a-b));
@@ -151,7 +151,7 @@ INLINE2 FTypeName<T,0> rlmtd (const FTypeName<T,0>& a, const FTypeName<T,0>& b)
       FTypeName<T,0> c(1./a.val());
       if (!a.depend()) return c;
       c.setDepend(a,b);
-      for(unsigned int i=0;i<c.size();++i) c[i]=-a[i]/(2.*std::pow(a.val(),2))-b[i]/(2.*std::pow(b.val(),2));
+      for(unsigned int i=0;i<c.size();++i) c[i]=-a[i]/(2.*pow(a.val(),2))-b[i]/(2.*pow(b.val(),2));
       return c;
     }
     FTypeName<T,0> c((log(a)-log(b))/(a-b));
@@ -265,7 +265,7 @@ template< typename U > struct Op< fadbad::F<U> >
   static TU exp (const TU& x) { return fadbad::exp(x);  }
   static TU log (const TU& x) { return fadbad::log(x);  }
   static TU xlog(const TU& x) { return x*fadbad::log(x); }
-  static TU lmtd(const TU& x, const TU& y) { return (x-y)/(fadbad::log(x)-fadbad::log(y)); }// { return fadbad::lmtd(x,y); }
+  static TU lmtd(const TU& x, const TU& y) { return fadbad::lmtd(x,y); }
   static TU rlmtd(const TU& x, const TU& y) { return fadbad::rlmtd(x,y); }
   static TU fabs(const TU& x) { throw std::runtime_error("mc::Op<fadbad::F<U>>::fabs -- operation not permitted"); }
   static TU sin (const TU& x) { return fadbad::sin(x);  }

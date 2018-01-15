@@ -30,7 +30,7 @@ LIB_CPPUNIT = -lcppunit
 # COMPILATION <<-- CHANGE AS APPROPRIATE -->>
 
 # PROF = -pg
-# OPTIM = -O2
+#OPTIM = -Ofast
 DEBUG = -g
 WARN  = -Wall -Wno-unknown-pragmas
 CPP11 = -std=c++11

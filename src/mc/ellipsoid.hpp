@@ -256,7 +256,7 @@ public:
       assert( !c.l || r.l == c.l );
 #endif
       if( options.PSDCHK ){
-        for( unsigned i=0; i<r.l; i++ ) if( r(i) < 0 ){
+        for( int i=0; i<r.l; i++ ) if( r(i) < 0 ){
           std::cout << "Interval radius: " << r(i) << " < 0 !" << std::endl;
           throw Exceptions( Exceptions::NONPSD );
         }
@@ -264,7 +264,7 @@ public:
       }
       _Q.zero();
       double nrm2_r = CPPL::nrm2( r );
-      for( unsigned i=0; i<r.l; i++ ) _Q(i,i) = r(i)*nrm2_r;
+      for( int i=0; i<r.l; i++ ) _Q(i,i) = r(i)*nrm2_r;
       if( _c.l != _Q.n ){ _c.resize(_Q.n); _c.zero(); }
     }
 
@@ -303,7 +303,7 @@ public:
     {
       _reset_auxiliary();
       _Q.resize(n).identity();
-      if( _c.l != n ){ _c.resize(_Q.n); _c.zero(); }
+      if( _c.l != (int)n ){ _c.resize(_Q.n); _c.zero(); }
       return *this;
     }
 
@@ -365,7 +365,7 @@ public:
 #endif
       _reset_auxiliary();
       if( options.PSDCHK ){
-        for( unsigned i=0; i<r.l; i++ ) if( r(i) < 0 ){
+        for( int i=0; i<r.l; i++ ) if( r(i) < 0 ){
           std::cout << "Interval radius: " << r(i) << " < 0 !" << std::endl;
           throw Exceptions( Exceptions::NONPSD );
         }
@@ -374,7 +374,7 @@ public:
       _Q.resize( r.l );
       _Q.zero();
       double nrm2_r = nrm2( r );
-      for( unsigned i=0; i<r.l; i++ ) _Q(i,i) = r(i)*nrm2_r;
+      for( int i=0; i<r.l; i++ ) _Q(i,i) = r(i)*nrm2_r;
       _c = c;
       if( _c.l != _Q.n ){ _c.resize(_Q.n); _c.zero(); }
       return *this;
@@ -421,13 +421,13 @@ public:
       _reset_auxiliary();
       CPPL::dsymatrix Qext(_Q.n+1);
       CPPL::dcovector cext(_Q.n+1);
-      for( unsigned i=0; i<_Q.n; i++ ){
+      for( int i=0; i<_Q.n; i++ ){
         cext(i) = _c(i);
-        for( unsigned j=0; j<=i; j++ )
+        for( int j=0; j<=i; j++ )
           Qext(i,j) = _Q(i,j);
       }
       cext(_Q.n) = ci;
-      for( unsigned i=0; i<=_Q.n; i++ )
+      for( int i=0; i<=_Q.n; i++ )
         Qext(_Q.n,i) = Qi(i);
       _c = cext;
       _Q = Qext;
@@ -492,7 +492,7 @@ public:
     {
       if( !_Q.n ) return 0.;
       double tr(_Q(0,0));
-      for( unsigned i=1; i<_Q.n; i++ ) tr += _Q(i,i);
+      for( int i=1; i<_Q.n; i++ ) tr += _Q(i,i);
       return tr;
     }
 
@@ -529,7 +529,7 @@ public:
     {
       svdQ();
       unsigned rank = _Q.n;
-      for( unsigned i=0; i<_Q.n; i++, rank-- )
+      for( int i=0; i<_Q.n; i++, rank-- )
         if( _svdQ.first(_Q.n-i-1) > options.RKTOLA
          && _svdQ.first(_Q.n-i-1) > options.RKTOLR*_svdQ.first(0) ) break;
       return rank;
@@ -546,7 +546,7 @@ public:
   //! @brief Return pointer to regularized shape matrix
   const CPPL::dsymatrix& regQ()
     {
-      const unsigned r = rankQ();
+      const int r = rankQ();
 #ifdef MC__ELLIPSOID_DEBUG_REGQ
       std::cout << "***Ellipsoid::regQ -- r = " << r << std::endl;
 #endif
@@ -554,15 +554,15 @@ public:
 
       CPPL::dgbmatrix E(_Q.n,_Q.n,0,0); E.zero();
       const double eps = std::max( options.RKTOLA, options.RKTOLR*svdQ().first(0) );
-      for( unsigned i=0; i<_Q.n-r; i++ ) E(r+i,r+i) = eps;
+      for( int i=0; i<_Q.n-r; i++ ) E(r+i,r+i) = eps;
       CPPL::dgematrix UEUT = svdQ().second.first * E * t(svdQ().second.first);
 #ifdef MC__ELLIPSOID_DEBUG_REGQ
       std::cout << "***Ellipsoid::regQ -- UEUT = " << UEUT << std::endl;
 #endif
-      for( unsigned i=r; i<_Q.n; i++ )
+      for( int i=r; i<_Q.n; i++ )
         _svdQ.first(i) += eps;
-      for( unsigned i=0; i<_Q.n; i++ ){
-        for( unsigned j=0; j<=i; j++ )
+      for( int i=0; i<_Q.n; i++ ){
+        for( int j=0; j<=i; j++ )
           _Q(i,j) += 0.5*(UEUT(i,j)+UEUT(j,i));
       }
 #ifdef MC__ELLIPSOID_DEBUG_REGQ
@@ -594,7 +594,7 @@ public:
         return CPPL::dgematrix();
 
        CPPL::dgematrix vmat( v.l, 1 ), xmat( x.l, 1 );
-       for( unsigned i=0; i<v.l; i++ ){
+       for( int i=0; i<v.l; i++ ){
          vmat( i, 0 ) = v( i );
          xmat( i, 0 ) = x( i );
        }
@@ -701,7 +701,7 @@ private:
     ( const M&W )
     {
       double trace = 0.;
-      for( unsigned i=0; i<W.n; i++ ) trace += W(i,i);
+      for( int i=0; i<W.n; i++ ) trace += W(i,i);
       return trace;
     }
 
@@ -710,7 +710,7 @@ private:
     ( const CPPL::dcovector&eigW )
     {
       double det = 1.;
-      for( unsigned i=0; i<eigW.l; i++ ) det *= eigW(i);
+      for( int i=0; i<eigW.l; i++ ) det *= eigW(i);
       return det;
     }
 
@@ -759,8 +759,8 @@ Ellipsoid::_eigen
   for( unsigned i=0; Di!=vD.end(); ++Di, i++ ) D(i) = *Di;
   U.resize( Q.n, Q.m );
   typename std::vector<CPPL::dcovector>::const_iterator Uj = vU.begin();
-  for( unsigned j=0; Uj!=vU.end(); ++Uj, j++ )
-    for( unsigned i=0; i<(*Uj).l; i++ ) U(i,j) = (*Uj)(i);
+  for( int j=0; Uj!=vU.end(); ++Uj, j++ )
+    for( int i=0; i<(*Uj).l; i++ ) U(i,j) = (*Uj)(i);
   return;
 }
 
@@ -784,7 +784,7 @@ Ellipsoid::_isPSD
 #endif
     PSD = false;
   }
-  for( unsigned i=0; i<D.l; i++ ){
+  for( int i=0; i<D.l; i++ ){
     if( !options.PSDCHK && D(i) < 0. ) D(i) = 0.;
     else break; // b/c eigenvalues are returned in increasing order
   }
@@ -804,12 +804,12 @@ Ellipsoid::_sqrt
   if( !D.l || !U.n || !U.m ){ sqrtQ.clear(); return; }
 
   CPPL::dgbmatrix sqrtD(D.l,D.l,0,0);
-  for( unsigned i=0; i<sqrtD.n; i++ )
+  for( int i=0; i<sqrtD.n; i++ )
     sqrtD(i,i) = std::sqrt( D(i) );
   CPPL::dgematrix sqrtQ_ge = U*sqrtD*t(U);
   sqrtQ.resize( sqrtQ_ge.n );
-  for( unsigned i=0; i<sqrtQ_ge.n; i++ )
-    for( unsigned j=0; j<=i; j++ )
+  for( int i=0; i<sqrtQ_ge.n; i++ )
+    for( int j=0; j<=i; j++ )
       sqrtQ(i,j) = 0.5*(sqrtQ_ge(i,j)+sqrtQ_ge(j,i));
 
 #ifdef MC__ELLIPSOID_DEBUG_SQRT
@@ -861,8 +861,8 @@ Ellipsoid::_inv
 #endif
   //Qinv = R;
   Qinv.resize( Q.n );
-  for( unsigned i=0; i<Q.n; i++ )
-    for( unsigned j=0; j<=i; j++ )
+  for( int i=0; i<Q.n; i++ )
+    for( int j=0; j<=i; j++ )
       Qinv(i,j) = 0.5 * ( invRQ_R(i,j) + invRQ_R(j,i) ); 
 #ifdef MC__ELLIPSOID_DEBUG_INV
   std::cout << "***Ellispoid: inv(Q) (proper)\n" << invRQ_R;
@@ -887,8 +887,8 @@ inline Ellipsoid mtimes
   // Transformed shape
   CPPL::dgematrix AQAT = A * E._Q * t(A);
   AE._Q.resize( A.m );
-  for( unsigned i=0; i<A.m; i++ )
-    for( unsigned j=0; j<=i; j++ )
+  for( int i=0; i<A.m; i++ )
+    for( int j=0; j<=i; j++ )
       AE._Q(i,j) = 0.5*(AQAT(i,j)+AQAT(j,i));
 #ifdef MC__ELLIPSOID_DEBUG
   bool PSD; AE._isPSD( AE._Q, AE._eigQ.first, PSD ); assert( PSD );

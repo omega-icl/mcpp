@@ -1,4 +1,4 @@
-// Copyright (C) 2009-2016 Benoit Chachuat, Imperial College London.
+// Copyright (C) 2009-2017 Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
@@ -329,6 +329,7 @@ class PolVar
   template< class U > friend  PolVar<U> inv ( const PolVar<U>& );
   template< class U > friend  PolVar<U> exp ( const PolVar<U>& );
   template< class U > friend  PolVar<U> log ( const PolVar<U>& );
+  template< class U > friend  PolVar<U> xlog( const PolVar<U>& );
   template< class U > friend  PolVar<U> sqrt( const PolVar<U>& );
   template< class U > friend  PolVar<U> sqr ( const PolVar<U>& );
   template< class U > friend  PolVar<U> pow ( const PolVar<U>&, const PolVar<U>& );  
@@ -797,13 +798,26 @@ template <typename T> inline void
 PolVar<T>::generate_cuts_default
 () const
 {
-   // PLUS, NEG, MINUS, TIMES, SCALE, DIV,
+   // PLUS, SHIFT, NEG, MINUS, TIMES, SCALE, DIV,
    // EXP, LOG, SQRT, SQR, IPOW, POW, SIN, COS, TAN, ASIN, ACOS, ATAN,
    // FABS, ERF, FSTEP, MINF, MAXF, INTER, CHEB
+
+  //! @brief Enumeration type for unary and binary operations
+  enum TYPE{
+    CNST=0, VAR,
+    PLUS, SHIFT, NEG, MINUS, TIMES, SCALE, DIV, INV,
+    IPOW, DPOW, CHEB, SQR, SQRT, EXP, LOG, XLOG,
+    SIN, COS, TAN, ASIN, ACOS, ATAN, COSH, SINH, TANH,
+    FABS, ERF, FSTEP, MINF, MAXF, INTER, LMTD, RLMTD
+  };
   
   switch( _var.ops().first->type ){
    case FFOp::CNST:
    case FFOp::VAR:
+    break;
+
+   case FFOp::SHIFT:
+    _img->_append_cuts_SHIFT( this, _var.ops().first->plop, _var.ops().first->prop->num().val() );
     break;
 
    case FFOp::PLUS:
@@ -819,8 +833,15 @@ PolVar<T>::generate_cuts_default
     break;
 
    case FFOp::SCALE:
+    _img->_append_cuts_SCALE( this, _var.ops().first->plop, _var.ops().first->prop->num().val() );
+    break;
+
    case FFOp::TIMES:
     _img->_append_cuts_TIMES( this, _var.ops().first->plop, _var.ops().first->prop );
+    break;
+
+   case FFOp::INV:
+    _img->_append_cuts_INV( this, _var.ops().first->plop->num().val(), _var.ops().first->prop );
     break;
 
    case FFOp::DIV:
@@ -828,7 +849,15 @@ PolVar<T>::generate_cuts_default
     break;
 
    case FFOp::IPOW:
-    _img->_append_cuts_IPOW( this, _var.ops().first->plop, _var.ops().first->prop );
+    _img->_append_cuts_IPOW( this, _var.ops().first->plop, _var.ops().first->prop->num().n );
+    break;
+
+   case FFOp::DPOW:
+    _img->_append_cuts_DPOW( this, _var.ops().first->plop, _var.ops().first->prop->num().x );
+    break;
+
+   case FFOp::CHEB:
+    _img->_append_cuts_CHEB( this, _var.ops().first->plop, _var.ops().first->prop->num().n );
     break;
 
    case FFOp::SQR:
@@ -847,8 +876,16 @@ PolVar<T>::generate_cuts_default
     _img->_append_cuts_LOG( this, _var.ops().first->plop );
     break;
 
+   case FFOp::XLOG:
+    _img->_append_cuts_XLOG( this, _var.ops().first->plop );
+    break;
+
    case FFOp::FABS:
     _img->_append_cuts_FABS( this, _var.ops().first->plop );
+    break;
+
+   case FFOp::ERF:
+    _img->_append_cuts_ERF( this, _var.ops().first->plop );
     break;
 
    case FFOp::FSTEP:
@@ -863,14 +900,52 @@ PolVar<T>::generate_cuts_default
     _img->_append_cuts_SIN( this, _var.ops().first->plop );
     break;
 
+   case FFOp::TAN:
+    _img->_append_cuts_TAN( this, _var.ops().first->plop );
+    break;
+
+   case FFOp::ACOS:
+    _img->_append_cuts_ACOS( this, _var.ops().first->plop );
+    break;
+
+   case FFOp::ASIN:
+    _img->_append_cuts_ASIN( this, _var.ops().first->plop );
+    break;
+
+   case FFOp::AATAN:
+    _img->_append_cuts_ATAN( this, _var.ops().first->plop );
+    break;
+
+   case FFOp::COSH:
+    _img->_append_cuts_COSH( this, _var.ops().first->plop );
+    break;
+
+   case FFOp::SINH:
+    _img->_append_cuts_SINH( this, _var.ops().first->plop );
+    break;
+
+   case FFOp::TANH:
+    _img->_append_cuts_TANH( this, _var.ops().first->plop );
+    break;
+
    case FFOp::INTER:
     _img->_append_cuts_INTER( this, _var.ops().first->plop, _var.ops().first->prop );
     break;
 
-   case FFOp::CHEB:
-//#ifndef MC__CHEB_RECURS
-    _img->_append_cuts_CHEB( this, _var.ops().first->plop, _var.ops().first->prop );
-//#endif
+   case FFOp::MINF:
+    _img->_append_cuts_MINF( this, _var.ops().first->plop, _var.ops().first->prop );
+    break;
+
+   case FFOp::MAXF:
+    _img->_append_cuts_MAXF( this, _var.ops().first->plop, _var.ops().first->prop );
+    break;
+
+   case FFOp::LMTD:
+    _img->_append_cuts_LMTD( this, _var.ops().first->plop, _var.ops().first->prop );
+    break;
+
+   case FFOp::RLMTD:
+    _img->_append_cuts_RLMTD( this, _var.ops().first->plop, _var.ops().first->prop );
     break;
 
    default:
@@ -1453,6 +1528,7 @@ class PolImg
   template< class U > friend  PolVar<U> inv ( const PolVar<U>& );
   template< class U > friend  PolVar<U> exp ( const PolVar<U>& );
   template< class U > friend  PolVar<U> log ( const PolVar<U>& );
+  template< class U > friend  PolVar<U> xlog( const PolVar<U>& );
   template< class U > friend  PolVar<U> sqrt( const PolVar<U>& );
   template< class U > friend  PolVar<U> sqr ( const PolVar<U>& );
   template< class U > friend  PolVar<U> pow ( const PolVar<U>&, const PolVar<U>& );  
@@ -1463,8 +1539,16 @@ class PolImg
   template< class U > friend  PolVar<U> acos( const PolVar<U>& );
   template< class U > friend  PolVar<U> asin( const PolVar<U>& );
   template< class U > friend  PolVar<U> atan( const PolVar<U>& );
+  template< class U > friend  PolVar<U> cosh( const PolVar<U>& );
+  template< class U > friend  PolVar<U> sinh( const PolVar<U>& );
+  template< class U > friend  PolVar<U> tanh( const PolVar<U>& );
   template< class U > friend  PolVar<U> fabs( const PolVar<U>& );
+  template< class U > friend  PolVar<U> erf( const PolVar<U>& );
   template< class U > friend  PolVar<U> fstep( const PolVar<U>& );
+  template< class U > friend  PolVar<U> maxf( const PolVar<U>&, const PolVar<U>& );  
+  template< class U > friend  PolVar<U> minf( const PolVar<U>&, const PolVar<U>& );  
+  template< class U > friend  PolVar<U> lmtd( const PolVar<U>&, const PolVar<U>& );  
+  template< class U > friend  PolVar<U> rlmtd( const PolVar<U>&, const PolVar<U>& );  
 
 public:
   typedef std::map< FFVar*, PolVar<T>*, lt_FFVar > t_Vars;
@@ -1646,16 +1730,22 @@ protected:
   //! @brief Append linear cuts for binary / operation
   void _append_cuts_DIV
     ( const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 );
-  //! @brief Append linear cuts for pow function
+  //! @brief Append linear cuts for ipow function
   void _append_cuts_IPOW
-    ( const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 );
+    ( const PolVar<T>*VarR, FFVar*pVar1, const int iExp );
+  //! @brief Append linear cuts for ipow function
+  void _append_cuts_IPOW
+    ( const PolVar<T>*VarR, FFVar*pVar1, const double dExp );
   //! @brief Append linear cuts for cheb function
   void _append_cuts_CHEB
-    ( const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 );
+    ( const PolVar<T>*VarR, FFVar*pVar1, comst int iOrd );
   //! @brief Append linear cuts for exp function
   void _append_cuts_EXP
     ( const PolVar<T>*VarR, FFVar*pVar1 );
   //! @brief Append linear cuts for log function
+  void _append_cuts_XLOG
+    ( const PolVar<T>*VarR, FFVar*pVar1 );
+  //! @brief Append linear cuts for xlog function
   void _append_cuts_LOG
     ( const PolVar<T>*VarR, FFVar*pVar1 );
   //! @brief Append linear cuts for sqr function
@@ -3365,9 +3455,8 @@ pow
 
 template <typename T> inline void
 PolImg<T>::_append_cuts_IPOW
-( const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
+( const PolVar<T>*VarR, FFVar*pVar1, const int iExp )
 {
-  const int iExp = pVar2->num().n;
   if( pVar1->cst() )
     _append_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::pow( pVar1->num().val(), iExp ), *VarR, 1. );
   else{
@@ -3495,13 +3584,8 @@ PolImg<T>::_append_cuts_IPOW
 template <typename T>
 inline PolVar<T>
 cheb
-( const PolVar<T>&Var1, const PolVar<T>&Var2 )
+( const PolVar<T>&Var1, const int iOrd )
 {
-#ifdef MC__POLIMG_CHECK
-  if( !Var2_.var.cst() && Var2_.var.num().t != FFNum::INT )
-    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
-#endif
-  const int iOrd = Var2._var.num().n;
 #ifdef MC__POLIMG_CHECK
   if( iOrd <= 2 )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
@@ -3689,8 +3773,8 @@ template< typename T > struct Op< mc::PolVar<T> >
   static PV sqr (const PV& x){ return mc::sqr(x);  }
   static PV sqrt(const PV& x){ return mc::sqrt(x); }
   static PV log (const PV& x){ return mc::log(x);  }
-  static PV xlog(const PV& x){ return x*mc::log(x); }
-  static PV fabs(const PV& x){ return mc::fabs(x);  }
+  static PV xlog(const PV& x){ return mc::xlog(x); }
+  static PV fabs(const PV& x){ return mc::fabs(x); }
   static PV exp (const PV& x){ return mc::exp(x);  }
   static PV cos (const PV& x){ return mc::cos(x);  }
   static PV sin (const PV& x){ return mc::sin(x);  }

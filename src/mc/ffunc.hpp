@@ -691,6 +691,7 @@ public:
 
   // other operator overloadings
   bool operator== ( const FFVar& ) const;
+  bool operator!= ( const FFVar& ) const;
   FFVar& operator= ( const FFVar& );
   FFVar& operator= ( const int );
   FFVar& operator= ( const double );
@@ -935,7 +936,7 @@ class FFOp
 {
 public:
 
-  /** @ingroup FP
+  /** @ingroup FFunc
    *  @{
    */
   //! @brief Enumeration type for unary and binary operations
@@ -1781,6 +1782,13 @@ FFVar::operator==
 ( const FFVar&Var ) const
 {
   return( _dag == Var._dag && _id == Var._id );
+}
+
+inline bool
+FFVar::operator!=
+( const FFVar&Var ) const
+{
+  return( _dag != Var._dag || _id != Var._id );
 }
 
 inline FFVar&
