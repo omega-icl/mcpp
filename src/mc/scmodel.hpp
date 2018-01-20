@@ -228,6 +228,8 @@ class SCModel
 ////////////////////////////////////////////////////////////////////////
 {
   friend class SCVar<T>;
+  template <typename U> friend std::ostream& operator<<
+    ( std::ostream&, const SCModel<U>& );
   template <typename U> friend class SCModel;
   template <typename U> friend SCVar<U> pow
     ( const SCVar<U>&, const int );
@@ -904,6 +906,23 @@ private:
 };
 
 ////////////////////////////////// SCModel //////////////////////////////////////
+
+template <typename T> inline std::ostream&
+operator<<
+( std::ostream&out, const SCModel<T>&CM )
+{
+  out << "\nSparse Chebyshev Model: " << &CM << std::endl << std::right;
+  out << std::setw(3) << "Var" << std::setw(12) << "Ref" << std::setw(12) << "Scal" << std::setw(24) << "Bnd\n";
+  out << std::scientific << std::setprecision(5);
+  auto itbnd = CM._bndvar.begin();
+  auto itref = CM._refvar.begin();
+  auto itscal = CM._scalvar.begin();
+  for( unsigned i=0; itbnd!=CM._bndvar.end(); ++itbnd, ++itref, ++itscal, i++ )
+    out << std::right << std::setw(3) << i  << std::setw(12) << *itref
+        << std::setw(12) << *itscal << "  " << std::left << *itbnd << std::endl;
+  out << std::endl;
+  return out;
+}
 
 template <typename T> template <typename U> inline U*
 SCModel<T>::_get_bndpow
