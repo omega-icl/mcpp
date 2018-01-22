@@ -1287,6 +1287,29 @@ public:
       _coef[_nvar-1] = a1;
       _var[_nvar-1] = X1;
     }
+  //! @brief Constructor for cut w/ variable and coefficient maps
+  template <typename U> PolCut
+    ( FFOp*op, TYPE type, const double b, const std::map<U,PolVar<T>>&X,
+      const std::map<U,double>&a, const PolVar<T>&X1, const double a1,
+      const PolVar<T>&X2, const double a2 )
+    : _op(op), _type(type), _rhs(b)
+    {
+      _nvar = a.size()+2;
+      _coef = new double[_nvar];
+      _var  = new PolVar<T>[_nvar];
+      auto ita = a.cbegin();
+      for( unsigned ivar=0; ita!=a.cend(); ++ita, ivar++ ){
+        _coef[ivar] = ita->second;
+        auto itX = X.find(ita->first);
+        if( itX == X.cend() )
+          throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::BADCUT );
+        _var[ivar] = itX->second;
+      }
+      _coef[_nvar-2] = a1;
+      _var[_nvar-2] = X1;
+      _coef[_nvar-1] = a2;
+      _var[_nvar-1] = X2;
+    }
   //! @brief Destructor
   ~PolCut
     ()
@@ -1575,6 +1598,11 @@ protected:
     ( FFOp*op, const typename PolCut<T>::TYPE type, const double b,
       const std::map<U,PolVar<T>>&X, const std::map<U,double>&a,
       const PolVar<T>&X1, const double a1 );
+  //! @brief Appends new relaxation cut in _Cuts w/ variable and coefficient maps
+  template <typename U> typename t_Cuts::iterator _append_cut
+    ( FFOp*op, const typename PolCut<T>::TYPE type, const double b,
+      const std::map<U,PolVar<T>>&X, const std::map<U,double>&a,
+      const PolVar<T>&X1, const double a1, const PolVar<T>&X2, const double a2 );
 
   //! @brief Computes max distance between function and outer-approximation
   std::pair< double, double > _distmax
@@ -1878,6 +1906,12 @@ public:
       const std::map<U,PolVar<T>>&X, const std::map<U,double>&a,
       const PolVar<T>&X1, const double a1 )
     { return _append_cut( 0, type, b, X, a, X1, a1 ); }
+  //! @brief Append new relaxation cut w/ variable and coefficient maps
+  template <typename U> typename t_Cuts::iterator add_cut
+    ( const typename PolCut<T>::TYPE type, const double b,
+      const std::map<U,PolVar<T>>&X, const std::map<U,double>&a,
+      const PolVar<T>&X1, const double a1, const PolVar<T>&X2, const double a2 )
+    { return _append_cut( 0, type, b, X, a, X1, a1, X2, a2 ); }
 
   //! @brief Erase cut with iterator <a>itcut</a> from set of cuts
   void erase_cut
@@ -2213,6 +2247,18 @@ PolImg<T>::_append_cut
   const double a1 )
 {
   PolCut<T>* pCut = new PolCut<T>( op, type, b, X, a, X1, a1 );
+  return _Cuts.insert( pCut );
+}
+
+template <typename T> template <typename U>
+inline typename PolImg<T>::t_Cuts::iterator
+PolImg<T>::_append_cut
+( FFOp*op, const typename PolCut<T>::TYPE type,
+  const double b, const std::map<U,PolVar<T>>&X,
+  const std::map<U,double>&a, const PolVar<T>&X1,
+  const double a1, const PolVar<T>&X2, const double a2 )
+{
+  PolCut<T>* pCut = new PolCut<T>( op, type, b, X, a, X1, a1, X2, a2 );
   return _Cuts.insert( pCut );
 }
 
