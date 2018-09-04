@@ -1,4 +1,4 @@
-// Copyright (C) 2009-2017 Benoit Chachuat, Imperial College London.
+// Copyright (C) 2009-2018 Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
@@ -300,31 +300,15 @@ class PolVar
   friend class PolImg<T>;
   friend class lt_PolVar<T>;
 
-  template< class U > friend  PolVar<U> operator+( const PolVar<U>& );
   template< class U > friend  PolVar<U> operator+( const PolVar<U>&, const PolVar<U>& );
   template< class U > friend  PolVar<U> operator+( const PolVar<U>&, const double );
-  template< class U > friend  PolVar<U> operator+( const double, const PolVar<U>& );
-  template< class U > friend  PolVar<U> operator+( const PolVar<U>&, const U& );
-  template< class U > friend  PolVar<U> operator+( const U&, const PolVar<U>& );
   template< class U > friend  PolVar<U> operator-( const PolVar<U>& );
   template< class U > friend  PolVar<U> operator-( const PolVar<U>&, const PolVar<U>& );
-  template< class U > friend  PolVar<U> operator-( const PolVar<U>&, const double );
-  template< class U > friend  PolVar<U> operator-( const double, const PolVar<U>& );
-  template< class U > friend  PolVar<U> operator-( const PolVar<U>&, const U& );
-  template< class U > friend  PolVar<U> operator-( const U&, const PolVar<U>& );
   template< class U > friend  PolVar<U> operator*( const PolVar<U>&, const PolVar<U>& );
   template< class U > friend  PolVar<U> operator*( const PolVar<U>&, const double );			
-  template< class U > friend  PolVar<U> operator*( const double, const PolVar<U>& );
-  template< class U > friend  PolVar<U> operator*( const PolVar<U>&, const U& );
-  template< class U > friend  PolVar<U> operator*( const U&, const PolVar<U>& );
   template< class U > friend  PolVar<U> operator/( const PolVar<U>&, const PolVar<U>& );
-  template< class U > friend  PolVar<U> operator/( const PolVar<U>&, const double );			
   template< class U > friend  PolVar<U> operator/( const double, const PolVar<U>& );
-  template< class U > friend  PolVar<U> operator/( const PolVar<U>&, const U& );
-  template< class U > friend  PolVar<U> operator/( const U&, const PolVar<U>& );
   template< class U > friend  PolVar<U> operator^( const PolVar<U>&, const PolVar<U>& );
-  template< class U > friend  PolVar<U> operator^( const PolVar<U>&, const double );
-  template< class U > friend  PolVar<U> operator^( const double, const PolVar<U>& );
     
   template< class U > friend  PolVar<U> inv ( const PolVar<U>& );
   template< class U > friend  PolVar<U> exp ( const PolVar<U>& );
@@ -332,8 +316,10 @@ class PolVar
   template< class U > friend  PolVar<U> xlog( const PolVar<U>& );
   template< class U > friend  PolVar<U> sqrt( const PolVar<U>& );
   template< class U > friend  PolVar<U> sqr ( const PolVar<U>& );
-  template< class U > friend  PolVar<U> pow ( const PolVar<U>&, const PolVar<U>& );  
-  template< class U > friend  PolVar<U> cheb( const PolVar<U>&, const PolVar<U>& );  
+  template< class U > friend  PolVar<U> pow ( const PolVar<U>&, const int );  
+  template< class U > friend  PolVar<U> pow ( const PolVar<U>&, const double );  
+  template< class U > friend  PolVar<U> cheb( const PolVar<U>&, const unsigned );  
+  template< class U > friend  PolVar<U> prod( const unsigned, const PolVar<U>* );  
   template< class U > friend  PolVar<U> cos ( const PolVar<U>& );
   template< class U > friend  PolVar<U> sin ( const PolVar<U>& );
   template< class U > friend  PolVar<U> tan ( const PolVar<U>& );
@@ -783,12 +769,8 @@ PolVar<T>::generate_cuts
   }
 
   generate_cuts_default();
-  if( _var.ops().first->plop ){
-    auto itVar = _img->_Vars.find( _var.ops().first->plop );
-    if( itVar != _img->_Vars.end() ) itVar->second->generate_cuts();
-  }
-  if( _var.ops().first->prop ){
-    auto itVar = _img->_Vars.find( _var.ops().first->prop );
+  for( auto itOp=_var.ops().first->pops.begin(); itOp!=_var.ops().first->pops.end(); ++itOp ){ 
+    auto itVar = _img->_Vars.find( *itOp );
     if( itVar != _img->_Vars.end() ) itVar->second->generate_cuts();
   }
   return;
@@ -798,18 +780,11 @@ template <typename T> inline void
 PolVar<T>::generate_cuts_default
 () const
 {
-   // PLUS, SHIFT, NEG, MINUS, TIMES, SCALE, DIV,
-   // EXP, LOG, SQRT, SQR, IPOW, POW, SIN, COS, TAN, ASIN, ACOS, ATAN,
-   // FABS, ERF, FSTEP, MINF, MAXF, INTER, CHEB
-
-  //! @brief Enumeration type for unary and binary operations
-  enum TYPE{
-    CNST=0, VAR,
-    PLUS, SHIFT, NEG, MINUS, TIMES, SCALE, DIV, INV,
-    IPOW, DPOW, CHEB, SQR, SQRT, EXP, LOG, XLOG,
-    SIN, COS, TAN, ASIN, ACOS, ATAN, COSH, SINH, TANH,
-    FABS, ERF, FSTEP, MINF, MAXF, INTER, LMTD, RLMTD
-  };
+  // CNST, VAR,
+  // PLUS, SHIFT, NEG, MINUS, TIMES, SCALE, DIV, INV,
+  // PROD, IPOW, DPOW, CHEB, SQR, SQRT, EXP, LOG, XLOG,
+  // SIN, COS, TAN, ASIN, ACOS, ATAN, COSH, SINH, TANH,
+  // FABS, ERF, FSTEP, MINF, MAXF, INTER, LMTD, RLMTD
   
   switch( _var.ops().first->type ){
    case FFOp::CNST:
@@ -817,150 +792,142 @@ PolVar<T>::generate_cuts_default
     break;
 
    case FFOp::SHIFT:
-    _img->_append_cuts_SHIFT( this, _var.ops().first->plop, _var.ops().first->prop->num().val() );
-    break;
-
    case FFOp::PLUS:
-    _img->_append_cuts_PLUS( this, _var.ops().first->plop, _var.ops().first->prop );
+    _img->_append_cuts_PLUS( this, _var.ops().first->pops[0], _var.ops().first->pops[1] );
     break;
 
    case FFOp::MINUS:
-    _img->_append_cuts_MINUS( this, _var.ops().first->plop, _var.ops().first->prop );
+    _img->_append_cuts_MINUS( this, _var.ops().first->pops[0], _var.ops().first->pops[1] );
     break;
 
    case FFOp::NEG:
-    _img->_append_cuts_NEG( this, _var.ops().first->plop );
+    _img->_append_cuts_NEG( this, _var.ops().first->pops[0] );
     break;
 
    case FFOp::SCALE:
-    _img->_append_cuts_SCALE( this, _var.ops().first->plop, _var.ops().first->prop->num().val() );
-    break;
-
    case FFOp::TIMES:
-    _img->_append_cuts_TIMES( this, _var.ops().first->plop, _var.ops().first->prop );
+    _img->_append_cuts_TIMES( this, _var.ops().first->pops[0], _var.ops().first->pops[1] );
     break;
 
    case FFOp::INV:
-    _img->_append_cuts_INV( this, _var.ops().first->plop->num().val(), _var.ops().first->prop );
-    break;
-
    case FFOp::DIV:
-    _img->_append_cuts_DIV( this, _var.ops().first->plop, _var.ops().first->prop );
+    _img->_append_cuts_DIV( this, _var.ops().first->pops[0], _var.ops().first->pops[1] );
     break;
 
    case FFOp::IPOW:
-    _img->_append_cuts_IPOW( this, _var.ops().first->plop, _var.ops().first->prop->num().n );
+    _img->_append_cuts_IPOW( this, _var.ops().first->pops[0], _var.ops().first->pops[1]->num().n );
     break;
 
-   case FFOp::DPOW:
-    _img->_append_cuts_DPOW( this, _var.ops().first->plop, _var.ops().first->prop->num().x );
-    break;
+//   case FFOp::DPOW:
+//    _img->_append_cuts_DPOW( this, _var.ops().first->pops[0], _var.ops().first->pops[1]->num().x );
+//    break;
 
    case FFOp::CHEB:
-    _img->_append_cuts_CHEB( this, _var.ops().first->plop, _var.ops().first->prop->num().n );
+    _img->_append_cuts_CHEB( this, _var.ops().first->pops[0], _var.ops().first->pops[1]->num().n );
+    break;
+
+   case FFOp::PROD:
+    _img->_append_cuts_PROD( this, _var.ops().first->pops );
     break;
 
    case FFOp::SQR:
-    _img->_append_cuts_SQR( this, _var.ops().first->plop );
+    _img->_append_cuts_SQR( this, _var.ops().first->pops[0] );
     break;
 
    case FFOp::SQRT:
-    _img->_append_cuts_SQRT( this, _var.ops().first->plop );
+    _img->_append_cuts_SQRT( this, _var.ops().first->pops[0] );
     break;
 
    case FFOp::EXP:
-    _img->_append_cuts_EXP( this, _var.ops().first->plop );
+    _img->_append_cuts_EXP( this, _var.ops().first->pops[0] );
     break;
 
    case FFOp::LOG:
-    _img->_append_cuts_LOG( this, _var.ops().first->plop );
+    _img->_append_cuts_LOG( this, _var.ops().first->pops[0] );
     break;
 
-   case FFOp::XLOG:
-    _img->_append_cuts_XLOG( this, _var.ops().first->plop );
-    break;
+//   case FFOp::XLOG:
+//    _img->_append_cuts_XLOG( this, _var.ops().first->pops[0] );
+//    break;
 
    case FFOp::FABS:
-    _img->_append_cuts_FABS( this, _var.ops().first->plop );
+    _img->_append_cuts_FABS( this, _var.ops().first->pops[0] );
     break;
 
-   case FFOp::ERF:
-    _img->_append_cuts_ERF( this, _var.ops().first->plop );
-    break;
+//   case FFOp::ERF:
+//    _img->_append_cuts_ERF( this, _var.ops().first->pops[0] );
+//    break;
 
    case FFOp::FSTEP:
-    _img->_append_cuts_FSTEP( this, _var.ops().first->plop );
+    _img->_append_cuts_FSTEP( this, _var.ops().first->pops[0] );
     break;
 
    case FFOp::COS:
-    _img->_append_cuts_COS( this, _var.ops().first->plop );
+    _img->_append_cuts_COS( this, _var.ops().first->pops[0] );
     break;
 
    case FFOp::SIN:
-    _img->_append_cuts_SIN( this, _var.ops().first->plop );
+    _img->_append_cuts_SIN( this, _var.ops().first->pops[0] );
     break;
 
-   case FFOp::TAN:
-    _img->_append_cuts_TAN( this, _var.ops().first->plop );
-    break;
+//   case FFOp::TAN:
+//    _img->_append_cuts_TAN( this, _var.ops().first->pops[0] );
+//    break;
 
-   case FFOp::ACOS:
-    _img->_append_cuts_ACOS( this, _var.ops().first->plop );
-    break;
+//   case FFOp::ACOS:
+//    _img->_append_cuts_ACOS( this, _var.ops().first->pops[0] );
+//    break;
 
-   case FFOp::ASIN:
-    _img->_append_cuts_ASIN( this, _var.ops().first->plop );
-    break;
+//   case FFOp::ASIN:
+//    _img->_append_cuts_ASIN( this, _var.ops().first->pops[0] );
+//    break;
 
-   case FFOp::AATAN:
-    _img->_append_cuts_ATAN( this, _var.ops().first->plop );
-    break;
+//   case FFOp::ATAN:
+//    _img->_append_cuts_ATAN( this, _var.ops().first->pops[0] );
+//    break;
 
-   case FFOp::COSH:
-    _img->_append_cuts_COSH( this, _var.ops().first->plop );
-    break;
+//   case FFOp::COSH:
+//    _img->_append_cuts_COSH( this, _var.ops().first->pops[0] );
+//    break;
 
-   case FFOp::SINH:
-    _img->_append_cuts_SINH( this, _var.ops().first->plop );
-    break;
+//   case FFOp::SINH:
+//    _img->_append_cuts_SINH( this, _var.ops().first->pops[0] );
+//    break;
 
-   case FFOp::TANH:
-    _img->_append_cuts_TANH( this, _var.ops().first->plop );
-    break;
+//   case FFOp::TANH:
+//    _img->_append_cuts_TANH( this, _var.ops().first->pops[0] );
+//    break;
 
    case FFOp::INTER:
-    _img->_append_cuts_INTER( this, _var.ops().first->plop, _var.ops().first->prop );
+    _img->_append_cuts_INTER( this, _var.ops().first->pops[0], _var.ops().first->pops[1] );
     break;
 
-   case FFOp::MINF:
-    _img->_append_cuts_MINF( this, _var.ops().first->plop, _var.ops().first->prop );
-    break;
+//   case FFOp::MINF:
+//    _img->_append_cuts_MINF( this, _var.ops().first->pops[0], _var.ops().first->pops[1] );
+//    break;
 
-   case FFOp::MAXF:
-    _img->_append_cuts_MAXF( this, _var.ops().first->plop, _var.ops().first->prop );
-    break;
+//   case FFOp::MAXF:
+//    _img->_append_cuts_MAXF( this, _var.ops().first->pops[0], _var.ops().first->pops[1] );
+//    break;
 
-   case FFOp::LMTD:
-    _img->_append_cuts_LMTD( this, _var.ops().first->plop, _var.ops().first->prop );
-    break;
+//   case FFOp::LMTD:
+//    _img->_append_cuts_LMTD( this, _var.ops().first->pops[0], _var.ops().first->pops[1] );
+//    break;
 
-   case FFOp::RLMTD:
-    _img->_append_cuts_RLMTD( this, _var.ops().first->plop, _var.ops().first->prop );
-    break;
+//   case FFOp::RLMTD:
+//    _img->_append_cuts_RLMTD( this, _var.ops().first->pops[0], _var.ops().first->pops[1] );
+//    break;
 
    default:
     std::cout << "  -> EXCEPTION FOR " << _var << ": " << *_var.ops().first << std::endl;
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::INTERN );
   }
 
-  if( _var.ops().first->plop ){
-    auto itVar = _img->_Vars.find( _var.ops().first->plop );
+  for( auto itOp=_var.ops().first->pops.begin(); itOp!=_var.ops().first->pops.end(); ++itOp ){ 
+    auto itVar = _img->_Vars.find( *itOp );
     if( itVar != _img->_Vars.end() ) itVar->second->generate_cuts();
   }
-  if( _var.ops().first->prop ){
-    auto itVar = _img->_Vars.find( _var.ops().first->prop );
-    if( itVar != _img->_Vars.end() ) itVar->second->generate_cuts();
-  }
+
   return;
 }
 
@@ -973,39 +940,41 @@ PolVar<T>::generate_cuts_linear
 #endif
 
   switch( _var.ops().first->type ){
+   case FFOp::SHIFT:
    case FFOp::PLUS:
-    if( !_img->_lineq_PLUS( pLin, this, _var.ops().first->plop, _var.ops().first->prop ) )
+    if( !_img->_lineq_PLUS( pLin, this, _var.ops().first->pops[0], _var.ops().first->pops[1] ) )
       return false;
     break;
 
    case FFOp::MINUS:
-    if( !_img->_lineq_MINUS( pLin, this, _var.ops().first->plop, _var.ops().first->prop ) )
+    if( !_img->_lineq_MINUS( pLin, this, _var.ops().first->pops[0], _var.ops().first->pops[1] ) )
       return false;
     break;
 
    case FFOp::NEG:
-    if( !_img->_lineq_NEG( pLin, this, _var.ops().first->plop ) ) 
+    if( !_img->_lineq_NEG( pLin, this, _var.ops().first->pops[0] ) ) 
       return false;
     break;
 
    case FFOp::SCALE:
    case FFOp::TIMES:
-    if( !_img->_lineq_TIMES( pLin, this, _var.ops().first->plop, _var.ops().first->prop ) )
+    if( !_img->_lineq_TIMES( pLin, this, _var.ops().first->pops[0], _var.ops().first->pops[1] ) )
       return false;
     break;
 
+   case FFOp::INV:
    case FFOp::DIV:
-    if( !_img->_lineq_DIV( pLin, this, _var.ops().first->plop, _var.ops().first->prop ) )
+    if( !_img->_lineq_DIV( pLin, this, _var.ops().first->pops[0], _var.ops().first->pops[1] ) )
       return false;
     break;
 
    case FFOp::FABS:
-    if( !_img->_lineq_FABS( pLin, this, _var.ops().first->plop ) )
+    if( !_img->_lineq_FABS( pLin, this, _var.ops().first->pops[0] ) )
       return false;
     break;
 
    case FFOp::FSTEP:
-    if( !_img->_lineq_FSTEP( pLin, this, _var.ops().first->plop ) )
+    if( !_img->_lineq_FSTEP( pLin, this, _var.ops().first->pops[0] ) )
       return false;
     break;
 
@@ -1015,12 +984,8 @@ PolVar<T>::generate_cuts_linear
    // MINF, MAXF, INTER?
   }
 
-  if( _var.ops().first->plop ){
-    auto itVar = _img->_Vars.find( _var.ops().first->plop );
-    if( itVar != _img->_Vars.end() ) itVar->second->generate_cuts_linear( pLin );
-  }
-  if( _var.ops().first->prop ){
-    auto itVar = _img->_Vars.find( _var.ops().first->prop );
+  for( auto itOp=_var.ops().first->pops.begin(); itOp!=_var.ops().first->pops.end(); ++itOp ){ 
+    auto itVar = _img->_Vars.find( *itOp );
     if( itVar != _img->_Vars.end() ) itVar->second->generate_cuts_linear( pLin );
   }
   return true;
@@ -1028,8 +993,8 @@ PolVar<T>::generate_cuts_linear
 
 //! @brief C++ structure for holding information about bilinear terms in a polytopic image
 ////////////////////////////////////////////////////////////////////////
-//! mc::PolBilin is a C++ structure for holding information about
-//! linear expressions (equalities) in a polytopic image.
+//! mc::PolLinEq is a C++ structure for holding information about
+//! linear subexpressions (equalities) in a polytopic image.
 ////////////////////////////////////////////////////////////////////////
 template< class T >
 class PolLinEq
@@ -1298,6 +1263,8 @@ public:
       const std::map<U,double>&a )
     : _op(op), _type(type), _rhs(b)
     {
+//      if( a.empty() )
+//        std::cout << "PolCut** Empty map! b = " << b << std::endl;
       _nvar = a.size();
       _coef = _nvar? new double[_nvar]: 0;
       _var  = _nvar? new PolVar<T>[_nvar]: 0;
@@ -1360,6 +1327,29 @@ public:
       }
       _coef[_nvar-1] = a1;
       _var[_nvar-1] = X1;
+    }
+  //! @brief Constructor for cut w/ variable and coefficient maps
+  template <typename U> PolCut
+    ( FFOp*op, TYPE type, const double b, const std::map<U,PolVar<T>>&X,
+      const std::map<U,double>&a, const PolVar<T>&X1, const double a1,
+      const PolVar<T>&X2, const double a2 )
+    : _op(op), _type(type), _rhs(b)
+    {
+      _nvar = a.size()+2;
+      _coef = new double[_nvar];
+      _var  = new PolVar<T>[_nvar];
+      auto ita = a.cbegin();
+      for( unsigned ivar=0; ita!=a.cend(); ++ita, ivar++ ){
+        _coef[ivar] = ita->second;
+        auto itX = X.find(ita->first);
+        if( itX == X.cend() )
+          throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::BADCUT );
+        _var[ivar] = itX->second;
+      }
+      _coef[_nvar-2] = a1;
+      _var[_nvar-2] = X1;
+      _coef[_nvar-1] = a2;
+      _var[_nvar-1] = X2;
     }
   //! @brief Destructor
   ~PolCut
@@ -1499,31 +1489,15 @@ class PolImg
  
   template <typename U> friend std::ostream& operator<<( std::ostream&, const PolImg<U>& );
 
-  template< class U > friend  PolVar<U> operator+( const PolVar<U>& );
   template< class U > friend  PolVar<U> operator+( const PolVar<U>&, const PolVar<U>& );
   template< class U > friend  PolVar<U> operator+( const PolVar<U>&, const double );
-  template< class U > friend  PolVar<U> operator+( const double, const PolVar<U>& );
-  template< class U > friend  PolVar<U> operator+( const PolVar<U>&, const U& );
-  template< class U > friend  PolVar<U> operator+( const U&, const PolVar<U>& );
   template< class U > friend  PolVar<U> operator-( const PolVar<U>& );
   template< class U > friend  PolVar<U> operator-( const PolVar<U>&, const PolVar<U>& );
-  template< class U > friend  PolVar<U> operator-( const PolVar<U>&, const double );
-  template< class U > friend  PolVar<U> operator-( const double, const PolVar<U>& );
-  template< class U > friend  PolVar<U> operator-( const PolVar<U>&, const U& );
-  template< class U > friend  PolVar<U> operator-( const U&, const PolVar<U>& );
   template< class U > friend  PolVar<U> operator*( const PolVar<U>&, const PolVar<U>& );
-  template< class U > friend  PolVar<U> operator*( const PolVar<U>&, const double );			
-  template< class U > friend  PolVar<U> operator*( const double, const PolVar<U>& );
-  template< class U > friend  PolVar<U> operator*( const PolVar<U>&, const U& );
-  template< class U > friend  PolVar<U> operator*( const U&, const PolVar<U>& );
+  template< class U > friend  PolVar<U> operator*( const PolVar<U>&, const double );
   template< class U > friend  PolVar<U> operator/( const PolVar<U>&, const PolVar<U>& );
-  template< class U > friend  PolVar<U> operator/( const PolVar<U>&, const double );			
   template< class U > friend  PolVar<U> operator/( const double, const PolVar<U>& );
-  template< class U > friend  PolVar<U> operator/( const PolVar<U>&, const U& );
-  template< class U > friend  PolVar<U> operator/( const U&, const PolVar<U>& );
   template< class U > friend  PolVar<U> operator^( const PolVar<U>&, const PolVar<U>& );
-  template< class U > friend  PolVar<U> operator^( const PolVar<U>&, const double );
-  template< class U > friend  PolVar<U> operator^( const double, const PolVar<U>& );
 
   template< class U > friend  PolVar<U> inv ( const PolVar<U>& );
   template< class U > friend  PolVar<U> exp ( const PolVar<U>& );
@@ -1531,8 +1505,10 @@ class PolImg
   template< class U > friend  PolVar<U> xlog( const PolVar<U>& );
   template< class U > friend  PolVar<U> sqrt( const PolVar<U>& );
   template< class U > friend  PolVar<U> sqr ( const PolVar<U>& );
-  template< class U > friend  PolVar<U> pow ( const PolVar<U>&, const PolVar<U>& );  
-  template< class U > friend  PolVar<U> cheb( const PolVar<U>&, const PolVar<U>& );  
+  template< class U > friend  PolVar<U> pow ( const PolVar<U>&, const int );  
+  template< class U > friend  PolVar<U> pow ( const PolVar<U>&, const double );  
+  template< class U > friend  PolVar<U> cheb( const PolVar<U>&, const unsigned );  
+  template< class U > friend  PolVar<U> prod( const unsigned, const PolVar<U>* );  
   template< class U > friend  PolVar<U> cos ( const PolVar<U>& );
   template< class U > friend  PolVar<U> sin ( const PolVar<U>& );
   template< class U > friend  PolVar<U> tan ( const PolVar<U>& );
@@ -1545,8 +1521,8 @@ class PolImg
   template< class U > friend  PolVar<U> fabs( const PolVar<U>& );
   template< class U > friend  PolVar<U> erf( const PolVar<U>& );
   template< class U > friend  PolVar<U> fstep( const PolVar<U>& );
-  template< class U > friend  PolVar<U> maxf( const PolVar<U>&, const PolVar<U>& );  
-  template< class U > friend  PolVar<U> minf( const PolVar<U>&, const PolVar<U>& );  
+  template< class U > friend  PolVar<U> max( const PolVar<U>&, const PolVar<U>& );  
+  template< class U > friend  PolVar<U> min( const PolVar<U>&, const PolVar<U>& );  
   template< class U > friend  PolVar<U> lmtd( const PolVar<U>&, const PolVar<U>& );  
   template< class U > friend  PolVar<U> rlmtd( const PolVar<U>&, const PolVar<U>& );  
 
@@ -1653,11 +1629,17 @@ protected:
     ( FFOp*op, const typename PolCut<T>::TYPE type, const double b,
       const std::set<unsigned>&ndx, const PolVar<T>*X, const double*a,
       const PolVar<T>&X1, const double a1 );
-  //! @brief Appends new relaxation cut in _Cuts w/ variable and coefficient maps
+  //! @brief Appends new relaxation cut in _Cuts w/ 1 variable and coefficient maps
   template <typename U> typename t_Cuts::iterator _append_cut
     ( FFOp*op, const typename PolCut<T>::TYPE type, const double b,
       const std::map<U,PolVar<T>>&X, const std::map<U,double>&a,
       const PolVar<T>&X1, const double a1 );
+  //! @brief Appends new relaxation cut in _Cuts w/ 2 variables and coefficient maps
+  template <typename U> typename t_Cuts::iterator _append_cut
+    ( FFOp*op, const typename PolCut<T>::TYPE type, const double b,
+      const std::map<U,PolVar<T>>&X, const std::map<U,double>&a,
+      const PolVar<T>&X1, const double a1,
+      const PolVar<T>&X2, const double a2 );
 
   //! @brief Computes max distance between function and outer-approximation
   std::pair< double, double > _distmax
@@ -1695,7 +1677,7 @@ protected:
     ( PolLinEq<T>*&pLin, const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 );
   //! @brief Propagate linear cut for unary - operation
   bool _lineq_NEG
-    ( PolLinEq<T>*&pLin, const PolVar<T>*VarR, FFVar*pVar1 );
+    ( PolLinEq<T>*&pLin, const PolVar<T>*VarR, FFVar*pVar );
   //! @brief Propagate linear cut for binary - operation
   bool _lineq_MINUS
     ( PolLinEq<T>*&pLin, const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 );
@@ -1707,10 +1689,10 @@ protected:
     ( PolLinEq<T>*&pLin, const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 );
   //! @brief Propagate linear cut for fabs function
   bool _lineq_FABS
-    ( PolLinEq<T>*&pLin, const PolVar<T>*VarR, FFVar*pVar1 );
+    ( PolLinEq<T>*&pLin, const PolVar<T>*VarR, FFVar*pVar );
   //! @brief Propagate linear cut for fstep function
   bool _lineq_FSTEP
-    ( PolLinEq<T>*&pLin, const PolVar<T>*VarR, FFVar*pVar1 );
+    ( PolLinEq<T>*&pLin, const PolVar<T>*VarR, FFVar*pVar );
 
   //! @brief Append linear cuts for binary intersection
   void _append_cuts_INTER
@@ -1720,7 +1702,7 @@ protected:
     ( const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 );
   //! @brief Append linear cuts for unary - operation
   void _append_cuts_NEG
-    ( const PolVar<T>*VarR, FFVar*pVar1 );
+    ( const PolVar<T>*VarR, FFVar*pVar );
   //! @brief Append linear cuts for binary - operation
   void _append_cuts_MINUS
     ( const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 );
@@ -1732,40 +1714,49 @@ protected:
     ( const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 );
   //! @brief Append linear cuts for ipow function
   void _append_cuts_IPOW
-    ( const PolVar<T>*VarR, FFVar*pVar1, const int iExp );
+    ( const PolVar<T>*VarR, FFVar*pVar, const int iExp );
   //! @brief Append linear cuts for ipow function
-  void _append_cuts_IPOW
-    ( const PolVar<T>*VarR, FFVar*pVar1, const double dExp );
+//  void _append_cuts_DPOW
+//    ( const PolVar<T>*VarR, FFVar*pVar, const double dExp );
   //! @brief Append linear cuts for cheb function
   void _append_cuts_CHEB
-    ( const PolVar<T>*VarR, FFVar*pVar1, comst int iOrd );
+    ( const PolVar<T>*VarR, FFVar*pVar, const unsigned iOrd );
+  //! @brief Append linear cuts for n-ary product
+  void _append_cuts_PROD
+    ( const PolVar<T>*VarR, const std::vector<FFVar*>vVar );
   //! @brief Append linear cuts for exp function
   void _append_cuts_EXP
-    ( const PolVar<T>*VarR, FFVar*pVar1 );
-  //! @brief Append linear cuts for log function
-  void _append_cuts_XLOG
-    ( const PolVar<T>*VarR, FFVar*pVar1 );
+    ( const PolVar<T>*VarR, FFVar*pVar );
   //! @brief Append linear cuts for xlog function
   void _append_cuts_LOG
-    ( const PolVar<T>*VarR, FFVar*pVar1 );
+    ( const PolVar<T>*VarR, FFVar*pVar );
+  //! @brief Append linear cuts for xlog function
+//  void _append_cuts_XLOG
+//    ( const PolVar<T>*VarR, FFVar*pVar );
+  //! @brief Append linear cuts for erf function
+//  void _append_cuts_ERF
+//    ( const PolVar<T>*VarR, FFVar*pVar );
   //! @brief Append linear cuts for sqr function
   void _append_cuts_SQR
-    ( const PolVar<T>*VarR, FFVar*pVar1 );
+    ( const PolVar<T>*VarR, FFVar*pVar );
   //! @brief Append linear cuts for sqrt function
   void _append_cuts_SQRT
-    ( const PolVar<T>*VarR, FFVar*pVar1 );
+    ( const PolVar<T>*VarR, FFVar*pVar );
   //! @brief Append linear cuts for fabs function
   void _append_cuts_FABS
-    ( const PolVar<T>*VarR, FFVar*pVar1 );
+    ( const PolVar<T>*VarR, FFVar*pVar );
   //! @brief Append linear cuts for fstep function
   void _append_cuts_FSTEP
-    ( const PolVar<T>*VarR, FFVar*pVar1 );
+    ( const PolVar<T>*VarR, FFVar*pVar );
   //! @brief Append linear cuts for cos function
   void _append_cuts_COS
-    ( const PolVar<T>*VarR, FFVar*pVar1 );
+    ( const PolVar<T>*VarR, FFVar*pVar );
   //! @brief Append linear cuts for sin function
   void _append_cuts_SIN
-    ( const PolVar<T>*VarR, FFVar*pVar1 );
+    ( const PolVar<T>*VarR, FFVar*pVar );
+  //! @brief Increment index even subset
+  bool _subset_incr
+    ( const unsigned ntot, std::vector<unsigned>&ndx );
 
 public:
   /** @ingroup POLYTOPE
@@ -1967,6 +1958,12 @@ public:
       const std::map<U,PolVar<T>>&X, const std::map<U,double>&a,
       const PolVar<T>&X1, const double a1 )
     { return _append_cut( 0, type, b, X, a, X1, a1 ); }
+  //! @brief Append new relaxation cut w/ variable and coefficient maps
+  template <typename U> typename t_Cuts::iterator add_cut
+    ( const typename PolCut<T>::TYPE type, const double b,
+      const std::map<U,PolVar<T>>&X, const std::map<U,double>&a,
+      const PolVar<T>&X1, const double a1, const PolVar<T>&X2, const double a2 )
+    { return _append_cut( 0, type, b, X, a, X1, a1, X2, a2 ); }
 
   //! @brief Erase cut with iterator <a>itcut</a> from set of cuts
   void erase_cut
@@ -2305,6 +2302,18 @@ PolImg<T>::_append_cut
   return _Cuts.insert( pCut );
 }
 
+template <typename T> template <typename U>
+inline typename PolImg<T>::t_Cuts::iterator
+PolImg<T>::_append_cut
+( FFOp*op, const typename PolCut<T>::TYPE type,
+  const double b, const std::map<U,PolVar<T>>&X,
+  const std::map<U,double>&a, const PolVar<T>&X1,
+  const double a1, const PolVar<T>&X2, const double a2 )
+{
+  PolCut<T>* pCut = new PolCut<T>( op, type, b, X, a, X1, a1, X2, a2 );
+  return _Cuts.insert( pCut );
+}
+
 template <typename T> inline void
 PolImg<T>::generate_cuts
 ( const unsigned ndep, const PolVar<T>*pdep, const bool reset )
@@ -2416,6 +2425,20 @@ PolImg<T>::_append_cuts_INTER
     auto itVar2 = _Vars.find( pVar2 );
     _append_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar2->second, -1. );
   }
+}
+
+template <typename T>
+inline PolVar<T>
+operator+
+( const PolVar<T>&Var1, const double Cst2 )
+{
+  PolImg<T>* img = Var1._img;
+  FFGraph* dag = Var1._var.dag();
+  if( !dag || !dag->curOp() )
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
+  FFVar* pFFVarR = dag->curOp()->pres;
+  PolVar<T>* pVarR = img->_append_var( pFFVarR, Var1.range() + Cst2, true );
+  return *pVarR;
 }
 
 template <typename T>
@@ -2581,6 +2604,20 @@ PolImg<T>::_lineq_MINUS
 template <typename T>
 inline PolVar<T>
 operator*
+( const PolVar<T>&Var1, const double Cst2 )
+{
+  PolImg<T>* img = Var1._img;
+  FFGraph* dag = Var1._var.dag();
+  if( !dag || !dag->curOp() )
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
+  FFVar* pFFVarR = dag->curOp()->pres;
+  PolVar<T>* pVarR = img->_append_var( pFFVarR, Var1.range() * Cst2, true );
+  return *pVarR;
+}
+
+template <typename T>
+inline PolVar<T>
+operator*
 ( const PolVar<T>&Var1, const PolVar<T>&Var2 )
 {
   if( Var1._img && Var2._img && Var1._img != Var2._img )
@@ -2646,6 +2683,20 @@ PolImg<T>::_lineq_TIMES
     pLin->substitute( VarR, pVar1->num().val(), itVar2->second );
   }
   return true;
+}
+
+template <typename T>
+inline PolVar<T>
+operator/
+( const double Cst1, const PolVar<T>&Var2 )
+{
+  PolImg<T>* img = Var2._img;
+  FFGraph* dag = Var2._var.dag();
+  if( !dag || !dag->curOp() )
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
+  FFVar* pFFVarR = dag->curOp()->pres;
+  PolVar<T>* pVarR = img->_append_var( pFFVarR, Cst1 / Var2.range(), true );
+  return *pVarR;
 }
 
 template <typename T>
@@ -2945,7 +2996,7 @@ inline PolVar<T>
 inv
 ( const PolVar<T>&Var1 )
 {
-  return pow( Var1, PolVar<T>(-1) );
+  return pow( Var1, -1 );
 }
 
 template <typename T>
@@ -3431,13 +3482,13 @@ PolImg<T>::_append_cuts_SIN
 template <typename T>
 inline PolVar<T>
 pow
-( const PolVar<T>&Var1, const PolVar<T>&Var2 )
+( const PolVar<T>&Var1, const int iExp )
 {
-#ifdef MC__POLIMG_CHECK
-  if( !Var2_.var.cst() && Var2_.var.num().t != FFNum::INT )
-    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
-#endif
-  const int iExp = Var2._var.num().n;
+//#ifdef MC__POLIMG_CHECK
+//  if( !Var2_.var.cst() && Var2_.var.num().t != FFNum::INT )
+//    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
+//#endif
+//  const int iExp = Var2._var.num().n;
 #ifdef MC__POLIMG_CHECK
   if( iExp == 0 || iExp == 1 || iExp == 2 )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
@@ -3584,7 +3635,7 @@ PolImg<T>::_append_cuts_IPOW
 template <typename T>
 inline PolVar<T>
 cheb
-( const PolVar<T>&Var1, const int iOrd )
+( const PolVar<T>&Var1, const unsigned iOrd )
 {
 #ifdef MC__POLIMG_CHECK
   if( iOrd <= 2 )
@@ -3607,40 +3658,178 @@ cheb
 
 template <typename T> inline void
 PolImg<T>::_append_cuts_CHEB
-( const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
+( const PolVar<T>*VarR, FFVar*pVar, const unsigned iOrd )
 {
-  const int iOrd = pVar2->num().n;
-  if( pVar1->cst() )
-    _append_cut( VarR->_var.ops().first, PolCut<T>::EQ, mc::cheb( pVar1->num().val(), iOrd ), *VarR, 1. );
+  if( pVar->cst() )
+    _append_cut( VarR->_var.ops().first, PolCut<T>::EQ, mc::cheb( pVar->num().val(), iOrd ), *VarR, 1. );
   else{
-    auto itVar1 = _Vars.find( pVar1 );
+    auto itVar1 = _Vars.find( pVar );
     struct loc{
       static std::pair<double,double> cheb
         ( const double x, const double*rusr, const int*iusr )
         { return std::make_pair( mc::cheb(x,*iusr), *iusr*mc::cheb2(x,*iusr-1) ); }
-    };
+    };      
+    const int iusr = iOrd;
     // Positive even order
     if( iOrd > 0 && !(iOrd%2) ){
       _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
-        Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::cheb, 0, &iOrd );
+        Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::cheb, 0, &iusr );
       double xJL = std::cos(mc::PI*(1.+1./(double)iOrd));
       _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range), xJL,
-        *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::cheb, 0, &iOrd );
+        *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::cheb, 0, &iusr );
       double xJU = std::cos(mc::PI/(double)iOrd);
       _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, xJU, Op<T>::u(itVar1->second->_range),
-        *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::cheb, 0, &iOrd );
+        *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::cheb, 0, &iusr );
     }
 
     // Positive odd order
     else{
       double xJL = std::cos(mc::PI*(1.+1./(double)iOrd));
       _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range), xJL,
-        *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::LE, loc::cheb, 0, &iOrd );
+        *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::LE, loc::cheb, 0, &iusr );
       double xJU = std::cos(mc::PI/(double)iOrd);
       _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, xJU, Op<T>::u(itVar1->second->_range),
-        *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::cheb, 0, &iOrd );
+        *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::cheb, 0, &iusr );
     }
   }
+}
+
+template <typename T>
+inline PolVar<T>
+prod
+( const unsigned nVar, const PolVar<T>*pVar )
+{
+#ifdef MC__POLIMG_CHECK
+  if( nVar <= 2 )
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
+#endif
+  FFGraph* dag = pVar->_var.dag();
+#ifdef MC__POLIMG_CHECK
+  if( !dag || !dag->curOp() )
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
+#endif
+
+  FFVar* pFFVarR = dag->curOp()->pres;
+  std::vector<T> IVar; IVar.reserve( nVar );
+  for( unsigned i=0; i<nVar; i++ ) IVar.push_back( pVar[i]._range );
+  PolVar<T>* pVarR = pVar->_img->_append_var( pFFVarR, Op<T>::prod( IVar.size(), IVar.data() ), true );
+  return *pVarR;
+}
+
+template <typename T> inline bool
+PolImg<T>::_subset_incr
+( const unsigned ntot, std::vector<unsigned>&ndx )
+{
+  auto rit=ndx.rbegin();
+  for( unsigned i=0; rit!=ndx.rend(); ++rit, i++ )
+    if( *rit < ntot-i-1 ){ (*rit)++; return true; }
+  if( ntot < ndx.size()+2 ) return false;
+  for( unsigned i=0; i<ndx.size(); i++ ) ndx.at(i) = i;
+  ndx.push_back( ndx.size() ); ndx.push_back( ndx.size() );
+  return true;
+}
+
+//template <typename T> inline bool
+//PolImg<T>::_subset_incr
+//( const unsigned ntot, std::set<unsigned>&ndx )
+//{
+//  auto rit=ndx.rbegin();
+//  for( unsigned i=0; rit!=ndx.rend(); ++rit, i++ )
+//    if( *rit < ntot-i-1 ){ (*rit)++; return true; }
+//  if( ntot < ndx.size()+2 ) return false;
+//  for( unsigned i=0; i<ndx.size(); i++ ) ndx.at(i) = i;
+//  ndx.insert( ndx.size() ); ndx.insert( ndx.size() );
+//  return true;
+//}
+
+template <typename T> inline void
+PolImg<T>::_append_cuts_PROD
+( const PolVar<T>*VarR, std::vector<FFVar*>vVar )
+{
+  std::vector<PolVar<T>> vPolVar;
+  double scalR = 1., radR = 1.;
+  double isCen = true;
+  auto it=vVar.begin(); 
+  for( unsigned i=0; it!=vVar.end(); ++it, i++ ){
+    // Detect constant operands
+    if( (*it)->cst() ){
+      scalR *= (*it)->num().val();
+      continue;
+    }
+    // Look for corresponding variable in polyhedral image
+    auto itVar = _Vars.find( *it );
+    assert( itVar->first );
+    if( isequal( Op<T>::diam(itVar->second->_range), 0. ) ){
+      scalR *= Op<T>::mid(itVar->second->_range);
+      continue;
+    }
+    vPolVar.push_back( *(itVar->second) );
+    if( !isequal( Op<T>::mid(itVar->second->_range), 0. ) )
+      isCen = false;
+    radR *= Op<T>::u(itVar->second->_range);
+  }
+#ifdef MC__POLIMG_DEBUG_PROD
+  std::cout << "CENTERED:" << (isCen?"Y":"N") << std::endl;
+#endif 
+  
+  // Case: Zero scaling factor in multilinear term
+  if( isequal( scalR, 0. ) ){
+    _append_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1. );
+    return;
+  }
+
+  // Case: Non-centered multilinear term
+  if( !isCen ){
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
+//    for( unsigned i=0; i<vPolVar.size(); i++ ){
+//    PolVar<T>* auxVar = _append_aux( Op<T>::pow( itVar1->second->_range, iExp ), true );
+//    _append_cuts_TIMES( const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
+  }
+
+  // Case: Centered multilinear term
+  std::vector<double> cPolVar( vPolVar.size() );
+  for( std::vector<unsigned> ndxCut; ; ){
+#ifdef MC__POLIMG_DEBUG_PROD
+    std::cout << "{";
+    for( auto&& idx : ndxCut ) std::cout << " " << idx;
+    std::cout << " }\n";
+#endif   
+    // Subscase: Odd-sized multilinear term
+    if( vPolVar.size()%2 ){
+      for( unsigned i=0, k=0; i<vPolVar.size(); i++ ){
+        if( ndxCut.size() > k && ndxCut[k] == i ){
+          cPolVar[i] = 1. / Op<T>::u( vPolVar[i]._range );
+          k++;
+        }
+        else
+          cPolVar[i] = -1. / Op<T>::u( vPolVar[i]._range );
+      }
+      _append_cut( VarR->_var.ops().first, PolCut<T>::LE, vPolVar.size()-1.,
+        vPolVar.size(), vPolVar.data(), cPolVar.data(), *VarR, 1./(scalR*radR) );
+      _append_cut( VarR->_var.ops().first, PolCut<T>::GE, 1.-vPolVar.size(),
+        vPolVar.size(), vPolVar.data(), cPolVar.data(), *VarR, 1./(scalR*radR) );
+    }
+    // Subscase: Even-sized multilinear term
+    else{
+      for( unsigned i=0, k=0; i<vPolVar.size(); i++ ){
+        if( ndxCut.size() > k && ndxCut[k] == i ){
+          cPolVar[i] = 1. / Op<T>::u( vPolVar[i]._range );
+          k++;
+        }
+        else
+          cPolVar[i] = -1. / Op<T>::u( vPolVar[i]._range );
+      }
+      _append_cut( VarR->_var.ops().first, PolCut<T>::GE, 1.-vPolVar.size(),
+        vPolVar.size(), vPolVar.data(), cPolVar.data(), *VarR, -1./(scalR*radR) );
+      _append_cut( VarR->_var.ops().first, PolCut<T>::GE, 1.-vPolVar.size(),
+        vPolVar.size(), vPolVar.data(), cPolVar.data(), *VarR, 1./(scalR*radR) );
+    }
+    // Generate next index set
+    if( !_subset_incr( vPolVar.size(), ndxCut ) ) break;
+  }
+#ifdef MC__POLIMG_DEBUG_PROD
+  std::cout << "vVar: " << vVar.size() << "  vPolVar: " << vPolVar.size() << std::endl;
+#endif
 }
 
 template <typename T>
@@ -3752,7 +3941,7 @@ PolImg<T>::_lineq_FSTEP
 
 } // namespace mc
 
-#include "mcop.hpp"
+//#include "mcop.hpp"
 
 namespace mc
 {
@@ -3773,7 +3962,15 @@ template< typename T > struct Op< mc::PolVar<T> >
   static PV sqr (const PV& x){ return mc::sqr(x);  }
   static PV sqrt(const PV& x){ return mc::sqrt(x); }
   static PV log (const PV& x){ return mc::log(x);  }
-  static PV xlog(const PV& x){ return mc::xlog(x); }
+  static PV xlog(const PV& x)
+    { throw std::runtime_error("operation not permitted"); }
+//  { return mc::xlog(x); }
+  static PV lmtd(const PV& x, const PV& y)
+    { throw std::runtime_error("operation not permitted"); }
+//  { return mc::lmtd(x,y); }
+  static PV rlmtd(const PV& x, const PV& y)
+    { throw std::runtime_error("operation not permitted"); }
+//  { return mc::rlmtd(x,y); }
   static PV fabs(const PV& x){ return mc::fabs(x); }
   static PV exp (const PV& x){ return mc::exp(x);  }
   static PV cos (const PV& x){ return mc::cos(x);  }
@@ -3788,6 +3985,15 @@ template< typename T > struct Op< mc::PolVar<T> >
     { throw std::runtime_error("operation not permitted"); }
 //  { return mc::acos(x); }
   static PV atan(const PV& x)
+    { throw std::runtime_error("operation not permitted"); }
+//  { return mc::atan(x); }
+  static PV sinh(const PV& x)
+    { throw std::runtime_error("operation not permitted"); }
+//  { return mc::asin(x); }
+  static PV cosh(const PV& x)
+    { throw std::runtime_error("operation not permitted"); }
+//  { return mc::acos(x); }
+  static PV tanh(const PV& x)
     { throw std::runtime_error("operation not permitted"); }
 //  { return mc::atan(x); }
   static PV erf (const PV& x)
@@ -3807,8 +4013,13 @@ template< typename T > struct Op< mc::PolVar<T> >
     { throw std::runtime_error("operation not permitted"); }
 //  { return mc::max(x,y);  }
   static PV arh (const PV& x, const double k){ return mc::exp(-k/x); }
-  static PV pow (const PV& x, const PV& y){ return mc::pow(x,y); }
-  static PV cheb(const PV& x, const PV& y){ return mc::cheb(x,y); }
+  template <typename EXP> static PV pow(const PV& x, const EXP& y) { return mc::pow(x,y); }
+//  static PV pow(const PV& x, const PV& y) { return mc::pow(x,y); }
+  static PV cheb (const PV& x, const unsigned n) { return mc::cheb(x,n); }
+  static PV prod (const unsigned int n, const PV* x) { return mc::prod(n,x); }
+  static PV monom (const unsigned int n, const PV* x, const unsigned* k)
+    { throw std::runtime_error("operation not permitted"); }
+//  { return mc::monom(n,x,k); }
   static PV hull(const PV& x, const PV& y){ return mc::Op<T>::hull(x.range(),y.range()); }
   static bool inter(PV& xIy, const PV& x, const PV& y){
     try{ xIy = x^y; return true; }

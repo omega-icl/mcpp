@@ -77,7 +77,7 @@ template <> struct Op< ::INTERVAL >
   static double diam(const T& x) { return ::Diam(x); }
   static T inv (const T& x) { return T(1.)/x;  }
   static T sqr (const T& x) { return ::Sqr(x);  }
-  static T sqrt(const T& x) { return ::Sqrt(x); }
+  static T sqrt(const T& x) { if( ::Inf(x) < 0. ) throw std::runtime_error("negative square root"); return ::Sqrt(x); }
   static T exp (const T& x) { return ::Exp(x);  }
   static T log (const T& x) { return ::Log(x);  }
   static T xlog(const T& x) { return T( ::Pred(mc::xlog(mc::mid(::Inf(x),::Sup(x),std::exp(-1.)))), ::Succ(std::max(mc::xlog(::Inf(x)),mc::xlog(::Sup(x)))) ); }

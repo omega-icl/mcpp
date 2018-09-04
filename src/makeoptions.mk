@@ -22,8 +22,10 @@ INC_FADBAD = -I$(PATH_FADBAD)
 #LIB_SDPA   = -lsdpa -ldmumps_seq
 #INC_SDPA   = #-I/usr/include/
 
+PATH_HSL = 
 LIB_HSL = -lmc13 -lmc21 -lmc33 -lgfortran
 INC_HSL = 
+FLAGS_HSL = -DMC__USE_HSL
 
 LIB_CPPUNIT = -lcppunit
 

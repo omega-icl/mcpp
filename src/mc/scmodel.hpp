@@ -205,6 +205,7 @@ Moreover, exceptions may be thrown by the template parameter class itself.
 #undef  MC__SCMODEL_CHECK_PMODEL
 #undef  MC__SCVAR_DEBUG_EXP
 #undef  MC__SCVAR_DEBUG_BERNSTEIN
+#define MC__SCMODEL_USE_PROD
 
 //#undef MC__SCVAR_FABS_SQRT
 //#undef MC__SCVAR_FORCE_REM_DERIV
@@ -386,7 +387,7 @@ public:
     //! @brief Constructor of mc::SCModel::Options
     Options():
       INTERP_EXTRA(0), BOUNDER_TYPE(LSB), BOUNDER_ORDER(0), MIXED_IA(true),
-      REF_POLY(0.), DISPLAY_DIGITS(5)
+      MIN_FACTOR(0.), REF_POLY(0.), DISPLAY_DIGITS(5)
       {}
     //! @brief Copy constructor of mc::SCModel::Options
     template <typename U> Options
@@ -394,9 +395,10 @@ public:
       : INTERP_EXTRA( options.INTERP_EXTRA ),
         BOUNDER_TYPE( options.BOUNDER_TYPE ),
         BOUNDER_ORDER( options.BOUNDER_ORDER ),
+        MIN_FACTOR( options.MIN_FACTOR ),
         MIXED_IA( options.MIXED_IA ),
         REF_POLY(options.REF_POLY),
-	DISPLAY_DIGITS(options.DISPLAY_DIGITS)
+        DISPLAY_DIGITS(options.DISPLAY_DIGITS)
       {}
     //! @brief Assignment of mc::SCModel::Options
     template <typename U> Options& operator =
@@ -404,9 +406,10 @@ public:
         INTERP_EXTRA     = options.INTERP_EXTRA;
         BOUNDER_TYPE     = (BOUNDER)options.BOUNDER_TYPE;
         BOUNDER_ORDER    = options.BOUNDER_ORDER;
+        MIN_FACTOR       = options.MIN_FACTOR;
         MIXED_IA         = options.MIXED_IA;
         REF_POLY         = options.REF_POLY;
-	DISPLAY_DIGITS   = options.DISPLAY_DIGITS;
+        DISPLAY_DIGITS   = options.DISPLAY_DIGITS;
         return *this;
       }
     //! @brief Chebyshev model range bounder option
@@ -426,6 +429,8 @@ public:
     static const std::string BOUNDER_NAME[5];
     //! @brief Whether to intersect internal bounds with underlying bounds in T arithmetics
     bool MIXED_IA;
+    //! @brief Threshold for monomial coefficients below which the term is removed and appended to the remainder term.
+    double MIN_FACTOR;
     //! @brief Scalar in \f$[0,1]\f$ related to the choice of the polynomial part in the overloaded functions mc::inter and mc::hull (see \ref sec_CHEBYSHEV_fct). A value of 0. amounts to selecting the polynomial part of the left operand, whereas a value of 1. selects the right operand.
     double REF_POLY;
     //! @brief Number of digits in output stream for Chebyshev model coefficients.
@@ -958,6 +963,18 @@ SCModel<T>::get_bndmon
   const unsigned maxord = bndmon.rbegin()->first.first;
   U**basis = get_basis( maxord, bndvar, scaled );
 
+#ifdef MC__SCMODEL_USE_PROD
+  std::vector<U> Umon; Umon.reserve(_nvar);
+  auto it = bndmon.begin();
+  if( !it->first.first ){ it->second = 1; ++it; }
+  for( ; it!=bndmon.end(); ++it ){
+    Umon.clear();
+    auto ie=it->first.second.cbegin();
+    for( unsigned i=0; ie!=it->first.second.cend(); ++ie, i++ )
+      Umon.push_back( basis[ie->first][ie->second] );
+    it->second = prod( Umon.size(), Umon.data() );
+  }
+#else
   auto it = bndmon.begin();
   if( !it->first.first ){ it->second = 1; ++it; }
   for( ; it!=bndmon.end(); ++it ){
@@ -965,6 +982,7 @@ SCModel<T>::get_bndmon
     for( auto ie=it->first.second.cbegin(); ie!=it->first.second.cend(); ++ie )
       it->second *= basis[ie->first][ie->second];
   }
+#endif
 
   for( unsigned j=0; j<_nvar; j++) delete[] basis[j];
   delete[] basis;
@@ -1781,8 +1799,7 @@ SCVar<T>::_set
 
   // Populate model variable
   _coefmon.clear();
-  if( !isequal(_scalvar(i),0.) )
-    _coefmon.insert( std::make_pair( std::make_pair(0,std::map<unsigned,unsigned>()),_refvar(i) ) );
+  _coefmon.insert( std::make_pair( std::make_pair(0,std::map<unsigned,unsigned>()),_refvar(i) ) );
   if( _CM->_maxord && !isequal(_scalvar(i),0.) ){
     std::map<unsigned,unsigned> ndx_i; ndx_i.insert( std::make_pair(i,1) );
     _coefmon.insert( std::make_pair( std::make_pair(1,ndx_i),_scalvar(i) ) );
@@ -1798,7 +1815,7 @@ SCVar<T>::_set
   // Interval bounds
   //_unset_bndT();
   if( _CM->options.MIXED_IA ) _set_bndT( _bndvar(i) );
-
+  if( _CM->options.MIN_FACTOR > 0. ) simplify( _CM->options.MIN_FACTOR );
   return *this;
 }
 
@@ -1967,6 +1984,7 @@ SCVar<T>::scale
   // Return *this if null pointer to model _CM or variable ranges X
   for( unsigned i=0; _CM && X && i<nvar(); i++ )
     scale( i, X[i] );
+  if( _CM && _CM->options.MIN_FACTOR > 0. ) simplify( _CM->options.MIN_FACTOR );
   return *this;
 }
 
@@ -1974,10 +1992,14 @@ template <typename T> inline SCVar<T>&
 SCVar<T>::simplify
 ( const double TOL )
 {
-  // Sparse multivariate polynomial
+  if( _coefmon.empty() ) return *this;
+  // Treat constant coefficient differently
+  auto it=_coefmon.begin();
+  if( !it->first.first && it->second != 0. ) ++it; // Keep non-zero constant coefficient
   for( auto it=_coefmon.begin(); it!=_coefmon.end(); ){
     if( std::fabs(it->second) < TOL ){
       _bndrem += it->second * (2.*Op<T>::zeroone()-1.);
+      _unset_bndpol();
       it = _coefmon.erase( it );
       continue;
     }
@@ -2043,6 +2065,7 @@ SCVar<T>::operator+=
   if( _bndT && CV._bndT ) *_bndT += *CV._bndT;
   else if( _bndT && !CV._CM ) *_bndT += CV.B();
   else _unset_bndT();
+  if( CV._CM && CV._CM->options.MIN_FACTOR > 0. ) simplify( CV._CM->options.MIN_FACTOR );
 
   return *this;
 }
@@ -2153,6 +2176,7 @@ SCVar<T>::operator-=
   if( _bndT && CV._bndT ) *_bndT -= *CV._bndT;
   else if( _bndT && !CV._CM ) *_bndT -= CV.B();
   else _unset_bndT();
+  if( CV._CM && CV._CM->options.MIN_FACTOR > 0. ) simplify( CV._CM->options.MIN_FACTOR );
 
   return *this;
 }
@@ -2260,12 +2284,13 @@ operator*
   if( !Op<T>::inter( CV3._bndrem, R1, R2) )
     CV3._bndrem = ( Op<T>::diam(R1) < Op<T>::diam(R2)? R1: R2 );
 
-  // Bounding
+  // Bounding and simplification
+  if( CV3._CM->options.MIN_FACTOR > 0. ) CV3.simplify( CV3._CM->options.MIN_FACTOR );
   CV3._unset_bndpol();
   if( CV3._CM->options.MIXED_IA ) CV3._set_bndT( CV1.B() * CV2.B() );
-  else CV3._unset_bndT();
-  
+  else CV3._unset_bndT();  
   // std::cout << CV3;
+  
   return CV3;
 }
 
@@ -2286,7 +2311,8 @@ sqr
   T PB = CV._polybound();
   CV2._bndrem += ( PB + CV.B() ) * CV._bndrem;
 
-  // Bounding
+  // Bounding and simplification
+  if( CV2._CM->options.MIN_FACTOR > 0. ) CV2.simplify( CV2._CM->options.MIN_FACTOR );
   CV2._unset_bndpol();
   if( CV2._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sqr(CV.B()) );
   else CV2._unset_bndT();
@@ -2434,6 +2460,7 @@ inv
   CV2 += (2.*Op<T>::zeroone()-1.)*rem;
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::inv( CV.B() ) );
+  if( CV._CM->options.MIN_FACTOR > 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
   return CV2;
 }
 
@@ -2462,6 +2489,7 @@ sqrt
   CV2 += (2.*Op<T>::zeroone()-1.)*rem;
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sqrt( CV.B() ) );
+  if( CV._CM->options.MIN_FACTOR > 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
   return CV2;
 }
 
@@ -2496,6 +2524,7 @@ exp
   CV2 += (2.*Op<T>::zeroone()-1.)*rem;
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::exp( CV.B() ) );
+  if( CV._CM->options.MIN_FACTOR > 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
   return CV2;
 }
 
@@ -2524,6 +2553,7 @@ log
   CV2 += (2.*Op<T>::zeroone()-1.)*rem;
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::log( CV.B() ) );
+  if( CV._CM->options.MIN_FACTOR > 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
   return CV2;
 }
 
@@ -2544,6 +2574,7 @@ pow
   if( n < 0 ) return pow( inv( CV ), -n );
   SCVar<T> CV2( CV._CM->_intpow( CV, n ) );
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::pow( CV.B(), n ) );
+  if( CV._CM->options.MIN_FACTOR > 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
   return CV2;
 }
 
@@ -2601,6 +2632,7 @@ cheb
   }
   SCVar<T> CV2( 2.*(CV*cheb(CV,n-1))-cheb(CV,n-2) );
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::cheb( CV.B(), n ) );
+  if( CV._CM->options.MIN_FACTOR > 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
   return CV2;
 }
 
@@ -2626,6 +2658,7 @@ cos
   CV2 += (2.*Op<T>::zeroone()-1.)*rem;
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::cos( CV.B() ) );
+  if( CV._CM->options.MIN_FACTOR > 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
   return CV2;
 }
 
@@ -2673,6 +2706,7 @@ acos
   CV2 += (2.*Op<T>::zeroone()-1.)*rem;
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::acos(CV.B()) );
+  if( CV._CM->options.MIN_FACTOR > 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
   return CV2;
 }
 
@@ -2748,6 +2782,7 @@ fabs
   CV2 += (2.*Op<T>::zeroone()-1.)*rem;
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::fabs( CV.B() ) );
+  if( CV._CM->options.MIN_FACTOR > 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
   return CV2;
 #endif
 }
@@ -2848,6 +2883,7 @@ inter
 
   if( CVR._CM->options.MIXED_IA ) CVR._set_bndT( BR );
   else CVR._unset_bndT();
+  if( CVR._CM->options.MIN_FACTOR > 0. ) CVR.simplify( CVR._CM->options.MIN_FACTOR );
   return true;
 }
 

@@ -1062,7 +1062,6 @@ template <> struct Op<mc::Interval>
   static T erfc(const T& x) { return mc::erfc(x); }
   static T fstep(const T& x) { return mc::fstep(x); }
   static T bstep(const T& x) { return mc::bstep(x); }
-  static T hull(const T& x, const T& y) { return mc::hull(x,y); }
   static T min (const T& x, const T& y) { return mc::min(x,y);  }
   static T max (const T& x, const T& y) { return mc::max(x,y);  }
   static T arh (const T& x, const double k) { return mc::arh(x,k); }
@@ -1070,6 +1069,7 @@ template <> struct Op<mc::Interval>
   static T cheb (const T& x, const unsigned n) { return mc::cheb(x,n); }
   static T prod (const unsigned int n, const T* x) { return mc::prod(n,x); }
   static T monom (const unsigned int n, const T* x, const unsigned* k) { return mc::monom(n,x,k); }
+  static T hull(const T& x, const T& y) { return mc::hull(x,y); }
   static bool inter(T& xIy, const T& x, const T& y) { return mc::inter(xIy,x,y); }
   static bool eq(const T& x, const T& y) { return x==y; }
   static bool ne(const T& x, const T& y) { return x!=y; }

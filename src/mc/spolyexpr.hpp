@@ -10,9 +10,6 @@
 
 #include "ffunc.hpp"
 
-#undef  MC__SPOLYMODEL_DEBUG
-#define MC__SPOLYMODEL_DEBUG_POLYBOUND
-#define MC__SPOLYMODEL_CHECK
 #undef  MC__SPOLYEXPR_DEBUG_SPROD
 
 namespace mc
@@ -63,13 +60,13 @@ public:
   friend std::ostream& operator<< ( std::ostream&, const SPolyExpr& );
 
 protected:
-  //! @brief Pointer to underlying factorable function DAG - _dag := NULL for variable identifier NOREF
-  mutable FFGraph *_dag;
+//  //! @brief Pointer to underlying factorable function DAG - _dag := NULL for variable identifier NOREF
+//  mutable FFGraph *_dag;
 
   //! @brief Map of monomial terms in polynomial expression
   t_ffpoly _mapmon;
 
-  //! @brief Set of particpating variables in polynomial expression
+  //! @brief Set of participating variables in polynomial expression
   t_ffvar _setvar;
 
   //! @brief Initialize private/protected members of model variable
@@ -157,7 +154,7 @@ public:
 
   //! @brief Constructor of sparse polynomial expression as variable
   SPolyExpr
-    ( const FFVar& x)
+    ( const FFVar& x )
     { _init(); _set( x ); }
 
   //! @brief Copy constructor of sparse polynomial expression
@@ -174,6 +171,10 @@ public:
 //    ( t_ffpoly& mapmon )
 //    { _mapmon = mapmon;
 //      return *this; } // this is assuming the same order and number of variables
+
+  //! @brief Insert sparse polynomial into DAG
+  FFVar insert
+    ( FFGraph*dag );
 
   //! @brief Total number of monomial terms in polynomial variable
   unsigned nmon
@@ -219,13 +220,22 @@ public:
   SPolyExpr& operator*=
     ( const SPolyExpr& spoly );
 
+  //! @brief Overloaded operator '*=' for real scalar
+  SPolyExpr& operator*=
+    ( const double d );
+
+  //! @brief Overloaded operator '/=' for real denominator
+  SPolyExpr& operator/=
+    ( const double d );
+
   //! @brief Exceptions of mc::SPolyExpr
   class Exceptions
   {
    public:
     //! @brief Enumeration type for SPolyExpr exception handling
     enum TYPE{
-      DAG=0,          //!< Operation between sparse polynomials linked to different DAGs
+//      DAG=0,          //!< Operation between sparse polynomials linked to different DAGs
+      DIVZERO = 1,    //!< Scalar division by zero
       INTERNAL = -33  //!< Internal error
     };
     //! @brief Constructor for error <a>ierr</a>
@@ -235,8 +245,10 @@ public:
     //! @brief Error description
     std::string what(){
       switch( _ierr ){
-      case DAG:
-        return "mc::SPolyExpr\t Operation between sparse polynomials linked to different DAGs is not allowed";
+//      case DAG:
+//        return "mc::SPolyExpr\t Operation between sparse polynomials linked to different DAGs is not allowed";
+      case DIVZERO:
+        return "mc::SPolyExpr\t Scalar division by zero";
       case INTERNAL:
       default:
         return "mc::SPolyExpr\t Internal error";
@@ -253,10 +265,11 @@ public:
     Options():
       BASIS(MONOM), REMZERO(true), DISPLEN(5)
       {}
-    //! @brief Assignment of mc::SCModel::Options
+    //! @brief Assignment of mc::SPolyExpr::Options
     Options& operator=
       ( Options& opt ){
         BASIS   = opt.BASIS;
+        REMZERO = opt.REMZERO;
         DISPLEN = opt.DISPLEN;
         return *this;
       }
@@ -283,7 +296,7 @@ inline void
 SPolyExpr::_init
 ()
 {
-  _dag = 0;
+//  _dag = 0;
   return;
 }
 
@@ -317,8 +330,9 @@ inline SPolyExpr&
 SPolyExpr::_set
 ( const FFVar&x )
 {
+  if( x.cst() ) return _set( x.num().val() );
   _reinit();
-  _dag = x.dag();
+//  _dag = x.dag();
   std::map<const FFVar*,unsigned> mon; mon.insert( std::make_pair(&x,1) );
   _mapmon.insert( std::make_pair( std::make_pair(1,mon), 1. ) );
   _setvar.insert( &x );
@@ -330,7 +344,7 @@ SPolyExpr::_set
 ( const SPolyExpr&spoly )
 {
   if( this == &spoly ) return *this;
-  _dag = spoly._dag;
+//  _dag = spoly._dag;
   _mapmon = spoly._mapmon;
   _setvar = spoly._setvar;
   return *this;
@@ -348,6 +362,33 @@ const
     else
       ++itmon;
   return;
+}
+
+inline FFVar
+SPolyExpr::insert
+( FFGraph*dag )
+{
+  FFVar var = 0.;
+  for( auto it=_mapmon.begin(); it!=_mapmon.end(); ++it ){
+    FFVar prodmon = it->second;
+    for( auto ie=it->first.second.begin(); ie!=it->first.second.end(); ++ie ){
+      auto itVar = dag->Vars().find( const_cast<FFVar*>(ie->first) );
+      if( itVar == dag->Vars().end() )
+        throw typename SPolyExpr::Exceptions( SPolyExpr::Exceptions::INTERNAL );
+      switch( SPolyExpr::options.BASIS ){
+       case SPolyExpr::Options::MONOM:
+        prodmon *= pow( **itVar, (int)ie->second );
+        break;
+       case SPolyExpr::Options::CHEB:
+        prodmon *= cheb( **itVar, ie->second );
+        break;
+      }
+    }
+    if( it->first.second.empty() ) var = prodmon;
+    else                           var+= prodmon;
+  }
+  // ADD OPTION TO RETURN A PRODMON OR MONOM TERM?
+  return var;
 }
 
 inline std::ostream&
@@ -390,8 +431,8 @@ inline SPolyExpr&
 SPolyExpr::operator+=
 ( const SPolyExpr&spoly )
 {
-  if( _dag && spoly._dag && _dag != spoly._dag )
-    throw typename SPolyExpr::Exceptions( SPolyExpr::Exceptions::DAG );
+//  if( _dag && spoly._dag && _dag != spoly._dag )
+//    throw typename SPolyExpr::Exceptions( SPolyExpr::Exceptions::DAG );
 
   for( auto it=spoly._mapmon.begin(); it!=spoly._mapmon.end(); ++it ){
     // No warm-start for insert unfortunately...
@@ -432,8 +473,8 @@ inline SPolyExpr&
 SPolyExpr::operator-=
 ( const SPolyExpr&spoly )
 {
-  if( _dag && spoly._dag && _dag != spoly._dag )
-    throw typename SPolyExpr::Exceptions( SPolyExpr::Exceptions::DAG );
+//  if( _dag && spoly._dag && _dag != spoly._dag )
+//    throw typename SPolyExpr::Exceptions( SPolyExpr::Exceptions::DAG );
 
   for( auto it=spoly._mapmon.begin(); it!=spoly._mapmon.end(); ++it ){
     // No warm-start for insert unfortunately...
@@ -461,11 +502,33 @@ operator-
 }
 
 inline SPolyExpr&
+SPolyExpr::operator/=
+( const double d )
+{
+  if( d == 0. ) throw typename SPolyExpr::Exceptions( SPolyExpr::Exceptions::DIVZERO );
+  if( d == 1. ) return *this;
+  for( auto&& mon : _mapmon )
+    mon.second /= d;
+  return *this;
+}
+
+inline SPolyExpr&
+SPolyExpr::operator*=
+( const double d )
+{
+  if( d == 0. ){ *this = 0; return *this; };
+  if( d == 1. ) return *this;
+  for( auto&& mon : _mapmon )
+    mon.second /= d;
+  return *this;
+}
+
+inline SPolyExpr&
 SPolyExpr::operator*=
 ( const SPolyExpr&spoly )
 {
-  if( _dag && spoly._dag && _dag != spoly._dag )
-    throw typename SPolyExpr::Exceptions( SPolyExpr::Exceptions::DAG );
+//  if( _dag && spoly._dag && _dag != spoly._dag )
+//    throw typename SPolyExpr::Exceptions( SPolyExpr::Exceptions::DAG );
 
   // Consolidate set of participating variables in product term
   _setvar.insert( spoly._setvar.begin(), spoly._setvar.end() );

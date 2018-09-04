@@ -1,26 +1,28 @@
-// Copyright (C) 2013-2017 Benoit Chachuat, Imperial College London.
+// Copyright (C) 2013-2018 Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
 /*!
 \page page_FFUNC Construction, Manipulation and Evaluation of Factorable Functions
 \author Benoit Chachuat & OMEGA Research Group (http://www3.imperial.ac.uk/environmentenergyoptimisation)
-\version 1.1
-\date 2017
+\date 2018
 \bug No known bugs.
 
 Originally introduced by McCormick [McCormick, 1976] for the development of a convex/concave relaxation arithmetic, <B>factorable functions</B> cover an extremely inclusive class of functions which can be represented finitely on a computer by means of a code list or a computational graph involving atom operations. These are typically unary and binary operations within a library of atom operators, which can be based for example on the C-code library <tt>math.h</tt>. Besides convex/concave relaxations, factorable functions find applications in automatic differentiation (AD) [Naumann, 2009] as well as in interval analysis [Moore <I>et al.</I>, 2009] and Taylor model arithmetic [Neumaier, 2002].
 
 Factorable functions can be represented using <b>directed acyclic graphs (DAGs)</b>, whose nodes are subexpressions and whose directed edges are computational flows [Schichl & Neumaier, 2005]. Compared to tree-based representations, DAGs offer the essential advantage of more accurately handling the influence of subexpressions shared by several functions during evaluation.
 
-The classes mc::FFGraph, mc::FFVar and mc::FFOp defined in <tt>ffunc.hpp</tt> implement such a DAG construction for factorable functions. They also provide a basis for their manipulation, including differentiation and Taylor expansion, as well as their evaluation, in particular with the types mc::McCormick, mc::Specbnd, mc::TVar and mc::CVar of MC++.
+The classes mc::FFGraph, mc::FFVar and mc::FFOp defined in <tt>ffunc.hpp</tt> implement such a DAG construction for factorable functions. They also provide a basis for their manipulation, including differentiation and Taylor expansion, as well as their evaluation, in particular with the types mc::McCormick, mc::Specbnd, mc::TVar and mc::CVar of MC++. Additional classes building on mc::FFGraph for DAG manipulation include:
+- \subpage page_SPEXPR
+- \subpage page_RLTRED
+.
 
 
 \section sec_FFUNC_dag How Do I Construct the DAG of a Factorable Function?
 
 For illustration, suppose we want to construct a DAG for the factorable function \f${\bf f}:\mathbb{R}^4\to\mathbb{R}^2\f$ defined by
 \f{align*}
-  {\bf f} = \left(\begin{array}{c} x_2x_3-x_0\\ x_0(\exp(x_2x_3)+3.0)^4)+x_1\end{array}\right)
+  {\bf f}(x_0,x_1,x_2,x_3) = \left(\begin{array}{c} x_2x_3-x_0\\ x_0(\exp(x_2x_3)+3.0)^4)+x_1\end{array}\right)
 \f}
 
 The constructions require the header file <tt>ffunc.hpp</tt> to be included:
@@ -462,7 +464,7 @@ Further exceptions can be thrown by the underlying arithmetic used for the evalu
 \section sec_FFUNC_refs References
 
 - McCormick, G. P., <A href="http://dx.doi.org/10.1007/BF01580665">Computability of global solutions to factorable nonconvex programs: Part I. Convex underestimating problems</A>, <i>Mathematical Programming</i>, <b>10</b>(2):147-175, 1976
-- Moore, R.E., M.J. Cloud, R.B. Kearfott, <I><A href="http://books.google.co.uk/books/about/Introduction_to_interval_analysis.html?id=tT7ykKbqfEwC&redir_esc=y">"Introduction to Interval Analysis"</A></I>, SIAM, 2009
+- Moore, R.E., M.J. Cloud, R.B. Kearfott, <I><A href="http://books.google.co.uk/books/about/Introduction_to_interval_analysis.html?id=tT7ykKbqfEwC&redir_esc=y">Introduction to Interval Analysis</A></I>, SIAM, 2009
 - Naumann, U., <I><A href="http://books.google.co.uk/books/about/The_Art_of_Differentiating_Computer_Prog.html?id=OgQuUR4nLu0C&redir_esc=y">The Art of Differentiating Computer Programs: An Introduction to Algorithmic
 Differentiation</A></I>, SIAM, 2009
 - Neumaier, A., <A href="http://dx.doi.org/10.1023/A:1023061927787">Taylor forms--Use and limits</A>, <i>Reliable Computing</i>, <b>9</b>(1):43-79, 2002
@@ -508,7 +510,7 @@ Differentiation</A></I>, SIAM, 2009
 #endif
 
 // For block decomposition
-#ifdef MC__HSL_USE
+#ifdef MC__USE_HSL
 extern "C" void mc13d_
   ( const int*, const int*, const int*, const int*, const int*, int*, int*, int*, int* );
 extern "C" void mc21a_
@@ -643,7 +645,7 @@ class FFVar
   template <typename V> friend FFVar operator/ ( const FFVar&, const V& );
   friend FFVar sum   ( const unsigned int, const FFVar* );
   friend FFVar prod  ( const unsigned int, const FFVar* );
-  friend FFVar monom ( const unsigned int, const FFVar*, const unsigned* );
+  friend FFVar monom ( const unsigned int, const FFVar*, const unsigned*, const bool );
   friend FFVar max ( const FFVar&, const FFVar& );
   friend FFVar max ( const unsigned int, const FFVar* );
   template <typename V> friend FFVar max ( const V&, const FFVar& );
@@ -1035,6 +1037,10 @@ struct lt_FFOp
       if( Op1->type < Op2->type ) return true;
       if( Op1->type > Op2->type ) return false;
 
+      // Sort by number of operands next
+      if( Op1->pops.size() < Op2->pops.size() ) return true;
+      if( Op1->pops.size() > Op2->pops.size() ) return false;
+
       // Sort by variable type next
       lt_FFVar ltVar;
       if( Op1->pops.empty() ) return ltVar( Op1->pres, Op2->pres );
@@ -1088,7 +1094,7 @@ class FFGraph
   template <typename V> friend FFVar operator/ ( const FFVar&, const V& );
   friend FFVar sum   ( const unsigned int, const FFVar* );
   friend FFVar prod  ( const unsigned int, const FFVar* );
-  friend FFVar monom ( const unsigned int, const FFVar*, const unsigned* );
+  friend FFVar monom ( const unsigned int, const FFVar*, const unsigned*, const bool );
   friend FFVar max   ( const FFVar&, const FFVar& );
   friend FFVar max   ( const unsigned int, const FFVar* );
   template <typename V> friend FFVar max ( const V&, const FFVar& );
@@ -1260,9 +1266,17 @@ public:
   std::list<const FFOp*> subgraph
     ( const unsigned int nDep, const FFVar*pDep ) const;
 
+  //! @brief Extract list of operations corresponding to dependents indexed by <a>ndxDep</a> in array <a>pDep</a>
+  std::list<const FFOp*> subgraph
+    ( const std::set<unsigned>&ndxDep, const FFVar*pDep ) const;
+
   //! @brief Extract list of operations corresponding to dependents <a>vDep</a>
   std::list<const FFOp*> subgraph
     ( const std::vector<const FFVar*>&vDep ) const;
+
+  //! @brief Extract list of operations corresponding to dependents <a>vDep</a>
+  template< typename V> std::list<const FFOp*> subgraph
+    ( const std::map<V,FFVar>&mDep ) const;
 /*
    //! @brief Create dependency map corresponding to <a>nDep</a> dependents in array <a>pDep</a> and <a>nIndep</a> independents in array <a>pIndep</a>
   CPPL::dssmatrix depmap
@@ -1444,13 +1458,13 @@ public:
       U*vDep, const std::list<unsigned>&nVar, const std::list<const FFVar*>&pVar,
       const std::list<const U*>&vVar, const bool add=false );
 
-#ifdef MC__HSL_USE
-  //! @brief Perform lower triangular block reaarangement of a square system
+#ifdef MC__USE_HSL
+  //! @brief Perform lower triangular block reaarangement of a square system - the output arguments are the same as in the <a href="http://www.hsl.rl.ac.uk/catalogue/mc13.html">documentation of MC13</a>
   bool MC13
     ( const unsigned nDep, const FFVar*pDep, const FFVar*pIndep,
       int*IPERM, int*IOR, int*IB, int&NB, const bool disp=false,
       std::ostream&os=std::cout );
-  //! @brief Perform bordered-block triangular reaarangement of a possibly non-square system
+  //! @brief Perform bordered-block triangular reaarangement of a possibly non-square system - the output arguments are the same as in the <a href="http://www.hsl.rl.ac.uk/catalogue/mc33.html">documentation of MC33</a>
   bool MC33
     ( const unsigned nDep, const FFVar*pDep, const unsigned nIndep,
       const FFVar*pIndep, int*IP, int*IQ, int*IPROF, int*IFLAG, const bool disp=false,
@@ -2948,19 +2962,19 @@ inline FFVar
 prod
 ( const unsigned nVar, const FFVar*pVar )
 {
-  // Case no operand
+  // Case 0 operand
   if( !nVar || !pVar ) return( 1 );
-  // Case single operand
+  // Case 1 operand
   if( nVar == 1 ) return( pVar[0] );
-  // Case two operands
+  // Case 2 operands
   if( nVar == 2 ) return( pVar[0] * pVar[1] );
-
+  // Case >2 operands
   double Scal = 1.;
   std::vector<FFDep> vDep;
   std::vector<FFVar> vVar;
   for( unsigned i=0; i<nVar; i++ ){ 
     // Constant operands are removed from multi-linear term
-    if( pVar[i]._id.first == FFVar::CREAL || pVar[i]._id.first == FFVar::CREAL ){
+    if( pVar[i]._id.first == FFVar::CINT || pVar[i]._id.first == FFVar::CREAL ){
       Scal *= pVar[i]._num.val();
       continue;
     }
@@ -2980,13 +2994,43 @@ prod
 
 inline FFVar
 monom
-( const unsigned nVar, const FFVar*pVar, const unsigned*pExp )
+( const unsigned nVar, const FFVar*pVar, const unsigned*pExp, const bool cmon=false )
 {
-  switch( nVar ){
-   case 0:  return( 1 );
-   case 1:  return( pow( pVar[0], (int)pExp[0] ) );
-   default: return( pow( pVar[0], (int)pExp[0] ) * monom( nVar-1, pVar+1, pExp+1 ) );
+  // Case 0 operand
+  if( !nVar || !pVar ) return( 1 );
+  // Case 1 operand
+  if( nVar == 1 ) return( cmon? cheb( pVar[0], pExp[0] ): pow( pVar[0], (int)pExp[0] ) );
+  // Case 2 operands
+  if( nVar == 2 ) return( cmon? cheb( pVar[0], pExp[0] ) * cheb( pVar[1], pExp[1] ):
+                                pow( pVar[0], (int)pExp[0] ) * pow( pVar[1], (int)pExp[1] ) );
+  // Case >2 operands
+  double Scal = 1.;
+  std::vector<FFDep> vDep;
+  std::vector<FFVar> vVar;
+  for( unsigned i=0; i<nVar; i++ ){ 
+    // Constant operands are removed from monomial term
+    if( pVar[i]._id.first == FFVar::CINT || pVar[i]._id.first == FFVar::CREAL ){
+      Scal *= ( cmon? cheb( pVar[i]._num.val(), pExp[i] ): std::pow( pVar[i]._num.val(), (int)pExp[i] ) );
+      continue;
+    }
+    FFVar term = ( cmon? cheb( pVar[i], pExp[i] ): pow( pVar[i], (int)pExp[i] ) );
+    vDep.push_back( term._dep );
+    vVar.push_back( term );
   }
+  switch( vVar.size() ){
+    case 0:  return( Scal );
+    case 1:  return( Scal * vVar[0] );
+    case 2:  return( Scal * ( vVar[0] * vVar[1] ) );
+    default: break;
+  }
+  FFVar VarProd = FFGraph::_insert_nary_operation( FFOp::PROD, prod( vDep.size(), vDep.data() ), vVar.size(), vVar.data() );
+  return( vVar.size() < nVar? Scal * VarProd: VarProd );
+
+//  switch( nVar ){
+//   case 0:  return( 1 );
+//   case 1:  return( pow( pVar[0], (int)pExp[0] ) );
+//   default: return( pow( pVar[0], (int)pExp[0] ) * monom( nVar-1, pVar+1, pExp+1 ) );
+//  }
 }
 
 ////////////////////////////////// FFOp ////////////////////////////////////////
@@ -3020,13 +3064,131 @@ FFOp::FFOp
   std::sort( pops.begin(), pops.end(), lt_FFVar() );
 }
 
+//inline std::ostream&
+//operator <<
+//( std::ostream&out, const FFOp&Op)
+//{
+//  switch( Op.type ){
+//    case FFOp::PLUS:
+//    case FFOp::SHIFT: if( Op.pops[0]->cst() ) out << Op.pops[0]->num().val(); else out << *Op.pops[0];
+//                      out << " + ";
+//                      if( Op.pops[1]->cst() ) out << Op.pops[1]->num().val(); else out << *Op.pops[1];
+//                      out << "\t"; break;
+//    case FFOp::NEG:   if( Op.pops[0]->cst() ) out << -Op.pops[0]->num().val(); else out << "- " << *Op.pops[0];
+//                      out << "\t"; break;
+//    case FFOp::MINUS: if( Op.pops[0]->cst() ) out << Op.pops[0]->num().val(); else out << *Op.pops[0];
+//                      out << " - ";
+//                      if( Op.pops[1]->cst() ) out << Op.pops[1]->num().val(); else out << *Op.pops[1];
+//                      out << "\t"; break;
+//    case FFOp::TIMES:
+//    case FFOp::SCALE: if( Op.pops[0]->cst() ) out << Op.pops[0]->num().val(); else out << *Op.pops[0];
+//                      out << " * ";
+//                      if( Op.pops[1]->cst() ) out << Op.pops[1]->num().val(); else out << *Op.pops[1];
+//                      out << "\t"; break;
+//    case FFOp::DIV:
+//    case FFOp::INV:   if( Op.pops[0]->cst() ) out << Op.pops[0]->num().val(); else out << *Op.pops[0];
+//                      out << " / ";
+//                      if( Op.pops[1]->cst() ) out << Op.pops[1]->num().val(); else out << *Op.pops[1];
+//                      out << "\t"; break;
+//    case FFOp::IPOW:
+//    case FFOp::DPOW:  out << "POW( ";
+//                      if( Op.pops[0]->cst() ) out << Op.pops[0]->num().val(); else out << *Op.pops[0];
+//                      out << ", " << Op.pops[1]->num().val() << " )"; break;
+//    case FFOp::CHEB:  out << "CHEB( ";
+//                      if( Op.pops[0]->cst() ) out << Op.pops[0]->num().val(); else out << *Op.pops[0];
+//                      out << ", " << Op.pops[1]->num().val() << " )"; break;
+//    case FFOp::SQR:   out << "SQR( ";
+//                      if( Op.pops[0]->cst() ) out << Op.pops[0]->num().val(); else out << *Op.pops[0];
+//                      out << " )\t"; break;
+//    case FFOp::SQRT:  out << "SQRT( ";
+//                      if( Op.pops[0]->cst() ) out << Op.pops[0]->num().val(); else out << *Op.pops[0];
+//                      out << " )\t"; break;
+//    case FFOp::EXP:   out << "EXP( ";
+//                      if( Op.pops[0]->cst() ) out << Op.pops[0]->num().val(); else out << *Op.pops[0];
+//                      out << " )\t"; break;
+//    case FFOp::LOG:   out << "LOG( ";
+//                      if( Op.pops[0]->cst() ) out << Op.pops[0]->num().val(); else out << *Op.pops[0];
+//                      out << " )\t"; break;
+//    case FFOp::XLOG:  out << "XLOG( ";
+//                      if( Op.pops[0]->cst() ) out << Op.pops[0]->num().val(); else out << *Op.pops[0];
+//                      out << " )\t"; break;
+//    case FFOp::COS:   out << "COS( ";
+//                      if( Op.pops[0]->cst() ) out << Op.pops[0]->num().val(); else out << *Op.pops[0];
+//                      out << " )\t"; break;
+//    case FFOp::SIN:   out << "SIN( ";
+//                      if( Op.pops[0]->cst() ) out << Op.pops[0]->num().val(); else out << *Op.pops[0];
+//                      out << " )\t"; break;
+//    case FFOp::TAN:   out << "TAN( ";
+//                      if( Op.pops[0]->cst() ) out << Op.pops[0]->num().val(); else out << *Op.pops[0];
+//                      out << " )\t"; break;
+//    case FFOp::ASIN:  out << "ASIN( ";
+//                      if( Op.pops[0]->cst() ) out << Op.pops[0]->num().val(); else out << *Op.pops[0];
+//                      out << " )\t"; break;
+//    case FFOp::ACOS:  out << "ACOS( ";
+//                      if( Op.pops[0]->cst() ) out << Op.pops[0]->num().val(); else out << *Op.pops[0];
+//                      out << " )\t"; break;
+//    case FFOp::ATAN:  out << "ATAN( ";
+//                      if( Op.pops[0]->cst() ) out << Op.pops[0]->num().val(); else out << *Op.pops[0];
+//                      out << " )\t"; break;
+//    case FFOp::SINH:  out << "SINH( ";
+//                      if( Op.pops[0]->cst() ) out << Op.pops[0]->num().val(); else out << *Op.pops[0];
+//                      out << " )\t"; break;
+//    case FFOp::COSH:  out << "COSH( ";
+//                      if( Op.pops[0]->cst() ) out << Op.pops[0]->num().val(); else out << *Op.pops[0];
+//                      out << " )\t"; break;
+//    case FFOp::TANH:  out << "TANH( ";
+//                      if( Op.pops[0]->cst() ) out << Op.pops[0]->num().val(); else out << *Op.pops[0];
+//                      out << " )\t"; break;
+//    case FFOp::ERF:   out << "ERF( ";
+//                      if( Op.pops[0]->cst() ) out << Op.pops[0]->num().val(); else out << *Op.pops[0];
+//                      out << " )\t"; break;
+//    case FFOp::FABS:  out << "FABS( ";
+//                      if( Op.pops[0]->cst() ) out << Op.pops[0]->num().val(); else out << *Op.pops[0];
+//                      out << " )\t"; break;
+//    case FFOp::FSTEP: out << "FSTEP( ";
+//                      if( Op.pops[0]->cst() ) out << Op.pops[0]->num().val(); else out << *Op.pops[0];
+//                      out << " )\t"; break;
+//    case FFOp::LMTD:  out << "LMTD( ";
+//                      if( Op.pops[0]->cst() ) out << Op.pops[0]->num().val(); else out << *Op.pops[0];
+//                      out << ", ";
+//                      if( Op.pops[1]->cst() ) out << Op.pops[1]->num().val(); else out << *Op.pops[1];
+//                      out << " )\t"; break;
+//    case FFOp::RLMTD: out << "RLMTD( ";
+//                      if( Op.pops[0]->cst() ) out << Op.pops[0]->num().val(); else out << *Op.pops[0];
+//                      out << ", ";
+//                      if( Op.pops[1]->cst() ) out << Op.pops[1]->num().val(); else out << *Op.pops[1];
+//                      out << " )\t"; break;
+//    case FFOp::MINF:  out << "MIN( ";
+//                      if( Op.pops[0]->cst() ) out << Op.pops[0]->num().val(); else out << *Op.pops[0];
+//                      out << ", ";
+//                      if( Op.pops[1]->cst() ) out << Op.pops[1]->num().val(); else out << *Op.pops[1];
+//                      out << ")"; break;
+//    case FFOp::MAXF:  out << "MAX( ";
+//                      if( Op.pops[0]->cst() ) out << Op.pops[0]->num().val(); else out << *Op.pops[0];
+//                      out << ", ";
+//                      if( Op.pops[1]->cst() ) out << Op.pops[1]->num().val(); else out << *Op.pops[1];
+//                      out << ")"; break;
+//    case FFOp::INTER: out << "INTER( ";
+//                      if( Op.pops[0]->cst() ) out << Op.pops[0]->num().val(); else out << *Op.pops[0];
+//                      out << ", ";
+//                      if( Op.pops[1]->cst() ) out << Op.pops[1]->num().val(); else out << *Op.pops[1];
+//                      out << ")"; break;
+//    case FFOp::PROD:  out << "PROD( ";
+//                      for( unsigned i=0; i<Op.pops.size()-1; i++ )
+//                        out << *Op.pops[i] << ",";
+//                      out << *Op.pops[Op.pops.size()-1] << " )\t"; break;
+//    default: break;
+//  } 
+//  return out;
+//}
+
 inline std::ostream&
 operator <<
 ( std::ostream&out, const FFOp&Op)
 {
   switch( Op.type ){
     case FFOp::CNST:  out << Op.pres->num() << "\t"; break;
-    case FFOp::VAR:   out << "VARIABLE"; break;
+    case FFOp::VAR:   if( Op.pres->cst() ) out << Op.pres->num(); else out << "VARIABLE"; break;
     case FFOp::PLUS:
     case FFOp::SHIFT: out << FFVar::_name( Op.pops[0]->id() ) << " + " << FFVar::_name( Op.pops[1]->id() ) << "\t"; break;
     case FFOp::NEG:   out << "- " << FFVar::_name( Op.pops[0]->id() ) << "\t" ; break;
@@ -3314,7 +3476,7 @@ FFOp::evaluate
     return;
 
    case FFOp::PROD:{
-    std::vector<U> ops_val;
+    std::vector<U> ops_val; ops_val.reserve( pops.size() );
     for( auto it=pops.begin(); it!=pops.end(); ++it ) ops_val.push_back( *static_cast<U*>( (*it)->val() ) );
     pres->val() = new U( Op<U>::prod( ops_val.size(), ops_val.data() ) );
     return;
@@ -3501,7 +3663,7 @@ FFOp::evaluate
     break;
 
    case FFOp::PROD:{
-    std::vector<U> ops_val;
+    std::vector<U> ops_val; ops_val.reserve( pops.size() );
     for( auto it=pops.begin(); it!=pops.end(); ++it ) ops_val.push_back( *static_cast<U*>( (*it)->val() ) );
     *itU = Op<U>::prod( ops_val.size(), ops_val.data() );
     break;
@@ -3912,16 +4074,41 @@ FFGraph::subgraph
 
 inline std::list<const FFOp*>
 FFGraph::subgraph
+( const std::set<unsigned>&ndxDep, const FFVar*pDep ) const
+{
+  std::list<const FFOp*> Ops;
+  _reset_operations();
+  for( auto&& i: ndxDep ){
+    if( !pDep[i].ops().first ) continue;
+    pDep[i].ops().first->propagate_subgraph( Ops );
+  }
+  return Ops;
+}
+
+inline std::list<const FFOp*>
+FFGraph::subgraph
 ( const std::vector<const FFVar*>&vDep ) const
 {
-  //return subgraph( vDep.size(), vDep.data() );
-
   std::list<const FFOp*> Ops;
   _reset_operations();
   typename std::vector<const FFVar*>::const_iterator it = vDep.begin();
   for( ; it!=vDep.end(); ++it ){
     if( !((*it)->ops().first) ) continue;
     (*it)->ops().first->propagate_subgraph( Ops );
+  }
+  return Ops;
+}
+
+template< typename V>
+inline std::list<const FFOp*>
+FFGraph::subgraph
+( const std::map<V,FFVar>&mDep ) const
+{
+  std::list<const FFOp*> Ops;
+  _reset_operations();
+  for( auto&& iDep: mDep ){
+    if( !(iDep.second.ops().first) ) continue;
+    iDep.second.ops().first->propagate_subgraph( Ops );
   }
   return Ops;
 }
@@ -4577,50 +4764,111 @@ FFGraph::compose
 ( std::vector<const FFVar*>&vDepOut,
   std::vector< std::pair<const FFVar*, const FFVar*> >&vDepIn )
 {
-  // Nothing to do!
+  // Check dependent and independent vector sizes
   if( !vDepIn.size() || !vDepOut.size() ) return vDepOut;
 
-  // Initialize of all independent variables participating in the dependent ones
-  std::vector< std::pair<const FFVar*,FFVar> > vIndep;
-  it_Vars itv = _Vars.begin();
-  for( ; itv!=_Vars.end() && (*itv)->_id.first<=FFVar::VAR; ++itv ){
-    typename std::vector< std::pair<const FFVar*,const FFVar*> >::const_iterator iti = vDepIn.begin();
-    bool match = false;
-    // Pair with corresponding dependent if matching
-    for( ; !match && iti!=vDepIn.end(); ++iti )
-      if( (*itv)->id().second == (*iti).first->id().second ){
-        FFVar DepIn = *(*iti).second; // to avoid constness issue
-        vIndep.push_back( std::make_pair( (*iti).first, DepIn ) ); //_find_var( (*iti).second->id() );
-#ifdef MC__FFUNC_DEBUG_COMPOSE
-        std::cout << *(*iti).first << " <-> " << DepIn << std::endl;
-#endif
-        match = true;
+  // Propagate composition through subgraph
+  auto opDep = subgraph( vDepOut );                     // <- list of operations in dependents
+  std::vector<const FFVar*> vDepComp( vDepOut.size() ); // <- vector to hold new dependents
+  std::vector<FFVar> vWork( opDep.size() );             // <- vector to hold intermediates
+  auto itWork = vWork.begin();
+  for( auto ito=opDep.begin(); ito!=opDep.end(); ++ito ){
+    _curOp = *ito;
+    // Check if _curOp is to be substituted
+    bool is_set = false;
+    for( auto&& sub : vDepIn ){
+      if( sub.first->id() == _curOp->pres->id() ){
+        *itWork = *sub.second;
+        is_set = true; break;
       }
-    // Pair with itself otherwise
-    if( !match ){
-      vIndep.push_back( std::make_pair( *itv, **itv ) );
-#ifdef MC__FFUNC_DEBUG_COMPOSE
-      std::cout << **itv << " <-> " << **itv << std::endl;
-#endif
     }
+    if( !is_set && _curOp->type == FFOp::VAR && !_curOp->pres->cst() ){
+      *itWork = *_curOp->pres;
+      is_set = true;
+    }
+    // Evaluate
+    if( !is_set )_curOp->evaluate( itWork, vWork.data() );
+    else         _curOp->pres->val() = &(*itWork);
+    // Check for a corresponding dependent
+    auto itNew = vDepComp.begin();
+    for( auto&& dep : vDepOut ){
+      if( dep->id() == _curOp->pres->id() ){
+        auto pNew = static_cast<const FFVar*>( _curOp->pres->val() );
+        *itNew = _find_var( pNew->id() );
+        if( !*itNew ){
+          assert( pNew->cst() );
+          *itNew = _add_constant( pNew->num().val() );
+        }
+        break;
+      }
+      ++itNew;
+    }
+    // Increment iterator in working array vWork
+    ++itWork;
   }
 
-  std::vector<FFVar> vDepComp = eval( vDepOut, vIndep );
-  std::vector<const FFVar*> vDepNew;
-  typename std::vector<FFVar>::iterator itd = vDepComp.begin();
-  for( ; itd!=vDepComp.end(); ++itd ){
-    FFVar* pF = _find_var( (*itd).id() );
-    if( !pF ){
-      const FFNum& num = (*itd).num();
-      switch( num.t ){
-        case FFNum::INT:  vDepNew.push_back( _add_constant( num.n ) ); continue;
-        case FFNum::REAL: vDepNew.push_back( _add_constant( num.x ) ); continue;
-      }
-    }
-    else vDepNew.push_back( pF );
-  }
-  return vDepNew;
+//  // Retreive pointers to new dependents corresponding to vDepOut
+//  auto itNew = vDepComp.begin();
+//  for( auto&& dep : vDepOut ){
+//    // Obtain pointer to dependent variable in FFGraph
+//    FFVar* pF = !dep->cst()? _find_var( (*itd)->id() ): 0;
+//    // Push corresponding evaluation in U type into result vector
+//    if( pF ) *itNew = _find_var( pF->val()->id() );
+//    else     *itNew = _add_constant( dep->num()->val() );
+//  }
+
+  return vDepComp;
 }
+
+//inline std::vector<const FFVar*>
+//FFGraph::compose
+//( std::vector<const FFVar*>&vDepOut,
+//  std::vector< std::pair<const FFVar*, const FFVar*> >&vDepIn )
+//{
+//  // Nothing to do!
+//  if( !vDepIn.size() || !vDepOut.size() ) return vDepOut;
+
+//  // Initialize of all independent variables participating in the dependent ones
+//  std::vector< std::pair<const FFVar*,FFVar> > vIndep;
+//  it_Vars itv = _Vars.begin();
+//  for( ; itv!=_Vars.end() && (*itv)->_id.first<=FFVar::VAR; ++itv ){
+//    auto iti = vDepIn.begin();
+//    bool match = false;
+//    // Pair with corresponding dependent if matching
+//    for( ; !match && iti!=vDepIn.end(); ++iti )
+//      if( (*itv)->id().second == (*iti).first->id().second ){
+//        FFVar DepIn = *(*iti).second; // to avoid constness issue
+//        vIndep.push_back( std::make_pair( (*iti).first, DepIn ) ); //_find_var( (*iti).second->id() );
+//#ifdef MC__FFUNC_DEBUG_COMPOSE
+//        std::cout << *(*iti).first << " <-> " << DepIn << std::endl;
+//#endif
+//        match = true;
+//      }
+//    // Pair with itself otherwise
+//    if( !match ){
+//      vIndep.push_back( std::make_pair( *itv, **itv ) );
+//#ifdef MC__FFUNC_DEBUG_COMPOSE
+//      std::cout << **itv << " <-> " << **itv << std::endl;
+//#endif
+//    }
+//  }
+
+//  std::vector<FFVar> vDepComp = eval( vDepOut, vIndep );
+//  std::vector<const FFVar*> vDepNew;
+//  typename std::vector<FFVar>::iterator itd = vDepComp.begin();
+//  for( ; itd!=vDepComp.end(); ++itd ){
+//    FFVar* pF = _find_var( (*itd).id() );
+//    if( !pF ){
+//      const FFNum& num = (*itd).num();
+//      switch( num.t ){
+//        case FFNum::INT:  vDepNew.push_back( _add_constant( num.n ) ); continue;
+//        case FFNum::REAL: vDepNew.push_back( _add_constant( num.x ) ); continue;
+//      }
+//    }
+//    else vDepNew.push_back( pF );
+//  }
+//  return vDepNew;
+//}
 
 template <typename U> inline std::vector<U>
 FFGraph::eval
@@ -5441,7 +5689,7 @@ FFGraph::depmap
   return depmap;
 }
 */
-#ifdef MC__HSL_USE
+#ifdef MC__USE_HSL
 inline bool
 FFGraph::MC13
 ( const unsigned nDep, const FFVar*pDep, const FFVar*pIndep,
@@ -5673,7 +5921,7 @@ template <> struct Op< mc::FFVar >
   template <typename X, typename Y> static FV pow(const X& x, const Y& y) { return mc::pow(x,y); }
   static FV cheb(const FV& x, const unsigned n) { return mc::cheb(x,n); }
   static FV prod(const unsigned int n, const FV* x) { return mc::prod(n,x); }
-  static FV monom(const unsigned int n, const FV* x, const unsigned* k) { return mc::monom(n,x,k); }
+  static FV monom(const unsigned int n, const FV* x, const unsigned* k, const bool cheb=false) { return mc::monom(n,x,k,cheb); }
   static bool inter(FV& xIy, const FV& x, const FV& y) { xIy = mc::inter(x,y); return true; }
   static bool eq(const FV& x, const FV& y) { throw typename FFGraph::Exceptions( FFGraph::Exceptions::UNDEF ); }
   static bool ne(const FV& x, const FV& y) { throw typename FFGraph::Exceptions( FFGraph::Exceptions::UNDEF ); }

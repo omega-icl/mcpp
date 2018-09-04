@@ -781,6 +781,7 @@ INPUT                  = MC++.txt \
                          ../src/mc/mctime.hpp \
                          ../src/mc/ffdep.hpp \
                          ../src/mc/ffunc.hpp \
+                         ../src/mc/sparseexpr.hpp \
                          ../src/mc/rltred.hpp \
                          ../src/mc/interval.hpp \
                          ../src/mc/mccormick.hpp \
@@ -1683,7 +1684,8 @@ PAPER_TYPE             = a4
 # This tag requires that the tag GENERATE_LATEX is set to YES.
 
 EXTRA_PACKAGES         = amsmath, \
-                         amsfonts
+                         amsfonts, \
+                         amssymb
 
 # The LATEX_HEADER tag can be used to specify a personal LaTeX header for the
 # generated LaTeX document. The header should contain everything until the first

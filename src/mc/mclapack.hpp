@@ -8,6 +8,7 @@
 #include <iostream>
 #include <iomanip>
 #include <string>
+#include <vector>
 #include "cpplapack.h"
 
 #undef  MC__DEBUG_EIGEN
@@ -25,6 +26,7 @@ extern "C" {
   //             const CPPL_INT *lwork, CPPL_INT *info );
   void dgeqrf_( const int*, const int*, double*, const int*, double*, double*,
                 const int*, int* );
+  void dgetrf_( const int*, const int*, double*, const int*, int*, int* );
 }
 
 namespace mc
@@ -98,7 +100,7 @@ namespace CPPL{ //!< namespace for CPPLapack
   All of the arguments need not to be initialized.
   mat is not overwritten. 
 */
-inline long dsysv( const dsymatrix& mat, dsymatrix& mat_inv )
+inline int dsysv( const dsymatrix& mat, dsymatrix& mat_inv )
 { 
   VERBOSE_REPORT;
   dsymatrix mat_cp(mat);
@@ -121,11 +123,162 @@ inline long dsysv( const dsymatrix& mat, dsymatrix& mat_inv )
   return INFO;
 }
 
+/*! calculate LU decomposition.\n
+  All of the arguments need not be initialized.
+  Amat is not overwritten. 
+
+  int main()
+  {
+    CPPL::dgematrix P, L, U;
+
+    CPPL::dgematrix A(3,3);
+    A(0,0) = 1; A(0,1) = 2; A(0,2) = 3;
+    A(1,0) = 4; A(1,1) = 5; A(1,2) = 6;
+    A(2,0) = 9; A(2,1) = 8; A(2,2) = 7;
+    CPPL::dgetrf( A, U, L, P );
+
+    CPPL::dgematrix B(2,3);
+    B(0,0) = 1; B(0,1) = 2; B(0,2) = 3;
+    B(1,0) = 4; B(1,1) = 5; B(1,2) = 6;
+    CPPL::dgetrf( B, U, L, P );
+    CPPL::dgetrf( CPPL::t(B), U, L, P );
+
+    return 0;
+  }
+*/
+inline int dgetrf( const dgematrix& Amat, dgematrix& Umat, dgematrix& Lmat, std::vector<int>& Pvec )
+{
+  VERBOSE_REPORT;
+  dgematrix A(Amat);
+  const int M(Amat.m), N(Amat.n), NM = (M<N?M:N);
+  std::vector<int> IPIV(NM); 
+#ifdef MC__DEBUG_DGETRF
+  std::cout << "\nMatrix A:\n" << Amat << std::endl;
+#endif
+
+  // Perform LU decomposition
+  int INFO(0);
+  dgetrf_(&M, &N, A.array, &M, IPIV.data(), &INFO);
+  if( INFO < 0 ){
+    WARNING_REPORT;
+    std::cerr << "DGETRF: Argument #" << -INFO << " has an illegal value." << std::endl;
+    return INFO;
+  }
+
+  // Post-process QR decomposition results for R
+#ifdef MC__DEBUG_DGETRF
+  std::cout << "INFO: " << INFO << std::endl << std::endl;
+  std::cout << "IPIV:";
+  for( int ir=0; ir<NM; ir++ ) std::cout << " " << IPIV[ir];
+  std::cout << std::endl << std::endl;
+#endif
+  Pvec.resize(M);
+  for( int ir=0; ir<M; ir++ )
+    Pvec[ir] = ir;
+  for( int ir=0; ir<NM; ir++ ){
+    int poscur = Pvec[ir];
+    Pvec[ir] = Pvec[IPIV[ir]-1];
+    Pvec[IPIV[ir]-1] = poscur;
+  }
+#ifdef MC__DEBUG_DGETRF
+  std::cout << "Vector P:\n";
+  for( int ir=0; ir<M; ir++ )
+    std::cout << Pvec[ir] << std::endl;
+#endif
+  Lmat.resize(M,NM); Lmat.zero();
+  for( int ir=0; ir<NM; ir++ )
+    Lmat(ir,ir) = 1;
+  for( int ir=0; ir<M; ir++ )
+    for(int ic=0; ic<ir && ic<NM; ic++ )
+      Lmat(ir,ic) = A(ir,ic);
+#ifdef MC__DEBUG_DGETRF
+  std::cout << "Matrix L:\n" << Lmat << std::endl;
+#endif
+  Umat.resize(NM,N); Umat.zero();
+  for( int ir=0; ir<NM; ir++ )
+    for(int ic=ir; ic<N; ic++ )
+      Umat(ir,ic) = A(ir,ic);
+#ifdef MC__DEBUG_DGETRF
+  std::cout << "Matrix U:\n" << Umat << std::endl;
+#endif
+  return INFO;
+}
+inline int dgetrf( const dgematrix& Amat, dgematrix& Umat, dgematrix& Lmat, dgematrix& Pmat )
+{
+  const int M(Amat.m);
+  std::vector<int> Pvec;
+  const int INFO = dgetrf( Amat, Umat, Lmat, Pvec );
+
+  Pmat.resize(M,M); Pmat.zero();
+  for( int ir=0; ir<M; ir++ )
+    Pmat(ir,Pvec[ir]) = 1;
+#ifdef MC__DEBUG_DGETRF
+  std::cout << "Matrix P:\n" << Pmat << std::endl;
+#endif
+
+//  VERBOSE_REPORT;
+//  dgematrix A(Amat);
+//  const int M(Amat.m), N(Amat.n), NM = (M<N?M:N);
+//  std::vector<int> IPIV(NM); 
+//#ifdef MC__DEBUG_DGETRF
+//  std::cout << "\nMatrix A:\n" << Amat << std::endl;
+//#endif
+
+//  // Perform LU decomposition
+//  int INFO(0);
+//  dgetrf_(&M, &N, A.array, &M, IPIV.data(), &INFO);
+//  if( INFO < 0 ){
+//    WARNING_REPORT;
+//    std::cerr << "DGETRF: Argument #" << -INFO << " has an illegal value." << std::endl;
+//    return INFO;
+//  }
+
+//  // Post-process QR decomposition results for R
+//#ifdef MC__DEBUG_DGETRF
+//  std::cout << "INFO: " << INFO << std::endl << std::endl;
+//  std::cout << "IPIV:";
+//  for( int ir=0; ir<NM; ir++ ) std::cout << " " << IPIV[ir];
+//  std::cout << std::endl << std::endl;
+//#endif
+//  Pmat.resize(M,M); Pmat.identity();
+//  for( int ir=0; ir<NM; ir++ ){
+//    CPPL::drovector RowCur = Pmat.row(ir);
+//    for( int ic=0; ic<M; ic++ ){
+//      Pmat(ir,ic) = Pmat(IPIV[ir]-1,ic);
+//      Pmat(IPIV[ir]-1,ic) = RowCur(ic);
+//    }
+//  }
+//#ifdef MC__DEBUG_DGETRF
+//  std::cout << "Matrix P:\n" << Pmat << std::endl;
+//#endif
+//  Lmat.resize(M,NM); Lmat.zero();
+//  for( int ir=0; ir<NM; ir++ )
+//    Lmat(ir,ir) = 1;
+//  for( int ir=0; ir<M; ir++ )
+//    for(int ic=0; ic<ir && ic<NM; ic++ )
+//      Lmat(ir,ic) = A(ir,ic);
+//#ifdef MC__DEBUG_DGETRF
+//  std::cout << "Matrix L:\n" << Lmat << std::endl;
+//#endif
+//  Umat.resize(NM,N); Umat.zero();
+//  for( int ir=0; ir<NM; ir++ )
+//    for(int ic=ir; ic<N; ic++ )
+//      Umat(ir,ic) = A(ir,ic);
+//#ifdef MC__DEBUG_DGETRF
+//  std::cout << "Matrix U:\n" << Umat << std::endl;
+//#endif
+
+#ifdef MC__DEBUG_DGETRF
+  std::cout << "Check P'*L*U:\n" << CPPL::t(Pmat)*Lmat*Umat << std::endl;
+#endif
+  return INFO;
+}
+
 /*! calculate QR decomposition.\n
   All of the arguments need not to be initialized.
   mat is not overwritten. 
 */
-inline long dgeqrf( const dgematrix& Amat, dgematrix& Qmat, dgematrix& Rmat )
+inline int dgeqrf( const dgematrix& Amat, dgematrix& Qmat, dgematrix& Rmat )
 { 
   VERBOSE_REPORT;
   dgematrix A(Amat);
@@ -175,7 +328,7 @@ inline long dgeqrf( const dgematrix& Amat, dgematrix& Qmat, dgematrix& Rmat )
   return INFO;
 }
 
-inline long dgesv( const dgematrix& mat, dgematrix& mat_inv )
+inline int dgesv( const dgematrix& mat, dgematrix& mat_inv )
 {
   VERBOSE_REPORT;
   if(mat.m!=mat.n){
@@ -191,7 +344,7 @@ inline long dgesv( const dgematrix& mat, dgematrix& mat_inv )
   return mat_cp.dgesv( mat_inv );
 }
 
-inline long dgbsv( const dgbmatrix& mat, dgematrix& mat_inv )
+inline int dgbsv( const dgbmatrix& mat, dgematrix& mat_inv )
 {
   VERBOSE_REPORT;
   if(mat.m!=mat.n){

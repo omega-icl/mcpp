@@ -70,11 +70,42 @@ int test_compose2()
 
 ///////////////////////////////////////////////////////////////////////////////
 
+int test_compose3()
+{
+  std::cout << "\n==============================================\ntest_compose3:\n";
+
+  mc::FFGraph DAG;
+  mc::FFVar X, Y, Z, F, G;
+  X.set( &DAG );
+  Y.set( &DAG );
+  Z.set( &DAG );
+  F = exp(X);
+  G = sqr(Y)+F;
+  std::cout << DAG;
+
+  std::ofstream o_comp0( "compose3_0.dot", std::ios_base::out );
+  DAG.dot_script( 1, &G, o_comp0 );
+  o_comp0.close();
+
+  const mc::FFVar* GoF = DAG.compose( 1, &G, 1, &F, &Z );
+  std::cout << DAG;
+
+  std::ofstream o_comp1( "compose3_1.dot", std::ios_base::out );
+  DAG.dot_script( 1, GoF, o_comp1 );
+  o_comp1.close();
+
+  delete[] GoF;
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 int main()
 {
   try{
-    test_compose1();
-    test_compose2();
+//    test_compose1();
+//    test_compose2();
+    test_compose3();
   }
   catch( mc::FFGraph::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
