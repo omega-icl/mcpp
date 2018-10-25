@@ -103,8 +103,8 @@ int test_compose3()
 int main()
 {
   try{
-//    test_compose1();
-//    test_compose2();
+    test_compose1();
+    test_compose2();
     test_compose3();
   }
   catch( mc::FFGraph::Exceptions &eObj ){

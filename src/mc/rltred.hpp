@@ -695,7 +695,7 @@ RLTRED::search
 
   // Generate list of operation for constraint LHS and particpating variables
   stats.tGRAPH -= cpuclock();
-  l_Ops Ops = _dag->subgraph( vlhs );
+  l_Ops Ops = _dag->subgraph( vlhs ).l_op;
 
   // Define subsets and map of linear operations and participating variables
   _extract_linearity( Ops, vlhs );

@@ -534,8 +534,8 @@ SparseEnv::process
   _reset();
 
   // Update participating variables in _Var
-  auto lOps = _dag->subgraph( nDep, pDep );
-  for( auto&& Op : lOps ){
+  auto sgDep = _dag->subgraph( nDep, pDep );
+  for( auto&& Op : sgDep.l_op ){
     if( Op->type != FFOp::VAR ) continue;
     _Var.push_back( *Op->pres );
     _SPVar.push_back( SparseExpr( this, *Op->pres ) );
@@ -549,7 +549,7 @@ SparseEnv::process
 
   // Process DAG dependents
   _SPDep.resize( nDep );
-  _dag->eval( lOps, nDep, pDep, _SPDep.data(), _Var.size(), _Var.data(), _SPVar.data() );
+  _dag->eval( sgDep, nDep, pDep, _SPDep.data(), _Var.size(), _Var.data(), _SPVar.data() );
 
 #ifdef MC__SPARSEENV_PROCESS_DEBUG
   std::cout << *this;

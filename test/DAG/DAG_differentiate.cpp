@@ -237,10 +237,32 @@ int test_hessian_sparse()
   delete[] std::get<3>(d2FdX2);
   return 0;
 }
+///////////////////////////////////////////////////////////////////////////////
+
+int test_tadiff1()
+{
+  mc::FFGraph DAG;
+  mc::FFVar T( &DAG );
+  mc::FFVar X( &DAG ); 
+  mc::FFVar F = X;
+  std::cout << DAG;
+
+  const unsigned NTE = 10;
+  const mc::FFVar* F_TAD = DAG.TAD( NTE, 1, &F, 1, &X, &T );
+  std::cout << DAG;
+
+  DAG.output( DAG.subgraph( NTE+1, F_TAD ), " F1_TAD" );
+  std::ofstream o_TAD( "tadiff1.dot", std::ios_base::out );
+  DAG.dot_script( NTE+1, F_TAD, o_TAD );
+  o_TAD.close();
+
+  delete[] F_TAD;
+  return 0;
+}
 
 ///////////////////////////////////////////////////////////////////////////////
 
-int test_tadiff()
+int test_tadiff2()
 {
   mc::FFGraph DAG;
   mc::FFVar T( &DAG );
@@ -252,8 +274,8 @@ int test_tadiff()
   const mc::FFVar* F_TAD = DAG.TAD( NTE, 1, &F, 1, &X, &T );
   std::cout << DAG;
 
-  DAG.output( DAG.subgraph( NTE+1, F_TAD ), " F_TAD" );
-  std::ofstream o_TAD( "tadiff.dot", std::ios_base::out );
+  DAG.output( DAG.subgraph( NTE+1, F_TAD ), " F2_TAD" );
+  std::ofstream o_TAD( "tadiff2.dot", std::ios_base::out );
   DAG.dot_script( NTE+1, F_TAD, o_TAD );
   o_TAD.close();
 
@@ -271,7 +293,8 @@ int main()
     test_fadiff_directional();
     test_gradient_sparse();
     test_hessian_sparse();
-    test_tadiff();
+    test_tadiff1();
+    test_tadiff2();
   }
   catch( mc::FFGraph::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()

@@ -60,9 +60,9 @@ int test_rltred1()
   std::cout << DAG;
 
   mc::RLTRED RRLT( &DAG );
-  RRLT.options.DISPLAY    = 2;
+  RRLT.options.DISPLAY    = 1;
   RRLT.options.MIPFILE    = "rltred1.lp";
-  RRLT.options.MIPDISPLAY = 1;
+  RRLT.options.MIPDISPLAY = 0;
   RRLT.options.METHOD     = mc::RLTRED::Options::ILP;
   RRLT.options.LEVEL      = mc::RLTRED::Options::FULLSIM;
   RRLT.options.NODIV      = false;
@@ -106,86 +106,18 @@ int test_rltred2()
   mc::FFVar X[NX];
   for( unsigned i(0); i<NX; i++ ) X[i].set( &DAG );
   mc::FFVar F[NF];
-  F[0] = X[0] + X[1] - 1.;      // X0^2 + X0·X1 - X0 = 0 && X0·X1 + X1^2 - X1 = 0 => X0^2 - X1^2 - X0 + X1 = 0
+  // X0^2 + X0·X1 - X0 = 0 && X0·X1 + X1^2 - X1 = 0 => X0^2 - X1^2 - X0 + X1 = 0
+  F[0] = X[0] + X[1] - 1.;
   F[1] = sqr(X[0]) - sqr(X[1]) - X[2];
   std::cout << DAG;
 
   mc::RLTRED RRLT( &DAG );
-  //RRLT.options.DISPLAY    = 1;
-  //RRLT.options.MIPFILE    = "rltred2.lp";
-  RRLT.options.METHOD     = mc::RLTRED::Options::ILP;
-  RRLT.options.LEVEL      = mc::RLTRED::Options::FULLSIM;
-  //RRLT.options.NODIV      = true;
-  RRLT.options.MIPDISPLAY = 1;
-
-  RRLT.search( NF, F );
-
-  auto FRED = RRLT.constraints();
-  for( auto it=FRED.begin(); it!=FRED.end(); ++it ){
-    std::ostringstream ostr; ostr << " OF REDUCTION CONSTRAINT " << **it;
-    DAG.output( DAG.subgraph( 1, *it ), ostr.str() );
-  }
-
-  return 0;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-int test_rltred2b()
-{
-  std::cout << "\n==============================================\ntest_rltred2b:\n";
-
-  mc::FFGraph DAG;
-  const unsigned NX = 2, NF = 2;
-  mc::FFVar X[NX];
-  for( unsigned i(0); i<NX; i++ ) X[i].set( &DAG );
-  mc::FFVar F[NF];
-  F[0] = sqr(X[0]) + sqr(X[1]) - 1.;
-//  F[1] = pow(X[0],3) + pow(X[1],3) + sqr(X[0])*X[1]; // Does not currently recognize that X0^2·X0 = X0^3
-  F[1] = sqr(X[0])*X[0] + sqr(X[1])*X[1] + sqr(X[0])*X[1]; // Does not currently recognize that X0^2·X0 = X0^3
-  std::cout << DAG;
-
-  mc::RLTRED RRLT( &DAG );
-  RRLT.options.DISPLAY    = 2;
+  RRLT.options.DISPLAY    = 1;
   RRLT.options.MIPFILE    = "rltred2.lp";
-  RRLT.options.MIPDISPLAY = 1;
-  RRLT.options.METHOD     = mc::RLTRED::Options::ILP;
-  RRLT.options.LEVEL      = mc::RLTRED::Options::PRIMSIM;
-  RRLT.options.NODIV      = true;
-
-  RRLT.search( NF, F );
-
-  auto FRED = RRLT.constraints();
-  for( auto it=FRED.begin(); it!=FRED.end(); ++it ){
-    std::ostringstream ostr; ostr << " OF REDUCTION CONSTRAINT " << **it;
-    DAG.output( DAG.subgraph( 1, *it ), ostr.str() );
-  }
-
-  return 0;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-int test_rltred2c()
-{
-  std::cout << "\n==============================================\ntest_rltred2b:\n";
-
-  mc::FFGraph DAG;
-  const unsigned NX = 2, NF = 2;
-  mc::FFVar X[NX];
-  for( unsigned i(0); i<NX; i++ ) X[i].set( &DAG );
-  mc::FFVar F[NF];
-  F[0] = X[0] + X[1] - 1.;      // X0^2 + X0·X1 - X0 = 0 && X0·X1 + X1^2 - X1 = 0 => X0^2 - X1^2 - X0 + X1 = 0
-  F[1] = sqrt(X[0]) - sqrt(X[1]);
-  std::cout << DAG;
-
-  mc::RLTRED RRLT( &DAG );
-  RRLT.options.DISPLAY    = 2;
-  RRLT.options.MIPFILE    = "rltred2c.lp";
-  RRLT.options.MIPDISPLAY = 1;
   RRLT.options.METHOD     = mc::RLTRED::Options::ILP;
   RRLT.options.LEVEL      = mc::RLTRED::Options::FULLSIM;
-  RRLT.options.NODIV      = true;
+  RRLT.options.NODIV      = false;
+  RRLT.options.MIPDISPLAY = 1;
 
   RRLT.search( NF, F );
 
@@ -220,7 +152,7 @@ int test_rltred3()
   std::cout << DAG;
 
   mc::RLTRED RRLT( &DAG );
-  RRLT.options.DISPLAY    = 1;
+  RRLT.options.DISPLAY    = 2;
   RRLT.options.MIPFILE    = "rltred3.lp";
   RRLT.options.MIPDISPLAY = 1;
   RRLT.options.METHOD     = mc::RLTRED::Options::ILP;
@@ -784,7 +716,7 @@ int test_spolyexpr()
   //SPF = pow( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3, 3 ) * ( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3);
   //SPF = sqr( sqr( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3 ) );
   //SPF = sqr( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3 ) * sqr( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3 );
-  std::cout << "Sparse polynomial expression: " << SPF << std::endl;
+  std::cout << std::endl << "Sparse polynomial expression in monomial basis: " << SPF << std::endl;
 
   mc::SPolyExpr::options.BASIS = mc::SPolyExpr::Options::CHEB;
   //SPF = SPX[0] * SPX[0] * SPX[0];
@@ -792,7 +724,7 @@ int test_spolyexpr()
   //SPF = 8*pow(SPX[0],4) - 8*pow(SPX[0],2) + 1;
   //SPF = 32*pow(SPX[0],6) - 48*pow(SPX[0],4) + 18*pow(SPX[0],2) - 1;
   SPF = pow( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3, 4 );
-  std::cout << "Sparse polynomial expression: " << SPF << std::endl;
+  std::cout << "Sparse polynomial expression in chebyshev basis: " << SPF << std::endl;
 
   return 0;
 }
@@ -812,6 +744,7 @@ int test_sparseexpr()
   F[1] = exp( 2 * sqr( X[1] ) - 1 );
   std::cout << DAG;
 
+  mc::SPolyExpr::options.BASIS = mc::SPolyExpr::Options::MONOM;
   mc::SparseEnv SPE( &DAG );
   SPE.options.LIFTDIV = true;
 
@@ -844,16 +777,14 @@ int main()
 {
   try{
 //    test_dependency();
+//    test_spolyexpr();
+//    test_sparseexpr();
 //    test_rltred1();
 //    test_rltred2();
-//    test_rltred2b();
-//    test_rltred2c();
-//    test_rltred3();
+    test_rltred3();
 //    test_rltred4();
 //    test_rltred5();
 //    test_rltred6();
-//    test_spolyexpr();
-    test_sparseexpr();
   }
   catch( mc::FFGraph::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()

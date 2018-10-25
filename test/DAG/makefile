@@ -37,6 +37,9 @@ all: DAG_compose DAG_differentiate DAG_evaluate DAG_analyze
 DAG_compose : DAG_compose.o
 	$(LINK) $(PROF) $(FLAGS_LINK) -o $@ $< $(LIB_ALL)
 
+DAG_doxygen : DAG_doxygen.o
+	$(LINK) $(PROF) $(FLAGS_LINK) -o $@ $< $(LIB_ALL)
+
 DAG_differentiate : DAG_differentiate.o
 	$(LINK) $(PROF) $(FLAGS_LINK) -o $@ $< $(LIB_ALL)
 
@@ -54,10 +57,10 @@ DAG_analyze : DAG_analyze.o
 graph : gendot gensvg
 
 gendot :
-	dot -Tsvg -O $(shell ls *.dot)
+	dot -Tpng -O $(shell ls *.dot)
 
 gensvg :
-	@for FILE in $(shell ls *.svg); do \
+	@for FILE in $(shell ls *.png); do \
 	  echo $$FILE; \
 	  (display $$FILE &); \
 	done
@@ -65,5 +68,5 @@ gensvg :
 #####
 
 clean :
-	rm -f DAG_compose DAG_differentiate DAG_evaluate DAG_analyze *.o *.out *.eps *.dot *.svg *~
+	rm -f DAG_compose DAG_doxygen DAG_differentiate DAG_evaluate DAG_analyze *.o *.out *.eps *.dot *.png *.lp *~
 
