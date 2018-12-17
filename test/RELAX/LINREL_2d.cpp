@@ -1,4 +1,4 @@
-#define TEST_TRIG	// <-- select test function here
+#define TEST_POLY	// <-- select test function here
 const int NX = 40;	// <-- select discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
 
@@ -9,16 +9,6 @@ const int NX = 40;	// <-- select discretization here
 
 #include "interval.hpp"
 typedef mc::Interval  I;
-
-#ifdef USE_CMODEL
-  #include "cmodel.hpp"
-  typedef mc::CModel<I> PM;
-  typedef mc::CVar<I> PV;
-#else
-  #include "tmodel.hpp"
-  typedef mc::TModel<I> PM;
-  typedef mc::TVar<I> PV;
-#endif
 
 #include "polimage.hpp"
 #include "gurobi_c++.h"
@@ -37,7 +27,32 @@ extern "C"{
 
 ////////////////////////////////////////////////////////////////////////
 
-#if defined( TEST_EXP )
+#if defined( TEST_PROD )
+const double X0L   = -.5; // <-- range lower bound
+const double X0U   =  1.5; // <-- range upper bound
+const double X1L   = -1.; // <-- range lower bound
+const double X1U   =  0.5; // <-- range upper bound
+template <class T>
+T myfunc
+( const T*x )
+{
+  return x[0]*x[1];
+}
+
+#elif defined( TEST_POLY )
+const double X0L   = -1; // <-- range lower bound
+const double X0U   =  1; // <-- range upper bound
+const double X1L   = -1; // <-- range lower bound
+const double X1U   =  1; // <-- range upper bound
+using mc::sqr;
+template <class T>
+T myfunc
+( const T*x )
+{
+  return x[0] * ( x[1] + sqr(x[0]) );
+}
+
+#elif defined( TEST_EXP )
 const double X0L   = -.5; // <-- range lower bound
 const double X0U   =  .5; // <-- range upper bound
 const double X1L   =  0.5; // <-- range lower bound
@@ -321,11 +336,6 @@ int main()
      res << std::endl;
 #endif
     }
-
-#ifdef USE_POLYMOD
-    delete[] Xrcheb[0];
-    delete[] Xrcheb;
-#endif
   }
   catch(GRBException& ex) {
     std::cerr << "Error code = " << ex.getErrorCode() << std::endl;

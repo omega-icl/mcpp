@@ -286,6 +286,7 @@ public:
       INV,	//!< Inverse operation with zero in range
       LOG,	//!< Log operation with non-positive numbers in range
       SQRT,	//!< Square-root operation with negative numbers in range
+      TAN,	//!< Tangent operation with (k+1/2)·PI in range
       ACOS,	//!< Sine/Cosine inverse operation with range outside [-1,1]
       EIGEN,	//!< Failed to compute eigenvalue decomposition in range bounder CModel::Options::EIGEN
       INIT=-1,	//!< Failed to construct Chebyshev variable
@@ -309,6 +310,8 @@ public:
         return "mc::CModel\t Log operation with non-positive numbers in range";
       case SQRT:
         return "mc::CModel\t Square-root operation with negative numbers in range";
+      case TAN:
+        return "mc::SCModel\t Tangent operation with (k+1/2)·PI in range";
       case ACOS:
         return "mc::CModel\t Sine/Cosine inverse operation with range outside [-1,1]";
       case EIGEN:
@@ -337,13 +340,14 @@ public:
   {
     //! @brief Constructor of mc::CModel::Options
     Options():
-      INTERP_EXTRA(0), BOUNDER_TYPE(LSB), BOUNDER_ORDER(0), MIXED_IA(false),
-      REF_POLY(0.), DISPLAY_DIGITS(5)
+      INTERP_EXTRA(0), INTERP_THRES(1e2*machprec()), BOUNDER_TYPE(LSB),
+      BOUNDER_ORDER(0), MIXED_IA(false), REF_POLY(0.), DISPLAY_DIGITS(5)
       {}
     //! @brief Copy constructor of mc::CModel::Options
     template <typename U> Options
       ( const U&options )
       : INTERP_EXTRA( options.INTERP_EXTRA ),
+        INTERP_THRES( options.INTERP_THRES ),
         BOUNDER_TYPE( options.BOUNDER_TYPE ),
         BOUNDER_ORDER( options.BOUNDER_ORDER ),
         MIXED_IA( options.MIXED_IA ),
@@ -354,11 +358,12 @@ public:
     template <typename U> Options& operator =
       ( const U&options ){
         INTERP_EXTRA     = options.INTERP_EXTRA;
+        INTERP_THRES     = options.INTERP_THRES;
         BOUNDER_TYPE     = (BOUNDER)options.BOUNDER_TYPE;
         BOUNDER_ORDER    = options.BOUNDER_ORDER;
         MIXED_IA         = options.MIXED_IA;
         REF_POLY         = options.REF_POLY;
-	DISPLAY_DIGITS   = options.DISPLAY_DIGITS;
+        DISPLAY_DIGITS   = options.DISPLAY_DIGITS;
         return *this;
       }
     //! @brief Chebyshev model range bounder option
@@ -371,6 +376,8 @@ public:
     };
     //! @brief Extra terms in chebyshev interpolation of univariates: 0-Chebyshev interpolation of order NORD; extra terms allow approximation of Chebyshev truncated series
     unsigned INTERP_EXTRA;
+    //! @brief Threshold for coefficient values in Chebyshev expansion for bounding of transcendental univariates
+    double INTERP_THRES;
     //! @brief Chebyshev model range bounder - See \ref sec_CHEBYSHEV_opt
     BOUNDER BOUNDER_TYPE;
     //! @brief Order of Bernstein polynomial for Chebyshev model range bounding (no less than Chebyshev model order!). Only if mc::CModel::options::BOUNDER_TYPE is set to mc::CModel::options::BERNSTEIN.
@@ -414,11 +421,8 @@ private:
   //! @brief Array of size <tt>_nvar</tt> with bounds on original variables <tt>ivar=1,...,_nvar</tt>
   T *_bndvar;
 
-  //! @brief Array of size <tt>_ncoefinterp</tt> with coefficients in Chebyshev interpolant of univariate functions
-  double *_coefinterp;
-
-  //! @brief Size of array <tt>_coefinterp</tt>
-  unsigned _ncoefinterp;
+  //! @brief Vector with coefficients in Chebyshev interpolant of univariate functions
+  std::vector<double> _coefinterp;
 
   //! @brief Internal Chebyshev variable to speed-up computations and reduce dynamic allocation
   CVar<T>* _CV;
@@ -456,7 +460,7 @@ private:
     ( const unsigned nord, const U&X );
 
   //! @brief Resize array <a>_coefinterp</a> holding coefficients in Chebyshev interpolant of univariate functions
-  double* _resize_coefinterp();
+  std::vector<double>& _resize_coefinterp();
 
   //! @brief Prototype real-valued function for interpolation
   typedef double (puniv)
@@ -468,11 +472,17 @@ private:
 
   //! @brief Construct Chebyshev interpolating polynomial coefficient <a>coefmon</a> for univariate <a>f</a>
   static void _interpolation
-    ( double*coefmon, const unsigned nord, const T&X, puniv f );
+    ( std::vector<double>&coefmon, const unsigned nord, const T&X, puniv f );
+
+  //! @brief Construct Chebyshev interpolating polynomial coefficient <a>coefmon</a> for univariate <a>f</a>
+  static void _interpolation
+    ( std::vector<double>&coefmon, const double TOL, unsigned& nord,
+      const T&X, puniv f );
 
   //! @brief Apply Chebyshev composition to variable <a>CVI</a> using the coefficients <a>coefmon</a> of the outer function
   template <typename U> static CVar<T> _composition
-    ( const U* coefouter, const unsigned nord, const CVar<T>& CVinner );
+    ( const std::vector<U>& coefouter, const unsigned nord,
+      const CVar<T>& CVinner );
 
   //! @brief Polynomial range bounder - Lin & Stadtherr approach
   template <typename C, typename U> U _polybound_LSB
@@ -700,7 +710,7 @@ private:
     { return _CM->_scalvar[ivar]; };
 
   //! @brief Array of Chebyshev interpolant coefficients
-  double* _coefinterp() const
+  std::vector<double>& _coefinterp() const
     { return _CM->_resize_coefinterp(); };
 
   //! @brief Product of multivariate Chebyshev polynomials in sparse format
@@ -916,12 +926,17 @@ private:
 
   //! @brief Construct Chebyshev interpolating polynomial coefficient <a>coefmon</a> for univariate <a>f</a>
   void _interpolation
-    ( double*coefmon, puniv f ) const
+    ( std::vector<double>&coefmon, puniv f ) const
     { CModel<T>::_interpolation( coefmon, nord()+_CM->options.INTERP_EXTRA, bound(), f ); }
+
+  //! @brief Construct Chebyshev interpolating polynomial coefficient <a>coefmon</a> for univariate <a>f</a>
+  void _interpolation
+    ( std::vector<double>&coefmon, const double TOL, unsigned& nord, puniv f ) const
+    { CModel<T>::_interpolation( coefmon, TOL, nord, bound(), f ); }
 
   //! @brief Apply Chebyshev composition to variable <a>CVI</a> using the coefficients <a>coefmon</a> of the outer function
   template <typename U> CVar<T> _composition
-    ( const U* coefouter ) const
+    ( const std::vector<U>& coefouter ) const
     { return CModel<T>::_composition( coefouter, nord(), *this ); }
 
   //! @brief Scale current variable in order for its range to be within [-1,1], with <a>c</a> and <a>w</a> respectively the center and width, respectively, of the orginal variable range
@@ -951,7 +966,7 @@ CModel<T>::_size
   _bndmon = new T[_nmon];  
   _bndvar = new T[_nvar];
   for( unsigned i=0; i<_nvar; i++ ) _bndvar[i] = 0.;
-  _ncoefinterp = 0; _coefinterp = 0;
+  _coefinterp.resize( _nord+options.INTERP_EXTRA+1 );
 
   _CV = new CVar<T>( this );
 }
@@ -992,17 +1007,13 @@ CModel<T>::_cleanup()
   delete[] _bndpow;
   delete[] _bndmon;
   delete[] _bndvar;
-  delete[] _coefinterp;
   delete _CV;
 }
 
-template <typename T> inline double*
+template <typename T> inline std::vector<double>&
 CModel<T>::_resize_coefinterp()
 {
-  if( _ncoefinterp > _nord+options.INTERP_EXTRA ) return _coefinterp;
-  delete[] _coefinterp;
-  _ncoefinterp = _nord+options.INTERP_EXTRA+1;
-  _coefinterp = new double[_ncoefinterp];
+  _coefinterp.resize( _nord+options.INTERP_EXTRA+1 );
   return _coefinterp;
 }
 
@@ -1286,7 +1297,8 @@ CModel<T>::_intpow
 
 template <typename T> inline void
 CModel<T>::_interpolation
-( double*coefmon, const unsigned nord, const T&X, puniv f )
+( std::vector<double>&coefmon, const unsigned nord, const T&X,
+  puniv f )
 {
   double b( Op<T>::mid(X) ), a( Op<T>::u(X)-b ), x[nord+1], fx[nord+1];
   double mulconst( PI/(2.*double(nord+1)) );
@@ -1327,9 +1339,28 @@ CModel<T>::_interpolation
   }
 }
 
+template <typename T> inline void
+CModel<T>::_interpolation
+( std::vector<double>&coefmon, const double TOL, unsigned& nord,
+  const T&X, puniv f )
+{
+  coefmon.resize( nord+1 );
+  _interpolation( coefmon, nord, X, f );
+  for( ; std::fabs(coefmon[nord])>TOL || (nord && std::fabs(coefmon[nord-1])>TOL); ){
+    nord*=2;
+    coefmon.resize( nord+1 );
+    _interpolation( coefmon, nord, X, f );
+#ifdef MC__CVAR_DEBUG_INTERPOLATION
+    for( unsigned i=0; i<=nord; i++ )
+      std::cout << "a[" << i << "] = " << coefmon[i] << std::endl;
+    { int dum; std::cout << "ENTER <1> TO CONTINUE"; std::cin >> dum; }
+#endif
+  }
+}
+
 template <typename T> template <typename U> inline CVar<T>
 CModel<T>::_composition
-( const U* coefouter, const unsigned nord, const CVar<T>& CVinner )
+( const std::vector<U>& coefouter, const unsigned nord, const CVar<T>& CVinner )
 {
   //composition based on http://en.wikipedia.org/wiki/Clenshaw_algorithm#Special_case_for_Chebyshev_series
   if( !nord )
@@ -2934,7 +2965,7 @@ inv
 
   CVar<T> CVI( CV._CM, 0. ), CV2( CV._CM, 0. );
   //double coefmon[CV.nord()+1];
-  double* coefmon = CV._coefinterp();
+  auto& coefmon = CV._coefinterp();
   CV._interpolation( coefmon, mc::inv );
 
   double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B())-m), rem;
@@ -2968,8 +2999,7 @@ sqrt
     throw typename CModel<T>::Exceptions( CModel<T>::Exceptions::SQRT );
 
   CVar<T> CVI( CV._CM, 0. ), CV2( CV._CM, 0. );
-  //double coefmon[CV.nord()+1];
-  double* coefmon = CV._coefinterp();
+  auto& coefmon = CV._coefinterp();
   CV._interpolation( coefmon, std::sqrt );
 
   double b(Op<T>::mid(CV.B())), a(Op<T>::u(CV.B())-b), rem, ub(0), lb(0);
@@ -2997,7 +3027,7 @@ exp
 
   CVar<T> CVI( CV._CM, 0. ), CV2( CV._CM, 0. );
   //double coefmon[CV.nord()+1];
-  double* coefmon = CV._coefinterp();
+  auto& coefmon = CV._coefinterp();
   CV._interpolation( coefmon, std::exp );
 
   double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B())-m), rem;
@@ -3034,7 +3064,7 @@ log
 
   CVar<T> CVI( CV._CM, 0. ), CV2( CV._CM, 0. );
   //double coefmon[CV.nord()+1];
-  double* coefmon = CV._coefinterp();
+  auto& coefmon = CV._coefinterp();
   CV._interpolation( coefmon, std::log );
 
   double b(Op<T>::mid(CV.B())), a(Op<T>::u(CV.B())-b), rem, ub(0), lb(0);
@@ -3057,7 +3087,38 @@ template <typename T> inline CVar<T>
 xlog
 ( const CVar<T>&CV )
 {
+#ifdef MC__CVAR_NOINTERP_REM
   return CV * log( CV );
+#endif
+
+  if( !CV._CM )
+    return CVar<T>( Op<T>::xlog(CV._coefmon[0] + *(CV._bndrem)) );
+  if ( Op<T>::l(CV.B()) <= 0. )
+    throw typename CModel<T>::Exceptions( CModel<T>::Exceptions::LOG );
+
+  CVar<T> CVI( CV._CM ), CV2( CV._CM );
+  auto& coefmon = CV._coefinterp();
+  unsigned nord = CV.nord()+2;
+  double TOL = CV._CM->options.INTERP_THRES;
+  CV._interpolation( coefmon, TOL, nord, mc::xlog );
+  double rem = 2*TOL;
+  for( unsigned iord=CV.nord()+1; iord<=nord; iord++ ){
+    rem += std::fabs( coefmon[iord] );
+#ifdef MC__CVAR_DEBUG_XLOG
+    std::cout << "a[" << iord << "] = " << coefmon[iord] << std::endl;
+#endif
+  }
+#ifdef MC__CVAR_DEBUG_XLOG
+  { int dum; std::cout << "ENTER <1> TO CONTINUE"; std::cin >> dum; }
+#endif
+
+  const double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B())-m);
+  CVI = CV._rescale( r, m );
+  CV2 = CVI._composition( coefmon );
+  CV2 += (2.*Op<T>::zeroone()-1.) * rem;
+
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::xlog( CV.B() ) );
+  return CV2;
 }
 
 template <typename T> inline CVar<T>
@@ -3140,16 +3201,33 @@ cos
     return CVar<T>( Op<T>::cos(CV._coefmon[0] + *(CV._bndrem)) );
 
   CVar<T> CVI( CV._CM, 0. ), CV2( CV._CM, 0. );
-  double* coefmon = CV._coefinterp();
-  CV._interpolation( coefmon, std::cos );
+  auto& coefmon = CV._coefinterp();
 
+#ifdef MC__CVAR_NOINTERP_REM
+  CV._interpolation( coefmon, std::cos );
   double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B())-m), rem, fact(1);
   for (unsigned i(1); i<=CV.nord()+1; i++) fact *= double(i);
   double M = CV.nord()%2? Op<T>::abs(Op<T>::cos(CV.B())):
                           Op<T>::abs(Op<T>::sin(CV.B()));
   rem = 2.*M*std::pow(r/2.,double(CV.nord()+1))/fact;
+#else
+  unsigned nord = CV.nord()+2;
+  double TOL = CV._CM->options.INTERP_THRES;
+  CV._interpolation( coefmon, TOL, nord, std::cos );
+  double rem = 2*TOL;
+  for( unsigned iord=CV.nord()+1; iord<=nord; iord++ ){
+    rem += std::fabs( coefmon[iord] );
+#ifdef MC__CVAR_DEBUG_COS
+    std::cout << "a[" << iord << "] = " << coefmon[iord] << std::endl;
+#endif
+  }
+#ifdef MC__CVAR_DEBUG_COS
+  { int dum; std::cout << "ENTER <1> TO CONTINUE"; std::cin >> dum; }
+#endif
+  const double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B())-m);  
+#endif
 
-  CVI = CV._rescale(r,m);
+  CVI = CV._rescale( r, m );
   CV2 = CVI._composition( coefmon );
   CV2 += (2.*Op<T>::zeroone()-1.)*rem;
 
@@ -3168,7 +3246,38 @@ template <typename T> inline CVar<T>
 tan
 ( const CVar<T> &CV )
 {
+#ifdef MC__CVAR_NOINTERP_REM
   return sin( CV ) / cos( CV );
+#endif
+
+  if( !CV._CM )
+    return CVar<T>( Op<T>::tan(CV._coefmon[0] + *(CV._bndrem)) );
+  if ( Op<T>::l(Op<T>::cos(CV.B())) <= 0. && Op<T>::u(Op<T>::cos(CV.B())) >= 0. )
+    throw typename CModel<T>::Exceptions( CModel<T>::Exceptions::TAN );
+
+  CVar<T> CVI( CV._CM ), CV2( CV._CM );
+  auto& coefmon = CV._coefinterp();
+  unsigned nord = CV.nord()+2;
+  double TOL = CV._CM->options.INTERP_THRES;
+  CV._interpolation( coefmon, TOL, nord, std::tan );
+  double rem = 2*TOL;
+  for( unsigned iord=CV.nord()+1; iord<=nord; iord++ ){
+    rem += std::fabs( coefmon[iord] );
+#ifdef MC__CVAR_DEBUG_TAN
+    std::cout << "a[" << iord << "] = " << coefmon[iord] << std::endl;
+#endif
+  }
+#ifdef MC__CVAR_DEBUG_TAN
+  { int dum; std::cout << "ENTER <1> TO CONTINUE"; std::cin >> dum; }
+#endif
+
+  const double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B())-m);
+  CVI = CV._rescale( r, m );
+  CV2 = CVI._composition( coefmon );
+  CV2 += (2.*Op<T>::zeroone()-1.) * rem;
+
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::tan( CV.B() ) );
+  return CV2;
 }
 
 template <typename T> inline CVar<T>
@@ -3177,31 +3286,60 @@ acos
 {
   if( !CV._CM )
     return CVar<T>( Op<T>::acos(CV._coefmon[0] + *(CV._bndrem)) );
-  if ( Op<T>::l(CV.B()) < -1. && Op<T>::u(CV.B()) > 1. )
+  if ( Op<T>::l(CV.B()) < -1. || Op<T>::u(CV.B()) > 1. )
     throw typename CModel<T>::Exceptions( CModel<T>::Exceptions::ACOS );
 
-  CVar<T> CVI( CV._CM, 0. ), CV2( CV._CM, 0. );
-  // INCORRECT AS IMPLEMENTED -- NEEDS FIXING
-  throw typename CModel<T>::Exceptions( CModel<T>::Exceptions::UNDEF );
-
-  double coefmon[CV.nord()+1];
-  double b(Op<T>::mid(CV.B())), a(Op<T>::u(CV.B())-b), rem, ub(-4.*a/PI);
-  coefmon[0] = 0.5*PI*a+b;
-  coefmon[1] = ub;
-  for (unsigned i(3); i<=CV.nord(); i+=2) {
-    coefmon[i-1] = 0.;
-    coefmon[i] = coefmon[1]/std::pow(double(i),2.);
-    ub += coefmon[i];
+  CVar<T> CVI( CV._CM ), CV2( CV._CM );
+  auto& coefmon = CV._coefinterp();
+  unsigned nord = CV.nord()+2;
+  double TOL = CV._CM->options.INTERP_THRES;
+  CV._interpolation( coefmon, TOL, nord, std::acos );
+  double rem = 2*TOL;
+  for( unsigned iord=CV.nord()+1; iord<=nord; iord++ ){
+    rem += std::fabs( coefmon[iord] );
+#ifdef MC__CVAR_DEBUG_ACOS
+    std::cout << "a[" << iord << "] = " << coefmon[iord] << std::endl;
+#endif
   }
-  if (CV.nord()%2==0) coefmon[CV.nord()] = 0.;
-  rem = a*PI/6. + ub;
+#ifdef MC__CVAR_DEBUG_ACOS
+  { int dum; std::cout << "ENTER <1> TO CONTINUE"; std::cin >> dum; }
+#endif
 
-  CVI = CV._rescale(a,b);
+  const double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B())-m);
+  CVI = CV._rescale( r, m );
   CV2 = CVI._composition( coefmon );
-  CV2 += (2.*Op<T>::zeroone()-1.)*rem;
+  CV2 += (2.*Op<T>::zeroone()-1.) * rem;
 
-  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::acos(CV.B()) );
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::acos( CV.B() ) );
   return CV2;
+
+//  if( !CV._CM )
+//    return CVar<T>( Op<T>::acos(CV._coefmon[0] + *(CV._bndrem)) );
+//  if ( Op<T>::l(CV.B()) < -1. && Op<T>::u(CV.B()) > 1. )
+//    throw typename CModel<T>::Exceptions( CModel<T>::Exceptions::ACOS );
+
+//  CVar<T> CVI( CV._CM, 0. ), CV2( CV._CM, 0. );
+//  // INCORRECT AS IMPLEMENTED -- NEEDS FIXING
+//  throw typename CModel<T>::Exceptions( CModel<T>::Exceptions::UNDEF );
+
+//  double coefmon[CV.nord()+1];
+//  double b(Op<T>::mid(CV.B())), a(Op<T>::u(CV.B())-b), rem, ub(-4.*a/PI);
+//  coefmon[0] = 0.5*PI*a+b;
+//  coefmon[1] = ub;
+//  for (unsigned i(3); i<=CV.nord(); i+=2) {
+//    coefmon[i-1] = 0.;
+//    coefmon[i] = coefmon[1]/std::pow(double(i),2.);
+//    ub += coefmon[i];
+//  }
+//  if (CV.nord()%2==0) coefmon[CV.nord()] = 0.;
+//  rem = a*PI/6. + ub;
+
+//  CVI = CV._rescale(a,b);
+//  CV2 = CVI._composition( coefmon );
+//  CV2 += (2.*Op<T>::zeroone()-1.)*rem;
+
+//  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::acos(CV.B()) );
+//  return CV2;
 }
 
 template <typename T> inline CVar<T>
@@ -3215,28 +3353,144 @@ template <typename T> inline CVar<T>
 atan
 ( const CVar<T> &CV )
 {
+#ifdef MC__CVAR_NOINTERP_REM
   return asin( CV / sqrt( sqr( CV ) + 1. ) );
+#endif
+
+  if( !CV._CM )
+    return CVar<T>( Op<T>::atan(CV._coefmon[0] + *(CV._bndrem)) );
+
+  CVar<T> CVI( CV._CM ), CV2( CV._CM );
+  auto& coefmon = CV._coefinterp();
+  unsigned nord = CV.nord()+2;
+  double TOL = CV._CM->options.INTERP_THRES;
+  CV._interpolation( coefmon, TOL, nord, std::atan );
+  double rem = 2*TOL;
+  for( unsigned iord=CV.nord()+1; iord<=nord; iord++ ){
+    rem += std::fabs( coefmon[iord] );
+#ifdef MC__CVAR_DEBUG_ATAN
+    std::cout << "a[" << iord << "] = " << coefmon[iord] << std::endl;
+#endif
+  }
+#ifdef MC__CVAR_DEBUG_ATAN
+  { int dum; std::cout << "ENTER <1> TO CONTINUE"; std::cin >> dum; }
+#endif
+
+  const double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B())-m);
+  CVI = CV._rescale( r, m );
+  CV2 = CVI._composition( coefmon );
+  CV2 += (2.*Op<T>::zeroone()-1.) * rem;
+
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::atan( CV.B() ) );
+  return CV2;
 }
 
 template <typename T> inline CVar<T>
 sinh
 ( const CVar<T> &CV )
 {
+#ifdef MC__CVAR_NOINTERP_REM
   return 0.5*(mc::exp(CV)-mc::exp(-CV));
+#endif
+
+  if( !CV._CM )
+    return CVar<T>( Op<T>::sinh(CV._coefmon[0] + *(CV._bndrem)) );
+
+  CVar<T> CVI( CV._CM ), CV2( CV._CM );
+  auto& coefmon = CV._coefinterp();
+  unsigned nord = CV.nord()+2;
+  double TOL = CV._CM->options.INTERP_THRES;
+  CV._interpolation( coefmon, TOL, nord, std::sinh );
+  double rem = 2*TOL;
+  for( unsigned iord=CV.nord()+1; iord<=nord; iord++ ){
+    rem += std::fabs( coefmon[iord] );
+#ifdef MC__CVAR_DEBUG_SINH
+    std::cout << "a[" << iord << "] = " << coefmon[iord] << std::endl;
+#endif
+  }
+#ifdef MC__CVAR_DEBUG_SINH
+  { int dum; std::cout << "ENTER <1> TO CONTINUE"; std::cin >> dum; }
+#endif
+
+  const double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B())-m);
+  CVI = CV._rescale( r, m );
+  CV2 = CVI._composition( coefmon );
+  CV2 += (2.*Op<T>::zeroone()-1.) * rem;
+
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sinh( CV.B() ) );
+  return CV2;
 }
 
 template <typename T> inline CVar<T>
 cosh
 ( const CVar<T> &CV )
 {
+#ifdef MC__CVAR_NOINTERP_REM
   return 0.5*(mc::exp(CV)+mc::exp(-CV));
+#endif
+
+  if( !CV._CM )
+    return CVar<T>( Op<T>::cosh(CV._coefmon[0] + *(CV._bndrem)) );
+
+  CVar<T> CVI( CV._CM ), CV2( CV._CM );
+  auto& coefmon = CV._coefinterp();
+  unsigned nord = CV.nord()+2;
+  double TOL = CV._CM->options.INTERP_THRES;
+  CV._interpolation( coefmon, TOL, nord, std::cosh );
+  double rem = 2*TOL;
+  for( unsigned iord=CV.nord()+1; iord<=nord; iord++ ){
+    rem += std::fabs( coefmon[iord] );
+#ifdef MC__CVAR_DEBUG_COSH
+    std::cout << "a[" << iord << "] = " << coefmon[iord] << std::endl;
+#endif
+  }
+#ifdef MC__CVAR_DEBUG_COSH
+  { int dum; std::cout << "ENTER <1> TO CONTINUE"; std::cin >> dum; }
+#endif
+
+  const double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B())-m);
+  CVI = CV._rescale( r, m );
+  CV2 = CVI._composition( coefmon );
+  CV2 += (2.*Op<T>::zeroone()-1.) * rem;
+
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::cosh( CV.B() ) );
+  return CV2;
 }
 
 template <typename T> inline CVar<T>
 tanh
 ( const CVar<T> &CV )
 {
+#ifdef MC__CVAR_NOINTERP_REM
   return (mc::exp(2*CV)-1)/(mc::exp(2*CV)+1);
+#endif
+
+  if( !CV._CM )
+    return CVar<T>( Op<T>::tanh(CV._coefmon[0] + *(CV._bndrem)) );
+
+  CVar<T> CVI( CV._CM ), CV2( CV._CM );
+  auto& coefmon = CV._coefinterp();
+  unsigned nord = CV.nord()+2;
+  double TOL = CV._CM->options.INTERP_THRES;
+  CV._interpolation( coefmon, TOL, nord, std::tanh );
+  double rem = 2*TOL;
+  for( unsigned iord=CV.nord()+1; iord<=nord; iord++ ){
+    rem += std::fabs( coefmon[iord] );
+#ifdef MC__CVAR_DEBUG_TANH
+    std::cout << "a[" << iord << "] = " << coefmon[iord] << std::endl;
+#endif
+  }
+#ifdef MC__CVAR_DEBUG_TANH
+  { int dum; std::cout << "ENTER <1> TO CONTINUE"; std::cin >> dum; }
+#endif
+
+  const double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B())-m);
+  CVI = CV._rescale( r, m );
+  CV2 = CVI._composition( coefmon );
+  CV2 += (2.*Op<T>::zeroone()-1.) * rem;
+
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::tanh( CV.B() ) );
+  return CV2;
 }
 
 template <typename T> inline CVar<T>
@@ -3262,8 +3516,29 @@ fabs
     return CV2;
   }
 
+//  CVar<T> CVI( CV._CM ), CV2( CV._CM );
+//  auto& coefmon = CV._coefinterp();
+//  unsigned nord = CV.nord()+2;
+//  double TOL = CV._CM->options.INTERP_THRES;
+//  CV._interpolation( coefmon, TOL, nord, std::fabs );
+//  double rem = 2*TOL;
+//  for( unsigned iord=CV.nord()+1; iord<=nord; iord++ ){
+//    rem += std::fabs( coefmon[iord] );
+//#ifdef MC__CVAR_DEBUG_FABS
+//    std::cout << "a[" << iord << "] = " << coefmon[iord] << std::endl;
+//#endif
+//  }
+//#ifdef MC__CVAR_DEBUG_FABS
+//  { int dum; std::cout << "ENTER <1> TO CONTINUE"; std::cin >> dum; }
+//#endif
+
+//  const double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B())-m);
+//  CVI = CV._rescale(r,m);
+//  CV2 = CVI._composition( coefmon );
+//  CV2 += (2.*Op<T>::zeroone()-1.)*rem;
+
   CVar<T> CVI( CV._CM, 0. ), CV2( CV._CM, 0. );
-  double* coefmon = CV._coefinterp();
+  auto& coefmon = CV._coefinterp();
   CV._interpolation( coefmon, std::fabs );
 
   double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B())-m), rem, fact(1);
@@ -3278,29 +3553,6 @@ fabs
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::fabs(CV.B()) );
   return CV2;
 #endif
-/*
-  CVar<T> CVI( CV._CM, 0. ), CV2( CV._CM, 0. );
-  //REMAINDER TO BE IMPLEMENTED
-  throw typename CModel<T>::Exceptions( CModel<T>::Exceptions::UNDEF );
-  //double coefmon[CV.nord()+1];
-  double* coefmon = CV._coefinterp();
-  CV._interpolation( coefmon, std::fabs );
-
-  double b(Op<T>::mid(CV.B())), a(Op<T>::u(CV.B())-b), rem, ub(0), lb(0);
-  for (unsigned i(0); i<=CV.nord(); i++) {
-    ub += coefmon[i];
-    lb += std::pow(-1.,i)*coefmon[i];
-    }
-  rem = std::max(std::fabs(a+b)-ub, std::fabs(b-a)-lb);
-
-  CVI = CV._rescale(a,b);
-  CV2 = CVI._composition( coefmon );
-  //CV2 += T(-rem, rem);
-  CV2 += (2.*Op<T>::zeroone()-1.)*rem;
-
-  //if( CV._CM->options.CENTER_REMAINDER ) CV2._center();
-  return CV2;
-*/
 }
 
 template <typename T> inline CVar<T>

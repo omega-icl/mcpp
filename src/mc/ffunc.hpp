@@ -1110,6 +1110,9 @@ struct FFSubgraph
   std::list< const FFOp* > l_op;
   //! @brief Vector of (iterators to) operations defining dependent variables in <a>l_op</a>
   std::vector<typename std::list< const FFOp* >::iterator> it_dep;
+  //! @brief Clear subgraph
+  void clear()
+    { l_op.clear(); it_dep.clear(); }
 };
 
 //! @brief C++ class representing the DAG of factorable functions
@@ -1310,19 +1313,19 @@ public:
 
   //! @brief Extract subgraph corresponding to <a>nDep</a> dependents in array <a>pDep</a>
   FFSubgraph subgraph
-    ( const unsigned int nDep, const FFVar*pDep ) const;
+    ( const unsigned int nDep, const FFVar*pDep );
 
   //! @brief Extract subgraph corresponding to dependents indexed by <a>ndxDep</a> in array <a>pDep</a>
   FFSubgraph subgraph
-    ( const std::set<unsigned>&ndxDep, const FFVar*pDep ) const;
+    ( const std::set<unsigned>&ndxDep, const FFVar*pDep );
 
   //! @brief Extract subgraph corresponding to dependents <a>vDep</a>
   FFSubgraph subgraph
-    ( const std::vector<const FFVar*>&vDep ) const;
+    ( const std::vector<const FFVar*>&vDep );
 
   //! @brief Extract list of operations corresponding to dependents <a>vDep</a>
   template< typename V> FFSubgraph subgraph
-    ( const std::map<V,FFVar>&mDep ) const;
+    ( const std::map<V,FFVar>&mDep );
 
   //! @brief Output list of nodes in <a>Ops</a> to <a>os</a>
   static void output
@@ -4807,33 +4810,55 @@ FFGraph::_find_var
 
 inline FFSubgraph
 FFGraph::subgraph
-( const std::vector<const FFVar*>&vDep ) const
+( const std::vector<const FFVar*>&vDep )
 {
   _reset_operations();
   FFSubgraph sgDep;
   for( auto&& dep : vDep ){
-    if( !(dep->ops().first) ) continue;
-    dep->ops().first->propagate_subgraph( sgDep.l_op );
-    assert( dep->ops().first->iflag );
+    const FFVar *pVar = dep;
+    if( !pVar->ops().first ){
+      assert( pVar->cst() );
+      const FFNum& num = pVar->num();
+      switch( num.t ){
+        case FFNum::INT:  pVar = _add_constant( num.n ); break;
+        case FFNum::REAL: pVar = _add_constant( num.x ); break;
+      }
+    }
+    pVar->ops().first->propagate_subgraph( sgDep.l_op );
+    assert( pVar->ops().first->iflag );
     auto it = sgDep.l_op.begin();
-    std::advance( it, dep->ops().first->iflag-1 );
+    std::advance( it, pVar->ops().first->iflag-1 );
     sgDep.it_dep.push_back( it );
+//    if( !(dep->ops().first) ) continue;
+//    dep->ops().first->propagate_subgraph( sgDep.l_op );
+//    assert( dep->ops().first->iflag );
+//    auto it = sgDep.l_op.begin();
+//    std::advance( it, dep->ops().first->iflag-1 );
+//    sgDep.it_dep.push_back( it );
   }
   return sgDep;
 }
 
 inline FFSubgraph
 FFGraph::subgraph
-( const unsigned int nDep, const FFVar*pDep ) const
+( const unsigned int nDep, const FFVar*pDep )
 {
   _reset_operations();
   FFSubgraph sgDep;
   for( unsigned int i=0; i<nDep; i++ ){
-    if( !pDep[i].ops().first ) continue;
-    pDep[i].ops().first->propagate_subgraph( sgDep.l_op );
-    assert( pDep[i].ops().first->iflag );
+    const FFVar *pVar = &pDep[i];
+    if( !pVar->ops().first ){
+      assert( pVar->cst() );
+      const FFNum& num = pVar->num();
+      switch( num.t ){
+        case FFNum::INT:  pVar = _add_constant( num.n ); break;
+        case FFNum::REAL: pVar = _add_constant( num.x ); break;
+      }
+    }
+    pVar->ops().first->propagate_subgraph( sgDep.l_op );
+    assert( pVar->ops().first->iflag );
     auto it = sgDep.l_op.begin();
-    std::advance( it, pDep[i].ops().first->iflag-1 );
+    std::advance( it, pVar->ops().first->iflag-1 );
     sgDep.it_dep.push_back( it );
   }
   return sgDep;
@@ -4841,16 +4866,24 @@ FFGraph::subgraph
 
 inline FFSubgraph
 FFGraph::subgraph
-( const std::set<unsigned>&ndxDep, const FFVar*pDep ) const
+( const std::set<unsigned>&ndxDep, const FFVar*pDep )
 {
   _reset_operations();
   FFSubgraph sgDep;
   for( auto&& i : ndxDep ){
-    if( !pDep[i].ops().first ) continue;
-    pDep[i].ops().first->propagate_subgraph( sgDep.l_op );
-    assert( pDep[i].ops().first->iflag );
+    const FFVar *pVar = &pDep[i];
+    if( !pVar->ops().first ){
+      assert( pVar->cst() );
+      const FFNum& num = pVar->num();
+      switch( num.t ){
+        case FFNum::INT:  pVar = _add_constant( num.n ); break;
+        case FFNum::REAL: pVar = _add_constant( num.x ); break;
+      }
+    }
+    pVar->ops().first->propagate_subgraph( sgDep.l_op );
+    assert( pVar->ops().first->iflag );
     auto it = sgDep.l_op.begin();
-    std::advance( it, pDep[i].ops().first->iflag-1 );
+    std::advance( it, pVar->ops().first->iflag-1 );
     sgDep.it_dep.push_back( it );
   }
   return sgDep;
@@ -4859,17 +4892,31 @@ FFGraph::subgraph
 template< typename V>
 inline FFSubgraph
 FFGraph::subgraph
-( const std::map<V,FFVar>&mDep ) const
+( const std::map<V,FFVar>&mDep )
 {
   _reset_operations();
   FFSubgraph sgDep;
   for( auto&& iDep : mDep ){
-    if( !(iDep.second.ops().first) ) continue;
-    iDep.second.ops().first->propagate_subgraph( sgDep.l_op );
-    assert( iDep.second.ops().first->iflag );
+    const FFVar *pVar = &iDep.second;
+    if( !pVar->ops().first ){
+      assert( pVar->cst() );
+      const FFNum& num = pVar->num();
+      switch( num.t ){
+        case FFNum::INT:  pVar = _add_constant( num.n ); break;
+        case FFNum::REAL: pVar = _add_constant( num.x ); break;
+      }
+    }
+    pVar->ops().first->propagate_subgraph( sgDep.l_op );
+    assert( pVar->ops().first->iflag );
     auto it = sgDep.l_op.begin();
-    std::advance( it, iDep.second.ops().first->iflag-1 );
+    std::advance( it, pVar->ops().first->iflag-1 );
     sgDep.it_dep.push_back( it );
+//    if( !(iDep.second.ops().first) ) continue;
+//    iDep.second.ops().first->propagate_subgraph( sgDep.l_op );
+//    assert( iDep.second.ops().first->iflag );
+//    auto it = sgDep.l_op.begin();
+//    std::advance( it, iDep.second.ops().first->iflag-1 );
+//    sgDep.it_dep.push_back( it );
   }
   return sgDep;
 }
@@ -5314,11 +5361,12 @@ FFGraph::SBAD
   // (E.G., THIS COULD BE DONE USING THE .dep() FIELD IN THE DEPENDENTS)
 
   // Propagate dependents given by vDep in fadbad::B type
-  //auto sgDep = subgraph( vDeps.size(), vDeps.data() );
-  //std::vector<fadbad::B<FFVar>> wkDep_B( sgDep.l_op.size() );
-  //eval( sgDep, wkDep_B.data(), vDeps.size(), vDeps.data(), vDeps_B.data(), vVars.size(), vVars.data(), vVars_B.data() );
-  // CALLING BY ARRAY MODE DOES NOT PRODUCE EXPECTED RESULTS - ONLY POINTER MODE DOES - WHY?!?
-  eval( vDeps.size(), vDeps.data(), vDeps_B.data(), vVars.size(), vVars.data(), vVars_B.data() );
+  auto sgDep = subgraph( vDeps.size(), vDeps.data() );
+  std::vector<fadbad::B<FFVar>> wkDep_B( sgDep.l_op.size() );
+  eval( sgDep, wkDep_B, vDeps.size(), vDeps.data(), vDeps_B.data(), vVars.size(), vVars.data(), vVars_B.data() );
+  wkDep_B.clear();
+  // CALLING BY POINTER MODE DOES NOT PRODUCE EXPECTED RESULTS - ONLY ARRAY MODE DOES - WHY?!?
+  //eval( vDeps.size(), vDeps.data(), vDeps_B.data(), vVars.size(), vVars.data(), vVars_B.data() );
   auto itd_B = vDeps_B.begin();
   for( unsigned i=0; itd_B!=vDeps_B.end(); ++itd_B, i++ )
     (*itd_B).diff( i, vDeps_B.size() );
@@ -5780,135 +5828,218 @@ FFGraph::eval
   return eval( sgDep, nDep, pDep, vDep, l_nVar, l_pVar, l_vVar, args... );
 }
 
+//template <typename U>
+//inline void
+//FFGraph::eval
+//( FFSubgraph&sgDep, const unsigned nDep, const FFVar*pDep,
+//  U*vDep, const std::list<unsigned>&nVar, const std::list<const FFVar*>&pVar,
+//  const std::list<const U*>&vVar, const bool add )
+//{
+//  // Nothing to do!
+//  if( !nDep ) return;
+//  assert( pDep && vDep );
+//  const unsigned nIndep = nVar.size();
+//  assert( pVar.size() == nIndep && vVar.size() == nIndep );
+//  //assert( !nVar || ( pVar && vVar ) );
+//#ifdef MC__FFUNC_CPU_EVAL
+//  double cputime;
+//#endif
+
+//  // Initialize all independent variables participating in the dependent ones
+//#ifdef MC__FFUNC_CPU_EVAL
+//  cputime = -cpuclock();
+//#endif
+//  auto itnVar = nVar.begin(); auto itpVar = pVar.begin(); auto itvVar = vVar.begin();
+//  for( ; itnVar != nVar.end(); ++itnVar, ++itpVar, ++itvVar ){
+//    for( unsigned i=0; i<(*itnVar); i++ ){
+//      FFVar* pF = _find_var( (*itpVar)[i].id() );
+//      if( pF ){
+//        pF->val() = new U( (*itvVar)[i] );
+//        //std::cerr << "creating pF->val():" << pF->val() << std::endl;
+//#ifdef MC__FFUNC_DEBUG_EVAL
+//        std::cout << (*itpVar)[i] << "  " << (*itvVar)[i] << std::endl;
+//#endif
+//      }
+//    }
+//  }
+//#ifdef MC__FFUNC_CPU_EVAL
+//  cputime += cpuclock();
+//  std::cout << "\nIndep. init. time: " << std::fixed << cputime << std::endl;
+//#endif
+//  // THIS IS DOING A BIT TOO MUCH WORK AS ONLY THE INDEPENDENT VARIABLES
+//  // PARTICIPATING IN THE DEPENDENTS SHOULD BE TAKEN INTO ACCOUNT STRICTLY
+//  // (E.G., THIS COULD BE DONE USING THE .dep() FIELD IN THE DEPENDENTS)
+
+//  bool ffexcp = false, galexcp = false;
+//  FFGraph::Exceptions ffexcpobj;
+//  try{
+//#ifdef MC__FFUNC_CPU_EVAL
+//    cputime = -cpuclock();
+//#endif
+//    // Evaluate dependents given by vDep in U type
+//    U* pU_dum( 0 );
+//    for( auto&&op : sgDep.l_op ){
+//      _curOp = op;
+//      _curOp->evaluate( pU_dum );//U() );
+//#ifdef MC__FFUNC_DEBUG_EVAL
+//      U*tmp = static_cast<U*>( _curOp->pres->val() );
+//      std::cout << *(_curOp->pres) << " <- " << static_cast<U*>( _curOp->pres->val() ) << std::endl;
+//#endif
+//    }
+//#ifdef MC__FFUNC_CPU_EVAL
+//    cputime += cpuclock();
+//    std::cout << "Evaluation time: " << std::fixed << cputime << std::endl;
+//#endif
+
+//    // Retreive dependents variables in U type as given by vDep
+//#ifdef MC__FFUNC_CPU_EVAL
+//    cputime = -cpuclock();
+//#endif
+//    for( unsigned i=0; i<nDep; i++ ){
+//      // Obtain pointer to dependent variable in FFGraph
+//      FFVar* pF = !pDep[i].cst()? _find_var( pDep[i].id() ): 0;
+//      // Write/add corresponding evaluation in U type into/to result vector
+//      if( !add && pF ) vDep[i] = *static_cast<U*>( pF->val() );
+//      else if( pF )   vDep[i] += *static_cast<U*>( pF->val() );
+//      else if( !add ) switch( pDep[i].num().t ){
+//        case FFNum::INT:
+//          vDep[i] = pDep[i].num().n;
+//          break;
+//        case FFNum::REAL:
+//          vDep[i] = pDep[i].num().x;
+//          break;
+//      }
+//      else switch( pDep[i].num().t ){
+//        case FFNum::INT:
+//          vDep[i] += pDep[i].num().n;
+//          break;
+//        case FFNum::REAL:
+//          vDep[i] += pDep[i].num().x;
+//          break;
+//      }
+//    }
+//#ifdef MC__FFUNC_CPU_EVAL
+//    cputime += cpuclock();
+//    std::cout << "Dep. collect. time: " << std::fixed << cputime << std::endl;
+//#endif
+//  }
+//  catch( FFGraph::Exceptions &eObj ){
+//    ffexcp = true; ffexcpobj = eObj;
+//  }
+//  catch(...){
+//    galexcp = true;
+//  }
+
+//  // Reset FFVAR_val field to NULL
+//#ifdef MC__FFUNC_CPU_EVAL
+//  cputime = -cpuclock();
+//#endif
+//  itnVar = nVar.begin(); itpVar = pVar.begin(); itvVar = vVar.begin();
+//  for( ; itnVar != nVar.end(); ++itnVar, ++itpVar, ++itvVar ){
+//    for( unsigned i=0; i<(*itnVar); i++ ){
+//      FFVar* pF = _find_var( (*itpVar)[i].id() );
+//      if( pF ){
+//        //std::cerr << "erasing pF->val():" << pF->val() << std::endl;
+//        pF->reset_val( U() );
+//      }
+//    }
+//  }
+
+//  _reset_operations();
+//  for( unsigned i=0; i<nDep; i++ ){
+//    if( !pDep[i].ops().first ) continue;
+//    pDep[i].ops().first->reset_val_subgraph( U() );
+//  }
+//#ifdef MC__FFUNC_CPU_EVAL
+//  cputime += cpuclock();
+//  std::cout << "Clean-up time: " << std::fixed << cputime << std::endl;
+//#endif
+
+//  if( ffexcp )  throw ffexcpobj;
+//  if( galexcp ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::EVAL );
+//  return;
+//}
+
 template <typename U>
 inline void
 FFGraph::eval
 ( FFSubgraph&sgDep, const unsigned nDep, const FFVar*pDep,
-  U*vDep, const std::list<unsigned>&nVar, const std::list<const FFVar*>&pVar,
-  const std::list<const U*>&vVar, const bool add )
+  U*vDep, const std::list<unsigned>&l_nVar, const std::list<const FFVar*>&l_pVar,
+  const std::list<const U*>&l_vVar, const bool add )
 {
   // Nothing to do!
   if( !nDep ) return;
   assert( pDep && vDep );
-  const unsigned nIndep = nVar.size();
-  assert( pVar.size() == nIndep && vVar.size() == nIndep );
-  //assert( !nVar || ( pVar && vVar ) );
-#ifdef MC__FFUNC_CPU_EVAL
-  double cputime;
-#endif
+  const unsigned nIndep = l_nVar.size();
+  assert( l_pVar.size() == nIndep && l_vVar.size() == nIndep );
 
-  // Initialize all independent variables participating in the dependent ones
-#ifdef MC__FFUNC_CPU_EVAL
-  cputime = -cpuclock();
-#endif
-  auto itnVar = nVar.begin(); auto itpVar = pVar.begin(); auto itvVar = vVar.begin();
-  for( ; itnVar != nVar.end(); ++itnVar, ++itpVar, ++itvVar ){
-    for( unsigned i=0; i<(*itnVar); i++ ){
-      FFVar* pF = _find_var( (*itpVar)[i].id() );
-      if( pF ){
-        pF->val() = new U( (*itvVar)[i] );
-        //std::cerr << "creating pF->val():" << pF->val() << std::endl;
-#ifdef MC__FFUNC_DEBUG_EVAL
-        std::cout << (*itpVar)[i] << "  " << (*itvVar)[i] << std::endl;
-#endif
-      }
-    }
-  }
-#ifdef MC__FFUNC_CPU_EVAL
-  cputime += cpuclock();
-  std::cout << "\nIndep. init. time: " << std::fixed << cputime << std::endl;
-#endif
-  // THIS IS DOING A BIT TOO MUCH WORK AS ONLY THE INDEPENDENT VARIABLES
-  // PARTICIPATING IN THE DEPENDENTS SHOULD BE TAKEN INTO ACCOUNT STRICTLY
-  // (E.G., THIS COULD BE DONE USING THE .dep() FIELD IN THE DEPENDENTS)
+  // Populate subgraph if empty
+  if( sgDep.l_op.empty() ) sgDep = subgraph( nDep, pDep );
 
-  bool ffexcp = false, galexcp = false;
-  FFGraph::Exceptions ffexcpobj;
+  // Propagate values in U arithmetic through subgraph
+#ifdef MC__FFUNC_CPU_EVAL
+  double cputime = -cpuclock();
+  std::cerr << "#operations " << sgDep.l_op.size() << std::endl;
+#endif
+  U* pU_dum( 0 );
+  std::exception_ptr pExcp = 0;
   try{
-#ifdef MC__FFUNC_CPU_EVAL
-    cputime = -cpuclock();
-#endif
-    // Evaluate dependents given by vDep in U type
-    U* pU_dum( 0 );
-    for( auto&&op : sgDep.l_op ){
-      _curOp = op;
-      _curOp->evaluate( pU_dum );//U() );
+   for( auto&&op : sgDep.l_op ){
+    // Initialize variable using values in l_vVar
+    if( op->type == FFOp::VAR ){
+      FFVar* pF = 0;
+      auto itnVar = l_nVar.begin(); auto itpVar = l_pVar.begin(); auto itvVar = l_vVar.begin();
+      for( ; !pF && itnVar != l_nVar.end(); ++itnVar, ++itpVar, ++itvVar ){
+        for( unsigned i=0; i<(*itnVar); i++ ){
+          if( op->pres->id() != (*itpVar)[i].id() ) continue;
+          pF = op->pres;
+          pF->val() = new U( (*itvVar)[i] );
 #ifdef MC__FFUNC_DEBUG_EVAL
-      U*tmp = static_cast<U*>( _curOp->pres->val() );
-      std::cout << *(_curOp->pres) << " <- " << static_cast<U*>( _curOp->pres->val() ) << std::endl;
+          std::cout << (*itpVar)[i] << "  " << (*itvVar)[i] << std::endl;
 #endif
+          break;
+        }
+      }
+      if( !pF ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::MISSVAR );
     }
-#ifdef MC__FFUNC_CPU_EVAL
-    cputime += cpuclock();
-    std::cout << "Evaluation time: " << std::fixed << cputime << std::endl;
-#endif
+    // Evaluate current operation
+    _curOp = op;
+    _curOp->evaluate( pU_dum );//U() );
+   }
 
-    // Retreive dependents variables in U type as given by vDep
-#ifdef MC__FFUNC_CPU_EVAL
-    cputime = -cpuclock();
-#endif
-    for( unsigned i=0; i<nDep; i++ ){
-      // Obtain pointer to dependent variable in FFGraph
-      FFVar* pF = !pDep[i].cst()? _find_var( pDep[i].id() ): 0;
-      // Write/add corresponding evaluation in U type into/to result vector
-      if( !add && pF ) vDep[i] = *static_cast<U*>( pF->val() );
-      else if( pF )   vDep[i] += *static_cast<U*>( pF->val() );
-      else if( !add ) switch( pDep[i].num().t ){
-        case FFNum::INT:
-          vDep[i] = pDep[i].num().n;
-          break;
-        case FFNum::REAL:
-          vDep[i] = pDep[i].num().x;
-          break;
-      }
-      else switch( pDep[i].num().t ){
-        case FFNum::INT:
-          vDep[i] += pDep[i].num().n;
-          break;
-        case FFNum::REAL:
-          vDep[i] += pDep[i].num().x;
-          break;
-      }
-    }
-#ifdef MC__FFUNC_CPU_EVAL
-    cputime += cpuclock();
-    std::cout << "Dep. collect. time: " << std::fixed << cputime << std::endl;
-#endif
-  }
-  catch( FFGraph::Exceptions &eObj ){
-    ffexcp = true; ffexcpobj = eObj;
+//  // Copy values of dependent constants in vDep 
+//  for( unsigned i=0; i<nDep; i++ ){
+//    if( pDep[i].cst() ){
+//      if( !add ) vDep[i]  = pDep[i].num().val();
+//      else       vDep[i] += pDep[i].num().val();
+//    }
+//    else{
+//      if( !add ) vDep[i]  = *static_cast<U*>( (*sgDep.it_dep[i])->pres->val() );
+//      else       vDep[i] += *static_cast<U*>( (*sgDep.it_dep[i])->pres->val() );
+//    }
+//  }
+   // Copy dependent values in vDep 
+   unsigned int i=0;
+   for( auto&& ito : sgDep.it_dep ){
+     if( !add ) vDep[i++]  = *static_cast<U*>( (*ito)->pres->val() );
+     else       vDep[i++] += *static_cast<U*>( (*ito)->pres->val() );
+   }
   }
   catch(...){
-    galexcp = true;
+    pExcp = std::current_exception();
   }
 
   // Reset FFVAR_val field to NULL
-#ifdef MC__FFUNC_CPU_EVAL
-  cputime = -cpuclock();
-#endif
-  itnVar = nVar.begin(); itpVar = pVar.begin(); itvVar = vVar.begin();
-  for( ; itnVar != nVar.end(); ++itnVar, ++itpVar, ++itvVar ){
-    for( unsigned i=0; i<(*itnVar); i++ ){
-      FFVar* pF = _find_var( (*itpVar)[i].id() );
-      if( pF ){
-        //std::cerr << "erasing pF->val():" << pF->val() << std::endl;
-        pF->reset_val( U() );
-      }
-    }
-  }
+  for( auto&&op : sgDep.l_op )
+    op->pres->reset_val( pU_dum );//U() );
 
-  _reset_operations();
-  for( unsigned i=0; i<nDep; i++ ){
-    if( !pDep[i].ops().first ) continue;
-    pDep[i].ops().first->reset_val_subgraph( U() );
-  }
+  //std::cout << "#assigned dependents: " << curdep << std::endl;
 #ifdef MC__FFUNC_CPU_EVAL
   cputime += cpuclock();
-  std::cout << "Clean-up time: " << std::fixed << cputime << std::endl;
+  std::cout << "\nEvaluation time: " << std::fixed << cputime << std::endl;
 #endif
 
-  if( ffexcp )  throw ffexcpobj;
-  if( galexcp ) throw typename FFGraph::Exceptions( FFGraph::Exceptions::EVAL );
+  if( pExcp ) std::rethrow_exception( pExcp );
   return;
 }
 
@@ -6006,10 +6137,10 @@ FFGraph::eval
   assert( pDep && vDep );
   const unsigned nIndep = l_nVar.size();
   assert( l_pVar.size() == nIndep && l_vVar.size() == nIndep );
-  wkDep.resize( sgDep.l_op.size() );
 
   // Populate subgraph if empty
   if( sgDep.l_op.empty() ) sgDep = subgraph( nDep, pDep );
+  wkDep.resize( sgDep.l_op.size() );
 
   // Propagate values in U arithmetic through subgraph
 #ifdef MC__FFUNC_CPU_EVAL

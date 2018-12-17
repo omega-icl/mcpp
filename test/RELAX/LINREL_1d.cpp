@@ -1,10 +1,10 @@
-#define TEST_CHEB	// <-- select test function here
-const int NX = 500;	// <-- select discretization here
-const int NE = 5;	// <-- select polynomial model expansion here
+#define TEST_FABS	    // <-- select test function here
+const int NX = 200;     // <-- select discretization here
+const int NE = 5;       // <-- select polynomial model expansion here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
 #undef  USE_POLYMOD     // <-- specify whether to use a Chebyshev expansion before relaxation
-#undef  ADD_BREAKPOINT  // <-- specify whether to use a Chebyshev expansion before relaxation
-#define USE_CMODEL	// <-- Use Chebyshev models?
+#define ADD_BREAKPOINT // <-- specify whether to use a Chebyshev expansion before relaxation
+#undef  USE_CMODEL	    // <-- Use Chebyshev models?
 
 ////////////////////////////////////////////////////////////////////////
 
@@ -48,7 +48,21 @@ template <class T>
 T myfunc
 ( const T&x )
 {
-  return -x*fabs(x);
+  //return fabs(x);
+  return x*(x-1);
+}
+
+#elif defined( TEST_XLOG )
+using mc::xlog;
+using mc::sqr;
+const double XL   =  .2;	// <-- range lower bound
+const double XU   =  3.;	// <-- range upper bound
+template <class T>
+T myfunc
+( const T&x )
+{
+  //return xlog(x);
+  return sqr(x);
 }
 
 #elif defined( TEST_SQRT )
@@ -109,13 +123,26 @@ T myfunc
   return x*exp(-fabs(pow(x,3)));
 }
 
-#elif defined( TEST_ERF )
-const double XL   = -10.;	// <-- range lower bound
-const double XU   =  10.;	// <-- range upper bound
+#elif defined( TEST_TAN )
+using mc::sqr;
+const double XL   = -0.95;	// <-- range lower bound
+const double XU   =  0.95;	// <-- range upper bound
 template <class T>
 T myfunc
 ( const T&x )
 {
+  return asin(x)+acos(x);
+  //return sqr(sinh(x))-sqr(cosh(x));
+}
+
+#elif defined( TEST_ERF )
+const double XL   = -3.;	// <-- range lower bound
+const double XU   =  3.;	// <-- range upper bound
+template <class T>
+T myfunc
+( const T&x )
+{
+  //return tanh(x);
   return erf(x);
 }
 
@@ -276,6 +303,7 @@ void append_cut
       model.addSOS( VarSOS, WeiSOS, pCut->nvar(), TypSOS );
       delete [] VarSOS;
       delete [] WeiSOS;
+      break;
     case mc::PolCut<I>::EQ:
       DAGCuts.insert( std::make_pair( pCut, model.addConstr( lhs,
         GRB_EQUAL, pCut->rhs() ) ) );
@@ -319,25 +347,28 @@ void relax()
 
     mc::PolImg<I> PolEnv;
     PolEnv.options.AGGREG_LIN = true;
-    PolEnv.options.SANDWICH_MAXCUT = 5;
+    PolEnv.options.SANDWICH_MAXCUT = 6;
     mc::PolVar<I> X_Pol( &PolEnv, X, IX ), F_Pol;
+#ifndef ADD_BREAKPOINT
     DAG.eval( 1, &F, &F_Pol, 1, &X, &X_Pol );
     //return;
-
- #ifdef ADD_BREAKPOINT
-    PolEnv.options.BREAKPOINT_TYPE = mc::PolImg<I>::Options::SOS2;//NONE;
+#else
+    PolEnv.options.BREAKPOINT_TYPE = mc::PolImg<I>::Options::SOS2;//BIN;//NONE;
+    PolEnv.options.DCDECOMP_SCALE = false;
     // Add breakpoints to all variables (incl. auxiliaries) in DAG
-    const unsigned NDIV = 3;
-    for( auto it=PolEnv.Vars().begin(); it!=PolEnv.Vars().end(); ++it )
+    const unsigned NDIV = 2;
+    //for( auto it=PolEnv.Vars().begin(); it!=PolEnv.Vars().end(); ++it )
       for( unsigned i=0; i<NDIV; i++ ){
-        double pt = mc::Op<I>::l(it->second->range())
-                  + mc::Op<I>::diam(it->second->range())*(i+1.)/(NDIV+1.);
-        it->second->add_breakpt( pt );
-    }
+        //double pt = mc::Op<I>::l(it->second->range())
+        //          + mc::Op<I>::diam(it->second->range())*(i+1.)/(NDIV+1.);
+        //it->second->add_breakpt( pt );
+        double pt = mc::Op<I>::l(IX) + mc::Op<I>::diam(IX)*(i+1.)/(NDIV+1.);
+        X_Pol.add_breakpt( pt );
+      }
     PolEnv.reset_cuts();
-    X_Pol = *PolEnv.Vars().find(&X)->second;
+    //X_Pol = *PolEnv.Vars().find(&X)->second;
     DAG.eval( 1, &F, &F_Pol, 1, &X, &X_Pol );
- #endif
+#endif
     //return;
 
 #else
@@ -374,6 +405,7 @@ void relax()
 #endif
 
     PolEnv.generate_cuts( 1, &F_Pol, true );
+    std::cout << DAG;
     std::cout << PolEnv;
     //return;
 
@@ -397,8 +429,8 @@ void relax()
     auto itobj = PolEnv.Vars().find( &F_Pol.var() );
     auto jtvar = DAGVars.end(), jtobj = DAGVars.end();
     for( auto itv=PolEnv.Vars().begin(); itv!=PolEnv.Vars().end(); ++itv ){
-      if( !itv->second->cuts() ) continue;
-      //std::cout << itv->second << ": " << itv->second->cuts() << std::endl;
+      //if( !itv->second->cuts() ) continue;
+      std::cout << itv->second->name() << ": " << itv->second->cuts() << std::endl;
       GRBVar DAGVar = GRBmodel.addVar( mc::Op<I>::l(itv->second->range()),
           mc::Op<I>::u(itv->second->range()), 0.0, GRB_CONTINUOUS,
           itv->second->name() );
@@ -426,7 +458,7 @@ void relax()
     }
     GRBmodel.update();
     for( auto itc=PolEnv.Cuts().begin(); itc!=PolEnv.Cuts().end(); ++itc )
-      append_cut( GRBmodel, *itc );
+      append_cut( GRBmodel, *itc ); 
 
     for( int iX=0; iX<NX; iX++ ){ 
 
@@ -443,10 +475,10 @@ void relax()
 
       GRBmodel.set( GRB_IntAttr_ModelSense, 1 ); // MIN:1, MAX:-1
       GRBmodel.update();
-      GRBmodel.write( "LINREL_1d.lp" );
+      GRBmodel.write( "LINREL_1d.lp" ); //return;
       GRBmodel.optimize();
       double Zcv = GRBmodel.get( GRB_DoubleAttr_ObjVal );
-      //return 0;
+      break;
 
       GRBmodel.set( GRB_IntAttr_ModelSense, -1 ); // MIN:1, MAX:-1
       GRBmodel.update();

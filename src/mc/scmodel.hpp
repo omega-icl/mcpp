@@ -267,10 +267,10 @@ protected:
       _bndvar[i] = X; _refvar[i] = Op<T>::mid(X); _scalvar[i] = 0.5*Op<T>::diam(X); }
 
   //! @brief Resize and return a pointer to the Chebyshev coefficient interpolant array
-  double* _resize_coefinterp
+  std::vector<double>& _resize_coefinterp
     ()
     { _coefinterp.resize( _maxord + options.INTERP_EXTRA + 1 );
-      return _coefinterp.data(); }
+      return _coefinterp; }
 
 public:
   /** @addtogroup SCHEBYSHEV Chebyshev Model Arithmetic for Factorable Functions
@@ -280,8 +280,11 @@ public:
   SCModel
     ( const unsigned maxord=3, const unsigned nvarres=0 )
     : _maxord( maxord ), _nvar( 0 )
-    { _coefinterp.reserve( maxord+1 ); if( !nvarres ) return;
-      _bndvar.reserve( nvarres ); _refvar.reserve( nvarres ); _scalvar.reserve( nvarres ); }
+    { _coefinterp.reserve( maxord + options.INTERP_EXTRA + 1 );
+      if( !nvarres ) return;
+      _bndvar.reserve( nvarres );
+      _refvar.reserve( nvarres );
+      _scalvar.reserve( nvarres ); }
 
   //! @brief Destructor of Sparse Chebyshev model environment
   ~SCModel()
@@ -336,6 +339,7 @@ public:
       INV,	//!< Inverse operation with zero in range
       LOG,	//!< Log operation with non-positive numbers in range
       SQRT,	//!< Square-root operation with negative numbers in range
+      TAN,	//!< Tangent operation with (k+1/2)·PI in range
       ACOS,	//!< Sine/Cosine inverse operation with range outside [-1,1]
       EIGEN,	//!< Failed to compute eigenvalue decomposition in range bounder SCModel::Options::EIGEN
       INIT=-1,	//!< Failed to construct Chebyshev variable
@@ -359,6 +363,8 @@ public:
         return "mc::SCModel\t Log operation with non-positive numbers in range";
       case SQRT:
         return "mc::SCModel\t Square-root operation with negative numbers in range";
+      case TAN:
+        return "mc::SCModel\t Tangent operation with (k+1/2)·PI in range";
       case ACOS:
         return "mc::SCModel\t Sine/Cosine inverse operation with range outside [-1,1]";
       case EIGEN:
@@ -386,13 +392,15 @@ public:
   {
     //! @brief Constructor of mc::SCModel::Options
     Options():
-      INTERP_EXTRA(0), BOUNDER_TYPE(LSB), BOUNDER_ORDER(0), MIXED_IA(true),
-      MIN_FACTOR(0.), REF_POLY(0.), DISPLAY_DIGITS(5)
+      INTERP_EXTRA(0), INTERP_THRES(1e2*machprec()), BOUNDER_TYPE(LSB),
+      BOUNDER_ORDER(0), MIXED_IA(true), MIN_FACTOR(0.), REF_POLY(0.),
+      DISPLAY_DIGITS(5)
       {}
     //! @brief Copy constructor of mc::SCModel::Options
     template <typename U> Options
       ( U&options )
       : INTERP_EXTRA( options.INTERP_EXTRA ),
+        INTERP_THRES( options.INTERP_THRES ),
         BOUNDER_TYPE( options.BOUNDER_TYPE ),
         BOUNDER_ORDER( options.BOUNDER_ORDER ),
         MIN_FACTOR( options.MIN_FACTOR ),
@@ -404,6 +412,7 @@ public:
     template <typename U> Options& operator =
       ( U&options ){
         INTERP_EXTRA     = options.INTERP_EXTRA;
+        INTERP_THRES     = options.INTERP_THRES;
         BOUNDER_TYPE     = (BOUNDER)options.BOUNDER_TYPE;
         BOUNDER_ORDER    = options.BOUNDER_ORDER;
         MIN_FACTOR       = options.MIN_FACTOR;
@@ -421,6 +430,8 @@ public:
     };
     //! @brief Extra terms in chebyshev interpolation of univariates: 0-Chebyshev interpolation of order MAXORD; extra terms allow approximation of Chebyshev truncated series
     unsigned INTERP_EXTRA;
+    //! @brief Threshold for coefficient values in Chebyshev expansion for bounding of transcendental univariates
+    double INTERP_THRES;
     //! @brief Chebyshev model range bounder - See \ref sec_CHEBYSHEV_opt
     BOUNDER BOUNDER_TYPE;
     //! @brief Order of Bernstein polynomial for Chebyshev model range bounding (no less than Chebyshev model order!). Only if mc::SCModel::options::BOUNDER_TYPE is set to mc::SCModel::options::BERNSTEIN.
@@ -453,11 +464,17 @@ private:
 
   //! @brief Construct Chebyshev interpolating polynomial coefficient <a>coefmon</a> for univariate <a>f</a>
   static void _interpolation
-    ( double*coefmon, const unsigned maxord, const T&X, puniv f );
+    ( std::vector<double>&coefmon, const unsigned maxord, const T&X, puniv f );
+
+  //! @brief Construct Chebyshev interpolating polynomial coefficient <a>coefmon</a> for univariate <a>f</a>
+  static void _interpolation
+    ( std::vector<double>&coefmon, const double TOL, unsigned& nord,
+      const T&X, puniv f );
 
   //! @brief Apply Chebyshev composition to variable <a>CVI</a> using the coefficients <a>coefmon</a> of the outer function
   template <typename U> static SCVar<T> _composition
-    ( const U* coefouter, const unsigned maxord, const SCVar<T>& CVinner );
+    ( const std::vector<U>& coefouter, const unsigned maxord,
+      const SCVar<T>& CVinner );
 
   //! @brief Recursive calculation of nonnegative integer powers
   SCVar<T> _intpow
@@ -689,7 +706,7 @@ private:
     { return _CM->_ssqr( CV, coefmon, coefrem ); }
 
   //! @brief Array of Chebyshev interpolant coefficients
-  double* _coefinterp() const
+  std::vector<double>& _coefinterp() const
     { return _CM->_resize_coefinterp(); };
 
 public:
@@ -893,12 +910,17 @@ private:
 
   //! @brief Construct Chebyshev interpolating polynomial coefficient <a>coefmon</a> for univariate <a>f</a>
   void _interpolation
-    ( double*coefmon, puniv f ) const
+    ( std::vector<double>&coefmon, puniv f ) const
     { SCModel<T>::_interpolation( coefmon, maxord()+_CM->options.INTERP_EXTRA, bound(), f ); }
+
+  //! @brief Construct Chebyshev interpolating polynomial coefficient <a>coefmon</a> for univariate <a>f</a>
+  void _interpolation
+    ( std::vector<double>&coefmon, const double TOL, unsigned& nord, puniv f ) const
+    { SCModel<T>::_interpolation( coefmon, TOL, nord, bound(), f ); }
 
   //! @brief Apply Chebyshev composition to variable <a>CVI</a> using the coefficients <a>coefmon</a> of the outer function
   template <typename U> SCVar<T> _composition
-    ( const U* coefouter ) const
+    ( const std::vector<U>& coefouter ) const
     { return SCModel<T>::_composition( coefouter, maxord(), *this ); }
 
   //! @brief Scale current variable in order for its range to be within [-1,1], with <a>c</a> and <a>w</a> respectively the center and width, respectively, of the orginal variable range
@@ -990,7 +1012,7 @@ SCModel<T>::get_bndmon
 
 template <typename T> inline void
 SCModel<T>::_interpolation
-( double*coefmon, const unsigned maxord, const T&X, puniv f )
+( std::vector<double>&coefmon, const unsigned maxord, const T&X, puniv f )
 {
   double b( Op<T>::mid(X) ), a( Op<T>::u(X)-b ), x[maxord+1], fx[maxord+1];
   double mulconst( PI/(2.*double(maxord+1)) );
@@ -1031,9 +1053,28 @@ SCModel<T>::_interpolation
   }
 }
 
+template <typename T> inline void
+SCModel<T>::_interpolation
+( std::vector<double>&coefmon, const double TOL, unsigned& nord,
+  const T&X, puniv f )
+{
+  coefmon.resize( nord+1 );
+  _interpolation( coefmon, nord, X, f );
+  for( ; std::fabs(coefmon[nord])>TOL || (nord && std::fabs(coefmon[nord-1])>TOL); ){
+    nord*=2;
+    coefmon.resize( nord+1 );
+    _interpolation( coefmon, nord, X, f );
+#ifdef MC__CVAR_DEBUG_TANH
+    for( unsigned i=0; i<=nord; i++ )
+      std::cout << "a[" << i << "] = " << coefmon[i] << std::endl;
+    { int dum; std::cout << "ENTER <1> TO CONTINUE"; std::cin >> dum; }
+#endif
+  }
+}
+
 template <typename T> template <typename U> inline SCVar<T>
 SCModel<T>::_composition
-( const U* coefouter, const unsigned maxord, const SCVar<T>& CVinner )
+( const std::vector<U>& coefouter, const unsigned maxord, const SCVar<T>& CVinner )
 {
   //composition based on http://en.wikipedia.org/wiki/Clenshaw_algorithm#Special_case_for_Chebyshev_series
   if( !maxord )
@@ -2440,7 +2481,7 @@ inv
     throw typename SCModel<T>::Exceptions( SCModel<T>::Exceptions::INV );
 
   SCVar<T> CVI( CV._CM ), CV2( CV._CM );
-  double* coefmon = CV._coefinterp();
+  auto& coefmon = CV._coefinterp();
   CV._interpolation( coefmon, mc::inv );
 
   double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B())-m), rem;
@@ -2474,7 +2515,7 @@ sqrt
     throw typename SCModel<T>::Exceptions( SCModel<T>::Exceptions::SQRT );
 
   SCVar<T> CVI( CV._CM ), CV2( CV._CM );
-  double* coefmon = CV._coefinterp();
+  auto& coefmon = CV._coefinterp();
   CV._interpolation( coefmon, std::sqrt );
 
   double b(Op<T>::mid(CV.B())), a(Op<T>::u(CV.B())-b), rem, ub(0), lb(0);
@@ -2501,7 +2542,7 @@ exp
     return SCVar<T>( Op<T>::exp( CV.B() ) );
 
   SCVar<T> CVI( CV._CM ), CV2( CV._CM );
-  double* coefmon = CV._coefinterp();
+  auto& coefmon = CV._coefinterp();
   CV._interpolation( coefmon, std::exp );
 
   double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B())-m), rem;
@@ -2538,7 +2579,7 @@ log
     throw typename SCModel<T>::Exceptions( SCModel<T>::Exceptions::LOG );
 
   SCVar<T> CVI( CV._CM ), CV2( CV._CM );
-  double* coefmon = CV._coefinterp();
+  auto& coefmon = CV._coefinterp();
   CV._interpolation( coefmon, std::log );
 
   double b(Op<T>::mid(CV.B())), a(Op<T>::u(CV.B())-b), rem, ub(0), lb(0);
@@ -2561,7 +2602,39 @@ template <typename T> inline SCVar<T>
 xlog
 ( const SCVar<T>&CV )
 {
+#ifdef MC__SCVAR_NOINTERP_REM
   return CV * log( CV );
+#endif
+
+  if( !CV._CM )
+    return SCVar<T>( Op<T>::xlog( CV.B() ) );
+  if ( Op<T>::l(CV.B()) <= 0. )
+    throw typename SCModel<T>::Exceptions( SCModel<T>::Exceptions::LOG );
+
+  SCVar<T> CVI( CV._CM ), CV2( CV._CM );
+  auto& coefmon = CV._coefinterp();
+  unsigned nord = CV.nord()+2;
+  double TOL = CV._CM->options.INTERP_THRES;
+  CV._interpolation( coefmon, TOL, nord, mc::xlog );
+  double rem = 2*TOL;
+  for( unsigned iord=CV.nord()+1; iord<=nord; iord++ ){
+    rem += std::fabs( coefmon[iord] );
+#ifdef MC__SCVAR_DEBUG_XLOG
+    std::cout << "a[" << iord << "] = " << coefmon[iord] << std::endl;
+#endif
+  }
+#ifdef MC__SCVAR_DEBUG_XLOG
+  { int dum; std::cout << "ENTER <1> TO CONTINUE"; std::cin >> dum; }
+#endif
+
+  const double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B())-m);
+  CVI = CV._rescale( r, m );
+  CV2 = CVI._composition( coefmon );
+  CV2 += (2.*Op<T>::zeroone()-1.) * rem;
+
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::xlog( CV.B() ) );
+  if( CV._CM->options.MIN_FACTOR > 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
+  return CV2;
 }
 
 template <typename T> inline SCVar<T>
@@ -2644,14 +2717,31 @@ cos
     return SCVar<T>( Op<T>::cos( CV.B() ) );
 
   SCVar<T> CVI( CV._CM ), CV2( CV._CM );
-  double* coefmon = CV._coefinterp();
-  CV._interpolation( coefmon, std::cos );
+  auto& coefmon = CV._coefinterp();
 
+#ifdef MC__SCVAR_NOINTERP_REM
+  CV._interpolation( coefmon, std::cos );
   double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B())-m), rem, fact(1);
-  for (unsigned i(1); i<=CV.maxord()+1; i++) fact *= double(i);
-  double M = CV.maxord()%2? Op<T>::abs(Op<T>::cos(CV.B())):
+  for (unsigned i(1); i<=CV.nord()+1; i++) fact *= double(i);
+  double M = CV.nord()%2? Op<T>::abs(Op<T>::cos(CV.B())):
                           Op<T>::abs(Op<T>::sin(CV.B()));
-  rem = 2.*M*std::pow(r/2.,double(CV.maxord()+1))/fact;
+  rem = 2.*M*std::pow(r/2.,double(CV.nord()+1))/fact;
+#else
+  unsigned nord = CV.maxord()+2;
+  double TOL = CV._CM->options.INTERP_THRES;
+  CV._interpolation( coefmon, TOL, nord, std::cos );
+  double rem = 2*TOL;
+  for( unsigned iord=CV.maxord()+1; iord<=nord; iord++ ){
+    rem += std::fabs( coefmon[iord] );
+#ifdef MC__SCVAR_DEBUG_COS
+    std::cout << "a[" << iord << "] = " << coefmon[iord] << std::endl;
+#endif
+  }
+#ifdef MC__SCVAR_DEBUG_COS
+  { int dum; std::cout << "ENTER <1> TO CONTINUE"; std::cin >> dum; }
+#endif
+  const double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B())-m);  
+#endif
 
   CVI = CV._rescale(r,m);
   CV2 = CVI._composition( coefmon );
@@ -2673,7 +2763,39 @@ template <typename T> inline SCVar<T>
 tan
 ( const SCVar<T> &CV )
 {
+#ifdef MC__SCVAR_NOINTERP_REM
   return sin( CV ) / cos( CV );
+#endif
+
+  if( !CV._CM )
+    return SCVar<T>( Op<T>::tan( CV.B() ) );
+  if ( Op<T>::l(Op<T>::cos(CV.B())) <= 0. && Op<T>::u(Op<T>::cos(CV.B())) >= 0. )
+    throw typename SCModel<T>::Exceptions( SCModel<T>::Exceptions::TAN );
+
+  SCVar<T> CVI( CV._CM ), CV2( CV._CM );
+  auto& coefmon = CV._coefinterp();
+  unsigned nord = CV.maxord()+2;
+  double TOL = CV._CM->options.INTERP_THRES;
+  CV._interpolation( coefmon, TOL, nord, std::tan );
+  double rem = 2*TOL;
+  for( unsigned iord=CV.maxord()+1; iord<=nord; iord++ ){
+    rem += std::fabs( coefmon[iord] );
+#ifdef MC__SCVAR_DEBUG_TAN
+    std::cout << "a[" << iord << "] = " << coefmon[iord] << std::endl;
+#endif
+  }
+#ifdef MC__SCVAR_DEBUG_TAN
+  { int dum; std::cout << "ENTER <1> TO CONTINUE"; std::cin >> dum; }
+#endif
+
+  const double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B())-m);
+  CVI = CV._rescale( r, m );
+  CV2 = CVI._composition( coefmon );
+  CV2 += (2.*Op<T>::zeroone()-1.) * rem;
+
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::tan( CV.B() ) );
+  if( CV._CM->options.MIN_FACTOR > 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
+  return CV2;
 }
 
 template <typename T> inline SCVar<T>
@@ -2682,30 +2804,31 @@ acos
 {
   if( !CV._CM )
     return SCVar<T>( Op<T>::acos( CV.B() ) );
-  if ( Op<T>::l(CV.B()) < -1. && Op<T>::u(CV.B()) > 1. )
+  if ( Op<T>::l(CV.B()) < -1. || Op<T>::u(CV.B()) > 1. )
     throw typename SCModel<T>::Exceptions( SCModel<T>::Exceptions::ACOS );
 
   SCVar<T> CVI( CV._CM ), CV2( CV._CM );
-  // INCORRECT AS IMPLEMENTED -- NEEDS FIXING
-  throw typename SCModel<T>::Exceptions( SCModel<T>::Exceptions::UNDEF );
-
-  double coefmon[CV.maxord()+1];
-  double b(Op<T>::mid(CV.B())), a(Op<T>::u(CV.B())-b), rem, ub(-4.*a/PI);
-  coefmon[0] = 0.5*PI*a+b;
-  coefmon[1] = ub;
-  for (unsigned i(3); i<=CV.maxord(); i+=2) {
-    coefmon[i-1] = 0.;
-    coefmon[i] = coefmon[1]/std::pow(double(i),2.);
-    ub += coefmon[i];
+  auto& coefmon = CV._coefinterp();
+  unsigned nord = CV.maxord()+2;
+  double TOL = CV._CM->options.INTERP_THRES;
+  CV._interpolation( coefmon, TOL, nord, std::acos );
+  double rem = 2*TOL;
+  for( unsigned iord=CV.maxord()+1; iord<=nord; iord++ ){
+    rem += std::fabs( coefmon[iord] );
+#ifdef MC__SCVAR_DEBUG_ACOS
+    std::cout << "a[" << iord << "] = " << coefmon[iord] << std::endl;
+#endif
   }
-  if (CV.maxord()%2==0) coefmon[CV.maxord()] = 0.;
-  rem = a*PI/6. + ub;
+#ifdef MC__SCVAR_DEBUG_ACOS
+  { int dum; std::cout << "ENTER <1> TO CONTINUE"; std::cin >> dum; }
+#endif
 
-  CVI = CV._rescale(a,b);
+  const double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B())-m);
+  CVI = CV._rescale( r, m );
   CV2 = CVI._composition( coefmon );
-  CV2 += (2.*Op<T>::zeroone()-1.)*rem;
+  CV2 += (2.*Op<T>::zeroone()-1.) * rem;
 
-  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::acos(CV.B()) );
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::acos( CV.B() ) );
   if( CV._CM->options.MIN_FACTOR > 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
   return CV2;
 }
@@ -2721,28 +2844,148 @@ template <typename T> inline SCVar<T>
 atan
 ( const SCVar<T> &CV )
 {
+#ifdef MC__SCVAR_NOINTERP_REM
   return asin( CV / sqrt( sqr( CV ) + 1. ) );
+#endif
+
+  if( !CV._CM )
+    return SCVar<T>( Op<T>::atan( CV.B() ) );
+
+  SCVar<T> CVI( CV._CM ), CV2( CV._CM );
+  auto& coefmon = CV._coefinterp();
+  unsigned nord = CV.maxord()+2;
+  double TOL = CV._CM->options.INTERP_THRES;
+  CV._interpolation( coefmon, TOL, nord, std::atan );
+  double rem = 2*TOL;
+  for( unsigned iord=CV.maxord()+1; iord<=nord; iord++ ){
+    rem += std::fabs( coefmon[iord] );
+#ifdef MC__SCVAR_DEBUG_ATAN
+    std::cout << "a[" << iord << "] = " << coefmon[iord] << std::endl;
+#endif
+  }
+#ifdef MC__SCVAR_DEBUG_ATAN
+  { int dum; std::cout << "ENTER <1> TO CONTINUE"; std::cin >> dum; }
+#endif
+
+  const double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B())-m);
+  CVI = CV._rescale( r, m );
+  CV2 = CVI._composition( coefmon );
+  CV2 += (2.*Op<T>::zeroone()-1.) * rem;
+
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::atan( CV.B() ) );
+  if( CV._CM->options.MIN_FACTOR > 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
+  return CV2;
 }
 
 template <typename T> inline SCVar<T>
 sinh
 ( const SCVar<T> &CV )
 {
+#ifdef MC__SCVAR_NOINTERP_REM
   return 0.5*(mc::exp(CV)-mc::exp(-CV));
+#endif
+
+  if( !CV._CM )
+    return SCVar<T>( Op<T>::sinh( CV.B() ) );
+
+  SCVar<T> CVI( CV._CM ), CV2( CV._CM );
+  auto& coefmon = CV._coefinterp();
+  unsigned nord = CV.maxord()+2;
+  double TOL = CV._CM->options.INTERP_THRES;
+  CV._interpolation( coefmon, TOL, nord, std::sinh );
+  double rem = 2*TOL;
+  for( unsigned iord=CV.maxord()+1; iord<=nord; iord++ ){
+    rem += std::fabs( coefmon[iord] );
+#ifdef MC__SCVAR_DEBUG_SINH
+    std::cout << "a[" << iord << "] = " << coefmon[iord] << std::endl;
+#endif
+  }
+#ifdef MC__SCVAR_DEBUG_SINH
+  { int dum; std::cout << "ENTER <1> TO CONTINUE"; std::cin >> dum; }
+#endif
+
+  const double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B())-m);
+  CVI = CV._rescale( r, m );
+  CV2 = CVI._composition( coefmon );
+  CV2 += (2.*Op<T>::zeroone()-1.) * rem;
+
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sinh( CV.B() ) );
+  if( CV._CM->options.MIN_FACTOR > 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
+  return CV2;
 }
 
 template <typename T> inline SCVar<T>
 cosh
 ( const SCVar<T> &CV )
 {
+#ifdef MC__SCVAR_NOINTERP_REM
   return 0.5*(mc::exp(CV)+mc::exp(-CV));
+#endif
+
+  if( !CV._CM )
+    return SCVar<T>( Op<T>::cosh( CV.B() ) );
+
+  SCVar<T> CVI( CV._CM ), CV2( CV._CM );
+  auto& coefmon = CV._coefinterp();
+  unsigned nord = CV.maxord()+2;
+  double TOL = CV._CM->options.INTERP_THRES;
+  CV._interpolation( coefmon, TOL, nord, std::cosh );
+  double rem = 2*TOL;
+  for( unsigned iord=CV.maxord()+1; iord<=nord; iord++ ){
+    rem += std::fabs( coefmon[iord] );
+#ifdef MC__SCVAR_DEBUG_COSH
+    std::cout << "a[" << iord << "] = " << coefmon[iord] << std::endl;
+#endif
+  }
+#ifdef MC__SCVAR_DEBUG_COSH
+  { int dum; std::cout << "ENTER <1> TO CONTINUE"; std::cin >> dum; }
+#endif
+
+  const double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B())-m);
+  CVI = CV._rescale( r, m );
+  CV2 = CVI._composition( coefmon );
+  CV2 += (2.*Op<T>::zeroone()-1.) * rem;
+
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::cosh( CV.B() ) );
+  if( CV._CM->options.MIN_FACTOR > 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
+  return CV2;
 }
 
 template <typename T> inline SCVar<T>
 tanh
 ( const SCVar<T> &CV )
 {
+#ifdef MC__SCVAR_NOINTERP_REM
   return (mc::exp(2*CV)-1)/(mc::exp(2*CV)+1);
+#endif
+
+  if( !CV._CM )
+    return SCVar<T>( Op<T>::tanh( CV.B() ) );
+
+  SCVar<T> CVI( CV._CM ), CV2( CV._CM );
+  auto& coefmon = CV._coefinterp();
+  unsigned nord = CV.maxord()+2;
+  double TOL = CV._CM->options.INTERP_THRES;
+  CV._interpolation( coefmon, TOL, nord, std::tanh );
+  double rem = 2*TOL;
+  for( unsigned iord=CV.maxord()+1; iord<=nord; iord++ ){
+    rem += std::fabs( coefmon[iord] );
+#ifdef MC__SCVAR_DEBUG_TANH
+    std::cout << "a[" << iord << "] = " << coefmon[iord] << std::endl;
+#endif
+  }
+#ifdef MC__SCVAR_DEBUG_TANH
+  { int dum; std::cout << "ENTER <1> TO CONTINUE"; std::cin >> dum; }
+#endif
+
+  const double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B())-m);
+  CVI = CV._rescale( r, m );
+  CV2 = CVI._composition( coefmon );
+  CV2 += (2.*Op<T>::zeroone()-1.) * rem;
+
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::tanh( CV.B() ) );
+  if( CV._CM->options.MIN_FACTOR > 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
+  return CV2;
 }
 
 template <typename T> inline SCVar<T>
@@ -2769,7 +3012,7 @@ fabs
   }
 
   SCVar<T> CVI( CV._CM ), CV2( CV._CM );
-  double* coefmon = CV._coefinterp();
+  auto& coefmon = CV._coefinterp();
   CV._interpolation( coefmon, std::fabs );
 
   double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B())-m), rem, fact(1);

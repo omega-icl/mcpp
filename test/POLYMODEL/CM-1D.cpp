@@ -1,13 +1,16 @@
-#define TEST_EXP1	    // <-- select test function here
-const int NTE = 2;	    // <-- select Chebyshev expansion order here
+#define TEST_TRIG	    // <-- select test function here
+const int NTE = 4;	    // <-- select Chebyshev expansion order here
 const int NX = 200;	    // <-- select X discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
 #define TEST_CVG        // <-- specify whether to save results to file
-#undef USE_PROFIL   	// <-- specify to use PROFIL for interval arithmetic
-#undef USE_FILIB	    // <-- specify to use FILIB++ for interval arithmetic
-#undef  MC__CVAR_FABS_SQRT
+#undef  USE_PROFIL   	// <-- specify to use PROFIL for interval arithmetic
+#undef  USE_FILIB	    // <-- specify to use FILIB++ for interval arithmetic
+#undef  USE_SPARSE      // <-- specify whether to use sparse Chebyshev models
+#undef  MC__CVAR_NOINTERP_REM
 #undef  MC__CVAR_SPARSE_PRODUCT_NAIVE
 #undef  MC__POLYMODEL_DEBUG_SPROD
+#undef  MC__CVAR_DEBUG_INTERPOLATION
+#undef  MC__CVAR_DEBUG_COS
 ////////////////////////////////////////////////////////////////////////
 
 #include <fstream>
@@ -29,11 +32,19 @@ const int NX = 200;	    // <-- select X discretization here
 #include "mccormick.hpp"
 typedef mc::McCormick<I> MC;
 
-#include "cmodel.hpp"
-typedef mc::CModel<I> CM;
-typedef mc::CVar<I> CV;
-typedef mc::CModel<MC> CMMC;
-typedef mc::CVar<MC> CVMC;
+#ifdef USE_SPARSE
+  #include "scmodel.hpp"
+  typedef mc::SCModel<I> CM;
+  typedef mc::SCVar<I> CV;
+  typedef mc::SCModel<MC> CMMC;
+  typedef mc::SCVar<MC> CVMC;
+#else
+  #include "cmodel.hpp"
+  typedef mc::CModel<I> CM;
+  typedef mc::CVar<I> CV;
+  typedef mc::CModel<MC> CMMC;
+  typedef mc::CVar<MC> CVMC;
+#endif
 
 using namespace std;
 using namespace mc;
@@ -133,6 +144,39 @@ T myfunc
   return sqrt(1./x);
 }
 
+#elif defined( TEST_HYP )
+const double XL   = -3.0;	// <-- X range lower bound
+const double XU   = 3.5;	// <-- X range upper bound
+const double Xref =  1.;	// <-- X ref point for McCormick
+template <class T>
+T myfunc
+( const T&x )
+{
+  return tanh(x)-sinh(x)/cosh(x);
+}
+
+#elif defined( TEST_TAN )
+const double XL   = -1.2;	// <-- X range lower bound
+const double XU   =  1.5;	// <-- X range upper bound
+const double Xref =  0.;	// <-- X ref point for McCormick
+template <class T>
+T myfunc
+( const T&x )
+{
+  return tan(x);//-sin(x)/cos(x);
+}
+
+#elif defined( TEST_ARC )
+const double XL   = -.8;	// <-- X range lower bound
+const double XU   =  .5;	// <-- X range upper bound
+const double Xref =  1.;	// <-- X ref point for McCormick
+template <class T>
+T myfunc
+( const T&x )
+{
+  return atan(x)-acos(x);
+}
+
 #elif defined( TEST_FABS )
 const double XL   = -PI/2.;	// <-- range lower bound
 const double XU   =  PI/4.;	// <-- range upper bound
@@ -141,21 +185,21 @@ template <class T>
 T myfunc
 ( const T&x )
 {
-  //return fabs(x);
-  return sin(fabs(x));
+  return fabs(x);
+  //return sin(fabs(x));
 }
 
 #elif defined( TEST_TRIG )
-const double XL   =  0.;	// <-- range lower bound
-const double XU   =  PI;	// <-- range upper bound
-const double Xref = PI/3.;	// <-- X ref point for McCormick
+const double XL   = -2*PI;	// <-- range lower bound
+const double XU   = PI; 	// <-- range upper bound
+const double Xref = PI; 	// <-- X ref point for McCormick
 template <class T>
 T myfunc
 ( const T&x )
 {
   //return cos(x*atan(x));
   //return acos(x);
-  return x*sin(x);
+  return sin(x);
 }
 
 #elif defined( TEST_TRIG2 )
@@ -183,8 +227,13 @@ int main()
   try{ 
 
     // Define Chebyshev model environment
+#ifdef USE_SPARSE
+    CM modCM( NTE );
+    CMMC modCMMC( NTE );
+#else
     CM modCM( 1, NTE );
     CMMC modCMMC( 1, NTE );
+#endif
 
     // <-- set options here -->
     MC::options.MVCOMP_USE = true;
@@ -195,7 +244,7 @@ int main()
     modCM.options.MIXED_IA       = true;//true;
     modCMMC.options = modCM.options;
 
-    // Define variable X, and evaluate Taylor model
+    // Define variable X, and evaluate Chebyshev model
     //CVMC CVMCX( &mod, 0, MC(I(XL,XU),Xref).sub(1,0) );
     CV CVX( &modCM, 0, I(XL,XU) );
     std::cout << "\nChebyshev model of x:" << CVX;
@@ -203,7 +252,7 @@ int main()
     std::cout << "\nChebyshev model of f(x):" << CVF;
     //std::cout << "\nBernstein bounder:" << CVMCF.bound(CMMC::Options::BERNSTEIN) << std::endl;
 
-    // Define variable X, and evaluate Taylor model
+    // Define variable X, and evaluate Chebyshev-McCormick model
     //CVMC CVMCX( &mod, 0, MC(I(XL,XU),Xref).sub(1,0) );
     CVMC CVMCX( &modCMMC, 0, MC(I(XL,XU),Xref) );
     std::cout << "\nMcCormick-Chebyshev model of x:" << CVMCX;

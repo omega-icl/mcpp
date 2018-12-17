@@ -20,6 +20,8 @@ int test_fadiff1()
   mc::FFGraph DAG;
   mc::FFVar X[NX];
   for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
+  //mc::FFVar F[NF] = { X[0]+1.1,
+  //                    1.2 };
   mc::FFVar F[NF] = { X[2]*X[3]-2./(X[1]+X[2]),
                       X[0]*pow(exp(X[2]*X[1])+3.,4)+tanh(X[3]) };
   std::cout << DAG;
@@ -27,6 +29,18 @@ int test_fadiff1()
   std::ofstream o_F( "fadiff1_F.dot", std::ios_base::out );
   DAG.dot_script( NF, F, o_F );
   o_F.close();
+
+  // Evaluate in double arithmetic
+  mc::FFSubgraph opF;
+  opF = DAG.subgraph( NF, F );
+  DAG.output( opF, " F" );
+  std::vector<double> WRK, dX(NX,0.), dF(NF);
+  DAG.eval( NF, F, dF.data(), NX, X, dX.data() );
+  //DAG.eval( opF, WRK, NF, F, dF.data(), NX, X, dX.data() );
+  std::cout << "dF = [ ";
+  for( unsigned i=0; i<NF; i++ ) std::cout << dF[i] << " ";
+  std::cout << "]" << std::endl;
+  //return 0;
 
   // Forward AD
   const mc::FFVar* dFdX_FAD = DAG.FAD( NF, F, NX, X );
