@@ -255,6 +255,8 @@ int test_hessian_sparse()
 
 int test_tadiff1()
 {
+  std::cout << "\n==============================================\ntest_fadiff1:\n";
+
   mc::FFGraph DAG;
   mc::FFVar T( &DAG );
   mc::FFVar X( &DAG ); 
@@ -278,6 +280,8 @@ int test_tadiff1()
 
 int test_tadiff2()
 {
+  std::cout << "\n==============================================\ntest_tadiff2:\n";
+
   mc::FFGraph DAG;
   mc::FFVar T( &DAG );
   mc::FFVar X( &DAG ); 

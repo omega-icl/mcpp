@@ -32,12 +32,12 @@ extern "C" {
 namespace mc
 {
  
-void pause()
-{
-  int tmp;
-  std::cout << "ENTER <1> TO CONTINUE" << std::endl;
-  std::cin  >> tmp;
-}
+//void pause()
+//{
+//  int tmp;
+//  std::cout << "ENTER <1> TO CONTINUE" << std::endl;
+//  std::cin  >> tmp;
+//}
 
 template< typename U > inline void display
 ( const unsigned int m, const unsigned int n, const U*a, const unsigned int lda,

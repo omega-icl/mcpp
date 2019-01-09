@@ -515,6 +515,7 @@ Differentiation</A></I>, SIAM, 2009
 // - Extend FFGraph eval for multiple variable arrays (use variadic templates)
 // - What to do with monomials?
 // - Allow flatening of rational expressions?
+// - Modify SFAD, SAD to return vector<FFVar> instead of vector<const FFVar*>?
 
 #ifndef MC__FFUNC_HPP
 #define MC__FFUNC_HPP
@@ -5168,74 +5169,201 @@ FFGraph::SFAD
   assert( !vDir.size() || vIndep.size() == vDir.size() );
   //fadbad::F<FFVar> FFVar_dum();
 
-  // Initialize of all independent variables participating in the dependent ones
-  it_Vars itv = _Vars.begin();
-  fadbad::F<FFVar>* pX_F( 0 );
-  for( ; itv!=_Vars.end() && (*itv)->_id.first<=FFVar::VAR; ++itv ){
-    pX_F = new fadbad::F<FFVar>( **itv );
-    auto iti = vIndep.begin();
-    auto itd = vDir.begin();
-    for( unsigned int i=0; iti!=vIndep.end(); ++iti, ++itd, i++ )
-      if( (*itv)->id().second == (*iti)->id().second ){
+  // Obtain subgraph
+  auto sgDep = subgraph( vDep );
+  std::tuple< std::vector<unsigned>, std::vector<unsigned>,
+               std::vector<const FFVar*> > vDep_F; // <- vector holding the results in sparse format
+
+  // Propagate values in fadbad::F type arithmetic through subgraph
+#ifdef MC__FFUNC_CPU_EVAL
+  double cputime = -cpuclock();
+  std::cerr << "#operations " << sgDep.l_op.size() << std::endl;
+#endif
+  fadbad::F<FFVar>* pU_dum( 0 );
+  std::exception_ptr pExcp = 0;
+  try{
+   for( auto&&op : sgDep.l_op ){
+
+    // Initialize variable using values in l_vVar
+    if( op->type == FFOp::VAR ){
+      FFVar* pF = op->pres;
+      fadbad::F<FFVar>* pX_F = new fadbad::F<FFVar>( *pF );
+      auto iti = vIndep.begin();
+      auto itd = vDir.begin();
+      for( unsigned int i=0; iti!=vIndep.end(); ++iti, ++itd, i++ ){
+        if( op->pres->id() != (*iti)->id() ) continue;
         if( vDir.size() ) pX_F->diff( 0, 1 ) = **itd;
         else pX_F->diff( i, vIndep.size() ); 
       }
-    // Attach fadbad::F<FFVar>* variable to corresponding variable in _Vars
-    (*itv)->val() = pX_F;
-  }
-  // THIS IS DOING A BIT TOO MUCH WORK AS ONLY THE INDEPENDENT VARIABLES
-  // PARTICIPATING IN THE DEPENDENTS SHOULD BE TAKEN INTO ACCOUNT REALLY
-  // (E.G., THIS COULD BE DONE USING THE .dep() FIELD IN THE DEPENDENTS)
-
-  // Evaluate dependents given by vDep in fadbad::F type
-  for( auto&&op : subgraph( vDep ).l_op ){
-    _curOp = op;
-    _curOp->evaluate( pX_F );
-  }
-  // Retreive dependents variables in fadbad::F as given by vDep
-  std::tuple< std::vector<unsigned>, std::vector<unsigned>,
-              std::vector<const FFVar*> > vDep_F; // <- vector holding the results in sparse format
-  auto itd = vDep.begin();
-  for( unsigned i=0; itd!=vDep.end(); ++itd, i++ ){
-    // Obtain pointer to dependent variable in FFGraph
-    FFVar* pF = !(*itd)->cst()? _find_var( (*itd)->id() ): 0;
-    auto iti = vIndep.begin();
-    // Push corresponding evaluation in fadbad::F into result vector
-    for( unsigned j=0; iti!=vIndep.end(); ++iti, j++ ){
-      if( !pF ) continue;
-      // THE FOLLOWING MATCHING IS NECESSARY BECAUSE THE VARIABLES CREATED
-      // BY FFOp::evaluate ARE NOT THE SAME AS THOSE STORED IN FFGraph
-      fadbad::F<FFVar>* pF_F = static_cast<fadbad::F<FFVar>*>( pF->val() );
-      const FFVar* pdFdX = _find_var( pF_F->deriv(j).id() );
-      if( !pdFdX ){
-        const FFNum& num = pF_F->deriv(j).num();
-        switch( num.t ){
-          case FFNum::INT:  if( num.n )       pdFdX = _add_constant( num.n ); break;
-          case FFNum::REAL: if( num.x != 0. ) pdFdX = _add_constant( num.x ); break;
-        }
-        if( !pdFdX ) continue;
-      }
-      std::get<0>(vDep_F).push_back( i ); // add row index
-      std::get<1>(vDep_F).push_back( j ); // add column index
-      std::get<2>(vDep_F).push_back( pdFdX ); // add Jacobian element
-      if( vDir.size() ) break; // interrupt if directional derivatives requested
+      // Attach fadbad::F<FFVar>* variable to corresponding variable in _Vars
+      pF->val() = pX_F;
     }
+    // Evaluate current operation
+    _curOp = op;
+    _curOp->evaluate( pU_dum );
+   }
+
+//   // Retreive dependents variables in fadbad::F as given by vDep
+//   auto itd = vDep.begin();
+//   for( unsigned i=0; itd!=vDep.end(); ++itd, i++ ){
+//     // Obtain pointer to dependent variable in FFGraph
+//     FFVar* pF = !(*itd)->cst()? _find_var( (*itd)->id() ): 0;
+//     auto iti = vIndep.begin();
+//     // Push corresponding evaluation in fadbad::F into result vector
+//     for( unsigned j=0; iti!=vIndep.end(); ++iti, j++ ){
+//       if( !pF ) continue;
+//       // THE FOLLOWING MATCHING IS NECESSARY BECAUSE THE VARIABLES CREATED
+//       // BY FFOp::evaluate ARE NOT THE SAME AS THOSE STORED IN FFGraph
+//       fadbad::F<FFVar>* pF_F = static_cast<fadbad::F<FFVar>*>( pF->val() );
+//       const FFVar* pdFdX = _find_var( pF_F->deriv(j).id() );
+//       if( !pdFdX ){
+//         const FFNum& num = pF_F->deriv(j).num();
+//         switch( num.t ){
+//           case FFNum::INT:  if( num.n )       pdFdX = _add_constant( num.n ); break;
+//           case FFNum::REAL: if( num.x != 0. ) pdFdX = _add_constant( num.x ); break;
+//         }
+//         if( !pdFdX ) continue;
+//       }
+//       std::get<0>(vDep_F).push_back( i ); // add row index
+//       std::get<1>(vDep_F).push_back( j ); // add column index
+//       std::get<2>(vDep_F).push_back( pdFdX ); // add Jacobian element
+//       if( vDir.size() ) break; // interrupt if directional derivatives requested
+//     }
+//   }
+
+   // Copy dependent values in vDep 
+   unsigned int i=0;
+   for( auto&& ito : sgDep.it_dep ){
+     for( unsigned j=0; j<vIndep.size(); j++ ){
+       fadbad::F<FFVar>* pF_F = static_cast<fadbad::F<FFVar>*>( (*ito)->pres->val() );
+       const FFVar* pdFdX = _find_var( pF_F->deriv(j).id() );
+       if( !pdFdX ){
+         const FFNum& num = pF_F->deriv(j).num();
+         switch( num.t ){
+           case FFNum::INT:  if( num.n )       pdFdX = _add_constant( num.n ); break;
+           case FFNum::REAL: if( num.x != 0. ) pdFdX = _add_constant( num.x ); break;
+         }
+         if( !pdFdX ) continue;
+       }
+       std::get<0>(vDep_F).push_back( i ); // add row index (dependent)
+       std::get<1>(vDep_F).push_back( j ); // add column index (independent)
+       std::get<2>(vDep_F).push_back( pdFdX ); // add Jacobian element
+       if( vDir.size() ) break; // interrupt if directional derivatives requested
+     }
+     i++;
+   }
   }
+  catch(...){
+    pExcp = std::current_exception();
+  }
+
 
   // Reset FFVAR_val field to NULL
-  itv = _Vars.begin();
-  for( ; itv!=_Vars.end() && (*itv)->_id.first<=FFVar::VAR; ++itv )
-    (*itv)->reset_val( fadbad::F<FFVar>() );
-
-  _reset_operations();
-  itd = vDep.begin();
-  for( ; itd!=vDep.end(); ++itd ){
-    if( !(*itd)->ops().first ) continue;
-    (*itd)->ops().first->reset_val_subgraph( fadbad::F<FFVar>() );
+  for( auto&&op : sgDep.l_op ){
+    //std::cout << *op->pres << ": " << op->pres->val() << std::endl;
+    op->pres->reset_val( *pU_dum );//U() );
+    //delete (U*)op->pres->val(); op->pres->val() = 0;
+    //std::cout << *op->pres << ": " << op->pres->val() << std::endl;
   }
 
+  //std::cout << "#assigned dependents: " << curdep << std::endl;
+#ifdef MC__FFUNC_CPU_EVAL
+  cputime += cpuclock();
+  std::cout << "\nEvaluation time: " << std::fixed << cputime << std::endl;
+#endif
+
+  if( pExcp ) std::rethrow_exception( pExcp );
   return vDep_F;
 }
+
+//inline std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<const FFVar*> >
+//FFGraph::SFAD
+//( const std::vector<const FFVar*>&vDep, const std::vector<const FFVar*>&vIndep,
+//  const std::vector<const FFVar*>&vDir )
+//{
+//  // Nothing to do!
+//  if( !vIndep.size() || !vDep.size() ) return std::make_tuple( std::vector<unsigned>(),
+//    std::vector<unsigned>(), std::vector<const FFVar*>() );
+//  assert( !vDir.size() || vIndep.size() == vDir.size() );
+//  //fadbad::F<FFVar> FFVar_dum();
+
+//  // Initialize of all independent variables participating in the dependent ones
+//  it_Vars itv = _Vars.begin();
+//  fadbad::F<FFVar>* pX_F( 0 );
+//  for( ; itv!=_Vars.end() && (*itv)->_id.first<=FFVar::VAR; ++itv ){
+//    pX_F = new fadbad::F<FFVar>( **itv );
+//    auto iti = vIndep.begin();
+//    auto itd = vDir.begin();
+//    for( unsigned int i=0; iti!=vIndep.end(); ++iti, ++itd, i++ )
+//      if( (*itv)->id().second == (*iti)->id().second ){
+//        if( vDir.size() ) pX_F->diff( 0, 1 ) = **itd;
+//        else pX_F->diff( i, vIndep.size() ); 
+//      }
+//    // Attach fadbad::F<FFVar>* variable to corresponding variable in _Vars
+//    (*itv)->val() = pX_F;
+//  }
+//  // THIS IS DOING A BIT TOO MUCH WORK AS ONLY THE INDEPENDENT VARIABLES
+//  // PARTICIPATING IN THE DEPENDENTS SHOULD BE TAKEN INTO ACCOUNT REALLY
+//  // (E.G., THIS COULD BE DONE USING THE .dep() FIELD IN THE DEPENDENTS)
+
+//  // Evaluate dependents given by vDep in fadbad::F type
+//  auto sgDep = subgraph( vDep );
+//  for( auto&&op : sgDep.l_op ){
+//    _curOp = op;
+//    _curOp->evaluate( pX_F );
+//  }
+//  // Retreive dependents variables in fadbad::F as given by vDep
+//  std::tuple< std::vector<unsigned>, std::vector<unsigned>,
+//              std::vector<const FFVar*> > vDep_F; // <- vector holding the results in sparse format
+//  auto itd = vDep.begin();
+//  for( unsigned i=0; itd!=vDep.end(); ++itd, i++ ){
+//    // Obtain pointer to dependent variable in FFGraph
+//    FFVar* pF = !(*itd)->cst()? _find_var( (*itd)->id() ): 0;
+//    auto iti = vIndep.begin();
+//    // Push corresponding evaluation in fadbad::F into result vector
+//    for( unsigned j=0; iti!=vIndep.end(); ++iti, j++ ){
+//      if( !pF ) continue;
+//      // THE FOLLOWING MATCHING IS NECESSARY BECAUSE THE VARIABLES CREATED
+//      // BY FFOp::evaluate ARE NOT THE SAME AS THOSE STORED IN FFGraph
+//      fadbad::F<FFVar>* pF_F = static_cast<fadbad::F<FFVar>*>( pF->val() );
+//      const FFVar* pdFdX = _find_var( pF_F->deriv(j).id() );
+//      if( !pdFdX ){
+//        const FFNum& num = pF_F->deriv(j).num();
+//        switch( num.t ){
+//          case FFNum::INT:  if( num.n )       pdFdX = _add_constant( num.n ); break;
+//          case FFNum::REAL: if( num.x != 0. ) pdFdX = _add_constant( num.x ); break;
+//        }
+//        if( !pdFdX ) continue;
+//      }
+//      std::get<0>(vDep_F).push_back( i ); // add row index
+//      std::get<1>(vDep_F).push_back( j ); // add column index
+//      std::get<2>(vDep_F).push_back( pdFdX ); // add Jacobian element
+//      if( vDir.size() ) break; // interrupt if directional derivatives requested
+//    }
+//  }
+
+//  // Reset FFVAR_val field to NULL
+//  for( auto&&op : sgDep.l_op ){
+//    //std::cout << *op->pres << ": " << op->pres->val() << std::endl;
+//    op->pres->reset_val( *pX_F );//U() );
+//    //delete (U*)op->pres->val(); op->pres->val() = 0;
+//    //std::cout << *op->pres << ": " << op->pres->val() << std::endl;
+//  }
+
+//  // Reset FFVAR_val field to NULL
+//  _reset_operations();
+//  itd = vDep.begin();
+//  for( ; itd!=vDep.end(); ++itd ){
+//    if( !(*itd)->ops().first ) continue;
+//    (*itd)->ops().first->reset_val_subgraph( fadbad::F<FFVar>() );
+//  }
+
+//  itv = _Vars.begin();
+//  for( ; itv!=_Vars.end() && (*itv)->_id.first<=FFVar::VAR; ++itv )
+//    (*itv)->reset_val( fadbad::F<FFVar>() );
+
+//  return vDep_F;
+//}
 
 template <typename... Deps> 
 inline FFVar*
@@ -6030,8 +6158,12 @@ FFGraph::eval
   }
 
   // Reset FFVAR_val field to NULL
-  for( auto&&op : sgDep.l_op )
-    op->pres->reset_val( pU_dum );//U() );
+  for( auto&&op : sgDep.l_op ){
+    //std::cout << *op->pres << ": " << op->pres->val() << std::endl;
+    op->pres->reset_val( *pU_dum );//U() );
+    //delete (U*)op->pres->val(); op->pres->val() = 0;
+    //std::cout << *op->pres << ": " << op->pres->val() << std::endl;
+  }
 
   //std::cout << "#assigned dependents: " << curdep << std::endl;
 #ifdef MC__FFUNC_CPU_EVAL

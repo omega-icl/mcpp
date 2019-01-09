@@ -22,9 +22,9 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 
-int test_dependency()
+int test_dep1()
 {
-  std::cout << "\n==============================================\ntest_dependency:\n";
+  std::cout << "\n==============================================\ntest_dep1:\n";
 
   const int NX = 4;
   mc::FFDep X[NX];
@@ -39,6 +39,38 @@ int test_dependency()
 
   std::cout << "Variable dependence of F[0]: " << F[0] << std::endl;
   std::cout << "Variable dependence of F[1]: " << F[1] << std::endl;
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+int test_dep2()
+{
+  std::cout << "\n==============================================\ntest_dep2:\n";
+
+  // Create DAG
+  const unsigned NX = 4, NF = 1;
+  mc::FFGraph DAG;
+  mc::FFVar X[NX];
+  for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
+  mc::FFVar F[NF] = { X[2]*X[3] };
+  //mc::FFVar F[NF] = { X[2]*X[3]+X[0]/X[2],
+  //                    X[0]*pow(exp(X[2]-X[3]),2)+X[1] };
+  std::cout << DAG;
+
+  std::ofstream o_F( "dep2_F.dot", std::ios_base::out );
+  DAG.dot_script( NF, F, o_F );
+  o_F.close();
+
+  // Evaluate with dependents
+  auto F_op  = DAG.subgraph( NF, F );
+  mc::FFDep depX[NX], depF[NF];
+  for( unsigned int i=0; i<NX; i++ ) depX[i].indep(i);
+  DAG.eval( F_op, NF, F, depF, NX, X, depX );
+
+  std::cout << "Variable dependence of F[0]: " << depF[0] << std::endl;
+  //std::cout << "Variable dependence of F[1]: " << depF[1] << std::endl;
 
   return 0;
 }
@@ -776,15 +808,16 @@ int test_sparseexpr()
 int main()
 {
   try{
-//    test_dependency();
-//    test_spolyexpr();
-//    test_sparseexpr();
-//    test_rltred1();
-//    test_rltred2();
+    test_dep1();
+    test_dep2();
+    test_spolyexpr();
+    test_sparseexpr();
+    test_rltred1();
+    test_rltred2();
     test_rltred3();
-//    test_rltred4();
-//    test_rltred5();
-//    test_rltred6();
+    test_rltred4();
+    test_rltred5();
+    test_rltred6();
   }
   catch( mc::FFGraph::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()

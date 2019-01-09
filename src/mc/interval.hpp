@@ -446,7 +446,7 @@ private:
 
 ////////////////////////////////////////////////////////////////////////
 
-Interval::Options Interval::options;
+//inline Interval::Options Interval::options;
 
 inline Interval
 operator+
