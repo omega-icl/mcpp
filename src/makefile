@@ -9,7 +9,6 @@ export rootpath = $(shell cd .. ; pwd)
 export srcpath  = $(rootpath)/src
 export incpath  = $(rootpath)/include
 export mcpath   = $(srcpath)/mc
-export testpath = $(srcpath)/test
 
 #####
 
@@ -34,4 +33,3 @@ cleaninstall: mc_cleaninstall
 
 mc_cleaninstall:
 	-(cd $(mcpath);   make -f mc.mk cleaninstall)
-	-(cd $(testpath); make -f test.mk clean)

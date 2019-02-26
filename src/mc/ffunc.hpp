@@ -934,7 +934,8 @@ private:
       return ovar.str();
     }
 };
-const long FFVar::NOREF;
+
+inline const long FFVar::NOREF;
 
 //! @brief Structure comparing variable identifiers in a factorable function for ordering in set FFGraph::_Vars
 ////////////////////////////////////////////////////////////////////////
