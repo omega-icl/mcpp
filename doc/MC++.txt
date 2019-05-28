@@ -3,9 +3,9 @@
 @mainpage MC++ (version 2.1): Toolkit for Construction, Manipulation and Bounding of Factorable Functions
 
 @author Benoit C. Chachuat <tt>(b.chachuat@imperial.ac.uk)</tt> and OMEGA Research Group (http://www3.imperial.ac.uk/environmentenergyoptimisation)
-@date 2006-2017
+@date 2019
 
-MC++ provides a collection of C++ classes for construction, manipulation and bounding of factorable functions. The bounding methods include interval bounds, spectral bounds, convex/concave relaxations, Taylor and Chebyshev model estimators, and polyhedral relaxations. The implementation of MC++ relies on operator/function overloading and templates. Our main emphasis in developing MC++ is to make the computation of bounds as simple and natural as possible, similar to computing function values in real arithmetics. The use of DAGs to define factorable functions is recommended for efficiency with complex bounding types and allows manipulating functions, including forward/backward/Taylor automatic differentiation. We hope that you will find MC++ most useful for the fast prototyping and testing of new algorithms and ideas, for instance in areas such as global and robust optimization.
+MC++ provides a collection of C++ classes for construction, manipulation and bounding of factorable functions. The bounding methods include interval bounds, spectral bounds, convex/concave relaxations, Taylor and Chebyshev model estimators, and polyhedral relaxations. The implementation of MC++ relies on operator/function overloading and templates. Our main emphasis in developing MC++ is to make the computation of bounds as simple and natural as possible, similar to computing function values in real arithmetics. The use of DAGs to define factorable functions is recommended for efficiency with complex bounding types and enables manipulating exoressions, including forward / backward / Taylor expansion in automatic differentiation. We hope that you will find MC++ most useful for faster prototyping and testing of new algorithms and ideas, for instance in areas such as global and robust optimization.
 
 
 \section sec_MC_install How Do I Install and Test MC++?
@@ -26,7 +26,7 @@ MC++ can be obtained by clonning the 'mcpp' GitHub repository via:
 $ git clone https://github.com/omega-icl/mcpp.git MC++
 </tt>
 
-This will create a folder called 'MC++' containing the currently released
+This will create a folder called 'mcpp' containing the currently released
 distribution.
 On distribution, the main directory should contain the files <TT>AUTHORS</TT>, <TT>CHANGELOG</TT>, <TT>INSTALL</TT>, <TT>LICENSE</TT> and <TT>README</TT>, as well as 3 subdirectories:
 - <tt>src</tt> contains the source code of MC++, which consists of header files only; that is, there is no need to build or link a library.
@@ -41,7 +41,7 @@ On distribution, the main directory should contain the files <TT>AUTHORS</TT>, <
   <TD>MC++ has been developed and tested primarily under Linux</TD>
   </TR>
   <TR>
-  <TD>The tests and examples should compile without warnings with <a href="http://gcc.gnu.org/"><tt>gcc</tt></a> (ver. 4.X and 5.X) after enabling the C++11 standard features</TD>
+  <TD>The tests and examples should compile without warnings with <a href="http://gcc.gnu.org/"><tt>gcc</tt></a> (ver. 7.X), which provides C++1z support (pre C++17 releaase)</TD>
   </TR>
   </TABLE></CENTER></TD>
 </TR>
@@ -94,7 +94,7 @@ Information about the DAG construction and manipulation in MC++ can also be foun
 Change into the <tt>examples</tt> directory, and select one of the subdirectories, e.g.
 
 <tt>
-$ cd examples/MC-1D
+$ cd examples/MCCORMICK
 </tt>
 
 At the command line, type:

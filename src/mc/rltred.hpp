@@ -674,6 +674,10 @@ private:
 #endif
 };
 
+#if defined(MC__USE_CPLEX) || defined(MC__USE_GUROBI)
+inline const int RLTRED::LPALGO_DEFAULT;
+#endif
+
 inline typename RLTRED::t_RLTRed&
 RLTRED::search
 ( const unsigned nlhs, const FFVar* lhs, const bool add2dag )

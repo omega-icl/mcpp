@@ -565,7 +565,8 @@ public:
 
 ////////////////////////////////////////////////////////////////////////
 
-template <typename T> typename Specbnd<T>::Options Specbnd<T>::options;
+template <typename T> inline
+typename Specbnd<T>::Options Specbnd<T>::options;
 
 template <class T> inline T
 Specbnd<T>::_LambdaS

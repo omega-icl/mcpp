@@ -1,8 +1,8 @@
-#define TEST_EXP2       // <-- select test function here
+#define TEST_MIN1       // <-- select test function here
 const int NX = 500;	    // <-- select discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
-#undef USE_PROFIL      // <-- specify to use PROFIL for interval arithmetic
-#define USE_FILIB        // <-- specify to use FILIB++ for interval arithmetic
+#define USE_PROFIL      // <-- specify to use PROFIL for interval arithmetic
+#undef  USE_FILIB        // <-- specify to use FILIB++ for interval arithmetic
 #define USE_DAG          // <-- specify to evaluate via a DAG of the function
 
 ////////////////////////////////////////////////////////////////////////
@@ -152,7 +152,21 @@ T myfunc
   return pow(-fabs(x-0.5)-xlog(x),3);
 }
 
-#elif defined( TEST_MIN )
+#elif defined( TEST_MIN1 )
+const double XL   = -2;	// <-- range lower bound
+const double XU   =  1;	// <-- range upper bound
+const double Xref =  0.;	// <-- linearization point
+template <class T>
+T myfunc
+( const T&x )
+{
+  //T m[2] = { -x, x };
+  //T m[2] = { pow(x-1,2), pow(x+1,2) };
+  //return min(2,m);
+  return max( pow(x-1,2), pow(x+1,2) );
+}
+
+#elif defined( TEST_MIN2 )
 const double XL   = -.8;	// <-- range lower bound
 const double XU   =  .8;	// <-- range upper bound
 const double Xref =  0.;	// <-- linearization point

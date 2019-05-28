@@ -734,7 +734,8 @@ private:
     ( const TVar<T>&TV );
 } ;
 
-template <typename T> const std::string TModel<T>::Options::BOUNDER_NAME[5]
+template <typename T> inline
+const std::string TModel<T>::Options::BOUNDER_NAME[5]
   = { "NAIVE", "LSB", "EIGEN", "BERNSTEIN", "HYBRID" };
 
 //! @brief C++ class for Taylor model computation of factorable function - Taylor model propagation

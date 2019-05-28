@@ -1,11 +1,12 @@
-#define TEST_FABS	    // <-- select test function here
+#define TEST_MIN1	    // <-- select test function here
 const int NX = 200;     // <-- select discretization here
 const int NE = 5;       // <-- select polynomial model expansion here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
 #undef  USE_POLYMOD     // <-- specify whether to use a Chebyshev expansion before relaxation
-#define ADD_BREAKPOINT // <-- specify whether to use a Chebyshev expansion before relaxation
+#undef  ADD_BREAKPOINT  // <-- specify whether to add breakpoints to the variables
+const int NDIV = 4;     // <-- select number of breakpoints
 #undef  USE_CMODEL	    // <-- Use Chebyshev models?
-
+#define USE_MILP        // <-- specify whether to use piecewise-linear cuts
 ////////////////////////////////////////////////////////////////////////
 
 #include <fstream>
@@ -37,18 +38,18 @@ extern "C"{
   int fedisableexcept( int );
 }
 
-//using namespace mc;
+using namespace mc;
 
 ////////////////////////////////////////////////////////////////////////
 
 #if defined( TEST_FABS )
-const double XL   = -2.;	// <-- range lower bound
-const double XU   =  1.;	// <-- range upper bound
+const double XL   = -1.;	// <-- range lower bound
+const double XU   =  2.;	// <-- range upper bound
 template <class T>
 T myfunc
 ( const T&x )
 {
-  //return fabs(x);
+  //return fabs(sqr(x)-1);
   return x*(x-1);
 }
 
@@ -190,9 +191,26 @@ T myfunc
   return pow(-fabs(x-0.5)-xlog(x),3);
 }
 
-#elif defined( TEST_MIN )
+#elif defined( TEST_MIN1 )
+const double XL   = -2;	// <-- range lower bound
+const double XU   =  1;	// <-- range upper bound
+using mc::min;
+using mc::pow;
+template <class T>
+T myfunc
+( const T&x )
+{
+  //T m[2] = { -x, x };
+  T m[2] = { pow(x-1,2), 1. };
+  //T m[2] = { pow(x-1,2), pow(x+1,2) };
+  return min(2,m);
+  //return max( pow(x-1,2), pow(x+1,2) );
+}
+
+#elif defined( TEST_MIN2 )
 const double XL   = -.8;	// <-- range lower bound
 const double XU   =  .8;	// <-- range upper bound
+using mc::min;
 template <class T>
 T myfunc
 ( const T&x )
@@ -347,6 +365,11 @@ void relax()
 
     mc::PolImg<I> PolEnv;
     PolEnv.options.AGGREG_LIN = true;
+#ifndef USE_MILP
+    PolEnv.options.BREAKPOINT_DISC = false;
+#else
+    PolEnv.options.BREAKPOINT_DISC = true;
+#endif
     PolEnv.options.SANDWICH_MAXCUT = 6;
     mc::PolVar<I> X_Pol( &PolEnv, X, IX ), F_Pol;
 #ifndef ADD_BREAKPOINT
@@ -355,18 +378,26 @@ void relax()
 #else
     PolEnv.options.BREAKPOINT_TYPE = mc::PolImg<I>::Options::SOS2;//BIN;//NONE;
     PolEnv.options.DCDECOMP_SCALE = false;
+    DAG.eval( 1, &F, &F_Pol, 1, &X, &X_Pol );
     // Add breakpoints to all variables (incl. auxiliaries) in DAG
-    const unsigned NDIV = 2;
-    //for( auto it=PolEnv.Vars().begin(); it!=PolEnv.Vars().end(); ++it )
+    //double pt = mc::Op<I>::l(IX) + mc::Op<I>::diam(IX)*(i+1.)/(NDIV+1.);
+    //X_Pol.add_breakpt( pt );
+    for( auto&& var : PolEnv.Vars() ){
       for( unsigned i=0; i<NDIV; i++ ){
-        //double pt = mc::Op<I>::l(it->second->range())
-        //          + mc::Op<I>::diam(it->second->range())*(i+1.)/(NDIV+1.);
-        //it->second->add_breakpt( pt );
-        double pt = mc::Op<I>::l(IX) + mc::Op<I>::diam(IX)*(i+1.)/(NDIV+1.);
-        X_Pol.add_breakpt( pt );
+        double pt = mc::Op<I>::l(var.second->range())
+                  + mc::Op<I>::diam(var.second->range())*(i+1.)/(NDIV+1.);
+        var.second->add_breakpt( pt );
       }
+    }
+    for( auto&& aux : PolEnv.Aux() ){
+      for( unsigned i=0; i<NDIV; i++ ){
+        double pt = mc::Op<I>::l(aux->range())
+                  + mc::Op<I>::diam(aux->range())*(i+1.)/(NDIV+1.);
+        aux->add_breakpt( pt );
+      }
+    }
     PolEnv.reset_cuts();
-    //X_Pol = *PolEnv.Vars().find(&X)->second;
+    X_Pol = *PolEnv.Vars().find(&X)->second;
     DAG.eval( 1, &F, &F_Pol, 1, &X, &X_Pol );
 #endif
     //return;
@@ -478,7 +509,7 @@ void relax()
       GRBmodel.write( "LINREL_1d.lp" ); //return;
       GRBmodel.optimize();
       double Zcv = GRBmodel.get( GRB_DoubleAttr_ObjVal );
-      break;
+      //break;
 
       GRBmodel.set( GRB_IntAttr_ModelSense, -1 ); // MIN:1, MAX:-1
       GRBmodel.update();

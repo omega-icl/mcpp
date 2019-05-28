@@ -723,7 +723,7 @@ private:
 
 ////////////////////////////////////////////////////////////////////////
 
-Ellipsoid::Options Ellipsoid::options;
+inline Ellipsoid::Options Ellipsoid::options;
 
 inline void
 Ellipsoid::_eigen

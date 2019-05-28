@@ -1043,9 +1043,14 @@ private:
 };
 
 ////////////////////////////////////////////////////////////////////////
-template <typename T>
-double McCormick<T>::_Qroots[10] = { -0.5000000000, -0.6058295862, -0.6703320476, -0.7145377272, -0.7470540749,
-                                     -0.7721416355, -0.7921778546, -0.8086048979, -0.8223534102, -0.8340533676 };
+
+template <typename T> inline
+typename McCormick<T>::Options McCormick<T>::options;
+
+template <typename T> inline
+double McCormick<T>::_Qroots[10]
+  = { -0.5000000000, -0.6058295862, -0.6703320476, -0.7145377272, -0.7470540749,
+      -0.7721416355, -0.7921778546, -0.8086048979, -0.8223534102, -0.8340533676 };
 
 template <typename T> inline void
 McCormick<T>::_sub_reset()
@@ -4533,8 +4538,6 @@ operator>
 {
   return( Op<T>::gt(MC1._I,MC2._I) && MC1._cv < MC2._cv && MC1._cc > MC2._cc );
 }
-
-template <typename T> typename McCormick<T>::Options McCormick<T>::options;
     
 } // namespace mc
 

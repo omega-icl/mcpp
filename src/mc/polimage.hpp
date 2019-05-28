@@ -583,6 +583,15 @@ struct lt_PolVar
 };
 
 template <class T> 
+inline
+std::ostream&
+operator <<
+( std::ostream&out, const PolVar<T>& P )
+{
+  return out << P.name();
+}
+
+template <class T> 
 inline 
 PolVar<T>&
 PolVar<T>::operator=
@@ -910,13 +919,13 @@ PolVar<T>::generate_cuts_default
     _img->_append_cuts_INTER( this, _var.ops().first->pops[0], _var.ops().first->pops[1] );
     break;
 
-//   case FFOp::MINF:
-//    _img->_append_cuts_MINF( this, _var.ops().first->pops[0], _var.ops().first->pops[1] );
-//    break;
+   case FFOp::MINF:
+    _img->_append_cuts_MINF( this, _var.ops().first->pops[0], _var.ops().first->pops[1] );
+    break;
 
-//   case FFOp::MAXF:
-//    _img->_append_cuts_MAXF( this, _var.ops().first->pops[0], _var.ops().first->pops[1] );
-//    break;
+   case FFOp::MAXF:
+    _img->_append_cuts_MAXF( this, _var.ops().first->pops[0], _var.ops().first->pops[1] );
+    break;
 
 //   case FFOp::LMTD:
 //    _img->_append_cuts_LMTD( this, _var.ops().first->pops[0], _var.ops().first->pops[1] );
@@ -986,10 +995,20 @@ PolVar<T>::generate_cuts_linear
       return false;
     break;
 
+   case FFOp::MINF:
+    if( !_img->_lineq_MINF( pLin, this, _var.ops().first->pops[0], _var.ops().first->pops[1] ) )
+      return false;
+    break;
+
+   case FFOp::MAXF:
+    if( !_img->_lineq_MAXF( pLin, this, _var.ops().first->pops[0], _var.ops().first->pops[1] ) )
+      return false;
+    break;
+
    default:
     return false;
 
-   // MINF, MAXF, INTER?
+   // INTER?
   }
 
   for( auto itOp=_var.ops().first->pops.begin(); itOp!=_var.ops().first->pops.end(); ++itOp ){ 
@@ -1555,6 +1574,7 @@ class PolImg
 
 public:
   typedef std::map< FFVar*, PolVar<T>*, lt_FFVar > t_Vars;
+  typedef typename t_Vars::iterator it_Vars;
   typedef std::list< PolVar<T>* > t_Aux;
   typedef std::list< PolLinEq<T>* > t_Lin;
   typedef std::map< const FFVar*, PolBilin<T>*, lt_FFVar > t_Bilin;
@@ -1735,6 +1755,12 @@ protected:
   //! @brief Propagate linear cut for fstep function
   bool _lineq_FSTEP
     ( PolLinEq<T>*&pLin, const PolVar<T>*VarR, FFVar*pVar );
+  //! @brief Propagate linear cut for binary min function
+  bool _lineq_MINF
+    ( PolLinEq<T>*&pLin, const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 );
+  //! @brief Propagate linear cut for binary max function
+  bool _lineq_MAXF
+    ( PolLinEq<T>*&pLin, const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 );
 
   //! @brief Append linear cuts for binary intersection
   void _append_cuts_INTER
@@ -1817,6 +1843,14 @@ protected:
   //! @brief Append linear cuts for tanh function
   void _append_cuts_TANH
     ( const PolVar<T>*VarR, FFVar*pVar );
+
+  //! @brief Append semi-linear cuts for binary min function
+  void _append_cuts_MINF
+    ( const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 );
+  //! @brief Append semi-linear cuts for binary max function
+  void _append_cuts_MAXF
+    ( const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 );
+
   //! @brief Increment index even subset
   bool _subset_incr
     ( const unsigned ntot, std::vector<unsigned>&ndx );
@@ -1868,7 +1902,7 @@ public:
       SANDWICH_ATOL(1e-3), SANDWICH_RTOL(1e-3), SANDWICH_MAXCUT(5),
       SANDWICH_RULE(MAXERR), FRACTIONAL_ATOL(machprec()),
       FRACTIONAL_RTOL(machprec()), BREAKPOINT_TYPE(NONE),
-      BREAKPOINT_ATOL(1e-8), BREAKPOINT_RTOL(1e-5), BREAKPOINT_DISC(true),
+      BREAKPOINT_ATOL(1e-8), BREAKPOINT_RTOL(1e-5), BREAKPOINT_DISC(false),
       DCDECOMP_SCALE(false)
       {}
     //! @brief Assignment operator
@@ -3964,22 +3998,42 @@ template <typename T> inline void
 PolImg<T>::_append_cuts_FABS
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
-  if( pVar1->cst() )
+  // Constant operand
+  if( pVar1->cst() ){
     _append_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::fabs( pVar1->num().val() ), *VarR, 1. );
-  else{
-    auto itVar1 = _Vars.find( pVar1 );
-    if( Op<T>::l(itVar1->second->_range) >= 0. )
-      _append_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar1->second, -1. );
-    else if( Op<T>::u(itVar1->second->_range) <= 0. )
-      _append_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar1->second,  1. );
-    else{
-      double XL = Op<T>::l(itVar1->second->_range),  dX = Op<T>::diam(itVar1->second->_range),
-             YL = std::fabs(Op<T>::l(itVar1->second->_range)), dY = std::fabs(Op<T>::u(itVar1->second->_range))-YL;
-      _append_cut( VarR->_var.ops().first, PolCut<T>::GE, dY*XL-dX*YL, *VarR, -dX, *itVar1->second, dY );
-      _append_cut( VarR->_var.ops().first, PolCut<T>::GE, 0., *VarR, 1., *itVar1->second,  -1. );
-      _append_cut( VarR->_var.ops().first, PolCut<T>::GE, 0., *VarR, 1., *itVar1->second,   1. );
-    }
+    return;
   }
+  auto itVar1 = _Vars.find( pVar1 );
+
+  // Positive branch only
+  if( Op<T>::l(itVar1->second->_range) >= 0. ){
+      _append_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar1->second, -1. );
+      return;
+  }
+
+  // Negative branch only
+  if( Op<T>::u(itVar1->second->_range) <= 0. ){
+    _append_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar1->second,  1. );
+    return;
+  }
+
+  // Linear overestimator
+  if( !options.BREAKPOINT_DISC ){
+    double XL = Op<T>::l(itVar1->second->_range),  dX = Op<T>::diam(itVar1->second->_range),
+           YL = std::fabs(Op<T>::l(itVar1->second->_range)), dY = std::fabs(Op<T>::u(itVar1->second->_range))-YL;
+    _append_cut( VarR->_var.ops().first, PolCut<T>::GE, dY*XL-dX*YL, *VarR, -dX, *itVar1->second, dY );
+  }
+  // Piecewise-linear overestimator
+  else{
+    const double M1 =  2*Op<T>::u(itVar1->second->_range);
+    const double M2 = -2*Op<T>::l(itVar1->second->_range);
+    PolVar<T>* VarB = _append_aux( Op<T>::zeroone(), false );
+    _append_cut( VarR->_var.ops().first, PolCut<T>::LE, M2, *VarR, 1., *itVar1->second, -1., *VarB,  M2 );
+    _append_cut( VarR->_var.ops().first, PolCut<T>::LE, 0., *VarR, 1., *itVar1->second,  1., *VarB, -M1 );
+  }
+  // Linear underestimators
+  _append_cut( VarR->_var.ops().first, PolCut<T>::GE, 0., *VarR, 1., *itVar1->second,  -1. );
+  _append_cut( VarR->_var.ops().first, PolCut<T>::GE, 0., *VarR, 1., *itVar1->second,   1. );
 }
 
 template <typename T> inline bool
@@ -4990,6 +5044,266 @@ PolImg<T>::_lineq_FSTEP
   return true;
 }
 
+template <typename T>
+inline PolVar<T>
+min
+( const PolVar<T>&Var1, const PolVar<T>&Var2 )
+{
+  if( Var1._img && Var2._img && Var1._img != Var2._img )
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::ENVMIS );
+  PolImg<T>* img = Var1._img? Var1._img: Var2._img;
+  FFGraph* dag = Var1._var.cst()? Var2._var.dag(): Var1._var.dag();
+  if( !dag || !dag->curOp() )
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
+  FFVar* pFFVarR = dag->curOp()->pres;
+  PolVar<T>* pVarR = img->_append_var( pFFVarR, Op<T>::min( Var1.range(), Var2.range() ), true );
+  return *pVarR;
+}
+
+template <typename T> inline void
+PolImg<T>::_append_cuts_MINF
+( const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
+{
+  // Both operands constant
+  if( pVar1->cst() && pVar2->cst() ){
+    _append_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::min( pVar1->num().val(), pVar2->num().val() ), *VarR, 1. );
+    return;
+  }
+  
+  // Set big-M values and iterators
+  double M1 = 0., M2 = 0.;
+  it_Vars itVar1, itVar2;
+  if( pVar1->cst() ){
+    itVar2 = _Vars.find( pVar2 );
+    M1 = pVar1->num().val() - Op<T>::l(itVar2->second->_range);
+    M2 = Op<T>::u(itVar2->second->_range) - pVar1->num().val();
+  }
+  else if( pVar2->cst() ){
+    itVar1 = _Vars.find( pVar1 );
+    M1 = Op<T>::u(itVar1->second->_range) - pVar2->num().val();
+    M2 = pVar2->num().val() - Op<T>::l(itVar1->second->_range);
+  }
+  else{
+    itVar1 = _Vars.find( pVar1 );
+    itVar2 = _Vars.find( pVar2 );
+    M1 = Op<T>::u(itVar1->second->_range) - Op<T>::l(itVar2->second->_range);
+    M2 = Op<T>::u(itVar2->second->_range) - Op<T>::l(itVar1->second->_range);
+  }
+
+  // Special cases
+  if( M1 <= 0 ){
+    if( pVar1->cst() )
+      _append_cut( VarR->_var.ops().first, PolCut<T>::EQ, pVar1->num().val(), *VarR, 1. );    
+    else
+      _append_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar1->second, -1. );
+    return;
+  }
+  if( M2 <= 0 ){
+    if( pVar2->cst() )
+      _append_cut( VarR->_var.ops().first, PolCut<T>::EQ, pVar2->num().val(), *VarR, 1. );    
+    else
+      _append_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar2->second, -1. );
+    return;
+  }
+
+  // Linear underestimator and piecewise-linear overestimator
+  PolVar<T>* VarB = _append_aux( Op<T>::zeroone(), false );
+  if( pVar1->cst() ){
+    _append_cut( VarR->_var.ops().first, PolCut<T>::LE, pVar1->num().val(),    *VarR, 1. );
+    _append_cut( VarR->_var.ops().first, PolCut<T>::GE, pVar1->num().val()-M1, *VarR, 1., *VarB, -M1 );
+  }
+  else{
+    _append_cut( VarR->_var.ops().first, PolCut<T>::LE, 0.,  *VarR, 1., *itVar1->second, -1. );
+    _append_cut( VarR->_var.ops().first, PolCut<T>::GE, -M1, *VarR, 1., *itVar1->second, -1., *VarB, -M1 );
+  }
+  if( pVar2->cst() ){
+    _append_cut( VarR->_var.ops().first, PolCut<T>::LE, pVar2->num().val(), *VarR, 1. );
+    _append_cut( VarR->_var.ops().first, PolCut<T>::GE, pVar2->num().val(), *VarR, 1., *VarB, M2 );
+  }
+  else{
+    _append_cut( VarR->_var.ops().first, PolCut<T>::LE, 0., *VarR, 1., *itVar2->second, -1. );
+    _append_cut( VarR->_var.ops().first, PolCut<T>::GE, 0., *VarR, 1., *itVar2->second, -1., *VarB,  M2 );
+  }
+}
+
+template <typename T> inline bool
+PolImg<T>::_lineq_MINF
+( PolLinEq<T>*&pLin, const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
+{
+    if( pVar1->cst() && pVar2->cst() ){
+    pLin->substitute( VarR, std::min( pVar1->num().val(), pVar2->num().val() ) );    
+    return true;
+  }
+  
+  if( pVar1->cst() ){
+    auto itVar2 = _Vars.find( pVar2 );
+    if( pVar1->num().val() < Op<T>::l(itVar2->second->_range) ){
+      pLin->substitute( VarR, pVar1->num().val() );
+      return true;
+    }
+    else if( pVar1->num().val() > Op<T>::u(itVar2->second->_range) ){
+      pLin->substitute( VarR, 1., itVar2->second );
+      return true;
+    }
+    return false;
+  }
+  
+  if( pVar2->cst() ){
+    auto itVar1 = _Vars.find( pVar1 );
+    if( pVar2->num().val() < Op<T>::l(itVar1->second->_range) ){
+      pLin->substitute( VarR, pVar2->num().val() );
+      return true;
+    }
+    else if( pVar2->num().val() > Op<T>::u(itVar1->second->_range) ){
+      pLin->substitute( VarR, 1., itVar1->second );
+      return true;
+    }
+    return false;
+  }
+
+  auto itVar1 = _Vars.find( pVar1 );
+  auto itVar2 = _Vars.find( pVar2 );
+  if( Op<T>::u(itVar1->second->_range) < Op<T>::l(itVar2->second->_range) ){
+    pLin->substitute( VarR, 1., itVar1->second );
+    return true;
+  }
+  else if( Op<T>::l(itVar1->second->_range) > Op<T>::u(itVar2->second->_range) ){
+    pLin->substitute( VarR, 1., itVar2->second );
+    return true;
+  }
+  return false;
+}
+
+template <typename T>
+inline PolVar<T>
+max
+( const PolVar<T>&Var1, const PolVar<T>&Var2 )
+{
+  if( Var1._img && Var2._img && Var1._img != Var2._img )
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::ENVMIS );
+  PolImg<T>* img = Var1._img? Var1._img: Var2._img;
+  FFGraph* dag = Var1._var.cst()? Var2._var.dag(): Var1._var.dag();
+  if( !dag || !dag->curOp() )
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
+  FFVar* pFFVarR = dag->curOp()->pres;
+  PolVar<T>* pVarR = img->_append_var( pFFVarR, Op<T>::max( Var1.range(), Var2.range() ), true );
+  return *pVarR;
+}
+
+template <typename T> inline void
+PolImg<T>::_append_cuts_MAXF
+( const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
+{
+  // Both operands constant
+  if( pVar1->cst() && pVar2->cst() ){
+    _append_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::max( pVar1->num().val(), pVar2->num().val() ), *VarR, 1. );
+    return;
+  }
+  
+  // Set big-M values and iterators
+  double M1 = 0., M2 = 0.;
+  it_Vars itVar1, itVar2;
+  if( pVar1->cst() ){
+    itVar2 = _Vars.find( pVar2 );
+    M1 = pVar1->num().val() - Op<T>::l(itVar2->second->_range);
+    M2 = Op<T>::u(itVar2->second->_range) - pVar1->num().val();
+  }
+  else if( pVar2->cst() ){
+    itVar1 = _Vars.find( pVar1 );
+    M1 = Op<T>::u(itVar1->second->_range) - pVar2->num().val();
+    M2 = pVar2->num().val() - Op<T>::l(itVar1->second->_range);
+  }
+  else{
+    itVar1 = _Vars.find( pVar1 );
+    itVar2 = _Vars.find( pVar2 );
+    M1 = Op<T>::u(itVar1->second->_range) - Op<T>::l(itVar2->second->_range);
+    M2 = Op<T>::u(itVar2->second->_range) - Op<T>::l(itVar1->second->_range);
+  }
+
+  // Special cases
+  if( M1 <= 0 ){
+    if( pVar2->cst() )
+      _append_cut( VarR->_var.ops().first, PolCut<T>::EQ, pVar2->num().val(), *VarR, 1. );    
+    else
+      _append_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar2->second, -1. );
+    return;
+  }
+  if( M2 <= 0 ){
+    if( pVar1->cst() )
+      _append_cut( VarR->_var.ops().first, PolCut<T>::EQ, pVar1->num().val(), *VarR, 1. );    
+    else
+      _append_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar1->second, -1. );
+    return;
+  }
+
+  // Linear underestimator and piecewise-linear overestimator
+  PolVar<T>* VarB = _append_aux( Op<T>::zeroone(), false );
+  if( pVar1->cst() ){
+    _append_cut( VarR->_var.ops().first, PolCut<T>::GE, pVar1->num().val(),    *VarR, 1. );
+    _append_cut( VarR->_var.ops().first, PolCut<T>::LE, pVar1->num().val()-M2, *VarR, 1., *VarB, M2 );
+  }
+  else{
+    _append_cut( VarR->_var.ops().first, PolCut<T>::GE, 0.,  *VarR, 1., *itVar1->second, -1. );
+    _append_cut( VarR->_var.ops().first, PolCut<T>::LE, M2, *VarR, 1., *itVar1->second, -1., *VarB, M2 );
+  }
+  if( pVar2->cst() ){
+    _append_cut( VarR->_var.ops().first, PolCut<T>::GE, pVar2->num().val(), *VarR, 1. );
+    _append_cut( VarR->_var.ops().first, PolCut<T>::LE, pVar2->num().val(), *VarR, 1., *VarB, -M1 );
+  }
+  else{
+    _append_cut( VarR->_var.ops().first, PolCut<T>::GE, 0., *VarR, 1., *itVar2->second, -1. );
+    _append_cut( VarR->_var.ops().first, PolCut<T>::LE, 0., *VarR, 1., *itVar2->second, -1., *VarB,  -M1 );
+  }
+}
+
+template <typename T> inline bool
+PolImg<T>::_lineq_MAXF
+( PolLinEq<T>*&pLin, const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
+{
+  if( pVar1->cst() && pVar2->cst() ){
+    pLin->substitute( VarR, std::max( pVar1->num().val(), pVar2->num().val() ) );    
+    return true;
+  }
+  
+  if( pVar1->cst() ){
+    auto itVar2 = _Vars.find( pVar2 );
+    if( pVar1->num().val() > Op<T>::u(itVar2->second->_range) ){
+      pLin->substitute( VarR, pVar1->num().val() );
+      return true;
+    }
+    else if( pVar1->num().val() < Op<T>::l(itVar2->second->_range) ){
+      pLin->substitute( VarR, 1., itVar2->second );
+      return true;
+    }
+    return false;
+  }
+  
+  if( pVar2->cst() ){
+    auto itVar1 = _Vars.find( pVar1 );
+    if( pVar2->num().val() > Op<T>::u(itVar1->second->_range) ){
+      pLin->substitute( VarR, pVar2->num().val() );
+      return true;
+    }
+    else if( pVar2->num().val() < Op<T>::l(itVar1->second->_range) ){
+      pLin->substitute( VarR, 1., itVar1->second );
+      return true;
+    }
+    return false;
+  }
+
+  auto itVar1 = _Vars.find( pVar1 );
+  auto itVar2 = _Vars.find( pVar2 );
+  if( Op<T>::l(itVar1->second->_range) > Op<T>::u(itVar2->second->_range) ){
+    pLin->substitute( VarR, 1., itVar1->second );
+    return true;
+  }
+  else if( Op<T>::u(itVar1->second->_range) < Op<T>::l(itVar2->second->_range) ){
+    pLin->substitute( VarR, 1., itVar2->second );
+    return true;
+  }  
+  return false;
+}
+
 } // namespace mc
 
 //#include "mcop.hpp"
@@ -5036,11 +5350,9 @@ template< typename T > struct Op< mc::PolVar<T> >
   static PV fstep(const PV& x){ return mc::fstep(x); }
   static PV bstep(const PV& x){ return mc::fstep(-x); }
   static PV min (const PV& x, const PV& y)
-    { throw std::runtime_error("operation not permitted"); }
-//  { return mc::min(x,y);  }
+    { return mc::min(x,y);  }
   static PV max (const PV& x, const PV& y)
-    { throw std::runtime_error("operation not permitted"); }
-//  { return mc::max(x,y);  }
+    { return mc::max(x,y);  }
   static PV arh (const PV& x, const double k){ return mc::exp(-k/x); }
   template <typename EXP> static PV pow(const PV& x, const EXP& y) { return mc::pow(x,y); }
   static PV cheb (const PV& x, const unsigned n) { return mc::cheb(x,n); }

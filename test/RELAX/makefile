@@ -22,10 +22,10 @@ INC_ALL   = $(INC_MC) $(INC_GUROBI)
 all: LINREL_build LINREL_1d LINREL_2d
 
 LINREL_% : LINREL_%.o
-	g++ -o $@ $< $(LIB_ALL)
+	$(CPP) -o $@ $< $(LIB_ALL)
 
 LINREL_%.o: LINREL_%.cpp
-	g++ -c $(FLAGS_ALL) -I../../src $(INC_ALL) -o $@ $<
+	$(CPP) -c $(FLAGS_ALL) -I../../src $(INC_ALL) -o $@ $<
 
 #####
 

@@ -572,7 +572,8 @@ private:
     ( const SCVar<T>&CV, t_coefmon& coefmon, double&coefrem ) const;
 };
 
-template <typename T> const std::string SCModel<T>::Options::BOUNDER_NAME[5]
+template <typename T> inline
+const std::string SCModel<T>::Options::BOUNDER_NAME[5]
   = { "NAIVE", "LSB", "EIGEN", "BERNSTEIN", "HYBRID" };
 
 //! @brief C++ class for Chebyshev model computation of factorable function - Chebyshev model propagation

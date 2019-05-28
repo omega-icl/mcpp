@@ -288,7 +288,7 @@ public:
   /** @} */
 };
 
-SPolyExpr::Options SPolyExpr::options;
+inline SPolyExpr::Options SPolyExpr::options;
 
 //////////////////////////////// SPolyExpr ////////////////////////////////////
 

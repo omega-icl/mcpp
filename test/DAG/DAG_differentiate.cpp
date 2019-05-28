@@ -297,7 +297,58 @@ int test_tadiff2()
   DAG.dot_script( NTE+1, F_TAD, o_TAD );
   o_TAD.close();
 
+  double dX = 1., dT = 3., dF_TAD[NTE+1];
+  DAG.eval( NTE+1, F_TAD, dF_TAD, 1, &X, &dX, 1, &T, &dT );
+  std::cout << X << " = " << dX << std::endl;
+  std::cout << T << " = " << dT << std::endl;
+  for( unsigned k=0; k<=NTE; k++ )
+    std::cout << F_TAD[k] << " = " << dF_TAD[k] << std::endl;
+  
   delete[] F_TAD;
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+int test_tadiff3()
+{
+  std::cout << "\n==============================================\ntest_tadiff3:\n";
+
+  mc::FFGraph DAG;
+
+  const unsigned NP = 1;  // Number of parameters
+  mc::FFVar P[NP];  // Parameter array
+  for( unsigned i=0; i<NP; i++ ) P[i].set( &DAG );
+
+  const unsigned NX = 2;  // Number of states
+  mc::FFVar X[NX];  // State array
+  for( unsigned i=0; i<NX; i++ ) X[i].set( &DAG );
+
+  mc::FFVar RHS[NX];  // Right-hand side function
+  RHS[0] = P[0] * X[0] * ( 1. - X[1] );
+  RHS[1] = P[0] * X[1] * ( X[0] - 1. );
+  
+  std::cout << DAG;
+
+  const unsigned NTE = 5;
+  const mc::FFVar* RHS_TAD = DAG.TAD( NTE, NX, RHS, NX, X );//, &T );
+  std::cout << DAG;
+
+  DAG.output( DAG.subgraph( NTE+1, RHS_TAD ), " RHS_TAD" );
+  std::ofstream o_TAD( "tadiff3.dot", std::ios_base::out );
+  DAG.dot_script( NX*(NTE+1), RHS_TAD, o_TAD );
+  o_TAD.close();
+
+  double dX[NX] = { 1.2, 1.1 }, dP[NP] = { 3 }, dRHS_TAD[NX*(NTE+1)];
+  DAG.eval( NX*(NTE+1), RHS_TAD, dRHS_TAD, NX, X, dX, NP, P, dP );//, 1, &T, &dT );
+  std::cout << X[0] << " = " << dX[0] << std::endl;
+  std::cout << X[1] << " = " << dX[1] << std::endl;
+  for( unsigned k=0; k<NX*(NTE+1); k+=NX ){
+    std::cout << RHS_TAD[k] << " = " << dRHS_TAD[k] << std::endl;
+    std::cout << RHS_TAD[k+1] << " = " << dRHS_TAD[k+1] << std::endl;
+  }
+  
+  delete[] RHS_TAD;
   return 0;
 }
 
@@ -306,13 +357,14 @@ int test_tadiff2()
 int main()
 {
   try{
-    test_fadiff1();
-    test_fadiff2();
-    test_fadiff_directional();
-    test_gradient_sparse();
-    test_hessian_sparse();
-    test_tadiff1();
-    test_tadiff2();
+    //test_fadiff1();
+    //test_fadiff2();
+    //test_fadiff_directional();
+    //test_gradient_sparse();
+    //test_hessian_sparse();
+    //test_tadiff1();
+    //test_tadiff2();
+    test_tadiff3();
   }
   catch( mc::FFGraph::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()

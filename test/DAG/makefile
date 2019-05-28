@@ -9,8 +9,8 @@ FLAGS_MC = $(FLAGS_FILIB) $(FLAGS_HSL)
 
 #FLAGS_OPT = -Ofast
 
-PATH_CPLEX   = /opt/ibm/ILOG/CPLEX_Studio1263/cplex
-PATH_CONCERT = /opt/ibm/ILOG/CPLEX_Studio1263/concert
+PATH_CPLEX   = /opt/ibm/ILOG/CPLEX_Studio128/cplex
+PATH_CONCERT = /opt/ibm/ILOG/CPLEX_Studio128/concert
 LIB_CPLEX    = -L$(PATH_CPLEX)/lib/x86-64_linux/static_pic -lilocplex -lcplex \
                -L$(PATH_CONCERT)/lib/x86-64_linux/static_pic -lconcert \
                -lm -pthread

@@ -563,7 +563,8 @@ private:
       std::set<unsigned>&ndxmon, double&coefrem ) const;
 };
 
-template <typename T> const std::string CModel<T>::Options::BOUNDER_NAME[5]
+template <typename T> inline
+const std::string CModel<T>::Options::BOUNDER_NAME[5]
   = { "NAIVE", "LSB", "EIGEN", "BERNSTEIN", "HYBRID" };
 
 //! @brief C++ class for Chebyshev model computation of factorable function - Chebyshev model propagation
