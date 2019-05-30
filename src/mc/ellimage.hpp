@@ -261,8 +261,8 @@ Moreover, exceptions may be thrown by the template parameter class itself.
 
 \section sec_ELL_refs References
 
-Kurzhanskiy, A., A.. and P. Varaiya, <A href="http://code.google.com/p/ellipsoids">"Ellipsoidal Toolbox"</A>, Technical Report UCB/EECS-2006-46, EECS Department, University of California, Berkeley, May 2006.
-
+- Kurzhanskiy, A., and P. Varaiya, <A href="http://code.google.com/p/ellipsoids">"Ellipsoidal Toolbox"</A>, Technical Report UCB/EECS-2006-46, EECS Department, University of California, Berkeley, May 2006.
+- Villanueva, M.E., J. Rajyagurua, B. Houskab, B. Chachuat, <A href="https://doi.org/10.1016/B978-0-444-63578-5.50123-7">"Ellipsoidal Arithmetic for Multivariate Systems"</A>, <i>Computer Aided Chemical Engineering</i>, <b>37</b>, 767-772, 2015.
 */
 
 #ifndef MC__ELLIMAGE_H

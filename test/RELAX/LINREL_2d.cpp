@@ -1,6 +1,9 @@
-#define TEST_POLY	// <-- select test function here
+#define TEST_FSTEP	// <-- select test function here
 const int NX = 40;	// <-- select discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
+#define ADD_BREAKPOINT  // <-- specify whether to add breakpoints to the variables
+const int NDIV = 5;     // <-- select number of breakpoints
+#define USE_MILP        // <-- specify whether to use piecewise-linear cuts
 
 ////////////////////////////////////////////////////////////////////////
 
@@ -23,7 +26,7 @@ extern "C"{
   int fedisableexcept( int );
 }
 
-//using namespace mc;
+using namespace mc;
 
 ////////////////////////////////////////////////////////////////////////
 
@@ -39,34 +42,6 @@ T myfunc
   return x[0]*x[1];
 }
 
-#elif defined( TEST_POLY )
-const double X0L   = -1; // <-- range lower bound
-const double X0U   =  1; // <-- range upper bound
-const double X1L   = -1; // <-- range lower bound
-const double X1U   =  1; // <-- range upper bound
-using mc::sqr;
-template <class T>
-T myfunc
-( const T*x )
-{
-  return x[0] * ( x[1] + sqr(x[0]) );
-}
-
-#elif defined( TEST_EXP )
-const double X0L   = -.5; // <-- range lower bound
-const double X0U   =  .5; // <-- range upper bound
-const double X1L   =  0.5; // <-- range lower bound
-const double X1U   =  1.2; // <-- range upper bound
-template <class T>
-T myfunc
-( const T*x )
-{
-  return exp( 1 - x[0]/x[1] - x[0]*log(x[1]) );
-  //return x[0]*x[1]*(x[0]*(exp(x[0])-exp(-x[0]))-x[1]*(exp(x[1])-exp(-x[1])));
-  //return pow(x[0]*exp(fabs(x[0])/x[1]),3);
-  //return x[0]*exp(x[0]+pow(x[1],2))-pow(x[1],2);
-}
-
 #elif defined( TEST_FRAC )
 const double X0L   = -.5; // <-- range lower bound
 const double X0U   =  .5; // <-- range upper bound
@@ -77,6 +52,18 @@ T myfunc
 ( const T*x )
 {
   return x[0]/x[1];
+}
+
+#elif defined( TEST_POLY )
+const double X0L   = -1; // <-- range lower bound
+const double X0U   =  1; // <-- range upper bound
+const double X1L   = -1; // <-- range lower bound
+const double X1U   =  1; // <-- range upper bound
+template <class T>
+T myfunc
+( const T*x )
+{
+  return x[0] * ( x[1] + sqr(x[0]) );
 }
 
 #elif defined( TEST_FABS )
@@ -91,6 +78,32 @@ T myfunc
   return sqrt(fabs(x[0]*x[1]));
 }
 
+#elif defined( TEST_EXP1 )
+const double X0L   = -.5; // <-- range lower bound
+const double X0U   =  .5; // <-- range upper bound
+const double X1L   =  0.5; // <-- range lower bound
+const double X1U   =  1.2; // <-- range upper bound
+template <class T>
+T myfunc
+( const T*x )
+{
+  return exp( 1 - x[0]/x[1] - x[0]*log(x[1]) );
+  //return x[0]*x[1]*(x[0]*(exp(x[0])-exp(-x[0]))-x[1]*(exp(x[1])-exp(-x[1])));
+}
+
+#elif defined( TEST_EXP2 )
+const double X0L   = -.5; // <-- range lower bound
+const double X0U   =  .5; // <-- range upper bound
+const double X1L   =  0.5; // <-- range lower bound
+const double X1U   =  1.2; // <-- range upper bound
+template <class T>
+T myfunc
+( const T*x )
+{
+  return pow(x[0]*exp(fabs(x[0])/x[1]),3);
+  //return x[0]*exp(x[0]+pow(x[1],2))-pow(x[1],2);
+}
+
 #elif defined( TEST_FSTEP )
 const double X0L   = -1.; // <-- range lower bound
 const double X0U   =  .5; // <-- range upper bound
@@ -100,7 +113,7 @@ template< class T >
 T myfunc
 ( const T*x )
 {
-  return mc::fstep(x[0]*x[1])*mc::sqr(x[0]) + mc::bstep(x[0]*x[1])*pow(x[1],3);
+  return fstep(x[0]*x[1])*mc::sqr(x[0]) + bstep(x[0]*x[1])*pow(x[1],3);
 }
 
 #elif defined( TEST_TRIG )
@@ -139,7 +152,7 @@ T myfunc
 ( const T*x )
 {
   T f[3] = { -pow(x[0]+x[1]-2.,2), -pow(x[0]+x[1],2), -pow(x[0]+x[1]+2.,2) };
-  return mc::max( (unsigned)3, f );
+  return max( (unsigned)3, f );
 }
 /*
 
@@ -237,11 +250,32 @@ int main()
     //return 0;
 
     mc::PolImg<I> PolEnv;
-    PolEnv.options.SANDWICH_MAXCUT = 5;
+    PolEnv.options.AGGREG_LIN = true;
+#ifndef USE_MILP
+    PolEnv.options.BREAKPOINT_DISC = false;
+#else
+    PolEnv.options.BREAKPOINT_DISC = true;
+#endif
+    PolEnv.options.SANDWICH_MAXCUT = 6;
     mc::PolVar<I> X_Pol[2], F_Pol;
     X_Pol[0].set( &PolEnv, X[0], IX[0] );
     X_Pol[1].set( &PolEnv, X[1], IX[1] );
+
+#ifndef ADD_BREAKPOINT
     DAG.eval( 1, &F, &F_Pol, 2, X, X_Pol );
+#else
+    PolEnv.options.BREAKPOINT_TYPE = mc::PolImg<I>::Options::BIN;//SOS2;//NONE;
+    DAG.eval( 1, &F, &F_Pol, 2, X, X_Pol );
+    // Add breakpoints to all variables in DAG
+    for( auto&& var : PolEnv.Vars() ){
+      for( unsigned i=0; i<NDIV; i++ ){
+        double pt = mc::Op<I>::l(var.second->range())
+                  + mc::Op<I>::diam(var.second->range())*(i+1.)/(NDIV+1.);
+        var.second->add_breakpt( pt );
+      }
+    }
+#endif
+
     PolEnv.generate_cuts( 1, &F_Pol, true );
     std::cout << PolEnv;
 

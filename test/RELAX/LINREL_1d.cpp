@@ -1,12 +1,13 @@
-#define TEST_MIN1	    // <-- select test function here
+#define TEST_DISC	    // <-- select test function here
 const int NX = 200;     // <-- select discretization here
 const int NE = 5;       // <-- select polynomial model expansion here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
 #undef  USE_POLYMOD     // <-- specify whether to use a Chebyshev expansion before relaxation
-#undef  ADD_BREAKPOINT  // <-- specify whether to add breakpoints to the variables
-const int NDIV = 4;     // <-- select number of breakpoints
+#define ADD_BREAKPOINT  // <-- specify whether to add breakpoints to the variables
+const int NDIV = 5;     // <-- select number of breakpoints
 #undef  USE_CMODEL	    // <-- Use Chebyshev models?
 #define USE_MILP        // <-- specify whether to use piecewise-linear cuts
+
 ////////////////////////////////////////////////////////////////////////
 
 #include <fstream>
@@ -49,13 +50,12 @@ template <class T>
 T myfunc
 ( const T&x )
 {
-  //return fabs(sqr(x)-1);
-  return x*(x-1);
+  return fabs(sqr(x)-1);
+  //return x*(x-1);
+  //return 1/(x-2.5);
 }
 
 #elif defined( TEST_XLOG )
-using mc::xlog;
-using mc::sqr;
 const double XL   =  .2;	// <-- range lower bound
 const double XU   =  3.;	// <-- range upper bound
 template <class T>
@@ -125,7 +125,6 @@ T myfunc
 }
 
 #elif defined( TEST_TAN )
-using mc::sqr;
 const double XL   = -0.95;	// <-- range lower bound
 const double XU   =  0.95;	// <-- range upper bound
 template <class T>
@@ -194,23 +193,22 @@ T myfunc
 #elif defined( TEST_MIN1 )
 const double XL   = -2;	// <-- range lower bound
 const double XU   =  1;	// <-- range upper bound
-using mc::min;
-using mc::pow;
+using std::min;
 template <class T>
 T myfunc
 ( const T&x )
 {
   //T m[2] = { -x, x };
-  T m[2] = { pow(x-1,2), 1. };
+  //T m[2] = { pow(x-1,2), 1. };
   //T m[2] = { pow(x-1,2), pow(x+1,2) };
-  return min(2,m);
+  //return min(2,m);
+  return min(pow(x-1,2), 1.);
   //return max( pow(x-1,2), pow(x+1,2) );
 }
 
 #elif defined( TEST_MIN2 )
 const double XL   = -.8;	// <-- range lower bound
 const double XU   =  .8;	// <-- range upper bound
-using mc::min;
 template <class T>
 T myfunc
 ( const T&x )
@@ -226,6 +224,7 @@ template <class T>
 T myfunc
 ( const T&x )
 {
+  //return fstep(x);
   return fstep(4-x)*(fstep(x-3)*(exp(4-x)+3-(fstep(3-x)*(-sqr(x-2.5)+4)))
                    +(fstep(3-x)*(-sqr(x-2.5)+4))-(2*x-7))+(2*x-7);
 }
@@ -257,7 +256,6 @@ template <class T>
 T myfunc
 ( const T&x )
 {
-  using mc::cheb;
   //return cheb(x,5);
   return cheb(x,2)+0.5*cheb(x,3)-0.3*cheb(x,4);
 }
@@ -376,12 +374,9 @@ void relax()
     DAG.eval( 1, &F, &F_Pol, 1, &X, &X_Pol );
     //return;
 #else
-    PolEnv.options.BREAKPOINT_TYPE = mc::PolImg<I>::Options::SOS2;//BIN;//NONE;
-    PolEnv.options.DCDECOMP_SCALE = false;
+    PolEnv.options.BREAKPOINT_TYPE = mc::PolImg<I>::Options::BIN;//SOS2;//NONE;
     DAG.eval( 1, &F, &F_Pol, 1, &X, &X_Pol );
-    // Add breakpoints to all variables (incl. auxiliaries) in DAG
-    //double pt = mc::Op<I>::l(IX) + mc::Op<I>::diam(IX)*(i+1.)/(NDIV+1.);
-    //X_Pol.add_breakpt( pt );
+    // Add breakpoints to all variables in DAG
     for( auto&& var : PolEnv.Vars() ){
       for( unsigned i=0; i<NDIV; i++ ){
         double pt = mc::Op<I>::l(var.second->range())
@@ -389,16 +384,6 @@ void relax()
         var.second->add_breakpt( pt );
       }
     }
-    for( auto&& aux : PolEnv.Aux() ){
-      for( unsigned i=0; i<NDIV; i++ ){
-        double pt = mc::Op<I>::l(aux->range())
-                  + mc::Op<I>::diam(aux->range())*(i+1.)/(NDIV+1.);
-        aux->add_breakpt( pt );
-      }
-    }
-    PolEnv.reset_cuts();
-    X_Pol = *PolEnv.Vars().find(&X)->second;
-    DAG.eval( 1, &F, &F_Pol, 1, &X, &X_Pol );
 #endif
     //return;
 
@@ -461,7 +446,7 @@ void relax()
     auto jtvar = DAGVars.end(), jtobj = DAGVars.end();
     for( auto itv=PolEnv.Vars().begin(); itv!=PolEnv.Vars().end(); ++itv ){
       //if( !itv->second->cuts() ) continue;
-      std::cout << itv->second->name() << ": " << itv->second->cuts() << std::endl;
+      std::cout << itv->second->name() << ": " << itv->second->has_cuts() << std::endl;
       GRBVar DAGVar = GRBmodel.addVar( mc::Op<I>::l(itv->second->range()),
           mc::Op<I>::u(itv->second->range()), 0.0, GRB_CONTINUOUS,
           itv->second->name() );
