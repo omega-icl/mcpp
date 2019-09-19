@@ -1,6 +1,6 @@
-#define TEST_LMTD	// <-- select test function here
-const int NX = 50;	// <-- select X discretization here
-const int NY = 50;	// <-- select Y discretization here
+#define TEST_EXP1	// <-- select test function here
+const int NX = 40;	// <-- select X discretization here
+const int NY = 40;	// <-- select Y discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
 #undef USE_PROFIL	// <-- specify to use PROFIL for interval arithmetic
 #undef USE_FILIB	// <-- specify to use FILIB++ for interval arithmetic
@@ -53,6 +53,18 @@ T myfunc
 ( const T&x, const T&y )
 {
   return x*y*(x*(exp(x)-exp(-x))-y*(exp(y)-exp(-y)));
+}
+
+#elif defined( TEST_EXP1 )
+const double XL   = 1.;	// <-- X range lower bound
+const double XU   = 2.;	// <-- X range upper bound
+const double YL   = 0.;	// <-- Y range lower bound
+const double YU   = 1.;	// <-- Y range upper bound
+template <class T>
+T myfunc
+( const T&x, const T&y )
+{
+  return x*exp(x+sqr(y))-sqr(y);
 }
 
 #elif defined( TEST_EXP2 )

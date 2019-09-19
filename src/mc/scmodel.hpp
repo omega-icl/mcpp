@@ -6,11 +6,6 @@
 \page page_CHEBYSHEV Chebyshev Model Arithmetic for Factorable Functions
 \author Jai Rajyaguru, Mario E. Villanueva, Beno&icirc;t Chachuat
 
-template <typename T> inline void
-SCModel<T>::_sdisp1D
-( const std::vector<std::map<unsigned,double>>&CVmap,
-  const unsigned ndxvar, std::string&CVname, ostream&os )
-const
 A \f$q\f$th-order Chebyshev model of a Lipschitz-continuous function \f$f:\mathbb{R}^n\to\mathbb{R}\f$ on the domain \f$D\f$, consists of a \f$q^{\rm th}\f$-order multivariate polynomial \f$\mathcal P\f$ in Chebyshev basis , plus a remainder term \f$\mathcal R\f$, so that
 \f{align*}
   f({x}) \in \mathcal P({x}-\hat{x}) \oplus \mathcal R, \quad \forall {x}\in D.
