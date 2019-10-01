@@ -6,7 +6,9 @@ set zlabel "f(x,y)" rotate by 90
 set palette defined ( 20 "#101010", 30 "#ff0000", 40 "#00ff00", 50 "#e0e0e0" ) 
 unset colorbox
 
-splot x*exp(x+y**2)-y**2 w pm3d, 'test2.dat' u 1:2:3 w l lt -1
+#splot x*exp(x+y**2)-y**2 w pm3d, 'test2.dat' u 1:2:3 w l lt -1
+splot 'test2_fct.out' u 1:2:3 w pm3d, \
+      'test2_ism.out' u 1:2:3 w l lt -1
 
 pause -1 "<ENTER> TO CONTINUE"
 

@@ -1179,12 +1179,10 @@ private:
   TYPE _type;
   //! @brief Right-hand side
   double _rhs;
-  //! @brief Number of participating variables
-  unsigned _nvar;
   //! @brief Participating variables
-  PolVar<T>* _var;
+  std::vector<PolVar<T>> _var;
   //! @brief Coefficients
-  double* _coef;
+  std::vector<double> _coef;
 
 public:
   /** @ingroup LPRELAX
@@ -1201,15 +1199,15 @@ public:
   //! @brief Retreive number of participating variables
  unsigned nvar
     () const
-    { return _nvar; }
+    { return _var.size(); }
   //! @brief Retreive variable coefficients
   const double* coef
     () const 
-    { return _coef; }
+    { return _coef.data(); }
   //! @brief Retreive variable pointers
   const PolVar<T>* var
     () const 
-    { return _var; }
+    { return _var.data(); }
   //! @brief Retreive pointer to corresponding operation in DAG
   FFOp*& op
     ()
@@ -1219,104 +1217,88 @@ public:
     () const
     { return _op; }
 
+  //! @brief Constructor for cut w/o participating variable
+  PolCut
+    ( FFOp*op, TYPE type, const double b )
+    : _op(op), _type(type), _rhs(b), _var(), _coef()
+    {}
   //! @brief Constructor for cut w/ 1 participating variable
   PolCut
     ( FFOp*op, TYPE type, const double b, const PolVar<T>&X1, const double a1 )
-    : _op(op), _type(type), _rhs(b)
+    : _op(op), _type(type), _rhs(b), _var(1), _coef(1)
     {
-      _nvar = 1;
-      _coef = new double[_nvar];
-      _var  = new PolVar<T>[_nvar];
       _coef[0] = a1;
-      _var[0] = X1;
+      _var[0]  = X1;
     }
   //! @brief Constructor for cut w/ 2 participating variables
   PolCut
     ( FFOp*op, TYPE type, const double b, const PolVar<T>&X1, const double a1,
       const PolVar<T>&X2, const double a2 )
-    : _op(op), _type(type), _rhs(b)
+    : _op(op), _type(type), _rhs(b), _var(2), _coef(2)
     {
-      _nvar = 2;
-      _coef = new double[_nvar];
-      _var = new PolVar<T>[_nvar];
       _coef[0] = a1;
       _coef[1] = a2;
-      _var[0] = X1;
-      _var[1] = X2;
+      _var[0]  = X1;
+      _var[1]  = X2;
     }
   //! @brief Constructor for cut w/ 3 participating variables
   PolCut
     ( FFOp*op, TYPE type, const double b, const PolVar<T>&X1, const double a1,
       const PolVar<T>&X2, const double a2, const PolVar<T>&X3, const double a3 )
-    : _op(op), _type(type), _rhs(b)
+    : _op(op), _type(type), _rhs(b), _var(3), _coef(3)
     {
-      _nvar = 3;
-      _coef = new double[_nvar];
-      _var  = new PolVar<T>[_nvar];
       _coef[0] = a1;
       _coef[1] = a2;
       _coef[2] = a3;
-      _var[0] = X1;
-      _var[1] = X2;
-      _var[2] = X3;
+      _var[0]  = X1;
+      _var[1]  = X2;
+      _var[2]  = X3;
     }
   //! @brief Constructor for cut w/ 4 participating variables
   PolCut
     ( FFOp*op, TYPE type, const double b, const PolVar<T>&X1, const double a1,
       const PolVar<T>&X2, const double a2, const PolVar<T>&X3, const double a3,
       const PolVar<T>&X4, const double a4 )
-    : _op(op), _type(type), _rhs(b)
+    : _op(op), _type(type), _rhs(b), _var(4), _coef(4)
     {
-      _nvar = 4;
-      _coef = new double[_nvar];
-      _var  = new PolVar<T>[_nvar];
       _coef[0] = a1;
       _coef[1] = a2;
       _coef[2] = a3;
       _coef[3] = a4;
-      _var[0] = X1;
-      _var[1] = X2;
-      _var[2] = X3;
-      _var[3] = X4;
+      _var[0]  = X1;
+      _var[1]  = X2;
+      _var[2]  = X3;
+      _var[3]  = X4;
     }
   //! @brief Constructor for cut w/ <a>n</a> participating variables
   PolCut
     ( FFOp*op, TYPE type, const double b, const unsigned n, const PolVar<T>*X,
       const double*a )
-    : _op(op), _type(type), _rhs(b)
+    : _op(op), _type(type), _rhs(b), _var(n), _coef(n)
     {
-      _nvar = n;
-      _coef = new double[_nvar];
-      _var  = new PolVar<T>[_nvar];
-      for( unsigned ivar=0; ivar<_nvar; ivar++ ){
-        _coef[ivar] = a[ivar]; _var[ivar] = X[ivar];
+      for( unsigned ivar=0; ivar<n; ivar++ ){
+        _coef[ivar] = a[ivar];
+        _var[ivar]  = X[ivar];
       }
     }
   //! @brief Constructor for cut w/ selection among <a>n</a> participating variables
   PolCut
     ( FFOp*op, TYPE type, const double b, const std::set<unsigned>&ndx,
       const PolVar<T>*X, const double*a )
-    : _op(op), _type(type), _rhs(b)
+    : _op(op), _type(type), _rhs(b), _var(ndx.size()), _coef(ndx.size())
     {
-      _nvar = ndx.size();
-      _coef = _nvar? new double[_nvar]: 0;
-      _var  = _nvar? new PolVar<T>[_nvar]: 0;
       std::set<unsigned>::const_iterator it = ndx.begin();
       for( unsigned ivar=0; it!=ndx.end(); ++it, ivar++ ){
-        _coef[ivar] = a[*it]; _var[ivar] = X[*it];
+        _coef[ivar] = a[*it];
+        _var[ivar]  = X[*it];
       }
     }
   //! @brief Constructor for cut w/ variable and coefficient maps
   template <typename U> PolCut
     ( FFOp*op, TYPE type, const double b, const std::map<U,PolVar<T>>&X,
       const std::map<U,double>&a )
-    : _op(op), _type(type), _rhs(b)
+    : _op(op), _type(type), _rhs(b), _var(a.size()), _coef(a.size())
     {
-//      if( a.empty() )
-//        std::cout << "PolCut** Empty map! b = " << b << std::endl;
-      _nvar = a.size();
-      _coef = _nvar? new double[_nvar]: 0;
-      _var  = _nvar? new PolVar<T>[_nvar]: 0;
       auto ita = a.cbegin();
       for( unsigned ivar=0; ita!=a.cend(); ++ita, ivar++ ){
         _coef[ivar] = ita->second;
@@ -1330,80 +1312,69 @@ public:
   PolCut
     ( FFOp*op, TYPE type, const double b, const unsigned n, const PolVar<T>*X,
       const double*a, const PolVar<T>&X1, const double a1 )
-    : _op(op), _type(type), _rhs(b)
+    : _op(op), _type(type), _rhs(b), _var(n+1), _coef(n+1)
     {
-      _nvar = n+1;
-      _coef = new double[_nvar+1];
-      _var  = new PolVar<T>[_nvar+1];
       for( unsigned ivar=0; ivar<n; ivar++ ){
-        _coef[ivar] = a[ivar]; _var[ivar] = X[ivar];
+        _coef[ivar] = a[ivar];
+        _var[ivar] = X[ivar];
       }
       _coef[n] = a1;
-      _var[n] = X1;
+      _var[n]  = X1;
     }
   //! @brief Constructor for cut w/ <a>n+2</a> participating variables
   PolCut
     ( FFOp*op, TYPE type, const double b, const unsigned n, const PolVar<T>*X,
       const double*a, const PolVar<T>&X1, const double a1, const PolVar<T>&X2,
       const double a2 )
-    : _op(op), _type(type), _rhs(b)
+    : _op(op), _type(type), _rhs(b), _var(n+2), _coef(n+2)
     {
-      _nvar = n+2;
-      _coef = new double[_nvar+1];
-      _var  = new PolVar<T>[_nvar+1];
       for( unsigned ivar=0; ivar<n; ivar++ ){
-        _coef[ivar] = a[ivar]; _var[ivar] = X[ivar];
+        _coef[ivar] = a[ivar];
+        _var[ivar] = X[ivar];
       }
-      _coef[n] = a1;
-      _var[n] = X1;
+      _coef[n]   = a1;
+      _var[n]    = X1;
       _coef[n+1] = a2;
-      _var[n+1] = X2;
+      _var[n+1]  = X2;
     }
   //! @brief Constructor for cut w/ <a>n+3</a> participating variables
   PolCut
     ( FFOp*op, TYPE type, const double b, const unsigned n, const PolVar<T>*X,
       const double*a, const PolVar<T>&X1, const double a1, const PolVar<T>&X2,
       const double a2, const PolVar<T>&X3, const double a3 )
-    : _op(op), _type(type), _rhs(b)
+    : _op(op), _type(type), _rhs(b), _var(n+3), _coef(n+3)
     {
-      _nvar = n+3;
-      _coef = new double[_nvar+1];
-      _var  = new PolVar<T>[_nvar+1];
       for( unsigned ivar=0; ivar<n; ivar++ ){
-        _coef[ivar] = a[ivar]; _var[ivar] = X[ivar];
+        _coef[ivar] = a[ivar];
+        _var[ivar] = X[ivar];
       }
-      _coef[n] = a1;
-      _var[n] = X1;
+      _coef[n]   = a1;
+      _var[n]    = X1;
       _coef[n+1] = a2;
-      _var[n+1] = X2;
+      _var[n+1]  = X2;
       _coef[n+2] = a3;
-      _var[n+2] = X3;
+      _var[n+2]  = X3;
     }
   //! @brief Constructor for cut w/ selection among <a>n</a> participating variables
   PolCut
     ( FFOp*op, TYPE type, const double b, const std::set<unsigned>&ndx,
       const PolVar<T>*X, const double*a, const PolVar<T>&X1, const double a1 )
-    : _op(op), _type(type), _rhs(b)
+    : _op(op), _type(type), _rhs(b), _var(ndx.size()+1), _coef(ndx.size()+1)
     {
-      _nvar = ndx.size()+1;
-      _coef = new double[_nvar];
-      _var  = new PolVar<T>[_nvar];
       std::set<unsigned>::const_iterator it = ndx.begin();
       for( unsigned ivar=0; it!=ndx.end(); ++it, ivar++ ){
-        _coef[ivar] = a[*it]; _var[ivar] = X[*it];
+        _coef[ivar] = a[*it];
+        _var[ivar] = X[*it];
       }
-      _coef[_nvar-1] = a1;
-      _var[_nvar-1] = X1;
+      _coef[ndx.size()] = a1;
+      _var[ndx.size()]  = X1;
     }
   //! @brief Constructor for cut w/ variable and coefficient maps
   template <typename U> PolCut
     ( FFOp*op, TYPE type, const double b, const std::map<U,PolVar<T>>&X,
       const std::map<U,double>&a, const PolVar<T>&X1, const double a1 )
-    : _op(op), _type(type), _rhs(b)
+    : _op(op), _type(type), _rhs(b), _var(a.size()+1), _coef(a.size()+1)
     {
-      _nvar = a.size()+1;
-      _coef = new double[_nvar];
-      _var  = new PolVar<T>[_nvar];
       auto ita = a.cbegin();
       for( unsigned ivar=0; ita!=a.cend(); ++ita, ivar++ ){
         _coef[ivar] = ita->second;
@@ -1412,19 +1383,16 @@ public:
           throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::BADCUT );
         _var[ivar] = itX->second;
       }
-      _coef[_nvar-1] = a1;
-      _var[_nvar-1] = X1;
+      _coef[a.size()] = a1;
+      _var[a.size()]  = X1;
     }
   //! @brief Constructor for cut w/ variable and coefficient maps
   template <typename U> PolCut
     ( FFOp*op, TYPE type, const double b, const std::map<U,PolVar<T>>&X,
       const std::map<U,double>&a, const PolVar<T>&X1, const double a1,
       const PolVar<T>&X2, const double a2 )
-    : _op(op), _type(type), _rhs(b)
+    : _op(op), _type(type), _rhs(b), _var(a.size()+2), _coef(a.size()+2)
     {
-      _nvar = a.size()+2;
-      _coef = new double[_nvar];
-      _var  = new PolVar<T>[_nvar];
       auto ita = a.cbegin();
       for( unsigned ivar=0; ita!=a.cend(); ++ita, ivar++ ){
         _coef[ivar] = ita->second;
@@ -1433,17 +1401,31 @@ public:
           throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::BADCUT );
         _var[ivar] = itX->second;
       }
-      _coef[_nvar-2] = a1;
-      _var[_nvar-2] = X1;
-      _coef[_nvar-1] = a2;
-      _var[_nvar-1] = X2;
+      _coef[a.size()]   = a1;
+      _var[a.size()]    = X1;
+      _coef[a.size()+1] = a2;
+      _var[a.size()+1]  = X2;
     }
   //! @brief Destructor
   ~PolCut
     ()
+    {}
+
+  //! @brief Append terms to cut
+  PolCut<T>& append
+    ( const PolVar<T>&X, const double a )
     {
-      delete[] _coef;
-      delete[] _var;
+      _coef.push_back( a );
+      _var.push_back( X );
+      return *this;
+    }
+  //! @brief Append terms to cut
+  PolCut<T>& append
+    ( const unsigned n, const PolVar<T>*X, const double*a )
+    {
+      _coef.insert( _coef.end(), a, a+n );
+      _var.insert( _var.end(), X, X+n );
+      return *this;
     }
   /** @} */
 
@@ -1680,6 +1662,9 @@ protected:
   //! @brief Erase all entries corresponding to operation <a>op</a> in _Cuts
   void _erase_cuts
     ( FFOp* op );
+  //! @brief Appends new relaxation cut in _Cuts w/o variable
+  typename t_Cuts::iterator _append_cut
+    ( FFOp*op, const typename PolCut<T>::TYPE type, const double b );
   //! @brief Appends new relaxation cut in _Cuts w/ 1 variable
   typename t_Cuts::iterator _append_cut
     ( FFOp*op, const typename PolCut<T>::TYPE type,
@@ -2068,6 +2053,10 @@ public:
   template <typename U> void generate_cuts
     ( const std::map<U,PolVar<T>>&mdep, const bool reset=false );
 
+  //! @brief Append new relaxation cut w/o variable
+  typename t_Cuts::iterator add_cut
+    ( const typename PolCut<T>::TYPE type, const double b )
+    { return _append_cut( 0, type, b ); }
   //! @brief Append new relaxation cut w/ 1 variable
   typename t_Cuts::iterator add_cut
     ( const typename PolCut<T>::TYPE type, const double b,
@@ -2388,6 +2377,16 @@ PolImg<T>::_erase_cuts
     auto itp = itc; ++itc;
     if( (*itp)->op() == op ){ delete *itp; _Cuts.erase( itp ); }
   } 
+}
+
+template <typename T>
+inline typename PolImg<T>::t_Cuts::iterator
+PolImg<T>::_append_cut
+( FFOp*op, const typename PolCut<T>::TYPE type,
+  const double b )
+{
+  PolCut<T>* pCut = new PolCut<T>( op, type, b );
+  return _Cuts.insert( pCut );
 }
 
 template <typename T>

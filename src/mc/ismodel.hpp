@@ -12,7 +12,7 @@ X_{i,j} = [\underline{x}_i+(j-1)h_i,\overline{x}_i+jh_i], \quad \text{with}\ h_i
 \f}
 an interval superposition model (ISM) of the real-valued function \f$f:\mathbb{R}^n\to\mathbb{R}\f$ on \f${\bf X}\f$ is any interval-valued function \f$\mathcal{I}[f]:{\bf X}\to\mathbb{IR}\f$ given by 
 \f{align*}
-\mathcal{I}[f](x) = \sum_{i=1}^{n} \sum_{j=1}^{q} A[f]_{i,j}\varphi_{i,j}(x_i), \quad \text{with}\ {\bf A}[f]\in\mathbb{IR}^{n\times p}, \quad \text{and}\ \varphi_{i,j}(x_i) = \left\{\begin{aligned} 1 & \text{if $x_i\in X_{i,j}$},\\ 0 & \text{otherwise},\end{aligned}\right.
+\mathcal{I}[f](x) = \sum_{i=1}^{n} \sum_{j=1}^{q} A[f]_{i,j}\varphi_{i,j}(x_i), \quad \text{with}\ {\bf A}[f]\in\mathbb{IR}^{n\times p}, \quad \text{and}\ \varphi_{i,j}(x_i) = \left\{\begin{aligned} 1 & \ \text{if $x_i\in X_{i,j}$},\\ 0 & \ \text{otherwise},\end{aligned}\right.
 \f}
 such that 
 \f{align*}
@@ -101,10 +101,17 @@ Possible errors encountered during the computation of a Chebyshev model are:
 <TABLE border="1">
 <CAPTION><EM>Errors during the computation of an ISM</EM></CAPTION>
      <TR><TH><b>Number</b> <TD><b>Description</b>
-     <TR><TH><tt>-2</tt> <TD>Variable index is out of range
-     <TR><TH><tt>-3</tt> <TD>Operation between variables belonging to different models is not permitted
-     <TR><TH><tt>-33</tt> <TD>Feature not yet implemented
+     <TR><TH><tt>1</tt> <TD>Division by zero scalar
+     <TR><TH><tt>2</tt> <TD>Inverse operation with zero in range
+     <TR><TH><tt>3</tt> <TD>Log operation with non-positive numbers in range
+     <TR><TH><tt>4</tt> <TD>Square-root operation with negative numbers in range
+     <TR><TH><tt>5</tt> <TD>Tangent operation with (k+1/2)·PI in range
+     <TR><TH><tt>-1</tt> <TD>Variable index is out of range
+     <TR><TH><tt>-2</tt> <TD>Operation between variables belonging to different models not permitted
+     <TR><TH><tt>-3</tt> <TD>Feature not yet implemented
+     <TR><TH><tt>-33</tt> <TD>Internal error
 </TABLE>
+
 
 Further exceptions may be thrown by the template class itself.
 
@@ -162,6 +169,10 @@ class ISModel
   template <typename U> friend ISVar<U> sqr
     ( ISVar<U> const& );
   template <typename U> friend ISVar<U> sqr
+    ( ISVar<U> && );
+  template <typename U> friend ISVar<U> sqrt
+    ( ISVar<U> const& );
+  template <typename U> friend ISVar<U> sqrt
     ( ISVar<U> && );
   template <typename U> friend ISVar<U> exp
     ( ISVar<U> const& );
@@ -267,6 +278,7 @@ class ISModel
       case SQRT:
         return "mc::ISModel\t Square-root operation with negative numbers in range";
       case TAN:
+        return "mc::ISModel\t Tangent operation with (k+1/2)·PI in range";
       case INDEX:
         return "mc::ISModel\t Variable index out of range";
       case MODEL:
@@ -322,6 +334,9 @@ class ISModel
   ( std::vector<std::vector<T>>& mat, unsigned const& ndep )
   const;
   void _sqr
+  ( std::vector<std::vector<T>>& mat, unsigned const& ndep )
+  const;
+  void _sqrt
   ( std::vector<std::vector<T>>& mat, unsigned const& ndep )
   const;
   void _exp
@@ -457,13 +472,28 @@ const
   }
   
   // Remainder
-  double rem( 0. ), s;
+  double rem( 0. ), s; //, t;
   for( unsigned int i=0; i<_nvar; i++ ){
     if( mat[i].empty() ) continue;
-    s = std::max( 1./(w/(_c1[i]-_L1[i])-1.), 1./(w/(_U1[i]-_c1[i])+1.) ); // <- NEEDS CHECKING 
-    rem += s*(U-w-_U1[i]+_c1[i]);
+    if( L > 0. ){
+      s = std::max( 1./std::fabs(w/(_c1[i]-_L1[i])-1.), 1./std::fabs(w/(_U1[i]-_c1[i])+1.) ); // <- NEEDS CHECKING 
+      rem += s*std::fabs(U-w-_U1[i]+_c1[i]);
+    }
+    else if( U < 0. ){
+      s = std::max( 1./std::fabs(w/(_c1[i]-_L1[i])-1.), 1./std::fabs(w/(_U1[i]-_c1[i])+1.) ); // <- NEEDS CHECKING 
+      rem += s*std::fabs(L-w-_L1[i]+_c1[i]);
+    }
+//    if( L > 0. )
+//      den = w-_c1[i]+_L1[i];
+//    else if( U < 0. )
+//      den = -w+_c1[i]-_U1[i];
+//    assert( den > 0. );
+//    s = std::max( _c1[i]-_L1[i], _U1[i]-_c1[i] ) / den; // <- NEEDS CHECKING 
+//    t = std::max( std::fabs( U-w-_L1[i]+_c1[i] ), std::fabs( L-w-_U1[i]+_c1[i] ) );
+//    rem += s*t;
   }
-  rem /= w*L;
+//  rem /= w*L;
+  rem /= std::fabs(w) * std::min( std::fabs(L), std::fabs(U) );
 
   // Interval matrix coefficients
   bnd = T(-1.,1.)*(rem/double(ndep)) - (ndep-1.)/double(ndep)*inv(w);
@@ -506,6 +536,43 @@ const
     if( mat[i].empty() ) continue;
     for( unsigned int j=0; j<_ndiv; j++ )
       mat[i][j] = Op<T>::sqr((w-_c1[i])+mat[i][j]) + bnd;
+  }
+}
+
+template <typename T>
+inline
+void ISModel<T>::_sqrt
+( std::vector<std::vector<T>>& mat, unsigned const& ndep )
+const
+{
+  assert( !mat.empty() );
+
+  // Bounds
+  T bnd = _B( mat, 1 );
+  double L( Op<T>::l(bnd) );
+  if ( L < 0. )
+    throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::SQRT );
+
+  // Central points
+  double w( 0. ), s1( 0. ), s2( 0. );
+  for( unsigned int i=0; i<_nvar; i++ ){
+    if( mat[i].empty() ) continue;
+    _c1[i] = 0.5 * ( _L1[i] + _U1[i] );
+    w += _c1[i];
+    _r1[i] = 0.5 * ( _U1[i] - _L1[i] );
+    s1 += _r1[i];
+    s2 += std::sqrt(_r1[i]);
+  }
+  
+  // Remainder
+  double rem( s2 - std::sqrt(s1) );
+
+  // Interval matrix coefficients
+  bnd = T(-1.,1.)*(rem/double(ndep)) - (ndep-1.)/double(ndep)*std::sqrt(w);
+  for( unsigned int i=0; i<_nvar; i++ ){
+    if( mat[i].empty() ) continue;
+    for( unsigned int j=0; j<_ndiv; j++ )
+      mat[i][j] = Op<T>::sqrt((w-_c1[i])+mat[i][j]) + bnd;
   }
 }
 
@@ -593,7 +660,9 @@ const
   assert( !mat1.empty() && !mat2.empty() );
 
   // Bounds
-  T bnd1 = _B( mat1, 1 ), bnd2 = _B( mat2, 2 );
+  _B( mat1, 1 );
+  _B( mat2, 2 );
+  //T bnd1 = _B( mat1, 1 ), bnd2 = _B( mat2, 2 );
 
   // Central points and radii
   double C1( 0. ), R1( 0. );
@@ -681,74 +750,80 @@ class ISVar
   template <typename U> friend class ISModel;
 
   template <typename U> friend std::ostream& operator<<
-    ( std::ostream&, const ISVar<U>& );
+    ( std::ostream &, ISVar<U> const& );
 
   template <typename U> friend ISVar<U> operator+
-    ( const ISVar<U>& );
+    ( ISVar<U> const& );
   template <typename U> friend ISVar<U> operator+
-    ( const ISVar<U>&, const ISVar<U>& );
+    ( ISVar<U> const&, ISVar<U> const& );
   template <typename U> friend ISVar<U> operator+
-    ( const double&, const ISVar<U>& );
+    ( double const&, ISVar<U> const& );
   template <typename U> friend ISVar<U> operator+
-    ( const ISVar<U>&, const double& );
+    ( ISVar<U> const&, double const& );
 
   template <typename U> friend ISVar<U> operator-
-    ( const ISVar<U>& );
+    ( ISVar<U> const& );
   template <typename U> friend ISVar<U> operator-
-    ( const ISVar<U>&, const ISVar<U>& );
+    ( ISVar<U> const&, ISVar<U> const& );
   template <typename U> friend ISVar<U> operator-
-    ( const double&, const ISVar<U>& );
+    ( double const&, ISVar<U> const& );
   template <typename U> friend ISVar<U> operator-
-    ( const ISVar<U>&, const double& );
+    ( ISVar<U> const&, double const& );
 
   template <typename U> friend ISVar<U> operator*
-    ( const ISVar<U>&, const ISVar<U>& );
+    ( ISVar<U> const&, ISVar<U> const& );
   template <typename U> friend ISVar<U> operator*
-    ( const double&, const ISVar<U>& );
+    ( double const&, ISVar<U> const& );
   template <typename U> friend ISVar<U> operator*
-    ( const ISVar<U>&, const double& );
+    ( ISVar<U> const&, double const& );
 
   template <typename U> friend ISVar<U> operator/
-    ( const ISVar<U>&, const ISVar<U>& );
+    ( ISVar<U> const&, ISVar<U> const& );
   template <typename U> friend ISVar<U> operator/
-    ( const double&, const ISVar<U>& );
+    ( double const&, ISVar<U> const& );
   template <typename U> friend ISVar<U> operator/
-    ( const ISVar<U>&, const double& );
+    ( ISVar<U> const&, double const& );
 
   template <typename U> friend ISVar<U> inv
-    ( const ISVar<U>& );
+    ( ISVar<U> const& );
   template <typename U> friend ISVar<U> inv
     ( ISVar<U>&& );
   template <typename U> friend ISVar<U> sqr
     ( ISVar<U> const& );
   template <typename U> friend ISVar<U> sqr
     ( ISVar<U> && );
-  template <typename U> friend ISVar<U> exp
-    ( const ISVar<U>& );
-  template <typename U> friend ISVar<U> exp
-    ( ISVar<U>&& );
-  template <typename U> friend ISVar<U> log
-    ( const ISVar<U>& );
-  template <typename U> friend ISVar<U> log
-    ( ISVar<U>&& );
-  template <typename U> friend ISVar<U> sin
-    ( const ISVar<U>& );
-  template <typename U> friend ISVar<U> sin
-    ( ISVar<U>&& );
-  template <typename U> friend ISVar<U> cos
-    ( const ISVar<U>& );
-  template <typename U> friend ISVar<U> cos
-    ( ISVar<U>&& );
-  template <typename U> friend ISVar<U> tan
-    ( const ISVar<U>& );
-  template <typename U> friend ISVar<U> tan
-    ( ISVar<U>&& );
-
-    // The following functions have not yet been fully finished
   template <typename U> friend ISVar<U> sqrt
-    ( const ISVar<U>& );
+    ( ISVar<U> const& );
+  template <typename U> friend ISVar<U> sqrt
+    ( ISVar<U> && );
+  template <typename U> friend ISVar<U> exp
+    ( ISVar<U> const& );
+  template <typename U> friend ISVar<U> exp
+    ( ISVar<U> && );
+  template <typename U> friend ISVar<U> log
+    ( ISVar<U> const& );
+  template <typename U> friend ISVar<U> log
+    ( ISVar<U> && );
+  template <typename U> friend ISVar<U> sin
+    ( ISVar<U> const& );
+  template <typename U> friend ISVar<U> sin
+    ( ISVar<U> && );
+  template <typename U> friend ISVar<U> cos
+    ( ISVar<U> const& );
+  template <typename U> friend ISVar<U> cos
+    ( ISVar<U> && );
+  template <typename U> friend ISVar<U> tan
+    ( ISVar<U> const& );
+  template <typename U> friend ISVar<U> tan
+    ( ISVar<U> && );
   template <typename U> friend ISVar<U> pow
-    ( const ISVar<U>& , double );
+    ( ISVar<U> const& , int const& n );
+  template <typename U> friend ISVar<U> pow
+    ( ISVar<U> && , int const& n );
+  template <typename U> friend ISVar<U> cheb
+    ( ISVar<U> const& , unsigned int const& n );
+  template <typename U> friend ISVar<U> cheb
+    ( ISVar<U> && , unsigned int const& n );
 
  private:
  
@@ -891,10 +966,45 @@ class ISVar
   () 
   {}
 
+  ISVar<T>& set
+  ( ISModel<T>* const mod, unsigned int ndx, T const& bnd )
+  {
+    _mod = mod;
+    _nvar = mod->_nvar;
+    if( ndx >= _nvar )
+      throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::INDEX );
+
+    _ndiv = mod->_ndiv;
+    _ndep = 1;
+    _mat.clear();
+    _mat.resize( _nvar );
+    double l = Op<T>::l(bnd);
+    double h = Op<T>::diam(bnd) / (double)_ndiv;
+    _mat[ndx].resize( _ndiv );
+    for( unsigned int j=0; j<_ndiv; j++, l+=h )
+      _mat[ndx][j] = T( l, l+h );
+
+    _mod->_defvar[ndx] = true;
+    _mod->_bndvar[ndx] = bnd;
+    _bnd = std::make_pair( bnd, true );
+
+    return *this;
+  }
+
   std::vector<std::vector<T>> const& C
   ()
   const
   { return _mat; }
+
+  double const& cst
+  ()
+  const
+  { return _cst; }
+
+  unsigned int const& ndep
+  ()
+  const
+  { return _ndep; }
 
   T B
   ()
@@ -1313,6 +1423,7 @@ ISVar<T> operator/
 }
 
 template <typename T>
+inline
 ISVar<T> inv
 ( ISVar<T> const& var )
 {
@@ -1326,6 +1437,7 @@ ISVar<T> inv
 }
 
 template <typename T>
+inline
 ISVar<T> inv
 ( ISVar<T> && var )
 {
@@ -1338,6 +1450,7 @@ ISVar<T> inv
 }
 
 template <typename T>
+inline
 ISVar<T> sqr
 ( ISVar<T> const& var )
 {
@@ -1351,6 +1464,7 @@ ISVar<T> sqr
 }
 
 template <typename T>
+inline
 ISVar<T> sqr
 ( ISVar<T> && var )
 {
@@ -1363,6 +1477,38 @@ ISVar<T> sqr
 }
 
 template <typename T>
+inline
+ISVar<T> sqrt
+( ISVar<T> const& var )
+{
+  return exp( 0.5 * log( var ) );
+
+//  if( !var._mod )
+//    return std::sqrt(var._cst);
+
+//  ISVar<T> var2( var );
+//  var2._mod->_sqrt( var2._mat, var2._ndep );
+//  var2._bnd.second = false;
+//  return var2;
+}
+
+template <typename T>
+inline
+ISVar<T> sqrt
+( ISVar<T> && var )
+{
+  return exp( 0.5 * log( var ) );
+  
+//  if( !var._mod )
+//    return std::sqrt(var._cst);
+
+//  var._mod->_sqrt( var._mat, var._ndep );
+//  var._bnd.second = false;
+//  return var;
+}
+
+template <typename T>
+inline
 ISVar<T> exp
 ( ISVar<T> const& var )
 {
@@ -1376,6 +1522,7 @@ ISVar<T> exp
 }
 
 template <typename T>
+inline
 ISVar<T> exp
 ( ISVar<T> && var )
 {
@@ -1388,6 +1535,7 @@ ISVar<T> exp
 }
 
 template <typename T>
+inline
 ISVar<T> log
 ( ISVar<T> const& var )
 {
@@ -1401,6 +1549,7 @@ ISVar<T> log
 }
 
 template <typename T>
+inline
 ISVar<T> log
 ( ISVar<T> && var )
 {
@@ -1410,6 +1559,166 @@ ISVar<T> log
   var._mod->_log( var._mat, var._ndep );
   var._bnd.second = false;
   return var;
+}
+
+template <typename T>
+inline
+ISVar<T>
+pow
+( ISVar<T> const& var, int const& n )
+{
+  if( !var._mod )
+    return std::pow( var._cst, n );
+
+  if( n < 0 )
+    return pow( inv( var ), -n );
+  if( n == 0 )
+    return 1.;
+  if( n == 1 )
+    return var;
+
+  return // recursive call
+    !(n%2) ?
+    sqr( pow( var, n/2 ) ) :
+    sqr( pow( var, n/2 ) ) * var;
+}
+
+template <typename T>
+inline
+ISVar<T>
+pow
+( ISVar<T> && var, int const& n )
+{
+  if( !var._mod )
+    return std::pow( var._cst, n );
+
+  if( n < 0 )
+    return pow( inv( var ), -n );
+  if( n == 0 )
+    return 1.;
+  if( n == 1 )
+    return var;
+
+  return // recursive call
+    !(n%2) ?
+    sqr( pow( var, n/2 ) ) :
+    sqr( pow( var, n/2 ) ) * var;
+}
+
+template <typename T>
+inline
+ISVar<T>
+pow
+( ISVar<T> const& var, double const& d )
+{
+  return exp( d * log( var ) );
+}
+
+template <typename T>
+inline
+ISVar<T>
+pow
+( ISVar<T> && var, double const& d )
+{
+  return exp( d * log( var ) );
+}
+
+template <typename T>
+inline
+ISVar<T>
+pow
+( ISVar<T> const& var, ISVar<T> const& exp )
+{
+  return exp( exp * log( var ) );
+}
+
+template <typename T>
+inline
+ISVar<T>
+pow
+( ISVar<T> && var, ISVar<T> const& exp )
+{
+  return exp( exp * log( var ) );
+}
+
+template <typename T>
+inline
+ISVar<T>
+pow
+( double const& d, ISVar<T> const& var )
+{
+  return exp( var * std::log( d ) );
+}
+
+template <typename T>
+inline
+ISVar<T>
+pow
+( double const& d, ISVar<T> && var )
+{
+  return exp( var * std::log( d ) );
+}
+
+template <typename T>
+inline
+ISVar<T>
+prod
+( unsigned int const& n, ISVar<T> const* var )
+{
+  switch( n ){
+   case 0:  return 1.;
+   case 1:  return var[0];
+   default: return var[0] * prod( n-1, var+1 );
+  }
+}
+
+template <typename T>
+inline
+ISVar<T>
+monom
+( unsigned int const& n, ISVar<T> const* var, unsigned int const* exp )
+{
+  switch( n ){
+   case 0:  return 1.;
+   case 1:  return pow( var[0], (int)exp[0] );
+   default: return pow( var[0], (int)exp[0] ) * monom( n-1, var+1, exp+1 );
+  }
+}
+
+template <typename T>
+inline
+ISVar<T>
+cheb
+( ISVar<T> const& var, unsigned int const& n )
+{
+  if( !var._mod )
+    return cheb( var._cst, n );
+
+  switch( n ){
+    case 0:  return 1.;
+    case 1:  return var;
+    default: break;
+  }
+  ISVar<T> var2( 2.*var*cheb(var,n-1) - cheb(var,n-2) );
+  return var2;
+}
+
+template <typename T>
+inline
+ISVar<T>
+cheb
+( ISVar<T> && var, unsigned int const& n )
+{
+  if( !var._mod )
+    return cheb( var._cst, n );
+
+  switch( n ){
+    case 0:  return 1.;
+    case 1:  return var;
+    default: break;
+  }
+  ISVar<T> var2( 2.*var*cheb(var,n-1) - cheb(var,n-2) );
+  return var2;
 }
 
 }//namespace mc
@@ -1478,12 +1787,12 @@ template< typename T > struct Op< mc::ISVar<T> >
   static double diam(const ISV& x) { return mc::Op<T>::diam(x.B()); }
   static ISV inv (const ISV& x) { return mc::inv(x);  }
   static ISV sqr (const ISV& x) { return mc::sqr(x);  }
-  static ISV sqrt(const ISV& x) { return mc::exp(0.5*mc::log(x)); } //{ return mc::sqrt(x); }
+  static ISV sqrt(const ISV& x) { return mc::sqrt(x); }
   static ISV log (const ISV& x) { return mc::log(x);  }
   static ISV xlog(const ISV& x) { return x*mc::log(x); }
   static ISV lmtd(const ISV& x, const ISV& y) { return (x-y)/(mc::log(x)-mc::log(y)); }
   static ISV rlmtd(const ISV& x, const ISV& y) { return (mc::log(x)-mc::log(y))/(x-y); }
-  static ISV fabs(const ISV& x) { return mc::exp(0.5*mc::log(mc::sqr(x))); } //{ return mc::mc::fabs(x); }
+  static ISV fabs(const ISV& x) { throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); } //{ return mc::mc::fabs(x); }
   static ISV exp (const ISV& x) { return mc::exp(x);  }
   static ISV sin (const ISV& x) { throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); } //{ return mc::sin(x);  }
   static ISV cos (const ISV& x) { throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); } //{ return mc::cos(x);  }
@@ -1502,10 +1811,10 @@ template< typename T > struct Op< mc::ISVar<T> >
   static ISV min (const ISV& x, const ISV& y) { throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); }
   static ISV max (const ISV& x, const ISV& y) { throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); }
   static ISV arh (const ISV& x, const double k) { return mc::exp(-k/x); }
-  template <typename X, typename Y> static ISV pow(const X& x, const Y& y) { throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); } //{ return mc::pow(x,y); }
-  static ISV cheb(const ISV& x, const unsigned n) { throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); } //{ return mc::cheb(x,n); }
-  static ISV prod (const unsigned n, const ISV* x) { throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); } //{ return mc::prod(n,x); }
-  static ISV monom (const unsigned n, const ISV* x, const unsigned* k) { throw typename mc::ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); } //{ return mc::monom(n,x,k); }
+  template <typename X, typename Y> static ISV pow(const X& x, const Y& y) { return mc::pow(x,y); }
+  static ISV cheb(const ISV& x, const unsigned n) { return mc::cheb(x,n); }
+  static ISV prod (const unsigned n, const ISV* x) { return mc::prod(n,x); }
+  static ISV monom (const unsigned n, const ISV* x, const unsigned* k) { return mc::monom(n,x,k); }
   static bool inter(ISV& xIy, const ISV& x, const ISV& y) { throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); } //{ return mc::inter(xIy,x,y); }
   static bool eq(const ISV& x, const ISV& y) { return mc::Op<T>::eq(x.B(),y.B()); }
   static bool ne(const ISV& x, const ISV& y) { return mc::Op<T>::ne(x.B(),y.B()); }
