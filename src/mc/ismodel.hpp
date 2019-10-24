@@ -182,6 +182,14 @@ class ISModel
     ( ISVar<U> const& );
   template <typename U> friend ISVar<U> log
     ( ISVar<U> && );
+  template <typename U> friend ISVar<U> cos
+    ( ISVar<U> const& );
+  template <typename U> friend ISVar<U> cos
+    ( ISVar<U> && );
+  template <typename U> friend ISVar<U> sin
+    ( ISVar<U> const& );
+  template <typename U> friend ISVar<U> sin
+    ( ISVar<U> && );
 
  private:
 
@@ -345,13 +353,20 @@ class ISModel
   void _log
   ( std::vector<std::vector<T>>& mat, unsigned const& ndep )
   const;
+  void _sin
+  ( std::vector<std::vector<T>>& mat, unsigned const& ndep )
+  const;
+  void _cos
+  ( std::vector<std::vector<T>>& mat, unsigned const& ndep )
+  const;
   void _prod
   ( std::vector<std::vector<T>> const& mat1, std::vector<std::vector<T>> const& mat2,
     std::vector<std::vector<T>>& mat3, unsigned& ndep3 )
   const;
 
   std::ostream& _dispvar
-  ( std::vector<std::vector<T>> const& mat, unsigned const& ndep, std::ostream& out=std::cout )
+  ( std::vector<std::vector<T>> const& mat, unsigned const& ndep, const int& opt=0,
+    std::ostream& out=std::cout )
   const;
   
 };
@@ -374,7 +389,8 @@ std::ostream& operator<<
 template <typename T>
 inline
 std::ostream& ISModel<T>::_dispvar
-( std::vector<std::vector<T>> const& mat, unsigned const& ndep, std::ostream& out )
+( std::vector<std::vector<T>> const& mat, unsigned const& ndep, const int& opt,
+  std::ostream& out )
 const
 {
   if( ndep > 2 ) return out;
@@ -388,12 +404,24 @@ const
       double l = Op<T>::l(_bndvar[i]);
       double h = Op<T>::diam(_bndvar[i]) / (double)_ndiv;
       for( unsigned int j=0; j<_ndiv; j++, l+=h ){
-        out << std::setw(14) << l   << std::setw(14) << Op<T>::l(mat[i][j]) << std::endl;
-        out << std::setw(14) << l   << std::setw(14) << Op<T>::u(mat[i][j]) << std::endl;
-        out << std::setw(14) << l+h << std::setw(14) << Op<T>::u(mat[i][j]) << std::endl;
-        out << std::setw(14) << l+h << std::setw(14) << Op<T>::l(mat[i][j]) << std::endl;
-        out << std::setw(14) << l   << std::setw(14) << Op<T>::l(mat[i][j]) << std::endl;
-        out << std::endl;
+        if( opt == 0 ){
+          out << std::setw(14) << l   << std::setw(14) << Op<T>::l(mat[i][j]) << std::endl;
+          out << std::setw(14) << l   << std::setw(14) << Op<T>::u(mat[i][j]) << std::endl;
+          out << std::setw(14) << l+h << std::setw(14) << Op<T>::u(mat[i][j]) << std::endl;
+          out << std::setw(14) << l+h << std::setw(14) << Op<T>::l(mat[i][j]) << std::endl;
+          out << std::setw(14) << l   << std::setw(14) << Op<T>::l(mat[i][j]) << std::endl;
+          out << std::endl;
+        }
+        else if( opt > 0 ){
+          out << std::setw(14) << l   << std::setw(14) << Op<T>::u(mat[i][j]) << std::endl;
+          out << std::setw(14) << l+h << std::setw(14) << Op<T>::u(mat[i][j]) << std::endl;
+          out << std::endl;
+        }
+        else{
+          out << std::setw(14) << l   << std::setw(14) << Op<T>::l(mat[i][j]) << std::endl;
+          out << std::setw(14) << l+h << std::setw(14) << Op<T>::l(mat[i][j]) << std::endl;
+          out << std::endl;
+        }
       }
       break;
     }
@@ -414,30 +442,48 @@ const
           double l2 = Op<T>::l(_bndvar[i2]);
           double h2 = Op<T>::diam(_bndvar[i2]) / (double)_ndiv;
           for( unsigned int j2=0; j2<_ndiv; j2++, l2+=h2 ){
-            out << std::setw(14) << l1    << std::setw(14) << l2    << std::setw(14) << Op<T>::l(mat[i1][j1]+mat[i2][j2]) << std::endl;
-            out << std::setw(14) << l1    << std::setw(14) << l2    << std::setw(14) << Op<T>::u(mat[i1][j1]+mat[i2][j2]) << std::endl;
-            out << std::setw(14) << l1+h1 << std::setw(14) << l2    << std::setw(14) << Op<T>::u(mat[i1][j1]+mat[i2][j2]) << std::endl;
-            out << std::setw(14) << l1+h1 << std::setw(14) << l2    << std::setw(14) << Op<T>::l(mat[i1][j1]+mat[i2][j2]) << std::endl;
-            out << std::setw(14) << l1    << std::setw(14) << l2    << std::setw(14) << Op<T>::l(mat[i1][j1]+mat[i2][j2]) << std::endl;
-            out << std::endl;
-            out << std::setw(14) << l1    << std::setw(14) << l2+h2 << std::setw(14) << Op<T>::l(mat[i1][j1]+mat[i2][j2]) << std::endl;
-            out << std::setw(14) << l1    << std::setw(14) << l2+h2 << std::setw(14) << Op<T>::u(mat[i1][j1]+mat[i2][j2]) << std::endl;
-            out << std::setw(14) << l1+h1 << std::setw(14) << l2+h2 << std::setw(14) << Op<T>::u(mat[i1][j1]+mat[i2][j2]) << std::endl;
-            out << std::setw(14) << l1+h1 << std::setw(14) << l2+h2 << std::setw(14) << Op<T>::l(mat[i1][j1]+mat[i2][j2]) << std::endl;
-            out << std::setw(14) << l1    << std::setw(14) << l2+h2 << std::setw(14) << Op<T>::l(mat[i1][j1]+mat[i2][j2]) << std::endl;
-            out << std::endl;
-            out << std::setw(14) << l1    << std::setw(14) << l2    << std::setw(14) << Op<T>::l(mat[i1][j1]+mat[i2][j2]) << std::endl;
-            out << std::setw(14) << l1    << std::setw(14) << l2    << std::setw(14) << Op<T>::u(mat[i1][j1]+mat[i2][j2]) << std::endl;
-            out << std::setw(14) << l1    << std::setw(14) << l2+h2 << std::setw(14) << Op<T>::u(mat[i1][j1]+mat[i2][j2]) << std::endl;
-            out << std::setw(14) << l1    << std::setw(14) << l2+h2 << std::setw(14) << Op<T>::l(mat[i1][j1]+mat[i2][j2]) << std::endl;
-            out << std::setw(14) << l1    << std::setw(14) << l2    << std::setw(14) << Op<T>::l(mat[i1][j1]+mat[i2][j2]) << std::endl;
-            out << std::endl;
-            out << std::setw(14) << l1+h1 << std::setw(14) << l2    << std::setw(14) << Op<T>::l(mat[i1][j1]+mat[i2][j2]) << std::endl;
-            out << std::setw(14) << l1+h1 << std::setw(14) << l2    << std::setw(14) << Op<T>::u(mat[i1][j1]+mat[i2][j2]) << std::endl;
-            out << std::setw(14) << l1+h1 << std::setw(14) << l2+h2 << std::setw(14) << Op<T>::u(mat[i1][j1]+mat[i2][j2]) << std::endl;
-            out << std::setw(14) << l1+h1 << std::setw(14) << l2+h2 << std::setw(14) << Op<T>::l(mat[i1][j1]+mat[i2][j2]) << std::endl;
-            out << std::setw(14) << l1+h1 << std::setw(14) << l2    << std::setw(14) << Op<T>::l(mat[i1][j1]+mat[i2][j2]) << std::endl;
-            out << std::endl << std::endl;
+            if( opt == 0 ){
+              out << std::setw(14) << l1    << std::setw(14) << l2    << std::setw(14) << Op<T>::l(mat[i1][j1]+mat[i2][j2]) << std::endl;
+              out << std::setw(14) << l1    << std::setw(14) << l2    << std::setw(14) << Op<T>::u(mat[i1][j1]+mat[i2][j2]) << std::endl;
+              out << std::setw(14) << l1+h1 << std::setw(14) << l2    << std::setw(14) << Op<T>::u(mat[i1][j1]+mat[i2][j2]) << std::endl;
+              out << std::setw(14) << l1+h1 << std::setw(14) << l2    << std::setw(14) << Op<T>::l(mat[i1][j1]+mat[i2][j2]) << std::endl;
+              out << std::setw(14) << l1    << std::setw(14) << l2    << std::setw(14) << Op<T>::l(mat[i1][j1]+mat[i2][j2]) << std::endl;
+              out << std::endl;
+              out << std::setw(14) << l1    << std::setw(14) << l2+h2 << std::setw(14) << Op<T>::l(mat[i1][j1]+mat[i2][j2]) << std::endl;
+              out << std::setw(14) << l1    << std::setw(14) << l2+h2 << std::setw(14) << Op<T>::u(mat[i1][j1]+mat[i2][j2]) << std::endl;
+              out << std::setw(14) << l1+h1 << std::setw(14) << l2+h2 << std::setw(14) << Op<T>::u(mat[i1][j1]+mat[i2][j2]) << std::endl;
+              out << std::setw(14) << l1+h1 << std::setw(14) << l2+h2 << std::setw(14) << Op<T>::l(mat[i1][j1]+mat[i2][j2]) << std::endl;
+              out << std::setw(14) << l1    << std::setw(14) << l2+h2 << std::setw(14) << Op<T>::l(mat[i1][j1]+mat[i2][j2]) << std::endl;
+              out << std::endl;
+              out << std::setw(14) << l1    << std::setw(14) << l2    << std::setw(14) << Op<T>::l(mat[i1][j1]+mat[i2][j2]) << std::endl;
+              out << std::setw(14) << l1    << std::setw(14) << l2    << std::setw(14) << Op<T>::u(mat[i1][j1]+mat[i2][j2]) << std::endl;
+              out << std::setw(14) << l1    << std::setw(14) << l2+h2 << std::setw(14) << Op<T>::u(mat[i1][j1]+mat[i2][j2]) << std::endl;
+              out << std::setw(14) << l1    << std::setw(14) << l2+h2 << std::setw(14) << Op<T>::l(mat[i1][j1]+mat[i2][j2]) << std::endl;
+              out << std::setw(14) << l1    << std::setw(14) << l2    << std::setw(14) << Op<T>::l(mat[i1][j1]+mat[i2][j2]) << std::endl;
+              out << std::endl;
+              out << std::setw(14) << l1+h1 << std::setw(14) << l2    << std::setw(14) << Op<T>::l(mat[i1][j1]+mat[i2][j2]) << std::endl;
+              out << std::setw(14) << l1+h1 << std::setw(14) << l2    << std::setw(14) << Op<T>::u(mat[i1][j1]+mat[i2][j2]) << std::endl;
+              out << std::setw(14) << l1+h1 << std::setw(14) << l2+h2 << std::setw(14) << Op<T>::u(mat[i1][j1]+mat[i2][j2]) << std::endl;
+              out << std::setw(14) << l1+h1 << std::setw(14) << l2+h2 << std::setw(14) << Op<T>::l(mat[i1][j1]+mat[i2][j2]) << std::endl;
+              out << std::setw(14) << l1+h1 << std::setw(14) << l2    << std::setw(14) << Op<T>::l(mat[i1][j1]+mat[i2][j2]) << std::endl;
+              out << std::endl << std::endl;
+            }
+            else if( opt > 0 ){
+              out << std::setw(14) << l1    << std::setw(14) << l2    << std::setw(14) << Op<T>::u(mat[i1][j1]+mat[i2][j2]) << std::endl;
+              out << std::setw(14) << l1+h1 << std::setw(14) << l2    << std::setw(14) << Op<T>::u(mat[i1][j1]+mat[i2][j2]) << std::endl;
+              out << std::setw(14) << l1+h1 << std::setw(14) << l2+h2 << std::setw(14) << Op<T>::u(mat[i1][j1]+mat[i2][j2]) << std::endl;
+              out << std::setw(14) << l1    << std::setw(14) << l2+h2 << std::setw(14) << Op<T>::u(mat[i1][j1]+mat[i2][j2]) << std::endl;
+              out << std::setw(14) << l1    << std::setw(14) << l2    << std::setw(14) << Op<T>::u(mat[i1][j1]+mat[i2][j2]) << std::endl;
+              out << std::endl << std::endl;            
+            }
+            else{
+              out << std::setw(14) << l1    << std::setw(14) << l2    << std::setw(14) << Op<T>::l(mat[i1][j1]+mat[i2][j2]) << std::endl;
+              out << std::setw(14) << l1+h1 << std::setw(14) << l2    << std::setw(14) << Op<T>::l(mat[i1][j1]+mat[i2][j2]) << std::endl;
+              out << std::setw(14) << l1+h1 << std::setw(14) << l2+h2 << std::setw(14) << Op<T>::l(mat[i1][j1]+mat[i2][j2]) << std::endl;
+              out << std::setw(14) << l1    << std::setw(14) << l2+h2 << std::setw(14) << Op<T>::l(mat[i1][j1]+mat[i2][j2]) << std::endl;
+              out << std::setw(14) << l1    << std::setw(14) << l2    << std::setw(14) << Op<T>::l(mat[i1][j1]+mat[i2][j2]) << std::endl;
+              out << std::endl << std::endl;            
+            }
           }
           break;
         }
@@ -647,6 +693,78 @@ const
     if( mat[i].empty() ) continue;
     for( unsigned int j=0; j<_ndiv; j++ )
       mat[i][j] = Op<T>::log((w-_c1[i])+mat[i][j]) + bnd;
+  }
+}
+
+template <typename T>
+inline
+void ISModel<T>::_sin
+( std::vector<std::vector<T>>& mat, unsigned const& ndep )
+const
+{
+  assert( !mat.empty() );
+
+  // Central points
+  T bnd = _B( mat, 1 );
+  double w( 0. ), r( 0. ), s( 0. ), p( 1. );
+  for( unsigned int i=0; i<_nvar; i++ ){
+    if( mat[i].empty() ) continue;
+    _c1[i] = 0.5 * ( _L1[i] + _U1[i] );
+    w += _c1[i];
+    r = 0.25 * ( _U1[i] - _L1[i] );
+    if( r <= 0.5*PI )
+      _r1[i] = 2. * std::sin( r );
+    else
+      _r1[i] = 2.;
+    s += _r1[i];
+    p *= _r1[i] + 1.;
+  }
+
+  // Remainder
+  double rem( (std::fabs(std::sin(w))+std::fabs(std::cos(w))) * ( p - s - 1. ) );
+
+  // Interval matrix coefficients
+  bnd = T(-1.,1.)*(rem/double(ndep)) - (ndep-1.)/double(ndep)*std::sin(w);
+  for( unsigned int i=0; i<_nvar; i++ ){
+    if( mat[i].empty() ) continue;
+    for( unsigned int j=0; j<_ndiv; j++ )
+      mat[i][j] = Op<T>::sin((w-_c1[i])+mat[i][j]) + bnd;
+  }
+}
+
+template <typename T>
+inline
+void ISModel<T>::_cos
+( std::vector<std::vector<T>>& mat, unsigned const& ndep )
+const
+{
+  assert( !mat.empty() );
+
+  // Central points
+  T bnd = _B( mat, 1 );
+  double w( 0. ), r( 0. ), s( 0. ), p( 1. );
+  for( unsigned int i=0; i<_nvar; i++ ){
+    if( mat[i].empty() ) continue;
+    _c1[i] = 0.5 * ( _L1[i] + _U1[i] );
+    w += _c1[i];
+    r = 0.25 * ( _U1[i] - _L1[i] );
+    if( r <= 0.5*PI )
+      _r1[i] = 2. * std::sin( r );
+    else
+      _r1[i] = 2.;
+    s += _r1[i];
+    p *= _r1[i] + 1.;
+  }
+
+  // Remainder
+  double rem( (std::fabs(std::sin(w))+std::fabs(std::cos(w))) * ( p - s - 1. ) );
+
+  // Interval matrix coefficients
+  bnd = T(-1.,1.)*(rem/double(ndep)) - (ndep-1.)/double(ndep)*std::cos(w);
+  for( unsigned int i=0; i<_nvar; i++ ){
+    if( mat[i].empty() ) continue;
+    for( unsigned int j=0; j<_ndiv; j++ )
+      mat[i][j] = Op<T>::cos((w-_c1[i])+mat[i][j]) + bnd;
   }
 }
 
@@ -1009,6 +1127,11 @@ class ISVar
   T B
   ()
   const
+  { return bound(); }
+
+  T bound
+  ()
+  const
   {
     if( _bnd.second ) return _bnd.first;
     _bnd.first = ( _mod? _mod->_B( _mat ): _cst );
@@ -1016,11 +1139,30 @@ class ISVar
     return _bnd.first;
   }
 
-  std::ostream& display
-  ( std::ostream& out=std::cout )
+  T eval
+  ( double const* const point )
   const
   {
-    if( _mod ) _mod->_dispvar( _mat, _ndep, out );
+    assert( point );
+    if( !_mod ) return _cst;
+    T val( 0. );
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( _mat[i].empty() ) continue;
+      double l = Op<T>::l( _mod->_bndvar[i] );
+      double u = Op<T>::u( _mod->_bndvar[i] );
+      assert( point[i] >= l && point[i] <= u );
+      double h = Op<T>::diam( _mod->_bndvar[i] ) / (double)_ndiv;
+      int ndx = std::floor( ( point[i] - l ) /  h );
+      val += _mat[i][ndx];
+    }
+    return val;
+  }
+
+  std::ostream& display
+  ( const int& opt=0, std::ostream& out=std::cout )
+  const
+  {
+    if( _mod ) _mod->_dispvar( _mat, _ndep, opt, out );
     return out;
   }
   
@@ -1563,6 +1705,60 @@ ISVar<T> log
 
 template <typename T>
 inline
+ISVar<T> sin
+( ISVar<T> const& var )
+{
+  if( !var._mod )
+    return std::sin(var._cst);
+
+  ISVar<T> var2( var );
+  var2._mod->_sin( var2._mat, var2._ndep );
+  var2._bnd.second = false;
+  return var2;
+}
+
+template <typename T>
+inline
+ISVar<T> sin
+( ISVar<T> && var )
+{
+  if( !var._mod )
+    return std::sin(var._cst);
+
+  var._mod->_sin( var._mat, var._ndep );
+  var._bnd.second = false;
+  return var;
+}
+
+template <typename T>
+inline
+ISVar<T> cos
+( ISVar<T> const& var )
+{
+  if( !var._mod )
+    return std::cos(var._cst);
+
+  ISVar<T> var2( var );
+  var2._mod->_cos( var2._mat, var2._ndep );
+  var2._bnd.second = false;
+  return var2;
+}
+
+template <typename T>
+inline
+ISVar<T> cos
+( ISVar<T> && var )
+{
+  if( !var._mod )
+    return std::cos(var._cst);
+
+  var._mod->_cos( var._mat, var._ndep );
+  var._bnd.second = false;
+  return var;
+}
+
+template <typename T>
+inline
 ISVar<T>
 pow
 ( ISVar<T> const& var, int const& n )
@@ -1794,8 +1990,8 @@ template< typename T > struct Op< mc::ISVar<T> >
   static ISV rlmtd(const ISV& x, const ISV& y) { return (mc::log(x)-mc::log(y))/(x-y); }
   static ISV fabs(const ISV& x) { throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); } //{ return mc::mc::fabs(x); }
   static ISV exp (const ISV& x) { return mc::exp(x);  }
-  static ISV sin (const ISV& x) { throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); } //{ return mc::sin(x);  }
-  static ISV cos (const ISV& x) { throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); } //{ return mc::cos(x);  }
+  static ISV sin (const ISV& x) { return mc::sin(x);  }
+  static ISV cos (const ISV& x) { return mc::cos(x);  }
   static ISV tan (const ISV& x) { throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); } //{ return mc::tan(x);  }
   static ISV asin(const ISV& x) { throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); }
   static ISV acos(const ISV& x) { throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); }

@@ -1,7 +1,7 @@
-#define TEST_SQR	    // <-- select test function here
-const int NSUB = 10;	// <-- select partition size here
-const int NX = 50;	    // <-- select X discretization here
-const int NY = 50;	    // <-- select Y discretization here
+#define TEST_TRIG	    // <-- select test function here
+const int NSUB = 64;	// <-- select partition size here
+const int NX = 200;	    // <-- select X discretization here
+const int NY = 200;	    // <-- select Y discretization here
 #undef USE_PROFIL	    // <-- specify to use PROFIL for interval arithmetic
 #undef MC__ISMODEL_TRACE
 ////////////////////////////////////////////////////////////////////////
@@ -48,10 +48,10 @@ T myfunc
 }
 
 #elif defined( TEST_SQR )
-const double XL   =  3.;	// <-- X range lower bound
-const double XU   =  30.;	// <-- X range upper bound
-const double YL   =  3.;	// <-- Y range lower bound
-const double YU   =  30.;	// <-- Y range upper bound
+const double XL   =  -10.;	// <-- X range lower bound
+const double XU   =  10.;	// <-- X range upper bound
+const double YL   =  -10.;	// <-- Y range lower bound
+const double YU   =  10.;	// <-- Y range upper bound
 template <class T>
 T myfunc
 ( const T&x, const T&y )
@@ -71,6 +71,18 @@ T myfunc
 {
   using mc::sqr;
   return x*exp(x+sqr(y))-sqr(y);
+}
+
+#elif defined( TEST_TRIG )
+const double XL   =  0.;	// <-- X range lower bound
+const double XU   =  10.;	// <-- X range upper bound
+const double YL   =  0.;	// <-- Y range lower bound
+const double YU   =  20.;	// <-- Y range upper bound
+template <class T>
+T myfunc
+( const T&x, const T&y )
+{
+  return exp( sin(x) + sin(y)*cos(y) );
 }
 
 #elif defined( TEST_POW )
@@ -130,7 +142,7 @@ int main()
     //auto&& mat = ISF.C();
 
     std::ofstream ofile( "test2_ism.out", std::ofstream::out );
-    ISF.display( ofile );
+    ISF.display( 0, ofile );
     ofile.close();
 
     ///////////////////////////
@@ -157,12 +169,33 @@ int main()
       for( int iY=0; iY<NY; iY++ ){
         double DXY[2] = { XL+iX*(XU-XL)/(NX-1.), YL+iY*(YU-YL)/(NY-1.) };
         double DF = myfunc( DXY[0], DXY[1] );
+        I BF = ISF.eval( DXY );
         ofile2 << std::setw(14) << DXY[0] << std::setw(14) << DXY[1] << std::setw(14) << DF
+               << std::setw(14) << mc::Op<I>::l(BF) << std::setw(14) << mc::Op<I>::u(BF) 
                << std::endl;
       }
       ofile2 << std::endl;
     }
     ofile2.close();
+
+    ///////////////////////////
+
+    // Repeated calculations for different orders
+    std::ofstream ofile3( "test2_div.out", std::ofstream::out );
+    for( unsigned int q=0; q<16; q++ ){
+      ISM mod( 2, pow(2,q) );
+      I IX(XL,XU);
+      I IY(YL,YU);
+      ISV ISX( &mod, 0, IX );
+      ISV ISY( &mod, 1, IY );
+
+      auto ISF = myfunc( ISX, ISY );
+      ofile3 << std::setw(5) << pow(2,q)
+             << std::setw(14) << mc::Op<I>::l(ISF.B())
+             << std::setw(14) << mc::Op<I>::u(ISF.B())
+             << std::endl;
+    }
+    ofile3.close();
     
   } // end: try
   
