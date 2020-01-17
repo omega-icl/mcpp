@@ -224,6 +224,10 @@ public:
   SPolyExpr& operator*=
     ( const double d );
 
+  //! @brief Overloaded operator '/=' for sparse polynomial
+  SPolyExpr& operator/=
+    ( const SPolyExpr& spoly );
+
   //! @brief Overloaded operator '/=' for real denominator
   SPolyExpr& operator/=
     ( const double d );
@@ -236,6 +240,7 @@ public:
     enum TYPE{
 //      DAG=0,          //!< Operation between sparse polynomials linked to different DAGs
       DIVZERO = 1,    //!< Scalar division by zero
+      DIVPOLY = 2,    //!< Division between two polynomials
       INTERNAL = -33  //!< Internal error
     };
     //! @brief Constructor for error <a>ierr</a>
@@ -249,6 +254,8 @@ public:
 //        return "mc::SPolyExpr\t Operation between sparse polynomials linked to different DAGs is not allowed";
       case DIVZERO:
         return "mc::SPolyExpr\t Scalar division by zero";
+      case DIVPOLY:
+        return "mc::SPolyExpr\t Division between two polynomials";
       case INTERNAL:
       default:
         return "mc::SPolyExpr\t Internal error";
@@ -513,6 +520,13 @@ SPolyExpr::operator/=
 }
 
 inline SPolyExpr&
+SPolyExpr::operator/=
+( const SPolyExpr&spoly )
+{
+  throw typename SPolyExpr::Exceptions( SPolyExpr::Exceptions::DIVPOLY );
+}
+
+inline SPolyExpr&
 SPolyExpr::operator*=
 ( const double d )
 {
@@ -697,7 +711,7 @@ const
 {
   auto ie = mon.first.second.begin();
   // no dependence on variable #itvar 
-  if( !mon.first.first || *ie->first != **itvar )
+  if( !mon.first.first || (ie->first != *itvar && *ie->first != **itvar) )
     mapspoly[ 0 ].insert( mon );
   // dependence on variable #itvar of order ie
   else
@@ -787,6 +801,106 @@ pow
    default: return n%2 ? sqr( pow( spoly, n/2 ) ) * spoly : sqr( pow( spoly, n/2 ) );
   }
 }
+
+inline SPolyExpr
+cheb
+( const SPolyExpr&spoly, const unsigned n )
+{
+  switch( n ){
+   case 0:  return 1.;
+   case 1:  return spoly;
+   case 2:  return 2 * sqr( spoly ) - 1;
+   default: return 2 * spoly * cheb( spoly, n-1 ) - cheb( spoly, n-2 );
+  }
+}
+
+inline SPolyExpr
+prod
+( const unsigned int npoly, const SPolyExpr*ppoly )
+{
+  switch( npoly ){
+   case 0:  return 1.;
+   case 1:  return ppoly[0];
+   default: return ppoly[0] * prod( npoly-1, ppoly+1 );
+  }
+}
+
+inline SPolyExpr
+monom
+( const unsigned int npoly, const SPolyExpr*ppoly, const unsigned*k, const bool chebbasis=false )
+{
+  switch( npoly ){
+   case 0:  return 1.;
+   case 1:  return chebbasis? cheb( ppoly[0], k[0] ): pow( ppoly[0], k[0] );
+   default: return ( chebbasis? cheb( ppoly[0], k[0] ): pow( ppoly[0], k[0] ) ) * monom( npoly-1, ppoly+1, k+1 );
+  }
+}
+
+inline SPolyExpr
+operator/
+( const SPolyExpr&spoly1, const SPolyExpr&spoly2 )
+{
+  SPolyExpr spoly3( spoly1 );
+  return spoly3 /= spoly2;
+}
+
+} // namespace mc
+
+//#include "mcop.hpp"
+
+namespace mc
+{
+
+//! @brief Specialization of the structure mc::Op to allow usage of the type mc::SPolyExpr for DAG evaluation or as a template parameter in other MC++ classes
+template <> struct Op<mc::SPolyExpr>
+{
+  typedef mc::SPolyExpr T;
+  static T point( const double c ) { return T(c); }
+  static T zeroone() { throw std::runtime_error("operation not permitted"); }
+  static void I(T& x, const T&y) { x = y; }
+  static double l(const T& x) { throw std::runtime_error("operation not permitted"); }
+  static double u(const T& x) { throw std::runtime_error("operation not permitted"); }
+  static double abs (const T& x) { throw std::runtime_error("operation not permitted");  }
+  static double mid (const T& x) { throw std::runtime_error("operation not permitted");  }
+  static double diam(const T& x) { throw std::runtime_error("operation not permitted"); }
+  static T inv (const T& x) { throw std::runtime_error("operation not permitted");  }
+  static T sqr (const T& x) { return mc::sqr(x);  }
+  static T sqrt(const T& x) { throw std::runtime_error("operation not permitted"); }
+  static T exp (const T& x) { throw std::runtime_error("operation not permitted");  }
+  static T log (const T& x) { throw std::runtime_error("operation not permitted");  }
+  static T xlog(const T& x) { throw std::runtime_error("operation not permitted"); }
+  static T lmtd(const T& x, const T& y) { throw std::runtime_error("operation not permitted"); }
+  static T rlmtd(const T& x, const T& y) { throw std::runtime_error("operation not permitted"); }
+  static T fabs(const T& x) { throw std::runtime_error("operation not permitted"); }
+  static T sin (const T& x) { throw std::runtime_error("operation not permitted");  }
+  static T cos (const T& x) { throw std::runtime_error("operation not permitted");  }
+  static T tan (const T& x) { throw std::runtime_error("operation not permitted");  }
+  static T asin(const T& x) { throw std::runtime_error("operation not permitted"); }
+  static T acos(const T& x) { throw std::runtime_error("operation not permitted"); }
+  static T atan(const T& x) { throw std::runtime_error("operation not permitted"); }
+  static T sinh(const T& x) { throw std::runtime_error("operation not permitted"); }
+  static T cosh(const T& x) { throw std::runtime_error("operation not permitted"); }
+  static T tanh(const T& x) { throw std::runtime_error("operation not permitted"); }
+  static T erf (const T& x) { throw std::runtime_error("operation not permitted");  }
+  static T erfc(const T& x) { throw std::runtime_error("operation not permitted"); }
+  static T fstep(const T& x) { throw std::runtime_error("operation not permitted"); }
+  static T bstep(const T& x) { throw std::runtime_error("operation not permitted"); }
+  static T min (const T& x, const T& y) { throw std::runtime_error("operation not permitted");  }
+  static T max (const T& x, const T& y) { throw std::runtime_error("operation not permitted");  }
+  static T arh (const T& x, const double k) { throw std::runtime_error("operation not permitted"); }
+  template <typename EXP> static T pow(const T& x, const EXP& y) { return mc::pow(x,y); }
+  static T cheb (const T& x, const unsigned n) { return mc::cheb(x,n); }
+  static T prod (const unsigned int n, const T* x) { return mc::prod(n,x); }
+  static T monom(const unsigned int n, const T* x, const unsigned* k, const bool cheb=false) { return mc::monom(n,x,k,cheb); }
+  static T hull(const T& x, const T& y) { throw std::runtime_error("operation not permitted"); }
+  static bool inter(T& xIy, const T& x, const T& y) { throw std::runtime_error("operation not permitted"); }
+  static bool eq(const T& x, const T& y) { throw std::runtime_error("operation not permitted"); }
+  static bool ne(const T& x, const T& y) { throw std::runtime_error("operation not permitted"); }
+  static bool lt(const T& x, const T& y) { throw std::runtime_error("operation not permitted");  }
+  static bool le(const T& x, const T& y) { throw std::runtime_error("operation not permitted"); }
+  static bool gt(const T& x, const T& y) { throw std::runtime_error("operation not permitted");  }
+  static bool ge(const T& x, const T& y) { throw std::runtime_error("operation not permitted"); }
+};
 
 } // namespace mc
 

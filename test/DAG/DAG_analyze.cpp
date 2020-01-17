@@ -720,9 +720,9 @@ int test_rltred6()
 
 ///////////////////////////////////////////////////////////////////////////////
 
-int test_spolyexpr()
+int test_spolyexpr1()
 {
-  std::cout << "\n==============================================\ntest_spolyexpr:\n";
+  std::cout << "\n==============================================\ntest_spolyexpr1:\n";
 
   mc::FFGraph DAG;
   const unsigned NX = 4;
@@ -737,14 +737,14 @@ int test_spolyexpr()
   //mc::SPolyExpr::options.BASIS = mc::SPolyExpr::Options::MONOM;
   //SPF = pow( SPX[0]+1, 4 );
   //SPF = 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3;
-  //SPF = SPX[0] * SPX[1];
+  SPF = SPX[1] - sqr( SPX[0] );
   //SPF = ( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3 ) * SPX[1];
   //SPF = ( SPX[0] - SPX[1] + 1 - SPX[1] ) * SPX[0];
   //SPF = ( SPX[0] - SPX[1] + 1 - SPX[1] ) * ( SPX[0] + 1 );
   //SPF = ( SPX[0] - SPX[1] + 1 - SPX[1] )*( SPX[0] - SPX[1] + 1 );
   //SPF = sqr( SPX[0] - SPX[1] + 1 - SPX[1] );//*( SPX[0] - SPX[1] + 1 );
   //SPF = pow( SPX[0] - SPX[1] + 1 - SPX[1], 3 );
-  SPF = pow( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3, 4 );
+  //SPF = pow( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3, 4 );
   //SPF = pow( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3, 3 ) * ( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3);
   //SPF = sqr( sqr( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3 ) );
   //SPF = sqr( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3 ) * sqr( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3 );
@@ -755,8 +755,35 @@ int test_spolyexpr()
   //SPF = 4*pow(SPX[0],3) - 3*SPX[0];
   //SPF = 8*pow(SPX[0],4) - 8*pow(SPX[0],2) + 1;
   //SPF = 32*pow(SPX[0],6) - 48*pow(SPX[0],4) + 18*pow(SPX[0],2) - 1;
-  SPF = pow( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3, 4 );
-  std::cout << "Sparse polynomial expression in chebyshev basis: " << SPF << std::endl;
+  //SPF = pow( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3, 4 );
+  //std::cout << "Sparse polynomial expression in chebyshev basis: " << SPF << std::endl;
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+int test_spolyexpr2()
+{
+  std::cout << "\n==============================================\ntest_spolyexpr2:\n";
+
+  mc::FFGraph DAG;
+  const unsigned NX = 4;
+  mc::FFVar X[NX];
+  mc::SPolyExpr SPX[NX];
+  for( unsigned i(0); i<NX; i++ ){
+    X[i].set( &DAG );
+    SPX[i] = X[i];
+  }
+  mc::FFVar F = pow( X[0] - sqr( X[1] ) - 1, 3 );
+  mc::SPolyExpr SPF;
+
+  DAG.eval( 1, &F, &SPF, NX, X, SPX );
+  std::cout << std::endl << "Sparse polynomial expression in monomial basis: " << SPF << std::endl;
+
+  mc::SPolyExpr::options.BASIS = mc::SPolyExpr::Options::CHEB;
+  DAG.eval( 1, &F, &SPF, NX, X, SPX );
+  std::cout << std::endl << "Sparse polynomial expression in chebyshev basis: " << SPF << std::endl;
 
   return 0;
 }
@@ -772,13 +799,14 @@ int test_sparseexpr()
   mc::FFVar X[NX];
   for( unsigned i(0); i<NX; i++ ) X[i].set( &DAG );
   mc::FFVar F[NF];
+  //F[0] = sqr( X[0] );
   F[0] = pow( X[0] + 1 / sqr( X[1] ), 3 );
   F[1] = exp( 2 * sqr( X[1] ) - 1 );
   std::cout << DAG;
 
   mc::SPolyExpr::options.BASIS = mc::SPolyExpr::Options::MONOM;
   mc::SparseEnv SPE( &DAG );
-  SPE.options.LIFTDIV = true;
+  SPE.options.LIFTDIV = true;//false;//
 
   SPE.process( NF, F );
 
@@ -790,7 +818,7 @@ int test_sparseexpr()
   std::cout << std::endl;
   std::cout << std::endl << SPE.Poly().size() << " polynomial constraints: " << std::endl;
   for( auto&& expr : SPE.Poly() ) DAG.output( DAG.subgraph( 1, &expr ) );
-  std::cout << std::endl;
+  //std::cout << std::endl;
   std::cout << std::endl << SPE.Trans().size() << " transcendental constraints: " << std::endl;
   for( auto&& expr : SPE.Trans() ) DAG.output( DAG.subgraph( 1, &expr ) );
 
@@ -800,6 +828,15 @@ int test_sparseexpr()
             IP.data(), IQ.data(), IPROF.data(), IFLAG.data(), true );
 #endif
 
+  std::vector<mc::SPolyExpr> SPVar;
+  for( auto&& var : SPE.Var() ) SPVar.push_back( var );
+  std::vector<mc::SPolyExpr> SPPoly( SPE.Poly().size() );
+  DAG.eval( SPE.Poly().size(), SPE.Poly().data(), SPPoly.data(), SPE.Var().size(), SPE.Var().data(), SPVar.data() );
+  unsigned int count = 0;
+  for( auto&& expr : SPPoly )
+    std::cout << std::endl << "Polynomial constraint #" << ++count << ":" << expr << std::endl;
+  std::cout << std::endl;
+
   return 0;
 }
 
@@ -808,16 +845,17 @@ int test_sparseexpr()
 int main()
 {
   try{
-    test_dep1();
-    test_dep2();
-    test_spolyexpr();
+    //test_dep1();
+    //test_dep2();
+    //test_spolyexpr1();
+    //test_spolyexpr2();
     test_sparseexpr();
-    test_rltred1();
-    test_rltred2();
-    test_rltred3();
-    test_rltred4();
-    test_rltred5();
-    test_rltred6();
+    //test_rltred1();
+    //test_rltred2();
+    //test_rltred3();
+    //test_rltred4();
+    //test_rltred5();
+    //test_rltred6();
   }
   catch( mc::FFGraph::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()

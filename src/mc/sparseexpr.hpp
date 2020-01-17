@@ -227,17 +227,17 @@ public:
     { return _dag; };
 
   //! @brief Retreive reference to vector of new DAG polynmial constraints
-  std::vector<FFVar> Poly
+  std::vector<FFVar>& Poly
     ()
     { return _Poly; }
 
   //! @brief Retreive reference to vector of new DAG transcendental constraints
-  std::vector<FFVar> Trans
+  std::vector<FFVar>& Trans
     ()
     { return _Trans; }
 
   //! @brief Retreive reference to vector of independent DAG variables participating in expressions
-  std::vector<FFVar> Var
+  std::vector<FFVar>& Var
     ()
     { return _Var; }
 
@@ -977,12 +977,23 @@ cheb
 
 inline SparseExpr
 prod
-(const unsigned int nvars, const SparseExpr*pvars)
+(const unsigned int nvars, const SparseExpr*pvars )
 {
   switch( nvars ){
    case 0:  return 1.;
    case 1:  return pvars[0];
    default: return pvars[0] * prod( nvars-1, pvars+1 );
+  }
+}
+
+inline SparseExpr
+monom
+( const unsigned int nvars, const SparseExpr*pvars, const unsigned*k, const bool chebbasis=false )
+{
+  switch( nvars ){
+   case 0:  return 1.;
+   case 1:  return chebbasis? cheb( pvars[0], k[0] ): pow( pvars[0], k[0] );
+   default: return ( chebbasis? cheb( pvars[0], k[0] ): pow( pvars[0], k[0] ) ) * monom( nvars-1, pvars+1, k+1 );
   }
 }
 
@@ -1209,7 +1220,7 @@ rlmtd
 namespace mc
 {
 
-//! @brief Specialization of the structure mc::Op to allow usage of the type mc::Interval for DAG evaluation or as a template parameter in other MC++ classes
+//! @brief Specialization of the structure mc::Op to allow usage of the type mc::SparseExpr for DAG evaluation or as a template parameter in other MC++ classes
 template <> struct Op<mc::SparseExpr>
 {
   typedef mc::SparseExpr T;
