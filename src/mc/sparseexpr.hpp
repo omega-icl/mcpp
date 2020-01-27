@@ -8,11 +8,11 @@
 \date 2018
 \bug No known bugs.
 
-The class mc::SparseEnv defined in <tt>sparseexpr.hpp</tt> enables the processing of factorable expressions into sparse polynomial and transcendental subexpressions via the introduction of auxiliary variables.
+The class mc::SparseEnv defined in <tt>sparseexpr.hpp</tt> enables the reformulation of factorable expressions as sparse polynomial and transcendental expressions via the introduction of auxiliary variables.
 
-\section sec_SPEXPR_process How Do I Process a Factorable Expression?
+\section sec_SPEXPR_process How Do I Reformulate a Factorable Expression?
 
-For illustration, suppose we want to process the factorable function \f${\bf f}:\mathbb{R}^2\to\mathbb{R}^2\f$ defined by
+For illustration, consider the factorable function \f${\bf f}:\mathbb{R}^2\to\mathbb{R}^2\f$ defined by
 \f{align*}
   {\bf f}(x_0,x_1) = \left(\begin{array}{c} \left(x_0+\frac{1}{x_1^2}\right)^3\\ \exp\left(2\cdot x_1^2-1\right)\end{array}\right)
 \f}
@@ -85,9 +85,9 @@ The following information is displayed in this instance:
 \verbatim
     7 participating variables: X0 X1 X2 X3 X4 X5 X6 
 
-    5 lifted variables: Z0->X2 Z2->X3 Z5->X6 Z9->X4 Z10->X5 
+    5 auxiliary variables: Z0->X2 Z2->X3 Z5->X6 Z9->X4 Z10->X5 
 
-    4 lifted expressions: 
+    4 polynomial constraints: 
 
     FACTORS IN SUBGRAPH:
       X2    <=  VARIABLE
@@ -143,7 +143,7 @@ The following information is displayed in this instance:
 
 These results show that 5 auxiliary variables have been added to the DAG, \f$x_2,\ldots,x_6\f$. These variables can be determined from the following implicit equations in terms of the original variables \f$x_0,x_1\f$:
 \f{align*}
-  \left\{\begin{array}{rcl} 0 & = & x_2 - x_1^2\\ 0 & = & x_2\cdot x_3 - 1\\ 0 & = & 2\cdot x_1 - x_4 - 1\\ 0 & = & \exp(x_4) - x_5 \\ 0 & = & x_0^3 + 3\cdot x_0^2\cdot x_3 + 3\cdot x_0\cdot x_3^2 + x_3^3 - x_6  \end{array}\right.
+  \left\{\begin{array}{rcl} 0 & = & x_2 - x_1^2\\ 0 & = & x_2\cdot x_3 - 1\\ 0 & = & 2\cdot x_1^2 - x_4 - 1\\ 0 & = & \exp(x_4) - x_5 \\ 0 & = & x_0^3 + 3\cdot x_0^2\cdot x_3 + 3\cdot x_0\cdot x_3^2 + x_3^3 - x_6  \end{array}\right.
 \f}
 Finally, the original vector-valued function \f${\bf f}(x_0,x_1)\f$ is equal to \f$(x_6,x_5)^{\sf T}\f$.
 */
@@ -310,7 +310,7 @@ public:
     bool LIFTDIV;
   } options;
 
-private:
+protected:
   //! @brief pointer to underlying dag
   FFGraph* _dag;
 
@@ -372,7 +372,7 @@ private:
     ();
 };
 
-SparseEnv::Options SparseEnv::options;
+inline SparseEnv::Options SparseEnv::options;
 
 //! @brief C++ class for sparse rational function representation and arithmetic
 ////////////////////////////////////////////////////////////////////////
@@ -384,10 +384,12 @@ class SparseExpr
 ////////////////////////////////////////////////////////////////////////
 {
 private:
+
   //! @brief Pointer to sparse rational function environment
   SparseEnv *_env;
 
 protected:
+
   // numerator sparse polynomial
   SPolyExpr _numer;
 
@@ -407,9 +409,7 @@ protected:
     ( const FFVar& x );
 
 public:
-  /** @ingroup FFunc
-   *  @{
-   */
+
   //! @brief Default constructor of sparse rational expression
   SparseExpr
     ()
@@ -495,7 +495,6 @@ public:
     ()
     const
     { return _denom; };
-  /** @} */
 };
 
 ////////////////////////////////////////////////////////////////////////
@@ -612,6 +611,7 @@ SparseEnv::_insert_expr
   _Aux.insert( std::make_pair( oper, newvar ) );
   _Var.push_back( *newvar );
   _Poly.push_back( *newvar * _SPolyExpr_to_FFVar( expr->denom() ) - _SPolyExpr_to_FFVar( expr->numer() ) );
+  //_Poly.push_back( *newvar * expr->denom().insert(_dag) - expr->numer().insert(_dag) );
   return newvar;
 }
 
@@ -689,7 +689,7 @@ SparseEnv::_SPolyExpr_to_FFVar
   FFVar var = 0.;
   for( auto it=expr.mapmon().begin(); it!=expr.mapmon().end(); ++it ){
     FFVar prodmon = it->second;
-    for( auto ie=it->first.second.begin(); ie!=it->first.second.end(); ++ie ){
+    for( auto ie=it->first.expr.begin(); ie!=it->first.expr.end(); ++ie ){
       const FFVar*oper = _find_aux( ie->first );
       if( !oper ) 
         throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::INTERNAL );
@@ -702,8 +702,8 @@ SparseEnv::_SPolyExpr_to_FFVar
         break;
       }
     }
-    if( it->first.second.empty() ) var = prodmon;
-    else                           var+= prodmon;
+    if( it->first.expr.empty() ) var = prodmon;
+    else                         var+= prodmon;
   }
   // ADD OPTION TO RETURN A PRODMON OR MONOM TERM?
   return var;

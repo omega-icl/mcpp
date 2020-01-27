@@ -781,7 +781,9 @@ INPUT                  = MC++.txt \
                          ../src/mc/mctime.hpp \
                          ../src/mc/ffdep.hpp \
                          ../src/mc/ffunc.hpp \
+                         ../src/mc/spolyexpr.hpp \
                          ../src/mc/sparseexpr.hpp \
+                         ../src/mc/quadexpr.hpp \
                          ../src/mc/rltred.hpp \
                          ../src/mc/interval.hpp \
                          ../src/mc/mccormick.hpp \

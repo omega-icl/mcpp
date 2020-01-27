@@ -14,6 +14,7 @@ Factorable functions can be represented using <b>directed acyclic graphs (DAGs)<
 
 The classes mc::FFGraph, mc::FFVar and mc::FFOp defined in <tt>ffunc.hpp</tt> implement such a DAG construction for factorable functions. They also provide a basis for their manipulation, including differentiation and Taylor expansion, as well as their evaluation, in particular with the types mc::McCormick, mc::Specbnd, mc::TVar and mc::CVar of MC++. Additional classes building on mc::FFGraph for DAG manipulation include:
 - \subpage page_SPEXPR
+- \subpage page_QUADEXPR
 - \subpage page_RLTRED
 .
 
@@ -508,6 +509,7 @@ Differentiation</A></I>, SIAM, 2009
 - Rajyaguru, J., Villanueva, M.E., Houska, B., Chachuat, B., <A href="https://doi.org/10.1007/s10898-016-0474-9">Chebyshev model arithmetic for factorable functions</a> <i>Journal of Global Optimization</i>, <b>68</b>(2):413-438, 2017
 - Schichl, H., Neumaier, A., <a href="http://dx.doi.org/10.1007/s10898-005-0937-x">Interval Analysis on Directed Acyclic Graphs for Global Optimization</a>, <i>Journal of Global Optimization</i>, <b>33</b>:541-562, 2005
 - Wechsung, A., Scott, J.K., Watson, H.A.J., Barton, P.I., <A href="https://doi.org/10.1007/s10898-015-0303-6">Reverse propagation of McCormick relaxations</A>, <i>Journal of Global Optimization</i>, <b>63</b>(1):1-36, 2015 
+.
 */
 
 // TO DO:
@@ -1485,7 +1487,7 @@ public:
       U*vDep, const std::list<unsigned>&l_nVar, const std::list<const FFVar*>&l_pVar,
       const std::list<const U*>&l_vVar, const bool add=false );
 
-  //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and use a priori information about the dependents in <a>vDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, U*vVar}, as well as optional flags {const unsigned MAXPASS, const double THRESPASS} indicating the maximum number o\f forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It creates the subgraph for the dependent variables internally. The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
+  //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and use a priori information about the dependents in <a>vDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, U*vVar}, as well as optional flags {const unsigned MAXPASS, const double THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It creates the subgraph for the dependent variables internally. The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
   template <typename U, typename... Deps> int reval
     ( std::vector<U>&wkDep, const unsigned nDep, const FFVar*pDep,
       U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args );

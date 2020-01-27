@@ -7,6 +7,7 @@
 
 #include <set>
 #include <map>
+#include <numeric>
 
 #include "ffunc.hpp"
 
@@ -14,28 +15,294 @@
 
 namespace mc
 {
-//! @brief C++ structure for ordering of monomial in graded lexicographic order (grlex)
-struct lt_grlex
+//! @brief C++ structure for defining monomials in multivariate polynomials
+struct FFMon
 {
-  typedef std::pair< unsigned, std::map< const FFVar*, unsigned > > t_ffmon;
+  //! @brief Monomial total order
+  unsigned tord;
 
+  //! @brief Monomial variables and partial orders 
+  std::map< FFVar const*, unsigned > expr;
+
+  //! @brief Constructor of constant monomial
+  FFMon
+    ()
+    : tord( 0 )
+    {}
+
+  //! @brief Constructor of monomial for variable <a>x</a>
+  FFMon
+    ( FFVar const& x )
+    : tord( 1 )
+    { expr.insert( std::make_pair( &x, 1 ) ); }
+
+  //! @brief Copy constructor of monomial
+  FFMon
+    ( unsigned const tord_, std::map< FFVar const*, unsigned > const& expr_ )
+    : tord( tord_ ), expr( expr_ )
+    {}
+
+  //! @brief Greatest common exponent of terms in monomial
+  unsigned int gcexp
+    ()
+    const;
+
+  //! @brief Least exponent among all terms in monomial
+  unsigned int lexp
+    ()
+    const;
+
+  //! @brief Greatest exponent among all terms in monomial
+  unsigned int gexp
+    ()
+    const;
+
+  //! @brief Overloaded operator '+=' for monomial
+  FFMon& operator+=
+    ( FFMon const& mon );
+
+  //! @brief Overloaded operator '-=' for monomial
+  FFMon& operator-=
+    ( FFMon const& mon );
+
+  //! @brief Overloaded operator '/=' for monomial
+  FFMon& operator/=
+    ( unsigned const& factor );
+
+  //! @brief Exceptions of mc::FFMon
+  class Exceptions
+  {
+   public:
+    //! @brief Enumeration type for mc::Interval exceptions
+    enum TYPE{
+      SUB=1,    //!< Subtraction of a monomial that is not a proper subset
+      DIV,	    //!< Division by a factor greater than the greatest common exponent
+    };
+    //! @brief Constructor for error flag <a>ierr</a>
+    Exceptions( TYPE ierr ) : _ierr( ierr ){}
+    //! @brief Return error flag
+    int ierr(){ return _ierr; }
+    //! @brief Return error description
+    std::string what(){
+      switch( _ierr ){
+      case SUB:
+        return "mc::FFMon\t Subtraction of a monomial that is not a proper subset";
+      case DIV:
+        return "mc::FFMon\t Division by a factor greater than the greatest common exponent";
+      }
+      return "mc::FFMon\t Undocumented error";
+    }
+   private:
+    TYPE _ierr;
+  };
+};
+
+inline unsigned int
+FFMon::gcexp
+()
+const
+{
+  if( expr.size() <= 1 ) return tord;
+  auto&& it = expr.cbegin();
+  unsigned gce = it->second;
+  for( ++it; gce>1 && it!=expr.cend(); ++it )
+    gce = std::gcd( it->second, gce );
+  return gce;
+}
+
+inline unsigned int
+FFMon::gexp
+()
+const
+{
+  if( expr.size() <= 1 ) return tord;
+  auto&& it = expr.cbegin();
+  unsigned ge = it->second;
+  for( ++it; it!=expr.cend(); ++it )
+    if( ge < it->second ) ge = it->second;
+  return ge;
+}
+
+inline unsigned int
+FFMon::lexp
+()
+const
+{
+  if( expr.size() <= 1 ) return tord;
+  auto&& it = expr.cbegin();
+  unsigned le = it->second;
+  for( ++it; it!=expr.cend(); ++it )
+    if( le > it->second ) le = it->second;
+  return le;
+}
+
+inline bool
+operator<
+( FFMon const& Mon1, FFMon const& Mon2 )
+{
+  // Total order must be larger for Mon2
+  if( Mon1.tord >= Mon2.tord ) return false;
+  for( auto it1=Mon1.expr.begin(); it1!=Mon1.expr.end(); ++it1 ){
+    auto it2 = Mon2.expr.find( it1->first );
+    // Mon2 must comprise (at least) the same variables as Mon1, and the order
+    // of each variable in Mon2 must have a larger order than in Mon1
+    if( it2 == Mon2.expr.end() || it1->second > it2->second ) return false;
+  }
+  return true;
+}
+
+inline bool
+operator<=
+( FFMon const& Mon1, FFMon const& Mon2 )
+{
+  // Total order must be larger or equal for Mon2
+  if( Mon1.tord > Mon2.tord ) return false;
+  for( auto it1=Mon1.expr.begin(); it1!=Mon1.expr.end(); ++it1 ){
+    auto it2 = Mon2.expr.find( it1->first );
+    // Mon2 must comprise (at least) the same variables as Mon1, and the order
+    // of each variable in Mon2 must have a larger order than in Mon1
+    if( it2 == Mon2.expr.end() || it1->second > it2->second ) return false;
+  }
+  return true;
+}
+
+inline FFMon&
+FFMon::operator/=
+( unsigned const& factor )
+{
+  // Return if factor is unity
+  if( factor == 1 )
+    return *this;
+
+  // factor may not be greater than the greatest common exponent
+  if( gcexp() < factor )
+    throw typename FFMon::Exceptions( FFMon::Exceptions::DIV );
+
+  // divide monomial partial orders by factor
+  for( auto&& varpow : expr )
+    varpow.second /= factor;
+  tord /= factor;
+  return *this;
+}
+
+inline FFMon
+operator/
+( FFMon const& Mon, unsigned const& factor )
+{
+  FFMon Mon2( Mon );
+  return( Mon2 /= factor );
+}
+
+inline FFMon&
+FFMon::operator+=
+( FFMon const& mon )
+{
+  for( auto&& varpow : mon.expr ){
+    auto it = expr.insert( varpow );
+    // If element from mon was not inserted, increment existing variable order
+    if( !it.second ) it.first->second += varpow.second;
+  }
+  tord += mon.tord;
+  return *this;
+}
+
+inline FFMon
+operator+
+( FFMon const& Mon1, FFMon const& Mon2 )
+{
+  // Create a copy of Mon1 and add terms with Mon2 
+  FFMon Mon3( Mon1 );
+  for( auto it2=Mon2.expr.begin(); it2!=Mon2.expr.end(); ++it2 ){
+    auto it3 = Mon3.expr.insert( *it2 );
+    // If element from Mon2 was not inserted, increment existing variable order
+    if( !it3.second ) it3.first->second += it2->second;
+  }
+  Mon3.tord += Mon2.tord;
+  return Mon3;
+}
+
+inline FFMon&
+FFMon::operator-=
+( FFMon const& mon )
+{
+  // mon must be a proper subset
+  if( !( mon <= *this ) )
+    throw Exceptions( Exceptions::SUB );
+
+  // Return constant monomial if mon is identical
+  if( mon.tord == tord ){
+    expr.clear();
+    tord = 0;
+    return *this;
+  }
+
+  // Cancel the common terms with mon
+  for( auto&& varpow : mon.expr ){
+    auto it = expr.find( varpow.first );
+    assert( it != mon.expr.end() );
+    if( it->second == varpow.second )
+      expr.erase( it );
+    else
+      it->second -= varpow.second;
+  }
+  tord -= mon.tord;
+  return *this;
+}
+
+inline FFMon
+operator-
+( FFMon const& Mon1, FFMon const& Mon2 )
+{
+  // Mon2 must be a proper subset of Mon1 
+  if( !( Mon2 <= Mon1 ) )
+    throw typename FFMon::Exceptions( FFMon::Exceptions::SUB );
+
+  // Return constant monomial if Mon1 and Mon2 are identical 
+  if( Mon1.tord == Mon2.tord )
+    return FFMon();
+
+  // Create a copy of Mon1 and cancel the common terms with Mon2 
+  FFMon Mon3( Mon1 );
+  for( auto it2=Mon2.expr.begin(); it2!=Mon2.expr.end(); ++it2 ){
+    auto it3 = Mon3.expr.find( it2->first );
+    assert( it3 != Mon3.expr.end() );
+    if( it3->second == it2->second )
+      Mon3.expr.erase( it3 );
+    else
+      it3->second -= it2->second;
+  }
+  Mon3.tord -= Mon2.tord;
+  return Mon3;
+}
+
+//! @brief C++ structure for ordering of monomials in graded lexicographic order (grlex)
+struct lt_FFMon
+{
   bool operator()
-    ( const t_ffmon&Mon1, const t_ffmon&Mon2 ) const
+    ( FFMon const& Mon1, FFMon const& Mon2 ) const
     {
       // Order monomials based on their total order first
-      if( Mon1.first < Mon2.first ) return true;
-      if( Mon1.first > Mon2.first ) return false;
-      // Account for the case of an empty list
-      if( Mon1.second.empty() ) return true;
-      if( Mon2.second.empty() ) return false;
+      if( Mon1.tord < Mon2.tord ) return true;
+      if( Mon1.tord > Mon2.tord ) return false;
       // Order in graded lexicographic order next
-      for( auto it1=Mon1.second.begin(), it2=Mon2.second.begin(); it1!=Mon1.second.end(); ++it1, ++it2 ){
+      for( auto it1=Mon1.expr.begin(), it2=Mon2.expr.begin(); it1!=Mon1.expr.end(); ++it1, ++it2 ){
         if( lt_FFVar()( it1->first, it2->first ) ) return true;
         if( lt_FFVar()( it2->first, it1->first ) ) return false;
         if( it1->second > it2->second ) return true;
         if( it1->second < it2->second ) return false;
       }
       return false;
+    }
+};
+
+//! @brief C++ structure for ordering of monomials in graded lexicographic order (grlex)
+struct lt_pFFMon
+{
+  bool operator()
+    ( FFMon const* Mon1, FFMon const* Mon2 ) const
+    {
+      assert( Mon1 && Mon2 );
+      return lt_FFMon()( *Mon1, *Mon2 );
     }
 };
 
@@ -49,10 +316,9 @@ class SPolyExpr
 {
 public:
 
-  // Monomial representation: <total order, <DAG variable ptr, order>>
-  typedef std::pair< unsigned, std::map< const FFVar*, unsigned > > t_ffmon;
-  typedef std::map< t_ffmon, double > t_ffpoly;
-  typedef std::set< const FFVar* > t_ffvar;
+  // Monomial representation: FFMon := <total order, <DAG variable ptr, order>>
+  typedef std::map< FFMon, double, lt_FFMon > t_ffpoly;
+  typedef std::set< FFVar const*, lt_FFVar > t_ffvar;
 
   // Friends for arithmetic operations
   friend SPolyExpr sqr ( const SPolyExpr& );
@@ -60,8 +326,6 @@ public:
   friend std::ostream& operator<< ( std::ostream&, const SPolyExpr& );
 
 protected:
-//  //! @brief Pointer to underlying factorable function DAG - _dag := NULL for variable identifier NOREF
-//  mutable FFGraph *_dag;
 
   //! @brief Map of monomial terms in polynomial expression
   t_ffpoly _mapmon;
@@ -100,7 +364,7 @@ protected:
 
   //! @brief Build univariate sparse polynomial (with sparse polynomial coefficients)
   void _svec1D
-    ( typename t_ffvar::const_iterator itvar, const std::pair<t_ffmon,double>&mon,
+    ( typename t_ffvar::const_iterator itvar, const std::pair<FFMon,double>&mon,
       std::map<unsigned,t_ffpoly>&mapspoly )
     const;
 
@@ -139,9 +403,7 @@ protected:
     const;
 
 public:
-  /** @ingroup FFunc
-   *  @{
-   */
+
   //! @brief Default constructor of sparse polynomial expression
   SPolyExpr
     ()
@@ -174,7 +436,8 @@ public:
 
   //! @brief Insert sparse polynomial into DAG
   FFVar insert
-    ( FFGraph*dag );
+    ( FFGraph*dag )
+    const;
 
   //! @brief Total number of monomial terms in polynomial variable
   unsigned nmon
@@ -238,7 +501,6 @@ public:
    public:
     //! @brief Enumeration type for SPolyExpr exception handling
     enum TYPE{
-//      DAG=0,          //!< Operation between sparse polynomials linked to different DAGs
       DIVZERO = 1,    //!< Scalar division by zero
       DIVPOLY = 2,    //!< Division between two polynomials
       INTERNAL = -33  //!< Internal error
@@ -250,8 +512,6 @@ public:
     //! @brief Error description
     std::string what(){
       switch( _ierr ){
-//      case DAG:
-//        return "mc::SPolyExpr\t Operation between sparse polynomials linked to different DAGs is not allowed";
       case DIVZERO:
         return "mc::SPolyExpr\t Scalar division by zero";
       case DIVPOLY:
@@ -292,7 +552,6 @@ public:
     //! @brief Number of digits in output stream for sparse polynomial coefficients
     unsigned DISPLEN;
   } options;
-  /** @} */
 };
 
 inline SPolyExpr::Options SPolyExpr::options;
@@ -329,7 +588,7 @@ SPolyExpr::_set
 {
   _reinit();
   if( !isequal( d, 0. ) )
-    _mapmon.insert( std::make_pair( std::make_pair(0,std::map<const FFVar*,unsigned>()), d ) );
+    _mapmon.insert( std::make_pair( FFMon(), d ) );
   return *this;
 }
 
@@ -339,9 +598,7 @@ SPolyExpr::_set
 {
   if( x.cst() ) return _set( x.num().val() );
   _reinit();
-//  _dag = x.dag();
-  std::map<const FFVar*,unsigned> mon; mon.insert( std::make_pair(&x,1) );
-  _mapmon.insert( std::make_pair( std::make_pair(1,mon), 1. ) );
+  _mapmon.insert( std::make_pair( FFMon( x ), 1. ) );
   _setvar.insert( &x );
   return *this;
 }
@@ -351,7 +608,6 @@ SPolyExpr::_set
 ( const SPolyExpr&spoly )
 {
   if( this == &spoly ) return *this;
-//  _dag = spoly._dag;
   _mapmon = spoly._mapmon;
   _setvar = spoly._setvar;
   return *this;
@@ -374,25 +630,26 @@ const
 inline FFVar
 SPolyExpr::insert
 ( FFGraph*dag )
+const
 {
   FFVar var = 0.;
   for( auto it=_mapmon.begin(); it!=_mapmon.end(); ++it ){
     FFVar prodmon = it->second;
-    for( auto ie=it->first.second.begin(); ie!=it->first.second.end(); ++ie ){
+    for( auto ie=it->first.expr.begin(); ie!=it->first.expr.end(); ++ie ){
       auto itVar = dag->Vars().find( const_cast<FFVar*>(ie->first) );
       if( itVar == dag->Vars().end() )
         throw typename SPolyExpr::Exceptions( SPolyExpr::Exceptions::INTERNAL );
-      switch( SPolyExpr::options.BASIS ){
-       case SPolyExpr::Options::MONOM:
+      switch( options.BASIS ){
+       case Options::MONOM:
         prodmon *= pow( **itVar, (int)ie->second );
         break;
-       case SPolyExpr::Options::CHEB:
+       case Options::CHEB:
         prodmon *= cheb( **itVar, ie->second );
         break;
       }
     }
-    if( it->first.second.empty() ) var = prodmon;
-    else                           var+= prodmon;
+    if( it->first.expr.empty() ) var = prodmon;
+    else                         var+= prodmon;
   }
   // ADD OPTION TO RETURN A PRODMON OR MONOM TERM?
   return var;
@@ -400,29 +657,37 @@ SPolyExpr::insert
 
 inline std::ostream&
 operator<<
-( std::ostream&out, const SPolyExpr&spoly )
+( std::ostream& out, FFMon const& mon )
+{
+  // Sparse multivariate polynomial
+  if( mon.expr.empty() )  out << "1";
+  for( auto ie=mon.expr.begin(); ie!=mon.expr.end(); ++ie ){
+    if( ie != mon.expr.begin() ) out << "·";
+    switch( SPolyExpr::options.BASIS ){
+     case SPolyExpr::Options::MONOM:
+      out << *ie->first;
+      if( ie->second > 1 ) out << "^" << ie->second;
+      break;
+     case SPolyExpr::Options::CHEB:
+      out << "T" << ie->second << "[" << *ie->first << "]";
+      break;
+    }
+  }
+  return out;
+}
+
+inline std::ostream&
+operator<<
+( std::ostream& out, SPolyExpr const& spoly )
 {
   const unsigned DISPLEN = SPolyExpr::options.DISPLEN;
   out << std::endl << std::scientific << std::setprecision(DISPLEN)
       << std::right;
 
   // Sparse multivariate polynomial
-  for( auto it=spoly._mapmon.begin(); it!=spoly._mapmon.end(); ++it ){
-    out << std::right << std::setw(DISPLEN+7) << it->second << "   ";
-    for( auto ie=it->first.second.begin(); ie!=it->first.second.end(); ++ie ){
-      if( ie!=it->first.second.begin() ) out << "·";
-      switch( SPolyExpr::options.BASIS ){
-       case SPolyExpr::Options::MONOM:
-        out << *ie->first;
-        if( ie->second > 1 ) out << "^" << ie->second;
-        break;
-       case SPolyExpr::Options::CHEB:
-        out << "T" << ie->second << "[" << *ie->first << "]";
-        break;
-      }
-    }
-    out << std::endl;
-  }
+  for( auto it=spoly._mapmon.begin(); it!=spoly._mapmon.end(); ++it )
+    out << "  " << std::right << std::setw(DISPLEN+7) << it->second << "   " << it->first
+        << std::endl;
 
   return out;
 }
@@ -438,9 +703,6 @@ inline SPolyExpr&
 SPolyExpr::operator+=
 ( const SPolyExpr&spoly )
 {
-//  if( _dag && spoly._dag && _dag != spoly._dag )
-//    throw typename SPolyExpr::Exceptions( SPolyExpr::Exceptions::DAG );
-
   for( auto it=spoly._mapmon.begin(); it!=spoly._mapmon.end(); ++it ){
     // No warm-start for insert unfortunately...
     auto pt = _mapmon.insert( *it );
@@ -480,9 +742,6 @@ inline SPolyExpr&
 SPolyExpr::operator-=
 ( const SPolyExpr&spoly )
 {
-//  if( _dag && spoly._dag && _dag != spoly._dag )
-//    throw typename SPolyExpr::Exceptions( SPolyExpr::Exceptions::DAG );
-
   for( auto it=spoly._mapmon.begin(); it!=spoly._mapmon.end(); ++it ){
     // No warm-start for insert unfortunately...
     auto pt = _mapmon.insert( *it );
@@ -541,9 +800,6 @@ inline SPolyExpr&
 SPolyExpr::operator*=
 ( const SPolyExpr&spoly )
 {
-//  if( _dag && spoly._dag && _dag != spoly._dag )
-//    throw typename SPolyExpr::Exceptions( SPolyExpr::Exceptions::DAG );
-
   // Consolidate set of participating variables in product term
   _setvar.insert( spoly._setvar.begin(), spoly._setvar.end() );
 
@@ -581,7 +837,7 @@ const
     // empty monomial in sp1
     if( it1map->second.empty() ) continue; 
     // constant monomial in sp1
-    if( it1map->second.size() == 1 && !it1map->second.begin()->first.first ){
+    if( it1map->second.size() == 1 && !it1map->second.begin()->first.tord ){
       auto it2map=sp2map.begin();
       for( unsigned imon2=0;  it2map!=sp2map.end(); ++it2map, imon2++ ){
         auto pmon = sp12map.insert( std::make_pair( std::make_pair(it1map->first,it2map->first), t_ffpoly() ) );
@@ -596,7 +852,7 @@ const
       // empty monomial in sp2
       if( it2map->second.empty() ) continue; // no term
       // constant monomial in sp2
-      if( it2map->second.size() == 1 && !it2map->second.begin()->first.first ){
+      if( it2map->second.size() == 1 && !it2map->second.begin()->first.tord ){
         auto pmon = sp12map.insert( std::make_pair( std::make_pair(it1map->first,it2map->first), t_ffpoly() ) );
         assert( pmon.second ); // map is initially empty
         _sscal1D( it1map->second, it2map->second.begin()->second, pmon.first->second );
@@ -695,28 +951,31 @@ SPolyExpr::_slift1D
 const
 {
   for( auto itmon=spoly.begin(); itmon!=spoly.end(); ++itmon ){
-    t_ffmon ffmon = itmon->first;
-    ffmon.first += iord;
-    ffmon.second.insert( ffmon.second.begin(), std::make_pair( *itvar, iord ) );
-    auto pmon = splift.insert( std::make_pair( ffmon, isequal(dscal,1.)? itmon->second: itmon->second*dscal ) );
+    FFMon mon = itmon->first;
+    mon.tord += iord;
+    mon.expr.insert( mon.expr.begin(), std::make_pair( *itvar, iord ) );
+    auto pmon = splift.insert( std::make_pair( mon, isequal(dscal,1.)? itmon->second: itmon->second*dscal ) );
     if( !pmon.second ) pmon.first->second += isequal(dscal,1.)? itmon->second: itmon->second*dscal;
   }
 }
 
 inline void
 SPolyExpr::_svec1D
-( typename t_ffvar::const_iterator itvar, const std::pair<t_ffmon,double>&mon,
+( typename t_ffvar::const_iterator itvar, const std::pair<FFMon,double>&mon,
   std::map<unsigned,t_ffpoly>&mapspoly )
 const
 {
-  auto ie = mon.first.second.begin();
+  auto ie = mon.first.expr.begin();
   // no dependence on variable #itvar 
-  if( !mon.first.first || (ie->first != *itvar && *ie->first != **itvar) )
+  if( !mon.first.tord || (ie->first != *itvar && *ie->first != **itvar) )
     mapspoly[ 0 ].insert( mon );
   // dependence on variable #itvar of order ie
   else
-    mapspoly[ ie->second ].insert( std::make_pair( std::make_pair( mon.first.first-ie->second,
-      std::map<const FFVar*,unsigned>( ++mon.first.second.begin(),mon.first.second.end() ) ),
+    //mapspoly[ ie->second ].insert( std::make_pair( std::make_pair( mon.first.tord-ie->second,
+    //  std::map<const FFVar*,unsigned>( ++mon.first.expr.begin(),mon.first.expr.end() ) ),
+    //  mon.second ) );
+    mapspoly[ ie->second ].insert( std::make_pair( FFMon( mon.first.tord - ie->second,
+      std::map<const FFVar*,unsigned>( ++mon.first.expr.begin(),mon.first.expr.end() ) ),
       mon.second ) );
 }
 
@@ -729,7 +988,7 @@ const
   for( auto itmon=spoly.begin(); itmon!=spoly.end(); ++itmon ){
     if( itmon != spoly.begin() ) os << " + ";
     os << itmon->second;
-    for( auto ie=itmon->first.second.begin(); ie!=itmon->first.second.end(); ++ie )
+    for( auto ie=itmon->first.expr.begin(); ie!=itmon->first.expr.end(); ++ie )
       os << "·T" << ie->second << "[" << *ie->first << "]";
   }
   os << std::endl;
@@ -748,7 +1007,7 @@ const
     for( auto itmon=itpoly->second.begin(); itmon!=itpoly->second.end(); ++itmon ){
       if( itmon != itpoly->second.begin() ) os << " + ";
       os << itmon->second;
-      for( auto ie=itmon->first.second.begin(); ie!=itmon->first.second.end(); ++ie )
+      for( auto ie=itmon->first.expr.begin(); ie!=itmon->first.expr.end(); ++ie )
         os << "·T" << ie->second << "[" << *ie->first << "]";
     }
     os << " }";
