@@ -797,18 +797,19 @@ int test_sparseexpr()
   std::cout << "\n==============================================\ntest_SparseExpr:\n";
 
   mc::FFGraph DAG;
-  const unsigned NX = 2, NF = 2;
+  const unsigned NX = 2, NF = 1;
   mc::FFVar X[NX];
   for( unsigned i(0); i<NX; i++ ) X[i].set( &DAG );
   mc::FFVar F[NF];
-  //F[0] = sqr( X[0] );
+  //F[0] = pow( X[0] + X[1], 3 );
   F[0] = pow( X[0] + 1 / sqr( X[1] ), 3 );
-  F[1] = exp( 2 * sqr( X[1] ) - 1 );
+  //F[1] = exp( 2 * sqr( X[1] ) - 1 );
   std::cout << DAG;
 
   mc::SPolyExpr::options.BASIS = mc::SPolyExpr::Options::MONOM;
   mc::SparseEnv SPE( &DAG );
   SPE.options.LIFTDIV = true;//false;//
+  SPE.options.LIFTIPOW = true;//false;//
 
   SPE.process( NF, F );
 
@@ -838,6 +839,11 @@ int test_sparseexpr()
   for( auto&& expr : SPPoly )
     std::cout << std::endl << "Polynomial constraint #" << ++count << ":" << expr << std::endl;
   std::cout << std::endl;
+
+  mc::QuadEnv QF( &DAG );
+  mc::QuadEnv::options.REDUC = mc::QuadEnv::Options::ALL;
+  QF.process( SPPoly.size(), SPPoly.data() );
+  std::cout << std::endl << "Sparse quadratic form: " << QF << std::endl;
 
   return 0;
 }
@@ -912,9 +918,9 @@ int main()
     //test_dep2();
     //test_spolyexpr1();
     //test_spolyexpr2();
-    //test_sparseexpr();
-    test_quadexpr1();
-    test_quadexpr2();
+    test_sparseexpr();
+    //test_quadexpr1();
+    //test_quadexpr2();
     //test_rltred1();
     //test_rltred2();
     //test_rltred3();

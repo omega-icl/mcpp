@@ -298,16 +298,19 @@ public:
   {
     //! @brief Constructor
     Options():
-      LIFTDIV(true)
+      LIFTDIV( true ), LIFTIPOW( true )
       {}
     //! @brief Assignment of mc::SparseEnv::Options
     Options& operator=
       ( Options& opt ){
-        LIFTDIV = opt.LIFTDIV;
+        LIFTDIV  = opt.LIFTDIV;
+        LIFTIPOW = opt.LIFTIPOW;
         return *this;
       }
-    //! @brief Whether to lift division terms using auxiliary variables (default: false)
+    //! @brief Whether to lift division terms using auxiliary variables (default: true)
     bool LIFTDIV;
+    //! @brief Whether to lift integral power terms using auxiliary variables (default: true)
+    bool LIFTIPOW;
   } options;
 
 protected:
@@ -632,9 +635,12 @@ SparseEnv::_insert_expr
 
   // Append defining expression in _Poly or _Transc 
   switch( pOp->type ){
+   case FFOp::SQR:   return _Poly.push_back( *newvar - sqr( *vAux.at(0) ) );
+   case FFOp::IPOW:  return _Poly.push_back( *newvar - pow( *vAux.at(0), vAux.at(1)->num().n ) );
+   case FFOp::CHEB:  return _Poly.push_back( *newvar - cheb( *vAux.at(0), vAux.at(1)->num().n ) );
+   case FFOp::SQRT:  return _Poly.push_back( sqr( *newvar ) - *vAux.at(0) );
    case FFOp::INV:   return _Poly.push_back( *newvar * *vAux.at(1) - vAux.at(0)->num().val() );
    case FFOp::DIV:   return _Poly.push_back( *newvar * *vAux.at(1) - *vAux.at(0) );
-   case FFOp::SQRT:  return _Poly.push_back( sqr( *newvar ) - *vAux.at(0) );
    case FFOp::EXP:   return _Trans.push_back( *newvar - exp( *vAux.at(0) ) );
    case FFOp::LOG:   return _Trans.push_back( exp( *newvar ) - *vAux.at(0) );
    case FFOp::XLOG:  return _Trans.push_back( *newvar - xlog( *vAux.at(0) ) );
@@ -644,9 +650,9 @@ SparseEnv::_insert_expr
    case FFOp::COS:   return _Trans.push_back( *newvar - cos( *vAux.at(0) ) );
    case FFOp::SIN:   return _Trans.push_back( *newvar - sin( *vAux.at(0) ) );
    case FFOp::TAN:   return _Trans.push_back( *newvar - tan( *vAux.at(0) ) );
-   case FFOp::ACOS:  return _Trans.push_back( *newvar - acos( *vAux.at(0) ) );
-   case FFOp::ASIN:  return _Trans.push_back( *newvar - asin( *vAux.at(0) ) );
-   case FFOp::ATAN:  return _Trans.push_back( *newvar - atan( *vAux.at(0) ) );
+   case FFOp::ACOS:  return _Trans.push_back( cos( *newvar ) - *vAux.at(0) );
+   case FFOp::ASIN:  return _Trans.push_back( sin( *newvar ) - *vAux.at(0) );
+   case FFOp::ATAN:  return _Trans.push_back( tan( *newvar ) - *vAux.at(0) );
    case FFOp::COSH:  return _Trans.push_back( *newvar - cosh( *vAux.at(0) ) );
    case FFOp::SINH:  return _Trans.push_back( *newvar - sinh( *vAux.at(0) ) );
    case FFOp::TANH:  return _Trans.push_back( *newvar - tanh( *vAux.at(0) ) );
@@ -664,9 +670,6 @@ SparseEnv::_insert_expr
    case FFOp::MINUS:
    case FFOp::SCALE:
    case FFOp::TIMES:
-   case FFOp::SQR:  
-   case FFOp::IPOW:
-   case FFOp::CHEB:
    case FFOp::PROD:
    default:          throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::INTERNAL );
   }
@@ -743,18 +746,6 @@ SparseEnv::_append_interm
   _Interm.push_back( std::make_pair( op, vops ) );
 }
 
-//inline bool
-//SparseEnv::_append_interm
-//( const FFOp*op, const unsigned nvars, const SparseExpr**pvars )
-//{
-//#ifdef MC__SPARSEENV_CHECK
-//  if( !nvars || !pvars )
-//    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::INTERNAL );
-//#endif
-//  std::vector<const SparseExpr*> vops( pvars, pvars+nvars );
-//  _Interm.push_back( std::make_pair( op, vops ) );
-//}
-
 inline SparseExpr
 SparseEnv::_lift_univariate_term
 ( const SparseExpr&var )
@@ -766,9 +757,6 @@ SparseEnv::_lift_univariate_term
 
   // Append new intermediate expression and assert that same operation was not previously appended
   _append_interm( _dag->curOp(), &var );
-  //if( !_append_interm( _dag->curOp(), &var ) )
-  //  throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::INTERNAL );
-
   return SparseExpr( this, *(_dag->curOp()->pres) );
 }
 
@@ -783,9 +771,6 @@ SparseEnv::_lift_bivariate_term
 
   // Append new intermediate expression and assert that same operation was not previously appended
   _append_interm( _dag->curOp(), &var1, &var2 );
-  //if( !_append_interm( _dag->curOp(), &var1, &var2 ) )
-  //  throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::INTERNAL );
-
   return SparseExpr( this, *(_dag->curOp()->pres) );
 }
 
@@ -934,6 +919,12 @@ inline SparseExpr
 sqr
 ( const SparseExpr&var )
 {
+#ifdef MC__SPARSENV_CHECK
+  if( !var.env() )
+    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::ENVERR );
+#endif
+  if( SparseEnv::options.LIFTIPOW )
+    return var.env()->_lift_univariate_term( var );
   return SparseExpr( var.env(), sqr( var.numer() ), sqr( var.denom() ) );
 }
 
@@ -946,7 +937,7 @@ inv
     throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::ENVERR );
 #endif
   if( SparseEnv::options.LIFTDIV )
-    return var.env()->_lift_univariate_term( var );
+    return var.env()->_lift_bivariate_term( 1, var );
   return SparseExpr( var.env(), var.denom(), var.numer() );
 }
 
@@ -959,7 +950,8 @@ pow
    case 0:  return 1.;
    case 1:  return var;
    case 2:  return sqr( var );
-   default: return SparseExpr( var.env(), pow( var.numer(), (unsigned)n ), pow( var.denom(), (unsigned)n ) );
+   default: if( SparseEnv::options.LIFTIPOW ) return var.env()->_lift_bivariate_term( var, n );
+            return SparseExpr( var.env(), pow( var.numer(), (unsigned)n ), pow( var.denom(), (unsigned)n ) );
   }
 }
 
@@ -971,7 +963,8 @@ cheb
    case 0:  return 1.;
    case 1:  return var;
    case 2:  return 2 * sqr( var ) - 1;
-   default: return 2 * var * cheb( var, n-1 ) - cheb( var, n-2 );
+   default: if( SparseEnv::options.LIFTIPOW ) return var.env()->_lift_bivariate_term( var, n );
+            return 2 * var * cheb( var, n-1 ) - cheb( var, n-2 );
   }
 }
 
