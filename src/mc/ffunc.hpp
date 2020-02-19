@@ -948,7 +948,9 @@ struct lt_FFVar
   bool operator()
     ( const FFVar*Var1, const FFVar*Var2 ) const
     {
-      assert( Var1 && Var2 );
+      //assert( Var1 && Var2 );
+      if( !Var1 ) return false;
+      if( !Var2 ) return true;
       // Order variables/constants w.r.t. their types first
       if( Var1->_id.first < Var2->_id.first ) return true;
       if( Var1->_id.first > Var2->_id.first ) return false;
@@ -1322,8 +1324,8 @@ public:
     ( const std::vector<const FFVar*>&vDep );
 
   //! @brief Extract list of operations corresponding to dependents <a>vDep</a>
-  template< typename V> FFSubgraph subgraph
-    ( const std::map<V,FFVar>&mDep );
+  template< typename V, typename COMP> FFSubgraph subgraph
+    ( const std::map<V,FFVar,COMP>&mDep );
 
   //! @brief Output list of nodes in <a>Ops</a> to <a>os</a>
   static void output
@@ -1441,8 +1443,8 @@ public:
       const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args );
 
   //! @brief Evaluate the dependents in the map <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result in the map <a>vDep</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, const U*vVar}. This function allocates memory for intermediate operations internally. It creates the subgraph for the dependent variables internally. 
-  template <typename U, typename V, typename... Deps> void eval
-    ( const std::map<V,FFVar>&pDep, std::map<V,U>&vDep,
+  template <typename U, typename V, typename COMP, typename... Deps> void eval
+    ( const std::map<V,FFVar,COMP>&pDep, std::map<V,U,COMP>&vDep,
       const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args );
 
   //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result into <a>vDep</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, const U*vVar}, as well as a final, optional flag {const bool add} indicating if the dependent values are to overwrite (add=false) or be added to (add=true) <a>vDep</a>. This function allocates memory for intermediate operations internally. It creates the subgraph for the dependent variables internally. 
@@ -1467,8 +1469,8 @@ public:
       const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args );
 
   //! @brief Evaluate the dependents in the map <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result in the map <a>vDep</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, const U*vVar}. This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It creates the subgraph for the dependent variables internally. 
-  template <typename U, typename V, typename... Deps> void eval
-    ( std::vector<U>&wkDep, const std::map<V,FFVar>&pDep, std::map<V,U>&vDep,
+  template <typename U, typename V, typename COMP, typename... Deps> void eval
+    ( std::vector<U>&wkDep, const std::map<V,FFVar,COMP>&pDep, std::map<V,U,COMP>&vDep,
       const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args );
 
   //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result into <a>vDep</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, const U*vVar}, as well as a final, optional flag {const bool add} indicating if the dependent values are to overwrite (add=false) or be added to (add=true) <a>vDep</a>. This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It creates the subgraph for the dependent variables internally. 
@@ -4853,10 +4855,10 @@ FFGraph::subgraph
   return sgDep;
 }
 
-template< typename V>
+template< typename V, typename COMP>
 inline FFSubgraph
 FFGraph::subgraph
-( const std::map<V,FFVar>&mDep )
+( const std::map<V,FFVar,COMP>&mDep )
 {
   _reset_operations();
   FFSubgraph sgDep;
@@ -6053,10 +6055,10 @@ FFGraph::eval
   for( unsigned iDep=0; it != ndxDep.cend(); ++it, iDep++ ) vDep[*it] = vvDep[iDep];
 }
 
-template <typename U, typename V, typename... Deps>
+template <typename U, typename V, typename COMP, typename... Deps>
  inline void
 FFGraph::eval
-( const std::map<V,FFVar>&pDep, std::map<V,U>&vDep,
+( const std::map<V,FFVar,COMP>&pDep, std::map<V,U,COMP>&vDep,
   const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args )
 {
   vDep.clear(); 
@@ -6277,11 +6279,19 @@ FFGraph::eval
   try{
    for( auto&&op : sgDep.l_op ){
     // Initialize variable using values in l_vVar
-    if( op->type == FFOp::VAR ){
+    if( op->type == FFOp::VAR ){// && !op->pres->cst() ){
 #ifdef MC__FFUNC_DEBUG_EVAL
       std::cout << "searching for: " << *(op->pres) << "  (" << op->pres->val() << ")" << std::endl;
 #endif
       FFVar* pF = 0;
+      // Use numeric field if variable is constant
+      if( op->pres->cst() ){
+        pF = op->pres;
+	pF->val() = new U( op->pres->num().val() );
+//#ifdef MC__FFUNC_DEBUG_EVAL
+        std::cout << "constant value: " << *static_cast<U*>( pF->val() ) << std::endl;
+//#endif
+      }
       auto itnVar = l_nVar.begin(); auto itpVar = l_pVar.begin(); auto itvVar = l_vVar.begin();
       for( ; !pF && itnVar != l_nVar.end(); ++itnVar, ++itpVar, ++itvVar ){
         for( unsigned i=0; i<(*itnVar); i++ ){
@@ -6362,10 +6372,10 @@ FFGraph::eval
   for( unsigned iDep=0; it != ndxDep.cend(); ++it, iDep++ ) vDep[*it] = vvDep[iDep];
 }
 
-template <typename U, typename V, typename... Deps>
+template <typename U, typename V, typename COMP, typename... Deps>
  inline void
 FFGraph::eval
-( std::vector<U>&wkDep, const std::map<V,FFVar>&pDep, std::map<V,U>&vDep,
+( std::vector<U>&wkDep, const std::map<V,FFVar,COMP>&pDep, std::map<V,U,COMP>&vDep,
   const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args )
 {
   vDep.clear(); 

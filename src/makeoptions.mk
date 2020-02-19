@@ -41,8 +41,8 @@ DEBUG = -g
 WARN  = -Wall -Wno-unknown-pragmas
 CPP17 = -std=c++1z
 
-CC = gcc-7
-CPP = g++-7
+CC = gcc-8
+CPP = g++-8
 # CPP = icpc
 FLAGS_CPP = $(DEBUG) $(OPTIM) $(CPP17) $(WARN) $(FLAGS_FILIB)
 

@@ -298,19 +298,22 @@ public:
   {
     //! @brief Constructor
     Options():
-      LIFTDIV( true ), LIFTIPOW( true )
+      LIFTDIV( true ), LIFTIPOW( true )//, LIFTUPOL( false )
       {}
     //! @brief Assignment of mc::SparseEnv::Options
     Options& operator=
       ( Options& opt ){
         LIFTDIV  = opt.LIFTDIV;
         LIFTIPOW = opt.LIFTIPOW;
+        //LIFTUPOL = opt.LIFTUPOL;
         return *this;
       }
     //! @brief Whether to lift division terms using auxiliary variables (default: true)
     bool LIFTDIV;
     //! @brief Whether to lift integral power terms using auxiliary variables (default: true)
     bool LIFTIPOW;
+    //! @brief Whether to lift integral power terms using auxiliary variables (default: true)
+    //bool LIFTUPOL;
   } options;
 
 protected:
@@ -559,7 +562,7 @@ SparseEnv::process
     std::cout << std::endl << "SPDep[" << i << "]:" << _SPDep[i];
 #endif
 
-  // No transcription in DAG if <a>addtodag</a> is false
+  // No transcription in DAG if <a>add2dag</a> is false
   if( !add2dag ) return;
 
   // Insert auxiliary expressions into DAG

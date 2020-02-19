@@ -33,11 +33,8 @@ int test_dep1()
 
   const int NF = 2;
   mc::FFDep F[NF] = { X[2]*X[3]+X[0]/X[2],
-                      X[0]*pow(exp(X[2]-X[3]),2)+X[1] };
-
-  std::map<int,int> F0_dep = F[0].dep();
-  std::map<int,int> F1_dep = F[1].dep();
-
+                      sqr(X[0])*(exp(X[2])+X[3])+X[1] };
+  
   std::cout << "Variable dependence of F[0]: " << F[0] << std::endl;
   std::cout << "Variable dependence of F[1]: " << F[1] << std::endl;
 
@@ -55,7 +52,8 @@ int test_dep2()
   mc::FFGraph DAG;
   mc::FFVar X[NX];
   for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
-  mc::FFVar F[NF] = { X[2]*X[3] };
+  //mc::FFVar F[NF] = { X[0]*sqr(X[3])};
+  mc::FFVar F[NF] = { X[2]*X[3] + sqr(X[1]) + X[0]*sqr(X[3])};
   //mc::FFVar F[NF] = { X[2]*X[3]+X[0]/X[2],
   //                    X[0]*pow(exp(X[2]-X[3]),2)+X[1] };
   std::cout << DAG;
@@ -802,7 +800,8 @@ int test_sparseexpr()
   for( unsigned i(0); i<NX; i++ ) X[i].set( &DAG );
   mc::FFVar F[NF];
   //F[0] = pow( X[0] + X[1], 3 );
-  F[0] = pow( X[0] + 1 / sqr( X[1] ), 3 );
+  //F[0] = pow( X[0] + 1 / sqr( X[1] ), 3 );
+  F[0] = 4*sqr(X[0]) - 2.1*pow(X[0],4) + pow(X[0],6)/3 + X[0]*X[1] - 4*sqr(X[1]) + 4*pow(X[1],4);
   //F[1] = exp( 2 * sqr( X[1] ) - 1 );
   std::cout << DAG;
 
@@ -862,17 +861,27 @@ int test_quadexpr1()
     X[i].set( &DAG );
     SPX[i] = X[i];
   }
-  mc::FFVar F = X[0] - X[1] + 2 * sqr( X[1] ) - X[0]*X[1] + X[0]*X[1]*X[2]
-                + sqr( X[1] ) * X[0] + pow( X[0], 3 ) + pow( X[1], 4 ) + pow( X[0], 5 );
+  mc::FFVar F = 2 * sqr( X[1] ) - 1;
+  //mc::FFVar F = 4*sqr(X[0]) - 2.1*pow(X[0],4) + pow(X[0],6)/3 + X[0]*X[1] - 4*sqr(X[1]) + 4*pow(X[1],4);
+  //mc::FFVar F = X[0] - X[1] + 2 * sqr( X[1] ) - X[0]*X[1] + X[0]*X[1]*X[2]
+  //              + sqr( X[1] ) * X[0] + pow( X[0], 3 ) + pow( X[1], 4 ) + pow( X[0], 5 );
   //mc::FFVar F = pow( X[0] - sqr( X[1] ) - 1, 3 );
   mc::SPolyExpr SPF;
-
+    
   DAG.eval( 1, &F, &SPF, NX, X, SPX );
   std::cout << std::endl << "Sparse polynomial expression in monomial basis: " << SPF << std::endl;
 
+  auto&& SPFDEC = SPF.extract_univariate();
+  for( auto && comp : SPFDEC ){
+    if( comp.first )
+      std::cout << std::endl << "Univariate polynomial contribution in " << *comp.first << ": " << comp.second << std::endl;
+    else
+      std::cout << std::endl << "Remaining multivariate polynomial contribution: " << comp.second << std::endl;
+  }
+
   mc::QuadEnv QF( &DAG );
   mc::QuadEnv::options.REDUC = mc::QuadEnv::Options::ALL;
-  QF.process( SPF );
+  QF.process( SPF, true );
   std::cout << std::endl << "Sparse quadratic form in monomial basis: " << QF << std::endl;
 
   return 0;
@@ -903,6 +912,48 @@ int test_quadexpr2()
   
   mc::QuadEnv QF( &DAG );
   mc::QuadEnv::options.REDUC = mc::QuadEnv::Options::ALL;
+  QF.process( NF, SPF, true );
+  std::cout << "Sparse quadratic form in monomial basis: " << QF << std::endl;
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+int test_quadexpr3()
+{
+  std::cout << "\n==============================================\ntest_QuadExpr3:\n";
+
+  mc::FFGraph DAG;
+  const unsigned NX = 7, NF = 12;
+  mc::FFVar X[NX];
+  mc::SPolyExpr SPX[NX];
+  for( unsigned i(0); i<NX; i++ ){
+    X[i].set( &DAG );
+    SPX[i] = X[i];
+  }
+  mc::FFVar F[NF];
+  //F[0] = sqr(X[0]*X[1]*X[2])*X[1]*X[2];
+  F[0] = 0.7854*X[0]*sqr(X[1])*(3.3333*sqr(X[2]) + 14.9334*X[2] - 43.0934) - 1.508*X[0]*(sqr(X[5]) + sqr(X[6])) + 7.477*(pow(X[5],3) + pow(X[6],3)) + 0.7854*(X[3]*sqr(X[5]) + X[4]*sqr(X[6]));
+  F[1] = 27*X[0]*X[1]*X[2] - sqr(X[0]*X[1]*X[2])*X[1];
+  F[2] = 397.5*X[0]*X[1]*X[2] - sqr(X[0]*X[1]*X[2])*X[1]*X[2];
+  F[3] = 1.93*X[1]*X[2]*pow(X[3],3)*X[5] - sqr(X[1]*X[2])*pow(X[5],5);
+  F[4] = 1.93*X[1]*X[2]*pow(X[4],3)*X[6] - sqr(X[1]*X[2])*pow(X[6],5);
+  F[5] = 745*X[3] + 16.9*1000000*sqr(X[1]*X[2]) - 12100*pow(X[5],6)*sqr(X[1]*X[2]);
+  F[6] = 745*X[4] + 157.5*1000000*sqr(X[1]*X[2]) - 7225*pow(X[6],6)*sqr(X[1]*X[2]);
+  F[7] = X[1]*X[2] - 40;
+  F[8] = 5*X[1] - X[0];
+  F[9] = X[0] - 12*X[1];
+  F[10] = (1.5*X[5] + 1.9)*X[3] - sqr(X[3]);
+  F[11] = (1.1*X[6] + 1.9)*X[4] - sqr(X[4]);
+
+  mc::SPolyExpr SPF[NF];
+  DAG.eval( NF, F, SPF, NX, X, SPX );
+  std::cout << std::endl << "Sparse polynomial expressions in monomial basis: " << std::endl << std::endl;
+  for( unsigned i(0); i<NF; i++ ) std::cout << "P[" << i+1 << "] =" << SPF[i] << std::endl;
+  
+  mc::QuadEnv QF( &DAG );
+  mc::QuadEnv::options.REDUC = mc::QuadEnv::Options::ALL;
   QF.process( NF, SPF );
   std::cout << "Sparse quadratic form in monomial basis: " << QF << std::endl;
 
@@ -918,9 +969,10 @@ int main()
     //test_dep2();
     //test_spolyexpr1();
     //test_spolyexpr2();
-    test_sparseexpr();
-    //test_quadexpr1();
+    //test_sparseexpr();
+    test_quadexpr1();
     //test_quadexpr2();
+    //test_quadexpr3();
     //test_rltred1();
     //test_rltred2();
     //test_rltred3();

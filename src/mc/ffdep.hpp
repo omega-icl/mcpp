@@ -14,12 +14,12 @@ mc::FFDep is a C++ class that determines the structure of mathematical expressio
 
 \section sec_FFDepEval How Do I Determine the Structure of a Factorable Function?
 
-Suppose you are given 4 variables \f$x_1,\ldots,x_4\f$ and want to determine the sparsity pattern and linearity of the vector following function
+Suppose you are given 4 variables \f$x_0,\ldots,x_3\f$ and want to determine the sparsity pattern and linearity of the vector following function
 \f{eqnarray*}
-  {\bf f}({\bf x}) = \left(\begin{array}{c} f_1({\bf x})\\ f_2({\bf x})\end{array}\right) = \left(\begin{array}{c} \displaystyle x_3 x_4+\frac{x_1}{x_3}\\x_1(\exp(x_3-x_4))^2+x_2 \end{array}\right)
+  {\bf f}({\bf x}) = \left(\begin{array}{c} f_0({\bf x})\\ f_1({\bf x})\end{array}\right) = \left(\begin{array}{c} \displaystyle x_2 x_3+\frac{x_0}{x_2}\\x_0^2[\exp(x_2)+x_3]+x_1 \end{array}\right)
 \f}
 
-First, define the variables \f$x_1,\ldots,x_4\f$ as
+First, define the variables \f$x_0\ldots,x_3\f$ as
 
 \code
       const int NX = 4;
@@ -27,21 +27,21 @@ First, define the variables \f$x_1,\ldots,x_4\f$ as
       for( int i=0; i<NX; i++ ) X[i].indep(i);
 \endcode
 
-Essentially, the first line means that <tt>X</tt> is an array of mc::FFDep class objects, and the second line defines X[0],...X[NX-1] as independent variables with indices 0,...,NX-1, respectively.
+Essentially, the first line means that <tt>X</tt> is an array of mc::FFDep class objects, and the second line defines X[0] ... X[NX-1] as independent variables with indices 0 ... NX-1, respectively.
 
 Once the independent variables \f${\bf x}\f$ have been defined, determine the structure of \f${\bf f}({\bf x})\f$ simply as
 
 \code
       const int NF = 2;
-      mc::FFDep F[NF] = { X[2]*X[3]+X[0]/X[2],
-                          X[0]*pow(exp(X[2]-X[3]),2)+X[1] };
+      mc::FFDep F[NF] = { X[2] * X[3] + X[0] / X[2],
+                          sqr( X[0] ) * ( exp( X[2] ) + X[3] ) + X[1] };
 \endcode
 
 Retrieve the structure - both the sparsity pattern and the dependence type - of \f$f_1\f$ and \f$f_2\f$ as
 
 \code
-      std::map<int,int> F0_dep = F[0].dep();
-      std::map<int,int> F1_dep = F[1].dep();
+      auto&& F0_dep = F[0].dep();
+      auto&& F1_dep = F[1].dep();
 \endcode
 
 You can also display the structure as
@@ -54,11 +54,12 @@ You can also display the structure as
 The corresponding output is
 
 \verbatim
-      Variable dependence of F[0]: { 0P 2R 3P }
-      Variable dependence of F[1]: { 0P 1L 2N 3N }
+      Variable dependence of F[0]: { 0R 2R 3Q }
+      Variable dependence of F[1]: { 0N 1L 2N 3P }
 \endverbatim
 
-which indicates that X[0], X[2] and X[3] participate in F[0], but not X[1], where X[0] and X[3] have polynomial 'P' dependence, whereas X[2] has rational 'R' dependence. Likewise, all four variables X[0], X[1], X[2] and X[3] participate in F[1], where X[0] has polynomial dependence, X[1] has linear 'L' dependence, and both X[2] and X[3] have nonlinear 'N' dependence.
+which indicates that X[0], X[2] and X[3] participate in F[0], but not X[1], and that X[0] and X[2] participate in rational 'R' terms, whereas X[3] participates in quadratic 'Q' terms. Likewise, all four variables X[0], X[1], X[2] and X[3] participate in F[1], with X[0] and X[2] in nonlinea 'N' terms, X[3] in polynomial 'P' terms. and X[1] in linear terms.
+
 
 \section sec_FFDepErr Errors Encountered in Determining the Structure of a Factorable Function?
 
@@ -185,13 +186,14 @@ public:
   //! @brief Dependence type
   enum TYPE{
     L=0, //!< Linear
+    Q,   //!< Quadratic
     P,   //!< Polynomial
     R,   //!< Rational
     N    //!< General nonlinear
   };
 
   //! @brief Typedef for dependency map
-  typedef std::map<int,int> t_FFDep;
+  typedef std::map<int,TYPE> t_FFDep;
 
   //! @brief Default constructor (needed to declare arrays of FFDep class)
   FFDep
@@ -214,7 +216,7 @@ public:
       return *this; }
 
   //! @brief Determine if current object is dependent on the variable of index <a>ind</a>
-  std::pair<bool,int> dep
+  std::pair<bool,TYPE> dep
     ( const int ind )
     { auto it = _dep.find(ind);
       return( it==_dep.end()? std::make_pair(false,TYPE::L):
@@ -226,13 +228,14 @@ public:
   //! @brief Combines the dependency sets of two variables
   static FFDep combine
     ( const FFDep&S1, const FFDep&S2, const TYPE&dep );
-
   //! @brief Update type of dependent variables
   FFDep& update
     ( const TYPE&dep );
   //! @brief Copy dependent variables and update type
   static FFDep copy
     ( const FFDep&S, const TYPE&dep );
+  //! @brief Return worst dependency
+  TYPE worst() const;
 
   //! @brief Return dependency map
   const t_FFDep& dep() const
@@ -249,10 +252,12 @@ public:
   // other operator overloadings (inlined)
   FFDep& operator=
     ( const double c )
-    { _dep.clear(); return *this; }
+    { _dep.clear();
+      return *this; }
   FFDep& operator=
     ( const FFDep&S )
-    { if( this != &S ) _dep = S._dep; return *this; }
+    { if( this != &S ) _dep = S._dep;
+      return *this; }
   FFDep& operator+=
     ( const double c )
     { return *this; }
@@ -269,18 +274,26 @@ public:
     ( const double c )
     { return *this; }
   FFDep& operator*=
-    ( const FFDep&S )
-    { return combine( S, TYPE::P ); }
+    ( const FFDep&S );
   FFDep& operator/=
     ( const double c )
     { return *this; }
   FFDep& operator/=
-    ( const FFDep&S )
-    { return combine( S, TYPE::R ); }
-
+    ( const FFDep&S );
 };
 
 ////////////////////////////////////////////////////////////////////////
+
+inline FFDep::TYPE
+FFDep::worst
+() const
+{
+  auto it = _dep.begin();
+  TYPE depw = TYPE::L;
+  for( ; it != _dep.end(); ++it )
+    if( it->second > depw ) depw = it->second;
+  return depw;
+}
 
 inline FFDep&
 FFDep::update
@@ -308,7 +321,6 @@ FFDep::combine
   for( ; cit != S._dep.end(); ++cit ){
     auto ins = _dep.insert( *cit );
     if( !ins.second && ins.first->second < cit->second ) ins.first->second = cit->second;
-    //if( !ins.second ) ins.first->second = ( ins.first->second && cit->second );
   }
   return( dep? update( dep ): *this );
 }
@@ -331,10 +343,10 @@ operator<<
     out << iS->first;
     switch( iS->second ){
      case FFDep::TYPE::L: out << "L "; break;
+     case FFDep::TYPE::Q: out << "Q "; break;
      case FFDep::TYPE::P: out << "P "; break;
      case FFDep::TYPE::R: out << "R "; break;
      case FFDep::TYPE::N: out << "N "; break;
-     default: throw typename FFDep::Exceptions( FFDep::Exceptions::INTERN );
     }
   }
   out << "}";
@@ -427,13 +439,97 @@ operator*
   return S;
 }
 
+inline FFDep&
+FFDep::operator*=
+( const FFDep&S )
+{
+  if( S._dep.empty() )
+    return *this;
+
+  if( _dep.empty() )
+    return combine( S, TYPE::L );
+
+  TYPE w = worst(), depw = S.worst(), wmax = ( w>depw? w: depw );
+
+  if( wmax == TYPE::L )
+    return combine( S, TYPE::Q );
+
+  if( w == TYPE::L ){
+    auto it = _dep.begin();
+    TYPE wthres = ( depw>TYPE::P? depw: TYPE::P );
+    for( ; it != _dep.end(); ++it ){
+      //if( it->second < TYPE::P ) it->second = TYPE::P;
+      if( it->second < wthres ) it->second = wthres;
+    }
+    auto cit = S._dep.cbegin();
+    for( ; cit != S._dep.cend(); ++cit ){
+      auto ins = _dep.insert( *cit );
+      switch( ins.first->second ){
+       case TYPE::L: ins.first->second = TYPE::Q; break;
+       case TYPE::Q: ins.first->second = TYPE::P; break;
+       case TYPE::P:
+       case TYPE::R:
+       case TYPE::N: break;
+      }
+    }
+  }
+  
+  else if( depw == TYPE::L ){
+    auto it = _dep.begin();
+    for( ; it != _dep.end(); ++it ){
+      switch( it->second ){
+       case TYPE::L: it->second = TYPE::Q; break;
+       case TYPE::Q: it->second = TYPE::P; break;
+       case TYPE::P:
+       case TYPE::R:
+       case TYPE::N: break;
+      }
+    }
+    auto cit = S._dep.cbegin();
+    TYPE wthres = ( w>TYPE::P? w: TYPE::P );
+    for( ; cit != S._dep.cend(); ++cit ){
+      auto ins = _dep.insert( *cit );
+      //if( ins.first->second < TYPE::P ) ins.first->second = TYPE::P;
+      if( ins.first->second < wthres ) ins.first->second = wthres;
+    }
+    return *this;
+  }
+
+  else{
+    auto it = _dep.begin();
+    TYPE wthres = ( depw>TYPE::P? depw: TYPE::P );
+    for( ; it != _dep.end(); ++it ){
+      //if( it->second < TYPE::P ) it->second = TYPE::P;
+      if( it->second < wthres ) it->second = wthres;
+    }
+    auto cit = S._dep.cbegin();
+    wthres = ( w>TYPE::P? w: TYPE::P );
+    for( ; cit != S._dep.cend(); ++cit ){
+      auto ins = _dep.insert( *cit );
+      //if( ins.first->second < TYPE::P ) ins.first->second = TYPE::P;
+      if( ins.first->second < wthres ) ins.first->second = wthres;
+    }
+    //return combine( S, wmax>TYPE::P? wmax: TYPE::P ); 
+    //return combine( S, TYPE::P ); 
+  }
+
+  return *this;
+}
+
 inline FFDep
 operator*
 ( const FFDep&S1, const FFDep&S2 )
 {
-  if( S1._dep.empty() ) return S2;
-  if( S2._dep.empty() ) return S1;
-  return FFDep::combine( S1, S2, FFDep::TYPE::P );
+  FFDep S3( S1 );
+  return S3 *= S2 ;
+}
+
+inline FFDep
+sqr
+( const FFDep&S )
+{
+  FFDep S2( S );
+  return S2 *= S ;
 }
 
 inline FFDep
@@ -473,13 +569,20 @@ operator/
   return inv( S );
 }
 
+inline FFDep&
+FFDep::operator/=
+( const FFDep&S )
+{
+  if( S._dep.empty() ) return *this;
+  return operator*=( inv(S) );
+}
+
 inline FFDep
 operator/
 ( const FFDep&S1, const FFDep&S2 )
 {
-  if( S1._dep.empty() ) return inv( S2 );
-  if( S2._dep.empty() ) return S1;
-  return FFDep::combine( S1, inv( S2 ), FFDep::TYPE::P );
+  FFDep S3( S1 );
+  return S3 /= S2 ;
 }
 
 inline FFDep
@@ -487,13 +590,6 @@ inv
 ( const FFDep &S )
 {
   return FFDep::copy( S, FFDep::TYPE::R );
-}
-
-inline FFDep
-sqr
-( const FFDep&S )
-{
-  return FFDep::copy( S, FFDep::TYPE::P );
 }
 
 inline FFDep
@@ -584,8 +680,9 @@ inline FFDep
 cheb
 ( const FFDep&S, const unsigned n )
 {
-  if( n == 0 ){ FFDep C; return C; }
+  if( n == 0 ) return FFDep();
   if( n == 1 ) return S;
+  if( n == 2 ) return sqr(S);
   return FFDep::copy( S, FFDep::TYPE::P );
 }
 
@@ -593,8 +690,9 @@ inline FFDep
 pow
 ( const FFDep&S, const int n )
 {
-  if( n == 0 ){ FFDep C; return C; }
+  if( n == 0 ) return FFDep();
   if( n == 1 ) return S;
+  if( n == 2 ) return sqr(S);
   if( n < 0  ) return FFDep::copy( S, FFDep::TYPE::R );
   return FFDep::copy( S, FFDep::TYPE::P );
 }
@@ -603,8 +701,9 @@ inline FFDep
 pow
 ( const FFDep&S, const double a )
 {
-  if(a == 0.){FFDep S2; return S2;}
-  if(a == 1.) return S;
+  if( a == 0. ) return FFDep();
+  if( a == 1. ) return S;
+  if( a == 2. ) return sqr(S);
   if( a > 1. && a == std::rint(a) ) return FFDep::copy( S, FFDep::TYPE::P );
   if( a < 0. && a == std::rint(a) ) return FFDep::copy( S, FFDep::TYPE::R );
   return FFDep::copy( S, FFDep::TYPE::N );
@@ -636,7 +735,7 @@ min
 ( const unsigned int n, const FFDep*S )
 {
   switch( n ){
-   case 0:  return 0.;
+   case 0:  return FFDep();
    case 1:  return S[0];
    case 2:  return min( S[0], S[1] );
    default: return min( S[0], min( n-1, S+1 ) );
@@ -648,7 +747,7 @@ max
 ( const unsigned int n, const FFDep*S )
 {
   switch( n ){
-   case 0:  return 0.;
+   case 0:  return FFDep();
    case 1:  return S[0];
    case 2:  return max( S[0], S[1] );
    default: return max( S[0], max( n-1, S+1 ) );

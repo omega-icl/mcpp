@@ -15,6 +15,8 @@
 
 namespace mc
 {
+class SPolyExpr;
+
 //! @brief C++ structure for defining monomials in multivariate polynomials
 struct FFMon
 {
@@ -68,7 +70,7 @@ struct FFMon
   //! @brief Overloaded operator '/=' for monomial
   FFMon& operator/=
     ( unsigned const& factor );
-
+    
   //! @brief Exceptions of mc::FFMon
   class Exceptions
   {
@@ -174,14 +176,16 @@ FFMon::operator/=
   if( factor == 1 )
     return *this;
 
-  // factor may not be greater than the greatest common exponent
-  if( gcexp() < factor )
+  // factor may not be greater than the least exponent
+  if( lexp() < factor )
     throw typename FFMon::Exceptions( FFMon::Exceptions::DIV );
 
   // divide monomial partial orders by factor
-  for( auto&& varpow : expr )
+  tord = 0;
+  for( auto&& varpow : expr ){
     varpow.second /= factor;
-  tord /= factor;
+    tord += varpow.second;
+  }
   return *this;
 }
 
@@ -321,9 +325,9 @@ public:
   typedef std::set< FFVar const*, lt_FFVar > t_ffvar;
 
   // Friends for arithmetic operations
-  friend SPolyExpr sqr ( const SPolyExpr& );
-  friend SPolyExpr operator- ( const SPolyExpr& );
-  friend std::ostream& operator<< ( std::ostream&, const SPolyExpr& );
+  friend SPolyExpr sqr ( SPolyExpr const& );
+  friend SPolyExpr operator- ( SPolyExpr const& );
+  friend std::ostream& operator<< ( std::ostream &, SPolyExpr const& );
 
 protected:
 
@@ -347,25 +351,29 @@ protected:
 
   //! @brief Set polynomial expression equal to <a>spoly</a>
   SPolyExpr& _set
-    ( const SPolyExpr& spoly );
+    ( SPolyExpr const& spoly );
 
   //! @brief Set polynomial expression equal to constant <a>d</a>
   SPolyExpr& _set
-    ( const double d );
+    ( double const d );
 
   //! @brief Set polynomial expression equal to variable <a>x</a>
   SPolyExpr& _set
-    ( const FFVar& x );
+    ( FFVar const& x );
+
+  //! @brief Set polynomial expression equal to monomial <a>mon</a>
+  SPolyExpr& _set
+    ( std::pair< FFMon, double > const& mon );
 
   //! @brief Clean sparse polynomial by removing zero entries
   void _clean
-    ( t_ffpoly& spoly )
+    ( t_ffpoly & spoly )
     const;
 
   //! @brief Build univariate sparse polynomial (with sparse polynomial coefficients)
   void _svec1D
-    ( typename t_ffvar::const_iterator itvar, const std::pair<FFMon,double>&mon,
-      std::map<unsigned,t_ffpoly>&mapspoly )
+    ( typename t_ffvar::const_iterator itvar, std::pair<FFMon,double> const& mon,
+      std::map<unsigned,t_ffpoly> & mapspoly )
     const;
 
   //! @brief Recursive product of univariate sparse polynomials
@@ -411,32 +419,36 @@ public:
 
   //! @brief Constructor of sparse polynomial expression as constant
   SPolyExpr
-    ( const double d )
+    ( double const d )
     { _init(); _set( d ); }
 
   //! @brief Constructor of sparse polynomial expression as variable
   SPolyExpr
-    ( const FFVar& x )
+    ( FFVar const& x )
     { _init(); _set( x ); }
+
+  //! @brief Constructor of sparse polynomial expression as monomial
+  SPolyExpr
+    ( std::pair< FFMon, double > const& mon )
+    { _init(); _set( mon ); }
 
   //! @brief Copy constructor of sparse polynomial expression
   SPolyExpr
-    ( const SPolyExpr& spoly )
+    ( SPolyExpr const& spoly )
     { _init(); _set( spoly ); }
 
   //! @brief Destructor of sparse polynomial expression
   virtual ~SPolyExpr()
     {}
 
-//  //! @brief Set multivariate polynomial coefficients in variable as <tt>coefmon</tt>
-//  SPolyExpr& set
-//    ( t_ffpoly& mapmon )
-//    { _mapmon = mapmon;
-//      return *this; } // this is assuming the same order and number of variables
-
   //! @brief Insert sparse polynomial into DAG
   FFVar insert
     ( FFGraph*dag )
+    const;
+
+  //! @brief Extract univariate polynpomials from a multivariaate polynomial
+  std::map< FFVar const*, SPolyExpr, lt_FFVar > extract_univariate
+    ( unsigned const ordmin=3 )
     const;
 
   //! @brief Total number of monomial terms in polynomial variable
@@ -458,22 +470,31 @@ public:
 
   //! @brief Overloaded operator '=' for sparse polynomial
   SPolyExpr& operator=
-    ( const SPolyExpr& spoly )
+    ( SPolyExpr const& spoly )
     { _set( spoly ); return *this; }
 
   //! @brief Overloaded operator '=' for constant 
   SPolyExpr& operator=
-    ( const double d )
+    ( double const d )
     { _set( d ); return *this; }
 
   //! @brief Overloaded operator '=' for variable
   SPolyExpr& operator=
-    ( const FFVar& x )
+    ( FFVar const& x )
     { _set( x ); return *this; }
+
+  //! @brief Overloaded operator '=' for monomial
+  SPolyExpr& operator=
+    ( std::pair< FFMon, double > const& mon )
+    { _set( mon ); return *this; }
 
   //! @brief Overloaded operator '+=' for sparse polynomial
   SPolyExpr& operator+=
     ( const SPolyExpr& spoly );
+
+  //! @brief Overloaded operator '+=' for monomial
+  SPolyExpr& operator+=
+    ( std::pair< FFMon, double > const& mon );
 
   //! @brief Overloaded operator '-=' for sparse polynomial
   SPolyExpr& operator-=
@@ -584,7 +605,7 @@ SPolyExpr::_reinit
 
 inline SPolyExpr&
 SPolyExpr::_set
-( const double d )
+( double const d )
 {
   _reinit();
   if( !isequal( d, 0. ) )
@@ -594,12 +615,23 @@ SPolyExpr::_set
 
 inline SPolyExpr&
 SPolyExpr::_set
-( const FFVar&x )
+( FFVar const& x )
 {
   if( x.cst() ) return _set( x.num().val() );
   _reinit();
   _mapmon.insert( std::make_pair( FFMon( x ), 1. ) );
   _setvar.insert( &x );
+  return *this;
+}
+
+inline SPolyExpr&
+SPolyExpr::_set
+( std::pair< FFMon, double > const& mon )
+{
+  _cleanup();
+  _mapmon.insert( mon );
+  for( auto && var : mon.first.expr )
+    _setvar.insert( var.first );
   return *this;
 }
 
@@ -625,6 +657,43 @@ const
     else
       ++itmon;
   return;
+}
+
+inline std::map< FFVar const*, SPolyExpr, lt_FFVar >
+SPolyExpr::extract_univariate
+( unsigned const ordmin )
+const
+{
+  std::map< FFVar const*, SPolyExpr, lt_FFVar > dec;
+
+  // Iterate through list of monomials by decreasing order
+  for( auto it = _mapmon.crbegin(); it != _mapmon.crend(); ++it ){
+    FFMon const& mon = it->first;
+    FFVar const* pvar = 0;
+
+    // Isolate monomials that depend on a single variable
+    if( mon.expr.size() == 1 ){
+      pvar = mon.expr.cbegin()->first;
+      auto jt = dec.find( pvar );
+      // Add univariate term if a higher-order univariate term is present already
+      if( jt != dec.end() ){
+        jt->second += *it;
+        continue;
+      }
+      // Create new univariate expression if order is sufficiently large
+      else if( mon.tord >= ordmin ){
+        dec.insert( std::make_pair( pvar, *it ) ); // NEED CONSTRUCTOR FOR MONOMIALS!
+        continue;
+      }
+    }
+
+    // Otherwise, retain term in the multivariate polynomial
+    auto pt = dec.insert( std::make_pair( pvar, *it ) ); // NEED CONSTRUCTOR FOR MONOMIALS!
+    if( !pt.second )
+      pt.first->second += *it;
+  }
+  
+  return dec;
 }
 
 inline FFVar
@@ -708,8 +777,25 @@ SPolyExpr::operator+=
     auto pt = _mapmon.insert( *it );
     if( !pt.second ) pt.first->second += it->second;
   }
+
   _clean( _mapmon );
   _setvar.insert( spoly._setvar.begin(), spoly._setvar.end() );
+
+  return *this;
+}
+
+inline SPolyExpr&
+SPolyExpr::operator+=
+( std::pair< FFMon, double > const& mon )
+{
+  // No warm-start for insert unfortunately...
+  auto pt = _mapmon.insert( mon );
+  if( !pt.second ) pt.first->second += mon.second;
+  
+  _clean( _mapmon );
+  for( auto && var : mon.first.expr )
+    _setvar.insert( var.first );
+
   return *this;
 }
 

@@ -213,17 +213,25 @@ public:
   typedef std::set< FFMon, lt_FFMon > t_FFMon;
   typedef std::set< FFMon const*, lt_pFFMon > t_pFFMon;
   typedef std::map< std::pair< FFMon const*, FFMon const* >, double, lt_FFQuad > t_FFQuad;
-
+  typedef std::map< FFMon const*, FFVar, lt_pFFMon > t_pFFVar;
+  typedef std::map< const FFVar*, const FFVar*, lt_FFVar > t_FFAux;
+  
   //! @brief Default Constructor
   QuadEnv
     ( FFGraph* dag )
-    //: SparseEnv( dag )
+    : _dag( dag )
     {}
 
   //! @brief Destructor
   virtual ~QuadEnv
     ()
     { _reset(); }
+  
+  // Retreive pointer to DAG
+  FFGraph* dag
+    ()
+    const
+    { return _dag; };
 
   //! @brief Process the <a>nPol</a> sparse polynomials in array <a>pPol</a>
   void process
@@ -234,14 +242,38 @@ public:
     ( SPolyExpr const& Pol, bool const add2dag=true );
 
   //! @brief Retreive reference to vector of sparse coefficient matrices defining the main quadratic forms
-  std::vector<t_FFQuad>& MatFct
+  std::vector<t_FFQuad> const& MatFct
     ()
+    const
     { return _MatFct; }
 
   //! @brief Retreive reference to vector of sparse coefficient matrices defining the auxiliary quadratic forms
-  std::vector<t_FFQuad>& MatRed
+  std::vector<t_FFQuad> const& MatRed
     ()
+    const
     { return _MatRed; }
+
+  //! @brief Retreive reference to set of monomials in quadratic forms
+  t_FFMon const& SetMon
+    ()
+    const
+    { return _SetMon; }
+
+  //! @brief Retreive reference to map of monomials and their transcription in DAG
+  t_pFFVar const& MapMon
+    ()
+    const
+    { return _MapMon; }
+
+  //! @brief Retreive reference to mapping between monomial transcriptions and auxiliaries in DAG
+  t_FFAux& MapAux
+    ()
+    { return _MapAux; }
+
+  //! @brief Retreive reference to vector of quadratic expressions transcribed in DAG
+  std::vector<FFVar>& VecQExpr
+    ()
+    { return _VecQExpr; }
 
   //! @brief Reset quadratic form expressions
   void reset
@@ -252,7 +284,7 @@ public:
   class Exceptions
   {
    public:
-    //! @brief Enumeration type for SPolyExpr exception handling
+    //! @brief Enumeration type for QuadEnv exception handling
     enum TYPE{
       INTERNAL = -33  //!< Internal error
     };
@@ -265,7 +297,7 @@ public:
       switch( _ierr ){
        case INTERNAL:
        default:
-        return "mc::SPolyExpr\t Internal error";
+        return "mc::QuadEnv\t Internal error";
       }
     }
    private:
@@ -291,10 +323,31 @@ public:
       ALL        //!< Append all possible reduction constraints
     };
     //! @brief Handling of reduction constraints
-    REDUC_TYPE REDUC;
-  } options;
+    REDUC_TYPE REDUC;  typedef std::map< const FFVar*, const FFVar*, lt_FFVar > t_Aux;
+  } options;  typedef std::map< const FFVar*, const FFVar*, lt_FFVar > t_Aux;
 
 protected:
+
+  //! @brief pointer to underlying dag
+  FFGraph* _dag;
+
+  //! @brief Set of monomials in quadratic forms
+  t_FFMon _SetMon;
+
+  //! @brief Vector of sparse coefficient matrices defining the main quadratic forms
+  std::vector<t_FFQuad> _MatFct;
+
+  //! @brief Vector of sparse coefficient matrices defining the auxiliary quadratic forms
+  std::vector<t_FFQuad> _MatRed;
+
+  //! @brief Map of monomials to DAG variables
+  t_pFFVar _MapMon;
+
+  //! @brief Map of existing DAG auxiliaries to new DAG variables
+  t_FFAux _MapAux;
+
+  //! @brief Vector of quadratic expressions in DAG
+  std::vector<FFVar> _VecQExpr;
 
   //! @brief Reorder entries in a monomial pair
   std::pair< FFMon const*, FFMon const* > _reorder
@@ -314,14 +367,15 @@ protected:
   typename t_FFMon::iterator _subexpression
     ( FFMon const& mon );
 
-  //! @brief Set of monomials in quadratic forms
-  t_FFMon _SetMon;
+  //! @brief Trancribe quadratic expression into DAG
+  FFVar const* _add_to_dag
+    ( t_FFQuad const& QExpr )
+    const;
 
-  //! @brief Vector of sparse coefficient matrices defining the main quadratic forms
-  std::vector<t_FFQuad> _MatFct;
-
-  //! @brief Vector of sparse coefficient matrices defining the auxiliary quadratic forms
-  std::vector<t_FFQuad> _MatRed;
+  //! @brief Trancribe monomial term into DAG
+  FFVar const* _add_to_dag
+    ( FFMon const& Mon )
+    const;
 
 private:
 
@@ -408,8 +462,91 @@ QuadEnv::process
   }
 
   // No transcription in DAG if <a>addtodag</a> is false
-  // if( !add2dag ) return;
-  // TODO
+  if( !add2dag ) return;
+  
+  _MapMon.clear();
+  _MapAux.clear();
+  for( auto&& mon : _SetMon ){
+    FFVar const* paux = _add_to_dag( mon );
+    if( !paux ) continue;
+    _MapMon.insert( std::make_pair( &mon, *paux ) );
+      
+    // Nothing to do if operand is a DAG constant or leaf variable
+    FFVar const* pvar = paux;
+    if( paux->ops().first->type != FFOp::VAR
+     && paux->ops().first->type != FFOp::CNST )
+      pvar = new FFVar( _dag );
+    _MapAux.insert( std::make_pair( paux, pvar ) );
+  }
+
+  _VecQExpr.clear(); _VecQExpr.reserve( _MatFct.size() + _MatRed.size() );
+  for( auto&& qexpr : _MatFct )
+    _VecQExpr.push_back( *_add_to_dag( qexpr ) );
+  for( auto&& qexpr : _MatRed )
+    _VecQExpr.push_back( *_add_to_dag( qexpr ) );
+}
+
+inline FFVar const*
+QuadEnv::_add_to_dag
+( FFMon const& Mon )
+const
+{
+  FFVar prod = 1., one( _dag, 1. );
+  for( auto&& term : Mon.expr ){
+    switch( SPolyExpr::options.BASIS ){
+     case SPolyExpr::Options::MONOM:
+      prod *= pow( *term.first, (int)term.second );
+      break;
+     case SPolyExpr::Options::CHEB:
+      prod *= cheb( *term.first, term.second );
+      break;
+    }
+  }
+  auto itprod = _dag->Vars().find( &prod );
+  if( itprod != _dag->Vars().end() )
+    //itprod = _dag->Vars().find( &one );
+    return *itprod;
+  return 0;
+}
+
+inline FFVar const*
+QuadEnv::_add_to_dag
+( t_FFQuad const& QExpr )
+const
+{
+  FFVar QVar = 0.;
+  for( auto&& qterm : QExpr ){
+    auto ita1 = _MapMon.find( qterm.first.first );
+    auto ita2 = _MapMon.find( qterm.first.second );
+    if( ita1 == _MapMon.end() ){
+      if( ita2 == _MapMon.end() )
+        QVar += qterm.second;
+      else{
+        FFVar const* pVar2 = _MapAux.find( &ita2->second )->second;
+        QVar += qterm.second * *pVar2;
+      }
+    }
+    else{
+      FFVar const* pVar1 = _MapAux.find( &ita1->second )->second;
+      if( ita2 == _MapMon.end() )
+        QVar += qterm.second * *pVar1;
+      else{
+        FFVar const* pVar2 = _MapAux.find( &ita2->second )->second;
+        QVar += qterm.second * ( *pVar1 * *pVar2 );
+      }
+    }
+
+//    FFVar Aux1 = _MapMon.find( qterm.first.first )->second;
+//    FFVar const* pVar1 = _MapAux.find( &Aux1 )->second;
+//    FFVar Aux2 = _MapMon.find( qterm.first.second )->second;
+//    FFVar const* pVar2 = _MapAux.find( &Aux2 )->second;
+//    QVar += qterm.second * ( *pVar1 * *pVar2 );
+  }
+  auto itvar = _dag->Vars().find( &QVar );
+#ifdef MC__QUADENV_CHECK
+    assert( itvar != _dag->Vars().end() );
+#endif
+  return *itvar;
 }
 
 inline std::pair< FFMon const*, FFMon const* >
@@ -506,7 +643,7 @@ QuadEnv::_decompose
     return _reorder( std::make_pair( &(*itmon2), &(*itmon2) ) );   
   }
 
-  // Case 5: Monomial has odd partial order >1 in all of the variables
+  // Case 5: Monomial has partial order >1 in all of the variables w/ some odd partial order
   FFMon mon2 = mon / 2;
   FFMon mon3( mon - mon2 );
   // Decompose mon2 and mon3
@@ -570,6 +707,9 @@ QuadEnv::_reset
   _SetMon.clear();
   _MatFct.clear();
   _MatRed.clear();
+  _MapMon.clear();
+  _MapAux.clear();
+  _VecQExpr.clear();
 }
 
 } // namespace mc
