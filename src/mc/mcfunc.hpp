@@ -7,6 +7,7 @@
 
 #include <cmath>
 #include <cfloat>
+#include <vector>
 #include <iostream>
 
 
@@ -36,6 +37,54 @@ inline int pow
 {
   // Return lower power value
   return n? z*pow(z,n-1): 1;
+}
+
+/*
+inline std::vector<double> chebcoef
+( const unsigned n )
+{
+  if( n == 0 ){
+    std::vector<double> coef(1);
+    coef[0]=1;
+  }
+  else if( n == 1 ){
+    std::vector<double> coef(2);
+    coef[0]=1;
+    coef[1]=0;
+  }
+  else{
+    auto&& coef = chebcoef(n-1);                                     // generation of cheb(x,n-1)
+    for( unsigned i=0; i<coef.size(); i++ ) coef[i] *= 2;            // multiplication by 2
+    coef.push_back(0.);                                              // multiplication by x
+    auto&& coef2 = chebcoef(n-2);                                    // generation of cheb(x,n-2)
+    for( unsigned i=0; i<coef2.size(); i++ ) coef[i+1] -= coef2[i];  // subtraction of cheb(x,n-2)
+  }
+  return coef;
+}
+*/
+
+inline std::vector<double> chebcoef
+( const unsigned n )
+{
+  std::vector<double> coef2(1);
+  coef2[0]=1;
+  if( n == 0 ) return coef2;
+
+  std::vector<double> coef1(2);
+  coef1[0]=1;
+  coef1[1]=0;
+  if( n == 1 ) return coef1;
+
+  std::vector<double> coef;
+  for( unsigned k=1; k<n; k++ ){
+    coef = coef1;                                                    // local copy of cheb(x,n-1)
+    for( unsigned i=0; i<coef.size(); i++ ) coef[i] *= 2;            // multiplication by 2
+    coef.push_back(0.);                                              // multiplication by x
+    for( unsigned i=0; i<coef2.size(); i++ ) coef[i+2] -= coef2[i];  // subtraction of cheb(x,n-2)
+    std::swap( coef1, coef2 );                                       // move cheb(x,n-1) to cheb(x,n-2)
+    std::swap( coef, coef1 );                                        // move cheb(x,n) to cheb(x,n-1)
+  }
+  return coef1;
 }
 
 inline double cheb

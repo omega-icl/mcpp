@@ -278,6 +278,7 @@ TODO:
 
 #undef  MC__POLIMG_DEBUG
 #undef  MC__POLIMG_DEBUG_CUTS
+//#undef  MC__POLIMG_PWMCCORMICK_1D
 
 namespace mc
 {
@@ -1308,6 +1309,14 @@ public:
     () const
     { return _op; }
 
+  //! @brief Constructor for nonlinear cut
+  PolCut
+    ( FFOp*op, const PolVar<T>&X1, const PolVar<T>&X2 )
+    : _op(op), _type(NLIN), _rhs(0.), _var(2)
+    {
+      _var[0] = X1;
+      _var[1] = X2;
+    }
   //! @brief Constructor for cut w/o participating variable
   PolCut
     ( FFOp*op, TYPE type, const double b )
@@ -1593,7 +1602,63 @@ operator <<
       break;
 
     case PolCut<T>::NLIN:
-      out << " NLIN";
+      out << " ";
+      switch( cut._op->type ){
+        case FFOp::IPOW:
+          out << cut._var[0].name() << " = " << "POW(" << cut._var[1].name()
+              << ", " << cut._op->pops[1]->num().n << ")"; break;
+        case FFOp::CHEB:
+          out << cut._var[0].name() << " = " << "CHEB(" << cut._var[1].name()
+              << ", " << cut._op->pops[1]->num().n << ")"; break;
+        case FFOp::SQR:
+          out << cut._var[0].name() << " = " << "SQR(" << cut._var[1].name() << ")"; break;
+        case FFOp::SQRT:
+          out << cut._var[0].name() << " = " << "SQRT(" << cut._var[1].name() << ")"; break;
+        case FFOp::EXP:
+          out << cut._var[0].name() << " = " << "EXP(" << cut._var[1].name() << ")"; break;
+        case FFOp::LOG:
+          out << cut._var[0].name() << " = " << "LOG(" << cut._var[1].name() << ")"; break;
+        case FFOp::XLOG:
+          out << cut._var[0].name() << " = " << "XLOG(" << cut._var[1].name() << ")"; break;
+        case FFOp::FABS:
+          out << cut._var[0].name() << " = " << "FABS(" << cut._var[1].name() << ")"; break;
+        case FFOp::FSTEP:
+          out << cut._var[0].name() << " = " << "FSTEP(" << cut._var[1].name() << ")"; break;
+        case FFOp::COS:
+          out << cut._var[0].name() << " = " << "COS(" << cut._var[1].name() << ")"; break;
+        case FFOp::SIN:
+          out << cut._var[0].name() << " = " << "SIN(" << cut._var[1].name() << ")"; break;
+        case FFOp::TAN:
+          out << cut._var[0].name() << " = " << "TAN(" << cut._var[1].name() << ")"; break;
+        case FFOp::ACOS:
+          out << cut._var[0].name() << " = " << "ACOS(" << cut._var[1].name() << ")"; break;
+        case FFOp::ASIN:
+          out << cut._var[0].name() << " = " << "ASIN(" << cut._var[1].name() << ")"; break;
+        case FFOp::ATAN:
+          out << cut._var[0].name() << " = " << "ATAN(" << cut._var[1].name() << ")"; break;
+        case FFOp::COSH:
+          out << cut._var[0].name() << " = " << "COSH(" << cut._var[1].name() << ")"; break;
+        case FFOp::SINH:
+          out << cut._var[0].name() << " = " << "SINH(" << cut._var[1].name() << ")"; break;
+        case FFOp::TANH:
+          out << cut._var[0].name() << " = " << "TANH(" << cut._var[1].name() << ")"; break;
+        case FFOp::ERF:
+          out << cut._var[0].name() << " = " << "ERF(" << cut._var[1].name() << ")"; break;
+        case FFOp::MINF:
+          out << cut._var[0].name() << " = " << "MIN(" << cut._var[1].name() << ", "
+              << cut._var[2].name() << ")"; break;
+        case FFOp::MAXF:
+          out << cut._var[0].name() << " = " << "MAX(" << cut._var[1].name() << ", "
+              << cut._var[2].name() << ")"; break;
+        case FFOp::LMTD:
+          out << cut._var[0].name() << " = " << "LMTD(" << cut._var[1].name() << ", "
+              << cut._var[2].name() << ")"; break;
+        case FFOp::RLMTD:
+          out << cut._var[0].name() << " = " << "RMLTD(" << cut._var[1].name() << ", "
+              << cut._var[2].name() << ")"; break;
+        default:
+          throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::BADCUT );
+      } 
     }
   return out;
 }
@@ -1771,6 +1836,10 @@ protected:
   //! @brief Erase all entries corresponding to operation <a>op</a> in _Cuts
   void _erase_cuts
     ( FFOp* op );
+
+  //! @brief Appends new nonlinear cut in _Cuts
+  typename t_Cuts::iterator _add_cut
+    ( FFOp*op, const PolVar<T>&X1, const PolVar<T>&X2 );
   //! @brief Appends new relaxation cut in _Cuts w/o variable
   typename t_Cuts::iterator _add_cut
     ( FFOp*op, const typename PolCut<T>::TYPE type, const double b );
@@ -1884,7 +1953,7 @@ protected:
     ( const PolVar<T>&X, const double XL, const double XU );
 
   //! @brief Append cuts for bilinear term using piecewise-linear approximation
-  void _pwmccormick_cuts
+  bool _pwmccormick_cuts
     ( FFOp*pOp, const PolVar<T>&X1, const double X1L, const double X1U,
       const PolVar<T>&X2, const double X2L, const double X2U, const PolVar<T>&Y );
 
@@ -1952,7 +2021,7 @@ protected:
   //! @brief Append linear cuts for exp function
   void _add_cuts_EXP
     ( const PolVar<T>*VarR, FFVar*pVar );
-  //! @brief Append linear cuts for xlog function
+  //! @brief Append linear cuts for log function
   void _add_cuts_LOG
     ( const PolVar<T>*VarR, FFVar*pVar );
   //! @brief Append linear cuts for xlog function
@@ -2060,7 +2129,7 @@ public:
       SANDWICH_RULE(MAXERR), FRACTIONAL_ATOL(machprec()),
       FRACTIONAL_RTOL(machprec()), BREAKPOINT_TYPE(NONE),
       BREAKPOINT_ATOL(1e-8), BREAKPOINT_RTOL(1e-5), BREAKPOINT_DISC(false),
-      QUADRATIC_REL(true) //, DCDECOMP_SCALE(false)
+      RELAX_QUAD(true), RELAX_MONOM(2), RELAX_NLIN(true)
       {}
     //! @brief Assignment operator
     Options& operator= ( const Options&options ){
@@ -2074,12 +2143,13 @@ public:
         SANDWICH_RULE   = options.SANDWICH_RULE;
         FRACTIONAL_ATOL = options.FRACTIONAL_ATOL;
         FRACTIONAL_RTOL = options.FRACTIONAL_RTOL;
-        BREAKPOINT_TYPE     = options.BREAKPOINT_TYPE;
-        BREAKPOINT_ATOL     = options.BREAKPOINT_ATOL;
-        BREAKPOINT_RTOL     = options.BREAKPOINT_RTOL;
-        BREAKPOINT_DISC     = options.BREAKPOINT_DISC;
-        QUADRATIC_REL       = options.QUADRATIC_REL;
-        //DCDECOMP_SCALE      = options.DCDECOMP_SCALE;
+        BREAKPOINT_TYPE = options.BREAKPOINT_TYPE;
+        BREAKPOINT_ATOL = options.BREAKPOINT_ATOL;
+        BREAKPOINT_RTOL = options.BREAKPOINT_RTOL;
+        BREAKPOINT_DISC = options.BREAKPOINT_DISC;
+        RELAX_QUAD      = options.RELAX_QUAD;
+        RELAX_MONOM     = options.RELAX_MONOM;
+        RELAX_NLIN      = options.RELAX_NLIN;
         return *this;
       }
     //! @brief Enumeration type for sandwich strategy
@@ -2121,10 +2191,12 @@ public:
     double BREAKPOINT_RTOL;
     //! @brief Whether to relax discontinuities using mixed-integer linear constraints (true) or continuous linear constraints (false) - Default: true
     bool BREAKPOINT_DISC;
-    //! @brief Whether or not to linearize quadratic (i.e. square, bilinear) terms - Default: true
-    bool QUADRATIC_REL;
-    ////! @brief Whether or not to scale variables in DC decomposition of bilinear/fractional terms - Default: false
-    //bool DCDECOMP_SCALE;
+    //! @brief Whether or not to linearize quadratic terms (i.e. square, bilinear) - Default: true
+    bool RELAX_QUAD;
+    //! @brief Whether or not to linearize monomial terms (i.e. pow, cheb) - Default: 2 - all monomials linearized (1 - only monomials of order >2 linearized; 0 - no monomials linearized)
+    int RELAX_MONOM;
+    //! @brief Whether or not to linearize nonlinear terms (i.e. exp, log, sin, cos, tan, dpow) terms - Default: true
+    bool RELAX_NLIN;
   };
 
   //! @brief PolImg options handle
@@ -2160,6 +2232,10 @@ public:
   template <typename U> void generate_cuts
     ( const std::map<U,PolVar<T>>&mdep, const bool reset=false );
 
+  //! @brief Append new nonlinear cut
+  typename t_Cuts::iterator add_cut
+    ( const PolVar<T>&X1, const PolVar<T>&X2 )
+    { return _add_cut( 0, X1, X2 ); }
   //! @brief Append new relaxation cut w/o variable
   typename t_Cuts::iterator add_cut
     ( const typename PolCut<T>::TYPE type, const double b )
@@ -2349,6 +2425,15 @@ PolImg<T>::_erase_cuts
     auto itp = itc; ++itc;
     if( (*itp)->op() == op ){ delete *itp; _Cuts.erase( itp ); }
   } 
+}
+
+template <typename T>
+inline typename PolImg<T>::t_Cuts::iterator
+PolImg<T>::_add_cut
+( FFOp*op, const PolVar<T>&X1, const PolVar<T>&X2 )
+{
+  PolCut<T>* pCut = new PolCut<T>( op, X1, X2 );
+  return _Cuts.insert( pCut );
 }
 
 template <typename T>
@@ -2846,7 +2931,7 @@ PolImg<T>::_add_cuts_TIMES
     _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar2->second, -pVar1->num().val() );
   }
 
-  else if( !options.QUADRATIC_REL ){
+  else if( !options.RELAX_QUAD ){
     auto itVar1 = _Vars.find( pVar1 );
     auto itVar2 = _Vars.find( pVar2 );
     auto itCut = _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, -1. );
@@ -2856,6 +2941,21 @@ PolImg<T>::_add_cuts_TIMES
   else{
     auto itVar1 = _Vars.find( pVar1 );
     auto itVar2 = _Vars.find( pVar2 );
+#ifndef MC__POLIMG_PWMCCORMICK_1D
+    if( options.BREAKPOINT_TYPE == Options::NONE 
+     || !_pwmccormick_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+                            Op<T>::u(itVar1->second->_range), *itVar2->second, Op<T>::l(itVar2->second->_range),
+                            Op<T>::u(itVar2->second->_range), *VarR ) ){
+      _add_cut( VarR->_var.ops().first, PolCut<T>::GE, -Op<T>::u(itVar1->second->_range)*Op<T>::u(itVar2->second->_range),
+        *VarR, 1., *itVar1->second, -Op<T>::u(itVar2->second->_range), *itVar2->second, -Op<T>::u(itVar1->second->_range) );
+      _add_cut( VarR->_var.ops().first, PolCut<T>::GE, -Op<T>::l(itVar1->second->_range)*Op<T>::l(itVar2->second->_range),
+        *VarR, 1., *itVar1->second, -Op<T>::l(itVar2->second->_range), *itVar2->second, -Op<T>::l(itVar1->second->_range) );
+      _add_cut( VarR->_var.ops().first, PolCut<T>::LE, -Op<T>::u(itVar1->second->_range)*Op<T>::l(itVar2->second->_range),
+        *VarR, 1., *itVar1->second, -Op<T>::l(itVar2->second->_range), *itVar2->second, -Op<T>::u(itVar1->second->_range) );
+      _add_cut( VarR->_var.ops().first, PolCut<T>::LE, -Op<T>::l(itVar1->second->_range)*Op<T>::u(itVar2->second->_range),
+        *VarR, 1., *itVar1->second, -Op<T>::u(itVar2->second->_range), *itVar2->second, -Op<T>::l(itVar1->second->_range) );
+    }
+#else
     switch( options.BREAKPOINT_TYPE ){
       case PolImg<T>::Options::BIN:
       case PolImg<T>::Options::SOS2:{
@@ -2881,6 +2981,7 @@ PolImg<T>::_add_cuts_TIMES
         _add_cut( VarR->_var.ops().first, PolCut<T>::LE, -Op<T>::l(itVar1->second->_range)*Op<T>::u(itVar2->second->_range),
           *VarR, 1., *itVar1->second, -Op<T>::u(itVar2->second->_range), *itVar2->second, -Op<T>::l(itVar1->second->_range) );
     }
+#endif
   }
 }
 
@@ -2888,7 +2989,7 @@ template <typename T> inline bool
 PolImg<T>::_add_LQ_TIMES
 ( PolLQExpr<T>*&pLQ, const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
 {
-  if( options.QUADRATIC_REL && !pVar1->cst() && !pVar2->cst() ) return false;
+  if( options.RELAX_QUAD && !pVar1->cst() && !pVar2->cst() ) return false;
   if( !pLQ ) pLQ = _append_LQ( VarR );
   if( pVar1->cst() && pVar2->cst() )
     pLQ->substitute( VarR, pVar1->num().val()*pVar2->num().val() );
@@ -2980,6 +3081,21 @@ PolImg<T>::_add_cuts_DIV
   else{
     auto itVar1 = _Vars.find( pVar1 );
     auto itVar2 = _Vars.find( pVar2 );
+#ifndef MC__POLIMG_PWMCCORMICK_1D
+    if( options.BREAKPOINT_TYPE == Options::NONE 
+     || !_pwmccormick_cuts( VarR->_var.ops().first, *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
+                            *itVar2->second, Op<T>::l(itVar2->second->_range), Op<T>::u(itVar2->second->_range),
+			    *itVar1->second ) ){
+      _add_cut( VarR->_var.ops().first, PolCut<T>::GE, -Op<T>::u(VarR->_range)*Op<T>::u(itVar2->second->_range),
+        *itVar1->second, 1., *VarR, -Op<T>::u(itVar2->second->_range), *itVar2->second, -Op<T>::u(VarR->_range) );
+      _add_cut( VarR->_var.ops().first, PolCut<T>::GE, -Op<T>::l(VarR->_range)*Op<T>::l(itVar2->second->_range),
+        *itVar1->second, 1., *VarR, -Op<T>::l(itVar2->second->_range), *itVar2->second, -Op<T>::l(VarR->_range) );
+      _add_cut( VarR->_var.ops().first, PolCut<T>::LE, -Op<T>::u(VarR->_range)*Op<T>::l(itVar2->second->_range),
+        *itVar1->second, 1., *VarR, -Op<T>::l(itVar2->second->_range), *itVar2->second, -Op<T>::u(VarR->_range) );
+      _add_cut( VarR->_var.ops().first, PolCut<T>::LE, -Op<T>::l(VarR->_range)*Op<T>::u(itVar2->second->_range),
+        *itVar1->second, 1., *VarR, -Op<T>::u(itVar2->second->_range), *itVar2->second, -Op<T>::l(VarR->_range) );
+    }
+#else
     switch( options.BREAKPOINT_TYPE ){
       case PolImg<T>::Options::BIN:
       case PolImg<T>::Options::SOS2:{
@@ -3003,6 +3119,7 @@ PolImg<T>::_add_cuts_DIV
         _add_cut( VarR->_var.ops().first, PolCut<T>::LE, -Op<T>::l(VarR->_range)*Op<T>::u(itVar2->second->_range),
           *itVar1->second, 1., *VarR, -Op<T>::u(itVar2->second->_range), *itVar2->second, -Op<T>::l(VarR->_range) );
     }
+#endif
   }
 }
 
@@ -3260,8 +3377,9 @@ PolImg<T>::_semilinear_cuts
   _add_cut( pOp, sense, dX*YL-dY*XL, Y, dX, X, -dY );
 }
 
+#ifdef MC__POLIMG_PWMCCORMICK_1D
 template <typename T>
-inline void
+inline bool
 PolImg<T>::_pwmccormick_cuts
 ( FFOp*pOp, const PolVar<T>&X1, const double X1L, const double X1U,
   const PolVar<T>&X2, const double X2L, const double X2U, const PolVar<T>&Y )
@@ -3295,14 +3413,565 @@ PolImg<T>::_pwmccormick_cuts
    default:
     break;
   }
+  return true;
 }
+#else
+template <typename T>
+inline bool
+PolImg<T>::_pwmccormick_cuts
+( FFOp*pOp, const PolVar<T>&X1, const double X1L, const double X1U,
+  const PolVar<T>&X2, const double X2L, const double X2U, const PolVar<T>&Y )
+{
+  switch( options.BREAKPOINT_TYPE ){
+   case Options::BIN:{
+    const std::vector<double>& X1KNOT = X1.create_subdiv( X1L, X1U );
+    const unsigned NX1INTS = X1KNOT.size()-1;
+    const std::vector<double>& X2KNOT = X2.create_subdiv( X2L, X2U );
+    const unsigned NX2INTS = X2KNOT.size()-1;
 
+    if( NX1INTS > 1 && NX2INTS == 1 ){
+      double coef[NX1INTS];
+      PolVar<T> auxr[NX1INTS];
+      for( unsigned k=0; k<NX1INTS; k++ ){
+        coef[k] = X1KNOT[k+1] - X1KNOT[k];
+	auxr[k]  = *_append_aux( Op<T>::zeroone()*(X2U-X2L), true );
+      }
+      // Represent variable subdivision using linear binary transformation
+      const std::vector< PolVar<T> >& aux1 = X1.BIN_subdiv( pOp );
+      // Cut (46) in Gounaris et al. (2009), DOI: 10.1021/ie8016048
+      _add_cut( pOp, PolCut<T>::EQ, X1L*X2L, NX1INTS, auxr, coef, X1, X2L, X2, X1L, Y, -1. );
+      // Cuts (50) in Gounaris et al. (2009), DOI: 10.1021/ie8016048     
+      for( unsigned k=0; k<NX1INTS; k++ ){
+        _add_cut( pOp, PolCut<T>::GE, 0.,  aux1[k], X2U-X2L, auxr[k], -1. );
+        _add_cut( pOp, PolCut<T>::LE, X2U, aux1[k], X2U-X2L, auxr[k], -1., X2, 1. );
+        if( k ) _add_cut( pOp, PolCut<T>::LE, 0., auxr[k], 1., auxr[k-1], -1. );
+	else    _add_cut( pOp, PolCut<T>::GE, X2L, X2, 1., auxr[0], -1. );
+      }
+      break;
+    }
+
+    else if( NX1INTS == 1 && NX2INTS > 1 ){
+      double coef[NX2INTS];
+      PolVar<T> auxr[NX2INTS];
+      for( unsigned k=0; k<NX2INTS; k++ ){
+        coef[k] = X2KNOT[k+1] - X2KNOT[k];
+	auxr[k]  = *_append_aux( Op<T>::zeroone()*(X1U-X1L), true );
+      }
+      // Represent variable subdivision using linear binary transformation
+      const std::vector< PolVar<T> >& aux2 = X2.BIN_subdiv( pOp );
+      // Cut (46) in Gounaris et al. (2009), DOI: 10.1021/ie8016048
+      _add_cut( pOp, PolCut<T>::EQ, X1L*X2L, NX2INTS, auxr, coef, X1, X2L, X2, X1L, Y, -1. );
+      // Cuts (50) in Gounaris et al. (2009), DOI: 10.1021/ie8016048     
+      for( unsigned k=0; k<NX2INTS; k++ ){
+        _add_cut( pOp, PolCut<T>::GE, 0.,  aux2[k], X1U-X1L, auxr[k], -1. );
+        _add_cut( pOp, PolCut<T>::LE, X1U, aux2[k], X1U-X1L, auxr[k], -1., X1, 1. );
+        if( k ) _add_cut( pOp, PolCut<T>::LE, 0., auxr[k], 1., auxr[k-1], -1. );
+	else    _add_cut( pOp, PolCut<T>::GE, X1L, X1, 1., auxr[0], -1. );
+      }
+      break;
+    }
+    
+    else if( NX1INTS > 1 && NX2INTS > 1 ){
+      double coef[NX1INTS*NX2INTS];
+      PolVar<T> auxr[NX1INTS*NX2INTS];
+      for( unsigned i=0, k=0; i<NX1INTS; i++ ){
+        for( unsigned j=0; j<NX2INTS; j++, k++ ){
+          coef[k] = ( X1KNOT[i+1] - X1KNOT[i] ) * ( X2KNOT[j+1] - X2KNOT[j] );
+	  auxr[k]  = *_append_aux( Op<T>::zeroone(), true );
+	}
+      }
+      // Represent variable subdivision using linear binary transformation
+      const std::vector< PolVar<T> >& aux1 = X1.BIN_subdiv( pOp );
+      const std::vector< PolVar<T> >& aux2 = X2.BIN_subdiv( pOp );
+      // Cut (46) in Gounaris et al. (2009), DOI: 10.1021/ie8016048
+      _add_cut( pOp, PolCut<T>::EQ, X1L*X2L, NX1INTS*NX2INTS, auxr, coef, X1, X2L, X2, X1L, Y, -1. );
+      // Cuts (50) in Gounaris et al. (2009), DOI: 10.1021/ie8016048
+      for( unsigned i=0, k=0; i<NX1INTS; i++ ){
+        for( unsigned j=0; j<NX2INTS; j++, k++ ){
+          _add_cut( pOp, PolCut<T>::LE, 1.,  aux1[i], 1., aux2[j], 1., auxr[k], -1. );
+          if( j ) _add_cut( pOp, PolCut<T>::LE, 0., auxr[k], 1., auxr[k-1], -1. );
+          else    _add_cut( pOp, PolCut<T>::GE, 0., aux1[i], 1., auxr[i*NX2INTS], -1. );
+          if( i ) _add_cut( pOp, PolCut<T>::LE, 0., auxr[k], 1., auxr[k-NX2INTS], -1. );
+          else    _add_cut( pOp, PolCut<T>::GE, 0., aux2[j], 1., auxr[j],   -1. );
+	}
+      }
+      break;
+    }
+    
+    return false;
+   }
+
+   case Options::SOS2:
+   default:
+    return false;
+  }
+  
+  return true;
+}
+#endif
 template <typename T>
 inline PolVar<T>
 inv
 ( const PolVar<T>&Var1 )
 {
   return pow( Var1, -1 );
+}
+
+template <typename T>
+inline PolVar<T>
+sqr
+( const PolVar<T>&Var1 )
+{
+  FFGraph* dag = Var1._var.dag();
+#ifdef MC__POLIMG_CHECK
+  if( !dag || !dag->curOp() )
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
+#endif
+
+  FFVar* pFFVarR = dag->curOp()->pres;
+  PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::sqr( Var1._range ), true );
+  return *pVarR;
+}
+
+template <typename T> inline void
+PolImg<T>::_add_cuts_SQR
+( const PolVar<T>*VarR, FFVar*pVar1 )
+{
+  if( pVar1->cst() )
+    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, mc::sqr( pVar1->num().val() ), *VarR, 1. );
+
+  else if( !options.RELAX_MONOM ){
+    auto itVar1 = _Vars.find( pVar1 );
+    _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
+  }
+
+  else if( !options.RELAX_QUAD ){
+    auto itVar1 = _Vars.find( pVar1 );
+    auto itCut = _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, -1. );
+    (*itCut)->append( *itVar1->second, *itVar1->second, 1. );
+  }
+
+  else{
+    auto itVar1 = _Vars.find( pVar1 );
+    struct loc{ static std::pair<double,double> sqr
+      ( const double x, const double*rusr, const int*iusr )
+      { return std::make_pair( x*x, 2.*x ); }
+    };
+    _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+      Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::sqr );
+    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+      Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
+      PolCut<T>::GE, loc::sqr );
+  }
+}
+
+template <typename T> inline bool
+PolImg<T>::_add_LQ_SQR
+( PolLQExpr<T>*&pLQ, const PolVar<T>*VarR, FFVar*pVar1 )
+{
+  if( options.RELAX_QUAD || !options.RELAX_MONOM ) return false;
+  if( !pLQ ) pLQ = _append_LQ( VarR );
+  if( pVar1->cst() )
+    pLQ->substitute( VarR, sqr( pVar1->num().val() ) );
+  else{
+    auto itVar1 = _Vars.find( pVar1 );
+    pLQ->substitute( VarR, 1., itVar1->second, itVar1->second );
+  }
+  return true;
+}
+
+template <typename T>
+inline PolVar<T>
+sqrt
+( const PolVar<T>&Var1 )
+{
+  FFGraph* dag = Var1._var.dag();
+#ifdef MC__POLIMG_CHECK
+  if( !dag || !dag->curOp() )
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
+#endif
+
+  FFVar* pFFVarR = dag->curOp()->pres;
+  PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::sqrt( Var1._range ), true );
+  return *pVarR;
+}
+
+template <typename T> inline void
+PolImg<T>::_add_cuts_SQRT
+( const PolVar<T>*VarR, FFVar*pVar1 )
+{
+  if( pVar1->cst() ){
+    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::sqrt( pVar1->num().val() ), *VarR, 1. );
+    return;
+  }
+
+  else if( !options.RELAX_NLIN ){
+    auto itVar1 = _Vars.find( pVar1 );
+    _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
+  }
+
+  else{
+    auto itVar1 = _Vars.find( pVar1 );
+    struct loc{ 
+      static std::pair<double,double> sqr
+        ( const double x, const double*rusr, const int*iusr )
+        { return std::make_pair( x*x, 2.*x ); }
+      static std::pair<double,double> sqrt
+        ( const double x, const double*rusr, const int*iusr )
+        { return std::make_pair( std::sqrt(x), 1/(2*std::sqrt(x)) ); }
+    };
+    _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+      Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::GE, loc::sqrt );
+    _sandwich_cuts( VarR->_var.ops().first, *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
+      *itVar1->second, Op<T>::l(itVar1->second->_range), Op<T>::u(itVar1->second->_range), PolCut<T>::GE, loc::sqr );
+  }
+}
+
+template <typename T>
+inline PolVar<T>
+pow
+( const PolVar<T>&Var1, const int iExp )
+{
+#ifdef MC__POLIMG_CHECK
+  if( iExp == 0 || iExp == 1 || iExp == 2 )
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
+#endif
+  FFGraph* dag = Var1._var.dag();
+#ifdef MC__POLIMG_CHECK
+  if( !dag || !dag->curOp() )
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
+#endif
+
+  FFVar* pFFVarR = dag->curOp()->pres;
+  PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::pow( Var1._range, iExp ), true );
+  return *pVarR;
+}
+
+template <typename T> inline void
+PolImg<T>::_add_cuts_IPOW
+( const PolVar<T>*VarR, FFVar*pVar1, const int iExp )
+{
+  if( pVar1->cst() ){
+    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::pow( pVar1->num().val(), iExp ), *VarR, 1. );
+    return;
+  }
+  
+  else if( options.RELAX_MONOM != 2 ){
+    auto itVar1 = _Vars.find( pVar1 );
+    _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
+    return;
+  }
+
+  auto itVar1 = _Vars.find( pVar1 );
+  struct loc{
+    static std::pair<double,double> pow
+      ( const double x, const double*rusr, const int*iusr )
+      { return std::make_pair( std::pow(x,*iusr), *iusr*std::pow(x,*iusr-1) ); }
+    static std::pair<double,double> powcvu
+      ( const double x, const double*rusr, const int*iusr )
+      { return std::make_pair( std::pow(x,*iusr), *iusr*std::pow(x,*iusr-1) ); }
+  };
+  // Positive even exponent term
+  if( iExp > 0 && !(iExp%2) ){
+    _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+      Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::pow, 0, &iExp );
+    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+      Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
+      PolCut<T>::GE, loc::pow, 0, &iExp );
+  }
+
+  // Positive odd exponent term
+  else if( iExp > 0 && options.ROOT_USE ){
+    // -- Convex Portion
+    if( Op<T>::l(itVar1->second->_range) >= 0. ){
+      _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+        Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::pow, 0, &iExp );
+      _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+        Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
+        PolCut<T>::GE, loc::pow, 0, &iExp );
+    }
+    // -- Concave Portion
+    else if( Op<T>::u(itVar1->second->_range) <= 0. ){
+      _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+        Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::GE, loc::pow, 0, &iExp );
+      _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+        Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
+        PolCut<T>::LE, loc::pow, 0, &iExp );
+    }
+    // -- Nonconvex/Nonconcave Portion
+    else{
+      switch( options.BREAKPOINT_TYPE ){
+        case PolImg<T>::Options::BIN:
+        case PolImg<T>::Options::SOS2:{
+          const unsigned NKNOTS = itVar1->second->create_subdiv( Op<T>::l(itVar1->second->_range),
+            Op<T>::u(itVar1->second->_range) ).size();
+          if( NKNOTS > 2 ){
+            struct dc{
+              static std::pair<double,double> pow1
+                ( const double x, const double*rusr, const int*iusr )
+                { return std::make_pair( x<0?std::pow(x,*iusr):0., x<0?*iusr*std::pow(x,*iusr-1):0. ); }
+              static std::pair<double,double> pow2
+                ( const double x, const double*rusr, const int*iusr )
+                { return std::make_pair( x>0?std::pow(x,*iusr):0., x>0?*iusr*std::pow(x,*iusr-1):0. ); }
+            };
+            PolVar<T>* Var3 = _append_aux( Op<T>::pow( itVar1->second->_range, iExp ), true );
+            PolVar<T>* Var4 = _append_aux( Op<T>::pow( itVar1->second->_range, iExp ), true );
+            _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+              Op<T>::u(itVar1->second->_range), *Var3, PolCut<T>::GE, dc::pow1, 0, &iExp );
+            _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+              Op<T>::u(itVar1->second->_range), *Var3, Op<T>::l(VarR->_range), 0., PolCut<T>::LE, dc::pow1, 0, &iExp );
+            _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+              Op<T>::u(itVar1->second->_range), *Var4, PolCut<T>::LE, dc::pow2, 0, &iExp );
+            _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+              Op<T>::u(itVar1->second->_range), *Var4, 0., Op<T>::u(VarR->_range), PolCut<T>::GE, dc::pow2, 0, &iExp );
+            _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *Var3, -1., *Var4, -1. );
+            break;
+          }
+          // No break in order to append other "normal" cuts if no breakpoints
+        }
+        case PolImg<T>::Options::NONE: default:{
+          struct fct{ static std::pair<double,double> powoddfunc
+            ( const double x, const double*rusr, const int*iusr )
+            { return std::make_pair(
+                ((*iusr-1)*x-(*iusr)*(*rusr))*std::pow(x,*iusr-1) + std::pow(*rusr,*iusr),
+                (*iusr)*(*iusr-1)*(x-(*rusr))*std::pow(x,*iusr-2) ); }
+          };
+          double xJcc = Op<T>::u(itVar1->second->_range);
+          xJcc = _newton( Op<T>::l(itVar1->second->_range), Op<T>::l(itVar1->second->_range), 0.,
+            fct::powoddfunc, options.ROOT_TOL, options.ROOT_MAXIT, &xJcc, &iExp );
+          if( mc::isequal( xJcc, Op<T>::l(itVar1->second->_range) ) )
+            _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+              Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::pow, 0, &iExp );
+          else
+            _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range), xJcc,
+              *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::LE, loc::pow, 0, &iExp );
+
+          double xJcv = Op<T>::l(itVar1->second->_range);
+          xJcv = _newton( Op<T>::u(itVar1->second->_range), 0., Op<T>::u(itVar1->second->_range),
+            fct::powoddfunc, options.ROOT_TOL, options.ROOT_MAXIT, &xJcv, &iExp );
+          if( mc::isequal( xJcv, Op<T>::u(itVar1->second->_range) ) )
+            _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+              Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::GE, loc::pow, 0, &iExp );
+          else
+            _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, xJcv, Op<T>::u(itVar1->second->_range),
+              *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::pow, 0, &iExp );
+          break;
+        }
+      }
+    }
+  }
+
+  // Negative exponent term
+  else if( iExp < 0 ){
+    // -- Convex Case
+    if( !(iExp%2) || Op<T>::l(itVar1->second->_range) > 0. ){
+      _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+        Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::pow, 0, &iExp );
+      _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+        Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
+        PolCut<T>::GE, loc::pow, 0, &iExp );
+    }
+    // -- Concave Case
+    else{
+      _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+        Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::GE, loc::pow, 0, &iExp );
+      _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+        Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
+        PolCut<T>::LE, loc::pow, 0, &iExp );
+    }
+  }
+}
+
+template <typename T>
+inline PolVar<T>
+cheb
+( const PolVar<T>&Var1, const unsigned iOrd )
+{
+#ifdef MC__POLIMG_CHECK
+  if( iOrd <= 2 )
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
+#endif
+  FFGraph* dag = Var1._var.dag();
+#ifdef MC__POLIMG_CHECK
+  if( !dag || !dag->curOp() )
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
+#endif
+
+  FFVar* pFFVarR = dag->curOp()->pres;
+#ifdef MC__POLIMG_DEBUG_CHEB
+  std::cout << "X = " << Var1._range << std::endl;
+  std::cout << "Cheb(" << Var1._range << "," << iOrd << ") = " << Op<T>::cheb( Var1._range, iOrd ) << std::endl;
+#endif
+  PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::cheb( Var1._range, iOrd ), true );
+  return *pVarR;
+}
+
+template <typename T> inline void
+PolImg<T>::_add_cuts_CHEB
+( const PolVar<T>*VarR, FFVar*pVar1, const unsigned iOrd )
+{
+  if( pVar1->cst() )
+    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, mc::cheb( pVar1->num().val(), iOrd ), *VarR, 1. );
+  
+  else if( options.RELAX_MONOM != 2 ){
+    auto itVar1 = _Vars.find( pVar1 );
+    _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
+    return;
+  }
+
+  auto itVar1 = _Vars.find( pVar1 );
+  struct loc{
+    static std::pair<double,double> cheb
+      ( const double x, const double*rusr, const int*iusr )
+      { return std::make_pair( mc::cheb(x,*iusr), *iusr*mc::cheb2(x,*iusr-1) ); }
+  };      
+  const int iusr = iOrd;
+  // Positive even order
+  if( iOrd > 0 && !(iOrd%2) ){
+    _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+      Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::cheb, 0, &iusr );
+    double xJL = std::cos(mc::PI*(1.+1./(double)iOrd));
+    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range), xJL,
+      *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::cheb, 0, &iusr );
+    double xJU = std::cos(mc::PI/(double)iOrd);
+    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, xJU, Op<T>::u(itVar1->second->_range),
+      *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::cheb, 0, &iusr );
+  }
+
+  // Positive odd order
+  else{
+    double xJL = std::cos(mc::PI*(1.+1./(double)iOrd));
+    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range), xJL,
+      *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::LE, loc::cheb, 0, &iusr );
+    double xJU = std::cos(mc::PI/(double)iOrd);
+    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, xJU, Op<T>::u(itVar1->second->_range),
+      *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::cheb, 0, &iusr );
+  }
+}
+
+template <typename T>
+inline PolVar<T>
+prod
+( const unsigned nVar, const PolVar<T>*pVar )
+{
+#ifdef MC__POLIMG_CHECK
+  if( nVar <= 2 )
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
+#endif
+  FFGraph* dag = pVar->_var.dag();
+#ifdef MC__POLIMG_CHECK
+  if( !dag || !dag->curOp() )
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
+#endif
+
+  FFVar* pFFVarR = dag->curOp()->pres;
+  std::vector<T> IVar; IVar.reserve( nVar );
+  for( unsigned i=0; i<nVar; i++ ) IVar.push_back( pVar[i]._range );
+  PolVar<T>* pVarR = pVar->_img->_append_var( pFFVarR, Op<T>::prod( IVar.size(), IVar.data() ), true );
+  return *pVarR;
+}
+
+template <typename T> inline bool
+PolImg<T>::_subset_incr
+( const unsigned ntot, std::vector<unsigned>&ndx )
+{
+  auto rit=ndx.rbegin();
+  for( unsigned i=0; rit!=ndx.rend(); ++rit, i++ )
+    if( *rit < ntot-i-1 ){ (*rit)++; return true; }
+  if( ntot < ndx.size()+2 ) return false;
+  for( unsigned i=0; i<ndx.size(); i++ ) ndx.at(i) = i;
+  ndx.push_back( ndx.size() ); ndx.push_back( ndx.size() );
+  return true;
+}
+
+template <typename T> inline void
+PolImg<T>::_add_cuts_PROD
+( const PolVar<T>*VarR, std::vector<FFVar*>vVar )
+{
+  std::vector<PolVar<T>> vPolVar;
+  double scalR = 1., radR = 1.;
+  double isCen = true;
+  auto it=vVar.begin(); 
+  for( unsigned i=0; it!=vVar.end(); ++it, i++ ){
+    // Detect constant operands
+    if( (*it)->cst() ){
+      scalR *= (*it)->num().val();
+      continue;
+    }
+    // Look for corresponding variable in polyhedral image
+    auto itVar = _Vars.find( *it );
+    assert( itVar->first );
+    if( isequal( Op<T>::diam(itVar->second->_range), 0. ) ){
+      scalR *= Op<T>::mid(itVar->second->_range);
+      continue;
+    }
+    vPolVar.push_back( *(itVar->second) );
+    if( !isequal( Op<T>::mid(itVar->second->_range), 0. ) )
+      isCen = false;
+    radR *= Op<T>::u(itVar->second->_range);
+  }
+#ifdef MC__POLIMG_DEBUG_PROD
+  std::cout << "CENTERED:" << (isCen?"Y":"N") << std::endl;
+#endif 
+  
+  // Case: Zero scaling factor in multilinear term
+  if( isequal( scalR, 0. ) ){
+    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1. );
+    return;
+  }
+
+  // Case: Non-centered multilinear term
+  if( !isCen ){
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
+//    for( unsigned i=0; i<vPolVar.size(); i++ ){
+//    PolVar<T>* auxVar = _append_aux( Op<T>::pow( itVar1->second->_range, iExp ), true );
+//    _add_cuts_TIMES( const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
+  }
+
+  // Case: Centered multilinear term
+  std::vector<double> cPolVar( vPolVar.size() );
+  for( std::vector<unsigned> ndxCut; ; ){
+#ifdef MC__POLIMG_DEBUG_PROD
+    std::cout << "{";
+    for( auto&& idx : ndxCut ) std::cout << " " << idx;
+    std::cout << " }\n";
+#endif   
+    // Subscase: Odd-sized multilinear term
+    if( vPolVar.size()%2 ){
+      for( unsigned i=0, k=0; i<vPolVar.size(); i++ ){
+        if( ndxCut.size() > k && ndxCut[k] == i ){
+          cPolVar[i] = 1. / Op<T>::u( vPolVar[i]._range );
+          k++;
+        }
+        else
+          cPolVar[i] = -1. / Op<T>::u( vPolVar[i]._range );
+      }
+      _add_cut( VarR->_var.ops().first, PolCut<T>::LE, vPolVar.size()-1.,
+        vPolVar.size(), vPolVar.data(), cPolVar.data(), *VarR, 1./(scalR*radR) );
+      _add_cut( VarR->_var.ops().first, PolCut<T>::GE, 1.-vPolVar.size(),
+        vPolVar.size(), vPolVar.data(), cPolVar.data(), *VarR, 1./(scalR*radR) );
+    }
+    // Subscase: Even-sized multilinear term
+    else{
+      for( unsigned i=0, k=0; i<vPolVar.size(); i++ ){
+        if( ndxCut.size() > k && ndxCut[k] == i ){
+          cPolVar[i] = 1. / Op<T>::u( vPolVar[i]._range );
+          k++;
+        }
+        else
+          cPolVar[i] = -1. / Op<T>::u( vPolVar[i]._range );
+      }
+      _add_cut( VarR->_var.ops().first, PolCut<T>::GE, 1.-vPolVar.size(),
+        vPolVar.size(), vPolVar.data(), cPolVar.data(), *VarR, -1./(scalR*radR) );
+      _add_cut( VarR->_var.ops().first, PolCut<T>::GE, 1.-vPolVar.size(),
+        vPolVar.size(), vPolVar.data(), cPolVar.data(), *VarR, 1./(scalR*radR) );
+    }
+    // Generate next index set
+    if( !_subset_incr( vPolVar.size(), ndxCut ) ) break;
+  }
+#ifdef MC__POLIMG_DEBUG_PROD
+  std::cout << "vVar: " << vVar.size() << "  vPolVar: " << vPolVar.size() << std::endl;
+#endif
 }
 
 template <typename T>
@@ -3327,6 +3996,12 @@ PolImg<T>::_add_cuts_EXP
 {
   if( pVar1->cst() )
     _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::exp( pVar1->num().val() ), *VarR, 1. );
+
+  else if( !options.RELAX_NLIN ){
+    auto itVar1 = _Vars.find( pVar1 );
+    _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
+  }
+
   else{
     auto itVar1 = _Vars.find( pVar1 );
     struct loc{ static std::pair<double,double> exp
@@ -3363,6 +4038,12 @@ PolImg<T>::_add_cuts_LOG
 {
   if( pVar1->cst() )
     _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::log( pVar1->num().val() ), *VarR, 1. );
+
+  else if( !options.RELAX_NLIN ){
+    auto itVar1 = _Vars.find( pVar1 );
+    _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
+  }
+
   else{
     auto itVar1 = _Vars.find( pVar1 );
     struct loc{
@@ -3383,7 +4064,7 @@ PolImg<T>::_add_cuts_LOG
 
 template <typename T>
 inline PolVar<T>
-sqr
+xlog
 ( const PolVar<T>&Var1 )
 {
   FFGraph* dag = Var1._var.dag();
@@ -3393,90 +4074,28 @@ sqr
 #endif
 
   FFVar* pFFVarR = dag->curOp()->pres;
-  PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::sqr( Var1._range ), true );
+  PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::xlog( Var1._range ), true );
   return *pVarR;
 }
 
 template <typename T> inline void
-PolImg<T>::_add_cuts_SQR
+PolImg<T>::_add_cuts_XLOG
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() )
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, mc::sqr( pVar1->num().val() ), *VarR, 1. );
-
-  else if( !options.QUADRATIC_REL ){
-    auto itVar1 = _Vars.find( pVar1 );
-    auto itCut = _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, -1. );
-    (*itCut)->append( *itVar1->second, *itVar1->second, 1. );
-  }
-
+    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, mc::xlog( pVar1->num().val() ), *VarR, 1. );
   else{
     auto itVar1 = _Vars.find( pVar1 );
-    struct loc{ static std::pair<double,double> sqr
+    struct loc{ static std::pair<double,double> xlog
       ( const double x, const double*rusr, const int*iusr )
-      { return std::make_pair( x*x, 2.*x ); }
+      { return std::make_pair( mc::xlog(x), std::log(x)+1. ); }
     };
     _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
-      Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::sqr );
+      Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::xlog );
     _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
-      PolCut<T>::GE, loc::sqr );
+      PolCut<T>::GE, loc::xlog );
   }
-}
-
-template <typename T> inline bool
-PolImg<T>::_add_LQ_SQR
-( PolLQExpr<T>*&pLQ, const PolVar<T>*VarR, FFVar*pVar1 )
-{
-  if( options.QUADRATIC_REL ) return false;
-  if( !pLQ ) pLQ = _append_LQ( VarR );
-  if( pVar1->cst() )
-    pLQ->substitute( VarR, sqr( pVar1->num().val() ) );
-  else{
-    auto itVar1 = _Vars.find( pVar1 );
-    pLQ->substitute( VarR, 1., itVar1->second, itVar1->second );
-  }
-  return true;
-}
-
-template <typename T>
-inline PolVar<T>
-sqrt
-( const PolVar<T>&Var1 )
-{
-  FFGraph* dag = Var1._var.dag();
-#ifdef MC__POLIMG_CHECK
-  if( !dag || !dag->curOp() )
-    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
-#endif
-
-  FFVar* pFFVarR = dag->curOp()->pres;
-  PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::sqrt( Var1._range ), true );
-  return *pVarR;
-}
-
-template <typename T> inline void
-PolImg<T>::_add_cuts_SQRT
-( const PolVar<T>*VarR, FFVar*pVar1 )
-{
-  if( pVar1->cst() ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::sqrt( pVar1->num().val() ), *VarR, 1. );
-    return;
-  }
-
-  auto itVar1 = _Vars.find( pVar1 );
-  struct loc{ 
-    static std::pair<double,double> sqr
-      ( const double x, const double*rusr, const int*iusr )
-      { return std::make_pair( x*x, 2.*x ); }
-    static std::pair<double,double> sqrt
-      ( const double x, const double*rusr, const int*iusr )
-      { return std::make_pair( std::sqrt(x), 1/(2*std::sqrt(x)) ); }
-  };
-  _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
-    Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::GE, loc::sqrt );
-  _sandwich_cuts( VarR->_var.ops().first, *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
-    *itVar1->second, Op<T>::l(itVar1->second->_range), Op<T>::u(itVar1->second->_range), PolCut<T>::GE, loc::sqr );
 }
 
 template <typename T>
@@ -3501,6 +4120,12 @@ PolImg<T>::_add_cuts_COS
 {
   if( pVar1->cst() ){
     _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::cos( pVar1->num().val() ), *VarR, 1. );
+    return;
+  }
+
+  else if( !options.RELAX_NLIN ){
+    auto itVar1 = _Vars.find( pVar1 );
+    _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
     return;
   }
 
@@ -3668,6 +4293,12 @@ PolImg<T>::_add_cuts_SIN
     return;
   }
 
+  else if( !options.RELAX_NLIN ){
+    auto itVar1 = _Vars.find( pVar1 );
+    _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
+    return;
+  }
+
   auto itVar1 = _Vars.find( pVar1 );
   struct loc{
     static std::pair<double,double> sin
@@ -3809,417 +4440,6 @@ PolImg<T>::_add_cuts_SIN
 
 template <typename T>
 inline PolVar<T>
-pow
-( const PolVar<T>&Var1, const int iExp )
-{
-#ifdef MC__POLIMG_CHECK
-  if( iExp == 0 || iExp == 1 || iExp == 2 )
-    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
-#endif
-  FFGraph* dag = Var1._var.dag();
-#ifdef MC__POLIMG_CHECK
-  if( !dag || !dag->curOp() )
-    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
-#endif
-
-  FFVar* pFFVarR = dag->curOp()->pres;
-  PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::pow( Var1._range, iExp ), true );
-  return *pVarR;
-}
-
-template <typename T> inline void
-PolImg<T>::_add_cuts_IPOW
-( const PolVar<T>*VarR, FFVar*pVar1, const int iExp )
-{
-  if( pVar1->cst() )
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::pow( pVar1->num().val(), iExp ), *VarR, 1. );
-  else{
-    auto itVar1 = _Vars.find( pVar1 );
-    struct loc{
-      static std::pair<double,double> pow
-        ( const double x, const double*rusr, const int*iusr )
-        { return std::make_pair( std::pow(x,*iusr), *iusr*std::pow(x,*iusr-1) ); }
-      static std::pair<double,double> powcvu
-        ( const double x, const double*rusr, const int*iusr )
-        { return std::make_pair( std::pow(x,*iusr), *iusr*std::pow(x,*iusr-1) ); }
-    };
-    // Positive even exponent term
-    if( iExp > 0 && !(iExp%2) ){
-      _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
-        Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::pow, 0, &iExp );
-      _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
-        Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
-        PolCut<T>::GE, loc::pow, 0, &iExp );
-    }
-
-    // Positive odd exponent term
-    else if( iExp > 0 && options.ROOT_USE ){
-      // -- Convex Portion
-      if( Op<T>::l(itVar1->second->_range) >= 0. ){
-        _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
-          Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::pow, 0, &iExp );
-        _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
-          Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
-          PolCut<T>::GE, loc::pow, 0, &iExp );
-      }
-      // -- Concave Portion
-      else if( Op<T>::u(itVar1->second->_range) <= 0. ){
-        _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
-          Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::GE, loc::pow, 0, &iExp );
-        _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
-          Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
-          PolCut<T>::LE, loc::pow, 0, &iExp );
-      }
-      // -- Nonconvex/Nonconcave Portion
-      else{
-        switch( options.BREAKPOINT_TYPE ){
-          case PolImg<T>::Options::BIN:
-          case PolImg<T>::Options::SOS2:{
-            const unsigned NKNOTS = itVar1->second->create_subdiv( Op<T>::l(itVar1->second->_range),
-              Op<T>::u(itVar1->second->_range) ).size();
-            if( NKNOTS > 2 ){
-              struct dc{
-                static std::pair<double,double> pow1
-                  ( const double x, const double*rusr, const int*iusr )
-                  { return std::make_pair( x<0?std::pow(x,*iusr):0., x<0?*iusr*std::pow(x,*iusr-1):0. ); }
-                static std::pair<double,double> pow2
-                  ( const double x, const double*rusr, const int*iusr )
-                  { return std::make_pair( x>0?std::pow(x,*iusr):0., x>0?*iusr*std::pow(x,*iusr-1):0. ); }
-              };
-              PolVar<T>* Var3 = _append_aux( Op<T>::pow( itVar1->second->_range, iExp ), true );
-              PolVar<T>* Var4 = _append_aux( Op<T>::pow( itVar1->second->_range, iExp ), true );
-              _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
-                Op<T>::u(itVar1->second->_range), *Var3, PolCut<T>::GE, dc::pow1, 0, &iExp );
-              _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
-                Op<T>::u(itVar1->second->_range), *Var3, Op<T>::l(VarR->_range), 0., PolCut<T>::LE, dc::pow1, 0, &iExp );
-              _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
-                Op<T>::u(itVar1->second->_range), *Var4, PolCut<T>::LE, dc::pow2, 0, &iExp );
-              _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
-                Op<T>::u(itVar1->second->_range), *Var4, 0., Op<T>::u(VarR->_range), PolCut<T>::GE, dc::pow2, 0, &iExp );
-              _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *Var3, -1., *Var4, -1. );
-              break;
-            }
-            // No break in order to append other "normal" cuts if no breakpoints
-          }
-          case PolImg<T>::Options::NONE: default:{
-            struct fct{ static std::pair<double,double> powoddfunc
-              ( const double x, const double*rusr, const int*iusr )
-              { return std::make_pair(
-                  ((*iusr-1)*x-(*iusr)*(*rusr))*std::pow(x,*iusr-1) + std::pow(*rusr,*iusr),
-                  (*iusr)*(*iusr-1)*(x-(*rusr))*std::pow(x,*iusr-2) ); }
-            };
-            double xJcc = Op<T>::u(itVar1->second->_range);
-            xJcc = _newton( Op<T>::l(itVar1->second->_range), Op<T>::l(itVar1->second->_range), 0.,
-              fct::powoddfunc, options.ROOT_TOL, options.ROOT_MAXIT, &xJcc, &iExp );
-            if( mc::isequal( xJcc, Op<T>::l(itVar1->second->_range) ) )
-              _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
-                Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::pow, 0, &iExp );
-            else
-              _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range), xJcc,
-                *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::LE, loc::pow, 0, &iExp );
-
-            double xJcv = Op<T>::l(itVar1->second->_range);
-            xJcv = _newton( Op<T>::u(itVar1->second->_range), 0., Op<T>::u(itVar1->second->_range),
-              fct::powoddfunc, options.ROOT_TOL, options.ROOT_MAXIT, &xJcv, &iExp );
-            if( mc::isequal( xJcv, Op<T>::u(itVar1->second->_range) ) )
-              _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
-                Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::GE, loc::pow, 0, &iExp );
-            else
-              _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, xJcv, Op<T>::u(itVar1->second->_range),
-                *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::pow, 0, &iExp );
-            break;
-          }
-        }
-      }
-    }
-
-    // Negative exponent term
-    else if( iExp < 0 ){
-      // -- Convex Case
-      if( !(iExp%2) || Op<T>::l(itVar1->second->_range) > 0. ){
-        _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
-          Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::pow, 0, &iExp );
-        _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
-          Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
-          PolCut<T>::GE, loc::pow, 0, &iExp );
-      }
-      // -- Concave Case
-      else{
-        _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
-          Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::GE, loc::pow, 0, &iExp );
-        _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
-          Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
-          PolCut<T>::LE, loc::pow, 0, &iExp );
-      }
-    }
-  }
-}
-
-template <typename T>
-inline PolVar<T>
-cheb
-( const PolVar<T>&Var1, const unsigned iOrd )
-{
-#ifdef MC__POLIMG_CHECK
-  if( iOrd <= 2 )
-    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
-#endif
-  FFGraph* dag = Var1._var.dag();
-#ifdef MC__POLIMG_CHECK
-  if( !dag || !dag->curOp() )
-    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
-#endif
-
-  FFVar* pFFVarR = dag->curOp()->pres;
-#ifdef MC__POLIMG_DEBUG_CHEB
-  std::cout << "X = " << Var1._range << std::endl;
-  std::cout << "Cheb(" << Var1._range << "," << iOrd << ") = " << Op<T>::cheb( Var1._range, iOrd ) << std::endl;
-#endif
-  PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::cheb( Var1._range, iOrd ), true );
-  return *pVarR;
-}
-
-template <typename T> inline void
-PolImg<T>::_add_cuts_CHEB
-( const PolVar<T>*VarR, FFVar*pVar, const unsigned iOrd )
-{
-  if( pVar->cst() )
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, mc::cheb( pVar->num().val(), iOrd ), *VarR, 1. );
-  else{
-    auto itVar1 = _Vars.find( pVar );
-    struct loc{
-      static std::pair<double,double> cheb
-        ( const double x, const double*rusr, const int*iusr )
-        { return std::make_pair( mc::cheb(x,*iusr), *iusr*mc::cheb2(x,*iusr-1) ); }
-    };      
-    const int iusr = iOrd;
-    // Positive even order
-    if( iOrd > 0 && !(iOrd%2) ){
-      _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
-        Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::cheb, 0, &iusr );
-      double xJL = std::cos(mc::PI*(1.+1./(double)iOrd));
-      _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range), xJL,
-        *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::cheb, 0, &iusr );
-      double xJU = std::cos(mc::PI/(double)iOrd);
-      _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, xJU, Op<T>::u(itVar1->second->_range),
-        *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::cheb, 0, &iusr );
-    }
-
-    // Positive odd order
-    else{
-      double xJL = std::cos(mc::PI*(1.+1./(double)iOrd));
-      _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range), xJL,
-        *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::LE, loc::cheb, 0, &iusr );
-      double xJU = std::cos(mc::PI/(double)iOrd);
-      _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, xJU, Op<T>::u(itVar1->second->_range),
-        *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::cheb, 0, &iusr );
-    }
-  }
-}
-
-template <typename T>
-inline PolVar<T>
-prod
-( const unsigned nVar, const PolVar<T>*pVar )
-{
-#ifdef MC__POLIMG_CHECK
-  if( nVar <= 2 )
-    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
-#endif
-  FFGraph* dag = pVar->_var.dag();
-#ifdef MC__POLIMG_CHECK
-  if( !dag || !dag->curOp() )
-    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
-#endif
-
-  FFVar* pFFVarR = dag->curOp()->pres;
-  std::vector<T> IVar; IVar.reserve( nVar );
-  for( unsigned i=0; i<nVar; i++ ) IVar.push_back( pVar[i]._range );
-  PolVar<T>* pVarR = pVar->_img->_append_var( pFFVarR, Op<T>::prod( IVar.size(), IVar.data() ), true );
-  return *pVarR;
-}
-
-template <typename T> inline bool
-PolImg<T>::_subset_incr
-( const unsigned ntot, std::vector<unsigned>&ndx )
-{
-  auto rit=ndx.rbegin();
-  for( unsigned i=0; rit!=ndx.rend(); ++rit, i++ )
-    if( *rit < ntot-i-1 ){ (*rit)++; return true; }
-  if( ntot < ndx.size()+2 ) return false;
-  for( unsigned i=0; i<ndx.size(); i++ ) ndx.at(i) = i;
-  ndx.push_back( ndx.size() ); ndx.push_back( ndx.size() );
-  return true;
-}
-
-template <typename T> inline void
-PolImg<T>::_add_cuts_PROD
-( const PolVar<T>*VarR, std::vector<FFVar*>vVar )
-{
-  std::vector<PolVar<T>> vPolVar;
-  double scalR = 1., radR = 1.;
-  double isCen = true;
-  auto it=vVar.begin(); 
-  for( unsigned i=0; it!=vVar.end(); ++it, i++ ){
-    // Detect constant operands
-    if( (*it)->cst() ){
-      scalR *= (*it)->num().val();
-      continue;
-    }
-    // Look for corresponding variable in polyhedral image
-    auto itVar = _Vars.find( *it );
-    assert( itVar->first );
-    if( isequal( Op<T>::diam(itVar->second->_range), 0. ) ){
-      scalR *= Op<T>::mid(itVar->second->_range);
-      continue;
-    }
-    vPolVar.push_back( *(itVar->second) );
-    if( !isequal( Op<T>::mid(itVar->second->_range), 0. ) )
-      isCen = false;
-    radR *= Op<T>::u(itVar->second->_range);
-  }
-#ifdef MC__POLIMG_DEBUG_PROD
-  std::cout << "CENTERED:" << (isCen?"Y":"N") << std::endl;
-#endif 
-  
-  // Case: Zero scaling factor in multilinear term
-  if( isequal( scalR, 0. ) ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1. );
-    return;
-  }
-
-  // Case: Non-centered multilinear term
-  if( !isCen ){
-    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
-//    for( unsigned i=0; i<vPolVar.size(); i++ ){
-//    PolVar<T>* auxVar = _append_aux( Op<T>::pow( itVar1->second->_range, iExp ), true );
-//    _add_cuts_TIMES( const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
-  }
-
-  // Case: Centered multilinear term
-  std::vector<double> cPolVar( vPolVar.size() );
-  for( std::vector<unsigned> ndxCut; ; ){
-#ifdef MC__POLIMG_DEBUG_PROD
-    std::cout << "{";
-    for( auto&& idx : ndxCut ) std::cout << " " << idx;
-    std::cout << " }\n";
-#endif   
-    // Subscase: Odd-sized multilinear term
-    if( vPolVar.size()%2 ){
-      for( unsigned i=0, k=0; i<vPolVar.size(); i++ ){
-        if( ndxCut.size() > k && ndxCut[k] == i ){
-          cPolVar[i] = 1. / Op<T>::u( vPolVar[i]._range );
-          k++;
-        }
-        else
-          cPolVar[i] = -1. / Op<T>::u( vPolVar[i]._range );
-      }
-      _add_cut( VarR->_var.ops().first, PolCut<T>::LE, vPolVar.size()-1.,
-        vPolVar.size(), vPolVar.data(), cPolVar.data(), *VarR, 1./(scalR*radR) );
-      _add_cut( VarR->_var.ops().first, PolCut<T>::GE, 1.-vPolVar.size(),
-        vPolVar.size(), vPolVar.data(), cPolVar.data(), *VarR, 1./(scalR*radR) );
-    }
-    // Subscase: Even-sized multilinear term
-    else{
-      for( unsigned i=0, k=0; i<vPolVar.size(); i++ ){
-        if( ndxCut.size() > k && ndxCut[k] == i ){
-          cPolVar[i] = 1. / Op<T>::u( vPolVar[i]._range );
-          k++;
-        }
-        else
-          cPolVar[i] = -1. / Op<T>::u( vPolVar[i]._range );
-      }
-      _add_cut( VarR->_var.ops().first, PolCut<T>::GE, 1.-vPolVar.size(),
-        vPolVar.size(), vPolVar.data(), cPolVar.data(), *VarR, -1./(scalR*radR) );
-      _add_cut( VarR->_var.ops().first, PolCut<T>::GE, 1.-vPolVar.size(),
-        vPolVar.size(), vPolVar.data(), cPolVar.data(), *VarR, 1./(scalR*radR) );
-    }
-    // Generate next index set
-    if( !_subset_incr( vPolVar.size(), ndxCut ) ) break;
-  }
-#ifdef MC__POLIMG_DEBUG_PROD
-  std::cout << "vVar: " << vVar.size() << "  vPolVar: " << vPolVar.size() << std::endl;
-#endif
-}
-
-template <typename T>
-inline PolVar<T>
-fabs
-( const PolVar<T>&Var1 )
-{
-  FFGraph* dag = Var1._var.dag();
-#ifdef MC__POLIMG_CHECK
-  if( !dag || !dag->curOp() )
-    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
-#endif
-
-  FFVar* pFFVarR = dag->curOp()->pres;
-  PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::fabs( Var1._range ), true );
-  return *pVarR;
-}
-
-template <typename T> inline void
-PolImg<T>::_add_cuts_FABS
-( const PolVar<T>*VarR, FFVar*pVar1 )
-{
-  // Constant operand
-  if( pVar1->cst() ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::fabs( pVar1->num().val() ), *VarR, 1. );
-    return;
-  }
-  auto itVar1 = _Vars.find( pVar1 );
-
-  // Positive branch only
-  if( Op<T>::l(itVar1->second->_range) >= 0. ){
-      _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar1->second, -1. );
-      return;
-  }
-
-  // Negative branch only
-  if( Op<T>::u(itVar1->second->_range) <= 0. ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar1->second,  1. );
-    return;
-  }
-
-  // Linear overestimator
-  if( !options.BREAKPOINT_DISC ){
-    double XL = Op<T>::l(itVar1->second->_range),  dX = Op<T>::diam(itVar1->second->_range),
-           YL = std::fabs(Op<T>::l(itVar1->second->_range)), dY = std::fabs(Op<T>::u(itVar1->second->_range))-YL;
-    _add_cut( VarR->_var.ops().first, PolCut<T>::GE, dY*XL-dX*YL, *VarR, -dX, *itVar1->second, dY );
-  }
-  // Piecewise-linear overestimator
-  else{
-    const double M1 =  2*Op<T>::u(itVar1->second->_range);
-    const double M2 = -2*Op<T>::l(itVar1->second->_range);
-    PolVar<T>* VarB = _append_aux( Op<T>::zeroone(), false );
-    _add_cut( VarR->_var.ops().first, PolCut<T>::LE, M2, *VarR, 1., *itVar1->second, -1., *VarB,  M2 );
-    _add_cut( VarR->_var.ops().first, PolCut<T>::LE, 0., *VarR, 1., *itVar1->second,  1., *VarB, -M1 );
-  }
-  // Linear underestimators
-  _add_cut( VarR->_var.ops().first, PolCut<T>::GE, 0., *VarR, 1., *itVar1->second,  -1. );
-  _add_cut( VarR->_var.ops().first, PolCut<T>::GE, 0., *VarR, 1., *itVar1->second,   1. );
-}
-
-template <typename T> inline bool
-PolImg<T>::_add_LQ_FABS
-( PolLQExpr<T>*&pLQ, const PolVar<T>*VarR, FFVar*pVar1 )
-{
-  auto itVar1 = _Vars.find( pVar1 );
-  if( !pVar1->cst() || Op<T>::l(itVar1->second->_range)*Op<T>::u(itVar1->second->_range) < 0. ) return false;
-  if( !pLQ ) pLQ = _append_LQ( VarR );
-  if( pVar1->cst() )
-    pLQ->substitute( VarR, std::fabs(pVar1->num().val()) );
-  else{
-    if( Op<T>::l(itVar1->second->_range) >= 0 )
-      pLQ->substitute( VarR, 1., itVar1->second );
-    else
-      pLQ->substitute( VarR, -1., itVar1->second );
-  }
-  return true;
-}
-
-template <typename T>
-inline PolVar<T>
 tan
 ( const PolVar<T>&Var1 )
 {
@@ -4241,7 +4461,14 @@ PolImg<T>::_add_cuts_TAN
   if( pVar1->cst() ){
     _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::tan( pVar1->num().val() ), *VarR, 1. );
     return;
+  }  
+
+  else if( !options.RELAX_NLIN ){
+    auto itVar1 = _Vars.find( pVar1 );
+    _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
+    return;
   }
+
   if( !options.ROOT_USE ) return;
 
   auto itVar1 = _Vars.find( pVar1 );
@@ -4358,6 +4585,13 @@ PolImg<T>::_add_cuts_ACOS
     _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::acos( pVar1->num().val() ), *VarR, 1. );
     return;
   }
+    
+  else if( !options.RELAX_NLIN ){
+    auto itVar1 = _Vars.find( pVar1 );
+    _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
+    return;
+  }
+
   if( !options.ROOT_USE ) return;
 
   auto itVar1 = _Vars.find( pVar1 );
@@ -4485,6 +4719,13 @@ PolImg<T>::_add_cuts_ASIN
     _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::asin( pVar1->num().val() ), *VarR, 1. );
     return;
   }
+  
+  else if( !options.RELAX_NLIN ){
+    auto itVar1 = _Vars.find( pVar1 );
+    _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
+    return;
+  }
+
   if( !options.ROOT_USE ) return;
 
   auto itVar1 = _Vars.find( pVar1 );
@@ -4612,6 +4853,13 @@ PolImg<T>::_add_cuts_ATAN
     _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::atan( pVar1->num().val() ), *VarR, 1. );
     return;
   }
+  
+  else if( !options.RELAX_NLIN ){
+    auto itVar1 = _Vars.find( pVar1 );
+    _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
+    return;
+  }
+
   if( !options.ROOT_USE ) return;
 
   auto itVar1 = _Vars.find( pVar1 );
@@ -5123,7 +5371,7 @@ PolImg<T>::_add_cuts_ERF
 
 template <typename T>
 inline PolVar<T>
-xlog
+fabs
 ( const PolVar<T>&Var1 )
 {
   FFGraph* dag = Var1._var.dag();
@@ -5133,28 +5381,69 @@ xlog
 #endif
 
   FFVar* pFFVarR = dag->curOp()->pres;
-  PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::xlog( Var1._range ), true );
+  PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::fabs( Var1._range ), true );
   return *pVarR;
 }
 
 template <typename T> inline void
-PolImg<T>::_add_cuts_XLOG
+PolImg<T>::_add_cuts_FABS
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
-  if( pVar1->cst() )
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, mc::xlog( pVar1->num().val() ), *VarR, 1. );
-  else{
-    auto itVar1 = _Vars.find( pVar1 );
-    struct loc{ static std::pair<double,double> xlog
-      ( const double x, const double*rusr, const int*iusr )
-      { return std::make_pair( mc::xlog(x), std::log(x)+1. ); }
-    };
-    _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
-      Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::xlog );
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
-      Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
-      PolCut<T>::GE, loc::xlog );
+  // Constant operand
+  if( pVar1->cst() ){
+    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::fabs( pVar1->num().val() ), *VarR, 1. );
+    return;
   }
+
+  auto itVar1 = _Vars.find( pVar1 );
+
+  // Positive branch only
+  if( Op<T>::l(itVar1->second->_range) >= 0. ){
+      _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar1->second, -1. );
+      return;
+  }
+
+  // Negative branch only
+  if( Op<T>::u(itVar1->second->_range) <= 0. ){
+    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar1->second,  1. );
+    return;
+  }
+
+  // Linear overestimator
+  if( !options.BREAKPOINT_DISC ){
+    double XL = Op<T>::l(itVar1->second->_range),  dX = Op<T>::diam(itVar1->second->_range),
+           YL = std::fabs(Op<T>::l(itVar1->second->_range)), dY = std::fabs(Op<T>::u(itVar1->second->_range))-YL;
+    _add_cut( VarR->_var.ops().first, PolCut<T>::GE, dY*XL-dX*YL, *VarR, -dX, *itVar1->second, dY );
+  }
+  // Piecewise-linear overestimator
+  else{
+    const double M1 =  2*Op<T>::u(itVar1->second->_range);
+    const double M2 = -2*Op<T>::l(itVar1->second->_range);
+    PolVar<T>* VarB = _append_aux( Op<T>::zeroone(), false );
+    _add_cut( VarR->_var.ops().first, PolCut<T>::LE, M2, *VarR, 1., *itVar1->second, -1., *VarB,  M2 );
+    _add_cut( VarR->_var.ops().first, PolCut<T>::LE, 0., *VarR, 1., *itVar1->second,  1., *VarB, -M1 );
+  }
+  // Linear underestimators
+  _add_cut( VarR->_var.ops().first, PolCut<T>::GE, 0., *VarR, 1., *itVar1->second,  -1. );
+  _add_cut( VarR->_var.ops().first, PolCut<T>::GE, 0., *VarR, 1., *itVar1->second,   1. );
+}
+
+template <typename T> inline bool
+PolImg<T>::_add_LQ_FABS
+( PolLQExpr<T>*&pLQ, const PolVar<T>*VarR, FFVar*pVar1 )
+{
+  auto itVar1 = _Vars.find( pVar1 );
+  if( !pVar1->cst() || Op<T>::l(itVar1->second->_range)*Op<T>::u(itVar1->second->_range) < 0. ) return false;
+  if( !pLQ ) pLQ = _append_LQ( VarR );
+  if( pVar1->cst() )
+    pLQ->substitute( VarR, std::fabs(pVar1->num().val()) );
+  else{
+    if( Op<T>::l(itVar1->second->_range) >= 0 )
+      pLQ->substitute( VarR, 1., itVar1->second );
+    else
+      pLQ->substitute( VarR, -1., itVar1->second );
+  }
+  return true;
 }
 
 template <typename T>
