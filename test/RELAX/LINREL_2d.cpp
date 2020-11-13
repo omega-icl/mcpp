@@ -1,4 +1,4 @@
-#define TEST_FSTEP	// <-- select test function here
+#define TEST_TRIG	// <-- select test function here
 const int NX = 40;	// <-- select discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
 #define ADD_BREAKPOINT  // <-- specify whether to add breakpoints to the variables
@@ -250,7 +250,7 @@ int main()
     //return 0;
 
     mc::PolImg<I> PolEnv;
-    PolEnv.options.AGGREG_LIN = true;
+    PolEnv.options.AGGREG_LQ = true;
 #ifndef USE_MILP
     PolEnv.options.BREAKPOINT_DISC = false;
 #else

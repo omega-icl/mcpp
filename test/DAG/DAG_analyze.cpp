@@ -90,13 +90,13 @@ int test_rltred1()
   F[2] = x1 + x2 -1.;
   std::cout << DAG;
 
-  mc::RLTRED RRLT( &DAG );
-  RRLT.options.DISPLAY    = 1;
-  RRLT.options.MIPFILE    = "rltred1.lp";
-  RRLT.options.MIPDISPLAY = 0;
-  RRLT.options.METHOD     = mc::RLTRED::Options::ILP;
-  RRLT.options.LEVEL      = mc::RLTRED::Options::FULLSIM;
-  RRLT.options.NODIV      = false;
+  mc::RLTRed RRLT( &DAG );
+  RRLT.options.DISPLEVEL     = 1;
+  RRLT.options.MIPOUTPUTFILE = "rltred1.lp";
+  RRLT.options.MIPDISPLEVEL  = 0;
+  RRLT.options.METHOD        = mc::RLTRed::Options::ILP;
+  RRLT.options.LEVEL         = mc::RLTRed::Options::FULLSIM;
+  RRLT.options.NODIV         = false;
 
   RRLT.search( NF, F );
 
@@ -142,13 +142,13 @@ int test_rltred2()
   F[1] = sqr(X[0]) - sqr(X[1]) - X[2];
   std::cout << DAG;
 
-  mc::RLTRED RRLT( &DAG );
-  RRLT.options.DISPLAY    = 1;
-  RRLT.options.MIPFILE    = "rltred2.lp";
-  RRLT.options.METHOD     = mc::RLTRED::Options::ILP;
-  RRLT.options.LEVEL      = mc::RLTRED::Options::FULLSIM;
-  RRLT.options.NODIV      = false;
-  RRLT.options.MIPDISPLAY = 1;
+  mc::RLTRed RRLT( &DAG );
+  RRLT.options.DISPLEVEL     = 1;
+  RRLT.options.MIPOUTPUTFILE = "rltred2.lp";
+  RRLT.options.METHOD        = mc::RLTRed::Options::ILP;
+  RRLT.options.LEVEL         = mc::RLTRed::Options::FULLSIM;
+  RRLT.options.NODIV         = false;
+  RRLT.options.MIPDISPLEVEL  = 1;
 
   RRLT.search( NF, F );
 
@@ -182,13 +182,13 @@ int test_rltred3()
        - 9*(X[3]*X[5]) - X[4]*X[5];
   std::cout << DAG;
 
-  mc::RLTRED RRLT( &DAG );
-  RRLT.options.DISPLAY    = 2;
-  RRLT.options.MIPFILE    = "rltred3.lp";
-  RRLT.options.MIPDISPLAY = 1;
-  RRLT.options.METHOD     = mc::RLTRED::Options::ILP;
-  RRLT.options.LEVEL      = mc::RLTRED::Options::FULLSIM;
-  RRLT.options.NODIV      = false;
+  mc::RLTRed RRLT( &DAG );
+  RRLT.options.DISPLEVEL     = 2;
+  RRLT.options.MIPOUTPUTFILE = "rltred3.lp";
+  RRLT.options.MIPDISPLEVEL  = 1;
+  RRLT.options.METHOD        = mc::RLTRed::Options::ILP;
+  RRLT.options.LEVEL         = mc::RLTRed::Options::FULLSIM;
+  RRLT.options.NODIV         = false;
 
   RRLT.search( NF, F.data() );
 
@@ -487,13 +487,13 @@ int test_rltred4()
   /*
     ############## REDUCTION CONSTRAINTS ###########################################
   */
-  mc::RLTRED RRLT( &DAG );
-  RRLT.options.DISPLAY    = 1;
-  RRLT.options.MIPFILE    = "rltred4.lp";
-  RRLT.options.MIPDISPLAY = 1;
-  RRLT.options.METHOD     = mc::RLTRED::Options::ILP;
-  RRLT.options.LEVEL      = mc::RLTRED::Options::PRIMSIM;
-  RRLT.options.NODIV      = false;
+  mc::RLTRed RRLT( &DAG );
+  RRLT.options.DISPLEVEL     = 1;
+  RRLT.options.MIPOUTPUTFILE = "rltred4.lp";
+  RRLT.options.MIPDISPLEVEL  = 1;
+  RRLT.options.METHOD        = mc::RLTRed::Options::ILP;
+  RRLT.options.LEVEL         = mc::RLTRed::Options::PRIMSIM;
+  RRLT.options.NODIV         = false;
 
   RRLT.search( NF, F );
 
@@ -647,13 +647,13 @@ int test_rltred5()
   /*
     ############## REDUCTION CONSTRAINTS ###########################################
   */
-  mc::RLTRED RRLT( &DAG );
-  RRLT.options.DISPLAY    = 1;
-  RRLT.options.MIPFILE    = "rltred5.lp";
-  RRLT.options.MIPDISPLAY = 1;
-  RRLT.options.METHOD     = mc::RLTRED::Options::ILP;
-  RRLT.options.LEVEL      = mc::RLTRED::Options::PRIMSIM;
-  RRLT.options.NODIV      = false;
+  mc::RLTRed RRLT( &DAG );
+  RRLT.options.DISPLEVEL     = 1;
+  RRLT.options.MIPOUTPUTFILE = "rltred5.lp";
+  RRLT.options.MIPDISPLEVEL  = 1;
+  RRLT.options.METHOD        = mc::RLTRed::Options::ILP;
+  RRLT.options.LEVEL         = mc::RLTRed::Options::PRIMSIM;
+  RRLT.options.NODIV         = false;
 
   RRLT.search( EQ.size(), EQ.data() );
 
@@ -686,13 +686,13 @@ int test_rltred6()
   for( unsigned i(0); i<NX-2; i++ ) F[1] += X[i]*X[i+2];
   std::cout << DAG;
 
-  mc::RLTRED RRLT( &DAG );
-  RRLT.options.DISPLAY    = 1;
-  RRLT.options.MIPFILE    = "rltred6.lp";
-  RRLT.options.MIPDISPLAY = 1;
-  RRLT.options.METHOD     = mc::RLTRED::Options::ILP;
-  RRLT.options.LEVEL      = mc::RLTRED::Options::FULLSIM;
-  RRLT.options.NODIV      = false;
+  mc::RLTRed RRLT( &DAG );
+  RRLT.options.DISPLEVEL     = 1;
+  RRLT.options.MIPOUTPUTFILE = "rltred6.lp";
+  RRLT.options.MIPDISPLEVEL  = 1;
+  RRLT.options.METHOD        = mc::RLTRed::Options::ILP;
+  RRLT.options.LEVEL         = mc::RLTRed::Options::FULLSIM;
+  RRLT.options.NODIV         = false;
 
   RRLT.search( NF, F.data() );
 
@@ -970,10 +970,10 @@ int main()
     //test_spolyexpr1();
     //test_spolyexpr2();
     //test_sparseexpr();
-    test_quadexpr1();
+    //test_quadexpr1();
     //test_quadexpr2();
     //test_quadexpr3();
-    //test_rltred1();
+    test_rltred1();
     //test_rltred2();
     //test_rltred3();
     //test_rltred4();
