@@ -21,12 +21,12 @@ namespace fadbad
 //! @brief Specialization of the structure fadbad::Op for use of the type boost::numeric::interval_lib::interval<double> of the <A href="https://www.boost.org/doc/libs/1_68_0/libs/numeric/interval/doc/interval.htm">Boost Interval Arithmetic Library</A> as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
 template <> struct Op< boost::numeric::interval < double,boost::numeric::interval_lib::policies<
                        boost::numeric::interval_lib::save_state<boost::numeric::interval_lib::rounded_transc_opp<double>>,
-                       boost::numeric::interval_lib::checking_strict<double>
+                       boost::numeric::interval_lib::checking_base<double>
                      > > >
 {
   typedef double Base;
   typedef boost::numeric::interval_lib::save_state<boost::numeric::interval_lib::rounded_transc_opp<double>> R;
-  typedef boost::numeric::interval_lib::checking_strict<double> P;
+  typedef boost::numeric::interval_lib::checking_base<double> P;
   typedef boost::numeric::interval<double,boost::numeric::interval_lib::policies<R,P>> T;
   //typedef boost::numeric::interval<double,T_boost_policy> T;
   static Base myInteger( const int i ) { return Base(i); }
@@ -78,11 +78,11 @@ namespace mc
 //  typedef boost::numeric::interval<double> T;
 template <> struct Op< boost::numeric::interval < double,boost::numeric::interval_lib::policies<
                        boost::numeric::interval_lib::save_state<boost::numeric::interval_lib::rounded_transc_opp<double>>,
-                       boost::numeric::interval_lib::checking_strict<double>
+                       boost::numeric::interval_lib::checking_base<double>
                      > > >
 {
   typedef boost::numeric::interval_lib::save_state<boost::numeric::interval_lib::rounded_transc_opp<double>> R;
-  typedef boost::numeric::interval_lib::checking_strict<double> P;
+  typedef boost::numeric::interval_lib::checking_base<double> P;
   typedef boost::numeric::interval<double,boost::numeric::interval_lib::policies<R,P>> T;
   static T point( const double c ) { return T( c ); }
   static T zeroone() { return T( 0., 1. ); }

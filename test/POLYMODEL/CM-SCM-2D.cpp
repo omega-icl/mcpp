@@ -1,12 +1,15 @@
 #define TEST_EXP1        // <-- select test function here
-const int NTE = 3;      // <-- select Taylor expansion order here
+const int NTE = 12;      // <-- select Taylor expansion order here
 #undef USE_PROFIL       // <-- specify to use PROFIL for interval arithmetic
 #undef USE_FILIB        // <-- specify to use FILIB++ for interval arithmetic
 ////////////////////////////////////////////////////////////////////////
+//#define MC__SCMODEL_DEBUG_SPROD
+
 
 #include <fstream>
 #include <iomanip>
 
+#include "mctime.hpp"
 #ifdef USE_PROFIL
   #include "mcprofil.hpp"
   typedef INTERVAL I;
@@ -80,6 +83,7 @@ template <class T>
 T myfunc
 ( const T&x, const T&y )
 {
+  //return exp(x)*exp(y);
   return x*exp(pow(y,2))-pow(y,2);
 }
 
@@ -92,7 +96,9 @@ template <class T>
 T myfunc
 ( const T&x, const T&y )
 {
+  //return x-y*(exp(y)-exp(-y));
   return x*y*(x*(exp(x)-exp(-x))-y*(exp(y)-exp(-y)));
+  //return (x*(exp(x)-exp(-x)));
 }
 
 #elif defined( TEST_INV )
@@ -166,28 +172,34 @@ T myfunc
 
 int main()
 { 
-  const unsigned NVAR = 2; 
+  const unsigned NREP = 10000; 
  {
-  CM modCM( NVAR, NTE );
-  modCM.options.BOUNDER_TYPE = CM::Options::LSB;
-  modCM.options.MIXED_IA = true;
+  CM modCM( 2, NTE );
+  modCM.options.BOUNDER_TYPE = CM::Options::LSB;//NAIVE;//LSB;
+  modCM.options.MIXED_IA = true;//false;
 
-  CV X( &modCM, 0, I(XL,XU) );
-  CV Y( &modCM, 1, I(YL,YU) );
-  CV F = myfunc( X, Y );
-  std::cout << "\nChebyshev model (dense implementation):\n";
-  std::cout << F;
+  double tStart = mc::userclock();
+  for( unsigned i=0; i<NREP; i++ ){
+    CV X( &modCM, 0, I(XL,XU) );
+    CV Y( &modCM, 1, I(YL,YU) );
+    CV F = myfunc( X, Y );
+    if( !i ) std::cout << F;
+  }
+  std::cout << "\nChebyshev model (dense implementation):" << (mc::userclock()-tStart)/(double)NREP << " CPU-sec\n";
  }
  {
   SCM modSCM( NTE );
   modSCM.options.BOUNDER_TYPE = SCM::Options::LSB;
-  modSCM.options.MIXED_IA = true;
+  modSCM.options.MIXED_IA = true;//false;
 
-  SCV X( &modSCM, 0, I(XL,XU) );
-  SCV Y( &modSCM, 1, I(YL,YU) );
-  SCV F = myfunc( X, Y );
-  std::cout << "\nChebyshev model (sparse implementation):\n";
-  std::cout << F;
+  double tStart = mc::userclock();
+  for( unsigned i=0; i<NREP; i++ ){
+    SCV X( &modSCM, 0, I(XL,XU) );
+    SCV Y( &modSCM, 1, I(YL,YU) );
+    SCV F = myfunc( X, Y );
+    if( !i ) std::cout << F;
+  }
+  std::cout << "\nChebyshev model (sparse implementation):" << (mc::userclock()-tStart)/(double)NREP << " CPU-sec\n";;
  }
   return 0;
 } 

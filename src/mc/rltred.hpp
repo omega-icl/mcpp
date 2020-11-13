@@ -1,14 +1,14 @@
-// Copyright (C) 2015-2018 Benoit Chachuat, Imperial College London.
+// Copyright (C) 2015- Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
 /*!
 \page page_RLTRED Reduced RLT Generation in Factorable Expressions
 \author Benoit Chachuat & OMEGA Research Group (http://www3.imperial.ac.uk/environmentenergyoptimisation)
-\date 2018
+\date 2020
 \bug No known bugs.
 
-The class mc::RLTRED in <tt>rltred.hpp</tt> identifies <b>reduction constraints</b> from a given set of factorable equality constraints; namely, constraints that are redundant because they do not cut off solutions from the original equation system, yet strengthen relaxations of the solution set. The starting point is the reduced RLT approach introduced by Liberti (2004) and Liberti & Pantelides (2006) based on the RLT approach by Sherali & Alameddine (1992), which identifies reduction constraints between existing nonlinearities, i.e. does not introduce any additional nonlinear term. This approach essentially identifies linearity embedded in a set of nonlinear constraints and may be applied as a pre-processing step in practice. 
+The class mc::RLTRed in <tt>rltred.hpp</tt> identifies <b>reduction constraints</b> from a given set of factorable equality constraints; namely, constraints that are redundant because they do not cut off solutions from the original equation system, yet strengthen relaxations of the solution set. The starting point is the reduced RLT approach introduced by Liberti (2004) and Liberti & Pantelides (2006) based on the RLT approach by Sherali & Alameddine (1992), which identifies reduction constraints between existing nonlinearities, i.e. does not introduce any additional nonlinear term. This approach essentially identifies linearity embedded in a set of nonlinear constraints and may be applied as a pre-processing step in practice. 
 
 Herein, we implement an extension of the original reduced RLT approach by: (i) enabling the creation of reduction constraint via both multiplication and division of existing linear expression by participating variables; and (ii) identifying reduction constraints via an integer-programming-based approach that supersedes the original graph-theoretical approach by Liberti & Pantelides (2006). We also discuss the case with linear inequality constraints using additional bound factor information.
 
@@ -139,22 +139,22 @@ The last line displays the following information about the factorable constraint
       Z1	<=  -1(D)		 => { Z2 }
 \endverbatim
 
-Reduction constraint identification starts by creating an instance of the class mc::RLTRED for the DAG at hand. Various options may be specified at this point using the public member mc::RLTRED::options; e.g.:
-- mc::RLTRED::Options::METHOD enables the selection of ILP-based search, instead of the default graph-based approach
-- mc::RLTRED::Options::LEVEL enables simultaneous search in all the participating variables, instead of the default sequential, variable-by-variable strategy
-- mc::RLTRED::Options::NODIV enables multiplying constraints with variables only, as opposed to both multiplication and division
-- mc::RLTRED::Options::MIPDISPLAY enables display of the MIP solver
+Reduction constraint identification starts by creating an instance of the class mc::RLTRed for the DAG at hand. Various options may be specified at this point using the public member mc::RLTRed::options; e.g.:
+- mc::RLTRed::Options::METHOD to select ILP-based search, instead of the default graph-based approach
+- mc::RLTRed::Options::LEVEL to enable simultaneous search in all the participating variables, instead of the default sequential, variable-by-variable strategy
+- mc::RLTRed::Options::NODIV to restrict multiplying constraints with variables only, as opposed to both multiplication and division
+- mc::RLTRed::Options::MIPDISPLEVEL to control display of the MIP solver
 .
 
 \code
-      mc::RLTRED RRLT( &DAG );
-      RRLT.options.METHOD     = mc::RLTRED::Options::ILP;
-      RRLT.options.LEVEL      = mc::RLTRED::Options::FULLSIM;
+      mc::RLTRed RRLT( &DAG );
+      RRLT.options.METHOD     = mc::RLTRed::Options::ILP;
+      RRLT.options.LEVEL      = mc::RLTRed::Options::FULLSIM;
       RRLT.options.NODIV      = true;
-      RRLT.options.MIPDISPLAY = 1;
+      RRLT.options.MIPDISPLEVEL = 1;
 \endcode
 
-The reduction constraints algorithm is called via the method mc::RLTRED::search. A vector of valid reduction constraint found can be retreived using the method mc::RLTRED::constraints, and then displayed as shown below.
+The reduction constraints algorithm is called via the method mc::RLTRed::search. A vector of valid reduction constraint found can be retreived using the method mc::RLTRed::constraints, and then displayed as shown below.
 
 \code
       RRLT.search( NF, F );
@@ -248,20 +248,19 @@ bilinear programming problems</A>, <i>Journal of Global Optimization</i>, <b>2</
 #include "ffunc.hpp"
 #include "spolyexpr.hpp"
 #include "mclapack.hpp"
+
 #if defined(MC__USE_CPLEX)
-  #include "ilcplex/ilocplex.h"
+ #include "ilcplex/ilocplex.h"
 #elif defined(MC__USE_GUROBI)
-  #include "gurobi_c++.h"
-#endif
-
-#undef MC__RLTRED_DEBUG
-
-#if defined(MC__USE_GUROBI)
-extern "C"{
+ #include "gurobi_c++.h"
+ extern "C"{
   #include <fenv.h>
   int fedisableexcept( int );
-}
+ }
 #endif
+
+#undef  MC__RLTRED_DEBUG
+//#define MC__RLTRED_USE_QR
 
 namespace mc
 {
@@ -348,11 +347,11 @@ struct lt_RLTEdge
 
 //! @brief C++ base class for reduced RLT generation in a DAG
 ////////////////////////////////////////////////////////////////////////
-//! mc::RLTRED is a C++ base class implementing the reduced RLT
+//! mc::RLTRed is a C++ base class implementing the reduced RLT
 //! approach by Liberti et al. to identifying redundant constraints
 //! in a DAG based on linear equality constraints.
 ////////////////////////////////////////////////////////////////////////
-class RLTRED
+class RLTRed
 {
 public:
   typedef typename FFVar::pt_idVar pt_idVar;
@@ -444,7 +443,7 @@ private:
 public:
   
   //! @brief Default Constructor
-  RLTRED
+  RLTRed
     ( FFGraph* dag )
     : _dag( dag )
     {
@@ -459,7 +458,7 @@ public:
 #endif
     }
   //! @brief Destructor
-  ~RLTRED()
+  ~RLTRed()
     {
       for( auto itv=_varRed.begin(); itv!=_varRed.end(); ++itv ) delete itv->first;
       for( auto itv=_rhsRed.begin(); itv!=_rhsRed.end(); ++itv ) delete *itv;
@@ -483,22 +482,44 @@ public:
   t_RLTRed& search
     ( const unsigned nlhs, const FFVar* lhs, const bool add2dag=true );
 
+  //! @brief Return a map of reduction constraints for the expressions in lhs
+  t_RLTRed& search
+    ( const std::set<unsigned>& ndxlhs, const FFVar* lhs, const bool add2dag=true );
+
   //! @brief Return a vector of pointers to the reduction "hidden" constraints found
   const std::vector<const FFVar*>& constraints
     ()
     const
     { return _ctrRed; }
 
-  //! @brief Options of mc::RLTRED
+  //! @brief Options of mc::RLTRed
   struct Options
   {
     //! @brief Constructor
     Options():
       LEVEL(PRIMSEQ), METHOD(GRAPH), NODIV(false), VARTOL(1e-4), 
-      LPALGO( RLTRED::LPALGO_DEFAULT ), LPPRESOLVE(-1),
+      LPALGO( RLTRed::LPALGO_DEFAULT ), LPPRESOLVE(-1),
       LPFEASTOL(1e-9), LPOPTIMTOL(1e-9), MIPRELGAP(1e-7), MIPABSGAP(1e-7),
-      DISPLAY(0), MIPDISPLAY(0), MIPFILE(""), MAXCPU(7200)
+      MIPDISPLEVEL(0), MIPOUTPUTFILE(""), DISPLEVEL(0), TIMELIMIT(7200)
       {}
+    //! @brief Assignment operator
+    Options& operator= ( Options&options ){
+        LEVEL         = options.LEVEL;
+        METHOD        = options.METHOD;
+        NODIV         = options.NODIV;
+        VARTOL        = options.VARTOL;
+        LPALGO        = options.LPALGO;
+        LPPRESOLVE    = options.LPPRESOLVE;
+        LPFEASTOL     = options.LPFEASTOL;
+        LPOPTIMTOL    = options.LPOPTIMTOL;
+        MIPRELGAP     = options.MIPRELGAP;
+        MIPABSGAP     = options.MIPABSGAP;
+        MIPDISPLEVEL  = options.MIPDISPLEVEL;
+        MIPOUTPUTFILE = options.MIPOUTPUTFILE;
+        DISPLEVEL     = options.DISPLEVEL;
+        TIMELIMIT     = options.TIMELIMIT;
+        return *this ;
+      }
     //! @brief Enumeration type for reduced RLT strategy
     enum RLTVARS{
       PRIMSEQ=0,//!< Reduced RLT with primary variables as operands only treated sequentially
@@ -533,14 +554,14 @@ public:
     double MIPRELGAP;
     //! @brief Tolerance on absolute MIP gap
     double MIPABSGAP;
-    //! @brief Display level
-    unsigned DISPLAY;
     //! @brief Display level for MIP
-    int MIPDISPLAY;
+    int MIPDISPLEVEL;
     //! @brief Name of output file for optimization model
-    std::string MIPFILE;
+    std::string MIPOUTPUTFILE;
+    //! @brief Display level
+    unsigned DISPLEVEL;
     //! @brief Maximum run time (seconds)
-    double MAXCPU;
+    double TIMELIMIT;
   } options;
 
   //! @brief Structure holding current statistics
@@ -675,20 +696,31 @@ private:
 };
 
 #if defined(MC__USE_CPLEX) || defined(MC__USE_GUROBI)
-inline const int RLTRED::LPALGO_DEFAULT;
+inline const int RLTRed::LPALGO_DEFAULT;
 #endif
 
-inline typename RLTRED::t_RLTRed&
-RLTRED::search
+inline typename RLTRed::t_RLTRed&
+RLTRed::search
 ( const unsigned nlhs, const FFVar* lhs, const bool add2dag )
 {
   std::vector<const FFVar*> vlhs;
+  vlhs.reserve( nlhs );
   for( unsigned i=0; i<nlhs; i++ ) vlhs.push_back( lhs+i );
   return search( vlhs, add2dag );
 }
 
-inline typename RLTRED::t_RLTRed&
-RLTRED::search
+inline typename RLTRed::t_RLTRed&
+RLTRed::search
+( const std::set<unsigned >& ndxlhs, const FFVar* lhs, const bool add2dag )
+{
+  std::vector<const FFVar*> vlhs;
+  vlhs.reserve( ndxlhs.size() );
+  for( auto const& i : ndxlhs ) vlhs.push_back( lhs+i );
+  return search( vlhs, add2dag );
+}
+
+inline typename RLTRed::t_RLTRed&
+RLTRed::search
 ( const std::vector<const FFVar*>& vlhs, const bool add2dag )
 {
   stats.reset();
@@ -722,18 +754,18 @@ RLTRED::search
 }
 
 inline void
-RLTRED::_add_to_dag
+RLTRed::_add_to_dag
 ( const std::vector<const FFVar*>& vlhs )
 {
   // RLT did not give any reduction constraints
   if( _RLTRed.begin() == _RLTRed.end() ){
-    if( options.DISPLAY >= 1 )
+    if( options.DISPLEVEL >= 1 )
       std::cout << "\nNO RLT REDUCTION CONSTRAINTS FOUND\n";
     return;
   }
 
   // Display "raw" reduction constraints
-  if( options.DISPLAY >= 2 ){
+  if( options.DISPLEVEL >= 2 ){
     std::cout << "\nRLT REDUCTION CONSTRAINTS:\n";
     for( auto it = _RLTRed.begin(); it != _RLTRed.end(); ++it ){
       std::cout << "  " << *(*it).first.first << "  <";
@@ -765,7 +797,7 @@ RLTRED::_add_to_dag
   for( unsigned iRow = 0; itRed != _RLTRed.end(); ++itRed, iRow++ )
     _process_constraint( iRow, vlhs, itRed->first, itRed->second ); 
   //std::cout << *_dag;
-  if( options.DISPLAY >= 2 ){
+  if( options.DISPLEVEL >= 2 ){
     std::cout << "\nRIGHT-HAND-SIDE DEPENDENTS:\n";
     for( auto itv=_rhsRed.begin(); itv!=_rhsRed.end(); ++itv )
       std::cout << "  " << *(*itv) << std::endl;
@@ -775,11 +807,69 @@ RLTRED::_add_to_dag
     std::cout << "\nCOEFFICIENT MATRIX:\n" << _coefRed;
   }
 
+#if defined(MC__RLTRED_USE_QR)
+  // Perform QR decomposition of coefficient matrix
+  CPPL::dgematrix Q, R;
+  int INFO = CPPL::dgeqrf( _coefRed, Q, R );
+  if( options.DISPLEVEL >= 2 ){
+    std::cout << "\nQR DECOMPOSITION OF COEFFICIENT MATRIX: "
+              << INFO << std::endl
+              << "\nMatrix Q:\n" << Q
+              << "\nMatrix R:\n" << R;
+  }
+
+  // Error during QR decomposition
+  if( INFO < 0 ){
+    stats.tCTRDAG += cpuclock();
+    throw std::runtime_error( "Error during QR decomposition" );
+  }
+
+  // Build "hidden" relationships from QR decomposition
+  std::vector<SPolyExpr> vSCtr;
+
+  for( int ip=nRLTRed-1; ip>=0; ip-- ){
+    if( !isequal( R(ip,ip), 0 ) ) break;
+    SPolyExpr ctr = 0;
+    for( unsigned jp=0; jp<nRLTRed; jp++ ){
+      if( isequal( Q(jp,ip), 0 ) ) continue;
+      assert(_rhsRed[jp]);
+      if( _rhsRed[jp]->cst() )
+        ctr += _rhsRed[jp]->num().val() * Q(jp,ip);
+      else if( _rhsRed[jp]->ops().first->type != FFOp::NEG )
+        ctr += SPolyExpr( *_rhsRed[jp] ) * Q(jp,ip);
+      else
+        ctr -= SPolyExpr( *_rhsRed[jp]->ops().first->pops[0] ) * Q(jp,ip);
+    }
+    if( options.DISPLEVEL >= 2 )
+      std::cout << "New constraint #" << ip << ":" << ctr;
+    vSCtr.push_back( ctr );
+  }
+  
+  // Build "hidden" relationships in DAG
+  for( auto&& sctr : vSCtr ){
+    FFVar var = sctr.insert(_dag);
+    auto itvar = _dag->Vars().find( &var );
+    if( itvar == _dag->Vars().end() ){
+      if( !isequal( var.num().val(), 0 ) ){
+        std::ostringstream msg; 
+        msg << "Inconsistent constraint: 0 != " << var << std::endl;
+        throw std::runtime_error( msg.str() );
+      }
+      continue;
+    }
+    _ctrRed.push_back( *itvar );
+    if( options.DISPLEVEL >= 2 ){
+      std::ostringstream ostr; ostr << " OF " << var;
+      _dag->output( _dag->subgraph( 1, *itvar ), ostr.str() );
+    }
+  }
+
+#else
   // Perform LU decomposition of coefficient matrix
   CPPL::dgematrix L, U;
   std::vector<int> PIV;
-  const int INFO = CPPL::dgetrf( _coefRed, U, L, PIV );
-  if( options.DISPLAY >= 2 ){
+  int INFO = CPPL::dgetrf( _coefRed, U, L, PIV );
+  if( options.DISPLEVEL >= 2 ){
     std::cout << "\nLU DECOMPOSITION OF COEFFICIENT MATRIX: "
               << INFO << std::endl
               << "\nMatrix U:\n" << U
@@ -797,6 +887,7 @@ RLTRED::_add_to_dag
   // Build "hidden" relationships using forward substitution
   else if( INFO > 0 ){
     std::vector<SPolyExpr> vSCtr;
+    
     for( auto&& ip : PIV ){
       assert(_rhsRed[ip]);
       const unsigned k = vSCtr.size();
@@ -810,18 +901,17 @@ RLTRED::_add_to_dag
       for( unsigned j=0; j<k; j++ )
         if( !isequal( L(k,j), 0 ) ) ctr += (-L(k,j)) * vSCtr[j];
       ctr /= L(k,k);
-      if( options.DISPLAY >= 2 )
+      if( options.DISPLEVEL >= 2 )
         std::cout << "New constraint #" << k << ":" << ctr;
       vSCtr.push_back( ctr );
     }
-
     
 #if defined(MC__USE_CPLEX)
     try{
       vSCtr.erase( vSCtr.begin(), vSCtr.begin()+vSCtr.size()-std::ceil(-_ILOcplex->getObjValue()) );
     }
     catch(IloException& e){
-      if( options.MIPDISPLAY )
+      if( options.MIPDISPLEVEL )
         std::cout << "Error code = " << e.getMessage() << std::endl;
       _ILPexcpt = true;
     }
@@ -830,7 +920,7 @@ RLTRED::_add_to_dag
       vSCtr.erase( vSCtr.begin(), vSCtr.begin()+vSCtr.size()-std::ceil(-_GRBmodel->get(GRB_DoubleAttr_ObjVal)) );
     }
     catch(GRBException& e){
-      if( options.MIPDISPLAY )
+      if( options.MIPDISPLEVEL )
         std::cout << "Error code = " << e.getErrorCode() << std::endl
                   << e.getMessage() << std::endl;
       _ILPexcpt = true;
@@ -839,6 +929,7 @@ RLTRED::_add_to_dag
     vSCtr.erase( vSCtr.begin(), vSCtr.begin()+INFO-1 );
 #endif
 
+    // Build "hidden" relationships in DAG
     for( auto&& sctr : vSCtr ){
       FFVar var = sctr.insert(_dag);
       auto itvar = _dag->Vars().find( &var );
@@ -851,20 +942,21 @@ RLTRED::_add_to_dag
         continue;
       }
       _ctrRed.push_back( *itvar );
-      if( options.DISPLAY >= 2 ){
+      if( options.DISPLEVEL >= 2 ){
         std::ostringstream ostr; ostr << " OF " << var;
         _dag->output( _dag->subgraph( 1, *itvar ), ostr.str() );
       }
     }
   }
+#endif
 
   // End timing of RLT constraint generation
   stats.tCTRDAG += cpuclock();
 
   // Display "hidden" relationships
-  if( options.DISPLAY == 1 )
+  if( options.DISPLEVEL == 1 )
     std::cout << std::endl << _ctrRed.size() << " REDUCED RLT CONSTRAINTS\n";
-  if( options.DISPLAY >= 2 ){
+  if( options.DISPLEVEL >= 2 ){
     std::cout << std::endl << _ctrRed.size() << " REDUCED RLT CONSTRAINTS FOUND:";
     for( unsigned i=0; i<_ctrRed.size(); i++ ) std::cout << "  " << *_ctrRed[i];
     std::cout << std::endl;
@@ -874,7 +966,7 @@ RLTRED::_add_to_dag
 }
 
 inline void
-RLTRED::_process_constraint
+RLTRed::_process_constraint
 ( const unsigned iRow, const std::vector<const FFVar*>& vlhs, const t_RLTVar& RLTVar, const FFOp* linOp )
 {
   _rhsRed[iRow] = new FFVar(0.);
@@ -911,7 +1003,7 @@ RLTRED::_process_constraint
 }
 
 inline void
-RLTRED::_process_term
+RLTRed::_process_term
 ( const unsigned iRow, const FFOp::TYPE& RLTOp, const FFVar& RLTVar,
   const FFVar& linVar, const double coef )
 {
@@ -1045,15 +1137,15 @@ RLTRED::_process_term
 }
 
 inline void
-RLTRED::_extract_linearity
-( const typename RLTRED::l_Ops& Ops, const std::vector<const FFVar*>& vlhs )
+RLTRed::_extract_linearity
+( const typename RLTRed::l_Ops& Ops, const std::vector<const FFVar*>& vlhs )
 {
   static const unsigned int nlinOp = 5;
   static const typename FFOp::TYPE linOp[nlinOp] = { FFOp::PLUS, FFOp::NEG, FFOp::MINUS, FFOp::SHIFT, FFOp::SCALE };
 
   // Create subset of linear operations
   _linTerms  = _subset_op( Ops, nlinOp, linOp );
-  if( options.DISPLAY >= 2 ){
+  if( options.DISPLEVEL >= 2 ){
     std::cout << "\nLINEAR TERMS ACCOUNTED FOR IN RLT:\n";
     for( auto it = _linTerms.begin(); it != _linTerms.end(); ++it )
       std::cout << *(*it) << std::endl;
@@ -1062,7 +1154,7 @@ RLTRED::_extract_linearity
   // Create subset of variables participating in linear operations
   // and map between these variables and their defining operations
   _subset_var_edge( vlhs, _linTerms, _linVars, _linEdges );
-  if( options.DISPLAY >= 2 ){
+  if( options.DISPLEVEL >= 2 ){
     std::cout << "\nVARIABLES PARTICIPATING IN RLT TERMS:\n";
     for( auto it = _linVars.begin(); it != _linVars.end(); ++it )
       std::cout << *(*it) << std::endl;
@@ -1073,8 +1165,8 @@ RLTRED::_extract_linearity
 }
 
 inline void
-RLTRED::_target_nonlinearity
-( const typename RLTRED::l_Ops& Ops )
+RLTRed::_target_nonlinearity
+( const typename RLTRed::l_Ops& Ops )
 {
   // subset of bilinear terms
   _bilTerms  = _subset_op( Ops, FFOp::TIMES );
@@ -1096,8 +1188,8 @@ RLTRED::_target_nonlinearity
 }
 
 inline void
-RLTRED::_search_sequential
-( const typename RLTRED::l_Ops& Ops )
+RLTRed::_search_sequential
+( const typename RLTRed::l_Ops& Ops )
 {
   // MAIN LOOP: Valid RRLT cut for each candidate multiplier/divider variables
   for( auto ito = Ops.rbegin(); ito != Ops.rend(); ++ito ){
@@ -1180,8 +1272,8 @@ RLTRED::_search_sequential
 }
 
 inline void
-RLTRED::_search_simultaneous
-( const typename RLTRED::l_Ops& Ops )
+RLTRed::_search_simultaneous
+( const typename RLTRed::l_Ops& Ops )
 {
   if( options.METHOD == Options::GRAPH )
     throw std::runtime_error( "Simultaneous RLT reduction using graph is unavailable.\n" );
@@ -1251,7 +1343,7 @@ RLTRED::_search_simultaneous
 }
 
 inline void
-RLTRED::_bigraph_RLT
+RLTRed::_bigraph_RLT
 ( const t_RLTVar& VarRed, t_Vars& RLTVars, t_Edges& RLTEdges )
 const
 {
@@ -1267,7 +1359,7 @@ const
 }
 
 inline void
-RLTRED::_bigraph_RLT_mult
+RLTRed::_bigraph_RLT_mult
 ( const FFVar*VarMult, t_Vars &linVars, t_Edges &linEdges )
 const
 {
@@ -1340,7 +1432,7 @@ const
 
   // INCORPORATE POW TERMS!
 
-  if( options.DISPLAY >= 2 ){
+  if( options.DISPLEVEL >= 2 ){
     std::cout << "\nVARIABLES IN RLT TERMS NOT YET PARTICIPATING IN ANY PRODUCT TERM WITH "
               << VarMult->name() << ":\n";
     for( auto itv = linVars.begin(); itv != linVars.end(); ++itv )
@@ -1353,7 +1445,7 @@ const
 }
 
 inline void
-RLTRED::_bigraph_RLT_div
+RLTRed::_bigraph_RLT_div
 ( const FFVar* VarDiv, t_Vars &linVars, t_Edges &linEdges )
 const
 {
@@ -1403,7 +1495,7 @@ const
     }
   }
 
-  if( options.DISPLAY >= 2 ){
+  if( options.DISPLEVEL >= 2 ){
     std::cout << "\nVARIABLES IN RLT TERMS NOT YET PARTICIPATING IN ANY FRACTIONAL TERM WITH "
               << VarDiv->name() << ":\n";
     for( auto itv = linVars.begin(); itv != linVars.end(); ++itv )
@@ -1416,8 +1508,8 @@ const
 }
 
 #if defined(MC__USE_CPLEX)
-inline typename RLTRED::t_ILPVar::iterator
-RLTRED::_set_ILPvar
+inline typename RLTRed::t_ILPVar::iterator
+RLTRed::_set_ILPvar
 ( const t_RLTVar& VarRed, const FFVar* pVarLin )
 {
   //stats.tILPAUX -= cpuclock();
@@ -1435,8 +1527,8 @@ RLTRED::_set_ILPvar
   return itvar;
 }
 
-inline typename RLTRED::t_ILPCtr::iterator
-RLTRED::_set_ILPctr
+inline typename RLTRed::t_ILPCtr::iterator
+RLTRed::_set_ILPctr
 ( const t_RLTVar& VarRed, const FFOp* pOpLin )
 {
   //stats.tILPAUX -= cpuclock();
@@ -1455,7 +1547,7 @@ RLTRED::_set_ILPctr
 }
 
 inline void
-RLTRED::_add_ILPedge
+RLTRed::_add_ILPedge
 ( const IloNumVar& varbin, const IloNumVar& ctrbin )
 {
   //stats.tILPAUX -= cpuclock();
@@ -1464,8 +1556,8 @@ RLTRED::_add_ILPedge
 }
 
 #elif defined(MC__USE_GUROBI)
-inline typename RLTRED::t_ILPVar::iterator
-RLTRED::_set_ILPvar
+inline typename RLTRed::t_ILPVar::iterator
+RLTRed::_set_ILPvar
 ( const t_RLTVar& VarRed, const FFVar* pVarLin )
 {
   auto itvar = _ILPvar.find( std::make_pair( VarRed, pVarLin ) );
@@ -1476,8 +1568,8 @@ RLTRED::_set_ILPvar
   return itvar;
 }
 
-inline typename RLTRED::t_ILPCtr::iterator
-RLTRED::_set_ILPctr
+inline typename RLTRed::t_ILPCtr::iterator
+RLTRed::_set_ILPctr
 ( const t_RLTVar& VarRed, const FFOp* pOpLin )
 {
   auto itctr = _ILPctr.find( std::make_pair( VarRed, pOpLin ) );
@@ -1489,7 +1581,7 @@ RLTRED::_set_ILPctr
 }
 
 inline void
-RLTRED::_add_ILPedge
+RLTRed::_add_ILPedge
 ( const GRBVar& varbin, const GRBVar& ctrbin )
 {
   _GRBmodel->addConstr( GRBLinExpr( ctrbin,  1. ), GRB_GREATER_EQUAL, GRBLinExpr( varbin,  1. ) );
@@ -1498,7 +1590,7 @@ RLTRED::_add_ILPedge
 
 #if defined(MC__USE_CPLEX) || defined(MC__USE_GUROBI)
 inline void
-RLTRED::_append_ILPmodel
+RLTRed::_append_ILPmodel
 ( const t_RLTVar& VarRed, t_Vars& RLTVars, t_Edges& RLTEdges )
 {
   for( auto&& edge : RLTEdges ){
@@ -1511,7 +1603,7 @@ RLTRED::_append_ILPmodel
 }
 
 inline void
-RLTRED::_reset_ILPmodel
+RLTRed::_reset_ILPmodel
 ()
 {
 #if defined(MC__USE_CPLEX)
@@ -1528,7 +1620,7 @@ RLTRED::_reset_ILPmodel
 }
 
 inline void
-RLTRED::_solve_ILPmodel
+RLTRed::_solve_ILPmodel
 ()
 {
   _set_ILPoptions();
@@ -1536,29 +1628,29 @@ RLTRED::_solve_ILPmodel
 #if defined(MC__USE_CPLEX)
   try{
     _ILOmodel->add( IloMinimize( *_ILOenv, *_ILPobj ) );
-    if( options.MIPFILE != "" )
-      _ILOcplex->exportModel( options.MIPFILE.c_str() );
+    if( options.MIPOUTPUTFILE != "" )
+      _ILOcplex->exportModel( options.MIPOUTPUTFILE.c_str() );
     _ILOcplex->solve();
-    if( options.MIPDISPLAY )
+    if( options.MIPDISPLEVEL )
       std::cout << "  #reduction constraints: " << std::ceil(-_ILOcplex->getObjValue()) << std::endl;
   }
   catch(IloException& e){
-    if( options.MIPDISPLAY )
+    if( options.MIPDISPLEVEL )
       std::cout << "Error code = " << e.getMessage() << std::endl;
     _ILPexcpt = true;
   }
 #elif defined(MC__USE_GUROBI)
   try{
     _GRBmodel->update();
-    if( options.MIPFILE != "" )
-      _GRBmodel->write( options.MIPFILE );
+    if( options.MIPOUTPUTFILE != "" )
+      _GRBmodel->write( options.MIPOUTPUTFILE );
     fedisableexcept(FE_ALL_EXCEPT);
     _GRBmodel->optimize();
-    if( options.MIPDISPLAY )
+    if( options.MIPDISPLEVEL )
       std::cout << "  #reduction constraints: " << std::ceil(-_GRBmodel->get( GRB_DoubleAttr_ObjVal )) << std::endl;
   }
   catch(GRBException& e){
-    if( options.MIPDISPLAY )
+    if( options.MIPDISPLEVEL )
       std::cout << "Error code = " << e.getErrorCode() << std::endl
                 << e.getMessage() << std::endl;
     _ILPexcpt = true;
@@ -1567,36 +1659,36 @@ RLTRED::_solve_ILPmodel
 }
 
 inline void
-RLTRED::_set_ILPoptions
+RLTRed::_set_ILPoptions
 ()
 {
 #if defined(MC__USE_CPLEX)
   // CPLEX options
   _ILOcplex->extract(*_ILOmodel);
-  _ILOcplex->setWarning( options.MIPDISPLAY? std::cout: _ILOenv->getNullStream() );
-  _ILOcplex->setOut( options.MIPDISPLAY? std::cout: _ILOenv->getNullStream() );
+  _ILOcplex->setWarning( options.MIPDISPLEVEL? std::cout: _ILOenv->getNullStream() );
+  _ILOcplex->setOut( options.MIPDISPLEVEL? std::cout: _ILOenv->getNullStream() );
   _ILOcplex->setParam( IloCplex::RootAlg, options.LPALGO );
   _ILOcplex->setParam( IloCplex::EpOpt,   options.LPOPTIMTOL );
   _ILOcplex->setParam( IloCplex::EpRHS,   options.LPFEASTOL );
   _ILOcplex->setParam( IloCplex::EpGap,   options.MIPRELGAP );
   _ILOcplex->setParam( IloCplex::EpAGap,  options.MIPABSGAP );
-  _ILOcplex->setParam( IloCplex::TiLim,   options.MAXCPU );
+  _ILOcplex->setParam( IloCplex::TiLim,   options.TIMELIMIT );
   _ILOcplex->setParam( IloCplex::PreInd,  options.LPPRESOLVE?true:false );
 #elif defined(MC__USE_GUROBI)
   // Gurobi options
-  _GRBmodel->getEnv().set( GRB_IntParam_OutputFlag,        options.MIPDISPLAY );
+  _GRBmodel->getEnv().set( GRB_IntParam_OutputFlag,        options.MIPDISPLEVEL );
   _GRBmodel->getEnv().set( GRB_IntParam_Method,            options.LPALGO );
   _GRBmodel->getEnv().set( GRB_DoubleParam_FeasibilityTol, options.LPFEASTOL );
   _GRBmodel->getEnv().set( GRB_DoubleParam_OptimalityTol,  options.LPOPTIMTOL );
   _GRBmodel->getEnv().set( GRB_DoubleParam_MIPGap,         options.MIPRELGAP );
   _GRBmodel->getEnv().set( GRB_DoubleParam_MIPGapAbs,      options.MIPABSGAP );
-  _GRBmodel->getEnv().set( GRB_DoubleParam_TimeLimit,      options.MAXCPU );
+  _GRBmodel->getEnv().set( GRB_DoubleParam_TimeLimit,      options.TIMELIMIT );
   _GRBmodel->getEnv().set( GRB_IntParam_Presolve,          options.LPPRESOLVE  );
 #endif
 }
 
 inline void
-RLTRED::_extract_RLT
+RLTRed::_extract_RLT
 ()
 {
   // Need checking successfull opimization first
@@ -1613,7 +1705,7 @@ RLTRED::_extract_RLT
 #endif
 
 inline void
-RLTRED::_reduction_RLT
+RLTRed::_reduction_RLT
 ( const t_RLTVar& VarRed )
 {
   // Matching initially empty
@@ -1635,7 +1727,7 @@ RLTRED::_reduction_RLT
 }
 
 inline bool
-RLTRED::_augpath_RLT
+RLTRed::_augpath_RLT
 ( const pt_Op& pOp )
 {
   _TermVisited[pOp.second] = true;
@@ -1670,9 +1762,9 @@ RLTRED::_augpath_RLT
   return false;
 }
 
-inline typename RLTRED::t_Ops
-RLTRED::_subset_op
-( const typename RLTRED::l_Ops& Ops, const unsigned int nOp, const typename FFOp::TYPE*typeOp )
+inline typename RLTRed::t_Ops
+RLTRed::_subset_op
+( const typename RLTRed::l_Ops& Ops, const unsigned int nOp, const typename FFOp::TYPE*typeOp )
 const
 {
   // Create subset of operations of given type
@@ -1687,9 +1779,9 @@ const
   return subOps;
 }
 
-inline typename RLTRED::t_Ops
-RLTRED::_subset_op
-( const typename RLTRED::l_Ops& Ops, const typename FFOp::TYPE&typeOp )
+inline typename RLTRed::t_Ops
+RLTRed::_subset_op
+( const typename RLTRed::l_Ops& Ops, const typename FFOp::TYPE&typeOp )
 const
 {
   // Create subset of operations of given type
@@ -1703,9 +1795,9 @@ const
 }
 
 inline void
-RLTRED::_subset_var_edge
-( const std::vector<const FFVar*>& vlhs, const typename RLTRED::t_Ops& Ops,
-  typename RLTRED::t_Vars& Vars, typename RLTRED::t_Edges& Edges )
+RLTRed::_subset_var_edge
+( const std::vector<const FFVar*>& vlhs, const typename RLTRed::t_Ops& Ops,
+  typename RLTRed::t_Vars& Vars, typename RLTRed::t_Edges& Edges )
 const
 {
   Vars.clear();
@@ -1725,7 +1817,7 @@ const
 }
 
 inline bool
-RLTRED::_is_rhs
+RLTRed::_is_rhs
 ( const std::vector<const FFVar*>& vlhs, const FFVar& varRes )
 const
 {

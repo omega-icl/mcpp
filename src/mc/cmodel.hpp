@@ -2661,6 +2661,7 @@ operator*
         * ( 1. - (double)prodii[1] / (double)prodii[0] );
   }
   *(CV3._bndrem) = coefrem * (Op<T>::zeroone()*2.-1.);
+  // std::cout << "coefrem = " << coefrem << std::endl;
   // Switch to dense mode when filled
   if( CV3._ndxmon.size()==CV3.nmon() ) CV3._ndxmon.clear(); 
 

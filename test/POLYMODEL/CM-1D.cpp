@@ -1,5 +1,5 @@
-#define TEST_TRIG	    // <-- select test function here
-const int NTE = 4;	    // <-- select Chebyshev expansion order here
+#define TEST_HYP	    // <-- select test function here
+const int NTE = 6;	    // <-- select Chebyshev expansion order here
 const int NX = 200;	    // <-- select X discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
 #define TEST_CVG        // <-- specify whether to save results to file
@@ -145,14 +145,14 @@ T myfunc
 }
 
 #elif defined( TEST_HYP )
-const double XL   = -3.0;	// <-- X range lower bound
-const double XU   = 3.5;	// <-- X range upper bound
+const double XL   = -6.0;	// <-- X range lower bound
+const double XU   = 8.0;	// <-- X range upper bound
 const double Xref =  1.;	// <-- X ref point for McCormick
 template <class T>
 T myfunc
 ( const T&x )
 {
-  return tanh(x)-sinh(x)/cosh(x);
+  return tanh(x);//-sinh(x)/cosh(x);
 }
 
 #elif defined( TEST_TAN )

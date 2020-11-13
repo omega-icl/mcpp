@@ -9,7 +9,7 @@ INC_MC = -I$(PATH_MC)/src/mc $(INC_FADBAD) $(INC_LAPACK) $(INC_PROFIL) $(INC_FIL
 
 #####
 
-all: TM-1D TM-2D CM-1D CM-2D CM-SCM-2D
+all: TM-1D TM-2D CM-1D CM-2D CM-SCM-2D SCM-QUAD-2D
 
 TM-1D : TM-1D.o
 	$(LINK) $(PROF) $(FLAGS_LINK) -o $@ $< $(LIB_MC)
@@ -24,6 +24,12 @@ CM-2D : CM-2D.o
 	$(LINK) $(PROF) $(FLAGS_LINK) -o $@ $< $(LIB_MC)
 
 CM-SCM-2D : CM-SCM-2D.o
+	$(LINK) $(PROF) $(FLAGS_LINK) -o $@ $< $(LIB_MC)
+
+CM-SCM-3D : CM-SCM-3D.o
+	$(LINK) $(PROF) $(FLAGS_LINK) -o $@ $< $(LIB_MC)
+
+SCM-QUAD-2D : SCM-QUAD-2D.o
 	$(LINK) $(PROF) $(FLAGS_LINK) -o $@ $< $(LIB_MC)
 
 %.o: %.cpp 
@@ -45,5 +51,5 @@ gensvg :
 #####
 
 clean :
-	rm -f TM-1D TM-2D CM-1D CM-2D CM-SCM-2D *.o *.out *.eps *.dot *.svg *~
+	rm -f TM-1D TM-2D CM-1D CM-2D CM-SCM-2D SCM-QUAD-2D *.o *.out *.eps *.dot *.svg *~
 

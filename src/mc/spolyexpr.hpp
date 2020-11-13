@@ -15,7 +15,7 @@
 
 namespace mc
 {
-class SPolyExpr;
+//class SPolyExpr;
 
 //! @brief C++ structure for defining monomials in multivariate polynomials
 struct FFMon
@@ -457,6 +457,13 @@ public:
     const
     { return _mapmon.size(); };
 
+  //! @brief Get coefficient of monomial mon
+  double coefmon
+    ( FFMon const& mon )
+    const
+    { auto it = _mapmon.find( mon ); 
+      return( it != _mapmon.end()? it->second: 0e0 ); }
+
   //! @brief Get const map of monomial coefficients
   const t_ffpoly& mapmon
     ()
@@ -567,7 +574,7 @@ public:
       CHEB	    //!< Chebyshev basis
     };
     //! @brief Basis representation of sparse polynomial
-    BASIS_TYPE BASIS;
+    int BASIS;
     //! @brief Whether to remove zeros entries from sparse polynomials
     bool REMZERO;
     //! @brief Number of digits in output stream for sparse polynomial coefficients
@@ -755,8 +762,14 @@ operator<<
 
   // Sparse multivariate polynomial
   for( auto it=spoly._mapmon.begin(); it!=spoly._mapmon.end(); ++it )
-    out << "  " << std::right << std::setw(DISPLEN+7) << it->second << "   " << it->first
+    out << "  " << std::right << std::setw(DISPLEN+7) << it->second << std::setw(2) << it->first.tord << "  " << it->first
         << std::endl;
+
+//  // Index set
+//  out << std::right << "   I     =  {";
+//  for( auto const& var : spoly._setvar )
+//    out << std::right << " " << *var;
+//  out << std::right << " }" << std::endl;
 
   return out;
 }
@@ -1119,7 +1132,7 @@ inline SPolyExpr
 sqr
 ( const SPolyExpr&spoly )
 {
-  // Construct vectors of coefficients for first partipating variable
+  // Construct coefficient maps for first partipating variable
   auto itvar = spoly._setvar.begin();
   std::map<unsigned,SPolyExpr::t_ffpoly> spmap;
   for( auto itmon=spoly._mapmon.begin(); itmon!=spoly._mapmon.end(); ++itmon )

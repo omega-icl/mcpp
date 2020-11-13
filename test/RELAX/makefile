@@ -10,7 +10,7 @@ INC_MC = -I$(PATH_MC)/src/mc $(INC_FADBAD) $(INC_LAPACK) $(INC_PROFIL) $(INC_FIL
 FLAGS_MC = $(FLAGS_FILIB) $(FLAGS_HSL)
 
 PATH_GUROBI = $(GUROBI_HOME)
-LIB_GUROBI  = -L$(PATH_GUROBI)/lib -lgurobi_g++5.2 -lgurobi81 -pthread
+LIB_GUROBI  = -L$(PATH_GUROBI)/lib -lgurobi_g++5.2 -lgurobi91 -pthread
 INC_GUROBI  = -I$(PATH_GUROBI)/include
 
 FLAGS_ALL = $(FLAGS_CPP) $(FLAGS_OPT) $(FLAGS_MC) -DMC__USE_GUROBI
@@ -19,7 +19,7 @@ INC_ALL   = $(INC_MC) $(INC_GUROBI)
 
 #####
 
-all: LINREL_build LINREL_1d LINREL_2d
+all: LINREL_build LINREL_build2 LINREL_build3 LINREL_1d LINREL_2d
 
 LINREL_% : LINREL_%.o
 	$(CPP) -o $@ $< $(LIB_ALL)
@@ -43,5 +43,5 @@ gensvg :
 #####
 
 clean :
-	rm -f LINREL_build LINREL_?d *.o *~ *.eps *.lp *.dot *.svg *.out
+	rm -f LINREL_build LINREL_build2 LINREL_build3 LINREL_?d *.o *~ *.eps *.lp *.dot *.svg *.out
 

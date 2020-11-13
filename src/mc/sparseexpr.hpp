@@ -159,7 +159,6 @@ Finally, the original vector-valued function \f${\bf f}(x_0,x_1)\f$ is equal to 
 #include "spolyexpr.hpp"
 
 #define MC__SPARSEENV_CHECK
-#undef  MC__SPARSEENV_PROCESS_DEBUG
 
 namespace mc
 {
@@ -211,7 +210,7 @@ public:
 
   //! @brief Default Constructor
   SparseEnv
-    ( FFGraph* dag )
+    ( FFGraph* dag=nullptr )
     : _dag( dag )
     {}
 
@@ -226,7 +225,7 @@ public:
     const
     { return _dag; };
 
-  //! @brief Retreive reference to vector of new DAG polynmial constraints
+  //! @brief Retreive reference to vector of new DAG polynomial constraints
   std::vector<FFVar>& Poly
     ()
     { return _Poly; }
@@ -241,6 +240,11 @@ public:
     ()
     { return _Var; }
 
+//  //! @brief Retreive reference to vector of new dependent DAG variables
+//  std::vector<FFVar>& Dep
+//    ()
+//    { return _Dep; }
+
   //! @brief Retreive reference to mapping between existing DAG auxiliaries and new DAG variables
   t_Aux& Aux
     ()
@@ -251,10 +255,19 @@ public:
     ()
     { return _Interm; }
 
+  //! @brief Set DAG environment
+  void set
+    (  FFGraph* dag )
+    { _dag = dag; _reset(); }
+
   //! @brief Reset sparse intermediate expressions
   void reset
     ()
     { _reset(); }
+
+  //! @brief Process the dependents in set <a>sDep</a>
+  void process
+    ( std::set<unsigned> const& ndxDep, const FFVar*pDep, bool const add2dag=true );
 
   //! @brief Process the <a>nDep</a> dependents in array <a>pDep</a>
   void process
@@ -298,7 +311,7 @@ public:
   {
     //! @brief Constructor
     Options():
-      LIFTDIV( true ), LIFTIPOW( true )//, LIFTUPOL( false )
+      LIFTDIV( true ), LIFTIPOW( false )//, LIFTUPOL( false )
       {}
     //! @brief Assignment of mc::SparseEnv::Options
     Options& operator=
@@ -312,7 +325,7 @@ public:
     bool LIFTDIV;
     //! @brief Whether to lift integral power terms using auxiliary variables (default: true)
     bool LIFTIPOW;
-    //! @brief Whether to lift integral power terms using auxiliary variables (default: true)
+    //! @brief Whether to lift univariate polynomials using auxiliary variables (default: true)
     //bool LIFTUPOL;
   } options;
 
@@ -334,6 +347,9 @@ protected:
 
   //! @brief Vector of independent DAG variables participating in expressions
   std::vector<FFVar> _Var;
+
+//  //! @brief Vector of new DAG dependent variables
+//  std::vector<FFVar> _Dep;
 
   //! @brief Vector of independent sparse variables
   std::vector<SparseExpr> _SPVar;
@@ -533,6 +549,17 @@ operator<<
 
 inline void
 SparseEnv::process
+( std::set<unsigned> const& ndxDep, const FFVar*pDep, bool const add2dag )
+{
+  if( ndxDep.empty() ) return; // Nothing to do!
+  std::vector<FFVar> vpDep;//( sDep.begin(), sDep.end() );
+  vpDep.reserve( ndxDep.size() );
+  for( unsigned const& i : ndxDep ) vpDep.push_back( pDep[i] );
+  process( ndxDep.size(), vpDep.data(), add2dag );
+}
+
+inline void
+SparseEnv::process
 ( const unsigned nDep, const FFVar*pDep, const bool add2dag )
 {
   // Reset intermediate / auxiliary arrays
@@ -546,7 +573,7 @@ SparseEnv::process
     _SPVar.push_back( SparseExpr( this, *Op->pres ) );
   }
 
-#ifdef MC__SPARSEENV_PROCESS_DEBUG
+#ifdef MC__SPARSEENV_DEBUG_PROCESS
   std::cout << std::endl << _Var.size() << " Original Variables: ";
   for( auto&& var : _Var ) std::cout << var << " ";
   std::cout << std::endl;
@@ -556,7 +583,7 @@ SparseEnv::process
   _SPDep.resize( nDep );
   _dag->eval( sgDep, nDep, pDep, _SPDep.data(), _Var.size(), _Var.data(), _SPVar.data() );
 
-#ifdef MC__SPARSEENV_PROCESS_DEBUG
+#ifdef MC__SPARSEENV_DEBUG_PROCESS
   std::cout << *this;
   for( unsigned i=0; i<nDep; i++ )
     std::cout << std::endl << "SPDep[" << i << "]:" << _SPDep[i];
@@ -568,14 +595,14 @@ SparseEnv::process
   // Insert auxiliary expressions into DAG
   for( auto&& expr : _Interm ){
     // Insert all operands and their defining expressions
-    std::vector<const FFVar*> vAux;
+    std::vector<FFVar const*> vAux;
     auto itSV = expr.second.begin();
-    for( auto&& oper : expr.first->pops ){
+    for( auto&& operand : expr.first->pops ){
 #ifdef MC__SPARSEENV_CHECK
       if( itSV == expr.second.end() )
         throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::INTERNAL );
 #endif
-      vAux.push_back( _insert_expr( oper, *itSV ) );
+      vAux.push_back( _insert_expr( operand, *itSV ) );
       ++itSV;
     }
     // Insert operation result and their defining expressions
@@ -585,12 +612,16 @@ SparseEnv::process
   // Insert terminal expressions into DAG
   for( unsigned i=0; i<nDep; i++ )
     // Insert operation result and defining expression
+//    _Dep.push_back( *_insert_expr( pDep+i, &_SPDep.at(i) ) );
     _insert_expr( pDep+i, &_SPDep.at(i) );
 
-#ifdef MC__SPARSEENV_PROCESS_DEBUG
+#ifdef MC__SPARSEENV_DEBUG_PROCESS
   std::cout << std::endl << _Aux.size() << " Auxiliary Variables: ";
   for( auto&& aux : _Aux ) std::cout << *aux.first << "->" << *aux.second << " ";
   std::cout << std::endl;
+//  std::cout << std::endl << _Dep.size() << " Dependent Variables: ";
+//  for( auto&& dep : _Dep ) std::cout << dep << " ";
+//  std::cout << std::endl;
   std::cout << std::endl << _Poly.size() << " Polynomial Constraints: " << std::endl;
   for( auto&& expr : _Poly ) _dag->output( _dag->subgraph( 1, &expr ) );
   std::cout << std::endl;
@@ -599,72 +630,107 @@ SparseEnv::process
 #endif
 }
 
-inline const FFVar*
+inline FFVar const*
 SparseEnv::_insert_expr
-( const FFVar*oper, const SparseExpr*expr )
+( FFVar const* var, SparseExpr const* expr )
 { 
+  auto itdagvar = _dag->Vars().find( const_cast<FFVar*>(var) );
+#ifdef MC__SPARSEENV_CHECK
+  assert( itdagvar != _dag->Vars().end() );
+#endif
+
   // Nothing to do if operand is a DAG constant or leaf variable
-  if( oper->ops().first->type == FFOp::VAR || oper->ops().first->type == FFOp::CNST )
-    return oper;
+  if( var->ops().first->type == FFOp::VAR || var->ops().first->type == FFOp::CNST )
+    return *itdagvar;
 
   // Nothing to do if DAG auxiliary was already made a DAG variable
-  auto itv = _Aux.find( oper );
+  auto itv = _Aux.find( *itdagvar );
   if( itv != _Aux.end() )
     return itv->second;
 
   // Append new DAG variable in _Aux and defining polynomial constraint in _Poly 
-  auto newvar = new FFVar( _dag );
-  _Aux.insert( std::make_pair( oper, newvar ) );
-  _Var.push_back( *newvar );
-  _Poly.push_back( *newvar * _SPolyExpr_to_FFVar( expr->denom() ) - _SPolyExpr_to_FFVar( expr->numer() ) );
-  //_Poly.push_back( *newvar * expr->denom().insert(_dag) - expr->numer().insert(_dag) );
-  return newvar;
+#ifdef MC__SPARSEENV_DEBUG_PROCESS
+  std::cout <<std::endl << "operand: " << **itdagvar << std::endl;
+#endif
+  FFVar newvar( _dag );
+  auto itnewvar = _dag->Vars().find( &newvar );
+#ifdef MC__SPARSEENV_CHECK
+  assert( itnewvar != _dag->Vars().end() );
+#endif
+#ifdef MC__SPARSEENV_DEBUG_PROCESS
+  std::cout << "paired with new DAG variable: " << **itnewvar << std::endl;
+#endif
+  _Aux.insert( std::make_pair( *itdagvar, *itnewvar ) );
+  _Var.push_back( **itnewvar );
+
+  FFVar polyctr = **itnewvar * _SPolyExpr_to_FFVar( expr->denom() ) - _SPolyExpr_to_FFVar( expr->numer() );
+  auto itpolyctr = _dag->Vars().find( &polyctr );
+#ifdef MC__SPARSEENV_CHECK
+  assert( itpolyctr != _dag->Vars().end() );
+#endif
+#ifdef MC__SPARSEENV_DEBUG_PROCESS
+  std::cout << "defined by DAG subexpression: ";
+  _dag->output( _dag->subgraph( 1, *itpolyctr ) );
+#endif
+  _Poly.push_back( **itpolyctr );
+  return *itnewvar;
 }
 
 inline void
 SparseEnv::_insert_expr
-( const FFOp*pOp, std::vector<const FFVar*>&vAux )
+( FFOp const* pOp, std::vector<FFVar const*>& vAux )
 { 
 #ifdef MC__SPARSEENV_CHECK
   // Throw exception if DAG auxiliary was already made a DAG variable
   if( _Aux.find( pOp->pres ) != _Aux.end() )
     throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::INTERNAL );
 #endif
+#ifdef MC__SPARSEENV_DEBUG_PROCESS
+  std::cout <<std::endl << "operand: " << *pOp->pres << std::endl;
+#endif
 
   // Append new DAG variable in _Aux
-  auto newvar = new FFVar( _dag );
-  _Aux.insert( std::make_pair( pOp->pres, newvar ) );
-  _Var.push_back( *newvar );
+  FFVar newvar( _dag );
+  auto itnewvar = _dag->Vars().find( &newvar );
+#ifdef MC__SPARSEENV_CHECK
+  assert( itnewvar != _dag->Vars().end() );
+#endif
+#ifdef MC__SPARSEENV_DEBUG_PROCESS
+  std::cout << "paired with new DAG variable: " << **itnewvar << std::endl;
+#endif
+  _Aux.insert( std::make_pair( pOp->pres, *itnewvar ) );
+  _Var.push_back( **itnewvar );
+
 
   // Append defining expression in _Poly or _Transc 
   switch( pOp->type ){
-   case FFOp::SQR:   return _Poly.push_back( *newvar - sqr( *vAux.at(0) ) );
-   case FFOp::IPOW:  return _Poly.push_back( *newvar - pow( *vAux.at(0), vAux.at(1)->num().n ) );
-   case FFOp::CHEB:  return _Poly.push_back( *newvar - cheb( *vAux.at(0), vAux.at(1)->num().n ) );
-   case FFOp::SQRT:  return _Poly.push_back( sqr( *newvar ) - *vAux.at(0) );
-   case FFOp::INV:   return _Poly.push_back( *newvar * *vAux.at(1) - vAux.at(0)->num().val() );
-   case FFOp::DIV:   return _Poly.push_back( *newvar * *vAux.at(1) - *vAux.at(0) );
-   case FFOp::EXP:   return _Trans.push_back( *newvar - exp( *vAux.at(0) ) );
-   case FFOp::LOG:   return _Trans.push_back( exp( *newvar ) - *vAux.at(0) );
-   case FFOp::XLOG:  return _Trans.push_back( *newvar - xlog( *vAux.at(0) ) );
-   case FFOp::DPOW:  return _Trans.push_back( *newvar - pow( *vAux.at(0), vAux.at(1)->num().val() ) );
-   case FFOp::LMTD:  return _Trans.push_back( *newvar - lmtd( *vAux.at(0), *vAux.at(1) ) );
-   case FFOp::RLMTD: return _Trans.push_back( *newvar - rlmtd( *vAux.at(0), *vAux.at(1) ) );
-   case FFOp::COS:   return _Trans.push_back( *newvar - cos( *vAux.at(0) ) );
-   case FFOp::SIN:   return _Trans.push_back( *newvar - sin( *vAux.at(0) ) );
-   case FFOp::TAN:   return _Trans.push_back( *newvar - tan( *vAux.at(0) ) );
-   case FFOp::ACOS:  return _Trans.push_back( cos( *newvar ) - *vAux.at(0) );
-   case FFOp::ASIN:  return _Trans.push_back( sin( *newvar ) - *vAux.at(0) );
-   case FFOp::ATAN:  return _Trans.push_back( tan( *newvar ) - *vAux.at(0) );
-   case FFOp::COSH:  return _Trans.push_back( *newvar - cosh( *vAux.at(0) ) );
-   case FFOp::SINH:  return _Trans.push_back( *newvar - sinh( *vAux.at(0) ) );
-   case FFOp::TANH:  return _Trans.push_back( *newvar - tanh( *vAux.at(0) ) );
-   case FFOp::ERF:   return _Trans.push_back( *newvar - erf( *vAux.at(0) ) );
-   case FFOp::FABS:  return _Trans.push_back( *newvar - fabs( *vAux.at(0) ) );
-   case FFOp::FSTEP: return _Trans.push_back( *newvar - fstep( *vAux.at(0) ) );
-   case FFOp::MINF:  return _Trans.push_back( *newvar - min( *vAux.at(0), *vAux.at(1) ) );
-   case FFOp::MAXF:  return _Trans.push_back( *newvar - max( *vAux.at(0), *vAux.at(1) ) );
-   case FFOp::INTER: return _Trans.push_back( *newvar - inter( *vAux.at(0), *vAux.at(1) ) );
+   case FFOp::SQR:   return _Poly.push_back( **itnewvar - sqr( *vAux.at(0) ) );
+   case FFOp::IPOW:  return _Poly.push_back( **itnewvar - pow( *vAux.at(0), vAux.at(1)->num().n ) );
+   case FFOp::CHEB:  return _Poly.push_back( **itnewvar - cheb( *vAux.at(0), vAux.at(1)->num().n ) );
+   case FFOp::SQRT:  return _Poly.push_back( sqr( **itnewvar ) - *vAux.at(0) );
+   case FFOp::INV:   return _Poly.push_back( **itnewvar * *vAux.at(1) - vAux.at(0)->num().val() );
+   case FFOp::DIV:   return _Poly.push_back( **itnewvar * *vAux.at(1) - *vAux.at(0) );
+   case FFOp::EXP:   return _Trans.push_back( **itnewvar - exp( *vAux.at(0) ) );
+   case FFOp::LOG:   return _Trans.push_back( exp( **itnewvar ) - *vAux.at(0) );
+   case FFOp::XLOG:  return _Trans.push_back( **itnewvar - xlog( *vAux.at(0) ) );
+   case FFOp::DPOW:  return _Trans.push_back( **itnewvar - pow( *vAux.at(0), vAux.at(1)->num().val() ) );
+   case FFOp::LMTD:  return _Trans.push_back( **itnewvar - lmtd( *vAux.at(0), *vAux.at(1) ) );
+   case FFOp::RLMTD: return _Trans.push_back( **itnewvar - rlmtd( *vAux.at(0), *vAux.at(1) ) );
+   case FFOp::COS:   return _Trans.push_back( **itnewvar - cos( *vAux.at(0) ) );
+   case FFOp::SIN:   return _Trans.push_back( **itnewvar - sin( *vAux.at(0) ) );
+   case FFOp::TAN:   return _Trans.push_back( **itnewvar - tan( *vAux.at(0) ) );
+   case FFOp::ACOS:  return _Trans.push_back( cos( **itnewvar ) - *vAux.at(0) );
+   case FFOp::ASIN:  return _Trans.push_back( sin( **itnewvar ) - *vAux.at(0) );
+   case FFOp::ATAN:  return _Trans.push_back( tan( **itnewvar ) - *vAux.at(0) );
+   case FFOp::COSH:  return _Trans.push_back( **itnewvar - cosh( *vAux.at(0) ) );
+   case FFOp::SINH:  return _Trans.push_back( **itnewvar - sinh( *vAux.at(0) ) );
+   case FFOp::TANH:  return _Trans.push_back( **itnewvar - tanh( *vAux.at(0) ) );
+   case FFOp::ERF:   return _Trans.push_back( **itnewvar - erf( *vAux.at(0) ) );
+   case FFOp::FABS:  return _Trans.push_back( **itnewvar - fabs( *vAux.at(0) ) );
+   case FFOp::FSTEP: return _Trans.push_back( **itnewvar - fstep( *vAux.at(0) ) );
+   case FFOp::MINF:  return _Trans.push_back( **itnewvar - min( *vAux.at(0), *vAux.at(1) ) );
+   case FFOp::MAXF:  return _Trans.push_back( **itnewvar - max( *vAux.at(0), *vAux.at(1) ) );
+   case FFOp::INTER: return _Trans.push_back( **itnewvar - inter( *vAux.at(0), *vAux.at(1) ) );
    case FFOp::VAR:
    case FFOp::CNST:
    case FFOp::SHIFT:
@@ -724,13 +790,11 @@ SparseEnv::_reset
       delete oper;
   _Interm.clear();
 
-  for( auto&& aux : _Aux )
-    delete aux.second;
   _Aux.clear();
-
   _Poly.clear();
   _Trans.clear();
   _Var.clear();
+//  _Dep.clear();
   _SPVar.clear();
   _SPDep.clear();
 }

@@ -14,8 +14,9 @@ int main()
   mc::FFGraph DAG;
   const unsigned NX = 5; mc::FFVar X[NX]; for( unsigned i=0; i<NX; i++ ) X[i].set( &DAG );
   //const unsigned NF = 2; mc::FFVar F[NF]; F[0] = log(X[0])+pow(X[1],2); F[1] = sin(X[0])-cos(X[1]);
-  const unsigned NF = 1; mc::FFVar F[NF]; F[0] = ( X[0] + X[0] ) * cheb( X[1], 3 ) * 3;
+  //const unsigned NF = 1; mc::FFVar F[NF]; F[0] = ( X[0] + X[0] ) * cheb( X[1], 3 ) * 3;
   //const unsigned NF = 1; mc::FFVar F[NF]; F[0] = prod( NX, X );
+  const unsigned NF = 1; mc::FFVar F[NF]; F[0] = X[0] + X[0]*sqr(X[1]) + pow(X[2],3)*X[3]*X[4];
   std::cout << DAG;
 
   I IX[NX] = { I(-2,2), I(-3,3), I(-4,4), I(-1,1), I(-1,1) };
@@ -32,7 +33,8 @@ int main()
   mc::PolVar<SCV> POLX[NX]; for( unsigned i=0; i<NX; i++ ) POLX[i].set( &Env, X[i], SCX[i] );
   mc::PolVar<SCV> POLF[NF]; 
 #endif
-  Env.options.AGGREG_LIN = true;
+  Env.options.AGGREG_LQ = true;
+  Env.options.RELAX_QUAD = false;
   Env.options.SANDWICH_MAXCUT = 5;
 
   DAG.eval( NF, F, POLF, NX, X, POLX );
@@ -41,5 +43,3 @@ int main()
 
   return 0;
 }
-
-

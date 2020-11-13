@@ -3,14 +3,18 @@ PATH_MC = $(shell cd ../../ ; pwd)
 # Compilation options
 include $(PATH_MC)/src/makeoptions.mk
 
-LIB_MC = -L$(PATH_MC)/lib $(LIB_PROFIL) $(LIB_BOOST) $(LIB_LAPACK) $(LIB_HSL)
-INC_MC = -I$(PATH_MC)/src/mc $(INC_FADBAD) $(INC_LAPACK) $(INC_PROFIL) $(INC_BOOST) $(INC_HSL)
+LIB_MC = -L$(PATH_MC)/lib $(LIB_PROFIL) $(LIB_FILIB) $(LIB_LAPACK) $(LIB_HSL)
+#INC_MC = -I$(PATH_MC)/include $(INC_FADBAD) $(INC_LAPACK) $(INC_PROFIL) $(INC_FILIB)
+INC_MC = -I$(PATH_MC)/src/mc $(INC_FADBAD) $(INC_LAPACK) $(INC_PROFIL) $(INC_FILIB) $(INC_HSL)
 
 #####
 
 all: INT-1D INT-2D
 
-INT-?D : INT-?D.o
+INT-1D : INT-1D.o
+	$(LINK) $(PROF) $(FLAGS_LINK) -o $@ $< $(LIB_MC)
+
+INT-2D : INT-2D.o
 	$(LINK) $(PROF) $(FLAGS_LINK) -o $@ $< $(LIB_MC)
 
 %.o: %.cpp 
@@ -32,5 +36,5 @@ gensvg :
 #####
 
 clean :
-	rm -f INT-?D *.o *.out *.eps *.dot *.svg *~
+	rm -f INT-1D INT-2D *.o *.out *.eps *.dot *.svg *~
 

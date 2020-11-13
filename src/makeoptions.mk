@@ -6,9 +6,9 @@ PATH_PROFIL  = $(HOME)/Programs/ThirdParty/Profil-2.0.8
 LIB_PROFIL = -L$(PATH_PROFIL)/lib -lProfilPackages -lProfil -lBias -llr
 INC_PROFIL = -I$(PATH_PROFIL)/include
 
-PATH_BOOST = 
-LIB_BOOST =
-INC_BOOST = 
+#PATH_BOOST = 
+#LIB_BOOST =
+#INC_BOOST = 
 
 #PATH_FILIB = /opt/filib++
 #LIB_FILIB = -L$(PATH_FILIB)/lib -lprim

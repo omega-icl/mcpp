@@ -1,10 +1,10 @@
-#define TEST_EXP	// <-- select test function here
-const int NTE = 4;	// <-- select Taylor expansion order here
+#define TEST_HYP	// <-- select test function here
+const int NTE = 5;	// <-- select Taylor expansion order here
 const int NX = 500;	// <-- select X discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
 #undef USE_PROFIL	// <-- specify to use PROFIL for interval arithmetic
 #undef USE_FILIB	// <-- specify to use FILIB++ for interval arithmetic
-#define USE_DAG          // <-- specify to evaluate via a DAG of the function
+#undef USE_DAG          // <-- specify to evaluate via a DAG of the function
 
 ////////////////////////////////////////////////////////////////////////
 
@@ -127,6 +127,17 @@ T myfunc
 ( const T&x )
 {
   return sin(pow(x,-3))*cos(sqrt(x));
+}
+
+#elif defined( TEST_HYP )
+const double XL   = -3.0;	// <-- X range lower bound
+const double XU   = 3.5;	// <-- X range upper bound
+const double Xref =  1.;	// <-- X ref point for McCormick
+template <class T>
+T myfunc
+( const T&x )
+{
+  return tanh(x);//-sinh(x)/cosh(x);
 }
 #endif
 

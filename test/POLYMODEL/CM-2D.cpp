@@ -1,11 +1,10 @@
 #define TEST_EXP	// <-- select test function here
-const int NTE = 5;	// <-- select Taylor expansion order here
-const int NX = 50;	// <-- select X discretization here
-const int NY = 50;	// <-- select Y discretization here
+const int NTE = 2;	// <-- select Taylor expansion order here
+const int NX = 20;	// <-- select X discretization here
+const int NY = 20;	// <-- select Y discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
 #undef USE_PROFIL	// <-- specify to use PROFIL for interval arithmetic
-#undef USE_FILIB	// <-- specify to use FILIB++ for interval arithmetic
-#define USE_SPARSE	// <-- specify to use sparse models
+#undef USE_SPARSE	// <-- specify to use sparse models
 #undef  MC__CVAR_SPARSE_PRODUCT_NAIVE
 ////////////////////////////////////////////////////////////////////////
 
@@ -16,18 +15,22 @@ const int NY = 50;	// <-- select Y discretization here
   #include "mcprofil.hpp"
   typedef INTERVAL I;
 #else
-  #ifdef USE_FILIB
-    #include "mcfilib.hpp"
-    typedef filib::interval<double> I;
-  #else
-    #include "interval.hpp"
-    typedef mc::Interval I;
-  #endif
+  #include "interval.hpp"
+  typedef mc::Interval I;
 #endif
 
-#include "cmodel.hpp"
-typedef mc::CModel<I> CM;
-typedef mc::CVar<I> CV;
+#ifndef USE_SPARSE
+//  #include "cmodel.hpp"
+//  typedef mc::CModel<I> CM;
+//  typedef mc::CVar<I> CV;
+  #include "tmodel.hpp"
+  typedef mc::TModel<I> CM;
+  typedef mc::TVar<I> CV;
+#else
+  #include "scmodel.hpp"
+  typedef mc::SCModel<I> CM;
+  typedef mc::SCVar<I> CV;
+#endif
 
 using namespace std;
 using namespace mc;
@@ -63,17 +66,17 @@ T myfunc
 }
 
 #elif defined( TEST_EXP )
-const double XL   =  -2.;	// <-- X range lower bound
-const double XU   =   0.;	// <-- X range upper bound
-const double Xref =  -1.;	// <-- X ref point for McCormick
-const double YL   =  0.;	// <-- Y range lower bound
-const double YU   =  2.;	// <-- Y range upper bound
-const double Yref =  1.;	// <-- Y ref point for McCormick
+const double XL   =  -1.;	// <-- X range lower bound
+const double XU   =   1.;	// <-- X range upper bound
+const double Xref =   0.;	// <-- X ref point for McCormick
+const double YL   =  -1.;	// <-- Y range lower bound
+const double YU   =   1.;	// <-- Y range upper bound
+const double Yref =   0.;	// <-- Y ref point for McCormick
 template <class T>
 T myfunc
 ( const T&x, const T&y )
 {
-  return exp(x*y);
+  return (exp(x)-sqr(y))*x*y;
 }
 
 #elif defined( TEST_EXP1 )
@@ -166,6 +169,20 @@ T myfunc
   return exp(-sqr(x)-sqr(y)) * cos(2*PI*(sqr(x)+sqr(y)));
 }
 
+#elif defined( TEST_TRIG3 )
+const double XL   =  0.;	// <-- X range lower bound
+const double XU   =  10.;	// <-- X range upper bound
+const double Xref =  5.;	// <-- X ref point for McCormick
+const double YL   =  0.;	// <-- Y range lower bound
+const double YU   =  20.;	// <-- Y range upper bound
+const double Yref =  10.;	// <-- X ref point for McCormick
+template <class T>
+T myfunc
+( const T&x, const T&y )
+{
+  return exp( sin(x) + sin(y)*cos(y) );
+}
+
 #elif defined( TEST_NORM )
 const double XL   =  0.5;	// <-- X range lower bound
 const double XU   =  2.;	// <-- X range upper bound
@@ -194,16 +211,16 @@ int main()
   try{ 
 
     // Define Chebyshev model environment
-#ifdef USE_SPARSE
-    CM mod( 2, NTE, true );
-#else
+#ifndef USE_SPARSE
     CM mod( 2, NTE );
+#else
+    CM mod( NTE );
 #endif
 
     // <-- set options here -->
     mod.options.BOUNDER_TYPE = CM::Options::NAIVE;//LSB;//BERNSTEIN;
     //mod.options.BOUNDER_ORDER = 20;
-    mod.options.MIXED_IA = true;
+    //mod.options.MIXED_IA = true;
     
     // Define variables X and Y, and evaluate Chebyshev model
     CV CVX( &mod, 0, I(XL,XU) );
@@ -243,7 +260,6 @@ int main()
   }
   
 #ifndef USE_PROFIL
-#ifndef USE_FILIB
   catch( I::Exceptions &eObj ){
     cerr << "Error " << eObj.ierr()
          << " in natural interval extension:" << endl
@@ -251,7 +267,6 @@ int main()
          << "Aborts." << endl;
     return eObj.ierr();
   }
-#endif
 #endif
   catch( CM::Exceptions &eObj ){
     cerr << "Error " << eObj.ierr()

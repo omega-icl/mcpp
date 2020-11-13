@@ -1,8 +1,8 @@
-#define TEST_XLOG       // <-- select test function here
+#define TEST_FABS       // <-- select test function here
 const int NX = 500;	    // <-- select discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
-#undef  USE_PROFIL      // <-- specify to use PROFIL for interval arithmetic
-#define USE_BOOST       // <-- specify to use BOOST for interval arithmetic
+#define USE_PROFIL      // <-- specify to use PROFIL for interval arithmetic
+#undef  USE_BOOST       // <-- specify to use BOOST for interval arithmetic
 
 ////////////////////////////////////////////////////////////////////////
 
