@@ -388,7 +388,7 @@ class PolVar
 
     //! @brief set as DAG variable <a>X</a> in polytope image <a>P</a> with range <a>B</a>
     void _set
-      ( PolImg<T>*P, FFVar&X, const T&B, const bool cont, const unsigned index )
+      ( PolImg<T>*P, FFVar const& X, T const& B, const bool cont, const unsigned index )
       { _img = P; _var = X; _range = (!_var.cst()? B: _var.num().val());
         _id = std::make_pair( cont? VARCONT: VARINT, index );
         _breakpts.clear(); reset_subdiv(); reset_cuts(); }
@@ -400,8 +400,12 @@ class PolVar
          _breakpts.clear(); reset_subdiv(); reset_cuts(); }
     //! @brief update variable bounds and type
     void _update
-      ( const T&B, const bool cont )
-      { _range = B; _id.first = (cont? VARCONT: VARINT); }
+      ( const T&B )
+      { _range = B; }
+    //! @brief update variable bounds and type
+    void _update
+      ( const bool cont )
+      { _id.first = (cont? VARCONT: VARINT); }
 
     //! @brief push variable subdivision
     void _push_subdiv
@@ -438,15 +442,15 @@ class PolVar
       {}
     //! @brief Constructor for DAG variable <a>X</a> in polytope image <a>P</a> with range <a>B</a>
     PolVar
-      ( PolImg<T>*P, FFVar&X, const T&B=0., const bool cont=true )
+      ( PolImg<T>*P, FFVar const& X, T const& B=0., const bool cont=true )
       { set( P, X, B, cont ); }
     //! @brief Constructor for auxiliary variable in polytope image <a>P</a> with range <a>B</a>
     PolVar
-      ( PolImg<T>*P, const T&B=0., const bool cont=true )
+      ( PolImg<T>*P, T const& B=0., const bool cont=true )
       { set( P, B, cont ); }
     //! @brief Copy constructor for a polytope image <a>P</a>
     PolVar
-      ( const PolVar<T>&P )
+      ( PolVar<T> const& P )
       : _img(P._img), _var(P._var), _range(P._range), _id( P._id ),
         _hascuts( P._hascuts ), _breakpts( P._breakpts ), _subdiv( P._subdiv )
       {}
@@ -458,21 +462,33 @@ class PolVar
 
     //! @brief Update range <a>B</a> and type <a>cont</a> of variable in polytope image
     PolVar<T>& update
-      ( const T&B=0., const bool cont=true )
+      ( T const& B )
       { if( !_img ) return *this;
-        *this = *_img->_append_var( &_var, B, cont );
+        PolVar<T>* polvar = _img->_update_var( &_var, B );
+        if( polvar != nullptr ) *this = *polvar;
+        reset_subdiv(); reset_cuts(); return *this; }
+    //! @brief Update range <a>B</a> and type <a>cont</a> of variable in polytope image
+    PolVar<T>& update
+      ( bool const cont )
+      { if( !_img ) return *this;
+        PolVar<T>* polvar = _img->_update_var( &_var, cont );
+        if( polvar != nullptr ) *this = *polvar;
         reset_subdiv(); reset_cuts(); return *this; }
     //! @brief set as DAG variable <a>X</a> in polytope image <a>P</a> with range <a>B</a>
     PolVar<T>& set
-      ( PolImg<T>*P, FFVar&X, const T&B=0., const bool cont=true )
+      ( PolImg<T>*P, FFVar const& X, T const& B=0., const bool cont=true )
       { *this = *P->_append_var( &X, B, cont );
         _breakpts.clear(); reset_subdiv(); reset_cuts(); return *this; }
     //! @brief set as auxiliary variable in polytope image <a>P</a> with range <a>B</a>
     PolVar<T>& set
-      ( PolImg<T>*P, const T&B=0., const bool cont=true )
+      ( PolImg<T>*P, T const& B=0., const bool cont=true )
       { *this = *P->_append_aux( B, cont );
         _breakpts.clear(); reset_subdiv(); reset_cuts(); return *this; }
 
+    //! @brief get variable integrality
+    bool discr
+      () const
+      { return (_id.first == VARINT || _id.first == AUXINT? true: false); }
     //! @brief get variable constness
     bool cst
       () const
@@ -1809,7 +1825,7 @@ class PolImg
   template< class U > friend  PolVar<U> rlmtd( const PolVar<U>&, const PolVar<U>& );  
 
 public:
-  typedef std::map< FFVar*, PolVar<T>*, lt_FFVar > t_Vars;
+  typedef std::map< FFVar const*, PolVar<T>*, lt_FFVar > t_Vars;
   typedef typename t_Vars::iterator it_Vars;
   typedef std::list< PolVar<T>* > t_Aux;
   typedef std::list< PolLQExpr<T>* > t_LQExpr;
@@ -1827,7 +1843,13 @@ protected:
   t_Vars _Vars;
   //! @brief Appends new pointer to DAG variable map in polytopic image
   PolVar<T>* _append_var
-    ( FFVar*var, const T&range, const bool cont );
+    ( FFVar const* var, T const& range, bool const cont );
+  //! @brief Update range of variable in polytopic image
+  PolVar<T>* _update_var
+    ( FFVar const* var, T const& range );
+  //! @brief Update type of variable in polytopic image
+  PolVar<T>* _update_var
+    ( FFVar const* var, bool const cont );
   //! @brief Erase all entries in _Vars
   void _erase_vars
     ();
@@ -2384,17 +2406,44 @@ public:
 template <typename T>
 inline PolVar<T>*
 PolImg<T>::_append_var
-( FFVar*var, const T&range, const bool cont )
+( FFVar const* var, T const& range, const bool cont )
 {
   auto itVar = _Vars.find( var );
   if( itVar != _Vars.end() ){
-    itVar->second->_update( range, cont );
+    itVar->second->_update( range );
+    itVar->second->_update( cont );
     return itVar->second;
   }
   PolVar<T>* pVar = new PolVar<T>;
   pVar->_set( this, *var, range, cont, _Vars.size() );
   _Vars.insert( std::make_pair( var, pVar ) );
   return pVar;
+}
+
+template <typename T>
+inline PolVar<T>*
+PolImg<T>::_update_var
+( FFVar const* var, const bool cont )
+{
+  auto itVar = _Vars.find( var );
+  if( itVar != _Vars.end() ){
+    itVar->second->_update( cont );
+    return itVar->second;
+  }
+  return nullptr;
+}
+
+template <typename T>
+inline PolVar<T>*
+PolImg<T>::_update_var
+( FFVar const* var, T const& range )
+{
+  auto itVar = _Vars.find( var );
+  if( itVar != _Vars.end() ){
+    itVar->second->_update( range );
+    return itVar->second;
+  }
+  return nullptr;
 }
 
 template <typename T> inline void
@@ -2978,7 +3027,7 @@ operator*
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
   FFVar* pFFVarR = dag->curOp()->pres;
-  PolVar<T>* pVarR = img->_append_var( pFFVarR, Var1.range() * Var2.range(), true );
+  PolVar<T>* pVarR = img->_append_var( pFFVarR, Var1.range() * Var2.range(), Var1.discr() && Var2.discr()? false: true );
   return *pVarR;
 }
 

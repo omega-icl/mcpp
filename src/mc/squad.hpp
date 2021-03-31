@@ -214,7 +214,7 @@ with the following 11 reduction constraints are also generated:
 #define MC__SQUAD_H
 
 #include <list>
-//#include "scmodel.hpp"
+#include "scmodel.hpp"
 #include "spolyexpr.hpp"
 
 #define MC__SQUAD_CHECK
@@ -369,7 +369,7 @@ public:
       CHEB	    //!< Chebyshev basis
     };
     //! @brief Basis representation of the quadratic form
-    int BASIS;
+    unsigned BASIS;
     //! @brief Whether to search for and append extra reduction constraints
     bool REDUC;
     //! @brief Number of digits in output stream for sparse polynomial coefficients
@@ -428,9 +428,9 @@ protected:
     
   //! @brief Check quadratic form expressions by comparing with Chebyshev model
   //template <typename T>
-  double _check
-    ( unsigned const nSPol, SQuad::t_SPolyMonCoef const* pSPol )
-    //( unsigned const nscv, SCVar<T> const* pscv )
+  double check
+    ( unsigned const nSPol, SQuad::t_SPolyMonCoef const* pSPol, bool const chkRed=true,
+      bool const chkPSD=true )
     const;
 
   //! @brief Check if a term exist in current quadratic forms 
@@ -690,76 +690,16 @@ const
   return false;  
 }
 
-//template <typename T>
-//inline double
-//SQuad::_check
-//( unsigned const nscv, SCVar<T> const* pscv )
-//const
-//{
-//  // Determine max monomial order
-//  SCModel<T>* pscm = nullptr;
-//  for( unsigned i=0; !pscm && i<nscv; i++ )
-//    pscm = pscv[i].env(); 
-
-//  // Process entries in _SetMon
-//  std::map< SPolyMon, SCVar<T>, lt_SPolyMon > mapscv; 
-//  for( auto const& mon : _SetMon ){
-//    if( mon.tord == 0 ){
-//      mapscv[mon] = SCVar<T>( 1. );
-//    }
-//    else if( mon.tord == 1 ){
-//      unsigned const ivar = mon.expr.begin()->first;
-//      mapscv[mon] = SCVar<T>( pscm, ivar, T(-1,1) );
-//    }
-//    else{
-//      SCVar<T> scv( 1. );
-//      for( auto const& [ivar,iord] : mon.expr )
-//        switch( options.BASIS ){
-//          case Options::CHEB:  scv *= cheb( mapscv[SPolyMon(ivar)], iord ); break;
-//          case Options::MONOM: scv *= pow( mapscv[SPolyMon(ivar)], (int)iord );  break;
-//        }
-//      mapscv[mon] = scv;
-//    }
-//  }
-
-//  // Check entries in _MatFct
-//  double sumdiff = 0e0;
-//  unsigned ifct = 0;
-//  for( auto const& mat : _MatFct ){
-//    SCVar<T> scv( 0. );
-//    for( auto const& [ijmon,coef] : mat )
-//      scv += coef * mapscv[*ijmon.first] * mapscv[*ijmon.second];
-//#ifdef MC__SQUAD_DEBUG_CHECK
-//    std::cout << "\n  Chebyshev model for quadratic form of P[" << ifct << "]:" << scv;
-//#endif
-//    sumdiff += Op<T>::abs( ( scv - pscv[ifct++] ).bndpol() );
-//  }
-
-//  // Check entries in _MatRed
-//#ifdef MC__SQUAD_DEBUG_CHECK
-//  unsigned ired = 1;
-//#endif
-//  for( auto const& mat : _MatRed ){
-//    SCVar<T> scv( 0. );
-//    for( auto const& [ijmon,coef] : mat )
-//      scv += coef * mapscv[*ijmon.first] * mapscv[*ijmon.second];
-//#ifdef MC__SQUAD_DEBUG_CHECK
-//    std::cout << " \n Chebyshev model for auxiliary quadratic form #" << ired++ << scv;
-//#endif
-//    sumdiff += Op<T>::abs( scv.bndpol() );
-//  }
-//  
-//  return sumdiff;
-//}
-
 inline double
-SQuad::_check
-( unsigned const nSPol, SQuad::t_SPolyMonCoef const* pSPol )
+SQuad::check
+( unsigned const nSPol, SQuad::t_SPolyMonCoef const* pSPol, bool const chkRed,
+  bool const chkPSD )
 const
 { 
   assert( nSPol <= _MatFct.size() );
   SPolyExpr::options.BASIS = options.BASIS;
   double sumdiff = 0e0;
+  std::cout << *this << std::endl;
   
   // Process entries in _SetMon
   FFGraph dag;
@@ -782,20 +722,16 @@ const
       mapmon[mon] = std::make_pair( newmon, 1e0 );
     }
 #ifdef MC__SQUAD_DEBUG_CHECK
-    std::cout << mapmon[mon] << std::endl;
+    std::cout << mapmon[mon];
 #endif
   }
 
   // Check entries in _MatFct
-  unsigned ifct = 0;
-  for( auto const& mat : _MatFct ){
-    if( ifct < _MatFct.size() - nSPol ){
-      ifct++;
-      continue;
-    }
-
+  auto itmat = _MatFct.begin();
+  std::advance( itmat, _MatFct.size()-nSPol );
+  for( unsigned i=0; nSPol && itmat != _MatFct.end(); ++itmat, ++i ){
     SPolyExpr spe( 0e0 );
-    for( auto const& [mon,coef] : pSPol[ifct] ){
+    for( auto const& [mon,coef] : pSPol[i] ){
       if( mon.tord == 0 ){
         spe += coef;
         continue;
@@ -813,47 +749,61 @@ const
       }
     }
 
-    for( auto const& [ijmon,coef] : mat )
+    for( auto const& [ijmon,coef] : *itmat )
       spe -= coef * mapmon[*ijmon.first] * mapmon[*ijmon.second];
 #ifdef MC__SQUAD_DEBUG_CHECK
-    std::cout << "\n  Quadratic form of P[" << ifct << "]:" << spe;
+    std::cout << "\n  Quadratic form of P[" << _MatFct.size()-nSPol+i << "]:" << spe;
 #endif
-    ifct++;
 
     for( auto const& [mon,coef] : spe.mapmon() )
       sumdiff += std::fabs( coef ); 
   }
 
   // Check entries in _MatRed
-#ifdef MC__SQUAD_DEBUG_CHECK
-  unsigned ired = 1;
-#endif
-  for( auto const& mat : _MatRed ){
+  itmat = _MatRed.begin();
+  for( unsigned i=0; itmat != _MatRed.end(); ++itmat, ++i ){
     SPolyExpr spe( 0e0 );
-    for( auto const& [ijmon,coef] : mat )
+    for( auto const& [ijmon,coef] : *itmat ){
+      std::cout << mapmon[*ijmon.first] << " * " << mapmon[*ijmon.second];
       spe += coef * mapmon[*ijmon.first] * mapmon[*ijmon.second];
+    }
 #ifdef MC__SQUAD_DEBUG_CHECK
-    std::cout << " \n Auxiliary quadratic form #" << ired++ << spe;
+    std::cout << " \n Auxiliary quadratic form #" << i << spe;
 #endif
     for( auto const& [mon,coef] : spe.mapmon() )
       sumdiff += std::fabs( coef );
   }
-  
+
+  // Check entries in _MatPSD
+  itmat = _MatPSD.begin();
+  for( unsigned i=0; itmat != _MatPSD.end(); ++itmat, ++i ){
+    SPolyExpr spe( 0e0 );
+    for( auto const& [ijmon,coef] : *itmat ){
+      std::cout << mapmon[*ijmon.first] << " * " << mapmon[*ijmon.second];
+      spe += coef * mapmon[*ijmon.first] * mapmon[*ijmon.second];
+    }
+#ifdef MC__SQUAD_DEBUG_CHECK
+    std::cout << " \n Positive semi-definite quadratic form #" << i << spe;
+#endif
+    for( auto const& [mon,coef] : spe.mapmon() )
+      sumdiff += std::fabs( coef );
+  }
+
   return sumdiff;
 }
 
 inline double
 SQuad::process
-( unsigned const nSPol, SQuad::t_SPolyMonCoef const* pSPol, bool const check )
+( unsigned const nSPol, SQuad::t_SPolyMonCoef const* pSPol, bool const chk )
 {
   for( unsigned i=0; i<nSPol; i++ )
     process( pSPol[i], false );
-  return( check? _check( nSPol, pSPol ): 0. );
+  return( chk? check( nSPol, pSPol, false, false ): 0. );
 }
 
 inline double
 SQuad::process
-( SQuad::t_SPolyMonCoef const& SPol, bool const check )
+( SQuad::t_SPolyMonCoef const& SPol, bool const chk )
 {
   // Append entry in <a>MatFct</a>
   _MatFct.push_back( t_SQuad() );
@@ -877,7 +827,7 @@ SQuad::process
     auto itmon = _SetMon.find( mon );
     if( itmon != _SetMon.end() ){
 #ifdef MC__SQUAD_DEBUG_DECOMP
-  std::cout << "Decomposed: " << itmon->display(options.BASIS)
+  std::cout << "Inserted: " << itmon->display(options.BASIS)
             << " = " << _SetMon.cbegin()->display(options.BASIS)
             << " · " << itmon->display(options.BASIS)
             << std::endl;
@@ -895,7 +845,7 @@ SQuad::process
     assert( plmon && prmon );
 #endif
 #ifdef MC__SQUAD_DEBUG_DECOMP
-  std::cout << "Decomposed: " << mon.display(options.BASIS)
+  std::cout << "Inserted: " << mon.display(options.BASIS)
             << " = " << plmon->display(options.BASIS)
             << " · " << prmon->display(options.BASIS)
             << std::endl;
@@ -906,7 +856,7 @@ SQuad::process
 #endif
   }
 
-  return( check? _check( 1, &SPol ): 0. );
+  return( chk? check( 1, &SPol, false, false ): 0. );
 }
 
 inline std::pair< SPolyMon const*, SPolyMon const* >
@@ -1212,6 +1162,7 @@ SQuad::_reduction
 {
   // Search for extra reduction constraints for <a>mon</a>
   // that don't add additional low-order monomials
+  auto itmon  = _SetMon.find( mon );
   auto itmon2 = _SetMon.begin();
   for( ++itmon2; itmon2 != _SetMon.end(); ++itmon2 ){
   
@@ -1232,8 +1183,10 @@ SQuad::_reduction
     for( ++itmon3; itmon3 != _SetMon.end(); ++itmon3 ){
       if( !itmon3->subseteq( montot ) ) continue;
       auto itmon4 = _SetMon.find( montot - *itmon3 );
-      if( itmon4 == _SetMon.end() || lt_SPolyMon()( *itmon4, *itmon3 ) ) continue;
-
+      //if( itmon4 == _SetMon.end() || lt_SPolyMon()( *itmon4, *itmon3 ) ) continue;
+      //if( itmon4 == _SetMon.end() || itmon == itmon3 ) continue; // COULD BE BUGGY!!
+      if( itmon4 == _SetMon.end() || lt_SPolyMon()( *itmon3, *itmon4 ) || itmon == itmon3 ) continue;
+      
       // Low-order terms generated by Chebyshev product
       auto&& prodmon34 = _prodmon( *itmon3, *itmon4 );
       bool monmis = false;
@@ -1287,6 +1240,7 @@ SQuad::_reset
   _SetMon.clear();
   _MatFct.clear();
   _MatRed.clear();
+  _MatPSD.clear();
 }
 
 } // namespace mc

@@ -960,6 +960,7 @@ struct lt_FFVar
   bool operator()
     ( const FFVar*Var1, const FFVar*Var2 ) const
     {
+      //std::cout << "Comparing: " << *Var1 << " <? " << *Var2 << std::endl; 
       //assert( Var1 && Var2 );
       if( !Var1 ) return false;
       if( !Var2 ) return true;

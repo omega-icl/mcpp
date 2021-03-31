@@ -24,7 +24,7 @@ struct FFMon
   unsigned tord;
 
   //! @brief Monomial variables and partial orders 
-  std::map< FFVar const*, unsigned > expr;
+  std::map< FFVar const*, unsigned, lt_FFVar > expr;
 
   //! @brief Constructor of constant monomial
   FFMon
@@ -40,7 +40,7 @@ struct FFMon
 
   //! @brief Copy constructor of monomial
   FFMon
-    ( unsigned const tord_, std::map< FFVar const*, unsigned > const& expr_ )
+    ( unsigned const tord_, std::map< FFVar const*, unsigned, lt_FFVar > const& expr_ )
     : tord( tord_ ), expr( expr_ )
     {}
 
@@ -1074,7 +1074,7 @@ const
     //  std::map<const FFVar*,unsigned>( ++mon.first.expr.begin(),mon.first.expr.end() ) ),
     //  mon.second ) );
     mapspoly[ ie->second ].insert( std::make_pair( FFMon( mon.first.tord - ie->second,
-      std::map<const FFVar*,unsigned>( ++mon.first.expr.begin(),mon.first.expr.end() ) ),
+      std::map<const FFVar*,unsigned,lt_FFVar>( ++mon.first.expr.begin(),mon.first.expr.end() ) ),
       mon.second ) );
 }
 

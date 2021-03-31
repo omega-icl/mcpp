@@ -877,21 +877,29 @@ public:
   //! @brief Simplify the model by appending coefficient less than TOL as well as terms with order greater than or equal to ORD to the remainder term
   SCVar<T>& simplify
     ( double const TOL=0e0, int const TORD=-1 );
+    
   //! @brief Scale coefficients in Chebyshev variable for the modified range <a>X</a> of variable i
   SCVar<T>& scale
     ( unsigned const i, T const& X );
+    
   //! @brief Scale coefficients in Chebyshev variable for the modified variable ranges <a>X</a>
   SCVar<T>& scale
     ( T const* X );
+    
   //! @brief Rescale coefficients in Chebyshev variable for their original variable ranges
   SCVar<T>::t_coefmon unscale
     ()
-    const;    
+    const;
+        
   //! @brief Return new coefficient map in monomial basis representation
   t_coefmon to_monomial
     ( bool const scaled=false )
     const;
-
+    
+  //! @brief Return new coefficient map in monomial basis representation after removing terms with coefficient less than TOL or order greater than or equal to ORD, and also return a bound on the removed terms
+  std::pair<t_coefmon,T> to_monomial
+    ( bool const scaled, double const TOL, int const TORD=-1 )
+    const;
  /** @} */
 
   SCVar<T>& operator=
@@ -984,6 +992,12 @@ private:
   //! @brief Cancel zero entries in coefficient map <a>coefmon</a>
   void _simplify
     ( t_coefmon& coefmon )
+    const;
+
+  //! @brief Simplify the coefficient map <a>coefmon</a> by removing entries with coefficient less than TOL or order greater than or equal to ORD, and return a bound on the removed entries
+  T _simplify_monomial
+    ( typename SCVar<T>::t_coefmon& coefmon, bool const scaled,
+      double const TOL=0e0, int const TORD=-1 )
     const;
 
   //! @brief Scale coefficient map <a>coefmon</a> for the modified range <a>X</a> of variable i
@@ -2082,7 +2096,7 @@ SCVar<T>::simplify
   if( _coefmon.empty() ) return *this;
   for( auto it=_coefmon.begin(); it!=_coefmon.end(); ){
     // Eliminate any terms with zero coefficient
-    if( it->second == 0. ){
+    if( it->second == 0e0 ){
       it = _coefmon.erase( it );
       continue;
     }
@@ -2101,6 +2115,42 @@ SCVar<T>::simplify
 
 template <typename T>
 inline
+T
+SCVar<T>::_simplify_monomial
+( typename SCVar<T>::t_coefmon& coefmon, bool const scaled, double const TOL, int const TORD )
+const
+{
+  T bndrem( 0e0 );
+  if( coefmon.empty() ) return bndrem;
+  
+  for( auto it=coefmon.begin(); it!=coefmon.end(); ){
+    auto const& [mon,coef] = *it;
+
+    // Eliminate any terms with zero coefficient
+    if( coef == 0e0 ){
+      it = coefmon.erase( it );
+      continue;
+    }
+
+    // Eliminate any non-constant terms with small enough coefficient or large enough total order
+    //if( ( TOL > 0e0 && mon.tord && std::fabs(coef) <= TOL )
+    if( ( TOL > 0e0 && std::fabs(coef) <= TOL )
+     || ( TORD >= 0 && (int)mon.tord > TORD ) ){
+      // compute monomial bound
+      T bndmon( 1e0 );
+      for( auto const& [ivar,iord] : mon.expr )
+        bndmon *= Op<T>::pow( scaled? _TOne: _bndvar(ivar), (int)iord );
+      bndrem += bndmon * coef;
+      it = coefmon.erase( it );
+      continue;
+    }
+    ++it; // only increment if current element was not erased
+  }
+  return bndrem;
+}
+
+template <typename T>
+inline
 void
 SCVar<T>::_simplify
 ( typename SCVar<T>::t_coefmon& coefmon )
@@ -2109,7 +2159,7 @@ const
   if( coefmon.empty() ) return;
   for( auto it=coefmon.begin(); it!=coefmon.end(); ){
     // Eliminate any terms with zero coefficient
-    if( it->second == 0. ){
+    if( it->second == 0e0 ){
       it = coefmon.erase( it );
       continue;
     }
@@ -2196,15 +2246,15 @@ const
   t_coefmon coefmon = _coefmon;
   if( !scaled ){
     for( unsigned i : _ndxvar ){
-      _scale( i, T(-1,1), coefmon );
+      _scale( i, _TOne, coefmon );
       //_simplify( coefmon );
-      std::cout << display( coefmon, 1 );
+      //std::cout << display( coefmon, 1 );
     }
   }
   
   for( unsigned i : _ndxvar ){
 //    if( !scaled ){
-//      _scale( i, T(-1,1), coefmon );
+//      _scale( i, _Tone, coefmon );
 //      _simplify( coefmon );
 //    }
     _to_monomial( i, coefmon );
@@ -2212,6 +2262,18 @@ const
   }
   
   return coefmon;
+}
+
+template <typename T>
+inline
+std::pair<typename SCVar<T>::t_coefmon,T>
+SCVar<T>::to_monomial
+( bool const scaled, double const TOL, int const TORD )
+const
+{
+  auto&& coefmon = to_monomial( scaled );
+  auto&& bndrem  = _simplify_monomial( coefmon, scaled, TOL, TORD );
+  return std::make_pair( coefmon, bndrem );
 }
 
 template <typename T>
