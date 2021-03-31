@@ -2,7 +2,7 @@
 const int NX = 40;	// <-- select discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
 #define ADD_BREAKPOINT  // <-- specify whether to add breakpoints to the variables
-const int NDIV = 5;     // <-- select number of breakpoints
+const int NDIV = 3;     // <-- select number of breakpoints
 #define USE_MILP        // <-- specify whether to use piecewise-linear cuts
 
 ////////////////////////////////////////////////////////////////////////
@@ -40,6 +40,20 @@ T myfunc
 ( const T*x )
 {
   return x[0]*x[1];
+}
+
+#elif defined( TEST_PRODDEC )
+const double X0L   =  0.1; // <-- range lower bound
+const double X0U   =  1.5; // <-- range upper bound
+const double X1L   =  0.2; // <-- range lower bound
+const double X1U   =  1.0; // <-- range upper bound
+template <class T>
+T myfunc
+( const T*x )
+{
+  return 0.25 * ( sqr( x[0]+x[1] ) - sqr( x[0]-x[1] ) );
+  //return exp( log(x[0]) + log(x[1]) );
+  //return x[0]*x[1];
 }
 
 #elif defined( TEST_FRAC )
@@ -250,7 +264,7 @@ int main()
     //return 0;
 
     mc::PolImg<I> PolEnv;
-    PolEnv.options.AGGREG_LIN = true;
+    PolEnv.options.AGGREG_LQ = true;
 #ifndef USE_MILP
     PolEnv.options.BREAKPOINT_DISC = false;
 #else

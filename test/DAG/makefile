@@ -32,7 +32,7 @@ INC_ALL   = $(INC_MC) $(INC_CPLEX)
 
 #####
 
-all: DAG_compose DAG_differentiate DAG_evaluate DAG_analyze
+all: DAG_compose DAG_differentiate DAG_evaluate DAG_analyze DAG_polyexpr
 
 DAG_compose : DAG_compose.o
 	$(LINK) $(PROF) $(FLAGS_LINK) -o $@ $< $(LIB_ALL)
@@ -47,6 +47,12 @@ DAG_evaluate : DAG_evaluate.o
 	$(LINK) $(PROF) $(FLAGS_LINK) -o $@ $< $(LIB_ALL)
 
 DAG_analyze : DAG_analyze.o
+	$(LINK) $(PROF) $(FLAGS_LINK) -o $@ $< $(LIB_ALL)
+
+DAG_polyexpr : DAG_polyexpr.o
+	$(LINK) $(PROF) $(FLAGS_LINK) -o $@ $< $(LIB_ALL)
+
+test_profil : test_profil.o
 	$(LINK) $(PROF) $(FLAGS_LINK) -o $@ $< $(LIB_ALL)
 
 %.o: %.cpp 
