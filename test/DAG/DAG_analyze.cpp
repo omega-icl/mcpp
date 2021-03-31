@@ -91,12 +91,21 @@ int test_rltred1()
   std::cout << DAG;
 
   mc::RLTRed RRLT( &DAG );
+<<<<<<< HEAD
   RRLT.options.METHOD        = mc::RLTRed::Options::ILP;
   RRLT.options.LEVEL         = mc::RLTRed::Options::FULLSIM;
   RRLT.options.NODIV         = false;
   RRLT.options.DISPLEVEL     = 1;
   RRLT.options.MIPDISPLEVEL  = 0;
   RRLT.options.MIPOUTPUTFILE = "rltred1.lp";
+=======
+  RRLT.options.DISPLEVEL     = 1;
+  RRLT.options.MIPOUTPUTFILE = "rltred1.lp";
+  RRLT.options.MIPDISPLEVEL  = 0;
+  RRLT.options.METHOD        = mc::RLTRed::Options::ILP;
+  RRLT.options.LEVEL         = mc::RLTRed::Options::FULLSIM;
+  RRLT.options.NODIV         = false;
+>>>>>>> 9877aad82961f004904fb8a2b0eeeda6ce4c741c
 
   RRLT.search( NF, F );
 
@@ -143,12 +152,21 @@ int test_rltred2()
   std::cout << DAG;
 
   mc::RLTRed RRLT( &DAG );
+<<<<<<< HEAD
   RRLT.options.METHOD        = mc::RLTRed::Options::ILP;
   RRLT.options.LEVEL         = mc::RLTRed::Options::FULLSIM;
   RRLT.options.NODIV         = false;
   RRLT.options.DISPLEVEL     = 2;
   RRLT.options.MIPDISPLEVEL  = 1;
   RRLT.options.MIPOUTPUTFILE = "rltred2.lp";
+=======
+  RRLT.options.DISPLEVEL     = 1;
+  RRLT.options.MIPOUTPUTFILE = "rltred2.lp";
+  RRLT.options.METHOD        = mc::RLTRed::Options::ILP;
+  RRLT.options.LEVEL         = mc::RLTRed::Options::FULLSIM;
+  RRLT.options.NODIV         = false;
+  RRLT.options.MIPDISPLEVEL  = 1;
+>>>>>>> 9877aad82961f004904fb8a2b0eeeda6ce4c741c
 
   RRLT.search( NF, F );
 
@@ -183,12 +201,21 @@ int test_rltred3()
   std::cout << DAG;
 
   mc::RLTRed RRLT( &DAG );
+<<<<<<< HEAD
   RRLT.options.METHOD        = mc::RLTRed::Options::ILP;
   RRLT.options.LEVEL         = mc::RLTRed::Options::FULLSIM;
   RRLT.options.NODIV         = false;
   RRLT.options.DISPLEVEL     = 2;
   RRLT.options.MIPDISPLEVEL  = 1;
   RRLT.options.MIPOUTPUTFILE = "rltred3.lp";
+=======
+  RRLT.options.DISPLEVEL     = 2;
+  RRLT.options.MIPOUTPUTFILE = "rltred3.lp";
+  RRLT.options.MIPDISPLEVEL  = 1;
+  RRLT.options.METHOD        = mc::RLTRed::Options::ILP;
+  RRLT.options.LEVEL         = mc::RLTRed::Options::FULLSIM;
+  RRLT.options.NODIV         = false;
+>>>>>>> 9877aad82961f004904fb8a2b0eeeda6ce4c741c
 
   RRLT.search( NF, F.data() );
 
@@ -488,12 +515,21 @@ int test_rltred4()
     ############## REDUCTION CONSTRAINTS ###########################################
   */
   mc::RLTRed RRLT( &DAG );
+<<<<<<< HEAD
   RRLT.options.METHOD        = mc::RLTRed::Options::ILP;
   RRLT.options.LEVEL         = mc::RLTRed::Options::FULLSIM;
   RRLT.options.NODIV         = false;
   RRLT.options.DISPLEVEL     = 1;
   RRLT.options.MIPDISPLEVEL  = 1;
   RRLT.options.MIPOUTPUTFILE = "rltred4.lp";
+=======
+  RRLT.options.DISPLEVEL     = 1;
+  RRLT.options.MIPOUTPUTFILE = "rltred4.lp";
+  RRLT.options.MIPDISPLEVEL  = 1;
+  RRLT.options.METHOD        = mc::RLTRed::Options::ILP;
+  RRLT.options.LEVEL         = mc::RLTRed::Options::PRIMSIM;
+  RRLT.options.NODIV         = false;
+>>>>>>> 9877aad82961f004904fb8a2b0eeeda6ce4c741c
 
   RRLT.search( NF, F );
 
@@ -648,12 +684,21 @@ int test_rltred5()
     ############## REDUCTION CONSTRAINTS ###########################################
   */
   mc::RLTRed RRLT( &DAG );
+<<<<<<< HEAD
   RRLT.options.METHOD        = mc::RLTRed::Options::ILP;
   RRLT.options.LEVEL         = mc::RLTRed::Options::PRIMSIM;
   RRLT.options.NODIV         = false;
   RRLT.options.DISPLEVEL     = 1;
   RRLT.options.MIPDISPLEVEL  = 1;
   RRLT.options.MIPOUTPUTFILE = "rltred5.lp";
+=======
+  RRLT.options.DISPLEVEL     = 1;
+  RRLT.options.MIPOUTPUTFILE = "rltred5.lp";
+  RRLT.options.MIPDISPLEVEL  = 1;
+  RRLT.options.METHOD        = mc::RLTRed::Options::ILP;
+  RRLT.options.LEVEL         = mc::RLTRed::Options::PRIMSIM;
+  RRLT.options.NODIV         = false;
+>>>>>>> 9877aad82961f004904fb8a2b0eeeda6ce4c741c
 
   RRLT.search( EQ.size(), EQ.data() );
 
@@ -687,12 +732,21 @@ int test_rltred6()
   std::cout << DAG;
 
   mc::RLTRed RRLT( &DAG );
+<<<<<<< HEAD
   RRLT.options.METHOD        = mc::RLTRed::Options::ILP;
   RRLT.options.LEVEL         = mc::RLTRed::Options::FULLSIM;
   RRLT.options.NODIV         = false;
   RRLT.options.DISPLEVEL     = 1;
   RRLT.options.MIPDISPLEVEL  = 1;
   RRLT.options.MIPOUTPUTFILE = "rltred6.lp";
+=======
+  RRLT.options.DISPLEVEL     = 1;
+  RRLT.options.MIPOUTPUTFILE = "rltred6.lp";
+  RRLT.options.MIPDISPLEVEL  = 1;
+  RRLT.options.METHOD        = mc::RLTRed::Options::ILP;
+  RRLT.options.LEVEL         = mc::RLTRed::Options::FULLSIM;
+  RRLT.options.NODIV         = false;
+>>>>>>> 9877aad82961f004904fb8a2b0eeeda6ce4c741c
 
   RRLT.search( NF, F.data() );
 
@@ -973,9 +1027,15 @@ int main()
     //test_quadexpr1();
     //test_quadexpr2();
     //test_quadexpr3();
+<<<<<<< HEAD
     //test_rltred1();
     test_rltred2();
     test_rltred3();
+=======
+    test_rltred1();
+    //test_rltred2();
+    //test_rltred3();
+>>>>>>> 9877aad82961f004904fb8a2b0eeeda6ce4c741c
     //test_rltred4();
     //test_rltred5();
     //test_rltred6();

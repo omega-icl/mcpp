@@ -362,7 +362,7 @@ void relax()
     //return;
 
     mc::PolImg<I> PolEnv;
-    PolEnv.options.AGGREG_LIN = true;
+    PolEnv.options.AGGREG_LQ = true;
 #ifndef USE_MILP
     PolEnv.options.BREAKPOINT_DISC = false;
 #else
