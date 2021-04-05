@@ -1,8 +1,8 @@
 #define TEST_FABS       // <-- select test function here
 const int NX = 500;	    // <-- select discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
-#define USE_PROFIL      // <-- specify to use PROFIL for interval arithmetic
-#undef  USE_BOOST       // <-- specify to use BOOST for interval arithmetic
+#undef  USE_PROFIL      // <-- specify to use PROFIL for interval arithmetic
+#define USE_BOOST       // <-- specify to use BOOST for interval arithmetic
 
 ////////////////////////////////////////////////////////////////////////
 
@@ -16,7 +16,7 @@ const int NX = 500;	    // <-- select discretization here
  #ifdef USE_BOOST
   #include "mcboost.hpp"
    typedef boost::numeric::interval_lib::save_state<boost::numeric::interval_lib::rounded_transc_opp<double>> T_boost_round;
-   typedef boost::numeric::interval_lib::checking_strict<double> T_boost_check;
+   typedef boost::numeric::interval_lib::checking_base<double> T_boost_check;
    typedef boost::numeric::interval_lib::policies<T_boost_round,T_boost_check> T_boost_policy;
    typedef boost::numeric::interval<double,T_boost_policy> I;
  #else

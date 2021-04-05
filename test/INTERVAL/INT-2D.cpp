@@ -1,9 +1,9 @@
-#define TEST_LMTD	// <-- select test function here
+#define TEST_TRIG	// <-- select test function here
 const int NX = 50;	// <-- select X discretization here
 const int NY = 50;	// <-- select Y discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
 #undef USE_PROFIL	// <-- specify to use PROFIL for interval arithmetic
-#undef USE_FILIB	// <-- specify to use FILIB++ for interval arithmetic
+#define USE_BOOST	// <-- specify to use FILIB++ for interval arithmetic
 
 ////////////////////////////////////////////////////////////////////////
 
@@ -11,20 +11,22 @@ const int NY = 50;	// <-- select Y discretization here
 #include <iomanip>
 
 #ifdef USE_PROFIL
-  #include "mcprofil.hpp"
-  typedef INTERVAL I;
+ #include "mcprofil.hpp"
+ typedef INTERVAL I;
 #else
-  #ifdef USE_FILIB
-    #include "mcfilib.hpp"
-    typedef filib::interval<double> I;
-  #else
-    #include "interval.hpp"
-    typedef mc::Interval I;
-  #endif
+ #ifdef USE_BOOST
+  #include "mcboost.hpp"
+   typedef boost::numeric::interval_lib::save_state<boost::numeric::interval_lib::rounded_transc_opp<double>> T_boost_round;
+   typedef boost::numeric::interval_lib::checking_base<double> T_boost_check;
+   typedef boost::numeric::interval_lib::policies<T_boost_round,T_boost_check> T_boost_policy;
+   typedef boost::numeric::interval<double,T_boost_policy> I;
+ #else
+  #include "interval.hpp"
+  typedef mc::Interval I;
+ #endif
 #endif
 
-#include "mccormick.hpp"
-typedef mc::McCormick<I> MC;
+#include "ffunc.hpp"
 
 using namespace std;
 using namespace mc;
@@ -159,68 +161,54 @@ T myfunc
 int main()
 ////////////////////////////////////////////////////////////////////////
 {  
-
-  MC::options.ENVEL_USE=true;
-  MC::options.ENVEL_MAXIT=100;
-  MC::options.ENVEL_TOL=1e-12;
-  MC::options.MVCOMP_USE=true;
-
 #ifdef SAVE_RESULTS
-  ofstream allsub( "MC-2D.out", ios_base::out );
-  ofstream dirsub( "MC2-2D.out", ios_base::out );
-  allsub << scientific << setprecision(5) << right;
-  dirsub << scientific << setprecision(5) << right;
+  ofstream res( "INT-2D.out", ios_base::out );
+  res << scientific << setprecision(5) << right;
 #endif
 
-  try{ 
+  try{
+    // Construct DAG representation of the factorable function
+    FFGraph DAG;
+    FFVar X( &DAG );
+    FFVar Y( &DAG );
+    FFVar F = myfunc( X, Y );
+#ifdef SAVE_RESULTS
+    DAG.output( DAG.subgraph( 1, &F ) );
+    ofstream ofdag( "INT-2D.dot", ios_base::out );
+    DAG.dot_script( 1, &F, ofdag );
+    ofdag.close();
+#endif
 
+    // Calculate interval bounds
+    I Xint( XL, XU );
+    I Yint( YL, YU );
+    I Fint;
+    DAG.eval( 1, &F, &Fint, 1, &X, &Xint, 1, &Y, &Yint );
+    cout << "Domain: " << Xint << " x " << Yint << endl;
+    cout << "Bounds: " << Fint << endl;
+
+    // Repeated calculations at grid points
     for( int iX=0; iX<NX; iX++ ){ 
-      for( int iY=0; iY<NY; iY++ ){
+     for( int iY=0; iY<NY; iY++ ){ 
 
-        double Xval = XL+iX*(XU-XL)/(NX-1.);
-        double Yval = YL+iY*(YU-YL)/(NY-1.);
-        double Zval = myfunc( Xval, Yval );
-
-        MC Xrel( I(XL,XU), Xval );
-        MC Yrel( I(YL,YU), Yval );
-
-        // Calculate relaxations + propagate all subgradient components
-        Xrel.sub(2,0);
-        Yrel.sub(2,1);
-        MC Zrel = myfunc( Xrel, Yrel );
+      double Xval = XL+iX*(XU-XL)/(NX-1.);
+      double Yval = YL+iY*(YU-YL)/(NY-1.);
+      double Fval;
+      DAG.eval( 1, &F, &Fval, 1, &X, &Xval, 1, &Y, &Yval );
 
 #ifdef SAVE_RESULTS
-        allsub << setw(14) << Xval << setw(14) << Yval << setw(14) << Zval
-               << setw(14) << Zrel.l() << setw(14) <<  Zrel.u()
-               << setw(14) << Zrel.cv() << setw(14) << Zrel.cc()
-               << setw(14) << Zrel.cvsub(0) << setw(14) << Zrel.ccsub(0)
-               << setw(14) << Zrel.cvsub(1) << setw(14) << Zrel.ccsub(1)
-               << endl;
-#endif
-        
-        // Calculate relaxations + propagate directional subgradient
-        const double dir[2] = {1,-1};
-        Xrel.sub(1,&dir[0],&dir[0]);
-        Yrel.sub(1,&dir[1],&dir[1]);
-        Zrel = myfunc( Xrel, Yrel );
-
-#ifdef SAVE_RESULTS
-        dirsub << setw(14) << Xval << setw(14) << Yval << setw(14) << Zval
-               << setw(14) << Zrel.l() << setw(14) <<  Zrel.u()
-               << setw(14) << Zrel.cv() << setw(14) << Zrel.cc()
-               << setw(14) << Zrel.cvsub(0) << setw(14) << Zrel.ccsub(0)
-               << endl;
-#endif
-      }
-#ifdef SAVE_RESULTS
-      allsub << endl;
-      dirsub << endl;
+      res << setw(14) << Xval
+          << setw(14) << Yval
+          << setw(14) << Fval
+          << setw(14) << Op<I>::l(Fint)
+          << setw(14) << Op<I>::u(Fint)
+          << endl;
 #endif
     }
+   }
   }
-  
 #ifndef USE_PROFIL
-#ifndef USE_FILIB
+#ifndef USE_BOOST
   catch( I::Exceptions &eObj ){
     cerr << "Error " << eObj.ierr()
          << " in natural interval extension:" << endl
@@ -230,17 +218,16 @@ int main()
   }
 #endif
 #endif
-  catch( MC::Exceptions &eObj ){
+  catch( FFGraph::Exceptions &eObj ){
     cerr << "Error " << eObj.ierr()
-         << " in McCormick relaxation:" << endl
+         << " in DAG evaluation:" << endl
 	 << eObj.what() << endl
          << "Aborts." << endl;
     return eObj.ierr();
   }
-
 #ifdef SAVE_RESULTS
-  allsub.close();
-  dirsub.close();
+  res.close();
 #endif
   return 0;
 }
+
