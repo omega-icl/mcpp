@@ -2,7 +2,8 @@
 const int NX = 500;	    // <-- select discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
 #undef  USE_PROFIL      // <-- specify to use PROFIL for interval arithmetic
-#define USE_BOOST       // <-- specify to use BOOST for interval arithmetic
+#undef  USE_FILIB        // <-- specify to use FILIB++ for interval arithmetic
+#undef  USE_BOOST        // <-- specify to use BOOST for interval arithmetic
 
 ////////////////////////////////////////////////////////////////////////
 
@@ -13,15 +14,20 @@ const int NX = 500;	    // <-- select discretization here
  #include "mcprofil.hpp"
  typedef INTERVAL I;
 #else
- #ifdef USE_BOOST
-  #include "mcboost.hpp"
+ #ifdef USE_FILIB
+  #include "mcfilib.hpp"
+  typedef filib::interval<double> I;
+ #else
+  #ifdef USE_BOOST
+   #include "mcboost.hpp"
    typedef boost::numeric::interval_lib::save_state<boost::numeric::interval_lib::rounded_transc_opp<double>> T_boost_round;
    typedef boost::numeric::interval_lib::checking_base<double> T_boost_check;
    typedef boost::numeric::interval_lib::policies<T_boost_round,T_boost_check> T_boost_policy;
    typedef boost::numeric::interval<double,T_boost_policy> I;
- #else
-  #include "interval.hpp"
-  typedef mc::Interval I;
+  #else
+   #include "interval.hpp"
+   typedef mc::Interval I;
+  #endif
  #endif
 #endif
 
@@ -259,6 +265,7 @@ int main()
     }
   }
 #ifndef USE_PROFIL
+#ifndef USE_FILIB
 #ifndef USE_BOOST
   catch( I::Exceptions &eObj ){
     cerr << "Error " << eObj.ierr()
@@ -267,6 +274,7 @@ int main()
          << "Aborts." << endl;
     return eObj.ierr();
   }
+#endif
 #endif
 #endif
   catch( FFGraph::Exceptions &eObj ){

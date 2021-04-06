@@ -1,8 +1,9 @@
 #define TEST_MIN1       // <-- select test function here
 const int NX = 500;	    // <-- select discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
-#define USE_PROFIL      // <-- specify to use PROFIL for interval arithmetic
+#undef  USE_PROFIL      // <-- specify to use PROFIL for interval arithmetic
 #undef  USE_FILIB        // <-- specify to use FILIB++ for interval arithmetic
+#undef  USE_BOOST        // <-- specify to use BOOST for interval arithmetic
 #define USE_DAG          // <-- specify to evaluate via a DAG of the function
 
 ////////////////////////////////////////////////////////////////////////
@@ -11,16 +12,24 @@ const int NX = 500;	    // <-- select discretization here
 #include <iomanip>
 
 #ifdef USE_PROFIL
-  #include "mcprofil.hpp"
-  typedef INTERVAL I;
+ #include "mcprofil.hpp"
+ typedef INTERVAL I;
 #else
-  #ifdef USE_FILIB
-    #include "mcfilib.hpp"
-    typedef filib::interval<double> I;
+ #ifdef USE_FILIB
+  #include "mcfilib.hpp"
+  typedef filib::interval<double> I;
+ #else
+  #ifdef USE_BOOST
+   #include "mcboost.hpp"
+   typedef boost::numeric::interval_lib::save_state<boost::numeric::interval_lib::rounded_transc_opp<double>> T_boost_round;
+   typedef boost::numeric::interval_lib::checking_base<double> T_boost_check;
+   typedef boost::numeric::interval_lib::policies<T_boost_round,T_boost_check> T_boost_policy;
+   typedef boost::numeric::interval<double,T_boost_policy> I;
   #else
-    #include "interval.hpp"
-    typedef mc::Interval I;
+   #include "interval.hpp"
+   typedef mc::Interval I;
   #endif
+ #endif
 #endif
 
 #include "mccormick.hpp"
@@ -317,6 +326,7 @@ int main()
   }
 #ifndef USE_PROFIL
 #ifndef USE_FILIB
+#ifndef USE_BOOST
   catch( I::Exceptions &eObj ){
     cerr << "Error " << eObj.ierr()
          << " in natural interval extension:" << endl
@@ -324,6 +334,7 @@ int main()
          << "Aborts." << endl;
     return eObj.ierr();
   }
+#endif
 #endif
 #endif
   catch( MC::Exceptions &eObj ){
@@ -406,6 +417,7 @@ int main()
   }
 #ifndef USE_PROFIL
 #ifndef USE_FILIB
+#ifndef USE_BOOST
   catch( I::Exceptions &eObj ){
     cerr << "Error " << eObj.ierr()
          << " in natural interval extension:" << endl
@@ -413,6 +425,7 @@ int main()
          << "Aborts." << endl;
     return eObj.ierr();
   }
+#endif
 #endif
 #endif
   catch( MC::Exceptions &eObj ){
