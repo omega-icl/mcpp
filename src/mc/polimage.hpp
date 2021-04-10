@@ -705,12 +705,15 @@ PolVar<T>::add_breakpt
    if( itVar == _img->_Vars.end() ) return;
    double atol = _img->options.BREAKPOINT_ATOL,
           rtol = _img->options.BREAKPOINT_RTOL;
+   // Reject breakpoint if at lower/upper bound of current interval
    if( isequal( Op<T>::l(itVar->second->range()), bkpt, atol, rtol ) 
     || isequal( Op<T>::u(itVar->second->range()), bkpt, atol, rtol ) ) return;
+   // Reject breakpoint if at lower/upper bound of current interval
    auto itL = _breakpts.lower_bound( bkpt );
    if( itL!=_breakpts.end() && isequal( *itL, bkpt, atol, rtol ) ) return;
-   auto itU = _breakpts.upper_bound( bkpt );
-   if( itU!=_breakpts.end() && isequal( *itU, bkpt, atol, rtol ) ) return;
+   if( itL!=_breakpts.begin() && isequal( *(--itL), bkpt, atol, rtol ) ) return;
+   //auto itU = _breakpts.upper_bound( bkpt );
+   //if( itU!=_breakpts.end() && isequal( *itU, bkpt, atol, rtol ) ) return;
    itVar->second->_breakpts.insert( bkpt );
    itVar->second->reset_subdiv();
    _breakpts.insert( bkpt );
@@ -2181,8 +2184,8 @@ public:
       SANDWICH_ATOL(1e-3), SANDWICH_RTOL(1e-3), SANDWICH_MAXCUT(5),
       SANDWICH_RULE(MAXERR), FRACTIONAL_ATOL(machprec()),
       FRACTIONAL_RTOL(machprec()), BREAKPOINT_TYPE(NONE),
-      BREAKPOINT_ATOL(1e-8), BREAKPOINT_RTOL(1e-5), BREAKPOINT_DISC(true),
-      RELAX_QUAD(true), RELAX_MONOM(2), RELAX_NLIN(true), RELAX_DISC(true)
+      BREAKPOINT_ATOL(1e-5), BREAKPOINT_RTOL(1e-3),
+      RELAX_QUAD(true), RELAX_MONOM(1), RELAX_NLIN(true), RELAX_DISC(2)
       {}
     //! @brief Assignment operator
     Options& operator= ( const Options&options ){
@@ -2199,7 +2202,6 @@ public:
         BREAKPOINT_TYPE = options.BREAKPOINT_TYPE;
         BREAKPOINT_ATOL = options.BREAKPOINT_ATOL;
         BREAKPOINT_RTOL = options.BREAKPOINT_RTOL;
-        BREAKPOINT_DISC = options.BREAKPOINT_DISC;
         RELAX_QUAD      = options.RELAX_QUAD;
         RELAX_MONOM     = options.RELAX_MONOM;
         RELAX_NLIN      = options.RELAX_NLIN;
@@ -2243,16 +2245,14 @@ public:
     double BREAKPOINT_ATOL;
     //! @brief Relative tolerance in adding breakpoints in piecewise linear cuts - Default: 1e-5
     double BREAKPOINT_RTOL;
-    //! @brief Whether to relax discontinuities using mixed-integer linear constraints (true) or continuous linear constraints (false) - Default: true
-    bool BREAKPOINT_DISC;
     //! @brief Whether or not to linearize quadratic terms (i.e. square, bilinear) - Default: true
     bool RELAX_QUAD;
-    //! @brief Whether or not to linearize monomial terms (i.e. pow, cheb) - Default: 2 - all monomials linearized (1 - only monomials of order >2 linearized; 0 - no monomials linearized)
+    //! @brief Whether or not to linearize monomial terms (i.e. pow, cheb) - Default: 1 - monomials of order >2 linearized & quadratic term linearization controlled by RELAX_QUAD (2 - all monomials linearized ; 0 - no monomials linearized)
     int RELAX_MONOM;
     //! @brief Whether or not to linearize nonlinear terms (i.e. exp, log, sin, cos, tan, dpow) terms - Default: true
     bool RELAX_NLIN;
-    //! @brief Whether or not to linearize discontinuous terms (i.e. min, max, abs, fstep) terms - Default: true
-    bool RELAX_DISC;
+    //! @brief Whether or not to linearize discontinuous terms (i.e. min, max, abs, fstep) terms - Default: 2 - mixed-integer linearization (1 - continuous linearization; 0 - no linearization )
+    int RELAX_DISC;
   };
 
   //! @brief PolImg options handle
@@ -3760,7 +3760,7 @@ template <typename T> inline bool
 PolImg<T>::_add_LQ_SQR
 ( PolLQExpr<T>*&pLQ, const PolVar<T>*VarR, FFVar*pVar1 )
 {
-  if( options.RELAX_QUAD || !options.RELAX_MONOM ) return false;
+  if( options.RELAX_MONOM == 2 || options.RELAX_QUAD ) return false;
   if( !pLQ ) pLQ = _append_LQ( VarR );
   if( pVar1->cst() )
     pLQ->substitute( VarR, sqr( pVar1->num().val() ) );
@@ -3842,12 +3842,14 @@ template <typename T> inline void
 PolImg<T>::_add_cuts_IPOW
 ( const PolVar<T>*VarR, FFVar*pVar1, const int iExp )
 {
+  assert( iExp > 2 || iExp < 0 );
   if( pVar1->cst() ){
     _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::pow( pVar1->num().val(), iExp ), *VarR, 1. );
     return;
   }
   
-  if( options.RELAX_MONOM != 2 ){
+  // No linearization
+  if( options.RELAX_MONOM == 0 || options.RELAX_MONOM == 1 ){
     auto itVar1 = _Vars.find( pVar1 );
     _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
     return;
@@ -4004,7 +4006,8 @@ PolImg<T>::_add_cuts_CHEB
   if( pVar1->cst() )
     _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, mc::cheb( pVar1->num().val(), iOrd ), *VarR, 1. );
   
-  else if( options.RELAX_MONOM != 2 ){
+  // No linearization
+  else if( options.RELAX_MONOM == 0 || options.RELAX_MONOM == 1 ){
     auto itVar1 = _Vars.find( pVar1 );
     _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
     return;
@@ -4017,6 +4020,7 @@ PolImg<T>::_add_cuts_CHEB
       { return std::make_pair( mc::cheb(x,*iusr), *iusr*mc::cheb2(x,*iusr-1) ); }
   };      
   const int iusr = iOrd;
+
   // Positive even order
   if( iOrd > 0 && !(iOrd%2) ){
     _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
@@ -5593,6 +5597,7 @@ PolImg<T>::_add_cuts_FABS
     return;
   }
 
+  // No relaxation
   if( !options.RELAX_DISC ){
     auto itVar1 = _Vars.find( pVar1 );
     _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
@@ -5603,8 +5608,8 @@ PolImg<T>::_add_cuts_FABS
 
   // Positive branch only
   if( Op<T>::l(itVar1->second->_range) >= 0. ){
-      _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar1->second, -1. );
-      return;
+    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar1->second, -1. );
+    return;
   }
 
   // Negative branch only
@@ -5614,11 +5619,12 @@ PolImg<T>::_add_cuts_FABS
   }
 
   // Linear overestimator
-  if( !options.BREAKPOINT_DISC ){
+  if( options.RELAX_DISC == 1 ){
     double XL = Op<T>::l(itVar1->second->_range),  dX = Op<T>::diam(itVar1->second->_range),
            YL = std::fabs(Op<T>::l(itVar1->second->_range)), dY = std::fabs(Op<T>::u(itVar1->second->_range))-YL;
     _add_cut( VarR->_var.ops().first, PolCut<T>::GE, dY*XL-dX*YL, *VarR, -dX, *itVar1->second, dY );
   }
+
   // Piecewise-linear overestimator
   else{
     const double M1 =  2*Op<T>::u(itVar1->second->_range);
@@ -5627,6 +5633,7 @@ PolImg<T>::_add_cuts_FABS
     _add_cut( VarR->_var.ops().first, PolCut<T>::LE, M2, *VarR, 1., *itVar1->second, -1., *VarB,  M2 );
     _add_cut( VarR->_var.ops().first, PolCut<T>::LE, 0., *VarR, 1., *itVar1->second,  1., *VarB, -M1 );
   }
+  
   // Linear underestimators
   _add_cut( VarR->_var.ops().first, PolCut<T>::GE, 0., *VarR, 1., *itVar1->second,  -1. );
   _add_cut( VarR->_var.ops().first, PolCut<T>::GE, 0., *VarR, 1., *itVar1->second,   1. );
@@ -5670,11 +5677,13 @@ template <typename T> inline void
 PolImg<T>::_add_cuts_FSTEP
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
+  // Constant operand
   if( pVar1->cst() ){
     _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, mc::fstep( pVar1->num().val() ), *VarR, 1. );
     return;
   }
 
+  // No relaxation
   if( !options.RELAX_DISC ){
     auto itVar1 = _Vars.find( pVar1 );
     _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
@@ -5682,16 +5691,26 @@ PolImg<T>::_add_cuts_FSTEP
   }
 
   auto itVar1 = _Vars.find( pVar1 );
-  if( Op<T>::l(itVar1->second->_range) >= 0. )
+  
+  // Positive branch only
+  if( Op<T>::l(itVar1->second->_range) >= 0. ){
     _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, mc::fstep( Op<T>::l(itVar1->second->_range) ), *VarR, 1. );
-  else if( Op<T>::u(itVar1->second->_range) < 0. )
+  }
+
+  // Negative branch only
+  else if( Op<T>::u(itVar1->second->_range) < 0. ){
     _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, mc::fstep( Op<T>::u(itVar1->second->_range) ), *VarR, 1. );
-  else if( !options.BREAKPOINT_DISC ){
+  }
+  
+  // Linear overestimator
+  else if( options.RELAX_DISC == 1 ){
     _add_cut( VarR->_var.ops().first, PolCut<T>::GE, 0., *VarR, Op<T>::u(itVar1->second->_range),
                  *itVar1->second,  -1. );
     _add_cut( VarR->_var.ops().first, PolCut<T>::GE, Op<T>::l(itVar1->second->_range),
                  *VarR, Op<T>::l(itVar1->second->_range), *itVar1->second,  1. );
   }
+
+  // Piecewise-linear overestimator
   else{
     PolVar<T>* VarB = _append_aux( Op<T>::zeroone(), false );
     _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *VarB, -1. );
@@ -5742,6 +5761,7 @@ PolImg<T>::_add_cuts_MINF
     return;
   }
 
+  // No relaxation
   it_Vars itVar1, itVar2;
   if( !options.RELAX_DISC ){
     if( pVar1->cst() ){
@@ -5889,6 +5909,7 @@ PolImg<T>::_add_cuts_MAXF
     return;
   }
 
+  // No relaxation
   it_Vars itVar1, itVar2;
   if( !options.RELAX_DISC ){
     if( pVar1->cst() ){

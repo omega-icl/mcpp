@@ -248,6 +248,7 @@ bilinear programming problems</A>, <i>Journal of Global Optimization</i>, <b>2</
 #include "ffunc.hpp"
 #include "spolyexpr.hpp"
 #include "mclapack.hpp"
+#include "mctime.hpp"
 
 #if defined(MC__USE_CPLEX)
  #include "ilcplex/ilocplex.h"

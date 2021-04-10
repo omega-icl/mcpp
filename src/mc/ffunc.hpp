@@ -2448,8 +2448,8 @@ cheb
     return inter( VarCheb, VarRecu );
   }
     
-  FFVar VarRecu = iOrd==3? (4.*sqr(Var)-3.)*Var: 2.*Var*cheb(Var,iOrd-1)-cheb(Var,iOrd-2);
-  VarRecu = inter( VarRecu, iOrd%2? 2.*cheb(Var,iOrd/2)*cheb(Var,iOrd/2+1)-Var: 2.*sqr(cheb(Var,iOrd/2))-1. );
+  FFVar VarRecu = inter( 2.*Var*cheb(Var,iOrd-1)-cheb(Var,iOrd-2),
+                         iOrd%2? 2.*cheb(Var,iOrd/2)*cheb(Var,iOrd/2+1)-Var: 2.*sqr(cheb(Var,iOrd/2))-1. );
   FFVar VarCheb = FFGraph::_insert_binary_operation( FFOp::CHEB, cheb(Var._dep,iOrd), Var, (int)iOrd );
   return inter( VarCheb, VarRecu );
 }
