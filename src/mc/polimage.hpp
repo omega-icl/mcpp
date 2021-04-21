@@ -2302,7 +2302,7 @@ public:
     { return _add_cut( 0, X1, X2, X3 ); }
   //! @brief Append new relaxation cut w/o variable
   typename t_Cuts::iterator add_cut
-    ( const typename PolCut<T>::TYPE type, const double b )
+    ( const typename PolCut<T>::TYPE type, const double b=0. )
     { return _add_cut( 0, type, b ); }
   //! @brief Append new relaxation cut w/ 1 variable
   typename t_Cuts::iterator add_cut
@@ -2397,10 +2397,14 @@ public:
   void erase_cut
     ( typename t_Cuts::iterator itcut )
     { return _Cuts.erase( itcut ); }
-  //! @brief Erase all cuts and auxiliary variables
+  //! @brief Erase all cuts and auxiliary variables as well as main variable subdivision
   void reset_cuts
     ()
     { _reset_vars(); _erase_aux(); _erase_cuts(); }
+  //! @brief Erase all cuts
+  void erase_cuts
+    ()
+    { _erase_cuts(); }
 };
 
 template <typename T>
