@@ -4877,9 +4877,10 @@ FFGraph::_find_var
 //  it_Vars iVar = _Vars.find( pVar );
 //  delete pVar;
 
+  if( id.second == FFVar::NOREF ) return nullptr; // BC [27-APR-2021] TO PREVENT RETURNING A ZERO CONSTANT FOR UNREFERENCED VARIABLES
   _dummyVar.id() = id;
   it_Vars iVar = _Vars.find( &_dummyVar );
-  return( iVar == _Vars.end()? 0: *iVar );
+  return( iVar == _Vars.end()? nullptr: *iVar );
 }
 
 inline FFSubgraph
