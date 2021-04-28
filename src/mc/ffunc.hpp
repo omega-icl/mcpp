@@ -4190,6 +4190,8 @@ FFOp::tighten_backward
       }
     }
     else{
+      if( *static_cast<U*>( pops[0]->val() ) == U(0)
+       || *static_cast<U*>( pops[1]->val() ) == U(0) ) break;
       //*itU = *static_cast<U*>( pops[0]->val() ) * *static_cast<U*>( pops[1]->val() );
       if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
                          *static_cast<U*>( pres->val() ) / *static_cast<U*>( pops[1]->val() ),
@@ -6681,12 +6683,15 @@ FFGraph::reval
   std::vector<FFVar> vpDep( ndxDep.size() );
   std::vector<U> vvDep( ndxDep.size() );
   std::set<unsigned>::const_iterator it = ndxDep.cbegin();
-  for( unsigned iDep=0; it != ndxDep.cend(); ++it, iDep++ ) vpDep[iDep] = pDep[*it];
-
-  reval( sgDep, wkDep, vvDep.size(), vpDep.data(), vvDep.data(), nVar, pVar, vVar, args... );
+  for( unsigned iDep=0; it != ndxDep.cend(); ++it, iDep++ ){
+    vpDep[iDep] = pDep[*it];
+    vvDep[iDep] = vDep[*it];
+  }
+  int flag = reval( sgDep, wkDep, vvDep.size(), vpDep.data(), vvDep.data(), nVar, pVar, vVar, args... );
 
   it = ndxDep.cbegin();
   for( unsigned iDep=0; it != ndxDep.cend(); ++it, iDep++ ) vDep[*it] = vvDep[iDep];
+  return flag;
 }
 
 template <typename U, typename... Deps>
@@ -6805,10 +6810,16 @@ FFGraph::reval
     // Intersection of propagated dependents with vDep 
     for( unsigned i=0; i<nDep; i++ ){
       auto itd = sgDep.it_dep[i];
+#ifdef MC__REVAL_DEBUG
+      std::cout << "Dependent " << *(*itd)->pres << ": " << *static_cast<U*>( (*itd)->pres->val() ) << " ^ " << vDep[i] << std::endl;
+#endif
       if( !Op<U>::inter( vDep[i], *static_cast<U*>( (*itd)->pres->val() ), vDep[i] ) )
         return -ipass-1;
       *static_cast<U*>( (*itd)->pres->val() ) = vDep[i];
     }
+#ifdef MC__REVAL_DEBUG
+    { int dum; std::cout << "PAUSED"; std::cin >> dum; }
+#endif
 
     // Backward propagation in U arithmetic through subgraph
     bool is_tighter = false;
@@ -6822,7 +6833,15 @@ FFGraph::reval
       // Tighten current operation
       try{ if( !_curOp->tighten_backward( wkDep.data() ) ) is_feasible = false; }
       catch(...){ continue; }
-      if( !is_feasible ) return -ipass-1;
+#ifdef MC__REVAL_DEBUG
+      std::cout << *_curOp->pres << " " << *static_cast<U*>(_curOp->pres->val()) << " = ";
+      for( auto &&op : _curOp->pops )        
+        std::cout << *op << " " << *static_cast<U*>(op->val()) << " @ ";
+      std::cout << std::endl;
+#endif
+      if( !is_feasible ){
+        return -ipass-1;
+      }
       // Test improvement of operand variables
       iop = 0;
       for( auto &&op : _curOp->pops ){
