@@ -8,16 +8,16 @@
 \date 2020
 \bug No known bugs.
 
-The class mc::SQuad defined in <tt>scquad.hpp</tt> enables the reformulation of sparse Chebyshev models into a set of quadratic forms via the introduction of auxiliary variables.
+The class mc::SQuad defined in <tt>squad.hpp</tt> enables the reformulation of sparse polynomial models into a set of quadratic forms via the introduction of auxiliary variables.
 
-\section sec_SQUAD_process How Do I Reformulate a (Set of) Sparse Chebyshev Model(s)?
+\section sec_SQUAD_process How Do I Reformulate a (Set of) Sparse Polynomial Model(s)?
 
 For illustration, suppose we want to process the factorable function \f${\bf f}:\mathbb{R}^3\to\mathbb{R}^2\f$ defined by
 \f{align*}
   {\bf f}(x_0,x_1,x_2) = \left(\begin{array}{c} \left(x_0+x_1^2-2\cdot x_2\right)^3\\ 2\cdot x_1^2-1\end{array}\right)
 \f}
 
-The decomposition requires the header file <tt>quadexpr.hpp</tt> to be included:
+The decomposition requires the header file <tt>squad.hpp</tt> to be included:
 
 \code
       #include "squad.hpp"
@@ -214,8 +214,7 @@ with the following 11 reduction constraints are also generated:
 #define MC__SQUAD_H
 
 #include <list>
-#include "scmodel.hpp"
-#include "spolyexpr.hpp"
+#include "spolymodel.hpp"
 
 #define MC__SQUAD_CHECK
 #undef  MC__SQUAD_PROCESS_DEBUG
@@ -243,12 +242,12 @@ struct lt_SQuad
     }
 };
 
-//! @brief C++ class for reformulation of sparse Chebyshev models as a set of quadratic forms
+//! @brief C++ class for reformulation of sparse polynomial models as a set of quadratic forms
 ////////////////////////////////////////////////////////////////////////
-//! mc::SQuad is a C++ class for reformulation of sparse Chebyshev
+//! mc::SQuad is a C++ class for reformulation of sparse polynomial
 //! models as a set of quadratic forms via the introduction of
-//! auxiliary variables (lifting). Sparse Chebyshev models are
-//! computed using the classes mc::SCModel and mc::SCVar. 
+//! auxiliary variables (lifting). Sparse monomial are defined using the
+//! class mc::SPolyModel. 
 ////////////////////////////////////////////////////////////////////////
 class SQuad
 ////////////////////////////////////////////////////////////////////////
@@ -293,7 +292,8 @@ public:
 
   //! @brief Generate positive semi-definite cuts to tighten the quadratic reformulation
   void tighten
-    ();
+    ( bool const threevar=false );
+//    ();
 
   //! @brief Retreive reference to vector of sparse coefficient matrices defining the main quadratic forms
   std::vector<t_SQuad> const& MatFct
@@ -520,12 +520,70 @@ const
 }
 
 
+//inline void
+//SQuad::tighten
+//( unsigned const maxsize )
+//{
+//  _MatPSD.clear();
+//  std::vector< SPolyMon const* > psdmon;
+//  auto itmon = _SetMon.cbegin();
+//  for( ; itmon != _SetMon.cend(); ++itmon ){
+
+//    // check square monomial *itmon1 participating
+//    if( itmon->tord && !_find( &*itmon, &*itmon ) ) continue;  
+//    psdmon.assign( 1, &*itmon );
+//    
+//    // find next compatible monomial
+//    _tighten( maxsize, psdmon, ++itmon );
+//  }
+//}
+
+
+//inline void
+//SQuad::_tighten
+//( unsigned const maxsize, std::vector< SPolyMon const* >& psdmon,
+//  t_SPolyMon::iterator itmon, std::vector<t_SQuad>::iterator itpsd )
+//{
+//  for( ; itmon != _SetMon.cend(); ++itmon ){
+
+//    // check square monomial *itmon participating
+//    if( !_find( &*itmon, &*itmon ) continue;
+
+//    // check cross-term with *itmon participating
+//    bool candidate = true;
+//    for( auto const& pmon : psdmon ){
+//      if( _find( pmon, &*itmon ) continue;
+//      candidate = false;
+//      break;
+//    }
+//    if( !candidate ) continue;
+
+//    // add positive-definite cuts for current level
+//    _MatPSD.push_back( t_SQuad() );
+//    auto& mat1 = _MatPSD.back();
+//    if( psdmon.size() == 1 )
+//      assert( _insert( mat1, psdmon.back(), psdmon.back(), 1. ) ); 
+//    assert( _insert( mat1, &*itmon, &*itmon,  1. ) );
+//    for( auto const& pmon : psdmon )
+//      assert( _insert( mat1, pmon, &*itmon, -2. ) );
+
+//      if( options.BASIS == Options::MONOM && !itmon1->gcexp()%2 && !itmon2->gcexp()%2 )
+//        continue;
+//      _MatPSD.push_back( t_SQuad() );
+//      auto& mat2 = _MatPSD.back();
+//      assert( _insert( mat2, &*itmon1, &*itmon1,  1. )
+//           && _insert( mat2, &*itmon2, &*itmon2,  1. )
+//           && _insert( mat2, &*itmon1, &*itmon2,  2. ) );
+//    }
+//  }
+//}
+
+
 inline void
 SQuad::tighten
-()
+( bool const threevar )
 {
   _MatPSD.clear();
-  std::list< std::pair< SPolyMon const*, SPolyMon const* > > psdlist;
   auto itmon1 = _SetMon.cbegin();
   for( ; itmon1 != _SetMon.cend(); ++itmon1 ){
 
@@ -538,21 +596,90 @@ SQuad::tighten
       if( !_find( &*itmon1, &*itmon2 ) || !_find( &*itmon2, &*itmon2 ) ) continue;
 
       // add positive-definite cuts
+      unsigned pos = _MatPSD.size();
       _MatPSD.push_back( t_SQuad() );
       auto& mat1 = _MatPSD.back();
       assert( _insert( mat1, &*itmon1, &*itmon1,  1. )
            && _insert( mat1, &*itmon2, &*itmon2,  1. )
            && _insert( mat1, &*itmon1, &*itmon2, -2. ) );
-      if( options.BASIS == Options::MONOM && !itmon1->gcexp()%2 && !itmon2->gcexp()%2 )
-        continue;
+      if( !threevar && options.BASIS == Options::MONOM
+       && !itmon1->gcexp()%2 && !itmon2->gcexp()%2 ) continue;
       _MatPSD.push_back( t_SQuad() );
       auto& mat2 = _MatPSD.back();
       assert( _insert( mat2, &*itmon1, &*itmon1,  1. )
            && _insert( mat2, &*itmon2, &*itmon2,  1. )
            && _insert( mat2, &*itmon1, &*itmon2,  2. ) );
+
+      if( !threevar ) continue;
+      auto itmon3 = itmon2;
+      for( ++itmon3; itmon3 != _SetMon.cend(); ++itmon3 ){
+
+        // check square monomial *itmon2 and cross-term *itmon1.*itmon2 participating
+        if( !_find( &*itmon1, &*itmon3 ) || !_find( &*itmon2, &*itmon3 )
+         || !_find( &*itmon3, &*itmon3 ) ) continue;
+
+        // add positive-definite cuts
+        _MatPSD.push_back( _MatPSD[pos] );
+        auto& mat3 = _MatPSD.back();
+        assert( _insert( mat3, &*itmon3, &*itmon3,  1. )
+             && _insert( mat3, &*itmon1, &*itmon3, -2. )
+             && _insert( mat3, &*itmon2, &*itmon3,  2. ) );
+        _MatPSD.push_back( _MatPSD[pos] );
+        auto& mat4 = _MatPSD.back();
+        assert( _insert( mat4, &*itmon3, &*itmon3,  1. )
+             && _insert( mat4, &*itmon1, &*itmon3,  2. )
+             && _insert( mat4, &*itmon2, &*itmon3, -2. ) );
+        _MatPSD.push_back( _MatPSD[pos+1] );
+        auto& mat5 = _MatPSD.back();
+        assert( _insert( mat5, &*itmon3, &*itmon3,  1. )
+             && _insert( mat5, &*itmon1, &*itmon3, -2. )
+             && _insert( mat5, &*itmon2, &*itmon3, -2. ) );
+        if( options.BASIS == Options::MONOM && !itmon1->gcexp()%2
+         && !itmon2->gcexp()%2 && !itmon3->gcexp()%2 )
+          continue;
+        _MatPSD.push_back( _MatPSD[pos+1] );
+        auto& mat6 = _MatPSD.back();
+        assert( _insert( mat6, &*itmon3, &*itmon3,  1. )
+             && _insert( mat6, &*itmon1, &*itmon3,  2. )
+             && _insert( mat6, &*itmon2, &*itmon3,  2. ) );
+      }
     }
   }
 }
+
+//inline void
+//SQuad::tighten
+//()
+//{
+//  _MatPSD.clear();
+//  std::list< std::pair< SPolyMon const*, SPolyMon const* > > psdlist;
+//  auto itmon1 = _SetMon.cbegin();
+//  for( ; itmon1 != _SetMon.cend(); ++itmon1 ){
+
+//    // check square monomial *itmon1 participating
+//    if( itmon1->tord && !_find( &*itmon1, &*itmon1 ) ) continue;
+//    auto itmon2 = itmon1;
+//    for( ++itmon2; itmon2 != _SetMon.cend(); ++itmon2 ){
+
+//      // check square monomial *itmon2 and cross-term *itmon1.*itmon2 participating
+//      if( !_find( &*itmon1, &*itmon2 ) || !_find( &*itmon2, &*itmon2 ) ) continue;
+
+//      // add positive-definite cuts
+//      _MatPSD.push_back( t_SQuad() );
+//      auto& mat1 = _MatPSD.back();
+//      assert( _insert( mat1, &*itmon1, &*itmon1,  1. )
+//           && _insert( mat1, &*itmon2, &*itmon2,  1. )
+//           && _insert( mat1, &*itmon1, &*itmon2, -2. ) );
+//      if( options.BASIS == Options::MONOM && !itmon1->gcexp()%2 && !itmon2->gcexp()%2 )
+//        continue;
+//      _MatPSD.push_back( t_SQuad() );
+//      auto& mat2 = _MatPSD.back();
+//      assert( _insert( mat2, &*itmon1, &*itmon1,  1. )
+//           && _insert( mat2, &*itmon2, &*itmon2,  1. )
+//           && _insert( mat2, &*itmon1, &*itmon2,  2. ) );
+//    }
+//  }
+//}
 
 
 inline std::list< SQuad::t_SQuad >

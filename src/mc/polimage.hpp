@@ -2181,7 +2181,7 @@ public:
     //! @brief Constructor
     Options():
       AGGREG_LQ(false), ROOT_USE(true), ROOT_MAXIT(100), ROOT_TOL(1e-10),
-      SANDWICH_ATOL(1e-3), SANDWICH_RTOL(1e-3), SANDWICH_MAXCUT(5),
+      SANDWICH_ATOL(1e-10), SANDWICH_RTOL(1e-3), SANDWICH_MAXCUT(5),
       SANDWICH_RULE(MAXERR), FRACTIONAL_ATOL(machprec()),
       FRACTIONAL_RTOL(machprec()), BREAKPOINT_TYPE(NONE),
       BREAKPOINT_ATOL(1e-5), BREAKPOINT_RTOL(1e-3),
@@ -3387,7 +3387,8 @@ PolImg<T>::_sandwich_cuts
 #endif
 
   // OA cut @xM
-  while( OA.top().gap() > dtol && NBCUTS < options.SANDWICH_MAXCUT ){
+  while( OA.top().gap() > dtol &&
+         ( !options.SANDWICH_MAXCUT || NBCUTS < options.SANDWICH_MAXCUT ) ){
     // x - y/exp(xref) <= xref - 1, @xref=xmax
     _linearization_cut( pOp, OA.top().xM(), X, OA.top().xL(), OA.top().xU(),
       Y, YL, YU, sense, f, rpar, ipar );

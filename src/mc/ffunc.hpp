@@ -1297,9 +1297,12 @@ public:
   {
     //! @brief Constructor
     Options():
-      CHEBRECURS(true)
+      DETECTSIGNOM( true ),
+      CHEBRECURS( true )
       {}
-    //! @brief Whether or not to intersect Chebyshev variables with their recursive expressions -- this may be used to build redundancy in constructing tighter relaxations
+    //! @brief Whether to detect signomial terms as exp(d.log(x)) and handle them as x^d signomial terms
+    bool DETECTSIGNOM;
+    //! @brief Whether to intersect Chebyshev variables with their recursive expressions -- this may be used to build redundancy in constructing tighter relaxations
     bool CHEBRECURS;
   } options;
 
@@ -2381,9 +2384,9 @@ pow
 
   // Case integer exponent is 0,1, or 2
   if( dExp==0. )  return( 1. );
-  if( dExp==1. )  return Var;
-  if( dExp==2. )  return sqr(Var);
-  if( dExp==0.5 ) return sqrt(Var);
+  if( isequal(dExp,1.) )  return Var;
+  if( isequal(dExp,2.) )  return sqr(Var);
+  if( isequal(dExp,0.5) ) return sqrt(Var);
   if( std::floor(dExp)==dExp && dExp>=INT_MIN && dExp<=INT_MAX )
     return pow( Var, (int)dExp );
 
@@ -2463,6 +2466,23 @@ exp
     switch( Var._num.t ){
       case FFNum::INT:   return( std::exp( Var._num.n ) );
       case FFNum::REAL:  return( std::exp( Var._num.x ) );
+    }
+  }
+
+  // Case exponent is negative: compute 1./(Var^dExp)
+  if( Var._dag->options.DETECTSIGNOM
+   && Var._ops.first
+   && Var._ops.first->type == FFOp::SCALE
+   && Var._ops.first->pops[0]->_ops.first
+   && Var._ops.first->pops[0]->_ops.first->type == FFOp::LOG ){
+    auto const* Aux = Var._ops.first->pops[0]->_ops.first->pops[0];
+    auto const* Cst = Var._ops.first->pops[1];
+#ifdef MC__FFUNC_DEBUG_SIGNOM
+    std::cout << "Signomial term detected: exp(" << Cst->name() << ".log(" << Aux->name() << ")" << std::endl;
+#endif
+    switch( Cst->_num.t ){
+      case FFNum::INT:   return( pow( *Aux, Cst->_num.n ) );
+      case FFNum::REAL:  return( pow( *Aux, Cst->_num.x ) );
     }
   }
 
