@@ -1,10 +1,10 @@
-#define TEST_DISC	    // <-- select test function here
+#define TEST_DPOW       // <-- select test function here
 const int NX = 200;     // <-- select discretization here
 const int NE = 5;       // <-- select polynomial model expansion here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
 #undef  USE_POLYMOD     // <-- specify whether to use a Chebyshev expansion before relaxation
-#define ADD_BREAKPOINT  // <-- specify whether to add breakpoints to the variables
-const int NDIV = 5;     // <-- select number of breakpoints
+#define  ADD_BREAKPOINT  // <-- specify whether to add breakpoints to the variables
+const int NDIV = 2;     // <-- select number of breakpoints
 #undef  USE_CMODEL	    // <-- Use Chebyshev models?
 #define USE_MILP        // <-- specify whether to use piecewise-linear cuts
 
@@ -64,6 +64,16 @@ T myfunc
 {
   //return xlog(x);
   return sqr(x);
+}
+
+#elif defined( TEST_DPOW )
+const double XL   =  .2;	// <-- range lower bound
+const double XU   =  3.;	// <-- range upper bound
+template <class T>
+T myfunc
+( const T&x )
+{
+  return pow(x,1.6);
 }
 
 #elif defined( TEST_SQRT )
@@ -364,9 +374,9 @@ void relax()
     mc::PolImg<I> PolEnv;
     PolEnv.options.AGGREG_LQ = true;
 #ifndef USE_MILP
-    PolEnv.options.BREAKPOINT_DISC = false;
+    PolEnv.options.RELAX_DISC = 1;
 #else
-    PolEnv.options.BREAKPOINT_DISC = true;
+    PolEnv.options.RELAX_DISC = 2;
 #endif
     PolEnv.options.SANDWICH_MAXCUT = 6;
     mc::PolVar<I> X_Pol( &PolEnv, X, IX ), F_Pol;

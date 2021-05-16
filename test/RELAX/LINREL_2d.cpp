@@ -1,8 +1,8 @@
-#define TEST_TRIG	// <-- select test function here
+#define TEST_MAX	// <-- select test function here
 const int NX = 40;	// <-- select discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
 #define ADD_BREAKPOINT  // <-- specify whether to add breakpoints to the variables
-const int NDIV = 3;     // <-- select number of breakpoints
+const int NDIV = 5;     // <-- select number of breakpoints
 #define USE_MILP        // <-- specify whether to use piecewise-linear cuts
 
 ////////////////////////////////////////////////////////////////////////
@@ -165,7 +165,7 @@ template< class T >
 T myfunc
 ( const T*x )
 {
-  T f[3] = { -pow(x[0]+x[1]-2.,2), -pow(x[0]+x[1],2), -pow(x[0]+x[1]+2.,2) };
+  T f[3] = { -pow(x[0]*x[1]-2.,2), -pow(x[0]*x[1],2), -pow(x[0]*x[1]+2.,2) };
   return max( (unsigned)3, f );
 }
 /*
@@ -266,9 +266,9 @@ int main()
     mc::PolImg<I> PolEnv;
     PolEnv.options.AGGREG_LQ = true;
 #ifndef USE_MILP
-    PolEnv.options.BREAKPOINT_DISC = false;
+    PolEnv.options.RELAX_DISC = 1;
 #else
-    PolEnv.options.BREAKPOINT_DISC = true;
+    PolEnv.options.RELAX_DISC = 2;
 #endif
     PolEnv.options.SANDWICH_MAXCUT = 6;
     mc::PolVar<I> X_Pol[2], F_Pol;

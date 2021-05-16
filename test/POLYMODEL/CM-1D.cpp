@@ -1,11 +1,11 @@
-#define TEST_HYP	    // <-- select test function here
+#define TEST_DPOW	    // <-- select test function here
 const int NTE = 6;	    // <-- select Chebyshev expansion order here
 const int NX = 200;	    // <-- select X discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
 #define TEST_CVG        // <-- specify whether to save results to file
 #undef  USE_PROFIL   	// <-- specify to use PROFIL for interval arithmetic
 #undef  USE_FILIB	    // <-- specify to use FILIB++ for interval arithmetic
-#undef  USE_SPARSE      // <-- specify whether to use sparse Chebyshev models
+#define  USE_SPARSE      // <-- specify whether to use sparse Chebyshev models
 #undef  MC__CVAR_NOINTERP_REM
 #undef  MC__CVAR_SPARSE_PRODUCT_NAIVE
 #undef  MC__POLYMODEL_DEBUG_SPROD
@@ -61,6 +61,17 @@ T myfunc
 {
   return 1. - 5.*x - pow(x,2)/2. + pow(x,3)/3.;
   //return 1. - 5.*x - x*x/2. + x*x*x/3. + x*x*x*x*x/9.;
+}
+
+#elif defined( TEST_DPOW )
+const double XL   =  0.1;	// <-- X range lower bound
+const double XU   =  2.;	// <-- X range upper bound
+const double Xref =  0.5;	// <-- X ref point for McCormick
+template <class T>
+T myfunc
+( const T&x )
+{
+  return pow(x,0.6);
 }
 
 #elif defined( TEST_ABS )
