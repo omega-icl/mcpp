@@ -1010,6 +1010,16 @@ inv
 
 inline SparseExpr
 pow
+( const SparseExpr&var, const double a )
+{
+#ifdef MC__SPARSENV_CHECK
+  if( !var.env() )
+    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::ENVERR );
+#endif
+  return var.env()->_lift_bivariate_term( var, a );
+}
+inline SparseExpr
+pow
 ( const SparseExpr&var, const int n )
 {
   if( n < 0 ) return pow( inv( var ), -n );
@@ -1052,8 +1062,8 @@ monom
 {
   switch( nvars ){
    case 0:  return 1.;
-   case 1:  return chebbasis? cheb( pvars[0], k[0] ): pow( pvars[0], k[0] );
-   default: return ( chebbasis? cheb( pvars[0], k[0] ): pow( pvars[0], k[0] ) ) * monom( nvars-1, pvars+1, k+1 );
+   case 1:  return chebbasis? cheb( pvars[0], k[0] ): pow( pvars[0], (int)k[0] );
+   default: return ( chebbasis? cheb( pvars[0], k[0] ): pow( pvars[0], (int)k[0] ) ) * monom( nvars-1, pvars+1, k+1 );
   }
 }
 
