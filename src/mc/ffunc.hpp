@@ -6833,8 +6833,10 @@ FFGraph::reval
 #ifdef MC__REVAL_DEBUG
       std::cout << "Dependent " << *(*itd)->pres << ": " << *static_cast<U*>( (*itd)->pres->val() ) << " ^ " << vDep[i] << std::endl;
 #endif
-      if( !Op<U>::inter( vDep[i], *static_cast<U*>( (*itd)->pres->val() ), vDep[i] ) )
+      if( !Op<U>::inter( vDep[i], *static_cast<U*>( (*itd)->pres->val() ), vDep[i] ) ){
+        output( subgraph( 1, (*itd)->pres ) );
         return -ipass-1;
+      }
       *static_cast<U*>( (*itd)->pres->val() ) = vDep[i];
     }
 #ifdef MC__REVAL_DEBUG

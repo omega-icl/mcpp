@@ -353,6 +353,7 @@ public:
       INV,	//!< Inverse operation with zero in range
       LOG,	//!< Log operation with non-positive numbers in range
       SQRT,	//!< Square-root operation with negative numbers in range
+      DPOW,    //!< Real power operation with negative numbers in range
       TAN,	//!< Tangent operation with (k+1/2)·PI in range
       ACOS,	//!< Sine/Cosine inverse operation with range outside [-1,1]
       EIGEN,	//!< Failed to compute eigenvalue decomposition in range bounder SCModel::Options::EIGEN
@@ -377,6 +378,8 @@ public:
         return "mc::SCModel\t Log operation with non-positive numbers in range";
       case SQRT:
         return "mc::SCModel\t Square-root operation with negative numbers in range";
+      case DPOW:
+        return "mc::SCModel\t Real power operation with negative numbers in range";
       case TAN:
         return "mc::SCModel\t Tangent operation with (k+1/2)·PI in range";
       case ACOS:
@@ -485,6 +488,20 @@ private:
   static void _interpolation
     ( std::vector<double>&coefmon, double const TOL, unsigned& nord,
       T const& X, puniv f );
+
+  //! @brief Prototype real-valued function for interpolation
+  typedef double (punivarg)
+    ( double const x, const double*rusr, const int*iusr );
+
+  //! @brief Construct Chebyshev interpolating polynomial coefficient <a>coefmon</a> for univariate <a>f</a>
+  static void _interpolation
+    ( std::vector<double>&coefmon, const unsigned maxord, T const& X, punivarg f,
+      const double*rusr=nullptr, const int*iusr=nullptr );
+
+  //! @brief Construct Chebyshev interpolating polynomial coefficient <a>coefmon</a> for univariate <a>f</a>
+  static void _interpolation
+    ( std::vector<double>&coefmon, double const TOL, unsigned& nord,
+      T const& X, punivarg f, const double*rusr=nullptr, const int*iusr=nullptr );
 
   //! @brief Apply Chebyshev composition to variable <a>CVI</a> using the coefficients <a>coefmon</a> of the outer function
   template <typename U> static SCVar<T> _composition
@@ -969,6 +986,21 @@ private:
     ( std::vector<double>& coefmon, double const TOL, unsigned& nord, puniv f ) const
     { SCModel<T>::_interpolation( coefmon, TOL, nord, bound(), f ); }
 
+  //! @brief Prototype real-valued function for interpolation
+  typedef double (punivarg)
+    ( double const x, const double*rusr, const int*iusr );
+
+  //! @brief Construct Chebyshev interpolating polynomial coefficient <a>coefmon</a> for univariate <a>f</a>
+  void _interpolation
+    ( std::vector<double>& coefmon, punivarg f, const double*rusr=nullptr, const int*iusr=nullptr ) const
+    { SCModel<T>::_interpolation( coefmon, maxord()+_CM->options.INTERP_EXTRA, bound(), f, rusr, iusr ); }
+
+  //! @brief Construct Chebyshev interpolating polynomial coefficient <a>coefmon</a> for univariate <a>f</a>
+  void _interpolation
+    ( std::vector<double>& coefmon, double const TOL, unsigned& nord, punivarg f,
+      const double*rusr=nullptr, const int*iusr=nullptr ) const
+    { SCModel<T>::_interpolation( coefmon, TOL, nord, bound(), f, rusr, iusr ); }
+    
   //! @brief Apply Chebyshev composition to variable <a>CVI</a> using the coefficients <a>coefmon</a> of the outer function
   template <typename U> SCVar<T> _composition
     ( std::vector<U> const& coefouter ) const
@@ -1144,6 +1176,51 @@ SCModel<T>::_interpolation
 template <typename T>
 inline void
 SCModel<T>::_interpolation
+( std::vector<double>& coefmon, unsigned const maxord, T const& X, punivarg f,
+  const double*rusr, const int*iusr )
+{
+  double b( Op<T>::mid(X) ), a( Op<T>::u(X)-b ), x[maxord+1], fx[maxord+1];
+  double mulconst( PI/(2.*double(maxord+1)) );
+  for( unsigned i(0); i<=maxord; i++ ){
+    x[i]  = std::cos(mulconst*(2.*double(i)+1.));
+    fx[i] = f( a*x[i]+b, rusr, iusr );
+  }
+
+  switch( maxord ){
+  case 0:
+    coefmon[0] = fx[0];
+    return;
+  case 1:
+    coefmon[0] = 0.5 * ( fx[0] + fx[1] );
+    coefmon[1] = ( fx[1] - fx[0] ) / ( x[1] - x[0] );
+    return;
+  default:
+    for( unsigned i(0); i<=maxord; i++ ){
+      double mulconst2( std::cos(mulconst*double(i)) ),
+             mulconst3( 4*std::pow(mulconst2,2)-2 ), 
+             b0( 0 ), b1( 0 );
+      b0 = fx[maxord];
+      b1 = fx[maxord-1] + mulconst3*b0;
+      for( unsigned j=maxord-2; j>1; j-=2 ){
+        b0 = fx[j] + mulconst3*b1 - b0;
+        b1 = fx[j-1] + mulconst3*b0 - b1;
+      }
+      if( !(maxord%2) )
+        b0 = fx[0] + mulconst3*b1 - b0 - b1;
+      else{
+        b0 = fx[1] + mulconst3*b1 - b0;
+        b0 = fx[0] + mulconst3*b0 - b1 - b0;
+      }
+      coefmon[i] = 2./double(maxord+1)*mulconst2*b0;
+    }
+    coefmon[0] *=0.5;
+    return;
+  }
+}
+
+template <typename T>
+inline void
+SCModel<T>::_interpolation
 ( std::vector<double>& coefmon, double const TOL, unsigned& nord,
   T const& X, puniv f )
 {
@@ -1153,6 +1230,26 @@ SCModel<T>::_interpolation
     nord*=2;
     coefmon.resize( nord+1 );
     _interpolation( coefmon, nord, X, f );
+#ifdef MC__CVAR_DEBUG_TANH
+    for( unsigned i=0; i<=nord; i++ )
+      std::cout << "a[" << i << "] = " << coefmon[i] << std::endl;
+    { int dum; std::cout << "ENTER <1> TO CONTINUE"; std::cin >> dum; }
+#endif
+  }
+}
+
+template <typename T>
+inline void
+SCModel<T>::_interpolation
+( std::vector<double>& coefmon, double const TOL, unsigned& nord,
+  T const& X, punivarg f, const double*rusr, const int*iusr )
+{
+  coefmon.resize( nord+1 );
+  _interpolation( coefmon, nord, X, f, rusr, iusr );
+  for( ; std::fabs(coefmon[nord])>TOL || (nord && std::fabs(coefmon[nord-1])>TOL); ){
+    nord*=2;
+    coefmon.resize( nord+1 );
+    _interpolation( coefmon, nord, X, f, rusr, iusr );
 #ifdef MC__CVAR_DEBUG_TANH
     for( unsigned i=0; i<=nord; i++ )
       std::cout << "a[" << i << "] = " << coefmon[i] << std::endl;
@@ -3000,6 +3097,35 @@ pow
 ( const SCVar<T> &CV, double const a )
 {
   return exp( a * log( CV ) );
+  if( !CV._CM )
+    return SCVar<T>( Op<T>::pow( CV.B(), a ) );
+  if ( Op<T>::l(CV.B()) <= 0. )
+    throw typename SCModel<T>::Exceptions( SCModel<T>::Exceptions::DPOW );
+
+  auto& coefmon = CV._coefinterp();
+  struct loc{
+    static double dpow
+      ( const double x, const double*rusr, const int*iusr )
+      { return std::pow( x, *rusr ); }
+  };
+  CV._interpolation( coefmon, loc::dpow, &a );
+
+  double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B())-m), rem, ub(0), lb(0);
+  for (unsigned i(0); i<=CV.maxord(); i++) {
+    ub += coefmon[i];
+    lb += std::pow(-1.,i)*coefmon[i];
+  }
+  rem = std::max(std::fabs(std::pow(r+m,a)-ub), std::fabs(std::pow(m-r,a)-lb));
+
+  SCVar<T> CVI( CV._CM ), CV2( CV._CM );
+  CVI = CV._rescale(r,m);
+  CV2 = CVI._composition( coefmon );
+  CV2 += CV._TOne * rem;
+
+  CV2._ndxvar = CV._ndxvar;
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::pow( CV.B(), a ) );
+  if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
+  return CV2;
 }
 
 template <typename T> inline SCVar<T>

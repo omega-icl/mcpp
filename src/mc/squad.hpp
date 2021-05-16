@@ -881,9 +881,12 @@ const
 #ifdef MC__SQUAD_DEBUG_CHECK
     std::cout << "\n  Quadratic form of P[" << _MatFct.size()-nSPol+i << "]:" << spe;
 #endif
-
+    double locdiff = 0;
     for( auto const& [mon,coef] : spe.mapmon() )
-      sumdiff += std::fabs( coef ); 
+      locdiff += std::fabs( coef ); 
+    if( std::fabs(locdiff) > 1e-10 )
+      std::cerr << "\n  Error in quadratic form of P[" << _MatFct.size()-nSPol+i << "]:" << spe;
+    sumdiff += locdiff;  
   }
 
   // Check entries in _MatRed
@@ -891,14 +894,18 @@ const
   for( unsigned i=0; itmat != _MatRed.end(); ++itmat, ++i ){
     SPolyExpr spe( 0e0 );
     for( auto const& [ijmon,coef] : *itmat ){
-      std::cout << mapmon[*ijmon.first] << " * " << mapmon[*ijmon.second];
+      //std::cout << mapmon[*ijmon.first] << " * " << mapmon[*ijmon.second];
       spe += coef * mapmon[*ijmon.first] * mapmon[*ijmon.second];
     }
 #ifdef MC__SQUAD_DEBUG_CHECK
     std::cout << " \n Auxiliary quadratic form #" << i << spe;
 #endif
+    double locdiff = 0;
     for( auto const& [mon,coef] : spe.mapmon() )
-      sumdiff += std::fabs( coef );
+      locdiff += std::fabs( coef ); 
+    if( std::fabs(locdiff) > 1e-10 )
+      std::cerr << " \n Error in auxiliary quadratic form #" << i << spe;
+    sumdiff += locdiff;  
   }
 
   // Check entries in _MatPSD
@@ -906,14 +913,18 @@ const
   for( unsigned i=0; itmat != _MatPSD.end(); ++itmat, ++i ){
     SPolyExpr spe( 0e0 );
     for( auto const& [ijmon,coef] : *itmat ){
-      std::cout << mapmon[*ijmon.first] << " * " << mapmon[*ijmon.second];
+      //std::cout << mapmon[*ijmon.first] << " * " << mapmon[*ijmon.second];
       spe += coef * mapmon[*ijmon.first] * mapmon[*ijmon.second];
     }
 #ifdef MC__SQUAD_DEBUG_CHECK
     std::cout << " \n Positive semi-definite quadratic form #" << i << spe;
 #endif
+    double locdiff = 0;
     for( auto const& [mon,coef] : spe.mapmon() )
-      sumdiff += std::fabs( coef );
+      locdiff += std::fabs( coef ); 
+    if( std::fabs(locdiff) > 1e-10 )
+      std::cerr << " \n Error in auxiliary quadratic form #" << i << spe;
+    sumdiff += locdiff;  
   }
 
   return sumdiff;
@@ -933,6 +944,7 @@ SQuad::process
 ( SQuad::t_SPolyMonCoef const& SPol, bool const chk )
 {
   // Append entry in <a>MatFct</a>
+  unsigned ndxmat = _MatFct.size();
   _MatFct.push_back( t_SQuad() );
   auto& mat = _MatFct.back();
 
@@ -977,7 +989,7 @@ SQuad::process
             << " · " << prmon->display(options.BASIS)
             << std::endl;
 #endif
-    bool ins = _insert( mat, coefmon, plmon, prmon, coef );
+    bool ins = _insert( _MatFct[ndxmat], coefmon, plmon, prmon, coef );
 #ifdef MC__SQUAD_CHECK
     assert( ins );
 #endif
@@ -1062,6 +1074,9 @@ SQuad::_insert
 ( t_SQuad& mat, SPolyMon const* pMon, double const coef )
 {
   // New entry in quadratic form as product with constant monomial
+#ifdef MC__SQUAD_DEBUG_DECOMP
+  std::cerr << "SQuad::_insert, &mat = " << &mat << std::endl;
+#endif
   auto [itmat,ins] = mat.insert( std::make_pair( std::make_pair( &(*_SetMon.cbegin()), pMon ), coef ) );
   //if( !ins ) itmat->second += coef;
   //if( itmat->second == 0. ) mat.erase( itmat );
@@ -1238,7 +1253,13 @@ SQuad::_decompose
   SPolyMon mon2 = mon / 2;
   SPolyMon mon3( mon - mon2 );
   // Decompose mon2 and mon3
+#ifdef MC__SQUAD_DEBUG_DECOMP
+    std::cout << "Decomposing: " << mon2.display(options.BASIS) << std::endl;
+#endif
   auto&& itmon2 = _subexpression( mon2 );
+#ifdef MC__SQUAD_DEBUG_DECOMP
+    std::cout << "Decomposing: " << mon2.display(options.BASIS) << std::endl;
+#endif
   auto&& itmon3 = _subexpression( mon3 );
   //return _reorder( std::make_pair( &(*itmon2), &(*itmon3) ) );
   return std::make_pair( &(*itmon2), &(*itmon3) );
@@ -1259,8 +1280,12 @@ SQuad::_subexpression
 #endif
 
   // Append new reduction constraint for <a>mon</a>
+  unsigned ndxmat = _MatRed.size();
   _MatRed.push_back( t_SQuad() );
   auto& mat = _MatRed.back();
+#ifdef MC__SQUAD_DEBUG_DECOMP
+  std::cerr << "SQuad::_subexpression, &mat = " << &mat << std::endl;
+#endif
   auto itmon = _SetMon.insert( mon ).first;
   std::map< SPolyMon, double, lt_SPolyMon > coefmon;
   bool ins = _insert( mat, &(*itmon), -1. )
@@ -1271,7 +1296,7 @@ SQuad::_subexpression
   for( auto it=coefmon.crbegin(); it!=coefmon.crend(); ++it ){
     auto const& [monlow,coeflow] = *it;
     auto itmonlow = _subexpression( monlow );
-    ins = _insert( mat, &(*itmonlow), coeflow );
+    ins = _insert( _MatRed[ndxmat], &(*itmonlow), coeflow );
 #ifdef MC__SQUAD_CHECK
     assert( ins );
 #endif
