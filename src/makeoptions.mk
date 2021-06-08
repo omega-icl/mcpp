@@ -2,26 +2,27 @@
 
 PATH_3RD_PARTY = $(shell cd ../../src/ ; pwd )/3rdparty
 
-PATH_PROFIL  = /opt/Profil-2.0.8
-LIB_PROFIL = -L$(PATH_PROFIL)/lib -lProfilPackages -lProfil -lBias -llr
-INC_PROFIL = -I$(PATH_PROFIL)/include
+PATH_PROFIL = /opt/Profil-2.0.8
+LIB_PROFIL  = -L$(PATH_PROFIL)/lib -lProfilPackages -lProfil -lBias -llr
+INC_PROFIL  = -I$(PATH_PROFIL)/include
 
-PATH_BOOST = 
-LIB_BOOST =
-INC_BOOST = 
+PATH_BOOST  = $(PATH_3RD_PARTY)/boost
+LIB_BOOST   =
+INC_BOOST   = -I$(PATH_BOOST) 
+FLAGS_BOOST = -DBOOST_UBLAS_NO_STD_CERR
 
-PATH_FILIB = /opt/filib++
-LIB_FILIB = -L$(PATH_FILIB)/lib -lprim
-INC_FILIB = -I$(PATH_FILIB)/include/
+PATH_FILIB  = /opt/filib++
+LIB_FILIB   = -L$(PATH_FILIB)/lib -lprim
+INC_FILIB   = -I$(PATH_FILIB)/include/
 FLAGS_FILIB = -frounding-math -ffloat-store
 
 PATH_LAPACK = $(PATH_3RD_PARTY)/cpplapack-2015.05.11-1
-LIB_LAPACK = -llapack -lblas
-INC_LAPACK = -I$(PATH_LAPACK)/include
+LIB_LAPACK  = -llapack -lblas
+INC_LAPACK  = -I$(PATH_LAPACK)/include
 
 PATH_FADBAD = $(PATH_3RD_PARTY)/fadbad++
-LIB_FADBAD = 
-INC_FADBAD = -I$(PATH_FADBAD)
+LIB_FADBAD  = 
+INC_FADBAD  = -I$(PATH_FADBAD)
 
 #LIB_SDPA   = -lsdpa -ldmumps_seq
 #INC_SDPA   = #-I/usr/include/
@@ -44,7 +45,7 @@ CPP17 = -std=c++17
 CC = gcc-9
 CPP = g++-9
 # CPP = icpc
-FLAGS_CPP = $(DEBUG) $(OPTIM) $(CPP17) $(WARN) $(FLAGS_FILIB)
+FLAGS_CPP = $(DEBUG) $(OPTIM) $(CPP17) $(WARN) $(FLAGS_FILIB) $(FLAGS_BOOST)
 
 LINK = $(CPP)
 FLAGS_LINK = 
