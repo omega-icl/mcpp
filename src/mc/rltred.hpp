@@ -798,7 +798,7 @@ RLTRed::_add_to_dag
   for( unsigned iRow = 0; itRed != _RLTRed.end(); ++itRed, iRow++ )
     _process_constraint( iRow, vlhs, itRed->first, itRed->second ); 
   //std::cout << *_dag;
-  if( options.DISPLEVEL >= 2 ){
+  if( options.DISPLEVEL >= 3 ){
     std::cout << "\nRIGHT-HAND-SIDE DEPENDENTS:\n";
     for( auto itv=_rhsRed.begin(); itv!=_rhsRed.end(); ++itv )
       std::cout << "  " << *(*itv) << std::endl;
@@ -812,7 +812,7 @@ RLTRed::_add_to_dag
   // Perform QR decomposition of coefficient matrix
   CPPL::dgematrix Q, R;
   int INFO = CPPL::dgeqrf( _coefRed, Q, R );
-  if( options.DISPLEVEL >= 2 ){
+  if( options.DISPLEVEL >= 3 ){
     std::cout << "\nQR DECOMPOSITION OF COEFFICIENT MATRIX: "
               << INFO << std::endl
               << "\nMatrix Q:\n" << Q
@@ -870,7 +870,7 @@ RLTRed::_add_to_dag
   CPPL::dgematrix L, U;
   std::vector<int> PIV;
   int INFO = CPPL::dgetrf( _coefRed, U, L, PIV );
-  if( options.DISPLEVEL >= 2 ){
+  if( options.DISPLEVEL >= 3 ){
     std::cout << "\nLU DECOMPOSITION OF COEFFICIENT MATRIX: "
               << INFO << std::endl
               << "\nMatrix U:\n" << U

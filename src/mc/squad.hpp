@@ -214,7 +214,8 @@ with the following 11 reduction constraints are also generated:
 #define MC__SQUAD_H
 
 #include <list>
-#include "spolymodel.hpp"
+#include "spolymon.hpp"
+#include "spolyexpr.hpp"
 
 #define MC__SQUAD_CHECK
 #undef  MC__SQUAD_PROCESS_DEBUG
@@ -402,7 +403,7 @@ protected:
 
   //! @brief Insert new entry in matrix <a>mat</a> corresponding to the mononial <a>pMon</a> in a product with the constant monomial and with corresponding coefficient <a>coef</a>
   bool _insert
-    ( t_SQuad& mat, SPolyMon const* pMon, double const coef );
+    ( t_SQuad& mat, SPolyMon const* pMon, double const coef, bool const rem=false );
 
   //! @brief Insert new entry in matrix <a>mat</a> corresponding to the product between mononials <a>pLMon</a> and <a>pRMon</a> with corresponding coefficient <a>coef</a>
   bool _insert
@@ -1071,16 +1072,15 @@ const
 
 inline bool
 SQuad::_insert
-( t_SQuad& mat, SPolyMon const* pMon, double const coef )
+( t_SQuad& mat, SPolyMon const* pMon, double const coef, bool const rem )
 {
   // New entry in quadratic form as product with constant monomial
 #ifdef MC__SQUAD_DEBUG_DECOMP
   std::cerr << "SQuad::_insert, &mat = " << &mat << std::endl;
 #endif
   auto [itmat,ins] = mat.insert( std::make_pair( std::make_pair( &(*_SetMon.cbegin()), pMon ), coef ) );
-  //if( !ins ) itmat->second += coef;
-  //if( itmat->second == 0. ) mat.erase( itmat );
-  return ins;
+  if( !ins && rem ) mat.erase( itmat );
+  return ins || rem;
 }
 
 inline bool
@@ -1350,11 +1350,19 @@ SQuad::_reduction
            monmis = true;
       if( monmis ) continue;
 #ifdef MC__SQUAD_DEBUG_REDUC
-      std::cout << "Reduction: " << mon.display(options.BASIS)
-                << " · " << itmon2->display(options.BASIS)
-                << " == " << itmon3->display(options.BASIS)
-                << " · " << itmon4->display(options.BASIS)
-                << std::endl;
+      std::cout << "Reduction: ";
+      if( prodmon12.size() > 1 ) std::cout << prodmon12.size() << " · ";
+      std::cout << mon.display(options.BASIS) << " · " << itmon2->display(options.BASIS);
+      itprodmon12 = prodmon12.crbegin(); 
+      for( ++itprodmon12; itprodmon12 != prodmon12.crend(); ++itprodmon12 )
+        std::cout << " - " << _SetMon.find( *itprodmon12 )->display(options.BASIS);
+      std::cout << " == ";
+      if( prodmon34.size() > 1 ) std::cout << prodmon34.size() << " · ";
+      std::cout << itmon3->display(options.BASIS) << " · " << itmon4->display(options.BASIS);
+      itprodmon34 = prodmon34.crbegin(); 
+      for( ++itprodmon34; itprodmon34 != prodmon34.crend(); ++itprodmon34 )
+        std::cout << " - " << _SetMon.find( *itprodmon34 )->display(options.BASIS); 
+      std::cout << std::endl;
 #endif
 
       // Populate reduction constraint
@@ -1376,7 +1384,7 @@ SQuad::_reduction
       }
       itprodmon34 = prodmon34.crbegin(); 
       for( ++itprodmon34; itprodmon34 != prodmon34.crend(); ++itprodmon34 ){
-        ins = _insert( mat, &(*_SetMon.find( *itprodmon34 )), -1. );
+        ins = _insert( mat, &(*_SetMon.find( *itprodmon34 )), -1., true ); // Element removed if already present
 #ifdef MC__SQUAD_CHECK
         assert( ins );
 #endif
