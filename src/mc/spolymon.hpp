@@ -50,9 +50,9 @@ struct SPolyMon
 
   //! @brief Constructor of monomial for variable with index <a>i</a>
   SPolyMon
-    ( unsigned const i )
-    : tord( 1 )
-    { expr.insert( std::make_pair( i, 1 ) ); }
+    ( unsigned const ivar, const unsigned iord=1 )
+    : tord( iord )
+    { if( tord ) expr.insert( std::make_pair( ivar, iord ) ); }
 
   //! @brief Copy constructor of monomial
   SPolyMon

@@ -524,9 +524,7 @@ public:
     //! @brief Chebyshev model range bounder option
     enum BOUNDER{
       NAIVE=0,	//!< Naive polynomial range bounder
-      LSB,	//!< Lin & Stadtherr range bounder
-      EIGEN,	//!< Eigenvalue decomposition-based bounder
-      BERNSTEIN //!< Bernstein range bounder
+      LSB	//!< Lin & Stadtherr range bounder
     };
     //! @brief Available basis representations
     enum MONBASIS{
@@ -552,7 +550,7 @@ public:
     //! @brief Order of Bernstein polynomial for Chebyshev model range bounding (no less than Chebyshev model order!). Only if mc::SCModel::options::BOUNDER_TYPE is set to mc::SCModel::options::BERNSTEIN.
     unsigned BOUNDER_ORDER;
     //! @brief Array of Chebyshev model range bounder names (for display)
-    static const std::string BOUNDER_NAME[5];
+    static const std::string BOUNDER_NAME[2];
     //! @brief Whether to intersect internal bounds with underlying bounds in T arithmetics
     bool MIXED_IA;
     //! @brief Threshold for monomial coefficients below which the term is removed and appended to the remainder term.
@@ -585,6 +583,12 @@ private:
     ( const unsigned maxord, U const& bndvar )
     const;
 
+  //! @brief Conversion from power series to Chebyshev series
+  template <typename VEC>
+  VEC _to_chebyshev
+    ( VEC const& veccoef )
+    const;
+
   //! @brief Construct minimax polynomial coefficient for univariate <a>f</a> in <a>_coefuniv</a> and return corresponding error for univariate <a>f</a> using Remez algorithm
   template <typename PUNIV>
   double _minimax
@@ -612,6 +616,10 @@ private:
 
   //! @brief Apply the Clenshaw algorithm
   SCVar<T> _clenshaw
+    ( SCVar<T> const& CVinner, unsigned const maxord );
+
+  //! @brief Apply the Horner algorithm
+  SCVar<T> _horner
     ( SCVar<T> const& CVinner, unsigned const maxord );
 
   //! @brief Compose interpolating polynomial for univariate <a>f</a> with Chebyshev variable <a>CV</a> and return resulting Chebyshev variable in <a>CV2</a>
@@ -708,8 +716,8 @@ private:
 
 template <typename T>
 inline
-const std::string SCModel<T>::Options::BOUNDER_NAME[5]
-  = { "NAIVE", "LSB", "EIGEN", "BERNSTEIN", "HYBRID" };
+const std::string SCModel<T>::Options::BOUNDER_NAME[2]
+  = { "NAIVE", "LSB" };
 
 template <typename T>
 inline
@@ -901,10 +909,6 @@ private:
   void _ssqr
     ( const SCVar<T>& CV, t_coefmon& coefmon, double& coefrem ) const
     { return _CM->_ssqr( CV, coefmon, coefrem ); }
-
-  //! @brief Array of Chebyshev interpolant coefficients
-  std::vector<double>& _coefuniv() const
-    { return _CM->_resize_coefuniv(); };
 
 public:
   /** @addtogroup CHEBYSHEV Chebyshev Model Arithmetic for Factorable Functions
@@ -1373,8 +1377,48 @@ SCModel<T>::_minimax
     if( problem.max_change() < options.REMEZ_TOL ) break;
   }
 
-  _coefuniv = problem.numerator().data();
+  switch( options.BASIS ){
+  case Options::CHEB:
+    _coefuniv = _to_chebyshev(problem.numerator().data());
+    break;
+  case Options::POW:
+    _coefuniv = problem.numerator().data();
+    break;
+  }
   return problem.max_error();
+}
+
+template <typename T>
+template <typename VEC>
+inline VEC
+SCModel<T>::_to_chebyshev
+( VEC const& veccoef )
+const
+{
+  // Converts COEFF in monomial basis to the Chebyshev basis.
+  VEC vecnew = veccoef;
+  int const N = vecnew.size()-1;
+  if( N <= 1 ) return vecnew;
+  // TP = .5D0**(N-1)
+  // COEFF(N) = TP * COEFF(N)
+  // COEFF(N-1) = TP * COEFF(N-1)
+  double TP = std::pow(0.5,N-1);
+  vecnew[N]   *= TP;
+  vecnew[N-1] *= TP;
+  // do 20 J = N-2, 0, -1
+  //   TP = 2.D0 * TP
+  //   COEFF(J) = TP * COEFF(J)
+  //   COEFF(J+1) = 2.D0 * COEFF(J+1)
+  for( int J=N-2; J>=0; --J ){
+    TP *= 2;
+    vecnew[J]   *= TP;
+    vecnew[J+1] *= 2;
+    // do 10 I = J, N-2
+    //   COEFF(I) = COEFF(I) + COEFF(I+2)
+    for( int I=J; I<N-1; ++I )
+      vecnew[I] += vecnew[I+2];
+  }
+  return vecnew;
 }
 
 template <typename T>
@@ -1390,21 +1434,14 @@ SCModel<T>::_minimax
 
     SCVar<T> CVI( this );
     CVI = CV._rescale(r,m);
-
-    switch( _maxord ){
-    case 0:
-      CV2 = _coefuniv[0];
+    switch( options.BASIS ){
+    case Options::CHEB:
+      CV2 = _clenshaw( CVI, _maxord ) + TOne * rem;
       break;
-    default:
-      CV2 = _coefuniv[_maxord] * CVI;
-      for( unsigned ord=_maxord-1; ord>0; --ord ){
-        CV2 += _coefuniv[ord];
-        CV2 *= CVI;
-      }
-      CV2 += _coefuniv[0];
+    case Options::POW:
+      CV2 = _horner( CVI, _maxord ) + TOne * rem;
       break;
     }
-    CV2 += TOne * rem;
   }
   catch(...){
     return false;
@@ -1488,6 +1525,29 @@ SCModel<T>::_chebinterp
       std::cout << "a[" << i << "] = " << _coefuniv[i] << std::endl;
     { int dum; std::cout << "ENTER <1> TO CONTINUE"; std::cin >> dum; }
 #endif
+  }
+}
+
+template <typename T>
+inline SCVar<T>
+SCModel<T>::_horner
+( SCVar<T> const& CVinner, unsigned const maxord )
+{
+  assert( maxord < _coefuniv.size() );
+  
+  // composition based on Horner's scheme
+  switch( maxord ){
+  case 0:
+    return _coefuniv[0];
+    break;
+  default:
+    SCVar<T> CV2 = _coefuniv[_maxord] * CVinner;
+    for( unsigned ord=_maxord-1; ord>0; --ord ){
+      CV2 += _coefuniv[ord];
+      CV2 *= CVinner;
+    }
+    CV2 += _coefuniv[0];
+    return CV2;
   }
 }
 
@@ -1883,7 +1943,6 @@ const
           else
             _slift1D( coefmon12, 1., rem, ndx1+ndx2 );
           break;
-        
       }
     }
   }
