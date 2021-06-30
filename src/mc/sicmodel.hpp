@@ -984,16 +984,15 @@ public:
     const
     { return bound(); }
 
-  //! @brief Evaluate polynomial part at <tt>x</tt>
-  T polynomial
+  //! @brief Evaluate mid-point polynomial part at <tt>x</tt>
+  double P
     ( double const*x )
     const;
 
-  //! @brief Shortcut to mc::SICVar::polynomial
-  T P
+  //! @brief Evaluate interval polynomial part at <tt>x</tt>
+  T IP
     ( double const*x )
-    const
-    { return polynomial( x ); }
+    const;
 #if 0
   //! @brief Return new Chebyshev variable with same multivariate polynomial part but zero remainder
   SICVar<T> polynomial
@@ -1435,8 +1434,8 @@ SICModel<T>::_horner
     return _coefuniv[0];
     break;
   default:
-    SICVar<T> CV2 = _coefuniv[_maxord] * CVinner;
-    for( unsigned ord=_maxord-1; ord>0; --ord ){
+    SICVar<T> CV2 = _coefuniv[maxord] * CVinner;
+    for( unsigned ord=maxord-1; ord>0; --ord ){
       CV2 += _coefuniv[ord];
       CV2 *= CVinner;
     }
@@ -1657,6 +1656,167 @@ const
 }
 
 template <typename T>
+inline 
+void
+SICModel<T>::_slift1D
+( t_coefmon const& coefmon0, double const& dscal, t_coefmon& coefmon,
+  typename t_var::const_iterator itvar, unsigned const ndxord )
+const
+{
+  for( auto const& [mon0,coef0] : coefmon0 ){
+    // If total order too large then allocate among monomials
+    if( mon0.tord + ndxord > _maxord ){
+      switch( options.BASIS ){
+      case Options::CHEB:
+        switch( options.HOT_SPLIT ){ 
+        case Options::FULL:
+        {
+          if( ndxord <= _maxord ){
+            T add2mon = (dscal/double(mon0.expr.size()+1))*coef0*TOne;
+            for( auto const& [ivar,iord] : mon0.expr ){
+              auto [itmon1,ins1] = coefmon.insert( std::make_pair( SPolyMon(ivar,iord), add2mon ) );
+              if( !ins1 ) itmon1->second += add2mon;
+#ifdef MC__SIRMODEL_DEBUG_SLIFT
+              std::cout << "_slift1D: " << itmon1->first.display(options.BASIS) << "  " << add2mon << std::endl;
+#endif
+            }
+            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(*itvar,ndxord), add2mon ) );
+            if( !ins2 ) itmon2->second += add2mon;
+#ifdef MC__SIRMODEL_DEBUG_SLIFT
+            std::cout << "_slift1D: " << itmon2->first.display(options.BASIS) << "  " << add2mon << std::endl;
+#endif
+          }
+          else if( mon0.tord ){
+            T add2mon = (dscal/double(mon0.expr.size()))*coef0*TOne;
+            for( auto const& [ivar,iord] : mon0.expr ){
+              auto [itmon1,ins1] = coefmon.insert( std::make_pair( SPolyMon(ivar,iord), add2mon ) );
+              if( !ins1 ) itmon1->second += add2mon;
+#ifdef MC__SIRMODEL_DEBUG_SLIFT
+              std::cout << "_slift1D: " << itmon1->first.display(options.BASIS) << "  " << add2mon << std::endl;
+#endif
+            }
+          }
+          else{       
+            T add2mon = dscal*coef0*TOne;
+            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(), add2mon ) );
+            if( !ins2 ) itmon2->second += add2mon;
+#ifdef MC__SIRMODEL_DEBUG_SLIFT
+            std::cout << "_slift1D: " << itmon2->first.display(options.BASIS) << "  " << add2mon << std::endl;
+#endif
+          }
+          continue;
+        }
+        case Options::SIMPLE:
+        {
+          if( mon0.tord && ndxord <= _maxord ){
+            T add2mon = (0.5*dscal)*coef0*TOne;
+            auto [itmon1,ins1] = coefmon.insert( std::make_pair( mon0, add2mon ) );
+            if( !ins1 ) itmon1->second += add2mon;
+#ifdef MC__SIRMODEL_DEBUG_SLIFT
+            std::cout << "_slift1D: " << itmon1->first.display(options.BASIS) << "  " << add2mon << std::endl;
+#endif
+            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(*itvar,ndxord), add2mon ) );
+            if( !ins2 ) itmon2->second += add2mon;
+#ifdef MC__SIRMODEL_DEBUG_SLIFT
+            std::cout << "_slift1D: " << itmon2->first.display(options.BASIS) << "  " << add2mon << std::endl;
+#endif
+          }
+          else if( mon0.tord ){
+            T add2mon = dscal*coef0*TOne;
+            auto [itmon1,ins1] = coefmon.insert( std::make_pair( mon0, add2mon ) );
+            if( !ins1 ) itmon1->second += add2mon;
+#ifdef MC__SIRMODEL_DEBUG_SLIFT
+            std::cout << "_slift1D: " << itmon1->first.display(options.BASIS) << "  " << add2mon << std::endl;
+#endif
+          }
+          else if( ndxord <= _maxord ){
+            T add2mon = dscal*coef0*TOne;
+            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(*itvar,ndxord), add2mon ) );
+            if( !ins2 ) itmon2->second += add2mon;
+#ifdef MC__SIRMODEL_DEBUG_SLIFT
+            std::cout << "_slift1D: " << itmon2->first.display(options.BASIS) << "  " << add2mon << std::endl;
+#endif
+          }
+          else{
+            T add2mon = dscal*coef0*TOne;
+            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(), add2mon ) );
+            if( !ins2 ) itmon2->second += add2mon;
+#ifdef MC__SIRMODEL_DEBUG_SLIFT
+            std::cout << "_slift1D: " << itmon2->first.display(options.BASIS) << "  " << add2mon << std::endl;
+#endif
+          }
+          continue;
+        }
+        case Options::NONE:
+        {
+          T add2mon = dscal*coef0*TOne;
+          auto [itmon,ins] = coefmon.insert( std::make_pair( SPolyMon(), add2mon ) );
+          if( !ins ) itmon->second += add2mon;
+#ifdef MC__SIRMODEL_DEBUG_SLIFT
+          std::cout << "_slift1D: " << itmon->first.display(options.BASIS) << "  " << add2mon << std::endl;
+#endif
+          continue;
+        }}
+
+      case Options::POW:
+        switch( options.HOT_SPLIT ){ 
+        case Options::FULL:
+        {
+          T add2mon1 = (0.5*dscal)*coef0*(ndxord%2? TOne: TZerOne);
+          for( auto const& [ivar,iord] : mon0.expr ){
+            auto [itmon1,ins1] = coefmon.insert( std::make_pair( SPolyMon(ivar,iord), add2mon1 ) );
+            if( !ins1 ) itmon1->second += add2mon1;
+          }
+          T add2mon2 = (0.5*dscal)*coef0*(mon0.gcexp()%2? TOne: TZerOne);         
+          if( ndxord <= _maxord ){
+            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(*itvar,ndxord), add2mon2 ) );
+            if( !ins2 ) itmon2->second += add2mon2;
+          }
+          else{
+            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(), add2mon2 ) );
+            if( !ins2 ) itmon2->second += add2mon2; 
+          }
+          continue;
+        }
+        case Options::SIMPLE:
+        {
+          T add2mon1 = (0.5*dscal)*coef0*(ndxord%2? TOne: TZerOne);
+          auto [itmon1,ins1] = coefmon.insert( std::make_pair( mon0, add2mon1 ) );
+          if( !ins1 ) itmon1->second += add2mon1;
+          T add2mon2 = (0.5*dscal)*coef0*(mon0.gcexp()%2? TOne: TZerOne);         
+          if( ndxord <= _maxord ){
+            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(*itvar,ndxord), add2mon2 ) );
+            if( !ins2 ) itmon2->second += add2mon2;
+          }
+          else{
+            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(), add2mon2 ) );
+            if( !ins2 ) itmon2->second += add2mon2; 
+          }
+          continue;
+        }
+        case Options::NONE:
+        {
+          T add2mon = dscal*coef0*(ndxord%2 || mon0.gcexp()%2? TOne: TZerOne); continue;
+          auto [itmon,ins] = coefmon.insert( std::make_pair( SPolyMon(), add2mon ) );
+          if( !ins ) itmon->second += add2mon;           
+          continue;
+        }}
+      }
+    }
+
+    // Else introduce new product monomial
+    SPolyMon mon = mon0; // local copy for modification
+#ifdef MC__SPOLYEXPR_DEBUG_SPROD
+    std::cout << "mon: " << mon.display(1) << "  (" << *itvar << "," << ndxord << ")" << std::endl;
+#endif
+    mon.tord += ndxord;
+    assert( mon.expr.insert( std::make_pair( *itvar, ndxord ) ).second );
+    auto [itmon,ins] = coefmon.insert( std::make_pair( mon, coef0*dscal ) );
+    if( !ins ) itmon->second += coef0*dscal;
+  }
+}
+#if 0
+template <typename T>
 inline void
 SICModel<T>::_slift1D
 ( t_coefmon const& coefmon0, double const& dscal, t_coefmon& coefmon,
@@ -1787,7 +1947,7 @@ const
     if( !ins ) itmon->second += coef0*dscal;
   }
 }
-
+#endif
 template <typename T>
 inline void
 SICModel<T>::_sdisp1D
@@ -2500,11 +2660,9 @@ SICVar<T>::get
 template <typename T>
 inline
 T
-SICVar<T>::polynomial
+SICVar<T>::IP
 ( double const* x ) const
 {
-  // -> Is there a multivariate version of Clenshaw? Use recursively?
-
   T Pval = 0.;
   for( auto& [mon,coef] : _coefmon ){
     double monval = 1.;
@@ -2522,6 +2680,33 @@ SICVar<T>::polynomial
     }
     
     Pval += coef * monval;
+  }
+  return Pval;
+}
+
+template <typename T>
+inline
+double
+SICVar<T>::P
+( double const* x ) const
+{
+  double Pval = 0.;
+  for( auto& [mon,coef] : _coefmon ){
+    double monval = 1.;
+    for( auto& [ivar,iord] : mon.expr ){
+      switch( _CM->options.BASIS ){
+        case SICModel<T>::Options::CHEB:
+          monval *= isequal(_scalvar(ivar),0.)? _refvar(ivar): 
+                    mc::cheb((x[ivar]-_refvar(ivar))/_scalvar(ivar),iord);
+          break;
+        case SICModel<T>::Options::POW:
+          monval *= isequal(_scalvar(ivar),0.)? _refvar(ivar): 
+                    std::pow((x[ivar]-_refvar(ivar))/_scalvar(ivar),(int)iord);
+          break;
+      }
+    }
+    
+    Pval += Op<T>::mid(coef) * monval;
   }
   return Pval;
 }
