@@ -881,7 +881,7 @@ int test_quadexpr1()
   }
 
   mc::QuadEnv QF( &DAG );
-  mc::QuadEnv::options.REDUC = mc::QuadEnv::Options::ALL;
+  mc::QuadEnv::options.REDUC = mc::QuadEnv::Options::ONE;//ALL;
   QF.process( SPF, true );
   std::cout << std::endl << "Sparse quadratic form in monomial basis: " << QF << std::endl;
 
@@ -895,7 +895,7 @@ int test_quadexpr2()
   std::cout << "\n==============================================\ntest_QuadExpr2:\n";
 
   mc::FFGraph DAG;
-  const unsigned NX = 3, NF = 2;
+  const unsigned NX = 3, NF = 1;
   mc::FFVar X[NX];
   mc::SPolyExpr SPX[NX];
   for( unsigned i(0); i<NX; i++ ){
@@ -904,7 +904,8 @@ int test_quadexpr2()
   }
   mc::FFVar F[NF];
   F[0] = pow( X[0] + sqr( X[1] ) - 2 * X[2], 3 );
-  F[1] = 2 * sqr( X[1] ) - 1;
+  //F[0] = pow( X[0] + X[1] + X[2], 3 );// + sqr( X[0] * X[1] );
+  //F[1] = 2 * sqr( X[1] ) - 1;
 
   mc::SPolyExpr SPF[NF];
   DAG.eval( NF, F, SPF, NX, X, SPX );
@@ -912,7 +913,7 @@ int test_quadexpr2()
   for( unsigned i(0); i<NF; i++ ) std::cout << "P[" << i+1 << "] =" << SPF[i] << std::endl;
   
   mc::QuadEnv QF( &DAG );
-  mc::QuadEnv::options.REDUC = mc::QuadEnv::Options::ALL;
+  mc::QuadEnv::options.REDUC = mc::QuadEnv::Options::ONE;//ALL;
   QF.process( NF, SPF, true );
   std::cout << "Sparse quadratic form in monomial basis: " << QF << std::endl;
 
@@ -970,9 +971,9 @@ int main()
     //test_dep2();
     //test_spolyexpr1();
     //test_spolyexpr2();
-    test_sparseexpr();
+    //test_sparseexpr();
     //test_quadexpr1();
-    //test_quadexpr2();
+    test_quadexpr2();
     //test_quadexpr3();
     //test_rltred1();
     //test_rltred2();

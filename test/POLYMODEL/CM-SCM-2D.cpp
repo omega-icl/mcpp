@@ -1,10 +1,11 @@
-#define TEST_EXP1        // <-- select test function here
-const int NTE = 12;      // <-- select Taylor expansion order here
-#undef USE_PROFIL       // <-- specify to use PROFIL for interval arithmetic
+#define TEST_EXP0        // <-- select test function here
+const int NTE = 9;      // <-- select Taylor expansion order here
+#define SAVE_RESULTS    // <-- specify whether to save results to file
+#define USE_PROFIL       // <-- specify to use PROFIL for interval arithmetic
 #undef USE_FILIB        // <-- specify to use FILIB++ for interval arithmetic
 ////////////////////////////////////////////////////////////////////////
 //#define MC__SCMODEL_DEBUG_SPROD
-
+//#define MC__SICMODEL_DEBUG_SPROD
 
 #include <fstream>
 #include <iomanip>
@@ -30,6 +31,10 @@ typedef mc::CVar<I> CV;
 #include "scmodel.hpp"
 typedef mc::SCModel<I> SCM;
 typedef mc::SCVar<I> SCV;
+
+#include "sicmodel.hpp"
+typedef mc::SICModel<I> SICM;
+typedef mc::SICVar<I> SICV;
 
 using namespace std;
 using namespace mc;
@@ -63,15 +68,16 @@ T myfunc
 }
 
 #elif defined( TEST_EXP0 )
-const double XL   =  -2.;	// <-- X range lower bound
-const double XU   =   0.;	// <-- X range upper bound
-const double YL   =  0.;	// <-- Y range lower bound
-const double YU   =  2.;	// <-- Y range upper bound
+const double XL   =  -1.;	// <-- X range lower bound
+const double XU   =  1.;	// <-- X range upper bound
+const double YL   =  -1.;	// <-- Y range lower bound
+const double YU   =  1.;	// <-- Y range upper bound
 template <class T>
 T myfunc
 ( const T&x, const T&y )
 {
-  return exp(x*y);
+  //return exp(sqrt(x+y));
+  return cos(exp(x+y));
 }
 
 #elif defined( TEST_EXP1 )
@@ -96,9 +102,7 @@ template <class T>
 T myfunc
 ( const T&x, const T&y )
 {
-  //return x-y*(exp(y)-exp(-y));
   return x*y*(x*(exp(x)-exp(-x))-y*(exp(y)-exp(-y)));
-  //return (x*(exp(x)-exp(-x)));
 }
 
 #elif defined( TEST_INV )
@@ -172,35 +176,117 @@ T myfunc
 
 int main()
 { 
-  const unsigned NREP = 10000; 
- {
-  CM modCM( 2, NTE );
-  modCM.options.BOUNDER_TYPE = CM::Options::LSB;//NAIVE;//LSB;
-  modCM.options.MIXED_IA = true;//false;
+  const unsigned NREP = 1; //10000; 
+// {
+//  CM modCM( 2, NTE );
+//  modCM.options.BOUNDER_TYPE = CM::Options::LSB;//NAIVE;//LSB;
+//  modCM.options.MIXED_IA = true;//false;
 
-  double tStart = mc::userclock();
-  for( unsigned i=0; i<NREP; i++ ){
-    CV X( &modCM, 0, I(XL,XU) );
-    CV Y( &modCM, 1, I(YL,YU) );
-    CV F = myfunc( X, Y );
-    if( !i ) std::cout << F;
-  }
-  std::cout << "\nChebyshev model (dense implementation):" << (mc::userclock()-tStart)/(double)NREP << " CPU-sec\n";
- }
- {
+//  double tStart = mc::userclock();
+//  for( unsigned i=0; i<NREP; i++ ){
+//    CV X( &modCM, 0, I(XL,XU) );
+//    CV Y( &modCM, 1, I(YL,YU) );
+//    CV F = myfunc( X, Y );
+//    if( !i ) std::cout << F;
+//  }
+//  std::cout << "\nChebyshev model (dense implementation):" << (mc::userclock()-tStart)/(double)NREP << " CPU-sec\n";
+// }
+{
   SCM modSCM( NTE );
-  modSCM.options.BOUNDER_TYPE = SCM::Options::LSB;
-  modSCM.options.MIXED_IA = true;//false;
+  modSCM.options.REMEZ_USE = true;//false;
+  modSCM.options.BOUNDER_TYPE = SCM::Options::NAIVE;//LSB; //NAIVE;
+  modSCM.options.MIXED_IA = 0;//true;//false;
 
   double tStart = mc::userclock();
-  for( unsigned i=0; i<NREP; i++ ){
+  //for( unsigned i=0; i<NREP; i++ ){
     SCV X( &modSCM, 0, I(XL,XU) );
     SCV Y( &modSCM, 1, I(YL,YU) );
     SCV F = myfunc( X, Y );
-    if( !i ) std::cout << F;
+    //if( !i ) std::cout << F;
+    std::cout << F;
+  //}
+  std::cout << "\nChebyshev model (sparse implementation):" << (mc::userclock()-tStart)/(double)NREP << " CPU-sec\n";
+
+#ifdef SAVE_RESULTS
+  ofstream res( "SCM-2D.out", ios_base::out );
+  res << std::scientific << std::setprecision(5) << std::right;
+  // Repeated calculations at grid points (for display)
+  const int NX = 25;	// <-- select X discretization here
+  const int NY = 25;	// <-- select Y discretization here
+  for( int iX=0; iX<NX; iX++ ){ 
+    for( int iY=0; iY<NY; iY++ ){ 
+      double DXY[2] = { XL+iX*(XU-XL)/(NX-1.), YL+iY*(YU-YL)/(NY-1.) };
+      double DF = myfunc( DXY[0], DXY[1] );
+      double PF = F.P( DXY );
+      I IF = PF + F.R();
+      res << std::setw(14) << DXY[0] << std::setw(14) << DXY[1]
+          << std::setw(14) << DF << std::setw(14) << PF
+          << std::setw(14) << Op<I>::l(IF) << std::setw(14) << Op<I>::u(IF)
+          << std::endl;
+    }
+    res << endl;
   }
-  std::cout << "\nChebyshev model (sparse implementation):" << (mc::userclock()-tStart)/(double)NREP << " CPU-sec\n";;
- }
+#endif
+}
+{
+  SICM modSICM( NTE );
+  modSICM.options.REMEZ_USE    = true;
+  modSICM.options.INTERP_EXTRA = 0;//NTE;
+  modSICM.options.BOUNDER_TYPE = SICM::Options::NAIVE;//LSB; //NAIVE;
+  modSICM.options.HOT_SPLIT    = SICM::Options::NONE;//NONE;//FULL;
+  modSICM.options.MIXED_IA     = 0;//true;//false;
+
+  double tStart = mc::userclock();
+  //for( unsigned i=0; i<NREP; i++ ){
+    SICV X( &modSICM, 0, I(XL,XU) );
+    SICV Y( &modSICM, 1, I(YL,YU) );
+    SICV F = myfunc( X, Y );
+    //if( !i ) std::cout << F;
+    std::cout << F;
+  //}
+  std::cout << "\nChebyshev model (sparse interval implementation):" << (mc::userclock()-tStart)/(double)NREP << " CPU-sec\n";
+}
+{
+  SICM modSICM( NTE );
+  
+  modSICM.options.REMEZ_USE    = true;
+  modSICM.options.INTERP_EXTRA = 0;//2*NTE;
+  modSICM.options.BOUNDER_TYPE = SICM::Options::NAIVE;//LSB; //NAIVE;
+  modSICM.options.HOT_SPLIT    = SICM::Options::FULL;
+  modSICM.options.MIXED_IA     = 0;//true;//false;
+
+  double tStart = mc::userclock();
+  //for( unsigned i=0; i<NREP; i++ ){
+    SICV X( &modSICM, 0, I(XL,XU) );
+    SICV Y( &modSICM, 1, I(YL,YU) );
+    SICV F = myfunc( X, Y );
+    //if( !i ) std::cout << F;
+    std::cout << F;
+  //}
+  std::cout << "\nChebyshev model (sparse interval implementation):" << (mc::userclock()-tStart)/(double)NREP << " CPU-sec\n";
+
+#ifdef SAVE_RESULTS
+  ofstream res( "SICM-2D.out", ios_base::out );
+  res << std::scientific << std::setprecision(5) << std::right;
+  // Repeated calculations at grid points (for display)
+  const int NX = 25;	// <-- select X discretization here
+  const int NY = 25;	// <-- select Y discretization here
+  for( int iX=0; iX<NX; iX++ ){ 
+    for( int iY=0; iY<NY; iY++ ){ 
+      double DXY[2] = { XL+iX*(XU-XL)/(NX-1.), YL+iY*(YU-YL)/(NY-1.) };
+      double DF = myfunc( DXY[0], DXY[1] );
+      double PF = F.P( DXY );
+      I IF = F.IP( DXY );
+      res << std::setw(14) << DXY[0] << std::setw(14) << DXY[1]
+          << std::setw(14) << DF << std::setw(14) << PF
+          << std::setw(14) << Op<I>::l(IF) << std::setw(14) << Op<I>::u(IF)
+          << std::endl;
+    }
+    res << endl;
+  }
+#endif
+}
+
   return 0;
 } 
 

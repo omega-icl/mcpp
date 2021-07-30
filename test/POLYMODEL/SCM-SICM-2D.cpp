@@ -1,10 +1,17 @@
-#define TEST_EXP0        // <-- select test function here
-const int NTE = 9;      // <-- select Taylor expansion order here
-#define SAVE_RESULTS    // <-- specify whether to save results to file
-#define USE_PROFIL       // <-- specify to use PROFIL for interval arithmetic
-#undef USE_FILIB        // <-- specify to use FILIB++ for interval arithmetic
+#define TEST_EXP2            // <-- select test function here
+const int NTE = 5;           // <-- select Taylor expansion order here
+const unsigned NREP = 2000;   // <-- select repetition for acurate timing 
+const int NX = 25;	      // <-- select X discretization here
+const int NY = 25;	      // <-- select Y discretization here
+#define SAVE_RESULTS         // <-- specify whether to save results to file
+#define USE_PROFIL           // <-- specify to use PROFIL for interval arithmetic
+#undef USE_FILIB             // <-- specify to use FILIB++ for interval arithmetic
 ////////////////////////////////////////////////////////////////////////
 //#define MC__SCMODEL_DEBUG_SPROD
+//#define MC__SICMODEL_DEBUG_SPROD
+//#define MC__SICMODEL_DEBUG_COMPOSITION
+//#define MC__SCMODEL_DEBUG_COMPOSITION
+//#define MC__SICMODEL_DEBUG_SLIFT
 //#define MC__SICMODEL_DEBUG_SPROD
 
 #include <fstream>
@@ -170,35 +177,147 @@ T myfunc
 {
   return sqrt(pow(x,2)+pow(y,2));
 }
+
+#elif defined( TEST_GP )
+const double XL   = -1.;	// <-- X range lower bound
+const double XU   =  1.;	// <-- X range upper bound
+const double YL   = -1.;	// <-- Y range lower bound
+const double YU   =  1.;	// <-- Y range upper bound
+template <class T>
+T myfunc
+( const T&x, const T&y )
+{
+  return (-2.23606797749979*exp(64.2558879895505*sqr(
+     0.194030125231034 - 0.166666666666667*x) + 0.451453304154821*sqr((-
+     0.404841797459896) - 0.166666666666667*y)));
+//  return 0.14220168012508*(1 + 2.23606797749979*sqrt(
+//     64.2558879895505*sqr(0.194030125231034 - 0.166666666666667*x) + 
+//     0.451453304154821*sqr((-0.404841797459896) - 0.166666666666667*y)) + 
+//     1.66666666666667*(64.2558879895505*sqr(0.194030125231034 - 
+//     0.166666666666667*x) + 0.451453304154821*sqr((-0.404841797459896) - 
+//     0.166666666666667*y)));
+//  return 0.14220168012508*(1 + 2.23606797749979*sqrt(
+//     64.2558879895505*sqr(0.194030125231034 - 0.166666666666667*x) + 
+//     0.451453304154821*sqr((-0.404841797459896) - 0.166666666666667*y)) + 
+//     1.66666666666667*(64.2558879895505*sqr(0.194030125231034 - 
+//     0.166666666666667*x) + 0.451453304154821*sqr((-0.404841797459896) - 
+//     0.166666666666667*y)))*exp(-2.23606797749979*sqrt(64.2558879895505*sqr(
+//     0.194030125231034 - 0.166666666666667*x) + 0.451453304154821*sqr((-
+//     0.404841797459896) - 0.166666666666667*y)));
+//  return 1.86360571672641*(0.14220168012508*(1 + 2.23606797749979*sqrt(
+//     64.2558879895505*sqr(0.194030125231034 - 0.166666666666667*x) + 
+//     0.451453304154821*sqr((-0.404841797459896) - 0.166666666666667*y)) + 
+//     1.66666666666667*(64.2558879895505*sqr(0.194030125231034 - 
+//     0.166666666666667*x) + 0.451453304154821*sqr((-0.404841797459896) - 
+//     0.166666666666667*y)))*exp(-2.23606797749979*sqrt(64.2558879895505*sqr(
+//     0.194030125231034 - 0.166666666666667*x) + 0.451453304154821*sqr((-
+//     0.404841797459896) - 0.166666666666667*y))) + 0.0468045532937668*(1 + 
+//     2.23606797749979*sqrt(64.2558879895505*sqr(0.268324435572052 - 
+//     0.166666666666667*x) + 0.451453304154821*sqr((-0.220830234095203) - 
+//     0.166666666666667*y)) + 1.66666666666667*(64.2558879895505*sqr(
+//     0.268324435572052 - 0.166666666666667*x) + 0.451453304154821*sqr((-
+//     0.220830234095203) - 0.166666666666667*y)))*exp(-2.23606797749979*sqrt(
+//     64.2558879895505*sqr(0.268324435572052 - 0.166666666666667*x) + 
+//     0.451453304154821*sqr((-0.220830234095203) - 0.166666666666667*y))) - 
+//     0.436827958615331*(1 + 2.23606797749979*sqrt(64.2558879895505*sqr((-
+//     0.0505822037784427) - 0.166666666666667*x) + 0.451453304154821*sqr(
+//     0.190399166851636 - 0.166666666666667*y)) + 1.66666666666667*(
+//     64.2558879895505*sqr((-0.0505822037784427) - 0.166666666666667*x) + 
+//     0.451453304154821*sqr(0.190399166851636 - 0.166666666666667*y)))*exp(-
+//     2.23606797749979*sqrt(64.2558879895505*sqr((-0.0505822037784427) - 
+//     0.166666666666667*x) + 0.451453304154821*sqr(0.190399166851636 - 
+//     0.166666666666667*y))) + 0.0405780260973915*(1 + 2.23606797749979*sqrt(
+//     64.2558879895505*sqr(0.335653234585858 - 0.166666666666667*x) + 
+//     0.451453304154821*sqr(0.319274707641782 - 0.166666666666667*y)) + 
+//     1.66666666666667*(64.2558879895505*sqr(0.335653234585858 - 
+//     0.166666666666667*x) + 0.451453304154821*sqr(0.319274707641782 - 
+//     0.166666666666667*y)))*exp(-2.23606797749979*sqrt(64.2558879895505*sqr(
+//     0.335653234585858 - 0.166666666666667*x) + 0.451453304154821*sqr(
+//     0.319274707641782 - 0.166666666666667*y))) + 0.0383717635737363*(1 + 
+//     2.23606797749979*sqrt(64.2558879895505*sqr(0.416115262788179 - 
+//     0.166666666666667*x) + 0.451453304154821*sqr((-0.0829399801155143) - 
+//     0.166666666666667*y)) + 1.66666666666667*(64.2558879895505*sqr(
+//     0.416115262788179 - 0.166666666666667*x) + 0.451453304154821*sqr((-
+//     0.0829399801155143) - 0.166666666666667*y)))*exp(-2.23606797749979*sqrt(
+//     64.2558879895505*sqr(0.416115262788179 - 0.166666666666667*x) + 
+//     0.451453304154821*sqr((-0.0829399801155143) - 0.166666666666667*y))) + 
+//     0.226121620987036*(1 + 2.23606797749979*sqrt(64.2558879895505*sqr((-
+//     0.324344059222606) - 0.166666666666667*x) + 0.451453304154821*sqr(
+//     0.0775173811415889 - 0.166666666666667*y)) + 1.66666666666667*(
+//     64.2558879895505*sqr((-0.324344059222606) - 0.166666666666667*x) + 
+//     0.451453304154821*sqr(0.0775173811415889 - 0.166666666666667*y)))*exp(-
+//     2.23606797749979*sqrt(64.2558879895505*sqr((-0.324344059222606) - 
+//     0.166666666666667*x) + 0.451453304154821*sqr(0.0775173811415889 - 
+//     0.166666666666667*y))) + 0.055301550115541*(1 + 2.23606797749979*sqrt(
+//     64.2558879895505*sqr((-0.289414019566429) - 0.166666666666667*x) + 
+//     0.451453304154821*sqr((-0.337636568589209) - 0.166666666666667*y)) + 
+//     1.66666666666667*(64.2558879895505*sqr((-0.289414019566429) - 
+//     0.166666666666667*x) + 0.451453304154821*sqr((-0.337636568589209) - 
+//     0.166666666666667*y)))*exp(-2.23606797749979*sqrt(64.2558879895505*sqr((-
+//     0.289414019566429) - 0.166666666666667*x) + 0.451453304154821*sqr((-
+//     0.337636568589209) - 0.166666666666667*y))) - 0.220359443423157*(1 + 
+//     2.23606797749979*sqrt(64.2558879895505*sqr((-0.120888900038076) - 
+//     0.166666666666667*x) + 0.451453304154821*sqr((-0.125103261913789) - 
+//     0.166666666666667*y)) + 1.66666666666667*(64.2558879895505*sqr((-
+//     0.120888900038076) - 0.166666666666667*x) + 0.451453304154821*sqr((-
+//     0.125103261913789) - 0.166666666666667*y)))*exp(-2.23606797749979*sqrt(
+//     64.2558879895505*sqr((-0.120888900038076) - 0.166666666666667*x) + 
+//     0.451453304154821*sqr((-0.125103261913789) - 0.166666666666667*y))) + 
+//     0.0439612252066741*(1 + 2.23606797749979*sqrt(64.2558879895505*sqr(
+//     0.0826904704977199 - 0.166666666666667*x) + 0.451453304154821*sqr(
+//     0.458984274331446 - 0.166666666666667*y)) + 1.66666666666667*(
+//     64.2558879895505*sqr(0.0826904704977199 - 0.166666666666667*x) + 
+//     0.451453304154821*sqr(0.458984274331446 - 0.166666666666667*y)))*exp(-
+//     2.23606797749979*sqrt(64.2558879895505*sqr(0.0826904704977199 - 
+//     0.166666666666667*x) + 0.451453304154821*sqr(0.458984274331446 - 
+//     0.166666666666667*y))) + 0.0560980731767207*(1 + 2.23606797749979*sqrt(
+//     64.2558879895505*sqr((-0.435192808594306) - 0.166666666666667*x) + 
+//     0.451453304154821*sqr(0.220400711043696 - 0.166666666666667*y)) + 
+//     1.66666666666667*(64.2558879895505*sqr((-0.435192808594306) - 
+//     0.166666666666667*x) + 0.451453304154821*sqr(0.220400711043696 - 
+//     0.166666666666667*y)))*exp(-2.23606797749979*sqrt(64.2558879895505*sqr((-
+//     0.435192808594306) - 0.166666666666667*x) + 0.451453304154821*sqr(
+//     0.220400711043696 - 0.166666666666667*y))));
+}
 #endif
 
 ////////////////////////////////////////////////////////////////////////
 
 int main()
 { 
-  const unsigned NREP = 1; //10000; 
-{
+ {
+  CM modCM( 2, NTE );
+  modCM.options.BOUNDER_TYPE = CM::Options::LSB;//NAIVE;//LSB;
+  modCM.options.MIXED_IA = true;//false;
+
+  CV X( &modCM, 0, I(XL,XU) );
+  CV Y( &modCM, 1, I(YL,YU) );
+  CV F = myfunc( X, Y );
+  std::cout << F;
+  double tStart = mc::userclock();
+  for( unsigned i=0; i<NREP; i++ )
+    F = myfunc( X, Y );
+  std::cout << "\nChebyshev model (dense implementation):" << (mc::userclock()-tStart)/(double)NREP << " CPU-sec\n";
+ }
+ {
   SCM modSCM( NTE );
   modSCM.options.REMEZ_USE = true;//false;
-  modSCM.options.BOUNDER_TYPE = SCM::Options::NAIVE;//LSB; //NAIVE;
-  modSCM.options.MIXED_IA = 0;//true;//false;
+  modSCM.options.BOUNDER_TYPE = SCM::Options::LSB; //NAIVE;
+  modSCM.options.MIXED_IA = false;//true;//false;
 
+  SCV X( &modSCM, 0, I(XL,XU) );
+  SCV Y( &modSCM, 1, I(YL,YU) );
+  SCV F = myfunc( X, Y );
+  std::cout << F;
   double tStart = mc::userclock();
-  //for( unsigned i=0; i<NREP; i++ ){
-    SCV X( &modSCM, 0, I(XL,XU) );
-    SCV Y( &modSCM, 1, I(YL,YU) );
-    SCV F = myfunc( X, Y );
-    //if( !i ) std::cout << F;
-    std::cout << F;
-  //}
+  for( unsigned i=0; i<NREP; i++ )
+    F = myfunc( X, Y );
   std::cout << "\nChebyshev model (sparse implementation):" << (mc::userclock()-tStart)/(double)NREP << " CPU-sec\n";
 
 #ifdef SAVE_RESULTS
   ofstream res( "SCM-2D.out", ios_base::out );
   res << std::scientific << std::setprecision(5) << std::right;
   // Repeated calculations at grid points (for display)
-  const int NX = 25;	// <-- select X discretization here
-  const int NY = 25;	// <-- select Y discretization here
   for( int iX=0; iX<NX; iX++ ){ 
     for( int iY=0; iY<NY; iY++ ){ 
       double DXY[2] = { XL+iX*(XU-XL)/(NX-1.), YL+iY*(YU-YL)/(NY-1.) };
@@ -213,32 +332,29 @@ int main()
     res << endl;
   }
 #endif
-}
-{
+ }
+ {
   SICM modSICM( NTE );
   
   modSICM.options.REMEZ_USE    = true;
   modSICM.options.INTERP_EXTRA = 0;//2*NTE;
-  modSICM.options.BOUNDER_TYPE = SICM::Options::NAIVE;//LSB; //NAIVE;
+  modSICM.options.BOUNDER_TYPE = SICM::Options::LSB; //NAIVE;
   modSICM.options.HOT_SPLIT    = SICM::Options::FULL;
-  modSICM.options.MIXED_IA     = 0;//true;//false;
+  modSICM.options.MIXED_IA     = false;//true;//false;
 
+  SICV X( &modSICM, 0, I(XL,XU) );
+  SICV Y( &modSICM, 1, I(YL,YU) );
+  SICV F = myfunc( X, Y );
+  std::cout << F;
   double tStart = mc::userclock();
-  //for( unsigned i=0; i<NREP; i++ ){
-    SICV X( &modSICM, 0, I(XL,XU) );
-    SICV Y( &modSICM, 1, I(YL,YU) );
-    SICV F = myfunc( X, Y );
-    //if( !i ) std::cout << F;
-    std::cout << F;
-  //}
+  for( unsigned i=0; i<NREP; i++ )
+    F = myfunc( X, Y );
   std::cout << "\nChebyshev model (sparse interval implementation):" << (mc::userclock()-tStart)/(double)NREP << " CPU-sec\n";
 
 #ifdef SAVE_RESULTS
   ofstream res( "SICM-2D.out", ios_base::out );
   res << std::scientific << std::setprecision(5) << std::right;
   // Repeated calculations at grid points (for display)
-  const int NX = 25;	// <-- select X discretization here
-  const int NY = 25;	// <-- select Y discretization here
   for( int iX=0; iX<NX; iX++ ){ 
     for( int iY=0; iY<NY; iY++ ){ 
       double DXY[2] = { XL+iX*(XU-XL)/(NX-1.), YL+iY*(YU-YL)/(NY-1.) };
@@ -253,7 +369,7 @@ int main()
     res << endl;
   }
 #endif
-}
+ }
 
   return 0;
 } 

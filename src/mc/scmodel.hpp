@@ -484,7 +484,7 @@ public:
       REMEZ_USE(true), REMEZ_MAXIT(10), REMEZ_TOL(1e-5), REMEZ_MIG(1e-10),
       INTERP_EXTRA(0), INTERP_THRES(1e2*machprec()), BOUNDER_TYPE(LSB),
       BOUNDER_ORDER(0), MIXED_IA(true), MIN_FACTOR(0.), REF_POLY(0.),
-      DISPLAY_DIGITS(5)
+      DISPLAY_DIGITS(7)
       {}
     //! @brief Copy constructor of mc::SCModel::Options
     template <typename U> Options
@@ -1607,6 +1607,8 @@ SCModel<T>::_clenshaw
 
   CV1 = _coefuniv[1] + CVinnerx2 * CV2 - CV1;
 #ifdef MC__SCMODEL_DEBUG_COMPOSITION
+  std::cout << "CV1:" << CV1;
+  std::cout << "CVinner * CV1:" << CVinner * CV1;
   CV2 = _coefuniv[0] + CVinner * CV1 - CV2;
   std::cout << "CV2:" << CV2;
   return CV2;
@@ -1705,6 +1707,7 @@ SCModel<T>::_composition
 
   CV1 = coefouter[1] + CVinnerx2 * CV2 - CV1;
 #ifdef MC__SCMODEL_DEBUG_COMPOSITION
+  std::cout << "CV1:" << CV1;
   CV2 = coefouter[0] + CVinner * CV1 - CV2;
   std::cout << "CV2:" << CV2;
   return CV2;

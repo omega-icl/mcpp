@@ -739,6 +739,23 @@ const
   return submat;
 }
 
+inline bool
+SQuad::_isconnected
+( std::pair< SPolyMon const*, SPolyMon const* > const& entry, 
+  SQuad::t_SQuad const& mat )
+const
+{
+  for( auto const& [ijmon,coef] : mat ){
+    if( entry.first->tord && ( entry.first == ijmon.first || entry.first == ijmon.second ) )
+    //if( entry.first->tord && ( entry.first->inter( *ijmon.first ) || entry.first->inter( *ijmon.second ) ) )
+      return true;
+    if( entry.second->tord && ( entry.second == ijmon.first || entry.second == ijmon.second ) )
+    //if( entry.second->tord && ( entry.second->inter( *ijmon.first ) || entry.second->inter( *ijmon.second ) ) )
+      return true;
+  }
+  return false;  
+}
+
 inline std::multimap< double, std::map< SPolyMon, double, lt_SPolyMon > >
 SQuad::factorize
 ( SQuad::t_SQuad const& mat )
@@ -799,23 +816,6 @@ const
   }
 #endif
   return eigdec;
-}
-
-inline bool
-SQuad::_isconnected
-( std::pair< SPolyMon const*, SPolyMon const* > const& entry, 
-  SQuad::t_SQuad const& mat )
-const
-{
-  for( auto const& [ijmon,coef] : mat ){
-    if( entry.first->tord && ( entry.first == ijmon.first || entry.first == ijmon.second ) )
-    //if( entry.first->tord && ( entry.first->inter( *ijmon.first ) || entry.first->inter( *ijmon.second ) ) )
-      return true;
-    if( entry.second->tord && ( entry.second == ijmon.first || entry.second == ijmon.second ) )
-    //if( entry.second->tord && ( entry.second->inter( *ijmon.first ) || entry.second->inter( *ijmon.second ) ) )
-      return true;
-  }
-  return false;  
 }
 
 inline double

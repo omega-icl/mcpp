@@ -58,6 +58,9 @@ CM-SCM-2D : CM-SCM-2D.o
 CM-SCM-3D : CM-SCM-3D.o
 	$(LINK) $(PROF) $(FLAGS_LINK) -o $@ $< $(LIB_ALL)
 
+SCM-SICM-2D : SCM-SICM-2D.o
+	$(LINK) $(PROF) $(FLAGS_LINK) -o $@ $< $(LIB_ALL)
+
 SCM-QUAD-2D : SCM-QUAD-2D.o
 	$(LINK) $(PROF) $(FLAGS_LINK) -o $@ $< $(LIB_ALL)
 
@@ -82,5 +85,5 @@ gensvg :
 #####
 
 clean :
-	rm -f TM-1D TM-2D CM-1D CM-2D SIRM-1D SIRM-2D CM-SCM-2D SCM-QUAD-2D *.o *.out *.eps *.dot *.svg *~
+	rm -f TM-1D TM-2D CM-1D CM-2D SIRM-1D SIRM-2D CM-SCM-2D SCM-SICM-2D SCM-QUAD-2D *.o *.out *.eps *.dot *.svg *~
 

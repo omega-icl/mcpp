@@ -114,14 +114,16 @@ T myfunc
 const double XL   = -2.;	// <-- X range lower bound
 const double XU   =  2.;	// <-- X range upper bound
 const double Xref =  0.;	// <-- X ref point for McCormick
-const double YL   = -1.;	// <-- Y range lower bound
+const double YL   = 0.1;	// <-- Y range lower bound
 const double YU   =  1.;	// <-- Y range upper bound
 const double Yref =  0.;	// <-- Y ref point for McCormick
 template <class T>
 T myfunc
 ( const T&x, const T&y )
 {
-  return x*y*(x*(exp(x)-exp(-x))-y*(exp(y)-exp(-y)));
+  using mc::inv;
+  return inv(y);
+  //return x*y*(x*(exp(x)-exp(-x))-y*(exp(y)-exp(-y)));
 }
 
 #elif defined( TEST_INV )
@@ -350,13 +352,15 @@ int main()
         double DF = myfunc( DXY[0], DXY[1] );
 #if defined (USE_SPARSE) && defined (USE_INTCOEF)
         I IF = CVF.P( DXY );
+        double PF = Op<I>::mid( IF );
 #else
-        I IF = CVF.P( DXY ) + CVF.R();
+        double PF = CVF.P( DXY );
+        I IF = PF + CVF.R();
 #endif
 
 #ifdef SAVE_RESULTS
         res << std::setw(14) << DXY[0] << std::setw(14) << DXY[1] << std::setw(14) << DF
-            << std::setw(14) << CVF.P( DXY ) << std::setw(14) << Op<I>::l(IF)  << setw(14) << Op<I>::u(IF)
+            << std::setw(14) << PF << std::setw(14) << Op<I>::l(IF)  << setw(14) << Op<I>::u(IF)
             << std::setw(14) << Op<I>::l(CVF.B())  << std::setw(14) << Op<I>::u(CVF.B())
             << std::endl;
 #endif

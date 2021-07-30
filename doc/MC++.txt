@@ -3,7 +3,7 @@
 @mainpage MC++ (version 2.1): Toolkit for Construction, Manipulation and Bounding of Factorable Functions
 
 @author Benoit C. Chachuat <tt>(b.chachuat@imperial.ac.uk)</tt> and OMEGA Research Group (http://www3.imperial.ac.uk/environmentenergyoptimisation)
-@date 2019
+@date 2021
 
 MC++ provides a collection of C++ classes for construction, manipulation and bounding of factorable functions. The bounding methods include interval bounds, spectral bounds, convex/concave relaxations, Taylor and Chebyshev model estimators, and polyhedral relaxations. The implementation of MC++ relies on operator/function overloading and templates. Our main emphasis in developing MC++ is to make the computation of bounds as simple and natural as possible, similar to computing function values in real arithmetics. The use of DAGs to define factorable functions is recommended for efficiency with complex bounding types and enables manipulating exoressions, including forward / backward / Taylor expansion in automatic differentiation. We hope that you will find MC++ most useful for faster prototyping and testing of new algorithms and ideas, for instance in areas such as global and robust optimization.
 

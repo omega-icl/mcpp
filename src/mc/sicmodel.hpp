@@ -401,7 +401,7 @@ public:
       REMEZ_USE(true), REMEZ_MAXIT(10), REMEZ_TOL(1e-5), REMEZ_MIG(1e-10),
       INTERP_EXTRA(0), INTERP_THRES(1e2*machprec()), BOUNDER_TYPE(LSB),
       MIXED_IA(true), MIN_FACTOR(0.), REF_POLY(0.),
-      DISPLAY_DIGITS(5)
+      DISPLAY_DIGITS(7)
       {}
     //! @brief Copy constructor of mc::SICModel::Options
     template <typename U> Options
@@ -1500,6 +1500,8 @@ SICModel<T>::_clenshaw
 
   CV1 = _coefuniv[1] + CVinnerx2 * CV2 - CV1;
 #ifdef MC__SICMODEL_DEBUG_COMPOSITION
+  std::cout << "CV1:" << CV1;
+  std::cout << "CVinner * CV1:" << CVinner * CV1;
   CV2 = _coefuniv[0] + CVinner * CV1 - CV2;
   std::cout << "CV2:" << CV2;
   return CV2;
@@ -1654,7 +1656,7 @@ const
     }
   }
 }
-
+#if 0
 template <typename T>
 inline 
 void
@@ -1815,7 +1817,7 @@ const
     if( !ins ) itmon->second += coef0*dscal;
   }
 }
-#if 0
+#endif
 template <typename T>
 inline void
 SICModel<T>::_slift1D
@@ -1947,7 +1949,7 @@ const
     if( !ins ) itmon->second += coef0*dscal;
   }
 }
-#endif
+
 template <typename T>
 inline void
 SICModel<T>::_sdisp1D
@@ -3428,13 +3430,16 @@ SICVar<T>::operator*=
 #endif
   
   // Uncertainty propagation
+//#if 0
   switch( _CM->options.HOT_SPLIT ){
   case SICModel<T>::Options::NONE:
+//#endif
 #ifdef MC__SICMODEL_DEBUG_SPROD
     std::cout << "Uncertainty propagation 1:" << tmpCV0.bound() * BCV << std::endl;
     std::cout << "Uncertainty propagation 2:" << tmpCV.bound() * BCV0 << std::endl;
 #endif
     operator+=( tmpCV0.bound() * BCV + tmpCV.bound() * BCV0 + BCV * BCV0 );
+//#if 0
     break;
   case SICModel<T>::Options::SIMPLE:
   case SICModel<T>::Options::FULL:
@@ -3447,9 +3452,8 @@ SICVar<T>::operator*=
     operator+=( tmpCV0 + tmpCV + BCV * BCV0 );
     break;
   }
-  
+//#endif  
   // Update bounds
-//  _unset_bndpol();
   if( _bndT && CV._bndT ) *_bndT *= *CV._bndT;
   else _unset_bndT();
 

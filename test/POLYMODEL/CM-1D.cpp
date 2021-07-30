@@ -1,16 +1,14 @@
-#define TEST_DPOW	    // <-- select test function here
-const int NTE = 6;	    // <-- select Chebyshev expansion order here
-const int NX = 200;	    // <-- select X discretization here
+#define TEST_EXP	    // <-- select test function here
+const int NTE = 4;	    // <-- select expansion order here
+const int NX = 100;	    // <-- select X discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
 #define TEST_CVG        // <-- specify whether to save results to file
-#undef  USE_PROFIL   	// <-- specify to use PROFIL for interval arithmetic
+#define USE_PROFIL   	// <-- specify to use PROFIL for interval arithmetic
 #undef  USE_FILIB	    // <-- specify to use FILIB++ for interval arithmetic
 #define  USE_SPARSE      // <-- specify whether to use sparse Chebyshev models
-#undef  MC__CVAR_NOINTERP_REM
 #undef  MC__CVAR_SPARSE_PRODUCT_NAIVE
 #undef  MC__POLYMODEL_DEBUG_SPROD
 #undef  MC__CVAR_DEBUG_INTERPOLATION
-#undef  MC__CVAR_DEBUG_COS
 ////////////////////////////////////////////////////////////////////////
 
 #include <fstream>
@@ -64,9 +62,9 @@ T myfunc
 }
 
 #elif defined( TEST_DPOW )
-const double XL   =  0.1;	// <-- X range lower bound
-const double XU   =  2.;	// <-- X range upper bound
-const double Xref =  0.5;	// <-- X ref point for McCormick
+const double XL   =  500;	// <-- X range lower bound
+const double XU   =  3000;	// <-- X range upper bound
+const double Xref =  1500;	// <-- X ref point for McCormick
 template <class T>
 T myfunc
 ( const T&x )
@@ -74,20 +72,20 @@ T myfunc
   return pow(x,0.6);
 }
 
-#elif defined( TEST_ABS )
-const double XL   = -1.;	// <-- X range lower bound
-const double XU   =  1.;	// <-- X range upper bound
-const double Xref =  0.;	// <-- X ref point for McCormick
+#elif defined( TEST_XLOG )
+const double XL   =  -1;	// <-- X range lower bound
+const double XU   =   1;	// <-- X range upper bound
+const double Xref =   0;	// <-- X ref point for McCormick
 template <class T>
 T myfunc
 ( const T&x )
 {
-  return sqrt(sqr(x))*x;
+  return exp(sqr(x));//xlog(x);
 }
 
 #elif defined( TEST_POLY )
-const double XL   = -5.55556e-02; //-0.125; //-.5;	// <-- X range lower bound
-const double XU   = -4.68750e-02; // 0.5; // 1.;	// <-- X range upper bound
+const double XL   = -0.125; //-.5;	// <-- X range lower bound
+const double XU   = 0.5; // 1.;	// <-- X range upper bound
 const double Xref =  0.;	// <-- X ref point for McCormick
 template <class T>
 T myfunc
@@ -95,6 +93,17 @@ T myfunc
 {
   return x*(x-1.1)*(x+2)*(x+2.2)*(x+2.5)*(x+3.)*sin(1.7*x+0.5);
   //return pow(x,6)+8.6*pow(x,5)+24.33*pow(x,4)+17.2*pow(x,3)-28.27*pow(x,2)-36.3*x;
+}
+
+#elif defined( TEST_EXP )
+const double XL   = -2.;	// <-- X range lower bound
+const double XU   =  2.;	// <-- X range upper bound
+const double Xref =  0.;	// <-- X ref point for McCormick
+template <class T>
+T myfunc
+( const T&x )
+{
+  return exp(x);
 }
 
 #elif defined( TEST_EXP1 )
@@ -252,7 +261,9 @@ int main()
     //modCM.options.BOUNDER_ORDER = 40;
     modCM.options.DISPLAY_DIGITS = 10;
     //modCM.options.INTERP_EXTRA   = 1000;
-    modCM.options.MIXED_IA       = true;//true;
+    modCM.options.REMEZ_USE      = false;//true;
+    modCM.options.MIXED_IA       = true;//false;
+    modCM.options.BASIS          = 1; //0;//1;
     modCMMC.options = modCM.options;
 
     // Define variable X, and evaluate Chebyshev model

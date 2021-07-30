@@ -4,8 +4,8 @@ set zlabel 'f(x,y)' rotate parallel
 #set view 59,332
 set hidden3d
 
-splot 'SICM-2D.out' u 1:2:3 tit 'Function' w l lc -1, \
-      'SICM-2D.out' u 1:2:4 tit 'Interval Chebyshev predictor' w l lc 7
+splot 'SCM-2D.out' u 1:2:3 tit 'Function' w l lc -1, \
+      'SCM-2D.out' u 1:2:4 tit 'Standard Chebyshev predictor' w l lc 7
 
 pause -1 "<ENTER> TO CONTINUE"
 
@@ -32,7 +32,7 @@ set term qt
 !gv SICM-2D_mod.eps &
 
 splot 'SCM-2D.out' u 1:2:3 tit 'Function' w l lc -1, \
-      'SCM-2D.out' u 1:2:5 tit 'Interval Chebyshev range' w l lc 7, \
+      'SCM-2D.out' u 1:2:5 tit 'Standard Chebyshev range' w l lc 7, \
       'SCM-2D.out' u 1:2:6 tit '' w l lc 7
 
 pause -1 "<ENTER> TO CONTINUE"

@@ -17,7 +17,8 @@ pause -1 "<ENTER> TO CONTINUE"
 #rep
 #set term qt
 
-splot resfile u 1:2:($4-$3) tit 'Chebyshev approximation error' w l lt 2
+splot resfile u 1:2:($6-$3) tit 'Chebyshev approximation error' w l lt 1, \
+      resfile u 1:2:($5-$3) tit '' w l lt 2
 
 pause -1 "<ENTER> TO CONTINUE"  
 

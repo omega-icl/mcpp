@@ -3030,18 +3030,22 @@ template<typename T> struct Op< mc::EllVar<T> >
   static EV asin(const EV& x) { return mc::asin(x); }
   static EV acos(const EV& x) { return mc::acos(x); }
   static EV atan(const EV& x) { return mc::atan(x); }
-  static EV arh (const EV& x, const double k) { return mc::exp(-k/x); }
+  static EV sinh(const EV& x) { throw typename mc::EllImg<T>::Exceptions( EllImg<T>::Exceptions::UNDEF ); }
+  static EV cosh(const EV& x) { throw typename mc::EllImg<T>::Exceptions( EllImg<T>::Exceptions::UNDEF ); }
+  static EV tanh(const EV& x) { throw typename mc::EllImg<T>::Exceptions( EllImg<T>::Exceptions::UNDEF ); }
   static EV erf (const EV& x) { throw typename mc::EllImg<T>::Exceptions( EllImg<T>::Exceptions::UNDEF ); }
   static EV erfc(const EV& x) { throw typename mc::EllImg<T>::Exceptions( EllImg<T>::Exceptions::UNDEF ); }
   static EV fstep(const EV& x) { throw typename mc::EllImg<T>::Exceptions( EllImg<T>::Exceptions::UNDEF ); }
   static EV bstep(const EV& x) { throw typename mc::EllImg<T>::Exceptions( EllImg<T>::Exceptions::UNDEF ); }
-  static EV hull(const EV& x, const EV& y) { throw typename mc::EllImg<T>::Exceptions( EllImg<T>::Exceptions::UNDEF ); }
   static EV min (const EV& x, const EV& y) { throw typename mc::EllImg<T>::Exceptions( EllImg<T>::Exceptions::UNDEF ); }
   static EV max (const EV& x, const EV& y) { throw typename mc::EllImg<T>::Exceptions( EllImg<T>::Exceptions::UNDEF ); }
-  static EV cheb(const EV& x, const EV& y) { throw typename mc::EllImg<T>::Exceptions( EllImg<T>::Exceptions::UNDEF ); }
+  static EV arh (const EV& x, const double k) { return mc::exp(-k/x); }
   template <typename X, typename Y> static EV pow(const X& x, const Y& y) { return mc::pow(x,y); }
-  static EV monomial (const unsigned int n, const EV* x, const int* k) { throw typename mc::EllImg<T>::Exceptions( EllImg<T>::Exceptions::UNDEF ); }
-  static bool inter(EV& xIy, const EV& x, const EV& y) { return false; }
+  static EV cheb(const EV& x, const unsigned n) { throw typename mc::EllImg<T>::Exceptions( EllImg<T>::Exceptions::UNDEF ); }
+  static EV prod (const unsigned int n, const EV* x) { throw typename mc::EllImg<T>::Exceptions( EllImg<T>::Exceptions::UNDEF ); }
+  static EV monom(const unsigned int n, const EV* x, const int* k) { throw typename mc::EllImg<T>::Exceptions( EllImg<T>::Exceptions::UNDEF ); }
+  static EV hull(const EV& x, const EV& y) { throw typename mc::EllImg<T>::Exceptions( EllImg<T>::Exceptions::UNDEF ); }
+  static bool inter(EV& xIy, const EV& x, const EV& y) { throw typename mc::EllImg<T>::Exceptions( EllImg<T>::Exceptions::UNDEF ); }
   static bool eq(const EV& x, const EV& y) { return x.env() == y.env() && x.index() == y.index() && x.range() == y.range(); }
   static bool ne(const EV& x, const EV& y) { return !eq( x, y ); }
   static bool lt(const EV& x, const EV& y) { throw typename mc::EllImg<T>::Exceptions( EllImg<T>::Exceptions::UNDEF );  }
