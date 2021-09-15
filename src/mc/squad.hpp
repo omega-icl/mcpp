@@ -257,12 +257,49 @@ class SQuad
 
 public:
 
+  typedef std::set< unsigned > t_SPolyVar;
   typedef std::set< SPolyMon, lt_SPolyMon > t_SPolyMon;
   typedef std::set< SPolyMon const*, lt_pSPolyMon > t_pSPolyMon;
   typedef std::map< SPolyMon, double, lt_SPolyMon > t_SPolyMonCoef;
   typedef std::pair< SPolyMon const*, SPolyMon const* > key_SQuad;
   typedef std::map< key_SQuad, double, lt_SQuad > t_SQuad;
   
+  //! @brief Options of mc::SQuad
+  static struct Options
+  {
+    //! @brief Constructor
+    Options():
+      BASIS(CHEB), ORDER(INC), REDUC(true), DISPLEN(5)
+      {}
+    //! @brief Assignment of mc::SQuad::Options
+    Options& operator=
+      ( Options& opt ){
+        BASIS   = opt.BASIS;
+        ORDER   = opt.ORDER;
+        REDUC   = opt.REDUC;
+        DISPLEN = opt.DISPLEN;
+        return *this;
+      }
+    //! @brief Available basis representations
+    enum BASIS_TYPE{
+      POW=0,	//!< Power basis
+      CHEB	    //!< Chebyshev basis
+    };
+    //! @brief Available processing order
+    enum ORDER_TYPE{
+      INC=0,	//!< By increasing order
+      DEC	    //!< By decreasing order
+    };
+    //! @brief Basis representation of the quadratic form
+    int BASIS;
+    //! @brief Processing order for the monomial terms
+    int ORDER;
+    //! @brief Whether to search for and append extra reduction constraints
+    bool REDUC;
+    //! @brief Number of digits in output stream for sparse polynomial coefficients
+    unsigned DISPLEN;
+  } options;
+
   //! @brief Default Constructor
   SQuad
     ()
@@ -275,11 +312,13 @@ public:
   
   //! @brief Process the <a>nPol</a> sparse polynomials in array <a>pPol</a>
   double process
-    ( unsigned const nSPol, SQuad::t_SPolyMonCoef const* pSPol, bool const check=false );
+    ( unsigned const nSPol, SQuad::t_SPolyMonCoef const* pSPol,
+      int const BASIS, bool const CHECK=false );
 
   //! @brief Process the sparse polynomial <a>Pol</a>
   double process
-    ( SQuad::t_SPolyMonCoef const& SPol, bool const check=false );
+    ( SQuad::t_SPolyMonCoef const& SPol, int const BASIS,
+      bool const CHECK=false );
 
   //! @brief Decompose the quadratic expression <a>mat</a> into separable expressions
   std::list< t_SQuad > separate
@@ -349,42 +388,6 @@ public:
     TYPE _ierr;
   };
 
-  //! @brief Options of mc::SQuad
-  static struct Options
-  {
-    //! @brief Constructor
-    Options():
-      BASIS(CHEB), ORDER(INC), REDUC(true), DISPLEN(5)
-      {}
-    //! @brief Assignment of mc::SQuad::Options
-    Options& operator=
-      ( Options& opt ){
-        BASIS   = opt.BASIS;
-        ORDER   = opt.ORDER;
-        REDUC   = opt.REDUC;
-        DISPLEN = opt.DISPLEN;
-        return *this;
-      }
-    //! @brief Available basis representations
-    enum BASIS_TYPE{
-      POW=0,	//!< Power basis
-      CHEB	    //!< Chebyshev basis
-    };
-    //! @brief Available processing order
-    enum ORDER_TYPE{
-      INC=0,	//!< By increasing order
-      DEC	    //!< By decreasing order
-    };
-    //! @brief Basis representation of the quadratic form
-    unsigned BASIS;
-    //! @brief Processing order for the monomial terms
-    unsigned ORDER;
-    //! @brief Whether to search for and append extra reduction constraints
-    bool REDUC;
-    //! @brief Number of digits in output stream for sparse polynomial coefficients
-    unsigned DISPLEN;
-  } options;
-
 protected:
 
   //! @brief Set of monomials in quadratic forms
@@ -439,8 +442,7 @@ protected:
   //! @brief Check quadratic form expressions by comparing with Chebyshev model
   //template <typename T>
   double check
-    ( unsigned const nSPol, SQuad::t_SPolyMonCoef const* pSPol, bool const chkRed=true,
-      bool const chkPSD=true )
+    ( unsigned const nSPol, SQuad::t_SPolyMonCoef const* pSPol, int const BASIS )
     const;
 
   //! @brief Check if a term exist in current quadratic forms 
@@ -459,7 +461,37 @@ protected:
     ( std::pair< SPolyMon const*, SPolyMon const* > const& entry, 
       t_SQuad const& mat )
     const;
-      
+    
+  //! @brief Append participating variables in polynomial array pSPol into SVar - return value indicates whether or not there are any participating variables
+  static bool _deps
+    ( unsigned const nSPol, SQuad::t_SPolyMonCoef const* pSPol, SQuad::t_SPolyVar& SVar );
+
+  //! @brief Append participating variables in polynomial SPol into SVar - return value indicates whether or not there are any participating variables
+  static bool _deps
+    ( SQuad::t_SPolyMonCoef const& SPol, SQuad::t_SPolyVar& SVar );
+
+  //! @brief Express polynomial SPol as a univariate polynomial in variable ivar
+  static void _unipol
+    ( unsigned const ivar, SQuad::t_SPolyMonCoef const& SPol,
+      std::vector< SQuad::t_SPolyMonCoef >& veccoef );
+
+  //! @brief Determine the maximal order of variable ivar in polynomial SPol - return value is the maximum order
+  static unsigned _maxord
+    ( unsigned const ivar, SQuad::t_SPolyMonCoef const& SPol );
+
+  //! @brief Convert univariate polynomial from monomial to Chebyshev basis
+  static void _pow2cheb
+    ( std::vector< SQuad::t_SPolyMonCoef >& veccoef );
+    
+  //! @brief Convert univariate polynomial from Chebyshev to monomial basis
+  static void _cheb2pow
+    ( std::vector< SQuad::t_SPolyMonCoef >& veccoef );
+
+  //! @brief Convert univariate polynomial from Chebyshev to monomial basis
+  static void _convert
+    ( SQuad::t_SPolyMonCoef& SPol, SQuad::t_SPolyVar const& SVar,
+      int const BASIS );
+
 private:
 
   //! @brief Reset the quadratic form
@@ -829,8 +861,7 @@ const
 
 inline double
 SQuad::check
-( unsigned const nSPol, SQuad::t_SPolyMonCoef const* pSPol, bool const chkRed,
-  bool const chkPSD )
+( unsigned const nSPol, SQuad::t_SPolyMonCoef const* pSPol, int const BASIS )
 const
 { 
   assert( nSPol <= _MatFct.size() );
@@ -868,7 +899,13 @@ const
   std::advance( itmat, _MatFct.size()-nSPol );
   for( unsigned i=0; nSPol && itmat != _MatFct.end(); ++itmat, ++i ){
     SPolyExpr spe( 0e0 );
-    for( auto const& [mon,coef] : pSPol[i] ){
+    auto coefmon = pSPol[i];
+    if( BASIS != options.BASIS ){
+      t_SPolyVar ndxvar;
+      _deps( coefmon, ndxvar );
+      _convert( coefmon, ndxvar, BASIS );
+    }
+    for( auto const& [mon,coef] : coefmon ){
       if( mon.tord == 0 ){
         spe += coef;
         continue;
@@ -940,29 +977,203 @@ const
   return sumdiff;
 }
 
-inline double
-SQuad::process
-( unsigned const nSPol, SQuad::t_SPolyMonCoef const* pSPol, bool const chk )
+inline void
+SQuad::_pow2cheb
+( std::vector< SQuad::t_SPolyMonCoef >& veccoef )
+{
+  // Converts COEFF in monomial basis to the Chebyshev basis.
+  // Based on SCONMC function (http://www.netlib.org/math/MATH77/dconmc.f, http://www.netlib.org/math/docpdf/ch11-03.pdf)
+  int const N = veccoef.size()-1;
+  if( N <= 1 ) return;
+  // TP = .5D0**(N-1)
+  // COEFF(N) = TP * COEFF(N)
+  // COEFF(N-1) = TP * COEFF(N-1)
+  double TP = std::pow(0.5,N-1);
+  for( auto& [mon,coef] : veccoef[N] )   coef *= TP;
+  for( auto& [mon,coef] : veccoef[N-1] ) coef *= TP;
+  //    do 20 J = N-2, 0, -1
+  //      TP = 2.D0 * TP
+  //      COEFF(J) = TP * COEFF(J)
+  //      COEFF(J+1) = 2.D0 * COEFF(J+1)
+  for( int J=N-2; J>=0; --J ){
+    TP *= 2e0;
+    for( auto& [mon,coef] : veccoef[J] )   coef *= TP;
+    for( auto& [mon,coef] : veccoef[J+1] ) coef *= 2e0;
+    //    do 10 I = J, N-2
+    //      COEFF(I) = COEFF(I) + COEFF(I+2)
+    // 10    continue
+    for( int I=J; I<=N-2; ++I )
+      for( auto& [mon,coef] : veccoef[I+2] ){
+        auto [itmon,ins] = veccoef[I].insert( std::make_pair( mon, coef ) );
+        if( !ins ) itmon->second += coef;
+        if( itmon->second == 0e0 ) veccoef[I].erase( itmon );
+      }
+  // 20 continue
+  }
+  //    return
+  //    end  
+}
+
+inline void
+SQuad::_cheb2pow
+( std::vector< SQuad::t_SPolyMonCoef >& veccoef )
+{
+  // Converts COEFF in Chebyshev basis to the monomial basis.
+  // Based on SCONCM function (http://www.netlib.org/math/MATH77/dconcm.f, http://www.netlib.org/math/docpdf/ch11-03.pdf)
+  int const N = veccoef.size()-1;
+  if( N <= 1 ) return;
+  //    TP = 1.D0
+  double TP = 1e0;
+  //    do 20 J = 0, N-2
+  for( int J=0; J<=N-2; ++J ){
+  //       do 10 I = N-2, J, -1
+  //          COEFF(I) = COEFF(I) - COEFF(I+2)
+  // 10    continue
+    for( int I=N-2; I>=J; --I )
+      for( auto& [mon,coef] : veccoef[I+2] ){
+        auto [itmon,ins] = veccoef[I].insert( std::make_pair( mon, -coef ) );
+        if( !ins ) itmon->second -= coef;
+        if( itmon->second == 0e0 ) veccoef[I].erase( itmon );
+      }
+  //       COEFF(J+1) = .5D0 * COEFF(J+1)
+  //       COEFF(J) = TP * COEFF(J)
+  //       TP = 2.D0 * TP
+  // 20 continue
+    for( auto& [mon,coef] : veccoef[J+1] ) coef /= 2e0;
+    for( auto& [mon,coef] : veccoef[J] )   coef *= TP;
+    TP *= 2e0;
+  }
+  //    COEFF(N) = TP * COEFF(N)
+  //    COEFF(N-1) = TP * COEFF(N-1)
+  for( auto& [mon,coef] : veccoef[N] )   coef *= TP;
+  for( auto& [mon,coef] : veccoef[N-1] ) coef *= TP;
+  //    return
+  //    end  
+}
+
+inline void
+SQuad::_unipol
+( unsigned const ivar, SQuad::t_SPolyMonCoef const& SPol,
+  std::vector< SQuad::t_SPolyMonCoef >& veccoef )
+{
+  // Get univariate polynomial in the variable ivar
+  veccoef.clear();
+  unsigned const N = _maxord( ivar, SPol );
+  veccoef.assign( N+1, t_SPolyMonCoef() );
+  
+  // No dependence
+  if( !N ){
+    veccoef[0] = SPol;
+    return;
+  }
+  
+  // Construct first- and higher-order terms
+  for( auto const& [mon,coef] : SPol ){
+    auto ie = mon.expr.find( ivar );
+    if( ie == mon.expr.end() ) // no dependence on variable ivar 
+      veccoef[ 0 ].insert( std::make_pair( mon, coef ) );
+    else{
+      auto const& [ivar,iord] = *ie;
+      SPolyMon monmod( mon.tord - iord, mon.expr );
+      monmod.expr.erase( ivar ); // remove ivar entry
+      veccoef[ iord ].insert( std::make_pair( monmod, coef ) );
+    }
+  }
+}
+
+inline unsigned
+SQuad::_maxord
+( unsigned const ivar, SQuad::t_SPolyMonCoef const& SPol )
+{
+  unsigned maxord = 0;
+  for( auto const& [mon,coef] : SPol ){
+    auto ie = mon.expr.find( ivar );
+    if( ie != mon.expr.end() && ie->second > maxord )
+      maxord = ie->second;
+  }
+  return maxord;
+}
+
+inline bool
+SQuad::_deps
+( unsigned const nSPol, SQuad::t_SPolyMonCoef const* pSPol, SQuad::t_SPolyVar& SVar )
 {
   for( unsigned i=0; i<nSPol; i++ )
-    process( pSPol[i], false );
-  return( chk? check( nSPol, pSPol, false, false ): 0. );
+    _deps( pSPol[i], SVar );
+  return !SVar.empty();
+}
+
+inline bool
+SQuad::_deps
+( SQuad::t_SPolyMonCoef const& SPol, SQuad::t_SPolyVar& SVar )
+{
+  for( auto const& [mon,coef] : SPol )
+    for( auto const& [ivar,iord] : mon.expr )
+      SVar.insert( ivar );
+  return !SVar.empty();
+}
+
+inline void
+SQuad::_convert
+( SQuad::t_SPolyMonCoef& SPol, SQuad::t_SPolyVar const& SVar,
+  int const BASIS )
+{
+  // Constant or linear polynomial - nothing to do
+  if( SPol.empty() || SVar.empty() || SPol.crbegin()->first.tord <= 1 ) return;
+
+  // Apply conversion variable by variable
+  std::vector< SQuad::t_SPolyMonCoef > veccoef;
+  for( unsigned ivar : SVar ){
+    // Separate contribution of variable ivar, and convert to Chebyshev form
+    _unipol( ivar, SPol, veccoef );
+    switch( BASIS ){
+      case Options::POW:  _pow2cheb( veccoef ); break;
+      case Options::CHEB: _cheb2pow( veccoef ); break;
+    }
+    // Merge back into multivariate polynomial
+    SPol = veccoef[0];
+    for( unsigned iord=1; iord<veccoef.size(); iord++ ){
+      for( auto& [mon,coef] : veccoef[iord] ){
+        SPolyMon monmod( mon.tord + iord, mon.expr );
+        monmod.expr[ ivar ] = iord;
+        SPol[ monmod ] = coef;
+      }
+    }
+    //_simplify( coefmon );
+  }
 }
 
 inline double
 SQuad::process
-( SQuad::t_SPolyMonCoef const& SPol, bool const chk )
+( unsigned const nSPol, SQuad::t_SPolyMonCoef const* pSPol,
+  int const BASIS, bool const CHECK )
+{
+  for( unsigned i=0; i<nSPol; i++ )
+    process( pSPol[i], BASIS, false );
+  return( CHECK? check( nSPol, pSPol, BASIS ): 0. );
+}
+
+inline double
+SQuad::process
+( SQuad::t_SPolyMonCoef const& SPol, int const BASIS,
+  bool const CHECK )
 {
   // Append entry in <a>MatFct</a>
   unsigned ndxmat = _MatFct.size();
   _MatFct.push_back( t_SQuad() );
-  auto& mat = _MatFct.back();
+  auto& mat = _MatFct[ndxmat];
 
   // Always insert constant monomial 1
   _SetMon.insert( SPolyMon() );
 
+  // Identify and insert variables participating in monomials
+  t_SPolyVar ndxvar;
+  _deps( SPol, ndxvar );
+  for( auto ivar : ndxvar ) _SetMon.insert( SPolyMon( ivar ) );
+
   // Local copy and conversion to desired basis
   auto coefmon = SPol;
+  if( BASIS != options.BASIS ) _convert( coefmon, ndxvar, BASIS );
 
   // Iterate through monomial terms
   //for( auto it=coefmon.crbegin(); it!=coefmon.crend(); ++it ){
@@ -973,10 +1184,10 @@ SQuad::process
     coefmon.erase( mon );
 
     // Insert variables participating in monomial
-    for( auto const& [ivar,iord] : mon.expr )
-      _SetMon.insert( SPolyMon( ivar ) );
+    //for( auto const& [ivar,iord] : mon.expr )
+    //  _SetMon.insert( SPolyMon( ivar ) );
 
-    // Monomial already in _SetMon
+    // Monomial already present in _SetMon
     auto itmon = _SetMon.find( mon );
     if( itmon != _SetMon.end() ){
 #ifdef MC__SQUAD_DEBUG_DECOMP
@@ -1003,13 +1214,14 @@ SQuad::process
             << " · " << prmon->display(options.BASIS)
             << std::endl;
 #endif
-    bool ins = _insert( _MatFct[ndxmat], coefmon, plmon, prmon, coef );
+    bool ins = _insert( mat, coefmon, plmon, prmon, coef );
+    //bool ins = _insert( _MatFct[ndxmat], coefmon, plmon, prmon, coef );
 #ifdef MC__SQUAD_CHECK
     assert( ins );
 #endif
   }
 
-  return( chk? check( 1, &SPol, false, false ): 0. );
+  return( CHECK? check( 1, &SPol, BASIS ): 0. );
 }
 
 inline std::pair< SPolyMon const*, SPolyMon const* >
