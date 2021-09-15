@@ -794,6 +794,14 @@ PolVar<T>::generate_cuts
 #ifdef MC__POLIMG_DEBUG_CUTS
   std::cout << "CUTS FOR " << _var << ": " << *_var.ops().first << std::endl;
 #endif
+  
+  // Nothing to do if underlying dag variable is constant
+  if( !_var.ops().first ){
+    if( !_var.cst() )
+      throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::INTERN );
+    //assert( _var->cst() );
+    return;
+  }    
 
   PolLQExpr<T>*pLQ = 0;
   if( _img->options.AGGREG_LQ && generate_cuts_aggreg( pLQ ) ){
