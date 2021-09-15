@@ -411,7 +411,7 @@ protected:
 
   //! @brief Insert new entry in matrix <a>mat</a> corresponding to the mononial <a>pMon</a> in a product with the constant monomial and with corresponding coefficient <a>coef</a>
   bool _insert
-    ( t_SQuad& mat, SPolyMon const* pMon, double const coef, bool const rem=false );
+    ( t_SQuad& mat, SPolyMon const* pMon, double const coef, bool const add=false );//, bool const rem=false );
 
   //! @brief Insert new entry in matrix <a>mat</a> corresponding to the product between mononials <a>pLMon</a> and <a>pRMon</a> with corresponding coefficient <a>coef</a>
   bool _insert
@@ -1085,15 +1085,20 @@ const
 
 inline bool
 SQuad::_insert
-( t_SQuad& mat, SPolyMon const* pMon, double const coef, bool const rem )
+( t_SQuad& mat, SPolyMon const* pMon, double const coef, bool const add )//, bool const rem )
 {
   // New entry in quadratic form as product with constant monomial
 #ifdef MC__SQUAD_DEBUG_DECOMP
   std::cerr << "SQuad::_insert, &mat = " << &mat << std::endl;
 #endif
   auto [itmat,ins] = mat.insert( std::make_pair( std::make_pair( &(*_SetMon.cbegin()), pMon ), coef ) );
-  if( !ins && rem ) mat.erase( itmat );
-  return ins || rem;
+  if( !ins && add ){
+    itmat->second += coef;
+    if( itmat->second == 0. ) mat.erase( itmat );
+  }
+  return ins || add;
+  //if( !ins && rem ) mat.erase( itmat );
+  //return ins || rem;
 }
 
 inline bool
@@ -1106,9 +1111,8 @@ SQuad::_insert
   if( !ins && add ){
     itmat->second += coef;
     if( itmat->second == 0. ) mat.erase( itmat );
-    return true;
   }
-  return ins;
+  return ins || add;
 }
 
 inline bool
@@ -1132,9 +1136,8 @@ SQuad::_insert
   if( !ins && add ){
     itmat->second += coef;
     if( itmat->second == 0. ) mat.erase( itmat );
-    return true;
   }
-  return ins;
+  return ins || add;
 }
 
 inline void
