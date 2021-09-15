@@ -354,23 +354,31 @@ public:
   {
     //! @brief Constructor
     Options():
-      BASIS(CHEB), REDUC(true), DISPLEN(5)
+      BASIS(CHEB), ORDER(INC), REDUC(true), DISPLEN(5)
       {}
     //! @brief Assignment of mc::SQuad::Options
     Options& operator=
       ( Options& opt ){
         BASIS   = opt.BASIS;
+        ORDER   = opt.ORDER;
         REDUC   = opt.REDUC;
         DISPLEN = opt.DISPLEN;
         return *this;
       }
     //! @brief Available basis representations
     enum BASIS_TYPE{
-      MONOM=0,	//!< Monomial basis
+      POW=0,	//!< Power basis
       CHEB	    //!< Chebyshev basis
+    };
+    //! @brief Available processing order
+    enum ORDER_TYPE{
+      INC=0,	//!< By increasing order
+      DEC	    //!< By decreasing order
     };
     //! @brief Basis representation of the quadratic form
     unsigned BASIS;
+    //! @brief Processing order for the monomial terms
+    unsigned ORDER;
     //! @brief Whether to search for and append extra reduction constraints
     bool REDUC;
     //! @brief Number of digits in output stream for sparse polynomial coefficients
@@ -408,12 +416,13 @@ protected:
   //! @brief Insert new entry in matrix <a>mat</a> corresponding to the product between mononials <a>pLMon</a> and <a>pRMon</a> with corresponding coefficient <a>coef</a>
   bool _insert
     ( t_SQuad& mat, SPolyMon const* pLMon, SPolyMon const* pRMon,
-      double const coef );
+      double const coef, bool const add=false );
 
   //! @brief Insert new entry in matrix <a>mat</a> corresponding to the product between mononials <a>pLMon</a> and <a>pRMon</a> with corresponding coefficient <a>coef</a>, and insert the associated low-order terms in monomial map <a>coefmon</a>
   bool _insert
     ( t_SQuad& mat, std::map< SPolyMon, double, lt_SPolyMon >& coefmon, 
-      SPolyMon const* pLMon, SPolyMon const* pRMon, double const coef );
+      SPolyMon const* pLMon, SPolyMon const* pRMon, double const coef,
+      bool const add=false );
       
   //! @brief Decompose <a>mon</a> into product of two monomials in <a>_SetMon</a> by expanding <a>_SetMon</a> as necessary
   std::pair< SPolyMon const*, SPolyMon const* > _decompose
@@ -568,7 +577,7 @@ const
 //    for( auto const& pmon : psdmon )
 //      assert( _insert( mat1, pmon, &*itmon, -2. ) );
 
-//      if( options.BASIS == Options::MONOM && !itmon1->gcexp()%2 && !itmon2->gcexp()%2 )
+//      if( options.BASIS == Options::POW && !itmon1->gcexp()%2 && !itmon2->gcexp()%2 )
 //        continue;
 //      _MatPSD.push_back( t_SQuad() );
 //      auto& mat2 = _MatPSD.back();
@@ -603,7 +612,7 @@ SQuad::tighten
       assert( _insert( mat1, &*itmon1, &*itmon1,  1. )
            && _insert( mat1, &*itmon2, &*itmon2,  1. )
            && _insert( mat1, &*itmon1, &*itmon2, -2. ) );
-      if( !threevar && options.BASIS == Options::MONOM
+      if( !threevar && options.BASIS == Options::POW
        && !itmon1->gcexp()%2 && !itmon2->gcexp()%2 ) continue;
       _MatPSD.push_back( t_SQuad() );
       auto& mat2 = _MatPSD.back();
@@ -635,7 +644,7 @@ SQuad::tighten
         assert( _insert( mat5, &*itmon3, &*itmon3,  1. )
              && _insert( mat5, &*itmon1, &*itmon3, -2. )
              && _insert( mat5, &*itmon2, &*itmon3, -2. ) );
-        if( options.BASIS == Options::MONOM && !itmon1->gcexp()%2
+        if( options.BASIS == Options::POW && !itmon1->gcexp()%2
          && !itmon2->gcexp()%2 && !itmon3->gcexp()%2 )
           continue;
         _MatPSD.push_back( _MatPSD[pos+1] );
@@ -671,7 +680,7 @@ SQuad::tighten
 //      assert( _insert( mat1, &*itmon1, &*itmon1,  1. )
 //           && _insert( mat1, &*itmon2, &*itmon2,  1. )
 //           && _insert( mat1, &*itmon1, &*itmon2, -2. ) );
-//      if( options.BASIS == Options::MONOM && !itmon1->gcexp()%2 && !itmon2->gcexp()%2 )
+//      if( options.BASIS == Options::POW && !itmon1->gcexp()%2 && !itmon2->gcexp()%2 )
 //        continue;
 //      _MatPSD.push_back( t_SQuad() );
 //      auto& mat2 = _MatPSD.back();
@@ -695,7 +704,7 @@ const
     auto itsubmat = submat.end();
 //    // Search for alternative decompositions for terms multiplying monomial '1'
 //    // NEED CORRECTION IN ORDER TO ACCOUNT THAT DECOMPOSED TERM MAY ALREADY BE PRESENT IN MAT!
-//    if( options.BASIS == Options::MONOM && !ijmon.first->tord && ijmon.second->tord ){
+//    if( options.BASIS == Options::POW && !ijmon.first->tord && ijmon.second->tord ){
 //      std::set< std::pair< SPolyMon const*, SPolyMon const* >, lt_SQuad > CandidateDec;
 //      _candidates( CandidateDec, *ijmon.second );
 //      ijmon.first  = CandidateDec.crbegin()->first;
@@ -956,8 +965,12 @@ SQuad::process
   auto coefmon = SPol;
 
   // Iterate through monomial terms
-  for( auto it=coefmon.crbegin(); it!=coefmon.crend(); ++it ){
-    const auto& [mon,coef] = *it;
+  //for( auto it=coefmon.crbegin(); it!=coefmon.crend(); ++it ){
+    //const auto& [mon,coef] = *it;
+  for( ; !coefmon.empty(); ){
+    // Local copy of next monomial, then erase
+    auto const [mon,coef] = options.ORDER==Options::INC? *coefmon.cbegin(): *coefmon.crbegin();
+    coefmon.erase( mon );
 
     // Insert variables participating in monomial
     for( auto const& [ivar,iord] : mon.expr )
@@ -967,12 +980,12 @@ SQuad::process
     auto itmon = _SetMon.find( mon );
     if( itmon != _SetMon.end() ){
 #ifdef MC__SQUAD_DEBUG_DECOMP
-  std::cout << "Inserted: " << itmon->display(options.BASIS)
-            << " = " << _SetMon.cbegin()->display(options.BASIS)
-            << " · " << itmon->display(options.BASIS)
-            << std::endl;
+      std::cout << "Inserted: " << itmon->display(options.BASIS)
+                << " = " << _SetMon.cbegin()->display(options.BASIS)
+                << " · " << itmon->display(options.BASIS)
+                << std::endl;
 #endif
-      bool ins = _insert( mat, &(*itmon), coef );  
+      bool ins = _insert( mat, &(*itmon), coef, true );  
 #ifdef MC__SQUAD_CHECK
       assert( ins );
 #endif
@@ -1021,7 +1034,7 @@ const
   std::set<SPolyMon,lt_SPolyMon> prodmon;
   switch( options.BASIS ){
    // Monomial basis representation
-   case Options::MONOM:
+   case Options::POW:
      prodmon.insert( mon1+mon2 );
      break;
 
@@ -1086,19 +1099,23 @@ SQuad::_insert
 inline bool
 SQuad::_insert
 ( t_SQuad& mat, SPolyMon const* pLMon, SPolyMon const* pRMon,
-  double const coef )
+  double const coef, bool const add )
 {
   // New entry in quadratic form
   auto [itmat,ins] = mat.insert( std::make_pair( _reorder( std::make_pair( pLMon, pRMon ) ), coef ) );
-  //if( !ins ) itmat->second += coef;
-  //if( itmat->second == 0. ) mat.erase( itmat );
+  if( !ins && add ){
+    itmat->second += coef;
+    if( itmat->second == 0. ) mat.erase( itmat );
+    return true;
+  }
   return ins;
 }
 
 inline bool
 SQuad::_insert
 ( t_SQuad& mat, std::map< SPolyMon, double, lt_SPolyMon >& coefmon,
-  SPolyMon const* pLMon, SPolyMon const* pRMon, double const coef )
+  SPolyMon const* pLMon, SPolyMon const* pRMon, double const coef,
+  bool const add )
 {
   // Extra lower-order terms generate by Chebyshev product
   auto&& prodmon = _prodmon( *pLMon, *pRMon );
@@ -1112,9 +1129,11 @@ SQuad::_insert
   
   // New entry in quadratic form
   auto [itmat,ins] = mat.insert( std::make_pair( _reorder( std::make_pair( pLMon, pRMon ) ), coef * nprod ) );
-  //if( !ins ) itmat->second += coef;
-  //if( itmat->second == 0. ) mat.erase( itmat );
-
+  if( !ins && add ){
+    itmat->second += coef;
+    if( itmat->second == 0. ) mat.erase( itmat );
+    return true;
+  }
   return ins;
 }
 
@@ -1293,8 +1312,13 @@ SQuad::_subexpression
 #ifdef MC__SQUAD_CHECK
     assert( ins );
 #endif
-  for( auto it=coefmon.crbegin(); it!=coefmon.crend(); ++it ){
-    auto const& [monlow,coeflow] = *it;
+  //for( auto it=coefmon.crbegin(); it!=coefmon.crend(); ++it ){
+    //auto const& [monlow,coeflow] = *it;
+  for( ; !coefmon.empty(); ){
+    // Local copy of next monomial, then erase
+    auto const [monlow,coeflow] = options.ORDER==Options::INC? *coefmon.cbegin(): *coefmon.crbegin();
+    coefmon.erase( monlow );
+
     auto itmonlow = _subexpression( monlow );
     ins = _insert( _MatRed[ndxmat], &(*itmonlow), coeflow );
 #ifdef MC__SQUAD_CHECK
@@ -1335,14 +1359,22 @@ SQuad::_reduction
     for( ++itmon3; itmon3 != _SetMon.end(); ++itmon3 ){
       if( !itmon3->subseteq( montot ) ) continue;
       auto itmon4 = _SetMon.find( montot - *itmon3 );
-      //if( itmon4 == _SetMon.end() || lt_SPolyMon()( *itmon4, *itmon3 ) ) continue;
-      //if( itmon4 == _SetMon.end() || itmon == itmon3 ) continue; // COULD BE BUGGY!!
-      if( itmon4 == _SetMon.end() || lt_SPolyMon()( *itmon3, *itmon4 ) || itmon == itmon3 ) continue;
-      
+
+      // Prevent duplication
+      switch( options.ORDER ){
+       case Options::INC:      
+        if( itmon4 == _SetMon.end() || lt_SPolyMon()( *itmon4, *itmon3 ) || itmon == itmon4 ) continue;
+        break;
+       case Options::DEC:
+        if( itmon4 == _SetMon.end() || lt_SPolyMon()( *itmon3, *itmon4 ) || itmon == itmon3 ) continue;
+        break;
+      }
+
       // Low-order terms generated by Chebyshev product
       auto&& prodmon34 = _prodmon( *itmon3, *itmon4 );
       bool monmis = false;
       auto itprodmon34 = prodmon34.crbegin(); 
+
       // Check that all low-order terms are present -> OR INTRODUCE THEM?
       for( ++itprodmon34; !monmis && itprodmon34 != prodmon34.crend(); ++itprodmon34 )
          if( _SetMon.find( *itprodmon34 ) == _SetMon.end() ) 
