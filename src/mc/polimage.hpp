@@ -3954,7 +3954,7 @@ PolImg<T>::_add_cuts_IPOW
   }
   
   // No linearization
-  if( options.RELAX_MONOM == 0 || options.RELAX_MONOM == 1 ){
+  if( options.RELAX_MONOM == 0 ){ //|| options.RELAX_MONOM == 1 ){
     auto itVar1 = _Vars.find( pVar1 );
     _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
     return;
@@ -4112,7 +4112,7 @@ PolImg<T>::_add_cuts_CHEB
     _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, mc::cheb( pVar1->num().val(), iOrd ), *VarR, 1. );
   
   // No linearization
-  else if( options.RELAX_MONOM == 0 || options.RELAX_MONOM == 1 ){
+  else if( options.RELAX_MONOM == 0 ){ //|| options.RELAX_MONOM == 1 ){
     auto itVar1 = _Vars.find( pVar1 );
     _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
     return;
