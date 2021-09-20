@@ -282,13 +282,13 @@ public:
       }
     //! @brief Available basis representations
     enum BASIS_TYPE{
-      POW=0,	//!< Power basis
-      CHEB	    //!< Chebyshev basis
+      MONOM=0,	//!< Monomial basis
+      CHEB	//!< Chebyshev basis
     };
     //! @brief Available processing order
     enum ORDER_TYPE{
       INC=0,	//!< By increasing order
-      DEC	    //!< By decreasing order
+      DEC	//!< By decreasing order
     };
     //! @brief Basis representation of the quadratic form
     int BASIS;
@@ -310,6 +310,11 @@ public:
     ()
     { _reset(); }
   
+  //! @brief Process the sparse polynomials in array <a>pPol</a> indexed by <a>ndxSPol</a>
+  double process
+    ( std::set<unsigned> const& ndxSPol, SQuad::t_SPolyMonCoef const* pSPol,
+      int const BASIS, bool const CHECK=false );
+
   //! @brief Process the <a>nPol</a> sparse polynomials in array <a>pPol</a>
   double process
     ( unsigned const nSPol, SQuad::t_SPolyMonCoef const* pSPol,
@@ -609,7 +614,7 @@ const
 //    for( auto const& pmon : psdmon )
 //      assert( _insert( mat1, pmon, &*itmon, -2. ) );
 
-//      if( options.BASIS == Options::POW && !itmon1->gcexp()%2 && !itmon2->gcexp()%2 )
+//      if( options.BASIS == Options::MONOM && !itmon1->gcexp()%2 && !itmon2->gcexp()%2 )
 //        continue;
 //      _MatPSD.push_back( t_SQuad() );
 //      auto& mat2 = _MatPSD.back();
@@ -644,7 +649,7 @@ SQuad::tighten
       assert( _insert( mat1, &*itmon1, &*itmon1,  1. )
            && _insert( mat1, &*itmon2, &*itmon2,  1. )
            && _insert( mat1, &*itmon1, &*itmon2, -2. ) );
-      if( !threevar && options.BASIS == Options::POW
+      if( !threevar && options.BASIS == Options::MONOM
        && !itmon1->gcexp()%2 && !itmon2->gcexp()%2 ) continue;
       _MatPSD.push_back( t_SQuad() );
       auto& mat2 = _MatPSD.back();
@@ -676,7 +681,7 @@ SQuad::tighten
         assert( _insert( mat5, &*itmon3, &*itmon3,  1. )
              && _insert( mat5, &*itmon1, &*itmon3, -2. )
              && _insert( mat5, &*itmon2, &*itmon3, -2. ) );
-        if( options.BASIS == Options::POW && !itmon1->gcexp()%2
+        if( options.BASIS == Options::MONOM && !itmon1->gcexp()%2
          && !itmon2->gcexp()%2 && !itmon3->gcexp()%2 )
           continue;
         _MatPSD.push_back( _MatPSD[pos+1] );
@@ -712,7 +717,7 @@ SQuad::tighten
 //      assert( _insert( mat1, &*itmon1, &*itmon1,  1. )
 //           && _insert( mat1, &*itmon2, &*itmon2,  1. )
 //           && _insert( mat1, &*itmon1, &*itmon2, -2. ) );
-//      if( options.BASIS == Options::POW && !itmon1->gcexp()%2 && !itmon2->gcexp()%2 )
+//      if( options.BASIS == Options::MONOM && !itmon1->gcexp()%2 && !itmon2->gcexp()%2 )
 //        continue;
 //      _MatPSD.push_back( t_SQuad() );
 //      auto& mat2 = _MatPSD.back();
@@ -736,7 +741,7 @@ const
     auto itsubmat = submat.end();
 //    // Search for alternative decompositions for terms multiplying monomial '1'
 //    // NEED CORRECTION IN ORDER TO ACCOUNT THAT DECOMPOSED TERM MAY ALREADY BE PRESENT IN MAT!
-//    if( options.BASIS == Options::POW && !ijmon.first->tord && ijmon.second->tord ){
+//    if( options.BASIS == Options::MONOM && !ijmon.first->tord && ijmon.second->tord ){
 //      std::set< std::pair< SPolyMon const*, SPolyMon const* >, lt_SQuad > CandidateDec;
 //      _candidates( CandidateDec, *ijmon.second );
 //      ijmon.first  = CandidateDec.crbegin()->first;
@@ -1127,8 +1132,8 @@ SQuad::_convert
     // Separate contribution of variable ivar, and convert to Chebyshev form
     _unipol( ivar, SPol, veccoef );
     switch( BASIS ){
-      case Options::POW:  _pow2cheb( veccoef ); break;
-      case Options::CHEB: _cheb2pow( veccoef ); break;
+      case Options::MONOM: _pow2cheb( veccoef ); break;
+      case Options::CHEB:  _cheb2pow( veccoef ); break;
     }
     // Merge back into multivariate polynomial
     SPol = veccoef[0];
@@ -1151,6 +1156,17 @@ SQuad::process
   for( unsigned i=0; i<nSPol; i++ )
     process( pSPol[i], BASIS, false );
   return( CHECK? check( nSPol, pSPol, BASIS ): 0. );
+}
+
+inline double
+SQuad::process
+( std::set<unsigned> const& ndxSPol, SQuad::t_SPolyMonCoef const* pSPol,
+  int const BASIS, bool const CHECK )
+{
+  std::vector<t_SPolyMonCoef> vpSPol;
+  vpSPol.reserve( ndxSPol.size() );
+  for( unsigned const& i : ndxSPol ) vpSPol.push_back( pSPol[i] );
+  return process( ndxSPol.size(), vpSPol.data(), BASIS, CHECK );
 }
 
 inline double
@@ -1246,7 +1262,7 @@ const
   std::set<SPolyMon,lt_SPolyMon> prodmon;
   switch( options.BASIS ){
    // Monomial basis representation
-   case Options::POW:
+   case Options::MONOM:
      prodmon.insert( mon1+mon2 );
      break;
 

@@ -59,7 +59,15 @@ struct SPolyMon
     ( unsigned const tord_, std::map< unsigned, unsigned > const& expr_ )
     : tord( tord_ ), expr( expr_ )
     {}
-    
+
+  //! @brief Copy constructor of monomial with conversion
+  template <typename U, typename LTU>
+  SPolyMon
+    ( unsigned const tord_, std::map< U, unsigned, LTU > const& expr_,
+      std::map< U, unsigned, LTU >& match )
+    : tord( tord_ )
+    { for( auto const& [key,ord] : expr_ ) expr[match[key]] = ord; }
+
   //! @brief Append monomial to output stream <a>out</a>
   std::string display
     ( int const& basis )
@@ -122,8 +130,9 @@ struct SPolyMon
    public:
     //! @brief Enumeration type for mc::Interval exceptions
     enum TYPE{
-      SUB=1,    //!< Subtraction of a monomial that is not a proper subset
-      DIV,	    //!< Division by a factor greater than the greatest common exponent
+      SUB=1,   //!< Subtraction of a monomial that is not a proper subset
+      DIV,	//!< Division by a factor greater than the greatest common exponent
+      CONV	//!< Conversion with different variable indexing failed
     };
     //! @brief Constructor for error flag <a>ierr</a>
     Exceptions( TYPE ierr ) : _ierr( ierr ){}
@@ -136,6 +145,8 @@ struct SPolyMon
         return "mc::SPolyMon\t Subtraction of a monomial that is not a proper subset";
       case DIV:
         return "mc::SPolyMon\t Division by a factor greater than the greatest common exponent";
+      case CONV:
+        return "mc::SPolyMon\t Conversion with different variable indexing failed";
       }
       return "mc::SPolyMon\t Undocumented error";
     }
