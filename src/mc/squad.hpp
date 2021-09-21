@@ -630,6 +630,7 @@ inline void
 SQuad::tighten
 ( bool const threevar )
 {
+  //std::cout << "ENTER TIGHTEN\n";
   _MatPSD.clear();
   auto itmon1 = _SetMon.cbegin();
   for( ; itmon1 != _SetMon.cend(); ++itmon1 ){
@@ -640,7 +641,7 @@ SQuad::tighten
     for( ++itmon2; itmon2 != _SetMon.cend(); ++itmon2 ){
 
       // check square monomial *itmon2 and cross-term *itmon1.*itmon2 participating
-      if( !_find( &*itmon1, &*itmon2 ) || !_find( &*itmon2, &*itmon2 ) ) continue;
+      if( (itmon1->tord && !_find( &*itmon1, &*itmon2 )) || !_find( &*itmon2, &*itmon2 ) ) continue;
 
       // add positive-definite cuts
       unsigned pos = _MatPSD.size();
@@ -662,7 +663,7 @@ SQuad::tighten
       for( ++itmon3; itmon3 != _SetMon.cend(); ++itmon3 ){
 
         // check square monomial *itmon2 and cross-term *itmon1.*itmon2 participating
-        if( !_find( &*itmon1, &*itmon3 ) || !_find( &*itmon2, &*itmon3 )
+        if( (itmon1->tord && !_find( &*itmon1, &*itmon3 )) || !_find( &*itmon2, &*itmon3 )
          || !_find( &*itmon3, &*itmon3 ) ) continue;
 
         // add positive-definite cuts
