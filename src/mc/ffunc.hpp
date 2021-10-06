@@ -3605,6 +3605,9 @@ template <typename U> inline void
 FFOp::evaluate
 ( typename std::vector<U>::iterator itU, const U* pU_dum ) const
 {
+  pres->val() = &(*itU);
+  //std::cout << "evaluation of " << *pres << ": ";
+
   switch( type ){
    case FFOp::VAR:
     if( !pres->cst() ) break; // do not override constant value if set
@@ -3629,6 +3632,7 @@ FFOp::evaluate
     break;
 
    case FFOp::NEG:
+    //std::cout << *pres << "(" << pres->cst() << ") = -" << *pops[0] << "(" << pres->cst() << ") : ptrval = " << pops[0]->val() << std::endl;
     *itU = - *static_cast<U*>( pops[0]->val() );
     break;
 
@@ -3787,8 +3791,9 @@ FFOp::evaluate
     throw typename FFGraph::Exceptions( FFGraph::Exceptions::INTERN );
   }
 
-  pres->val() = &(*itU);
-  //std::cout << "evaluation of " << *pres << ":\n" << *itU;
+  //pres->val() = &(*itU);
+  //std::cout << "evaluation of " << *pres << ": " << &(*itU) << std::endl;
+  //std::cout << &(*itU) << std::endl;
   return;
 }
 
@@ -6815,11 +6820,19 @@ FFGraph::reval
     itU = wkDep.begin();
     bool is_feasible = true;
     for( ; ito != opDep.end(); ++ito, ++itU ){
+      assert( itU != wkDep.end() );
       // Evaluate current operation
       _curOp = *ito;
-      if( !ipass )
+      if( !ipass ){
+#ifdef MC__REVAL_NEG_DEBUG
+        if( _curOp->type == FFOp::NEG ) std::cout << *static_cast<U*>( _curOp->pops[0]->val() ) << std::endl;
+#endif
         try{ _curOp->evaluate( itU, wkDep.data() ); }
         catch(...){ continue; }
+#ifdef MC__REVAL_NEG_DEBUG
+        if( _curOp->type == FFOp::NEG ) std::cout << *itU << std::endl;
+#endif
+      }
       else{
         try{ if( !_curOp->tighten_forward( wkDep.data() ) ) is_feasible = false; }
         catch(...){ continue; }
