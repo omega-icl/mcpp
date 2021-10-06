@@ -77,14 +77,19 @@ template <> struct Op< ::INTERVAL >
   static double abs (const T& x) { return ::Abs(x);  }
   static double mid (const T& x) { return ::Mid(x);  }
   static double diam(const T& x) { return ::Diam(x); }
-  static T inv (const T& x) { return T(1.)/x;  }
+  static T inv (const T& x) {
+    if( ::Inf(x) <= 0. && ::Sup(x) >= 0. ) throw std::runtime_error("division by zero in PROFIL");
+    return T(1.)/x;  }
   static T sqr (const T& x) { return ::Sqr(x);  }
   static T sqrt(const T& x) {
-    //if( ::Inf(x) < 0. ) throw std::runtime_error("negative square root in PROFIL");
+    if( ::Inf(x) < 0. ) throw std::runtime_error("negative square-root in PROFIL");
     return ::Sqrt(x);
   }
   static T exp (const T& x) { return ::Exp(x);  }
-  static T log (const T& x) { return ::Log(x);  }
+  static T log (const T& x) {
+    if( ::Inf(x) <= 0. ) throw std::runtime_error("non-positive log in PROFIL");
+    return ::Sqrt(x); return ::Log(x);
+  }
   static T xlog0(const T& x) { return ::Log(x)*x; }
   static T xlog (const T& x) {
     T zmin = ::Exp(-1);
