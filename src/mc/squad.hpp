@@ -518,7 +518,7 @@ operator<<
       << std::right;
 
   // Output set of monomials
-  out << std::endl << "  Monomials: [ ";
+  out << std::endl << "  " << quad._SetMon.size() << " Monomials: [ ";
   for( auto const& mon : quad._SetMon )
     out << mon.display( BASIS ) << " ";
   out << "]" << std::endl;
@@ -1378,17 +1378,146 @@ const
   for( auto&& mon2 : _SetMon ){
     if( !mon2.subseteq( mon ) ) continue;
     auto&& itmon3 = _SetMon.find( mon - mon2 );
-    if( itmon3 == _SetMon.end() || lt_SPolyMon()( *itmon3, mon2 ) ) continue;
-#ifdef MC__SQUAD_DEBUG_DECOMP
+    if( itmon3 == _SetMon.end() || ( &mon2 != &*itmon3 && lt_SPolyMon()( mon2, *itmon3 ) ) ) continue;
+    //if( itmon3 == _SetMon.end() || lt_SPolyMon()( *itmon3, mon2 ) ) continue;
+//#ifdef MC__SQUAD_DEBUG_DECOMP
     std::cout << "Candidate: " << mon.display(options.BASIS)
               << " = " << mon2.display(options.BASIS)
               << " · " << itmon3->display(options.BASIS)
               << std::endl;
-#endif
+//#endif
     CandidateDec.insert( std::make_pair( &mon2, &(*itmon3) ) );
   }
 }
 
+//inline std::pair< SPolyMon const*, SPolyMon const* >
+//SQuad::_decompose
+//( SPolyMon const& mon )
+//{
+//  // Possible decompositions using existing monomial in _SetMon
+//  std::set< std::pair< SPolyMon const*, SPolyMon const* >, lt_SQuad > CandidateDec;
+//  _candidates( CandidateDec, mon );
+//  
+//  // Case 1: Monomial can be decomposed in terms of existing monomial in _SetMon
+//  if( !CandidateDec.empty() ){
+//#ifdef MC__SQUAD_DEBUG_DECOMP
+//    std::cout << "Decomposed: " << mon.display(options.BASIS)
+//              << " = " << CandidateDec.rbegin()->first->display(options.BASIS)
+//              << " · " << CandidateDec.rbegin()->second->display(options.BASIS)
+//              << std::endl;
+//#endif
+//    // Prefered candidate is based on order defined by lt_SQuad
+//    // **unless** monomial already present 'as is'
+//    if( !CandidateDec.begin()->first->tord ) return *CandidateDec.begin();
+//    return *CandidateDec.rbegin();
+//  }
+
+//  // Case 2: Monomial is linear in all of the variables (multilinear)
+//  if( mon.gexp() == 1 ){
+//    t_pSPolyMon CandidateMon;
+//    for( auto&& mon2 : _SetMon ){
+//      if( !mon2.subseteq( mon ) ) continue;
+//#ifdef MC__SQUAD_CHECK
+//      assert( _SetMon.find( mon - mon2 ) == _SetMon.end() ); // Covered by Case 1
+//#endif
+//      CandidateMon.insert( &mon2 );
+//#ifdef MC__SQUAD_DEBUG_DECOMP
+//      std::cout << "Candidate: " << (mon-mon2).display(options.BASIS)
+//                << " = " << mon.display(options.BASIS)
+//                << " / " << mon2.display(options.BASIS)
+//                << std::endl;
+//#endif
+//    }
+//#ifdef MC__SQUAD_CHECK
+//    assert( !CandidateMon.empty() ); // _SetMon comprises the participating variables
+//#endif
+
+//    // Case 2a: Use existing non-trivial monomial component in _SetMon
+//    if( (*CandidateMon.rbegin())->tord > 1 ){
+//      SPolyMon const* pmon2 = *CandidateMon.rbegin();
+//      SPolyMon mon3( mon - *pmon2 );
+//#ifdef MC__SQUAD_DEBUG_DECOMP
+//      std::cout << "Decomposed: " << mon.display(options.BASIS)
+//                << " = " << pmon2->display(options.BASIS)
+//                << " · " << mon3.display(options.BASIS)
+//                << std::endl;
+//#endif
+//      // Decompose mon3
+//      auto&& itmon3 = _subexpression( mon3 );
+//      //return _reorder( std::make_pair( pmon2, &(*itmon3) ) );
+//      return std::make_pair( pmon2, &(*itmon3) );
+//    }
+
+//    // Case 2b: Split monomial into two monomials of similar total order
+//    unsigned count = 0;
+//    SPolyMon mon2;
+//    for( auto const& [ivar,iord] : mon.expr ){
+//#ifdef MC__SQUAD_CHECK
+//      assert( iord == 1 );
+//#endif
+//      mon2 += SPolyMon( ivar );
+//      if( ++count >= mon.tord / 2 + mon.tord % 2 ) break;
+//    }
+//    SPolyMon mon3( mon - mon2 );
+//#ifdef MC__SQUAD_DEBUG_DECOMP
+//    std::cout << "Decomposed: " << mon.display(options.BASIS)
+//              << " = " << mon2.display(options.BASIS)
+//              << " · " << mon3.display(options.BASIS)
+//              << std::endl;
+//#endif
+//    // Decompose mon2 and mon3
+//    auto&& itmon2 = _subexpression( mon2 );
+//    auto&& itmon3 = _subexpression( mon3 );
+//    //return _reorder( std::make_pair( &(*itmon2), &(*itmon3) ) );
+//    return std::make_pair( &(*itmon2), &(*itmon3) );
+//  }
+
+//  // Case 3: Monomial is linear in some of the variables
+//  if( mon.lexp() == 1 && mon.gexp() > 1  ){
+//    SPolyMon mon2;
+//    for( auto&& [ivar,iord] : mon.expr )
+//      if( iord == 1 )
+//        mon2 += SPolyMon( ivar );
+//#ifdef MC__SQUAD_DEBUG_DECOMP
+//    std::cout << "Decomposed: " << mon.display(options.BASIS)
+//              << " = " << mon2.display(options.BASIS)
+//              << " · " << (mon-mon2).display(options.BASIS)
+//              << std::endl;
+//#endif
+//    SPolyMon mon3( mon - mon2 );
+//    // Decompose mon2 and mon3
+//    auto&& itmon2 = _SetMon.find( mon2 );
+//    if( itmon2 == _SetMon.end() ) itmon2 = _subexpression( mon2 );
+//    //auto&& itmon2 = _subexpression( mon2 );
+//    auto&& itmon3 = _subexpression( mon3 );
+//    //return _reorder( std::make_pair( &(*itmon2), &(*itmon3) ) );
+//    return std::make_pair( &(*itmon2), &(*itmon3) );
+//  }
+
+//  // Case 4: Monomial has even partial order in all of the variables
+//  if( !(mon.gcexp() % 2) ){
+//    SPolyMon mon2 = mon / 2;
+//    // Decompose mon2
+//    auto&& itmon2 = _subexpression( mon2 );
+//    //return _reorder( std::make_pair( &(*itmon2), &(*itmon2) ) );   
+//    return std::make_pair( &(*itmon2), &(*itmon2) );
+//  }
+
+//  // Case 5: Monomial has partial order >1 in all of the variables w/ some odd partial order
+//  SPolyMon mon2 = mon / 2;
+//  SPolyMon mon3( mon - mon2 );
+//  // Decompose mon2 and mon3
+////#ifdef MC__SQUAD_DEBUG_DECOMP
+//    std::cout << "Decomposing: " << mon2.display(options.BASIS) << std::endl;
+////#endif
+//  auto&& itmon2 = _subexpression( mon2 );
+////#ifdef MC__SQUAD_DEBUG_DECOMP
+//    std::cout << "Decomposing: " << mon3.display(options.BASIS) << std::endl;
+////#endif
+//  auto&& itmon3 = _subexpression( mon3 );
+//  //return _reorder( std::make_pair( &(*itmon2), &(*itmon3) ) );
+//  return std::make_pair( &(*itmon2), &(*itmon3) );
+//}
 inline std::pair< SPolyMon const*, SPolyMon const* >
 SQuad::_decompose
 ( SPolyMon const& mon )
@@ -1471,11 +1600,12 @@ SQuad::_decompose
     return std::make_pair( &(*itmon2), &(*itmon3) );
   }
 
-  // Case 3: Monomial is linear in some of the variables
-  if( mon.lexp() == 1 && mon.gexp() > 1  ){
+  // Case 3: Monomial has partial order >1 in all of the variables w/ some odd partial order
+  if( mon.gcexp() % 2 ){
+  //if( mon.lexp() == 1 && mon.gexp() > 1  ){
     SPolyMon mon2;
     for( auto&& [ivar,iord] : mon.expr )
-      if( iord == 1 )
+      if( iord % 2 )
         mon2 += SPolyMon( ivar );
 #ifdef MC__SQUAD_DEBUG_DECOMP
     std::cout << "Decomposed: " << mon.display(options.BASIS)
@@ -1485,44 +1615,39 @@ SQuad::_decompose
 #endif
     SPolyMon mon3( mon - mon2 );
     // Decompose mon2 and mon3
-    auto&& itmon2 = _subexpression( mon2 );
-    auto&& itmon3 = _subexpression( mon3 );
+//#ifdef MC__SQUAD_DEBUG_DECOMP
+      std::cout << "Decomposing: " << mon2.display(options.BASIS) << std::endl;
+//#endif
+    auto&& itmon2 = _SetMon.find( mon2 );
+    if( itmon2 == _SetMon.end() ) itmon2 = _subexpression( mon2 );
+//#ifdef MC__SQUAD_DEBUG_DECOMP
+      std::cout << "Decomposing: " << mon3.display(options.BASIS) << std::endl;
+//#endif
+    auto&& itmon3 = _SetMon.find( mon3 );
+    if( itmon3 == _SetMon.end() ) itmon3 = _subexpression( mon3 );
     //return _reorder( std::make_pair( &(*itmon2), &(*itmon3) ) );
     return std::make_pair( &(*itmon2), &(*itmon3) );
   }
-
+  
   // Case 4: Monomial has even partial order in all of the variables
-  if( !(mon.gcexp() % 2) ){
-    SPolyMon mon2 = mon / 2;
-    // Decompose mon2
-    auto&& itmon2 = _subexpression( mon2 );
-    //return _reorder( std::make_pair( &(*itmon2), &(*itmon2) ) );   
-    return std::make_pair( &(*itmon2), &(*itmon2) );
-  }
-
-  // Case 5: Monomial has partial order >1 in all of the variables w/ some odd partial order
   SPolyMon mon2 = mon / 2;
-  SPolyMon mon3( mon - mon2 );
-  // Decompose mon2 and mon3
-#ifdef MC__SQUAD_DEBUG_DECOMP
-    std::cout << "Decomposing: " << mon2.display(options.BASIS) << std::endl;
-#endif
-  auto&& itmon2 = _subexpression( mon2 );
-#ifdef MC__SQUAD_DEBUG_DECOMP
-    std::cout << "Decomposing: " << mon2.display(options.BASIS) << std::endl;
-#endif
-  auto&& itmon3 = _subexpression( mon3 );
-  //return _reorder( std::make_pair( &(*itmon2), &(*itmon3) ) );
-  return std::make_pair( &(*itmon2), &(*itmon3) );
+  // Decompose mon2
+  auto&& itmon2 = _SetMon.find( mon2 );
+  if( itmon2 == _SetMon.end() ) itmon2 = _subexpression( mon2 );
+  //return _reorder( std::make_pair( &(*itmon2), &(*itmon2) ) );   
+  return std::make_pair( &(*itmon2), &(*itmon2) );
 }
 
 inline typename SQuad::t_SPolyMon::iterator
 SQuad::_subexpression
 ( SPolyMon const& mon )
 {
-  // Monomial mon already in _SetMon
+  // Monomial mon already in _SetMon - HOW COULD THIS HAPPEN GIVEN DECOMPOSE?!?
   auto itmon0 = _SetMon.find( mon );
-  if( itmon0 != _SetMon.end() ) return itmon0;
+  if( itmon0 != _SetMon.end() ){
+    std::cerr << "SQuad::_subexpression: Existing monomial " << mon.display(options.BASIS) << std::endl;
+    return itmon0;
+  }
 
   // Perform further decomposition of monomial <a>mon</a>
   auto const& [plmon,prmon] = _decompose( mon );
