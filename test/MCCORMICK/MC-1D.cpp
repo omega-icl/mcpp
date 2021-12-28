@@ -1,25 +1,21 @@
-#define TEST_MIN1       // <-- select test function here
-const int NX = 500;	    // <-- select discretization here
+#define TEST_DISC       // <-- select test function here
+#define USE_DAG         // <-- specify to evaluate via a DAG of the function
 #define SAVE_RESULTS    // <-- specify whether to save results to file
-#undef  USE_PROFIL      // <-- specify to use PROFIL for interval arithmetic
-#undef  USE_FILIB        // <-- specify to use FILIB++ for interval arithmetic
-#undef  USE_BOOST        // <-- specify to use BOOST for interval arithmetic
-#define USE_DAG          // <-- specify to evaluate via a DAG of the function
-
+const int NX = 500;	 // <-- select discretization here
 ////////////////////////////////////////////////////////////////////////
 
 #include <fstream>
 #include <iomanip>
 
-#ifdef USE_PROFIL
+#ifdef MC__USE_PROFIL
  #include "mcprofil.hpp"
  typedef INTERVAL I;
 #else
- #ifdef USE_FILIB
+ #ifdef MC__USE_FILIB
   #include "mcfilib.hpp"
-  typedef filib::interval<double> I;
+  typedef filib::interval<double,filib::native_switched,filib::i_mode_extended> I;
  #else
-  #ifdef USE_BOOST
+  #ifdef MC__USE_BOOST
    #include "mcboost.hpp"
    typedef boost::numeric::interval_lib::save_state<boost::numeric::interval_lib::rounded_transc_opp<double>> T_boost_round;
    typedef boost::numeric::interval_lib::checking_base<double> T_boost_check;
@@ -35,6 +31,10 @@ const int NX = 500;	    // <-- select discretization here
 #include "mccormick.hpp"
 typedef mc::McCormick<I> MC;
 
+#ifdef USE_DAG
+ #include "ffunc.hpp"
+#endif
+
 using namespace std;
 using namespace mc;
 
@@ -43,7 +43,7 @@ using namespace mc;
 #if defined( TEST_FABS )
 const double XL   = -2.;	// <-- range lower bound
 const double XU   =  1.;	// <-- range upper bound
-const double Xref =  0.;	// <-- linearization point
+const double XREF =  0.;	// <-- linearization point
 template <class T>
 T myfunc
 ( const T&x )
@@ -54,7 +54,7 @@ T myfunc
 #elif defined( TEST_SQRT )
 const double XL   = -2.;	// <-- range lower bound
 const double XU   =  1.;	// <-- range upper bound
-const double Xref =  0.;	// <-- linearization point
+const double XREF =  0.;	// <-- linearization point
 template <class T>
 T myfunc
 ( const T&x )
@@ -65,7 +65,7 @@ T myfunc
 #elif defined( TEST_EXP )
 const double XL   = -2.;	// <-- range lower bound
 const double XU   =  1.;	// <-- range upper bound
-const double Xref =  0.;	// <-- linearization point
+const double XREF =  0.;	// <-- linearization point
 template <class T>
 T myfunc
 ( const T&x )
@@ -76,7 +76,7 @@ T myfunc
 #elif defined( TEST_EXP2 )
 const double XL   = -2.;	// <-- range lower bound
 const double XU   =  1.;	// <-- range upper bound
-const double Xref = -1.;	// <-- linearization point
+const double XREF = -1.;	// <-- linearization point
 template <class T>
 T myfunc
 ( const T&x )
@@ -87,7 +87,7 @@ T myfunc
 #elif defined( TEST_ERF )
 const double XL   = -10.;	// <-- range lower bound
 const double XU   =  10.;	// <-- range upper bound
-const double Xref = -2.;	// <-- linearization point
+const double XREF = -2.;	// <-- linearization point
 template <class T>
 T myfunc
 ( const T&x )
@@ -98,7 +98,7 @@ T myfunc
 #elif defined( TEST_ERFC )
 const double XL   = -2.;	// <-- range lower bound
 const double XU   =  3.;	// <-- range upper bound
-const double Xref =  0.;	// <-- linearization point
+const double XREF =  0.;	// <-- linearization point
 template <class T>
 T myfunc
 ( const T&x )
@@ -109,7 +109,7 @@ T myfunc
 #elif defined( TEST_HYP )
 const double XL   = -3;	    // <-- range lower bound
 const double XU   =  2.;	// <-- range upper bound
-const double Xref =  0.;	// <-- linearization point
+const double XREF =  0.;	// <-- linearization point
 template <class T>
 T myfunc
 ( const T&x )
@@ -120,7 +120,7 @@ T myfunc
 #elif defined( TEST_HYP2 )
 const double XL   = -3;	    // <-- range lower bound
 const double XU   =  2.5;	// <-- range upper bound
-const double Xref =  0.;	// <-- linearization point
+const double XREF =  0.;	// <-- linearization point
 template <class T>
 T myfunc
 ( const T&x )
@@ -131,7 +131,7 @@ T myfunc
 #elif defined( TEST_TRIG )
 const double XL   = -4*PI;	// <-- range lower bound
 const double XU   =  PI/3.;	// <-- range upper bound
-const double Xref =  0.;	// <-- linearization point
+const double XREF =  0.;	// <-- linearization point
 template <class T>
 T myfunc
 ( const T&x )
@@ -142,7 +142,7 @@ T myfunc
 #elif defined( TEST_TRIG2 )
 const double XL   =  PI/6.;	// <-- range lower bound
 const double XU   =  PI/3.;	// <-- range upper bound
-const double Xref =  PI/4.;	// <-- linearization point
+const double XREF =  PI/4.;	// <-- linearization point
 template <class T>
 T myfunc
 ( const T&x )
@@ -153,7 +153,7 @@ T myfunc
 #elif defined( TEST_XLOG )
 const double XL   =  0.1;	// <-- range lower bound
 const double XU   =  0.9;	// <-- range upper bound
-const double Xref =  0.5;	// <-- linearization point
+const double XREF =  0.5;	// <-- linearization point
 template <class T>
 T myfunc
 ( const T&x )
@@ -164,7 +164,7 @@ T myfunc
 #elif defined( TEST_MIN1 )
 const double XL   = -2;	// <-- range lower bound
 const double XU   =  1;	// <-- range upper bound
-const double Xref =  0.;	// <-- linearization point
+const double XREF =  0.;	// <-- linearization point
 template <class T>
 T myfunc
 ( const T&x )
@@ -178,7 +178,7 @@ T myfunc
 #elif defined( TEST_MIN2 )
 const double XL   = -.8;	// <-- range lower bound
 const double XU   =  .8;	// <-- range upper bound
-const double Xref =  0.;	// <-- linearization point
+const double XREF =  0.;	// <-- linearization point
 template <class T>
 T myfunc
 ( const T&x )
@@ -190,7 +190,7 @@ T myfunc
 #elif defined( TEST_DISC )
 const double XL   =  2.5;	// <-- range lower bound
 const double XU   =  4.5;	// <-- range upper bound
-const double Xref =  3.;	// <-- linearization point
+const double XREF =  3.;	// <-- linearization point
 template <class T>
 T myfunc
 ( const T&x )
@@ -202,7 +202,7 @@ T myfunc
 #elif defined( TEST_LTCOND )
 const double XL   =  0.;	// <-- range lower bound
 const double XU   =  1.;	// <-- range upper bound
-const double Xref =  .5;	// <-- linearization point
+const double XREF =  .5;	// <-- linearization point
 template <class T>
 T myfunc
 ( const T&x )
@@ -213,7 +213,7 @@ T myfunc
 #elif defined( TEST_GTCOND )
 const double XL   =  0.;	// <-- range lower bound
 const double XU   =  1.;	// <-- range upper bound
-const double Xref =  .5;	// <-- linearization point
+const double XREF =  .5;	// <-- linearization point
 template <class T>
 T myfunc
 ( const T&x )
@@ -224,7 +224,7 @@ T myfunc
 #elif defined( TEST_CHEB )
 const double XL   = -1.;	// <-- range lower bound
 const double XU   =  1.;	// <-- range upper bound
-const double Xref =  .5;	// <-- linearization point
+const double XREF =  .5;	// <-- linearization point
 template <class T>
 T myfunc
 ( const T&x )
@@ -236,7 +236,7 @@ T myfunc
 #elif defined( TEST_PROD )
 const double XL   = -1.;	// <-- range lower bound
 const double XU   =  1.;	// <-- range upper bound
-const double Xref =  .5;	// <-- linearization point
+const double XREF =  .5;	// <-- linearization point
 template <class T>
 T myfunc
 ( const T&x )
@@ -248,7 +248,7 @@ T myfunc
 #elif defined( TEST_INTER )
 const double XL   =  0.;	// <-- range lower bound
 const double XU   =  1.;	// <-- range upper bound
-const double Xref =  .5;	// <-- linearization point
+const double XREF =  .5;	// <-- linearization point
 bool inter( double&x, const double&y, const double&z )
 { x = std::max(y,z); return true; }
 template <class T>
@@ -263,7 +263,7 @@ T myfunc
 #elif defined( TEST_HULL )
 const double XL   =  -1.;	// <-- range lower bound
 const double XU   =   .5;	// <-- range upper bound
-const double Xref =  -.5;	// <-- linearization point
+const double XREF =  -.5;	// <-- linearization point
 bool hull( const double&y, const double&z )
 { return 0.5*(y+z); }
 template <class T>
@@ -275,90 +275,29 @@ T myfunc
 
 #endif
 
-#ifndef USE_DAG
 ////////////////////////////////////////////////////////////////////////
 int main()
 ////////////////////////////////////////////////////////////////////////
 {  
-
-  // <-- set options here -->
-  MC::options.ENVEL_USE   = true;
-  MC::options.ENVEL_MAXIT = 100;
-  MC::options.ENVEL_TOL   = 1e-12;
-  MC::options.MVCOMP_USE  = true;
-
-#ifdef SAVE_RESULTS
-  ofstream res( "MC-1D.out", ios_base::out );
-  res << scientific << setprecision(5) << right;
-#endif
-
-  try{ 
-
-    // Calculate relaxations & subgradient at point Xref
-    MC Xrel( I(XL,XU), Xref );
-    Xrel.sub(1,0);
-    MC Zref = myfunc( Xrel );
-    cout << "Relaxation at reference point:\n" << Zref << endl;
-
-    // Repeated calculations at grid points
-    for( int iX=0; iX<NX; iX++ ){ 
-
-      double Xval = XL+iX*(XU-XL)/(NX-1.);
-      double Zval = myfunc( Xval );
-
-      MC Xrel( I(XL,XU), Xval );
-
-      // Calculate relaxations + propagate subgradient component
-      Xrel.sub(1,0);
-      MC Zrel = myfunc( Xrel );
-
-#ifdef SAVE_RESULTS
-      res << setw(14) << Xval          << setw(14) << Zval
-          << setw(14) << Zrel.l()      << setw(14) << Zrel.u()
-          << setw(14) << Zrel.cv()     << setw(14) << Zrel.cc()
-          << setw(14) << Zrel.cvsub(0) << setw(14) << Zrel.ccsub(0)
-          << setw(14) << Zref.cv()+Zref.cvsub(0)*(Xval-Xref)
-          << setw(14) << Zref.cc()+Zref.ccsub(0)*(Xval-Xref)
-          << endl;
-#endif
-    }
-
-  }
-#ifndef USE_PROFIL
-#ifndef USE_FILIB
-#ifndef USE_BOOST
-  catch( I::Exceptions &eObj ){
-    cerr << "Error " << eObj.ierr()
-         << " in natural interval extension:" << endl
-	 << eObj.what() << endl
-         << "Aborts." << endl;
-    return eObj.ierr();
-  }
-#endif
-#endif
-#endif
-  catch( MC::Exceptions &eObj ){
-    cerr << "Error " << eObj.ierr()
-         << " in McCormick relaxation:" << endl
-	 << eObj.what() << endl
-         << "Aborts." << endl;
-    return eObj.ierr();
-  }
-
-#ifdef SAVE_RESULTS
-  res.close();
-#endif
-  return 0;
-}
-
+  cout << "INTERVAL LIBRARY: "; 
+#ifdef MC__USE_PROFIL
+  cout << "PROFIL/BIAS" << endl;
 #else
+ #ifdef MC__USE_FILIB
+  cout << "FILIB++" << endl;
+ #else
+  #ifdef MC__USE_BOOST
+  cout << "BOOST" << endl;
+  #else
+  cout << "MC++ NON-VERIFIED" << endl;
+  #endif
+ #endif
+#endif
 
-#include "ffunc.hpp"
-
-////////////////////////////////////////////////////////////////////////
-int main()
-////////////////////////////////////////////////////////////////////////
-{  
+#ifdef SAVE_RESULTS
+  ofstream res( "MC-1D.out", ios_base::out );
+  res << scientific << setprecision(5) << right;
+#endif
 
   // <-- set options here -->
   MC::options.ENVEL_USE   = true;
@@ -366,58 +305,63 @@ int main()
   MC::options.ENVEL_TOL   = 1e-12;
   MC::options.MVCOMP_USE  = true;
 
-#ifdef SAVE_RESULTS
-  ofstream res( "MC-1D.out", ios_base::out );
-  res << scientific << setprecision(5) << right;
-#endif
-
   try{ 
+#ifdef USE_DAG
     // Construct DAG representation of the factorable function
     FFGraph DAG;
     FFVar X( &DAG );
-    FFVar Z = myfunc( X );
+    FFVar F = myfunc( X );
+    auto GF = DAG.subgraph( 1, &F );
 #ifdef SAVE_RESULTS
-    DAG.output( DAG.subgraph( 1, &Z ) );
+    DAG.output( GF );
     ofstream ofdag( "MC-1D.dot", ios_base::out );
-    DAG.dot_script( 1, &Z, ofdag );
+    DAG.dot_script( 1, &F, ofdag );
     ofdag.close();
 #endif
+#endif
 
-    // Calculate relaxations & subgradient at point Xref
-    MC Xrel( I(XL,XU), Xref );
-    Xrel.sub(1,0); 
-    MC Zref;
-    DAG.eval( 1, &Z, &Zref, 1, &X, &Xrel );
-    cout << "Relaxation at reference point:\n" << Zref << endl;
+    // Calculate relaxations & subgradient at point XREF
+    MC MCX( I(XL,XU), XREF );
+    MCX.sub(1,0);
+#ifdef USE_DAG
+    MC MCFREF;
+    DAG.eval( GF, 1, &F, &MCFREF, 1, &X, &MCX );
+#else
+    MC MCFREF = myfunc( MCX );
+#endif
+    cout << "RELAXATION AT REFERENCE POINT:\n" << MCFREF << endl;
 
     // Repeated calculations at grid points
     for( int iX=0; iX<NX; iX++ ){ 
-
-      double Xval = XL+iX*(XU-XL)/(NX-1.);
-      double Zval = myfunc( Xval );
-
-      MC Xrel( I(XL,XU), Xval );
-
+      // Calculate original function
+      double DX = XL+iX*(XU-XL)/(NX-1.);
+#ifdef USE_DAG
+      double DF;
+      DAG.eval( GF, 1, &F, &DF, 1, &X, &DX );
+#else
+      double DF = myfunc( DX );
+#endif
       // Calculate relaxations + propagate subgradient component
-      Xrel.sub(1,0);
-      MC Zrel;
-      DAG.eval( 1, &Z, &Zrel, 1, &X, &Xrel );
-
+      MCX.c( DX );
+      MCX.sub( 1, 0 );
+#ifdef USE_DAG
+      MC MCF;
+      DAG.eval( GF, 1, &F, &MCF, 1, &X, &MCX );
+#else
+      MC MCF = myfunc( MCX );
+#endif
 #ifdef SAVE_RESULTS
-      res << setw(14) << Xval          << setw(14) << Zval
-          << setw(14) << Zrel.l()      << setw(14) << Zrel.u()
-          << setw(14) << Zrel.cv()     << setw(14) << Zrel.cc()
-          << setw(14) << Zrel.cvsub(0) << setw(14) << Zrel.ccsub(0)
-          << setw(14) << Zref.cv()+Zref.cvsub(0)*(Xval-Xref)
-          << setw(14) << Zref.cc()+Zref.ccsub(0)*(Xval-Xref)
+      res << setw(14) << DX           << setw(14) << DF
+          << setw(14) << MCF.l()      << setw(14) << MCF.u()
+          << setw(14) << MCF.cv()     << setw(14) << MCF.cc()
+          << setw(14) << MCF.cvsub(0) << setw(14) << MCF.ccsub(0)
+          << setw(14) << MCFREF.cv()+MCFREF.cvsub(0)*(DX-XREF)
+          << setw(14) << MCFREF.cc()+MCFREF.ccsub(0)*(DX-XREF)
           << endl;
 #endif
     }
-
   }
-#ifndef USE_PROFIL
-#ifndef USE_FILIB
-#ifndef USE_BOOST
+#if !defined(MC__USE_PROFIL) && !defined(MC__USE_FILIB) && !defined(MC__USE_BOOST)
   catch( I::Exceptions &eObj ){
     cerr << "Error " << eObj.ierr()
          << " in natural interval extension:" << endl
@@ -426,18 +370,9 @@ int main()
     return eObj.ierr();
   }
 #endif
-#endif
-#endif
   catch( MC::Exceptions &eObj ){
     cerr << "Error " << eObj.ierr()
          << " in McCormick relaxation:" << endl
-	 << eObj.what() << endl
-         << "Aborts." << endl;
-    return eObj.ierr();
-  }
-  catch( FFGraph::Exceptions &eObj ){
-    cerr << "Error " << eObj.ierr()
-         << " in DAG evaluation:" << endl
 	 << eObj.what() << endl
          << "Aborts." << endl;
     return eObj.ierr();
@@ -448,4 +383,4 @@ int main()
 #endif
   return 0;
 }
-#endif
+

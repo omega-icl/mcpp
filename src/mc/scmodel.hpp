@@ -3362,7 +3362,8 @@ sqr
 
   // Remainder propagation
   //CVSQR._bndrem = rem + ( CV.bound() + CV._polybound() ) * CV._bndrem;
-  CVSQR._bndrem = rem + 2 * CV._polybound() * CV._bndrem + Op<T>::sqr( CV._bndrem );
+  CVSQR._bndrem  = rem;
+  CVSQR._bndrem += 2. * CV._polybound() * CV._bndrem + Op<T>::sqr( CV._bndrem );
   
   // Bound propagation
   if( CVSQR._CM->options.MIXED_IA ) CVSQR._set_bndT( Op<T>::sqr(CV.bound()) );

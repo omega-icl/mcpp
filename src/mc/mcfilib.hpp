@@ -32,7 +32,7 @@ template <> struct Op< filib::interval<double> >
   static T myInv( const T& x ) { return T(1.)/x; }
   static T mySqr( const T& x ) { return filib::sqr(x); }
   template <typename X> static T myPow( const X& x, const int n ) { return filib::power(x,n); }
-  template <typename X, typename Y> static T myPow( const X& x, const Y& y ) { return filib::pow(x,y); }
+  template <typename X, typename Y> static T myPow( const X& x, const Y& y ) { return filib::power(x,y); }
   static T mySqrt( const T& x ) { return filib::sqrt(x); }
   static T myLog( const T& x ) { return filib::log(x); }
   static T myExp( const T& x ) { return filib::exp(x); }
@@ -73,7 +73,7 @@ template <> struct Op< filib::interval<double,filib::native_switched,filib::i_mo
   static T myInv( const T& x ) { return T(1.)/x; }
   static T mySqr( const T& x ) { return filib::sqr(x); }
   template <typename X> static T myPow( const X& x, const int n ) { return filib::power(x,n); }
-  template <typename X, typename Y> static T myPow( const X& x, const Y& y ) { return filib::pow(x,y); }
+  template <typename X, typename Y> static T myPow( const X& x, const Y& y ) { return filib::power(x,y); }
   static T mySqrt( const T& x ) { return filib::sqrt(x); }
   static T myLog( const T& x ) { return filib::log(x); }
   static T myExp( const T& x ) { return filib::exp(x); }
@@ -141,8 +141,8 @@ template <> struct Op< filib::interval<double> >
   static T max (const T& x, const T& y) { return x.imax(y); }
   static T arh (const T& x, const double k) { return filib::exp(-x/k); }
   static T cheb (const T& x, const unsigned n) { return T(-1.,1.); }
-  template <typename X> static T pow(const X& x, const int n) { return filib::power(x,n); }
-  template <typename X, typename Y> static T pow(const X& x, const Y& y) { return filib::pow(x,y); }
+  template <typename X> static T pow(const X& x, const int& n) { return filib::power(x,n); }
+  template <typename X, typename Y> static T pow(const X& x, const Y& y) { return filib::power(x,y); }
   static T prod (const unsigned int n, const T* x) { return n? x[0] * prod(n-1, x+1): 1.; }
   static T monom (const unsigned int n, const T* x, const unsigned* k) { return n? filib::power(x[0], k[0]) * monom(n-1, x+1, k+1): 1.; }
   static bool inter(T& xIy, const T& x, const T& y) { xIy = x.intersect(y); return true; }  
@@ -185,13 +185,17 @@ template <> struct Op< filib::interval<double,filib::native_switched,filib::i_mo
   static T sinh(const T& x) { return filib::sinh(x); }
   static T cosh(const T& x) { return filib::cosh(x); }
   static T tanh(const T& x) { return filib::tanh(x); }
+  static T erf (const T& x) { throw std::runtime_error("operation not permitted"); }
+  static T erfc(const T& x) { throw std::runtime_error("operation not permitted"); }
+  static T fstep(const T& x) { throw std::runtime_error("operation not permitted"); }
+  static T bstep(const T& x) { throw std::runtime_error("operation not permitted"); }
   static T hull(const T& x, const T& y) { return x.hull(y); }
   static T min (const T& x, const T& y) { return x.imin(y); }
   static T max (const T& x, const T& y) { return x.imax(y); }
   static T arh (const T& x, const double k) { return filib::exp(-x/k); }
   static T cheb (const T& x, const unsigned n) { return T(-1.,1.); }
   template <typename X> static T pow(const X& x, const int n) { return filib::power(x,n); }
-  template <typename X, typename Y> static T pow(const X& x, const Y& y) { return filib::pow(x,y); }
+  template <typename X, typename Y> static T pow(const X& x, const Y& y) { return filib::power(x,y); }
   static T prod (const unsigned int n, const T* x) { return n? x[0] * prod(n-1, x+1): 1.; }
   static T monom (const unsigned int n, const T* x, const unsigned* k) { return n? filib::power(x[0], k[0]) * monom(n-1, x+1, k+1): 1.; }
   static bool inter(T& xIy, const T& x, const T& y) { xIy = x.intersect(y); return !xIy.isEmpty(); }  

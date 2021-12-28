@@ -1,4 +1,4 @@
-#define TEST_HYP	// <-- select test function here
+#define TEST_EXP2	// <-- select test function here
 const int NTE = 5;	// <-- select Taylor expansion order here
 const int NX = 500;	// <-- select X discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
@@ -103,7 +103,7 @@ template <class T>
 T myfunc
 ( const T&x )
 {
-  return exp(x)/pow(x+2,3);
+  return exp(x)*pow(x+2,-3);
   //return 1./pow(x+2.,3);
 }
 

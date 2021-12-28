@@ -1315,7 +1315,7 @@ SICModel<T>::_minimax
       unsigned k=0, d=1;
       for( ; (i-_maxord-1)/(d*2); ++k, d*=2 ){}
       if( k ){
-        _coefuniv[k] += 2*TOne*_ainterp[i];
+        _coefuniv[k] += 2.*TOne*_ainterp[i];
         _ainterp[i-d] -= _ainterp[i];
       }
       else
@@ -3602,7 +3602,7 @@ sqr
 #ifdef MC__SICMODEL_DEBUG_SPROD
     std::cout << "Uncertainty propagation:" << tmpCV.bound() * BCV;
 #endif
-    CVSQR += 2 * tmpCV.bound() * BCV + Op<T>::sqr( BCV );
+    CVSQR += 2. * tmpCV.bound() * BCV + Op<T>::sqr( BCV );
     break;
   case SICModel<T>::Options::SIMPLE:
   case SICModel<T>::Options::FULL:

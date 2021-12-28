@@ -23,7 +23,7 @@ FLAGS_MC = $(FLAGS_FILIB) $(FLAGS_HSL)
 #INC_ALL   = $(INC_MC) $(INC_CPLEX)
 
 PATH_GUROBI = $(GUROBI_HOME)
-LIB_GUROBI  = -L$(PATH_GUROBI)/lib -lgurobi_g++5.2 -lgurobi91 -pthread
+LIB_GUROBI  = -L$(PATH_GUROBI)/lib -lgurobi_g++5.2 -lgurobi95 -pthread
 INC_GUROBI  = -I$(PATH_GUROBI)/include
 
 FLAGS_ALL = $(FLAGS_CPP) $(FLAGS_OPT) $(FLAGS_MC) -DMC__USE_GUROBI

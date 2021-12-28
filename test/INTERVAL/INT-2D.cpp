@@ -1,25 +1,23 @@
 #define TEST_TRIG	// <-- select test function here
+#define USE_DAG        // <-- specify whether to use a DAG or operator overloading
+#define SAVE_RESULTS   // <-- specify whether to save results to file
 const int NX = 50;	// <-- select X discretization here
 const int NY = 50;	// <-- select Y discretization here
-#define SAVE_RESULTS    // <-- specify whether to save results to file
-#undef  USE_PROFIL      // <-- specify to use PROFIL for interval arithmetic
-#undef  USE_FILIB        // <-- specify to use FILIB++ for interval arithmetic
-#undef  USE_BOOST        // <-- specify to use BOOST for interval arithmetic
 
 ////////////////////////////////////////////////////////////////////////
 
 #include <fstream>
 #include <iomanip>
 
-#ifdef USE_PROFIL
+#ifdef MC__USE_PROFIL
  #include "mcprofil.hpp"
  typedef INTERVAL I;
 #else
- #ifdef USE_FILIB
+ #ifdef MC__USE_FILIB
   #include "mcfilib.hpp"
-  typedef filib::interval<double> I;
+  typedef filib::interval<double,filib::native_switched,filib::i_mode_extended> I;
  #else
-  #ifdef USE_BOOST
+  #ifdef MC__USE_BOOST
    #include "mcboost.hpp"
    typedef boost::numeric::interval_lib::save_state<boost::numeric::interval_lib::rounded_transc_opp<double>> T_boost_round;
    typedef boost::numeric::interval_lib::checking_base<double> T_boost_check;
@@ -32,7 +30,9 @@ const int NY = 50;	// <-- select Y discretization here
  #endif
 #endif
 
-#include "ffunc.hpp"
+#ifdef USE_DAG
+ #include "ffunc.hpp"
+#endif
 
 using namespace std;
 using namespace mc;
@@ -167,47 +167,72 @@ T myfunc
 int main()
 ////////////////////////////////////////////////////////////////////////
 {  
+  cout << "INTERVAL LIBRARY: "; 
+#ifdef MC__USE_PROFIL
+  cout << "PROFIL/BIAS" << endl;
+#else
+ #ifdef MC__USE_FILIB
+  cout << "FILIB++" << endl;
+ #else
+  #ifdef MC__USE_BOOST
+  cout << "BOOST" << endl;
+  #else
+  cout << "MC++ NON-VERIFIED" << endl;
+  #endif
+ #endif
+#endif
+
 #ifdef SAVE_RESULTS
   ofstream res( "INT-2D.out", ios_base::out );
   res << scientific << setprecision(5) << right;
 #endif
 
   try{
+#ifdef USE_DAG
     // Construct DAG representation of the factorable function
     FFGraph DAG;
     FFVar X( &DAG );
     FFVar Y( &DAG );
     FFVar F = myfunc( X, Y );
+    auto GF = DAG.subgraph( 1, &F );
 #ifdef SAVE_RESULTS
-    DAG.output( DAG.subgraph( 1, &F ) );
+    DAG.output( GF );
     ofstream ofdag( "INT-2D.dot", ios_base::out );
     DAG.dot_script( 1, &F, ofdag );
     ofdag.close();
 #endif
+#endif
 
     // Calculate interval bounds
-    I Xint( XL, XU );
-    I Yint( YL, YU );
-    I Fint;
-    DAG.eval( 1, &F, &Fint, 1, &X, &Xint, 1, &Y, &Yint );
-    cout << "Domain: " << Xint << " x " << Yint << endl;
-    cout << "Bounds: " << Fint << endl;
+    I IX( XL, XU );
+    I IY( YL, YU );
+#ifdef USE_DAG
+    I IF;
+    DAG.eval( GF, 1, &F, &IF, 1, &X, &IX, 1, &Y, &IY );
+#else
+    IF = myfunc( IX, IY );
+#endif
+    cout << endl
+         << "DOMAIN: " << IX << " x " << IY << endl
+         << "BOUNDS: " << IF << endl;
 
     // Repeated calculations at grid points
     for( int iX=0; iX<NX; iX++ ){ 
      for( int iY=0; iY<NY; iY++ ){ 
-
-      double Xval = XL+iX*(XU-XL)/(NX-1.);
-      double Yval = YL+iY*(YU-YL)/(NY-1.);
-      double Fval;
-      DAG.eval( 1, &F, &Fval, 1, &X, &Xval, 1, &Y, &Yval );
-
+      double DX = XL+iX*(XU-XL)/(NX-1.);
+      double DY = YL+iY*(YU-YL)/(NY-1.);
+#ifdef USE_DAG
+      double DF;
+      DAG.eval( GF, 1, &F, &DF, 1, &X, &DX, 1, &Y, &DY );
+#else
+      double DF = myfunc( DX, DY );
+#endif
 #ifdef SAVE_RESULTS
-      res << setw(14) << Xval
-          << setw(14) << Yval
-          << setw(14) << Fval
-          << setw(14) << Op<I>::l(Fint)
-          << setw(14) << Op<I>::u(Fint)
+      res << setw(14) << DX
+          << setw(14) << DY
+          << setw(14) << DF
+          << setw(14) << Op<I>::l(IF)
+          << setw(14) << Op<I>::u(IF)
           << endl;
 #endif
     }
@@ -216,9 +241,8 @@ int main()
 #endif
    }
   }
-#ifndef USE_PROFIL
-#ifndef USE_FILIB
-#ifndef USE_BOOST
+  
+#if !defined(MC__USE_PROFIL) && !defined(MC__USE_FILIB) && !defined(MC__USE_BOOST)
   catch( I::Exceptions &eObj ){
     cerr << "Error " << eObj.ierr()
          << " in natural interval extension:" << endl
@@ -226,8 +250,6 @@ int main()
          << "Aborts." << endl;
     return eObj.ierr();
   }
-#endif
-#endif
 #endif
   catch( FFGraph::Exceptions &eObj ){
     cerr << "Error " << eObj.ierr()

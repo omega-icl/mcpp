@@ -100,11 +100,11 @@ template <> struct Op< double >
   static double tanh(const double& x) { return std::tanh(x); }
   static double erf (const double& x) { return ::erf(x);  }
   static double erfc(const double& x) { return ::erfc(x); }
-  static double fstep(const double& x) { return fstep(x); }
-  static double bstep(const double& x) { return bstep(x); }
+  static double fstep(const double& x) { return mc::fstep(x); }
+  static double bstep(const double& x) { return mc::bstep(x); }
   static double hull(const double& x, const double& y) { throw std::runtime_error("mc::Op<double>::hull -- function not overloaded"); }
-  static double min (const double& x, const double& y) { return min(x,y);  }
-  static double max (const double& x, const double& y) { return max(x,y);  }
+  static double min (const double& x, const double& y) { return std::min(x,y);  }
+  static double max (const double& x, const double& y) { return std::max(x,y);  }
   static double arh (const double& x, const double k) { return mc::arh(x,k); }
   static double cheb (const double& x, const unsigned n) { return mc::cheb(x,n); }
   template <typename X, typename Y> static double pow(const X& x, const Y& y) { return std::pow(x,y); }

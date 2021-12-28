@@ -1,25 +1,22 @@
 #define TEST_EXP1	// <-- select test function here
+#define USE_DAG        // <-- specify to evaluate via a DAG of the function
+#define SAVE_RESULTS   // <-- specify whether to save results to file
 const int NX = 40;	// <-- select X discretization here
 const int NY = 40;	// <-- select Y discretization here
-#define SAVE_RESULTS    // <-- specify whether to save results to file
-#undef  USE_PROFIL      // <-- specify to use PROFIL for interval arithmetic
-#undef  USE_FILIB        // <-- specify to use FILIB++ for interval arithmetic
-#undef  USE_BOOST        // <-- specify to use BOOST for interval arithmetic
-
 ////////////////////////////////////////////////////////////////////////
 
 #include <fstream>
 #include <iomanip>
 
-#ifdef USE_PROFIL
+#ifdef MC__USE_PROFIL
  #include "mcprofil.hpp"
  typedef INTERVAL I;
 #else
- #ifdef USE_FILIB
+ #ifdef MC__USE_FILIB
   #include "mcfilib.hpp"
-  typedef filib::interval<double> I;
+  typedef filib::interval<double,filib::native_switched,filib::i_mode_extended> I;
  #else
-  #ifdef USE_BOOST
+  #ifdef MC__USE_BOOST
    #include "mcboost.hpp"
    typedef boost::numeric::interval_lib::save_state<boost::numeric::interval_lib::rounded_transc_opp<double>> T_boost_round;
    typedef boost::numeric::interval_lib::checking_base<double> T_boost_check;
@@ -34,6 +31,10 @@ const int NY = 40;	// <-- select Y discretization here
 
 #include "mccormick.hpp"
 typedef mc::McCormick<I> MC;
+
+#ifdef USE_DAG
+ #include "ffunc.hpp"
+#endif
 
 using namespace std;
 using namespace mc;
@@ -180,11 +181,20 @@ T myfunc
 int main()
 ////////////////////////////////////////////////////////////////////////
 {  
-
-  MC::options.ENVEL_USE=true;
-  MC::options.ENVEL_MAXIT=100;
-  MC::options.ENVEL_TOL=1e-12;
-  MC::options.MVCOMP_USE=true;
+  cout << "INTERVAL LIBRARY: "; 
+#ifdef MC__USE_PROFIL
+  cout << "PROFIL/BIAS" << endl;
+#else
+ #ifdef MC__USE_FILIB
+  cout << "FILIB++" << endl;
+ #else
+  #ifdef MC__USE_BOOST
+  cout << "BOOST" << endl;
+  #else
+  cout << "MC++ NON-VERIFIED" << endl;
+  #endif
+ #endif
+#endif
 
 #ifdef SAVE_RESULTS
   ofstream allsub( "MC-2D.out", ios_base::out );
@@ -193,44 +203,75 @@ int main()
   dirsub << scientific << setprecision(5) << right;
 #endif
 
+  // <-- set options here -->
+  MC::options.ENVEL_USE   = true;
+  MC::options.ENVEL_MAXIT = 100;
+  MC::options.ENVEL_TOL   = 1e-12;
+  MC::options.MVCOMP_USE  = true;
+
   try{ 
-
-    for( int iX=0; iX<NX; iX++ ){ 
-      for( int iY=0; iY<NY; iY++ ){
-
-        double Xval = XL+iX*(XU-XL)/(NX-1.);
-        double Yval = YL+iY*(YU-YL)/(NY-1.);
-        double Zval = myfunc( Xval, Yval );
-
-        MC Xrel( I(XL,XU), Xval );
-        MC Yrel( I(YL,YU), Yval );
-
-        // Calculate relaxations + propagate all subgradient components
-        Xrel.sub(2,0);
-        Yrel.sub(2,1);
-        MC Zrel = myfunc( Xrel, Yrel );
-
+#ifdef USE_DAG
+    // Construct DAG representation of the factorable function
+    FFGraph DAG;
+    FFVar X( &DAG );
+    FFVar Y( &DAG );
+    FFVar F = myfunc( X, Y );
+    auto GF = DAG.subgraph( 1, &F );
 #ifdef SAVE_RESULTS
-        allsub << setw(14) << Xval << setw(14) << Yval << setw(14) << Zval
-               << setw(14) << Zrel.l() << setw(14) <<  Zrel.u()
-               << setw(14) << Zrel.cv() << setw(14) << Zrel.cc()
-               << setw(14) << Zrel.cvsub(0) << setw(14) << Zrel.ccsub(0)
-               << setw(14) << Zrel.cvsub(1) << setw(14) << Zrel.ccsub(1)
-               << endl;
+    DAG.output( GF );
+    ofstream ofdag( "MC-2D.dot", ios_base::out );
+    DAG.dot_script( 1, &F, ofdag );
+    ofdag.close();
 #endif
-        
-        // Calculate relaxations + propagate directional subgradient
-        const double dir[2] = {1,-1};
-        Xrel.sub(1,&dir[0],&dir[0]);
-        Yrel.sub(1,&dir[1],&dir[1]);
-        Zrel = myfunc( Xrel, Yrel );
+#endif
 
+    // Repeated calculations at grid points
+    for( int iX=0; iX<NX; iX++ ){ 
+     for( int iY=0; iY<NY; iY++ ){
+       double DX = XL+iX*(XU-XL)/(NX-1.);
+       double DY = YL+iY*(YU-YL)/(NY-1.);
+ #ifdef USE_DAG
+       double DF;
+       DAG.eval( GF, 1, &F, &DF, 1, &X, &DX, 1, &Y, &DY );
+#else
+       double DF = myfunc( DX, DY );
+#endif
+
+       // Calculate relaxations + propagate all subgradient components
+       MC MCX( I(XL,XU), DX );
+       MC MCY( I(YL,YU), DY );
+       MCX.sub( 2, 0 );
+       MCY.sub( 2, 1 );
+#ifdef USE_DAG
+       MC MCF;
+       DAG.eval( GF, 1, &F, &MCF, 1, &X, &MCX, 1, &Y, &MCY );
+#else
+       MC MCF = myfunc( MCX, MCY );
+#endif
 #ifdef SAVE_RESULTS
-        dirsub << setw(14) << Xval << setw(14) << Yval << setw(14) << Zval
-               << setw(14) << Zrel.l() << setw(14) <<  Zrel.u()
-               << setw(14) << Zrel.cv() << setw(14) << Zrel.cc()
-               << setw(14) << Zrel.cvsub(0) << setw(14) << Zrel.ccsub(0)
-               << endl;
+       allsub << setw(14) << DX << setw(14) << DY << setw(14) << DF
+              << setw(14) << MCF.l() << setw(14) <<  MCF.u()
+              << setw(14) << MCF.cv() << setw(14) << MCF.cc()
+              << setw(14) << MCF.cvsub(0) << setw(14) << MCF.ccsub(0)
+              << setw(14) << MCF.cvsub(1) << setw(14) << MCF.ccsub(1)
+              << endl;
+#endif
+
+       // Calculate relaxations + propagate directional subgradient
+       const double dir[2] = { 1, -1 };
+       MCX.sub( 1, &dir[0], &dir[0] );
+       MCY.sub( 1, &dir[1], &dir[1] );
+#ifdef USE_DAG
+       DAG.eval( GF, 1, &F, &MCF, 1, &X, &MCX, 1, &Y, &MCY );
+#else
+       MCF = myfunc( MCX, MCY );
+#endif
+#ifdef SAVE_RESULTS
+       dirsub << setw(14) << DX << setw(14) << DY << setw(14) << DF
+              << setw(14) << MCF.l() << setw(14) <<  MCF.u()
+              << setw(14) << MCF.cv() << setw(14) << MCF.cc()
+              << setw(14) << MCF.cvsub(0) << setw(14) << MCF.ccsub(0)
+              << endl;
 #endif
       }
 #ifdef SAVE_RESULTS
@@ -240,9 +281,7 @@ int main()
     }
   }
   
-#ifndef USE_PROFIL
-#ifndef USE_FILIB
-#ifndef USE_BOOST
+#if !defined(MC__USE_PROFIL) && !defined(MC__USE_FILIB) && !defined(MC__USE_BOOST)
   catch( I::Exceptions &eObj ){
     cerr << "Error " << eObj.ierr()
          << " in natural interval extension:" << endl
@@ -250,8 +289,6 @@ int main()
          << "Aborts." << endl;
     return eObj.ierr();
   }
-#endif
-#endif
 #endif
   catch( MC::Exceptions &eObj ){
     cerr << "Error " << eObj.ierr()

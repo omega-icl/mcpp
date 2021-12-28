@@ -1,8 +1,10 @@
 #define TEST_EXP0        // <-- select test function here
 const int NTE = 9;      // <-- select Taylor expansion order here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
-#define USE_PROFIL       // <-- specify to use PROFIL for interval arithmetic
+#undef USE_PROFIL       // <-- specify to use PROFIL for interval arithmetic
+#define USE_BOOST       // <-- specify to use PROFIL for interval arithmetic
 #undef USE_FILIB        // <-- specify to use FILIB++ for interval arithmetic
+#define USE_DAG         // <-- specify to use DAG evaluation or operator overloading
 ////////////////////////////////////////////////////////////////////////
 //#define MC__SCMODEL_DEBUG_SPROD
 //#define MC__SICMODEL_DEBUG_SPROD
@@ -11,17 +13,30 @@ const int NTE = 9;      // <-- select Taylor expansion order here
 #include <iomanip>
 
 #include "mctime.hpp"
+
+#ifdef USE_DAG
+ #include "ffunc.hpp"
+#endif
+
 #ifdef USE_PROFIL
-  #include "mcprofil.hpp"
-  typedef INTERVAL I;
+ #include "mcprofil.hpp"
+ typedef INTERVAL I;
 #else
+ #ifdef USE_BOOST
+  #include "mcboost.hpp"
+   typedef boost::numeric::interval_lib::save_state<boost::numeric::interval_lib::rounded_transc_opp<double>> T_boost_round;
+   typedef boost::numeric::interval_lib::checking_base<double> T_boost_check;
+   typedef boost::numeric::interval_lib::policies<T_boost_round,T_boost_check> T_boost_policy;
+   typedef boost::numeric::interval<double,T_boost_policy> I;
+ #else
   #ifdef USE_FILIB
-    #include "mcfilib.hpp"
-    typedef filib::interval<double> I;
+   #include "mcfilib.hpp"
+   typedef filib::interval<double> I;
   #else
-    #include "interval.hpp"
-    typedef mc::Interval I;
+   #include "interval.hpp"
+   typedef mc::Interval I;
   #endif
+ #endif
 #endif
 
 #include "cmodel.hpp"
@@ -176,22 +191,34 @@ T myfunc
 
 int main()
 { 
-  const unsigned NREP = 1; //10000; 
-// {
-//  CM modCM( 2, NTE );
-//  modCM.options.BOUNDER_TYPE = CM::Options::LSB;//NAIVE;//LSB;
-//  modCM.options.MIXED_IA = true;//false;
 
-//  double tStart = mc::userclock();
-//  for( unsigned i=0; i<NREP; i++ ){
-//    CV X( &modCM, 0, I(XL,XU) );
-//    CV Y( &modCM, 1, I(YL,YU) );
-//    CV F = myfunc( X, Y );
-//    if( !i ) std::cout << F;
-//  }
-//  std::cout << "\nChebyshev model (dense implementation):" << (mc::userclock()-tStart)/(double)NREP << " CPU-sec\n";
-// }
-{
+#ifdef USE_DAG
+  mc::FFGraph DAG;
+  mc::FFVar XX( &DAG ), YY( &DAG );
+  mc::FFVar FF = myfunc( XX, YY );
+#endif
+
+  const unsigned NREP = 1; //10000; 
+ {
+  CM modCM( 2, NTE );
+  modCM.options.BOUNDER_TYPE = CM::Options::NAIVE;//LSB;
+  modCM.options.MIXED_IA = 0;//true;//false;
+
+  double tStart = mc::userclock();
+  for( unsigned i=0; i<NREP; i++ ){
+    CV X( &modCM, 0, I(XL,XU) );
+    CV Y( &modCM, 1, I(YL,YU) );
+#ifdef USE_DAG
+    CV F;
+    DAG.eval( 1, &FF, &F, 1, &XX, &X, 1, &YY, &Y );
+#else
+    CV F = myfunc( X, Y );
+#endif
+    if( !i ) std::cout << F;
+  }
+  std::cout << "\nChebyshev model (dense implementation):" << (mc::userclock()-tStart)/(double)NREP << " CPU-sec\n";
+ }
+ {
   SCM modSCM( NTE );
   modSCM.options.REMEZ_USE = true;//false;
   modSCM.options.BOUNDER_TYPE = SCM::Options::NAIVE;//LSB; //NAIVE;
@@ -201,7 +228,12 @@ int main()
   //for( unsigned i=0; i<NREP; i++ ){
     SCV X( &modSCM, 0, I(XL,XU) );
     SCV Y( &modSCM, 1, I(YL,YU) );
+#ifdef USE_DAG
+    SCV F;
+    DAG.eval( 1, &FF, &F, 1, &XX, &X, 1, &YY, &Y );
+#else
     SCV F = myfunc( X, Y );
+#endif
     //if( !i ) std::cout << F;
     std::cout << F;
   //}
@@ -240,7 +272,12 @@ int main()
   //for( unsigned i=0; i<NREP; i++ ){
     SICV X( &modSICM, 0, I(XL,XU) );
     SICV Y( &modSICM, 1, I(YL,YU) );
+#ifdef USE_DAG
+    SICV F;
+    DAG.eval( 1, &FF, &F, 1, &XX, &X, 1, &YY, &Y );
+#else
     SICV F = myfunc( X, Y );
+#endif
     //if( !i ) std::cout << F;
     std::cout << F;
   //}
