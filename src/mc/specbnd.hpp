@@ -1,4 +1,4 @@
-// Copyright (C) 2009-2017 Benoit Chachuat, Imperial College London.
+// Copyright (C) 2021 Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
@@ -6,17 +6,15 @@
 \page page_SPECBND Eigenvalue Arithmetic for Factorable Functions
 \author Nikola Peri&cacute;, Akshay Shah, Jai Rajyaguru & Beno&icirc;t Chachuat
 
-Given a factorable, multivariate function \f$f:\mathbb{R}^n\to\mathbb{R}\f$, that is twice-continuously differentiable on a box \f$X:=[x^{\rm L},x^{\rm U}]\f$, M&ouml;nnigmann's technique [M&ouml;nnigmann, 2008; 2011] provides a means for computing spectral bounds of its Hessian matrix \f$H_f(x)\f$ at any point \f$x\in X\f$&mdash;without actually computing \f$H_f(x)\f$. Applications of this technique are in determining whether a function is convex or concave on a particular domain, as well as in constructing convex/concave relaxations for complete search approaches in global optimization. Alternative techniques for determining spectral bounds include the interval variant of Gershgorin's circle criterion [Adjiman <I>et al.</I>, 1998] as well as Hertz & Rohn's method [Hertz, 1992], which rely on an interval enclosure of the set of all possible Hessian matrices \f$[H_f] \supseteq \{H_f(x) \mid x\in X\}\f$. See also \ref page_MCCORMICK for an alternative way of constructing convex/concave relaxations. 
+Given a factorable, multivariate function \f$f:\mathbb{R}^n\to\mathbb{R}\f$, that is twice-continuously differentiable on a box \f$X:=[x^{\rm L},x^{\rm U}]\f$, M&ouml;nnigmann's technique [M&ouml;nnigmann, 2008; 2011] provides a means for computing spectral bounds of its Hessian matrix \f$\nabla^2f(x)\f$ at any point \f$x\in X\f$&mdash;without actually computing \f$\nabla^2f(x)\f$. Applications of this technique are in determining whether a function is convex or concave on a particular domain, as well as in constructing convex/concave relaxations for complete search approaches in global optimization. Alternative techniques for determining spectral bounds include the interval variant of Gershgorin's circle criterion [Adjiman <I>et al.</I>, 1998] as well as Hertz & Rohn's method [Hertz, 1992], which rely on an interval enclosure of the set of all possible Hessian matrices \f$[\nabla^2f] \supseteq \{\nabla^2f(x) \mid x\in X\}\f$. See also \ref page_MCCORMICK for an alternative way of constructing convex/concave relaxations. 
 
-The class mc::Specbnd provides an implementation of eigenvalue arithmetic. We note that mc::SpecBnd is <B>not a verified implementation</B> in the sense that rounding errors are not accounted for in propagating the spectral bounds.
+The class mc::Specbnd provides an implementation of eigenvalue arithmetic. It relies on the operator/function overloading mechanism of C++, which makes the computation of spectral bounds both simple and intuitive, similar to computing function values in real arithmetics. Moreover, mc::Specbnd can be used as the template parameter of other available types in MC++; for instance, mc::Specbnd can be used in order to propagate spectral bounds on the remainder term of polynomial models in mc::TVar, mc::CVar or mc::SCVar. Likewise, mc::Specbnd can be used as the template parameter of the types fadbad::F, fadbad::B and fadbad::T of <A href="http://www.fadbad.com/fadbad.html">FADBAD++</A> for computing spectral bounds of either the partial derivatives or the Taylor coefficients of a factorable function too (see \ref sec_SPECBND_fadbad).
 
-The implementation of mc::Specbnd relies on the operator/function overloading mechanism of C++. This makes the computation of spectral bounds both simple and intuitive, similar to computing function values in real arithmetics. Moreover, mc::Specbnd can be used as the template parameter of other available types in MC++; for instance, mc::Specbnd can be used in order to propagate spectral bounds on the remainder term of Taylor variable mc::TVar. Likewise, mc::Specbnd can be used as the template parameter of the types fadbad::F, fadbad::B and fadbad::T of <A href="http://www.fadbad.com/fadbad.html">FADBAD++</A> for computing spectral bounds of either the partial derivatives or the Taylor coefficients of a factorable function too (see \ref sec_SPECBND_fadbad).
-
-mc:Specbnd is itself templated in the type used to propagate the necessary bounds. By default, mc::Specbnd can be used with the non-verified interval type mc::Interval of MC++. For reliability, however, it is strongly recommended to use verified interval arithmetic such as <A href="http://www.ti3.tu-harburg.de/Software/PROFILEnglisch.html">PROFIL</A> (header file <tt>mcprofil.hpp</tt>) or <A href="http://www.math.uni-wuppertal.de/~xsc/software/filib.html">FILIB++</A> (header file <tt>mcfilib.hpp</tt>). The types mc::McCormick and mc::TVar can also be used as template parameters of mc::Specbnd, thereby making it possible to compute, respectively, convex/concave bounds and Taylor models of the spectrum of \f$H_f\f$.
+mc:Specbnd is templated in the type used to propagate the necessary bounds. By default, mc::Specbnd can be used with the non-verified interval type mc::Interval of MC++. For reliability, however, it is strongly recommended to use verified interval arithmetic such as <A href="http://www.ti3.tu-harburg.de/Software/PROFILEnglisch.html">PROFIL</A> (header file <tt>mcprofil.hpp</tt>), <A href="https://www.boost.org/doc/libs/1_68_0/libs/numeric/interval/doc/interval.htm">Boost Interval Arithmetic Library</A> (header file <tt>mcboost.hpp</tt>) or <A href="http://www2.math.uni-wuppertal.de/wrswt/software/filib.html">FILIB++</A> (header file <tt>mcfilib.hpp</tt>). Other types, such as mc::McCormick, mc::TVar, mc::CVar or mc::SCVar, can also be used as template parameters of mc::Specbnd, thereby making it possible to compute, respectively, convex/concave bounds and polynomial inclusions of the spectrum of \f$\nabla^2f\f$.
 
 As well as propagating spectral bounds for factorable functions using M&ouml;nnigmann's technique, mc::Specbnd provides support for computing spectral bounds based on the interval Hessian matrix of a twice continuously-differentiable, factorable function using either Gershgorin's circle criterion or Hertz & Rohn's method. As established by Darup <I>et al.</I> [2012], the spectral bound arithmetic may or may not produce tighter spectral bounds than these latter techniques, depending on the factorable function \f$f\f$ at hand and its variable range \f$X\f$.
 
-Results obtained for the factorable function \f$f(x,y)=1+x-\sin(2x+3y)-\cos(3x-5y)\f$  for \f$x\in [-0.5,0.5]^2\f$ are shown in the figure below. This function (red line) and corresponding interval bounds (blue line) are shown in the left plot, while the minimal and maximal eigenvalues (red and green lines) as well as the computed spectral bounds (blue line) of the Hessian matrix \f$H_f\f$ are shown on the right plot.
+Results obtained for the factorable function \f$f(x,y)=1+x-\sin(2x+3y)-\cos(3x-5y)\f$  for \f$x\in [-0.5,0.5]^2\f$ are shown in the figure below. This function (red line) is shown in the left plot and the minimal and maximal eigenvalues (red and green lines) as well as the computed spectral bounds (blue line) of the Hessian matrix \f$\nabla^2f\f$ are shown on the right plot.
 
 <CENTER><TABLE BORDER=0>
 <TR>
@@ -47,7 +45,7 @@ First, the variables \f$x_1\f$, \f$x_2\f$ and \f$x_3\f$ are defined as follows:
 
 Essentially, the first line means that <tt>X1</tt> is a variable of class mc::Specbnd, belongs to the interval \f$[-0.3,0.2]\f$, and having index 0 out of 3 independent variables (recall that indexing in C/C++ starts at 0 by convention!). The same holds for the mc::Specbnd variable <tt>X2</tt> and <tt>X3</tt>.
 
-Having defined the variables, spectral bounds on the Hessian matrix \f$H_f\f$ of \f$f\f$ on \f$[-0.3,0.2]\times[-0.1,0.6]\times[-0.4,0.5]\f$ are simply calculated as:
+Having defined the variables, spectral bounds on the Hessian matrix \f$\nabla^2f\f$ of \f$f\f$ on \f$[-0.3,0.2]\times[-0.1,0.6]\times[-0.4,0.5]\f$ are simply calculated as:
 
 \code
       SB F = exp( X1 - 2*sqr(X2) + 3*pow(X3,3) );
@@ -62,27 +60,13 @@ The computed spectral bounds can be retrieved as:
 The function and first-derivative bounds can also be retrieved using mc::Specbnd::I and mc::Specbnd::FI. The results of the spectral bound propagation can be displayed to the standard output as:
 
 \code
-      std::cout << F << std::endl;
+      std::cout<< "Spectral bound (eigenvalue arithmetic): " << F << std::endl;
 \endcode
 
 which produces the following display:
 \verbatim
-  [ -1.99039e+01 :  3.70043e+01 ]
-  [  2.97601e-01 :  1.77713e+00 ]
-  ( [  2.97601e-01 :  1.77713e+00 ] )
-  ( [ -4.26511e+00 :  7.10852e-01 ] )
-  ( [  0.00000e+00 :  3.99854e+00 ] )
+Spectral bound (eigenvalue arithmetic): [ -1.99039e+01 :  3.70043e+01 ]
 \endverbatim
-
-Note that the display is organized as follows:
-\f{align*}
-& [\underline{\lambda}:\overline{\lambda}]\\
-& [\underline{f}:\overline{f}]\\
-& ( [\underline{\partial_{x_1}f}:\overline{\partial_{x_1}f}] )\\
-& ( [\underline{\partial_{x_2}f}:\overline{\partial_{x_2}f}] )\\ 
-& ( [\underline{\partial_{x_3}f}:\overline{\partial_{x_3}f}] )
-\f}
-That is, the spectral bound is \f$[-19.904,37.004]\f$ here.
 
 As noted earlier, other methods are available for bounding the spectrum of interval Hessian matrices, such as Gershgorin's circle criterion and Hertz & Rohn's method. mc::Specbnd also provides a means for computing these bounds, e.g. for comparison with the M&ouml;nnigmann's eigenvalue arithmetic. Interval Hessian matrices can be computed using the forward and/or reverse AD types of <A href="http://www.fadbad.com/fadbad.html">FADBAD++</A>:
 
@@ -174,31 +158,27 @@ The only difference here concerns the initialization of the McCormick variables 
 More information on the spectral relaxations can again be obtained as:
 
 \code
-      std::cout << F << std::endl;
+      std::cout<< "Spectral bound (eigenvalue arithmetic): " << F << std::endl;
 \endcode
 
 which displays:
 \verbatim
-  [ -1.99039e+01 :  3.70043e+01 ] [ -1.54413e+01 :  2.81720e+01 ] [ (-9.27293e+00, 0.00000e+00,-5.21602e+00) : ( 1.72398e+01, 0.00000e+00, 1.50542e+01) ]
-  [  2.97601e-01 :  1.77713e+00 ] [  8.45354e-01 :  1.37868e+00 ] [ ( 8.45354e-01,-8.45354e-01, 3.04327e-01) : ( 8.27940e-01, 0.00000e+00, 4.65716e-01) ]
-  ( [  2.97601e-01 :  1.77713e+00 ] [  8.45354e-01 :  1.37868e+00 ] [ ( 8.45354e-01,-8.45354e-01, 3.04327e-01) : ( 8.27940e-01, 0.00000e+00, 4.65716e-01) ] )
-  ( [ -4.26511e+00 :  7.10852e-01 ] [ -3.72711e-01 :  4.32433e-01 ] [ ( 3.38142e-01,-7.44666e+00, 1.21731e-01) : ( 3.31176e-01,-1.19041e+00, 1.86287e-01) ] )
-  ( [  0.00000e+00 :  3.99854e+00 ] [  0.00000e+00 :  2.96812e+00 ] [ ( 0.00000e+00, 0.00000e+00, 0.00000e+00) : ( 1.86287e+00, 0.00000e+00, 1.31570e+00) ] )
+Spectral bound (eigenvalue arithmetic): [ -1.99039e+01 :  3.70043e+01 ] [ -1.54413e+01 :  2.81720e+01 ] [ (-9.27293e+00, 0.00000e+00,-5.21602e+00) : ( 1.72398e+01, 0.00000e+00, 1.50542e+01) ]
 \endverbatim
 
-By construction, the underlying interval bounds of the McCormick relaxations are identical to their spectral interval bound counterparts. The convex/concave bounds at \f$(0,0,0)\f$ come as additional information and are seen to be tighter than the interval bounds. The corresponding subgradients can also be used to construct affine relaxations.
+By construction, the interval bounds supporting the McCormick relaxations are identical to their spectral interval bound counterparts. The convex/concave bounds at \f$(0,0,0)\f$ come as additional information and are seen to be tighter than the interval bounds. The corresponding subgradients can also be used to construct affine relaxations.
 
-Similarly, a Taylor model of the spectrum can be conveniently computed by selecting mc::TVar as the template parameter in mc::Specbnd.
+A polynomial inclusion of the spectrum may be computed similarly by selecting mc::TVar, mc::CVar or mc::SCVar as the template parameter in mc::Specbnd.
 
 
 \section sec_SPECBND_fct Which functions are overloaded in mc::Specbnd eigenvalue arithmetic?
 
-mc::TVar overloads the usual functions <tt>exp</tt>, <tt>log</tt>, <tt>sqr</tt>, <tt>sqrt</tt>, <tt>pow</tt>, <tt>inv</tt>, <tt>cos</tt>, <tt>sin</tt>, <tt>tan</tt>, <tt>acos</tt>, <tt>asin</tt>, <tt>atan</tt>. Unlike mc::Interval and mc::McCormick, the functions <tt>min</tt>, <tt>max</tt> and <tt>fabs</tt> are not overloaded in mc::TVar since they are not twice continuously differentiable. Also, <tt>erf</tt> and <tt>erfc</tt> are overloaded in mc::Specbnd but currently cannot be used due to a limitation in the third-party libarary <A href="http://www.fadbad.com/fadbad.html">FADBAD++</A>, where these functions are not (yet?) overloaded.
+mc::Specbnd overloads the usual functions <tt>exp</tt>, <tt>log</tt>, <tt>sqr</tt>, <tt>sqrt</tt>, <tt>pow</tt>, <tt>inv</tt>, <tt>cos</tt>, <tt>sin</tt>, <tt>tan</tt>, <tt>acos</tt>, <tt>asin</tt>, <tt>atan</tt>, <tt>cosh</tt>, <tt>sinh</tt>, <tt>tanh</tt>. The functions <tt>min</tt>, <tt>max</tt>, <tt>fabs</tt>, <tt>fstep</tt> and <tt>bstep</tt>  are not overloaded in mc::Specbnd since they are not (twice) continuously differentiable.
 
 
 \section sec_SPECBND_fadbad How do I compute spectral bounds of the partial derivatives or the Taylor coefficients of a factorable function using FADBAD++?
 
-The combination of mc::Specbnd with the classes fadbad::F, and fadbad::B of <A href="http://www.fadbad.com/fadbad.html">FADBAD++</A> to compute a spectral bound for the Hessian matrix of either the partial derivatives or the Taylor coefficients of a factorable function is essentially the same as with mc::McCormick (see \ref sec_MCCORMICK_fadbad) or mc::TVar (see \ref sec_TAYLOR_fadbad).
+The combination of mc::Specbnd with the classes fadbad::F, fadbad::B and fadbad::T of <A href="http://www.fadbad.com/fadbad.html">FADBAD++</A> to compute a spectral bound for the Hessian matrix of either the partial derivatives or the Taylor coefficients of a factorable function is essentially the same as with mc::McCormick (see \ref sec_MCCORMICK_fadbad).
 
 Next, we present the case of fadbad::F only. Continuing the previous example, spectral bounds of the partial derivatvies of \f$f(x_1,x_2,x_3)=\exp(x_1-2x_2^2+3x_3^3)\f$ for \f$(x_1,x_2,x_3)\in [-0.3,0.2]\times[-0.1,0.6]\times[-0.4,0.5]\f$ can be computed as follows:
 
@@ -211,34 +191,17 @@ Next, we present the case of fadbad::F only. Continuing the previous example, sp
       FSB FSBX2 = X2; FSBX2.diff(1,3);
       FSB FSBX3 = X3; FSBX3.diff(2,3);
       FSB FSBF = exp( FSBX1 - 2*pow(FSBX2,2) + 3*pow(FSBX3,3) );
-      std::cout << "Spectral bounds of df/dx1:\n" << FSBF.d(0) << std::endl;
-      std::cout << "Spectral bounds of df/dx2:\n" << FSBF.d(1) << std::endl;
-      std::cout << "Spectral bounds of df/dx3:\n" << FSBF.d(2) << std::endl;
+      std::cout << "Spectral bounds of df/dx1: " << FSBF.d(0) << std::endl;
+      std::cout << "Spectral bounds of df/dx2: " << FSBF.d(1) << std::endl;
+      std::cout << "Spectral bounds of df/dx3: " << FSBF.d(2) << std::endl;
 \endcode
 
 producing the output:
 
 \verbatim
-Spectral bounds of df/dx1:
-  [ -1.99039e+01 :  3.70043e+01 ]
-  [  2.97601e-01 :  1.77713e+00 ]
-  ( [  2.97601e-01 :  1.77713e+00 ] )
-  ( [ -4.26511e+00 :  7.10852e-01 ] )
-  ( [  0.00000e+00 :  3.99854e+00 ] )
-
-Spectral bounds of df/dx2:
-  [ -1.16096e+02 :  8.92716e+01 ]
-  [ -4.26511e+00 :  7.10852e-01 ]
-  ( [ -4.26511e+00 :  7.10852e-01 ] )
-  ( [ -8.81457e+00 :  9.04587e+00 ] )
-  ( [ -9.59650e+00 :  1.59942e+00 ] )
-
-Spectral bounds of df/dx3:
-  [ -1.28567e+02 :  2.06229e+02 ]
-  [  0.00000e+00 :  3.99854e+00 ]
-  ( [  0.00000e+00 :  3.99854e+00 ] )
-  ( [ -9.59650e+00 :  1.59942e+00 ] )
-  ( [ -1.27953e+01 :  2.49909e+01 ] )
+Spectral bounds of df/dx1: [ -1.99039e+01 :  3.70043e+01 ]
+Spectral bounds of df/dx2: [ -1.16096e+02 :  8.92716e+01 ]
+Spectral bounds of df/dx3: [ -1.28567e+02 :  2.06229e+02 ]
 \endverbatim
 
 
@@ -427,9 +390,9 @@ public:
   public:
     //! @brief Enumeration type for Specbnd exception handling
     enum TYPE{
-      SPECTR=1,	//!< Failed to compute spectrum in Specbnd::spectrum
-      HESSBND,	//!< Failed to compute spectral bound in Specbnd::spectral_bound
-      SIZE=-1,	//!< Operation between variables with different numbers of dependents
+      SPECTR=1, //!< Failed to compute spectrum in Specbnd::spectrum
+      HESSBND,  //!< Failed to compute spectral bound in Specbnd::spectral_bound
+      SIZE=-1,  //!< Operation between variables with different numbers of dependents
       UNDEF=-33 //!< Feature not yet implemented in mc::Specbnd
     };
     //! @brief Constructor for error <a>ierr</a>
@@ -533,13 +496,17 @@ public:
     return _spec;
   }
 
-  //! @brief Compute spectrum of Hessian matrix <tt>D2X</tt> of type fadbad::B< fadbad::F<double> >* using LAPACK function <tt>dsyev</tt>.
+  //! @brief Compute spectrum of Hessian matrix <tt>D2X</tt> of type fadbad::B< fadbad::F<double> >* using LAPACK function <A HREF="http://www.netlib.org/lapack/explore-3.1.1-html/dsyev.f.html">dsyev</A>.
   static std::pair<double,double> spectrum
     ( const fadbad::B< fadbad::F< double > >* D2X );
 
-  //! @brief Compute spectrum of Hessian matrix <tt>D2F</tt> of type fadbad::F< fadbad::F<double> > using LAPACK function <tt>dsyev</tt>.
+  //! @brief Compute spectrum of Hessian matrix <tt>D2F</tt> of type fadbad::F< fadbad::F<double> > using LAPACK function <A HREF="http://www.netlib.org/lapack/explore-3.1.1-html/dsyev.f.html">dsyev</A>.
   static std::pair<double,double> spectrum
     ( const fadbad::F< fadbad::F< double > >& D2X );
+
+  //! @brief Compute spectral bound of symmetric real matrix <tt>S</tt> of size <tt>N</tt> using LAPACK function <A HREF="http://www.netlib.org/lapack/explore-3.1.1-html/dsyev.f.html">dsyev</A>.
+  static std::pair<double,double> spectrum
+    ( const unsigned N, const double*S );
 
   //! @brief Compute spectral bound of interval Hessian matrix <tt>D2X</tt> of type fadbad::B< fadbad::F<T> >*. The bounding method is selected via mc::Specbnd::Options::HESSBND.
   static std::pair<double,double> spectral_bound
@@ -553,11 +520,11 @@ public:
   static std::pair<double,double> spectral_bound
     ( const unsigned N, const T*S );
 
-  //! @brief Compute bound on the real part of the spectrum of (non-symmetric) interval matrix <tt>A</tt>. The bounding method is selected via mc::Specbnd::Options::HESSBND.
+  //! @brief Compute bound on the real part of the spectrum of square (non-symmetric) interval matrix <tt>A</tt> of size <tt>N</tt>. The bounding method is selected via mc::Specbnd::Options::HESSBND.
   static std::pair<double,double> spectral_bound_re
     ( const unsigned N, const T*A );
 
-  //! @brief Compute bound on the imaginary part of the spectrum of (non-symmetric) interval matrix <tt>A</tt>. The bounding method is selected via mc::Specbnd::Options::HESSBND.
+  //! @brief Compute bound on the imaginary part of the spectrum of square (non-symmetric) interval matrix <tt>A</tt> of size <tt>N</tt>. The bounding method is selected via mc::Specbnd::Options::HESSBND.
   static std::pair<double,double> spectral_bound_im
     ( const unsigned N, const T*A );
   /** @} */
@@ -634,6 +601,28 @@ Specbnd<T>::spectrum
     for( unsigned int i=j; i<N; i++ )
       H[j*N+i] = H[i*N+j] = ( i==j? D2F.deriv(i).deriv(i):
         0.5*(D2F.deriv(i).deriv(j)+D2F.deriv(j).deriv(i)) );
+#ifdef MC__SPECBND_DEBUG_SPECTRUM
+  mc::display( N, N, H, N, "\nMatrix H", std::cout );
+#endif
+
+  double*D = mc::dsyev_wrapper( N, H );
+  delete[] H;
+  if( !D ) throw typename Specbnd<T>::Exceptions( Specbnd<T>::Exceptions::SPECTR );
+  std::pair<double,double> spbnd = std::make_pair( min(N,D), max(N,D) );
+  delete[] D;
+  return spbnd;
+}
+
+template <typename T> inline std::pair<double,double>
+Specbnd<T>::spectrum
+( const unsigned N, const double*D2F )
+{
+  if( !N || !D2F ) throw typename Specbnd<T>::Exceptions( Specbnd<T>::Exceptions::SPECTR );
+  double*H = new double[N*N];
+
+  for( unsigned int j=0; j<N; j++ )
+    for( unsigned int i=j; i<N; i++ )
+      H[j*N+i] = H[i*N+j] = ( i==j? D2F[i*(N+1)]:0.5*(D2F[j*N+i]+D2F[i*N+j]) );
 #ifdef MC__SPECBND_DEBUG_SPECTRUM
   mc::display( N, N, H, N, "\nMatrix H", std::cout );
 #endif
@@ -877,10 +866,11 @@ template <class T> inline std::ostream&
 operator<<
 ( std::ostream &out, const Specbnd<T> &y )
 {
-  out << "  " << y._spec << std::endl
-      << "  " << y._FI.val() << std::endl;
-  for( unsigned int i=0; i<y._n; i++ )
-    out << "  ( " << y._FI.deriv(i) << " )" << std::endl;
+  out << y._spec;
+  //out << "  " << y._spec << std::endl
+  //    << "  " << y._FI.val() << std::endl;
+  //for( unsigned int i=0; i<y._n; i++ )
+  //  out << "  ( " << y._FI.deriv(i) << " )" << std::endl;
   return out;
 }
 
@@ -1096,7 +1086,7 @@ sqr
   Specbnd<T> z;
   z._n = y._n;
   z._FI = fadbad::sqr( y._FI );
-  z._spec = 2.*( y._FI.val() * y._spec + Specbnd<T>::_LambdaS( y._FI, z._n ) );
+  z._spec = ( y._FI.val() * y._spec + Specbnd<T>::_LambdaS( y._FI, z._n ) ) * 2.;
   return z;
 }
 
@@ -1112,7 +1102,7 @@ pow
   Specbnd<T> z;
   z._n = y._n;
   z._FI = fadbad::pow( y._FI, m );
-  z._spec = (double)m * Op<T>::pow( y._FI.val(), m-2 ) * ( y._FI.val() * y._spec + (m-1) * Specbnd<T>::_LambdaS( y._FI, z._n ) );
+  z._spec = Op<T>::pow( y._FI.val(), m-2 ) * ( y._FI.val() * y._spec + Specbnd<T>::_LambdaS( y._FI, z._n ) * (m-1.) ) * (double)m;
   return z;
 }
 
@@ -1123,7 +1113,7 @@ inv
   Specbnd<T> z;
   z._n = y._n;
   z._FI = 1./y._FI;
-  z._spec = Op<T>::sqr( z._FI.val() ) * ( 2. * z._FI.val() * Specbnd<T>::_LambdaS( y._FI, z._n ) - y._spec );
+  z._spec = Op<T>::sqr( z._FI.val() ) * ( z._FI.val() * Specbnd<T>::_LambdaS( y._FI, z._n ) * 2. - y._spec );
   return z;
 }
 
@@ -1169,7 +1159,7 @@ sqrt
   Specbnd<T> z;
   z._n = y._n;
   z._FI = fadbad::sqrt( y._FI );
-  z._spec = 1./(2.*Op<T>::sqr( z._FI.val() )) * ( y._spec - Specbnd<T>::_LambdaS( y._FI, z._n ) / (2. * y._FI.val()) );
+  z._spec = ( y._spec - Specbnd<T>::_LambdaS( y._FI, z._n ) / (y._FI.val() * 2.) ) / (Op<T>::sqr( z._FI.val() ) * 2.);
   return z;
 }
 
@@ -1191,7 +1181,7 @@ log
   Specbnd<T> z;
   z._n = y._n;
   z._FI = fadbad::log( y._FI );
-  z._spec = 1./y._FI.val() * ( y._spec - Specbnd<T>::_LambdaS( y._FI, z._n ) / y._FI.val() );
+  z._spec = ( y._spec - Specbnd<T>::_LambdaS( y._FI, z._n ) / y._FI.val() ) / y._FI.val();
   return z;
 }
 
@@ -1202,7 +1192,7 @@ xlog
   Specbnd<T> z;
   z._n = y._n;
   z._FI = y._FI*fadbad::log( y._FI );
-  z._spec = (Op<T>::log(y._FI.val())+1.)*y._spec + Specbnd<T>::_LambdaS( y._FI, z._n ) / y._FI.val();
+  z._spec = ( Op<T>::log(y._FI.val()) + 1. ) * y._spec + Specbnd<T>::_LambdaS( y._FI, z._n ) / y._FI.val();
   return z;
 }
 
@@ -1275,8 +1265,7 @@ cos
   Specbnd<T> z;
   z._n = y._n;
   z._FI = fadbad::cos( y._FI );
-  z._spec = -Op<T>::sin( y._FI.val() ) * y._spec - z._FI.val()*Specbnd<T>::_LambdaS( y._FI, z._n );
-  //z._spec = - z._FI.val() * ( y._spec + Specbnd<T>::_LambdaS( y._FI, z._n ) );
+  z._spec = - Op<T>::sin( y._FI.val() ) * y._spec - z._FI.val() * Specbnd<T>::_LambdaS( y._FI, z._n );
   return z;
 }
 
@@ -1287,8 +1276,7 @@ sin
   Specbnd<T> z;
   z._n = y._n;
   z._FI = fadbad::sin( y._FI );
-  z._spec = Op<T>::cos( y._FI.val() ) * y._spec - z._FI.val()*Specbnd<T>::_LambdaS( y._FI, z._n );
-  //z._spec = z._FI.val() * ( y._spec - Specbnd<T>::_LambdaS( y._FI, z._n ) );
+  z._spec = Op<T>::cos( y._FI.val() ) * y._spec - z._FI.val() * Specbnd<T>::_LambdaS( y._FI, z._n );
   return z;
 }
 
@@ -1299,7 +1287,7 @@ tan
   Specbnd<T> z;
   z._n = y._n;
   z._FI = fadbad::tan( y._FI );
-  z._spec = ( Op<T>::sqr(z._FI.val()) + 1. ) * ( y._spec + 2. * z._FI.val() * Specbnd<T>::_LambdaS( y._FI, z._n ) );
+  z._spec = ( Op<T>::sqr(z._FI.val()) + 1. ) * ( y._spec + z._FI.val() * Specbnd<T>::_LambdaS( y._FI, z._n ) * 2. );
   return z;
 }
 
@@ -1310,7 +1298,8 @@ acos
   Specbnd<T> z;
   z._n = y._n;
   z._FI = fadbad::acos( y._FI );
-  z._spec = - 1./Op<T>::sqrt(1.-Op<T>::sqr(y._FI.val())) * ( y._spec + y._FI.val()/(1.-Op<T>::sqr(y._FI.val()))*Specbnd<T>::_LambdaS( y._FI, z._n ) );
+  z._spec = - ( y._spec + y._FI.val() / ( 1. - Op<T>::sqr(y._FI.val()) ) * Specbnd<T>::_LambdaS( y._FI, z._n ) )
+            / Op<T>::sqrt( 1. - Op<T>::sqr( y._FI.val() ) );
   return z;
 }
 
@@ -1321,7 +1310,8 @@ asin
   Specbnd<T> z;
   z._n = y._n;
   z._FI = fadbad::asin( y._FI );
-  z._spec = 1./Op<T>::sqrt(1.-Op<T>::sqr(y._FI.val())) * ( y._spec + y._FI.val()/(1.-Op<T>::sqr(y._FI.val()))*Specbnd<T>::_LambdaS( y._FI, z._n ) );
+  z._spec = ( y._spec + y._FI.val() / ( 1. - Op<T>::sqr(y._FI.val()) ) * Specbnd<T>::_LambdaS( y._FI, z._n ) )
+            / Op<T>::sqrt( 1. - Op<T>::sqr( y._FI.val() ) );
   return z;
 }
 
@@ -1332,7 +1322,8 @@ atan
   Specbnd<T> z;
   z._n = y._n;
   z._FI = fadbad::atan( y._FI );
-  z._spec = 1./(Op<T>::sqr(y._FI.val())+1.) * ( y._spec - 2.*y._FI.val()/(Op<T>::sqr(y._FI.val())+1.)*Specbnd<T>::_LambdaS( y._FI, z._n ) );
+  z._spec = ( y._spec - y._FI.val() / ( Op<T>::sqr( y._FI.val()) + 1. ) * Specbnd<T>::_LambdaS( y._FI, z._n ) * 2. )
+            / ( Op<T>::sqr(y._FI.val()) + 1. );
   return z;
 }
 
@@ -1343,7 +1334,7 @@ cosh
   Specbnd<T> z;
   z._n = y._n;
   z._FI = fadbad::cosh( y._FI );
-  z._spec = Op<T>::sinh( y._FI.val() ) * y._spec + z._FI.val()*Specbnd<T>::_LambdaS( y._FI, z._n );
+  z._spec = Op<T>::sinh( y._FI.val() ) * y._spec + z._FI.val() * Specbnd<T>::_LambdaS( y._FI, z._n );
   return z;
 }
 
@@ -1354,7 +1345,7 @@ sinh
   Specbnd<T> z;
   z._n = y._n;
   z._FI = fadbad::sinh( y._FI );
-  z._spec = Op<T>::cosh( y._FI.val() ) * y._spec + z._FI.val()*Specbnd<T>::_LambdaS( y._FI, z._n );
+  z._spec = Op<T>::cosh( y._FI.val() ) * y._spec + z._FI.val() * Specbnd<T>::_LambdaS( y._FI, z._n );
   return z;
 }
 
@@ -1365,7 +1356,7 @@ tanh
   Specbnd<T> z;
   z._n = y._n;
   z._FI = fadbad::tanh( y._FI );
-  z._spec = ( 1. - Op<T>::sqr(z._FI.val()) ) * ( y._spec - 2.*z._FI.val()*Specbnd<T>::_LambdaS( y._FI, z._n ) );
+  z._spec = ( 1. - Op<T>::sqr( z._FI.val() ) ) * ( y._spec - z._FI.val() * Specbnd<T>::_LambdaS( y._FI, z._n ) * 2. );
   return z;
 }
 
@@ -1397,9 +1388,8 @@ erfc
 
 } // namespace mc
 
-//#include "mcfadbad.hpp"
-
-namespace fadbad{
+namespace fadbad
+{
 
 //! @brief Specialization of the structure fadbad::Op for use of the type mc::Specbnd of MC++ as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
 template< typename T > struct Op< mc::Specbnd<T> >
@@ -1455,8 +1445,8 @@ template< typename T > struct Op< mc::Specbnd<T> >
   static SB point( const double c ) { return SB(c); }
   static SB zeroone() { return SB( mc::Op<T>::zeroone() ); }
   static void I(SB& x, const SB&y) { x = y; }
-  static double l(const SB& x) { return Op<T>::l(x.I()); }
-  static double u(const SB& x) { return Op<T>::u(x.I()); }
+  static double l(const SB& x) { return mc::Op<T>::l(x.I()); }
+  static double u(const SB& x) { return mc::Op<T>::u(x.I()); }
   static double abs (const SB& x) { return mc::Op<T>::abs(x.I());  }
   static double mid (const SB& x) { return mc::Op<T>::mid(x.I());  }
   static double diam(const SB& x) { return mc::Op<T>::diam(x.I()); }
@@ -1468,7 +1458,7 @@ template< typename T > struct Op< mc::Specbnd<T> >
   static SB xlog(const SB& x) { return x*mc::log(x); }
   static SB lmtd(const SB& x, const SB& y) { return (x-y)/(mc::log(x)-mc::log(y)); }
   static SB rlmtd(const SB& x, const SB& y) { return (mc::log(x)-mc::log(y))/(x-y); }
-  static SB fabs(const SB& x) { return mc::fabs(x); }
+  static SB fabs(const SB& x) { throw typename mc::Specbnd<T>::Exceptions( Specbnd<T>::Exceptions::UNDEF ); }
   static SB sin (const SB& x) { return mc::sin(x);  }
   static SB cos (const SB& x) { return mc::cos(x);  }
   static SB tan (const SB& x) { return mc::tan(x);  }

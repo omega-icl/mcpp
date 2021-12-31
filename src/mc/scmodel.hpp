@@ -4045,12 +4045,12 @@ template< typename T > struct Op< mc::SCVar<T> >
   static CV inv (const CV& x) { return mc::inv(x);  }
   static CV sqr (const CV& x) { return mc::sqr(x);  }
   static CV sqrt(const CV& x) { return mc::sqrt(x); }
+  static CV exp (const CV& x) { return mc::exp(x);  }
   static CV log (const CV& x) { return mc::log(x);  }
   static CV xlog(const CV& x) { return x*mc::log(x); }
   static CV lmtd(const CV& x, const CV& y) { return (x-y)/(mc::log(x)-mc::log(y)); }
   static CV rlmtd(const CV& x, const CV& y) { return (mc::log(x)-mc::log(y))/(x-y); }
   static CV fabs(const CV& x) { return mc::fabs(x); }
-  static CV exp (const CV& x) { return mc::exp(x);  }
   static CV sin (const CV& x) { return mc::sin(x);  }
   static CV cos (const CV& x) { return mc::cos(x);  }
   static CV tan (const CV& x) { return mc::tan(x);  }

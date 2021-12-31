@@ -225,12 +225,13 @@ int main()
 #endif
 #endif
 
+#ifdef SAVE_RESULTS
     // Repeated calculations at grid points
-    for( int iX=0; iX<NX; iX++ ){ 
+    for( int iX=0; iX<NX; iX++ ){
      for( int iY=0; iY<NY; iY++ ){
        double DX = XL+iX*(XU-XL)/(NX-1.);
        double DY = YL+iY*(YU-YL)/(NY-1.);
- #ifdef USE_DAG
+#ifdef USE_DAG
        double DF;
        DAG.eval( GF, 1, &F, &DF, 1, &X, &DX, 1, &Y, &DY );
 #else
@@ -248,14 +249,12 @@ int main()
 #else
        MC MCF = myfunc( MCX, MCY );
 #endif
-#ifdef SAVE_RESULTS
        allsub << setw(14) << DX << setw(14) << DY << setw(14) << DF
               << setw(14) << MCF.l() << setw(14) <<  MCF.u()
               << setw(14) << MCF.cv() << setw(14) << MCF.cc()
               << setw(14) << MCF.cvsub(0) << setw(14) << MCF.ccsub(0)
               << setw(14) << MCF.cvsub(1) << setw(14) << MCF.ccsub(1)
               << endl;
-#endif
 
        // Calculate relaxations + propagate directional subgradient
        const double dir[2] = { 1, -1 };
@@ -266,19 +265,16 @@ int main()
 #else
        MCF = myfunc( MCX, MCY );
 #endif
-#ifdef SAVE_RESULTS
        dirsub << setw(14) << DX << setw(14) << DY << setw(14) << DF
               << setw(14) << MCF.l() << setw(14) <<  MCF.u()
               << setw(14) << MCF.cv() << setw(14) << MCF.cc()
               << setw(14) << MCF.cvsub(0) << setw(14) << MCF.ccsub(0)
               << endl;
-#endif
       }
-#ifdef SAVE_RESULTS
       allsub << endl;
       dirsub << endl;
-#endif
     }
+#endif
   }
   
 #if !defined(MC__USE_PROFIL) && !defined(MC__USE_FILIB) && !defined(MC__USE_BOOST)

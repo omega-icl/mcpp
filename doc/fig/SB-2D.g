@@ -11,21 +11,27 @@ splot 'SB-2D.out' u 1:2:3 tit 'lambda min' w l lt 1 lc 1, \
   '' u 1:2:5 tit 'spectral bounds' w l lt 1 lc 3, \
   '' u 1:2:6 tit '' w l lt 1 lc 3
 
-set terminal pngcairo size 350,262 enhanced font 'Verdana,7'
+pause -1 "<ENTER> TO CONTINUE"
+
+set terminal pngcairo size 490,367 enhanced font 'Verdana,9'
 set out "SB-2D_spectral.png"
 rep
-set term wxt
+set term qt
+
+set isosample 40,40
+#set palette cubehelix
+#set pm3d interpolate 2,2
+#unset colorbox
+#unset key
+
+set view 66, 241
+
+splot 1.+x-sin(2.*x+3.*y)-cos(3.*x-5.*y) tit 'function' w l lt 1 lc 7
 
 pause -1 "<ENTER> TO CONTINUE"
 
-
-splot 'SB-2D.out' u 1:2:7 tit 'function' w l lt 1 lc 1, \
-  '' u 1:2:8 tit 'function bounds' w l lt 1 lc 3, \
-  '' u 1:2:9 tit '' w l lt 1 lc 3
-
-set terminal pngcairo size 350,262 enhanced font 'Verdana,7'
+set terminal pngcairo size 490,367 enhanced font 'Verdana,9'
 set out "SB-2D_function.png"
 rep
-set term wxt
+set term qt
 
-pause -1 "<ENTER> TO CONTINUE"

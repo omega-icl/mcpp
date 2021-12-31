@@ -1,4 +1,4 @@
-// Copyright (C) 2009-2017 Benoit Chachuat, Imperial College London.
+// Copyright (C) 2021 Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
@@ -13,7 +13,7 @@
 namespace fadbad
 {
 
-//! @brief Specialization of the structure fadbad::Op for use of the type filib::interval<double> of <A href="http://www.math.uni-wuppertal.de/~xsc/software/filib.html">FILIB++</A> as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
+//! @brief Specialization of the structure fadbad::Op for use of the type filib::interval<double> of <A href="http://www2.math.uni-wuppertal.de/wrswt/software/filib.html">FILIB++</A> as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
 template <> struct Op< filib::interval<double> >
 {
   typedef double Base;
@@ -54,7 +54,7 @@ template <> struct Op< filib::interval<double> >
 
 };
 
-//! @brief Specialization of the structure fadbad::Op for use of the type filib::interval<double,filib::native_switched,filib::i_mode_extended> of <A href="http://www.math.uni-wuppertal.de/~xsc/software/filib.html">FILIB++</A> as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
+//! @brief Specialization of the structure fadbad::Op for use of the type filib::interval<double,filib::native_switched,filib::i_mode_extended> of <A href="http://www2.math.uni-wuppertal.de/wrswt/software/filib.html">FILIB++</A> as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
 template <> struct Op< filib::interval<double,filib::native_switched,filib::i_mode_extended> >
 {
   typedef double Base;
@@ -101,7 +101,7 @@ template <> struct Op< filib::interval<double,filib::native_switched,filib::i_mo
 namespace mc
 {
 
-//! @brief Specialization of the structure mc::Op for use of the type filib::interval<double> of <A href="http://www.math.uni-wuppertal.de/~xsc/software/filib.html">FILIB++</A> as a template parameter in other MC++ types
+//! @brief Specialization of the structure mc::Op for use of the type filib::interval<double> of <A href="http://www2.math.uni-wuppertal.de/wrswt/software/filib.html">FILIB++</A> as a template parameter in other MC++ types
 template <> struct Op< filib::interval<double> >
 {
   typedef filib::interval<double> T;
@@ -154,7 +154,7 @@ template <> struct Op< filib::interval<double> >
   static bool ge(const T& x, const T& y) { return x.sge(y); }
 };
 
-//! @brief Specialization of the structure mc::Op for use of the type filib::interval<double,filib::native_switched,filib::i_mode_extended> of <A href="http://www.math.uni-wuppertal.de/~xsc/software/filib.html">FILIB++</A> as a template parameter in other MC++ types
+//! @brief Specialization of the structure mc::Op for use of the type filib::interval<double,filib::native_switched,filib::i_mode_extended> of <A href="http://www2.math.uni-wuppertal.de/wrswt/software/filib.html">FILIB++</A> as a template parameter in other MC++ types
 template <> struct Op< filib::interval<double,filib::native_switched,filib::i_mode_extended> >
 {
   typedef filib::interval<double,filib::native_switched,filib::i_mode_extended> T;

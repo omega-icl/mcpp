@@ -271,6 +271,7 @@ int main()
          << "BOUNDS: " << IF << endl;
 
     // Repeated calculations at grid points
+#ifdef SAVE_RESULTS
     for( int iX=0; iX<NX; iX++ ){ 
       double DX = XL+iX*(XU-XL)/(NX-1.);
 #ifdef USE_DAG
@@ -279,14 +280,13 @@ int main()
 #else
       double DF = myfunc( DX );
 #endif
-#ifdef SAVE_RESULTS
       res << setw(14) << DX
           << setw(14) << DF
           << setw(14) << Op<I>::l(IF)
           << setw(14) << Op<I>::u(IF)
           << endl;
-#endif
     }
+#endif
   }
   
 #if !defined(MC__USE_PROFIL) && !defined(MC__USE_FILIB) && !defined(MC__USE_BOOST)

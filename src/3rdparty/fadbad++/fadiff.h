@@ -438,7 +438,7 @@ INLINE2 FTypeName<T,N> operator- (const FTypeName<T,N>& a, const FTypeName<T,N>&
 template <typename T, class U, unsigned int N>
 INLINE2 FTypeName<T,N> mul1(const U& a, const FTypeName<T,N>& b)
 {
-	FTypeName<T,N> c(a*b.val());
+	FTypeName<T,N> c(b.val()*a);
 	if (!b.depend()) return c;
 	c.setDepend(b);
 	for(unsigned int i=0;i<N;++i) c[i]=b[i]*a;
@@ -447,7 +447,7 @@ INLINE2 FTypeName<T,N> mul1(const U& a, const FTypeName<T,N>& b)
 template <typename T, class U>
 INLINE2 FTypeName<T,0> mul1(const U& a, const FTypeName<T,0>& b)
 {
-	FTypeName<T,0> c(a*b.val());
+	FTypeName<T,0> c(b.val()*a);
 	if (!b.depend()) return c;
 	c.setDepend(b);
 	for(unsigned int i=0;i<c.size();++i) c[i]=b[i]*a;

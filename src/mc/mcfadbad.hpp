@@ -15,7 +15,7 @@ INLINE2 FTypeName<T,N> pow2(const FTypeName<T,N>& a, const int b)
 {
 	FTypeName<T,N> c(Op<T>::myPow(a.val(),b));
 	if (!a.depend()) return c;
-	T tmp(b*Op<T>::myPow(a.val(),b-1));
+	T tmp(Op<T>::myPow(a.val(),b-1)*Op<T>::myInteger(b));
 	c.setDepend(a);
 	for(unsigned int i=0;i<N;++i) c[i]=tmp*a[i];
 	return c;
@@ -26,7 +26,7 @@ INLINE2 FTypeName<T,0> pow2(const FTypeName<T,0>& a, const int b)
 {
 	FTypeName<T,0> c(Op<T>::myPow(a.val(),b));
 	if (!a.depend()) return c;
-	T tmp(b*Op<T>::myPow(a.val(),b-1));
+	T tmp(Op<T>::myPow(a.val(),b-1)*Op<T>::myInteger(b));
 	c.setDepend(a);
 	for(unsigned int i=0;i<c.size();++i) c[i]=tmp*a[i];
 	return c;

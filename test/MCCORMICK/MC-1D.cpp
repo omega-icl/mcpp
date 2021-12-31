@@ -332,6 +332,7 @@ int main()
     cout << "RELAXATION AT REFERENCE POINT:\n" << MCFREF << endl;
 
     // Repeated calculations at grid points
+#ifdef SAVE_RESULTS
     for( int iX=0; iX<NX; iX++ ){ 
       // Calculate original function
       double DX = XL+iX*(XU-XL)/(NX-1.);
@@ -350,7 +351,6 @@ int main()
 #else
       MC MCF = myfunc( MCX );
 #endif
-#ifdef SAVE_RESULTS
       res << setw(14) << DX           << setw(14) << DF
           << setw(14) << MCF.l()      << setw(14) << MCF.u()
           << setw(14) << MCF.cv()     << setw(14) << MCF.cc()
@@ -358,8 +358,8 @@ int main()
           << setw(14) << MCFREF.cv()+MCFREF.cvsub(0)*(DX-XREF)
           << setw(14) << MCFREF.cc()+MCFREF.ccsub(0)*(DX-XREF)
           << endl;
-#endif
     }
+#endif
   }
 #if !defined(MC__USE_PROFIL) && !defined(MC__USE_FILIB) && !defined(MC__USE_BOOST)
   catch( I::Exceptions &eObj ){

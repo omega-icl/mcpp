@@ -1,60 +1,66 @@
-#define TEST_EXP	// <-- select test function here
-const int NX = 50;	// <-- select X discretization here
-const int NY = 50;	// <-- select Y discretization here
-#define SAVE_RESULTS    // <-- specify whether to save results to file
-#define USE_PROFIL	// <-- specify to use PROFIL for interval arithmetic
-#undef USE_FILIB	// <-- specify to use FILIB++ for interval arithmetic
-#define USE_DAG          // <-- specify to evaluate via a DAG of the function
-
+#define TEST_TRIG      // <-- select test function here
+#define USE_DAG        // <-- specify to evaluate via a DAG of the function
+#undef  USE_BAD        // <-- specify to differentiate via backward AD
+#define SAVE_RESULTS   // <-- specify whether to save results to file
+const int NX = 40;	// <-- select X discretization here
+const int NY = 40;	// <-- select Y discretization here
 ////////////////////////////////////////////////////////////////////////
 
 #include <fstream>
 #include <iomanip>
 
-#ifdef USE_PROFIL
-  #include "mcprofil.hpp"
-  typedef INTERVAL I;
+#ifdef MC__USE_PROFIL
+ #include "mcprofil.hpp"
+ typedef INTERVAL I;
 #else
-  #ifdef USE_FILIB
-    #include "mcfilib.hpp"
-    typedef filib::interval<double> I;
+ #ifdef MC__USE_FILIB
+  #include "mcfilib.hpp"
+  typedef filib::interval<double,filib::native_switched,filib::i_mode_extended> I;
+ #else
+  #ifdef MC__USE_BOOST
+   #include "mcboost.hpp"
+   typedef boost::numeric::interval_lib::save_state<boost::numeric::interval_lib::rounded_transc_opp<double>> T_boost_round;
+   typedef boost::numeric::interval_lib::checking_base<double> T_boost_check;
+   typedef boost::numeric::interval_lib::policies<T_boost_round,T_boost_check> T_boost_policy;
+   typedef boost::numeric::interval<double,T_boost_policy> I;
   #else
-    #include "interval.hpp"
-    typedef mc::Interval I;
+   #include "interval.hpp"
+   typedef mc::Interval I;
   #endif
+ #endif
 #endif
 
 #include "specbnd.hpp"
-typedef mc::Specbnd<I> SB;
+typedef mc::Specbnd<I> SBI;
 
-
-#include "mccormick.hpp"
-typedef mc::McCormick<I> MC;
-typedef mc::Specbnd<MC> SBMC;
-
+#ifdef USE_DAG
+ #include "ffunc.hpp"
+#else
 #include "mcfadbad.hpp"
-typedef fadbad::F<double> FD;
-typedef fadbad::F<FD> FFD;
-typedef fadbad::B<FD> BFD;
-
-typedef fadbad::F<I> FI;
-typedef fadbad::F<FI> FFI;
-typedef fadbad::B<FI> BFI;
-
-typedef fadbad::F<SB> FSB;
+ typedef fadbad::F<double> FD;
+ typedef fadbad::F<I> FI;
+ #ifndef USE_BAD
+  typedef fadbad::F<FD> FFD;
+  typedef fadbad::F<FI> FFI;
+ #else
+  typedef fadbad::B<FD> BFD;
+  typedef fadbad::B<FI> BFI;
+ #endif
+ typedef fadbad::F<SBI> FSBI;
+#endif
 
 using namespace std;
 using namespace mc;
 
 ////////////////////////////////////////////////////////////////////////
 
-#if defined( TEST_MULT )
+#if defined( TEST_POLY )
 const double XL   = -1.;	// <-- X range lower bound
 const double XU   =  2.;	// <-- X range upper bound
-const double Xref =  0.;	// <-- X ref point for McCormick
+const double XREF =  0.;	// <-- X ref point for McCormick
 const double YL   = -2.;	// <-- Y range lower bound
 const double YU   =  1.;	// <-- Y range upper bound
-const double Yref =  0.;	// <-- Y ref point for McCormick
+const double YREF =  0.;	// <-- Y ref point for McCormick
 template <class T>
 T myfunc
 ( const T&x, const T&y )
@@ -65,10 +71,10 @@ T myfunc
 #elif defined( TEST_EXP )
 const double XL   =  1.;	// <-- X range lower bound
 const double XU   =  2.;	// <-- X range upper bound
-const double Xref =  1.5;	// <-- X ref point for McCormick
+const double XREF =  1.5;	// <-- X ref point for McCormick
 const double YL   =  0.;	// <-- Y range lower bound
 const double YU   =  1.;	// <-- Y range upper bound
-const double Yref =  0.5;	// <-- Y ref point for McCormick
+const double YREF =  0.5;	// <-- Y ref point for McCormick
 template <class T>
 T myfunc
 ( const T&x, const T&y )
@@ -79,10 +85,10 @@ T myfunc
 #elif defined( TEST_EXP2 )
 const double XL   = -2.;	// <-- X range lower bound
 const double XU   =  2.;	// <-- X range upper bound
-const double Xref =  0.;	// <-- X ref point for McCormick
+const double XREF =  0.;	// <-- X ref point for McCormick
 const double YL   = -1.;	// <-- Y range lower bound
 const double YU   =  1.;	// <-- Y range upper bound
-const double Yref =  0.;	// <-- Y ref point for McCormick
+const double YREF =  0.;	// <-- Y ref point for McCormick
 template <class T>
 T myfunc
 ( const T&x, const T&y )
@@ -93,10 +99,10 @@ T myfunc
 #elif defined( TEST_INV )
 const double XL   = -2.;	// <-- X range lower bound
 const double XU   =  0.;	// <-- X range upper bound
-const double Xref = -1.;	// <-- X ref point for McCormick
+const double XREF = -1.;	// <-- X ref point for McCormick
 const double YL   =  1.;	// <-- Y range lower bound
 const double YU   =  3.;	// <-- Y range upper bound
-const double Yref =  2.;	// <-- Y ref point for McCormick
+const double YREF =  2.;	// <-- Y ref point for McCormick
 template <class T>
 T myfunc
 ( const T&x, const T&y )
@@ -109,10 +115,10 @@ T myfunc
 #elif defined( TEST_INV2 )
 const double XL   = -2.;	// <-- X range lower bound
 const double XU   =  0.;	// <-- X range upper bound
-const double Xref = -1.;	// <-- X ref point for McCormick
+const double XREF = -1.;	// <-- X ref point for McCormick
 const double YL   = -2.;	// <-- Y range lower bound
 const double YU   =  0.;	// <-- Y range upper bound
-const double Yref = -1.;	// <-- Y ref point for McCormick
+const double YREF = -1.;	// <-- Y ref point for McCormick
 template <class T>
 T myfunc
 ( const T&x, const T&y )
@@ -125,10 +131,10 @@ T myfunc
 #elif defined( TEST_CHEB )
 const double XL   = -1.;	// <-- range lower bound
 const double XU   =  1.;	// <-- range upper bound
-const double Xref =  0.;	// <-- X ref point for McCormick
+const double XREF =  0.;	// <-- X ref point for McCormick
 const double YL   = -1.;	// <-- Y range lower bound
 const double YU   =  1.;	// <-- Y range upper bound
-const double Yref =  0.;	// <-- Y ref point for McCormick
+const double YREF =  0.;	// <-- Y ref point for McCormick
 template <class T>
 T myfunc
 ( const T&x, const T&y )
@@ -139,10 +145,10 @@ T myfunc
 #elif defined( TEST_TRIG )
 const double XL   = -0.5;	// <-- X range lower bound
 const double XU   =  0.5;	// <-- X range upper bound
-const double Xref =  0.;	// <-- X ref point for McCormick
+const double XREF =  0.;	// <-- X ref point for McCormick
 const double YL   = -0.5;	// <-- Y range lower bound
 const double YU   =  0.5;	// <-- Y range upper bound
-const double Yref =  0.;	// <-- Y ref point for McCormick
+const double YREF =  0.;	// <-- Y ref point for McCormick
 template <class T>
 T myfunc
 ( const T&x, const T&y )
@@ -153,10 +159,10 @@ T myfunc
 #elif defined( TEST_TRIG2 )
 const double XL   = -0.5;	// <-- X range lower bound
 const double XU   =  0.5;	// <-- X range upper bound
-const double Xref =  0.;	// <-- X ref point for McCormick
+const double XREF =  0.;	// <-- X ref point for McCormick
 const double YL   = -0.5;	// <-- Y range lower bound
 const double YU   =  0.5;	// <-- Y range upper bound
-const double Yref =  0.;	// <-- Y ref point for McCormick
+const double YREF =  0.;	// <-- Y ref point for McCormick
 template <class T>
 T myfunc
 ( const T&x, const T&y )
@@ -167,10 +173,10 @@ T myfunc
 #elif defined( TEST_TRIG3 )
 const double XL   = -0.5;	// <-- X range lower bound
 const double XU   =  0.5;	// <-- X range upper bound
-const double Xref =  0.;	// <-- X ref point for McCormick
+const double XREF =  0.;	// <-- X ref point for McCormick
 const double YL   = -0.5;	// <-- Y range lower bound
 const double YU   =  0.5;	// <-- Y range upper bound
-const double Yref =  0.;	// <-- Y ref point for McCormick
+const double YREF =  0.;	// <-- Y ref point for McCormick
 template <class T>
 T myfunc
 ( const T&x, const T&y )
@@ -181,10 +187,10 @@ T myfunc
 #elif defined( TEST_NORM )
 const double XL   =  0.5;	// <-- X range lower bound
 const double XU   =  2.;	// <-- X range upper bound
-const double Xref =  1.;	// <-- X ref point for McCormick
+const double XREF =  1.;	// <-- X ref point for McCormick
 const double YL   =  0.5;	// <-- Y range lower bound
 const double YU   =  2.;	// <-- Y range upper bound
-const double Yref =  1.;	// <-- Y ref point for McCormick
+const double YREF =  1.;	// <-- Y ref point for McCormick
 template <class T>
 T myfunc
 ( const T&x, const T&y )
@@ -193,146 +199,24 @@ T myfunc
 }
 #endif
 
-#ifndef USE_DAG
 ////////////////////////////////////////////////////////////////////////
 int main()
 ////////////////////////////////////////////////////////////////////////
 {  
-
-#ifdef SAVE_RESULTS
-  ofstream res;
-  res.open( "SB-2D.out", ios_base::out );
-  res << std::scientific << std::setprecision(5) << std::right;
-#endif
-
-   try{ 
-
-    // Compute spectrum at reference point (forward-forward)
-    FD FXref = Xref; FXref.diff(0,2);
-    FD FYref = Yref; FYref.diff(1,2);
-    FFD FFXref = FXref; FFXref.diff(0,2);
-    FFD FFYref = FYref; FFYref.diff(1,2);
-    FFD FFFref = myfunc( FFXref, FFYref );
-    std::pair<double,double> specF = SB::spectrum( FFFref );
-    std::cout << "\nSpectrum at reference point: " << I(specF.first,specF.second)
-              << std::endl;
-
-    // Compute spectral bounds using eigenvalue arithmetic
-    SB SBX( I(XL,XU), 0, 2 );
-    SB SBY( I(YL,YU), 1, 2 );
-    SB SBF = myfunc( SBX, SBY );
-    std::cout << "\nSpectral bound (eigenvalue arithmetic):\n" << SBF;
-
-    // Compute spectral bounds from interval Hessian matrix (forward-forward)
-    FI FX = I(XL,XU); FX.diff(0,2);
-    FI FY = I(YL,YU); FY.diff(1,2);
-    FFI FFX = FX; FFX.diff(0,2);
-    FFI FFY = FY; FFY.diff(1,2);
-    FFI FFF = myfunc( FFX, FFY );
-
-    SB::options.HESSBND = SB::Options::GERSHGORIN;
-    std::pair<double,double> spbndG = SB::spectral_bound( FFF );
-    std::cout << "\nSpectral bound (Gershgorin, forward-forward): "
-              << I(spbndG.first,spbndG.second) << std::endl;
-
-    SB::options.HESSBND = SB::Options::HERTZROHN;
-    std::pair<double,double> spbndHR = SB::spectral_bound( FFF );
-    std::cout << "\nSpectral bound (Hertz&Rohn, forward-forward): "
-              << I(spbndHR.first,spbndHR.second) << std::endl;
-
-    // Compute spectral bounds of first derivatives using FADBAD++
-    FSB FSBX = SBX;
-    FSBX.diff(0,2);
-    FSB FSBY = SBY;
-    FSBY.diff(1,2);
-    FSB FSBF = myfunc( FSBX, FSBY );
-    std::cout << "\nSpectral bounds of df/dx:\n" << FSBF.d(0) << std::endl;
-    std::cout << "\nSpectral bounds of df/dy:\n" << FSBF.d(1) << std::endl;
-
-#ifdef SAVE_RESULTS
-    // Repeated calculations at grid points (for display)
-    for( int iX=0; iX<NX; iX++ ){ 
-      for( int iY=0; iY<NY; iY++ ){ 
-
-        double XY[2] = { XL+iX*(XU-XL)/(NX-1.), YL+iY*(YU-YL)/(NY-1.) };
-        FD FXY[2] = { XY[0], XY[1] }; FXY[0].diff(0,2); FXY[1].diff(1,2);
-        BFD BFXY[2] = { FXY[0], FXY[1] };
-        BFD BFF = myfunc( BFXY[0], BFXY[1] );
-        BFF.diff(0,1);
-        std::pair<double,double> spec = SB::spectrum( BFXY );
-        SBMC SBMCX( MC(I(XL,XU),XY[0]).sub(2,0), 0, 2 );
-        SBMC SBMCY( MC(I(YL,YU),XY[1]).sub(2,1), 1, 2 );
-        SBMC SBMCF = myfunc( SBMCX, SBMCY );
-
-        res << std::setw(14) << XY[0] << std::setw(14) << XY[1]
-            << std::setw(14) << spec.first << std::setw(14) << spec.second
-            << std::setw(14) << SBMCF.SI().l()  << std::setw(14) << SBMCF.SI().u()
-            << std::setw(14) << SBMCF.SI().cv() << std::setw(14) << SBMCF.SI().cc()
-            << std::setw(14) << BFF.x().x()
-            << std::setw(14) << SBMCF.I().l()  << std::setw(14) << SBMCF.I().u()
-            << std::setw(14) << SBMCF.I().cv() << std::setw(14) << SBMCF.I().cc()
-	    << std::setw(14) << BFF.x().d(0)
-            << std::setw(14) << SBMCF.FI().deriv(0).l()  << std::setw(14) << SBMCF.FI().deriv(0).u()
-            << std::setw(14) << SBMCF.FI().deriv(0).cv() << std::setw(14) << SBMCF.FI().deriv(0).cc()
-	    << std::setw(14) << BFF.x().d(1)
-            << std::setw(14) << SBMCF.FI().deriv(1).l()  << std::setw(14) << SBMCF.FI().deriv(1).u()
-            << std::setw(14) << SBMCF.FI().deriv(1).cv() << std::setw(14) << SBMCF.FI().deriv(1).cc()
-            << std::setw(14) << spbndG.first << std::setw(14) << spbndG.second
-            << std::setw(14) << spbndHR.first << std::setw(14) << spbndHR.second
-            << std::endl;
-      }
-      res << endl;
-    }
-#endif
-  }
-
-#ifndef USE_PROFIL
-#ifndef USE_FILIB
-  catch( I::Exceptions &eObj ){
-    cerr << "Error " << eObj.ierr()
-         << " in natural interval extension:" << endl
-	 << eObj.what() << endl
-         << "Aborts." << endl;
-    return eObj.ierr();
-  }
-#endif
-#endif
-  catch( MC::Exceptions &eObj ){
-    cerr << "Error " << eObj.ierr()
-         << " in McCormick relaxation:" << endl
-	 << eObj.what() << endl
-         << "Aborts." << endl;
-    return eObj.ierr();
-  }
-  catch( SB::Exceptions &eObj ){
-    cerr << "Error " << eObj.ierr()
-         << " in spectral bound computation:" << endl
-	 << eObj.what() << endl
-         << "Aborts." << endl;
-    return eObj.ierr();
-  }
-  catch( SBMC::Exceptions &eObj ){
-    cerr << "Error " << eObj.ierr()
-         << " in spectral bound computation:" << endl
-	 << eObj.what() << endl
-         << "Aborts." << endl;
-    return eObj.ierr();
-  }
-
-#ifdef SAVE_RESULTS
-  res.close();
-#endif
-  return 0;
-}
-
+  cout << "INTERVAL LIBRARY: "; 
+#ifdef MC__USE_PROFIL
+  cout << "PROFIL/BIAS" << endl;
 #else
-
-#include "ffunc.hpp"
-
-////////////////////////////////////////////////////////////////////////
-int main()
-////////////////////////////////////////////////////////////////////////
-{  
+ #ifdef MC__USE_FILIB
+  cout << "FILIB++" << endl;
+ #else
+  #ifdef MC__USE_BOOST
+  cout << "BOOST" << endl;
+  #else
+  cout << "MC++ NON-VERIFIED" << endl;
+  #endif
+ #endif
+#endif
 
 #ifdef SAVE_RESULTS
   ofstream res;
@@ -341,109 +225,166 @@ int main()
 #endif
 
   try{ 
-
-    // Construct DAG representation of the factorable function
+#ifdef USE_DAG
+    // Construct DAG representation of factorable function
     FFGraph DAG;
-    FFVar X[2];
-    X[0].set( &DAG );
-    X[1].set( &DAG );
-    FFVar F = myfunc( X[0], X[1] );
+    FFVar X( &DAG );
+    FFVar Y( &DAG );
+    FFVar F = myfunc( X, Y );
+    auto GF = DAG.subgraph( 1, &F );
 #ifdef SAVE_RESULTS
-    DAG.output( DAG.subgraph( 1, &F ) );
-    ofstream ofdag( "SB-2D.dot", ios_base::out );
+    DAG.output( GF );
+    ofstream ofdag( "SBF-2D.dot", ios_base::out );
     DAG.dot_script( 1, &F, ofdag );
     ofdag.close();
 #endif
+    // Construct DAG representation of Hessian matrix of factorable function
+    FFVar *DF = DAG.FAD( 1, &F, 1, &X, 1, &Y );
+#ifndef USE_BAD
+    FFVar *D2F= DAG.FAD( 2, DF, 1, &X, 1, &Y );
+#else
+    FFVar *D2F= DAG.BAD( 2, DF, 1, &X, 1, &Y );
+#endif
+    auto GD2F = DAG.subgraph( 2*2, D2F );
+#ifdef SAVE_RESULTS
+    DAG.output( GD2F );
+    ofstream od2fdag( "SBD2F-2D.dot", ios_base::out );
+    DAG.dot_script( 2*2, D2F, od2fdag );
+    ofdag.close();
+#endif
+#endif
 
-    // Compute spectrum at reference point (forward-forward)
-    FD FXref[2];
-    FXref[0] = Xref; FXref[0].diff(0,2);
-    FXref[1] = Yref; FXref[1].diff(1,2);
-    FFD FFXref[2];
-    FFXref[0] = FXref[0]; FFXref[0].diff(0,2);
-    FFXref[1] = FXref[1]; FFXref[1].diff(1,2);
-    FFD FFFref;
-    DAG.eval( 1, &F, &FFFref, 2, X, FFXref );
-    std::pair<double,double> specF = SB::spectrum( FFFref );
-    std::cout << "\nSpectrum at reference point: " << I(specF.first,specF.second)
-              << std::endl;
+    // Compute spectrum at reference point
+#ifdef USE_DAG
+    double DD2F[2*2];
+    DAG.eval( 2*2, D2F, DD2F, 1, &X, &XREF, 1, &Y, &YREF );
+    pair<double,double> specF = SBI::spectrum( 2, DD2F );
+#else
+    FD FXREF = XREF; FXREF.diff(0,2);
+    FD FYREF = YREF; FYREF.diff(1,2);
+#ifndef USE_BAD
+    FFD FFXREF = FXREF; FFXREF.diff(0,2);
+    FFD FFYREF = FYREF; FFYREF.diff(1,2);
+    FFD FFFREF = myfunc( FFXREF, FFYREF );
+    pair<double,double> specF = SBI::spectrum( FFFREF );
+#else
+    BFD BFXYREF[2] = { FXREF, FYREF };
+    BFD BFFREF = myfunc( BFXYREF[0], BFXYREF[1] );
+    BFFREF.diff(0,1);
+    pair<double,double> specF = SBI::spectrum( BFXYREF );  
+#endif
+#endif
+    cout << "\nSPECTRUM @REFERENCE POINT: " << I( specF.first, specF.second ) << endl;
 
-    // Compute spectral bounds using eigenvalue arithmetic
-    SB SBX[2];
-    SBX[0].set( I(XL,XU), 0, 2 );
-    SBX[1].set( I(YL,YU), 1, 2 );
-    SB SBF;
-    DAG.eval( 1, &F, &SBF, 2, X, SBX );
-    std::cout << "\nSpectral bound (eigenvalue arithmetic):\n" << SBF;
+    // Compute spectral interval inclusion using eigenvalue arithmetic
+    I IX( XL, XU );
+    I IY( YL, YU );
+    SBI SBX( IX, 0, 2 );
+    SBI SBY( IY, 1, 2 );
+#ifdef USE_DAG
+    SBI SBF;
+    DAG.eval( 1, &F, &SBF, 1, &X, &SBX, 1, &Y, &SBY );
+#else
+    SBI SBF = myfunc( SBX, SBY );
+#endif
+    cout << "\nSPECTRAL BOUND (EIGENVALUE ARITHMETIC): " << SBF << endl;
 
     // Compute spectral bounds from interval Hessian matrix (forward-forward)
-    FI FX[2];
-    FX[0] = I(XL,XU); FX[0].diff(0,2);
-    FX[1] = I(YL,YU); FX[1].diff(1,2);
-    FFI FFX[2];
-    FFX[0] = FX[0]; FFX[0].diff(0,2);
-    FFX[1] = FX[1]; FFX[1].diff(1,2);
-    FFI FFF;
-    DAG.eval( 1, &F, &FFF, 2, X, FFX );
+#ifdef USE_DAG
+    I ID2F[2*2];
+    DAG.eval( 2*2, D2F, ID2F, 1, &X, &IX, 1, &Y, &IY );
 
-    SB::options.HESSBND = SB::Options::GERSHGORIN;
-    std::pair<double,double> spbndG = SB::spectral_bound( FFF );
-    std::cout << "\nSpectral bound (Gershgorin, forward-forward): "
-              << I(spbndG.first,spbndG.second) << std::endl;
+    SBI::options.HESSBND = SBI::Options::GERSHGORIN;
+    pair<double,double> spbndG = SBI::spectral_bound( 2, ID2F );
 
-    SB::options.HESSBND = SB::Options::HERTZROHN;
-    std::pair<double,double> spbndHR = SB::spectral_bound( FFF );
-    std::cout << "\nSpectral bound (Hertz&Rohn, forward-forward): "
-              << I(spbndHR.first,spbndHR.second) << std::endl;
+    SBI::options.HESSBND = SBI::Options::HERTZROHN;
+    pair<double,double> spbndHR = SBI::spectral_bound( 2, ID2F );
+#else
+    FI FX = IX; FX.diff(0,2);
+    FI FY = IY; FY.diff(1,2);
+#ifndef USE_BAD
+    FFI FFX = FX; FFX.diff(0,2);
+    FFI FFY = FY; FFY.diff(1,2);
+    FFI FFF = myfunc( FFX, FFY );
+
+    SBI::options.HESSBND = SBI::Options::GERSHGORIN;
+    std::pair<double,double> spbndG = SBI::spectral_bound( FFF );
+
+    SBI::options.HESSBND = SBI::Options::HERTZROHN;
+    std::pair<double,double> spbndHR = SBI::spectral_bound( FFF );
+#else
+    BFI BFXY[2] = { FX, FY };
+    BFI BFF = myfunc( BFXY[0], BFXY[1] );
+    BFF.diff(0,1);
+
+    SBI::options.HESSBND = SBI::Options::GERSHGORIN;
+    std::pair<double,double> spbndG = SBI::spectral_bound( BFXY );
+
+    SBI::options.HESSBND = SBI::Options::HERTZROHN;
+    std::pair<double,double> spbndHR = SBI::spectral_bound( BFXY );
+#endif
+#endif
+    cout << "\nSPECTRAL BOUND (GERSHGORIN): " << I( spbndG.first, spbndG.second) << endl
+         << "\nSPECTRAL BOUND (HERTZ&ROHN): " << I( spbndHR.first, spbndHR.second) << endl;
 
     // Compute spectral bounds of first derivatives using FADBAD++
-    FSB FSBX[2];
-    FSBX[0] = SBX[0]; FSBX[0].diff(0,2);
-    FSBX[1] = SBX[1]; FSBX[1].diff(1,2);
-    FSB FSBF;
-    DAG.eval( 1, &F, &FSBF, 2, X, FSBX );
-    std::cout << "\nSpectral bounds of df/dx:\n" << FSBF.d(0) << std::endl;
-    std::cout << "\nSpectral bounds of df/dy:\n" << FSBF.d(1) << std::endl;
+#ifdef USE_DAG
+    SBI SBDF[2];
+    DAG.eval( 2, DF, SBDF, 1, &X, &SBX, 1, &Y, &SBY );
+    cout << "\nSPECTRAL BOUND OF DF/DX (EIGENVALUE ARITHMETIC): " << SBDF[0] << endl
+         << "\nSPECTRAL BOUND OF DF/DY (EIGENVALUE ARITHMETIC): " << SBDF[1] << endl;
+#else
+    FSBI FSBX = SBX;
+    FSBX.diff(0,2);
+    FSBI FSBY = SBY;
+    FSBY.diff(1,2);
+    FSBI FSBF = myfunc( FSBX, FSBY );
+    cout << "\nSPECTRAL BOUND OF DF/DX (EIGENVALUE ARITHMETIC): " << FSBF.d(0) << endl
+         << "\nSPECTRAL BOUND OF DF/DY (EIGENVALUE ARITHMETIC): " << FSBF.d(1) << endl;
+#endif
 
+    // Repeated calculations at grid points
 #ifdef SAVE_RESULTS
-    // Repeated calculations at grid points (for display)
-    for( int iX=0; iX<NX; iX++ ){ 
-      for( int iY=0; iY<NY; iY++ ){ 
-
-        double XY[2] = { XL+iX*(XU-XL)/(NX-1.), YL+iY*(YU-YL)/(NY-1.) };
-        FD FXY[2] = { XY[0], XY[1] }; FXY[0].diff(0,2); FXY[1].diff(1,2);
-        BFD BFXY[2] = { FXY[0], FXY[1] };
-        BFD BFF = myfunc( BFXY[0], BFXY[1] );
-        BFF.diff(0,1);
-        std::pair<double,double> spec = SB::spectrum( BFXY );
-        SBMC SBMCX( MC(I(XL,XU),XY[0]).sub(2,0), 0, 2 );
-        SBMC SBMCY( MC(I(YL,YU),XY[1]).sub(2,1), 1, 2 );
-        SBMC SBMCF = myfunc( SBMCX, SBMCY );
-
-        res << std::setw(14) << XY[0] << std::setw(14) << XY[1]
-            << std::setw(14) << spec.first << std::setw(14) << spec.second
-            << std::setw(14) << SBMCF.SI().l()  << std::setw(14) << SBMCF.SI().u()
-            << std::setw(14) << SBMCF.SI().cv() << std::setw(14) << SBMCF.SI().cc()
-            << std::setw(14) << BFF.x().x()
-            << std::setw(14) << SBMCF.I().l()  << std::setw(14) << SBMCF.I().u()
-            << std::setw(14) << SBMCF.I().cv() << std::setw(14) << SBMCF.I().cc()
-	    << std::setw(14) << BFF.x().d(0)
-            << std::setw(14) << SBMCF.FI().deriv(0).l()  << std::setw(14) << SBMCF.FI().deriv(0).u()
-            << std::setw(14) << SBMCF.FI().deriv(0).cv() << std::setw(14) << SBMCF.FI().deriv(0).cc()
-	    << std::setw(14) << BFF.x().d(1)
-            << std::setw(14) << SBMCF.FI().deriv(1).l()  << std::setw(14) << SBMCF.FI().deriv(1).u()
-            << std::setw(14) << SBMCF.FI().deriv(1).cv() << std::setw(14) << SBMCF.FI().deriv(1).cc()
-            << std::setw(14) << spbndG.first << std::setw(14) << spbndG.second
-            << std::setw(14) << spbndHR.first << std::setw(14) << spbndHR.second
-            << std::endl;
+    for( int iX=0; iX<NX; iX++ ){
+     for( int iY=0; iY<NY; iY++ ){
+       double DX = XL+iX*(XU-XL)/(NX-1.);
+       double DY = YL+iY*(YU-YL)/(NY-1.);
+#ifdef USE_DAG
+       DAG.eval( 2*2, D2F, DD2F, 1, &X, &DX, 1, &Y, &DY );
+       specF = SBI::spectrum( 2, DD2F );
+#else
+       FD FX = DX; FX.diff(0,2);
+       FD FY = DY; FY.diff(1,2);
+#ifndef USE_BAD
+       FFD FFX = FX; FFX.diff(0,2);
+       FFD FFY = FY; FFY.diff(1,2);
+       FFD FFF = myfunc( FFX, FFY );
+       specF = SBI::spectrum( FFF );
+#else
+       BFD BFXY[2] = { FX, FY };
+       BFD BFF = myfunc( BFXY[0], BFXY[1] );
+       BFF.diff(0,1);
+       specF = SBI::spectrum( BFXYREF );  
+#endif
+#endif
+       res << std::setw(14) << DX << std::setw(14) << DY
+           << std::setw(14) << specF.first << std::setw(14) << specF.second
+           << std::setw(14) << Op<I>::l(SBF.SI()) << std::setw(14) << Op<I>::u(SBF.SI())
+           << std::setw(14) << spbndG.first << std::setw(14) << spbndG.second
+           << std::setw(14) << spbndHR.first << std::setw(14) << spbndHR.second
+           << std::endl;
       }
       res << endl;
     }
 #endif
+
+#ifdef USE_DAG
+    delete[] DF;
+    delete[] D2F;
+#endif
   }
 
-#ifndef USE_PROFIL
-#ifndef USE_FILIB
+#if !defined(MC__USE_PROFIL) && !defined(MC__USE_FILIB) && !defined(MC__USE_BOOST)
   catch( I::Exceptions &eObj ){
     cerr << "Error " << eObj.ierr()
          << " in natural interval extension:" << endl
@@ -452,22 +393,7 @@ int main()
     return eObj.ierr();
   }
 #endif
-#endif
-  catch( MC::Exceptions &eObj ){
-    cerr << "Error " << eObj.ierr()
-         << " in McCormick relaxation:" << endl
-	 << eObj.what() << endl
-         << "Aborts." << endl;
-    return eObj.ierr();
-  }
-  catch( SB::Exceptions &eObj ){
-    cerr << "Error " << eObj.ierr()
-         << " in spectral bound computation:" << endl
-	 << eObj.what() << endl
-         << "Aborts." << endl;
-    return eObj.ierr();
-  }
-  catch( SBMC::Exceptions &eObj ){
+  catch( SBI::Exceptions &eObj ){
     cerr << "Error " << eObj.ierr()
          << " in spectral bound computation:" << endl
 	 << eObj.what() << endl
@@ -480,5 +406,3 @@ int main()
 #endif
   return 0;
 }
-
-#endif
