@@ -1,70 +1,60 @@
-// Copyright (C) 2021 Benoit Chachuat, Imperial College London.
+// Copyright (C) 2022 Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
-#ifndef MC__SPOLYMON_H
-#define MC__SPOLYMON_H
+#ifndef MC__SMON_H
+#define MC__SMON_H
 
 #include <iostream>
 #include <iomanip>
-//#include <typeinfo>
 #include <sstream>
 #include <string>
-//#include <vector>
-//#include <set>
 #include <map>
-//#include <stdarg.h>
 #include <cassert>
-//#include <climits>
-//#include <limits>
-//#include <stdlib.h>
-//#include <complex>
-//#include <numeric>
-
-//#include "mcfunc.hpp"
-//#include "mclapack.hpp"
-//#include "mcop.hpp"
+#include <functional>
+#include <numeric>
 
 namespace mc
 {
 
 //! @brief C++ class for sparse monomial storage and manipulation
 ////////////////////////////////////////////////////////////////////////
-//! mc::SPolyMon is a C++ class for sparse monomial storage and
+//! mc::SMon is a C++ class for sparse monomial storage and
 //! manipulation.
 ////////////////////////////////////////////////////////////////////////
-struct SPolyMon
+template <typename KEY=unsigned, typename COMP=std::less<unsigned>>
+struct SMon
 ////////////////////////////////////////////////////////////////////////
 {
   //! @brief Monomial total order
   unsigned tord;
 
   //! @brief Monomial variables and partial orders 
-  std::map< unsigned, unsigned > expr;
+  std::map<KEY,unsigned,COMP> expr;
 
   //! @brief Constructor of constant monomial
-  SPolyMon
+  SMon
     ()
     : tord( 0 )
     {}
 
   //! @brief Constructor of monomial for variable with index <a>i</a>
-  SPolyMon
-    ( unsigned const ivar, const unsigned iord=1 )
-    : tord( iord )
-    { if( tord ) expr.insert( std::make_pair( ivar, iord ) ); }
+  SMon
+    ( KEY const var, const unsigned ord=1 )
+    : tord( ord )
+    { if( tord ) expr.insert( std::make_pair( var, ord ) ); }
 
   //! @brief Copy constructor of monomial
-  SPolyMon
-    ( unsigned const tord_, std::map< unsigned, unsigned > const& expr_ )
+  SMon
+    ( unsigned const tord_, std::map<KEY,unsigned,COMP> const& expr_ )
     : tord( tord_ ), expr( expr_ )
     {}
 
   //! @brief Copy constructor of monomial with conversion
-  template <typename U, typename LTU>
-  SPolyMon
-    ( unsigned const tord_, std::map< U, unsigned, LTU > const& expr_,
-      std::map< U, unsigned, LTU >& match )
+  template <typename OTHERKEY, typename OTHERCOMP>
+  SMon
+    ( unsigned const tord_, std::map<OTHERKEY,unsigned,OTHERCOMP> const& expr_,
+      std::map<OTHERKEY,KEY,OTHERCOMP>& match )
     : tord( tord_ )
     { for( auto const& [key,ord] : expr_ ) expr[match[key]] = ord; }
 
@@ -90,41 +80,41 @@ struct SPolyMon
 
   //! @brief Test for intersection
   bool inter
-    ( SPolyMon const& Mon )
+    ( SMon<KEY,COMP> const& Mon )
     const;
 
   //! @brief Test for proper subset
   bool subset
-    ( SPolyMon const& Mon )
+    ( SMon<KEY,COMP> const& Mon )
     const;
     
   //! @brief Test for subset
   bool subseteq
-    ( SPolyMon const& Mon )
+    ( SMon<KEY,COMP> const& Mon )
     const;
     
   //! @brief Overloaded operator '+=' for monomial
-  SPolyMon& operator+=
-    ( SPolyMon const& mon );
+  SMon<KEY,COMP>& operator+=
+    ( SMon<KEY,COMP> const& mon );
 
   //! @brief Overloaded operator '-=' for monomial
-  SPolyMon& operator-=
-    ( SPolyMon const& mon );
+  SMon<KEY,COMP>& operator-=
+    ( SMon<KEY,COMP> const& mon );
 
   //! @brief Overloaded operator '*=' for monomial
-  SPolyMon& operator*=
+  SMon<KEY,COMP>& operator*=
     ( unsigned const& factor );
 
   //! @brief Overloaded operator '/=' for monomial
-  SPolyMon& operator/=
+  SMon<KEY,COMP>& operator/=
     ( unsigned const& factor );
 
   //! @brief Overloaded operator '[]' for extracting from monomial
-  SPolyMon operator[]
-    ( unsigned const& ivar )
+  SMon<KEY,COMP> operator[]
+    ( KEY const& ivar )
     const;
 
-  //! @brief Exceptions of mc::SPolyMon
+  //! @brief Exceptions of mc::SMon
   class Exceptions
   {
    public:
@@ -142,34 +132,32 @@ struct SPolyMon
     std::string what(){
       switch( _ierr ){
       case SUB:
-        return "mc::SPolyMon\t Subtraction of a monomial that is not a proper subset";
+        return "mc::SMon\t Subtraction of a monomial that is not a proper subset";
       case DIV:
-        return "mc::SPolyMon\t Division by a factor greater than the greatest common exponent";
+        return "mc::SMon\t Division by a factor greater than the greatest common exponent";
       case CONV:
-        return "mc::SPolyMon\t Conversion with different variable indexing failed";
+        return "mc::SMon\t Conversion with different variable indexing failed";
       }
-      return "mc::SPolyMon\t Undocumented error";
+      return "mc::SMon\t Undocumented error";
     }
    private:
     TYPE _ierr;
   };
+
+  //! @brief Overloads turning either a reference or a pointer into a pointer
+  template<typename T>
+  static T* ptr
+   ( T& obj )
+   { return &obj; }
+  template<typename T>
+  static T* ptr
+   ( T* obj )
+   { return obj; }
 };
 
-//inline std::ostream&
-//operator<<
-//( std::ostream& out, SPolyMon const& mon )
-//{
-//  // Sparse multivariate polynomial
-//  if( mon.expr.empty() )  out << "1";
-//  for( auto&& ie=mon.expr.begin(); ie!=mon.expr.end(); ++ie ){
-//    if( ie != mon.expr.begin() ) out << "·";
-//    out << "T" << ie->second << "[" << ie->first << "]";
-//  }
-//  return out;
-//}
-
+template <typename KEY, typename COMP>
 inline std::string
-SPolyMon::display
+SMon<KEY,COMP>::display
 ( int const& basis )
 const
 {
@@ -180,29 +168,31 @@ const
     if( ie != expr.begin() ) out << "·";
     switch( basis ){
      case 0:
-      out << "[" << ie->first << "]";
+      out << "[" << *ptr(ie->first) << "]";
       if( ie->second > 1 ) out << "^" << ie->second;
       break;
      default:
-      out << "T" << ie->second << "[" << ie->first << "]";
+      out << "T" << ie->second << "[" << *ptr(ie->first) << "]";
       break;
     }
   }
   return out.str();
 }
 
-inline SPolyMon
-SPolyMon::operator[]
-( unsigned const& ivar )
+template <typename KEY, typename COMP>
+inline SMon<KEY,COMP>
+SMon<KEY,COMP>::operator[]
+( KEY const& ivar )
 const
 {
   auto itvar = expr.find( ivar );
-  if( itvar == expr.end() ) return SPolyMon();
-  return SPolyMon( itvar->second, {*itvar} );
+  if( itvar == expr.end() ) return SMon<KEY,COMP>();
+  return SMon<KEY,COMP>( itvar->second, {*itvar} );
 }
 
+template <typename KEY, typename COMP>
 inline unsigned int
-SPolyMon::gcexp
+SMon<KEY,COMP>::gcexp
 ()
 const
 {
@@ -214,8 +204,9 @@ const
   return gce;
 }
 
+template <typename KEY, typename COMP>
 inline unsigned int
-SPolyMon::gexp
+SMon<KEY,COMP>::gexp
 ()
 const
 {
@@ -227,8 +218,9 @@ const
   return ge;
 }
 
+template <typename KEY, typename COMP>
 inline unsigned int
-SPolyMon::lexp
+SMon<KEY,COMP>::lexp
 ()
 const
 {
@@ -240,9 +232,10 @@ const
   return le;
 }
 
+template <typename KEY, typename COMP>
 inline bool
-SPolyMon::inter
-( SPolyMon const& Mon )
+SMon<KEY,COMP>::inter
+( SMon<KEY,COMP> const& Mon )
 const
 {
   for( auto&& it1=expr.begin(); it1!=expr.end(); ++it1 )
@@ -251,9 +244,10 @@ const
   return false;
 }
 
+template <typename KEY, typename COMP>
 inline bool
-SPolyMon::subset
-( SPolyMon const& Mon )
+SMon<KEY,COMP>::subset
+( SMon<KEY,COMP> const& Mon )
 const
 {
   // Total order must be larger for Mon than *this
@@ -267,9 +261,10 @@ const
   return true;
 }
 
+template <typename KEY, typename COMP>
 inline bool
-SPolyMon::subseteq
-( SPolyMon const& Mon )
+SMon<KEY,COMP>::subseteq
+( SMon<KEY,COMP> const& Mon )
 const
 {
   // Total order must be larger or equal for Mon than *this
@@ -283,8 +278,9 @@ const
   return true;
 }
 
-inline SPolyMon&
-SPolyMon::operator*=
+template <typename KEY, typename COMP>
+inline SMon<KEY,COMP>&
+SMon<KEY,COMP>::operator*=
 ( unsigned const& factor )
 {
   // Return if factor is unity
@@ -300,16 +296,18 @@ SPolyMon::operator*=
   return *this;
 }
 
-inline SPolyMon
+template <typename KEY, typename COMP>
+inline SMon<KEY,COMP>
 operator*
-( SPolyMon const& Mon, unsigned const& factor )
+( SMon<KEY,COMP> const& Mon, unsigned const& factor )
 {
-  SPolyMon Mon2( Mon );
+  SMon<KEY,COMP> Mon2( Mon );
   return( Mon2 *= factor );
 }
 
-inline SPolyMon&
-SPolyMon::operator/=
+template <typename KEY, typename COMP>
+inline SMon<KEY,COMP>&
+SMon<KEY,COMP>::operator/=
 ( unsigned const& factor )
 {
   // Return if factor is unity
@@ -318,7 +316,7 @@ SPolyMon::operator/=
 
   // factor may not be greater than the least exponent
   if( lexp() < factor )
-    throw typename SPolyMon::Exceptions( SPolyMon::Exceptions::DIV );
+    throw typename SMon<KEY,COMP>::Exceptions( SMon<KEY,COMP>::Exceptions::DIV );
 
   // divide monomial partial orders by factor
   tord = 0;
@@ -329,17 +327,19 @@ SPolyMon::operator/=
   return *this;
 }
 
-inline SPolyMon
+template <typename KEY, typename COMP>
+inline SMon<KEY,COMP>
 operator/
-( SPolyMon const& Mon, unsigned const& factor )
+( SMon<KEY,COMP> const& Mon, unsigned const& factor )
 {
-  SPolyMon Mon2( Mon );
+  SMon<KEY,COMP> Mon2( Mon );
   return( Mon2 /= factor );
 }
 
-inline SPolyMon&
-SPolyMon::operator+=
-( SPolyMon const& mon )
+template <typename KEY, typename COMP>
+inline SMon<KEY,COMP>&
+SMon<KEY,COMP>::operator+=
+( SMon<KEY,COMP> const& mon )
 {
   for( auto const& varpow : mon.expr ){
     auto&& it = expr.insert( varpow );
@@ -350,24 +350,27 @@ SPolyMon::operator+=
   return *this;
 }
 
-inline SPolyMon
+template <typename KEY, typename COMP>
+inline SMon<KEY,COMP>
 operator+
-( SPolyMon const& Mon1, SPolyMon const& Mon2 )
+( SMon<KEY,COMP> const& Mon1, SMon<KEY,COMP> const& Mon2 )
 {
   // Create a copy of Mon1 and add terms with Mon2 
-  SPolyMon Mon3( Mon1 );
-  for( auto&& it2=Mon2.expr.begin(); it2!=Mon2.expr.end(); ++it2 ){
-    auto&& it3 = Mon3.expr.insert( *it2 );
-    // If element from Mon2 was not inserted, increment existing variable order
-    if( !it3.second ) it3.first->second += it2->second;
-  }
-  Mon3.tord += Mon2.tord;
-  return Mon3;
+  SMon<KEY,COMP> Mon3( Mon1 );
+  return( Mon3 += Mon2 );
+//  for( auto&& it2=Mon2.expr.begin(); it2!=Mon2.expr.end(); ++it2 ){
+//    auto&& it3 = Mon3.expr.insert( *it2 );
+//    // If element from Mon2 was not inserted, increment existing variable order
+//    if( !it3.second ) it3.first->second += it2->second;
+//  }
+//  Mon3.tord += Mon2.tord;
+//  return Mon3;
 }
 
-inline SPolyMon&
-SPolyMon::operator-=
-( SPolyMon const& mon )
+template <typename KEY, typename COMP>
+inline SMon<KEY,COMP>&
+SMon<KEY,COMP>::operator-=
+( SMon<KEY,COMP> const& mon )
 {
   // mon must be a proper subset
   if( !mon.subseteq( *this ) )
@@ -393,37 +396,44 @@ SPolyMon::operator-=
   return *this;
 }
 
-inline SPolyMon
+template <typename KEY, typename COMP>
+inline SMon<KEY,COMP>
 operator-
-( SPolyMon const& Mon1, SPolyMon const& Mon2 )
+( SMon<KEY,COMP> const& Mon1, SMon<KEY,COMP> const& Mon2 )
 {
-  // Mon2 must be a proper subset of Mon1 
-  if( !Mon2.subseteq( Mon1 ) )
-    throw typename SPolyMon::Exceptions( SPolyMon::Exceptions::SUB );
+  // Create a copy of Mon1 and add terms with Mon2 
+  SMon<KEY,COMP> Mon3( Mon1 );
+  return( Mon3 -= Mon2 );
+//  // Mon2 must be a proper subset of Mon1 
+//  if( !Mon2.subseteq( Mon1 ) )
+//    throw typename SMon<KEY,COMP>::Exceptions( SMon<KEY,COMP>::Exceptions::SUB );
 
-  // Return constant monomial if Mon1 and Mon2 are identical 
-  if( Mon1.tord == Mon2.tord )
-    return SPolyMon();
+//  // Return constant monomial if Mon1 and Mon2 are identical 
+//  if( Mon1.tord == Mon2.tord )
+//    return SMon();
 
-  // Create a copy of Mon1 and cancel the common terms with Mon2 
-  SPolyMon Mon3( Mon1 );
-  for( auto&& it2=Mon2.expr.begin(); it2!=Mon2.expr.end(); ++it2 ){
-    auto&& it3 = Mon3.expr.find( it2->first );
-    assert( it3 != Mon3.expr.end() );
-    if( it3->second == it2->second )
-      Mon3.expr.erase( it3 );
-    else
-      it3->second -= it2->second;
-  }
-  Mon3.tord -= Mon2.tord;
-  return Mon3;
+//  // Create a copy of Mon1 and cancel the common terms with Mon2 
+//  SMon Mon3( Mon1 );
+//  for( auto&& it2=Mon2.expr.begin(); it2!=Mon2.expr.end(); ++it2 ){
+//    auto&& it3 = Mon3.expr.find( it2->first );
+//    assert( it3 != Mon3.expr.end() );
+//    if( it3->second == it2->second )
+//      Mon3.expr.erase( it3 );
+//    else
+//      it3->second -= it2->second;
+//  }
+//  Mon3.tord -= Mon2.tord;
+//  return Mon3;
 }
 
 //! @brief C++ structure for ordering of monomials in graded lexicographic order (grlex)
-struct lt_SPolyMon
+template <typename COMP=std::less<unsigned>>
+struct lt_SMon
 {
+  template <typename KEY>
   bool operator()
-    ( SPolyMon const& Mon1, SPolyMon const& Mon2 ) const
+    ( SMon<KEY,COMP> const& Mon1, SMon<KEY,COMP> const& Mon2 )
+    const
     {
       // Order monomials based on their total order first
       if( Mon1.tord < Mon2.tord ) return true;
@@ -433,8 +443,8 @@ struct lt_SPolyMon
       if( Mon1.expr.empty() ) return true;
       // Order in graded lexicographic order next
       for( auto&& it1=Mon1.expr.begin(),&& it2=Mon2.expr.begin(); it1!=Mon1.expr.end(); ++it1, ++it2 ){
-        if( it1->first < it2->first ) return true;
-        if( it2->first < it1->first ) return false;
+        if( COMP()( it1->first, it2->first ) ) return true;
+        if( COMP()( it2->first, it1->first ) ) return false;
         if( it1->second > it2->second ) return true;
         if( it1->second < it2->second ) return false;
       }
@@ -443,13 +453,16 @@ struct lt_SPolyMon
 };
 
 //! @brief C++ structure for ordering of monomials in graded lexicographic order (grlex)
-struct lt_pSPolyMon
+template <typename COMP=std::less<unsigned>>
+struct lt_pSMon
 {
+  template <typename KEY>
   bool operator()
-    ( SPolyMon const* Mon1, SPolyMon const* Mon2 ) const
+    ( SMon<KEY,COMP> const* Mon1, SMon<KEY,COMP> const* Mon2 )
+    const
     {
       assert( Mon1 && Mon2 );
-      return lt_SPolyMon()( *Mon1, *Mon2 );
+      return lt_SMon<COMP>()( *Mon1, *Mon2 );
     }
 };
 

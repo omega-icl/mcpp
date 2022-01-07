@@ -156,7 +156,9 @@ Finally, the original vector-valued function \f${\bf f}(x_0,x_1)\f$ is equal to 
 #ifndef MC__SPARSEEXPR_H
 #define MC__SPARSEEXPR_H
 
-#include "spolyexpr.hpp"
+#include <list>
+#include "ffunc.hpp"
+#include "spoly.hpp"
 
 #define MC__SPARSEENV_CHECK
 
@@ -207,6 +209,7 @@ public:
   typedef std::list< std::pair< const FFOp*, std::vector<const SparseExpr*> > > t_Interm;
   typedef std::map< const FFVar*, const FFVar*, lt_FFVar > t_Aux;
   typedef std::vector< const FFVar* > t_Expr;
+  typedef SPoly<FFVar const*, lt_FFVar> SPolyExpr;
 
   //! @brief Default Constructor
   SparseEnv
@@ -405,6 +408,10 @@ inline SparseEnv::Options SparseEnv::options;
 class SparseExpr
 ////////////////////////////////////////////////////////////////////////
 {
+public:
+
+  typedef SPoly<FFVar const*, lt_FFVar> SPolyExpr;
+
 private:
 
   //! @brief Pointer to sparse rational function environment
@@ -854,7 +861,7 @@ inline SparseExpr&
 SparseExpr::_set
 ( const FFVar&x )
 {
-  _numer = x;
+  _numer.var( &x );
   _denom = 1;
   return *this;
 }

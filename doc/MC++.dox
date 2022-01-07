@@ -822,17 +822,17 @@ WARN_LOGFILE           =
 INPUT                  = MC++.txt \
                          ../src/mc/mcfunc.hpp \
                          ../src/mc/mcop.hpp \
-                         ../src/mc/mcfilib.hpp \
                          ../src/mc/mcprofil.hpp \
+                         ../src/mc/mcfilib.hpp \
                          ../src/mc/mcboost.hpp \
                          ../src/mc/mcfadbad.hpp \
                          ../src/mc/mclapack.hpp \
                          ../src/mc/mctime.hpp \
                          ../src/mc/ffdep.hpp \
                          ../src/mc/ffunc.hpp \
-                         ../src/mc/spolyexpr.hpp \
                          ../src/mc/sparseexpr.hpp \
-                         ../src/mc/quadexpr.hpp \
+                         ../src/mc/spoly.hpp \
+                         ../src/mc/squad.hpp \
                          ../src/mc/rltred.hpp \
                          ../src/mc/interval.hpp \
                          ../src/mc/mccormick.hpp \
@@ -840,10 +840,9 @@ INPUT                  = MC++.txt \
                          ../src/mc/polymodel.hpp \
                          ../src/mc/tmodel.hpp \
                          ../src/mc/cmodel.hpp \
-                         ../src/mc/spolymon.hpp \
+                         ../src/mc/smon.hpp \
                          ../src/mc/scmodel.hpp \
                          ../src/mc/sicmodel.hpp \
-                         ../src/mc/squad.hpp \
                          ../src/mc/ellipsoid.hpp \
                          ../src/mc/ellimage.hpp \
                          ../src/mc/polimage.hpp \

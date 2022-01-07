@@ -214,7 +214,7 @@ J Rajyaguru, ME Villanueva, B Houska, B Chachuat, <A href="">Chebyshev Model Ari
 #include "mcfunc.hpp"
 #include "mclapack.hpp"
 #include "mcop.hpp"
-#include "spolymon.hpp"
+#include "spolymon_template.hpp"
 #include "remez.hpp"
 
 #undef  MC__SCMODEL_DEBUG
@@ -296,7 +296,7 @@ class SCModel
   template <typename U> friend SCVar<U> fabs
     ( const SCVar<U>& );
 
-  typedef std::map< SPolyMon, double, lt_SPolyMon > t_coefmon;
+  typedef std::map< SPolyMon<>, double, lt_SPolyMon<> > t_coefmon;
   typedef std::set< unsigned > t_var;
   
 protected:
@@ -398,7 +398,7 @@ public:
 
   //! @brief Get Chebyshev monomial bounds in U arithmetic for variable array <a>X</a> and monomial indexes in <a>ndxmon</a>
   template <typename U> void get_bndmon
-    ( std::map<SPolyMon,U,lt_SPolyMon>& bndmon, U const* bndvar,
+    ( std::map<SPolyMon<>,U,lt_SPolyMon<>>& bndmon, U const* bndvar,
       bool const scaled=false ) const;
 /*
   //! @brief Polynomial range bounder using specified bounder <a>type</a> with basis functions <a>bndbasis</a> in U arithmetic and monomial coefficients <a>coefmon</a> in C arithmetic
@@ -638,16 +638,16 @@ private:
 
   //! @brief Polynomial range bounder - Naive approach
   template <typename C, typename U> U _polybound_naive
-    ( std::map<SPolyMon,C,lt_SPolyMon> const& coefmon, U const* const* bndbasis,
+    ( std::map<SPolyMon<>,C,lt_SPolyMon<>> const& coefmon, U const* const* bndbasis,
       unsigned const minord=0 ) const;
 
   //! @brief Polynomial range bounder - Lin & Stadtherr approach
   template <typename C, typename U> U _polybound_LSB
-    ( std::map<SPolyMon,C,lt_SPolyMon> const& coefmon, U const* const* bndbasis ) const;
+    ( std::map<SPolyMon<>,C,lt_SPolyMon<>> const& coefmon, U const* const* bndbasis ) const;
 
   //! @brief Polynomial range bounder using specified bounder <a>type</a> with basis functions <a>bndbasis</a> in U arithmetic and monomial coefficients <a>coefmon</a> in C arithmetic
   template <typename C, typename U> U _polybound
-    ( std::map<SPolyMon,C,lt_SPolyMon> const& coefmon, U const *const* bndbasis,
+    ( std::map<SPolyMon<>,C,lt_SPolyMon<>> const& coefmon, U const *const* bndbasis,
       int const type );
 
   //! @brief Recursive product of univariate Chebyshev polynomials
@@ -681,7 +681,7 @@ private:
   //! @brief Build 1D vector of Chebyshev coefficients
   void _svec1D
     ( typename t_var::const_iterator itvar,
-      std::pair<SPolyMon,double> const& mon,
+      std::pair<SPolyMon<>,double> const& mon,
       std::map<unsigned,t_coefmon>& mapspoly ) const;
 
   //! @brief Display of recursive univariate Chebyshev polynomials
@@ -701,7 +701,7 @@ private:
 
   //! @brief Build 1D vector of Chebyshev coefficients
   void _svec1Dfull
-    ( unsigned const ndxvar, std::pair<SPolyMon,double> const& coefmon,
+    ( unsigned const ndxvar, std::pair<SPolyMon<>,double> const& coefmon,
       std::vector<SCVar<T>>& vec ) const;
 
   //! @brief Product of multivariate Chebyshev polynomials in sparse format
@@ -809,7 +809,7 @@ class SCVar
 
 public:
   // Monomial representation: <total order, <variable index, order>>
-  typedef std::map< SPolyMon, double, lt_SPolyMon > t_coefmon;
+  typedef std::map< SPolyMon<>, double, lt_SPolyMon<> > t_coefmon;
   typedef std::set< unsigned > t_var;
   
 private:
@@ -1324,7 +1324,7 @@ template <typename T>
 template <typename U>
 inline void
 SCModel<T>::get_bndmon
-( std::map<SPolyMon,U,lt_SPolyMon>& bndmon, U const* bndvar,
+( std::map<SPolyMon<>,U,lt_SPolyMon<>>& bndmon, U const* bndvar,
   bool const scaled )
 const
 {
@@ -1748,14 +1748,8 @@ const
 {
   if( isequal(dscal,0.) ) return;
   for( auto const& [mon0,coef0] : coefmon0 ){
-    auto [itmon,ins] = coefmon.insert( std::make_pair(mon0,coef0) );
-    if( ins ){
-      if( isequal(dscal,1.) ) continue;
-      itmon->second *= dscal;
-    }
-    else{
-      itmon->second += coef0*dscal;
-    }
+    auto [itmon,ins] = coefmon.insert( std::make_pair(mon0,coef0*dscal) );
+    if( !ins ) itmon->second += coef0*dscal;
   }
 }
 
@@ -1773,7 +1767,7 @@ const
         case Options::MONOM: rem += (coef0*dscal)*(ndxord%2 || mon0.gcexp()%2? TOne: TZerOne); continue;
       }
     }
-    SPolyMon mon = mon0; // local copy for modification
+    SPolyMon<> mon = mon0; // local copy for modification
 #ifdef MC__SPOLYEXPR_DEBUG_SPROD
     std::cout << "mon: " << mon.display(1) << "  (" << *itvar << "," << ndxord << ")" << std::endl;
 #endif
@@ -1808,10 +1802,12 @@ const
   for( auto it=coefmon.begin(); it!=coefmon.end(); ++it ){
     if( it != coefmon.begin() ) os << " + ";
     os << it->second;
-      for( auto const& [ivar,iord] : it->first.expr )
-        os << "·T" << iord << "[" << ivar << "]";
+    for( auto const& [ivar,iord] : it->first.expr )
+      switch( options.BASIS ){
+        case Options::CHEB:  os << "·T" << iord << "[" << ivar << "]"; break;
+        case Options::MONOM: os << "·[" << ivar << "]^" << iord;       break;
+      }
   }
-  //os << std::endl;
 }
 
 template <typename T>
@@ -1958,7 +1954,7 @@ const
 template <typename T>
 inline void
 SCModel<T>::_svec1D
-( typename t_var::const_iterator itvar, std::pair<SPolyMon,double> const& mon,
+( typename t_var::const_iterator itvar, std::pair<SPolyMon<>,double> const& mon,
   std::map<unsigned,t_coefmon>& mapspoly )
 const
 {
@@ -1966,7 +1962,7 @@ const
   if( !mon.first.tord || ivar != *itvar ) // no dependence on variable *itvar 
     mapspoly[ 0 ].insert( mon );
   else     // dependence on variable *itvar of order iord
-    mapspoly[ iord ].insert( std::make_pair( SPolyMon( mon.first.tord - iord,
+    mapspoly[ iord ].insert( std::make_pair( SPolyMon<>( mon.first.tord - iord,
       std::map<unsigned,unsigned>( ++mon.first.expr.begin(), mon.first.expr.end() ) ),
       mon.second ) );
 }
@@ -1974,7 +1970,7 @@ const
 template <typename T>
 inline void
 SCModel<T>::_svec1Dfull
-( unsigned const ivar, std::pair<SPolyMon,double> const& coefmon,
+( unsigned const ivar, std::pair<SPolyMon<>,double> const& coefmon,
   std::vector<SCVar<T>>& vec )
 const
 {
@@ -1984,7 +1980,7 @@ const
     vec[ 0 ].coefmon().insert( coefmon );
   else{
     auto& [ivar,iord] = *ie;
-    SPolyMon monmod( mon.tord - iord, mon.expr );
+    SPolyMon<> monmod( mon.tord - iord, mon.expr );
     monmod.expr.erase( ivar ); // remove T[ivar] entry
     vec[ iord ].coefmon().insert( std::make_pair( monmod, coef ) );
   }
@@ -1995,7 +1991,7 @@ template <typename C, typename U>
 inline
 U
 SCModel<T>::_polybound_LSB
-( std::map<SPolyMon,C,lt_SPolyMon> const& coefmon, U const* const* bndbasis )
+( std::map<SPolyMon<>,C,lt_SPolyMon<>> const& coefmon, U const* const* bndbasis )
 const
 {
   // Constant or linear model
@@ -2005,17 +2001,17 @@ const
   // Quadratic terms in combination with linear terms
   static double const TOL = 1e-8;
   U bndpol = coefmon.cbegin()->first.tord? 0.: coefmon.cbegin()->second;
-  auto it1 = coefmon.lower_bound( SPolyMon( 1, std::map<unsigned,unsigned>() ) );
-  auto it2 = coefmon.lower_bound( SPolyMon( 2, std::map<unsigned,unsigned>() ) );
-  auto it3 = coefmon.lower_bound( SPolyMon( 3, std::map<unsigned,unsigned>() ) );
-  std::map<SPolyMon,C,lt_SPolyMon> coeflin; coeflin.insert( it1, it2 );
+  auto it1 = coefmon.lower_bound( SPolyMon<>( 1, std::map<unsigned,unsigned>() ) );
+  auto it2 = coefmon.lower_bound( SPolyMon<>( 2, std::map<unsigned,unsigned>() ) );
+  auto it3 = coefmon.lower_bound( SPolyMon<>( 3, std::map<unsigned,unsigned>() ) );
+  std::map<SPolyMon<>,C,lt_SPolyMon<>> coeflin; coeflin.insert( it1, it2 );
   for( ; it2!=it3; ++it2 ){
     auto ie2 = it2->first.expr.begin();
     if( ie2->second == 1 ){ // off-diagonal quadratic terms
       bndpol += it2->second * ( bndbasis? bndbasis[ie2->first][1] * bndbasis[(++ie2)->first][1]: TOne );
       continue;
     }
-    SPolyMon explin( 1, std::map<unsigned,unsigned>() );
+    SPolyMon<> explin( 1, std::map<unsigned,unsigned>() );
     explin.expr.insert( std::make_pair( ie2->first, 1 ) ); 
     it1 = coeflin.find( explin );
     switch( options.BASIS ){
@@ -2070,13 +2066,13 @@ template <typename C, typename U>
 inline
 U
 SCModel<T>::_polybound_naive
-( std::map<SPolyMon,C,lt_SPolyMon> const& coefmon, U const* const* bndbasis,
+( std::map<SPolyMon<>,C,lt_SPolyMon<>> const& coefmon, U const* const* bndbasis,
   unsigned const minord )
 const
 {
   // Empty model
   if( coefmon.empty() || coefmon.rbegin()->first.tord < minord ) return 0.;
-  auto it = coefmon.lower_bound( SPolyMon( minord, std::map<unsigned,unsigned>() ) );
+  auto it = coefmon.lower_bound( SPolyMon<>( minord, std::map<unsigned,unsigned>() ) );
 
   // Polynomial bounding in T arithmetic
   if( !bndbasis ){
@@ -2117,7 +2113,7 @@ template <typename C, typename U>
 inline
 U
 SCModel<T>::_polybound
-( std::map<SPolyMon,C,lt_SPolyMon> const& coefmon, U const* const* bndbasis,
+( std::map<SPolyMon<>,C,lt_SPolyMon<>> const& coefmon, U const* const* bndbasis,
   int const type )
 {
   switch( type ){
@@ -2248,7 +2244,7 @@ SCVar<T>::_center()
   const double remmid = Op<T>::mid(_bndrem);
   if( remmid == 0. ) return;
   if( _coefmon.empty() || _coefmon.begin()->first.tord ) 
-    _coefmon.insert( std::make_pair( SPolyMon(), remmid ) );
+    _coefmon.insert( std::make_pair( SPolyMon<>(), remmid ) );
   else
     _coefmon.begin()->second += remmid;
   _bndrem -= remmid;
@@ -2362,7 +2358,7 @@ SCVar<T>::SCVar
 {
   _init();
   if( isequal( d, 0. ) ) return;
-  _coefmon.insert( std::make_pair( SPolyMon(), d ) );
+  _coefmon.insert( std::make_pair( SPolyMon<>(), d ) );
   _bndrem = 0.;
   _set_bndpol( d );
   if( !_CM || _CM->options.MIXED_IA ) _set_bndT( d );
@@ -2376,7 +2372,7 @@ SCVar<T>::operator=
 {
   _reinit();
   _CM = nullptr;
-  _coefmon.insert( std::make_pair( SPolyMon(), d ) );
+  _coefmon.insert( std::make_pair( SPolyMon<>(), d ) );
   _bndrem = 0.;
   _set_bndpol( d );
   _set_bndT( d );
@@ -2391,7 +2387,7 @@ SCVar<T>::SCVar
 {
   _init();
   double const midB = Op<T>::mid(B);
-  _coefmon.insert( std::make_pair( SPolyMon(), midB ) );
+  _coefmon.insert( std::make_pair( SPolyMon<>(), midB ) );
   _bndrem = B - midB;
   _set_bndpol( midB );
   if( !_CM || _CM->options.MIXED_IA ) _set_bndT( B );
@@ -2406,7 +2402,7 @@ SCVar<T>::operator=
   _reinit();
   _CM = nullptr;
   double const midB = Op<T>::mid(B);
-  _coefmon.insert( std::make_pair( SPolyMon(), midB ) );
+  _coefmon.insert( std::make_pair( SPolyMon<>(), midB ) );
   _bndrem = B - midB;
   _set_bndpol( midB );
   _set_bndT( B );
@@ -2438,9 +2434,9 @@ SCVar<T>::_set
   _ndxvar.clear();
   _ndxvar.insert(i);
   _coefmon.clear();
-  _coefmon.insert( std::make_pair( SPolyMon(),_refvar(i) ) );
+  _coefmon.insert( std::make_pair( SPolyMon<>(),_refvar(i) ) );
   if( _CM->_maxord && !isequal(_scalvar(i),0.) ){
-    _coefmon.insert( std::make_pair( SPolyMon(i), _scalvar(i) ) );
+    _coefmon.insert( std::make_pair( SPolyMon<>(i), _scalvar(i) ) );
     _set_bndpol( _bndvar(i) );
     _bndrem = 0.;
   }
@@ -2469,7 +2465,7 @@ SCVar<T>::set
     _ndxvar.clear();
     _coefmon.clear();
   }
-  auto&& itord = CV._coefmon.upper_bound( SPolyMon( maxord()+1, std::map<unsigned,unsigned>() ) );
+  auto&& itord = CV._coefmon.upper_bound( SPolyMon<>( maxord()+1, std::map<unsigned,unsigned>() ) );
   for( auto&& it=CV._coefmon.begin(); it!=itord; ++it ){
     for( auto&& [var,order] : it->first.expr ) _ndxvar.insert( var );
     _coefmon.insert( *it );
@@ -2584,7 +2580,7 @@ SCVar<T>::linear
 ( const unsigned i, const bool reset )
 {
   if( i>=nvar() || !nord() ) return 0.;
-  auto it_i = ( _coefmon.empty()? _coefmon.end(): _coefmon.find( SPolyMon( i ) ) );
+  auto it_i = ( _coefmon.empty()? _coefmon.end(): _coefmon.find( SPolyMon<>( i ) ) );
   double const coeflin = ( it_i == _coefmon.end() || isequal(_scalvar(i),0.)? 0.: it_i->second/_scalvar(i) );
   if( reset && it_i != _coefmon.end() ){
     _coefmon.erase( it_i );
@@ -2623,7 +2619,7 @@ const
     }
     else{
       auto const& [ivar,iord] = *ie;
-      SPolyMon monmod( mon.tord - iord, mon.expr );
+      SPolyMon<> monmod( mon.tord - iord, mon.expr );
       monmod.expr.erase( ivar ); // remove T[ivar] entry
       veccoef[ iord ]._coefmon.insert( std::make_pair( monmod, coef ) );
       for( auto const& [jvar,jord] : monmod.expr )
@@ -2799,7 +2795,7 @@ const
       veccoef[ 0 ].insert( std::make_pair( mon, coef ) );
     else{
       auto const& [ivar,iord] = *ie;
-      SPolyMon monmod( mon.tord - iord, mon.expr );
+      SPolyMon<> monmod( mon.tord - iord, mon.expr );
       monmod.expr.erase( ivar ); // remove T[ivar] entry
       veccoef[ iord ].insert( std::make_pair( monmod, coef ) );
     }
@@ -2842,7 +2838,7 @@ const
   coefmon = veccoef[0];
   for( unsigned iord=1; iord<=nord(); iord++ ){
     for( auto& [mon,coef] : veccoef[iord] ){
-      SPolyMon monmod( mon.tord + iord, mon.expr );
+      SPolyMon<> monmod( mon.tord + iord, mon.expr );
       monmod.expr[ ivar ] = iord;
       coefmon[ monmod ] = coef;
     }
@@ -2895,7 +2891,7 @@ SCVar<T>::display
 const
 {
   std::ostringstream out;
-  out << std::endl << std::scientific << std::setprecision(IDISP) ;
+  out << std::endl << std::scientific << std::setprecision(IDISP);
 
   // Sparse multivariate polynomial
   for( auto const& [mon,coef] : coefmon )
@@ -2998,7 +2994,7 @@ SCVar<T>::operator +=
 {
   if( isequal( c, 0. ) ) return *this;
   if( _coefmon.empty() || _coefmon.begin()->first.tord ) 
-    _coefmon.insert( std::make_pair( SPolyMon(), c ) );
+    _coefmon.insert( std::make_pair( SPolyMon<>(), c ) );
   else
     _coefmon.begin()->second += c;
   if( _bndpol ) *_bndpol += c;
@@ -3132,7 +3128,7 @@ SCVar<T>::operator-=
 {
   if( isequal( c, 0. ) ) return *this;
   if( _coefmon.empty() || _coefmon.begin()->first.tord ) 
-    _coefmon.insert( std::make_pair( SPolyMon(), -c ) );
+    _coefmon.insert( std::make_pair( SPolyMon<>(), -c ) );
   else{
     _coefmon.begin()->second -= c;
     if( isequal( _coefmon.begin()->second, 0 ) )

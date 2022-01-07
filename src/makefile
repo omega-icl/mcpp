@@ -3,7 +3,7 @@
 #   existing, and creates links toheader files therein
 # - `make cleaninstall' removes the links and cleans src/test
 
-export version = 2.1
+export version = 2.2
 
 export rootpath = $(shell cd .. ; pwd)
 export srcpath  = $(rootpath)/src

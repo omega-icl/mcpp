@@ -55,30 +55,21 @@ For illustration, consider the problem to quadratize the following polynomials:
   p_1(x_1) :=\ & 2 x_1^2-1
 \f}
 
-It is convenient to leverage MC++'s sparse polynomial inclusion classes, e.g. in <A>scmodel.hpp</a>
+It is convenient to leverage MC++'s sparse polynomial class in <A>spoly.hpp</a>
 \code
-      #include "interval.hpp"
-      typedef mc::Interval I;
-
-      #include "scmodel.hpp"
-      typedef mc::SCModel<I> SCM;
-      typedef mc::SCVar<I> SCV;
+      #include "spoly.hpp"
 \endcode
 to help construct the polynomials in the desired format:
 \code
-      defined( TEST_DOXYGEN )
-      SCM modSCM( 6 );
-      modSCM.options.BASIS = SCM::Options::MONOM;
       unsigned const NX = 3, NP = 2;
-      SCV X[NX], P[NP];
-      for( unsigned i=0; i<NX; i++ )
-        X[i].set( &modSCM, i, I(-1,1) );
+      mc::SPoly<> X[NX], P[NP];
+      for( unsigned i=0; i<NX; i++ ) X[i].var( i );
       P[0] = pow( X[0] + sqr( X[1] ) - 2 * X[2], 3 );
       P[1] = 2 * sqr( X[1] ) - 1;
 
-      cout << "\nSparse multivariate polynomials:";
+      std::cout << "\nSparse multivariate polynomials:";
       for( unsigned i=0; i<NP; i++ )
-        cout << P[i];
+        std::cout << P[i];
 \endcode
 The last three line display the resulting sparse polynomial expressions, here adopting a monomial basis representation:
 \verbatim
@@ -109,11 +100,11 @@ The quadratization requires the header file <tt>squad.hpp</tt> to be included:
 \code
       #include "squad.hpp"
 \endcode
-An environment <a>mc::SQuad</a> is defined and the sparse multivariate polynomials are quadratized by calling the method <a>mc::SQuad::process</a> for each sparse polynomial. This method takes a coefficient map (or an array of maps) as argument, which is of type <a>std::map<mc::SPolyMon,double,mc::lt_SPolyMon></a> where the class mc::SPolyMon is sued to store and manipulate sparse monomials and mc::lt_SPolyMon implements the grlex order:
+An environment <a>mc::SQuad</a> is defined and the sparse multivariate polynomials are quadratized by calling the method <a>mc::SQuad::process</a> for each sparse polynomial. This method takes a coefficient map (or an array of maps) as argument, which is of type <a>std::map<mc::SMon,double,mc::lt_SMon></a> where the class mc::SMon is used to store and manipulate sparse monomials and mc::lt_SMon implements the grlex order:
 \code
-      SQuad SQF;
+      mc::SQuad<> SQF;
       for( unsigned i=0; i<NP; i++ )
-        SQF.process( P[i].coefmon() );
+        SQF.process( P[i].mapmon() );
       std::cout << "\nSparse quadratic forms:\n" << SQF;
 \endcode
 By default, the quadratization expects polynomials in monomial basis, the monomials are processed in decreased grlex order, and no redundant constraints are appended (see \ref sec_SQUAD_opt). The final line displays the equivalent quadratic forms:
@@ -191,8 +182,8 @@ with the following 8 auxiliary quadratic constraints are also generated:
 
 With the redundant constraint option activated before the quadratization:
 \code
-      SQuad SQF;
-      SQuad::options.REDUC = true;
+      SQuad<> SQF;
+      SQuad<>::options.REDUC = true;
       for( unsigned i=0; i<NP; i++ )
         SQF.process( P[i].coefmon() );
       std::cout << "\nSparse quadratic forms:\n" << SQF;
@@ -347,9 +338,9 @@ The quadratization still introduces 12 monomials but 26 auxiliary quadratic cons
 
 The quadratization may also be performed in Chebyshev basis instead of the default monomial basis. And the monomials may be processed in increasing grlex order rather than the default decreasing grlex order.
 
-Pointers of type mc::SPolyMon to the monomials participating in the quadratic forms can be retrieved with the method mc::SQuad::SetMon, which is of type std::set<SPolyMon const*,lt_pSPolyMon>.
+Pointers of type mc::SMon to the monomials participating in the quadratic forms can be retrieved with the method mc::SQuad::SetMon, which is of type std::set<SMon const*,lt_pSMon>.
 
-The sparse coefficient matrices defining the main quadratic forms for each processed multivariate polynomial and the corresponding auxiliary quadratic constraints can be retrieved with the methods mc::SQuad::MatFct and mc::SQuad::MatRed, respectively. These coefficient matrices are of the type std::map<std::pair<SPolyMon const*,SPolyMon const*>,double,lt_SQuad> where the comparison operator mc::lt_SQuad orders monomial pairs in grlex order for both elements. 
+The sparse coefficient matrices defining the main quadratic forms for each processed multivariate polynomial and the corresponding auxiliary quadratic constraints can be retrieved with the methods mc::SQuad::MatFct and mc::SQuad::MatRed, respectively. These coefficient matrices are of the type std::map<std::pair<SMon const*,SMon const*>,double,lt_SQuad> where the comparison operator mc::lt_SQuad orders monomial pairs in grlex order for both elements. 
 
 
 \section sec_SQUAD_opt What Are the Options in mc::SQuad and How Are They Set?
@@ -398,8 +389,8 @@ Possible errors encountered during quadratization of a multivariate polynomial a
 #define MC__SQUAD_H
 
 #include <list>
-#include "spolymon.hpp"
-#include "spolyexpr.hpp"
+#include "spoly.hpp"
+#include "mclapack.hpp"
 
 #define MC__SQUAD_CHECK
 #undef  MC__SQUAD_PROCESS_DEBUG
@@ -407,21 +398,23 @@ Possible errors encountered during quadratization of a multivariate polynomial a
 namespace mc
 {
 //! @brief C++ structure for ordering of monomial pairs
+template <typename COMP=std::less<unsigned>>
 struct lt_SQuad
 {
   // Comparison operator
+  template <typename KEY>
   bool operator
     ()
-    ( std::pair< SPolyMon const*, SPolyMon const* > const& pMon1,
-      std::pair< SPolyMon const*, SPolyMon const* > const& pMon2 )
+    ( std::pair< SMon<KEY,COMP> const*, SMon<KEY,COMP> const* > const& pMon1,
+      std::pair< SMon<KEY,COMP> const*, SMon<KEY,COMP> const* > const& pMon2 )
     const
     {
       // Order based on first monomial first
-      if( lt_SPolyMon()( *pMon1.first, *pMon2.first ) ) return true;
-      if( lt_SPolyMon()( *pMon2.first, *pMon1.first ) ) return false;
+      if( lt_SMon<COMP>()( *pMon1.first, *pMon2.first ) ) return true;
+      if( lt_SMon<COMP>()( *pMon2.first, *pMon1.first ) ) return false;
       // Order based on second monomial next
-      if( lt_SPolyMon()( *pMon1.second, *pMon2.second ) ) return true;
-      if( lt_SPolyMon()( *pMon2.second, *pMon1.second ) ) return false;
+      if( lt_SMon<COMP>()( *pMon1.second, *pMon2.second ) ) return true;
+      if( lt_SMon<COMP>()( *pMon2.second, *pMon1.second ) ) return false;
       // Pairs are identical on reaching this point
       return false;
     }
@@ -434,26 +427,30 @@ struct lt_SQuad
 //! auxiliary variables (lifting). Sparse monomial are defined using the
 //! class mc::SPolyModel. 
 ////////////////////////////////////////////////////////////////////////
+template <typename KEY=unsigned, typename COMP=std::less<unsigned>>
 class SQuad
 ////////////////////////////////////////////////////////////////////////
 {
-  friend  std::ostream& operator<< ( std::ostream&, SQuad const& );
-
+  template <typename K, typename C> friend std::ostream& operator<< ( std::ostream&, SQuad<K,C> const& );
+ 
 public:
 
-  typedef std::set< unsigned > t_SPolyVar;
-  typedef std::set< SPolyMon, lt_SPolyMon > t_SPolyMon;
-  typedef std::set< SPolyMon const*, lt_pSPolyMon > t_pSPolyMon;
-  typedef std::map< SPolyMon, double, lt_SPolyMon > t_SPolyMonCoef;
-  typedef std::pair< SPolyMon const*, SPolyMon const* > key_SQuad;
-  typedef std::map< key_SQuad, double, lt_SQuad > t_SQuad;
+  typedef SMon<KEY,COMP> t_SMon;
+  typedef SPoly<KEY,COMP> t_SPoly;
+  typedef std::set< KEY, COMP > set_SVar;
+  typedef std::set< t_SMon, lt_SMon<COMP> > set_SMon;
+  typedef std::set< t_SMon const*, lt_pSMon<COMP> > set_pSMon;
+  typedef std::map< t_SMon, double, lt_SMon<COMP> > map_SPoly;
+  typedef std::pair< t_SMon const*, t_SMon const* > key_SQuad;
+  typedef std::set< key_SQuad, lt_SQuad<COMP> > set_SQuad;
+  typedef std::map< key_SQuad, double, lt_SQuad<COMP> > map_SQuad;
   
   //! @brief Options of mc::SQuad
   static struct Options
   {
     //! @brief Constructor
     Options():
-      BASIS(MONOM), ORDER(DEC), REDUC(false), DISPLEN(5)
+      BASIS(MONOM), ORDER(DEC), REDUC(false), CHKTOL(1e-10), DISPLEN(5)
       {}
     //! @brief Assignment of mc::SQuad::Options
     Options& operator=
@@ -461,6 +458,7 @@ public:
         BASIS   = opt.BASIS;
         ORDER   = opt.ORDER;
         REDUC   = opt.REDUC;
+        CHKTOL  = opt.CHKTOL;
         DISPLEN = opt.DISPLEN;
         return *this;
       }
@@ -480,6 +478,8 @@ public:
     int ORDER;
     //! @brief Whether to search for and append extra reduction constraints
     bool REDUC;
+    //! @brief Zero tolerance for checking quadratic forms
+    double CHKTOL;
     //! @brief Number of digits in output stream for sparse polynomial coefficients
     unsigned DISPLEN;
   } options;
@@ -496,54 +496,53 @@ public:
   
   //! @brief Process the sparse polynomials in array <a>pPol</a> indexed by <a>ndxSPol</a>
   double process
-    ( std::set<unsigned> const& ndxSPol, SQuad::t_SPolyMonCoef const* pSPol,
+    ( std::set<unsigned> const& ndxSPol, map_SPoly const* pSPol,
       int const BASIS=options.BASIS, bool const CHECK=false );
 
   //! @brief Process the <a>nPol</a> sparse polynomials in array <a>pPol</a>
   double process
-    ( unsigned const nSPol, SQuad::t_SPolyMonCoef const* pSPol,
+    ( unsigned const nSPol, map_SPoly const* pSPol,
       int const BASIS=options.BASIS, bool const CHECK=false );
 
   //! @brief Process the sparse polynomial <a>Pol</a>
   double process
-    ( SQuad::t_SPolyMonCoef const& SPol, int const BASIS=options.BASIS,
+    ( map_SPoly const& SPol, int const BASIS=options.BASIS,
       bool const CHECK=false );
 
   //! @brief Decompose the quadratic expression <a>mat</a> into separable expressions
-  std::list< t_SQuad > separate
-    ( t_SQuad const& mat )
+  std::list< map_SQuad > separate
+    ( map_SQuad const& mat )
     const;
 
   //! @brief Factorize the quadratic expression <a>mat</a> using eigenvalue decomposition
-  std::multimap< double, t_SPolyMonCoef > factorize
-    ( SQuad::t_SQuad const& mat )
+  std::multimap< double, map_SPoly > factorize
+    ( map_SQuad const& mat )
     const;
 
   //! @brief Generate positive semi-definite cuts to tighten the quadratic reformulation
   void tighten
     ( bool const threevar=false );
-//    ();
 
   //! @brief Retreive reference to vector of sparse coefficient matrices defining the main quadratic forms
-  std::vector<t_SQuad> const& MatFct
+  std::vector<map_SQuad> const& MatFct
     ()
     const
     { return _MatFct; }
 
   //! @brief Retreive reference to vector of sparse coefficient matrices defining the auxiliary quadratic forms
-  std::vector<t_SQuad> const& MatRed
+  std::vector<map_SQuad> const& MatRed
     ()
     const
     { return _MatRed; }
 
   //! @brief Retreive reference to vector of sparse coefficient matrices defining the positive semi-definite cuts
-  std::vector<t_SQuad> const& MatPSD
+  std::vector<map_SQuad> const& MatPSD
     ()
     const
     { return _MatPSD; }
 
   //! @brief Retreive reference to set of monomials in quadratic forms
-  t_SPolyMon const& SetMon
+  set_SMon const& SetMon
     ()
     const
     { return _SetMon; }
@@ -580,106 +579,73 @@ public:
 protected:
 
   //! @brief Set of monomials in quadratic forms
-  t_SPolyMon _SetMon;
+  set_SMon _SetMon;
 
   //! @brief Vector of sparse coefficient matrices defining the main quadratic forms
-  std::vector<t_SQuad> _MatFct;
+  std::vector<map_SQuad> _MatFct;
 
   //! @brief Vector of sparse coefficient matrices defining the auxiliary quadratic forms
-  std::vector<t_SQuad> _MatRed;
+  std::vector<map_SQuad> _MatRed;
 
   //! @brief Vector of sparse coefficient matrices defining the postiive semi-defninite cuts
-  std::vector<t_SQuad> _MatPSD;
+  std::vector<map_SQuad> _MatPSD;
 
   //! @brief Reorder entries in a monomial pair
-  std::pair< SPolyMon const*, SPolyMon const* > _reorder
-    ( std::pair< SPolyMon const*, SPolyMon const* > pMon )
+  key_SQuad& _reorder
+    ( key_SQuad&& pMon )
     const;
 
   //! @brief Create set of monomials for Chebyshev product between <a>mon1</a> and <a>mon2</a>
-  std::set< SPolyMon, lt_SPolyMon > _prodmon
-    ( SPolyMon const& mon1, SPolyMon const& mon2 )
+  set_SMon _prodmon
+    ( t_SMon const& mon1, t_SMon const& mon2 )
     const;
 
   //! @brief Insert new entry in matrix <a>mat</a> corresponding to the mononial <a>pMon</a> in a product with the constant monomial and with corresponding coefficient <a>coef</a>
   bool _insert
-    ( t_SQuad& mat, SPolyMon const* pMon, double const coef, bool const add=false );//, bool const rem=false );
+    ( map_SQuad& mat, t_SMon const* pMon, double const coef, bool const add=false );//, bool const rem=false );
 
   //! @brief Insert new entry in matrix <a>mat</a> corresponding to the product between mononials <a>pLMon</a> and <a>pRMon</a> with corresponding coefficient <a>coef</a>
   bool _insert
-    ( t_SQuad& mat, SPolyMon const* pLMon, SPolyMon const* pRMon,
+    ( map_SQuad& mat, t_SMon const* pLMon, t_SMon const* pRMon,
       double const coef, bool const add=false );
 
-  //! @brief Insert new entry in matrix <a>mat</a> corresponding to the product between mononials <a>pLMon</a> and <a>pRMon</a> with corresponding coefficient <a>coef</a>, and insert the associated low-order terms in monomial map <a>coefmon</a>
+  //! @brief Insert new entry in matrix <a>mat</a> corresponding to the product between mononials <a>pLMon</a> and <a>pRMon</a> with corresponding coefficient <a>coef</a>, and insert the associated low-order terms in monomial map <a>mapmon</a>
   bool _insert
-    ( t_SQuad& mat, std::map< SPolyMon, double, lt_SPolyMon >& coefmon, 
-      SPolyMon const* pLMon, SPolyMon const* pRMon, double const coef,
+    ( map_SQuad& mat, map_SPoly& mapmon, t_SMon const* pLMon,
+      t_SMon const* pRMon, double const coef,
       bool const add=false );
       
   //! @brief Decompose <a>mon</a> into product of two monomials in <a>_SetMon</a> by expanding <a>_SetMon</a> as necessary
-  std::pair< SPolyMon const*, SPolyMon const* > _decompose
-    ( SPolyMon const& mon );
-    
+  key_SQuad _decompose
+    ( t_SMon const& mon );
+
   //! @brief Search for <a>mon</a> in <a>_SetMon</a> and append it to <a>_SetMon</a> if missing along reduction constraints in <a>_MatRed</a>
-  typename t_SPolyMon::iterator _subexpression
-    ( SPolyMon const& mon );
+  typename set_SMon::iterator _subexpression
+    ( t_SMon const& mon );
 
   //! @brief Search for extra reduction constraints for <a>mon</a> and append them to <a>_MatRed</a>
   void _reduction
-    ( SPolyMon const& mon );
+    ( t_SMon const& mon );
     
   //! @brief Check quadratic form expressions by comparing with Chebyshev model
-  //template <typename T>
   double check
-    ( unsigned const nSPol, SQuad::t_SPolyMonCoef const* pSPol, int const BASIS )
+    ( unsigned const nSPol, map_SPoly const* pSPol, int const BASIS )
     const;
 
   //! @brief Check if a term exist in current quadratic forms 
   bool _find
-    ( SPolyMon const* pMon1, SPolyMon const* pMon2 ) 
+    ( t_SMon const* pMon1, t_SMon const* pMon2 ) 
     const;
 
   //! @brief Check possible decompositions using existing monomial in _SetMon
   void _candidates
-    ( std::set< std::pair< SPolyMon const*, SPolyMon const* >, lt_SQuad >& CandidateDec,
-      SPolyMon const& mon )
+    ( set_SQuad& CandidateDec, t_SMon const& mon )
     const;
 
   //! @brief Check connections between a quadratic entry and a quadratic form
   bool _isconnected
-    ( std::pair< SPolyMon const*, SPolyMon const* > const& entry, 
-      t_SQuad const& mat )
+    ( key_SQuad const& entry, map_SQuad const& mat )
     const;
-    
-  //! @brief Append participating variables in polynomial array pSPol into SVar - return value indicates whether or not there are any participating variables
-  static bool _deps
-    ( unsigned const nSPol, SQuad::t_SPolyMonCoef const* pSPol, SQuad::t_SPolyVar& SVar );
-
-  //! @brief Append participating variables in polynomial SPol into SVar - return value indicates whether or not there are any participating variables
-  static bool _deps
-    ( SQuad::t_SPolyMonCoef const& SPol, SQuad::t_SPolyVar& SVar );
-
-  //! @brief Express polynomial SPol as a univariate polynomial in variable ivar
-  static void _unipol
-    ( unsigned const ivar, SQuad::t_SPolyMonCoef const& SPol,
-      std::vector< SQuad::t_SPolyMonCoef >& veccoef );
-
-  //! @brief Determine the maximal order of variable ivar in polynomial SPol - return value is the maximum order
-  static unsigned _maxord
-    ( unsigned const ivar, SQuad::t_SPolyMonCoef const& SPol );
-
-  //! @brief Convert univariate polynomial from monomial to Chebyshev basis
-  static void _pow2cheb
-    ( std::vector< SQuad::t_SPolyMonCoef >& veccoef );
-    
-  //! @brief Convert univariate polynomial from Chebyshev to monomial basis
-  static void _cheb2pow
-    ( std::vector< SQuad::t_SPolyMonCoef >& veccoef );
-
-  //! @brief Convert univariate polynomial from Chebyshev to monomial basis
-  static void _convert
-    ( SQuad::t_SPolyMonCoef& SPol, SQuad::t_SPolyVar const& SVar,
-      int const BASIS );
 
 private:
 
@@ -688,13 +654,15 @@ private:
     ();
 };
 
-inline SQuad::Options SQuad::options;
+template <typename KEY, typename COMP>
+inline typename SQuad<KEY,COMP>::Options SQuad<KEY,COMP>::options;
 
 ////////////////////////////////////////////////////////////////////////
 
+template <typename KEY, typename COMP>
 inline std::ostream&
 operator<<
-( std::ostream& out, SQuad const& quad )
+( std::ostream& out, SQuad<KEY,COMP> const& quad )
 {
   const int BASIS = quad.options.BASIS;
   const unsigned DISPLEN = quad.options.DISPLEN;
@@ -738,9 +706,10 @@ operator<<
   return out;
 }
 
+template <typename KEY, typename COMP>
 inline bool
-SQuad::_find
-( SPolyMon const* pMon1, SPolyMon const* pMon2 ) 
+SQuad<KEY,COMP>::_find
+( t_SMon const* pMon1, t_SMon const* pMon2 ) 
 const
 {
   for( auto const& mat : _MatFct )
@@ -750,71 +719,11 @@ const
   return false;
 }
 
-
-//inline void
-//SQuad::tighten
-//( unsigned const maxsize )
-//{
-//  _MatPSD.clear();
-//  std::vector< SPolyMon const* > psdmon;
-//  auto itmon = _SetMon.cbegin();
-//  for( ; itmon != _SetMon.cend(); ++itmon ){
-
-//    // check square monomial *itmon1 participating
-//    if( itmon->tord && !_find( &*itmon, &*itmon ) ) continue;  
-//    psdmon.assign( 1, &*itmon );
-//    
-//    // find next compatible monomial
-//    _tighten( maxsize, psdmon, ++itmon );
-//  }
-//}
-
-
-//inline void
-//SQuad::_tighten
-//( unsigned const maxsize, std::vector< SPolyMon const* >& psdmon,
-//  t_SPolyMon::iterator itmon, std::vector<t_SQuad>::iterator itpsd )
-//{
-//  for( ; itmon != _SetMon.cend(); ++itmon ){
-
-//    // check square monomial *itmon participating
-//    if( !_find( &*itmon, &*itmon ) continue;
-
-//    // check cross-term with *itmon participating
-//    bool candidate = true;
-//    for( auto const& pmon : psdmon ){
-//      if( _find( pmon, &*itmon ) continue;
-//      candidate = false;
-//      break;
-//    }
-//    if( !candidate ) continue;
-
-//    // add positive-definite cuts for current level
-//    _MatPSD.push_back( t_SQuad() );
-//    auto& mat1 = _MatPSD.back();
-//    if( psdmon.size() == 1 )
-//      assert( _insert( mat1, psdmon.back(), psdmon.back(), 1. ) ); 
-//    assert( _insert( mat1, &*itmon, &*itmon,  1. ) );
-//    for( auto const& pmon : psdmon )
-//      assert( _insert( mat1, pmon, &*itmon, -2. ) );
-
-//      if( options.BASIS == Options::MONOM && !itmon1->gcexp()%2 && !itmon2->gcexp()%2 )
-//        continue;
-//      _MatPSD.push_back( t_SQuad() );
-//      auto& mat2 = _MatPSD.back();
-//      assert( _insert( mat2, &*itmon1, &*itmon1,  1. )
-//           && _insert( mat2, &*itmon2, &*itmon2,  1. )
-//           && _insert( mat2, &*itmon1, &*itmon2,  2. ) );
-//    }
-//  }
-//}
-
-
+template <typename KEY, typename COMP>
 inline void
-SQuad::tighten
+SQuad<KEY,COMP>::tighten
 ( bool const threevar )
 {
-  //std::cout << "ENTER TIGHTEN\n";
   _MatPSD.clear();
   auto itmon1 = _SetMon.cbegin();
   for( ; itmon1 != _SetMon.cend(); ++itmon1 ){
@@ -829,14 +738,14 @@ SQuad::tighten
 
       // add positive-definite cuts
       unsigned pos = _MatPSD.size();
-      _MatPSD.push_back( t_SQuad() );
+      _MatPSD.push_back( map_SQuad() );
       auto& mat1 = _MatPSD.back();
       assert( _insert( mat1, &*itmon1, &*itmon1,  1. )
            && _insert( mat1, &*itmon2, &*itmon2,  1. )
            && _insert( mat1, &*itmon1, &*itmon2, -2. ) );
       if( !threevar && options.BASIS == Options::MONOM
        && !itmon1->gcexp()%2 && !itmon2->gcexp()%2 ) continue;
-      _MatPSD.push_back( t_SQuad() );
+      _MatPSD.push_back( map_SQuad() );
       auto& mat2 = _MatPSD.back();
       assert( _insert( mat2, &*itmon1, &*itmon1,  1. )
            && _insert( mat2, &*itmon2, &*itmon2,  1. )
@@ -879,55 +788,21 @@ SQuad::tighten
   }
 }
 
-//inline void
-//SQuad::tighten
-//()
-//{
-//  _MatPSD.clear();
-//  std::list< std::pair< SPolyMon const*, SPolyMon const* > > psdlist;
-//  auto itmon1 = _SetMon.cbegin();
-//  for( ; itmon1 != _SetMon.cend(); ++itmon1 ){
-
-//    // check square monomial *itmon1 participating
-//    if( itmon1->tord && !_find( &*itmon1, &*itmon1 ) ) continue;
-//    auto itmon2 = itmon1;
-//    for( ++itmon2; itmon2 != _SetMon.cend(); ++itmon2 ){
-
-//      // check square monomial *itmon2 and cross-term *itmon1.*itmon2 participating
-//      if( !_find( &*itmon1, &*itmon2 ) || !_find( &*itmon2, &*itmon2 ) ) continue;
-
-//      // add positive-definite cuts
-//      _MatPSD.push_back( t_SQuad() );
-//      auto& mat1 = _MatPSD.back();
-//      assert( _insert( mat1, &*itmon1, &*itmon1,  1. )
-//           && _insert( mat1, &*itmon2, &*itmon2,  1. )
-//           && _insert( mat1, &*itmon1, &*itmon2, -2. ) );
-//      if( options.BASIS == Options::MONOM && !itmon1->gcexp()%2 && !itmon2->gcexp()%2 )
-//        continue;
-//      _MatPSD.push_back( t_SQuad() );
-//      auto& mat2 = _MatPSD.back();
-//      assert( _insert( mat2, &*itmon1, &*itmon1,  1. )
-//           && _insert( mat2, &*itmon2, &*itmon2,  1. )
-//           && _insert( mat2, &*itmon1, &*itmon2,  2. ) );
-//    }
-//  }
-//}
-
-
-inline std::list< SQuad::t_SQuad >
-SQuad::separate
-( SQuad::t_SQuad const& mat )
+template <typename KEY, typename COMP>
+inline std::list<typename SQuad<KEY,COMP>::map_SQuad>
+SQuad<KEY,COMP>::separate
+( map_SQuad const& mat )
 const
 {
-  std::list< t_SQuad > submat;
+  std::list<map_SQuad> submat;
   for( auto itmat : mat ){
-    std::pair< SPolyMon const*, SPolyMon const* > ijmon = itmat.first;
+    key_SQuad ijmon = itmat.first;
     double coef = itmat.second;
     auto itsubmat = submat.end();
 //    // Search for alternative decompositions for terms multiplying monomial '1'
 //    // NEED CORRECTION IN ORDER TO ACCOUNT THAT DECOMPOSED TERM MAY ALREADY BE PRESENT IN MAT!
 //    if( options.BASIS == Options::MONOM && !ijmon.first->tord && ijmon.second->tord ){
-//      std::set< std::pair< SPolyMon const*, SPolyMon const* >, lt_SQuad > CandidateDec;
+//      set_SQuad CandidateDec;
 //      _candidates( CandidateDec, *ijmon.second );
 //      ijmon.first  = CandidateDec.crbegin()->first;
 //      ijmon.second = CandidateDec.crbegin()->second;
@@ -952,7 +827,7 @@ const
     }
     if( itsubmat != submat.end() ) continue;
     // Create new independent term  if no connections
-    submat.push_back( t_SQuad() );
+    submat.push_back( map_SQuad() );
     submat.back()[ijmon] = coef;
   }
   
@@ -970,10 +845,10 @@ const
   return submat;
 }
 
+template <typename KEY, typename COMP>
 inline bool
-SQuad::_isconnected
-( std::pair< SPolyMon const*, SPolyMon const* > const& entry, 
-  SQuad::t_SQuad const& mat )
+SQuad<KEY,COMP>::_isconnected
+( key_SQuad const& entry, map_SQuad const& mat )
 const
 {
   for( auto const& [ijmon,coef] : mat ){
@@ -987,14 +862,15 @@ const
   return false;  
 }
 
-inline std::multimap< double, std::map< SPolyMon, double, lt_SPolyMon > >
-SQuad::factorize
-( SQuad::t_SQuad const& mat )
+template <typename KEY, typename COMP>
+inline std::multimap<double,typename SQuad<KEY,COMP>::map_SPoly>
+SQuad<KEY,COMP>::factorize
+( map_SQuad const& mat )
 const
 {
   // Populate sparse symmetric coefficient matrix
   CPPL::dssmatrix coefmat;
-  std::map< SPolyMon, unsigned, lt_SPolyMon > indexmap;
+  map_SPoly indexmap;
   unsigned index = 0;
   for( auto const& [ijmon,coef] : mat ){
     auto itimon = indexmap.find( *ijmon.first );
@@ -1018,7 +894,7 @@ const
   }
   
   // Perform eigenvalue decomposition
-  std::multimap< double, std::map< SPolyMon, double, lt_SPolyMon > > eigdec;
+  std::multimap<double,map_SPoly> eigdec;
   std::vector<double> eigval;
   std::vector<CPPL::dcovector> eigvec;
   CPPL::dsymatrix dcoefmat = coefmat.to_dsymatrix();
@@ -1028,7 +904,7 @@ const
   auto itval = eigval.begin();
   auto itvec = eigvec.begin();
   for( ; itval != eigval.end(); ++itval, ++itvec ){
-    std::map< SPolyMon, double, lt_SPolyMon > eigterm;
+    map_SPoly eigterm;
     for( auto const& [mon,index] : indexmap ){
       //if( isequal( itvec->array[index], 0. ) ) continue;
       eigterm[mon] = itvec->array[index];
@@ -1049,38 +925,22 @@ const
   return eigdec;
 }
 
+template <typename KEY, typename COMP>
 inline double
-SQuad::check
-( unsigned const nSPol, SQuad::t_SPolyMonCoef const* pSPol, int const BASIS )
+SQuad<KEY,COMP>::check
+( unsigned const nSPol, map_SPoly const* pSPol, int const BASIS )
 const
 { 
   assert( nSPol <= _MatFct.size() );
-  SPolyExpr::options.BASIS = options.BASIS;
   double sumdiff = 0e0;
 #ifdef MC__SQUAD_DEBUG_CHECK
   std::cout << *this << std::endl;
 #endif
   
   // Process entries in _SetMon
-  FFGraph dag;
-  std::map< unsigned, FFVar > mapvar;
-  std::map< SPolyMon, SPolyExpr, lt_SPolyMon > mapmon; 
+  std::map< t_SMon, t_SPoly, lt_SMon<COMP> > mapmon; 
   for( auto const& mon : _SetMon ){
-    if( mon.tord == 0 ){
-      mapmon[mon] = SPolyExpr( 1e0 );
-    }
-    else if( mon.tord == 1 ){
-      unsigned const ivar = mon.expr.begin()->first;
-      mapvar[ivar] = FFVar( &dag );
-      mapmon[mon] = std::make_pair( FFMon( mapvar[ivar] ), 1e0 );
-    }
-    else{
-      FFMon newmon;
-      for( auto const& [ivar,iord] : mon.expr )
-        assert( newmon.expr.insert( std::make_pair( &mapvar[ivar], iord ) ).second );
-      newmon.tord = mon.tord;
-      mapmon[mon] = std::make_pair( newmon, 1e0 );
-    }
+    mapmon[mon] = std::make_pair( mon, 1e0 );
 #ifdef MC__SQUAD_DEBUG_CHECK
     std::cout << mapmon[mon];
 #endif
@@ -1090,31 +950,9 @@ const
   auto itmat = _MatFct.begin();
   std::advance( itmat, _MatFct.size()-nSPol );
   for( unsigned i=0; nSPol && itmat != _MatFct.end(); ++itmat, ++i ){
-    SPolyExpr spe( 0e0 );
-    auto coefmon = pSPol[i];
-    if( BASIS != options.BASIS ){
-      t_SPolyVar ndxvar;
-      _deps( coefmon, ndxvar );
-      _convert( coefmon, ndxvar, BASIS );
-    }
-    for( auto const& [mon,coef] : coefmon ){
-      if( mon.tord == 0 ){
-        spe += coef;
-        continue;
-      }
-      auto itmon = mapmon.find( mon );
-      if( itmon != mapmon.end() ){
-        spe += coef * itmon->second;
-      }
-      else{ 
-        FFMon newmon;
-        for( auto const& [ivar,iord] : mon.expr )
-          assert( newmon.expr.insert( std::make_pair( &mapvar[ivar], iord ) ).second );
-        newmon.tord = mon.tord;
-        spe += SPolyExpr( std::make_pair( newmon, coef ) );
-      }
-    }
-
+    SPoly<KEY,COMP>::options.BASIS = BASIS;
+    t_SPoly spe( pSPol[i] ); spe.convert( options.BASIS );
+    SPoly<KEY,COMP>::options.BASIS = options.BASIS;
     for( auto const& [ijmon,coef] : *itmat )
       spe -= coef * mapmon[*ijmon.first] * mapmon[*ijmon.second];
 #ifdef MC__SQUAD_DEBUG_CHECK
@@ -1123,7 +961,7 @@ const
     double locdiff = 0;
     for( auto const& [mon,coef] : spe.mapmon() )
       locdiff += std::fabs( coef ); 
-    if( std::fabs(locdiff) > 1e-10 )
+    if( std::fabs(locdiff) > options.CHKTOL )
       std::cerr << "\n  Error in quadratic form of P[" << _MatFct.size()-nSPol+i << "]:" << spe;
     sumdiff += locdiff;  
   }
@@ -1131,9 +969,8 @@ const
   // Check entries in _MatRed
   itmat = _MatRed.begin();
   for( unsigned i=0; itmat != _MatRed.end(); ++itmat, ++i ){
-    SPolyExpr spe( 0e0 );
+    t_SPoly spe;
     for( auto const& [ijmon,coef] : *itmat ){
-      //std::cout << mapmon[*ijmon.first] << " * " << mapmon[*ijmon.second];
       spe += coef * mapmon[*ijmon.first] * mapmon[*ijmon.second];
     }
 #ifdef MC__SQUAD_DEBUG_CHECK
@@ -1142,7 +979,7 @@ const
     double locdiff = 0;
     for( auto const& [mon,coef] : spe.mapmon() )
       locdiff += std::fabs( coef ); 
-    if( std::fabs(locdiff) > 1e-10 )
+    if( std::fabs(locdiff) > options.CHKTOL )
       std::cerr << " \n Error in auxiliary quadratic form #" << i << spe;
     sumdiff += locdiff;  
   }
@@ -1150,9 +987,8 @@ const
   // Check entries in _MatPSD
   itmat = _MatPSD.begin();
   for( unsigned i=0; itmat != _MatPSD.end(); ++itmat, ++i ){
-    SPolyExpr spe( 0e0 );
+    t_SPoly spe;
     for( auto const& [ijmon,coef] : *itmat ){
-      //std::cout << mapmon[*ijmon.first] << " * " << mapmon[*ijmon.second];
       spe += coef * mapmon[*ijmon.first] * mapmon[*ijmon.second];
     }
 #ifdef MC__SQUAD_DEBUG_CHECK
@@ -1161,7 +997,7 @@ const
     double locdiff = 0;
     for( auto const& [mon,coef] : spe.mapmon() )
       locdiff += std::fabs( coef ); 
-    if( std::fabs(locdiff) > 1e-10 )
+    if( std::fabs(locdiff) > options.CHKTOL )
       std::cerr << " \n Error in auxiliary quadratic form #" << i << spe;
     sumdiff += locdiff;  
   }
@@ -1169,226 +1005,56 @@ const
   return sumdiff;
 }
 
-inline void
-SQuad::_pow2cheb
-( std::vector< SQuad::t_SPolyMonCoef >& veccoef )
-{
-  // Converts COEFF in monomial basis to the Chebyshev basis.
-  // Based on SCONMC function (http://www.netlib.org/math/MATH77/dconmc.f, http://www.netlib.org/math/docpdf/ch11-03.pdf)
-  int const N = veccoef.size()-1;
-  if( N <= 1 ) return;
-  // TP = .5D0**(N-1)
-  // COEFF(N) = TP * COEFF(N)
-  // COEFF(N-1) = TP * COEFF(N-1)
-  double TP = std::pow(0.5,N-1);
-  for( auto& [mon,coef] : veccoef[N] )   coef *= TP;
-  for( auto& [mon,coef] : veccoef[N-1] ) coef *= TP;
-  //    do 20 J = N-2, 0, -1
-  //      TP = 2.D0 * TP
-  //      COEFF(J) = TP * COEFF(J)
-  //      COEFF(J+1) = 2.D0 * COEFF(J+1)
-  for( int J=N-2; J>=0; --J ){
-    TP *= 2e0;
-    for( auto& [mon,coef] : veccoef[J] )   coef *= TP;
-    for( auto& [mon,coef] : veccoef[J+1] ) coef *= 2e0;
-    //    do 10 I = J, N-2
-    //      COEFF(I) = COEFF(I) + COEFF(I+2)
-    // 10    continue
-    for( int I=J; I<=N-2; ++I )
-      for( auto& [mon,coef] : veccoef[I+2] ){
-        auto [itmon,ins] = veccoef[I].insert( std::make_pair( mon, coef ) );
-        if( !ins ) itmon->second += coef;
-        if( itmon->second == 0e0 ) veccoef[I].erase( itmon );
-      }
-  // 20 continue
-  }
-  //    return
-  //    end  
-}
-
-inline void
-SQuad::_cheb2pow
-( std::vector< SQuad::t_SPolyMonCoef >& veccoef )
-{
-  // Converts COEFF in Chebyshev basis to the monomial basis.
-  // Based on SCONCM function (http://www.netlib.org/math/MATH77/dconcm.f, http://www.netlib.org/math/docpdf/ch11-03.pdf)
-  int const N = veccoef.size()-1;
-  if( N <= 1 ) return;
-  //    TP = 1.D0
-  double TP = 1e0;
-  //    do 20 J = 0, N-2
-  for( int J=0; J<=N-2; ++J ){
-  //       do 10 I = N-2, J, -1
-  //          COEFF(I) = COEFF(I) - COEFF(I+2)
-  // 10    continue
-    for( int I=N-2; I>=J; --I )
-      for( auto& [mon,coef] : veccoef[I+2] ){
-        auto [itmon,ins] = veccoef[I].insert( std::make_pair( mon, -coef ) );
-        if( !ins ) itmon->second -= coef;
-        if( itmon->second == 0e0 ) veccoef[I].erase( itmon );
-      }
-  //       COEFF(J+1) = .5D0 * COEFF(J+1)
-  //       COEFF(J) = TP * COEFF(J)
-  //       TP = 2.D0 * TP
-  // 20 continue
-    for( auto& [mon,coef] : veccoef[J+1] ) coef /= 2e0;
-    for( auto& [mon,coef] : veccoef[J] )   coef *= TP;
-    TP *= 2e0;
-  }
-  //    COEFF(N) = TP * COEFF(N)
-  //    COEFF(N-1) = TP * COEFF(N-1)
-  for( auto& [mon,coef] : veccoef[N] )   coef *= TP;
-  for( auto& [mon,coef] : veccoef[N-1] ) coef *= TP;
-  //    return
-  //    end  
-}
-
-inline void
-SQuad::_unipol
-( unsigned const ivar, SQuad::t_SPolyMonCoef const& SPol,
-  std::vector< SQuad::t_SPolyMonCoef >& veccoef )
-{
-  // Get univariate polynomial in the variable ivar
-  veccoef.clear();
-  unsigned const N = _maxord( ivar, SPol );
-  veccoef.assign( N+1, t_SPolyMonCoef() );
-  
-  // No dependence
-  if( !N ){
-    veccoef[0] = SPol;
-    return;
-  }
-  
-  // Construct first- and higher-order terms
-  for( auto const& [mon,coef] : SPol ){
-    auto ie = mon.expr.find( ivar );
-    if( ie == mon.expr.end() ) // no dependence on variable ivar 
-      veccoef[ 0 ].insert( std::make_pair( mon, coef ) );
-    else{
-      auto const& [ivar,iord] = *ie;
-      SPolyMon monmod( mon.tord - iord, mon.expr );
-      monmod.expr.erase( ivar ); // remove ivar entry
-      veccoef[ iord ].insert( std::make_pair( monmod, coef ) );
-    }
-  }
-}
-
-inline unsigned
-SQuad::_maxord
-( unsigned const ivar, SQuad::t_SPolyMonCoef const& SPol )
-{
-  unsigned maxord = 0;
-  for( auto const& [mon,coef] : SPol ){
-    auto ie = mon.expr.find( ivar );
-    if( ie != mon.expr.end() && ie->second > maxord )
-      maxord = ie->second;
-  }
-  return maxord;
-}
-
-inline bool
-SQuad::_deps
-( unsigned const nSPol, SQuad::t_SPolyMonCoef const* pSPol, SQuad::t_SPolyVar& SVar )
-{
-  for( unsigned i=0; i<nSPol; i++ )
-    _deps( pSPol[i], SVar );
-  return !SVar.empty();
-}
-
-inline bool
-SQuad::_deps
-( SQuad::t_SPolyMonCoef const& SPol, SQuad::t_SPolyVar& SVar )
-{
-  for( auto const& [mon,coef] : SPol )
-    for( auto const& [ivar,iord] : mon.expr )
-      SVar.insert( ivar );
-  return !SVar.empty();
-}
-
-inline void
-SQuad::_convert
-( SQuad::t_SPolyMonCoef& SPol, SQuad::t_SPolyVar const& SVar,
-  int const BASIS )
-{
-  // Constant or linear polynomial - nothing to do
-  if( SPol.empty() || SVar.empty() || SPol.crbegin()->first.tord <= 1 ) return;
-
-  // Apply conversion variable by variable
-  std::vector< SQuad::t_SPolyMonCoef > veccoef;
-  for( unsigned ivar : SVar ){
-    // Separate contribution of variable ivar, and convert to Chebyshev form
-    _unipol( ivar, SPol, veccoef );
-    switch( BASIS ){
-      case Options::MONOM: _pow2cheb( veccoef ); break;
-      case Options::CHEB:  _cheb2pow( veccoef ); break;
-    }
-    // Merge back into multivariate polynomial
-    SPol = veccoef[0];
-    for( unsigned iord=1; iord<veccoef.size(); iord++ ){
-      for( auto& [mon,coef] : veccoef[iord] ){
-        SPolyMon monmod( mon.tord + iord, mon.expr );
-        monmod.expr[ ivar ] = iord;
-        SPol[ monmod ] = coef;
-      }
-    }
-    //_simplify( coefmon );
-  }
-}
-
+template <typename KEY, typename COMP>
 inline double
-SQuad::process
-( unsigned const nSPol, SQuad::t_SPolyMonCoef const* pSPol,
-  int const BASIS, bool const CHECK )
+SQuad<KEY,COMP>::process
+( unsigned const nSPol, map_SPoly const* pSPol,
+  int const BASIS, bool const CHK )
 {
   for( unsigned i=0; i<nSPol; i++ )
     process( pSPol[i], BASIS, false );
-  return( CHECK? check( nSPol, pSPol, BASIS ): 0. );
+  return( CHK? check( nSPol, pSPol, BASIS ): 0. );
 }
 
+template <typename KEY, typename COMP>
 inline double
-SQuad::process
-( std::set<unsigned> const& ndxSPol, SQuad::t_SPolyMonCoef const* pSPol,
-  int const BASIS, bool const CHECK )
+SQuad<KEY,COMP>::process
+( std::set<unsigned> const& ndxSPol, map_SPoly const* pSPol,
+  int const BASIS, bool const CHK )
 {
-  std::vector<t_SPolyMonCoef> vpSPol;
+  std::vector<map_SPoly> vpSPol;
   vpSPol.reserve( ndxSPol.size() );
   for( unsigned const& i : ndxSPol ) vpSPol.push_back( pSPol[i] );
-  return process( ndxSPol.size(), vpSPol.data(), BASIS, CHECK );
+  return process( ndxSPol.size(), vpSPol.data(), BASIS, CHK );
 }
 
+template <typename KEY, typename COMP>
 inline double
-SQuad::process
-( SQuad::t_SPolyMonCoef const& SPol, int const BASIS,
-  bool const CHECK )
+SQuad<KEY,COMP>::process
+( typename SQuad<KEY,COMP>::map_SPoly const& SPol, int const BASIS,
+  bool const CHK )
 {
+  // Local copy and conversion to desired basis
+  SPoly<KEY,COMP>::options.BASIS = BASIS;
+  t_SPoly SPolConv( SPol ); SPolConv.convert( options.BASIS );
+  map_SPoly& mapmon = SPolConv.mapmon();
+  SPoly<KEY,COMP>::options.BASIS = options.BASIS;
+
   // Append entry in <a>MatFct</a>
   unsigned ndxmat = _MatFct.size();
-  _MatFct.push_back( t_SQuad() );
+  _MatFct.push_back( map_SQuad() );
   auto& mat = _MatFct[ndxmat];
 
-  // Always insert constant monomial 1
-  _SetMon.insert( SPolyMon() );
-
-  // Identify and insert variables participating in monomials
-  t_SPolyVar ndxvar;
-  _deps( SPol, ndxvar );
-  for( auto ivar : ndxvar ) _SetMon.insert( SPolyMon( ivar ) );
-
-  // Local copy and conversion to desired basis
-  auto coefmon = SPol;
-  if( BASIS != options.BASIS ) _convert( coefmon, ndxvar, BASIS );
+  // Initialize monomial vector with constant monomial and participating variables
+  _SetMon.insert( t_SMon() );
+  for( auto var : SPolConv.setvar() )
+    _SetMon.insert( t_SMon( var ) );
 
   // Iterate through monomial terms
-  //for( auto it=coefmon.crbegin(); it!=coefmon.crend(); ++it ){
-    //const auto& [mon,coef] = *it;
-  for( ; !coefmon.empty(); ){
+  for( ; !mapmon.empty(); ){
     // Local copy of next monomial, then erase
-    auto const [mon,coef] = options.ORDER==Options::INC? *coefmon.cbegin(): *coefmon.crbegin();
-    coefmon.erase( mon );
-
-    // Insert variables participating in monomial
-    //for( auto const& [ivar,iord] : mon.expr )
-    //  _SetMon.insert( SPolyMon( ivar ) );
+    auto const [mon,coef] = options.ORDER==Options::INC? *mapmon.cbegin(): *mapmon.crbegin();
+    mapmon.erase( mon );
 
     // Monomial already present in _SetMon
     auto itmon = _SetMon.find( mon );
@@ -1417,36 +1083,37 @@ SQuad::process
             << " · " << prmon->display(options.BASIS)
             << std::endl;
 #endif
-    bool ins = _insert( mat, coefmon, plmon, prmon, coef );
-    //bool ins = _insert( _MatFct[ndxmat], coefmon, plmon, prmon, coef );
+    bool ins = _insert( mat, mapmon, plmon, prmon, coef );
 #ifdef MC__SQUAD_CHECK
     assert( ins );
 #endif
   }
 
-  return( CHECK? check( 1, &SPol, BASIS ): 0. );
+  return( CHK? check( 1, &SPol, BASIS ): 0. );
 }
 
-inline std::pair< SPolyMon const*, SPolyMon const* >
-SQuad::_reorder
-( std::pair< SPolyMon const*, SPolyMon const* > pMon )
+template <typename KEY, typename COMP>
+inline typename SQuad<KEY,COMP>::key_SQuad&
+SQuad<KEY,COMP>::_reorder
+( key_SQuad&& pMon )
 const
 {
-  if( lt_SPolyMon()( *pMon.second, *pMon.first ) )
+  if( lt_SMon<COMP>()( *pMon.second, *pMon.first ) )
     std::swap( pMon.first, pMon.second );
   return pMon;
 }
 
-inline std::set< SPolyMon, lt_SPolyMon >
-SQuad::_prodmon
-( SPolyMon const& mon1, SPolyMon const& mon2 )
+template <typename KEY, typename COMP>
+inline typename SQuad<KEY,COMP>::set_SMon
+SQuad<KEY,COMP>::_prodmon
+( t_SMon const& mon1, t_SMon const& mon2 )
 const
 {
 #ifdef MC__SQUAD_DEBUG_PRODMON
   std::cout << "mon1:\n" << mon1.display(options.BASIS) << std::endl;
   std::cout << "mon2:\n" << mon2.display(options.BASIS) << std::endl;
 #endif
-  std::set<SPolyMon,lt_SPolyMon> prodmon;
+  set_SMon prodmon;
   switch( options.BASIS ){
    // Monomial basis representation
    case Options::MONOM:
@@ -1455,9 +1122,9 @@ const
 
    // Chebyshev basis representation
    case Options::CHEB:
-    prodmon.insert( SPolyMon() );
+    prodmon.insert( t_SMon() );
     for( auto const& [ivar,iord] : (mon1+mon2).expr ){
-      std::set<SPolyMon,lt_SPolyMon> prodmon2;
+      set_SMon prodmon2;
       auto&& it1 = mon1.expr.find( ivar );
       auto&& it2 = mon2.expr.find( ivar );
       if( it1 != mon1.expr.end() && it2 != mon2.expr.end() ){
@@ -1465,11 +1132,11 @@ const
         unsigned const& iord2 = it2->second;
         assert( iord1 && iord2 );
         for( auto const& mon3 : prodmon ){
-          prodmon2.insert( mon3 + SPolyMon( iord1+iord2, {std::make_pair( ivar, iord1+iord2 )} ) );
+          prodmon2.insert( mon3 + t_SMon( iord1+iord2, {std::make_pair( ivar, iord1+iord2 )} ) );
           if( iord1 > iord2 )
-            prodmon2.insert( mon3 + SPolyMon( iord1-iord2, {std::make_pair( ivar, iord1-iord2 )} ) );
+            prodmon2.insert( mon3 + t_SMon( iord1-iord2, {std::make_pair( ivar, iord1-iord2 )} ) );
           else if( iord1 < iord2 )
-            prodmon2.insert( mon3 + SPolyMon( iord2-iord1, {std::make_pair( ivar, iord2-iord1 )} ) );
+            prodmon2.insert( mon3 + t_SMon( iord2-iord1, {std::make_pair( ivar, iord2-iord1 )} ) );
           else
             prodmon2.insert( mon3 );
         }
@@ -1478,13 +1145,13 @@ const
         unsigned const& iord1 = it1->second;
         assert( iord1 );
         for( auto const& mon3 : prodmon )
-          prodmon2.insert( mon3 + SPolyMon( iord1, {std::make_pair( ivar, iord1 )} ) );
+          prodmon2.insert( mon3 + t_SMon( iord1, {std::make_pair( ivar, iord1 )} ) );
       }    
       else{
         unsigned const& iord2 = it2->second;
         assert( iord2 );
         for( auto const& mon3 : prodmon )
-          prodmon2.insert( mon3 + SPolyMon( iord2, {std::make_pair( ivar, iord2 )} ) );
+          prodmon2.insert( mon3 + t_SMon( iord2, {std::make_pair( ivar, iord2 )} ) );
       }    
       std::swap( prodmon, prodmon2 );
     }
@@ -1498,9 +1165,10 @@ const
   return prodmon;
 }
 
+template <typename KEY, typename COMP>
 inline bool
-SQuad::_insert
-( t_SQuad& mat, SPolyMon const* pMon, double const coef, bool const add )//, bool const rem )
+SQuad<KEY,COMP>::_insert
+( map_SQuad& mat, t_SMon const* pMon, double const coef, bool const add )
 {
   // New entry in quadratic form as product with constant monomial
 #ifdef MC__SQUAD_DEBUG_DECOMP
@@ -1512,13 +1180,12 @@ SQuad::_insert
     if( itmat->second == 0. ) mat.erase( itmat );
   }
   return ins || add;
-  //if( !ins && rem ) mat.erase( itmat );
-  //return ins || rem;
 }
 
+template <typename KEY, typename COMP>
 inline bool
-SQuad::_insert
-( t_SQuad& mat, SPolyMon const* pLMon, SPolyMon const* pRMon,
+SQuad<KEY,COMP>::_insert
+( map_SQuad& mat, t_SMon const* pLMon, t_SMon const* pRMon,
   double const coef, bool const add )
 {
   // New entry in quadratic form
@@ -1530,20 +1197,20 @@ SQuad::_insert
   return ins || add;
 }
 
+template <typename KEY, typename COMP>
 inline bool
-SQuad::_insert
-( t_SQuad& mat, std::map< SPolyMon, double, lt_SPolyMon >& coefmon,
-  SPolyMon const* pLMon, SPolyMon const* pRMon, double const coef,
-  bool const add )
+SQuad<KEY,COMP>::_insert
+( map_SQuad& mat, map_SPoly& mapmon, t_SMon const* pLMon,
+  t_SMon const* pRMon, double const coef, bool const add )
 {
   // Extra lower-order terms generate by Chebyshev product
   auto&& prodmon = _prodmon( *pLMon, *pRMon );
   unsigned const nprod = prodmon.size();
   auto&& itmon = prodmon.crbegin(); 
   for( ++itmon; itmon != prodmon.crend(); ++itmon ){
-    auto [itcmon,ins] = coefmon.insert( std::make_pair( *itmon, -coef ) );
+    auto [itcmon,ins] = mapmon.insert( std::make_pair( *itmon, -coef ) );
     if( !ins ) itcmon->second -= coef; 
-    if( itcmon->second == 0. ) coefmon.erase( itcmon );
+    if( itcmon->second == 0. ) mapmon.erase( itcmon );
   }
   
   // New entry in quadratic form
@@ -1555,17 +1222,16 @@ SQuad::_insert
   return ins || add;
 }
 
+template <typename KEY, typename COMP>
 inline void
-SQuad::_candidates
-( std::set< std::pair< SPolyMon const*, SPolyMon const* >, lt_SQuad >& CandidateDec,
-  SPolyMon const& mon )
+SQuad<KEY,COMP>::_candidates
+( set_SQuad& CandidateDec, t_SMon const& mon )
 const
 {
   for( auto&& mon2 : _SetMon ){
     if( !mon2.subseteq( mon ) ) continue;
     auto&& itmon3 = _SetMon.find( mon - mon2 );
-    if( itmon3 == _SetMon.end() || ( &mon2 != &*itmon3 && lt_SPolyMon()( mon2, *itmon3 ) ) ) continue;
-    //if( itmon3 == _SetMon.end() || lt_SPolyMon()( *itmon3, mon2 ) ) continue;
+    if( itmon3 == _SetMon.end() || ( &mon2 != &*itmon3 && lt_SMon<COMP>()( mon2, *itmon3 ) ) ) continue;
 #ifdef MC__SQUAD_DEBUG_DECOMP
     std::cout << "Candidate: " << mon.display(options.BASIS)
               << " = " << mon2.display(options.BASIS)
@@ -1576,12 +1242,13 @@ const
   }
 }
 
-inline std::pair< SPolyMon const*, SPolyMon const* >
-SQuad::_decompose
-( SPolyMon const& mon )
+template <typename KEY, typename COMP>
+inline typename SQuad<KEY,COMP>::key_SQuad
+SQuad<KEY,COMP>::_decompose
+( t_SMon const& mon )
 {
   // Possible decompositions using existing monomial in _SetMon
-  std::set< std::pair< SPolyMon const*, SPolyMon const* >, lt_SQuad > CandidateDec;
+  set_SQuad CandidateDec;
   _candidates( CandidateDec, mon );
   
   // Case 1: Monomial can be decomposed in terms of existing monomial in _SetMon
@@ -1600,7 +1267,7 @@ SQuad::_decompose
 
   // Case 2: Monomial is linear in all of the variables (multilinear)
   if( mon.gexp() == 1 ){
-    t_pSPolyMon CandidateMon;
+    set_pSMon CandidateMon;
     for( auto&& mon2 : _SetMon ){
       if( !mon2.subseteq( mon ) ) continue;
 #ifdef MC__SQUAD_CHECK
@@ -1620,8 +1287,8 @@ SQuad::_decompose
 
     // Case 2a: Use existing non-trivial monomial component in _SetMon
     if( (*CandidateMon.rbegin())->tord > 1 ){
-      SPolyMon const* pmon2 = *CandidateMon.rbegin();
-      SPolyMon mon3( mon - *pmon2 );
+      t_SMon const* pmon2 = *CandidateMon.rbegin();
+      t_SMon mon3( mon - *pmon2 );
 #ifdef MC__SQUAD_DEBUG_DECOMP
       std::cout << "Decomposed: " << mon.display(options.BASIS)
                 << " = " << pmon2->display(options.BASIS)
@@ -1636,15 +1303,15 @@ SQuad::_decompose
 
     // Case 2b: Split monomial into two monomials of similar total order
     unsigned count = 0;
-    SPolyMon mon2;
+    t_SMon mon2;
     for( auto const& [ivar,iord] : mon.expr ){
 #ifdef MC__SQUAD_CHECK
       assert( iord == 1 );
 #endif
-      mon2 += SPolyMon( ivar );
+      mon2 += t_SMon( ivar );
       if( ++count >= mon.tord / 2 + mon.tord % 2 ) break;
     }
-    SPolyMon mon3( mon - mon2 );
+    t_SMon mon3( mon - mon2 );
 #ifdef MC__SQUAD_DEBUG_DECOMP
     std::cout << "Decomposed: " << mon.display(options.BASIS)
               << " = " << mon2.display(options.BASIS)
@@ -1661,17 +1328,17 @@ SQuad::_decompose
   // Case 3: Monomial has partial order >1 in all of the variables w/ some odd partial order
   if( mon.gcexp() % 2 ){
   //if( mon.lexp() == 1 && mon.gexp() > 1  ){
-    SPolyMon mon2;
+    t_SMon mon2;
     for( auto&& [ivar,iord] : mon.expr )
       if( iord % 2 )
-        mon2 += SPolyMon( ivar );
+        mon2 += t_SMon( ivar );
 #ifdef MC__SQUAD_DEBUG_DECOMP
     std::cout << "Decomposed: " << mon.display(options.BASIS)
               << " = " << mon2.display(options.BASIS)
               << " · " << (mon-mon2).display(options.BASIS)
               << std::endl;
 #endif
-    SPolyMon mon3( mon - mon2 );
+    t_SMon mon3( mon - mon2 );
     // Decompose mon2 and mon3
 #ifdef MC__SQUAD_DEBUG_DECOMP
       std::cout << "Decomposing: " << mon2.display(options.BASIS) << std::endl;
@@ -1688,7 +1355,7 @@ SQuad::_decompose
   }
   
   // Case 4: Monomial has even partial order in all of the variables
-  SPolyMon mon2 = mon / 2;
+  t_SMon mon2 = mon / 2;
   // Decompose mon2
   auto&& itmon2 = _SetMon.find( mon2 );
   if( itmon2 == _SetMon.end() ) itmon2 = _subexpression( mon2 );
@@ -1696,9 +1363,10 @@ SQuad::_decompose
   return std::make_pair( &(*itmon2), &(*itmon2) );
 }
 
-inline typename SQuad::t_SPolyMon::iterator
-SQuad::_subexpression
-( SPolyMon const& mon )
+template <typename KEY, typename COMP>
+inline typename SQuad<KEY,COMP>::set_SMon::iterator
+SQuad<KEY,COMP>::_subexpression
+( t_SMon const& mon )
 {
   // Monomial mon already in _SetMon - may happen for constant monomial and variables
   auto itmon0 = _SetMon.find( mon );
@@ -1715,24 +1383,24 @@ SQuad::_subexpression
 
   // Append new reduction constraint for <a>mon</a>
   unsigned ndxmat = _MatRed.size();
-  _MatRed.push_back( t_SQuad() );
+  _MatRed.push_back( map_SQuad() );
   auto& mat = _MatRed.back();
 #ifdef MC__SQUAD_DEBUG_DECOMP
   std::cerr << "SQuad::_subexpression, &mat = " << &mat << std::endl;
 #endif
   auto itmon = _SetMon.insert( mon ).first;
-  std::map< SPolyMon, double, lt_SPolyMon > coefmon;
+  map_SPoly mapmon;
   bool ins = _insert( mat, &(*itmon), -1. )
-          && _insert( mat, coefmon, plmon, prmon, 1. );
+          && _insert( mat, mapmon, plmon, prmon, 1. );
 #ifdef MC__SQUAD_CHECK
     assert( ins );
 #endif
-  //for( auto it=coefmon.crbegin(); it!=coefmon.crend(); ++it ){
+  //for( auto it=mapmon.crbegin(); it!=mapmon.crend(); ++it ){
     //auto const& [monlow,coeflow] = *it;
-  for( ; !coefmon.empty(); ){
+  for( ; !mapmon.empty(); ){
     // Local copy of next monomial, then erase
-    auto const [monlow,coeflow] = options.ORDER==Options::INC? *coefmon.cbegin(): *coefmon.crbegin();
-    coefmon.erase( monlow );
+    auto const [monlow,coeflow] = options.ORDER==Options::INC? *mapmon.cbegin(): *mapmon.crbegin();
+    mapmon.erase( monlow );
 
     auto itmonlow = _subexpression( monlow );
     ins = _insert( _MatRed[ndxmat], &(*itmonlow), coeflow );
@@ -1747,9 +1415,10 @@ SQuad::_subexpression
   return itmon;
 }
 
+template <typename KEY, typename COMP>
 inline void
-SQuad::_reduction
-( SPolyMon const& mon )
+SQuad<KEY,COMP>::_reduction
+( t_SMon const& mon )
 {
   // Search for extra reduction constraints for <a>mon</a>
   // that don't add additional low-order monomials
@@ -1769,7 +1438,7 @@ SQuad::_reduction
     if( monmis ) continue;
 
     // Find alternative decompositions
-    SPolyMon montot( mon + *itmon2 );
+    t_SMon montot( mon + *itmon2 );
     auto itmon3 = itmon2;
     for( ++itmon3; itmon3 != _SetMon.end(); ++itmon3 ){
       if( !itmon3->subseteq( montot ) ) continue;
@@ -1778,10 +1447,10 @@ SQuad::_reduction
       // Prevent duplication
       switch( options.ORDER ){
        case Options::INC:      
-        if( itmon4 == _SetMon.end() || lt_SPolyMon()( *itmon4, *itmon3 ) || itmon == itmon4 ) continue;
+        if( itmon4 == _SetMon.end() || lt_SMon<COMP>()( *itmon4, *itmon3 ) || itmon == itmon4 ) continue;
         break;
        case Options::DEC:
-        if( itmon4 == _SetMon.end() || lt_SPolyMon()( *itmon3, *itmon4 ) || itmon == itmon3 ) continue;
+        if( itmon4 == _SetMon.end() || lt_SMon<COMP>()( *itmon3, *itmon4 ) || itmon == itmon3 ) continue;
         break;
       }
 
@@ -1813,7 +1482,7 @@ SQuad::_reduction
 #endif
 
       // Populate reduction constraint
-      _MatRed.push_back( t_SQuad() );
+      _MatRed.push_back( map_SQuad() );
       auto& mat = _MatRed.back();
       // Insert product terms
       bool ins = _insert( mat, &mon,       &(*itmon2), -(double)prodmon12.size() )
@@ -1840,8 +1509,9 @@ SQuad::_reduction
   }
 }
 
+template <typename KEY, typename COMP>
 inline void
-SQuad::_reset
+SQuad<KEY,COMP>::_reset
 ()
 {
   _SetMon.clear();
