@@ -891,7 +891,7 @@ SPolyExpr::operator*=
   if( d == 0. ){ *this = 0; return *this; };
   if( d == 1. ) return *this;
   for( auto&& mon : _mapmon )
-    mon.second /= d;
+    mon.second *= d;
   return *this;
 }
 

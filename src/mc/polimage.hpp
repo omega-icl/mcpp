@@ -3746,7 +3746,7 @@ PolImg<T>::_add_cuts_SQR
   if( pVar1->cst() )
     _add_cut( pOp, PolCut<T>::EQ, mc::sqr( pVar1->num().val() ), *VarR, 1. );
 
-  else if( !options.RELAX_MONOM ){
+  else if( pOp && !options.RELAX_MONOM ){
     auto itVar1 = _Vars.find( pVar1 );
     assert( itVar1 != _Vars.end() );
     _add_cut( pOp, *VarR, *itVar1->second );

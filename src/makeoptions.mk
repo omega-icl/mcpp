@@ -1,6 +1,6 @@
 # THIRD-PARTY LIBRARIES <<-- CHANGE AS APPROPRIATE -->>
 
-PATH_3RD_PARTY = $(shell cd ../../src/ ; pwd )/3rdparty
+PATH_3RD_PARTY = $(HOME)/Programs/mcpp/src/3rdparty
 
 PATH_LAPACK = $(PATH_3RD_PARTY)/cpplapack-2015.05.11-1
 LIB_LAPACK  = -llapack -lblas
@@ -30,7 +30,7 @@ FLAG_BOOST = -DBOOST_UBLAS_NO_STD_CERR -DMC__USE_BOOST
 PATH_HSL = 
 LIB_HSL  = -lmc13 -lmc21 -lmc33 -lgfortran
 INC_HSL  = 
-FLAG_HSL = #-DMC__USE_HSL
+FLAG_HSL = -DMC__USE_HSL
 
 LIB_CPPUNIT = -lcppunit
 

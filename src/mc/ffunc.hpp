@@ -6798,7 +6798,7 @@ FFGraph::reval
           *itU = (*itvVar)[i];
           if( MAXPASS ) mapVar[&*itU] = &(*itvVar)[i];
 #ifdef MC__REVAL_DEBUG
-          std::cout << &*itU << " : " << &(*itvVar)[i] << std::endl;
+          std::cout << "Independent " << *pF << ": " << *itU << std::endl;
 #endif
           break;
         }
@@ -6825,12 +6825,12 @@ FFGraph::reval
       _curOp = *ito;
       if( !ipass ){
 #ifdef MC__REVAL_NEG_DEBUG
-        if( _curOp->type == FFOp::NEG ) std::cout << *static_cast<U*>( _curOp->pops[0]->val() ) << std::endl;
+        if( _curOp->type == FFOp::EXP ) std::cout << *static_cast<U*>( _curOp->pops[0]->val() ) << std::endl;
 #endif
         try{ _curOp->evaluate( itU, wkDep.data() ); }
         catch(...){ continue; }
 #ifdef MC__REVAL_NEG_DEBUG
-        if( _curOp->type == FFOp::NEG ) std::cout << *itU << std::endl;
+        if( _curOp->type == FFOp::EXP ) std::cout << *itU << std::endl;
 #endif
       }
       else{
