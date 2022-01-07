@@ -528,7 +528,7 @@ public:
     };
     //! @brief Available basis representations
     enum MONBASIS{
-      POW=0,	//!< Power basis
+      MONOM=0,	//!< Monomial basis
       CHEB	//!< Chebyshev basis
     };
     //! @brief Basis representation of the monomials
@@ -1276,8 +1276,8 @@ const
   if( maxord ) bndmon[1] = ( bndvar - ref ) / scal;
   for( unsigned i=2; i<=maxord; i++ )
     switch( options.BASIS ){
-      case Options::POW:  bndmon[i] = Op<U>::pow( bndmon[1], i );  break;
-      case Options::CHEB: bndmon[i] = Op<U>::cheb( bndmon[1], i ); break;
+      case Options::MONOM: bndmon[i] = Op<U>::pow( bndmon[1], i );  break;
+      case Options::CHEB:  bndmon[i] = Op<U>::cheb( bndmon[1], i ); break;
     }
  return bndmon;
 }
@@ -1294,8 +1294,8 @@ const
   if( maxord ) bndmon[1] = bndvar;
   for( unsigned i=2; i<=maxord; i++ )
     switch( options.BASIS ){
-      case Options::POW:  bndmon[i] = Op<U>::pow( bndmon[1], i );  break;
-      case Options::CHEB: bndmon[i] = Op<U>::cheb( bndmon[1], i ); break;
+      case Options::MONOM: bndmon[i] = Op<U>::pow( bndmon[1], i );  break;
+      case Options::CHEB:  bndmon[i] = Op<U>::cheb( bndmon[1], i ); break;
     }
  return bndmon;
 }
@@ -1381,7 +1381,7 @@ SCModel<T>::_minimax
   case Options::CHEB:
     _coefuniv = _to_chebyshev(problem.numerator().data());
     break;
-  case Options::POW:
+  case Options::MONOM:
     _coefuniv = problem.numerator().data();
     break;
   }
@@ -1438,7 +1438,7 @@ SCModel<T>::_minimax
     case Options::CHEB:
       CV2 = _clenshaw( CVI, _maxord ) + TOne * rem;
       break;
-    case Options::POW:
+    case Options::MONOM:
       CV2 = _horner( CVI, _maxord ) + TOne * rem;
       break;
     }
@@ -1769,8 +1769,8 @@ const
   for( auto const& [mon0,coef0] : coefmon0 ){
     if( mon0.tord + ndxord > _maxord ){ // append to remainder coefficient if total order too large
       switch( options.BASIS ){
-        case Options::CHEB: rem += (coef0*dscal)*TOne; continue;
-        case Options::POW:  rem += (coef0*dscal)*(ndxord%2 || mon0.gcexp()%2? TOne: TZerOne); continue;
+        case Options::CHEB:  rem += (coef0*dscal)*TOne; continue;
+        case Options::MONOM: rem += (coef0*dscal)*(ndxord%2 || mon0.gcexp()%2? TOne: TZerOne); continue;
       }
     }
     SPolyMon mon = mon0; // local copy for modification
@@ -1793,8 +1793,8 @@ const
 {
   for( auto const& [mon0,coef0] : coefmon0 )
     switch( options.BASIS ){
-      case Options::CHEB: rem += (coef0*dscal)*TOne; continue;
-      case Options::POW:  rem += (coef0*dscal)*(ndxord%2 || mon0.gcexp()%2? TOne: TZerOne); continue;
+      case Options::CHEB:  rem += (coef0*dscal)*TOne; continue;
+      case Options::MONOM: rem += (coef0*dscal)*(ndxord%2 || mon0.gcexp()%2? TOne: TZerOne); continue;
     }
 }
 
@@ -1940,7 +1940,7 @@ const
             _slift1D( coefmon12, .5, coefmon, rem, itvar, ndx2-ndx1 );
           break;
         // Power basis functions
-        case Options::POW:
+        case Options::MONOM:
           if( ndx1+ndx2 <= _maxord )
             _slift1D( coefmon12, 1., coefmon, rem, itvar, ndx1+ndx2 );
           else
@@ -2034,7 +2034,7 @@ const
         else
           bndpol += it2->second * ( bndbasis? bndbasis[ie2->first][2]: TOne );
         break;
-      case Options::POW:
+      case Options::MONOM:
         if( it1 != coeflin.end() && std::fabs(it2->second) > TOL ){
           //bndpol += aii*Op<U>::sqr(bndbasis[k1][1]+ai/aii/2.)-ai*ai/aii/4.;
           bndpol += it2->second * Op<U>::sqr( (bndbasis? bndbasis[ie2->first][1]: TOne)
@@ -2089,7 +2089,7 @@ const
           bndcoef += std::fabs( it->second );
         return bndcoef * TOne + bndcst;
       }
-      case Options::POW:
+      case Options::MONOM:
       {
         T bndpol = 0.;
         if( !it->first.tord ){ bndpol = it->second; ++it; }
@@ -2551,7 +2551,7 @@ SCVar<T>::polynomial
           val *= isequal(_scalvar(ivar),0.)? _refvar(ivar): 
                  mc::cheb((x[ivar]-_refvar(ivar))/_scalvar(ivar),iord);
           break;
-        case SCModel<T>::Options::POW:
+        case SCModel<T>::Options::MONOM:
           val *= isequal(_scalvar(ivar),0.)? _refvar(ivar): 
                  std::pow((x[ivar]-_refvar(ivar))/_scalvar(ivar),(int)iord);
           break;

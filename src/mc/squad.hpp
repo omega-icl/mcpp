@@ -8,204 +8,388 @@
 \date 2020
 \bug No known bugs.
 
-The class mc::SQuad defined in <tt>squad.hpp</tt> enables the reformulation of sparse polynomial models into a set of quadratic forms via the introduction of auxiliary variables.
+The class mc::SQuad defined in <tt>squad.hpp</tt> enables the reformulation of sparse multivariate polynomials into a set of quadratic forms via the introduction of auxiliary variables [<A href="https://doi.org/10.1007/BF01070233">Shor, 1987</A>; <A href="https://doi.org/10.1080/00986449208936033">Manousiouthakis & Sourlas, 1992</A>; <A href="http://www.biomedcentral.com/1752-0509/4/69">Rumschinski <i>et al.</i>, 2010</A>]
+
+\section sec_SQUAD_algo What is the Algorithm Running Behind the Reformulation?
+
+Consider the following sparse multivariate polynomials:
+\f{align*}
+p_i(\mathbf{x}) :=\ & \sum_{j=1}^{J_i} a_{i,j} m_{i,j}(\mathbf{x}),\ \ i=1,\ldots, I\\
+\text{with}\ m_{i,j}(\mathbf{x}) :=\ & x_1^{\alpha_{i,j,1}}\cdots x_{n_x}^{\alpha_{i,j,n_x}},\ \ j = 1,\ldots,J_i 
+\f}
+with coefficients \f$a_{i,j} \in \mathbb{R}\f$ and exponents \f$\alpha_{i,j,k}\in\mathbb{Z}^+\f$. The reformulation entails the construction of a list \f$\Xi\f$ of monomials in the variables \f$\mathbf{x}\f$, with the following properties [<A href="http://www.biomedcentral.com/1752-0509/4/69">Rumschinski <i>et al.</i>, 2010</A>]:
+-# For every monomial \f$m\f$ in any polynomial function \f$p_i\f$, there exists \f$\xi_1, \xi_2 \in \Xi\f$ such that \f$m = \xi_1\cdot \xi_2\f$
+-# For every monomial \f$m \in \Xi\f$ of degree higher than 1, there exists \f$\xi_1, \xi_2 \in \Xi\f$ such that \f$m = \xi_1\cdot \xi_2\f$
+-# The constant monomial \f$1 \in \Xi\f$
+
+From Property 1, any polynomial function \f$p_i\f$ can be rewritten into quadratic form as:
+\f{align*}
+p_i(\mathbf{x},\mathbf{y}) =\ & \boldsymbol{\xi}^\intercal \mathbf{Q}_i \boldsymbol{\xi},\ i = 0,\ldots,n_{\rm t} \label{eq:mainqf}
+\f}
+where the variable vectors \f$\boldsymbol{\xi}\f$ correspond to the elements of the list \f$\Xi\f$; and \f$\mathbf{Q}_i\in\mathbb{S}_+^{n_\xi}\f$ are suitable real symmetric matrices with \f$n_\xi=|\Xi|\f$.
+
+From Property 2, decomposing the elements in \f$\Xi\f$ with degree higher than 1 into products of lower-order monomials also in \f$\Xi\f$ gives rise to auxiliary quadratic constraints:
+\f{align*}
+\boldsymbol{\xi}^\intercal \mathbf{A}_i \boldsymbol{\xi} = 0,\ i = 0,\ldots,n_{\rm a} \label{eq:auxqf}
+\f}
+for suitable real symmetric matrices \f$\mathbf{A}_i\in\mathbb{S}_+^{n_\xi}\f$.
+
+<CENTER><TABLE BORDER=0>
+<TR>
+<TD>\image html Quadratization_algo.png width=35%</TD>
+</TR>
+</TABLE></CENTER>
+
+The decomposition procedure implemented in mc::SQuad consists of the recursive application of Algorithm 1 to each monomial term \f$m\f$ in any polynomial functions \f$p_i\f$, starting with \f$1\f$ and any participating variables as the list \f$\Xi\f$. The monomials are processed either in increasing or decreasing order, using the <A href="https://en.wikipedia.org/wiki/Monomial_order#Graded_lexicographic_order">graded lexicographic order</a> (grlex) of monomials by default. The function <TT>Decompose</TT> proceeds by decomposing a monomial \f$m\f$ into the monomial product \f$\xi_1\cdot\xi_2\f$, and keeps processing the monomial factors \f$\xi_1\f$ and \f$\xi_2\f$ until they or their own factors are all found in the monomial set \f$\Xi\f$. The latter set is grown dynamically in the function <TT>SubExpression</TT> by appending any factor \f$\xi_1\f$ or \f$\xi_2\f$ not initially present (line 22), and so is the set \f$\Gamma\f$ of auxiliary quadratic constraints (line 21) so the quadratization is exact.
+
+Optionally, extra quadratic equality constraints may be generated between each newly inserted monomials and other monomials in \f$\Xi\f$ (lines 23-24). These constraints arise due to multiple possible decompositions of higher-order monomials in terms of existing factors in \f$\Xi\f$ and are structurally redundant in the sense that the quadratization remains exact without them. Such redundant constraints may strengthen a QCP relaxation of a polynomial optimization program since they do not add extra auxiliary variables [<A href="https://doi.org/10.1007/s10898-006-9005-4">Liberti & Pantelides, 2006</A>; <A href="https://doi.org/10.1016/j.compchemeng.2011.01.035">Ruiz & Grossmann, 2011</A>]. However, they introduce new bilinear or square terms in the QCP relaxation which reduce its sparsity as a result.
+
+Algorithm 1 starts by testing if \f$m\f$ can be decomposed in terms of monomials that are already present in \f$\Xi\f$ (line 2), in an attempt to reducing the number of auxiliary variables and constraints in the reformulation. Several such decompositions may be possible, in which case preference is given to the trivial decomposition \f$1\cdot m\f$ if \f$m\in\Xi\f$; otherwise, a decomposition \f$\xi_1\cdot\xi_2=m\f$ is chosen whereby \f$\xi_1\f$ and \f$\xi_2\f$ are as close as possible in the grlex order. Failing this, the algorithm tests if part of \f$m\f$ comprise an existing monomial \f$\xi_1\in\Xi\f$ with total degree greater than one, with ties broken in favor of larger monomial in grlex order (line 4). The other factor \f$\xi_2\f$ is further decomposed, as necessary (line 5). If no such decompositions are possible for the current list \f$\Xi\f$ yet \f$m\f$ is multilinear (line 6), a decomposition is chosen whereby \f$\xi_1\f$ and \f$\xi_2\f$ are as close as possible in the grlex sense (line 7), then both \f$\xi_1\f$ and \f$\xi_2\f$ are further processed. In case \f$m\f$ is not multilinear but contains one or more variables with odd degree (line 10), it is split into a multilinear term &mdash; which is further processed as earlier &mdash; and a monomial where all the variable degrees are even (line 11). This latter type of monomials are simply processed as square terms (line 15). 
+
 
 \section sec_SQUAD_process How Do I Reformulate a (Set of) Sparse Polynomial Model(s)?
 
-For illustration, suppose we want to process the factorable function \f${\bf f}:\mathbb{R}^3\to\mathbb{R}^2\f$ defined by
+For illustration, consider the problem to quadratize the following polynomials:
 \f{align*}
-  {\bf f}(x_0,x_1,x_2) = \left(\begin{array}{c} \left(x_0+x_1^2-2\cdot x_2\right)^3\\ 2\cdot x_1^2-1\end{array}\right)
+  p_0(x_0,x_1,x_2) :=\ & \left(x_0+x_1^2-2 x_2\right)^3\\
+  p_1(x_1) :=\ & 2 x_1^2-1
 \f}
 
-The decomposition requires the header file <tt>squad.hpp</tt> to be included:
+It is convenient to leverage MC++'s sparse polynomial inclusion classes, e.g. in <A>scmodel.hpp</a>
+\code
+      #include "interval.hpp"
+      typedef mc::Interval I;
 
+      #include "scmodel.hpp"
+      typedef mc::SCModel<I> SCM;
+      typedef mc::SCVar<I> SCV;
+\endcode
+to help construct the polynomials in the desired format:
+\code
+      defined( TEST_DOXYGEN )
+      SCM modSCM( 6 );
+      modSCM.options.BASIS = SCM::Options::MONOM;
+      unsigned const NX = 3, NP = 2;
+      SCV X[NX], P[NP];
+      for( unsigned i=0; i<NX; i++ )
+        X[i].set( &modSCM, i, I(-1,1) );
+      P[0] = pow( X[0] + sqr( X[1] ) - 2 * X[2], 3 );
+      P[1] = 2 * sqr( X[1] ) - 1;
+
+      cout << "\nSparse multivariate polynomials:";
+      for( unsigned i=0; i<NP; i++ )
+        cout << P[i];
+\endcode
+The last three line display the resulting sparse polynomial expressions, here adopting a monomial basis representation:
+\verbatim
+    Sparse multivariate polynomials:
+    
+     1.0000000e+00   3  [0]^3
+    -6.0000000e+00   3  [0]^2·[2]
+     1.2000000e+01   3  [0]·[2]^2
+    -8.0000000e+00   3  [2]^3
+     3.0000000e+00   4  [0]^2·[1]^2
+    -1.2000000e+01   4  [0]·[1]^2·[2]
+     1.2000000e+01   4  [1]^2·[2]^2
+     3.0000000e+00   5  [0]·[1]^4
+    -6.0000000e+00   5  [1]^4·[2]
+     1.0000000e+00   6  [1]^6
+       R     =  [ 0.0000000e+00, 0.0000000e+00]
+       B     =  [-2.7000000e+01, 6.4000000e+01]
+       I     =  { 0 1 2 }
+
+    -1.0000000e+00   0  1
+     2.0000000e+00   2  [1]^2
+       R     =  [ 0.0000000e+00, 0.0000000e+00]
+       B     =  [-1.0000000e+00, 1.0000000e+00]
+       I     =  { 1 }
+\endverbatim
+
+The quadratization requires the header file <tt>squad.hpp</tt> to be included:
 \code
       #include "squad.hpp"
 \endcode
-
-A DAG of the factorable function \f${\bf f}\f$ is first created:
-
+An environment <a>mc::SQuad</a> is defined and the sparse multivariate polynomials are quadratized by calling the method <a>mc::SQuad::process</a> for each sparse polynomial. This method takes a coefficient map (or an array of maps) as argument, which is of type <a>std::map<mc::SPolyMon,double,mc::lt_SPolyMon></a> where the class mc::SPolyMon is sued to store and manipulate sparse monomials and mc::lt_SPolyMon implements the grlex order:
 \code
-      mc::FFGraph DAG;
-      const unsigned NX = 3, NF = 2;
-      mc::FFVar X[NX], F[NF];
-      for( unsigned i(0); i<NX; i++ ) X[i].set( &DAG );
-      F[0] = pow( X[0] + sqr( X[1] ) - 2 * X[2], 3 );
-      F[1] = 2 * sqr( X[1] ) - 1;
+      SQuad SQF;
+      for( unsigned i=0; i<NP; i++ )
+        SQF.process( P[i].coefmon() );
+      std::cout << "\nSparse quadratic forms:\n" << SQF;
 \endcode
-
-Then, a sparse multivariate polynomial representation of \f${\bf f}\f$ is generated:
-
-\code
-  mc::SPolyExpr SPX[NX], SPF[NF];
-  for( unsigned i(0); i<NX; i++ ) SPX[i] = X[i];
-  DAG.eval( NF, F, SPF, NX, X, SPX );
-  
-  std::cout << "Sparse polynomial expressions: " << std::endl << std::endl;
-  for( unsigned i(0); i<NF; i++ ) std::cout << "P[" << i+1 << "] =" << SPF[i] << std::endl;
-\endcode
-
-The last two line display the resulting sparse polynomial expressions:
-
+By default, the quadratization expects polynomials in monomial basis, the monomials are processed in decreased grlex order, and no redundant constraints are appended (see \ref sec_SQUAD_opt). The final line displays the equivalent quadratic forms:
 \verbatim
-    Sparse polynomial expressions: 
+Sparse quadratic forms:
 
-    P[1] =
-       1.00000e+00   X0^3
-      -6.00000e+00   X0^2·X2
-       1.20000e+01   X0·X2^2
-      -8.00000e+00   X2^3
-       3.00000e+00   X0^2·X1^2
-      -1.20000e+01   X0·X1^2·X2
-       1.20000e+01   X1^2·X2^2
-       3.00000e+00   X0·X1^4
-      -6.00000e+00   X1^4·X2
-       1.00000e+00   X1^6
-
-    P[2] =
-      -1.00000e+00   1
-       2.00000e+00   X1^2
-\endverbatim
-
-Next, an environment <a>mc::SQuad</a> is defined for reformulating sparse multivariate polynomials into quadratic form by calling the method <a>mc::SQuad::process</a>:
-
-\code
-      mc::SQuad QFF( &DAG );
-      mc::SQuad::options.REDUC = mc::SQuad::Options::ALL;
-      QFF.process( NF, SPF );
-      std::cout << "Sparse quadratic forms: " << QFF << std::endl;
-\endcode
-
-The second line sets the options so that all of the reduction quadratic forms are generated. The final line displays the resulting quadratic forms:
-
-\verbatim
-Sparse Chebyshev quadratic form:1.62289e-01 CPU-sec
-
-  Monomials: [ 1 T1[0] T1[1] T1[2] T2[0] T1[0]·T1[1] T1[0]·T1[2] T2[1] T1[1]·T1[2] T2[2] T3[1] T4[1] ]
+  12 Monomials: [ 1 [0] [1] [2] [0]^2 [0]·[1] [0]·[2] [1]^2 [1]·[2] [2]^2 [1]^3 [1]^4 ]
 
   Quadratic form for P[0]:
-    2.81250e-01    ( 1 ; 1 )
-    1.25000e-01    ( 1 ; T1[0] )
-   -6.25000e+00    ( 1 ; T1[2] )
-    0.00000e+00    ( 1 ; T2[0] )
-   -6.00000e+00    ( 1 ; T1[0]·T1[2] )
-    4.68750e-01    ( 1 ; T2[1] )
-    0.00000e+00    ( 1 ; T2[2] )
-    1.87500e-01    ( 1 ; T4[1] )
-    5.00000e-01    ( T1[0] ; T2[0] )
-   -6.00000e+00    ( T1[0] ; T1[0]·T1[2] )
-    3.75000e-01    ( T1[0] ; T4[1] )
-    3.00000e+00    ( T1[1] ; T1[0]·T1[1] )
-    1.20000e+01    ( T1[2] ; T1[0]·T1[2] )
-   -3.00000e+00    ( T1[2] ; T2[1] )
-   -4.00000e+00    ( T1[2] ; T2[2] )
-   -7.50000e-01    ( T1[2] ; T4[1] )
-    3.00000e+00    ( T1[0]·T1[1] ; T1[0]·T1[1] )
-   -6.00000e+00    ( T1[0]·T1[2] ; T2[1] )
-    1.20000e+01    ( T1[1]·T1[2] ; T1[1]·T1[2] )
-    6.25000e-02    ( T3[1] ; T3[1] )
+    1.00000e+00    ( [0] ; [0]^2 )
+   -6.00000e+00    ( [0] ; [0]·[2] )
+    1.20000e+01    ( [0] ; [2]^2 )
+    3.00000e+00    ( [0] ; [1]^4 )
+   -8.00000e+00    ( [2] ; [2]^2 )
+   -6.00000e+00    ( [2] ; [1]^4 )
+    3.00000e+00    ( [0]·[1] ; [0]·[1] )
+   -1.20000e+01    ( [0]·[2] ; [1]^2 )
+    1.20000e+01    ( [1]·[2] ; [1]·[2] )
+    1.00000e+00    ( [1]^3 ; [1]^3 )
 
   Quadratic form for P[1]:
-    0.00000e+00    ( 1 ; 1 )
-    1.00000e+00    ( 1 ; T2[1] )
+   -1.00000e+00    ( 1 ; 1 )
+    2.00000e+00    ( 1 ; [1]^2 )
 
   Auxiliary quadratic form #1:
-   -1.00000e+00    ( 1 ; 1 )
-   -1.00000e+00    ( 1 ; T2[1] )
-    2.00000e+00    ( T1[1] ; T1[1] )
+   -1.00000e+00    ( 1 ; [1]^2 )
+    1.00000e+00    ( [1] ; [1] )
 
   Auxiliary quadratic form #2:
-   -1.00000e+00    ( 1 ; T1[1] )
-   -1.00000e+00    ( 1 ; T3[1] )
-    2.00000e+00    ( T1[1] ; T2[1] )
+   -1.00000e+00    ( 1 ; [1]^3 )
+    1.00000e+00    ( [1] ; [1]^2 )
 
   Auxiliary quadratic form #3:
-        0.00000e+00    ( 1 ; 1 )
-        1.00000e+00    ( 1 ; T2[1] )
-        1.84467e+19    ( T1[1] ; T3[1] )
-        2.00000e+00    ( T2[1] ; T2[1] )
+   -1.00000e+00    ( 1 ; [1]^4 )
+    1.00000e+00    ( [1] ; [1]^3 )
 
-      Auxiliary quadratic form #4:
-       -1.00000e+00    ( 1 ; 1 )
-       -1.00000e+00    ( 1 ; T4[1] )
-        2.00000e+00    ( T2[1] ; T2[1] )
+  Auxiliary quadratic form #4:
+   -1.00000e+00    ( 1 ; [1]·[2] )
+    1.00000e+00    ( [1] ; [2] )
 
-      Auxiliary quadratic form #5:
-        1.00000e+00    ( 1 ; 1 )
-       -1.00000e+00    ( 1 ; T1[1] )
-        1.00000e+00    ( 1 ; T3[1] )
-        1.84467e+19    ( T1[1] ; T4[1] )
-        2.00000e+00    ( T2[1] ; T3[1] )
+  Auxiliary quadratic form #5:
+   -1.00000e+00    ( 1 ; [0]·[2] )
+    1.00000e+00    ( [0] ; [2] )
 
-      Auxiliary quadratic form #6:
-        0.00000e+00    ( 1 ; 1 )
-        1.00000e+00    ( 1 ; T2[1] )
-        1.84467e+19    ( T2[1] ; T4[1] )
-        2.00000e+00    ( T3[1] ; T3[1] )
+  Auxiliary quadratic form #6:
+   -1.00000e+00    ( 1 ; [0]·[1] )
+    1.00000e+00    ( [0] ; [1] )
 
-      Auxiliary quadratic form #7:
-       -1.00000e+00    ( 1 ; T1[1]·T1[2] )
-        1.00000e+00    ( T1[1] ; T1[2] )
+  Auxiliary quadratic form #7:
+   -1.00000e+00    ( 1 ; [2]^2 )
+    1.00000e+00    ( [2] ; [2] )
 
-      Auxiliary quadratic form #8:
-        1.00000e+00    ( 1 ; T1[2] )
-        1.84467e+19    ( T1[1] ; T1[1]·T1[2] )
-        1.00000e+00    ( T1[2] ; T2[1] )
-
-      Auxiliary quadratic form #9:
-       -1.00000e+00    ( 1 ; T1[0]·T1[2] )
-        1.00000e+00    ( T1[0] ; T1[2] )
-
-      Auxiliary quadratic form #10:
-       -1.00000e+00    ( 1 ; T1[0]·T1[1] )
-        1.00000e+00    ( T1[0] ; T1[1] )
-
-      Auxiliary quadratic form #11:
-       -1.00000e+00    ( 1 ; 1 )
-       -1.00000e+00    ( 1 ; T2[2] )
-        2.00000e+00    ( T1[2] ; T1[2] )
-
-      Auxiliary quadratic form #12:
-       -1.00000e+00    ( 1 ; T1[0] )
-        1.84467e+19    ( T1[0] ; T2[2] )
-        2.00000e+00    ( T1[2] ; T1[0]·T1[2] )
-
-      Auxiliary quadratic form #13:
-       -1.00000e+00    ( 1 ; T1[1] )
-        1.84467e+19    ( T1[1] ; T2[2] )
-        2.00000e+00    ( T1[2] ; T1[1]·T1[2] )
-
-      Auxiliary quadratic form #14:
-       -1.00000e+00    ( 1 ; T1[0]·T1[1] )
-        1.84467e+19    ( T1[0]·T1[1] ; T2[2] )
-        2.00000e+00    ( T1[0]·T1[2] ; T1[1]·T1[2] )
-
-      Auxiliary quadratic form #15:
-       -1.00000e+00    ( 1 ; 1 )
-       -1.00000e+00    ( 1 ; T2[1] )
-       -1.00000e+00    ( 1 ; T2[2] )
-        1.84467e+19    ( T2[1] ; T2[2] )
-        4.00000e+00    ( T1[1]·T1[2] ; T1[1]·T1[2] )
-
-      Auxiliary quadratic form #16:
-       -1.00000e+00    ( 1 ; 1 )
-       -1.00000e+00    ( 1 ; T2[0] )
-        2.00000e+00    ( T1[0] ; T1[0] )
+  Auxiliary quadratic form #8:
+   -1.00000e+00    ( 1 ; [0]^2 )
+    1.00000e+00    ( [0] ; [0] )
 \endverbatim
 
-These results show that a total of 10 monomials participate in the quadratic forms: The constant monomial \f$1\f$; the participating variables \f$x_0,x_1,x_2\f$; and 6 lifted monomials \f$x_3:=x_0^2, x_4:=x_0\cdot x_1, x_5:=x_0\cdot x_2, x_6:=x_1^2, x_7:=x_2^2, x_8:=x_1^4\f$. A reformulation of the factorable function \f${\bf f}\f$ in terms of these monomials is given by:
+These results show that a total of 12 monomials participate in the quadratic forms: The constant monomial \f$1\f$; the participating variables \f$x_0,x_1,x_2\f$; and 6 lifted monomials \f$x_3:=x_0^2, x_4:=x_0\cdot x_1, x_5:=x_0\cdot x_2, x_6:=x_1^2, x_7:=x_1\cdot x_2, x_8:=x_2^2, x_9:=x_1^3, x_10:=x_1^4\f$. A reformulation of the factorable function \f${\bf f}\f$ in terms of these monomials is given by:
 \f{align*}
-  {\bf f}(x_0,\ldots,x_8) = \left(\begin{array}{c} x_0\cdot x_3 + 12\cdot x_0\cdot x_7 + 3\cdot x_0\cdot x_8 - 6\cdot x_2\cdot x_3 - 8\cdot x_2\cdot x_7 - 6\cdot x_2\cdot x_8 + 3\cdot x_4^2 - 12\cdot x_5\cdot x_6 + 12\cdot x_6\cdot x_7 + x_6\cdot x_8\\ 2\cdot x_1^2-1\end{array}\right)
+  q_0(x_0,\ldots,x_10) = x_0 x_3 - 6 x_0 x_5 + 12 x_0 x_8 + 3 x_0 x_{10} - 8 x_2 x_8 - 6 x_2 x_{10} + 3 x_4^2 - 12 x_5 x_6 + 12 x_7^2 + x_9^2\\
+  q_1(x_0,\ldots,x_10) = - 1 + 2 x_1^2
 \f}
-with the following 11 reduction constraints are also generated:
+with the following 8 auxiliary quadratic constraints are also generated:
 \f{align*}
-  \left(\begin{array}{c} x_3-x_0^2\\ x_4-x_0\cdot x_1\\ x_5-x_0\cdot x_2\\ x_6-x_1^2\\ x_7-x_2^2\\ x_8-x_1^4\\ x_0\cdot x_4 - x_1\cdot x_3\\ x_0\cdot x_5 - x_2\cdot x_3\\ x_1\cdot x_5 - x_2\cdot x_4\\ x_0\cdot x_6 - x_1\cdot x_4\\ x_3\cdot x_6 - x_4^2\end{array}\right) = {\bf 0}
+  x_0^2 - x_3 =\ & 0\\
+  x_0x_1 - x_4 =\ & 0\\
+  x_0x_2 - x_5 =\ & 0\\
+  x_1^2 - x_6 =\ & 0\\
+  x_1x_2 - x_7 =\ & 0\\
+  x_2^2 - x_8 =\ & 0\\
+  x_1x_6 - x_9 =\ & 0\\
+  x_1x_9 - x_{10} =\ & 0\\
+
 \f}
+
+With the redundant constraint option activated before the quadratization:
+\code
+      SQuad SQF;
+      SQuad::options.REDUC = true;
+      for( unsigned i=0; i<NP; i++ )
+        SQF.process( P[i].coefmon() );
+      std::cout << "\nSparse quadratic forms:\n" << SQF;
+\endcode
+the final display changes to:
+\verbatim
+Sparse quadratic forms:
+
+  12 Monomials: [ 1 [0] [1] [2] [0]^2 [0]·[1] [0]·[2] [1]^2 [1]·[2] [2]^2 [1]^3 [1]^4 ]
+
+  Quadratic form for P[0]:
+    1.00000e+00    ( [0] ; [0]^2 )
+   -6.00000e+00    ( [0] ; [0]·[2] )
+    1.20000e+01    ( [0] ; [2]^2 )
+    3.00000e+00    ( [0] ; [1]^4 )
+   -8.00000e+00    ( [2] ; [2]^2 )
+   -6.00000e+00    ( [2] ; [1]^4 )
+    3.00000e+00    ( [0]·[1] ; [0]·[1] )
+   -1.20000e+01    ( [0]·[2] ; [1]^2 )
+    1.20000e+01    ( [1]·[2] ; [1]·[2] )
+    1.00000e+00    ( [1]^3 ; [1]^3 )
+
+  Quadratic form for P[1]:
+   -1.00000e+00    ( 1 ; 1 )
+    2.00000e+00    ( 1 ; [1]^2 )
+
+  Auxiliary quadratic form #1:
+   -1.00000e+00    ( 1 ; [1]^2 )
+    1.00000e+00    ( [1] ; [1] )
+
+  Auxiliary quadratic form #2:
+   -1.00000e+00    ( 1 ; [1]^3 )
+    1.00000e+00    ( [1] ; [1]^2 )
+
+  Auxiliary quadratic form #3:
+   -1.00000e+00    ( [1] ; [1]^3 )
+    1.00000e+00    ( [1]^2 ; [1]^2 )
+
+  Auxiliary quadratic form #4:
+   -1.00000e+00    ( 1 ; [1]^4 )
+    1.00000e+00    ( [1] ; [1]^3 )
+
+  Auxiliary quadratic form #5:
+   -1.00000e+00    ( [1] ; [1]^4 )
+    1.00000e+00    ( [1]^2 ; [1]^3 )
+
+  Auxiliary quadratic form #6:
+   -1.00000e+00    ( [1]^2 ; [1]^4 )
+    1.00000e+00    ( [1]^3 ; [1]^3 )
+
+  Auxiliary quadratic form #7:
+   -1.00000e+00    ( 1 ; [1]·[2] )
+    1.00000e+00    ( [1] ; [2] )
+
+  Auxiliary quadratic form #8:
+   -1.00000e+00    ( [1] ; [1]·[2] )
+    1.00000e+00    ( [2] ; [1]^2 )
+
+  Auxiliary quadratic form #9:
+    1.00000e+00    ( [2] ; [1]^3 )
+   -1.00000e+00    ( [1]^2 ; [1]·[2] )
+
+  Auxiliary quadratic form #10:
+    1.00000e+00    ( [2] ; [1]^4 )
+   -1.00000e+00    ( [1]·[2] ; [1]^3 )
+
+  Auxiliary quadratic form #11:
+   -1.00000e+00    ( 1 ; [0]·[2] )
+    1.00000e+00    ( [0] ; [2] )
+
+  Auxiliary quadratic form #12:
+    1.00000e+00    ( [0] ; [1]·[2] )
+   -1.00000e+00    ( [1] ; [0]·[2] )
+
+  Auxiliary quadratic form #13:
+   -1.00000e+00    ( 1 ; [0]·[1] )
+    1.00000e+00    ( [0] ; [1] )
+
+  Auxiliary quadratic form #14:
+    1.00000e+00    ( [0] ; [1]^2 )
+   -1.00000e+00    ( [1] ; [0]·[1] )
+
+  Auxiliary quadratic form #15:
+    1.00000e+00    ( [1] ; [0]·[2] )
+   -1.00000e+00    ( [2] ; [0]·[1] )
+
+  Auxiliary quadratic form #16:
+    1.00000e+00    ( [0] ; [1]·[2] )
+   -1.00000e+00    ( [2] ; [0]·[1] )
+
+  Auxiliary quadratic form #17:
+    1.00000e+00    ( [0] ; [1]^3 )
+   -1.00000e+00    ( [0]·[1] ; [1]^2 )
+
+  Auxiliary quadratic form #18:
+    1.00000e+00    ( [0] ; [1]^4 )
+   -1.00000e+00    ( [0]·[1] ; [1]^3 )
+
+  Auxiliary quadratic form #19:
+   -1.00000e+00    ( 1 ; [2]^2 )
+    1.00000e+00    ( [2] ; [2] )
+
+  Auxiliary quadratic form #20:
+   -1.00000e+00    ( [0] ; [2]^2 )
+    1.00000e+00    ( [2] ; [0]·[2] )
+
+  Auxiliary quadratic form #21:
+   -1.00000e+00    ( [1] ; [2]^2 )
+    1.00000e+00    ( [2] ; [1]·[2] )
+
+  Auxiliary quadratic form #22:
+   -1.00000e+00    ( [0]·[1] ; [2]^2 )
+    1.00000e+00    ( [0]·[2] ; [1]·[2] )
+
+  Auxiliary quadratic form #23:
+   -1.00000e+00    ( [1]^2 ; [2]^2 )
+    1.00000e+00    ( [1]·[2] ; [1]·[2] )
+
+  Auxiliary quadratic form #24:
+   -1.00000e+00    ( 1 ; [0]^2 )
+    1.00000e+00    ( [0] ; [0] )
+
+  Auxiliary quadratic form #25:
+    1.00000e+00    ( [0] ; [0]·[1] )
+   -1.00000e+00    ( [1] ; [0]^2 )
+
+  Auxiliary quadratic form #26:
+    1.00000e+00    ( [0] ; [0]·[2] )
+   -1.00000e+00    ( [2] ; [0]^2 )
+\endverbatim
+The quadratization still introduces 12 monomials but 26 auxiliary quadratic constraints are now identified, including the following 18 redundant quadratic constraints:
+\f{align*}
+  x_6^2 - x_1x_9 =\ & 0\\
+  x_6x_9 - x_1x_{10} =\ & 0\\
+  x_9^2 - x_6x_{10} =\ & 0\\
+  x_1x_7 - x_2x_6 =\ & 0\\
+  x_2x_9 - x_6x_7 =\ & 0\\
+  x_2x_{10} - x_7x_9 =\ & 0\\
+  x_0x_7 - x_1x_5 =\ & 0\\
+  x_0x_6 - x_1x_4 =\ & 0\\
+  x_1x_5 - x_2x_4 =\ & 0\\
+  x_0x_7 - x_2x_4 =\ & 0\\
+  x_4x_6 - x_0x_9 =\ & 0\\
+  x_4x_9 - x_0x_{10} =\ & 0\\
+  x_2x_5 - x_0x_8 =\ & 0\\
+  x_2x_7 - x_1x_8 =\ & 0\\
+  x_5x_7 - x_4x_8 =\ & 0\\
+  x_7^2 - x_6x_8 =\ & 0\\
+  x_0x_4 - x_1x_3 =\ & 0\\
+  x_0x_5 - x_2x_3 =\ & 0\\
+\f}
+
+The quadratization may also be performed in Chebyshev basis instead of the default monomial basis. And the monomials may be processed in increasing grlex order rather than the default decreasing grlex order.
+
+Pointers of type mc::SPolyMon to the monomials participating in the quadratic forms can be retrieved with the method mc::SQuad::SetMon, which is of type std::set<SPolyMon const*,lt_pSPolyMon>.
+
+The sparse coefficient matrices defining the main quadratic forms for each processed multivariate polynomial and the corresponding auxiliary quadratic constraints can be retrieved with the methods mc::SQuad::MatFct and mc::SQuad::MatRed, respectively. These coefficient matrices are of the type std::map<std::pair<SPolyMon const*,SPolyMon const*>,double,lt_SQuad> where the comparison operator mc::lt_SQuad orders monomial pairs in grlex order for both elements. 
+
+
+\section sec_SQUAD_opt What Are the Options in mc::SQuad and How Are They Set?
+
+The public static class member mc::SQuad::options that can be used to set/modify the options; e.g.,
+
+\code
+      mc::SQuad::options.BASIS = mc::SQuad::Options::CHEB;
+      mc::SQuad::options.ORDER = mc::SQuad::Options::DEC;
+\endcode
+
+The available options are the following:
+
+<TABLE border="1">
+ <TR><TH><b>Name</b>  <TD><b>Type</b> <TD><b>Default</b> <TD><b>Description</b>
+ <TR><TH><tt>mc::SQuad::Options::BASIS</tt> <TD><tt>int</tt> <TD>mc::SQuad::Options::MONOM <TD>Basis representation of the multivariate polynomial - mc::SQuad::Options::MONOM: monomial basis, mc::SQuad::Options::CHEB: Chebyshev basis
+ <TR><TH><tt>mc::SQuad::Options::ORDER</tt> <TD><tt>int</tt> <TD>mc::SQuad::Options::DEC <TD>Processing order for the monomial terms - mc::SQuad::Options::INC: increasing grlex monomial order, mc::SQuad::Options::DEC: decreasing grlex monomial order
+ <TR><TH><tt>mc::SQuad::Options::REDUC</tt> <TD><tt>bool</tt> <TD>false <TD>Whether to search for and append extra reduction constraints
+ <TR><TH><tt>mc::SQuad::Options::DISPLEN</tt> <TD><tt>unsigned int</tt> <TD>5 <TD>Number of digits in output stream
+</TABLE>
+
+
+\section sec_SQUAD_err What Errors Can Be Encountered during the Quadratization of a Multivariate Polynomial?
+
+Errors are managed based on the exception handling mechanism of the C++ language. Each time an error is encountered, a class object of type mc::SQuad::Exceptions is thrown, which contains the type of error. It is the user's responsibility to test whether an exception was thrown during a quadratization, and then make the appropriate changes. Should an exception be thrown and not caught, the program will stop.
+
+Possible errors encountered during quadratization of a multivariate polynomial are:
+
+<TABLE border="1">
+ <TR><TH><b>Number</b> <TD><b>Description</b>
+ <TR><TH><tt>-33</tt> <TD>Internal error
+</TABLE>
 
 \section sec_SQUAD_refs References
 
-- J Rajyaguru, ME Villanueva, B Houska, B Chachuat, <A href="https://doi.org/10.1007/s10898-016-0474-9">Chebyshev Model Arithmetic for Factorable Functions</A>, <I>Journal of Global Optimization</I> <B>68</B>:413-438, 2017
-- P Rumschinski, S Borchers, S Bosio, R Weismantel, R Findeisen, <A href="http://www.biomedcentral.com/1752-0509/4/69">Set-base dynamical parameter estimation and model invalidation for biochemical reaction networks</A>, <i>BMC Systems Biology</i> <b>4</b>:69, 2010
+- L Liberti, CC Pantelides, <A href="https://doi.org/10.1007/s10898-006-9005-4">An exact reformulation algorithm for large nonconvex NLPs involving bilinear terms</A>, <I>Journal of Global Optimization</I> <B>36</B>:161–189, 2006
+- V Manousiouthakis, D Sourlas, <A href="https://doi.org/10.1080/00986449208936033">A global optimization approach to rationally constrained rational programming</A>, <I>Chemical Engineering Communications</I> <B>115</B>:127–147, 1992
+- JP Ruiz, IE Grossmann, <A href="https://doi.org/10.1016/j.compchemeng.2011.01.035">Using redundancy to strengthen the relaxation for the global optimization of MINLP problems</A>, <I>Computers & Chemical Engineering</I> <B>35</B>:2729–2740, 2011
+- P Rumschinski, S Borchers, S Bosio, R Weismantel, R Findeisen, <A href="http://www.biomedcentral.com/1752-0509/4/69">Set-base dynamical parameter estimation and model invalidation for biochemical reaction networks</A>, <I>BMC Systems Biology</I> <b>4</b>:69, 2010
+- NZ Shor, <A href="https://doi.org/10.1007/BF01070233">Class of global minimum bounds of polynomial functions</A>, <I>Cybernetics</I> <B>23</B>:731–734, 1987 
 - <A href="https://en.wikipedia.org/w/index.php?title=Sum-of-squares_optimization&oldid=929488354">Sum-of-squares optimization</A>, <i>Wikipedia, accessed: 27-Jan-2020
 .
 */
@@ -269,7 +453,7 @@ public:
   {
     //! @brief Constructor
     Options():
-      BASIS(CHEB), ORDER(INC), REDUC(true), DISPLEN(5)
+      BASIS(MONOM), ORDER(DEC), REDUC(false), DISPLEN(5)
       {}
     //! @brief Assignment of mc::SQuad::Options
     Options& operator=
@@ -313,16 +497,16 @@ public:
   //! @brief Process the sparse polynomials in array <a>pPol</a> indexed by <a>ndxSPol</a>
   double process
     ( std::set<unsigned> const& ndxSPol, SQuad::t_SPolyMonCoef const* pSPol,
-      int const BASIS, bool const CHECK=false );
+      int const BASIS=options.BASIS, bool const CHECK=false );
 
   //! @brief Process the <a>nPol</a> sparse polynomials in array <a>pPol</a>
   double process
     ( unsigned const nSPol, SQuad::t_SPolyMonCoef const* pSPol,
-      int const BASIS, bool const CHECK=false );
+      int const BASIS=options.BASIS, bool const CHECK=false );
 
   //! @brief Process the sparse polynomial <a>Pol</a>
   double process
-    ( SQuad::t_SPolyMonCoef const& SPol, int const BASIS,
+    ( SQuad::t_SPolyMonCoef const& SPol, int const BASIS=options.BASIS,
       bool const CHECK=false );
 
   //! @brief Decompose the quadratic expression <a>mat</a> into separable expressions
@@ -873,7 +1057,9 @@ const
   assert( nSPol <= _MatFct.size() );
   SPolyExpr::options.BASIS = options.BASIS;
   double sumdiff = 0e0;
+#ifdef MC__SQUAD_DEBUG_CHECK
   std::cout << *this << std::endl;
+#endif
   
   // Process entries in _SetMon
   FFGraph dag;
@@ -1380,144 +1566,16 @@ const
     auto&& itmon3 = _SetMon.find( mon - mon2 );
     if( itmon3 == _SetMon.end() || ( &mon2 != &*itmon3 && lt_SPolyMon()( mon2, *itmon3 ) ) ) continue;
     //if( itmon3 == _SetMon.end() || lt_SPolyMon()( *itmon3, mon2 ) ) continue;
-//#ifdef MC__SQUAD_DEBUG_DECOMP
+#ifdef MC__SQUAD_DEBUG_DECOMP
     std::cout << "Candidate: " << mon.display(options.BASIS)
               << " = " << mon2.display(options.BASIS)
               << " · " << itmon3->display(options.BASIS)
               << std::endl;
-//#endif
+#endif
     CandidateDec.insert( std::make_pair( &mon2, &(*itmon3) ) );
   }
 }
 
-//inline std::pair< SPolyMon const*, SPolyMon const* >
-//SQuad::_decompose
-//( SPolyMon const& mon )
-//{
-//  // Possible decompositions using existing monomial in _SetMon
-//  std::set< std::pair< SPolyMon const*, SPolyMon const* >, lt_SQuad > CandidateDec;
-//  _candidates( CandidateDec, mon );
-//  
-//  // Case 1: Monomial can be decomposed in terms of existing monomial in _SetMon
-//  if( !CandidateDec.empty() ){
-//#ifdef MC__SQUAD_DEBUG_DECOMP
-//    std::cout << "Decomposed: " << mon.display(options.BASIS)
-//              << " = " << CandidateDec.rbegin()->first->display(options.BASIS)
-//              << " · " << CandidateDec.rbegin()->second->display(options.BASIS)
-//              << std::endl;
-//#endif
-//    // Prefered candidate is based on order defined by lt_SQuad
-//    // **unless** monomial already present 'as is'
-//    if( !CandidateDec.begin()->first->tord ) return *CandidateDec.begin();
-//    return *CandidateDec.rbegin();
-//  }
-
-//  // Case 2: Monomial is linear in all of the variables (multilinear)
-//  if( mon.gexp() == 1 ){
-//    t_pSPolyMon CandidateMon;
-//    for( auto&& mon2 : _SetMon ){
-//      if( !mon2.subseteq( mon ) ) continue;
-//#ifdef MC__SQUAD_CHECK
-//      assert( _SetMon.find( mon - mon2 ) == _SetMon.end() ); // Covered by Case 1
-//#endif
-//      CandidateMon.insert( &mon2 );
-//#ifdef MC__SQUAD_DEBUG_DECOMP
-//      std::cout << "Candidate: " << (mon-mon2).display(options.BASIS)
-//                << " = " << mon.display(options.BASIS)
-//                << " / " << mon2.display(options.BASIS)
-//                << std::endl;
-//#endif
-//    }
-//#ifdef MC__SQUAD_CHECK
-//    assert( !CandidateMon.empty() ); // _SetMon comprises the participating variables
-//#endif
-
-//    // Case 2a: Use existing non-trivial monomial component in _SetMon
-//    if( (*CandidateMon.rbegin())->tord > 1 ){
-//      SPolyMon const* pmon2 = *CandidateMon.rbegin();
-//      SPolyMon mon3( mon - *pmon2 );
-//#ifdef MC__SQUAD_DEBUG_DECOMP
-//      std::cout << "Decomposed: " << mon.display(options.BASIS)
-//                << " = " << pmon2->display(options.BASIS)
-//                << " · " << mon3.display(options.BASIS)
-//                << std::endl;
-//#endif
-//      // Decompose mon3
-//      auto&& itmon3 = _subexpression( mon3 );
-//      //return _reorder( std::make_pair( pmon2, &(*itmon3) ) );
-//      return std::make_pair( pmon2, &(*itmon3) );
-//    }
-
-//    // Case 2b: Split monomial into two monomials of similar total order
-//    unsigned count = 0;
-//    SPolyMon mon2;
-//    for( auto const& [ivar,iord] : mon.expr ){
-//#ifdef MC__SQUAD_CHECK
-//      assert( iord == 1 );
-//#endif
-//      mon2 += SPolyMon( ivar );
-//      if( ++count >= mon.tord / 2 + mon.tord % 2 ) break;
-//    }
-//    SPolyMon mon3( mon - mon2 );
-//#ifdef MC__SQUAD_DEBUG_DECOMP
-//    std::cout << "Decomposed: " << mon.display(options.BASIS)
-//              << " = " << mon2.display(options.BASIS)
-//              << " · " << mon3.display(options.BASIS)
-//              << std::endl;
-//#endif
-//    // Decompose mon2 and mon3
-//    auto&& itmon2 = _subexpression( mon2 );
-//    auto&& itmon3 = _subexpression( mon3 );
-//    //return _reorder( std::make_pair( &(*itmon2), &(*itmon3) ) );
-//    return std::make_pair( &(*itmon2), &(*itmon3) );
-//  }
-
-//  // Case 3: Monomial is linear in some of the variables
-//  if( mon.lexp() == 1 && mon.gexp() > 1  ){
-//    SPolyMon mon2;
-//    for( auto&& [ivar,iord] : mon.expr )
-//      if( iord == 1 )
-//        mon2 += SPolyMon( ivar );
-//#ifdef MC__SQUAD_DEBUG_DECOMP
-//    std::cout << "Decomposed: " << mon.display(options.BASIS)
-//              << " = " << mon2.display(options.BASIS)
-//              << " · " << (mon-mon2).display(options.BASIS)
-//              << std::endl;
-//#endif
-//    SPolyMon mon3( mon - mon2 );
-//    // Decompose mon2 and mon3
-//    auto&& itmon2 = _SetMon.find( mon2 );
-//    if( itmon2 == _SetMon.end() ) itmon2 = _subexpression( mon2 );
-//    //auto&& itmon2 = _subexpression( mon2 );
-//    auto&& itmon3 = _subexpression( mon3 );
-//    //return _reorder( std::make_pair( &(*itmon2), &(*itmon3) ) );
-//    return std::make_pair( &(*itmon2), &(*itmon3) );
-//  }
-
-//  // Case 4: Monomial has even partial order in all of the variables
-//  if( !(mon.gcexp() % 2) ){
-//    SPolyMon mon2 = mon / 2;
-//    // Decompose mon2
-//    auto&& itmon2 = _subexpression( mon2 );
-//    //return _reorder( std::make_pair( &(*itmon2), &(*itmon2) ) );   
-//    return std::make_pair( &(*itmon2), &(*itmon2) );
-//  }
-
-//  // Case 5: Monomial has partial order >1 in all of the variables w/ some odd partial order
-//  SPolyMon mon2 = mon / 2;
-//  SPolyMon mon3( mon - mon2 );
-//  // Decompose mon2 and mon3
-////#ifdef MC__SQUAD_DEBUG_DECOMP
-//    std::cout << "Decomposing: " << mon2.display(options.BASIS) << std::endl;
-////#endif
-//  auto&& itmon2 = _subexpression( mon2 );
-////#ifdef MC__SQUAD_DEBUG_DECOMP
-//    std::cout << "Decomposing: " << mon3.display(options.BASIS) << std::endl;
-////#endif
-//  auto&& itmon3 = _subexpression( mon3 );
-//  //return _reorder( std::make_pair( &(*itmon2), &(*itmon3) ) );
-//  return std::make_pair( &(*itmon2), &(*itmon3) );
-//}
 inline std::pair< SPolyMon const*, SPolyMon const* >
 SQuad::_decompose
 ( SPolyMon const& mon )
@@ -1615,14 +1673,14 @@ SQuad::_decompose
 #endif
     SPolyMon mon3( mon - mon2 );
     // Decompose mon2 and mon3
-//#ifdef MC__SQUAD_DEBUG_DECOMP
+#ifdef MC__SQUAD_DEBUG_DECOMP
       std::cout << "Decomposing: " << mon2.display(options.BASIS) << std::endl;
-//#endif
+#endif
     auto&& itmon2 = _SetMon.find( mon2 );
     if( itmon2 == _SetMon.end() ) itmon2 = _subexpression( mon2 );
-//#ifdef MC__SQUAD_DEBUG_DECOMP
+#ifdef MC__SQUAD_DEBUG_DECOMP
       std::cout << "Decomposing: " << mon3.display(options.BASIS) << std::endl;
-//#endif
+#endif
     auto&& itmon3 = _SetMon.find( mon3 );
     if( itmon3 == _SetMon.end() ) itmon3 = _subexpression( mon3 );
     //return _reorder( std::make_pair( &(*itmon2), &(*itmon3) ) );
@@ -1642,10 +1700,10 @@ inline typename SQuad::t_SPolyMon::iterator
 SQuad::_subexpression
 ( SPolyMon const& mon )
 {
-  // Monomial mon already in _SetMon - HOW COULD THIS HAPPEN GIVEN DECOMPOSE?!?
+  // Monomial mon already in _SetMon - may happen for constant monomial and variables
   auto itmon0 = _SetMon.find( mon );
   if( itmon0 != _SetMon.end() ){
-    std::cerr << "SQuad::_subexpression: Existing monomial " << mon.display(options.BASIS) << std::endl;
+    //std::cerr << "SQuad::_subexpression: Existing monomial " << mon.display(options.BASIS) << std::endl;
     return itmon0;
   }
 
