@@ -1,8 +1,15 @@
-Change in MC++ 2.1 [with respect to MC++ 2.0]
+Change in MC++ 2.2 [from MC++ 2.1]
+- Support of Boost interval library (in addition to PROFIL/BIAIS and Filib++)
+- Processing of sparse expressions in DAG
+- Quadratization of multivariate polynomials
+- Sparse Chebyshev model arithmetic (both real- or interval-valued coefficients)
+- Interval supersition arithmetic
+
+Change in MC++ 2.1 [from MC++ 2.0]
 - FADBAD++ library updated to include hyperbolic function (https://github.com/modsim/CADET-semi-analytic/tree/master/ThirdParty/FADBAD++)
 - CPPLapack library updated to version 2015.05.11-1 (http://cpplapack.sourceforge.net/doc/html/index.html)
-- New functions added in the DAG and computer algebra classes: cosh, sinh, tanh, lmtd, rlmtd, xlog, prod
-- New support for n-ary operations in DAG (prod)
-- New variadic templates for flexible composition, differentiation and evaluation methods in DAG
-- New detection of polynomial and rational dependence in DAG, in addition to linear and nonlinear depedence
+- Functions added in the DAG and computer algebra classes: cosh, sinh, tanh, lmtd, rlmtd, xlog, prod
+- Support of n-ary operations in DAG (prod)
+- Variadic templates for flexible composition, differentiation and evaluation methods in DAG
+- Detection of quadratic, polynomial and rational dependence in DAG, in addition to linear and nonlinear dependence
 

@@ -5,9 +5,12 @@ include $(PATH_MC)/src/makeoptions.mk
 
 #####
 
-all: QUAD-TEST
+all: QUAD-TEST SPARSEEXPR-TEST
 
 QUAD-TEST : QUAD-TEST.o
+	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
+
+SPARSEEXPR-TEST : SPARSEEXPR-TEST.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
 
 %.o: %.cpp 
@@ -16,5 +19,5 @@ QUAD-TEST : QUAD-TEST.o
 #####
 
 clean :
-	rm -f QUAD-TEST *.o *.out *.eps *.dot *.svg *~
+	rm -f QUAD-TEST SPARSEEXPR-TEST *.o *.out *.eps *.dot *.svg *~
 

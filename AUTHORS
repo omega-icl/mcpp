@@ -6,25 +6,30 @@ Contributors:
 
 - Ali Sahlodin (McMaster University, MIT)
 
-  Coding, testing, debugging of Taylor model module
-  
-- Jai Rajyaguru, Mario Eduardo Villanueva, Nikola Peric, Akshay Shah (Imperial College London)
+  Coding, testing, debugging of Taylor model
 
-  Coding, testing, debugging of spectral bound, ellipsoidal bound and Chebyshev model modules
+- Jai Rajyaguru, Nikola Peric, Akshay Shah (Imperial College London)
+  Mario Eduardo Villanueva (Imperial College London, ShanghaiTech)
+
+  Coding, testing, debugging of spectral bound, ellipsoidal bound, Chebyshev model
+
+- Tanuj KAria (Imperial College London)
+
+  Testing, debugging of quadratization
   
 - Alexander Mitsos (MIT, RWTH Aachen)
   Joe Scott (MIT, Clemson University)
   Paul Barton (MIT)
   Angelos Tsoukalas (MIT, American University of Beirut)
-  Jaromil Najmana, Dominik Bongartza (RWTH Aachen)
+  Jaromil Najman, Dominik Bongartz (RWTH Aachen)
 
-  Testing, debugging of McCormick relaxation module
-  
+  Testing, debugging of McCormick relaxation
+   
 - Ruth Misener (Imperial College London)
 
-  Installing, testing
+  Testing, installation
 
-- Mario Eduardo Villanueva 
+- Mario Eduardo Villanueva (ShanghaiTech)
 
   Releasing MC++ in GitHub and mantaining the GitHub site
 
