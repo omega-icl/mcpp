@@ -1775,7 +1775,7 @@ const
     }
     SPolyMon mon = mon0; // local copy for modification
 #ifdef MC__SPOLYEXPR_DEBUG_SPROD
-    std::cout << "mon: " << mon.display(1) << "  (" << *itvar << "," << ndxord << ")" << std::endl;
+    std::cout << "mon: " << mon.display(options.BASIS) << "  (" << *itvar << "," << ndxord << ")" << std::endl;
 #endif
     mon.tord += ndxord;
     assert( mon.expr.insert( std::make_pair( *itvar, ndxord ) ).second );
@@ -2021,9 +2021,10 @@ const
     switch( options.BASIS ){
       case Options::CHEB:
         if( it1 != coeflin.end() && std::fabs(it2->second) > TOL ){
-          //bndpol += (2.*aii)*Op<U>::sqr(bndbasis[k1][1]+ai/(aii*4.))-aii-ai*ai/8./aii;
-          bndpol += (2.*it2->second) * Op<U>::sqr( (bndbasis? bndbasis[ie2->first][1]: TOne)
-                    + it1->second/(it2->second*4.) ) - it2->second - it1->second*it1->second/8./it2->second;
+          double ai = it1->second, aii = it2->second;
+          bndpol += (2.*aii)*Op<U>::sqr((bndbasis? bndbasis[ie2->first][1]: TOne)+ai/(aii*4.))-aii-ai*ai/8./aii;
+          //bndpol += (2.*it2->second) * Op<U>::sqr( (bndbasis? bndbasis[ie2->first][1]: TOne)
+          //          + it1->second/(it2->second*4.) ) - it2->second - it1->second*it1->second/8./it2->second;
           coeflin.erase( it1 );
         }
         else if( it1 != coeflin.end() ){
@@ -3205,13 +3206,19 @@ SCVar<T>&
 SCVar<T>::operator*=
 ( SCVar<T> const& CV )
 {
+  if( this == &CV ){
+    *this = sqr( CV );
+    return *this;
+  }
+   
   if( _CM && CV._CM && _CM != CV._CM )
     throw typename SCModel<T>::Exceptions( SCModel<T>::Exceptions::SCMODEL );
   if( CV._CM && !_CM ) _CM = CV._CM;
 
   // Remainder propagation
-  T R1  = bound() * CV._bndrem + CV._polybound() * _bndrem;
-  T R2  = _polybound() * CV._bndrem + CV.bound() * _bndrem;
+  T R1  = _polybound() * CV._bndrem + CV._polybound() * _bndrem + CV._bndrem * _bndrem;
+  //T R1  = bound() * CV._bndrem + CV._polybound() * _bndrem;
+  //T R2  = _polybound() * CV._bndrem + CV.bound() * _bndrem;
   T rem = 0.;
 
   // Coefficient maps for first participating variable
@@ -3229,20 +3236,29 @@ SCVar<T>::operator*=
 
   // Recursive product of univariate Chebyshev polynomials
   _CM->_sprod1D( sp1map, sp2map, _coefmon, rem, _ndxvar, itvar );
+  _bndrem = 0.;
+  operator+=( rem );
+#ifdef MC__SCMODEL_DEBUG_SPROD
+  _unset_bndpol();
+  std::cout << "Product of mid parts:" << *this;
+#endif
 
   // Remainder propagation
-  if( !Op<T>::inter( _bndrem, R1, R2) )
-    _bndrem = ( Op<T>::diam(R1) < Op<T>::diam(R2)? R1: R2 );
-  _bndrem += rem;
+  //if( !Op<T>::inter( rem, R1, R2) )
+  //  rem = ( Op<T>::diam(R1) < Op<T>::diam(R2)? R1: R2 );
+  operator+=( R1 );//rem );
 #ifdef MC__SCMODEL_DEBUG_SPROD
   std::cout << "bndrem = " << _bndrem << std::endl;
 #endif
-  
+ 
   _unset_bndpol();
   if( _bndT && CV._bndT ) *_bndT *= *CV._bndT;
   else _unset_bndT();
   if( _CM && _CM->options.MIN_FACTOR >= 0. ) simplify( _CM->options.MIN_FACTOR );
 
+#ifdef MC__SCMODEL_DEBUG_SPROD
+  std::cout << "Product model:" << *this;
+#endif
   return *this;
 }
 
@@ -3350,6 +3366,7 @@ sqr
   std::map<unsigned,typename SCVar<T>::t_coefmon> sp1map, sp2map;
   for( auto&& mon : CV._coefmon ) CV._CM->_svec1D( itvar, mon, sp1map );
 #ifdef MC__SPOLYEXPR_DEBUG_SQR
+  std::cout << "Var: " << CV;
   CV._CM->_sdisp1D( sp1map, itvar, "Var: " );
 #endif
 
@@ -3361,10 +3378,14 @@ sqr
   CV._CM->_sprod1D( sp1map, sp1map, CVSQR._coefmon, rem, CVSQR._ndxvar, itvar );
 
   // Remainder propagation
-  //CVSQR._bndrem = rem + ( CV.bound() + CV._polybound() ) * CV._bndrem;
-  CVSQR._bndrem  = rem;
-  CVSQR._bndrem += 2. * CV._polybound() * CV._bndrem + Op<T>::sqr( CV._bndrem );
-  
+  CVSQR += rem;
+#ifdef MC__SCMODEL_DEBUG_SPROD
+  CVSQR._unset_bndpol();
+  std::cout << "Product of polynomial parts:" << CVSQR;
+  std::cout << "Product of uncertainty parts:" << 2. * CV._polybound() * CV._bndrem + Op<T>::sqr( CV._bndrem ) << std::endl;
+#endif
+  CVSQR += 2. * CV._polybound() * CV._bndrem + Op<T>::sqr( CV._bndrem );
+
   // Bound propagation
   if( CVSQR._CM->options.MIXED_IA ) CVSQR._set_bndT( Op<T>::sqr(CV.bound()) );
   if( CVSQR._CM->options.MIN_FACTOR >= 0. ) CVSQR.simplify( CVSQR._CM->options.MIN_FACTOR );
