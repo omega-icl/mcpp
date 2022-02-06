@@ -1,116 +1,160 @@
-// Copyright (C) 2009-2021 Benoit Chachuat, Imperial College London.
+// Copyright (C) Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
 /*!
-\page page_INTCHEBYSHEV Interval Chebyshev Model Arithmetic for Factorable Functions
-\author Yanlin Zha, Beno&icirc;t Chachuat
+\page page_CHEBYSHEV_SPARSEINT Sparse Interval Chebyshev Model Arithmetic for Factorable Functions
 
-A \f$q\f$th-order interval Chebyshev model of a Lipschitz-continuous function \f$f:\mathbb{R}^n\to\mathbb{R}\f$ on a box domain \f$X\subseteq \mathbb{R}^n\f$, consists of a \f$q^{\rm th}\f$-order multivariate polynomial \f$\mathcal P_f\f$ in Chebyshev basis:
+The classes mc::SICModel and mc::SICVar provide an implementation of sparse interval Chebyshev model arithmetic [Zha & Chachuat, 2021]. By contrast to sparse Chebyshev model arithmetic, the distinction between the polynomial part and the remainder part is blurred in a sparse interval Chebyshev model by considering a multivariate polynomial with interval coefficients, \f$\mathcal P:\mathbb{R}^n\to\mathbb{IR}\f$, so that:
 \f{align*}
-  \mathcal P_f({x}) = \sum_{|\kappa|\leq q} A_\kappa T_\kappa(\xi)
+  f({x}) \in \mathcal P({x}), \quad \forall {x}\in D.
 \f}
-where \f$A_\kappa\f$ are interval coefficients and \f$\xi := \frac{x-{\rm mid}(X)}{{\rm rad}(X)} \in [-1,1]^n\f$, so that:
-\f{align*}
-  f({x}) \in \mathcal P_f({x}), \quad \forall {x}\in X.
-\f}
-Unlike traditional Taylor/Chebyshev models where the polynomial part is propagated symbolically and accounts for functional dependencies, while the remainder term bounds the discrepancy between the function and this polynomial paproximant, interval Taylor/Chebyshev models directly capture the discrepancy in terms of the monomial coefficient. 
+These interval coefficients are propagated in the arithmetic of the templated type, typically a verified interval arithmetic. Sparse interval Chebyshev models yield a superset of sparse Chebyhev models. In general, they enable tighter inclusions by taking advantage of the distribution of the remainder term over the participating monomials. 
 
-The classes mc::SICModel and mc::SICVar provide an implementation of interval Chebyshev model arithmetic. We note that mc::SICModel / mc::SICVar is <b>not a verified implementation</b> in the sense that some rounding errors may not be accounted for in propagating the coefficients in the multivariate polynomial.
+\section sec_CHEBYSHEV_SPARSEINT_use How do I compute a sparse interval Chebyshev model of a factorable function?
 
-The implementation of mc::SICModel and mc::SICVar relies on the operator/function overloading mechanism of C++. The usual functions <tt>exp</tt>, <tt>log</tt>, <tt>sqr</tt>, <tt>sqrt</tt>, <tt>pow</tt>, <tt>inv</tt>, <tt>cos</tt>, <tt>sin</tt>, <tt>tan</tt>, <tt>acos</tt>, <tt>asin</tt>, <tt>atan</tt>, <tt>cosh</tt>, <tt>sinh</tt>, <tt>tanh</tt> and <tt>fabs</tt> are all overloaded. This makes the computation of interval Chebyshev models both simple and intuitive, similar to computing function values in real arithmetics or function bounds in interval arithmetic (see \ref page_INTERVAL). Moreover, mc::SICVar can be used as the template parameter of other available types in MC++ or <A href="http://www.fadbad.com/fadbad.html">FADBAD++</A>; for instance, mc::SICVa can be used as the template parameter of the types fadbad::F, fadbad::B and fadbad::T for computing Chebyshev models of either the partial derivatives or the Chebyshev coefficients of a factorable function.
-
-mc::SICModel and mc::SICVar themselves are templated in the type used to propagate bounds on the interval coefficients. By default, mc::SICModel and mc::SICVar can be used with the non-verified interval type mc::Interval of MC++. For reliability, however, it is strongly recommended to use verified interval arithmetic such as <A href="http://www.ti3.tu-harburg.de/Software/PROFILEnglisch.html">PROFIL</A> (header file <tt>mcprofil.hpp</tt>), <A href="http://www.math.uni-wuppertal.de/~xsc/software/filib.html">FILIB++</A> (header file <tt>mcfilib.hpp</tt>) or <A href="https://www.boost.org/doc/libs/1_66_0/libs/numeric/interval/doc/interval.htm">BOOST</A> (header file <tt>mcboost.hpp</tt>).
-
-
-\section sec_INTCHEBYSHEV_I How do I compute an interval Chebyshev model of a factorable function?
-
-Suppose we want to compute a 4th-order Chebyshev model for the real-valued function \f$f(x,y)=x\exp(x+y^2)-y^2\f$ with \f$(x,y)\in [1,2]\times[0,1]\f$. For simplicity, bounds on the remainder terms are computed using the default interval type mc::Interval here:
+Suppose we want to compute a 4th-order sparse interval Chebyshev model for the real-valued function \f$f(x,y)=x\exp(y^2)-y^2\f$ with \f$(x,y)\in [1,2]\times[0,1]\f$. For simplicity, bounds on the remainder terms are computed using the default interval type mc::Interval here:
 
 \code
       #include "interval.hpp"
       #include "sicmodel.hpp"
       typedef mc::Interval I;
-      typedef mc::SICModel<I> CM;
-      typedef mc::SICVar<I> CV;
+      typedef mc::SICModel<I> SICM;
+      typedef mc::SICVar<I> SICV;
 \endcode
 
-First, the number of independent variables in the factorable function (\f$x\f$ and \f$y\f$ here) as well as the order of the Chebyshev model (4th order here) are specified by defining an mc::SICModel object as:
+
+First, an mc::SICModel object is initialized by passing the order of the polynomial inclusion (4th order here):
 
 \code
-      CM mod( 4 );
+      SICM mod( 4 );
 \endcode
 
-Next, the variables \f$x\f$ and \f$y\f$ are defined as follows:
+Next, the variables \f$x\f$ and \f$y\f$ are added to the sparse interval Chebyshev model:
 
 \code
-      CV X( &mod, 0, I(1.,2.) );
-      CV Y( &mod, 1, I(0.,1.) );
+      SICV X( &mod, 0, I(1.,2.) );
+      SICV Y( &mod, 1, I(0.,1.) );
 \endcode
 
-Essentially, the first line means that <tt>X</tt> is a variable of class mc::SICVar, participating in the Chebyshev model <tt>mod</tt>, belonging to the interval \f$[1,2]\f$, and having index 0 (indexing in C/C++ start at 0 by convention!). The same holds for the Chebyshev variable <tt>Y</tt>, participating in the model <tt>mod</tt>, belonging to the interval \f$[0,1]\f$, and having index 1.
+Essentially, the first line means that <tt>X</tt> is a variable of class mc::SICVar, participating in the Chebyshev model <tt>mod</tt>, belonging to the interval \f$[1,2]\f$, and having index 0 (C-style indexing in use). The same holds for the variable <tt>Y</tt>, participating in the model <tt>mod</tt>, belonging to the interval \f$[0,1]\f$, and having index 1.
 
-Having defined the variables, a Chebyshev model of \f$f(x,y)=x\exp(x+y^2)-y^2\f$ on \f$[1,2]\times[0,1]\f$ at the mid-point \f$(\frac{3}{2},\frac{1}{2})\f$ is simply computed as:
+Having defined the variables, a sparse Chebyshev model of \f$f(x,y)=x\exp(x+y^2)-y^2\f$ on \f$[1,2]\times[0,1]\f$ at the mid-point \f$(\frac{3}{2},\frac{1}{2})\f$ is computed as:
 
 \code
-      CV F = X*exp(X+pow(Y,2))-pow(Y,2);
+      SICV F = X*exp(pow(Y,2))-pow(Y,2);
 \endcode
 
 This model can be displayed to the standard output as:
 
 \code
-      std::cout << "f interval Chebyshev model: " << F << std::endl;
+      std::cout << "f sparse interval Chebyshev model: " << F << std::endl;
 \endcode
 
 which produces the following output:
 
 \verbatim
-f interval Chebyshev model: 
-[ 1.95989e+00, 1.96780e+00]   0  1
-[ 7.75232e-01, 7.83996e-01]   1  T1[0]
-[ 7.01332e-01, 7.01332e-01]   1  T1[1]
-[ 4.00444e-01, 4.00444e-01]   2  T1[0]·T1[1]
-[ 3.05842e-01, 3.05842e-01]   2  T2[1]
-[ 1.43614e-01, 1.43614e-01]   3  T1[0]·T2[1]
-[ 8.42347e-02, 8.42347e-02]   3  T3[1]
-[ 2.80782e-02, 2.80782e-02]   4  T1[0]·T3[1]
-[ 1.53184e-02, 2.14458e-02]   4  T4[1]
-   B     =  [-5.27392e-03, 4.43678e+00]
-   I     =  { 0 1 }
+f sparse interval Chebyshev model: 
+[ 1.9601057e+00, 1.9675908e+00]   0  1
+[ 7.7530158e-01, 7.8393061e-01]   1  T1[0]
+[ 7.0133649e-01, 7.0133649e-01]   1  T1[1]
+[ 4.0044550e-01, 4.0044550e-01]   2  T1[0]·T1[1]
+[ 3.0580072e-01, 3.0580072e-01]   2  T2[1]
+[ 1.4360024e-01, 1.4360024e-01]   3  T1[0]·T2[1]
+[ 8.4292715e-02, 8.4292715e-02]   3  T3[1]
+[ 2.8097572e-02, 2.8097572e-02]   4  T1[0]·T3[1]
+[ 1.5334992e-02, 2.1468989e-02]   4  T4[1]
+   B     =  [-5.0886708e-01, 4.4365637e+00]
 \endverbatim
 
-The first 9 lines display the interval coefficients and corresponding monomials in the interval Chebyshev model. The penultimate line reports the interval Chebyshev model range. And the final line reports the dependency set I.
+The interval coefficients and corresponding monomials in the Chebyshev model are displayed first, with the middle integer being the total monomial order. The Chebyshev model range estimator is reported last.
 
-Other operations involve bounding the interval Chebyshev model over the entire domain or evaluating the interval polynomial at a given point:
+Other operations involve retreiving the model range, or computing the range of the interval-valued polynomial at a given point:
 
 \code
-      I Pbnd = F.B();
-      double x[2] = { 0.5, 1.5 };
-      I Pval = F.P( x );
+      I B = F.B();
+      double x[2] = { 1.5, 0.5 };
+      I Pval = F.IP( x );
 \endcode
 
 See the documentations of mc::SICModel and mc::SICVar for a complete list of member functions. 
 
-\section sec_INTCHEBYSHEV_opt How are the options set for the computation of an interval Chebyshev model?
 
-The class mc::SICModel has a public member of type mc::SICModel::Options that can be used to modify the options.
+\section sec_CHEBYSHEV_SPARSEINT_fct Which functions are overloaded for sparse interval Chebyshev model arithmetic?
+
+mc::SICVar overloads the usual functions <tt>exp</tt>, <tt>log</tt>, <tt>sqr</tt>, <tt>sqrt</tt>, <tt>pow</tt>, <tt>inv</tt>, <tt>cos</tt>, <tt>sin</tt>, <tt>tan</tt>, <tt>acos</tt>, <tt>asin</tt>, <tt>atan</tt>, <tt>cosh</tt>, <tt>sinh</tt>, <tt>tanh</tt>, <tt>fabs</tt>. The functions <tt>erf</tt>, <tt>erfc</tt>, <tt>min</tt>, <tt>max</tt>, <tt>fstep</tt>, <tt>bstep</tt>, <tt>inter</tt>, and <tt>hull</tt> are not currently overloaded in mc::SICVar.
+
+\section sec_CHEBYSHEV_SPARSEINT_opt How are the options set for the computation of a sparse interval Chebyshev model?
+
+The class mc::SICModel has a public member called mc::SICModel::options that can be used to set/modify the options. For instance:
+
+\code
+      mod.options.BOUNDER_TYPE = SICM::Options::NAIVE;
+      mod.options.SCALE_VARIABLES = true;
+\endcode
+
+The available options are the following:
+
+<TABLE border="1">
+<CAPTION><EM>Options in mc::SICModel::Options: name, type and description</EM></CAPTION>
+     <TR><TH><b>Name</b>  <TD><b>Type</b><TD><b>Default</b>
+         <TD><b>Description</b>
+     <TR><TH><tt>BASIS</tt> <TD><tt>unsigned int</tt> <TD>1
+         <TD>Basis representation of the monomials: 0-Monomial basis; 1-Chebyshev basis.
+     <TR><TH><tt>HOT_SPLIT</tt> <TD><tt>mc::SICModel::Options::ALLOCATION</tt> <TD>mc::SICModel::Options::FULL
+         <TD>Strategy for allocating higher-order terms to monomials in sparse product terms.
+     <TR><TH><tt>PRODBND_SPLIT</tt> <TD><tt>bool</tt> <TD>false
+         <TD>Whether to distribute uncertainty in product with interval bound.
+     <TR><TH><tt>REMEZ_USE</tt> <TD><tt>bool</tt> <TD>false
+         <TD>Whether to use the Remez algorithm for computing a minimax approximation for univariate terms.
+     <TR><TH><tt>REMEZ_MAXIT</tt> <TD><tt>unsigned int</tt> <TD>10
+         <TD>Maximal number of iterations in Remez algorithm for computing a minimax approximation for univariate terms.
+     <TR><TH><tt>REMEZ_TOL</tt> <TD><tt>double</tt> <TD>1e-5
+         <TD>Stopping tolerance in Remez algorithm for computing a minimax approximation for univariate terms.
+     <TR><TH><tt>REMEZ_MIG</tt> <TD><tt>double</tt> <TD>1e-10
+         <TD>Threshold for interval width below which Remez algorithm is not useds.
+     <TR><TH><tt>INTERP_EXTRA</tt> <TD><tt>unsigned int</tt> <TD>0
+         <TD>Extra terms in Chebyshev interpolation of univariates: 0-Chebyshev interpolation of order NORD; extra terms allow approximation of Chebyshev truncated series.
+     <TR><TH><tt>INTERP_THRES</tt> <TD><tt>double</tt> <TD>1e2*machprec()
+         <TD>Threshold for coefficient values in Chebyshev expansion for bounding of transcendental univariates.
+     <TR><TH><tt>BOUNDER_TYPE</tt> <TD><tt>mc::SICModel::Options::BOUNDER</tt> <TD>mc::SICModel::Options::LSB
+         <TD>Chebyshev model range bounder.
+     <TR><TH><tt>MIXED_IA</tt> <TD><tt>bool</tt> <TD>false
+         <TD>Whether to intersect internal bounds with underlying bounds in the templated arithmetics.
+     <TR><TH><tt>MIN_FACTOR</tt> <TD><tt>double</tt> <TD>0e0
+         <TD>Threshold for monomial coefficients below which the term is removed and appended to the remainder term.
+     <TR><TH><tt>REF_POLY</tt> <TD><tt>double</tt> <TD>0.
+         <TD>Scalar in \f$[0,1]\f$ related to the choice of the polynomial part in the overloaded functions mc::inter and mc::hull (see \ref sec_CHEBYSHEV_SPARSEINT_fct). A value of 0. amounts to selecting the polynomial part of the left operand, whereas a value of 1. selects the right operand.
+     <TR><TH><tt>DISPLAY_DIGITS</tt> <TD><tt>unsigned int</tt> <TD>5
+         <TD>Number of digits in output stream for Chebyshev model coefficients.
+</TABLE>
 
 
-\section sec_INTCHEBYSHEV_err What errors can I encounter during computation of an interval Chebyshev model?
+\section sec_CHEBYSHEV_SPARSEINT_err Errors What errors can I encounter during computation of a sparse interval Chebyshev model?
 
-Errors are managed based on the exception handling mechanism of the C++ language. Each time an error is encountered, a class object of type mc::SICModel::Exceptions is thrown, which contains the type of error. It is the user's responsibility to test whether an exception was thrown during the computation of a Chebyshev model, and then make the appropriate changes. Should an exception be thrown and not caught by the calling program, the execution will abort.
+Errors are managed based on the exception handling mechanism of the C++ language. Each time an error is encountered, a class object of type mc::SICModel::Exceptions is thrown, which contains the type of error. Possible errors encountered during the computation of a sparse interval Chebyshev model are:
 
-Moreover, exceptions may be thrown by the template parameter class itself.
+<TABLE border="1">
+<CAPTION><EM>Errors from class mc::CModel::Exceptions during the Computation of a Chebyshev Model</EM></CAPTION>
+     <TR><TH><b>Number</b> <TD><b>Description</b>
+     <TR><TH><tt>1</tt> <TD>Division by zero scalar
+     <TR><TH><tt>2</tt> <TD>Inverse operation with zero in range
+     <TR><TH><tt>3</tt> <TD>Log operation with non-positive numbers in range
+     <TR><TH><tt>4</tt> <TD>Square-root operation with negative numbers in range
+     <TR><TH><tt>5</tt> <TD>Real power operation with negative numbers in range
+     <TR><TH><tt>6</tt> <TD>Tangent operation with (k+1/2)·PI in range
+     <TR><TH><tt>7</tt> <TD>Cosine inverse operation with range outside [-1,1]
+     <TR><TH><tt>8</tt> <TD>Sine inverse operation with range outside [-1,1]
+     <TR><TH><tt>9</tt> <TD>Failed to compose sparse Chebyshev variable
+     <TR><TH><tt>-1</tt> <TD>Failed to construct sparse Chebyshev variable
+     <TR><TH><tt>-2</tt> <TD>Inconsistent bounds with template parameter arithmetic
+     <TR><TH><tt>-3</tt> <TD>Operation between Chebyshev variables linked to different Chebyshev models
+     <TR><TH><tt>-4</tt> <TD>Internal error
+     <TR><TH><tt>-33</tt> <TD>Feature not yet implemented in mc::SICModel
+</TABLE>
 
+Further exceptions may be thrown by the template parameter class itself.
 
-\section sec_INTCHEBYSHEV_refs References
-
-- Brisebarre, N., and M. Joldes, <A href="http://hal.archives-ouvertes.fr/docs/00/48/17/37/PDF/RRLIP2010-13.pdf">Chebyshev Interpolation Polynomial-based Tools for Rigorous Computing</A>, <i>Research Report No RR2010-13</i>, Ecole Normale Sup&eaccute;rieure de Lyon, Unit&eaccute; Mixte de Recherche CNRS-INRIA-ENS LYON-UCBL No 5668, 2010
-- T Dzetkulic, <A HREF="http://dx.doi.org/10.1007%2Fs11075-014-9889-x">Rigorous integration of non-linear ordinary differential equations in Chebyshev basis</A>. <I>Numerical Algorithms</I> <B>69</B>(1):183–205, 2015
-J Rajyaguru, ME Villanueva, B Houska, B Chachuat, <A href="">Chebyshev Model Arithmetic for Factorable Functions</A>, <I>Journal of Global Optimization</I> <B>68</B>:413-438, 2017
-- J Rajyaguru, ME Villanueva, B Houska, B Chachuat, <A href="https://doi.org/10.1007/s10898-016-0474-9">Chebyshev Model Arithmetic for Factorable Functions</A>, <I>Journal of Global Optimization</I> <B>68</B>:413-438, 2017
-- LN Trefethen,<A HREF="http://www.chebfun.org/ATAP/"><I>Approximation Theory and Approximation Practice</I></A>. SIAM, Philadelphia (PA), 2013
-.
 */
 
 #ifndef MC__SICMODEL_H
@@ -154,15 +198,17 @@ J Rajyaguru, ME Villanueva, B Houska, B Chachuat, <A href="">Chebyshev Model Ari
 namespace mc
 {
 
+template <typename T> class SCModel;
 template <typename T> class SICVar;
 
-//! @brief C++ class for the computation of sparse Chebyshev models for factorable function: environment
+//! @brief C++ class for the computation of sparse interval Chebyshev models for factorable function: environment
 ////////////////////////////////////////////////////////////////////////
 //! mc::SICModel is a C++ class for definition of interval Chebyshev
-//! model environment in sparse format. Propagation of interval
+//! model environment in sparse format. Propagation of sparse interval
 //! Chebyshev models for factorable functions is via the C++ class
-//! mc::SICVar. The template parameter corresponds to the type
-//! of the polynomial coefficients.
+//! mc::SICVar. The template parameter corresponds to the type used to
+//! propagate the polynomial coefficients.
+
 ////////////////////////////////////////////////////////////////////////
 template <typename T>
 class SICModel
@@ -240,18 +286,6 @@ protected:
   //! @brief Scaling factors of the model variables
   std::vector<double> _scalvar; 
 
-  //! @brief Interval coefficients in Chebyshev interpolant of univariate functions
-  std::vector<T> _coefuniv;
-
-  //! @brief Coefficients in Chebyshev interpolant of univariate functions
-  std::vector<double> _ainterp;
-
-  //! @brief Points in Chebyshev interpolant of univariate functions
-  std::vector<double> _xinterp;
-      
-  //! @brief Function values in Chebyshev interpolant of univariate functions
-  std::vector<double> _finterp;
-
   //! @brief Resize the model variable data containers
   void _resize
     ( const unsigned ivar )
@@ -271,7 +305,7 @@ protected:
       return _coefuniv; }
 
 public:
-  /** @addtogroup SCHEBYSHEV Chebyshev Model Arithmetic for Factorable Functions
+  /** @addtogroup SICHEBYSHEV Sparse Interval Chebyshev Model Arithmetic for Factorable Functions
    *  @{
    */
   //! @brief Constructor of Sparse Chebyshev model environment for maximal order <tt>maxord</tt>
@@ -283,6 +317,20 @@ public:
       _bndvar.reserve( nvarres );
       _refvar.reserve( nvarres );
       _scalvar.reserve( nvarres ); }
+
+  //! @brief Copy constructor of Sparse Chebyshev model environment
+  SICModel
+    ( SICModel<T> const& mod )
+    : _maxord( mod._maxord ), _maxvar( mod._maxvar ), _setvar( mod._setvar ),
+      _bndvar( mod._bndvar ), _refvar( mod._refvar ), _scalvar( mod._scalvar )
+    { _coefuniv.reserve( _maxord ); }
+
+  //! @brief Copy constructor of Sparse Chebyshev model environment
+  SICModel
+    ( SCModel<T> const& mod )
+    : _maxord( mod.maxord() ), _maxvar( mod.maxvar() ), _setvar( mod.setvar() ),
+      _bndvar( mod.bndvar() ), _refvar( mod.refvar() ), _scalvar( mod.scalvar() )
+    { _coefuniv.reserve( _maxord ); }
 
   //! @brief Destructor of Sparse Chebyshev model environment
   ~SICModel()
@@ -339,13 +387,12 @@ public:
       TAN,	//!< Tangent operation with (k+1/2)·PI in range
       ACOS,	//!< Cosine inverse operation with range outside [-1,1]
       ASIN,	//!< Sine inverse operation with range outside [-1,1]
-      EIGEN,	//!< Failed to compute eigenvalue decomposition in range bounder SICModel::Options::EIGEN
       COMPOSE,	//!< Failed to compose Chebyshev variable
       INIT=-1,	//!< Failed to construct Chebyshev variable
-      INCON=-2, //!< Chebyshev model bound does not intersect with bound in template parameter arithmetic
-      SICMODEL=-3,//!< Operation between Chebyshev variables linked to different Chebyshev models
+      INCON=-2, //!< Inconsistent bounds with template parameter arithmetic
+      SCMODEL=-3,//!< Operation between Chebyshev variables linked to different Chebyshev models
       INTERNAL = -4,//!< Internal error
-      UNDEF=-33 //!< Feature not yet implemented in mc::SICModel
+      UNDEF=-33 //!< Feature not yet implemented in mc::SCModel
     };
     //! @brief Constructor for error <a>ierr</a>
     Exceptions( TYPE ierr ) : _ierr( ierr ){}
@@ -355,36 +402,34 @@ public:
     std::string what(){
       switch( _ierr ){
       case DIV:
-        return "mc::SICModel\t Division by zero scalar";
+        return "mc::SCModel\t Division by zero scalar";
       case INV:
-        return "mc::SICModel\t Inverse operation with zero in range";
+        return "mc::SCModel\t Inverse operation with zero in range";
       case LOG:
-        return "mc::SICModel\t Log operation with non-positive numbers in range";
+        return "mc::SCModel\t Log operation with non-positive numbers in range";
       case SQRT:
-        return "mc::SICModel\t Square-root operation with negative numbers in range";
+        return "mc::SCModel\t Square-root operation with negative numbers in range";
       case DPOW:
-        return "mc::SICModel\t Real power operation with negative numbers in range";
+        return "mc::SCModel\t Real power operation with negative numbers in range";
       case TAN:
-        return "mc::SICModel\t Tangent operation with (k+1/2)·PI in range";
+        return "mc::SCModel\t Tangent operation with (k+1/2)·PI in range";
       case ACOS:
-        return "mc::SICModel\t Cosine inverse operation with range outside [-1,1]";
+        return "mc::SCModel\t Cosine inverse operation with range outside [-1,1]";
       case ASIN:
-        return "mc::SICModel\t Sine inverse operation with range outside [-1,1]";
-      case EIGEN:
-        return "mc::SICModel\t Range bounder with eigenvalue decomposition failed";
+        return "mc::SCModel\t Sine inverse operation with range outside [-1,1]";
       case COMPOSE:
-        return "mc::SICModel\t Chebyshev composition failed";
+        return "mc::SCModel\t Chebyshev composition failed";
       case INIT:
-        return "mc::SICModel\t Chebyshev variable initialization failed";
+        return "mc::SCModel\t Chebyshev variable initialization failed";
       case INCON:
-        return "mc::SICModel\t Inconsistent bounds with template parameter arithmetic";
-      case SICMODEL:
-        return "mc::SICModel\t Operation between Chebyshev variables in different Chebyshev model environment not allowed";
+        return "mc::SCModel\t Inconsistent bounds with template parameter arithmetic";
+      case SCMODEL:
+        return "mc::SCModel\t Operation between Chebyshev variables in different Chebyshev model environment";
       case UNDEF:
-        return "mc::SICModel\t Feature not yet implemented in mc::SICModel class";
+        return "mc::SCModel\t Feature not yet implemented in mc::SCModel class";
       case INTERNAL:
       default:
-        return "mc::SICModel\t Internal error";
+        return "mc::SCModel\t Internal error";
       }
     }
 
@@ -397,10 +442,10 @@ public:
   {
     //! @brief Constructor of mc::SICModel::Options
     Options():
-      BASIS(CHEB), HOT_SPLIT(FULL),
-      REMEZ_USE(true), REMEZ_MAXIT(10), REMEZ_TOL(1e-5), REMEZ_MIG(1e-10),
+      BASIS(CHEB), HOT_SPLIT(FULL), PRODBND_SPLIT(false),
+      REMEZ_USE(false), REMEZ_MAXIT(10), REMEZ_TOL(1e-5), REMEZ_MIG(1e-10),
       INTERP_EXTRA(0), INTERP_THRES(1e2*machprec()), BOUNDER_TYPE(LSB),
-      MIXED_IA(true), MIN_FACTOR(0.), REF_POLY(0.),
+      MIXED_IA(false), MIN_FACTOR(0.), REF_POLY(0.),
       DISPLAY_DIGITS(7)
       {}
     //! @brief Copy constructor of mc::SICModel::Options
@@ -408,6 +453,7 @@ public:
       ( U&options )
       : BASIS( options.BASIS ),
         HOT_SPLIT( options.HOT_SPLIT ),
+        PRODBND_SPLIT( options.PRODBND_SPLIT ),
         REMEZ_USE( options.REMEZ_USE ),
         REMEZ_MAXIT( options.REMEZ_MAXIT ),
         REMEZ_TOL( options.REMEZ_TOL ),
@@ -425,6 +471,7 @@ public:
       ( U&options ){
         BASIS            = options.BASIS;
         HOT_SPLIT        = options.HOT_SPLIT;
+        PRODBND_SPLIT    = options.PRODBND_SPLIT;
         REMEZ_USE        = options.REMEZ_USE;
         REMEZ_MAXIT      = options.REMEZ_MAXIT;
         REMEZ_TOL        = options.REMEZ_TOL;
@@ -458,6 +505,8 @@ public:
     unsigned BASIS;
     //! @brief Strategy for allocating higher-order terms to monomials in sparse product terms
     ALLOCATION HOT_SPLIT;
+    //! @brief Whether to distribute uncertainty in product with interval bound
+    bool PRODBND_SPLIT;
     //! @brief Whether to use the Remez algorithm for computing a minimax approximation for univariate terms
     bool REMEZ_USE;
     //! @brief Maximal number of iterations in Remez algorithm for computing a minimax approximation for univariate terms
@@ -493,6 +542,18 @@ public:
   /** @} */
 
 private:
+
+  //! @brief Interval coefficients in Chebyshev interpolant of univariate functions
+  std::vector<T> _coefuniv;
+
+  //! @brief Coefficients in Chebyshev interpolant of univariate functions
+  std::vector<double> _ainterp;
+
+  //! @brief Points in Chebyshev interpolant of univariate functions
+  std::vector<double> _xinterp;
+      
+  //! @brief Function values in Chebyshev interpolant of univariate functions
+  std::vector<double> _finterp;
 
   //! @brief Get Chebyshev basis functions in U arithmetic for variable <a>bndvar</a>
   template <typename U>
@@ -557,21 +618,42 @@ private:
 
   //! @brief Recursive calculation of nonnegative integer powers
   SICVar<T> _intpow
-    ( SICVar<T> const& CV, int const n ) const;
+    ( SICVar<T> const& CV, int const n )
+    const;
 
   //! @brief Polynomial range bounder - Naive approach
   template <typename C, typename U> U _polybound_naive
     ( std::map<SPolyMon,C,lt_SPolyMon> const& coefmon, U const* const* bndbasis,
-      unsigned const minord=0 ) const;
+      unsigned const minord=0 )
+    const;
 
   //! @brief Polynomial range bounder - Lin & Stadtherr approach
   template <typename C, typename U> U _polybound_LSB
-    ( std::map<SPolyMon,C,lt_SPolyMon> const& coefmon, U const* const* bndbasis ) const;
+    ( std::map<SPolyMon,C,lt_SPolyMon> const& coefmon, U const* const* bndbasis )
+  const;
 
   //! @brief Polynomial range bounder using specified bounder <a>type</a> with basis functions <a>bndbasis</a> in U arithmetic and monomial coefficients <a>coefmon</a> in C arithmetic
   template <typename C, typename U> U _polybound
     ( std::map<SPolyMon,C,lt_SPolyMon> const& coefmon, U const *const* bndbasis,
-      int const type );
+      int const type )
+    const;
+
+//  //! @brief Polynomial product with range - Naive approach
+//  std::map<SPolyMon,T,lt_SPolyMon>& _polyprod_naive
+//    ( std::map<SPolyMon,T,lt_SPolyMon>& coefmon, T const& bndvar,
+//      unsigned const minord=0 )
+//    const;
+
+//  //! @brief Polynomial product with range - Lin & Stadtherr approach
+//  std::map<SPolyMon,T,lt_SPolyMon>& _polyprod_LSB
+//    ( std::map<SPolyMon,T,lt_SPolyMon>& coefmon, T const& bndvar )
+//    const;
+
+//  //! @brief Polynomial product with range using specified bounder <a>type</a> with monomial coefficients <a>coefmon</a> in T arithmetic
+//  std::map<SPolyMon,T,lt_SPolyMon>& _polyprod
+//    ( std::map<SPolyMon,T,lt_SPolyMon>& coefmon, T const& bndvar,
+//      int const type )
+//    const;
 
   //! @brief Recursive product of univariate Chebyshev polynomials
   void _sprod1D
@@ -647,11 +729,13 @@ inline
 T SICModel<T>::TOne
   = 2.*Op<T>::zeroone()-1.;
 
-//! @brief C++ class for Chebyshev model computation of factorable function - Chebyshev model propagation
+//! @brief C++ class for the computation of sparse interval Chebyshev models for factorable function: propagation
 ////////////////////////////////////////////////////////////////////////
-//! mc::SICVar is a C++ class for propagation of Chebyshev models through
-//! factorable functions. The template parameter corresponds to the
-//! type used in computing the remainder bound.
+//! mc::SICVar is a C++ class for propagation of sparse interval
+//! Chebyshev models through factorable functions. Variables of type
+//! mc::SICVar are registered in a Chebyshev model environment of class
+//! mc::SCModel. The template parameter corresponds to the type used in
+//! computing the interval coefficients.
 ////////////////////////////////////////////////////////////////////////
 template <typename T>
 class SICVar
@@ -812,7 +896,7 @@ private:
     ( const unsigned ivar, T const& X, const bool updMod=true );
 
 public:
-  /** @addtogroup CHEBYSHEV Chebyshev Model Arithmetic for Factorable Functions
+  /** @addtogroup SICHEBYSHEV Chebyshev Model Arithmetic for Factorable Functions
    *  @{
    */
   //! @brief Display sparse polynomial
@@ -918,8 +1002,22 @@ public:
     
   //! @brief Set multivariate polynomial coefficients in variable as <tt>coefmon</tt>
   SICVar<T>& set
-    ( t_coefmon& coefmon )
-    { _coefmon = coefmon; _unset_bndT(); _unset_bndpol();
+    ( t_coefmon const& coefmon, t_var const& ndxvar )
+    { _coefmon = coefmon; _ndxvar = ndxvar;
+      _unset_bndT(); _unset_bndpol();
+      return *this; } // this is assuming the same order and number of variables
+    
+  //! @brief Set multivariate polynomial coefficients in variable as <tt>coefmon</tt>
+  SICVar<T>& set
+    ( std::map< SPolyMon, double, lt_SPolyMon > const& coefmon, t_var const& ndxvar,
+      T const& bndrem, T const* bndT=nullptr )
+    { _coefmon.clear();
+      for( auto [mon,coef] : coefmon ) _coefmon.insert( std::make_pair(mon,coef) ); 
+      _ndxvar = ndxvar;
+      _unset_bndpol();
+      *this += bndrem;
+      if( bndT ) _set_bndT( bndT );
+      else       _unset_bndT();
       return *this; } // this is assuming the same order and number of variables
 #if 0
   //! @brief Set multivariate polynomial coefficients and remainder term equal to those in variable <tt>var</tt>, possibly defined in another polynomial model environment with fewer variables or with a different expansion order. Coefficients involving other variables or higher order are initialized to 0 if <tt>reset=true</tt> (default), otherwise they are left unmodified. Higher-order terms in TV are bounded and added to the remainder bound.
@@ -1627,14 +1725,32 @@ SICModel<T>::_intpow
 template <typename T>
 inline void
 SICModel<T>::_sscal1D
-( t_coefmon const& coefmon0, T const& dscal, t_coefmon& coefmon )
+( t_coefmon const& coefmon0, T const& Iscal, t_coefmon& coefmon )
 const
 {
-  if( Op<T>::abs(dscal) == 0. ) return;
+  if( Op<T>::abs(Iscal) == 0. ) return;
+//  double mscal = Op<T>::mid(Iscal);
+//  T rngsum = 0.;
   coefmon = coefmon0;
 //  if( isequal(dscal,1.) ) return;
-  for( auto& [mon,coef] : coefmon )
-    coef *= dscal;
+//  switch( options.HOT_SPLIT ){ 
+//  case Options::FULL:
+//  case Options::SIMPLE:
+    for( auto& [mon,coef] : coefmon )
+      coef *= Iscal;
+//    break;
+//  case Options::NONE:
+//    for( auto& [mon,coef] : coefmon ){
+//      rngsum += coef * ( Iscal - mscal );
+//      coef *= mscal;
+//    }
+//    auto [itmon,ins] = coefmon.insert( std::make_pair( SPolyMon(), rngsum ) );
+//    if( !ins ) itmon->second += rngsum;
+//#ifdef MC__SICMODEL_DEBUG_SSACL
+//    std::cout << "_sscal1D: " << itmon->first.display(options.BASIS) << "  " << itmon->second << std::endl;
+//#endif
+//    break;
+//  }
   return;
 }
 
@@ -1656,168 +1772,7 @@ const
     }
   }
 }
-#if 0
-template <typename T>
-inline 
-void
-SICModel<T>::_slift1D
-( t_coefmon const& coefmon0, double const& dscal, t_coefmon& coefmon,
-  typename t_var::const_iterator itvar, unsigned const ndxord )
-const
-{
-  for( auto const& [mon0,coef0] : coefmon0 ){
-    // If total order too large then allocate among monomials
-    if( mon0.tord + ndxord > _maxord ){
-      switch( options.BASIS ){
-      case Options::CHEB:
-        switch( options.HOT_SPLIT ){ 
-        case Options::FULL:
-        {
-          if( ndxord <= _maxord ){
-            T add2mon = (dscal/double(mon0.expr.size()+1))*coef0*TOne;
-            for( auto const& [ivar,iord] : mon0.expr ){
-              auto [itmon1,ins1] = coefmon.insert( std::make_pair( SPolyMon(ivar,iord), add2mon ) );
-              if( !ins1 ) itmon1->second += add2mon;
-#ifdef MC__SIRMODEL_DEBUG_SLIFT
-              std::cout << "_slift1D: " << itmon1->first.display(options.BASIS) << "  " << add2mon << std::endl;
-#endif
-            }
-            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(*itvar,ndxord), add2mon ) );
-            if( !ins2 ) itmon2->second += add2mon;
-#ifdef MC__SIRMODEL_DEBUG_SLIFT
-            std::cout << "_slift1D: " << itmon2->first.display(options.BASIS) << "  " << add2mon << std::endl;
-#endif
-          }
-          else if( mon0.tord ){
-            T add2mon = (dscal/double(mon0.expr.size()))*coef0*TOne;
-            for( auto const& [ivar,iord] : mon0.expr ){
-              auto [itmon1,ins1] = coefmon.insert( std::make_pair( SPolyMon(ivar,iord), add2mon ) );
-              if( !ins1 ) itmon1->second += add2mon;
-#ifdef MC__SIRMODEL_DEBUG_SLIFT
-              std::cout << "_slift1D: " << itmon1->first.display(options.BASIS) << "  " << add2mon << std::endl;
-#endif
-            }
-          }
-          else{       
-            T add2mon = dscal*coef0*TOne;
-            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(), add2mon ) );
-            if( !ins2 ) itmon2->second += add2mon;
-#ifdef MC__SIRMODEL_DEBUG_SLIFT
-            std::cout << "_slift1D: " << itmon2->first.display(options.BASIS) << "  " << add2mon << std::endl;
-#endif
-          }
-          continue;
-        }
-        case Options::SIMPLE:
-        {
-          if( mon0.tord && ndxord <= _maxord ){
-            T add2mon = (0.5*dscal)*coef0*TOne;
-            auto [itmon1,ins1] = coefmon.insert( std::make_pair( mon0, add2mon ) );
-            if( !ins1 ) itmon1->second += add2mon;
-#ifdef MC__SIRMODEL_DEBUG_SLIFT
-            std::cout << "_slift1D: " << itmon1->first.display(options.BASIS) << "  " << add2mon << std::endl;
-#endif
-            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(*itvar,ndxord), add2mon ) );
-            if( !ins2 ) itmon2->second += add2mon;
-#ifdef MC__SIRMODEL_DEBUG_SLIFT
-            std::cout << "_slift1D: " << itmon2->first.display(options.BASIS) << "  " << add2mon << std::endl;
-#endif
-          }
-          else if( mon0.tord ){
-            T add2mon = dscal*coef0*TOne;
-            auto [itmon1,ins1] = coefmon.insert( std::make_pair( mon0, add2mon ) );
-            if( !ins1 ) itmon1->second += add2mon;
-#ifdef MC__SIRMODEL_DEBUG_SLIFT
-            std::cout << "_slift1D: " << itmon1->first.display(options.BASIS) << "  " << add2mon << std::endl;
-#endif
-          }
-          else if( ndxord <= _maxord ){
-            T add2mon = dscal*coef0*TOne;
-            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(*itvar,ndxord), add2mon ) );
-            if( !ins2 ) itmon2->second += add2mon;
-#ifdef MC__SIRMODEL_DEBUG_SLIFT
-            std::cout << "_slift1D: " << itmon2->first.display(options.BASIS) << "  " << add2mon << std::endl;
-#endif
-          }
-          else{
-            T add2mon = dscal*coef0*TOne;
-            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(), add2mon ) );
-            if( !ins2 ) itmon2->second += add2mon;
-#ifdef MC__SIRMODEL_DEBUG_SLIFT
-            std::cout << "_slift1D: " << itmon2->first.display(options.BASIS) << "  " << add2mon << std::endl;
-#endif
-          }
-          continue;
-        }
-        case Options::NONE:
-        {
-          T add2mon = dscal*coef0*TOne;
-          auto [itmon,ins] = coefmon.insert( std::make_pair( SPolyMon(), add2mon ) );
-          if( !ins ) itmon->second += add2mon;
-#ifdef MC__SIRMODEL_DEBUG_SLIFT
-          std::cout << "_slift1D: " << itmon->first.display(options.BASIS) << "  " << add2mon << std::endl;
-#endif
-          continue;
-        }}
 
-      case Options::POW:
-        switch( options.HOT_SPLIT ){ 
-        case Options::FULL:
-        {
-          T add2mon1 = (0.5*dscal)*coef0*(ndxord%2? TOne: TZerOne);
-          for( auto const& [ivar,iord] : mon0.expr ){
-            auto [itmon1,ins1] = coefmon.insert( std::make_pair( SPolyMon(ivar,iord), add2mon1 ) );
-            if( !ins1 ) itmon1->second += add2mon1;
-          }
-          T add2mon2 = (0.5*dscal)*coef0*(mon0.gcexp()%2? TOne: TZerOne);         
-          if( ndxord <= _maxord ){
-            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(*itvar,ndxord), add2mon2 ) );
-            if( !ins2 ) itmon2->second += add2mon2;
-          }
-          else{
-            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(), add2mon2 ) );
-            if( !ins2 ) itmon2->second += add2mon2; 
-          }
-          continue;
-        }
-        case Options::SIMPLE:
-        {
-          T add2mon1 = (0.5*dscal)*coef0*(ndxord%2? TOne: TZerOne);
-          auto [itmon1,ins1] = coefmon.insert( std::make_pair( mon0, add2mon1 ) );
-          if( !ins1 ) itmon1->second += add2mon1;
-          T add2mon2 = (0.5*dscal)*coef0*(mon0.gcexp()%2? TOne: TZerOne);         
-          if( ndxord <= _maxord ){
-            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(*itvar,ndxord), add2mon2 ) );
-            if( !ins2 ) itmon2->second += add2mon2;
-          }
-          else{
-            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(), add2mon2 ) );
-            if( !ins2 ) itmon2->second += add2mon2; 
-          }
-          continue;
-        }
-        case Options::NONE:
-        {
-          T add2mon = dscal*coef0*(ndxord%2 || mon0.gcexp()%2? TOne: TZerOne); continue;
-          auto [itmon,ins] = coefmon.insert( std::make_pair( SPolyMon(), add2mon ) );
-          if( !ins ) itmon->second += add2mon;           
-          continue;
-        }}
-      }
-    }
-
-    // Else introduce new product monomial
-    SPolyMon mon = mon0; // local copy for modification
-#ifdef MC__SPOLYEXPR_DEBUG_SPROD
-    std::cout << "mon: " << mon.display(1) << "  (" << *itvar << "," << ndxord << ")" << std::endl;
-#endif
-    mon.tord += ndxord;
-    assert( mon.expr.insert( std::make_pair( *itvar, ndxord ) ).second );
-    auto [itmon,ins] = coefmon.insert( std::make_pair( mon, coef0*dscal ) );
-    if( !ins ) itmon->second += coef0*dscal;
-  }
-}
-#endif
 template <typename T>
 inline void
 SICModel<T>::_slift1D
@@ -1887,7 +1842,7 @@ const
           auto [itmon,ins] = coefmon.insert( std::make_pair( SPolyMon(), add2mon ) );
           if( !ins ) itmon->second += add2mon;
 #ifdef MC__SICMODEL_DEBUG_SLIFT
-          std::cout << "_slift1D: " << itmon->first.display(options.BASIS) << "  " << add2mon << std::endl;
+          std::cout << "_slift1D: " << itmon->first.display(options.BASIS) << "  " << itmon->second << std::endl;
 #endif
           continue;
         }}
@@ -1941,7 +1896,7 @@ const
     // Else introduce new product monomial
     SPolyMon mon = mon0; // local copy for modification
 #ifdef MC__SPOLYEXPR_DEBUG_SPROD
-    std::cout << "mon: " << mon.display(1) << "  (" << *itvar << "," << ndxord << ")" << std::endl;
+    std::cout << "mon: " << mon.display(options.BASIS) << "  (" << *itvar << "," << ndxord << ")" << std::endl;
 #endif
     mon.tord += ndxord;
     assert( mon.expr.insert( std::make_pair( *itvar, ndxord ) ).second );
@@ -2144,6 +2099,8 @@ SICModel<T>::_polybound_LSB
 ( std::map<SPolyMon,C,lt_SPolyMon> const& coefmon, U const* const* bndbasis )
 const
 {
+  //std::cout << "bndpol_naive = " << _polybound_naive( coefmon, bndbasis ) << std::endl;
+  
   // Constant or linear model
   if( coefmon.empty() || coefmon.rbegin()->first.tord < 2 )
     return _polybound_naive( coefmon, bndbasis );
@@ -2170,8 +2127,13 @@ const
           double ai = Op<C>::mid( it1->second ), aii = Op<C>::mid( it2->second );
           bndpol += ( it2->second - aii ) * ( bndbasis? bndbasis[ie2->first][2]: TOne )
                   + ( it1->second - ai  ) * ( bndbasis? bndbasis[ie2->first][1]: TOne )
+//                  + aii * ( bndbasis? bndbasis[ie2->first][2]: TOne )
+//                  + ai  * ( bndbasis? bndbasis[ie2->first][1]: TOne );
                   + (2.*aii) * Op<U>::sqr( (bndbasis? bndbasis[ie2->first][1]: TOne) + ai/(aii*4.) )
                   - aii - ai*ai/(8.*aii);
+//          bndpol += (2.*aii)*Op<U>::sqr((bndbasis? bndbasis[ie2->first][1]: TOne)+ai/(aii*4.))-aii-ai*ai/8./aii;
+          //std::cout << "ai[-1,1]+aii[-1,1] = " << aii * TOne + ai * TOne << std::endl;
+          //std::cout << "2aii([-1,1]+ai/(4aii))^2-aii-ai^2/(8aii) = " << (2.*aii)*Op<T>::sqr(TOne+ai/(aii*4.))-aii-ai*ai/8./aii << std::endl;
           coeflin.erase( it1 );
         }
         else if( it1 != coeflin.end() ){
@@ -2212,6 +2174,7 @@ const
   if( coefmon.rbegin()->first.tord > 2 )
     bndpol += _polybound_naive( coefmon, bndbasis, 3 );
 
+  //std::cout << "bndpol_LSB = " << bndpol << std::endl;
   return bndpol;
 }
 
@@ -2269,6 +2232,7 @@ U
 SICModel<T>::_polybound
 ( std::map<SPolyMon,C,lt_SPolyMon> const& coefmon, U const* const* bndbasis,
   int const type )
+const
 {
   switch( type ){
   case Options::LSB:
@@ -2277,6 +2241,110 @@ SICModel<T>::_polybound
     return _polybound_naive( coefmon, bndbasis );
   }
 }
+
+//template <typename T>
+//inline
+//std::map<SPolyMon,T,lt_SPolyMon>&
+//SICModel<T>::_polyprod_LSB
+//( std::map<SPolyMon,T,lt_SPolyMon>& coefmon, T const& bndvar )
+//const
+//{
+//  // Constant or linear model
+//  if( coefmon.empty() || coefmon.rbegin()->first.tord < 2 )
+//    return _polyprod_naive( coefmon, bndvar );
+
+//  // Quadratic terms in combination with linear terms
+//  static double const TOL = 1e8;
+//  T bndcst = 0.;
+//  bool bndcstadd = false;
+//  auto it1 = coefmon.lower_bound( SPolyMon( 1, std::map<unsigned,unsigned>() ) );
+//  auto it2 = coefmon.lower_bound( SPolyMon( 2, std::map<unsigned,unsigned>() ) );
+//  auto it3 = coefmon.lower_bound( SPolyMon( 3, std::map<unsigned,unsigned>() ) );
+//  std::map<SPolyMon,T,lt_SPolyMon> coeflin; coeflin.insert( it1, it2 );
+//  for( ; it2!=it3; ++it2 ){
+//    auto ie2 = it2->first.expr.begin();
+//    if( ie2->second == 1 ){ // off-diagonal quadratic terms
+//      it2->second *= bndvar;
+//      continue;
+//    }
+//    SPolyMon explin( 1, std::map<unsigned,unsigned>() );
+//    explin.expr.insert( std::make_pair( ie2->first, 1 ) ); 
+//    it1 = coeflin.find( explin );
+//    if( it1 != coeflin.end() && std::fabs( Op<T>::mid(it2->second) ) > TOL ){
+//      double ai = Op<T>::mid( it1->second ), aii = Op<T>::mid( it2->second );
+//      it2->second -= aii;
+//      it2->second *= bndvar;
+//      it1->second -= ai;
+//      it1->second *= bndvar;
+//      switch( options.BASIS ){
+//        case Options::CHEB:
+//          bndcst += (2.*aii) * Op<T>::sqr( TOne + ai/(aii*4.) ) - aii - ai*ai/(8.*aii);
+//          break;
+//        case Options::POW:
+//          bndcst += aii * Op<T>::sqr( TOne + ai/(aii*2.) ) - ai*ai/(aii*4.);
+//          break;
+//      }
+//      bndcstadd = true;
+//      coeflin.erase( it1 );
+//    }
+//    else if( it1 != coeflin.end() ){
+//      it2->second *= bndvar;
+//      it1->second *= bndvar;
+//      coeflin.erase( it1 );
+//    }
+//    else
+//      it2->second *= bndvar;
+//  }
+//  if( bndcstadd ){
+//    auto [it0,ins] = coefmon.insert( std::make_pair( SPolyMon(), bndcst ) );
+//    if( !ins ) it0->second += bndcst;
+//  }
+//  
+//  // Remaining linear terms
+//  for( it1=coeflin.begin(); it1!=coeflin.end(); ++it1 )
+//    it1->second *= bndvar;
+
+//  // Thrid and higher-order terms
+//  if( coefmon.rbegin()->first.tord > 2 )
+//    return _polyprod_naive( coefmon, bndvar, 3 );
+
+//  return coefmon;
+//}
+
+//template <typename T>
+//inline
+//std::map<SPolyMon,T,lt_SPolyMon>&
+//SICModel<T>::_polyprod_naive
+//( std::map<SPolyMon,T,lt_SPolyMon>& coefmon, T const& bndvar,
+//  unsigned const minord )
+//const
+//{
+//  // Empty model
+//  if( coefmon.empty() || coefmon.rbegin()->first.tord < minord )
+//    return coefmon;
+
+//  // Polynomial product with bound
+//  auto it = coefmon.lower_bound( SPolyMon( minord, std::map<unsigned,unsigned>() ) );
+//  for( ; it!=coefmon.end(); ++it )
+//    it->second *= bndvar;
+//  return coefmon;
+//}
+
+//template <typename T>
+//inline
+//std::map<SPolyMon,T,lt_SPolyMon>&
+//SICModel<T>::_polyprod
+//( std::map<SPolyMon,T,lt_SPolyMon>& coefmon, T const& bndvar,
+//  int const type )
+//const
+//{
+//  switch( type ){
+//  case Options::LSB:
+//    return _polyprod_LSB( coefmon, bndvar );
+//  case Options::NAIVE: default:
+//    return _polyprod_naive( coefmon, bndvar );
+//  }
+//}
 
 ////////////////////////////////// SICVar ///////////////////////////////////////
 
@@ -2490,9 +2558,10 @@ template <typename T>
 inline
 SICVar<T>::SICVar
 ( double const d, SICModel<T>*CM )
-: _CM( CM )
+: _CM( CM ), _bndT(nullptr), _bndpol(nullptr)
 {
   _init();
+  if( d == 0. ) return;
   _coefmon.insert( std::make_pair( SPolyMon(), d ) );
   _set_bndpol( d );
   if( !_CM || _CM->options.MIXED_IA ) _set_bndT( d );
@@ -2506,7 +2575,7 @@ SICVar<T>::operator=
 {
   _reinit();
   _CM = nullptr;
-  _coefmon.insert( std::make_pair( SPolyMon(), d ) );
+  if( d != 0. ) _coefmon.insert( std::make_pair( SPolyMon(), d ) );
   _set_bndpol( d );
   _set_bndT( d );
   return *this;
@@ -3072,8 +3141,7 @@ std::ostream&
 operator<<
 ( std::ostream& out, SICVar<T> const& CV )
 {
-  //std::cout << "*NORD = " << CV.nord() << " " << CV._coefmon.rbegin()->first.display(1) << std::endl;
-  unsigned IDISP = CV._CM? CV._CM->options.DISPLAY_DIGITS: 5;
+  unsigned IDISP = CV._CM? CV._CM->options.DISPLAY_DIGITS: 7;
   int BASIS = CV._CM? CV._CM->options.BASIS: SICModel<T>::Options::CHEB;
   out << CV.display( CV._coefmon, BASIS, IDISP )
       << std::scientific << std::setprecision(IDISP) << std::right;
@@ -3085,11 +3153,12 @@ operator<<
       << std::endl;
 
   // Index set
+#if 0
   out << std::right << "   I     =  {";
   for( auto const& ndx : CV._ndxvar )
     out << std::right << " " << ndx;
   out << std::right << " }" << std::endl;
-
+#endif
   return out;
 }
 
@@ -3189,6 +3258,7 @@ SICVar<T>&
 SICVar<T>::operator+=
 ( U const& B )
 {
+  if( Op<T>::abs(B) == 0. ) return *this;
   if( _coefmon.empty() || _coefmon.begin()->first.tord ) 
     _coefmon.insert( std::make_pair( SPolyMon(), B ) );
   else
@@ -3226,6 +3296,7 @@ SICVar<T>
 operator-
 ( SICVar<T> const& CV )
 {
+  //std::cout << "CV:" << CV;
   SICVar<T> CV2;
   CV2.set( CV._CM );
   CV2._ndxvar = CV._ndxvar;
@@ -3233,7 +3304,7 @@ operator-
     CV2._coefmon.insert( std::make_pair( mon, -coef ) );
   if( CV._bndpol ) CV2._set_bndpol( - *CV._bndpol );
   if( CV._bndT )   CV2._set_bndT( - *CV._bndT );
-  else             CV2._unset_bndT();
+  //std::cout << "-CV:" << CV2;
   return CV2;
 }
 
@@ -3328,6 +3399,7 @@ SICVar<T>&
 SICVar<T>::operator-=
 ( U const& B )
 {
+  if( Op<T>::abs(B) == 0. ) return *this;
   if( _coefmon.empty() || _coefmon.begin()->first.tord ) 
     _coefmon.insert( std::make_pair( SPolyMon(), -B ) );
   else{
@@ -3367,6 +3439,11 @@ SICVar<T>&
 SICVar<T>::operator*=
 ( SICVar<T> const& CV )
 {
+  if( this == &CV ){
+    *this = sqr( CV );
+    return *this;
+  }
+
   if( _CM && CV._CM && _CM != CV._CM )
     throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::SICMODEL );
 
@@ -3430,19 +3507,18 @@ SICVar<T>::operator*=
 #endif
   
   // Uncertainty propagation
-//#if 0
+#if 0
   switch( _CM->options.HOT_SPLIT ){
   case SICModel<T>::Options::NONE:
-//#endif
 #ifdef MC__SICMODEL_DEBUG_SPROD
     std::cout << "Uncertainty propagation 1:" << tmpCV0.bound() * BCV << std::endl;
     std::cout << "Uncertainty propagation 2:" << tmpCV.bound() * BCV0 << std::endl;
 #endif
     operator+=( tmpCV0.bound() * BCV + tmpCV.bound() * BCV0 + BCV * BCV0 );
-//#if 0
     break;
   case SICModel<T>::Options::SIMPLE:
   case SICModel<T>::Options::FULL:
+#endif
     tmpCV0 *= BCV;
     tmpCV  *= BCV0;
 #ifdef MC__SICMODEL_DEBUG_SPROD
@@ -3450,13 +3526,17 @@ SICVar<T>::operator*=
     std::cout << "Uncertainty propagation 2:" << tmpCV;
 #endif
     operator+=( tmpCV0 + tmpCV + BCV * BCV0 );
+#if 0
     break;
   }
-//#endif  
+#endif  
   // Update bounds
   if( _bndT && CV._bndT ) *_bndT *= *CV._bndT;
   else _unset_bndT();
 
+#ifdef MC__SICMODEL_DEBUG_SPROD
+  std::cout << "Product model:" << *this;
+#endif
   return *this;
 }
 
@@ -3485,11 +3565,10 @@ SICVar<T>::operator*=
 ( double const c )
 {
   if( c == 0. ){ *this = 0.; return *this; }
-//  if( isequal( c, 1. ) ) return *this;
+  if( c == 1. ) return *this;
   for( auto& [mon,coef] : _coefmon ) coef *= c;
   if( _CM && _CM->options.MIN_FACTOR >= 0. )
     simplify( _CM->options.BASIS, _CM->options.MIN_FACTOR );
-
   if( _bndpol ) *_bndpol *= c;
   if( _bndT ) *_bndT *= c;
   return *this;
@@ -3523,13 +3602,20 @@ SICVar<T>&
 SICVar<T>::operator*=
 ( T const& B )
 {
-  if( Op<T>::abs(B) == 0. ){ *this = 0.; return *this; }
-  for( auto& [mon,coef] : _coefmon ) coef *= B;
-  if( _CM && _CM->options.MIN_FACTOR >= 0. )
-    simplify( _CM->options.BASIS, _CM->options.MIN_FACTOR );
-
-  if( _bndpol ) *_bndpol *= B;
-  if( _bndT ) *_bndT *= B;
+  if( Op<T>::abs(B) == 0. ){ *this  = 0.; return *this; }
+  if( !_CM || _CM->options.PRODBND_SPLIT ){
+    double const Bmid = Op<T>::mid(B);
+    T const bndmod = bound();
+    operator*=( Bmid );
+    operator+=( ( B - Bmid ) * bndmod );
+  }
+  else{
+    for( auto& [mon,coef] : _coefmon ) coef *= B;
+    if( _CM && _CM->options.MIN_FACTOR >= 0. )
+      simplify( _CM->options.BASIS, _CM->options.MIN_FACTOR );
+    _unset_bndpol();
+    if( _bndT ) *_bndT *= B;
+  }
   return *this;
 }
 
@@ -3567,7 +3653,7 @@ sqr
   tmpCV._unset_bndpol();
   T BCV = tmpCV.bound();
 #ifdef MC__SICMODEL_DEBUG_SPROD
-  std::cout << "Uncertain part Poly #2:" << tmpCV;
+  std::cout << "Uncertain part:" << tmpCV;
 #endif
 
   // Uncertainty propagation
@@ -3581,6 +3667,9 @@ sqr
   for( auto& [mon,coef] : CV._coefmon )
     CV._CM->_svec1D( itvar, std::make_pair(mon,Op<T>::mid(coef)), sp1map );
 #ifdef MC__SPOLYEXPR_DEBUG_SQR
+  SICVar<T> tmp2CV( CV );
+  for( auto& [mon,coef] : tmp2CV._coefmon ) coef = Op<T>::mid(coef);
+  std::cout << "Mid part Var: " << tmp2CV;
   CV._CM->_sdisp1D( sp1map, itvar, "Mid part Var: " );
 #endif
 
@@ -3593,6 +3682,7 @@ sqr
     CVSQR.simplify( CV._CM->options.BASIS, CV._CM->options.MIN_FACTOR );
   CVSQR._unset_bndpol();
 #ifdef MC__SICMODEL_DEBUG_SPROD
+  CVSQR._unset_bndT();
   std::cout << "Product of mid parts:" << CVSQR;
 #endif
   

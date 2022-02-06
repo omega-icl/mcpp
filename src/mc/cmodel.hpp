@@ -1,34 +1,38 @@
-// Copyright (C) 2009-2016 Benoit Chachuat, Imperial College London.
+// Copyright (C) Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
 /*!
 \page page_CHEBYSHEV Chebyshev Model Arithmetic for Factorable Functions
-\author Jai Rajyaguru, Mario E. Villanueva, Beno&icirc;t Chachuat
+\author Jai Rajyaguru, Mario E. Villanueva, Yanlin Zha, Beno&icirc;t Chachuat
 
-A \f$q\f$th-order Chebyshev model of a Lipschitz-continuous function \f$f:\mathbb{R}^n\to\mathbb{R}\f$ on the domain \f$D\f$, consists of a \f$q^{\rm th}\f$-order multivariate polynomial \f$\mathcal P\f$ in Chebyshev basis , plus a remainder term \f$\mathcal R\f$, so that
+A \f$q\f$th-order Chebyshev model of a Lipschitz-continuous function \f$f:\mathbb{R}^n\to\mathbb{R}\f$ on the domain \f$D\f$, consists of a \f$q^{\rm th}\f$-order multivariate polynomial \f$\mathcal P\f$ in Chebyshev basis plus a remainder term \f$\mathcal R\f$, so that
 \f{align*}
   f({x}) \in \mathcal P({x}) \oplus \mathcal R, \quad \forall {x}\in D.
 \f}
-The polynomial part \f$\mathcal P\f$ is propagated symbolically and accounts for functional dependencies. The remainder term \f$\mathcal R\f$, on the other hand, is traditionally computed using interval analysis [Brisebarre & Joldes, 2010]; see figure below. More generally, convex/concave bounds or an ellipsoidal enclosure can be computed for the remainder term of vector-valued functions too. In particular, it can be established that the remainder term has convergence order (no less than) \f$q+1\f$ with respect to the diameter of the domain set \f$D\f$ under mild conditions [Bompadre <I>et al.</I>, 2012].
+The polynomial part \f$\mathcal P\f$ is propagated symbolically and accounts for functional dependencies. The remainder term \f$\mathcal R\f$, on the other hand, is traditionally computed using interval analysis [Brisebarre & Joldes, 2010]; see figure below. More generally, convex/concave bounds or an ellipsoidal enclosure can be computed for the remainder term of vector-valued functions too [Bompadre <i>et al</i>, 2013; Villanueva <i>et al</i>, 2015]. In particular, it can be established that the remainder term has convergence order (no less than) \f$q+1\f$ with respect to the diameter of the domain set \f$D\f$ under mild conditions [Rajyaguru <I>et al</I>, 2017]. Global convergence properties can also be established for certain operations. 
 
 <CENTER><TABLE BORDER=0>
 <TR>
-<TD>\image html Chebyshev_model.png</TD>
+<TD>\image html Chebyshev_model.png width=40%</TD>
 </TR>
 </TABLE></CENTER>
 
-The classes mc::CModel and mc::CVar provide an implementation of Chebyshev model arithmetic. We note that mc::CModel / mc::CVar is <b>not a verified implementation</b> in the sense that rounding errors are not accounted for in propagating the coefficients in the multivariate polynomial part, which are treated as floating-point numbers.
+Various implementations of Chebyshev model are available in MC++:
+- The classes mc::CModel and mc::CVar provide an implementation of dense Chebyshev model arithmetic - see \subpage page_CHEBYSHEV_DENSE
+- The classes mc::SCModel and mc::SCVar provide an implementation of sparse Chebyshev model arithmetic - see \subpage page_CHEBYSHEV_SPARSE
+- The classes mc::SICModel and mc::SICVar provide an implementation of sparse interval Chebyshev model arithmetic - see \subpage page_CHEBYSHEV_SPARSEINT
+. 
 
-The implementation of mc::CModel and mc::CVar relies on the operator/function overloading mechanism of C++. This makes the computation of Chebyshev models both simple and intuitive, similar to computing function values in real arithmetics or function bounds in interval arithmetic (see \ref page_INTERVAL). Moreover, mc::CVar can be used as the template parameter of other available types in MC++; for instance, mc::CVar can be used in order to propagate the underlying interval bounds in mc::McCormick. Likewise, mc::CVar can be used as the template parameter of the types fadbad::F, fadbad::B and fadbad::T of <A href="http://www.fadbad.com/fadbad.html">FADBAD++</A> for computing Chebyshev models of either the partial derivatives or the Chebyshev coefficients of a factorable function (see \ref sec_CHEBYSHEV_fadbad).
+Implementation of these classes relies on the operator/function overloading mechanism of C++. This makes the computation of Chebyshev models both simple and intuitive, similar to computing function values in real arithmetics or function bounds in interval arithmetic (see \ref page_INTERVAL). Moreover, the types mc::CVar, mc::SCVar and mc::SICVar can be used to evaluate DAG expression in Chebyshev arithmetic using one the mc::FFGraph::eval methods. They can also be used as the template parameter of other types in MC++ as well as types fadbad::F, fadbad::B and fadbad::T of <A href="http://www.fadbad.com/fadbad.html">FADBAD++</A> for computing Chebyshev models of a function's derivatives or Taylor coefficients.
 
-mc::CModel and mc::CVar themselves are templated in the type used to propagate bounds on the remainder term. By default, mc::CModel and mc::CVar can be used with the non-verified interval type mc::Interval of MC++. For reliability, however, it is strongly recommended to use verified interval arithmetic such as <A href="http://www.ti3.tu-harburg.de/Software/PROFILEnglisch.html">PROFIL</A> (header file <tt>mcprofil.hpp</tt>) or <A href="http://www.math.uni-wuppertal.de/~xsc/software/filib.html">FILIB++</A> (header file <tt>mcfilib.hpp</tt>). As already noted, convex/concave bounds on the remainder term can also be propagated by using the type mc::McCormick of MC++, thereby enabling McCormick-Chebyshev models.
+These classes are themselves templated in the type used to propagate bounds on the remainder term (classes mc::CModel, mc::CVar, mc::SCModel, mc::SCVar) or the polynomial coefficients (classes mc::SICModel, mc::SICVar). By default, mc::CModel and mc::CVar can be used with the non-verified interval type mc::Interval of MC++. For reliability, however, one may prefer verified interval arithmetic such as <A href="http://www.ti3.tu-harburg.de/Software/PROFILEnglisch.html">PROFIL</A> (header file <tt>mcprofil.hpp</tt>), <A href="https://www.boost.org/doc/libs/1_68_0/libs/numeric/interval/doc/interval.htm">Boost Interval Arithmetic Library</A> (header file <tt>mcboost.hpp</tt>) or <A href="http://www2.math.uni-wuppertal.de/wrswt/software/filib.html">FILIB++</A> (header file <tt>mcfilib.hpp</tt>) .
 
-As well as propagating Chebyshev models for factorable functions, mc::CModel and mc::CVar provide support for computing bounds on the Chebyshev model range (multivariate polynomial part). We note that computing exact bounds for multivariate polynomials is a hard problem in general. Instead, a number of computationally tractable, yet typically conservative, bounding approaches are implemented in mc::CModel and mc::CVar, which include:
-- Bounding every monomial term independently and adding these bounds;
-- Bounding the first- and diagonal second-order terms exactly and adding bounds for the second-order off-diagonal and higher-order terms computed independently [Lin & Stadtherr, 2007];
-- Bounding the terms up to order 2 based on an eigenvalue decomposition of the corresponding Hessian matrix and adding bounds for the higher-order terms computed independently;
-- Expressing the multivariate polynomial in Bernstein basis, thereby providing bounds as the minimum/maximum among all Bernstein coefficients [Lin & Rokne, 1995; 1996].
+As well as propagating Chebyshev models for factorable functions, bounds on the Chebyshev model range (multivariate polynomial part) can also be computed. We note that computing exact bounds for multivariate polynomials is a hard problem in general. Instead, a number of computationally tractable, yet typically conservative, bounding approaches are implemented, which include:
+- Bounding every monomial term independently and adding these bounds
+- Bounding the first- and diagonal second-order terms exactly and adding bounds for the second-order off-diagonal and higher-order terms computed independently [Lin & Stadtherr, 2007]
+- Bounding the terms up to order 2 based on an eigenvalue decomposition of the corresponding Hessian matrix and adding bounds for the higher-order terms computed independently
+- Expressing the multivariate polynomial in Bernstein basis, thereby providing bounds as the minimum/maximum among all Bernstein coefficients [Lin & Rokne, 1995; 1996]
 .
 
 Examples of Chebyshev models (blue lines) constructed with mc::CModel and mc::CVar are shown on the figure below for the factorable function \f$f(x)=x \exp(-x^2)\f$ (red line) for \f$x\in [-0.5,1]\f$. Also shown on these plots are the interval bounds computed from the Chebyshev models.
@@ -40,9 +44,26 @@ Examples of Chebyshev models (blue lines) constructed with mc::CModel and mc::CV
 </TABLE></CENTER>
 
 
-\section sec_CHEBYSHEV_I How do I compute a Chebyshev model with interval remainder bound of a factorable function?
+\section sec_CHEBYSHEV_refs References
 
-Suppose we want to compute a 4th-order Chebyshev model for the real-valued function \f$f(x,y)=x\exp(x+y^2)-y^2\f$ with \f$(x,y)\in [1,2]\times[0,1]\f$. For simplicity, bounds on the remainder terms are computed using the default interval type mc::Interval here:
+- A Bompadre, A Mitsos, B Chachuat, <A href="http://dx.doi.org/10.1007/s10898-012-9998-9">Convergence analysis of Taylor models and McCormick-Taylor models</A>, <i>Journal of Global Optimization</i>, <b>57</b>:75-114, 2013
+- N Brisebarre, M Joldes, <A href="http://hal.archives-ouvertes.fr/docs/00/48/17/37/PDF/RRLIP2010-13.pdf">Chebyshev Interpolation Polynomial-based Tools for Rigorous Computing</A>, <i>Research Report No RR2010-13</i>, Ecole Normale Sup&eacute;rieure de Lyon, Unit&eacute; Mixte de Recherche CNRS-INRIA-ENS LYON-UCBL No 5668, 2010
+- T Dzetkulic, <A HREF="http://dx.doi.org/10.1007%2Fs11075-014-9889-x">Rigorous integration of non-linear ordinary differential equations in Chebyshev basis</A>. <I>Numerical Algorithms</I> <B>69</B>(1):183–205, 2015
+- Q Lin, JG Rokne, <A href="http://dx.doi.org/10.1016/0377-0427(93)E0270-V">Methods for bounding the range of a polynomial</A>, <i>Journal of Computational & Applied Mathematics</i>, <b>58</b>:193-199, 1995
+- Q Lin, JG Rokne, <A href="http://dx.doi.org/10.1016/0898-1221(96)00020-X">Interval approximation of higher order to the ranges of functions</A>, <i>Computers & Mathematics with Applications</i>, <b>31</b>(7):101-109, 1996
+- J Rajyaguru, ME Villanueva, B Houska, B Chachuat, <A href="https://doi.org/10.1007/s10898-016-0474-9">Chebyshev Model Arithmetic for Factorable Functions</A>, <I>Journal of Global Optimization</I> <B>68</B>:413-438, 2017
+- LN Trefethen, <A HREF="http://www.chebfun.org/ATAP/"><I>Approximation Theory and Approximation Practice</I></A>, SIAM, Philadelphia (PA), 2013
+- ME Villanueva, J Rajyaguru, B Houska, B Chachuat, <A HREF="https://doi.org/10.1016/B978-0-444-63578-5.50123-7">Ellipsoidal arithmetic for multivariate systems</A>, <I>Computer Aided Chemical Engineering</I> <B>37</B>:767-772, 2015
+- Y Zha, B Chachuat, <A HREF="http://caopt.com/WCGO2021/WCGO_2021_Conference_Program.pdf"> A Sparse Set Arithmetic using Interval-valued Chebyshev Polynomials</A>, <I>World Congress on Global Optimization</I>, July 7-10, 2021. 
+.
+
+\page page_CHEBYSHEV_DENSE Dense Chebyshev Model Arithmetic for Factorable Functions
+
+The classes mc::CModel and mc::CVar provide an implementation of dense Chebyshev model arithmetic. The polynomial part is propagated in floating-point arithmetic, with preallocation of the full coefficient array. In that respect,  The remainder term is propagated in the arithmetic of the templated type, typically a verified interval arithmetic. Rounding errors are not accounted for during the polynomial propagation, so mc::CModel and mc::CVar do not provide a fully verified implementation.
+
+\section sec_CHEBYSHEV_DENSE_use How do I compute a dense Chebyshev model with interval remainder bound of a factorable function?
+
+Suppose we want to compute a 4th-order dense Chebyshev model for the real-valued function \f$f(x,y)=x\exp(y^2)-y^2\f$ with \f$(x,y)\in [1,2]\times[0,1]\f$. For simplicity, bounds on the remainder terms are computed using the default interval type mc::Interval here:
 
 \code
       #include "interval.hpp"
@@ -52,7 +73,7 @@ Suppose we want to compute a 4th-order Chebyshev model for the real-valued funct
       typedef mc::CVar<I> CV;
 \endcode
 
-First, the number of independent variables in the factorable function (\f$x\f$ and \f$y\f$ here) as well as the order of the Chebyshev model (4th order here) are specified by defining an mc::CModel object as:
+First, the number of independent variables in the factorable function (\f$x\f$ and \f$y\f$ here) as well as the order of the polynomial inclusion (4th order here) are specified by defining an mc::CModel object as:
 
 \code
       CM mod( 2, 4 );
@@ -65,60 +86,59 @@ Next, the variables \f$x\f$ and \f$y\f$ are defined as follows:
       CV Y( &mod, 1, I(0.,1.) );
 \endcode
 
-Essentially, the first line means that <tt>X</tt> is a variable of class mc::CVar, participating in the Chebyshev model <tt>mod</tt>, belonging to the interval \f$[1,2]\f$, and having index 0 (indexing in C/C++ start at 0 by convention!). The same holds for the Chebyshev variable <tt>Y</tt>, participating in the model <tt>mod</tt>, belonging to the interval \f$[0,1]\f$, and having index 1.
+Essentially, the first line means that <tt>X</tt> is a variable of class mc::CVar, participating in the Chebyshev model <tt>mod</tt>, belonging to the interval \f$[1,2]\f$, and having index 0 (C-style indexing in use). The same holds for the variable <tt>Y</tt>, participating in the model <tt>mod</tt>, belonging to the interval \f$[0,1]\f$, and having index 1.
 
-Having defined the variables, a Chebyshev model of \f$f(x,y)=x\exp(x+y^2)-y^2\f$ on \f$[1,2]\times[0,1]\f$ at the mid-point \f$(\frac{3}{2},\frac{1}{2})\f$ is simply computed as:
+Having defined the variables, a dense Chebyshev model of \f$f(x,y)=x\exp(x+y^2)-y^2\f$ on \f$[1,2]\times[0,1]\f$ at the mid-point \f$(\frac{3}{2},\frac{1}{2})\f$ is computed as:
 
 \code
-      CV F = X*exp(X+pow(Y,2))-pow(Y,2);
+      CV F = X*exp(pow(Y,2))-pow(Y,2);
 \endcode
 
 This model can be displayed to the standard output as:
 
 \code
-      std::cout << "f Chebyshev model: " << F << std::endl;
+      std::cout << "f dense Chebyshev model: " << F << std::endl;
 \endcode
 
 which produces the following output:
 
 \verbatim
-f Chebyshev model: 
-   a0    =  8.38199e+00     0  0
-   a1    =  1.90755e+00     0  1
-   a2    =  3.59621e+00     1  0
-   a3    =  7.47482e-01     0  2
-   a4    =  9.00782e-01     1  1
-   a5    =  6.30186e-01     2  0
-   a6    =  1.56945e-01     0  3
-   a7    =  3.35238e-01     1  2
-   a8    =  1.55141e-01     2  1
-   a9    =  6.67468e-02     3  0
-   a10   =  3.49519e-02     0  4
-   a11   =  6.58449e-02     1  3
-   a12   =  6.04330e-02     2  2
-   a13   =  1.80397e-02     3  1
-   a14   =  5.41191e-03     4  0
-   R     =  [ -2.09182e+00 :  2.22652e+00 ]
-   B     =  [ -1.02564e+01 :  3.93973e+01 ]
+f dense Chebyshev model: 
+   a0    =  1.9638503e+00     0  0
+   a1    =  7.0133164e-01     0  1
+   a2    =  7.7961675e-01     1  0
+   a3    =  3.0580596e-01     0  2
+   a4    =  4.0044388e-01     1  1
+   a5    =  0.0000000e+00     2  0
+   a6    =  8.4292510e-02     0  3
+   a7    =  1.4360199e-01     1  2
+   a8    =  0.0000000e+00     2  1
+   a9    =  0.0000000e+00     3  0
+   a10   =  1.8396352e-02     0  4
+   a11   =  2.8097503e-02     1  3
+   a12   =  0.0000000e+00     2  2
+   a13   =  0.0000000e+00     3  1
+   a14   =  0.0000000e+00     4  0
+   R     =  [-1.1126814e-02, 1.1126814e-02]
+   B     =  [-5.0886313e-01, 4.4365637e+00]
 \endverbatim
 
 <tt>a0</tt>,...,<tt>a14</tt> refer to the coefficients of the monomial terms in the Chebyshev model, with the corresponding variable orders given in the subsequent columns. The remainder term as well as the Chebyshev model range estimator are reported next.
 
-Other operations involve retreiving the remainder bound, centering the remainder term in a Chebyshev model, or computing the value of its polynomial part at a given point:
+Other operations involve retreiving the remainder bound, or computing the value of its polynomial part at a given point:
 
 \code
       I B = F.B();
-      F.C();
-      double x[2] = { 0.5, 1.5 };
+      double x[2] = { 1.5, 0.5 };
       double Pval = F.P( x );
 \endcode
 
 See the documentations of mc::CModel and mc::CVar for a complete list of member functions. 
 
 
-\section sec_CHEBYSHEV_fct Which functions are overloaded for Chebyshev model arithmetic?
+\section sec_CHEBYSHEV_DENSE_fct Which functions are overloaded for dense Chebyshev model arithmetic?
 
-mc::CVar overloads the usual functions <tt>exp</tt>, <tt>log</tt>, <tt>sqr</tt>, <tt>sqrt</tt>, <tt>pow</tt>, <tt>inv</tt>, <tt>cos</tt>, <tt>sin</tt>, <tt>tan</tt>, <tt>acos</tt>, <tt>asin</tt>, <tt>atan</tt>. Unlike mc::Interval and mc::McCormick, the functions <tt>min</tt>, <tt>max</tt> and <tt>fabs</tt> are not overloaded in mc::CVar as they are nonsmooth. Moreover, mc::CVar defines the following functions:
+mc::CVar overloads the usual functions <tt>exp</tt>, <tt>log</tt>, <tt>sqr</tt>, <tt>sqrt</tt>, <tt>pow</tt>, <tt>inv</tt>, <tt>cos</tt>, <tt>sin</tt>, <tt>tan</tt>, <tt>acos</tt>, <tt>asin</tt>, <tt>atan</tt>, <tt>cosh</tt>, <tt>sinh</tt>, <tt>tanh</tt>, <tt>fabs</tt>. The functions <tt>erf</tt>, <tt>erfc</tt>, <tt>min</tt>, <tt>max</tt>, <tt>fstep</tt>, and <tt>bstep</tt> are not currently overloaded in mc::CVar. Moreover, mc::CVar defines the following functions:
 - <tt>inter(x,y,z)</tt>, computing a Chebyshev model of the intersection \f$x = y\cap z\f$ of two Chebyshev models and returning true/false if the intersection is nonempty/empty. With Chebyshev models \f$\mathcal P_y\oplus\mathcal R_y\f$ and \f$\mathcal P_z\oplus\mathcal R_z\f$, this intersection is computed as follows:
 \f{align*}
   \mathcal P_{x} =\ & (1-\eta) \mathcal P_y^{\rm C} + \eta \mathcal P_z^{\rm C}\\
@@ -131,15 +151,15 @@ with \f$\mathcal{B}(\cdot)\f$ the Chebyshev model range bounder, and \f$\eta\f$ 
   \mathcal R_{x} =\ & {\rm hull}\{\mathcal R_y^{\rm C}\oplus\eta\mathcal{B}(\mathcal P_y^{\rm C}-\mathcal P_z^{\rm C}), \mathcal R_z^{\rm C}\oplus (1-\eta)\mathcal{B}(\mathcal P_z^{\rm C}-\mathcal P_y^{\rm C})\}\,.
 \f}
 with \f$\mathcal{B}(\cdot)\f$ and \f$\eta\f$ as previously.
+.
 
+\section sec_CHEBYSHEV_DENSE_opt How are the options set for the computation of a dense Chebyshev model?
 
-\section sec_CHEBYSHEV_opt How are the options set for the computation of a Chebyshev model?
-
-The class mc::CModel has a public member called mc::CModel::options that can be used to set/modify the options; e.g.,
+The class mc::CModel has a public member called mc::CModel::options that can be used to set/modify the options. For instance:
 
 \code
-      model.options.BOUNDER_TYPE = CM::Options::EIGEN;
-      model.options.SCALE_VARIABLES = true;
+      mod.options.BOUNDER_TYPE = CM::Options::EIGEN;
+      mod.options.SCALE_VARIABLES = true;
 \endcode
 
 The available options are the following:
@@ -148,44 +168,54 @@ The available options are the following:
 <CAPTION><EM>Options in mc::CModel::Options: name, type and description</EM></CAPTION>
      <TR><TH><b>Name</b>  <TD><b>Type</b><TD><b>Default</b>
          <TD><b>Description</b>
+     <TR><TH><tt>INTERP_EXTRA</tt> <TD><tt>unsigned int</tt> <TD>0
+         <TD>Extra terms in Chebyshev interpolation of univariates: 0-Chebyshev interpolation of order NORD; extra terms allow approximation of Chebyshev truncated series.
+     <TR><TH><tt>INTERP_THRES</tt> <TD><tt>double</tt> <TD>1e2*machprec()
+         <TD>Threshold for coefficient values in Chebyshev expansion for bounding of transcendental univariates.
      <TR><TH><tt>BOUNDER_TYPE</tt> <TD><tt>mc::CModel::Options::BOUNDER</tt> <TD>mc::CModel::Options::LSB
          <TD>Chebyshev model range bounder.
      <TR><TH><tt>BOUNDER_ORDER</tt> <TD><tt>unsigned int</tt> <TD>0
          <TD>Order of Bernstein polynomial for Chebyshev model range bounding, when mc::CModel::options::BOUNDER_TYPE = mc::CModel::options::BERNSTEIN is selected. Only values greater than the actual Chebyshev model order are accounted for; see [Lin & Rokne, 1996].
+     <TR><TH><tt>MIXED_IA</tt> <TD><tt>bool</tt> <TD>false
+         <TD>Whether to intersect internal bounds with underlying bounds in the templated arithmetics.
      <TR><TH><tt>REF_POLY</tt> <TD><tt>double</tt> <TD>0.
-         <TD>Scalar in \f$[0,1]\f$ related to the choice of the polynomial part in the overloaded functions mc::inter and mc::hull (see \ref sec_CHEBYSHEV_fct). A value of 0. amounts to selecting the polynomial part of the left operand, whereas a value of 1. selects the right operand.
+         <TD>Scalar in \f$[0,1]\f$ related to the choice of the polynomial part in the overloaded functions mc::inter and mc::hull (see \ref sec_CHEBYSHEV_DENSE_fct). A value of 0. amounts to selecting the polynomial part of the left operand, whereas a value of 1. selects the right operand.
      <TR><TH><tt>DISPLAY_DIGITS</tt> <TD><tt>unsigned int</tt> <TD>5
          <TD>Number of digits in output stream for Chebyshev model coefficients.
 </TABLE>
 
 
-\section sec_CM_err Errors What errors can I encounter during computation of a Chebyshev model?
+\section sec_CHEBYSHEV_DENSE_err Errors What errors can I encounter during computation of a dense Chebyshev model?
 
-Errors are managed based on the exception handling mechanism of the C++ language. Each time an error is encountered, a class object of type mc::CModel::Exceptions is thrown, which contains the type of error. It is the user's responsibility to test whether an exception was thrown during the computation of a Chebyshev model, and then make the appropriate changes. Should an exception be thrown and not caught by the calling program, the execution will abort.
-
-Possible errors encountered during the computation of a Chebyshev model are:
+Errors are managed based on the exception handling mechanism of the C++ language. Each time an error is encountered, a class object of type mc::CModel::Exceptions is thrown, which contains the type of error. Possible errors encountered during the computation of a dense Chebyshev model are:
 
 <TABLE border="1">
-<CAPTION><EM>Errors during the Computation of a Chebyshev Model</EM></CAPTION>
+<CAPTION><EM>Errors from class mc::CModel::Exceptions during the Computation of a Chebyshev Model</EM></CAPTION>
      <TR><TH><b>Number</b> <TD><b>Description</b>
-     <TR><TH><tt>1</tt> <TD>Division by zero
-     <TR><TH><tt>2</tt> <TD>Failed to compute eigenvalue decomposition in range bounder CModel::Options::EIGEN
-     <TR><TH><tt>3</tt> <TD>Failed to compute the maximum gap between a univariate term and its Bernstein model
-     <TR><TH><tt>-1</tt> <TD>Number of variable in Chebyshev model must be nonzero
-     <TR><TH><tt>-2</tt> <TD>Failed to construct Chebyshev variable
-     <TR><TH><tt>-3</tt> <TD>Chebyshev model bound does not intersect with bound in template parameter arithmetic
-     <TR><TH><tt>-4</tt> <TD>Operation between Chebyshev variables linked to different Chebyshev models
-     <TR><TH><tt>-5</tt> <TD>Maximum size of Chebyshev model reached (monomials indexed as unsigned int)
+     <TR><TH><tt>1</tt> <TD>Division by zero scalar
+     <TR><TH><tt>2</tt> <TD>Inverse operation with zero in range
+     <TR><TH><tt>3</tt> <TD>Log operation with non-positive numbers in range
+     <TR><TH><tt>4</tt> <TD>Square-root operation with negative numbers in range
+     <TR><TH><tt>5</tt> <TD>Tangent operation with (k+1/2)·PI in range
+     <TR><TH><tt>6</tt> <TD>Sine/Cosine inverse operation with range outside [-1,1]
+     <TR><TH><tt>7</tt> <TD>Failed to compute eigenvalue decomposition in range bounder CModel::Options::EIGEN
+     <TR><TH><tt>-1</tt> <TD>Failed to construct Chebyshev variable
+     <TR><TH><tt>-2</tt> <TD>Chebyshev model bound does not intersect with bound in template parameter arithmetic
+     <TR><TH><tt>-3</tt> <TD>Operation between Chebyshev variables linked to different Chebyshev models
+     <TR><TH><tt>-4</tt> <TD>Internal error
      <TR><TH><tt>-33</tt> <TD>Feature not yet implemented in mc::CModel
 </TABLE>
 
-Moreover, exceptions may be thrown by the template parameter class itself.
+The base class mc::PolyModel may also throw an exception of type mc::PolyModel::Exceptions, with the following codes:
 
+<TABLE border="1">
+<CAPTION><EM>Errors from base class mc::Polymodel::Exceptions during the Computation of a Chebyshev Model</EM></CAPTION>
+     <TR><TH><b>Number</b> <TD><b>Description</b>
+     <TR><TH><tt>1</tt> <TD>Inconsistent polynomial model dimension
+     <TR><TH><tt>2</tt> <TD>Maximum size in polynomial model reached
+</TABLE>
 
-\section sec_CM_refs References
-
-- Brisebarre, N., and M. Joldes, <A href="http://hal.archives-ouvertes.fr/docs/00/48/17/37/PDF/RRLIP2010-13.pdf">Chebyshev Interpolation Polynomial-based Tools for Rigorous Computing</A>, <i>Research Report No RR2010-13</i>, Ecole Normale Sup&eaccute;rieure de Lyon, Unit&eaccute; Mixte de Recherche CNRS-INRIA-ENS LYON-UCBL No 5668, 2010
-.
+Further exceptions may be thrown by the template parameter class itself.
 */
 
 #ifndef MC__CMODEL_H
@@ -341,7 +371,7 @@ public:
     //! @brief Constructor of mc::CModel::Options
     Options():
       INTERP_EXTRA(0), INTERP_THRES(1e2*machprec()), BOUNDER_TYPE(LSB),
-      BOUNDER_ORDER(0), MIXED_IA(false), REF_POLY(0.), DISPLAY_DIGITS(5)
+      BOUNDER_ORDER(0), MIXED_IA(false), REF_POLY(0.), DISPLAY_DIGITS(7)
       {}
     //! @brief Copy constructor of mc::CModel::Options
     template <typename U> Options
@@ -378,7 +408,7 @@ public:
     unsigned INTERP_EXTRA;
     //! @brief Threshold for coefficient values in Chebyshev expansion for bounding of transcendental univariates
     double INTERP_THRES;
-    //! @brief Chebyshev model range bounder - See \ref sec_CHEBYSHEV_opt
+    //! @brief Chebyshev model range bounder - See \ref sec_CHEBYSHEV_DENSE_opt
     BOUNDER BOUNDER_TYPE;
     //! @brief Order of Bernstein polynomial for Chebyshev model range bounding (no less than Chebyshev model order!). Only if mc::CModel::options::BOUNDER_TYPE is set to mc::CModel::options::BERNSTEIN.
     unsigned BOUNDER_ORDER;
@@ -386,7 +416,7 @@ public:
     static const std::string BOUNDER_NAME[5];
     //! @brief Whether to intersect internal bounds with underlying bounds in T arithmetics
     bool MIXED_IA;
-    //! @brief Scalar in \f$[0,1]\f$ related to the choice of the polynomial part in the overloaded functions mc::inter and mc::hull (see \ref sec_CHEBYSHEV_fct). A value of 0. amounts to selecting the polynomial part of the left operand, whereas a value of 1. selects the right operand.
+    //! @brief Scalar in \f$[0,1]\f$ related to the choice of the polynomial part in the overloaded functions mc::inter and mc::hull (see \ref sec_CHEBYSHEV_DENSE_fct). A value of 0. amounts to selecting the polynomial part of the left operand, whereas a value of 1. selects the right operand.
     double REF_POLY;
     //! @brief Number of digits in output stream for Chebyshev model coefficients.
     unsigned DISPLAY_DIGITS;
@@ -2279,23 +2309,20 @@ template <typename T> inline std::ostream&
 operator<<
 ( std::ostream&out, const CVar<T>&CV )
 {
-  out << std::endl
-      << std::scientific << std::setprecision(5)
-      << std::right;
+  unsigned IDISP = CV._CM? CV._CM->options.DISPLAY_DIGITS: 7;
+  out << std::scientific << std::setprecision(IDISP) << std::right
+      << std::endl;
 
   // Constant model
-  if( !CV._CM ){
-    out << "   a0    = " << std::right << std::setw(12) << CV._coefmon[0]
-        << std::endl
-        << "   R     = " << *(CV._bndrem) << std::endl;
-  }
+  if( !CV._CM )
+    out << "   a0    = " << std::right << std::setw(IDISP+7) << CV._coefmon[0]
+        << std::endl;
 
   // Chebyshev coefficients and corresponding exponents
   else{
-    out << std::setprecision(CV._CM->options.DISPLAY_DIGITS);
     for( auto it=CV.ndxmon().begin(); it!=CV.ndxmon().end(); ++it ){
       out << "   a" << std::left << std::setw(4) << *it << " = "
-          << std::right << std::setw(CV._CM->options.DISPLAY_DIGITS+7)
+          << std::right << std::setw(IDISP+7)
 	  << CV._coefmon[*it] << "   ";
       for( unsigned k=0; k<CV.nvar(); k++ )
         out << std::setw(3) << CV._expmon(*it)[k];
@@ -2303,19 +2330,24 @@ operator<<
     }
     for( unsigned i=0; CV.ndxmon().empty() && i<CV.nmon(); i++ ){
       out << "   a" << std::left << std::setw(4) << i << " = "
-          << std::right << std::setw(CV._CM->options.DISPLAY_DIGITS+7)
+          << std::right << std::setw(IDISP+7)
 	  << CV._coefmon[i] << "   ";
       for( unsigned k=0; k<CV.nvar(); k++ )
         out << std::setw(3) << CV._expmon(i)[k];
       out << std::endl;
     }
-    // Remainder term
-    out << std::right << "   R     =  " << *(CV._bndrem)
-        << std::endl;
   }
 
+  // Remainder term
+  out << std::right << "   R     =  "
+      << "[" << std::setw(IDISP+7) << Op<T>::l(*CV._bndrem)
+      << "," << std::setw(IDISP+7) << Op<T>::u(*CV._bndrem) << "]"
+      << std::endl;
+
   // Range bounder
-  out << std::right << "   B     =  " << CV.B()
+  out << std::right << "   B     =  "
+      << "[" << std::setw(IDISP+7) << Op<T>::l(CV.B())
+      << "," << std::setw(IDISP+7) << Op<T>::u(CV.B()) << "]"
       << std::endl;
 
   return out;

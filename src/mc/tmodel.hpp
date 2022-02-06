@@ -360,7 +360,7 @@ Moreover, exceptions may be thrown by the template parameter class itself.
 \section sec_TM_refs References
 
 - Berz, M., and G. Hoffstaetter, <A href="http://dx.doi.org/10.1023/A:1009958918582">Computation and Application of Taylor Polynomials with Interval Remainder Bounds</A>, <i>Reliable Computing</i>, <b>4</b>:83-97, 1998
-- Bompadre, A., A. Mitsos, and B. Chachuat, <A href="http://dx.doi.org/10.1007/s10898-012-9998-9">Convergence analysis of Taylor models and McCormick-Taylor models</A>, <i>Journal of Global Optimization</i>, <b>in press</b>, October 2012
+- Bompadre, A., A. Mitsos, and B. Chachuat, <A href="http://dx.doi.org/10.1007/s10898-012-9998-9">Convergence analysis of Taylor models and McCormick-Taylor models</A>, <i>Journal of Global Optimization</i>, <b>57</b>:75-114, 2013
 - Houska, B., M.E. Villanueva, B. Chachuat, <A href="http://cdc2013.units.it/index.php">A validated integration algorithm for nonlinear ODEs using Taylor models and ellipsoidal calculus</A>, <I>52nd IEEE Conference on Decision and Control (CDC)</I>, December 10-13, 2013, Florence, Italy
 - Lin, Q., and J.G, Rokne, <A href="http://dx.doi.org/10.1016/0377-0427(93)E0270-V">Methods for bounding the range of a polynomial</A>, <i>Journal of Computational & Applied Mathematics</i>, <b>58</b>:193-199, 1995
 - Lin, Q., and J.G, Rokne, <A href="http://dx.doi.org/10.1016/0898-1221(96)00020-X">Interval approximation of higher order to the ranges of functions</A>, <i>Computers & Mathematics with Applications</i>, <b>31</b>(7):101-109, 1996
@@ -1904,12 +1904,12 @@ TVar<T>::linear
 }
 
 template <typename T> inline std::ostream&
-operator <<
+operator<<
 ( std::ostream&out, const TVar<T>&TV )
 {
-  out << std::endl
-      << std::scientific << std::setprecision(5)
-      << std::right;
+  unsigned IDISP = TV._TM? TV._TM->options.DISPLAY_DIGITS: 7;
+  out << std::scientific << std::setprecision(IDISP) << std::right
+      << std::endl;
 
 #ifdef  MC__TVAR_DISPLAY_EXT
   out << "   TM: " << TV._TM << "   PM: " << TV._PM << std::endl;
@@ -1917,20 +1917,17 @@ operator <<
 
   // Constant model
   if( !TV._TM ){
-    out << "   a0    = " << std::right << std::setw(12) << TV._coefmon[0]
-        << std::endl
-        << "   R     = " << *(TV._bndrem) << std::endl;
-  }
+    out << "   a0    = " << std::right << std::setw(IDISP+7) << TV._coefmon[0]
+        << std::endl;
 
   // Monomial term coefficients and corresponding exponents
   else{
-    out << std::setprecision(TV._TM->options.DISPLAY_DIGITS);
     for( unsigned i=0; i<TV.nmon(); i++ ){
       double scal = 1.;
       for( unsigned k=0; k<TV.nvar(); k++ )
         scal *= std::pow( TV._scalvar(k), TV._expmon(i)[k] );
       out << "   a" << std::left << std::setw(4) << i << " = "
-          << std::right << std::setw(TV._TM->options.DISPLAY_DIGITS+7)
+          << std::right << std::setw(IDISP+7)
 	  << TV._coefmon[i]*scal << "   ";
       for( unsigned k=0; k<TV.nvar(); k++ )
         out << std::setw(3) << TV._expmon(i)[k];
@@ -1942,14 +1939,17 @@ operator <<
       out << std::right << "   B" << std::left << std::setw(2) << j << "   = "
           << std::right << TV.bndord(j) << std::endl;
 #endif
-    // Remainder term
-    out << std::right << "   R     =  " << *(TV._bndrem)
-        << std::endl;
   }
+  // Remainder term
+  out << std::right << "   R     =  "
+      << "[" << std::setw(IDISP+7) << Op<T>::l(*TV._bndrem)
+      << "," << std::setw(IDISP+7) << Op<T>::u(*TV._bndrem) << "]"
+      << std::endl;
 
   // Range bounder
-  out << std::right << "   B     =  " << TV.B()
-      << std::endl;
+  out << std::right << "   B     =  "
+      << "[" << std::setw(IDISP+7) << Op<T>::l(TV.B())
+      << "," << std::setw(IDISP+7) << Op<T>::u(TV.B()) << "]"
 
   return out;
 }

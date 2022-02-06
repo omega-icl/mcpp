@@ -1,4 +1,4 @@
-// Copyright (C) 2019, Benoit Chachuat, Imperial College London.
+// Copyright (C) Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 

@@ -1,145 +1,106 @@
-// Copyright (C) 2009-2021 Benoit Chachuat, Imperial College London.
+// Copyright (C) Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
 /*!
-\page page_CHEBYSHEV Chebyshev Model Arithmetic for Factorable Functions
-\author Jai Rajyaguru, Mario E. Villanueva, Beno&icirc;t Chachuat
+\page page_CHEBYSHEV_SPARSE Sparse Chebyshev Model Arithmetic for Factorable Functions
 
-A \f$q\f$th-order Chebyshev model of a Lipschitz-continuous function \f$f:\mathbb{R}^n\to\mathbb{R}\f$ on the domain \f$D\f$, consists of a \f$q^{\rm th}\f$-order multivariate polynomial \f$\mathcal P\f$ in Chebyshev basis , plus a remainder term \f$\mathcal R\f$, so that
-\f{align*}
-  f({x}) \in \mathcal P({x}-\hat{x}) \oplus \mathcal R, \quad \forall {x}\in D.
-\f}
-The polynomial part \f$\mathcal P\f$ is propagated symbolically and accounts for functional dependencies. The remainder term \f$\mathcal R\f$, on the other hand, is traditionally computed using interval analysis [Brisebarre & Joldes, 2010]; see figure below. More generally, convex/concave bounds or an ellipsoidal enclosure can be computed for the remainder term of vector-valued functions too. In particular, it can be established that the remainder term has convergence order (no less than) \f$q+1\f$ with respect to the diameter of the domain set \f$D\f$ under mild conditions [Bompadre <I>et al.</I>, 2012].
+The classes mc::SCModel and mc::SCVar provide an implementation of sparse Chebyshev model arithmetic. The polynomial part is propagated in floating-point arithmetic, without preallocation to enable sparse storage. In that respect,  The remainder term is propagated in the arithmetic of the templated type, typically a verified interval arithmetic. Rounding errors are not accounted for during the polynomial propagation, so mc::SCModel and mc::SCVar do not provide a fully verified implementation.
 
-<CENTER><TABLE BORDER=0>
-<TR>
-<TD>\image html Chebyshev_model.png</TD>
-</TR>
-</TABLE></CENTER>
+\section sec_CHEBYSHEV_SPARSE_use How do I compute a sparse Chebyshev model of a factorable function?
 
-The classes mc::SCModel and mc::SCVar provide an implementation of Chebyshev model arithmetic. We note that mc::SCModel / mc::SCVar is <b>not a verified implementation</b> in the sense that rounding errors are not accounted for in propagating the coefficients in the multivariate polynomial part, which are treated as floating-point numbers.
-
-The implementation of mc::SCModel and mc::SCVar relies on the operator/function overloading mechanism of C++. This makes the computation of Chebyshev models both simple and intuitive, similar to computing function values in real arithmetics or function bounds in interval arithmetic (see \ref page_INTERVAL). Moreover, mc::SCVar can be used as the template parameter of other available types in MC++; for instance, mc::SCVar can be used in order to propagate the underlying interval bounds in mc::McCormick. Likewise, mc::SCVar can be used as the template parameter of the types fadbad::F, fadbad::B and fadbad::T of <A href="http://www.fadbad.com/fadbad.html">FADBAD++</A> for computing Chebyshev models of either the partial derivatives or the Chebyshev coefficients of a factorable function (see \ref sec_CHEBYSHEV_fadbad).
-
-mc::SCModel and mc::SCVar themselves are templated in the type used to propagate bounds on the remainder term. By default, mc::SCModel and mc::SCVar can be used with the non-verified interval type mc::Interval of MC++. For reliability, however, it is strongly recommended to use verified interval arithmetic such as <A href="http://www.ti3.tu-harburg.de/Software/PROFILEnglisch.html">PROFIL</A> (header file <tt>mcprofil.hpp</tt>) or <A href="http://www.math.uni-wuppertal.de/~xsc/software/filib.html">FILIB++</A> (header file <tt>mcfilib.hpp</tt>). As already noted, convex/concave bounds on the remainder term can also be propagated by using the type mc::McCormick of MC++, thereby enabling McCormick-Chebyshev models.
-
-As well as propagating Chebyshev models for factorable functions, mc::SCModel and mc::SCVar provide support for computing bounds on the Chebyshev model range (multivariate polynomial part). We note that computing exact bounds for multivariate polynomials is a hard problem in general. Instead, a number of computationally tractable, yet typically conservative, bounding approaches are implemented in mc::SCModel and mc::SCVar, which include:
-- Bounding every monomial term independently and adding these bounds;
-- Bounding the first- and diagonal second-order terms exactly and adding bounds for the second-order off-diagonal and higher-order terms computed independently [Lin & Stadtherr, 2007];
-- Bounding the terms up to order 2 based on an eigenvalue decomposition of the corresponding Hessian matrix and adding bounds for the higher-order terms computed independently;
-- Expressing the multivariate polynomial in Bernstein basis, thereby providing bounds as the minimum/maximum among all Bernstein coefficients [Lin & Rokne, 1995; 1996].
-.
-
-Examples of Chebyshev models (blue lines) constructed with mc::SCModel and mc::SCVar are shown on the figure below for the factorable function \f$f(x)=x \exp(-x^2)\f$ (red line) for \f$x\in [-0.5,1]\f$. Also shown on these plots are the interval bounds computed from the Chebyshev models.
-
-<CENTER><TABLE BORDER=0>
-<TR>
-<TD>\image html CM-1D.png</TD>
-</TR>
-</TABLE></CENTER>
-
-
-\section sec_CHEBYSHEV_I How do I compute a Chebyshev model with interval remainder bound of a factorable function?
-
-Suppose we want to compute a 4th-order Chebyshev model for the real-valued function \f$f(x,y)=x\exp(x+y^2)-y^2\f$ with \f$(x,y)\in [1,2]\times[0,1]\f$. For simplicity, bounds on the remainder terms are computed using the default interval type mc::Interval here:
+Suppose we want to compute a 4th-order sparse Chebyshev model for the real-valued function \f$f(x,y)=x\exp(y^2)-y^2\f$ with \f$(x,y)\in [1,2]\times[0,1]\f$. For simplicity, bounds on the remainder terms are computed using the default interval type mc::Interval here:
 
 \code
       #include "interval.hpp"
-      #include "cmodel.hpp"
+      #include "scmodel.hpp"
       typedef mc::Interval I;
-      typedef mc::SCModel<I> CM;
-      typedef mc::SCVar<I> CV;
+      typedef mc::SCModel<I> SCM;
+      typedef mc::SCVar<I> SCV;
 \endcode
 
-First, the number of independent variables in the factorable function (\f$x\f$ and \f$y\f$ here) as well as the order of the Chebyshev model (4th order here) are specified by defining an mc::SCModel object as:
+
+First, an mc::SCModel object is initialized by passing the order of the polynomial inclusion (4th order here):
 
 \code
-      CM mod( 2, 4 );
+      SCM mod( 4 );
 \endcode
 
-Next, the variables \f$x\f$ and \f$y\f$ are defined as follows:
+Next, the variables \f$x\f$ and \f$y\f$ are added to the sparse Chebyshev model:
 
 \code
-      CV X( &mod, 0, I(1.,2.) );
-      CV Y( &mod, 1, I(0.,1.) );
+      SCV X( &mod, 0, I(1.,2.) );
+      SCV Y( &mod, 1, I(0.,1.) );
 \endcode
 
-Essentially, the first line means that <tt>X</tt> is a variable of class mc::SCVar, participating in the Chebyshev model <tt>mod</tt>, belonging to the interval \f$[1,2]\f$, and having index 0 (indexing in C/C++ start at 0 by convention!). The same holds for the Chebyshev variable <tt>Y</tt>, participating in the model <tt>mod</tt>, belonging to the interval \f$[0,1]\f$, and having index 1.
+Essentially, the first line means that <tt>X</tt> is a variable of class mc::SCVar, participating in the Chebyshev model <tt>mod</tt>, belonging to the interval \f$[1,2]\f$, and having index 0 (C-style indexing in use). The same holds for the variable <tt>Y</tt>, participating in the model <tt>mod</tt>, belonging to the interval \f$[0,1]\f$, and having index 1.
 
-Having defined the variables, a Chebyshev model of \f$f(x,y)=x\exp(x+y^2)-y^2\f$ on \f$[1,2]\times[0,1]\f$ at the mid-point \f$(\frac{3}{2},\frac{1}{2})\f$ is simply computed as:
+Having defined the variables, a sparse Chebyshev model of \f$f(x,y)=x\exp(x+y^2)-y^2\f$ on \f$[1,2]\times[0,1]\f$ at the mid-point \f$(\frac{3}{2},\frac{1}{2})\f$ is computed as:
 
 \code
-      CV F = X*exp(X+pow(Y,2))-pow(Y,2);
+      SCV F = X*exp(pow(Y,2))-pow(Y,2);
 \endcode
 
 This model can be displayed to the standard output as:
 
 \code
-      std::cout << "f Chebyshev model: " << F << std::endl;
+      std::cout << "f sparse Chebyshev model: " << F << std::endl;
 \endcode
 
 which produces the following output:
 
 \verbatim
-f Chebyshev model: 
-   a0    =  8.38199e+00     0  0
-   a1    =  1.90755e+00     0  1
-   a2    =  3.59621e+00     1  0
-   a3    =  7.47482e-01     0  2
-   a4    =  9.00782e-01     1  1
-   a5    =  6.30186e-01     2  0
-   a6    =  1.56945e-01     0  3
-   a7    =  3.35238e-01     1  2
-   a8    =  1.55141e-01     2  1
-   a9    =  6.67468e-02     3  0
-   a10   =  3.49519e-02     0  4
-   a11   =  6.58449e-02     1  3
-   a12   =  6.04330e-02     2  2
-   a13   =  1.80397e-02     3  1
-   a14   =  5.41191e-03     4  0
-   R     =  [ -2.09182e+00 :  2.22652e+00 ]
-   B     =  [ -1.02564e+01 :  3.93973e+01 ]
+f sparse Chebyshev model: 
+ 1.9638483e+00   0  1
+ 7.7961610e-01   1  T1[0]
+ 7.0133649e-01   1  T1[1]
+ 4.0044550e-01   2  T1[0]·T1[1]
+ 3.0580072e-01   2  T2[1]
+ 1.4360024e-01   3  T1[0]·T2[1]
+ 8.4292715e-02   3  T3[1]
+ 2.8097572e-02   4  T1[0]·T3[1]
+ 1.8401991e-02   4  T4[1]
+   R     =  [-1.1124050e-02, 1.1124050e-02]
+   B     =  [-5.0886708e-01, 4.4365637e+00]
 \endverbatim
 
-<tt>a0</tt>,...,<tt>a14</tt> refer to the coefficients of the monomial terms in the Chebyshev model, with the corresponding variable orders given in the subsequent columns. The remainder term as well as the Chebyshev model range estimator are reported next.
+The coefficients and corresponding monomials in the Chebyshev model are displayed first, with the middle integer being the total monomial order. The remainder term as well as the Chebyshev model range estimator are reported next.
 
-Other operations involve retreiving the remainder bound, centering the remainder term in a Chebyshev model, or computing the value of its polynomial part at a given point:
+Other operations involve retreiving the remainder bound, or computing the value of its polynomial part at a given point:
 
 \code
       I B = F.B();
-      F.C();
-      double x[2] = { 0.5, 1.5 };
+      double x[2] = { 1.5, 0.5 };
       double Pval = F.P( x );
 \endcode
 
 See the documentations of mc::SCModel and mc::SCVar for a complete list of member functions. 
 
 
-\section sec_CHEBYSHEV_fct Which functions are overloaded for Chebyshev model arithmetic?
+\section sec_CHEBYSHEV_SPARSE_fct Which functions are overloaded for sparse Chebyshev model arithmetic?
 
-mc::SCVar overloads the usual functions <tt>exp</tt>, <tt>log</tt>, <tt>sqr</tt>, <tt>sqrt</tt>, <tt>pow</tt>, <tt>inv</tt>, <tt>cos</tt>, <tt>sin</tt>, <tt>tan</tt>, <tt>acos</tt>, <tt>asin</tt>, <tt>atan</tt>. Unlike mc::Interval and mc::McCormick, the functions <tt>min</tt>, <tt>max</tt> and <tt>fabs</tt> are not overloaded in mc::SCVar as they are nonsmooth. Moreover, mc::SCVar defines the following functions:
+mc::SCVar overloads the usual functions <tt>exp</tt>, <tt>log</tt>, <tt>sqr</tt>, <tt>sqrt</tt>, <tt>pow</tt>, <tt>inv</tt>, <tt>cos</tt>, <tt>sin</tt>, <tt>tan</tt>, <tt>acos</tt>, <tt>asin</tt>, <tt>atan</tt>, <tt>cosh</tt>, <tt>sinh</tt>, <tt>tanh</tt>, <tt>fabs</tt>. The functions <tt>erf</tt>, <tt>erfc</tt>, <tt>min</tt>, <tt>max</tt>, <tt>fstep</tt>, and <tt>bstep</tt> are not currently overloaded in mc::SCVar. Moreover, mc::SCVar defines the following functions:
 - <tt>inter(x,y,z)</tt>, computing a Chebyshev model of the intersection \f$x = y\cap z\f$ of two Chebyshev models and returning true/false if the intersection is nonempty/empty. With Chebyshev models \f$\mathcal P_y\oplus\mathcal R_y\f$ and \f$\mathcal P_z\oplus\mathcal R_z\f$, this intersection is computed as follows:
 \f{align*}
   \mathcal P_{x} =\ & (1-\eta) \mathcal P_y^{\rm C} + \eta \mathcal P_z^{\rm C}\\
   \mathcal R_{x} =\ & [\mathcal R_y^{\rm C}\oplus\eta\mathcal{B}(\mathcal P_y^{\rm C}-\mathcal P_z^{\rm C})] \cap [\mathcal R_z^{\rm C}\oplus (1-\eta)\mathcal{B}(\mathcal P_z^{\rm C}-\mathcal P_y^{\rm C})]\,.
 \f}
-with \f$\mathcal{B}(\cdot)\f$ the Chebyshev model range bounder, and \f$\eta\f$ a real scalar in \f$[0,1]\f$. Choosing \f$\eta=1\f$ amounts to setting the polynomial part \f$\mathcal P_{x}\f$ as \f$\mathcal P_y\f$, whereas \f$\eta=0\f$ sets \f$\mathcal P_{x}\f$ as \f$\mathcal P_z\f$. The parameter \f$\eta\f$ can be defined in mc::SCModel::Options::REF_POLY.
+with \f$\mathcal{B}(\cdot)\f$ the Chebyshev model range bounder, and \f$\eta\f$ a real scalar in \f$[0,1]\f$. Choosing \f$\eta=1\f$ amounts to setting the polynomial part \f$\mathcal P_{x}\f$ as \f$\mathcal P_y\f$, whereas \f$\eta=0\f$ sets \f$\mathcal P_{x}\f$ as \f$\mathcal P_z\f$. The parameter \f$\eta\f$ can be defined in mc::CModel::Options::REF_POLY.
 - <tt>hull(x,y)</tt>, computing a Chebyshev model of the union \f$x = y\cup z\f$ of two Chebyshev models. With Chebyshev models \f$\mathcal P_y\oplus\mathcal R_y\f$ and \f$\mathcal P_z\oplus\mathcal R_z\f$, this union is computed as follows:
 \f{align*}
   \mathcal P_{x} =\ & (1-\eta) \mathcal P_y^{\rm C} + \eta \mathcal P_z^{\rm C}\\
   \mathcal R_{x} =\ & {\rm hull}\{\mathcal R_y^{\rm C}\oplus\eta\mathcal{B}(\mathcal P_y^{\rm C}-\mathcal P_z^{\rm C}), \mathcal R_z^{\rm C}\oplus (1-\eta)\mathcal{B}(\mathcal P_z^{\rm C}-\mathcal P_y^{\rm C})\}\,.
 \f}
 with \f$\mathcal{B}(\cdot)\f$ and \f$\eta\f$ as previously.
+.
 
+\section sec_CHEBYSHEV_SPARSE_opt How are the options set for the computation of a sparse Chebyshev model?
 
-\section sec_CHEBYSHEV_opt How are the options set for the computation of a Chebyshev model?
-
-The class mc::SCModel has a public member called mc::SCModel::options that can be used to set/modify the options; e.g.,
+The class mc::SCModel has a public member called mc::SCModel::options that can be used to set/modify the options. For instance:
 
 \code
-      model.options.BOUNDER_TYPE = CM::Options::EIGEN;
-      model.options.SCALE_VARIABLES = true;
+      mod.options.BOUNDER_TYPE = SCM::Options::NAIVE;
+      mod.options.SCALE_VARIABLES = true;
 \endcode
 
 The available options are the following:
@@ -148,48 +109,57 @@ The available options are the following:
 <CAPTION><EM>Options in mc::SCModel::Options: name, type and description</EM></CAPTION>
      <TR><TH><b>Name</b>  <TD><b>Type</b><TD><b>Default</b>
          <TD><b>Description</b>
+     <TR><TH><tt>BASIS</tt> <TD><tt>unsigned int</tt> <TD>1
+         <TD>Basis representation of the monomials: 0-Monomial basis; 1-Chebyshev basis.
+     <TR><TH><tt>REMEZ_USE</tt> <TD><tt>bool</tt> <TD>false
+         <TD>Whether to use the Remez algorithm for computing a minimax approximation for univariate terms.
+     <TR><TH><tt>REMEZ_MAXIT</tt> <TD><tt>unsigned int</tt> <TD>10
+         <TD>Maximal number of iterations in Remez algorithm for computing a minimax approximation for univariate terms.
+     <TR><TH><tt>REMEZ_TOL</tt> <TD><tt>double</tt> <TD>1e-5
+         <TD>Stopping tolerance in Remez algorithm for computing a minimax approximation for univariate terms.
+     <TR><TH><tt>REMEZ_MIG</tt> <TD><tt>double</tt> <TD>1e-10
+         <TD>Threshold for interval width below which Remez algorithm is not useds.
+     <TR><TH><tt>INTERP_EXTRA</tt> <TD><tt>unsigned int</tt> <TD>0
+         <TD>Extra terms in Chebyshev interpolation of univariates: 0-Chebyshev interpolation of order NORD; extra terms allow approximation of Chebyshev truncated series.
+     <TR><TH><tt>INTERP_THRES</tt> <TD><tt>double</tt> <TD>1e2*machprec()
+         <TD>Threshold for coefficient values in Chebyshev expansion for bounding of transcendental univariates.
      <TR><TH><tt>BOUNDER_TYPE</tt> <TD><tt>mc::SCModel::Options::BOUNDER</tt> <TD>mc::SCModel::Options::LSB
          <TD>Chebyshev model range bounder.
-     <TR><TH><tt>BOUNDER_ORDER</tt> <TD><tt>unsigned int</tt> <TD>0
-         <TD>Order of Bernstein polynomial for Chebyshev model range bounding, when mc::SCModel::options::BOUNDER_TYPE = mc::SCModel::options::BERNSTEIN is selected. Only values greater than the actual Chebyshev model order are accounted for; see [Lin & Rokne, 1996].
+     <TR><TH><tt>MIXED_IA</tt> <TD><tt>bool</tt> <TD>false
+         <TD>Whether to intersect internal bounds with underlying bounds in the templated arithmetics.
+     <TR><TH><tt>MIN_FACTOR</tt> <TD><tt>double</tt> <TD>0e0
+         <TD>Threshold for monomial coefficients below which the term is removed and appended to the remainder term.
      <TR><TH><tt>REF_POLY</tt> <TD><tt>double</tt> <TD>0.
-         <TD>Scalar in \f$[0,1]\f$ related to the choice of the polynomial part in the overloaded functions mc::inter and mc::hull (see \ref sec_CHEBYSHEV_fct). A value of 0. amounts to selecting the polynomial part of the left operand, whereas a value of 1. selects the right operand.
+         <TD>Scalar in \f$[0,1]\f$ related to the choice of the polynomial part in the overloaded functions mc::inter and mc::hull (see \ref sec_CHEBYSHEV_SPARSE_fct). A value of 0. amounts to selecting the polynomial part of the left operand, whereas a value of 1. selects the right operand.
      <TR><TH><tt>DISPLAY_DIGITS</tt> <TD><tt>unsigned int</tt> <TD>5
          <TD>Number of digits in output stream for Chebyshev model coefficients.
 </TABLE>
 
 
-\section sec_CM_err Errors What errors can I encounter during computation of a Chebyshev model?
+\section sec_CHEBYSHEV_SPARSE_err Errors What errors can I encounter during computation of a sparse Chebyshev model?
 
-Errors are managed based on the exception handling mechanism of the C++ language. Each time an error is encountered, a class object of type mc::SCModel::Exceptions is thrown, which contains the type of error. It is the user's responsibility to test whether an exception was thrown during the computation of a Chebyshev model, and then make the appropriate changes. Should an exception be thrown and not caught by the calling program, the execution will abort.
-
-Possible errors encountered during the computation of a Chebyshev model are:
+Errors are managed based on the exception handling mechanism of the C++ language. Each time an error is encountered, a class object of type mc::SCModel::Exceptions is thrown, which contains the type of error. Possible errors encountered during the computation of a sparse Chebyshev model are:
 
 <TABLE border="1">
-<CAPTION><EM>Errors during the Computation of a Chebyshev Model</EM></CAPTION>
+<CAPTION><EM>Errors from class mc::SCModel::Exceptions during the Computation of a Sparse Chebyshev Model</EM></CAPTION>
      <TR><TH><b>Number</b> <TD><b>Description</b>
-     <TR><TH><tt>1</tt> <TD>Division by zero
-     <TR><TH><tt>2</tt> <TD>Failed to compute eigenvalue decomposition in range bounder SCModel::Options::EIGEN
-     <TR><TH><tt>3</tt> <TD>Failed to compute the maximum gap between a univariate term and its Bernstein model
-     <TR><TH><tt>-1</tt> <TD>Number of variable in Chebyshev model must be nonzero
-     <TR><TH><tt>-2</tt> <TD>Failed to construct Chebyshev variable
-     <TR><TH><tt>-3</tt> <TD>Chebyshev model bound does not intersect with bound in template parameter arithmetic
-     <TR><TH><tt>-4</tt> <TD>Operation between Chebyshev variables linked to different Chebyshev models
-     <TR><TH><tt>-5</tt> <TD>Maximum size of Chebyshev model reached (monomials indexed as unsigned int)
+     <TR><TH><tt>1</tt> <TD>Division by zero scalar
+     <TR><TH><tt>2</tt> <TD>Inverse operation with zero in range
+     <TR><TH><tt>3</tt> <TD>Log operation with non-positive numbers in range
+     <TR><TH><tt>4</tt> <TD>Square-root operation with negative numbers in range
+     <TR><TH><tt>5</tt> <TD>Real power operation with negative numbers in range
+     <TR><TH><tt>6</tt> <TD>Tangent operation with (k+1/2)·PI in range
+     <TR><TH><tt>7</tt> <TD>Cosine inverse operation with range outside [-1,1]
+     <TR><TH><tt>8</tt> <TD>Sine inverse operation with range outside [-1,1]
+     <TR><TH><tt>9</tt> <TD>Failed to compose sparse Chebyshev variable
+     <TR><TH><tt>-1</tt> <TD>Failed to construct sparse Chebyshev variable
+     <TR><TH><tt>-2</tt> <TD>Inconsistent bounds with template parameter arithmetic
+     <TR><TH><tt>-3</tt> <TD>Operation between Chebyshev variables linked to different Chebyshev models
+     <TR><TH><tt>-4</tt> <TD>Internal error
      <TR><TH><tt>-33</tt> <TD>Feature not yet implemented in mc::SCModel
 </TABLE>
 
-Moreover, exceptions may be thrown by the template parameter class itself.
-
-
-\section sec_CM_refs References
-
-- Brisebarre, N., and M. Joldes, <A href="http://hal.archives-ouvertes.fr/docs/00/48/17/37/PDF/RRLIP2010-13.pdf">Chebyshev Interpolation Polynomial-based Tools for Rigorous Computing</A>, <i>Research Report No RR2010-13</i>, Ecole Normale Sup&eaccute;rieure de Lyon, Unit&eaccute; Mixte de Recherche CNRS-INRIA-ENS LYON-UCBL No 5668, 2010
-- T Dzetkulic, <A HREF="http://dx.doi.org/10.1007%2Fs11075-014-9889-x">Rigorous integration of non-linear ordinary differential equations in Chebyshev basis</A>. <I>Numerical Algorithms</I> <B>69</B>(1):183–205, 2015
-J Rajyaguru, ME Villanueva, B Houska, B Chachuat, <A href="">Chebyshev Model Arithmetic for Factorable Functions</A>, <I>Journal of Global Optimization</I> <B>68</B>:413-438, 2017
-- J Rajyaguru, ME Villanueva, B Houska, B Chachuat, <A href="https://doi.org/10.1007/s10898-016-0474-9">Chebyshev Model Arithmetic for Factorable Functions</A>, <I>Journal of Global Optimization</I> <B>68</B>:413-438, 2017
-- LN Trefethen,<A HREF="http://www.chebfun.org/ATAP/"><I>Approximation Theory and Approximation Practice</I></A>. SIAM, Philadelphia (PA), 2013
-.
+Further exceptions may be thrown by the template parameter class itself.
 */
 
 #ifndef MC__SCMODEL_H
@@ -238,10 +208,10 @@ template <typename T> class SCVar;
 //! @brief C++ class for the computation of sparse Chebyshev models for factorable function: environment
 ////////////////////////////////////////////////////////////////////////
 //! mc::SCModel is a C++ class for definition of Chebyshev model
-//! environment in sparse format. Propagation of Chebyshev models for
-//! factorable functions is via the C++ class mc::SCVar. The template
-//! parameter corresponds to the type
-//! used to propagate the remainder bound.
+//! environment in sparse format. Propagation of sparse Chebyshev models
+//! for factorable functions is via the C++ class mc::SCVar. The
+//! template parameter corresponds to the type used to propagate the
+//! remainder bound.
 ////////////////////////////////////////////////////////////////////////
 template <typename T>
 class SCModel
@@ -347,7 +317,7 @@ protected:
       return _coefuniv; }
 
 public:
-  /** @addtogroup SCHEBYSHEV Chebyshev Model Arithmetic for Factorable Functions
+  /** @addtogroup SCHEBYSHEV Sparse Chebyshev Model Arithmetic for Factorable Functions
    *  @{
    */
   //! @brief Constructor of Sparse Chebyshev model environment for maximal order <tt>maxord</tt>
@@ -422,10 +392,9 @@ public:
       TAN,	//!< Tangent operation with (k+1/2)·PI in range
       ACOS,	//!< Cosine inverse operation with range outside [-1,1]
       ASIN,	//!< Sine inverse operation with range outside [-1,1]
-      EIGEN,	//!< Failed to compute eigenvalue decomposition in range bounder SCModel::Options::EIGEN
       COMPOSE,	//!< Failed to compose Chebyshev variable
       INIT=-1,	//!< Failed to construct Chebyshev variable
-      INCON=-2, //!< Chebyshev model bound does not intersect with bound in template parameter arithmetic
+      INCON=-2, //!< Inconsistent bounds with template parameter arithmetic
       SCMODEL=-3,//!< Operation between Chebyshev variables linked to different Chebyshev models
       INTERNAL = -4,//!< Internal error
       UNDEF=-33 //!< Feature not yet implemented in mc::SCModel
@@ -453,8 +422,6 @@ public:
         return "mc::SCModel\t Cosine inverse operation with range outside [-1,1]";
       case ASIN:
         return "mc::SCModel\t Sine inverse operation with range outside [-1,1]";
-      case EIGEN:
-        return "mc::SCModel\t Range bounder with eigenvalue decomposition failed";
       case COMPOSE:
         return "mc::SCModel\t Chebyshev composition failed";
       case INIT:
@@ -462,7 +429,7 @@ public:
       case INCON:
         return "mc::SCModel\t Inconsistent bounds with template parameter arithmetic";
       case SCMODEL:
-        return "mc::SCModel\t Operation between Chebyshev variables in different Chebyshev model environment not allowed";
+        return "mc::SCModel\t Operation between Chebyshev variables in different Chebyshev model environment";
       case UNDEF:
         return "mc::SCModel\t Feature not yet implemented in mc::SCModel class";
       case INTERNAL:
@@ -481,23 +448,22 @@ public:
     //! @brief Constructor of mc::SCModel::Options
     Options():
       BASIS(CHEB),
-      REMEZ_USE(true), REMEZ_MAXIT(10), REMEZ_TOL(1e-5), REMEZ_MIG(1e-10),
+      REMEZ_USE(false), REMEZ_MAXIT(10), REMEZ_TOL(1e-5), REMEZ_MIG(1e-10),
       INTERP_EXTRA(0), INTERP_THRES(1e2*machprec()), BOUNDER_TYPE(LSB),
-      BOUNDER_ORDER(0), MIXED_IA(true), MIN_FACTOR(0.), REF_POLY(0.),
+      MIXED_IA(false), MIN_FACTOR(0.), REF_POLY(0.),
       DISPLAY_DIGITS(7)
       {}
     //! @brief Copy constructor of mc::SCModel::Options
     template <typename U> Options
       ( U&options )
       : BASIS( options.BASIS ),
-        REMEZ_USE( options.REMEZ_USE ),
         REMEZ_MAXIT( options.REMEZ_MAXIT ),
         REMEZ_TOL( options.REMEZ_TOL ),
         REMEZ_MIG( options.REMEZ_MIG ),
         INTERP_EXTRA( options.INTERP_EXTRA ),
         INTERP_THRES( options.INTERP_THRES ),
         BOUNDER_TYPE( options.BOUNDER_TYPE ),
-        BOUNDER_ORDER( options.BOUNDER_ORDER ),
+        //BOUNDER_ORDER( options.BOUNDER_ORDER ),
         MIN_FACTOR( options.MIN_FACTOR ),
         MIXED_IA( options.MIXED_IA ),
         REF_POLY(options.REF_POLY),
@@ -514,7 +480,7 @@ public:
         INTERP_EXTRA     = options.INTERP_EXTRA;
         INTERP_THRES     = options.INTERP_THRES;
         BOUNDER_TYPE     = (BOUNDER)options.BOUNDER_TYPE;
-        BOUNDER_ORDER    = options.BOUNDER_ORDER;
+        //BOUNDER_ORDER    = options.BOUNDER_ORDER;
         MIN_FACTOR       = options.MIN_FACTOR;
         MIXED_IA         = options.MIXED_IA;
         REF_POLY         = options.REF_POLY;
@@ -545,17 +511,17 @@ public:
     unsigned INTERP_EXTRA;
     //! @brief Threshold for coefficient values in Chebyshev expansion for bounding of transcendental univariates
     double INTERP_THRES;
-    //! @brief Chebyshev model range bounder - See \ref sec_CHEBYSHEV_opt
+    //! @brief Chebyshev model range bounder - See \ref sec_CHEBYSHEV_SPARSE_opt
     BOUNDER BOUNDER_TYPE;
-    //! @brief Order of Bernstein polynomial for Chebyshev model range bounding (no less than Chebyshev model order!). Only if mc::SCModel::options::BOUNDER_TYPE is set to mc::SCModel::options::BERNSTEIN.
-    unsigned BOUNDER_ORDER;
+    ////! @brief Order of Bernstein polynomial for Chebyshev model range bounding (no less than Chebyshev model order!). Only if mc::SCModel::options::BOUNDER_TYPE is set to mc::SCModel::options::BERNSTEIN.
+    //unsigned BOUNDER_ORDER;
     //! @brief Array of Chebyshev model range bounder names (for display)
     static const std::string BOUNDER_NAME[2];
     //! @brief Whether to intersect internal bounds with underlying bounds in T arithmetics
     bool MIXED_IA;
     //! @brief Threshold for monomial coefficients below which the term is removed and appended to the remainder term.
     double MIN_FACTOR;
-    //! @brief Scalar in \f$[0,1]\f$ related to the choice of the polynomial part in the overloaded functions mc::inter and mc::hull (see \ref sec_CHEBYSHEV_fct). A value of 0. amounts to selecting the polynomial part of the left operand, whereas a value of 1. selects the right operand.
+    //! @brief Scalar in \f$[0,1]\f$ related to the choice of the polynomial part in the overloaded functions mc::inter and mc::hull (see \ref sec_CHEBYSHEV_SPARSE_fct). A value of 0. amounts to selecting the polynomial part of the left operand, whereas a value of 1. selects the right operand.
     double REF_POLY;
     //! @brief Number of digits in output stream for Chebyshev model coefficients.
     unsigned DISPLAY_DIGITS;
@@ -729,11 +695,13 @@ inline
 T SCModel<T>::TOne
   = 2.*Op<T>::zeroone()-1.;
 
-//! @brief C++ class for Chebyshev model computation of factorable function - Chebyshev model propagation
+//! @brief C++ class for the computation of sparse Chebyshev models for factorable function: propagation
 ////////////////////////////////////////////////////////////////////////
-//! mc::SCVar is a C++ class for propagation of Chebyshev models through
-//! factorable functions. The template parameter corresponds to the
-//! type used in computing the remainder bound.
+//! mc::SCVar is a C++ class for propagation of sparse Chebyshev models
+//! through factorable functions. Variables of type mc::SCVar are
+//! registered in a Chebyshev model environment of class mc::SCModel.
+//! The template parameter corresponds to the type used in computing the
+//! remainder bound.
 ////////////////////////////////////////////////////////////////////////
 template <typename T>
 class SCVar
@@ -911,7 +879,7 @@ private:
     { return _CM->_ssqr( CV, coefmon, coefrem ); }
 
 public:
-  /** @addtogroup CHEBYSHEV Chebyshev Model Arithmetic for Factorable Functions
+  /** @addtogroup SCHEBYSHEV Sparse Chebyshev Model Arithmetic for Factorable Functions
    *  @{
    */
   //! @brief Display sparse polynomial
@@ -2912,8 +2880,7 @@ std::ostream&
 operator<<
 ( std::ostream& out, SCVar<T> const& CV )
 {
-  //std::cout << "*NORD = " << CV.nord() << " " << CV._coefmon.rbegin()->first.display(1) << std::endl;
-  unsigned IDISP = CV._CM? CV._CM->options.DISPLAY_DIGITS: 5;
+  unsigned IDISP = CV._CM? CV._CM->options.DISPLAY_DIGITS: 7;
   int BASIS = CV._CM? CV._CM->options.BASIS: SCModel<T>::Options::CHEB;
   out << CV.display( CV._coefmon, BASIS, IDISP )
       << std::scientific << std::setprecision(IDISP) << std::right;
@@ -2931,11 +2898,12 @@ operator<<
       << std::endl;
 
   // Index set
+#if 0
   out << std::right << "   I     =  {";
   for( auto const& ndx : CV._ndxvar )
     out << std::right << " " << ndx;
   out << std::right << " }" << std::endl;
-
+#endif
   return out;
 }
 
@@ -3070,6 +3038,7 @@ SCVar<T>
 operator-
 ( SCVar<T> const& CV )
 {
+  //std::cout << "CV:" << CV;
   SCVar<T> CV2;
   CV2.set( CV._CM );
   CV2._ndxvar = CV._ndxvar;
@@ -3078,6 +3047,7 @@ operator-
   CV2._bndrem = - CV._bndrem;
   if( CV._bndpol ) CV2._set_bndpol( - *CV._bndpol );
   if( CV._bndT )   CV2._set_bndT( - *CV._bndT );
+  //std::cout << "-CV:" << CV2;
   return CV2;
 }
 
@@ -3216,9 +3186,8 @@ SCVar<T>::operator*=
   if( CV._CM && !_CM ) _CM = CV._CM;
 
   // Remainder propagation
-  T R1  = _polybound() * CV._bndrem + CV._polybound() * _bndrem + CV._bndrem * _bndrem;
-  //T R1  = bound() * CV._bndrem + CV._polybound() * _bndrem;
-  //T R2  = _polybound() * CV._bndrem + CV.bound() * _bndrem;
+  T R1  = bound() * CV._bndrem + CV._polybound() * _bndrem;
+  T R2  = _polybound() * CV._bndrem + CV.bound() * _bndrem;
   T rem = 0.;
 
   // Coefficient maps for first participating variable
@@ -3244,9 +3213,9 @@ SCVar<T>::operator*=
 #endif
 
   // Remainder propagation
-  //if( !Op<T>::inter( rem, R1, R2) )
-  //  rem = ( Op<T>::diam(R1) < Op<T>::diam(R2)? R1: R2 );
-  operator+=( R1 );//rem );
+  if( !Op<T>::inter( rem, R1, R2) )
+    rem = ( Op<T>::diam(R1) < Op<T>::diam(R2)? R1: R2 );
+  operator+=( rem );
 #ifdef MC__SCMODEL_DEBUG_SPROD
   std::cout << "bndrem = " << _bndrem << std::endl;
 #endif
@@ -3321,15 +3290,15 @@ template <typename T>
 inline
 SCVar<T>&
 SCVar<T>::operator*=
-( T const& I )
+( T const& B )
 {
-  double const Imid = Op<T>::mid(I);
-  T Icur = bound();
-  for( auto& [mon,coef] : _coefmon ) coef *= Imid;
-  _bndrem *= Imid;
-  _bndrem += ( I - Imid ) * Icur;
+  double const Bmid = Op<T>::mid(B);
+  T const bndmod = bound();
+  for( auto& [mon,coef] : _coefmon ) coef *= Bmid;
+  _bndrem *= Bmid;
+  _bndrem += ( B - Bmid ) * bndmod;
   _unset_bndpol();
-  if( _bndT ) *_bndT *= I;
+  if( _bndT ) *_bndT *= B;
   return *this;
 }
 

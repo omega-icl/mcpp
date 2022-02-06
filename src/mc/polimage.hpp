@@ -1839,10 +1839,13 @@ class PolImg
   template< class U > friend  PolVar<U> rlmtd( const PolVar<U>&, const PolVar<U>& );  
 
 public:
+  //! @brief Container type for main (DAG) variables
   typedef std::map< FFVar const*, PolVar<T>*, lt_FFVar > t_Vars;
   typedef typename t_Vars::iterator it_Vars;
+  //! @brief Container type for auxiliary variables
   typedef std::list< PolVar<T>* > t_Aux;
   typedef std::list< PolLQExpr<T>* > t_LQExpr;
+  //! @brief Container type for cuts
   typedef std::multiset< PolCut<T>*, lt_PolCut<T> > t_Cuts;
   typedef double (*p_Univ)( const double, const double*, const int* );
   typedef std::pair<double,double> (*p_dUniv)( const double, const double*, const int* );
@@ -1853,7 +1856,7 @@ public:
   typedef std::priority_queue< OAsub, std::vector<OAsub>, lt_OAsub > t_OA;
 
 protected:
-  //! @brief Map of DAG variables in polytopic image
+  //! @brief Map of main (DAG) variables in polytopic image
   t_Vars _Vars;
   //! @brief Appends new pointer to DAG variable map in polytopic image
   PolVar<T>* _append_var

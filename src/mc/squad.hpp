@@ -1,4 +1,4 @@
-// Copyright (C) 2020 Benoit Chachuat, Imperial College London.
+// Copyright (C) Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
@@ -173,8 +173,8 @@ Sparse quadratic forms:
 
 These results show that a total of 12 monomials participate in the quadratic forms: The constant monomial \f$1\f$; the participating variables \f$x_0,x_1,x_2\f$; and 6 lifted monomials \f$x_3:=x_0^2, x_4:=x_0\cdot x_1, x_5:=x_0\cdot x_2, x_6:=x_1^2, x_7:=x_1\cdot x_2, x_8:=x_2^2, x_9:=x_1^3, x_10:=x_1^4\f$. A reformulation of the factorable function \f${\bf f}\f$ in terms of these monomials is given by:
 \f{align*}
-  q_0(x_0,\ldots,x_10) = x_0 x_3 - 6 x_0 x_5 + 12 x_0 x_8 + 3 x_0 x_{10} - 8 x_2 x_8 - 6 x_2 x_{10} + 3 x_4^2 - 12 x_5 x_6 + 12 x_7^2 + x_9^2\\
-  q_1(x_0,\ldots,x_10) = - 1 + 2 x_1^2
+  q_0(x_0,\ldots,x_{10}) &\ = x_0 x_3 - 6 x_0 x_5 + 12 x_0 x_8 + 3 x_0 x_{10} - 8 x_2 x_8 - 6 x_2 x_{10} + 3 x_4^2 - 12 x_5 x_6 + 12 x_7^2 + x_9^2\\
+  q_1(x_0,\ldots,x_{10}) &\ = - 1 + 2 x_1^2
 \f}
 with the following 8 auxiliary quadratic constraints are also generated:
 \f{align*}
