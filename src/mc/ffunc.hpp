@@ -1610,6 +1610,8 @@ public:
     ( const unsigned n, const FFVar*A );
   static FFVar det
     ( const unsigned n, const FFVar*A );
+  static FFVar* inv
+    ( const unsigned n, const FFVar*A );
   /** @} */
 
 private:
@@ -2002,7 +2004,7 @@ inline FFVar
 operator+
 ( const FFVar&Var1, const FFVar&Var2 )
 { 
-  if( &Var1 == &Var2 ) return( 2. * Var1 );
+  if( &Var1 == &Var2 || Var1 == Var2 ) return( 2. * Var1 );
   //if( Var1 == Var2 ) return( 2. * Var1 );
 
   switch( Var1._id.first ){
@@ -2092,7 +2094,7 @@ inline FFVar
 operator-
 ( const FFVar&Var1, const FFVar&Var2 )
 {
-  if( &Var1 == &Var2 ) return 0.;
+  if( &Var1 == &Var2 || Var1 == Var2 ) return 0.;
   //if( Var1 == Var2 ) return 0.;
 
   switch( Var1._id.first ){
@@ -2163,7 +2165,7 @@ inline FFVar
 operator*
 ( const FFVar&Var1, const FFVar&Var2 )
 {
-  if( &Var1 == &Var2 ) return sqr(Var1);
+  if( &Var1 == &Var2 || Var1 == Var2 ) return sqr(Var1);
   //if( Var1 == Var2 ) return sqr(Var1);
 
   switch( Var1._id.first ){
@@ -2239,7 +2241,7 @@ inline FFVar
 operator/
 ( const FFVar&Var1, const FFVar&Var2 )
 {
-  if( &Var1 == &Var2 ) return 1.;
+  if( &Var1 == &Var2 || Var1 == Var2 ) return 1.;
   //if( Var1 == Var2 ) return 1.;
   if( Var2._id.first == FFVar::CREAL || Var2._id.first == FFVar::CINT ) return std::numeric_limits<double>::quiet_NaN();
 
@@ -2529,7 +2531,7 @@ inline FFVar
 lmtd
 ( const FFVar&Var1, const FFVar&Var2  )
 {
-  if( &Var1 == &Var2 ) return( Var1 );
+  if( &Var1 == &Var2 || Var1 == Var2 ) return( Var1 );
   //if( Var1 == Var2 ) return( Var1 );
 
   switch( Var1._id.first ){
@@ -2604,7 +2606,7 @@ inline FFVar
 rlmtd
 ( const FFVar&Var1, const FFVar&Var2  )
 {
-  if( &Var1 == &Var2 ) return( 1./Var1 );
+  if( &Var1 == &Var2 || Var1 == Var2 ) return( 1./Var1 );
   //if( Var1 == Var2 ) return( 1./Var1 );
 
   switch( Var1._id.first ){
@@ -2900,7 +2902,7 @@ inline FFVar
 max
 ( const FFVar&Var1, const FFVar&Var2 )
 {
-  if( &Var1 == &Var2 ) return Var1;
+  if( &Var1 == &Var2 || Var1 == Var2 ) return Var1;
   //if( Var1 == Var2 ) return Var1;
 
   // Case either or both operands are numeric constants
@@ -2978,7 +2980,7 @@ inline FFVar
 min
 ( const FFVar&Var1, const FFVar&Var2 )
 {
-  if( &Var1 == &Var2 ) return Var1;
+  if( &Var1 == &Var2 || Var1 == Var2 ) return Var1;
   //if( Var1 == Var2 ) return Var1;
 
   // Case either or both operands are numeric constants
@@ -3056,7 +3058,7 @@ inline FFVar
 inter
 ( const FFVar&Var1, const FFVar&Var2 )
 {
-  if( &Var1 == &Var2 ) return Var1;
+  if( &Var1 == &Var2 || Var1 == Var2 ) return Var1;
   //if( Var1 == Var2 ) return Var1;
 
   // Case either or both operands are numeric constants
@@ -7051,6 +7053,36 @@ FFGraph::prod
 }
 
 inline FFVar*
+FFGraph::inv
+( const unsigned n, const FFVar*A )
+{
+  if( !n || !A ) return 0;
+
+  // Initialization
+  FFVar* Bkm1 = new FFVar[n*n];
+  FFVar* Bk   = new FFVar[n*n];
+  for( unsigned i=0; i<n*n; ++i ) Bkm1[i] = A[i];
+  FFVar* c    = new FFVar[n];
+  
+  c[0] = FFGraph::trace( n, Bkm1 );
+
+  // Main Loop  
+  for( unsigned l=1; l<n; ++l, std::swap( Bk, Bkm1 ) ){
+    // Auxmat = (B_{k-1} - c_{k_1}*I)  
+    for( unsigned i=0; i<n; ++i ) Bkm1[i+i*n] -= c[l-1];
+	// B_k = Jacobian*Auxmat
+    FFGraph::prod( n, n, n, A, Bkm1, Bk );
+	// pcoeff_stack[l] = tr(Bk) 
+    c[l] = FFGraph::trace( n, Bk ) / ( l+1 );
+  }
+  for( unsigned i=0; i<n*n; ++i ) Bkm1[i] /= c[n-1];
+
+  delete[] Bk;
+  delete[] c;
+  return Bkm1;
+}
+
+inline FFVar*
 FFGraph::polchar
 ( const unsigned n, const FFVar*A )
 {
@@ -7064,8 +7096,7 @@ FFGraph::polchar
   // Main Loop  
   for( unsigned l=1; l<n; ++l, Bk.swap( Bkm1 ) ){
     // Auxmat = (B_{k-1} - c_{k_1}*I)  
-    for( unsigned i=0; i<n; ++i )
-      Bkm1[i+i*n] -= c[l-1];
+    for( unsigned i=0; i<n; ++i ) Bkm1[i+i*n] -= c[l-1];
 	// B_k = Jacobian*Auxmat
     FFGraph::prod( n, n, n, A, Bkm1.data(), Bk.data() );
 	// pcoeff_stack[l] = tr(Bk) 

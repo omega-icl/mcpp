@@ -1,7 +1,4 @@
 ////////////////////////////////////////////////////////////////////////
-#undef USE_PROFIL	// <-- specify to use PROFIL for interval arithmetic
-#undef USE_FILIB	// <-- specify to use FILIB++ for interval arithmetic
-////////////////////////////////////////////////////////////////////////
 
 #include <fstream>
 #include <iomanip>
@@ -110,6 +107,53 @@ int test_fadiff2()
   DAG.dot_script( NF*NX, dFdX_recur, o_dFdX_recur );
   o_dFdX_recur.close();
   delete[] dFdX_recur;
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+int test_fadiff3()
+{
+  std::cout << "\n==============================================\ntest_fadiff3:\n";
+
+  // DAG
+  mc::FFGraph DAG;
+  const unsigned NX = 2;
+  mc::FFVar X[NX];
+  for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
+
+  // matrix
+  mc::FFVar A[NX*NX] = { sqr(X[0]),     0.5*X[0]*X[1],
+                         0.5*X[0]*X[1], sqr(X[1])      };
+  std::cout << DAG;
+  std::ofstream o_A( "fadiff3_A.dot", std::ios_base::out );
+  DAG.dot_script( NX*NX, A, o_A );
+  o_A.close();
+
+  // determinant
+  mc::FFVar  Adet = DAG.det( NX, A );
+  std::ofstream o_Adet( "fadiff3_Adet.dot", std::ios_base::out );
+  DAG.dot_script( 1, &Adet, o_Adet );
+  o_Adet.close();
+
+  // backward AD of determinant
+  mc::FFVar* dAdetdX = DAG.BAD( 1, &Adet, NX, X, true );
+  std::ofstream o_dAdetdX( "fadiff3_dAdetdX.dot", std::ios_base::out );
+  DAG.dot_script( NX, dAdetdX, o_dAdetdX );
+  o_dAdetdX.close();
+
+  // inverse matrix
+  mc::FFVar* Ainv = DAG.inv( NX, A ); 
+  std::ofstream o_Ainv( "fadiff3_Ainv.dot", std::ios_base::out );
+  DAG.dot_script( NX*NX, Ainv, o_Ainv );
+  o_Ainv.close();
+
+  // forward AD of inverse matrix
+  mc::FFVar* dAinvdX = DAG.FAD( NX*NX, Ainv, NX, X, true );
+  std::ofstream o_dAinvdX( "fadiff3_dAinvdX.dot", std::ios_base::out );
+  DAG.dot_script( NX*NX*NX, dAinvdX, o_dAinvdX );
+  o_dAinvdX.close();
 
   return 0;
 }
@@ -359,12 +403,13 @@ int main()
   try{
     //test_fadiff1();
     //test_fadiff2();
+    test_fadiff3();
     //test_fadiff_directional();
     //test_gradient_sparse();
     //test_hessian_sparse();
     //test_tadiff1();
     //test_tadiff2();
-    test_tadiff3();
+    //test_tadiff3();
   }
   catch( mc::FFGraph::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
