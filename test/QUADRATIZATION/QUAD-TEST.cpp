@@ -1,4 +1,4 @@
-#define TEST_NONDQUAR  // <-- select test example
+#define TEST_DOXYGEN  // <-- select test example
 #undef  USE_CHEB       // <-- whether to perform the decomposition in Chebyshev basis
 #define USE_DAG        // <-- whether to define a DAG of the expressions
 ////////////////////////////////////////////////////////////////////////
@@ -98,12 +98,14 @@ int main()
     t_SQuad::options.REDUC = false;
 #if defined( USE_CHEB )
     t_SQuad::options.BASIS = t_SQuad::Options::CHEB;
-    for( unsigned i=0; i<NP; i++ )
-      viol = SQF.process( P[i].mapmon(), t_SQuad::Options::CHEB, i+1==NP?true:false );
+    viol = SQF.process( NP, P, &t_SPoly::mapmon, t_SQuad::Options::CHEB, true );
+    //for( unsigned i=0; i<NP; i++ )
+    //  viol = SQF.process( P[i], &t_SPoly::mapmon, t_SQuad::Options::CHEB, i+1==NP?true:false );
 #else
     t_SQuad::options.BASIS = t_SQuad::Options::MONOM;
-    for( unsigned i=0; i<NP; i++ )
-      viol = SQF.process( P[i].mapmon(), t_SQuad::Options::MONOM, i+1==NP?true:false );
+    viol = SQF.process( NP, P, &t_SPoly::mapmon, t_SQuad::Options::MONOM, true );
+    //for( unsigned i=0; i<NP; i++ )
+    //  viol = SQF.process( P[i], &mc::SPoly<mc::FFVar const*,mc::lt_FFVar>::mapmon, t_SQuad::Options::MONOM, i+1==NP?true:false );
 #endif
     std::cout << "\nSparse quadratic forms: " << mc::userclock()-tStart << " CPU-sec\n"
               << "(discrepancy: " << viol << ")\n"

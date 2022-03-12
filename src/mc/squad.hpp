@@ -1,4 +1,4 @@
-// Copyright (C) 2020 Benoit Chachuat, Imperial College London.
+// Copyright (C) Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
@@ -389,6 +389,7 @@ Possible errors encountered during quadratization of a multivariate polynomial a
 #define MC__SQUAD_H
 
 #include <list>
+#include <tuple>
 #include "spoly.hpp"
 #include "mclapack.hpp"
 
@@ -444,6 +445,7 @@ public:
   typedef std::pair< t_SMon const*, t_SMon const* > key_SQuad;
   typedef std::set< key_SQuad, lt_SQuad<COMP> > set_SQuad;
   typedef std::map< key_SQuad, double, lt_SQuad<COMP> > map_SQuad;
+  typedef std::map< unsigned, map_SPoly > vecmap_SPoly;
   
   //! @brief Options of mc::SQuad
   static struct Options
@@ -495,19 +497,22 @@ public:
     { _reset(); }
   
   //! @brief Process the sparse polynomials in array <a>pPol</a> indexed by <a>ndxSPol</a>
+  template <typename POL>
   double process
-    ( std::set<unsigned> const& ndxSPol, map_SPoly const* pSPol,
+    ( std::set<unsigned> const& ndxSPol, POL const* pSPol, map_SPoly const& (POL::*mapmon)() const,
       int const BASIS=options.BASIS, bool const CHECK=false );
 
   //! @brief Process the <a>nPol</a> sparse polynomials in array <a>pPol</a>
+  template <typename POL>
   double process
-    ( unsigned const nSPol, map_SPoly const* pSPol,
+    ( unsigned const nSPol, POL const* pSPol, map_SPoly const& (POL::*mapmon)() const,
       int const BASIS=options.BASIS, bool const CHECK=false );
 
   //! @brief Process the sparse polynomial <a>Pol</a>
+  template <typename POL>
   double process
-    ( map_SPoly const& SPol, int const BASIS=options.BASIS,
-      bool const CHECK=false );
+    ( POL const& SPol, map_SPoly const& (POL::*mapmon)() const,
+      int const BASIS=options.BASIS, bool const CHECK=false );
 
   //! @brief Decompose the quadratic expression <a>mat</a> into separable expressions
   std::list< map_SQuad > separate
@@ -628,8 +633,10 @@ protected:
     ( t_SMon const& mon );
     
   //! @brief Check quadratic form expressions by comparing with Chebyshev model
-  double check
-    ( unsigned const nSPol, map_SPoly const* pSPol, int const BASIS )
+  template <typename POL>
+  double _check
+    ( unsigned const nSPol, POL const* pSPol, map_SPoly const& (POL::*mapmon)() const,
+      int const BASIS )
     const;
 
   //! @brief Check if a term exist in current quadratic forms 
@@ -645,6 +652,16 @@ protected:
   //! @brief Check connections between a quadratic entry and a quadratic form
   bool _isconnected
     ( key_SQuad const& entry, map_SQuad const& mat )
+    const;
+
+  //! @brief Check if monomial maps are all empty
+  bool _empty
+    ( vecmap_SPoly const& vmapmon )
+    const;
+
+  //! @brief Select next monomial to be processed in vector of monomial maps
+  std::tuple< unsigned, t_SMon, double > _next
+    ( vecmap_SPoly const& vmapmon )
     const;
 
 private:
@@ -926,11 +943,13 @@ const
 }
 
 template <typename KEY, typename COMP>
+template< typename POL >
 inline double
-SQuad<KEY,COMP>::check
-( unsigned const nSPol, map_SPoly const* pSPol, int const BASIS )
+SQuad<KEY,COMP>::_check
+( unsigned const nSPol, POL const* pSPol, map_SPoly const& (POL::*mapmon)() const,
+  int const BASIS )
 const
-{ 
+{
   assert( nSPol <= _MatFct.size() );
   double sumdiff = 0e0;
 #ifdef MC__SQUAD_DEBUG_CHECK
@@ -938,11 +957,11 @@ const
 #endif
   
   // Process entries in _SetMon
-  std::map< t_SMon, t_SPoly, lt_SMon<COMP> > mapmon; 
+  std::map< t_SMon, t_SPoly, lt_SMon<COMP> > mmon; 
   for( auto const& mon : _SetMon ){
-    mapmon[mon] = std::make_pair( mon, 1e0 );
+    mmon[mon] = std::make_pair( mon, 1e0 );
 #ifdef MC__SQUAD_DEBUG_CHECK
-    std::cout << mapmon[mon];
+    std::cout << mmon[mon];
 #endif
   }
 
@@ -951,10 +970,10 @@ const
   std::advance( itmat, _MatFct.size()-nSPol );
   for( unsigned i=0; nSPol && itmat != _MatFct.end(); ++itmat, ++i ){
     SPoly<KEY,COMP>::options.BASIS = BASIS;
-    t_SPoly spe( pSPol[i] ); spe.convert( options.BASIS );
+    t_SPoly spe( (pSPol[i].*mapmon)() ); spe.convert( options.BASIS );
     SPoly<KEY,COMP>::options.BASIS = options.BASIS;
     for( auto const& [ijmon,coef] : *itmat )
-      spe -= coef * mapmon[*ijmon.first] * mapmon[*ijmon.second];
+      spe -= coef * mmon[*ijmon.first] * mmon[*ijmon.second];
 #ifdef MC__SQUAD_DEBUG_CHECK
     std::cout << "\n  Quadratic form of P[" << _MatFct.size()-nSPol+i << "]:" << spe;
 #endif
@@ -971,7 +990,7 @@ const
   for( unsigned i=0; itmat != _MatRed.end(); ++itmat, ++i ){
     t_SPoly spe;
     for( auto const& [ijmon,coef] : *itmat ){
-      spe += coef * mapmon[*ijmon.first] * mapmon[*ijmon.second];
+      spe += coef * mmon[*ijmon.first] * mmon[*ijmon.second];
     }
 #ifdef MC__SQUAD_DEBUG_CHECK
     std::cout << " \n Auxiliary quadratic form #" << i << spe;
@@ -989,7 +1008,7 @@ const
   for( unsigned i=0; itmat != _MatPSD.end(); ++itmat, ++i ){
     t_SPoly spe;
     for( auto const& [ijmon,coef] : *itmat ){
-      spe += coef * mapmon[*ijmon.first] * mapmon[*ijmon.second];
+      spe += coef * mmon[*ijmon.first] * mmon[*ijmon.second];
     }
 #ifdef MC__SQUAD_DEBUG_CHECK
     std::cout << " \n Positive semi-definite quadratic form #" << i << spe;
@@ -1005,56 +1024,126 @@ const
   return sumdiff;
 }
 
-template <typename KEY, typename COMP>
-inline double
-SQuad<KEY,COMP>::process
-( unsigned const nSPol, map_SPoly const* pSPol,
-  int const BASIS, bool const CHK )
-{
-  for( unsigned i=0; i<nSPol; i++ )
-    process( pSPol[i], BASIS, false );
-  return( CHK? check( nSPol, pSPol, BASIS ): 0. );
-}
+//template <typename KEY, typename COMP>
+//inline double
+//SQuad<KEY,COMP>::process
+//( unsigned const nSPol, map_SPoly const* pSPol,
+//  int const BASIS, bool const CHK )
+//{
+//  for( unsigned i=0; i<nSPol; i++ )
+//    process( pSPol[i], BASIS, false );
+//  return( CHK? check( nSPol, pSPol, BASIS ): 0. );
+//}
 
 template <typename KEY, typename COMP>
+template <typename POL >
 inline double
 SQuad<KEY,COMP>::process
-( std::set<unsigned> const& ndxSPol, map_SPoly const* pSPol,
+( std::set<unsigned> const& ndxSPol, POL const* pSPol, map_SPoly const& (POL::*mapmon)() const,
   int const BASIS, bool const CHK )
 {
-  std::vector<map_SPoly> vpSPol;
+  std::vector<POL> vpSPol;
   vpSPol.reserve( ndxSPol.size() );
   for( unsigned const& i : ndxSPol ) vpSPol.push_back( pSPol[i] );
-  return process( ndxSPol.size(), vpSPol.data(), BASIS, CHK );
+  return process( ndxSPol.size(), vpSPol.data(), mapmon, BASIS, CHK );
 }
 
 template <typename KEY, typename COMP>
+template <typename POL >
 inline double
 SQuad<KEY,COMP>::process
-( typename SQuad<KEY,COMP>::map_SPoly const& SPol, int const BASIS,
-  bool const CHK )
+( POL const& SPol, map_SPoly const& (POL::*mapmon)() const,
+  int const BASIS, bool const CHK )
 {
-  // Local copy and conversion to desired basis
-  SPoly<KEY,COMP>::options.BASIS = BASIS;
-  t_SPoly SPolConv( SPol ); SPolConv.convert( options.BASIS );
-  map_SPoly& mapmon = SPolConv.mapmon();
-  SPoly<KEY,COMP>::options.BASIS = options.BASIS;
+  return process( 1, &SPol, mapmon, BASIS, CHK );
+}
 
-  // Append entry in <a>MatFct</a>
-  unsigned ndxmat = _MatFct.size();
-  _MatFct.push_back( map_SQuad() );
-  auto& mat = _MatFct[ndxmat];
+template <typename KEY, typename COMP>
+inline bool
+SQuad<KEY,COMP>::_empty
+( vecmap_SPoly const& vmapmon )
+const
+{
+  for( auto const& [ndx,spol] : vmapmon )
+    if( !spol.empty() ) return false;
+  return true;
+}
+
+template <typename KEY, typename COMP>
+inline std::tuple< unsigned, typename SQuad<KEY,COMP>::t_SMon, double >
+SQuad<KEY,COMP>::_next
+( vecmap_SPoly const& vmapmon )
+const
+{
+  // Locate first non-empty monomial map
+  auto itnext = vmapmon.cbegin();
+  for( ; itnext != vmapmon.cend(); ++itnext )
+    if( !itnext->second.empty() ) break;
+
+  // Locate monomial map with next element
+  for( auto ittry = ++itnext; ittry != vmapmon.cend(); ++ittry ){
+    if( !ittry->second.empty() ) continue;
+    switch( options.ORDER ){
+      case Options::INC:
+        if( lt_SMon( ittry->second.cbegin()->first, itnext->second.cbegin()->first ) ) itnext = ittry;
+        break;
+      case Options::DEC:
+        if( lt_SMon( itnext->second.rcbegin()->first, ittry->second.rcbegin()->first ) ) itnext = ittry;
+        break;
+    }
+  }
+  
+  // Return next element
+  assert( itnext != vmapmon.end() );
+  switch( options.ORDER ){
+    case Options::INC:
+      return std::make_tuple( itnext->first, itnext->second.cbegin()->first, itnext->second.cbegin()->second );
+    case Options::DEC:
+      return std::make_tuple( itnext->first, itnext->second.rcbegin()->first, itnext->second.rcbegin()->second );
+  }
+}
+
+template <typename KEY, typename COMP>
+template <typename POL >
+inline double
+SQuad<KEY,COMP>::process
+( unsigned const nSPol, POL const* pSPol, map_SPoly const& (POL::*mapmon)() const,
+  int const BASIS, bool const CHK )
+{
+  if( !nSPol ) return( CHK? _check( nSPol, pSPol, mapmon, BASIS ): 0. ); 
 
   // Initialize monomial vector with constant monomial and participating variables
   _SetMon.insert( t_SMon() );
-  for( auto var : SPolConv.setvar() )
-    _SetMon.insert( t_SMon( var ) );
+
+  // Build monomial multimap
+  SPoly<KEY,COMP>::options.BASIS = BASIS;
+  vecmap_SPoly vmapmon;
+  for( unsigned i=0; i<nSPol; i++ ){
+    // Add new quadratic form and define corresponding pointer pmat
+    unsigned ndxmat = _MatFct.size();
+    _MatFct.push_back( map_SQuad() );
+
+    // Make local copy and convert to desired basis
+    vmapmon[ndxmat] = (pSPol[i].*mapmon)(); vmapmon[ndxmat].convert( options.BASIS );
+
+//  SPoly<KEY,COMP>::options.BASIS = BASIS;
+//  t_SPoly SPolConv( (SPol.*mapmon)() ); SPolConv.convert( options.BASIS );
+//  map_SPoly& mmon = SPolConv.mapmon();
+
+
+    // Insert all participating variables in monomial set
+    _SetMon.insert( t_SMon() );
+    for( auto var : vmapmon[ndxmat].setvar() )
+      _SetMon.insert( t_SMon( var ) );
+  }
+  SPoly<KEY,COMP>::options.BASIS = options.BASIS;
 
   // Iterate through monomial terms
-  for( ; !mapmon.empty(); ){
+  for( ; !_empty( vmapmon ); ){
     // Local copy of next monomial, then erase
-    auto const [mon,coef] = options.ORDER==Options::INC? *mapmon.cbegin(): *mapmon.crbegin();
-    mapmon.erase( mon );
+    auto const [ ndxmat, mon, coef ] = _next( vmapmon );
+    vmapmon[ndxmat].erase( mon );
+    auto& mat = _MatFct[ndxmat];
 
     // Monomial already present in _SetMon
     auto itmon = _SetMon.find( mon );
@@ -1069,7 +1158,6 @@ SQuad<KEY,COMP>::process
 #ifdef MC__SQUAD_CHECK
       assert( ins );
 #endif
-      continue;
     }
       
     // Mononial needs further decomposition
@@ -1078,19 +1166,84 @@ SQuad<KEY,COMP>::process
     assert( plmon && prmon );
 #endif
 #ifdef MC__SQUAD_DEBUG_DECOMP
-  std::cout << "Inserted: " << mon.display(options.BASIS)
-            << " = " << plmon->display(options.BASIS)
-            << " · " << prmon->display(options.BASIS)
-            << std::endl;
+    std::cout << "Inserted: " << mon.display(options.BASIS)
+              << " = " << plmon->display(options.BASIS)
+              << " · " << prmon->display(options.BASIS)
+              << std::endl;
 #endif
-    bool ins = _insert( mat, mapmon, plmon, prmon, coef );
+    bool ins = _insert( mat, vmapmon[ndxmat], plmon, prmon, coef );
 #ifdef MC__SQUAD_CHECK
     assert( ins );
 #endif
   }
 
-  return( CHK? check( 1, &SPol, BASIS ): 0. );
+  return( CHK? _check( nSPol, pSPol, mapmon, BASIS ): 0. );
 }
+
+//template <typename KEY, typename COMP>
+//template <typename POL >
+//inline double
+//SQuad<KEY,COMP>::process
+//( POL const& SPol, map_SPoly const& (POL::*mapmon)() const,
+//  int const BASIS, bool const CHK )
+//{
+//  // Local copy and conversion to desired basis
+//  SPoly<KEY,COMP>::options.BASIS = BASIS;
+//  t_SPoly SPolConv( (SPol.*mapmon)() ); SPolConv.convert( options.BASIS );
+//  map_SPoly& mmon = SPolConv.mapmon();
+//  SPoly<KEY,COMP>::options.BASIS = options.BASIS;
+
+//  // Append entry in <a>MatFct</a>
+//  unsigned ndxmat = _MatFct.size();
+//  _MatFct.push_back( map_SQuad() );
+//  auto& mat = _MatFct[ndxmat];
+
+//  // Initialize monomial vector with constant monomial and participating variables
+//  _SetMon.insert( t_SMon() );
+//  for( auto var : SPolConv.setvar() )
+//    _SetMon.insert( t_SMon( var ) );
+
+//  // Iterate through monomial terms
+//  for( ; !mmon.empty(); ){
+//    // Local copy of next monomial, then erase
+//    auto const [mon,coef] = options.ORDER==Options::INC? *mmon.cbegin(): *mmon.crbegin();
+//    mmon.erase( mon );
+
+//    // Monomial already present in _SetMon
+//    auto itmon = _SetMon.find( mon );
+//    if( itmon != _SetMon.end() ){
+//#ifdef MC__SQUAD_DEBUG_DECOMP
+//      std::cout << "Inserted: " << itmon->display(options.BASIS)
+//                << " = " << _SetMon.cbegin()->display(options.BASIS)
+//                << " · " << itmon->display(options.BASIS)
+//                << std::endl;
+//#endif
+//      bool ins = _insert( mat, &(*itmon), coef, true );  
+//#ifdef MC__SQUAD_CHECK
+//      assert( ins );
+//#endif
+//      continue;
+//    }
+//      
+//    // Mononial needs further decomposition
+//    auto const& [plmon,prmon] = _decompose( mon );
+//#ifdef MC__SQUAD_CHECK
+//    assert( plmon && prmon );
+//#endif
+//#ifdef MC__SQUAD_DEBUG_DECOMP
+//  std::cout << "Inserted: " << mon.display(options.BASIS)
+//            << " = " << plmon->display(options.BASIS)
+//            << " · " << prmon->display(options.BASIS)
+//            << std::endl;
+//#endif
+//    bool ins = _insert( mat, mmon, plmon, prmon, coef );
+//#ifdef MC__SQUAD_CHECK
+//    assert( ins );
+//#endif
+//  }
+
+//  return( CHK? _check( 1, &SPol, mapmon, BASIS ): 0. );
+//}
 
 template <typename KEY, typename COMP>
 inline typename SQuad<KEY,COMP>::key_SQuad&
@@ -1214,12 +1367,7 @@ SQuad<KEY,COMP>::_insert
   }
   
   // New entry in quadratic form
-  auto [itmat,ins] = mat.insert( std::make_pair( _reorder( std::make_pair( pLMon, pRMon ) ), coef * nprod ) );
-  if( !ins && add ){
-    itmat->second += coef;
-    if( itmat->second == 0. ) mat.erase( itmat );
-  }
-  return ins || add;
+  return _insert( mat, pLMon, pRMon, coef * nprod, add );
 }
 
 template <typename KEY, typename COMP>
