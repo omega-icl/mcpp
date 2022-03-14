@@ -27,7 +27,9 @@ class SPoly
 public:
 
   // Monomial representation: SMon := <total order, <variable, order>>
-  typedef std::map< SMon<KEY,COMP>, double, lt_SMon<COMP> > t_poly;
+  typedef SMon< KEY, COMP > t_mon;
+  typedef lt_SMon< COMP > lt_mon;
+  typedef std::map< t_mon, double, lt_mon > t_poly;
   typedef std::set< KEY, COMP > t_var;
 
   // Friends for arithmetic operations
@@ -65,7 +67,7 @@ protected:
 
   //! @brief Set polynomial expression equal to monomial <a>mon</a>
   SPoly<KEY,COMP>& _set
-    ( std::pair<SMon<KEY,COMP>,double> const& mon );
+    ( std::pair<t_mon,double> const& mon );
 
   //! @brief Set polynomial expression equal to monomial map <a>mapmon</a>
   SPoly<KEY,COMP>& _set
@@ -84,7 +86,7 @@ protected:
   void _sprod1D
     ( std::map<unsigned,t_poly> const& sp1map,
       std::map<unsigned,t_poly> const& sp2map,
-      t_poly& mapmon, t_var& setvar,
+      t_poly& mapmon, t_var const& setvar,
       typename t_var::const_iterator itvar )
     const;
 
@@ -103,7 +105,7 @@ protected:
   //! @brief Build univariate sparse polynomial (with sparse polynomial coefficients)
   static void _svec1D
     ( typename t_var::const_iterator itvar,
-      std::pair<SMon<KEY,COMP>,double> const& mon,
+      std::pair<t_mon,double> const& mon,
       std::map<unsigned,t_poly>& mapspoly );
 
   //! @brief Scaling of univariate sparse polynomial
@@ -127,7 +129,7 @@ protected:
   //! @brief Build univariate sparse polynomial (with sparse polynomial coefficients)
   static void _svec1Dfull
     ( typename t_var::const_iterator itvar,
-      std::pair<SMon<KEY,COMP>,double> const& mon,
+      std::pair<t_mon,double> const& mon,
       std::map<unsigned,t_poly>& mapspoly );
 
   //! @brief Convert univariate polynomial from monomial to Chebyshev basis
@@ -157,7 +159,7 @@ public:
 
   //! @brief Constructor of sparse polynomial expression as monomial
   SPoly
-    ( std::pair< SMon<KEY,COMP>, double > const& mon )
+    ( std::pair< t_mon, double > const& mon )
     { _init(); _set( mon ); }
 
   //! @brief Constructor of sparse polynomial expression as monomial map
@@ -196,7 +198,7 @@ public:
 
   //! @brief Get coefficient of monomial mon
   double coefmon
-    ( SMon<KEY,COMP> const& mon )
+    ( t_mon const& mon )
     const
     { auto it = _mapmon.find( mon ); 
       return( it != _mapmon.end()? it->second: 0e0 ); }
@@ -240,7 +242,7 @@ public:
 
   //! @brief Overloaded operator '=' for monomial
   SPoly<KEY,COMP>& operator=
-    ( std::pair< SMon<KEY,COMP>, double > const& mon )
+    ( std::pair< t_mon, double > const& mon )
     { _set( mon ); return *this; }
 
   //! @brief Overloaded operator '=' for monomial map
@@ -258,7 +260,7 @@ public:
 
   //! @brief Overloaded operator '+=' for monomial
   SPoly<KEY,COMP>& operator+=
-    ( std::pair< SMon<KEY,COMP>, double > const& mon );
+    ( std::pair< t_mon, double > const& mon );
 
   //! @brief Overloaded operator '-=' for constant
   SPoly<KEY,COMP>& operator-=
@@ -384,7 +386,7 @@ SPoly<KEY,COMP>::_set
 {
   _reinit();
   if( !isequal( d, 0. ) )
-    _mapmon.insert( std::make_pair( SMon<KEY,COMP>(), d ) );
+    _mapmon.insert( std::make_pair( t_mon(), d ) );
   return *this;
 }
 
@@ -394,7 +396,7 @@ SPoly<KEY,COMP>::_set
 ( KEY const& x )
 {
   _reinit();
-  _mapmon.insert( std::make_pair( SMon<KEY,COMP>( x ), 1. ) );
+  _mapmon.insert( std::make_pair( t_mon( x ), 1. ) );
   _setvar.insert( x );
   return *this;
 }
@@ -402,7 +404,7 @@ SPoly<KEY,COMP>::_set
 template <typename KEY, typename COMP>
 inline SPoly<KEY,COMP>&
 SPoly<KEY,COMP>::_set
-( std::pair< SMon<KEY,COMP>, double > const& mon )
+( std::pair<t_mon,double> const& mon )
 {
   _cleanup();
   _mapmon.insert( mon );
@@ -532,7 +534,7 @@ template <typename KEY, typename COMP>
 inline void
 SPoly<KEY,COMP>::_svec1Dfull
 ( typename t_var::const_iterator itvar,
-  std::pair<SMon<KEY,COMP>,double> const& coefmon,
+  std::pair<t_mon,double> const& coefmon,
   std::map<unsigned,t_poly>& mapspoly )
 {
   auto& [mon,coef] = coefmon;
@@ -541,8 +543,8 @@ SPoly<KEY,COMP>::_svec1Dfull
     mapspoly[ 0 ].insert( coefmon );
   else{ // dependence on variable *itvar of order iord
     auto& [ivar,iord] = *ie;
-    SMon<KEY,COMP> monmod( mon.tord - iord, mon.expr );
-    monmod.expr.erase( ivar ); // remove T[ivar] entry
+    t_mon monmod( mon.tord - iord, mon.expr );
+    monmod.expr.erase( ivar ); // remove *itvar entry
     mapspoly[ iord ].insert( std::make_pair( monmod, coef ) );
   }
 }
@@ -588,7 +590,7 @@ const
         continue;
       }
       for( auto&& [mon,coef] : spoly ){
-        SMon<KEY,COMP> monmod( mon.tord + iord, mon.expr );
+        t_mon monmod( mon.tord + iord, mon.expr );
         monmod.expr[ *itvar ] = iord;
         mapmon[ monmod ] = coef;
       }
@@ -718,7 +720,7 @@ SPoly<KEY,COMP>::operator+=
 ( double const& d )
 {
   if( isequal( d, 0. ) ) return *this;
-  auto [itmon,ins] = _mapmon.insert( std::make_pair( SMon<KEY,COMP>(), d ) );
+  auto [itmon,ins] = _mapmon.insert( std::make_pair( t_mon(), d ) );
   if( !ins ) itmon->second = d;
   _clean( _mapmon );
   return *this;
@@ -747,7 +749,7 @@ operator+
 template <typename KEY, typename COMP>
 inline SPoly<KEY,COMP>&
 SPoly<KEY,COMP>::operator+=
-( std::pair<SMon<KEY,COMP>,double> const& mon )
+( std::pair<t_mon,double> const& mon )
 {
   // No warm-start for insert unfortunately...
   for( auto && [ivar,iord] : mon.first.expr ) _setvar.insert( ivar );
@@ -788,7 +790,7 @@ SPoly<KEY,COMP>::operator-=
 ( double const& d )
 {
   if( isequal( d, 0. ) ) return *this;
-  auto [itmon,ins] = _mapmon.insert( std::make_pair( SMon<KEY,COMP>(), -d ) );
+  auto [itmon,ins] = _mapmon.insert( std::make_pair( t_mon(), -d ) );
   if( !ins ) itmon->second -= d;
   _clean( _mapmon );
   return *this;
@@ -968,7 +970,7 @@ inline void
 SPoly<KEY,COMP>::_sprod1D
 ( std::map<unsigned,t_poly> const& sp1map,
   std::map<unsigned,t_poly> const& sp2map,
-  t_poly& mapmon, t_var& setvar,
+  t_poly& mapmon, t_var const& setvar,
   typename t_var::const_iterator itvar )
 const
 {
@@ -1102,14 +1104,14 @@ template <typename KEY, typename COMP>
 inline void
 SPoly<KEY,COMP>::_svec1D
 ( typename t_var::const_iterator itvar,
-  std::pair<SMon<KEY,COMP>,double> const& mon,
+  std::pair<t_mon,double> const& mon,
   std::map<unsigned,t_poly>& mapspoly )
 {
   auto const& [ivar,iord] = *mon.first.expr.begin();
   if( !mon.first.tord || ivar != *itvar ) // no dependence on variable *itvar 
     mapspoly[ 0 ].insert( mon );
   else // dependence on variable *itvar of order iord
-    mapspoly[ iord ].insert( std::make_pair( SMon<KEY,COMP>( mon.first.tord - iord,
+    mapspoly[ iord ].insert( std::make_pair( t_mon( mon.first.tord - iord,
       std::map<KEY,unsigned,COMP>( ++mon.first.expr.begin(), mon.first.expr.end() ) ),
       mon.second ) );
 }
@@ -1125,7 +1127,7 @@ const
     if( itmon != spoly.begin() ) os << " + ";
     os << itmon->second;
     for( auto const& [ivar,iord] : itmon->first.expr )
-      os << "·" << SMon<KEY,COMP>( ivar, iord ).display( options.BASIS );
+      os << "·" << t_mon( ivar, iord ).display( options.BASIS );
   }
 }
 
@@ -1139,7 +1141,7 @@ const
   os << name;
   bool first = true;
   for( auto const& [iord,spoly] : mapspoly ){
-    if( !first ) os << " + " << SMon<KEY,COMP>( *itvar, iord ).display( options.BASIS ) << " ·";
+    if( !first ) os << " + " << t_mon( *itvar, iord ).display( options.BASIS ) << " ·";
     os << " { ";
     _sdisp1D( spoly, "", os );
     os << " }";
