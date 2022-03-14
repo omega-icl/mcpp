@@ -1,4 +1,4 @@
-#define TEST_DOXYGEN  // <-- select test example
+#define TEST_POP  // <-- select test example
 #undef  USE_CHEB       // <-- whether to perform the decomposition in Chebyshev basis
 #define USE_DAG        // <-- whether to define a DAG of the expressions
 ////////////////////////////////////////////////////////////////////////
@@ -41,6 +41,20 @@ int main()
   #endif
     P[0] = pow( X[0] + sqr( X[1] ) - 2 * X[2], 3 );
     P[1] = 2 * sqr( X[1] ) - 1;
+
+#elif defined( TEST_POP )
+    unsigned const NX = 4, NP = 3;
+    t_SPoly X[NX], P[NP];
+  #if defined( USE_DAG )
+    FFGraph DAG;
+    FFVar DAGX[NX];
+    for( unsigned i=0; i<NX; i++ ) X[i].var( &DAGX[i].set( &DAG ) );
+  #else
+    for( unsigned i=0; i<NX; i++ ) X[i].var( i );
+  #endif
+    P[0] = (X[0]*X[3])*(X[0]+X[1]+X[2])+X[2];
+    P[1] = (X[0]*X[3])*X[1]*X[2]-25;
+    P[2] = sqr(X[0])+sqr(X[1])+sqr(X[2])+sqr(X[3])-40;
 
 #elif defined( TEST_NONDQUAR )
     unsigned const NX = 32, NP = 1;
@@ -103,7 +117,7 @@ int main()
     //  viol = SQF.process( P[i], &t_SPoly::mapmon, t_SQuad::Options::CHEB, i+1==NP?true:false );
 #else
     t_SQuad::options.BASIS = t_SQuad::Options::MONOM;
-    viol = SQF.process( NP, P, &t_SPoly::mapmon, t_SQuad::Options::MONOM, true );
+    viol = SQF.process( NP, P, &mc::SPoly<mc::FFVar const*,mc::lt_FFVar>::mapmon, t_SQuad::Options::MONOM, true );
     //for( unsigned i=0; i<NP; i++ )
     //  viol = SQF.process( P[i], &mc::SPoly<mc::FFVar const*,mc::lt_FFVar>::mapmon, t_SQuad::Options::MONOM, i+1==NP?true:false );
 #endif
