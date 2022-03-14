@@ -1839,10 +1839,13 @@ class PolImg
   template< class U > friend  PolVar<U> rlmtd( const PolVar<U>&, const PolVar<U>& );  
 
 public:
+  //! @brief Container type for main (DAG) variables
   typedef std::map< FFVar const*, PolVar<T>*, lt_FFVar > t_Vars;
   typedef typename t_Vars::iterator it_Vars;
+  //! @brief Container type for auxiliary variables
   typedef std::list< PolVar<T>* > t_Aux;
   typedef std::list< PolLQExpr<T>* > t_LQExpr;
+  //! @brief Container type for cuts
   typedef std::multiset< PolCut<T>*, lt_PolCut<T> > t_Cuts;
   typedef double (*p_Univ)( const double, const double*, const int* );
   typedef std::pair<double,double> (*p_dUniv)( const double, const double*, const int* );
@@ -1853,7 +1856,7 @@ public:
   typedef std::priority_queue< OAsub, std::vector<OAsub>, lt_OAsub > t_OA;
 
 protected:
-  //! @brief Map of DAG variables in polytopic image
+  //! @brief Map of main (DAG) variables in polytopic image
   t_Vars _Vars;
   //! @brief Appends new pointer to DAG variable map in polytopic image
   PolVar<T>* _append_var
@@ -3141,53 +3144,6 @@ PolImg<T>::append_cuts_TIMES
 {
   assert( &Var1._var && &Var2._var );
   return _add_cuts_TIMES( &VarR, const_cast<FFVar*>(&Var1._var), const_cast<FFVar*>(&Var2._var), pOp );
-
-//  if( !options.RELAX_QUAD ){
-//    auto itCut = _add_cut( pOp, PolCut<T>::EQ, 0., VarR, -1. );
-//    (*itCut)->append( Var1, Var2, 1. );
-//  }
-//  
-//  else{
-//  
-//#ifndef MC__POLIMG_PWMCCORMICK_1D
-//    if( options.BREAKPOINT_TYPE == Options::NONE 
-//     || !_pwmccormick_cuts( pOp, Var1, Op<T>::l(Var1._range), Op<T>::u(Var1._range),
-//                            Var2, Op<T>::l(Var2._range), Op<T>::u(Var2._range), VarR ) ){
-//      _add_cut( pOp, PolCut<T>::GE, -Op<T>::u(Var1._range)*Op<T>::u(Var2._range),
-//                VarR, 1., Var1, -Op<T>::u(Var2._range), Var2, -Op<T>::u(Var1._range) );
-//      _add_cut( pOp, PolCut<T>::GE, -Op<T>::l(Var1._range)*Op<T>::l(Var2._range),
-//                VarR, 1., Var1, -Op<T>::l(Var2._range), Var2, -Op<T>::l(Var1._range) );
-//      _add_cut( pOp, PolCut<T>::LE, -Op<T>::u(Var1._range)*Op<T>::l(Var2._range),
-//                VarR, 1., Var1, -Op<T>::l(Var2._range), Var2, -Op<T>::u(Var1._range) );
-//      _add_cut( pOp, PolCut<T>::LE, -Op<T>::l(Var1._range)*Op<T>::u(Var2._range),
-//                VarR, 1., Var1, -Op<T>::u(Var2._range), Var2, -Op<T>::l(Var1._range) );
-//    }
-//#else
-//    switch( options.BREAKPOINT_TYPE ){
-//      case PolImg<T>::Options::BIN:
-//      case PolImg<T>::Options::SOS2:{
-//        const unsigned NKNOTS1 = Var1.create_subdiv( Op<T>::l(Var1._range), Op<T>::u(Var1._range) ).size();
-//        if( NKNOTS1 > 2 )
-//          _pwmccormick_cuts( pOp, Var1, Op<T>::l(Var1._range), Op<T>::u(Var1._range),
-//                             Var2, Op<T>::l(Var2._range), Op<T>::u(Var2._range), VarR );
-//        const unsigned NKNOTS2 = Var2.create_subdiv( Op<T>::l(Var2._range), Op<T>::u(Var2._range) ).size();
-//        if( NKNOTS2 > 2 )
-//          _pwmccormick_cuts( pOp, *Var2, Op<T>::l(Var2._range), Op<T>::u(Var2._range),
-//                             Var1, Op<T>::l(Var1._range), Op<T>::u(Var1._range), VarR );
-//        if( NKNOTS1 > 2 || NKNOTS2 > 2 ) break; // The standard McCormick cuts are implied
-//      }
-//      case PolImg<T>::Options::NONE: default:
-//        _add_cut( pOp, PolCut<T>::GE, -Op<T>::u(Var1._range)*Op<T>::u(Var2._range),
-//                  VarR, 1., Var1, -Op<T>::u(Var2._range), Var2, -Op<T>::u(Var1._range) );
-//        _add_cut( pOp, PolCut<T>::GE, -Op<T>::l(Var1._range)*Op<T>::l(Var2._range),
-//                  VarR, 1., Var1, -Op<T>::l(Var2._range), Var2, -Op<T>::l(Var1._range) );
-//        _add_cut( pOp, PolCut<T>::LE, -Op<T>::u(Var1._range)*Op<T>::l(Var2._range),
-//                  VarR, 1., Var1, -Op<T>::l(Var2._range), Var2, -Op<T>::u(Var1._range) );
-//        _add_cut( pOp, PolCut<T>::LE, -Op<T>::l(Var1._range)*Op<T>::u(Var2._range),
-//                  VarR, 1., Var1, -Op<T>::u(Var2._range), Var2, -Op<T>::l(Var1._range) );
-//    }
-//#endif
-//  }
 }
 
 template <typename T> inline bool
@@ -3264,8 +3220,14 @@ PolImg<T>::_add_cuts_DIV
         ( const double x, const double*rusr, const int*iusr )
         { return std::make_pair( *rusr/x, -*rusr/(x*x) ); }
     };
+    // -- No relax Case
+    if( !options.RELAX_QUAD ){
+      assert( itVar2 != _Vars.end() );
+      auto itCut = _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, Cst1 );
+      (*itCut)->append( *VarR, *itVar2->second, 1. );
+    }
     // -- Convex Case
-    if( (pVar1->num().val() >= 0. && Op<T>::l(itVar2->second->_range) > 0.)
+    else if( (pVar1->num().val() >= 0. && Op<T>::l(itVar2->second->_range) > 0.)
      || (pVar1->num().val() <= 0. && Op<T>::u(itVar2->second->_range) < 0.) ){
       _semilinear_cuts( VarR->_var.ops().first, *itVar2->second, Op<T>::l(itVar2->second->_range),
         Op<T>::u(itVar2->second->_range), *VarR, PolCut<T>::LE, loc::scalinv, &Cst1, 0 );
@@ -3281,6 +3243,14 @@ PolImg<T>::_add_cuts_DIV
         Op<T>::u(itVar2->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
         PolCut<T>::LE, loc::scalinv, &Cst1, 0 );
     }
+  }
+
+  else if( !options.RELAX_QUAD ){
+    auto itVar1 = _Vars.find( pVar1 );
+    auto itVar2 = _Vars.find( pVar2 );
+    assert( itVar1 != _Vars.end() && itVar2 != _Vars.end() );
+    auto itCut = _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *itVar1->second, -1. );
+    (*itCut)->append( *VarR, *itVar2->second, 1. );
   }
 
   else{
@@ -3332,6 +3302,7 @@ template <typename T> inline bool
 PolImg<T>::_add_LQ_DIV
 ( PolLQExpr<T>*&pLQ, const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
 {
+  if( options.RELAX_QUAD && !pVar2->cst() ) return false;
   if( !pVar2->cst() ) return false;
   if( pVar1->cst() )
     pLQ->substitute( VarR, pVar1->num().val()/pVar2->num().val() );

@@ -1,4 +1,4 @@
-// Copyright (C) 2009-2017 Benoit Chachuat, Imperial College London.
+// Copyright (C) Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
@@ -317,6 +317,7 @@ inline double mid
   else                    return DCONC[k];
 }
 
+//! @brief Function returning the machine precision for double precision floating point number
 inline double
 machprec()
 {
@@ -340,14 +341,14 @@ machprec()
 
 inline bool
 isequal
-( const double real1, const double real2, const double atol=machprec(),
-  const double rtol=machprec() )
+( const double real1, const double real2, const double atol=DBL_MIN,
+  const double rtol=DBL_EPSILON )
 {
   // Test if two real values are within the same absolute and relative
   // tolerances
   double gap = std::fabs(real1-real2);
   double ave = 0.5*std::fabs(real1+real2);
-  return( gap<atol+ave*rtol? true: false );
+  return( gap>atol+ave*rtol? false: true );
 }
 
 inline double xlog

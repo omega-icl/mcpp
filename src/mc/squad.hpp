@@ -103,8 +103,7 @@ The quadratization requires the header file <tt>squad.hpp</tt> to be included:
 An environment <a>mc::SQuad</a> is defined and the sparse multivariate polynomials are quadratized by calling the method <a>mc::SQuad::process</a> for each sparse polynomial. This method takes a coefficient map (or an array of maps) as argument, which is of type <a>std::map<mc::SMon,double,mc::lt_SMon></a> where the class mc::SMon is used to store and manipulate sparse monomials and mc::lt_SMon implements the grlex order:
 \code
       mc::SQuad<> SQF;
-      for( unsigned i=0; i<NP; i++ )
-        SQF.process( P[i].mapmon() );
+      SQF.process( NP, P, &mc::SPoly<>::mapmon );
       std::cout << "\nSparse quadratic forms:\n" << SQF;
 \endcode
 By default, the quadratization expects polynomials in monomial basis, the monomials are processed in decreased grlex order, and no redundant constraints are appended (see \ref sec_SQUAD_opt). The final line displays the equivalent quadratic forms:
@@ -184,8 +183,7 @@ With the redundant constraint option activated before the quadratization:
 \code
       SQuad<> SQF;
       SQuad<>::options.REDUC = true;
-      for( unsigned i=0; i<NP; i++ )
-        SQF.process( P[i].coefmon() );
+      SQF.process( NP, P, &mc::SPoly<>::mapmon );
       std::cout << "\nSparse quadratic forms:\n" << SQF;
 \endcode
 the final display changes to:
@@ -445,7 +443,7 @@ public:
   typedef std::pair< t_SMon const*, t_SMon const* > key_SQuad;
   typedef std::set< key_SQuad, lt_SQuad<COMP> > set_SQuad;
   typedef std::map< key_SQuad, double, lt_SQuad<COMP> > map_SQuad;
-  typedef std::map< unsigned, map_SPoly > vecmap_SPoly;
+  typedef std::map< unsigned, t_SPoly > vecmap_SPoly;
   
   //! @brief Options of mc::SQuad
   static struct Options
@@ -656,12 +654,12 @@ protected:
 
   //! @brief Check if monomial maps are all empty
   bool _empty
-    ( vecmap_SPoly const& vmapmon )
+    ( vecmap_SPoly const& vecSPol )
     const;
 
   //! @brief Select next monomial to be processed in vector of monomial maps
   std::tuple< unsigned, t_SMon, double > _next
-    ( vecmap_SPoly const& vmapmon )
+    ( vecmap_SPoly const& vecSPol )
     const;
 
 private:
@@ -1061,45 +1059,64 @@ SQuad<KEY,COMP>::process
 template <typename KEY, typename COMP>
 inline bool
 SQuad<KEY,COMP>::_empty
-( vecmap_SPoly const& vmapmon )
+( vecmap_SPoly const& vecSPol )
 const
 {
-  for( auto const& [ndx,spol] : vmapmon )
-    if( !spol.empty() ) return false;
+  for( auto const& [ndx,SPol] : vecSPol )
+    if( !SPol.mapmon().empty() ) return false;
   return true;
 }
 
 template <typename KEY, typename COMP>
 inline std::tuple< unsigned, typename SQuad<KEY,COMP>::t_SMon, double >
 SQuad<KEY,COMP>::_next
-( vecmap_SPoly const& vmapmon )
+( vecmap_SPoly const& vecSPol )
 const
 {
   // Locate first non-empty monomial map
-  auto itnext = vmapmon.cbegin();
-  for( ; itnext != vmapmon.cend(); ++itnext )
-    if( !itnext->second.empty() ) break;
+  auto itnext = vecSPol.cbegin();
+  for( ; itnext != vecSPol.cend(); ++itnext ){
+    auto const& mapnext = itnext->second.mapmon();
+    if( !mapnext.empty() ) break;
+  }
 
   // Locate monomial map with next element
-  for( auto ittry = ++itnext; ittry != vmapmon.cend(); ++ittry ){
-    if( !ittry->second.empty() ) continue;
+  auto ittry = itnext;
+  for( ++ittry; ittry != vecSPol.cend(); ++ittry ){
+    auto const& mapnext = itnext->second.mapmon();
+    auto const& maptry  = ittry->second.mapmon();
+    //t_SMon const& monnext = mapnext.begin()->first;
+    if( maptry.empty() ) continue;
     switch( options.ORDER ){
       case Options::INC:
-        if( lt_SMon( ittry->second.cbegin()->first, itnext->second.cbegin()->first ) ) itnext = ittry;
+#ifdef MC__SQUAD_DEBUG_NEXT
+        std::cout << "SQuad::_next: Comparing " << maptry.cbegin()->first.display(options.BASIS)
+                  << " <? " << mapnext.cbegin()->first.display(options.BASIS) << std::endl;
+#endif
+        if( lt_SMon<COMP>()( maptry.cbegin()->first, mapnext.cbegin()->first ) ) itnext = ittry;
         break;
       case Options::DEC:
-        if( lt_SMon( itnext->second.rcbegin()->first, ittry->second.rcbegin()->first ) ) itnext = ittry;
+#ifdef MC__SQUAD_DEBUG_NEXT
+        std::cout << "SQuad::_next: Comparing " << mapnext.crbegin()->first.display(options.BASIS)
+                  << " <? " << maptry.crbegin()->first.display(options.BASIS) << std::endl;
+#endif
+        if( lt_SMon<COMP>()( mapnext.crbegin()->first, maptry.crbegin()->first ) ) itnext = ittry;
         break;
     }
   }
   
   // Return next element
-  assert( itnext != vmapmon.end() );
+  assert( itnext != vecSPol.end() );
+  auto const& mapnext = itnext->second.mapmon();
+#ifdef MC__SQUAD_DEBUG_NEXT
+  std::cout << "SQuad::_next: Selected " << mapnext.crbegin()->first.display(options.BASIS) << std::endl;
+#endif
   switch( options.ORDER ){
+    default:
     case Options::INC:
-      return std::make_tuple( itnext->first, itnext->second.cbegin()->first, itnext->second.cbegin()->second );
+      return std::make_tuple( itnext->first, mapnext.cbegin()->first, mapnext.cbegin()->second );
     case Options::DEC:
-      return std::make_tuple( itnext->first, itnext->second.rcbegin()->first, itnext->second.rcbegin()->second );
+      return std::make_tuple( itnext->first, mapnext.crbegin()->first, mapnext.crbegin()->second );
   }
 }
 
@@ -1117,32 +1134,27 @@ SQuad<KEY,COMP>::process
 
   // Build monomial multimap
   SPoly<KEY,COMP>::options.BASIS = BASIS;
-  vecmap_SPoly vmapmon;
+  vecmap_SPoly vecSPol;
   for( unsigned i=0; i<nSPol; i++ ){
     // Add new quadratic form and define corresponding pointer pmat
     unsigned ndxmat = _MatFct.size();
     _MatFct.push_back( map_SQuad() );
 
     // Make local copy and convert to desired basis
-    vmapmon[ndxmat] = (pSPol[i].*mapmon)(); vmapmon[ndxmat].convert( options.BASIS );
-
-//  SPoly<KEY,COMP>::options.BASIS = BASIS;
-//  t_SPoly SPolConv( (SPol.*mapmon)() ); SPolConv.convert( options.BASIS );
-//  map_SPoly& mmon = SPolConv.mapmon();
-
+    vecSPol[ndxmat] = (pSPol[i].*mapmon)(); vecSPol[ndxmat].convert( options.BASIS );
 
     // Insert all participating variables in monomial set
     _SetMon.insert( t_SMon() );
-    for( auto var : vmapmon[ndxmat].setvar() )
+    for( auto var : vecSPol[ndxmat].setvar() )
       _SetMon.insert( t_SMon( var ) );
   }
   SPoly<KEY,COMP>::options.BASIS = options.BASIS;
 
   // Iterate through monomial terms
-  for( ; !_empty( vmapmon ); ){
+  for( ; !_empty( vecSPol ); ){
     // Local copy of next monomial, then erase
-    auto const [ ndxmat, mon, coef ] = _next( vmapmon );
-    vmapmon[ndxmat].erase( mon );
+    auto const [ ndxmat, mon, coef ] = _next( vecSPol );
+    vecSPol[ndxmat].mapmon().erase( mon );
     auto& mat = _MatFct[ndxmat];
 
     // Monomial already present in _SetMon
@@ -1159,22 +1171,24 @@ SQuad<KEY,COMP>::process
       assert( ins );
 #endif
     }
-      
+
     // Mononial needs further decomposition
-    auto const& [plmon,prmon] = _decompose( mon );
+    else{
+      auto const& [plmon,prmon] = _decompose( mon );
 #ifdef MC__SQUAD_CHECK
-    assert( plmon && prmon );
+      assert( plmon && prmon );
 #endif
 #ifdef MC__SQUAD_DEBUG_DECOMP
-    std::cout << "Inserted: " << mon.display(options.BASIS)
-              << " = " << plmon->display(options.BASIS)
-              << " · " << prmon->display(options.BASIS)
-              << std::endl;
+      std::cout << "Inserted: " << mon.display(options.BASIS)
+                << " = " << plmon->display(options.BASIS)
+                << " · " << prmon->display(options.BASIS)
+                << std::endl;
 #endif
-    bool ins = _insert( mat, vmapmon[ndxmat], plmon, prmon, coef );
+      bool ins = _insert( mat, vecSPol[ndxmat].mapmon(), plmon, prmon, coef );
 #ifdef MC__SQUAD_CHECK
-    assert( ins );
+      assert( ins );
 #endif
+    }
   }
 
   return( CHK? _check( nSPol, pSPol, mapmon, BASIS ): 0. );

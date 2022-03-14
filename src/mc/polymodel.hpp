@@ -125,8 +125,7 @@ public:
     //! @brief Enumeration type for PolyModel exception handling
     enum TYPE{
       SIZE=1,	//!< Number of variable in polynomial model must be nonzero
-      MAXSIZE,  //!< Maximum size of polynomial model reached (monomials indexed as unsigned)
-      UNDEF=-33 //!< Feature not yet implemented in mc::PolyModel
+      MAXSIZE  //!< Maximum size of polynomial model reached (monomials indexed as unsigned)
     };
     //! @brief Constructor for error <a>ierr</a>
     Exceptions( TYPE ierr ) : _ierr( ierr ){}
@@ -139,8 +138,6 @@ public:
         return "mc::PolyModel\t Inconsistent polynomial model dimension";
       case MAXSIZE:
         return "mc::PolyModel\t Maximum size in polynomial model reached";
-      case UNDEF:
-        return "mc::PolyModel\t Feature not yet implemented in mc::PolyModel class";
       default:
         return "mc::PolyModel\t Undocumented error";
       }
