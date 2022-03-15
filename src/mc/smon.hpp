@@ -40,7 +40,7 @@ struct SMon
 
   //! @brief Constructor of monomial for variable with index <a>i</a>
   SMon
-    ( KEY const var, const unsigned ord=1 )
+    ( KEY const& var, const unsigned ord=1 )
     : tord( ord )
     { if( tord ) expr.insert( std::make_pair( var, ord ) ); }
 
@@ -111,7 +111,7 @@ struct SMon
 
   //! @brief Overloaded operator '[]' for extracting from monomial
   SMon<KEY,COMP> operator[]
-    ( KEY const& ivar )
+    ( KEY const& var )
     const;
 
   //! @brief Exceptions of mc::SMon

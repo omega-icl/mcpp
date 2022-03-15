@@ -234,7 +234,7 @@ class SCModel
   template <typename U, typename K, typename C> friend SCVar<U,K,C> pow
     ( const SCVar<U,K,C>&, const int );
   template <typename U, typename K, typename C> friend SCVar<U,K,C> pow
-    ( const SCVar<U,K,C>&, double const );
+    ( const SCVar<U,K,C>&, double const& );
   template <typename U, typename K, typename C> friend SCVar<U,K,C> pow
     ( double const, const SCVar<U,K,C>& );
   template <typename U, typename K, typename C> friend SCVar<U,K,C> pow
@@ -302,11 +302,7 @@ protected:
       
   //! @brief Resize the model variable data containers
   void _set
-    ( KEY const& i, T const& X )
-    { _setvar.insert( i );
-      _bndvar[i] = X;
-      _refvar[i] = Op<T>::mid(X);
-      _scalvar[i] = 0.5*Op<T>::diam(X); }
+    ( KEY const& id, T const& X );
 
   //! @brief Resize and return a pointer to the Chebyshev coefficient interpolant array
   std::vector<double>& _resize_coefuniv
@@ -359,12 +355,14 @@ public:
     { return _scalvar; }
 
   //! @brief Get Chebyshev basis functions in U arithmetic for variable array <a>X</a>
-  template <typename U> std::vector< std::map<KEY,U,COMP> > get_basis
-    ( const unsigned maxord, cstd::map<KEY,U,COMP> const& bndvar, const bool scaled=false )
+  template <typename U>
+  std::map<KEY,std::vector<U>,COMP> get_basis
+    ( const unsigned maxord, std::map<KEY,U,COMP> const& bndvar, const bool scaled=false )
     const;
 
   //! @brief Get Chebyshev monomial bounds in U arithmetic for variable array <a>X</a> and monomial indexes in <a>ndxmon</a>
-  template <typename U> void get_bndmon
+  template <typename U>
+  void get_bndmon
     ( std::map<t_mon,U,lt_mon>& bndmon, std::map<KEY,U,COMP> const& bndvar,
       bool const scaled=false )
     const;
@@ -529,14 +527,15 @@ private:
 
   //! @brief Get Chebyshev basis functions in U arithmetic for variable <a>bndvar</a>
   template <typename U>
-  U* _get_bndpow
-    ( unsigned const maxord, U const& bndvar, double const& ref, double const& scal )
+  std::vector<U>& _get_bndpow
+    ( unsigned const maxord, U const& bndvar, double const& refvar, double const& scalvar,
+      std::vector<U>& bndpow )
     const;
 
   //! @brief Get Chebyshev basis functions in U arithmetic for [-1,1] scaled variable <a>bndvar</a>
   template <typename U>
-  U* _get_bndpow
-    ( unsigned const maxord, U const& bndvar )
+  std::vector<U>& _get_bndpow
+    ( unsigned const maxord, U const& bndvar, std::vector<U>& bndpow )
     const;
 
   //! @brief Conversion from power series to Chebyshev series
@@ -568,7 +567,7 @@ private:
   //! @brief Construct interpolating polynomial coefficient for univariate <a>f</a> in <a>_coefuniv</a> until coefficient magnitude is less than <a>tol</a>
   template <typename PUNIV>
   void _chebinterp
-    ( PUNIV const& f, double const tol, unsigned& maxord );
+    ( PUNIV const& f, double const& tol, unsigned& maxord );
 
   //! @brief Apply the Clenshaw algorithm
   SCVar<T,KEY,COMP> _clenshaw
@@ -596,19 +595,19 @@ private:
   //! @brief Polynomial range bounder - Naive approach
   template <typename C, typename U> U _polybound_naive
     ( std::map<t_mon,C,lt_mon> const& coefmon,
-      std::vector< std::map<KEY,U,COMP> > const& bndbasis,
+      std::map<KEY,std::vector<U>,COMP> const& bndbasis,
       unsigned const minord=0 )
     const;
 
   //! @brief Polynomial range bounder - Lin & Stadtherr approach
   template <typename C, typename U> U _polybound_LSB
     ( std::map<t_mon,C,lt_mon> const& coefmon, 
-      std::vector< std::map<KEY,U,COMP> > const& bndbasis ) const;
+      std::map<KEY,std::vector<U>,COMP> const& bndbasis ) const;
 
   //! @brief Polynomial range bounder using specified bounder <a>type</a> with basis functions <a>bndbasis</a> in U arithmetic and monomial coefficients <a>coefmon</a> in C arithmetic
   template <typename C, typename U> U _polybound
     ( std::map<t_mon,C,lt_mon> const& coefmon,
-      std::vector< std::map<KEY,U,COMP> > const& bndbasis,
+      std::map<KEY,std::vector<U>,COMP> const& bndbasis,
       int const type );
 
   //! @brief Recursive product of univariate Chebyshev polynomials
@@ -735,7 +734,7 @@ class SCVar
   template <typename U, typename K, typename C> friend SCVar<U,K,C> pow
     ( const SCVar<U,K,C>&, const int );
   template <typename U, typename K, typename C> friend SCVar<U,K,C> pow
-    ( const SCVar<U,K,C>&, double const );
+    ( const SCVar<U,K,C>&, double const& );
   template <typename U, typename K, typename C> friend SCVar<U,K,C> pow
     ( double const, const SCVar<U,K,C>& );
   template <typename U, typename K, typename C> friend SCVar<U,K,C> pow
@@ -838,13 +837,13 @@ private:
   void _unset_bndpol
     ();
 
-  //! @brief Original bounds on variable <tt>ivar</tt>
+  //! @brief Original bounds on variable <tt>id</tt>
   T const& _bndvar
     ( KEY const& id )
     const
     { return _CM->_bndvar[id]; };
 
-  //! @brief Reference point for variable <tt>ivar</tt> in Chebyshev model
+  //! @brief Reference point for variable <tt>id</tt> in Chebyshev model
   double const& _refvar
     ( KEY const& id )
     const
@@ -864,19 +863,21 @@ private:
   SCVar<T,KEY,COMP>& _set
     ( SCVar<T,KEY,COMP> && CV );
 
-  //! @brief Set Chebyshev variable with index <a>ix</a> (starting from 0) and bounded by <a>X</a>
+  //! @brief Set Chebyshev variable <a>id</a> with domain <a>dom</a>
   SCVar<T,KEY,COMP>& _set
-    ( KEY const& id, T const& X, const bool updMod=true );
+    ( KEY const& id, T const& dom, const bool updt=true );
 
   //! @brief Product of multivariate Chebyshev polynomials in sparse format
   void _sprod
     ( const SCVar<T,KEY,COMP>& CV1, const SCVar<T,KEY,COMP>& CV2, t_poly& coefmon,
-      double& coefrem ) const
+      double& coefrem )
+    const
     { return _CM->_sprod( CV1, CV2, coefmon, coefrem ); }
 
   //! @brief Squaring of multivariate Chebyshev polynomials in sparse format
   void _ssqr
-    ( const SCVar<T,KEY,COMP>& CV, t_poly& coefmon, double& coefrem ) const
+    ( const SCVar<T,KEY,COMP>& CV, t_poly& coefmon, double& coefrem )
+    const
     { return _CM->_ssqr( CV, coefmon, coefrem ); }
 
 public:
@@ -946,15 +947,15 @@ public:
 
   //! @brief Constructor of Chebyshev variable for a real scalar
   SCVar
-    ( double const d=0., SCModel<T,KEY,COMP>*CM=0 );
+    ( double const& d = 0., SCModel<T,KEY,COMP>* CM = nullptr );
 
   //! @brief Constructor of Chebyshev variable for a remainder bound
   SCVar
-    ( T const& B, SCModel<T,KEY,COMP>*CM=0 );
+    ( T const& B, SCModel<T,KEY,COMP>*CM = nullptr );
 
-  //! @brief Constructor of Chebyshev variable with index <a>ix</a> (starting from 0) and bounded by <a>X</a>
+  //! @brief Constructor of Chebyshev variable <a>id</a> with domain <a>dom</a>
   SCVar
-    ( SCModel<T,KEY,COMP>*CM, KEY const& i, T const& X );
+    ( SCModel<T,KEY,COMP>* CM, KEY const& id, T const& dom);
 
   //! @brief Copy constructor of Chebyshev variable
   SCVar
@@ -969,10 +970,10 @@ public:
     ()
     { _unset_bndpol(); _unset_bndT(); }
 
-  //! @brief Set Chebyshev variable with index <a>ix</a> (starting from 0) and bounded by <a>X</a>
+  //! @brief Set Chebyshev variable <a>id</a> with domain <a>dom</a>
   SCVar<T,KEY,COMP>& set
-    ( SCModel<T,KEY,COMP>* CM, KEY const& id, T const& X )
-    { set( CM ); _set( id, X ); return *this; }
+    ( SCModel<T,KEY,COMP>* CM, KEY const& id, T const& dom )
+    { set( CM ); _set( id, dom ); return *this; }
 
   //! @brief Set environment in Chebyshev model
   SCVar<T,KEY,COMP>& set
@@ -1017,14 +1018,14 @@ public:
   //! @brief Retreive bound on variable using default bounder in U arithmetic
   template <typename U>
   U bound
-    ( std::vector< std::map<KEY,U,COMP> > const& bndbasis, U const& bndrem )
+    ( std::map<KEY,std::vector<U>,COMP> const& bndbasis, U const& bndrem )
     const
     { return _polybound( bndbasis ) + bndrem; }
 
   //! @brief Retreive bound on variable using bounder <a>type</a> in U arithmetic
   template <typename U>
   U bound
-    ( std::vector< std::map<KEY,U,COMP> > const& bndbasis, U const& bndrem,
+    ( std::map<KEY,std::vector<U>,COMP> const& bndbasis, U const& bndrem,
       const int type )
     const
     { return _polybound( bndbasis, type ) + bndrem; }
@@ -1069,12 +1070,12 @@ public:
 
   //! @brief Evaluate polynomial part at <tt>x</tt>
   double polynomial
-    ( std::vector< std::map<KEY,double,COMP> > const& x )
+    ( std::map<KEY,double,COMP> const& x )
     const;
 
   //! @brief Shortcut to mc::SCVar::polynomial
   double P
-    ( std::vector< std::map<KEY,double,COMP> > const& x )
+    ( std::map<KEY,double,COMP> const& x )
     const
     { return polynomial( x ); }
 
@@ -1106,19 +1107,19 @@ public:
 
   //! @brief Get coefficients of linear term for variable <tt>id</tt> in Chebyshev variable. The value of this coefficient is reset to 0 if <tt>reset=true</tt>, otherwise it is left unmodified (default).
   double linear
-    ( KEY const& id, bool const reset=false );
+    ( KEY const& id, bool const reset = false );
 
   //! @brief Simplify the model by appending coefficient less than TOL as well as terms with order greater than or equal to ORD to the remainder term
   SCVar<T,KEY,COMP>& simplify
-    ( double const TOL=0e0, int const TORD=-1 );
+    ( double const& TOL = 0e0, int const TORD = -1 );
     
-  //! @brief Scale coefficients in Chebyshev variable for the modified range <a>bnd</a> of variable id
+  //! @brief Scale coefficients in Chebyshev variable for the modified domain <a>dom</a> of variable id
   SCVar<T,KEY,COMP>& scale
-    ( KEY const& id, T const& bnd );
+    ( KEY const& id, T const& dom );
     
-  //! @brief Scale coefficients in Chebyshev variable for the modified variable ranges <a>bnd</a>
+  //! @brief Scale coefficients in Chebyshev variable <a>id</a> for the modified variables domain <a>dom</a>
   SCVar<T,KEY,COMP>& scale
-    ( std::map<KEY,T,COMP> const& bnd );
+    ( std::map<KEY,T,COMP> const& dom );
     
   //! @brief Rescale coefficients in Chebyshev variable for their original variable ranges
   SCVar<T,KEY,COMP>::t_poly unscale
@@ -1127,12 +1128,12 @@ public:
         
   //! @brief Return new coefficient map in monomial basis representation
   t_poly to_monomial
-    ( bool const scaled=false )
+    ( bool const scaled = false )
     const;
     
   //! @brief Return new coefficient map in monomial basis representation after removing terms with coefficient less than TOL or order greater than or equal to ORD, and also return a bound on the removed terms
   std::pair<t_poly,T> to_monomial
-    ( bool const scaled, double const TOL, int const TORD=-1 )
+    ( bool const scaled, double const& TOL, int const TORD = -1 )
     const;
  /** @} */
 
@@ -1141,7 +1142,7 @@ public:
   SCVar<T,KEY,COMP>& operator=
     ( SCVar<T,KEY,COMP> && );
   SCVar<T,KEY,COMP>& operator=
-    ( double const );
+    ( double const& );
   SCVar<T,KEY,COMP>& operator=
     ( T const&  );
   template <typename U> SCVar<T,KEY,COMP>& operator+=
@@ -1149,29 +1150,29 @@ public:
   template <typename U> SCVar<T,KEY,COMP>& operator+=
     ( U const&  );
   SCVar<T,KEY,COMP>& operator+=
-    ( double const );
+    ( double const& );
   template <typename U> SCVar<T,KEY,COMP>& operator-=
     ( const SCVar<U,KEY,COMP>& );
   template <typename U> SCVar<T,KEY,COMP>& operator-=
     ( U const&  );
   SCVar<T,KEY,COMP>& operator-=
-    ( double const );
+    ( double const& );
   SCVar<T,KEY,COMP>& operator*=
     ( const SCVar<T,KEY,COMP>& );
   SCVar<T,KEY,COMP>& operator*=
-    ( double const );
+    ( double const& );
   SCVar<T,KEY,COMP>& operator*=
     ( T const&  );
   SCVar<T,KEY,COMP>& operator/=
     ( SCVar<T,KEY,COMP> const& );
   SCVar<T,KEY,COMP>& operator/=
-    ( double const );
+    ( double const& );
 
 private:
   //! @brief Polynomial range bounder using specified bounder <a>type</a> with basis functions <a>bndbasis</a> in U arithmetic
   template <typename U>
   U _polybound
-    ( std::vector< std::map<KEY,U,COMP> > const& bndbasis, int const type )
+    ( std::map<KEY,std::vector<U>,COMP> const& bndbasis, int const type )
     const
     { if( !_CM ) return !_coefmon.empty() && !_coefmon.begin()->first.tord? _coefmon.begin()->second: 0.;
       return _CM->_polybound( _coefmon, bndbasis, type ); }
@@ -1179,14 +1180,14 @@ private:
   //! @brief Polynomial range bounder using default bounder in U arithmetic
   template <typename U>
   U _polybound
-    ( std::vector< std::map<KEY,U,COMP> > const& bndbasis )
+    ( std::map<KEY,std::vector<U>,COMP> const& bndbasis )
     const
     { return _polybound( bndbasis, _CM? _CM->options.BOUNDER_TYPE: 0 ); }
 
   //! @brief Polynomial range bounder using specified bounder <a>type</a>
   T _polybound
     ( int const type ) const
-    { return _polybound( (const T*const*)nullptr, type ); }
+    { return _polybound( std::map<KEY,std::vector<U>,COMP>(), type ); }
 
   //! @brief Polynomial range bounder using default bounder
   T _polybound
@@ -1195,14 +1196,14 @@ private:
 
   //! @brief Scale current variable in order for its range to be within [-1,1], with <a>c</a> and <a>w</a> respectively the center and width, respectively, of the orginal variable range
   SCVar<T,KEY,COMP> _rescale
-    ( double const w, double const c ) const
+    ( double const& w, double const& c ) const
     { return( !isequal(w,0.)? (*this-c)/w: c ); }
 
-  //! @brief Scale variable <a>X</a>
+  //! @brief Scale variable <a>var</a>
   template <typename U> static
   U _rescale
-    ( U& X, double const w, double const c )
-    { return( !isequal(w,0.)? (X-c)/w: c ); }
+    ( U& var, double const& w, double const& c )
+    { return( !isequal(w,0.)? (var-c)/w: c ); }
 
   //! @brief Cancel zero entries in coefficient map <a>coefmon</a>
   void _simplify
@@ -1212,12 +1213,12 @@ private:
   //! @brief Simplify the coefficient map <a>coefmon</a> by removing entries with coefficient less than TOL or order greater than or equal to ORD, and return a bound on the removed entries
   T _simplify_monomial
     ( typename SCVar<T,KEY,COMP>::t_poly& coefmon, bool const scaled,
-      double const TOL=0e0, int const TORD=-1 )
+      double const& TOL=0e0, int const TORD=-1 )
     const;
 
   //! @brief Scale coefficient map <a>coefmon</a> for the modified range <a>bnd</a> of variable id
   void _scale
-    ( KEY const& id, T const& bnd, typename SCVar<T,KEY,COMP>::t_poly& coefmon )
+    ( KEY const& id, T const& dom, typename SCVar<T,KEY,COMP>::t_poly& coefmon )
     const;
 
   //! @brief Convert Chebyshev basis into monomial basis for variable <a>ivar</a> in coefficient map <a>coefmon</a>
@@ -1227,6 +1228,18 @@ private:
 };
 
 ////////////////////////////////// SCModel //////////////////////////////////////
+
+template <typename T, typename KEY, typename COMP>
+inline
+void
+SCModel<T,KEY,COMP>::_set
+( KEY const& id, T const& X )
+{
+  _setvar.insert( id );
+  _bndvar[id] = X;
+  _refvar[id] = Op<T>::mid(X);
+  _scalvar[id] = 0.5*Op<T>::diam(X);
+}
 
 template <typename T, typename KEY, typename COMP>
 template <typename U>
@@ -1290,37 +1303,33 @@ template <typename U>
 inline
 void
 SCModel<T,KEY,COMP>::get_bndmon
-( std::map<t_mon,U,lt_mon>& bndmon, U const* bndvar,
+( std::map<t_mon,U,lt_mon>& bndmon, std::map<KEY,U,COMP> const& bndvar,
   bool const scaled )
 const
 {
   if( bndmon.empty() ) return;
 
   unsigned const nord = bndmon.rbegin()->first.tord;
-  U** bndbasis = get_basis( nord, bndvar, scaled );
+  std::map<KEY,std::vector<U>,COMP>& bndbasis;
+  get_basis( nord, bndvar, scaled, bndbasis );
 
-#ifdef MC__SCMODEL_USE_PROD
-  std::vector<U> Umon; Umon.reserve(_maxvar);
   auto it = bndmon.begin();
   if( !it->first.tord ){ it->second = 1; ++it; }
+#ifdef MC__SCMODEL_USE_PROD
+  std::vector<U> Umon; Umon.reserve( _setvar.size() );
   for( ; it!=bndmon.end(); ++it ){
-    Umon.clear();
-    for( auto& [ivar,iord] : it->first.second )
-      Umon.push_back( bndbasis[ivar][iord] );
-    it->second = prod( Umon.size(), Umon.data() );
+    i=0;
+    for( auto const& [ivar,iord] : it->first.second )
+      Umon[i++] = bndbasis[ivar][iord];
+    it->second = prod( it->first.second.size(), Umon.data() );
   }
 #else
-  auto it = bndmon.begin();
-  if( !it->first.tord ){ it->second = 1; ++it; }
   for( ; it!=bndmon.end(); ++it ){
     it->second = 1;
-    for( auto& [ivar,iord] : it->first.second )
+    for( auto const& [ivar,iord] : it->first.second )
       it->second *= bndbasis[ivar][iord];
   }
 #endif
-
-  for( unsigned j : _setvar ) delete[] bndbasis[j];
-  delete[] bndbasis;
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -1486,7 +1495,7 @@ template <typename PUNIV>
 inline
 void
 SCModel<T,KEY,COMP>::_chebinterp
-( PUNIV const& f, double const tol, unsigned& maxord ) // range of f assumed as [-1,1]
+( PUNIV const& f, double const& tol, unsigned& maxord ) // range of f assumed as [-1,1]
 {
   _chebinterp( f, maxord );
   for( ; std::fabs(_coefuniv[maxord])>tol || (maxord && std::fabs(_coefuniv[maxord-1])>tol); ){
@@ -1976,7 +1985,7 @@ template <typename C, typename U>
 inline
 U
 SCModel<T,KEY,COMP>::_polybound_LSB
-( std::map<t_mon,C,lt_mon> const& coefmon, U const* const* bndbasis )
+( std::map<t_mon,C,lt_mon> const& coefmon, std::map<KEY,std::vector<U>,COMP> const& bndbasis )
 const
 {
   // Constant or linear model
@@ -2052,7 +2061,7 @@ template <typename C, typename U>
 inline
 U
 SCModel<T,KEY,COMP>::_polybound_naive
-( std::map<t_mon,C,lt_mon> const& coefmon, U const* const* bndbasis,
+( std::map<t_mon,C,lt_mon> const& coefmon, std::map<KEY,std::vector<U>,COMP> const& bndbasis,
   unsigned const minord )
 const
 {
@@ -2061,7 +2070,7 @@ const
   auto it = coefmon.lower_bound( t_mon( minord, std::map<unsigned,unsigned>() ) );
 
   // Polynomial bounding in T arithmetic
-  if( !bndbasis ){
+  if( bndbasis.empty() ){
     switch( options.BASIS ){
       case Options::CHEB:
       {
@@ -2087,7 +2096,7 @@ const
   if( !it->first.tord ){ bndpol = it->second; ++it; }
   for( ; it!=coefmon.end(); ++it ){
     U bndmon( 1. );
-    for( auto& [ivar,iord] : it->first.expr )
+    for( auto const& [ivar,iord] : it->first.expr )
       bndmon *= bndbasis[ivar][iord];
     bndpol += it->second  * bndmon;
   }
@@ -2099,7 +2108,7 @@ template <typename C, typename U>
 inline
 U
 SCModel<T,KEY,COMP>::_polybound
-( std::map<t_mon,C,lt_mon> const& coefmon, U const* const* bndbasis,
+( std::map<t_mon,C,lt_mon> const& coefmon, std::map<KEY,std::vector<U>,COMP> const& bndbasis,
   int const type )
 {
   switch( type ){
@@ -2160,7 +2169,7 @@ template <typename T, typename KEY, typename COMP>
 inline
 void
 SCVar<T,KEY,COMP>::_set_bndpol
-( const T*bndpol )
+( T const* bndpol )
 {
   if( !bndpol ){
     if( _bndpol ) delete _bndpol;
@@ -2176,7 +2185,7 @@ template <typename T, typename KEY, typename COMP>
 inline
 void
 SCVar<T,KEY,COMP>::_set_bndpol
-( const T&bndpol )
+( T const& bndpol )
 {
   if( !_bndpol )
     _bndpol = new T( bndpol );
@@ -2198,7 +2207,7 @@ template <typename T, typename KEY, typename COMP>
 inline
 void
 SCVar<T,KEY,COMP>::_set_bndT
-( const T*bndT )
+( T const* bndT )
 {
   if( !bndT ){
     if( _bndT ) delete _bndT;
@@ -2214,7 +2223,7 @@ template <typename T, typename KEY, typename COMP>
 inline
 void
 SCVar<T,KEY,COMP>::_set_bndT
-( const T&bndT )
+( T const& bndT )
 {
   if( !_bndT )
     _bndT = new T( bndT );
@@ -2339,7 +2348,7 @@ SCVar<T,KEY,COMP>::SCVar
 template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>::SCVar
-( double const d, SCModel<T,KEY,COMP>*CM )
+( double const& d, SCModel<T,KEY,COMP>*CM )
 : _CM( CM )
 {
   _init();
@@ -2354,7 +2363,7 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::operator=
-( double const d )
+( double const& d )
 {
   _reinit();
   _CM = nullptr;
@@ -2398,44 +2407,44 @@ SCVar<T,KEY,COMP>::operator=
 template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>::SCVar
-( SCModel<T,KEY,COMP>* CM, unsigned const ivar, T const& X )
+( SCModel<T,KEY,COMP>* CM, KEY const& id, T const& dom )
 : _CM( CM )
 {
   _init();
-  _set( ivar, X );
+  _set( id, dom );
 }
 
 template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::_set
-( unsigned const i, T const& X, bool const updMod )
+( KEY const& id, T const& dom, bool const updt )
 {
   if( !_CM ) throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::INIT );  
 
   // Keep data for variable #ivar in model environment
-  if( updMod ) _CM->_set( i, X );
+  if( updt ) _CM->_set( id, dom );
 
   // Populate model variable
   _ndxvar.clear();
-  _ndxvar.insert(i);
+  _ndxvar.insert( id );
   _coefmon.clear();
-  _coefmon.insert( std::make_pair( t_mon(),_refvar(i) ) );
-  if( _CM->_maxord && !isequal(_scalvar(i),0.) ){
-    _coefmon.insert( std::make_pair( t_mon(i), _scalvar(i) ) );
-    _set_bndpol( _bndvar(i) );
+  _coefmon.insert( std::make_pair( t_mon(),_refvar( id ) ) );
+  if( _CM->_maxord && !isequal( _scalvar( id ), 0. ) ){
+    _coefmon.insert( std::make_pair( t_mon( id ), _scalvar( id ) ) );
+    _set_bndpol( _bndvar( id ) );
     _bndrem = 0.;
   }
   else{
-    _set_bndpol( _refvar(i) );
-    _bndrem = _bndvar(i) - _refvar(i);
+    _set_bndpol( _refvar( id ) );
+    _bndrem = _bndvar( id ) - _refvar( id );
   }
 #if 0
   std::cout << "coefmon size: " << _coefmon.size() << std::endl;
 #endif
 
   // Interval bounds
-  if( _CM->options.MIXED_IA ) _set_bndT( _bndvar(i) );
+  if( _CM->options.MIXED_IA ) _set_bndT( _bndvar( id ) );
   else                        _unset_bndT();
   if( _CM->options.MIN_FACTOR >= 0. ) simplify( _CM->options.MIN_FACTOR );
   return *this;
@@ -2520,14 +2529,15 @@ template <typename T, typename KEY, typename COMP>
 inline
 double
 SCVar<T,KEY,COMP>::polynomial
-( double const* x ) const
+( std::map<KEY,double,COMP> const& x )
+const
 {
   // -> Is there a multivariate version of Clenshaw? Use recursively?
 
   double Pval = 0.;
-  for( auto& [mon,coef] : _coefmon ){
+  for( auto const& [mon,coef] : _coefmon ){
     double val = coef;
-    for( auto& [ivar,iord] : mon.expr ){
+    for( auto const& [ivar,iord] : mon.expr ){
       switch( _CM->options.BASIS ){
         case SCModel<T,KEY,COMP>::Options::CHEB:
           val *= isequal(_scalvar(ivar),0.)? _refvar(ivar): 
@@ -2547,10 +2557,11 @@ SCVar<T,KEY,COMP>::polynomial
 template <typename T, typename KEY, typename COMP>
 inline
 double
-SCVar<T,KEY,COMP>::constant( const bool reset )
+SCVar<T,KEY,COMP>::constant
+( bool const reset )
 {
   auto it_0 = ( _coefmon.empty() || _coefmon.begin()->first.tord? _coefmon.end(): _coefmon.begin() );
-  double const coefcst = ( it_0 == _coefmon.end()? 0.: it_0->second );
+  double coefcst = ( it_0 == _coefmon.end()? 0.: it_0->second );
   if( reset && it_0 != _coefmon.end() ){
     _coefmon.erase( it_0 );
     if( _bndpol ) *_bndpol -= coefcst;
@@ -2563,11 +2574,10 @@ template <typename T, typename KEY, typename COMP>
 inline
 double
 SCVar<T,KEY,COMP>::linear
-( const unsigned i, const bool reset )
+( KEY const& id, bool const reset )
 {
-  if( i>=nvar() || !nord() ) return 0.;
-  auto it_i = ( _coefmon.empty()? _coefmon.end(): _coefmon.find( t_mon( i ) ) );
-  double const coeflin = ( it_i == _coefmon.end() || isequal(_scalvar(i),0.)? 0.: it_i->second/_scalvar(i) );
+  auto it_i = ( !nord() || _coefmon.empty()? _coefmon.end(): _coefmon.find( t_mon( id ) ) );
+  double coeflin = ( it_i == _coefmon.end() || isequal(_scalvar( id ),0.)? 0.: it_i->second / _scalvar( id ) );
   if( reset && it_i != _coefmon.end() ){
     _coefmon.erase( it_i );
     _unset_bndpol();
@@ -2580,13 +2590,13 @@ template <typename T, typename KEY, typename COMP>
 inline
 void
 SCVar<T,KEY,COMP>::_scale
-( typename t_var::const_iterator itvar, T const& Xivar, typename t_poly& coefmon )
+( typename t_var::const_iterator itvar, T const& bndvar, typename t_poly& coefmon )
 const
 {
   // Nothing to do if model _CM is nullptr, or variable range X did not change
   if( !_CM
-   || ( isequal( Op<T>::l(Xivar), Op<T>::l(_bndvar(ivar)) )
-     && isequal( Op<T>::u(Xivar), Op<T>::u(_bndvar(ivar)) ) ) ) return;
+   || ( isequal( Op<T>::l(bndvar), Op<T>::l(_bndvar(*itvar)) )
+     && isequal( Op<T>::u(bndvar), Op<T>::u(_bndvar(*itvar)) ) ) ) return;
 
   // Get coefficients in univariate polynomial representation w.r.t variable *itvar
   std::vector< SCVar<T,KEY,COMP> > veccoef( nord()+1, SCVar<T,KEY,COMP>(_CM) );
@@ -2606,34 +2616,34 @@ const
   if( nodep ) return;
 
   // Compose with rescaled inner variable
-  SCVar<T,KEY,COMP> CVivar( _CM ); CVivar._set( *itvar, Xivar, false );
+  SCVar<T,KEY,COMP> cvvar( _CM ); cvvar._set( *itvar, bndvar, false );
 #ifdef MC__POLYMODEL_DEBUG_SCALE
-  std::cout << "CVivar[" << *itvar << "]:" << CVivar;
+  std::cout << "cvvar[" << *itvar << "]:" << cvvar;
 #endif
   if( !isequal(_scalvar(*itvar),0.) ){
-    CVivar -= _refvar(*itvar);
-    CVivar *= Op<T>::diam(Xivar) / (2.*_scalvar(*itvar) );
-    CVivar += Op<T>::mid(Xivar);
+    cvvar -= _refvar(*itvar);
+    cvvar *= Op<T>::diam(bndvar) / (2.*_scalvar(*itvar) );
+    cvvar += Op<T>::mid(bndvar);
   }
 #ifdef MC__POLYMODEL_DEBUG_SCALE
-  std::cout << "CVivar[" << *itvar << "]:" << CVivar;
+  std::cout << "cvvar[" << *itvar << "]:" << cvvar;
 #endif
-  CVivar = CVivar._rescale( _scalvar(*itvar), _refvar(*itvar) );
+  cvvar = cvvar._rescale( _scalvar(*itvar), _refvar(*itvar) );
 #ifdef MC__POLYMODEL_DEBUG_SCALE
-  std::cout << "CVivar[" << *itvar << "]:" << CVivar;
+  std::cout << "cvvar[" << *itvar << "]:" << cvvar;
 #endif
-  coefmon = _CM->_composition( veccoef, nord(), CVivar )._coefmon;
+  coefmon = _CM->_composition( veccoef, nord(), cvvar )._coefmon;
 }
 
 template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::scale
-( KEY const& ivar, T const& X )
+( KEY const& id, T const& dom )
 {
-  auto itvar = _ndxvar.find( ivar );
-  if( ivar != _ndxvar.end() )
-    _scale( itvar, X, _coefmon );
+  auto itvar = _ndxvar.find( id );
+  if( itvar != _ndxvar.end() )
+    _scale( itvar, dom, _coefmon );
     _unset_bndpol();
     _unset_bndT();
   }
@@ -2644,11 +2654,11 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::scale
-( T const* X )
+( std::map<KEY,T,COMP> const& dom )
 {
   // Return *this if null pointer to model _CM or variable ranges X
-  if( !X || !_CM ) return *this;
-  for( auto const& ivar : _ndxvar ) scale( ivar, X[i] );
+  if( dom.empty() || !_CM ) return *this;
+  for( auto const& id : _ndxvar ) scale( id, dom[id] );
   if( _CM && _CM->options.MIN_FACTOR >= 0. ) simplify( _CM->options.MIN_FACTOR );
   return *this;
 }
@@ -2663,7 +2673,7 @@ const
   // Return *this if null pointer to model _CM or variable ranges X
   if( !_CM ) return _coefmon;
   t_poly coefmon = _coefmon;
-  for( unsigned i : _ndxvar ) _scale( i, T(-1,1), coefmon );
+  for( auto const& id : _ndxvar ) _scale( id, T(-1,1), coefmon );
   if( _CM && _CM->options.MIN_FACTOR >= 0. ) simplify( _CM->options.MIN_FACTOR );
   return coefmon;
 }
@@ -2672,7 +2682,7 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::simplify
-( double const TOL, int const TORD )
+( double const& TOL, int const TORD )
 {
   if( _coefmon.empty() ) return *this;
   for( auto it=_coefmon.begin(); it!=_coefmon.end(); ){
@@ -2698,7 +2708,8 @@ template <typename T, typename KEY, typename COMP>
 inline
 T
 SCVar<T,KEY,COMP>::_simplify_monomial
-( typename SCVar<T,KEY,COMP>::t_poly& coefmon, bool const scaled, double const TOL, int const TORD )
+( typename SCVar<T,KEY,COMP>::t_poly& coefmon, bool const scaled,
+  double const& TOL, int const TORD )
 const
 {
   T bndrem( 0e0 );
@@ -2843,7 +2854,7 @@ template <typename T, typename KEY, typename COMP>
 inline
 std::pair<typename SCVar<T,KEY,COMP>::t_poly,T>
 SCVar<T,KEY,COMP>::to_monomial
-( bool const scaled, double const TOL, int const TORD )
+( bool const scaled, double const& TOL, int const TORD )
 const
 {
   auto&& coefmon = to_monomial( scaled );
@@ -2958,7 +2969,7 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::operator +=
-( double const c )
+( double const& c )
 {
   if( isequal( c, 0. ) ) return *this;
   if( _coefmon.empty() || _coefmon.begin()->first.tord ) 
@@ -2974,7 +2985,7 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>
 operator+
-( SCVar<T,KEY,COMP> const& CV1, double const c )
+( SCVar<T,KEY,COMP> const& CV1, double const& c )
 {
   SCVar<T,KEY,COMP> CV3( CV1 );
   CV3 += c;
@@ -2985,7 +2996,7 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>
 operator+
-( double const c, SCVar<T,KEY,COMP> const& CV2 )
+( double const& c, SCVar<T,KEY,COMP> const& CV2 )
 {
   SCVar<T,KEY,COMP> CV3( CV2 );
   CV3 += c;
@@ -3094,7 +3105,7 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::operator-=
-( double const c )
+( double const& c )
 {
   if( isequal( c, 0. ) ) return *this;
   if( _coefmon.empty() || _coefmon.begin()->first.tord ) 
@@ -3113,7 +3124,7 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>
 operator-
-( SCVar<T,KEY,COMP> const& CV1, double const c )
+( SCVar<T,KEY,COMP> const& CV1, double const& c )
 {
   SCVar<T,KEY,COMP> CV3( CV1 );
   CV3 -= c;
@@ -3124,7 +3135,7 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>
 operator-
-( double const c, SCVar<T,KEY,COMP> const& CV2 )
+( double const& c, SCVar<T,KEY,COMP> const& CV2 )
 {
   SCVar<T,KEY,COMP> CV3( -CV2 );
   CV3 += c;
@@ -3248,7 +3259,7 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::operator*=
-( double const c )
+( double const& c )
 {
   if( isequal( c, 0. ) ){ *this = 0.; return *this; }
   if( isequal( c, 1. ) ) return *this;
@@ -3263,7 +3274,7 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>
 operator*
-( SCVar<T,KEY,COMP> const& CV1, double const c )
+( SCVar<T,KEY,COMP> const& CV1, double const& c )
 {
   SCVar<T,KEY,COMP> CV3( CV1 );
   CV3 *= c;
@@ -3274,7 +3285,7 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>
 operator*
-( double const c, SCVar<T,KEY,COMP> const& CV2 )
+( double const& c, SCVar<T,KEY,COMP> const& CV2 )
 {
   SCVar<T,KEY,COMP> CV3( CV2 );
   CV3 *= c;
@@ -3381,7 +3392,7 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::operator/=
-( double const c )
+( double const& c )
 {
   if( isequal( c, 0. ) )
     throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::DIV );
@@ -3394,7 +3405,7 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>
 operator/
-( SCVar<T,KEY,COMP> const& CV, double const c )
+( SCVar<T,KEY,COMP> const& CV, double const& c )
 {
   if ( isequal( c, 0. ))
     throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::DIV );
@@ -3406,7 +3417,7 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>
 operator/
-( double const c, SCVar<T,KEY,COMP> const& CV )
+( double const& c, SCVar<T,KEY,COMP> const& CV )
 {
   if( isequal( c, 0. ) ) return 0.;
   if( isequal( c, 1. ) ) return inv(CV);
@@ -3556,7 +3567,7 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>
 pow
-( const SCVar<T,KEY,COMP> &CV, double const a )
+( const SCVar<T,KEY,COMP> &CV, double const& a )
 {
 #if 0
   return exp( a * log( CV ) );
@@ -3593,7 +3604,7 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>
 pow
-( double const a, const SCVar<T,KEY,COMP> &CV )
+( double const& a, const SCVar<T,KEY,COMP> &CV )
 {
   return exp( CV * std::log( a ) );
 }
@@ -4073,7 +4084,7 @@ template <typename T, typename KEY, typename COMP>
 struct Op< mc::SCVar<T,KEY,COMP> >
 {
   typedef mc::SCVar<T,KEY,COMP> CV;
-  static CV point( double const c ) { return CV(c); }
+  static CV point( double const& c ) { return CV(c); }
   static CV zeroone() { return CV( mc::Op<T>::zeroone() ); }
   static void I(CV& x, const CV&y) { x = y; }
   static double l(const CV& x) { return mc::Op<T>::l(x.B()); }
@@ -4106,7 +4117,7 @@ struct Op< mc::SCVar<T,KEY,COMP> >
   static CV hull(const CV& x, const CV& y) { return mc::hull(x,y); }
   static CV min (const CV& x, const CV& y) { return mc::Op<T>::min(x.B(),y.B());  }
   static CV max (const CV& x, const CV& y) { return mc::Op<T>::max(x.B(),y.B());  }
-  static CV arh (const CV& x, double const k) { return mc::exp(-k/x); }
+  static CV arh (const CV& x, double const& k) { return mc::exp(-k/x); }
   template <typename X, typename Y> static CV pow(const X& x, const Y& y) { return mc::pow(x,y); }
   static CV cheb(const CV& x, const unsigned n) { return mc::cheb(x,n); }
   static CV prod (const unsigned n, const CV* x) { return mc::prod(n,x); }
