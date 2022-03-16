@@ -1,11 +1,10 @@
-#define TEST_EXP2            // <-- select test function here
-const int NTE = 5;           // <-- select Taylor expansion order here
-const unsigned NREP = 2000;   // <-- select repetition for acurate timing 
-const int NX = 25;	      // <-- select X discretization here
-const int NY = 25;	      // <-- select Y discretization here
+#define TEST_EXP1            // <-- select test function here
+#define USE_DAG              // <-- specify to evaluate via a DAG of the function
 #define SAVE_RESULTS         // <-- specify whether to save results to file
-#define USE_PROFIL           // <-- specify to use PROFIL for interval arithmetic
-#undef USE_FILIB             // <-- specify to use FILIB++ for interval arithmetic
+const int NTE = 4;           // <-- select expansion order here
+const int NX = 25;	         // <-- select X discretization here
+const int NY = 25;	         // <-- select Y discretization here
+const unsigned NREP = 1;  // <-- select repetition for acurate timing 
 ////////////////////////////////////////////////////////////////////////
 //#define MC__SCMODEL_DEBUG_SPROD
 //#define MC__SICMODEL_DEBUG_SPROD
@@ -16,32 +15,47 @@ const int NY = 25;	      // <-- select Y discretization here
 
 #include <fstream>
 #include <iomanip>
-
 #include "mctime.hpp"
-#ifdef USE_PROFIL
-  #include "mcprofil.hpp"
-  typedef INTERVAL I;
+
+#ifdef MC__USE_PROFIL
+ #include "mcprofil.hpp"
+ typedef INTERVAL I;
 #else
-  #ifdef USE_FILIB
-    #include "mcfilib.hpp"
-    typedef filib::interval<double> I;
+ #ifdef MC__USE_FILIB
+  #include "mcfilib.hpp"
+  typedef filib::interval<double,filib::native_switched,filib::i_mode_extended> I;
+ #else
+  #ifdef MC__USE_BOOST
+   #include "mcboost.hpp"
+   typedef boost::numeric::interval_lib::save_state<boost::numeric::interval_lib::rounded_transc_opp<double>> T_boost_round;
+   typedef boost::numeric::interval_lib::checking_base<double> T_boost_check;
+   typedef boost::numeric::interval_lib::policies<T_boost_round,T_boost_check> T_boost_policy;
+   typedef boost::numeric::interval<double,T_boost_policy> I;
   #else
-    #include "interval.hpp"
-    typedef mc::Interval I;
+   #include "interval.hpp"
+   typedef mc::Interval I;
   #endif
+ #endif
 #endif
 
-#include "cmodel.hpp"
-typedef mc::CModel<I> CM;
-typedef mc::CVar<I> CV;
+
+//#include "cmodel.hpp"
+//typedef mc::CModel<I> CM;
+//typedef mc::CVar<I> CV;
 
 #include "scmodel.hpp"
-typedef mc::SCModel<I> SCM;
-typedef mc::SCVar<I> SCV;
+#ifdef USE_DAG
+ #include "ffunc.hpp"
+ typedef mc::SCModel<I,mc::FFVar*,mc::lt_FFVar> SCM;
+ typedef mc::SCVar<I,mc::FFVar*,mc::lt_FFVar> SCV;
+#else
+ typedef mc::SCModel<I> SCM;
+ typedef mc::SCVar<I> SCV;
+#endif
 
-#include "sicmodel.hpp"
-typedef mc::SICModel<I> SICM;
-typedef mc::SICVar<I> SICV;
+//#include "sicmodel.hpp"
+//typedef mc::SICModel<I> SICM;
+//typedef mc::SICVar<I> SICV;
 
 using namespace std;
 using namespace mc;
@@ -284,7 +298,23 @@ T myfunc
 ////////////////////////////////////////////////////////////////////////
 
 int main()
-{ 
+{
+  cout << "INTERVAL LIBRARY: "; 
+#ifdef MC__USE_PROFIL
+  cout << "PROFIL/BIAS" << endl;
+#else
+ #ifdef MC__USE_FILIB
+  cout << "FILIB++" << endl;
+ #else
+  #ifdef MC__USE_BOOST
+  cout << "BOOST" << endl;
+  #else
+  cout << "MC++ NON-VERIFIED" << endl;
+  #endif
+ #endif
+#endif
+
+#if 0
  {
   CM modCM( 2, NTE );
   modCM.options.BOUNDER_TYPE = CM::Options::LSB;//NAIVE;//LSB;
@@ -299,40 +329,97 @@ int main()
     F = myfunc( X, Y );
   std::cout << "\nChebyshev model (dense implementation):" << (mc::userclock()-tStart)/(double)NREP << " CPU-sec\n";
  }
+#endif
  {
-  SCM modSCM( NTE );
-  modSCM.options.REMEZ_USE = true;//false;
-  modSCM.options.BOUNDER_TYPE = SCM::Options::LSB; //NAIVE;
-  modSCM.options.MIXED_IA = false;//true;//false;
+  try{ 
+    SCM modSCM( NTE );
+    modSCM.options.REMEZ_USE = true;//false;
+    modSCM.options.BOUNDER_TYPE = SCM::Options::LSB; //NAIVE;
+    modSCM.options.MIXED_IA = false;//true;//false;
 
-  SCV X( &modSCM, 0, I(XL,XU) );
-  SCV Y( &modSCM, 1, I(YL,YU) );
-  SCV F = myfunc( X, Y );
-  std::cout << F;
-  double tStart = mc::userclock();
-  for( unsigned i=0; i<NREP; i++ )
-    F = myfunc( X, Y );
-  std::cout << "\nChebyshev model (sparse implementation):" << (mc::userclock()-tStart)/(double)NREP << " CPU-sec\n";
+#ifdef USE_DAG
+    // Construct DAG representation of the factorable function
+    FFGraph DAG;
+    FFVar X( &DAG );
+    FFVar Y( &DAG );
+    FFVar F = myfunc( X, Y );
+    auto GF = DAG.subgraph( 1, &F );
+#endif
+
+    // Calculate polynomial inclusions
+    double tStart = mc::userclock();
+#ifdef USE_DAG
+    SCV CX( &modSCM, &X, I(XL,XU) );
+    SCV CY( &modSCM, &Y, I(YL,YU) );
+    SCV CF;
+    for( unsigned i=0; i<NREP; i++ )
+      DAG.eval( GF, 1, &F, &CF, 1, &X, &CX, 1, &Y, &CY );
+#else
+    SCV CX( &modSCM, 0, I(XL,XU) );
+    SCV CY( &modSCM, 1, I(YL,YU) );
+    SCV CF;
+    for( unsigned i=0; i<NREP; i++ )
+      CF = myfunc( CX, CY );
+#endif
+    std::cout << "\nChebyshev model (sparse implementation):" << (mc::userclock()-tStart)/(double)NREP << " CPU-sec\n";
+    std::cout << CF;
 
 #ifdef SAVE_RESULTS
-  ofstream res( "SCM-2D.out", ios_base::out );
-  res << std::scientific << std::setprecision(5) << std::right;
-  // Repeated calculations at grid points (for display)
-  for( int iX=0; iX<NX; iX++ ){ 
-    for( int iY=0; iY<NY; iY++ ){ 
-      double DXY[2] = { XL+iX*(XU-XL)/(NX-1.), YL+iY*(YU-YL)/(NY-1.) };
-      double DF = myfunc( DXY[0], DXY[1] );
-      double PF = F.P( DXY );
-      I IF = PF + F.R();
-      res << std::setw(14) << DXY[0] << std::setw(14) << DXY[1]
-          << std::setw(14) << DF << std::setw(14) << PF
-          << std::setw(14) << Op<I>::l(IF) << std::setw(14) << Op<I>::u(IF)
-          << std::endl;
+    ofstream res( "SCM-2D.out", ios_base::out );
+    res << std::scientific << std::setprecision(5) << std::right;
+    // Repeated calculations at grid points (for display)
+    for( int iX=0; iX<NX; iX++ ){ 
+      for( int iY=0; iY<NY; iY++ ){ 
+#ifdef USE_DAG
+        map<FFVar*,double,lt_FFVar> DXY = { { &X, XL+iX*(XU-XL)/(NX-1.) }, { &Y, YL+iY*(YU-YL)/(NY-1.) } };
+        double DF;
+        DAG.eval( GF, 1, &F, &DF, 1, &X, &DXY[&X], 1, &Y, &DXY[&Y] );
+#else
+        map<unsigned,double> DXY = { { 0, XL+iX*(XU-XL)/(NX-1.) }, { 1, YL+iY*(YU-YL)/(NY-1.) } };
+        double DF = myfunc( DXY[0], DXY[1] );
+#endif
+        double PF = CF.P( DXY );
+        I IF = PF + CF.R();
+#ifdef USE_DAG
+        res << std::setw(14) << DXY[&X] << std::setw(14) << DXY[&Y]
+#else
+        res << std::setw(14) << DXY[0] << std::setw(14) << DXY[1]
+#endif
+            << std::setw(14) << DF << std::setw(14) << PF
+            << std::setw(14) << Op<I>::l(IF) << std::setw(14) << Op<I>::u(IF)
+            << std::endl;
+      }
+      res << endl;
     }
-    res << endl;
+#endif
+  }
+#if !defined(MC__USE_PROFIL) && !defined(MC__USE_FILIB) && !defined(MC__USE_BOOST)
+  catch( I::Exceptions &eObj ){
+    cerr << "Error " << eObj.ierr()
+         << " in natural interval extension:" << endl
+	 << eObj.what() << endl
+         << "Aborts." << endl;
+    return eObj.ierr();
+  }
+#endif
+  catch( SCM::Exceptions &eObj ){
+    cerr << "Error " << eObj.ierr()
+         << " in sparse Chebyshev arithmetic:" << endl
+	 << eObj.what() << endl
+         << "Aborts." << endl;
+    return eObj.ierr();
+  }
+#ifdef USE_DAG
+  catch( FFGraph::Exceptions &eObj ){
+    cerr << "Error " << eObj.ierr()
+         << " in DAG evaluation:" << endl
+	 << eObj.what() << endl
+         << "Aborts." << endl;
+    return eObj.ierr();
   }
 #endif
  }
+#if 0
  {
   SICM modSICM( NTE );
   
@@ -370,6 +457,7 @@ int main()
   }
 #endif
  }
+#endif
 
   return 0;
 } 
