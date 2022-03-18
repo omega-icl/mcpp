@@ -1,7 +1,7 @@
-#define TEST_EXP1            // <-- select test function here
-#define USE_DAG              // <-- specify to evaluate via a DAG of the function
+#define TEST_INV2            // <-- select test function here
+#undef  USE_DAG              // <-- specify to evaluate via a DAG of the function
 #define SAVE_RESULTS         // <-- specify whether to save results to file
-const int NTE = 4;           // <-- select expansion order here
+const int NTE = 5;           // <-- select expansion order here
 const int NX = 25;	         // <-- select X discretization here
 const int NY = 25;	         // <-- select Y discretization here
 const unsigned NREP = 1;  // <-- select repetition for acurate timing 
@@ -39,9 +39,9 @@ const unsigned NREP = 1;  // <-- select repetition for acurate timing
 #endif
 
 
-//#include "cmodel.hpp"
-//typedef mc::CModel<I> CM;
-//typedef mc::CVar<I> CV;
+#include "cmodel.hpp"
+typedef mc::CModel<I> CM;
+typedef mc::CVar<I> CV;
 
 #include "scmodel.hpp"
 #ifdef USE_DAG
@@ -314,11 +314,11 @@ int main()
  #endif
 #endif
 
-#if 0
+//#if 0
  {
   CM modCM( 2, NTE );
   modCM.options.BOUNDER_TYPE = CM::Options::LSB;//NAIVE;//LSB;
-  modCM.options.MIXED_IA = true;//false;
+  modCM.options.MIXED_IA = false;//true;//false;
 
   CV X( &modCM, 0, I(XL,XU) );
   CV Y( &modCM, 1, I(YL,YU) );
@@ -329,13 +329,15 @@ int main()
     F = myfunc( X, Y );
   std::cout << "\nChebyshev model (dense implementation):" << (mc::userclock()-tStart)/(double)NREP << " CPU-sec\n";
  }
-#endif
+//#endif
  {
   try{ 
     SCM modSCM( NTE );
-    modSCM.options.REMEZ_USE = true;//false;
+    modSCM.options.REMEZ_USE    = true;//false;
     modSCM.options.BOUNDER_TYPE = SCM::Options::LSB; //NAIVE;
-    modSCM.options.MIXED_IA = false;//true;//false;
+    modSCM.options.MIXED_IA     = false;//true;//false;
+    modSCM.options.LIFT_REM     = false;//true;//false;
+    modSCM.options.MIN_FACTOR   = 1e-10;
 
 #ifdef USE_DAG
     // Construct DAG representation of the factorable function
@@ -351,18 +353,27 @@ int main()
 #ifdef USE_DAG
     SCV CX( &modSCM, &X, I(XL,XU) );
     SCV CY( &modSCM, &Y, I(YL,YU) );
+    //modSCM.append_aux();
+    //for( auto const& aux : modSCM.setaux() ) std::cout << "AUX: " << *aux << std::endl;
+    //for( auto const& var : modSCM.setvar() ) std::cout << "VAR: " << *var << std::endl;
     SCV CF;
     for( unsigned i=0; i<NREP; i++ )
       DAG.eval( GF, 1, &F, &CF, 1, &X, &CX, 1, &Y, &CY );
+    //modSCM.reset_aux();
 #else
     SCV CX( &modSCM, 0, I(XL,XU) );
     SCV CY( &modSCM, 1, I(YL,YU) );
+    //modSCM.append_aux();
+    //for( auto const& aux : modSCM.setaux() ) std::cout << "AUX: " << aux << std::endl;
+    //for( auto const& var : modSCM.setvar() ) std::cout << "VAR: " << var << std::endl;
     SCV CF;
     for( unsigned i=0; i<NREP; i++ )
       CF = myfunc( CX, CY );
+    //modSCM.reset_aux();
 #endif
     std::cout << "\nChebyshev model (sparse implementation):" << (mc::userclock()-tStart)/(double)NREP << " CPU-sec\n";
     std::cout << CF;
+    //std::cout << CF.project();
 
 #ifdef SAVE_RESULTS
     ofstream res( "SCM-2D.out", ios_base::out );

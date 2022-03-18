@@ -273,14 +273,17 @@ public:
   typedef lt_SMon<COMP> lt_mon;
   typedef std::map< t_mon, double, lt_mon > t_poly;
   typedef std::set< KEY, COMP > t_var;
-  
+
 protected:
 
   //! @brief Max order of polynomial model
   unsigned _maxord;
 
-  //! @brief Set of particpating variable indices
+  //! @brief Set of participating variables
   t_var _setvar;
+
+  //! @brief Set of auxiliary (lifted) variables
+  t_var _setaux;
 
   //! @brief Bounds on model variables
   std::map<KEY,T,COMP> _bndvar;
@@ -310,6 +313,28 @@ protected:
     { _coefuniv.resize( _maxord + options.INTERP_EXTRA + 1 );
       return _coefuniv; }
 
+  //! @brief Overloads returning a pointer of a new KEY
+  template<typename K>
+  static K* _newaux
+   ( K* dum, int ndx )
+   { return new K( ndx ); }
+   //{ K* aux = new K( ndx ); std::cout << "AUX: " << aux << std::endl; return aux; }
+  template<typename K>
+  static K _newaux
+   ( K& dum, int ndx )
+   { return K( ndx ); }
+
+  //! @brief Overloads deleting a KEY
+  template<typename K>
+  static void _delaux
+   ( K* aux )
+   { delete aux; }
+   //{ std::cout << "AUX: " << aux << std::endl; delete aux; }
+  template<typename K>
+  static void _delaux
+   ( K& aux )
+   {}
+
 public:
   /** @addtogroup SCHEBYSHEV Sparse Chebyshev Model Arithmetic for Factorable Functions
    *  @{
@@ -322,7 +347,15 @@ public:
 
   //! @brief Destructor of Sparse Chebyshev model environment
   ~SCModel()
-    {}
+    { reset_aux(); }
+
+  //! @brief Append new auxiliary variable and return a reference
+   KEY const& append_aux
+     ();
+
+  //! @brief Maximal order of polynomial model
+  void reset_aux
+    ();
 
   //! @brief Maximal order of polynomial model
   unsigned maxord
@@ -330,7 +363,13 @@ public:
     const
     { return _maxord; };
 
-  //! @brief Const reference to reference points for the model variables
+  //! @brief Const reference to auxiliary variables
+  t_var const& setaux
+    ()
+    const
+    { return _setaux; }
+
+  //! @brief Const reference to model variables
   t_var const& setvar
     ()
     const
@@ -438,6 +477,7 @@ public:
     //! @brief Constructor of mc::SCModel::Options
     Options():
       BASIS(CHEB),
+      LIFT_REM(false),
       REMEZ_USE(true), REMEZ_MAXIT(10), REMEZ_TOL(1e-5), REMEZ_MIG(1e-10),
       INTERP_EXTRA(0), INTERP_THRES(1e2*machprec()), BOUNDER_TYPE(LSB),
       MIXED_IA(false), MIN_FACTOR(0.), REF_POLY(0.),
@@ -445,8 +485,9 @@ public:
       {}
     //! @brief Copy constructor of mc::SCModel::Options
     template <typename U> Options
-      ( U&options )
+      ( U const& options )
       : BASIS( options.BASIS ),
+        LIFT_REM( options.LIFT_REM ),
         REMEZ_MAXIT( options.REMEZ_MAXIT ),
         REMEZ_TOL( options.REMEZ_TOL ),
         REMEZ_MIG( options.REMEZ_MIG ),
@@ -461,8 +502,9 @@ public:
       {}
     //! @brief Assignment of mc::SCModel::Options
     template <typename U> Options& operator=
-      ( U&options ){
+      ( U const& options ){
         BASIS            = options.BASIS;
+        LIFT_REM         = options.LIFT_REM;
         REMEZ_USE        = options.REMEZ_USE;
         REMEZ_MAXIT      = options.REMEZ_MAXIT;
         REMEZ_TOL        = options.REMEZ_TOL;
@@ -489,6 +531,8 @@ public:
     };
     //! @brief Basis representation of the monomials
     unsigned BASIS;
+    //! @brief Whether to lift the remainder term in nonlinear operations by introducing auxiliary variables in the model
+    bool LIFT_REM;
     //! @brief Whether to use the Remez algorithm for computing a minimax approximation for univariate terms
     bool REMEZ_USE;
     //! @brief Maximal number of iterations in Remez algorithm for computing a minimax approximation for univariate terms
@@ -603,13 +647,20 @@ private:
   //! @brief Polynomial range bounder - Lin & Stadtherr approach
   template <typename C, typename U> U _polybound_LSB
     ( std::map<t_mon,C,lt_mon> const& coefmon, 
-      std::map<KEY,std::vector<U>,COMP> const& bndbasis ) const;
+      std::map<KEY,std::vector<U>,COMP> const& bndbasis )
+    const;
 
   //! @brief Polynomial range bounder using specified bounder <a>type</a> with basis functions <a>bndbasis</a> in U arithmetic and monomial coefficients <a>coefmon</a> in C arithmetic
   template <typename C, typename U> U _polybound
     ( std::map<t_mon,C,lt_mon> const& coefmon,
       std::map<KEY,std::vector<U>,COMP> const& bndbasis,
-      int const type );
+      int const type )
+    const;
+
+  //! @brief Monomial range bounder for <a>mon</a>
+  T _monbound
+    ( t_mon const& mon )
+    const;
 
   //! @brief Recursive product of univariate Chebyshev polynomials
   void _sprod1D
@@ -1120,6 +1171,14 @@ public:
   double linear
     ( KEY const& id, bool const reset = false );
 
+  //! @brief Lift the model by appending new variable corresponding to the remainder term if magnitude greater than TOL
+  SCVar<T,KEY,COMP>& lift
+    ( SCModel<T,KEY,COMP>* SCM, double const& TOL = 0e0 );
+
+  //! @brief Project the model by removing monimals with auxiliary variables participating
+  SCVar<T,KEY,COMP>& project
+    ( bool const reset=false );
+
   //! @brief Simplify the model by appending coefficient less than TOL as well as terms with order greater than or equal to ORD to the remainder term
   SCVar<T,KEY,COMP>& simplify
     ( double const& TOL = 0e0, int const TORD = -1 );
@@ -1197,12 +1256,14 @@ private:
 
   //! @brief Polynomial range bounder using specified bounder <a>type</a>
   T _polybound
-    ( int const type ) const
+    ( int const type )
+    const
     { return _polybound( std::map<KEY,std::vector<T>,COMP>(), type ); }
 
   //! @brief Polynomial range bounder using default bounder
   T _polybound
-    () const
+    ()
+    const
     { return _polybound( _CM? _CM->options.BOUNDER_TYPE: 0 ); }
 
   //! @brief Scale current variable in order for its range to be within [-1,1], with <a>c</a> and <a>w</a> respectively the center and width, respectively, of the orginal variable range
@@ -1250,6 +1311,38 @@ SCModel<T,KEY,COMP>::_set
   _bndvar[id] = X;
   _refvar[id] = Op<T>::mid(X);
   _scalvar[id] = 0.5*Op<T>::diam(X);
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
+void
+SCModel<T,KEY,COMP>::reset_aux
+()
+{
+  for( auto& aux : _setaux ){
+    _setvar.erase( aux );
+    _bndvar.erase( aux );
+    _refvar.erase( aux );
+    _scalvar.erase( aux );
+    _delaux( aux );
+  }
+  _setaux.clear();
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
+KEY const&
+SCModel<T,KEY,COMP>::append_aux
+()
+{
+  auto dummy = KEY();
+  auto [itaux,ins] = _setaux.insert( _newaux( dummy, 10000+_setaux.size() ) );
+  assert( ins );
+  _setvar.insert( *itaux );
+  _bndvar[*itaux] = TOne;
+  _refvar[*itaux] = 0e0;
+  _scalvar[*itaux] = 1e0;
+  return *itaux;
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -1416,6 +1509,9 @@ bool
 SCModel<T,KEY,COMP>::_minimax
 ( PUNIV const& f, SCVar<T,KEY,COMP> const& CV, SCVar<T,KEY,COMP>& CV2 )
 {
+  auto LIFT_REM_SAVE = options.LIFT_REM;
+  options.LIFT_REM = false;
+
   try{
     double m( Op<SCVar<T,KEY,COMP>>::mid(CV) ), r( 0.5*Op<SCVar<T,KEY,COMP>>::diam(CV) );
     double rem = _minimax( [=]( const double& x ){ return f( r*x + m ); } );
@@ -1432,9 +1528,13 @@ SCModel<T,KEY,COMP>::_minimax
       break;
     }
   }
+
   catch(...){
+    options.LIFT_REM = LIFT_REM_SAVE;
     return false;
   }
+
+  options.LIFT_REM = LIFT_REM_SAVE;
   return true;
 }
 
@@ -1618,6 +1718,9 @@ bool
 SCModel<T,KEY,COMP>::_chebinterp
 ( PUNIV const& f, SCVar<T,KEY,COMP> const& CV, SCVar<T,KEY,COMP>& CV2, bool const rematbound )
 {
+  auto LIFT_REM_SAVE = options.LIFT_REM;
+  options.LIFT_REM = false;
+
   try{
     double m( Op<SCVar<T,KEY,COMP>>::mid(CV) ), r( 0.5*Op<SCVar<T,KEY,COMP>>::diam(CV) ), rem( 0. );
     auto const& fscaled = [=]( const double& x ){ return f( r*x + m ); };
@@ -1641,9 +1744,13 @@ SCModel<T,KEY,COMP>::_chebinterp
     CV2 += TOne * rem;
     CV2._ndxvar = CV._ndxvar;
   }
+
   catch(...){
+    options.LIFT_REM = LIFT_REM_SAVE;
     return false;
   }
+
+  options.LIFT_REM = LIFT_REM_SAVE;
   return true;
 }
 
@@ -2121,12 +2228,29 @@ U
 SCModel<T,KEY,COMP>::_polybound
 ( std::map<t_mon,C,lt_mon> const& coefmon, std::map<KEY,std::vector<U>,COMP> const& bndbasis,
   int const type )
+const
 {
   switch( type ){
   case Options::LSB:
     return _polybound_LSB( coefmon, bndbasis );
   case Options::NAIVE: default:
     return _polybound_naive( coefmon, bndbasis );
+  }
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
+T
+SCModel<T,KEY,COMP>::_monbound
+( t_mon const& mon )
+const
+{
+  if( !mon.tord ) return 1.;
+  switch( options.BASIS ){
+    case Options::CHEB:
+      return TOne;
+    case Options::MONOM: default:
+      return (mon.gcexp()%2? TOne: TZerOne);
   }
 }
 
@@ -2692,20 +2816,70 @@ const
 template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>&
+SCVar<T,KEY,COMP>::lift
+( SCModel<T,KEY,COMP>* SCM, double const& TOL )
+{
+  double const remrad = 0.5*Op<T>::diam(_bndrem);
+  if( !_CM->_maxord || remrad < TOL + machprec() ) return *this;
+  _center();
+
+  // Add auxiliary variable
+  KEY const& id = SCM->append_aux();
+  _ndxvar.insert( id );
+  _coefmon.insert( std::make_pair( t_mon( id ), remrad ) );
+  _bndrem = 0.;
+  if( _bndpol ) *_bndpol += remrad * SCModel<T,KEY,COMP>::TOne;
+  return *this;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
+SCVar<T,KEY,COMP>&
+SCVar<T,KEY,COMP>::project
+( bool const reset )
+{
+  if( _coefmon.empty() || !_CM || _CM->_setaux.empty() ) return *this;
+  for( auto it=_coefmon.begin(); it!=_coefmon.end(); ){
+    // Detect auxiliary variable in monomial
+    auto const& [mon,coef] = *it;
+    bool auxdep = false;
+    for( auto const& aux : _CM->_setaux ){
+      if( mon.expr.find( aux ) != mon.expr.end() ){
+        auxdep = true;
+        break;
+      }
+    }
+    // Add to remainder any monomial with auxiliary variable
+    if( auxdep ){
+      _bndrem += coef * _CM->_monbound( mon );
+      _unset_bndpol();
+      it = _coefmon.erase( it );
+      continue;
+    }
+    ++it; // only increment if current monomial was not projected
+  }
+  if( reset ) _CM->reset_aux();
+  return *this;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
+SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::simplify
 ( double const& TOL, int const TORD )
 {
   if( _coefmon.empty() ) return *this;
   for( auto it=_coefmon.begin(); it!=_coefmon.end(); ){
+    auto const& [mon,coef] = *it;
     // Eliminate any terms with zero coefficient
-    if( it->second == 0e0 ){
+    if( coef == 0e0 ){
       it = _coefmon.erase( it );
       continue;
     }
     // Eliminate any non-constant terms with small enough coefficient or large enough total order
-    if( ( TOL > 0e0 && it->first.tord && std::fabs(it->second) <= TOL )
-     || ( TORD >= 0 && (int)it->first.tord > TORD ) ){
-      _bndrem += it->second * SCModel<T,KEY,COMP>::TOne;
+    if( ( TOL > 0e0 && mon.tord && std::fabs(coef) <= TOL )
+     || ( TORD >= 0 && (int)mon.tord > TORD ) ){
+      _bndrem += coef * _CM->_monbound( mon );
       _unset_bndpol();
       it = _coefmon.erase( it );
       continue;
@@ -3240,6 +3414,7 @@ SCVar<T,KEY,COMP>::operator*=
   if( _bndT && CV._bndT ) *_bndT *= *CV._bndT;
   else _unset_bndT();
   if( _CM && _CM->options.MIN_FACTOR >= 0. ) simplify( _CM->options.MIN_FACTOR );
+  if( _CM->options.LIFT_REM ) lift( _CM, _CM->options.MIN_FACTOR );
 
 #ifdef MC__SCMODEL_DEBUG_SPROD
   std::cout << "Product model:" << *this;
@@ -3455,6 +3630,7 @@ inv
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::inv( CV.B() ) );
   if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
   return CV2;
 }
 
@@ -3479,6 +3655,7 @@ sqrt
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sqrt( CV.B() ) );
   if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
   return CV2;
 }
 
@@ -3499,8 +3676,10 @@ exp
      && !CV._CM->_chebinterp( f, CV, CV2, true ) ) // with remainder at bound
     throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
+
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::exp( CV.B() ) );
   if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
   return CV2;
 }
 
@@ -3525,6 +3704,7 @@ log
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::log( CV.B() ) );
   if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
   return CV2;
 }
 
@@ -3553,6 +3733,7 @@ xlog
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::xlog( CV.B() ) );
   if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
   return CV2;
 }
 
@@ -3570,6 +3751,7 @@ pow
   
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::pow( CV.B(), n ) );
   if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
   return CV2;
 }
 
@@ -3598,6 +3780,7 @@ pow
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::pow( CV.B(), a ) );
   if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
   return CV2;
 }
 
@@ -3660,6 +3843,7 @@ cheb
   
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::cheb( CV.B(), n ) );
   if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
   return CV2;
 }
 
@@ -3683,6 +3867,7 @@ cos
   CV2._ndxvar = CV._ndxvar;
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::cos( CV.B() ) );
   if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
   return CV2;
 }
 
@@ -3710,6 +3895,7 @@ sin
   CV2._ndxvar = CV._ndxvar;
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sin( CV.B() ) );
   if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
   return CV2;
 }
 
@@ -3738,6 +3924,7 @@ tan
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::tan( CV.B() ) );
   if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
   return CV2;
 }
 
@@ -3762,6 +3949,7 @@ acos
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::acos( CV.B() ) );
   if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
   return CV2;
 }
 
@@ -3790,6 +3978,7 @@ asin
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::asin( CV.B() ) );
   if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
   return CV2;
 }
 
@@ -3816,6 +4005,7 @@ atan
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::atan( CV.B() ) );
   if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
   return CV2;
 }
 
@@ -3842,6 +4032,7 @@ cosh
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::cosh( CV.B() ) );
   if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
   return CV2;
 }
 
@@ -3868,6 +4059,7 @@ sinh
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sinh( CV.B() ) );
   if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
   return CV2;
 }
 
@@ -3894,6 +4086,7 @@ tanh
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::tanh( CV.B() ) );
   if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
   return CV2;
 }
 
@@ -3926,6 +4119,7 @@ fabs
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::fabs( CV.B() ) );
   if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
   return CV2;
 }
 
@@ -3957,13 +4151,18 @@ hull
     throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::SCMODEL );
 
   // Perform union
-  SCVar<T,KEY,COMP> CV1C( CV1 ), CV2C( CV2 );
+  SCVar<T,KEY,COMP> CV1C( CV1 ), CV2C( CV2 ), CVR( CV1._CM );;
   double const eta = CV1._CM->options.REF_POLY;
   T R1C = CV1C.C().R(), R2C = CV2C.C().R(); 
   CV1C.set(T(0.));
   CV2C.set(T(0.));
   T BCVD = (CV1C-CV2C).B();
-  return (1.-eta)*CV1C + eta*CV2C + Op<T>::hull( R1C+eta*BCVD, R2C+(eta-1.)*BCVD );
+  CVR = (1.-eta)*CV1C + eta*CV2C + Op<T>::hull( R1C+eta*BCVD, R2C+(eta-1.)*BCVD );
+
+  if( CV1._CM->options.MIXED_IA ) CVR._set_bndT( Op<T>::hull( CV1.B(), CV2.B() ) );
+  if( CV1._CM->options.MIN_FACTOR >= 0. ) CV1.simplify( CV1._CM->options.MIN_FACTOR );
+  if( CV1._CM->options.LIFT_REM ) CVR.lift( CV1._CM, CV1._CM->options.MIN_FACTOR );
+  return CVR;
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -4027,9 +4226,10 @@ inter
     return false;
   CVR._center();
 
-  if( CVR._CM->options.MIXED_IA ) CVR._set_bndT( BR );
-  else CVR._unset_bndT();
-  if( CVR._CM->options.MIN_FACTOR >= 0. ) CVR.simplify( CVR._CM->options.MIN_FACTOR );
+  if( CV1._CM->options.MIXED_IA ) CVR._set_bndT( BR );
+  else                            CVR._unset_bndT();
+  if( CV1._CM->options.MIN_FACTOR >= 0. ) CVR.simplify( CV1._CM->options.MIN_FACTOR );
+  if( CV1._CM->options.LIFT_REM ) CVR.lift( CV1._CM, CV1._CM->options.MIN_FACTOR );
   return true;
 }
 
