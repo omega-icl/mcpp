@@ -173,6 +173,10 @@ class ISModel
     ( ISVar<U> const& );
   template <typename U> friend ISVar<U> sqrt
     ( ISVar<U> && );
+  template <typename U> friend ISVar<U> abs
+    ( ISVar<U> const& );
+  template <typename U> friend ISVar<U> abs
+    ( ISVar<U> && );  
   template <typename U> friend ISVar<U> exp
     ( ISVar<U> const& );
   template <typename U> friend ISVar<U> exp
@@ -380,7 +384,9 @@ class ISModel
   void _logAs
   ( std::vector<std::vector<T>>& mat, unsigned const& ndep )
   const;
-  
+  void _absAs
+  ( std::vector<std::vector<T>>& mat, unsigned const& ndep )
+  const;
   // @unsure: the algorithm for computing asymmetric over-/under-estimators is applicable for sin and cos 
   // when they are concave or convex on the range of the input ISM  
 
@@ -816,13 +822,10 @@ const
       if( mat[i].empty() ) continue;
       _c1[i] = 0.5*( _U1[i] + _L1[i] ) ; 
       _r1[i] =     ( _U1[i] - _L1[i] ) ; 
-      w += _c1[i];
+      w += _c1[i];    // Here w is the central point \omega rather than the anchor point w
       s += _r1[i];
     }
 
-    double _gw ( 0. );
-    double _gw_over_ndep ( 0. );
-    
     
     for( unsigned int i=0; i<_nvar; i++ ){
       if( mat[i].empty() ) continue;   
@@ -836,7 +839,7 @@ const
           double _Du( 0. ), _El( 0. );
 
           // Over-estimator - @Brief: g( (mat[i][j].u-_c1[i])/_ti + omega ) =  g( (mat[i][j].u-_L1[i])/_ti + w )
-          _Du = _ti * ( std::pow(( (mat[i][j].u()-_c1[i])/_ti + w),2) );
+          _Du = _ti * std::max( std::pow(( (mat[i][j].u()-_c1[i])/_ti + w),2),std::pow(( (mat[i][j].l()-_c1[i])/_ti + w),2) );
       
           // Under-estimator
           _El =        0.;
@@ -1195,6 +1198,80 @@ const
   }
 }
 
+
+template <typename T>
+inline
+void ISModel<T>::_absAs
+( std::vector<std::vector<T>>& mat, unsigned const& ndep )
+const
+{
+  assert( !mat.empty() );
+
+  T bnd = _B( mat, 1 );
+  double L( Op<T>::l(bnd) ), U( Op<T>::u(bnd) );
+  
+  // constant terms and anchor points
+  double _inv_ndep ( 1. / ndep );
+  double _EPS_IEEE754 = 0.0000000000001;//1e10-13
+  double w( 0. ), s( 0. );   // w = \lambda(A), s = ( \sum_{i=1}^n \Delta_i )
+  
+  if (U<=0){
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;   
+      for( unsigned int j=0; j<_ndiv; j++ ) mat[i][j] = T(-mat[i][j].u(),-mat[i][j].l());  // Interval matrix coefficients
+    }
+
+  }
+  
+
+  else if(L>=0){
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;   
+      for( unsigned int j=0; j<_ndiv; j++ ) mat[i][j] = T(mat[i][j].l(),mat[i][j].u());  // Interval matrix coefficients
+    }
+         
+  }
+   
+  else{ // When 0 \in [\lambda(A), \mu(A)]
+
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;
+      _c1[i] = 0.5*( _U1[i] + _L1[i] ) ; 
+      _r1[i] =     ( _U1[i] - _L1[i] ) ; 
+      w += _c1[i];
+      s += _r1[i];
+    }
+    
+    
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;   
+      if( _r1[i]<=_EPS_IEEE754 ){
+        for( unsigned int j=0; j<_ndiv; j++ ) mat[i][j] = T(0.,0.);  // Interval matrix coefficients
+      }
+      else{
+        // @Brief: the factor \frac{(\Delta_i)}{\sum_{i=1}^n \Delta_i}
+        double _ti ( _r1[i]/s ); 
+        for( unsigned int j=0; j<_ndiv; j++ ){
+          double _Du( 0. ), _El( 0. );
+
+          // Over-estimator - @Brief: g( (mat[i][j].u-_c1[i])/_ti + omega ) =  g( (mat[i][j].u-_L1[i])/_ti + w )
+          _Du = _ti * std::max( std::abs(( mat[i][j].u()-_c1[i])/_ti + w), std::abs(( mat[i][j].l()-_c1[i])/_ti + w));
+      
+          // Under-estimator
+          _El =        0.;
+
+          // Interval matrix coefficients
+          mat[i][j] = T(_El,_Du);
+        }  
+      }
+    }
+
+  }
+
+
+}
+
+
 template <typename T>
 inline
 void ISModel<T>::_prod
@@ -1341,6 +1418,10 @@ class ISVar
     ( ISVar<U> const& );
   template <typename U> friend ISVar<U> sqrt
     ( ISVar<U> && );
+  template <typename U> friend ISVar<U> abs
+    ( ISVar<U> const& );
+  template <typename U> friend ISVar<U> abs
+    ( ISVar<U> && );  
   template <typename U> friend ISVar<U> exp
     ( ISVar<U> const& );
   template <typename U> friend ISVar<U> exp
@@ -2047,18 +2128,45 @@ ISVar<T> sqr
 
 template <typename T>
 inline
+ISVar<T> abs
+( ISVar<T> const& var )
+{
+  if( !var._mod )
+    return std::abs(var._cst);
+
+  ISVar<T> var2( var );
+  var2._mod->_absAs( var2._mat, var2._ndep );
+  var2._bnd.second = false;
+  return var2;
+}
+
+template <typename T>
+inline
+ISVar<T> abs
+( ISVar<T> && var )
+{
+  if( !var._mod )
+    return std::abs(var._cst);
+
+  var._mod->_absAs( var._mat, var._ndep );
+  var._bnd.second = false;
+  return var;
+}
+
+template <typename T>
+inline
 ISVar<T> sqrt
 ( ISVar<T> const& var )
 {
-  return exp( 0.5 * log( var ) );
+  //return exp( 0.5 * log( var ) );
 
-//  if( !var._mod )
-//    return std::sqrt(var._cst);
+  if( !var._mod )
+    return std::sqrt(var._cst);
 
-//  ISVar<T> var2( var );
-//  var2._mod->_sqrtAs( var2._mat, var2._ndep );
-//  var2._bnd.second = false;
-//  return var2;
+  ISVar<T> var2( var );
+  var2._mod->_sqrtAs( var2._mat, var2._ndep );
+  var2._bnd.second = false;
+  return var2;
 }
 
 template <typename T>
@@ -2066,14 +2174,14 @@ inline
 ISVar<T> sqrt
 ( ISVar<T> && var )
 {
-  return exp( 0.5 * log( var ) );
+  //return exp( 0.5 * log( var ) );
   
-//  if( !var._mod )
-//    return std::sqrt(var._cst);
+  if( !var._mod )
+    return std::sqrt(var._cst);
 
-//  var._mod->_sqrtAs( var._mat, var._ndep );
-//  var._bnd.second = false;
-//  return var;
+  var._mod->_sqrtAs( var._mat, var._ndep );
+  var._bnd.second = false;
+  return var;
 }
 
 template <typename T>
