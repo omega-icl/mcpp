@@ -173,10 +173,14 @@ class ISModel
     ( ISVar<U> const& );
   template <typename U> friend ISVar<U> sqrt
     ( ISVar<U> && );
-  template <typename U> friend ISVar<U> abs
+  template <typename U> friend ISVar<U> fabs
     ( ISVar<U> const& );
-  template <typename U> friend ISVar<U> abs
+  template <typename U> friend ISVar<U> fabs
     ( ISVar<U> && );  
+  template <typename U> friend ISVar<U> ReLU
+    ( ISVar<U> const& );
+  template <typename U> friend ISVar<U> ReLU
+    ( ISVar<U> && );    
   template <typename U> friend ISVar<U> exp
     ( ISVar<U> const& );
   template <typename U> friend ISVar<U> exp
@@ -384,7 +388,10 @@ class ISModel
   void _logAs
   ( std::vector<std::vector<T>>& mat, unsigned const& ndep )
   const;
-  void _absAs
+  void _fabsAs
+  ( std::vector<std::vector<T>>& mat, unsigned const& ndep )
+  const;
+    void _ReLUAs
   ( std::vector<std::vector<T>>& mat, unsigned const& ndep )
   const;
   // @unsure: the algorithm for computing asymmetric over-/under-estimators is applicable for sin and cos 
@@ -1201,7 +1208,7 @@ const
 
 template <typename T>
 inline
-void ISModel<T>::_absAs
+void ISModel<T>::_fabsAs
 ( std::vector<std::vector<T>>& mat, unsigned const& ndep )
 const
 {
@@ -1211,7 +1218,6 @@ const
   double L( Op<T>::l(bnd) ), U( Op<T>::u(bnd) );
   
   // constant terms and anchor points
-  double _inv_ndep ( 1. / ndep );
   double _EPS_IEEE754 = 0.0000000000001;//1e10-13
   double w( 0. ), s( 0. );   // w = \lambda(A), s = ( \sum_{i=1}^n \Delta_i )
   
@@ -1255,7 +1261,78 @@ const
           double _Du( 0. ), _El( 0. );
 
           // Over-estimator - @Brief: g( (mat[i][j].u-_c1[i])/_ti + omega ) =  g( (mat[i][j].u-_L1[i])/_ti + w )
-          _Du = _ti * std::max( std::abs(( mat[i][j].u()-_c1[i])/_ti + w), std::abs(( mat[i][j].l()-_c1[i])/_ti + w));
+          _Du = _ti * std::max( std::fabs(( mat[i][j].u()-_c1[i])/_ti + w), std::fabs(( mat[i][j].l()-_c1[i])/_ti + w));
+      
+          // Under-estimator
+          _El =        0.;
+
+          // Interval matrix coefficients
+          mat[i][j] = T(_El,_Du);
+        }  
+      }
+    }
+
+  }
+
+}
+
+
+template <typename T>
+inline
+void ISModel<T>::_ReLUAs
+( std::vector<std::vector<T>>& mat, unsigned const& ndep )
+const
+{
+  assert( !mat.empty() );
+
+  T bnd = _B( mat, 1 );
+  double L( Op<T>::l(bnd) ), U( Op<T>::u(bnd) );
+  
+  // constant terms and anchor points
+  double _EPS_IEEE754 = 0.0000000000001;//1e10-13
+  double w( 0. ), s( 0. );   // w = \lambda(A), s = ( \sum_{i=1}^n \Delta_i )
+  
+  if (U<=0){
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;   
+      for( unsigned int j=0; j<_ndiv; j++ ) mat[i][j] = T(0.,0.);  // Interval matrix coefficients
+    }
+
+  }
+  
+
+  else if(L>=0){
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;   
+      for( unsigned int j=0; j<_ndiv; j++ ) mat[i][j] = T(mat[i][j].l(),mat[i][j].u());  // Interval matrix coefficients
+    }
+         
+  }
+   
+  else{ // When 0 \in [\lambda(A), \mu(A)]
+
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;
+      _c1[i] = 0.5*( _U1[i] + _L1[i] ) ; 
+      _r1[i] =     ( _U1[i] - _L1[i] ) ; 
+      w += _c1[i];
+      s += _r1[i];
+    }
+    
+    
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;   
+      if( _r1[i]<=_EPS_IEEE754 ){
+        for( unsigned int j=0; j<_ndiv; j++ ) mat[i][j] = T(0.,0.);  // Interval matrix coefficients
+      }
+      else{
+        // @Brief: the factor \frac{(\Delta_i)}{\sum_{i=1}^n \Delta_i}
+        double _ti ( _r1[i]/s ); 
+        for( unsigned int j=0; j<_ndiv; j++ ){
+          double _Du( 0. ), _El( 0. );
+
+          // Over-estimator - @Brief: g( (mat[i][j].u-_c1[i])/_ti + omega ) =  g( (mat[i][j].u-_L1[i])/_ti + w )
+          _Du = _ti * std::max((( mat[i][j].u()-_c1[i])/_ti + w),0.);
       
           // Under-estimator
           _El =        0.;
@@ -1418,10 +1495,14 @@ class ISVar
     ( ISVar<U> const& );
   template <typename U> friend ISVar<U> sqrt
     ( ISVar<U> && );
-  template <typename U> friend ISVar<U> abs
+  template <typename U> friend ISVar<U> fabs
     ( ISVar<U> const& );
-  template <typename U> friend ISVar<U> abs
+  template <typename U> friend ISVar<U> fabs
     ( ISVar<U> && );  
+  template <typename U> friend ISVar<U> ReLU
+    ( ISVar<U> const& );
+  template <typename U> friend ISVar<U> ReLU
+    ( ISVar<U> && );    
   template <typename U> friend ISVar<U> exp
     ( ISVar<U> const& );
   template <typename U> friend ISVar<U> exp
@@ -2128,27 +2209,54 @@ ISVar<T> sqr
 
 template <typename T>
 inline
-ISVar<T> abs
+ISVar<T> fabs
 ( ISVar<T> const& var )
 {
   if( !var._mod )
-    return std::abs(var._cst);
+    return std::fabs(var._cst);
 
   ISVar<T> var2( var );
-  var2._mod->_absAs( var2._mat, var2._ndep );
+  var2._mod->_fabsAs( var2._mat, var2._ndep );
   var2._bnd.second = false;
   return var2;
 }
 
 template <typename T>
 inline
-ISVar<T> abs
+ISVar<T> fabs
 ( ISVar<T> && var )
 {
   if( !var._mod )
-    return std::abs(var._cst);
+    return std::fabs(var._cst);
 
-  var._mod->_absAs( var._mat, var._ndep );
+  var._mod->_fabsAs( var._mat, var._ndep );
+  var._bnd.second = false;
+  return var;
+}
+
+template <typename T>
+inline
+ISVar<T> ReLU
+( ISVar<T> const& var )
+{
+  if( !var._mod )
+    return std::max(var._cst,0.);
+
+  ISVar<T> var2( var );
+  var2._mod->_ReLUAs( var2._mat, var2._ndep );
+  var2._bnd.second = false;
+  return var2;
+}
+
+template <typename T>
+inline
+ISVar<T> ReLU
+( ISVar<T> && var )
+{
+  if( !var._mod )
+    return std::max(var._cst,0.);
+
+  var._mod->_ReLUAs( var._mat, var._ndep );
   var._bnd.second = false;
   return var;
 }
