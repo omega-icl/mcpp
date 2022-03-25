@@ -363,6 +363,44 @@ class ISModel
     std::vector<std::vector<T>>& mat3, unsigned& ndep3 )
   const;
 
+  // @brief: 'As' stands for asymmetry, as the algorithm constructs superposition over-/under-estimators in different form. 
+
+  void _invAs
+  ( std::vector<std::vector<T>>& mat, unsigned const& ndep )
+  const;
+  void _sqrAs
+  ( std::vector<std::vector<T>>& mat, unsigned const& ndep )
+  const;
+  void _sqrtAs
+  ( std::vector<std::vector<T>>& mat, unsigned const& ndep )
+  const;
+  void _expAs
+  ( std::vector<std::vector<T>>& mat, unsigned const& ndep )
+  const;
+  void _logAs
+  ( std::vector<std::vector<T>>& mat, unsigned const& ndep )
+  const;
+  
+  // @unsure: the algorithm for computing asymmetric over-/under-estimators is applicable for sin and cos 
+  // when they are concave or convex on the range of the input ISM  
+
+
+  // @unsure: there is a similar algorithm which can refining the multiplicative result, 
+  // by bounding x_iy_j+x_jy_i in 0.5*(x_i^2+y_i^2)*[-1,1] + 0.5*(x_j^2+y_j^2)*[-1,1]
+  
+  /*
+  void _sinAs
+  ( std::vector<std::vector<T>>& mat, unsigned const& ndep )
+  const;
+  void _cosAs
+  ( std::vector<std::vector<T>>& mat, unsigned const& ndep )
+  const;
+  void _prodAs
+  ( std::vector<std::vector<T>> const& mat1, std::vector<std::vector<T>> const& mat2,
+    std::vector<std::vector<T>>& mat3, unsigned& ndep3 )
+  const;
+  */
+
   std::ostream& _dispvar
   ( std::vector<std::vector<T>> const& mat, unsigned const& ndep, const int& opt=0,
     std::ostream& out=std::cout )
@@ -551,6 +589,104 @@ const
 
 template <typename T>
 inline
+void ISModel<T>::_invAs
+( std::vector<std::vector<T>>& mat, unsigned const& ndep )
+const
+{
+  assert( !mat.empty() );
+
+  // Bounds
+  T bnd = _B( mat, 1 );
+  double L( Op<T>::l(bnd) ), U( Op<T>::u(bnd) );
+  if ( L*U <= 0. )
+    throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::INV );
+
+  // constant terms and anchor points
+  double _inv_ndep ( 1. / ndep );
+  double _EPS_IEEE754 = 0.0000000000001;//1e10-13
+  double w( 0. ), s( 0. );   // w = \lambda(A), s = ( \sum_{i=1}^n \Delta_i )
+  
+  if (L>0){
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;
+      w += _U1[i];
+      _r1[i] = ( _U1[i] - _L1[i] ) ; // here r1[i] is not radius but the diameter
+      s += _r1[i];
+    }
+
+    double _gw (1. / w );
+    double _gw_over_ndep ( _gw * _inv_ndep );
+
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;   
+      if( _r1[i]<=_EPS_IEEE754 ){
+        for( unsigned int j=0; j<_ndiv; j++ ) mat[i][j] = T(_gw_over_ndep,_gw_over_ndep);  // Interval matrix coefficients
+      }
+      else{
+        // @Brief: the factor \frac{(\Delta_i)}{\sum_{i=1}^n \Delta_i}
+        double _ti ( _r1[i]/s ); 
+        for( unsigned int j=0; j<_ndiv; j++ ){
+          double _Du( 0. ), _El( 0. );
+
+          // Over-estimator - @Brief: g( (mat[i][j].u-_c1[i])/_ti + omega ) =  g( (mat[i][j].u-_L1[i])/_ti + w )
+          _Du = _ti * ( 1. /( (mat[i][j].l()-_U1[i])/_ti + w ) - _gw )  + _gw_over_ndep;
+      
+          // Under-estimator
+          _El =         1. /(  mat[i][j].u()-_U1[i]      + w )           - _gw_over_ndep*(ndep-1.);
+
+          // Interval matrix coefficients
+          mat[i][j] = T(_El,_Du);
+        }  
+      }
+    }
+
+  }
+  
+
+  else{
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;
+      w += _L1[i];
+      _r1[i] = ( _U1[i] - _L1[i] ) ; // here r1[i] is not radius but the diameter
+      s += _r1[i];
+    }
+
+    double _gw (1. / w );
+    double _gw_over_ndep ( _gw * _inv_ndep );
+    
+    
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;   
+      if( _r1[i]<=_EPS_IEEE754 ){
+        for( unsigned int j=0; j<_ndiv; j++ ) mat[i][j] = T(_gw_over_ndep,_gw_over_ndep);  // Interval matrix coefficients
+      }
+      else{
+        // @Brief: the factor \frac{(\Delta_i)}{\sum_{i=1}^n \Delta_i}
+        double _ti ( _r1[i]/s ); 
+        for( unsigned int j=0; j<_ndiv; j++ ){
+          double _Dl( 0. ), _Eu( 0. );
+
+          // Under-estimator - @Brief: g( (mat[i][j].u-_c1[i])/_ti + omega ) =  g( (mat[i][j].u-_L1[i])/_ti + w )
+          _Dl = _ti * ( 1. /( (mat[i][j].u()-_L1[i])/_ti + w ) - _gw )  + _gw_over_ndep;
+      
+          // Over-estimator
+          _Eu =         1. /(  mat[i][j].l()-_L1[i]      + w )           - _gw_over_ndep*(ndep-1.);
+
+          // Interval matrix coefficients
+          mat[i][j] = T(_Dl,_Eu);
+        }  
+      }
+    }
+
+  }
+   
+
+}
+
+
+
+template <typename T>
+inline
 void ISModel<T>::_sqr
 ( std::vector<std::vector<T>>& mat, unsigned const& ndep )
 const
@@ -583,6 +719,139 @@ const
       mat[i][j] = Op<T>::sqr((w-_c1[i])+mat[i][j]) + bnd;
   }
 }
+
+template <typename T>
+inline
+void ISModel<T>::_sqrAs
+( std::vector<std::vector<T>>& mat, unsigned const& ndep )
+const
+{
+  assert( !mat.empty() );
+
+  T bnd = _B( mat, 1 );
+  double L( Op<T>::l(bnd) ), U( Op<T>::u(bnd) );
+  
+  // constant terms and anchor points
+  double _inv_ndep ( 1. / ndep );
+  double _EPS_IEEE754 = 0.0000000000001;//1e10-13
+  double w( 0. ), s( 0. );   // w = \lambda(A), s = ( \sum_{i=1}^n \Delta_i )
+  
+  if (U<=0){
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;
+      w += _U1[i];
+      _r1[i] = ( _U1[i] - _L1[i] ) ; // here r1[i] is not radius but the diameter
+      s += _r1[i];
+    }
+
+    double _gw ( w*w );
+    double _gw_over_ndep ( _gw * _inv_ndep );
+
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;   
+      if( _r1[i]<=_EPS_IEEE754 ){
+        for( unsigned int j=0; j<_ndiv; j++ ) mat[i][j] = T(_gw_over_ndep,_gw_over_ndep);  // Interval matrix coefficients
+      }
+      else{
+        // @Brief: the factor \frac{(\Delta_i)}{\sum_{i=1}^n \Delta_i}
+        double _ti ( _r1[i]/s ); 
+        for( unsigned int j=0; j<_ndiv; j++ ){
+          double _Du( 0. ), _El( 0. );
+
+          // Under-estimator - @Brief: g( (mat[i][j].u-_c1[i])/_ti + omega ) =  g( (mat[i][j].u-_L1[i])/_ti + w )
+          _Du = _ti * ( std::pow(( (mat[i][j].l()-_U1[i])/_ti + w ),2) - _gw )  + _gw_over_ndep;
+      
+          // Over-estimator
+          _El =         std::pow((  mat[i][j].u()-_U1[i]      + w ),2)          - _gw_over_ndep*(ndep-1.);
+
+          // Interval matrix coefficients
+          mat[i][j] = T(_El,_Du);
+        }  
+      }
+    }
+
+  }
+  
+
+  else if(L>=0){
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;
+      w += _L1[i];
+      _r1[i] = ( _U1[i] - _L1[i] ) ; // here r1[i] is not radius but the diameter
+      s += _r1[i];
+    }
+
+    double _gw (w*w);
+    double _gw_over_ndep ( _gw * _inv_ndep );
+    
+    
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;   
+      if( _r1[i]<=_EPS_IEEE754 ){
+        for( unsigned int j=0; j<_ndiv; j++ ) mat[i][j] = T(_gw_over_ndep,_gw_over_ndep);  // Interval matrix coefficients
+      }
+      else{
+        // @Brief: the factor \frac{(\Delta_i)}{\sum_{i=1}^n \Delta_i}
+        double _ti ( _r1[i]/s ); 
+        for( unsigned int j=0; j<_ndiv; j++ ){
+          double _Du( 0. ), _El( 0. );
+
+          // Over-estimator - @Brief: g( (mat[i][j].u-_c1[i])/_ti + omega ) =  g( (mat[i][j].u-_L1[i])/_ti + w )
+          _Du = _ti * ( std::pow(( (mat[i][j].u()-_L1[i])/_ti + w ),2) - _gw )  + _gw_over_ndep;
+      
+          // Under-estimator
+          _El =         std::pow((  mat[i][j].l()-_L1[i]      + w ),2)          - _gw_over_ndep*(ndep-1.);
+
+          // Interval matrix coefficients
+          mat[i][j] = T(_El,_Du);
+        }  
+      }
+    }
+
+  }
+   
+  else{
+
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;
+      _c1[i] = 0.5*( _U1[i] + _L1[i] ) ; 
+      _r1[i] =     ( _U1[i] - _L1[i] ) ; 
+      w += _c1[i];
+      s += _r1[i];
+    }
+
+    double _gw ( 0. );
+    double _gw_over_ndep ( 0. );
+    
+    
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;   
+      if( _r1[i]<=_EPS_IEEE754 ){
+        for( unsigned int j=0; j<_ndiv; j++ ) mat[i][j] = T(0.,0.);  // Interval matrix coefficients
+      }
+      else{
+        // @Brief: the factor \frac{(\Delta_i)}{\sum_{i=1}^n \Delta_i}
+        double _ti ( _r1[i]/s ); 
+        for( unsigned int j=0; j<_ndiv; j++ ){
+          double _Du( 0. ), _El( 0. );
+
+          // Over-estimator - @Brief: g( (mat[i][j].u-_c1[i])/_ti + omega ) =  g( (mat[i][j].u-_L1[i])/_ti + w )
+          _Du = _ti * ( std::pow(( (mat[i][j].u()-_c1[i])/_ti + w),2) );
+      
+          // Under-estimator
+          _El =        0.;
+
+          // Interval matrix coefficients
+          mat[i][j] = T(_El,_Du);
+        }  
+      }
+    }
+
+  }
+
+
+}
+
 
 template <typename T>
 inline
@@ -621,6 +890,62 @@ const
   }
 }
 
+
+template <typename T>
+inline
+void ISModel<T>::_sqrtAs
+( std::vector<std::vector<T>>& mat, unsigned const& ndep )
+const
+{
+  assert( !mat.empty() );
+
+  // Bounds
+  T bnd = _B( mat, 1 );
+  double L( Op<T>::l(bnd) );
+  if ( L < 0. )
+    throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::SQRT );
+
+
+  // anchor points
+  double w( 0. ), s( 0. );   // w = \lambda(A), s = ( \sum_{i=1}^n \Delta_i )
+  for( unsigned int i=0; i<_nvar; i++ ){
+    if( mat[i].empty() ) continue;
+    w += _U1[i];
+    _r1[i] = ( _U1[i] - _L1[i] ) ; // here r1[i] is not radius but the diameter
+    s += _r1[i];
+  }
+  
+  double _inv_ndep ( 1. / ndep );
+  double _max ( std::sqrt( w ) );
+  double _max_over_ndep ( _max * _inv_ndep );
+
+  double _EPS_IEEE754 = 0.0000000000001;//1e10-13
+  for( unsigned int i=0; i<_nvar; i++ ){
+    if( mat[i].empty() ) continue;   
+    if( _r1[i]<=_EPS_IEEE754 ){
+      for( unsigned int j=0; j<_ndiv; j++ ) mat[i][j] = T(_max_over_ndep,_max_over_ndep);  // Interval matrix coefficients
+    }
+    else{
+      // @Brief: the factor \frac{(\Delta_i)}{\sum_{i=1}^n \Delta_i}
+      double _ti ( _r1[i]/s ); 
+      for( unsigned int j=0; j<_ndiv; j++ ){
+        double _Dl( 0. ), _Eu( 0. );
+
+        // Under-estimator - @Brief: g( (mat[i][j].u-_c1[i])/_ti + omega ) =  g( (mat[i][j].u-_L1[i])/_ti + w )
+        _Dl = _ti * ( std::sqrt( (mat[i][j].l()-_U1[i])/_ti + w ) - _max )  + _max_over_ndep;
+      
+        // Over-estimator
+        _Eu =         std::sqrt(  mat[i][j].u()-_U1[i]      + w )           - _max_over_ndep*(ndep-1.);
+
+        // Interval matrix coefficients
+        mat[i][j] = T(_Dl,_Eu);
+      }  
+    }
+  } 
+
+}
+
+
 template <typename T>
 inline
 void ISModel<T>::_exp
@@ -651,6 +976,54 @@ const
     for( unsigned int j=0; j<_ndiv; j++ )
       mat[i][j] = Op<T>::exp((w-_c1[i])+mat[i][j]) + bnd;
   }
+}
+
+template <typename T>
+inline
+void ISModel<T>::_expAs
+( std::vector<std::vector<T>>& mat, unsigned const& ndep )
+const
+{
+  assert( !mat.empty() );
+  
+  // anchor points
+  T bnd = _B( mat, 1 );
+  double w( 0. ), s( 0. );   // w = \lambda(A), s = ( \sum_{i=1}^n \Delta_i )
+  for( unsigned int i=0; i<_nvar; i++ ){
+    if( mat[i].empty() ) continue;
+    w += _L1[i];
+    _r1[i] = ( _U1[i] - _L1[i] ) ; // here r1[i] is not radius but the diameter
+    s += _r1[i];
+  }
+  
+  double _inv_ndep ( 1. / ndep );
+  double _min ( std::exp( w ) );
+  double _min_over_ndep ( _min * _inv_ndep );
+
+  double _EPS_IEEE754 = 0.0000000000001;//1e10-13
+  for( unsigned int i=0; i<_nvar; i++ ){
+    if( mat[i].empty() ) continue;   
+    if( _r1[i]<=_EPS_IEEE754 ){
+      for( unsigned int j=0; j<_ndiv; j++ ) mat[i][j] = T(_min_over_ndep,_min_over_ndep);  // Interval matrix coefficients
+    }
+    else{
+      // @Brief the factor \frac{(\Delta_i)}{\sum_{i=1}^n \Delta_i}
+      double _ti ( _r1[i]/s ); 
+      for( unsigned int j=0; j<_ndiv; j++ ){
+        double _Du( 0. ), _El( 0. );
+
+        // Over-estimator - @Brief g( (mat[i][j].u-_c1[i])/_ti + omega ) =  g( (mat[i][j].u-_L1[i])/_ti + w )
+        _Du = _ti * ( std::exp( (mat[i][j].u()-_L1[i])/_ti + w ) - _min )  + _min_over_ndep;
+      
+        // Under-estimator
+        _El =         std::exp(  mat[i][j].l()-_L1[i]      + w )           - _min_over_ndep*(ndep-1.);
+
+        // Interval matrix coefficients
+        mat[i][j] = T(_El,_Du);
+      }  
+    }
+  } 
+
 }
 
 template <typename T>
@@ -694,6 +1067,61 @@ const
       mat[i][j] = Op<T>::log((w-_c1[i])+mat[i][j]) + bnd;
   }
 }
+
+template <typename T>
+inline
+void ISModel<T>::_logAs
+( std::vector<std::vector<T>>& mat, unsigned const& ndep )
+const
+{
+  assert( !mat.empty() );
+
+  // Bounds
+  T bnd = _B( mat, 1 );
+  double L( Op<T>::l(bnd) );
+  if ( L <= 0. )
+    throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::LOG );
+
+
+  // anchor points
+  double w( 0. ), s( 0. );   // w = \lambda(A), s = ( \sum_{i=1}^n \Delta_i )
+  for( unsigned int i=0; i<_nvar; i++ ){
+    if( mat[i].empty() ) continue;
+    w += _U1[i];
+    _r1[i] = ( _U1[i] - _L1[i] ) ; // here r1[i] is not radius but the diameter
+    s += _r1[i];
+  }
+  
+  double _inv_ndep ( 1. / ndep );
+  double _max ( std::log( w ) );
+  double _max_over_ndep ( _max * _inv_ndep );
+
+  double _EPS_IEEE754 = 0.0000000000001;//1e10-13
+  for( unsigned int i=0; i<_nvar; i++ ){
+    if( mat[i].empty() ) continue;   
+    if( _r1[i]<=_EPS_IEEE754 ){
+      for( unsigned int j=0; j<_ndiv; j++ ) mat[i][j] = T(_max_over_ndep,_max_over_ndep);  // Interval matrix coefficients
+    }
+    else{
+      // @Brief: the factor \frac{(\Delta_i)}{\sum_{i=1}^n \Delta_i}
+      double _ti ( _r1[i]/s ); 
+      for( unsigned int j=0; j<_ndiv; j++ ){
+        double _Dl( 0. ), _Eu( 0. );
+
+        // Under-estimator - @Brief: g( (mat[i][j].u-_c1[i])/_ti + omega ) =  g( (mat[i][j].u-_L1[i])/_ti + w )
+        _Dl = _ti * ( std::log( (mat[i][j].l()-_U1[i])/_ti + w ) - _max )  + _max_over_ndep;
+      
+        // Over-estimator
+        _Eu =         std::log(  mat[i][j].u()-_U1[i]      + w )           - _max_over_ndep*(ndep-1.);
+
+        // Interval matrix coefficients
+        mat[i][j] = T(_Dl,_Eu);
+      }  
+    }
+  } 
+
+}
+
 
 template <typename T>
 inline
@@ -1572,7 +2000,7 @@ ISVar<T> inv
     return 1./var._cst;
 
   ISVar<T> var2( var );
-  var2._mod->_inv( var2._mat, var2._ndep );
+  var2._mod->_invAs( var2._mat, var2._ndep );
   var2._bnd.second = false;
   return var2;
 }
@@ -1585,7 +2013,7 @@ ISVar<T> inv
   if( !var._mod )
     return 1./var._cst;
 
-  var._mod->_inv( var._mat, var._ndep );
+  var._mod->_invAs( var._mat, var._ndep );
   var._bnd.second = false;
   return var;
 }
@@ -1599,7 +2027,7 @@ ISVar<T> sqr
     return sqr(var._cst);
 
   ISVar<T> var2( var );
-  var2._mod->_sqr( var2._mat, var2._ndep );
+  var2._mod->_sqrAs( var2._mat, var2._ndep );
   var2._bnd.second = false;
   return var2;
 }
@@ -1612,7 +2040,7 @@ ISVar<T> sqr
   if( !var._mod )
     return sqr(var._cst);
 
-  var._mod->_sqr( var._mat, var._ndep );
+  var._mod->_sqrAs( var._mat, var._ndep );
   var._bnd.second = false;
   return var;
 }
@@ -1628,7 +2056,7 @@ ISVar<T> sqrt
 //    return std::sqrt(var._cst);
 
 //  ISVar<T> var2( var );
-//  var2._mod->_sqrt( var2._mat, var2._ndep );
+//  var2._mod->_sqrtAs( var2._mat, var2._ndep );
 //  var2._bnd.second = false;
 //  return var2;
 }
@@ -1643,7 +2071,7 @@ ISVar<T> sqrt
 //  if( !var._mod )
 //    return std::sqrt(var._cst);
 
-//  var._mod->_sqrt( var._mat, var._ndep );
+//  var._mod->_sqrtAs( var._mat, var._ndep );
 //  var._bnd.second = false;
 //  return var;
 }
@@ -1657,7 +2085,7 @@ ISVar<T> exp
     return std::exp(var._cst);
 
   ISVar<T> var2( var );
-  var2._mod->_exp( var2._mat, var2._ndep );
+  var2._mod->_expAs( var2._mat, var2._ndep );
   var2._bnd.second = false;
   return var2;
 }
@@ -1670,7 +2098,7 @@ ISVar<T> exp
   if( !var._mod )
     return std::exp(var._cst);
 
-  var._mod->_exp( var._mat, var._ndep );
+  var._mod->_expAs( var._mat, var._ndep );
   var._bnd.second = false;
   return var;
 }
@@ -1684,7 +2112,7 @@ ISVar<T> log
     return std::log(var._cst);
 
   ISVar<T> var2( var );
-  var2._mod->_log( var2._mat, var2._ndep );
+  var2._mod->_logAs( var2._mat, var2._ndep );
   var2._bnd.second = false;
   return var2;
 }
@@ -1697,7 +2125,7 @@ ISVar<T> log
   if( !var._mod )
     return std::log(var._cst);
 
-  var._mod->_log( var._mat, var._ndep );
+  var._mod->_logAs( var._mat, var._ndep );
   var._bnd.second = false;
   return var;
 }
