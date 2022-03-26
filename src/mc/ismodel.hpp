@@ -1332,10 +1332,27 @@ const
           double _Du( 0. ), _El( 0. );
 
           // Over-estimator - @Brief: g( (mat[i][j].u-_c1[i])/_ti + omega ) =  g( (mat[i][j].u-_L1[i])/_ti + w )
-          _Du = _ti * std::max((( mat[i][j].u()-_c1[i])/_ti + w),0.);
-      
+          //_Du = _ti * std::max((( mat[i][j].u()-_c1[i])/_ti + w),0.);
+          
+          // Since max(ax,0)=a max(x,0) for all a>=0, there is no need to compute _ti outside
+          _Du = std::max((( mat[i][j].u()-_c1[i]) + w*_ti),0.);
+          
           // Under-estimator
-          _El =        0.;
+          //_El =        0.;
+          
+          // There is a simple way to improve the under-estimator
+          if (w > 0){
+            double _sum_of_rad (s*0.5);
+            double _rad_i (_r1[i]*0.5);
+            double _offset_i (w-_sum_of_rad+_rad_i);
+            
+            // The condition below may not be necessary <- NEED FURTHER TESTS
+            if (std::fabs(_offset_i)<=_rad_i) _El = std::max( (mat[i][j].l()-_c1[i]+_offset_i) , 0.);
+            else _El = 0.;
+          }
+          else _El =  0.;
+
+
 
           // Interval matrix coefficients
           mat[i][j] = T(_El,_Du);
