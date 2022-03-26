@@ -1328,6 +1328,17 @@ const
       else{
         // @Brief: the factor \frac{(\Delta_i)}{\sum_{i=1}^n \Delta_i}
         double _ti ( _r1[i]/s ); 
+
+        // There is a simple way to improve the under-estimator
+        double _sum_of_rad (0.);
+        double _rad_i (0.);
+        double _offset_i (0.);
+        if (w > 0){
+          _sum_of_rad  = s*0.5;
+          _rad_i       = _r1[i]*0.5;
+          _offset_i    = w-_sum_of_rad+_rad_i;
+        }
+        
         for( unsigned int j=0; j<_ndiv; j++ ){
           double _Du( 0. ), _El( 0. );
 
@@ -1340,17 +1351,13 @@ const
           // Under-estimator
           //_El =        0.;
           
-          // There is a simple way to improve the under-estimator
-          if (w > 0){
-            double _sum_of_rad (s*0.5);
-            double _rad_i (_r1[i]*0.5);
-            double _offset_i (w-_sum_of_rad+_rad_i);
-            
+
+         if (w > 0){ 
             // The condition below may not be necessary <- NEED FURTHER TESTS
             if (std::fabs(_offset_i)<=_rad_i) _El = std::max( (mat[i][j].l()-_c1[i]+_offset_i) , 0.);
-            else _El = 0.;
+            //else _El = 0.;
           }
-          else _El =  0.;
+          //else _El =  0.;
 
 
 
