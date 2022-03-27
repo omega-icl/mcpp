@@ -261,6 +261,19 @@ class ISModel
   const
   { return _ndiv; };
 
+
+ //! @brief Options of mc::ISModel
+  static struct Options
+  {
+    //! @brief Constructor
+    Options():
+      NCREM_USE(true)
+      {}
+    //! @brief Whether to use asymmetric remainder/estimators proposed in Alg 2 for convex/concave functions
+    bool NCREM_USE;
+  } options;
+
+
   //! @brief Exceptions of mc::ISModel
   class Exceptions
   {
@@ -420,6 +433,9 @@ class ISModel
   const;
   
 };
+
+template <typename T> inline
+typename ISModel<T>::Options ISModel<T>::options;
 
 template <typename T>
 std::ostream& operator<<
@@ -1351,8 +1367,8 @@ const
           // Under-estimator
           //_El =        0.;
           
-
-         if (w > 0){ 
+         // It may unnecessary to check whether w > 0  <- NEED FURTHER TESTS
+          if (w > 0){ 
             // The condition below may not be necessary <- NEED FURTHER TESTS
             if (std::fabs(_offset_i)<=_rad_i) _El = std::max( (mat[i][j].l()-_c1[i]+_offset_i) , 0.);
             //else _El = 0.;
@@ -2186,7 +2202,12 @@ ISVar<T> inv
     return 1./var._cst;
 
   ISVar<T> var2( var );
-  var2._mod->_invAs( var2._mat, var2._ndep );
+  if(ISModel<T>::options.NCREM_USE)
+    var2._mod->_invAs( var2._mat, var2._ndep );
+      // std::cout<<"options worked: True"<<std::endl;}  //for debuging options
+  else
+    var2._mod->_inv( var2._mat, var2._ndep );
+      // std::cout<<"options worked: False"<<std::endl;} //for debuging options
   var2._bnd.second = false;
   return var2;
 }
@@ -2199,7 +2220,10 @@ ISVar<T> inv
   if( !var._mod )
     return 1./var._cst;
 
-  var._mod->_invAs( var._mat, var._ndep );
+  if(ISModel<T>::options.NCREM_USE)
+    var._mod->_invAs( var._mat, var._ndep );
+  else
+    var._mod->_inv( var._mat, var._ndep );
   var._bnd.second = false;
   return var;
 }
@@ -2213,7 +2237,10 @@ ISVar<T> sqr
     return sqr(var._cst);
 
   ISVar<T> var2( var );
-  var2._mod->_sqrAs( var2._mat, var2._ndep );
+  if(ISModel<T>::options.NCREM_USE)
+    var2._mod->_sqrAs( var2._mat, var2._ndep );
+  else
+    var2._mod->_sqr( var2._mat, var2._ndep );
   var2._bnd.second = false;
   return var2;
 }
@@ -2225,8 +2252,10 @@ ISVar<T> sqr
 {
   if( !var._mod )
     return sqr(var._cst);
-
-  var._mod->_sqrAs( var._mat, var._ndep );
+  if(ISModel<T>::options.NCREM_USE)
+    var._mod->_sqrAs( var._mat, var._ndep );
+  else 
+    var._mod->_sqr( var._mat, var._ndep );
   var._bnd.second = false;
   return var;
 }
@@ -2296,7 +2325,10 @@ ISVar<T> sqrt
     return std::sqrt(var._cst);
 
   ISVar<T> var2( var );
-  var2._mod->_sqrtAs( var2._mat, var2._ndep );
+  if(ISModel<T>::options.NCREM_USE)
+    var2._mod->_sqrtAs( var2._mat, var2._ndep );
+  else
+    var2._mod->_sqrt( var2._mat, var2._ndep );
   var2._bnd.second = false;
   return var2;
 }
@@ -2311,7 +2343,10 @@ ISVar<T> sqrt
   if( !var._mod )
     return std::sqrt(var._cst);
 
-  var._mod->_sqrtAs( var._mat, var._ndep );
+  if(ISModel<T>::options.NCREM_USE)
+    var._mod->_sqrtAs( var._mat, var._ndep );
+  else
+    var._mod->_sqrt( var._mat, var._ndep );
   var._bnd.second = false;
   return var;
 }
@@ -2325,7 +2360,10 @@ ISVar<T> exp
     return std::exp(var._cst);
 
   ISVar<T> var2( var );
-  var2._mod->_expAs( var2._mat, var2._ndep );
+  if(ISModel<T>::options.NCREM_USE)
+    var2._mod->_expAs( var2._mat, var2._ndep );
+  else
+    var2._mod->_exp( var2._mat, var2._ndep );
   var2._bnd.second = false;
   return var2;
 }
@@ -2338,7 +2376,10 @@ ISVar<T> exp
   if( !var._mod )
     return std::exp(var._cst);
 
-  var._mod->_expAs( var._mat, var._ndep );
+  if(ISModel<T>::options.NCREM_USE)
+    var._mod->_expAs( var._mat, var._ndep );
+  else   
+    var._mod->_exp( var._mat, var._ndep );
   var._bnd.second = false;
   return var;
 }
@@ -2352,7 +2393,10 @@ ISVar<T> log
     return std::log(var._cst);
 
   ISVar<T> var2( var );
-  var2._mod->_logAs( var2._mat, var2._ndep );
+  if(ISModel<T>::options.NCREM_USE)
+    var2._mod->_logAs( var2._mat, var2._ndep );
+  else
+    var2._mod->_log( var2._mat, var2._ndep );
   var2._bnd.second = false;
   return var2;
 }
@@ -2365,7 +2409,10 @@ ISVar<T> log
   if( !var._mod )
     return std::log(var._cst);
 
-  var._mod->_logAs( var._mat, var._ndep );
+  if(ISModel<T>::options.NCREM_USE)
+    var._mod->_logAs( var._mat, var._ndep );
+  else
+    var._mod->_log( var._mat, var._ndep );
   var._bnd.second = false;
   return var;
 }
@@ -2424,6 +2471,8 @@ ISVar<T> cos
   return var;
 }
 
+
+// @TODO: since power functions are convex/concave on certain domain, the Alg 2 is applicable here as well. 
 template <typename T>
 inline
 ISVar<T>
@@ -2445,6 +2494,7 @@ pow
     sqr( pow( var, n/2 ) ) :
     sqr( pow( var, n/2 ) ) * var;
 }
+
 
 template <typename T>
 inline
