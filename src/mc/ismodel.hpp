@@ -658,7 +658,7 @@ const
           double _Du( 0. ), _El( 0. );
 
           // Over-estimator - @Brief: g( (mat[i][j].u-_c1[i])/_ti + omega ) =  g( (mat[i][j].u-_L1[i])/_ti + w )
-          _Du = _ti * ( 1. /( (mat[i][j].l()-_U1[i])/r1[i]*s + w ) - _gw )  + _gw_over_ndep;
+          _Du = _ti * ( 1. /( (mat[i][j].l()-_U1[i])/_r1[i]*s + w ) - _gw )  + _gw_over_ndep;
       
           // Under-estimator
           _El =         1. /(  mat[i][j].u()-_U1[i]      + w )           - _gw_over_ndep*(ndep-1.);
@@ -696,7 +696,7 @@ const
           double _Dl( 0. ), _Eu( 0. );
 
           // Under-estimator - @Brief: g( (mat[i][j].u-_c1[i])/_ti + omega ) =  g( (mat[i][j].u-_L1[i])/_ti + w )
-          _Dl = _ti * ( 1. /( (mat[i][j].u()-_L1[i])/r1[i]*s + w ) - _gw )  + _gw_over_ndep;
+          _Dl = _ti * ( 1. /( (mat[i][j].u()-_L1[i])/_r1[i]*s + w ) - _gw )  + _gw_over_ndep;
       
           // Over-estimator
           _Eu =         1. /(  mat[i][j].l()-_L1[i]      + w )           - _gw_over_ndep*(ndep-1.);
@@ -788,7 +788,7 @@ const
           double _Du( 0. ), _El( 0. );
 
           // Under-estimator - @Brief: g( (mat[i][j].u-_c1[i])/_ti + omega ) =  g( (mat[i][j].u-_L1[i])/_ti + w )
-          _Du = _ti * ( std::pow(( (mat[i][j].l()-_U1[i])/r1[i]*s + w ),2) - _gw )  + _gw_over_ndep;
+          _Du = _ti * ( std::pow(( (mat[i][j].l()-_U1[i])/_r1[i]*s + w ),2) - _gw )  + _gw_over_ndep;
       
           // Over-estimator
           _El =         std::pow((  mat[i][j].u()-_U1[i]      + w ),2)          - _gw_over_ndep*(ndep-1.);
@@ -826,7 +826,7 @@ const
           double _Du( 0. ), _El( 0. );
 
           // Over-estimator - @Brief: g( (mat[i][j].u-_c1[i])/_ti + omega ) =  g( (mat[i][j].u-_L1[i])/_ti + w )
-          _Du = _ti * ( std::pow(( (mat[i][j].u()-_L1[i])/r1[i]*s + w ),2) - _gw )  + _gw_over_ndep;
+          _Du = _ti * ( std::pow(( (mat[i][j].u()-_L1[i])/_r1[i]*s + w ),2) - _gw )  + _gw_over_ndep;
       
           // Under-estimator
           _El =         std::pow((  mat[i][j].l()-_L1[i]      + w ),2)          - _gw_over_ndep*(ndep-1.);
@@ -958,7 +958,7 @@ const
         double _Dl( 0. ), _Eu( 0. );
 
         // Under-estimator - @Brief: g( (mat[i][j].u-_c1[i])/_ti + omega ) =  g( (mat[i][j].u-_L1[i])/_ti + w )
-        _Dl = _ti * ( std::sqrt( (mat[i][j].l()-_U1[i])/r1[i]*s + w ) - _max )  + _max_over_ndep;
+        _Dl = _ti * ( std::sqrt( (mat[i][j].l()-_U1[i])/_r1[i]*s + w ) - _max )  + _max_over_ndep;
       
         // Over-estimator
         _Eu =         std::sqrt(  mat[i][j].u()-_U1[i]      + w )           - _max_over_ndep*(ndep-1.);
@@ -1039,7 +1039,7 @@ const
         double _Du( 0. ), _El( 0. );
 
         // Over-estimator - @Brief g( (mat[i][j].u-_c1[i])/_ti + omega ) =  g( (mat[i][j].u-_L1[i])/_ti + w )
-        _Du = _ti * ( std::exp( (mat[i][j].u()-_L1[i])/r1[i]*s + w ) - _min )  + _min_over_ndep;
+        _Du = _ti * ( std::exp( (mat[i][j].u()-_L1[i])/_r1[i]*s + w ) - _min )  + _min_over_ndep;
       
         // Under-estimator
         _El =         std::exp(  mat[i][j].l()-_L1[i]      + w )           - _min_over_ndep*(ndep-1.);
@@ -1135,7 +1135,7 @@ const
         double _Dl( 0. ), _Eu( 0. );
 
         // Under-estimator - @Brief: g( (mat[i][j].u-_c1[i])/_ti + omega ) =  g( (mat[i][j].u-_L1[i])/_ti + w )
-        _Dl = _ti * ( std::log( (mat[i][j].l()-_U1[i])/r1[i]*s + w ) - _max )  + _max_over_ndep;
+        _Dl = _ti * ( std::log( (mat[i][j].l()-_U1[i])/_r1[i]*s + w ) - _max )  + _max_over_ndep;
       
         // Over-estimator
         _Eu =         std::log(  mat[i][j].u()-_U1[i]      + w )           - _max_over_ndep*(ndep-1.);
@@ -1277,7 +1277,7 @@ const
           double _Du( 0. ), _El( 0. );
 
           // Over-estimator - @Brief: g( (mat[i][j].u-_c1[i])/_ti + omega ) =  g( (mat[i][j].u-_L1[i])/_ti + w )
-          _Du = _ti * std::max( std::fabs(( mat[i][j].u()-_c1[i])/r1[i]*s + w), std::fabs(( mat[i][j].l()-_c1[i])/r1[i]*s + w));
+          _Du = _ti * std::max( std::fabs(( mat[i][j].u()-_c1[i])/_r1[i]*s + w), std::fabs(( mat[i][j].l()-_c1[i])/_r1[i]*s + w));
       
           // Under-estimator
           _El =        0.;
@@ -1349,11 +1349,11 @@ const
         double _sum_of_rad (0.);
         double _rad_i (0.);
         double _offset_i (0.);
-        if (w > 0){
+        //if (w > 0){
           _sum_of_rad  = s*0.5;
           _rad_i       = _r1[i]*0.5;
           _offset_i    = w-_sum_of_rad+_rad_i;
-        }
+        //}
         
         for( unsigned int j=0; j<_ndiv; j++ ){
           double _Du( 0. ), _El( 0. );
@@ -1368,11 +1368,11 @@ const
           //_El =        0.;
           
          // It may unnecessary to check whether w > 0  <- NEED FURTHER TESTS
-          if (w > 0){ 
+         // if (w > 0){ 
             // The condition below may not be necessary <- NEED FURTHER TESTS
             if (std::fabs(_offset_i)<=_rad_i) _El = std::max( (mat[i][j].l()-_c1[i]+_offset_i) , 0.);
             //else _El = 0.;
-          }
+          //}
           //else _El =  0.;
 
 
