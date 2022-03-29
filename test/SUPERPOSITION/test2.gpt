@@ -4,7 +4,7 @@ set view noequal
 set xlabel "x" 
 set ylabel "y" 
 set zlabel "f(x,y)" rotate by 90
-set zrange [-2:6]
+#set zrange [-2:6]
 set palette defined ( 20 "#101010", 30 "#ff0000", 40 "#00ff00", 50 "#e0e0e0" ) 
 unset colorbox
 set hidden3d

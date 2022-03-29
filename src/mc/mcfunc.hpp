@@ -245,7 +245,7 @@ inline double mid
 
 inline double mid
 ( const double CONV, const double CONC, const double CUT,
-  int &id )
+  int& id )
 {
   // Return the mid value of three scalars CONV, CONC and CUT,
   // knowing that CONV <= CONC
@@ -275,7 +275,7 @@ inline double mid
 //                          such as max, min..., since we cannot directly determine the derivative at border points
 inline double mid_ndiff
 ( const double CONV, const double CONC, const double CUT,
-  int &id )
+  int& id )
 {
   // Return the mid value of three scalars CONV, CONC and CUT,
   // knowing that CONV <= CONC
@@ -349,6 +349,13 @@ isequal
   double gap = std::fabs(real1-real2);
   double ave = 0.5*std::fabs(real1+real2);
   return( gap>atol+ave*rtol? false: true );
+}
+
+inline double relu
+( const double x )
+{
+  // Return ReLU value
+  return ( x>0? x: 0. );
 }
 
 inline double xlog

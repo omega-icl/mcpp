@@ -209,7 +209,7 @@ class Interval
     ( const Interval& );
   friend Interval fabs
     ( const Interval& );
-  friend Interval ReLU
+  friend Interval relu
     ( const Interval& );  
   friend Interval sqrt
     ( const Interval& );
@@ -685,10 +685,9 @@ fabs
 }
 
 inline Interval
-ReLU
+relu
 ( const Interval&I )
 {
-  int imid = -1;
   return Interval( std::max(I._l,0.),
                    std::max(I._u,0.) );
 }
@@ -1060,7 +1059,7 @@ template <> struct Op<mc::Interval>
   static T lmtd(const T& x, const T& y) { return mc::lmtd(x,y); }
   static T rlmtd(const T& x, const T& y) { return mc::rlmtd(x,y); }
   static T fabs(const T& x) { return mc::fabs(x); }
-  static T ReLU(const T& x) { return mc::ReLU(x); }
+  static T relu(const T& x) { return mc::relu(x); }
   static T sin (const T& x) { return mc::sin(x);  }
   static T cos (const T& x) { return mc::cos(x);  }
   static T tan (const T& x) { return mc::tan(x);  }

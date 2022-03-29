@@ -1,25 +1,45 @@
-#define TEST_TRIG	    // <-- select test function here
-const int NSUB = 64;	// <-- select partition size here
+#define TEST_EXP	    // <-- select test function here
+#define USE_DAG         // <-- specify to evaluate via a DAG of the function
+#define SAVE_RESULTS    // <-- specify whether to save results to file
+const int NSUB = 8;	    // <-- select partition size here
 const int NX = 200;	    // <-- select X discretization here
 const int NY = 200;	    // <-- select Y discretization here
-#undef USE_PROFIL	    // <-- specify to use PROFIL for interval arithmetic
-#undef MC__ISMODEL_TRACE
 ////////////////////////////////////////////////////////////////////////
 
 #include <fstream>
+#include <iomanip>
 
-#ifdef USE_PROFIL
-  #include "mcprofil.hpp"
-  typedef INTERVAL I;
+#ifdef MC__USE_PROFIL
+ #include "mcprofil.hpp"
+ typedef INTERVAL I;
 #else
-  #include "interval.hpp"
-  typedef mc::Interval I;
+ #ifdef MC__USE_FILIB
+  #include "mcfilib.hpp"
+  typedef filib::interval<double,filib::native_switched,filib::i_mode_extended> I;
+ #else
+  #ifdef MC__USE_BOOST
+   #include "mcboost.hpp"
+   typedef boost::numeric::interval_lib::save_state<boost::numeric::interval_lib::rounded_transc_opp<double>> T_boost_round;
+   typedef boost::numeric::interval_lib::checking_base<double> T_boost_check;
+   typedef boost::numeric::interval_lib::policies<T_boost_round,T_boost_check> T_boost_policy;
+   typedef boost::numeric::interval<double,T_boost_policy> I;
+  #else
+   #include "interval.hpp"
+   typedef mc::Interval I;
+  #endif
+ #endif
 #endif
 
 #include "ismodel.hpp"
-#include "ffunc.hpp"
 typedef mc::ISModel<I> ISM;
-typedef mc::ISVar<I> ISV;
+typedef mc::ISVar<I>   ISV;
+
+#ifdef USE_DAG
+ #include "ffunc.hpp"
+#endif
+
+using namespace std;
+using namespace mc;
 
 ////////////////////////////////////////////////////////////////////////
 
@@ -48,10 +68,10 @@ T myfunc
 }
 
 #elif defined( TEST_SQR )
-const double XL   =  -10.;	// <-- X range lower bound
-const double XU   =  10.;	// <-- X range upper bound
-const double YL   =  -10.;	// <-- Y range lower bound
-const double YU   =  10.;	// <-- Y range upper bound
+const double XL   =  -2.;	// <-- X range lower bound
+const double XU   =  3.;	// <-- X range upper bound
+const double YL   =  -3.;	// <-- Y range lower bound
+const double YU   =  2.;	// <-- Y range upper bound
 template <class T>
 T myfunc
 ( const T&x, const T&y )
@@ -120,6 +140,30 @@ T myfunc
 {
   return 1./(x+y);
 }
+
+#elif defined( TEST_MAX )
+const double XL   =  -2.;	// <-- X range lower bound
+const double XU   =   2.;	// <-- X range upper bound
+const double YL   =  -2.;	// <-- Y range lower bound
+const double YU   =   2.;	// <-- Y range upper bound
+template <class T>
+T myfunc
+( const T&x, const T&y )
+{
+  return max(x+y,0.);
+}
+
+#elif defined( TEST_TANH )
+const double XL   =  -2.;	// <-- X range lower bound
+const double XU   =   2.;	// <-- X range upper bound
+const double YL   =  -2.;	// <-- Y range lower bound
+const double YU   =   2.;	// <-- Y range upper bound
+template <class T>
+T myfunc
+( const T&x, const T&y )
+{
+  return tanh(x+y);
+}
 #endif
 
 ////////////////////////////////////////////////////////////////////////
@@ -129,8 +173,10 @@ int main()
   try{ 
 
     ISM mod( 2, NSUB );
-    I IX(XL,XU);
-    I IY(YL,YU);
+    mod.options.ASYREM_USE = true;
+    
+    I IX( XL, XU );
+    I IY( YL, YU );
     ISV ISX( &mod, 0, IX );
     ISV ISY( &mod, 1, IY );
 
@@ -141,27 +187,28 @@ int main()
     std::cout << "Interval superposition model of f:\n" << ISF << std::endl;
     //auto&& mat = ISF.C();
 
+    ///////////////////////////
+
+//    mc::FFGraph DAG;
+//    mc::FFVar X( &DAG), Y(&DAG);
+//    mc::FFVar F = myfunc( X, Y );
+
+//    // Evaluate in interval arithmetic
+//    std::vector<I> IWK;
+//    DAG.eval( IWK, 1, &F, &IF, 1, &X, &IX, 1, &Y, &IY );
+//    std::cout << "Interval inclusion of f:\n" << IF << std::endl;
+
+//    // Evaluate in interval superposition arithmetic
+//    std::vector<ISV> ISWK;
+//    DAG.eval( ISWK, 1, &F, &ISF, 1, &X, &ISX, 1, &Y, &ISY );
+//    std::cout << "Interval superposition model of f:\n" << ISF << std::endl;
+
+    ///////////////////////////
+
+#ifdef SAVE_RESULTS
     std::ofstream ofile( "test2_ism.out", std::ofstream::out );
     ISF.display( 0, ofile );
     ofile.close();
-
-    ///////////////////////////
-
-    mc::FFGraph DAG;
-    mc::FFVar X( &DAG), Y(&DAG);
-    mc::FFVar F = myfunc( X, Y );
-
-    // Evaluate in interval arithmetic
-    std::vector<I> IWK;
-    DAG.eval( IWK, 1, &F, &IF, 1, &X, &IX, 1, &Y, &IY );
-    std::cout << "Interval inclusion of f:\n" << IF << std::endl;
-
-    // Evaluate in interval superposition arithmetic
-    std::vector<ISV> ISWK;
-    DAG.eval( ISWK, 1, &F, &ISF, 1, &X, &ISX, 1, &Y, &ISY );
-    std::cout << "Interval superposition model of f:\n" << ISF << std::endl;
-
-    ///////////////////////////
 
     // Repeated calculations at grid points (for display)
     std::ofstream ofile2( "test2_fct.out", std::ofstream::out );
@@ -177,8 +224,6 @@ int main()
       ofile2 << std::endl;
     }
     ofile2.close();
-
-    ///////////////////////////
 
     // Repeated calculations for different orders
     std::ofstream ofile3( "test2_div.out", std::ofstream::out );
@@ -196,7 +241,7 @@ int main()
              << std::endl;
     }
     ofile3.close();
-    
+#endif
   } // end: try
   
 #ifndef USE_PROFIL

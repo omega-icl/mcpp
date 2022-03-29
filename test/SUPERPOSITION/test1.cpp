@@ -5,9 +5,9 @@
 int main(int argc, char* argv[])
 {
   using namespace mc;
-  ISModel<Interval> mod( 2, 5 );
+  ISModel<Interval> mod( 2, 8 );
 
-  ISVar<Interval> X( &mod, 0, Interval(1.,1.1) );
+  ISVar<Interval> X( &mod, 0, Interval(-1.,1) );
   std::cout << "ISM of X:\n" << X << std::endl;
   //std::cout << X.B() << std::endl;
 
