@@ -206,6 +206,10 @@ class ISModel
     ( ISVar<U> const& );
   template <typename U> friend ISVar<U> xlog
     ( ISVar<U> && );
+  template <typename U> friend ISVar<U> pow
+    ( ISVar<U> const& , int const& n );
+  template <typename U> friend ISVar<U> pow
+    ( ISVar<U> && , int const& n );
   template <typename U> friend ISVar<U> cos
     ( ISVar<U> const& );
   template <typename U> friend ISVar<U> cos
@@ -214,6 +218,7 @@ class ISModel
     ( ISVar<U> const& );
   template <typename U> friend ISVar<U> sin
     ( ISVar<U> && );
+
 
  private:
 
@@ -376,6 +381,18 @@ class ISModel
   }
 
   template <typename PUNIV>
+  T _fR // the right branch resulting from decomposition by the sum of two convex/concave functions
+  ( PUNIV const& f,
+  double const& zopt, T const& _z )
+  const;
+
+  template <typename PUNIV>
+  T _fL // the right branch resulting from decomposition by the sum of two convex/concave functions
+  ( PUNIV const& f,
+  double const& zopt, T const& _z )
+  const;
+
+  template <typename PUNIV>
   void _asym
   ( std::vector<std::vector<T>>& mat, unsigned const& ndep, PUNIV const& f,
     double const& zopt, bool const cvx )
@@ -384,6 +401,19 @@ class ISModel
   void _asym
   ( std::vector<std::vector<T>>& mat, unsigned const& ndep, PUNIV const& f,
     double const& zopt, bool const cvx, T const& bnd )
+  const;
+
+  template <typename PUNIV>
+  void
+  _asymDc
+  ( std::vector<std::vector<T>>& mat, unsigned const& ndep, PUNIV const& f,
+    double const& zopt, double const& zopt_derv, bool const LHS_cvx)
+  const;
+  template <typename PUNIV>
+  void
+  _asymDc
+  ( std::vector<std::vector<T>>& mat, unsigned const& ndep, PUNIV const& f,
+    double const& zopt, double const& zopt_derv, bool const LHS_cvx, T const& bnd )
   const;
 
   void _inv
@@ -404,6 +434,9 @@ class ISModel
   void _xlog
   ( std::vector<std::vector<T>>& mat, unsigned const& ndep )
   const;
+  void _pow
+  ( std::vector<std::vector<T>>& mat, unsigned const& ndep, int const& n )
+  const;  
   void _sin
   ( std::vector<std::vector<T>>& mat, unsigned const& ndep )
   const;
@@ -555,6 +588,52 @@ const
   return out;
 }
 
+
+template <typename T>
+template <typename PUNIV>
+inline
+T
+ISModel<T>::_fL // the left branch resulting from decomposition by the sum of two convex/concave functions
+( PUNIV const& f,
+  double const& zopt, T const& _z )
+  const
+{
+  if(Op<T>::u(_z) <= zopt){
+    return f(_z);
+  }
+  else if(Op<T>::l(_z) >= zopt){
+    T _output (zopt,zopt);
+    return f(_output);
+  }
+  else{
+    T _output (Op<T>::l(_z),zopt);
+    return f(_output);
+  }
+}
+
+
+template <typename T>
+template <typename PUNIV>
+inline
+T
+ISModel<T>::_fR // the right branch resulting from decomposition by the sum of two convex/concave functions
+( PUNIV const& f,
+  double const& zopt, T const& _z )
+  const
+{
+  if(Op<T>::l(_z) >= zopt){
+    return f(_z);
+  }
+  else if(Op<T>::u(_z) <= zopt){
+    T _output (zopt,zopt);
+    return f(_output);
+  }
+  else{
+    T _output (zopt,Op<T>::u(_z));
+    return f(_output);
+  }
+}
+
 template <typename T>
 template <typename PUNIV>
 inline
@@ -582,13 +661,13 @@ const
   int imid( -1 );
   mid( Op<T>::l(bnd), Op<T>::u(bnd), zopt, imid );
   double sum_r1( 0. );
-  double C1( 0. );
+  double C1( 0. ),C2( 0. );
   for( unsigned int i=0; i<_nvar; i++ ){
     if( mat[i].empty() ) continue;
     switch( imid ){
       case ICONV: _c1[i] = _L1[i], C1 += _c1[i]; break;
       case ICONC: _c1[i] = _U1[i], C1 += _c1[i]; break;
-      case ICUT:  _c1[i] = 0.5*(_L1[i]+_U1[i]); C1 += _c1[i]; break;
+      case ICUT:  _c1[i] = _L1[i], C1 += _c1[i], _c2[i] = _U1[i], C2 += _c2[i]; break;
     }
     _r1[i] = ( _U1[i] - _L1[i] );
     sum_r1 += _r1[i];
@@ -607,14 +686,162 @@ const
     }
     else{
       double scal_r1 = _r1[i] / sum_r1; 
+      // If _r1[i] is little and scal_r1 is even less, and the division by scal_r1 may cause numerical problems espicially when _r1[i] <1e-5 and sum_r1 > 65536.0^3
+      // Nevertheless, as ( mat[i][j] - _c1[i] ) is assured to be less then _r1[i] and ( mat[i][j] - _c1[i] ) / _r1[i] ranges from 0. to 1., 
+      // it would be more likely to be safer to multiply ( mat[i][j] - _c1[i] ) / _r1[i] by sum_r1
       for( unsigned int j=0; j<_ndiv; j++ ){
-        T D = scal_r1 * ( f( ( mat[i][j] - _c1[i] ) / scal_r1 + C1 ) - fopt ) + fopt_over_ndep;
-        T E = ( imid == ICUT? fopt_over_ndep: f( mat[i][j] - _c1[i] + C1 ) - fopt_over_ndep * (ndep-1.) );
+        //T D = scal_r1 * ( f( ( mat[i][j] - _c1[i] ) / scal_r1 + C1 ) - fopt ) + fopt_over_ndep;
+        T D = scal_r1 * ( f( ( mat[i][j] - _c1[i] ) / _r1[i] * sum_r1 + C1 ) - fopt ) + fopt_over_ndep;
+        //T E = ( imid == ICUT? fopt_over_ndep: f( mat[i][j] - _c1[i] + C1 ) - fopt_over_ndep * (ndep-1.) );
+        // Based on the idea of decomposing a convex/concave function to the summation of two convex/concave functions, 
+        // the estimator for constructing E can be refined by the following
+        T E(0.,0.);
+        if(imid == ICUT)
+          E = _fL(f,zopt, mat[i][j] - _c2[i] + C2 ) + _fR(f,zopt, mat[i][j] - _c1[i] + C1 ) - fopt_over_ndep * (ndep-1.) * 2.;
+        else
+          E = f( mat[i][j] - _c1[i] + C1 ) - fopt_over_ndep * (ndep-1.);
+        
         mat[i][j] = ( cvx? T( Op<T>::l(E), Op<T>::u(D) ): T( Op<T>::l(D), Op<T>::u(E) ) );
       }
     }
   }
 }
+
+// The next two functions are defined in a manner similar to the functions _asym, DC stands for decomposing by the difference of two convex/concave functions
+// The name of the last arg is changed, from cvx to LHS_cvx, standing for whether _fL is convex
+
+template <typename T>
+template <typename PUNIV>
+inline
+void
+ISModel<T>::_asymDc
+( std::vector<std::vector<T>>& mat, unsigned const& ndep, PUNIV const& f,
+  double const& zopt, double const& zopt_derv, bool const LHS_cvx )    
+const
+{
+  assert( !mat.empty() );
+  T bnd = _B( mat, 1 );
+  return _asymDC( mat, ndep, f, zopt, zopt_derv, LHS_cvx, bnd );
+}
+
+template <typename T>
+template <typename PUNIV>
+inline
+void
+ISModel<T>::_asymDc
+( std::vector<std::vector<T>>& mat, unsigned const& ndep, PUNIV const& f,
+  double const& zopt, double const& zopt_derv, bool const LHS_cvx, T const& bnd )
+const
+{
+  /*enum DC_TYPE {Cv_Cc_INC, Cv_Cc_DEC, Cc_Cv_INC, Cc_Cv_DEC};
+  _Cv_Cc_INC 
+  _Cv_Cc_DEC 
+  _Cc_Cv_INC 
+  _Cc_Cv_DEC 
+  */
+ 
+  // anchor points
+  int imid( -1 );
+  double _L( Op<T>::l(bnd) ), _U( Op<T>::u(bnd) );
+  mid( _L, _U, zopt, imid );
+  double _zopt (0.);
+  double _fl (Op<T>::l(f(_L))), _fzopt (Op<T>::l(f(zopt))), _fu (Op<T>::l(f(_U)));
+  switch( imid ){
+    // right
+    case 1: _zopt = (LHS_cvx? ( (_fu>=_fzopt) ? _U : zopt ) : ( (_fu>=_fzopt) ? zopt : _U) ); _asym( mat, ndep, f, _zopt, !LHS_cvx, bnd ); break;
+    // left
+    case 2: _zopt = (LHS_cvx? ( (_fl>=_fzopt) ? zopt : _L ) : ( (_fl>=_fzopt) ? _L : zopt) ); _asym( mat, ndep, f, _zopt,  LHS_cvx, bnd ); break;
+    case ICUT:   ; break;
+  }
+  // Note that when all computations are exact we can obtain same result by using zopt_derv - the derivative of f at zopt.
+  // However, it may be more numerically robust to compare whether f(_U)>=f(zopt)
+  
+  if(imid == ICUT){
+    
+    double sum_r1( 0. );
+    //double C1( 0. ),C2( 0. );
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;
+      _r1[i] = ( _U1[i] - _L1[i] );
+      sum_r1 += _r1[i]; 
+    }
+
+    double inv_ndep( 1. / ndep );
+    
+    if (zopt_derv==0.){
+      T fopt (f(zopt));
+      T fopt_over_ndep = fopt * inv_ndep;
+      for( unsigned int i=0; i<_nvar; i++ ){
+        if( mat[i].empty() ) continue;   
+        if( isequal( _r1[i], 0. ) ){
+          for( unsigned int j=0; j<_ndiv; j++ )
+            mat[i][j] = fopt_over_ndep;
+          continue;
+        }
+        else{ 
+          double scal_r1 = _r1[i] / sum_r1; 
+          for( unsigned int j=0; j<_ndiv; j++ ){
+            // Based on the idea of DC decomposition
+            T D = scal_r1 * (_fR(f,zopt,(( mat[i][j] - _U1[i] ) / _r1[i] * sum_r1 + _U)) - fopt ) - fopt_over_ndep * (ndep-2.) + _fL(f,zopt, (mat[i][j] - _U1[i] + _U));
+            T E = scal_r1 * (_fL(f,zopt,(( mat[i][j] - _L1[i] ) / _r1[i] * sum_r1 + _L)) - fopt ) - fopt_over_ndep * (ndep-2.) + _fR(f,zopt, (mat[i][j] - _L1[i] + _L));
+            mat[i][j] = ( !LHS_cvx? T( Op<T>::l(E), Op<T>::u(D) ): T( Op<T>::l(D), Op<T>::u(E) ) );
+            // Note that the current implementation of _fR and _fL assumes fopt = f(zopt) = 0. 
+            // These two functions need to be further modified 
+            // when we generalize the implementation of _asymDc for more fucntions besides power functions. 
+          }
+        }
+      }
+    }
+    else{
+      throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF );
+      // TODO
+      /*
+      unsigned char _typ (0);
+      //double _ThrhdEps (0.000000000000001); // 1e-14 
+      T foptL = f(_L);
+      T foptR = f(_U);
+      //_typ  = (LHS_cvx? ( (f(_L)>=f(zopt)) ? 1:2 ) : ( (f(_L)>=f(zopt)) ? 3:4) );
+      // _typ = 1: convex on the left, concave on the right, decreasing
+      // _typ = 2: convex on the left, concave on the right, increasing
+      // _typ = 3: concave on the left, convex on the right, decreasing
+      // _typ = 4: concave on the left, convex on the right, increasing  
+      // _typ = 5: this should not happen, as the case foptL==foptR has been addressed by the SWITCH.
+      //           When this happen, there must be something numerically wrong.   
+      if(LHS_cvx){
+        if(foptL>foptR){
+          _typ = 1;
+          foptL = f(zopt);
+          foptR = f(zopt);
+        }
+        else //if(foptL<foptR){
+          _typ = 2;
+        //}
+        //else{
+        //  _typ = 5;
+        //}
+      }
+      else{
+        if(foptL>foptR){
+          _typ = 3;
+          T _temp4exchange = f(_L);
+          foptL = foptR;
+          foptR = _temp4exchange;
+        } 
+        else{ // if(foptL<foptR-_ThrhdEps){
+          _typ = 4;
+          foptL = f(zopt);
+          foptR = f(zopt);
+        }
+        //else{
+        //  _typ = 5;
+        //}
+      }
+    */
+    }
+  }
+}
+
+
 
 template <typename T>
 inline
@@ -771,7 +998,7 @@ const
   // Asymetric inclusion
   if( options.ASYREM_USE ){
     auto const& f = [=]( const T& x ){ return Op<T>::exp( x ); };
-    return _asym( mat, ndep, f, -DBL_MAX, true, bnd ); // concave term, max +INF
+    return _asym( mat, ndep, f, -DBL_MAX, true, bnd ); // convex term, min -INF
   }
   
   // Central points
@@ -862,6 +1089,38 @@ const
   // Asymetric inclusion
   auto const& f = [=]( const T& x ){ return Op<T>::xlog( x ); };
   return _asym( mat, ndep, f, std::exp(-1.), true, bnd ); // concave term, min 1/e
+}
+
+template <typename T>
+inline
+void ISModel<T>::_pow
+( std::vector<std::vector<T>>& mat, unsigned const& ndep, int const& n )
+const
+{
+  assert( !mat.empty() );
+
+  // Bounds
+  T bnd = _B( mat, 1 );
+  double L( Op<T>::l(bnd) ), U( Op<T>::u(bnd) );
+  if( n == 0 )
+    throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF );
+  else if ( n == -1 )
+    return _inv( mat, ndep );
+  else if( n < -1){
+    auto const& f = [=]( const T& x ){ return Op<T>::pow( x,n ); };
+    if( L > 0. )
+      return _asym( mat, ndep, f, DBL_MAX, true, bnd ); // convex part, min +INF
+    else if( U < 0. && ((-n)%2) != 0)
+      return _asym( mat, ndep, f, -DBL_MAX, false, bnd ); // concave part, max -INF
+    else
+      return _asym( mat, ndep, f, -DBL_MAX, true, bnd ); // convex part, max -INF 
+  }
+  else{
+    // Asymetric inclusion
+    auto const& f = [=]( const T& x ){ return Op<T>::pow( x,n ); };
+    if( (n%2) == 0) return _asym( mat, ndep, f, 0., true, bnd );
+    else return _asymDc( mat, ndep, f, 0., 0., false, bnd );
+  }
 }
 
 template <typename T>
@@ -1862,6 +2121,8 @@ ISVar<T> fabs
   return var;
 }
 
+
+
 template <typename T>
 inline
 ISVar<T> relu
@@ -1872,7 +2133,7 @@ ISVar<T> relu
 
   ISVar<T> var2( var );
   auto const& f = [=]( const T& x ){ return Op<T>::max( x, 0. ); };
-  var2._mod->_asym( var2._mat, var2._ndep, f, 0., true ); // convex term, min 0
+  var2._mod->_asym( var2._mat, var2._ndep, f, -DBL_MAX, true ); // convex term, min 0
   var2._bnd.second = false;
   return var2;
 }
@@ -1886,7 +2147,7 @@ ISVar<T> relu
     return relu(var._cst);
 
   auto const& f = [=]( const T& x ){ return Op<T>::max( x, 0. ); };
-  var._mod->_asym( var._mat, var._ndep, f, 0., true ); // convex term, min 0
+  var._mod->_asym( var._mat, var._ndep, f, -DBL_MAX, true ); // convex term, min 0 (and -INF)
   var._bnd.second = false;
   return var;
 }
@@ -2062,7 +2323,40 @@ ISVar<T> tanh
 }
 
 
+
+template <typename T>
+inline
+ISVar<T> 
+pow
+( ISVar<T> const& var, int const& n  )
+{
+  if( !var._mod )
+    return std::pow( var._cst, n );
+
+  ISVar<T> var2( var );
+  var2._mod->_pow( var2._mat, var2._ndep, n );
+  var2._bnd.second = false;
+  return var2;
+}
+
+template <typename T>
+inline
+ISVar<T> 
+pow
+( ISVar<T> && var , int const& n )
+{
+  if( !var._mod )
+    return std::pow( var._cst, n );
+
+  var._mod->_pow( var._mat, var._ndep, n );
+  var._bnd.second = false;
+  return var;
+}
+
+
+
 // @TODO: since power functions are convex/concave on certain domain, the Alg 2 is applicable here as well. 
+/*
 template <typename T>
 inline
 ISVar<T>
@@ -2107,6 +2401,11 @@ pow
     sqr( pow( var, n/2 ) ) :
     sqr( pow( var, n/2 ) ) * var;
 }
+*/
+
+
+
+
 
 template <typename T>
 inline
