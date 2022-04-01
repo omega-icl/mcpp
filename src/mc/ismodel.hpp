@@ -385,11 +385,22 @@ class ISModel
   ( PUNIV const& f,
   double const& zopt, T const& _z )
   const;
+  template <typename PUNIV>
+  T _fR // the right branch resulting from decomposition by the sum of two convex/concave functions
+  ( PUNIV const& f,
+  double const& zopt,  double const& zopt_derv, T const& _z )
+  const;
+  
 
   template <typename PUNIV>
   T _fL // the right branch resulting from decomposition by the sum of two convex/concave functions
   ( PUNIV const& f,
-  double const& zopt, T const& _z )
+  double const& zopt,T const& _z )
+  const;
+  template <typename PUNIV>
+  T _fL // the right branch resulting from decomposition by the sum of two convex/concave functions
+  ( PUNIV const& f,
+  double const& zopt, double const& zopt_derv, T const& _z )
   const;
 
   template <typename PUNIV>
@@ -697,7 +708,7 @@ const
         // the estimator for constructing E can be refined by the following
         T E(0.,0.);
         if(imid == ICUT)
-          E = _fL(f,zopt, mat[i][j] - _c2[i] + C2 ) + _fR(f,zopt, mat[i][j] - _c1[i] + C1 ) - fopt_over_ndep * (ndep-1.) * 2.;
+          E = _fL(f,zopt, mat[i][j] - _c2[i] + C2 ) + _fR(f,zopt, mat[i][j] - _c1[i] + C1 ) - fopt_over_ndep * (2. * ndep -1.);
         else
           E = f( mat[i][j] - _c1[i] + C1 ) - fopt_over_ndep * (ndep-1.);
         
