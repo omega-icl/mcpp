@@ -292,12 +292,18 @@ class ISModel
   {
     //! @brief Constructor
     Options():
-      ASYREM_USE(true), DCDEC_USE(true)
+      ASYREM_USE(true), DCDEC_USE(true), ENVEL_USE(true), ROOT_MAXIT(100), ROOT_TOL(1e-10)
       {}
     //! @brief Whether to use asymmetric inclusions for convex/concave terms as available
     bool ASYREM_USE;
     //! @brief Whether to use DC decomposition in product rule and composition rule with non-monotonic univariates
     bool DCDEC_USE;
+    //! @brief Whether to use convex/concave envelopes of nonconvex terms as available
+    bool ENVEL_USE;
+    //! @brief Maximal number of iterations in root search - Default: 100
+    unsigned ROOT_MAXIT;
+    //! @brief Termination tolerance in root search - Default: 1e-10
+    double ROOT_TOL;
   } options;
 
   //! @brief Exceptions of mc::ISModel
@@ -311,6 +317,7 @@ class ISModel
       LOG,	     //!< Log operation with non-positive numbers in range
       SQRT,	     //!< Square-root operation with negative numbers in range
       TAN,	     //!< Tangent operation with (k+1/2)·PI in range
+      ROOT,      //!< Error during root search for obtaining the convex/concave envelope of a univariate term
       INTERN=-1, //!< Internal error
       INDEX=-2,  //!< Variable index out of range
       MODEL=-3,	 //!< Operation between variables belonging to different models
@@ -437,11 +444,25 @@ class ISModel
   // @unsure: there is a similar algorithm which can refining the multiplicative result, 
   // by bounding x_iy_j+x_jy_i in 0.5*(x_i^2+y_i^2)*[-1,1] + 0.5*(x_j^2+y_j^2)*[-1,1]
 
+  static std::ostream& _dispmat
+  ( std::vector<std::vector<T>> const& mat, unsigned const len=3, std::ostream& out=std::cout );
+  
   std::ostream& _dispvar
   ( std::vector<std::vector<T>> const& mat, unsigned const& ndep, const int& opt=0,
     std::ostream& out=std::cout )
   const;
+
+  template <typename PUNIV>
+  double _goldsect
+  ( const double xL, const double xU, PUNIV const& f, const double TOL, const unsigned MAXIT )
+  const;
   
+  template <typename PUNIV>
+  double _goldsect_iter
+  ( unsigned& iter, const double a, const double fa, const double b,
+    const double fb, const double c, const double fc, PUNIV const& f,
+    const double TOL, const unsigned MAXIT )
+  const;
 };
 
 template <typename T> inline
@@ -459,6 +480,27 @@ std::ostream& operator<<
   for( unsigned int i=0; i<mod._nvar; i++ )
     out << "       " << i << ": " << (mod._defvar[i]? mod._bndvar[i]: "-") << std::endl;
   out << std::endl;
+  return out;
+}
+
+template <typename T>
+inline
+std::ostream& ISModel<T>::_dispmat
+( std::vector<std::vector<T>> const& mat, unsigned const len, std::ostream& out )
+{
+  if( mat.empty() ) return out;
+  unsigned irow = 0;
+  for( auto&& row : mat ){
+    if( row.empty() ) continue;
+    out << std::right << std::setw(5) << irow++ <<": ";
+    unsigned icol = 0;
+    for( auto&&el : row ){
+      if( icol && !(icol%len) ) out << std::endl << "       ";
+      out << std::setw(0) << el;
+      icol++;
+    }
+    out << std::endl;
+  }
   return out;
 }
 
@@ -666,6 +708,47 @@ const
 }
 
 template <typename T>
+template <typename PUNIV>
+inline
+double
+ISModel<T>::_goldsect
+( const double xL, const double xU, PUNIV const& f, const double TOL, const unsigned MAXIT )
+const
+{
+  const double phi = 2.-(1.+std::sqrt(5.))/2.;
+  const double fL = f(xL), fU = f(xU);
+  if( fL*fU > 0 ) throw Exceptions( Exceptions::ROOT );
+  const double xm = xU-phi*(xU-xL), fm = f(xm);
+  unsigned iter = 0;
+  return _goldsect_iter( iter, xL, fL, xm, fm, xU, fU, f, TOL, MAXIT );
+}
+
+template <typename T>
+template <typename PUNIV>
+inline
+double
+ISModel<T>::_goldsect_iter
+( unsigned& iter, const double a, const double fa, const double b,
+  const double fb, const double c, const double fc, PUNIV const& f,
+  const double TOL, const unsigned MAXIT )
+const
+// a and c are the current bounds; the minimum is between them.
+// b is a center point
+{
+  std::cout << "Iter #" << iter << std::endl;
+  const double phi = 2.-(1.+std::sqrt(5.))/2.;
+  bool b_then_x = ( c-b > b-a );
+  double x = ( b_then_x? b+phi*(c-b): b-phi*(b-a) );
+  if( std::fabs(c-a) < TOL*(std::fabs(b)+std::fabs(x)) || iter >= MAXIT ) return (c+a)/2.;
+  double fx = f(x);
+  if( b_then_x )
+    return( fa*fx<0? _goldsect_iter( ++iter, a, fa, b, fb, x, fx, f, TOL, MAXIT ):
+                     _goldsect_iter( ++iter, b, fb, x, fx, c, fc, f, TOL, MAXIT ) );
+  return( fa*fb<0? _goldsect_iter( ++iter, a, fa, x, fx, b, fb, f, TOL, MAXIT ):
+                   _goldsect_iter( ++iter, x, fx, b, fb, c, fc, f, TOL, MAXIT ) );
+}
+
+template <typename T>
 inline
 void ISModel<T>::_tanh
 ( std::vector<std::vector<T>>& mat, unsigned const& ndep )
@@ -684,16 +767,56 @@ const
   if( L >= 0. )
     return _asym( mat, ndep, f, DBL_MAX, false, bnd ); // concave part, max INF
 
-  auto const& fcv = [=]( const double& x ){ return std::tanh( std::min( x, 0. ) ) - std::min( x, 0. ) + .5 * x; };
-  auto const& fcc = [=]( const double& x ){ return std::tanh( std::max( x, 0. ) ) - std::max( x, 0. ) + .5 * x; };
-  double zopt = 0.5 * std::log( 4. / ( 2. - std::sqrt(2.) ) - 1. );
+  if( ndep == 1 || !options.ENVEL_USE ){
+    auto const& fcv = [=]( const double& x ){ return std::tanh( std::min( x, 0. ) ) + std::max( x, 0. ); };
+    auto const& fcc = [=]( const double& x ){ return std::tanh( std::max( x, 0. ) ) + std::min( x, 0. ); };
+    auto matcp1 = mat;
+    auto matcp2 = mat;
+    _dispmat( mat );
+    _asym( matcp1, ndep, fcv, -DBL_MAX, true, bnd ); // convex term, min -INF
+    _dispmat( matcp1 );
+    _asym( matcp2, ndep, fcc,  DBL_MAX, false, bnd ); // concave term, max INF
+    _dispmat( matcp2 );
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;   
+      for( unsigned int j=0; j<_ndiv; j++ )
+        mat[i][j] = matcp1[i][j] + matcp2[i][j] - mat[i][j];
+    }
+#if 0
+    auto const& fcv = [=]( const double& x ){ return std::tanh( std::min( x, 0. ) ) - std::min( x, 0. ) + .5 * x; };
+    auto const& fcc = [=]( const double& x ){ return std::tanh( std::max( x, 0. ) ) - std::max( x, 0. ) + .5 * x; };
+    double zopt = 0.5 * std::log( 4. / ( 2. - std::sqrt(2.) ) - 1. );
+    auto matcp = mat;
+    _asym( mat, ndep, fcv, -zopt, true, bnd ); // convex term, min -zopt
+    _asym( matcp, ndep, fcc, zopt, false, bnd ); // concave term, max zopt
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( matcp[i].empty() ) continue;   
+      for( unsigned int j=0; j<_ndiv; j++ )
+        mat[i][j] += matcp[i][j];
+    }
+#endif
+    return;
+  }
+  
+  auto const& fl = [=]( const double& x )
+    { double tanhx = std::tanh(x); return (x-U)*(1-tanhx*tanhx)-(tanhx-std::tanh(U)); };
+  double zcv = _goldsect( L, 0., fl, options.ROOT_TOL, options.ROOT_MAXIT );
+  auto const& fcv = [=]( const double& x ) // convex envelope
+    { double tanhcv = std::tanh(zcv); return x<zcv? std::tanh(x): tanhcv+(x-zcv)*(1-tanhcv*tanhcv); };
+  auto const& fu = [=]( const double& x )
+    { double tanhx = std::tanh(x); return (x-L)*(1-tanhx*tanhx)-(tanhx-std::tanh(L)); };
+  double zcc = _goldsect( 0., U, fu, options.ROOT_TOL, options.ROOT_MAXIT );
+  auto const& fcc = [=]( const double& x ) // concave envelope
+    { double tanhcc = std::tanh(zcc); return x>zcc? std::tanh(x): tanhcc+(x-zcc)*(1-tanhcc*tanhcc); };
   auto matcp = mat;
-  _asym( mat, ndep, fcv, -zopt, true, bnd ); // convex term, min -zopt
-  _asym( matcp, ndep, fcc, zopt, false, bnd ); // concave term, max zopt
+  _asym( mat, ndep, fcv, -DBL_MAX, true, bnd ); // convex term, min -INF
+  _dispmat( mat );
+  _asym( matcp, ndep, fcc, DBL_MAX, false, bnd ); // concave term, max INF
+  _dispmat( matcp );
   for( unsigned int i=0; i<_nvar; i++ ){
-    if( matcp[i].empty() ) continue;   
+    if( mat[i].empty() ) continue;   
     for( unsigned int j=0; j<_ndiv; j++ )
-      mat[i][j] += matcp[i][j];
+      mat[i][j] = Op<T>::hull( mat[i][j], matcp[i][j] );
   }
 }
 
