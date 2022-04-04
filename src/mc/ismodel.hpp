@@ -1068,7 +1068,6 @@ void ISModel<T>::_prod
 const
 {
   assert( !mat1.empty() && !mat2.empty() );
-
   // Bounds
   _B( mat1, 1 );
   _B( mat2, 2 );
@@ -1116,9 +1115,9 @@ const
   
   // Remainder
   double rem( R1*R2 - R12 );
-
   // Interval matrix coefficients
-  T bnd = T(-1.,1.)*(rem/double(ndep3)) - w/double(ndep3);
+  double _asybnd (-w/double(ndep3));
+  T bnd = T(-1.,1.)*(rem/double(ndep3)) + _asybnd;
 #ifdef MC__ISMODEL_DEBUG_PROD
   std::cerr << "bnd = " << bnd << std::endl;
 #endif
@@ -1129,21 +1128,56 @@ const
 #ifdef MC__ISMODEL_DEBUG_PROD
       std::cerr << "1 & 2" << std::endl;
 #endif
-      for( unsigned int j=0; j<_ndiv; j++ )
-        mat3[i][j] = (mat1[i][j]+(C1-_c1[i]))*(mat2[i][j]+(C2-_c2[i])) - (C1-_c1[i])*(C2-_c2[i]) + bnd;
+      for( unsigned int j=0; j<_ndiv; j++ ){
+        // mat3[i][j] = (mat1[i][j]+(C1-_c1[i]))*(mat2[i][j]+(C2-_c2[i])) - (C1-_c1[i])*(C2-_c2[i])+bnd;
+        T _bnd(0.);
+        _bnd = bnd; // a new internal variable which does not modify the value of the variable bnd
+        if(options.ASYREM_USE){
+          T _temp(0.);
+          T _asyremU1 (_r1[i]==0? _temp: Op<T>::sqr(mat1[i][j]-_c1[i])/(_r1[i]*2.)*(R2-_r2[i])*T(-1.,1.) );
+          T _asyremU2 (_r2[i]==0? _temp: Op<T>::sqr(mat2[i][j]-_c2[i])/(_r2[i]*2.)*(R1-_r1[i])*T(-1.,1.) );
+          _bnd = _asyremU1+_asyremU2+_asybnd;
+        }
+        mat3[i][j] = (mat1[i][j]+(C1-_c1[i]))*(mat2[i][j]+(C2-_c2[i])) - (C1-_c1[i])*(C2-_c2[i]) + _bnd;
+      }
     }
     else if( !mat1[i].empty() ){
       if( mat3[i].empty() ) mat3[i].resize(_ndiv);
 #ifdef MC__ISMODEL_DEBUG_PROD
       std::cerr << "1 ONLY" << std::endl;
 #endif
-      for( unsigned int j=0; j<_ndiv; j++ )
-        mat3[i][j] = mat1[i][j]*C2 + bnd;
+      for( unsigned int j=0; j<_ndiv; j++ ){
+      // mat3[i][j] = mat1[i][j]*C2 + bnd;
+      // mat3[i][j] = mat1[i][j]+0.;
+      // mat3[i][j] = mat1[i][j]*C2; 
+      // Here is a strange bug: if we execute mat3[i][j] = mat1[i][j]*C2, then the value of mat1[i][j] is changed
+      // This might be caused by the convensional use of storing coefficients, in ISVar<T>& ISVar<T>::operator*= ( ISVar<T> const& var )
+      // Therefore, we add the value after computing _asyremU1  
+        T _bnd(0.);
+        _bnd = bnd; // a new internal variable which does not modify the value of the variable bnd
+        if(options.ASYREM_USE){
+          T _temp(0.);
+          T _asyremU1 (_r1[i]==0? _temp: Op<T>::sqr(mat1[i][j]-_c1[i])/(_r1[i]*2.)*(R2)*T(-1.,1.) );
+          _bnd = _asyremU1+_asybnd;
+        }
+        mat3[i][j] = mat1[i][j]*C2 + _bnd;
+      }
+      //std::cout<<"i"<<i<<","<<R2<<","<<_c1[i]<<","<<_r1[i]<<std::endl;       
     }
     else if( !mat2[i].empty() ){
       if( mat3[i].empty() ) mat3[i].resize(_ndiv);
-      for( unsigned int j=0; j<_ndiv; j++ )
-        mat3[i][j] = mat2[i][j]*C1 + bnd;
+      for( unsigned int j=0; j<_ndiv; j++ ){
+        //mat3[i][j] = mat2[i][j]*C1 + bnd;
+        T _bnd(0.);
+        _bnd = bnd; // a new internal variable which does not modify the value of the variable bnd
+        if(options.ASYREM_USE){
+          T _temp(0.);
+          T _asyremU2 (_r2[i]==0? _temp: Op<T>::sqr(mat2[i][j]-_c2[i])/(_r2[i]*2.)*(R1)*T(-1.,1.) );
+          _bnd = _asyremU2+_asybnd;
+        }
+        mat3[i][j] = mat2[i][j]*C1 + _bnd; 
+      }
+      //std::cout<<"i"<<i<<","<<R1<<","<<_c2[i]<<","<<_r2[i]<<std::endl;
     }
   }
 }
@@ -1838,10 +1872,9 @@ ISVar<T> operator*
     var3 *= var1._cst;
     return var3;
   }
-
+  
   if( var1._mod->options.DCDEC_USE )
     return 0.25 * ( sqr( var1 + var2 ) - sqr( var1 - var2 ) );
-
   ISVar<T> var3( var2 );
   var3 *= var1;
   return var3;
