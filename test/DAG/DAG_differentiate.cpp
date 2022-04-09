@@ -117,6 +117,44 @@ int test_fadiff3()
 {
   std::cout << "\n==============================================\ntest_fadiff3:\n";
 
+  // Create DAG
+  const unsigned NX = 3, NF = 1;
+  mc::FFGraph DAG;
+  mc::FFVar X[NX];
+  for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
+  mc::FFVar F[NF] = { X[0]+5*X[2] };//+2*sqr(X[1]) };//,
+                      //X[1]*sqr(X[2])+5*X[2]+3*X[0]-10.,
+                      //X[0]-X[2]-2.66                    };
+  std::cout << DAG;
+  std::ofstream o_F( "fadiff3_F.dot", std::ios_base::out );
+  DAG.dot_script( NF, F, o_F );
+  o_F.close();
+
+  // Forward AD
+  const mc::FFVar* dFdX = DAG.FAD( NF, F, NX, X, true );
+  DAG.output( DAG.subgraph( NX*NF, dFdX ), " dFdX (non-recursive)" );
+  std::ofstream o_dFdX( "fadiff3_dFdX.dot", std::ios_base::out );
+  DAG.dot_script( NF*NX, dFdX, o_dFdX );
+  o_dFdX.close();
+  delete[] dFdX;
+
+  // Forward AD recursive
+  const mc::FFVar* dFdX_recur = DAG.FAD( NF, F, 1, &X[0], 1, &X[1], 1, &X[2], true );
+  DAG.output( DAG.subgraph( NX*NF, dFdX_recur ), " dFdX (recursive)" );
+  std::ofstream o_dFdX_recur( "fadiff3_dFdX_recur.dot", std::ios_base::out );
+  DAG.dot_script( NF*NX, dFdX_recur, o_dFdX_recur );
+  o_dFdX_recur.close();
+  delete[] dFdX_recur;
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+int test_fadiff4()
+{
+  std::cout << "\n==============================================\ntest_fadiff4:\n";
+
   // DAG
   mc::FFGraph DAG;
   const unsigned NX = 2;
@@ -127,31 +165,31 @@ int test_fadiff3()
   mc::FFVar A[NX*NX] = { sqr(X[0]),     0.5*X[0]*X[1],
                          0.5*X[0]*X[1], sqr(X[1])      };
   std::cout << DAG;
-  std::ofstream o_A( "fadiff3_A.dot", std::ios_base::out );
+  std::ofstream o_A( "fadiff4_A.dot", std::ios_base::out );
   DAG.dot_script( NX*NX, A, o_A );
   o_A.close();
 
   // determinant
   mc::FFVar  Adet = DAG.det( NX, A );
-  std::ofstream o_Adet( "fadiff3_Adet.dot", std::ios_base::out );
+  std::ofstream o_Adet( "fadiff4_Adet.dot", std::ios_base::out );
   DAG.dot_script( 1, &Adet, o_Adet );
   o_Adet.close();
 
   // backward AD of determinant
   mc::FFVar* dAdetdX = DAG.BAD( 1, &Adet, NX, X, true );
-  std::ofstream o_dAdetdX( "fadiff3_dAdetdX.dot", std::ios_base::out );
+  std::ofstream o_dAdetdX( "fadiff4_dAdetdX.dot", std::ios_base::out );
   DAG.dot_script( NX, dAdetdX, o_dAdetdX );
   o_dAdetdX.close();
 
   // inverse matrix
   mc::FFVar* Ainv = DAG.inv( NX, A ); 
-  std::ofstream o_Ainv( "fadiff3_Ainv.dot", std::ios_base::out );
+  std::ofstream o_Ainv( "fadiff4_Ainv.dot", std::ios_base::out );
   DAG.dot_script( NX*NX, Ainv, o_Ainv );
   o_Ainv.close();
 
   // forward AD of inverse matrix
   mc::FFVar* dAinvdX = DAG.FAD( NX*NX, Ainv, NX, X, true );
-  std::ofstream o_dAinvdX( "fadiff3_dAinvdX.dot", std::ios_base::out );
+  std::ofstream o_dAinvdX( "fadiff4_dAinvdX.dot", std::ios_base::out );
   DAG.dot_script( NX*NX*NX, dAinvdX, o_dAinvdX );
   o_dAinvdX.close();
 

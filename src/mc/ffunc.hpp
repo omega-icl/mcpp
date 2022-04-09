@@ -1929,14 +1929,17 @@ inline bool
 FFVar::operator==
 ( const FFVar&Var ) const
 {
-  return( _dag == Var._dag && _id == Var._id );
+  if( _dag != Var._dag || _id != Var._id || _cst ) return false;
+  return true;
 }
 
 inline bool
 FFVar::operator!=
 ( const FFVar&Var ) const
 {
-  return( _dag != Var._dag || _id != Var._id );
+  if( _dag != Var._dag || _id != Var._id || _cst ) return true;
+  return false;
+  //return( _dag != Var._dag || _id != Var._id );
 }
 
 inline FFVar&
@@ -5274,6 +5277,7 @@ FFGraph::SFAD
 
   // Obtain subgraph
   auto sgDep = subgraph( vDep );
+  output( sgDep );
   std::tuple< std::vector<unsigned>, std::vector<unsigned>,
                std::vector<const FFVar*> > vDep_F; // <- vector holding the results in sparse format
 
