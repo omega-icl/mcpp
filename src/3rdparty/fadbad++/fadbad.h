@@ -1,4 +1,5 @@
 // Copyright (C) 1996-2007 Ole Stauning & Claus Bendtsen (fadbad@uning.dk)
+// Modifications copyright (C) 2015 Samuel Leweke (s.leweke@fz-juelich.de)
 // All rights reserved.
 
 // This code is provided "as is", without any warranty of any kind,
@@ -27,6 +28,26 @@
 //                         COPYRIGHT NOTICE
 // ***************************************************************
 
+//
+// ***************************************************************
+// Changes by Samuel Leweke 
+// Forschungszentrum Jülich GmbH, IBG-1, Juelich, Germany
+// ***************************************************************
+// 
+// * Add support for cot, sinh, cosh, tanh, and coth functions
+
+// ***************************************************************
+// 2017-09-04
+// Changes by Benoit Chachuat
+// Imperial College London, UK
+// ***************************************************************
+// 
+// * Change line:
+//     static Base myInteger(const int i) { return Base(i); }
+//   as:
+//     static Base myInteger(const int i) { return i; }
+//   in order to prevent an integer to be considered a double.
+
 #ifndef _FADBAD_H
 #define _FADBAD_H
 
@@ -42,7 +63,7 @@ namespace fadbad
 	template <typename T> struct Op // YOU MIGHT NEED TO SPECIALIZE THIS TEMPLATE:
 	{
 		typedef T Base;
-		//static Base myInteger(const int i) { return Base(i); }
+ 		//static Base myInteger(const int i) { return Base(i); }
 		static Base myInteger(const int i) { return i; }
 		static Base myZero() { return myInteger(0); }
 		static Base myOne() { return myInteger(1);}
@@ -58,15 +79,22 @@ namespace fadbad
 		static T mySqr(const T& x) { return x*x; }
 		template <typename X, typename Y>
 		static T myPow(const X& x, const Y& y) { return ::pow(x,y); }
+        // Addition BC: 26-09-2017
+        //static T myCheb( const T& x, const unsigned n ) { switch( n ){ case 0: return myOne(); case 1: return x; default: return myTwo()*(x*myCheb(x,n-1))-myCheb(x,n-2); } }
 		static T mySqrt(const T& x) { return ::sqrt(x); }
 		static T myLog(const T& x) { return ::log(x); }
 		static T myExp(const T& x) { return ::exp(x); }
 		static T mySin(const T& x) { return ::sin(x); }
 		static T myCos(const T& x) { return ::cos(x); }
 		static T myTan(const T& x) { return ::tan(x); }
+		static T myCot(const T& x) { return Op<Base>::myOne() / Op<Base>::myTan(x); }
 		static T myAsin(const T& x) { return ::asin(x); }
 		static T myAcos(const T& x) { return ::acos(x); }
 		static T myAtan(const T& x) { return ::atan(x); }
+		static T mySinh(const T& x) { return ::sinh(x); }
+		static T myCosh(const T& x) { return ::cosh(x); }
+		static T myTanh(const T& x) { return ::tanh(x); }
+		static T myCoth(const T& x) { return Op<Base>::myOne() / Op<Base>::myTanh(x); }
 		static bool myEq(const T& x, const T& y) { return x==y; }
 		static bool myNe(const T& x, const T& y) { return x!=y; }
 		static bool myLt(const T& x, const T& y) { return x<y; }

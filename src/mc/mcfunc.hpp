@@ -1,4 +1,4 @@
-// Copyright (C) 2009-2016 Benoit Chachuat, Imperial College London.
+// Copyright (C) Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
@@ -7,12 +7,16 @@
 
 #include <cmath>
 #include <cfloat>
+#include <vector>
+#include <iostream>
+
 
 namespace mc
 {
 
 enum{ ICUT = 0, ICONV, ICONC };
-const double PI = 4.0*std::atan(1.0);
+//const double PI = 4.0*std::atan(1.0);
+const double PI = 3.14159265358979323846264338328;
 
 inline double sign
 ( const double x )
@@ -33,6 +37,54 @@ inline int pow
 {
   // Return lower power value
   return n? z*pow(z,n-1): 1;
+}
+
+/*
+inline std::vector<double> chebcoef
+( const unsigned n )
+{
+  if( n == 0 ){
+    std::vector<double> coef(1);
+    coef[0]=1;
+  }
+  else if( n == 1 ){
+    std::vector<double> coef(2);
+    coef[0]=1;
+    coef[1]=0;
+  }
+  else{
+    auto&& coef = chebcoef(n-1);                                     // generation of cheb(x,n-1)
+    for( unsigned i=0; i<coef.size(); i++ ) coef[i] *= 2;            // multiplication by 2
+    coef.push_back(0.);                                              // multiplication by x
+    auto&& coef2 = chebcoef(n-2);                                    // generation of cheb(x,n-2)
+    for( unsigned i=0; i<coef2.size(); i++ ) coef[i+1] -= coef2[i];  // subtraction of cheb(x,n-2)
+  }
+  return coef;
+}
+*/
+
+inline std::vector<double> chebcoef
+( const unsigned n )
+{
+  std::vector<double> coef2(1);
+  coef2[0]=1;
+  if( n == 0 ) return coef2;
+
+  std::vector<double> coef1(2);
+  coef1[0]=1;
+  coef1[1]=0;
+  if( n == 1 ) return coef1;
+
+  std::vector<double> coef;
+  for( unsigned k=1; k<n; k++ ){
+    coef = coef1;                                                    // local copy of cheb(x,n-1)
+    for( unsigned i=0; i<coef.size(); i++ ) coef[i] *= 2;            // multiplication by 2
+    coef.push_back(0.);                                              // multiplication by x
+    for( unsigned i=0; i<coef2.size(); i++ ) coef[i+2] -= coef2[i];  // subtraction of cheb(x,n-2)
+    std::swap( coef1, coef2 );                                       // move cheb(x,n-1) to cheb(x,n-2)
+    std::swap( coef, coef1 );                                        // move cheb(x,n) to cheb(x,n-1)
+  }
+  return coef1;
 }
 
 inline double cheb
@@ -82,28 +134,8 @@ inline double arh
 inline double dsqr
 ( const double x )
 {
-  // CReturn derivatvie of squared value
+  // Return derivative of squared value
   return 2.*x;
-}
-
-inline double xlog
-( const double x )
-{
-  // Return x*log(x) term
-  return x*std::log( x );
-}
-
-inline double monomial
-(const unsigned int n, const double*x, const int*k)
-{
-  // Return monomial term \sum_i pow( x[i], k[i] )
-  if( n == 0 ){
-    return 1.;
-  }
-  if( n == 1 ){
-    return std::pow( x[0], k[0] );
-  }
-  return std::pow( x[0], k[0] ) * monomial( n-1, x+1, k+1 );
 }
 
 inline double fstep
@@ -120,22 +152,48 @@ inline double bstep
   return ( x>=0? 0: 1. );
 }
 
+inline double prod
+( const unsigned int n, const double*x )
+{
+  // Return product term \prod_i x[i]
+  switch( n ){
+   case 0:  return 1.;
+   case 1:  return x[0];
+   default: return x[0] * prod( n-1, x+1 );
+  }
+}
+
+inline double monom
+(const unsigned int n, const double*x, const unsigned*k)
+{
+  // Return monomial term \prod_i pow( x[i], k[i] )
+  switch( n ){
+   case 0:  return 1.;
+   case 1:  return std::pow( x[0], k[0] );
+   default: return std::pow( x[0], k[0] ) * monom( n-1, x+1, k+1 );
+  }
+}
+
 inline double max
 ( const unsigned int n, const double*x )
 {
   // Return maximum term \max_i { x[i] }
-  if( n == 0 ) return 0.;
-  if( n == 1 ) return x[0];
-  return std::max( x[0], max( n-1, x+1 ));
+  switch( n ){
+   case 0:  return 0.;
+   case 1:  return x[0];
+   default: return std::max( x[0], max( n-1, x+1 ));
+  }
 }
 
 inline double min
 ( const unsigned int n, const double*x )
 {
   // Return minimum term \min_i { x[i] }
-  if( n == 0 ) return 0.;
-  if( n == 1 ) return x[0];
-  return std::min( x[0], min( n-1, x+1 ));
+  switch( n ){
+   case 0:  return 0.;
+   case 1:  return x[0];
+   default: return std::min( x[0], min( n-1, x+1 ));
+  }
 }
 
 inline unsigned int argmin
@@ -196,6 +254,36 @@ inline double mid
   // enumeration enum{ ICUT = 0, ICONV, ICONC } defined abobe
   // in the mc namespace
   if( id < 0 ){
+    //AVT.SVT 15.03.2017 change: made inequality signs < and > to lessequal and greaterequal to avoid 
+    //setting id=ICUT=0 falsely, e.g., with < and > the subgradient of log(x) over X=[0.1,2] is 
+    //returned as 0 at 0.1 which is maybe not wrong, since it is a valid subgradient but it is not what 
+    //the user wants/expects 
+    if ( CUT <= CONV )      { id = ICONV; return CONV; }
+    else if ( CUT >= CONC ) { id = ICONC; return CONC; }
+    else                   { id = ICUT;  return CUT;  }
+  }
+
+  // If the argument <a>id</a> is specified (nonnegative value),
+  // the function simply returns the corresponding value, which
+  // is not necessarily the mid value
+  if      ( id == ICONV ) return CONV;
+  else if ( id == ICUT  ) return CUT;
+  else                    return CONC;
+}
+
+//added AVT.SVT 31.05.2017: had to add the old function for non differentiable relaxations 
+//                          such as max, min..., since we cannot directly determine the derivative at border points
+inline double mid_ndiff
+( const double CONV, const double CONC, const double CUT,
+  int &id )
+{
+  // Return the mid value of three scalars CONV, CONC and CUT,
+  // knowing that CONV <= CONC
+  // If the argument <a>id</a> is unspecified (negative value),
+  // the function indicates which value is the mid using the
+  // enumeration enum{ ICUT = 0, ICONV, ICONC } defined abobe
+  // in the mc namespace
+  if( id < 0 ){
     if ( CUT < CONV )      { id = ICONV; return CONV; }
     else if ( CUT > CONC ) { id = ICONC; return CONC; }
     else                   { id = ICUT;  return CUT;  }
@@ -229,6 +317,7 @@ inline double mid
   else                    return DCONC[k];
 }
 
+//! @brief Function returning the machine precision for double precision floating point number
 inline double
 machprec()
 {
@@ -252,15 +341,42 @@ machprec()
 
 inline bool
 isequal
-( const double real1, const double real2, const double atol=machprec(),
-  const double rtol=machprec() )
+( const double real1, const double real2, const double atol=DBL_MIN,
+  const double rtol=DBL_EPSILON )
 {
   // Test if two real values are within the same absolute and relative
   // tolerances
   double gap = std::fabs(real1-real2);
   double ave = 0.5*std::fabs(real1+real2);
-  return( gap<atol+ave*rtol? true: false );
+  return( gap>atol+ave*rtol? false: true );
+}
+
+inline double xlog
+( const double x )
+{
+  if( isequal(x,0.) ) return 0.;
+  // Return x*log(x) term
+  return x * std::log( x );
+}
+
+inline double lmtd
+( const double x, const double y )
+{
+  if( isequal(x,y)) return x;
+  // Return lmtd(x,y) term
+  return (x-y)/(std::log(x)-std::log(y));
+}
+
+inline double rlmtd
+( const double x, const double y )
+{
+  if( isequal(x,y)) return 1./x;
+  // Return lmtd(x,y) term
+  return (std::log(x)-std::log(y))/(x-y);
 }
 
 } // namespace mc
+
 #endif
+
+

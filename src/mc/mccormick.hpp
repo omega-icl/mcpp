@@ -1,6 +1,5 @@
-// Copyright (C) 2009-2016 Benoit Chachuat, Imperial College London.
+// Copyright (C) 2021 Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
-// This code is published under the Eclipse Public License.
 
 /*!
 \page page_MCCORMICK McCormick Relaxation Arithmetic for Factorable Functions
@@ -17,9 +16,9 @@ A convex relaxation \f$f^{\rm cv}\f$ of a function \f$f\f$ on the convex domain 
 
 The class mc::McCormick provides an implementation of the McCormick relaxation technique and its recent extensions; see [McCormick, 1976; Scott <i>et al.</i>, 2011; Tsoukalas & Mitsos, 2012; Wechsung & Barton, 2013]. mc::McCormick also has the capability to propagate subgradients for these relaxations, which are guaranteed to exist in the interior of the domain of definition of any convex/concave function. This propagation is similar in essence to the forward mode of automatic differentiation; see [Mitsos <i>et al.</i>, 2009]. We note that mc::McCormick is <b>not a verified implementation</b> in the sense that rounding errors are not accounted for in computing convex/concave bounds and subgradients.
 
-The implementation of mc::McCormick relies on the operator/function overloading mechanism of C++. This makes the computation of convex/concave relaxations both simple and intuitive, similar to computing function values in real arithmetics or function bounds in interval arithmetic (see \ref page_INTERVAL). Moreover, mc::McCormick can be used as the template parameter of other classes of MC++, for instance mc::TModel and mc::TVar. Likewise, mc::McCormick can be used as the template parameter of the classes fadbad::F, fadbad::B and fadbad::T of <A href="http://www.fadbad.com/fadbad.html">FADBAD++</A> for computing McCormick relaxations and subgradients of the partial derivatives or the Taylor coefficients of a factorable function (see \ref sec_MCCORMICK_fadbad).
+The implementation of mc::McCormick relies on the operator/function overloading mechanism of C++. This makes the computation of convex/concave relaxations both simple and intuitive, similar to computing function values in real arithmetics or function bounds in interval arithmetic (see \ref page_INTERVAL). Moreover, mc::McCormick can be used as the template parameter of other classes of MC++, such as mc::TVar, mc::CVar and mc::SCVar to compute convex/concave relaxations on the remainder term of polynomial models. Likewise, mc::McCormick can be used as the template parameter of the classes fadbad::F, fadbad::B and fadbad::T of <A href="http://www.fadbad.com/fadbad.html">FADBAD++</A> for computing McCormick relaxations and subgradients of the partial derivatives or the Taylor coefficients of a factorable function (see \ref sec_MCCORMICK_fadbad).
 
-mc::McCormick itself is templated in the type used to propagate the supporting interval bounds. By default, mc::McCormick can be used with the non-verified interval type mc::Interval of MC++. For reliability, however, it is strongly recommended to use verified interval arithmetic such as <A href="http://www.ti3.tu-harburg.de/Software/PROFILEnglisch.html">PROFIL</A> or <A href="http://www.math.uni-wuppertal.de/~xsc/software/filib.html">FILIB++</A>. We note that Taylor models as provided by the classes mc::TModel and mc::TVar can also be used as the template parameter (see \ref page_TAYLOR).
+mc::McCormick is templated in the type used to propagate the supporting interval bounds. By default, mc::McCormick can be used with the non-verified interval type mc::Interval of MC++. But for reliability, we recommend to use verified interval arithmetic such as <A href="http://www.ti3.tu-harburg.de/Software/PROFILEnglisch.html">PROFIL</A>, <A href="https://www.boost.org/doc/libs/1_68_0/libs/numeric/interval/doc/interval.htm">Boost Interval Arithmetic Library</A> (header file <tt>mcboost.hpp</tt>) or <A href="http://www2.math.uni-wuppertal.de/wrswt/software/filib.html">FILIB++</A>. Other types, such as mc::TVar, mc::CVar or mc::SCVar, can also be used as template parameters of mc::McCormick.
 
 Examples of McCormick relaxations constructed with mc::McCormick are shown on the left plot of the figure below for the factorable function \f$f(x)=\cos(x^2)\,\sin(x^{-3})\f$ for \f$x\in [\frac{\pi}{6},\frac{\pi}{3}]\f$. Also shown on the right plot are the affine relaxations constructed from a subgradient at \f$\frac{\pi}{4}\f$ of the McCormick relaxations of \f$f\f$ on \f$[\frac{\pi}{6},\frac{\pi}{3}]\f$.
 
@@ -330,12 +329,14 @@ Possible errors encountered during the computation of a McCormick relaxation are
 
 \section sec_MC_refs References
 - Bompadre, A., A. Mitsos, <A href="http://dx.doi.org/10.1007/s10898-011-9685-2">Convergence rate of McCormick relaxations</A>, <I>Journal of Global Optimization</I> <B>52</B>(1):1-28, 2012
+- Bongartz, D., A. Mitsos, <A href="http://dx.doi.org/10.1007/s10898-017-0547-4">Deterministic global optimization of process flowsheets in a reduced space using McCormick relaxations</A>, <i>Journal of Global Optimization</i>, <b>in press</b>, 2017
 - McCormick, G. P., <A href="http://dx.doi.org/10.1007/BF01580665">Computability of global solutions to factorable nonconvex programs: Part I. Convex underestimating problems</A>, <i>Mathematical Programming</i>, <b>10</b>(2):147-175, 1976
 - Mitsos, A., B. Chachuat, and P.I. Barton, <A href="http://dx.doi.org/10.1137/080717341">McCormick-based relaxations of algorithms</A>, <i>SIAM Journal on Optimization</i>, <b>20</b>(2):573-601, 2009
-- Najmana, J. L., D. Bongartza, A. Tsoukalas, A. Mitsos, Correction of closed form for the multivariate McCormick relaxation of the binary product of functions, personal communication, 2016
+- Najman, J. L., D. Bongartz, A. Tsoukalas, A. Mitsos, <A href="http://dx.doi.org/10.1007/s10898-016-0470-0">Erratum to: Multivariate McCormick relaxations</A>, <i>Journal of Global Optimization</i>, <b>68</b>:219-225, 2017
+- Najman, J. L., A. Mitsos, <A href="http://dx.doi.org/10.1007/s10898-016-0408-6">Convergence analysis of multivariate McCormick relaxations</A>, <i>Journal of Global Optimization</i>, <b>66</b>(4):597-, 2016
 - Scott, J.K., M.D. Stuber, P.I. Barton, <A href="http://dx.doi.org/10.1007/s10898-011-9664-7">Generalized McCormick relaxations</A>. <i>Journal of Global Optimization</i>, <b>51</b>(4), 569-606, 2011
-- Tsoukalas, A., and A. Mitsos, <A href="http://www.optimization-online.org/DB_HTML/2012/05/3473.html">Multi-variate McCormick relaxations</A>, May 2012
-- Wechsung, A., and P.I. Barton, <A href="http://dx.doi.org/10.1007/s10898-013-0060-3">Global optimization of bounded factorable functions with discontinuities</A>, <i>Journal of Global Optimization</i>, <b>in press</b>, 2013
+- Tsoukalas, A., and A. Mitsos, <A href="http://www.optimization-online.org/DB_HTML/2012/05/3473.html">Multi-variate McCormick relaxations</A>, <i>Journal of Global Optimization</i>, <b>59</b>, 633-662, 2014
+- Wechsung, A., and P.I. Barton, <A href="http://dx.doi.org/10.1007/s10898-013-0060-3">Global optimization of bounded factorable functions with discontinuities</A>, <i>Journal of Global Optimization</i>, <b>58</b>(1), 1-30, 2013.
 .
 */
 
@@ -347,9 +348,16 @@ Possible errors encountered during the computation of a McCormick relaxation are
 #include <stdarg.h>
 #include <cassert>
 #include <string>
+//using namespace std;
 
 #include "mcfunc.hpp"
 #include "mcop.hpp"
+
+// TMP!------------------------------------------------------------------------------------------------------
+#include <iomanip>
+#include <limits>
+// TMP!------------------------------------------------------------------------------------------------------
+
 
 namespace mc
 {
@@ -366,7 +374,7 @@ class McCormick
 ////////////////////////////////////////////////////////////////////////
 {
   template <typename U> friend class McCormick;
-
+  
   template <typename U> friend McCormick<U> operator+
     ( const McCormick<U>& );
   template <typename U> friend McCormick<U> operator+
@@ -423,12 +431,18 @@ class McCormick
   template <typename U> friend McCormick<U> sin
     ( const McCormick<U>& );
   template <typename U> friend McCormick<U> tan
-    ( const McCormick<U>& );
+    ( const McCormick<U>& );  
   template <typename U> friend McCormick<U> acos
     ( const McCormick<U>& );
   template <typename U> friend McCormick<U> asin
     ( const McCormick<U>& );
   template <typename U> friend McCormick<U> atan
+    ( const McCormick<U>& );
+  template <typename U> friend McCormick<U> cosh
+    ( const McCormick<U>& );
+  template <typename U> friend McCormick<U> sinh
+    ( const McCormick<U>& );
+  template <typename U> friend McCormick<U> tanh
     ( const McCormick<U>& );
   template <typename U> friend McCormick<U> fabs
     ( const McCormick<U>& );
@@ -436,6 +450,10 @@ class McCormick
     ( const McCormick<U>& );
   template <typename U> friend McCormick<U> xlog
     ( const McCormick<U>& );
+  template <typename U> friend McCormick<U> lmtd
+    ( const McCormick<U>&, const McCormick<U>& );
+  template <typename U> friend McCormick<U> rlmtd
+    ( const McCormick<U>&, const McCormick<U>& );
   template <typename U> friend McCormick<U> arh
     ( const McCormick<U>&, const double );
   template <typename U> friend McCormick<U> erf
@@ -454,8 +472,10 @@ class McCormick
     ( const double, const McCormick<U>& );
   template <typename U> friend McCormick<U> pow
     ( const McCormick<U>&, const McCormick<U>& );
-  template <typename U> friend McCormick<U> monomial
-    ( const unsigned int, const McCormick<U>*, const int* );
+  template <typename U> friend McCormick<U> prod
+    ( const unsigned int, const McCormick<U>* );
+  template <typename U> friend McCormick<U> monom
+    ( const unsigned int, const McCormick<U>*, const unsigned* );
   template <typename U> friend McCormick<U> cheb
     ( const McCormick<U>&, const unsigned );
   template <typename U> friend McCormick<U> min
@@ -463,10 +483,6 @@ class McCormick
   template <typename U> friend McCormick<U> max
     ( const McCormick<U>&, const McCormick<U>& );
   template <typename U> friend McCormick<U> min
-    ( const unsigned int, const McCormick<U>* );
-  template <typename U> friend McCormick<U> max
-    ( const unsigned int, const McCormick<U>* );
-  template <typename U> friend McCormick<U> min  
     ( const McCormick<U>&,const double );
   template <typename U> friend McCormick<U> max
     ( const McCormick<U>&, const double );
@@ -474,6 +490,10 @@ class McCormick
     ( const double, const McCormick<U>& );
   template <typename U> friend McCormick<U> max
     ( const double, const McCormick<U>& );
+  template <typename U> friend McCormick<U> min
+    ( const unsigned int, const McCormick<U>* );
+  template <typename U> friend McCormick<U> max
+    ( const unsigned int, const McCormick<U>* );
   template <typename U> friend McCormick<U> ltcond
     ( const McCormick<U>&, const McCormick<U>&, const McCormick<U>& );
   template <typename U> friend McCormick<U> ltcond
@@ -523,7 +543,7 @@ public:
     //! @brief Constructor
     Options():
       ENVEL_USE(true), ENVEL_MAXIT(100), ENVEL_TOL(1e-10), MVCOMP_USE(false),
-      MVCOMP_TOL(1e1*machprec()), DISPLAY_DIGITS(5)
+      MVCOMP_TOL(1e-10), DISPLAY_DIGITS(5)
       {}
     //! @brief Whether to compute convex/concave envelopes for the neither-convex-nor-concave univariate functions such as odd power terms, sin, cos, asin, acos, tan, atan, erf, erfc. This provides tighter McCormick relaxations, but it is more time consuming. Junction points are computed using the Newton or secant method first, then the more robust golden section search method if unsuccessful.
     bool ENVEL_USE;
@@ -576,7 +596,7 @@ public:
       case TAN:
         return "mc::McCormick\t Tangent with values pi/2+k*pi in range";
       case CHEB:
-        return "mc::McCormick\t Chebyshev basis outside of [-1,1] range";
+        return "mc::McCormick\t Chebyshev basis outside of [-1,1] range";  
       case MULTSUB:
         return "mc::McCormick\t Subgradient propagation failed";
       case ENVEL:
@@ -904,7 +924,7 @@ private:
   static double _oddpowenv_dfunc
     ( const double x, const double*rusr, const int*iusr );
 
-  //! @brief Compute convex envelope of odd Chebyshev terms
+ //! @brief Compute convex envelope of odd Chebyshev terms
   static double* _oddchebcv
     ( const double x, const int iord, const double xL, const double xU );
   //! @brief Compute concave envelope of odd Chebyshev terms
@@ -938,6 +958,32 @@ private:
     ( const double x, const double*rusr, const int*iusr );
   //! @brief Compute residual derivative for junction points in the envelope of atan terms
   static double _atanenv_dfunc
+    ( const double x, const double*rusr, const int*iusr );
+
+  //! @brief Compute convex envelope of sinh terms
+  static double* _sinhcv
+    ( const double x, const double xL, const double xU );
+  //! @brief Compute concave envelope of sinh terms
+  static double* _sinhcc
+    ( const double x, const double xL, const double xU );
+  //! @brief Compute residual value for junction points in the envelope of sinh terms
+  static double _sinhenv_func
+    ( const double x, const double*rusr, const int*iusr );
+  //! @brief Compute residual derivative for junction points in the envelope of sinh terms
+  static double _sinhenv_dfunc
+    ( const double x, const double*rusr, const int*iusr );
+
+  //! @brief Compute convex envelope of tanh terms
+  static double* _tanhcv
+    ( const double x, const double xL, const double xU );
+  //! @brief Compute concave envelope of tanh terms
+  static double* _tanhcc
+    ( const double x, const double xL, const double xU );
+  //! @brief Compute residual value for junction points in the envelope of tanh terms
+  static double _tanhenv_func
+    ( const double x, const double*rusr, const int*iusr );
+  //! @brief Compute residual derivative for junction points in the envelope of tanh terms
+  static double _tanhenv_dfunc
     ( const double x, const double*rusr, const int*iusr );
 
   //! @brief Compute convex envelope of a step at 0
@@ -991,9 +1037,20 @@ private:
   //! @brief Compute residual derivative for junction points in the envelope of tan terms
   static double _tanenv_dfunc
     ( const double x, const double*rusr, const int*iusr );
+
+  //! @brief  array containing precomputed roots of Q^k(x) up to power 2*k+1 for k=1,...,10 [Liberti & Pantelides (2002), "Convex envelopes of Monomial of Odd Degree]  
+  static double _Qroots[10];
 };
 
 ////////////////////////////////////////////////////////////////////////
+
+template <typename T> inline
+typename McCormick<T>::Options McCormick<T>::options;
+
+template <typename T> inline
+double McCormick<T>::_Qroots[10]
+  = { -0.5000000000, -0.6058295862, -0.6703320476, -0.7145377272, -0.7470540749,
+      -0.7721416355, -0.7921778546, -0.8086048979, -0.8223534102, -0.8340533676 };
 
 template <typename T> inline void
 McCormick<T>::_sub_reset()
@@ -1363,12 +1420,16 @@ McCormick<T>::_mul2_u1pos_u2pos
     - Op<T>::u(MC1._I) * Op<T>::u(MC2._I);
   double cv2 = Op<T>::l(MC2._I) * MC1._cv + Op<T>::l(MC1._I) * MC2._cv
     - Op<T>::l(MC1._I) * Op<T>::l(MC2._I);
-  if ( cv1 > cv2 ){
+    
+  //@AVT.SVT 04.08.2017 changed from cv1>cv2 since DAG representation returns minimally different results (diference is <ENVEL_TOL). 
+  //			This is caused by the fact that DAG saves the representation and then accesses the operation in a given arithmetic while 
+  //			direct use of McCormick works directly with the memory cell.
+  if ( (cv1-cv2) > options.ENVEL_TOL ){
     _cv = cv1;
     for( unsigned int i=0; i<_nsub; i++ )
       _cvsub[i] = Op<T>::u(MC2._I) * MC1._cvsub[i] + Op<T>::u(MC1._I) * MC2._cvsub[i];
-  }
-  else{
+  }else                            // else here was missing before, added on 08.07.2016 at the AVT.SVT
+  {
     _cv = cv2;
     for( unsigned int i=0; i<_nsub; i++ )
       _cvsub[i] = Op<T>::l(MC2._I) * MC1._cvsub[i] + Op<T>::l(MC1._I) * MC2._cvsub[i];
@@ -1378,7 +1439,7 @@ McCormick<T>::_mul2_u1pos_u2pos
     - Op<T>::u(MC1._I) * Op<T>::l(MC2._I);
   double cc2 = Op<T>::u(MC2._I) * MC1._cc + Op<T>::l(MC1._I) * MC2._cc
     - Op<T>::l(MC1._I) * Op<T>::u(MC2._I);
-  if ( cc1 < cc2 ){
+  if ( options.ENVEL_TOL < (cc2-cc1) ){
     _cc = cc1;
     for( unsigned int i=0; i<_nsub; i++ )
       _ccsub[i] = Op<T>::l(MC2._I) * MC1._ccsub[i] + Op<T>::u(MC1._I) * MC2._ccsub[i];
@@ -1401,7 +1462,7 @@ McCormick<T>::_mul1_u1pos_u2mix
     - Op<T>::u(MC1._I) * Op<T>::u(MC2._I);
   double cv2 = Op<T>::l(MC2._I) * MC1._cc + Op<T>::l(MC1._I) * MC2._cv
     - Op<T>::l(MC1._I) * Op<T>::l(MC2._I);
-  if ( cv1 > cv2 ){
+  if ( (cv1-cv2) > options.ENVEL_TOL ){
     _cv = cv1;
     for( unsigned int i=0; i<_nsub; i++ )
       _cvsub[i] = Op<T>::u(MC2._I) * MC1._cvsub[i];
@@ -1416,7 +1477,7 @@ McCormick<T>::_mul1_u1pos_u2mix
     - Op<T>::u(MC1._I) * Op<T>::l(MC2._I);
   double cc2 = Op<T>::u(MC2._I) * MC1._cc + Op<T>::l(MC1._I) * MC2._cc
     - Op<T>::l(MC1._I) * Op<T>::u(MC2._I);
-  if ( cc1 < cc2 ){
+  if ( options.ENVEL_TOL < (cc2-cc1) ){
     _cc = cc1;
     for( unsigned int i=0; i<_nsub; i++ )
       _ccsub[i] = Op<T>::l(MC2._I) * MC1._cvsub[i];
@@ -1439,7 +1500,7 @@ McCormick<T>::_mul2_u1pos_u2mix
     - Op<T>::u(MC1._I) * Op<T>::u(MC2._I);
   double cv2 = Op<T>::l(MC2._I) * MC1._cc + Op<T>::l(MC1._I) * MC2._cv
     - Op<T>::l(MC1._I) * Op<T>::l(MC2._I);
-  if ( cv1 > cv2 ){
+  if ( (cv1-cv2) > options.ENVEL_TOL  ){
     _cv = cv1;
     for( unsigned int i=0; i<_nsub; i++ )
       _cvsub[i] = Op<T>::u(MC1._I) * MC2._cvsub[i];
@@ -1454,7 +1515,7 @@ McCormick<T>::_mul2_u1pos_u2mix
     - Op<T>::u(MC1._I) * Op<T>::l(MC2._I);
   double cc2 = Op<T>::u(MC2._I) * MC1._cc + Op<T>::l(MC1._I) * MC2._cc
     - Op<T>::l(MC1._I) * Op<T>::u(MC2._I);
-  if ( cc1 < cc2 ){
+  if ( options.ENVEL_TOL < (cc2-cc1) ){
     _cc = cc1;
     for( unsigned int i=0; i<_nsub; i++ )
       _ccsub[i] = Op<T>::u(MC1._I) * MC2._ccsub[i];
@@ -1477,7 +1538,7 @@ McCormick<T>::_mul3_u1pos_u2mix
     - Op<T>::u(MC1._I) * Op<T>::u(MC2._I);
   double cv2 = Op<T>::l(MC2._I) * MC1._cc + Op<T>::l(MC1._I) * MC2._cv
     - Op<T>::l(MC1._I) * Op<T>::l(MC2._I);
-  if ( cv1 > cv2 ){
+  if ( (cv1-cv2) > options.ENVEL_TOL  ){
     _cv = cv1;
     for( unsigned int i=0; i<_nsub; i++ )
       _cvsub[i] = Op<T>::u(MC2._I) * MC1._cvsub[i] + Op<T>::u(MC1._I) * MC2._cvsub[i];
@@ -1492,7 +1553,7 @@ McCormick<T>::_mul3_u1pos_u2mix
     - Op<T>::u(MC1._I) * Op<T>::l(MC2._I);
   double cc2 = Op<T>::u(MC2._I) * MC1._cc + Op<T>::l(MC1._I) * MC2._cc
     - Op<T>::l(MC1._I) * Op<T>::u(MC2._I);
-  if ( cc1 < cc2 ){
+  if ( options.ENVEL_TOL  < (cc2-cc1) ){
     _cc = cc1;
     for( unsigned int i=0; i<_nsub; i++ )
       _ccsub[i] = Op<T>::l(MC2._I) * MC1._cvsub[i] + Op<T>::u(MC1._I) * MC2._ccsub[i];
@@ -1515,7 +1576,7 @@ McCormick<T>::_mul1_u1mix_u2mix
     - Op<T>::u(MC1._I) * Op<T>::u(MC2._I);
   double cv2 = Op<T>::l(MC2._I) * MC1._cc + Op<T>::l(MC1._I) * MC2._cc
     - Op<T>::l(MC1._I) * Op<T>::l(MC2._I);
-  if ( cv1 > cv2 ){
+  if ( (cv1-cv2) > options.ENVEL_TOL  ){
     _cv = cv1;
     for( unsigned int i=0; i<_nsub; i++ )
       _cvsub[i] = Op<T>::u(MC2._I) * MC1._cvsub[i];
@@ -1530,7 +1591,7 @@ McCormick<T>::_mul1_u1mix_u2mix
     - Op<T>::u(MC1._I) * Op<T>::l(MC2._I);
   double cc2 = Op<T>::u(MC2._I) * MC1._cc + Op<T>::l(MC1._I) * MC2._cv
     - Op<T>::l(MC1._I) * Op<T>::u(MC2._I);
-  if ( cc1 < cc2 ){
+  if ( options.ENVEL_TOL  < (cc2-cc1) ){
     _cc = cc1;
     for( unsigned int i=0; i<_nsub; i++ )
       _ccsub[i] = Op<T>::l(MC2._I) * MC1._cvsub[i];
@@ -1553,7 +1614,7 @@ McCormick<T>::_mul2_u1mix_u2mix
     - Op<T>::u(MC1._I) * Op<T>::u(MC2._I);
   double cv2 = Op<T>::l(MC2._I) * MC1._cc + Op<T>::l(MC1._I) * MC2._cc
     - Op<T>::l(MC1._I) * Op<T>::l(MC2._I);
-  if ( cv1 > cv2 ){
+  if ( (cv1-cv2) > options.ENVEL_TOL  ){
     _cv = cv1;
     for( unsigned int i=0; i<_nsub; i++ )
       _cvsub[i] = Op<T>::u(MC2._I) * MC1._cvsub[i] + Op<T>::u(MC1._I) * MC2._cvsub[i];
@@ -1563,12 +1624,12 @@ McCormick<T>::_mul2_u1mix_u2mix
     for( unsigned int i=0; i<_nsub; i++ )
       _cvsub[i] = Op<T>::l(MC2._I) * MC1._ccsub[i] + Op<T>::l(MC1._I) * MC2._ccsub[i];
   }
-
+  
   double cc1 = Op<T>::l(MC2._I) * MC1._cv + Op<T>::u(MC1._I) * MC2._cc
     - Op<T>::u(MC1._I) * Op<T>::l(MC2._I);
   double cc2 = Op<T>::u(MC2._I) * MC1._cc + Op<T>::l(MC1._I) * MC2._cv
     - Op<T>::l(MC1._I) * Op<T>::u(MC2._I);
-  if ( cc1 < cc2 ){
+  if ( options.ENVEL_TOL < (cc2-cc1) ){
     _cc = cc1;
     for( unsigned int i=0; i<_nsub; i++ )
       _ccsub[i] = Op<T>::l(MC2._I) * MC1._cvsub[i] + Op<T>::u(MC1._I) * MC2._ccsub[i];
@@ -1607,32 +1668,34 @@ McCormick<T>::_mulMV
       { return std::max( t1(x1,x2,MC1,MC2), t2(x1,x2,MC1,MC2) ); }
   };
 
-  // Modified @ AVT.SVT, Aug 23, 2016
-  // After realizing that the closed form for multiplication given in 
+  // 23.08.2016
+  // modified by AVT.SVT after realizing that the closed form for multiplication given in 
   // Tsoukalas & Mitsos 2014 is not correct
   int imid[4] = { -1, -1, -1, -1 };
   const double x1t[6] = { MC1._cv, MC1._cc,
                           mid( MC1._cv, MC1._cc, (MC2._cv-z)/k, imid[0] ),
-						  mid( MC1._cv, MC1._cc, (MC2._cc-z)/k, imid[1] ),
+			  mid( MC1._cv, MC1._cc, (MC2._cc-z)/k, imid[1] ),
 						  // added:
                           MC1._cv, MC1._cc
 						};
   const double x2t[6] = { mid( MC2._cv, MC2._cc, k*MC1._cv+z, imid[2] ),
-						  mid( MC2._cv, MC2._cc, k*MC1._cc+z, imid[3] ),
+			  mid( MC2._cv, MC2._cc, k*MC1._cc+z, imid[3] ),
                           MC2._cv, MC2._cc,
 						  // added:
                           MC2._cv, MC2._cc
-						};	
+						};
+		
   const double v[6] = { fct::t( x1t[0], x2t[0], MC1, MC2 ), fct::t( x1t[1], x2t[1], MC1, MC2 ),
                         fct::t( x1t[2], x2t[2], MC1, MC2 ), fct::t( x1t[3], x2t[3], MC1, MC2 ),
-  // added the two corners (MC1._cv,MC2._cv),(MC1._cc,MC2._cc) for the convex relaxation specifically, since
-  // they can be excluded by the mid() term if the envelope of the multiplication is monotone
+// added the two corners (MC1._cv,MC2._cv),(MC1._cc,MC2._cc) for the convex relaxation specifically, since
+// they can be excluded by the mid() if the envelope of the multiplication is monotone
                         fct::t( x1t[4], x2t[4], MC1, MC2 ), 
                         fct::t( x1t[5], x2t[5], MC1, MC2 )
                         };
 
   const unsigned int ndx = argmin( 6, v ); // 6 elements now
   _cv = v[ndx];
+  	
   if( _nsub ){
     double myalpha;
     if( isequal( fct::t1( x1t[ndx], x2t[ndx], MC1, MC2 ),
@@ -1642,35 +1705,38 @@ McCormick<T>::_mulMV
      bool MC1thin = isequal( MC1._cv, MC1._cc, options.MVCOMP_TOL, options.MVCOMP_TOL )?
         true: false; 
       if( !MC1thin && x1t[ndx] > MC1._cv ){
-      // Modified @ AVT.SVT, Aug 29, 2016
-      // We had to add an additional if-statement where we question if the two values x[ndx] and MC._cv 
-      // are equal since we only work with a given tolerance (MVCOMP_TOL) 
-      // the if-statement is added 4 times in the convex subgradient and 4 times in the concave subgradient
+                // 29.08.2016
+                // modified by AVT.SVT 
+                // we had to add an additional if-statement where we question if the two values x[ndx] and MC._cv 
+                // are equal since we only work with a given tolerance (MVCOMP_TOL) 
+                // the if-statement is added 4 times in the convex subgradient and 4 times in the concave subgradient
         if(!isequal(x1t[ndx], MC1._cv, options.MVCOMP_TOL, options.MVCOMP_TOL)){
-          alpha.second = std::min( alpha.second, -Op<T>::l(MC2._I)/Op<T>::diam(MC2._I) );
-        }
+                  alpha.second = std::min( alpha.second, -Op<T>::l(MC2._I)/Op<T>::diam(MC2._I) );
+                }
       }
       if( !MC1thin && x1t[ndx] < MC1._cc ){
-        if(!isequal(x1t[ndx], MC1._cc, options.MVCOMP_TOL, options.MVCOMP_TOL)){
-          alpha.first = std::max( alpha.first, -Op<T>::l(MC2._I)/Op<T>::diam(MC2._I) );
-        }
+       if(!isequal(x1t[ndx], MC1._cc, options.MVCOMP_TOL, options.MVCOMP_TOL)){
+                alpha.first = std::max( alpha.first, -Op<T>::l(MC2._I)/Op<T>::diam(MC2._I) );
+       }
       }
       bool MC2thin = isequal( MC2._cv, MC2._cc, options.MVCOMP_TOL, options.MVCOMP_TOL )?
         true: false; 
+	
+
       if( !MC2thin && x2t[ndx] > MC2._cv ){
         if(!isequal(x2t[ndx], MC2._cv, options.MVCOMP_TOL, options.MVCOMP_TOL)){
-          alpha.second = std::min( alpha.second, -Op<T>::l(MC1._I)/Op<T>::diam(MC1._I) );
-        }
+                  alpha.second = std::min( alpha.second, -Op<T>::l(MC1._I)/Op<T>::diam(MC1._I) );
+                }
       }
       if( !MC2thin && x2t[ndx] < MC2._cc ){
         if(!isequal(x2t[ndx], MC2._cc, options.MVCOMP_TOL, options.MVCOMP_TOL)){
-          alpha.first = std::max( alpha.first, -Op<T>::l(MC1._I)/Op<T>::diam(MC1._I) );
-        }
+                  alpha.first = std::max( alpha.first, -Op<T>::l(MC1._I)/Op<T>::diam(MC1._I) );
+                }
       }        
       bool alphathin = isequal( alpha.first, alpha.second, options.MVCOMP_TOL, options.MVCOMP_TOL )?
         true: false;
       if( !alphathin && alpha.first > alpha.second ){
-        std::cout << "WARNING1: alphaL= " << alpha.first << "  alphaU= " << alpha.second
+        std::cout << "WARNING1: alphaL= " << std::setprecision(std::numeric_limits<double>::digits10+1)  << alpha.first << "  alphaU= " << alpha.second << std::setprecision(6)
 	          << std::endl;
         throw Exceptions( Exceptions::MULTSUB );
       }
@@ -1688,6 +1754,7 @@ McCormick<T>::_mulMV
                 + ( sigma2cv>=0? (MC2._const? 0.:MC2._cvsub[i]):
 		                 (MC2._const? 0.:MC2._ccsub[i]) ) * sigma2cv;
   }
+ 
  }
 
  // Concave overestimator part
@@ -1712,26 +1779,26 @@ McCormick<T>::_mulMV
       { return std::min( t1(x1,x2,MC1,MC2), t2(x1,x2,MC1,MC2) ); }
   };
 
-  // Modified @ AVT.SVT, Aug 23, 2016
-  // After realizing that the closed form for multiplication given in 
+  // 23.08.2016
+  // modified by AVT.SVT after realizing that the closed form for multiplication given in 
   // Tsoukalas & Mitsos 2014 is not correct
   int imid[4] = { -1, -1, -1, -1 };
   const double x1t[6] = { MC1._cv, MC1._cc,
                           mid( MC1._cv, MC1._cc, (MC2._cv-z)/k, imid[0] ),
                           mid( MC1._cv, MC1._cc, (MC2._cc-z)/k, imid[1] ),
-						  // added:
+						  // Added:
                           MC1._cv, MC1._cc 
 						};
   const double x2t[6] = { mid( MC2._cv, MC2._cc, k*MC1._cv+z, imid[2] ),
                           mid( MC2._cv, MC2._cc, k*MC1._cc+z, imid[3] ),
+						  // Added:
                           MC2._cv, MC2._cc,
-					      // added:
-                          MC2._cc, MC2._cv 
+                          MC2._cc,MC2._cv 
 						};
   const double v[6] = { fct::t( x1t[0], x2t[0], MC1, MC2 ), fct::t( x1t[1], x2t[1], MC1, MC2 ),
                         fct::t( x1t[2], x2t[2], MC1, MC2 ), fct::t( x1t[3], x2t[3], MC1, MC2 ),
-  // added the two corners (MC1._cv,MC2._cc),(MC1._cc,MC2._cv) for the concave relaxation specifically, since
-  // they can be excluded by the mid() term if the envelope of the multiplication is monotone                      
+   // added the two corners (MC1._cv,MC2._cc),(MC1._cc,MC2._cv) for the concave relaxation specifically, since
+   // they can be excluded by the mid() if the envelope of the multiplication is monotone                      
                         fct::t( x1t[4], x2t[4], MC1, MC2 ),
                         fct::t( x1t[5], x2t[5], MC1, MC2 )
                         };					
@@ -1748,38 +1815,39 @@ McCormick<T>::_mulMV
       bool MC1thin = isequal( MC1._cv, MC1._cc, options.MVCOMP_TOL, options.MVCOMP_TOL )?
         true: false;
       if( !MC1thin && x1t[ndx] > MC1._cv ){
-      // Modified @ AVT.SVT, Aug 29, 2016
-      // we had to add an additional if-statement where we question if the two values x[ndx] and MC._cv 
-      // are equal since we only work with a given tolerance (MVCOMP_TOL) 
-      // the if-statement is added 4 times in the convex subgradient and 4 times in the concave subgradient
-        if(!isequal(x1t[ndx], MC1._cv, options.MVCOMP_TOL, options.MVCOMP_TOL)){
-         alpha.first = std::max( alpha.first, -Op<T>::l(MC2._I)/Op<T>::diam(MC2._I) );
-        }
+                // 29.08.2016
+                // modified by AVT.SVT 
+                // we had to add an additional if-statement where we question if the two values x[ndx] and MC._cv 
+                // are equal since we only work with a given tolerance (MVCOMP_TOL) 
+                // the if-statement is added 4 times in the convex subgradient and 4 times in the concave subgradient
+                if(!isequal(x1t[ndx], MC1._cv, options.MVCOMP_TOL, options.MVCOMP_TOL)){
+                  alpha.first = std::max( alpha.first, -Op<T>::l(MC2._I)/Op<T>::diam(MC2._I) );
+                }
       }
       if( !MC1thin && x1t[ndx] < MC1._cc ){           
-        if(!isequal(x1t[ndx], MC1._cc, options.MVCOMP_TOL, options.MVCOMP_TOL)){
-          alpha.second = std::min( alpha.second, -Op<T>::l(MC2._I)/Op<T>::diam(MC2._I) );
-        }
+                if(!isequal(x1t[ndx], MC1._cc, options.MVCOMP_TOL, options.MVCOMP_TOL)){
+                  alpha.second = std::min( alpha.second, -Op<T>::l(MC2._I)/Op<T>::diam(MC2._I) );
+                }
       }
       bool MC2thin = isequal( MC2._cv, MC2._cc, options.MVCOMP_TOL, options.MVCOMP_TOL )?
         true: false;
       if( !MC2thin && x2t[ndx] > MC2._cv ){
-        if(!isequal(x2t[ndx], MC2._cv, options.MVCOMP_TOL, options.MVCOMP_TOL)){
-          alpha.second = std::min( alpha.second, Op<T>::u(MC1._I)/Op<T>::diam(MC1._I) );
-        }
+                if(!isequal(x2t[ndx], MC2._cv, options.MVCOMP_TOL, options.MVCOMP_TOL)){
+                  alpha.second = std::min( alpha.second, Op<T>::u(MC1._I)/Op<T>::diam(MC1._I) );
+                }
       }
       if( !MC2thin && x2t[ndx] < MC2._cc ){           
-        if(!isequal(x2t[ndx], MC2._cc, options.MVCOMP_TOL, options.MVCOMP_TOL)){
-          alpha.first = std::max( alpha.first, Op<T>::u(MC1._I)/Op<T>::diam(MC1._I) );
-        }
+                if(!isequal(x2t[ndx], MC2._cc, options.MVCOMP_TOL, options.MVCOMP_TOL)){
+                  alpha.first = std::max( alpha.first, Op<T>::u(MC1._I)/Op<T>::diam(MC1._I) );
+                }
       }
 
       bool alphathin = isequal( alpha.first, alpha.second, options.MVCOMP_TOL, options.MVCOMP_TOL )?
         true: false;
       if( !alphathin && alpha.first > alpha.second ){
-        std::cout << "WARNING2: alphaL= " << alpha.first << "  alphaU= " << alpha.second
+        std::cout << "WARNING2: alphaL= " <<  std::setprecision(std::numeric_limits<double>::digits10+1) << alpha.first << "  alphaU= " << alpha.second << std::setprecision(6)
 	          << std::endl;
-        throw Exceptions( Exceptions::MULTSUB );
+	 throw Exceptions( Exceptions::MULTSUB );
       }
       myalpha = 0.5*( alpha.first + alpha.second );
     }
@@ -1967,7 +2035,7 @@ template <typename T> inline double
 McCormick<T>::_atanenv_func
 ( const double x, const double*rusr, const int*iusr )
 {
-  // f(z) = z-a-(1+z^2)*(asin(z)-asin(a)) = 0
+  // f(z) = z-a-(1+z^2)*(atan(z)-atan(a)) = 0
   return (x-*rusr)-(1.+sqr(x))*(std::atan(x)-std::atan(*rusr));
 }
 
@@ -1975,8 +2043,171 @@ template <typename T> inline double
 McCormick<T>::_atanenv_dfunc
 ( const double x, const double*rusr, const int*iusr )
 {
-  // f'(z) = -2*z*(asin(z)-asin(a))
+  // f'(z) = -2*z*(atan(z)-atan(a))
   return -2.*x*(std::atan(x)-std::atan(*rusr));
+}
+
+template <typename T> inline double*
+McCormick<T>::_sinhcv
+( const double x, const double xL, const double xU )
+{
+  static double cv[2];
+  if( xL >= 0. ){	 // convex part
+    cv[0] = std::sinh(x), cv[1] = std::cosh(x);
+    return cv;
+  }
+
+  if( xU <= 0. ){	 // concave part
+    double r = ( isequal( xL, xU )? 0.:
+      (std::sinh(xU)-std::sinh(xL))/(xU-xL) );
+    cv[0] = std::sinh(xL)+r*(x-xL), cv[1] = r;
+    return cv;
+  }
+    
+  double xj;
+  try{
+    xj = _newton( xU, 0., xU, _sinhenv_func, _sinhenv_dfunc, &xL, 0 );
+  }
+  catch( McCormick<T>::Exceptions ){
+    xj = _goldsect( 0., xU, _sinhenv_func, &xL, 0 );
+  }
+  if( x >= xj ){	 // convex part
+    cv[0] = std::sinh(x), cv[1] = std::cosh(x);
+    return cv;
+  }
+  double r = ( isequal( xL, xj )? 0.:
+    (std::sinh(xj)-std::sinh(xL))/(xj-xL) );
+  cv[0] = std::sinh(xL)+r*(x-xL), cv[1] = r;
+  return cv;
+}
+
+template <typename T> inline double*
+McCormick<T>::_sinhcc
+( const double x, const double xL, const double xU )
+{
+  static double cc[2];
+  if( xL >= 0. ){	 // convex part
+    double r = ( isequal( xL, xU )? 0.:
+      (std::sinh(xU)-std::sinh(xL))/(xU-xL) );
+    cc[0] = std::sinh(xL)+r*(x-xL), cc[1] = r;
+    return cc;
+  }
+  if( xU <= 0. ){	 // concave part
+    cc[0] = std::sinh(x), cc[1] = std::cosh(x);
+    return cc;
+  }
+
+  double xj;
+  try{
+    xj = _newton( xL, xL, 0., _sinhenv_func, _sinhenv_dfunc, &xU, 0 );
+  }
+  catch( McCormick<T>::Exceptions ){
+    xj = _goldsect( xL, 0., _oddpowenv_func, &xU, 0 );
+  }
+  if( x <= xj ){	 // concave part
+    cc[0] = std::sinh(x), cc[1] = std::cosh(x);
+    return cc;
+  }
+  double r = ( isequal( xU, xj )? 0.:
+    (std::sinh(xj)-std::sinh(xU))/(xj-xU) );
+  cc[0] = std::sinh(xU)+r*(x-xU), cc[1] = r;
+  return cc;
+}
+
+template <typename T> inline double
+McCormick<T>::_sinhenv_func
+( const double x, const double*rusr, const int*iusr )
+{
+  // f(z) = (z-a)*cosh(z)-(sinh(z)-sinh(a)) = 0
+  return (x-*rusr)*std::cosh(x)-(std::sinh(x)-std::sinh(*rusr));
+}
+
+template <typename T> inline double
+McCormick<T>::_sinhenv_dfunc
+( const double x, const double*rusr, const int*iusr )
+{
+  // f'(z) = (z-a)*sinh(z)
+  return (x-*rusr)*std::sinh(x);
+}
+
+template <typename T> inline double*
+McCormick<T>::_tanhcv
+( const double x, const double xL, const double xU )
+{
+  static double cv[2];
+  if( xU <= 0. ){	 // convex part
+    cv[0] = std::tanh(x), cv[1] = 1.-sqr(std::tanh(x));
+    return cv;
+  }
+
+  if( xL >= 0. ){	 // concave part
+    double r = ( isequal( xL, xU )? 0.:(std::tanh(xU)-std::tanh(xL))/(xU-xL) );
+    cv[0] = std::tanh(xL)+r*(x-xL), cv[1] = r;
+    return cv;
+  }
+    
+  double xj;
+  try{
+    xj = _newton( xL, xL, 0., _tanhenv_func, _tanhenv_dfunc, &xU, 0 );
+  }
+  catch( McCormick<T>::Exceptions ){
+    xj = _goldsect( xL, 0., _tanhenv_func, &xU, 0 );
+  }
+  if( x <= xj ){	 // convex part
+    cv[0] = std::tanh(x), cv[1] = 1.-sqr(std::tanh(x));
+    return cv;
+  }
+  double r = ( isequal( xj, xU )? 0.:(std::tanh(xU)-std::tanh(xj))/(xU-xj) );
+  cv[0] = std::tanh(xU)+r*(x-xU), cv[1] = r;
+  return cv;
+}
+
+template <typename T> inline double*
+McCormick<T>::_tanhcc
+( const double x, const double xL, const double xU )
+{
+  static double cc[2];
+  if( xU <= 0. ){	 // convex part
+    double r = ( isequal( xL, xU )? 0.:(std::tanh(xU)-std::tanh(xL))/(xU-xL) );
+    cc[0] = std::tanh(xL)+r*(x-xL), cc[1] = r;
+    return cc;
+  }
+
+  if( xL >= 0. ){	 // concave part
+    cc[0] = std::tanh(x), cc[1] = 1.-sqr(std::tanh(x));
+    return cc;
+  }
+    
+  double xj;
+  try{
+    xj = _newton( xU, 0., xU, _tanhenv_func, _tanhenv_dfunc, &xL, 0 );
+  }
+  catch( McCormick<T>::Exceptions ){
+    xj = _goldsect( 0., xU, _tanhenv_func, &xL, 0 );
+  }
+  if( x >= xj ){	 // concave part
+    cc[0] = std::tanh(x), cc[1] = 1.-sqr(std::tanh(x));
+    return cc;
+  }
+  double r = ( isequal( xj, xL )? 0.:(std::tanh(xL)-std::tanh(xj))/(xL-xj) );
+  cc[0] = std::tanh(xL)+r*(x-xL), cc[1] = r;
+  return cc;
+}
+
+template <typename T> inline double
+McCormick<T>::_tanhenv_func
+( const double x, const double*rusr, const int*iusr )
+{
+  // f(z) = (z-a)*(1-tanh(z)^2)-(tanh(z)-tanh(a)) = 0
+  return (x-*rusr)*(1.-sqr(std::tanh(x)))-(std::tanh(x)-std::tanh(*rusr));
+}
+
+template <typename T> inline double
+McCormick<T>::_tanhenv_dfunc
+( const double x, const double*rusr, const int*iusr )
+{
+  // f'(z) = -2*(z-a)*tanh(z)*(1-tanh(z)^2)
+  return -2.*(x-*rusr)*std::tanh(x)*(1.-sqr(std::tanh(x)));
 }
 
 template <typename T> inline double*
@@ -1998,12 +2229,19 @@ McCormick<T>::_oddpowcv
   }
     
   double xj;
-  try{
-    xj = _newton( xU, 0., xU, _oddpowenv_func, _oddpowenv_dfunc, &xL, &iexp );
+  if( iexp > 21 ){ // if the odd exponent is larger than 21, we use newton to compute the envelope
+    try{
+      xj = _newton( xU, 0., xU, _oddpowenv_func, _oddpowenv_dfunc, &xL, &iexp );
+    }
+    catch( McCormick<T>::Exceptions ){
+      xj = _goldsect( 0., xU, _oddpowenv_func, &xL, &iexp );
+    }
   }
-  catch( McCormick<T>::Exceptions ){
-    xj = _goldsect( 0., xU, _oddpowenv_func, &xL, &iexp );
+  else{// if the odd exponent is lesser or equal than 21, we use the tagnent points given in Table 1
+       // of [Liberti & Pantelides 2002, "Convex Envelopes of Monomials of Odd Degree"]
+    xj = _Qroots[ (iexp-1)/2-1 ] * xL;
   }
+
   if( x >= xj ){	 // convex part
     double v = std::pow(x,iexp-1);
     cv[0] = x*v, cv[1] = iexp*v;
@@ -2033,12 +2271,19 @@ McCormick<T>::_oddpowcc
   }
 
   double xj;
-  try{
-    xj = _newton( xL, xL, 0., _oddpowenv_func, _oddpowenv_dfunc, &xU, &iexp );
+  if( iexp > 21 ){ // if the odd exponent is larger than 21, we use newton to compute the envelope
+    try{
+      xj = _newton( xL, xL, 0., _oddpowenv_func, _oddpowenv_dfunc, &xU, &iexp );
+    }
+    catch( McCormick<T>::Exceptions ){
+      xj = _goldsect( xL, 0., _oddpowenv_func, &xU, &iexp );
+    }
   }
-  catch( McCormick<T>::Exceptions ){
-    xj = _goldsect( xL, 0., _oddpowenv_func, &xU, &iexp );
+  else{// if the odd exponent is lesser or equal than 21, we use the tagnent points given in Table 1
+       // of [Liberti & Pantelides 2002, "Convex Envelopes of Monomials of Odd Degree"]
+    xj = _Qroots[ (iexp-1)/2-1 ] * xU;
   }
+
   if( x <= xj ){	 // concave part
     double v = std::pow(x,iexp-1);
     cc[0] = x*v, cc[1] = iexp*v;
@@ -2642,6 +2887,7 @@ operator*
       MC2._ccsub[i] = a * MC._cvsub[i];
     }
   }
+ 
   return MC2;
 }
 
@@ -2656,8 +2902,10 @@ template <typename T> inline McCormick<T>
 operator*
 ( const McCormick<T>&MC1, const McCormick<T>&MC2 )
 {
+ 
   if( &MC1 == &MC2 ) return sqr(MC1);
-
+  
+ 
   bool thin1 = isequal( Op<T>::diam(MC1._I), 0. );
   bool thin2 = isequal( Op<T>::diam(MC2._I), 0. );
 
@@ -2675,7 +2923,7 @@ operator*
     MC3._I = MC1._I * MC2._I;
     return MC3._mulMV( MC1, MC2 ).cut();
   }
-
+  
   if ( Op<T>::l(MC1._I) >= 0. ){
     if ( Op<T>::l(MC2._I) >= 0. ){
       if( MC2._const ){
@@ -2762,19 +3010,30 @@ operator/
 {
   return a * inv( MC );
 }
+
 template <typename T> inline McCormick<T>
 operator/
 ( const McCormick<T>&MC1, const McCormick<T>&MC2 )
 {
+  
   if( &MC1 == &MC2 ) return 1.;
   
+  // Added @ AVT.SVT, Aug 30, 2016: When not checking for constant denominator, multivariate gives unnecessarily lose relaxations for linear function
+  if( (MC2._const) && (Op<T>::l(MC2._I)==Op<T>::u(MC2._I)) ) {
+	if ( Op<T>::l(MC2._I) == 0. ) throw typename McCormick<T>::Exceptions( McCormick<T>::Exceptions::INV );
+	return (1./Op<T>::l(MC2._I)) * MC1;
+  }
+  
   bool posorthant = ( Op<T>::l(MC1._I) >= 0. && Op<T>::l(MC2._I) > 0. );
+
   if ( McCormick<T>::options.MVCOMP_USE && posorthant){
     McCormick<T> MC3;
-    if( MC2._const )
+	if( MC2._const )
       MC3._sub( MC1._nsub, MC1._const );
     else if( MC1._const )
-	  MC3._sub( MC2._nsub, MC2._const );
+		// Removed @ AVT.SVT, Apr 07, 2017: Otherwise subgradient dimension can get lost!
+	// if( MC1._const )
+      MC3._sub( MC2._nsub, MC2._const );
     else if( MC1._nsub != MC2._nsub )
       throw typename McCormick<T>::Exceptions( McCormick<T>::Exceptions::SUB );
     else
@@ -2782,7 +3041,7 @@ operator/
 
     MC3._I = MC1._I / MC2._I;
 
-    int imidcv1 = -1, imidcv2 = -1;
+    int imidcv1 = 2, imidcv2 = 2;
     double fmidcv1 = ( mid(MC1._cv, MC1._cc, Op<T>::l(MC1._I), imidcv1)
       + std::sqrt(Op<T>::l(MC1._I) * Op<T>::u(MC1._I)) )
       / ( std::sqrt(Op<T>::l(MC1._I)) + std::sqrt(Op<T>::u(MC1._I)) );
@@ -2796,19 +3055,24 @@ operator/
         * (MC2._const? 0.: mid( MC2._cvsub, MC2._ccsub, i, imidcv2 ));
 
     int imidcc1 = -1, imidcc2 = -1;
+	// Fixed @ AVT.SVT, Aug 24, 2016; Division was broken (e.g. log(x2)/x1 on[10,10.1]x[20,50])
+    //double fmidcc1 = mid(MC1._cv, MC1._cc, Op<T>::l(MC1._I), imidcc1);
+    //double fmidcc2 = mid(MC2._cv, MC2._cc, Op<T>::u(MC2._I), imidcc2);
     double fmidcc1 = mid(MC1._cv, MC1._cc, Op<T>::u(MC1._I), imidcc1);
     double fmidcc2 = mid(MC2._cv, MC2._cc, Op<T>::l(MC2._I), imidcc2);
     double gcc1 = Op<T>::u(MC2._I) * fmidcc1 - Op<T>::l(MC1._I) * fmidcc2
                  + Op<T>::l(MC1._I) * Op<T>::l(MC2._I);
     double gcc2 = Op<T>::l(MC2._I) * fmidcc1 - Op<T>::u(MC1._I) * fmidcc2
                  + Op<T>::u(MC1._I) * Op<T>::u(MC2._I);
-    if( gcc1 <= gcc2 ){
+		 
+    if( gcc1 <= gcc2 ){ //uses equation (31) in multivariate McCormick paper
       MC3._cc = gcc1 / ( Op<T>::l(MC2._I) * Op<T>::u(MC2._I) );
-      for( unsigned int i=0; i<MC3._nsub; i++ )
+      for( unsigned int i=0; i<MC3._nsub; i++ ){
         MC3._ccsub[i] = 1. / Op<T>::l(MC2._I)
           * (MC1._const? 0.: mid( MC1._cvsub, MC1._ccsub, i, imidcc1 ))
           - Op<T>::l(MC1._I) / ( Op<T>::l(MC2._I) * Op<T>::u(MC2._I) )
           * (MC2._const? 0.: mid( MC2._cvsub, MC2._ccsub, i, imidcc2 ));
+      }  
     }
     else{
       MC3._cc = gcc2 / ( Op<T>::l(MC2._I) * Op<T>::u(MC2._I) );
@@ -2835,31 +3099,33 @@ inv
   MC2._I = Op<T>::inv( MC._I );
 
   if ( Op<T>::l(MC._I) > 0. ){
-    { int imid = -1;
+    { int imid = 2;
       double vmid = mid( MC._cv, MC._cc, Op<T>::u(MC._I), imid );
       MC2._cv = 1./vmid;
-      for( unsigned int i=0; i<MC2._nsub; i++ )
+      for( unsigned int i=0; i<MC2._nsub; i++ ){
         MC2._cvsub[i] = - mid( MC._cvsub, MC._ccsub, i, imid )
           / ( vmid * vmid );
+      }  
     }
-    { int imid = -1;
+    { int imid = 1;
       MC2._cc = 1. / Op<T>::l(MC._I) + 1. / Op<T>::u(MC._I) - mid( MC._cv, MC._cc,
         Op<T>::l(MC._I), imid ) / ( Op<T>::l(MC._I) * Op<T>::u(MC._I) );
       for( unsigned int i=0; i<MC2._nsub; i++ )
         MC2._ccsub[i] = - mid( MC._cvsub, MC._ccsub, i, imid )
           / ( Op<T>::l(MC._I) * Op<T>::u(MC._I) );
     }
+    
   }
 
   else{
-    { int imid = -1;
+    { int imid = 2;
       MC2._cv = 1. / Op<T>::l(MC._I) + 1. / Op<T>::u(MC._I) - mid( MC._cv, MC._cc,
         Op<T>::u(MC._I), imid ) / ( Op<T>::l(MC._I) * Op<T>::u(MC._I) );
       for( unsigned int i=0; i<MC2._nsub; i++ )
         MC2._cvsub[i] = - mid( MC._cvsub, MC._ccsub, i, imid )
           / ( Op<T>::l(MC._I) * Op<T>::u(MC._I) );
     }
-    { int imid = -1;
+    { int imid = 1;
       double vmid = mid( MC._cv, MC._cc, Op<T>::l(MC._I), imid);
       MC2._cc = 1. / vmid;
       for( unsigned int i=0; i<MC2._nsub; i++ )
@@ -2867,7 +3133,7 @@ inv
           / ( vmid * vmid );
     }
   }
-  
+   
   return MC2.cut();
 }
 
@@ -2995,7 +3261,7 @@ log
   MC2._sub( MC._nsub, MC._const );
   MC2._I = Op<T>::log( MC._I );
 
-  { int imid = -1;
+  { int imid = 1;
     double scal = 0.;
     if( !isequal( Op<T>::l(MC._I), Op<T>::u(MC._I) ))
       scal = ( std::log( Op<T>::u(MC._I) ) - std::log( Op<T>::l(MC._I) ) )
@@ -3006,7 +3272,7 @@ log
       MC2._cvsub[i] = mid( MC._cvsub, MC._ccsub, i, imid ) * scal;
   }
 
-  { int imid = -1;
+  { int imid = 2;
     double vmid = mid( MC._cv, MC._cc, Op<T>::u(MC._I), imid );
     MC2._cc = std::log( vmid );
     for( unsigned int i=0; i<MC2._nsub; i++ )
@@ -3051,6 +3317,143 @@ xlog
   return MC2.cut();
 }
 
+//added AVT.SVT 06.06.2017
+template <typename T> inline McCormick<T>
+lmtd
+( const McCormick<T>&MC1, const McCormick<T>&MC2 )
+{
+  if ( Op<T>::l(MC1._I) <= 0. || Op<T>::l(MC2._I) <= 0.)
+    throw typename McCormick<T>::Exceptions( McCormick<T>::Exceptions::LOG );
+  if( MC1._nsub != MC2._nsub )
+    throw typename McCormick<T>::Exceptions( McCormick<T>::Exceptions::SUB );
+  
+  McCormick<T> MC3;
+  MC3._sub( MC1._nsub, MC1._const||MC2._const );
+  MC3._I = Op<T>::lmtd( MC1._I, MC2._I );
+  //concave part
+  { MC3._cc = lmtd( MC1._cc, MC2._cc);
+    if(isequal(MC1._cc,MC2._cc)){
+       for( unsigned int i=0; i<MC3._nsub; i++ ){
+	  MC3._ccsub[i] = 0.5*(MC1._const? 0.:MC1._ccsub[i]) + 0.5*(MC2._const? 0.:MC2._ccsub[i]);
+       }     
+    }else{ 
+    for( unsigned int i=0; i<MC3._nsub; i++ )         
+      MC3._ccsub[i] = (1./(std::log(MC1._cc)-std::log(MC2._cc))
+		      -(MC1._cc - MC2._cc)/(MC1._cc*sqr(std::log(MC1._cc)-std::log(MC2._cc))))*(MC1._const? 0.:MC1._ccsub[i])
+                     +(-1./(std::log(MC1._cc)-std::log(MC2._cc))
+		      +(MC1._cc - MC2._cc)/(MC2._cc*sqr(std::log(MC1._cc)-std::log(MC2._cc))))*(MC2._const? 0.:MC2._ccsub[i]);
+      }
+  }
+  //convex part
+  { 
+    double l1 = lmtd(Op<T>::l(MC1._I),Op<T>::l(MC2._I));
+    double l2 = lmtd(Op<T>::u(MC1._I),Op<T>::u(MC2._I));
+    double r11 =0., r12 = 0., r21 = 0., r22 = 0.;
+    if( !isequal( Op<T>::l(MC1._I), Op<T>::u(MC1._I) )){
+        r11 = ( lmtd(Op<T>::u(MC1._I),Op<T>::l(MC2._I)) - lmtd(Op<T>::l(MC1._I),Op<T>::l(MC2._I)) )/Op<T>::diam(MC1._I);
+	l1 += (MC1._cv-Op<T>::l(MC1._I))*r11;
+	r12 = ( lmtd(Op<T>::u(MC1._I),Op<T>::u(MC2._I)) - lmtd(Op<T>::l(MC1._I),Op<T>::u(MC2._I)) )/Op<T>::diam(MC1._I);
+	l2 += (MC1._cv-Op<T>::u(MC1._I))*r12;
+    }
+    if(!isequal( Op<T>::l(MC2._I), Op<T>::u(MC2._I) )){
+         r21 = ( lmtd(Op<T>::l(MC1._I),Op<T>::u(MC2._I)) - lmtd(Op<T>::l(MC1._I),Op<T>::l(MC2._I)) )/Op<T>::diam(MC2._I);
+	 l1 += (MC2._cv-Op<T>::l(MC2._I))*r21;
+	 r22 = ( lmtd(Op<T>::u(MC1._I),Op<T>::u(MC2._I)) - lmtd(Op<T>::u(MC1._I),Op<T>::l(MC2._I)) )/Op<T>::diam(MC2._I);
+	 l2 += (MC2._cv-Op<T>::u(MC2._I))*r22;
+    }	    	  
+	
+    MC3._cv = std::max(l1,l2);
+    double lambda1,lambda2;
+    if(isequal(l1,l2)){
+      lambda1 = 0.5;
+      lambda2 = 0.5;
+    }
+    else if( l1>l2 ){
+      lambda1 = 1.;
+      lambda2 = 0.;
+    }   
+    else{
+      lambda1 = 0.;
+      lambda2 = 1.;
+    }  
+    for( unsigned int i=0; i<MC3._nsub; i++ ){
+      MC3._cvsub[i] = lambda1*(r11*(MC1._const? 0.:MC1._cvsub[i])+r21*(MC2._const? 0.:MC2._cvsub[i]))
+                     +lambda2*(r12*(MC1._const? 0.:MC1._cvsub[i])+r22*(MC2._const? 0.:MC2._cvsub[i]));
+    }
+  }
+
+  return MC3.cut();
+}
+
+//added AVT.SVT 08.06.2017
+template <typename T> inline McCormick<T>
+rlmtd
+( const McCormick<T>&MC1, const McCormick<T>&MC2 )
+{
+  if ( Op<T>::l(MC1._I) <= 0. || Op<T>::l(MC2._I) <= 0.)
+    throw typename McCormick<T>::Exceptions( McCormick<T>::Exceptions::LOG );
+  if( MC1._nsub != MC2._nsub )
+    throw typename McCormick<T>::Exceptions( McCormick<T>::Exceptions::SUB );
+  
+  McCormick<T> MC3;
+  MC3._sub( MC1._nsub, MC1._const||MC2._const );
+  MC3._I = Op<T>::rlmtd( MC1._I, MC2._I );
+  //convex part
+  { MC3._cv = rlmtd( MC1._cc, MC2._cc);
+    if(isequal(MC1._cc,MC2._cc)){
+       for( unsigned int i=0; i<MC3._nsub; i++ ){
+	  MC3._cvsub[i] = -1./(2.*std::pow(MC1._cc,2))*(MC1._const? 0.:MC1._ccsub[i])
+	                 - 1./(2.*std::pow(MC2._cc,2))*(MC2._const? 0.:MC2._ccsub[i]);
+       }    
+    }else{ 
+    for( unsigned int i=0; i<MC3._nsub; i++ )         
+      MC3._cvsub[i] = (1./(MC1._cc*(MC1._cc-MC2._cc))
+		     -(std::log(MC1._cc)-std::log(MC2._cc))/(sqr(MC1._cc-MC2._cc)))*(MC1._const? 0.:MC1._ccsub[i])
+                     +(-1./(MC2._cc*(MC1._cc-MC2._cc))
+		     +(std::log(MC1._cc)-std::log(MC2._cc))/(sqr(MC1._cc-MC2._cc)))*(MC2._const? 0.:MC2._ccsub[i]);
+    }
+  }
+  //concave part
+  { 
+    double l1 = rlmtd(Op<T>::u(MC1._I),Op<T>::l(MC2._I));
+    double l2 = rlmtd(Op<T>::l(MC1._I),Op<T>::u(MC2._I));
+    double r11 =0., r12 = 0., r21 = 0., r22 = 0.;
+    if( !isequal( Op<T>::l(MC1._I), Op<T>::u(MC1._I) )){
+        r11 = ( rlmtd(Op<T>::u(MC1._I),Op<T>::l(MC2._I)) - rlmtd(Op<T>::l(MC1._I),Op<T>::l(MC2._I)) )/Op<T>::diam(MC1._I);
+	l1 += (MC1._cv-Op<T>::u(MC1._I))*r11;
+	r12 = ( rlmtd(Op<T>::u(MC1._I),Op<T>::u(MC2._I)) - rlmtd(Op<T>::l(MC1._I),Op<T>::u(MC2._I)) )/Op<T>::diam(MC1._I);
+	l2 += (MC1._cv-Op<T>::l(MC1._I))*r12;
+    }
+    if(!isequal( Op<T>::l(MC2._I), Op<T>::u(MC2._I) )){
+         r21 = ( rlmtd(Op<T>::u(MC1._I),Op<T>::u(MC2._I)) - rlmtd(Op<T>::u(MC1._I),Op<T>::l(MC2._I)) )/Op<T>::diam(MC2._I);
+	 l1 += (MC2._cv-Op<T>::l(MC2._I))*r21;
+	 r22 = ( rlmtd(Op<T>::l(MC1._I),Op<T>::u(MC2._I)) - rlmtd(Op<T>::l(MC1._I),Op<T>::l(MC2._I)) )/Op<T>::diam(MC2._I);
+	 l2 += (MC2._cv-Op<T>::u(MC2._I))*r22;
+    }	    	  
+	
+    MC3._cc = std::min(l1,l2);
+    double lambda1,lambda2;
+    if(isequal(l1,l2)){
+      lambda1 = 0.5;
+      lambda2 = 0.5;
+    }
+    else if( l1<l2 ){
+      lambda1 = 1.;
+      lambda2 = 0.;
+    }   
+    else{
+      lambda1 = 0.;
+      lambda2 = 1.;
+    }  
+    for( unsigned int i=0; i<MC3._nsub; i++ ){
+      MC3._ccsub[i] = lambda1*(r11*(MC1._const? 0.:MC1._cvsub[i])+r21*(MC2._const? 0.:MC2._cvsub[i]))
+                     +lambda2*(r12*(MC1._const? 0.:MC1._cvsub[i])+r22*(MC2._const? 0.:MC2._cvsub[i]));
+    }
+  }
+
+  return MC3.cut();
+}
+
 template <typename T> inline McCormick<T>
 sqrt
 ( const McCormick<T>&MC )
@@ -3066,14 +3469,14 @@ sqrt
       r = ( std::sqrt( Op<T>::u(MC._I) ) - std::sqrt( Op<T>::l(MC._I) ) )
         / ( Op<T>::u(MC._I) - Op<T>::l(MC._I) );
     int imid = -1;
-    double vmid = mid( MC._cv, MC._cc, Op<T>::l(MC._I), imid );
+    double vmid = mid_ndiff( MC._cv, MC._cc, Op<T>::l(MC._I), imid );
     MC2._cv = std::sqrt( Op<T>::l(MC._I) ) + r * ( vmid - Op<T>::l(MC._I) );
     for( unsigned int i=0; i<MC2._nsub; i++ )
       MC2._cvsub[i] = mid( MC._cvsub, MC._ccsub, i, imid ) * r;
   }
 
   { int imid = -1;
-    double vmid = mid( MC._cv, MC._cc, Op<T>::u(MC._I), imid );
+    double vmid = mid_ndiff( MC._cv, MC._cc, Op<T>::u(MC._I), imid );
     MC2._cc = std::sqrt( vmid );
     for( unsigned int i=0; i<MC2._nsub; i++ )
       MC2._ccsub[i] = mid( MC._cvsub, MC._ccsub, i, imid ) / (2.*MC2._cc);
@@ -3261,8 +3664,70 @@ pow
 template <typename T> inline McCormick<T>
 pow
 ( const McCormick<T> &MC, const double a )
-{
-  return exp( a * log( MC ) );
+{ 
+  if ( Op<T>::l(MC._I) < 0.)
+    throw typename McCormick<T>::Exceptions( McCormick<T>::Exceptions::SQRT ); // no negative values allowed
+  
+  if( a==0. ){
+    return 1.;
+  }
+  
+  if( a==1. ){
+    return MC;
+  }    
+  
+  if( a<0. ){ 
+    return inv( pow(MC,-a) ); // if the exponent is negative simply compute (MC^a)^-1
+  }
+  
+  McCormick<T> MC2;
+  MC2._sub( MC._nsub, MC._const );
+  MC2._I = Op<T>::hull(std::pow(Op<T>::l(MC._I),a),std::pow(Op<T>::u(MC._I),a)); // compute the correct interval 
+										 // extension; use of hull is required 
+										 // since real exponents are not 
+										 // supported in general
+  
+  if(a>1. && McCormick<T>::options.ENVEL_USE){ // for a > 1 the function is convex
+    { int imid = -1; // convex
+      double zmin = Op<T>::l(MC._I);  
+      MC2._cv = std::pow( mid( MC._cv, MC._cc, zmin, imid ), a ); // convex relaxation
+      for( unsigned int i=0; i<MC2._nsub; i++ )
+        MC2._cvsub[i] = a * mid( MC._cvsub, MC._ccsub, i, imid )
+          * std::pow( mid( MC._cv, MC._cc, zmin, imid ), a-1 );
+    }
+    { int imid = -1; // concave
+      double zmax = Op<T>::u(MC._I);
+      double r = (std::pow( Op<T>::u(MC._I), a ) - std::pow( Op<T>::l(MC._I), a ) ) / // slope of concave relaxation
+                 ( Op<T>::u(MC._I) - Op<T>::l(MC._I) ) ;
+      MC2._cc = std::pow( Op<T>::l(MC._I), a ) + r * ( mid( MC._cv, MC._cc, zmax,imid ) - Op<T>::l(MC._I) ); 
+      for( unsigned int i=0; i<MC2._nsub; i++ )
+        MC2._ccsub[i] = mid( MC._cvsub, MC._ccsub, i, imid ) * r;
+    }
+    return MC2.cut();    
+  
+  }
+  
+  if(a<1. && McCormick<T>::options.ENVEL_USE){ // for 0< a < 1 the function is concave
+    { int imid = -1; //convex
+      double zmin = Op<T>::l(MC._I);
+      double r = (std::pow( Op<T>::u(MC._I), a ) - std::pow( Op<T>::l(MC._I), a ) ) / // slope of convex relaxation
+                 ( Op<T>::u(MC._I) - Op<T>::l(MC._I) ) ;
+      MC2._cv = std::pow( Op<T>::l(MC._I), a ) + r * ( mid( MC._cv, MC._cc, zmin,imid ) - Op<T>::l(MC._I) ); 
+      for( unsigned int i=0; i<MC2._nsub; i++ )
+        MC2._cvsub[i] =  mid( MC._cvsub, MC._ccsub, i, imid ) * r;
+    }
+    { int imid = -1; //concave
+      double zmax = Op<T>::u(MC._I);    
+      MC2._cc = std::pow( mid( MC._cv, MC._cc, zmax, imid ), a );  // concave relaxation
+      for( unsigned int i=0; i<MC2._nsub; i++ )
+        MC2._ccsub[i] = a * mid( MC._cvsub, MC._ccsub, i, imid )* std::pow( mid( MC._cv, MC._cc, zmax, imid ), a-1 );
+    }
+    return MC2.cut();    
+    
+  }  
+  
+  return exp( a * log( MC ) ); // if no envelope is required simply use exp(a*log(MC)) resulting in worse relaxations
+                               // and not allowing 0. in interval since log(0.) is not defined 
 }
 
 template <typename T> inline McCormick<T>
@@ -3280,16 +3745,25 @@ pow
 }
 
 template <typename T> inline McCormick<T>
-monomial
-( const unsigned int n, const McCormick<T>*MC, const int*k )
+prod
+( const unsigned int n, const McCormick<T>*MC )
 {
-  if( n == 0 ){
-    return 1.;
+  switch( n ){
+   case 0:  return 1.;
+   case 1:  return MC[0];
+   default: return MC[0] * prod( n-1, MC+1 );
   }
-  if( n == 1 ){
-    return pow( MC[0], k[0] );
+}
+
+template <typename T> inline McCormick<T>
+monom
+( const unsigned int n, const McCormick<T>*MC, const unsigned*k )
+{
+  switch( n ){
+   case 0:  return 1.;
+   case 1:  return pow( MC[0], (int)k[0] );
+   default: return pow( MC[0], (int)k[0] ) * monom( n-1, MC+1, k+1 );
   }
-  return pow( MC[0], k[0] ) * monomial( n-1, MC+1, k+1 );
 }
 
 template <typename T> inline McCormick<T>
@@ -3355,9 +3829,9 @@ fabs
   MC2._I = Op<T>::fabs( MC._I );
 
   { int imid = -1;
-    double zmin = mid( Op<T>::l(MC._I), Op<T>::u(MC._I), 0., imid );
+    double zmin = mid_ndiff( Op<T>::l(MC._I), Op<T>::u(MC._I), 0., imid );
     imid = -1;
-    double vmid = mid( MC._cv, MC._cc, zmin, imid );
+    double vmid = mid_ndiff( MC._cv, MC._cc, zmin, imid );
     MC2._cv = std::fabs( vmid );
     if( vmid >= 0. )
       for( unsigned int i=0; i<MC2._nsub; i++ )
@@ -3372,7 +3846,7 @@ fabs
       Op<T>::u(MC._I));
     double r = ( isequal( Op<T>::l(MC._I), Op<T>::u(MC._I) )? 0.: ( std::fabs( Op<T>::u(MC._I) )
       - std::fabs( Op<T>::l(MC._I) ) ) / ( Op<T>::u(MC._I) - Op<T>::l(MC._I) ) );
-    MC2._cc = std::fabs( Op<T>::l(MC._I) ) + r * ( mid( MC._cv, MC._cc, zmax, imid )
+    MC2._cc = std::fabs( Op<T>::l(MC._I) ) + r * ( mid_ndiff( MC._cv, MC._cc, zmax, imid )
       - Op<T>::l(MC._I) );
     for( unsigned int i=0; i<MC2._nsub; i++ )
       MC2._ccsub[i] = mid( MC._cvsub, MC._ccsub, i, imid ) * r;
@@ -3467,15 +3941,15 @@ max
     MC3._sub( MC1._nsub, MC1._const||MC2._const );
   MC3._I = Op<T>::max( MC1._I, MC2._I );
 
-  if( Op<T>::u(MC1._I) <= Op<T>::l(MC2._I) ){ 
-    MC3._cc = MC2._cc;										
+  if( Op<T>::u(MC1._I) <= Op<T>::l(MC2._I) ){  
+    MC3._cc = MC2._cc;										// Changed from ... = MC1._cc;, AVT.SVT on 04/04/16
     for( unsigned int i=0; i< MC3._nsub; i++ )
-      MC3._ccsub[i] = (MC2._const? 0.: MC2._ccsub[i]);		
+      MC3._ccsub[i] = (MC2._const? 0.: MC2._ccsub[i]);		// Changed from MC1. ..., AVT.SVT on 04/04/16
   }
   else if( Op<T>::u(MC2._I) <= Op<T>::l(MC1._I) ){
-    MC3._cc = MC1._cc;										
+    MC3._cc = MC1._cc;										// Changed from ... = MC2._cc;, AVT.SVT on 04/04/16
     for( unsigned int i=0; i< MC3._nsub; i++ )
-      MC3._ccsub[i] = (MC1._const? 0.: MC1._ccsub[i]);		
+      MC3._ccsub[i] = (MC1._const? 0.: MC1._ccsub[i]);		// Changed from MC2. ..., AVT.SVT on 04/04/16
   }
   else if ( McCormick<T>::options.MVCOMP_USE ){
      double maxL1L2 = std::max( Op<T>::l(MC1._I), Op<T>::l(MC2._I) );
@@ -3523,6 +3997,8 @@ max
   return  MC3.cut();
 }
 
+///////////////////////////////////////////////////////////////////////////////////
+// Added @ AVT.SVT, Aug 30, 2016
 template <typename T> inline McCormick<T>
 max
 ( const McCormick<T> &MC, const double a  ) {
@@ -3550,6 +4026,7 @@ min
 	McCormick<T> MC2 = a;
 	return min( MC, MC2 );
 }
+///////////////////////////////////////////////////////////////////////////////////
 
 template <typename T> inline McCormick<T>
 min
@@ -3862,6 +4339,97 @@ atan
   return MC2.cut();
 }
 
+template <typename T> inline McCormick<T>
+cosh
+( const McCormick<T>&MC )
+{
+  McCormick<T> MC2;
+  MC2._sub( MC._nsub, MC._const );
+  MC2._I = Op<T>::cosh( MC._I );
+
+  { int imid = -1;
+    double zmin = mid( Op<T>::l(MC._I), Op<T>::u(MC._I), 0., imid );
+    imid = -1;
+    MC2._cv = std::cosh( mid( MC._cv, MC._cc, zmin, imid ));
+    for( unsigned int i=0; i<MC2._nsub; i++ )
+      MC2._cvsub[i] = mid( MC._cvsub, MC._ccsub, i, imid ) * std::sinh( mid( MC._cv, MC._cc, zmin, imid ));
+  }
+
+  { int imid = -1;
+    double r = 0.;
+    if( !isequal( Op<T>::l(MC._I), Op<T>::u(MC._I) ))
+      r = ( std::cosh( Op<T>::u(MC._I) ) - std::cosh( Op<T>::l(MC._I) ) )
+        / ( Op<T>::u(MC._I) - Op<T>::l(MC._I) );
+    MC2._cc = std::cosh( Op<T>::u(MC._I) ) + r * ( mid( MC._cv, MC._cc, Op<T>::u(MC._I), imid )
+      - Op<T>::u(MC._I) );
+    for( unsigned int i=0; i<MC2._nsub; i++ )
+      MC2._ccsub[i] = mid( MC._cvsub, MC._ccsub, i, imid ) * r;
+  }
+  return MC2.cut();
+}
+
+template <typename T> inline McCormick<T>
+sinh
+( const McCormick<T>&MC )
+{
+  if( !McCormick<T>::options.ENVEL_USE )
+    return( (exp(MC)-exp(-MC))/2. );
+
+  McCormick<T> MC2;
+  MC2._sub( MC._nsub, MC._const );
+  MC2._I = Op<T>::sinh( MC._I );
+
+  { int imid = -1;
+    const double* cvenv = McCormick<T>::_sinhcv( mid( MC._cv,
+      MC._cc, Op<T>::l(MC._I), imid ), Op<T>::l(MC._I), Op<T>::u(MC._I) );
+    MC2._cv = cvenv[0];
+    for( unsigned int i=0; i<MC2._nsub; i++ ){
+      MC2._cvsub[i] = mid( MC._cvsub, MC._ccsub, i, imid ) * cvenv[1];
+    }
+  }
+
+  { int imid = -1;
+    const double* ccenv = McCormick<T>::_sinhcc( mid( MC._cv,
+      MC._cc, Op<T>::u(MC._I), imid ), Op<T>::l(MC._I), Op<T>::u(MC._I) );
+    MC2._cc = ccenv[0];
+    for( unsigned int i=0; i<MC2._nsub; i++ ){
+      MC2._ccsub[i] = mid( MC._cvsub, MC._ccsub, i, imid ) * ccenv[1];
+    }
+  }
+  return MC2.cut();
+}
+
+template <typename T> inline McCormick<T>
+tanh
+( const McCormick<T> &MC )
+{
+  if( !McCormick<T>::options.ENVEL_USE )
+    return( (exp(MC)-exp(-MC))/(exp(MC)+exp(-MC)) );
+
+  McCormick<T> MC2;
+  MC2._sub( MC._nsub, MC._const );
+  MC2._I = Op<T>::tanh( MC._I );
+
+  { int imid = -1;
+    const double* cvenv = McCormick<T>::_tanhcv( mid( MC._cv,
+      MC._cc, Op<T>::l(MC._I), imid ), Op<T>::l(MC._I), Op<T>::u(MC._I) );
+    MC2._cv = cvenv[0];
+    for( unsigned int i=0; i<MC2._nsub; i++ ){
+      MC2._cvsub[i] = mid( MC._cvsub, MC._ccsub, i, imid ) * cvenv[1];
+    }
+  }
+
+  { int imid = -1;
+    const double* ccenv = McCormick<T>::_tanhcc( mid( MC._cv,
+      MC._cc, Op<T>::u(MC._I), imid ), Op<T>::l(MC._I), Op<T>::u(MC._I) );
+    MC2._cc = ccenv[0];
+    for( unsigned int i=0; i<MC2._nsub; i++ ){
+      MC2._ccsub[i] = mid( MC._cvsub, MC._ccsub, i, imid ) * ccenv[1];
+    }
+  }
+  return MC2.cut();
+}
+
 template <typename T> inline std::ostream&
 operator<<
 ( std::ostream&out, const McCormick<T>&MC)
@@ -3970,19 +4538,67 @@ operator>
 {
   return( Op<T>::gt(MC1._I,MC2._I) && MC1._cv < MC2._cv && MC1._cc > MC2._cc );
 }
-
-template <typename T> typename McCormick<T>::Options McCormick<T>::options;
-
+    
 } // namespace mc
 
 
-#include "mcop.hpp"
+#include "mcfadbad.hpp"
+//#include "fadbad.h"
+
+namespace fadbad
+{
+
+//! @brief Specialization of the structure fadbad::Op to allow usage of the type mc::McCormick of MC++ as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
+template<typename T> struct Op< mc::McCormick<T> >
+{
+  typedef mc::McCormick<T> MC;
+  typedef double Base;
+  static Base myInteger( const int i ) { return Base(i); }
+  static Base myZero() { return myInteger(0); }
+  static Base myOne() { return myInteger(1);}
+  static Base myTwo() { return myInteger(2); }
+  static double myPI() { return mc::PI; }
+  static MC myPos( const MC& x ) { return  x; }
+  static MC myNeg( const MC& x ) { return -x; }
+  template <typename U> static MC& myCadd( MC& x, const U& y ) { return x+=y; }
+  template <typename U> static MC& myCsub( MC& x, const U& y ) { return x-=y; }
+  template <typename U> static MC& myCmul( MC& x, const U& y ) { return x*=y; }
+  template <typename U> static MC& myCdiv( MC& x, const U& y ) { return x/=y; }
+  static MC myInv( const MC& x ) { return mc::inv( x ); }
+  static MC mySqr( const MC& x ) { return mc::pow( x, 2 ); }
+  template <typename X, typename Y> static MC myPow( const X& x, const Y& y ) { return mc::pow( x, y ); }
+  //static MC myCheb( const MC& x, const unsigned n ) { return mc::cheb( x, n ); }
+  static MC mySqrt( const MC& x ) { return mc::sqrt( x ); }
+  static MC myLog( const MC& x ) { return mc::log( x ); }
+  static MC myExp( const MC& x ) { return mc::exp( x ); }
+  static MC mySin( const MC& x ) { return mc::sin( x ); }
+  static MC myCos( const MC& x ) { return mc::cos( x ); }
+  static MC myTan( const MC& x ) { return mc::tan( x ); }
+  static MC myAsin( const MC& x ) { return mc::asin( x ); }
+  static MC myAcos( const MC& x ) { return mc::acos( x ); }
+  static MC myAtan( const MC& x ) { return mc::atan( x ); }
+  static MC mySinh( const MC& x ) { return mc::sinh( x ); }
+  static MC myCosh( const MC& x ) { return mc::cosh( x ); }
+  static MC myTanh( const MC& x ) { return mc::tanh( x ); }
+  static bool myEq( const MC& x, const MC& y ) { return x==y; }
+  static bool myNe( const MC& x, const MC& y ) { return x!=y; }
+  static bool myLt( const MC& x, const MC& y ) { return x<y; }
+  static bool myLe( const MC& x, const MC& y ) { return x<=y; }
+  static bool myGt( const MC& x, const MC& y ) { return x>y; }
+  static bool myGe( const MC& x, const MC& y ) { return x>=y; }
+};
+
+} // end namespace fadbad
+
+
+//#include "mcop.hpp"
 
 namespace mc
 {
 
-//! @brief Specialization of the structure mc::Op to allow usage of the type mc::Interval for DAG evaluation or as a template parameter in other MC++ classes
-template<typename T> struct Op< mc::McCormick<T> >
+//! @brief Specialization of the structure mc::Op to allow usage of the type mc::McCormick as a template parameter in the classes mc::TModel, mc::TVar, and mc::SpecBnd
+// template <> template<typename T> struct Op< mc::McCormick<T> >
+template<typename T> struct Op< mc::McCormick<T> > // Modified at AVT.SVT in July 2016 to avoid problems with Intel C++ or MSVC++
 {
   typedef mc::McCormick<T> MC;
   static MC point( const double c ) { return MC(c); }
@@ -3996,16 +4612,21 @@ template<typename T> struct Op< mc::McCormick<T> >
   static MC inv (const MC& x) { return mc::inv(x);  }
   static MC sqr (const MC& x) { return mc::sqr(x);  }
   static MC sqrt(const MC& x) { return mc::sqrt(x); }
+  static MC exp (const MC& x) { return mc::exp(x);  }
   static MC log (const MC& x) { return mc::log(x);  }
   static MC xlog(const MC& x) { return mc::xlog(x); }
+  static MC lmtd(const MC& x,const MC& y) { return mc::lmtd(x,y); }
+  static MC rlmtd(const MC& x,const MC& y) { return mc::rlmtd(x,y); }
   static MC fabs(const MC& x) { return mc::fabs(x); }
-  static MC exp (const MC& x) { return mc::exp(x);  }
   static MC sin (const MC& x) { return mc::sin(x);  }
   static MC cos (const MC& x) { return mc::cos(x);  }
   static MC tan (const MC& x) { return mc::tan(x);  }
   static MC asin(const MC& x) { return mc::asin(x); }
   static MC acos(const MC& x) { return mc::acos(x); }
   static MC atan(const MC& x) { return mc::atan(x); }
+  static MC sinh(const MC& x) { return mc::sinh(x); }
+  static MC cosh(const MC& x) { return mc::cosh(x); }
+  static MC tanh(const MC& x) { return mc::tanh(x); }
   static MC erf (const MC& x) { return mc::erf(x);  }
   static MC erfc(const MC& x) { return mc::erfc(x); }
   static MC fstep(const MC& x) { return mc::fstep(x); }
@@ -4014,9 +4635,10 @@ template<typename T> struct Op< mc::McCormick<T> >
   static MC min (const MC& x, const MC& y) { return mc::min(x,y);  }
   static MC max (const MC& x, const MC& y) { return mc::max(x,y);  }
   static MC arh (const MC& x, const double k) { return mc::arh(x,k); }
-  static MC cheb (const MC& x, const unsigned n) { return mc::cheb(x,n); }
   template <typename X, typename Y> static MC pow(const X& x, const Y& y) { return mc::pow(x,y); }
-  static MC monomial (const unsigned int n, const MC* x, const int* k) { return mc::monomial(n,x,k); }
+  static MC cheb (const MC& x, const unsigned n) { return mc::cheb(x,n); }
+  static MC prod (const unsigned int n, const MC* x) { return mc::prod(n,x); }
+  static MC monom (const unsigned int n, const MC* x, const unsigned* k) { return mc::monom(n,x,k); }
   static bool inter(MC& xIy, const MC& x, const MC& y) { return mc::inter(xIy,x,y); }
   static bool eq(const MC& x, const MC& y) { return x==y; }
   static bool ne(const MC& x, const MC& y) { return x!=y; }

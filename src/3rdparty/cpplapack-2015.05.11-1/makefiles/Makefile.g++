@@ -1,0 +1,96 @@
+###############################################################################
+##                               Makefile.g++                                ##
+###############################################################################
+
+#######################################
+############### common ################
+#######################################
+
+CXX = g++ -pipe
+
+######## FLAGS ########
+#FLAGS += -std=c++0x # -std=c++98
+#FLAGS += -fopenmp
+
+######## CFLAGS ########
+CFLAGS += -Wall -Wno-unknown-pragmas -Wextra -Wshadow -Wformat=2
+CFLAGS += -ftree-vectorizer-verbose=0
+
+######## LFLAGS ########
+#LFLAGS += -static
+
+######## others ########
+INCLUDE_DIRS += -I./  -I$(HOME)/local/cpplapack/include
+LIB_DIRS += 
+LIBS += -lm
+LIBS += -llapack -lblas -lgfortran
+##LIBS += $(HOME)/local/lapack-3.2.2/liblapack.a $(HOME)/local/lapack-3.2.2/libblas.a -lgfortran
+##LIBS += $(HOME)/local/CLAPACK-3.2.1/liblapack.a $(HOME)/local/CLAPACK-3.2.1/libblas.a $(HOME)/local/CLAPACK-3.2.1/libf2c.a
+##LIBS += /usr/lib/sse2/liblapack.a /usr/lib/sse2/libblas.a -lgfortran
+##LIBS += -llapack $(HOME)/local/ATLAS/libatlas.a -lgfortran
+#LIBS += -lgsl -lgslcblas
+#LIBS += -lboost_filesystem -lboost_system
+##MACROS += -DUSE_LIBF2C
+
+#######################################
+############ release mode #############
+#######################################
+ifdef RELEASE
+#### FLAGS ####
+FLAGS += -O2 #### -O3 is dangerous
+FLAGS += -mtune=native -march=native
+#FLAGS += -funroll-loops -ffast-math -fno-math-errno #-mfpmath=sse
+FLAGS += -fprefetch-loop-arrays -fstrength-reduce -malign-double
+FLAGS += -fomit-frame-pointer
+##FLAGS += -fforce-addr -falign-functions=4 -ftree-vectorize -ftree-vectorizer-verbose=5 -funsafe-loop-optimizations -Wunsafe-loop-optimizations
+#### CFLAGS ####
+##CFLAGS += -fimplement-inlines -finline-limit=0 --param large-function-growth=0 --param max-inline-insns-single=0 --param inline-unit-growth=0
+##CFLAGS += --param large-function-growth=99999 --param max-inline-insns-single=99999 --param inline-unit-growth=99999 -Winline
+#### LFLAGS ####
+#LFLAGS += 
+#### others ####
+MACROS += -DBOOST_DISABLE_ASSERTS
+endif
+
+#######################################
+############ profile mode #############
+#######################################
+ifdef PROFILE
+#### FLAGS ####
+#### CFLAGS ####
+CFLAGS += -pg #-g
+#### LFLAGS ####
+LFLAGS += -pg #-g
+#### others ####
+MACROS += -DBOOST_DISABLE_ASSERTS
+endif
+
+#######################################
+############## debug mode #############
+#######################################
+ifdef DEBUG
+#### FLAGS ####
+FLAGS += -g -O0
+#FLAGS += -fmudflap -fmudflapir ## not reliable
+#### CFLAGS ####
+CFLAGS += -fstack-protector-all -fbounds-check -ftrapv -ftrapping-math #-ffpe-trap=invalid,zero,overflow,underflow
+CFLAGS += #-mfp-trap-mode=sui
+#### LFLAGS ####
+#LFLAGS += -lefence
+#### others ####
+#LIBS += -lmudflap ## not reliable
+MACROS += -DDEBUG
+MACROS += -DCPPL_DEBUG
+endif
+
+#######################################
+############ verbose mode #############
+#######################################
+ifdef VERBOSE
+#### FLAGS ####
+#### CFLAGS ####
+#### LFLAGS ####
+#### others ####
+MACROS += -DVERBOSE
+MACROS += -DCPPL_VERBOSE
+endif
