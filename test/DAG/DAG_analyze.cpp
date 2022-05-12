@@ -396,95 +396,6 @@ int test_rltred4()
   }
 
   /*
-    ############## REFORMULATION USING SPARSEEXPR ##################################
-  */
-//  mc::SparseEnv SPE( &DAG );
-//  SPE.options.LIFTDIV = true;
-
-//  const unsigned NF0 = NF;
-//  SPE.process( NF0, F );
-
-//  std::cout << std::endl << SPE.Var().size() << " PARTICIPATING VARIABLES: ";
-//  for( auto&& var : SPE.Var() ) std::cout << var << " ";
-//  std::cout << std::endl;
-
-//  std::cout << std::endl << SPE.Aux().size() << " LIFTED VARIABLES: ";
-//  for( auto&& aux : SPE.Aux() ) std::cout << *aux.first << "->" << *aux.second << " ";
-//  std::cout << std::endl;
-//  std::cout << std::endl << SPE.Expr().size() << " LIFTED EXPRESSIONS: " << std::endl;
-//  for( auto&& expr : SPE.Expr() ) DAG.output( DAG.subgraph( 1, &expr ) );
-
-//#ifdef MC__USE_HSL
-//  std::vector<int> IP(SPE.Expr().size()), IQ(SPE.Var().size()), IPROF(SPE.Var().size()), IFLAG(3);
-//  DAG.MC33( SPE.Expr().size()-NF, SPE.Expr().data(), SPE.Var().size()-NP, SPE.Var().data()+NP,
-//            IP.data(), IQ.data(), IPROF.data(), IFLAG.data(), true );
-//#endif
-//  return 0;
-
-  /*
-    ############## EVALUATION OF ORIGINAL AND REFORMULATED EXPRESSIONS #############
-  */
-
-//  const I Ip_3stg[NP] = { 
-//    I(4.51882712332260e-01,4.53400900000000e-01),
-//    I(8.51605100000000e-01,8.52364800000000e-01),
-//    I(7.98175092047527e-01,8.00297694717604e-01),
-//    I(4.41986225216501e-01,4.59569700000000e-01),
-//    I(2.95642700000000e-02,2.99233900000000e-02),
-//    I(5.11901000000000e-02,5.19930600000000e-02),
-//    I(1.57389600000000e-01,1.62274478001944e-01),
-//    I(1.18065000000000e-01,1.18472600000000e-01),
-//    I(1.48509700000000e-01,1.49843600000000e-01),
-//    I(3.82601600000000e-01,3.89211950000000e-01),
-//    I(1.02686900000000e+00,1.02749100000000e+00),
-//    I(1.07442300000000e+00,1.07664100000000e+00),
-//    I(1.75775700000000e+00,1.82370300000000e+00),
-//    I(5.51961100000000e-01,5.52927300000000e-01),
-//    I(4.90793000000000e-01,4.93025500000000e-01),
-//    I(3.05665600000000e-01,3.09595538816592e-01),
-//    I(9.15561400000000e-01,9.17969100000000e-01),
-//    I(7.68530500000000e-01,7.73717500000000e-01),
-//    I(3.65186900000000e-01,3.74117500000000e-01),
-//    I(3.36703700000000e+02,3.36707700000000e+02),
-//    I(3.36960000000000e+02,3.36970800000000e+02),
-//    I(3.38874100000000e+02,3.39011800000000e+02)
-//  };
-
-//  // Compute values of original functions
-//  std::vector<mc::FFVar> Fp( P, P+NP );
-//  std::vector<I> If( NF0 ), Ip( Ip_3stg, Ip_3stg+NP );
-//  std::cout << "Ip =" << std::endl;
-//  for( unsigned i=0; i<Ip.size(); i++ )
-//    std::cout << "  " << Fp[i] << " = " << Ip[i] << std::endl;
-//  DAG.eval( NF0, F, If.data(), NP, Fp.data(), Ip.data() );
-//  std::cout << "If =" << std::endl;
-//  for( auto&& val : If )
-//    std::cout << "  " << val << std::endl;
-
-//  // Compute values of auxiliary variables
-//  std::cout << "Iaux =" << std::endl;
-//  for( auto&& aux : SPE.Aux() ){
-//    I val;
-//    DAG.eval( 1, aux.first, &val, NP, Fp.data(), Ip.data() );
-//    std::cout << "  " << *aux.first << "->" << *aux.second << " = " << val << std::endl;
-//    Fp.push_back( *aux.second ); Ip.push_back( val );
-//  }
-
-//  // Make constraint variables equal to 0
-//  for( auto it=Fp.rbegin(); it!=Fp.rbegin()+NF0; ++it )
-//    it->set(0.);
-
-//  // Compute values of reformulated functions
-//  If.resize( SPE.Expr().size() );
-//  //DAG.eval( 1, SPE.Expr().data(), If.data(), Fp.size(), Fp.data(), Ip.data() );
-//  DAG.eval( SPE.Expr().size(), SPE.Expr().data(), If.data(), Fp.size(), Fp.data(), Ip.data() );
-//  //DAG.output( DAG.subgraph( 1, SPE.Expr().data() ) );
-//  std::cout << "Iexpr =" << std::endl;
-//  for( auto&& val : If ){
-//    std::cout << "  " << val << std::endl; //break;
-//  }
-
-  /*
     ############## REDUCTION CONSTRAINTS ###########################################
   */
   mc::RLTRed RRLT( &DAG );
@@ -967,20 +878,20 @@ int test_quadexpr3()
 int main()
 {
   try{
-    //test_dep1();
-    //test_dep2();
-    //test_spolyexpr1();
-    //test_spolyexpr2();
-    //test_sparseexpr();
-    //test_quadexpr1();
+    test_dep1();
+    test_dep2();
+    test_spolyexpr1();
+    test_spolyexpr2();
+    test_sparseexpr();
+    test_quadexpr1();
     test_quadexpr2();
-    //test_quadexpr3();
-    //test_rltred1();
-    //test_rltred2();
-    //test_rltred3();
-    //test_rltred4();
-    //test_rltred5();
-    //test_rltred6();
+    test_quadexpr3();
+    test_rltred1();
+    test_rltred2();
+    test_rltred3();
+    test_rltred4();
+    test_rltred5();
+    test_rltred6();
   }
   catch( mc::FFGraph::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()

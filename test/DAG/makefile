@@ -3,6 +3,11 @@ PATH_MC = $(shell cd ../../ ; pwd)
 # Compilation options
 include $(PATH_MC)/src/makeoptions.mk
 
+PATH_GUROBI = $(GUROBI_HOME)
+LIB_MIP     = -L$(PATH_GUROBI)/lib -lgurobi_g++5.2 -lgurobi95 -pthread
+INC_MIP     = -I$(PATH_GUROBI)/include
+FLAG_MIP    = -DMC__USE_GUROBI
+
 #####
 
 all: DAG_doxygen DAG_compose DAG_differentiate DAG_evaluate DAG_analyze
@@ -20,7 +25,10 @@ DAG_evaluate : DAG_evaluate.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
 
 DAG_analyze : DAG_analyze.o
-	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
+	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC) $(LIB_MIP)
+
+DAG_analyze.o: DAG_analyze.cpp 
+	$(CPP) -c $(FLAG_CPP) $(FLAG_MC) $(INC_MC) $(FLAG_MIP) $(INC_MIP) $< -o $@
 
 %.o: %.cpp 
 	$(CPP) -c $(FLAG_CPP) $(FLAG_MC) $(INC_MC) $< -o $@

@@ -5,78 +5,114 @@
 @author Benoit C. Chachuat <tt>(b.chachuat@imperial.ac.uk)</tt> and OMEGA Research Group (http://www3.imperial.ac.uk/environmentenergyoptimisation)
 @date 2021
 
-MC++ provides a collection of C++ classes for construction, manipulation and bounding of factorable functions. The bounding methods include interval bounds, spectral bounds, convex/concave relaxations, Taylor and Chebyshev model estimators, and polyhedral relaxations. The implementation of MC++ relies on operator/function overloading and templates. Our main emphasis in developing MC++ is to make the computation of bounds as simple and natural as possible, similar to computing function values in real arithmetics. The use of DAGs to define factorable functions is recommended for efficiency with complex bounding types and enables manipulating exoressions, including forward / backward / Taylor expansion in automatic differentiation. We hope that you will find MC++ most useful for faster prototyping and testing of new algorithms and ideas, for instance in areas such as global and robust optimization.
+MC++ provides a collection of C++ classes for construction, manipulation and bounding of factorable functions. The bounding methods include interval bounds, spectral bounds, convex/concave relaxations, Taylor and Chebyshev model estimators, and polyhedral relaxations. The implementation of MC++ relies on operator/function overloading and templates. A principal aim in developing MC++ is to make the computation of bounds as simple and natural as possible, similar to computing function values in real arithmetics, for faster prototyping and testing of new algorithms and ideas. The use of DAGs to define factorable functions is recommended for efficiency with complex bounding types and enables manipulating expressions, including automatic differentiation and lifting of polynomial subexpressions into quadratic forms.
 
 
-\section sec_MC_install How Do I Install and Test MC++?
+\section sec_MC_install How Do I Install MC++?
 
 MC++ is released as open source code under the <A href="http://www.eclipse.org/legal/epl-v10.html">Eclipse Public License (EPL)</A>.
 
 MC++ depends on the following third-party libraries:
-- <A href="http://www.fadbad.com/fadbad.html">FADBAD++</A> (version 2.1) to enable combination of bounding techniques in MC++ with automatic differentiation (AD), which <b>is provided</b> in <tt>src/3rdparty/fadbad++/</tt>;
-- <A href="http://cpplapack.sourceforge.net">CPPLAPACK</A> (2014-02-08 version) which provides a C++ wrapper for <A href="http://www.netlib.org/blas/">BLAS</A> and <A href="http://www.netlib.org/lapack/">LAPACK</A> and <b>is provided</B> in <tt>src/3rdparty/cpplapack/</tt>. The libraries <A href="http://www.netlib.org/blas/">BLAS</A> and <A href="http://www.netlib.org/lapack/">LAPACK</A> themselves are <b>not included</B> in the MC++ distribution. On linux-Ubuntu systems for instance, you can install both BLAS and LAPACK via:
+- <A href="http://www.fadbad.com/fadbad.html">FADBAD++</A> (version 2.1) to enable automatic differentiation (AD) in MC++, which <b>is provided</b> in <tt>src/3rdparty/fadbad++/</tt>
+- <A href="http://cpplapack.sourceforge.net">CPPLAPACK</A> which provides a C++ wrapper for <A href="http://www.netlib.org/blas/">BLAS</A> and <A href="http://www.netlib.org/lapack/">LAPACK</A> and <b>is provided</B> in <tt>src/3rdparty/cpplapack-2015.05.11-1/</tt>. The libraries <A href="http://www.netlib.org/blas/">BLAS</A> and <A href="http://www.netlib.org/lapack/">LAPACK</A> themselves are <b>not included</B> in the MC++ distribution. On Ubuntu-Linux OS for instance, both BLAS and LAPACK can be installed using: <tt>$ sudo apt-get install liblapack-dev</tt>
+- <A href="http://www.ti3.tu-harburg.de/Software/PROFILEnglisch.html">PROFIL</A>, <A href="https://www.boost.org/doc/libs/1_68_0/libs/numeric/interval/doc/interval.htm">Boost Interval Arithmetic Library</A> or <A href="http://www2.math.uni-wuppertal.de/wrswt/software/filib.html">FILIB++</A> to enable verified interval arithmetics, which are <b>not included</B> in the MC++ distribution
+- <A href="https://www.hsl.rl.ac.uk/catalogue/mc13.html">MC13</A>, <A href="https://www.hsl.rl.ac.uk/catalogue/mc13.html">MC13</A> and <A href="https://www.hsl.rl.ac.uk/catalogue/mc13.html">MC13</A> for <A href="https://www.hsl.rl.ac.uk/index.html">HSL Mathematical Software Library</A> to enable symbolic block-decomposition in large-scale systems of equations, which are <b>not included</B> in the MC++ distribution.
 .
-<tt>
-$ sudo apt-get install liblapack-dev
-</tt>
 
-MC++ can be obtained by clonning the 'mcpp' GitHub repository via:
+Version 2.1 of the MC++ library can be obtained by cloning the following GitHub repository:
 
 <tt>
-$ git clone https://github.com/omega-icl/mcpp.git MC++
+$ git clone https://github.com/omega-icl/mcpp.git
+$ git checkout 2.1
 </tt>
 
-This will create a folder called 'mcpp' containing the currently released
-distribution.
-On distribution, the main directory should contain the files <TT>AUTHORS</TT>, <TT>CHANGELOG</TT>, <TT>INSTALL</TT>, <TT>LICENSE</TT> and <TT>README</TT>, as well as 3 subdirectories:
-- <tt>src</tt> contains the source code of MC++, which consists of header files only; that is, there is no need to build or link a library.
-- <tt>doc</tt> contains the Doxygen documentation for MC++, which can be accessed by opening the file <tt>doc/html/index.html</tt> with your favorite browser.
-- <tt>examples</tt> contains simple examples that should help you understand how to use the types of MC++.
+The folder <tt>mcpp</tt> contains the files <TT>AUTHORS</TT>, <TT>CHANGELOG</TT>, <TT>INSTALL</TT>, <TT>LICENSE</TT> and <TT>README</TT>, as well as 3 subdirectories:
+- <tt>src</tt> contains the source code of MC++, which consists of header files only and needs linking to third-party libraries.
+- <tt>doc</tt> contains the Doxygen documentation for CANON, which needs to be compiled using the file <tt>MC++.dox</tt> and can then be accessed by opening the file <tt>doc/html/index.html</tt> with any browser.
+- <tt>test</tt> contains simple examples to help understand how to use different classes and types in MC++.
 .
 
 <CENTER><TABLE border="1">
 <TR>
 <TD><CENTER><TABLE BORDER=0>
   <TR>
-  <TD>MC++ has been developed and tested primarily under Linux</TD>
-  </TR>
-  <TR>
-  <TD>The tests and examples should compile without warnings with <a href="http://gcc.gnu.org/"><tt>gcc</tt></a> (ver. 7.X), which provides C++1z support (pre C++17 releaase)</TD>
+  <TD>MC++ has been developed and tested primarily under Ubuntu-Linux with the compiler <a href="http://gcc.gnu.org/"><tt>gcc</tt></a> (with C++17)</TD>
   </TR>
   </TABLE></CENTER></TD>
 </TR>
 </TABLE></CENTER> 
 
-To install the library, cd into the <tt>src</tt> directory, and type:
+To install the MC++ library, change to the <tt>src</tt> directory, and tailor the sections THIRD-PARTY LIBRARIES and COMPILATION to your current system in the file <tt>makeoptions.mk</tt>. Use the flags <tt>-DMC__USE_PROFIL</tt>, <tt>-DMC__USE_FILIB</tt> or <tt>-DMC__USE_BOOST</tt> to indicate which verified interval library to use and the flag <tt>-DMC__USE_HSL</tt> to indicate whether to compile with HSL:
+
+\code
+# THIRD-PARTY LIBRARIES <<-- CHANGE AS APPROPRIATE -->>
+
+PATH_3RD_PARTY = $(PATH_MC)/src/3rdparty
+
+PATH_LAPACK = $(PATH_3RD_PARTY)/cpplapack-2015.05.11-1
+LIB_LAPACK  = -llapack -lblas
+INC_LAPACK  = -I$(PATH_LAPACK)/include
+FLAG_LAPACK =
+
+PATH_FADBAD = $(PATH_3RD_PARTY)/fadbad++
+LIB_FADBAD  = 
+INC_FADBAD  = -I$(PATH_FADBAD)
+FLAG_FADBAD =
+
+PATH_PROFIL = /opt/Profil-2.0.8
+LIB_PROFIL  = -L$(PATH_PROFIL)/lib -lProfilPackages -lProfil -lBias -llr
+INC_PROFIL  = -I$(PATH_PROFIL)/include
+FLAG_PROFIL = #-DMC__USE_PROFIL
+
+PATH_FILIB  = /opt/filib++
+LIB_FILIB   = -L$(PATH_FILIB)/lib -lprim
+INC_FILIB   = -I$(PATH_FILIB)/include -I$(PATH_FILIB)/include/interval
+FLAG_FILIB = -frounding-math #-DMC__USE_FILIB
+
+PATH_BOOST = $(PATH_3RD_PARTY)/boost
+LIB_BOOST  =
+INC_BOOST  = -I$(PATH_BOOST) 
+FLAG_BOOST = -DBOOST_UBLAS_NO_STD_CERR -DMC__USE_BOOST
+
+PATH_HSL = 
+LIB_HSL  = -lmc13 -lmc21 -lmc33 -lgfortran
+INC_HSL  = 
+FLAG_HSL = -DMC__USE_HSL
+
+# COMPILATION <<-- CHANGE AS APPROPRIATE -->>
+
+DEBUG = -g
+PROF  = #-pg
+OPTIM = #-O2
+WARN  = -Wall -Wno-misleading-indentation -Wno-unknown-pragmas -Wno-parentheses
+CPP17 = -std=c++17
+CC    = gcc-9
+CPP   = g++-9
+\endcode
+
+Then, create the <tt>include</tt> directory (if not pre-existing) together with symbolic links to the header files in this directory, by typing:
 
 <tt>
 $ make install
 </tt>
 
-This creates the <tt>include</tt> directory (if not yet existing) as well as symbolic links to the header files in this directory.
-
-Running MC++ requires that you alter the file <TT>makeoptions.mk</TT> in <TT>src</TT> in order to point to the above-mentioned third-party libraries on your computer.
-
-In order to remove all symbolic links created in the <tt>include</tt> directory and clean the <tt>src</tt> directory, type
+In order to remove all symbolic links created in the <tt>include</tt> directory and clean the <tt>src</tt> directory, type:
 
 <tt>
 $ make cleaninstall
 </tt>
 
-A local copy of this documentation can be generated by moving into the 
-<tt>doc/</tt> directory and typing
+The <a href="http://www.stack.nl/~dimitri/doxygen/"><tt>Doxygen</tt></a> documentation of MC++ can be generated from the <tt>doc/</tt> folder by typing:
 
 <tt>
 $ doxygen MC++.dox 
 </tt>
 
-The documentation requires 
-<a href="http://www.stack.nl/~dimitri/doxygen/"><tt>Doxygen</tt></a> and uses 
-<a href="www.graphviz.org/content/dot-language"><tt>DOT</tt></a> language.
 
-\section sec_MC_doc Where Can I Find More Information About the Features of MC++?
+\section sec_MC_doc Where can I learn more about MC++?
 
-A description of the main bounding components of MC++ can be found under <A HREF="pages.html">Related Pages</A>:
+A description of the main components of MC++ can be found under <A HREF="pages.html">Related Pages</A>:
+- \ref page_FFUNC
 - \ref page_INTERVAL
 - \ref page_MCCORMICK
 - \ref page_SPECBND
@@ -85,16 +121,13 @@ A description of the main bounding components of MC++ can be found under <A HREF
 - \ref page_ELLIPSOID
 - \ref page_POLYHEDRAL
 .
-Information about the DAG construction and manipulation in MC++ can also be found under <A HREF="pages.html">Related Pages</A>:
-- \ref page_FFUNC
-.
 
-\section sec_MC_examples How Do I Run the Examples of MC++?
+\section sec_MC_examples How Can I Run the Test Problems of MC++?
 
-Change into the <tt>examples</tt> directory, and select one of the subdirectories, e.g.
+Go to the <tt>test</tt> directory, and select one of the subdirectories, e.g.
 
 <tt>
-$ cd examples/MCCORMICK
+$ cd test/MCCORMICK
 </tt>
 
 At the command line, type:

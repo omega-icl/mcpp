@@ -28,7 +28,6 @@ A DAG of the factorable function \f${\bf f}\f$ is first created:
 \code
       mc::FFGraph DAG;
       const unsigned NX = 3, NF = 2;
-      mc::FFVar X[NX], F[NF];
       for( unsigned i(0); i<NX; i++ ) X[i].set( &DAG );
       F[0] = pow( X[0] + sqr( X[1] ) - 2 * X[2], 3 );
       F[1] = 2 * sqr( X[1] ) - 1;
@@ -377,6 +376,11 @@ protected:
     ( FFMon const& Mon )
     const;
 
+  //! @brief Trancribe auxiliary variable into DAG
+  FFVar const* _add_to_dag
+    ( FFVar const& Aux )
+    const;
+
 private:
 
   //! @brief Reset the quadratic form in _Mon and _Mat
@@ -475,7 +479,7 @@ QuadEnv::process
     FFVar const* pvar = paux;
     if( paux->ops().first->type != FFOp::VAR
      && paux->ops().first->type != FFOp::CNST )
-      pvar = new FFVar( _dag );
+      pvar = _add_to_dag( *paux );
     _MapAux.insert( std::make_pair( paux, pvar ) );
   }
 
@@ -484,6 +488,19 @@ QuadEnv::process
     _VecQExpr.push_back( *_add_to_dag( qexpr ) );
   for( auto&& qexpr : _MatRed )
     _VecQExpr.push_back( *_add_to_dag( qexpr ) );
+}
+
+inline FFVar const*
+QuadEnv::_add_to_dag
+( FFVar const& aux )
+const
+{
+  FFVar var( _dag );
+  auto itvar = _dag->Vars().find( &var );
+#ifdef MC__QUADENV_CHECK
+  assert( itvar != _dag->Vars().end() );
+#endif
+  return *itvar;
 }
 
 inline FFVar const*
@@ -544,7 +561,7 @@ const
   }
   auto itvar = _dag->Vars().find( &QVar );
 #ifdef MC__QUADENV_CHECK
-    assert( itvar != _dag->Vars().end() );
+  assert( itvar != _dag->Vars().end() );
 #endif
   return *itvar;
 }

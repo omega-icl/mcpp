@@ -1,6 +1,6 @@
 # THIRD-PARTY LIBRARIES <<-- CHANGE AS APPROPRIATE -->>
 
-PATH_3RD_PARTY = $(HOME)/Programs/mcpp/src/3rdparty
+PATH_3RD_PARTY = $(PATH_MC)/src/3rdparty
 
 PATH_LAPACK = $(PATH_3RD_PARTY)/cpplapack-2015.05.11-1
 LIB_LAPACK  = -llapack -lblas
@@ -32,18 +32,15 @@ LIB_HSL  = -lmc13 -lmc21 -lmc33 -lgfortran
 INC_HSL  = 
 FLAG_HSL = -DMC__USE_HSL
 
-LIB_CPPUNIT = -lcppunit
-
 # COMPILATION <<-- CHANGE AS APPROPRIATE -->>
 
-# PROF = -pg
-# OPTIM = -Ofast
 DEBUG = -g
+PROF  = #-pg
+OPTIM = #-O2
 WARN  = -Wall -Wno-misleading-indentation -Wno-unknown-pragmas -Wno-parentheses
 CPP17 = -std=c++17
-CC    = gcc-10
-CPP   = g++-10
-# CPP   = icpc
+CC    = gcc-9
+CPP   = g++-9
 
 # <<-- NO CHANGE BEYOND THIS POINT -->>
 
