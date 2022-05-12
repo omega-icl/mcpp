@@ -5277,7 +5277,7 @@ FFGraph::SFAD
 
   // Obtain subgraph
   auto sgDep = subgraph( vDep );
-  output( sgDep );
+  //output( sgDep );
   std::tuple< std::vector<unsigned>, std::vector<unsigned>,
                std::vector<const FFVar*> > vDep_F; // <- vector holding the results in sparse format
 
