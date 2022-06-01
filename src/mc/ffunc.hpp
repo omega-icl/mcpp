@@ -1119,13 +1119,14 @@ struct range_FFOp
 struct FFSubgraph
 ////////////////////////////////////////////////////////////////////////
 {
-  //! @brief List of (pointers to) operations
+  //! @brief List of (pointers to) operations in DAG
   std::list< const FFOp* > l_op;
-  //! @brief Vector of (iterators to) operations defining dependent variables in <a>l_op</a>
-  std::vector<typename std::list< const FFOp* >::iterator> it_dep;
+  //! @brief Vector of (pointers to) operations defining dependent variables in DAG
+  std::vector< const FFOp* > op_dep;
   //! @brief Clear subgraph
-  void clear()
-    { l_op.clear(); it_dep.clear(); }
+  void clear
+    ()
+    { l_op.clear(); op_dep.clear(); }
 };
 
 //! @brief C++ class representing the DAG of factorable functions
@@ -4935,13 +4936,7 @@ FFGraph::subgraph
     assert( pVar->ops().first->iflag );
     auto it = sgDep.l_op.begin();
     std::advance( it, pVar->ops().first->iflag-1 );
-    sgDep.it_dep.push_back( it );
-//    if( !(dep->ops().first) ) continue;
-//    dep->ops().first->propagate_subgraph( sgDep.l_op );
-//    assert( dep->ops().first->iflag );
-//    auto it = sgDep.l_op.begin();
-//    std::advance( it, dep->ops().first->iflag-1 );
-//    sgDep.it_dep.push_back( it );
+    sgDep.op_dep.push_back( *it );
   }
   return sgDep;
 }
@@ -4966,7 +4961,7 @@ FFGraph::subgraph
     assert( pVar->ops().first->iflag );
     auto it = sgDep.l_op.begin();
     std::advance( it, pVar->ops().first->iflag-1 );
-    sgDep.it_dep.push_back( it );
+    sgDep.op_dep.push_back( *it );
   }
   return sgDep;
 }
@@ -4991,7 +4986,7 @@ FFGraph::subgraph
     assert( pVar->ops().first->iflag );
     auto it = sgDep.l_op.begin();
     std::advance( it, pVar->ops().first->iflag-1 );
-    sgDep.it_dep.push_back( it );
+    sgDep.op_dep.push_back( *it );
   }
   return sgDep;
 }
@@ -5017,13 +5012,7 @@ FFGraph::subgraph
     assert( pVar->ops().first->iflag );
     auto it = sgDep.l_op.begin();
     std::advance( it, pVar->ops().first->iflag-1 );
-    sgDep.it_dep.push_back( it );
-//    if( !(iDep.second.ops().first) ) continue;
-//    iDep.second.ops().first->propagate_subgraph( sgDep.l_op );
-//    assert( iDep.second.ops().first->iflag );
-//    auto it = sgDep.l_op.begin();
-//    std::advance( it, iDep.second.ops().first->iflag-1 );
-//    sgDep.it_dep.push_back( it );
+    sgDep.op_dep.push_back( *it );
   }
   return sgDep;
 }
@@ -5042,8 +5031,8 @@ FFGraph::output
     os << "  " << *op->pres << "\t" << "<=  " << *op << std::endl;
   os << "\nDEPENDENTS IN SUBGRAPH" << header.c_str() << ":\n";
   unsigned idep = 0;
-  for( auto && ito: sgDep.it_dep )
-    os << "  " << idep++ << ":  " << *(*ito)->pres << std::endl;
+  for( auto && op: sgDep.op_dep )
+    os << "  " << idep++ << ":  " << *(op->pres) << std::endl;
 }
 
 inline void
@@ -5340,9 +5329,9 @@ FFGraph::SFAD
 
    // Copy dependent values in vDep 
    unsigned int i=0;
-   for( auto&& ito : sgDep.it_dep ){
+   for( auto&& op : sgDep.op_dep ){
      for( unsigned j=0; j<vIndep.size(); j++ ){
-       fadbad::F<FFVar>* pF_F = static_cast<fadbad::F<FFVar>*>( (*ito)->pres->val() );
+       fadbad::F<FFVar>* pF_F = static_cast<fadbad::F<FFVar>*>( op->pres->val() );
        const FFVar* pdFdX = _find_var( pF_F->deriv(j).id() );
        if( !pdFdX ){
          const FFNum& num = pF_F->deriv(j).num();
@@ -6068,8 +6057,8 @@ FFGraph::eval
    }
    
    // Copy dependent values into vDep_U 
-   for( auto&& ito : sgDep.it_dep )
-     vDep_U.push_back( *static_cast<U*>( (*ito)->pres->val() ) );
+   for( auto&& op : sgDep.op_dep )
+     vDep_U.push_back( *static_cast<U*>( op->pres->val() ) );
   }
   catch(...){
     pExcp = std::current_exception();
@@ -6492,9 +6481,9 @@ FFGraph::eval
 
    // Copy dependent values in vDep 
    unsigned int i=0;
-   for( auto&& ito : sgDep.it_dep ){
-     if( !add ) vDep[i++]  = *static_cast<U*>( (*ito)->pres->val() );
-     else       vDep[i++] += *static_cast<U*>( (*ito)->pres->val() );
+   for( auto&& op : sgDep.op_dep ){
+     if( !add ) vDep[i++]  = *static_cast<U*>( op->pres->val() );
+     else       vDep[i++] += *static_cast<U*>( op->pres->val() );
    }
   }
   catch(...){
@@ -6676,9 +6665,9 @@ FFGraph::eval
 
   // Copy dependent values in vDep 
   unsigned int i=0;
-  for( auto&& ito : sgDep.it_dep ){
-    if( !add ) vDep[i++]  = *static_cast<U*>( (*ito)->pres->val() );
-    else       vDep[i++] += *static_cast<U*>( (*ito)->pres->val() );
+  for( auto&& op : sgDep.op_dep ){
+    if( !add ) vDep[i++]  = *static_cast<U*>( op->pres->val() );
+    else       vDep[i++] += *static_cast<U*>( op->pres->val() );
   }
 
   //std::cout << "#assigned dependents: " << curdep << std::endl;
@@ -6848,15 +6837,15 @@ FFGraph::reval
 
     // Intersection of propagated dependents with vDep 
     for( unsigned i=0; i<nDep; i++ ){
-      auto itd = sgDep.it_dep[i];
+      auto op = sgDep.op_dep[i];
 #ifdef MC__REVAL_DEBUG
-      std::cout << "Dependent " << *(*itd)->pres << ": " << *static_cast<U*>( (*itd)->pres->val() ) << " ^ " << vDep[i] << std::endl;
+      std::cout << "Dependent " << *(op->pres) << ": " << *static_cast<U*>( op->pres->val() ) << " ^ " << vDep[i] << std::endl;
 #endif
-      if( !Op<U>::inter( vDep[i], *static_cast<U*>( (*itd)->pres->val() ), vDep[i] ) ){
-        output( subgraph( 1, (*itd)->pres ) );
+      if( !Op<U>::inter( vDep[i], *static_cast<U*>( op->pres->val() ), vDep[i] ) ){
+        output( subgraph( 1, op->pres ) );
         return -ipass-1;
       }
-      *static_cast<U*>( (*itd)->pres->val() ) = vDep[i];
+      *static_cast<U*>( op->pres->val() ) = vDep[i];
     }
 #ifdef MC__REVAL_DEBUG
     { int dum; std::cout << "PAUSED"; std::cin >> dum; }
