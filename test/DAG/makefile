@@ -10,7 +10,7 @@ FLAG_MIP    = -DMC__USE_GUROBI
 
 #####
 
-all: DAG_doxygen DAG_compose DAG_differentiate DAG_evaluate DAG_analyze
+all: DAG_doxygen DAG_compose DAG_differentiate DAG_evaluate DAG_store DAG_analyze
 
 DAG_doxygen : DAG_doxygen.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
@@ -23,6 +23,9 @@ DAG_differentiate : DAG_differentiate.o
 
 DAG_evaluate : DAG_evaluate.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
+
+DAG_store : DAG_store.o
+	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC) $(LIB_MIP)
 
 DAG_analyze : DAG_analyze.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC) $(LIB_MIP)
@@ -49,5 +52,5 @@ gensvg :
 #####
 
 clean :
-	rm -f DAG_compose DAG_doxygen DAG_differentiate DAG_evaluate DAG_analyze *.o *.out *.eps *.dot *.png *.lp *~
+	rm -f DAG_compose DAG_doxygen DAG_differentiate DAG_evaluate DAG_store DAG_analyze *.o *.out *.eps *.dot *.png *.lp *~
 
