@@ -222,7 +222,10 @@ class ISModel
     ( ISVar<U> const& );
   template <typename U> friend ISVar<U> tanh
     ( ISVar<U> && );
-
+  template <typename U> friend ISVar<U> intersect
+    ( ISVar<U> const& , U);
+  template <typename U> friend ISVar<U> intersect
+    ( ISVar<U> && , U);
  private:
 
   //! @brief Number of partitions
@@ -292,13 +295,25 @@ class ISModel
   {
     //! @brief Constructor
     Options():
-      ASYREM_USE(true), DCDEC_USE(true), ENVEL_USE(true), ROOT_MAXIT(100), ROOT_TOL(1e-10)
+      ASYREM_USE(true), DCDEC_USE(true), SCALING_TYPE(NONE), INTERSECTION_USE(true), ENVEL_USE(true), ROOT_MAXIT(100), ROOT_TOL(1e-10)
       {}
+
+    //! @brief FISModel re-scaling option in binary product
+    enum SCALING{
+      NONE=0,	  //!< without using scaling
+      PARTIAL,	//!< only re-scaling the radius of two mutiplicants(mutipliers) 
+      FULL,	    //!< re-scaling the range of two mutiplicants(mutipliers) to [-1,1] 
+      ADAPT     //!< adapted re-scaling
+    };
     //! @brief Whether to use asymmetric inclusions for convex/concave terms as available
     bool ASYREM_USE;
     //! @brief Whether to use DC decomposition in product rule and composition rule with non-monotonic univariates
     bool DCDEC_USE;
-    //! @brief Whether to use convex/concave envelopes of nonconvex terms as available
+    //! @brief Whether to use re-scaling in binary product, and which type is used 
+    SCALING SCALING_TYPE; 
+    //! @brief Whether to use intersection
+    bool INTERSECTION_USE; 
+    //! @brief Whether to use convex/concave envelopes of nonconvex terms as available  
     bool ENVEL_USE;
     //! @brief Maximal number of iterations in root search - Default: 100
     unsigned ROOT_MAXIT;
@@ -366,16 +381,22 @@ class ISModel
     T B( 0. );
     for( unsigned int i=0; i<_nvar; i++ ){
       if( mat[i].empty() ) continue;
-      T Brow = _B( mat[i] );
-      if( rec == 1 ){
-        _L1[i] = Op<T>::l( Brow );
-        _U1[i] = Op<T>::u( Brow );
+      if( rec == 3 ){                     //  used for performaing intersection only;
+        _L2[i] = _B_innerL( mat[i] );
+        _U2[i] = _B_innerU( mat[i] );
       }
-      else if( rec == 2 ){
-        _L2[i] = Op<T>::l( Brow );
-        _U2[i] = Op<T>::u( Brow );
+      else{                               //  basic function
+        T Brow = _B( mat[i] );
+        if( rec == 1 ){
+          _L1[i] = Op<T>::l( Brow );
+          _U1[i] = Op<T>::u( Brow );
+        }
+        else if( rec == 2 ){
+          _L2[i] = Op<T>::l( Brow );
+          _U2[i] = Op<T>::u( Brow );
+        }
+        B += Brow;
       }
-      B += Brow;
     }   
     return B;
   }
@@ -391,6 +412,31 @@ class ISModel
     return iBnd;
   }
 
+  double _B_innerL
+  ( std::vector<T> const& row )
+  const
+  {
+    assert( !row.empty() );
+    double iBndL (Op<T>::l(row[0]));
+    for( unsigned int j=1; j<_ndiv; j++ ){
+      iBndL = std::max(iBndL,Op<T>::l(row[j]));
+    }
+    return iBndL;
+  }
+
+  double _B_innerU
+  ( std::vector<T> const& row )
+  const
+  {
+    assert( !row.empty() );
+    double iBndU (Op<T>::u(row[0]));
+    for( unsigned int j=1; j<_ndiv; j++ ){
+      iBndU = std::min(iBndU,Op<T>::u(row[j]));
+    }
+    return iBndU;
+  }
+
+
   template <typename PUNIV>
   void _asym
   ( std::vector<std::vector<T>>& mat, unsigned const& ndep, PUNIV const& f,
@@ -398,6 +444,17 @@ class ISModel
   const;
   template <typename PUNIV>
   void _asym
+  ( std::vector<std::vector<T>>& mat, unsigned const& ndep, PUNIV const& f,
+    double const& zopt, bool const cvx, T const& bnd )
+  const;
+
+  template <typename PUNIV>
+  void _asymDCdecNTC
+  ( std::vector<std::vector<T>>& mat, unsigned const& ndep, PUNIV const& f,
+    double const& zopt, bool const cvx )
+  const;
+  template <typename PUNIV>
+  void _asymDCdecNTC
   ( std::vector<std::vector<T>>& mat, unsigned const& ndep, PUNIV const& f,
     double const& zopt, bool const cvx, T const& bnd )
   const;
@@ -429,6 +486,9 @@ class ISModel
   void _prod
   ( std::vector<std::vector<T>> const& mat1, std::vector<std::vector<T>> const& mat2,
     std::vector<std::vector<T>>& mat3, unsigned& ndep3 )
+  const;
+  void _intersect
+  ( std::vector<std::vector<T>>& mat, unsigned const& ndep, T _rangebnd )
   const;
   void _tanh
   ( std::vector<std::vector<T>>& mat, unsigned const& ndep )
@@ -671,7 +731,7 @@ const
           double Du = scal_r1 * ( std::max( f( Op<T>::l(Zu) ), f( Op<T>::u(Zu) ) ) - fopt ) + fopt_over_ndep;
           if( imid != ICUT ){
             T Zl = mat[i][j] - _c1[i] + C1;
-            double El = f( mid( Op<T>::l(Zl), Op<T>::u(Zl), zopt ) ) - fopt_over_ndep * (ndep-1.);
+            double El =  f( mid( Op<T>::l(Zl), Op<T>::u(Zl), zopt ) ) - fopt_over_ndep * (ndep-1.);//std::min( f( Op<T>::l(Zl) ), f( Op<T>::u(Zl) ) ) - fopt_over_ndep * (ndep-1.);
             mat[i][j] = T( El, Du );
           }
           else if( !options.DCDEC_USE ){
@@ -705,6 +765,167 @@ const
       }
     }
   }
+}
+
+
+template <typename T>
+template <typename PUNIV>
+inline
+void
+ISModel<T>::_asymDCdecNTC
+( std::vector<std::vector<T>>& mat, unsigned const& ndep, PUNIV const& f,
+  double const& z_iflec, bool const cvx_ccv )
+const
+{
+  assert( !mat.empty() );
+  T bnd = _B( mat, 1 );
+  return _asymDCdecNTC( mat, ndep, f, z_iflec, cvx_ccv, bnd );
+}
+
+template <typename T>
+template <typename PUNIV>
+inline
+void
+ISModel<T>::_asymDCdecNTC
+( std::vector<std::vector<T>>& mat, unsigned const& ndep, PUNIV const& f,
+  double const& z_iflec, bool const cvx_ccv, T const& bnd )
+const
+{
+  // anchor points
+  
+  double _lambda( Op<T>::l(bnd)), _mu(Op<T>::u(bnd));
+  double _range(_mu-_lambda);
+  
+
+  double f_iflec = f( z_iflec );
+  double f_iflec_over_ndep = f_iflec / ndep;
+  
+  if(isequal( _range, 0. ) ){
+      for( unsigned int i=0; i<_nvar; i++ ){
+        if( mat[i].empty() ) continue;
+        for( unsigned int j=0; j<_ndiv; j++ ){ 
+          mat[i][j] = f_iflec_over_ndep * T(1.,1.);
+        }
+      }
+  }
+  else{
+
+    auto const& fright = [=]( const double & x ){ return f(-x) - f_iflec; };  // For constructing estimators of the right part
+
+  
+    double f_lambda = f( _lambda );
+    double fright_mu = fright( -_mu );
+    //double sum_c1( 0. );
+    //double f_iflec_lambda = f_lambda*(ndep-1) + f_iflec;
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;
+      //double _temp(0.);
+      _r1[i] = ( _U1[i] - _L1[i] );                       // Delta_i
+      _r2[i] = _r1[i]/_range;                             // theta_i
+     
+      //_c1[i] = _r2[i]*f_iflec + (1.0 - _r2[i])*f_lambda;  // a_i 
+      //_temp = f( _lambda + _r1[i]);
+      // sum_c1 += _temp;
+
+      //_c1[i] = f( _lambda + _r1[i]);
+      //sum_c1 += _c1[i];
+      _c2[i] = _r2[i]*f_iflec + (1.0 - _r2[i])*f_lambda; //_c1[i] +  _r2[i] * f_iflec_lambda; // v_i
+      _c1[i] = (1.0 - _r2[i])*fright_mu;
+
+    }
+    
+
+    /*
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;
+      _c2[i] -= _r2[i]*sum_c1;                               // v_i
+    }
+    */
+
+    //std::cout<< (_c1[0] - _c2[0])<<std::endl;
+    //std::cout<< (_c1[1] - _c2[1])<<std::endl;
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;   
+      if( isequal( _r1[i], 0. ) ){
+        for( unsigned int j=0; j<_ndiv; j++ )
+          mat[i][j] = T(0.);
+        continue;
+      }
+      else{
+        double _theta_fiflec = _r2[i]*f_iflec;
+        //std::cout<<_theta_fiflec<<std::endl;
+        double _term_f_lambda = (1. -_r2[i])*f_lambda;
+        double _term_fright_mu = _c1[i];//(1. -_r2[i])*fright_mu;
+        if (cvx_ccv){
+          for( unsigned int j=0; j<_ndiv; j++ ){ 
+            double El = std::min(_c2[i], f( _lambda - _L1[i] + Op<T>::l(mat[i][j])) ) - _term_f_lambda ;
+            double Du1 = _r2[i]*f( _mu + (Op<T>::u(mat[i][j]) - _U1[i])/_r2[i] );
+            double Du2 = f( _mu - _U1[i] + Op<T>::u(mat[i][j])) + _theta_fiflec - f_iflec;
+            double Du = std::min(_theta_fiflec , std::max(Du1,Du2));// + _c1[i] - _c2[i];
+            //std::cout<<Du1<<" and "<<Du2<<" and "<<_theta_fiflec<<" and "<<Du<<" and "<<El<<std::endl;
+            double Eu = std::max(_c1[i], fright( -_mu + _U1[i] - Op<T>::u(mat[i][j])) ) - _term_fright_mu ;
+            double Dl1 = _r2[i]*fright( -_lambda + (-Op<T>::l(mat[i][j]) + _L1[i])/_r2[i] );
+            double Dl2 = fright( -_lambda + _L1[i] - Op<T>::l(mat[i][j]));
+            double Dl = std::max(0. , std::min(Dl1,Dl2)); 
+            mat[i][j] = T( El+Dl, Du+Eu );
+          }
+        }
+        else{
+          for( unsigned int j=0; j<_ndiv; j++ ){
+            double Eu = std::max(_c2[i], f( _lambda - _L1[i] + Op<T>::l(mat[i][j])) ) - _term_f_lambda ;
+            double Dl1 = _r2[i]*f( _mu + (Op<T>::u(mat[i][j]) - _U1[i])/_r2[i] );
+            double Dl2 = f( _mu - _U1[i] + Op<T>::u(mat[i][j])) + _theta_fiflec - f_iflec;
+            double Dl = std::max(_theta_fiflec , std::min(Dl1,Dl2));// + _c1[i] - _c2[i];
+            //std::cout<<Du1<<" and "<<Du2<<" and "<<_theta_fiflec<<" and "<<Du<<" and "<<El<<std::endl;
+            double El = std::min(_c1[i], fright( -_mu + _U1[i] - Op<T>::u(mat[i][j])) ) - _term_fright_mu;
+            double Du1 = _r2[i]*fright( - _lambda + (-Op<T>::l(mat[i][j]) + _L1[i])/_r2[i] );
+            double Du2 = fright( -_lambda + _L1[i] - Op<T>::l(mat[i][j]));
+            double Du = std::min(0. , std::max(Du1,Du2));
+            mat[i][j] = T( El+Dl, Du+Eu );
+          }          
+        }
+        /*
+        if( cvx ){
+          T Zu = ( mat[i][j] - _c1[i] ) / _r1[i] * sum_r1 + C1;
+          double Du = scal_r1 * ( std::max( f( Op<T>::l(Zu) ), f( Op<T>::u(Zu) ) ) - fopt ) + fopt_over_ndep;
+          if( imid != ICUT ){
+            T Zl = mat[i][j] - _c1[i] + C1;
+            double El =  f( mid( Op<T>::l(Zl), Op<T>::u(Zl), zopt ) ) - fopt_over_ndep * (ndep-1.);//std::min( f( Op<T>::l(Zl) ), f( Op<T>::u(Zl) ) ) - fopt_over_ndep * (ndep-1.);
+            mat[i][j] = T( El, Du );
+          }
+          else if( !options.DCDEC_USE ){
+            mat[i][j] = T( fopt_over_ndep, Du );
+          }
+          else{
+            auto const& flinc = [=]( const T& x ){ return Op<T>::l(x) < zopt? 0.: f( Op<T>::l(x) ) - fopt; };
+            auto const& fldec = [=]( const T& x ){ return Op<T>::u(x) > zopt? 0.: f( Op<T>::u(x) ) - fopt; };
+            double El = flinc( mat[i][j] - _c1[i] + C1 ) + fldec( mat[i][j] - _c2[i] + C2 ) + fopt_over_ndep;
+            mat[i][j] = T( El, Du );
+          }
+        }
+        else{
+          T Zl = ( mat[i][j] - _c1[i] ) / _r1[i] * sum_r1 + C1;
+          double Dl = scal_r1 * ( std::min( f( Op<T>::l(Zl) ), f( Op<T>::u(Zl) ) ) - fopt ) + fopt_over_ndep;
+          if( imid != ICUT ){
+            T Zu = mat[i][j] - _c1[i] + C1;
+            double Eu = f( mid( Op<T>::l(Zu), Op<T>::u(Zu), zopt ) ) - fopt_over_ndep * (ndep-1.);
+            mat[i][j] = T( Dl, Eu );
+          }
+          else if( !options.DCDEC_USE ){
+            mat[i][j] = T( Dl, fopt_over_ndep );
+          }
+          else{
+            auto const& fuinc = [=]( const T& x ){ return Op<T>::u(x) > zopt? 0.: f( Op<T>::u(x) ) - fopt; };
+            auto const& fudec = [=]( const T& x ){ return Op<T>::l(x) < zopt? 0.: f( Op<T>::l(x) ) - fopt; };
+            double Eu = fuinc( mat[i][j] - _c2[i] + C2 ) + fudec( mat[i][j] - _c1[i] + C1 ) + fopt_over_ndep;
+            mat[i][j] = T( Dl, Eu );
+          }
+        }
+        */
+      }  
+    }
+  }
+
 }
 
 template <typename T>
@@ -766,7 +987,18 @@ const
     return _asym( mat, ndep, f, -DBL_MAX, true, bnd ); // convex part, min -INF
   if( L >= 0. )
     return _asym( mat, ndep, f, DBL_MAX, false, bnd ); // concave part, max INF
-
+  else{
+     
+    //auto const& fcv = [=]( const double& x ){ return std::tanh( std::min( x, 0. ) ) + std::max( x, 0. ); };
+    //std::cout<<"fcv"<<std::endl;
+    //return _asym( mat, ndep, fcv, -DBL_MAX, true, bnd );
+    
+    // auto const& frev = [=]( const double& x ){ return std::tanh( -x )+2.0; }; // for debugging concave-convex function with nonzero function value at the inflection point
+    //return _asymDCdecNTC( mat, ndep, frev, 0., false, bnd );
+    return _asymDCdecNTC( mat, ndep, f, 0., true, bnd );
+  }
+    
+  /*
   if( ndep == 1 || !options.ENVEL_USE ){
     auto const& fcv = [=]( const double& x ){ return std::tanh( std::min( x, 0. ) ) + std::max( x, 0. ); };
     auto const& fcc = [=]( const double& x ){ return std::tanh( std::max( x, 0. ) ) + std::min( x, 0. ); };
@@ -782,6 +1014,7 @@ const
       for( unsigned int j=0; j<_ndiv; j++ )
         mat[i][j] = matcp1[i][j] + matcp2[i][j] - mat[i][j];
     }
+  */
 #if 0
     auto const& fcv = [=]( const double& x ){ return std::tanh( std::min( x, 0. ) ) - std::min( x, 0. ) + .5 * x; };
     auto const& fcc = [=]( const double& x ){ return std::tanh( std::max( x, 0. ) ) - std::max( x, 0. ) + .5 * x; };
@@ -792,12 +1025,12 @@ const
     for( unsigned int i=0; i<_nvar; i++ ){
       if( matcp[i].empty() ) continue;   
       for( unsigned int j=0; j<_ndiv; j++ )
-        mat[i][j] += matcp[i][j];
-    }
+    //    mat[i][j] += matcp[i][j];
+    //}
 #endif
-    return;
+    //return;
   }
-  
+/*  
   auto const& fl = [=]( const double& x )
     { double tanhx = std::tanh(x); return (x-U)*(1-tanhx*tanhx)-(tanhx-std::tanh(U)); };
   double zcv = _goldsect( L, 0., fl, options.ROOT_TOL, options.ROOT_MAXIT );
@@ -819,7 +1052,7 @@ const
       mat[i][j] = Op<T>::hull( mat[i][j], matcp[i][j] );
   }
 }
-
+*/
 template <typename T>
 inline
 void ISModel<T>::_pow
@@ -1015,6 +1248,8 @@ const
   // Bounds
   T bnd = _B( mat, 1 );
 
+  //T bnd1(Op<T>::l(bnd),Op<T>::u(bnd));
+
   // Asymetric inclusion
   if( options.ASYREM_USE ){
     auto const& f = [=]( const double& x ){ return std::exp( x ); };
@@ -1042,6 +1277,7 @@ const
     for( unsigned int j=0; j<_ndiv; j++ )
       mat[i][j] = Op<T>::exp((w-_c1[i])+mat[i][j]) + bnd;
   }
+  //_intersect(mat,ndep,Op<T>::exp(bnd1));
 }
 
 template <typename T>
@@ -1305,6 +1541,81 @@ const
   }
 }
 
+
+template <typename T>
+inline
+void ISModel<T>::_intersect
+( std::vector<std::vector<T>>& mat, unsigned const& ndep, T _rangebnd)
+const
+{
+  assert( !mat.empty() );
+
+  // Bounds
+  T sigma = _B( mat, 3 );
+  T bnd = _B( mat, 1 );
+  double lambda = Op<T>::l(bnd);
+  double mu =  Op<T>::u(bnd);
+  double z_u = Op<T>::l(_rangebnd);
+  double z_o = Op<T>::u(_rangebnd);
+  //std::cout<<z_o<<std::endl;
+
+  // Step 1: Auxilary constants 
+  double sigma_o(0.),sigma_u(0.) ;
+  for( unsigned int i=0; i<_nvar; i++ ){
+    if( mat[i].empty() ) continue;
+    sigma_o += _L2[i]; 
+    sigma_u += _U2[i];
+  }
+
+  // Step 2: anchor points
+  double w_u (0.), w_o (0.);
+  w_u = std::max(lambda,z_u);
+  w_o = std::min(mu,z_o);
+  //std::cout<<sigma_o<<std::endl;
+
+
+  // Step 3-7: Interval matrix coefficients
+  if(sigma_u == lambda && sigma_o == mu)
+  ;
+  else{
+    if(sigma_u != lambda){
+      for( unsigned int i=0; i<_nvar; i++ ){
+        if( mat[i].empty() ) continue;
+        double in_first_term( -_L1[i] + lambda );
+        double second_term( w_u + ( _U2[i] - _L1[i] )/( sigma_u - lambda ) * ( sigma_u - w_u) - _U2[i] );
+        for( unsigned int j=0; j<_ndiv; j++ ){
+          double _lowerbound(std::max(Op<T>::l( mat[i][j]) + in_first_term, w_u) - second_term);
+          mat[i][j] = T(_lowerbound,Op<T>::u( mat[i][j]) );
+        }
+      }
+    }
+    if(sigma_o != mu){
+      //double temp(0.);
+      for( unsigned int i=0; i<_nvar; i++ ){
+        if( mat[i].empty() ) continue;
+        double in_first_term( -_U1[i] + mu );
+        double second_term( w_o + ( _L2[i] - _U1[i] )/( sigma_o - mu ) * ( sigma_o - w_o) - _L2[i] );
+        //temp += second_term;
+        for( unsigned int j=0; j<_ndiv; j++ ){
+          double _upbd(0.);
+          _upbd = std::min(Op<T>::u( mat[i][j]) + in_first_term, w_o) - second_term;
+          //std::cout<<"i"<<i<<"j"<<j<<std::endl;
+          //std::cout<<"prev"<<Op<T>::u( mat[i][j])<<std::endl;
+          //std::cout<<"uppe"<<_upbd <<std::endl;
+          //T _update(_lb, _upbd);
+          mat[i][j] = T(Op<T>::l( mat[i][j]),_upbd);
+          //std::cout<<"late"<<Op<T>::l(mat[i][j])<<std::endl;
+        }
+      }
+      //std::cout<<temp<<std::endl;
+      //T bnd = _B( mat, 1 );
+      //std::cout<< Op<T>::u(bnd)<<std::endl;
+    }
+  //T bnd = _B( mat, 1 );
+  //std::cout<< Op<T>::u(bnd)<<std::endl;
+  } 
+}
+
 //! @brief C++ class for interval superposition models of factorable functions: variable
 ////////////////////////////////////////////////////////////////////////
 //! mc::ISVar is a C++ class for propagation of interval superposition
@@ -1416,6 +1727,10 @@ class ISVar
     ( ISVar<U> const&, int const& n );
   template <typename U> friend ISVar<U> pow
     ( ISVar<U> &&, int const& n );
+  template <typename U> friend ISVar<U> intersect
+    ( ISVar<U> const& , U);
+  template <typename U> friend ISVar<U> intersect
+    ( ISVar<U> && , U);  
   template <typename U> friend ISVar<U> cheb
     ( ISVar<U> const&, unsigned int const& n );
   template <typename U> friend ISVar<U> cheb
@@ -1995,12 +2310,63 @@ ISVar<T> operator*
     var3 *= var1._cst;
     return var3;
   }
-  
-  if( var1._mod->options.DCDEC_USE )
-    return 0.25 * ( sqr( var1 + var2 ) - sqr( var1 - var2 ) );
+
+  auto bnd1 = var1.bound();
+  auto bnd2 = var2.bound();
+  if( var1._mod->options.DCDEC_USE ){
+      //double coef1(0.),coef2(0.),mid1(0.),mid2(0.);
+      
+      double coef1 = 0.5 * (Op<T>::u(bnd1)-Op<T>::l(bnd1)); //0.5*(bnd1.first.u()-bnd1.first.l());
+      double coef2 = 0.5 * (Op<T>::u(bnd2)-Op<T>::l(bnd2)); //0.5*(bnd2.first.u()-bnd2.first.l());
+      double mid1 = 0.5 * (Op<T>::u(bnd1)+Op<T>::l(bnd1));
+      double mid2 = 0.5 * (Op<T>::u(bnd2)+Op<T>::l(bnd2));
+      
+      //std::cout<<Op<T>::u(bnd1*bnd2)<<std::endl;
+      //return coef1 * coef2 * 0.25 * ( sqr( var1/coef1 + var2/coef2 ) - sqr( var1/coef1 - var2/coef2 ) );      
+      //return intersect( coef1 * coef2 * 0.25 * ( sqr( var1/coef1 + var2/coef2 ) - sqr( var1/coef1 - var2/coef2 ) ), bnd1*bnd2);
+      //return 0.25 * ( sqr( var1 + var2 ) - sqr( var1 - var2 ) );
+      //return intersect( 0.25 * ( sqr( var1 + var2 ) - sqr( var1 - var2 ) ), bnd1*bnd2);
+      //return coef1 * coef2 * 0.25 * ( sqr( (var1-mid1)/coef1 + (var2-mid2)/coef2 ) - sqr( (var1-mid1)/coef1 - (var2-mid2)/coef2 ) ) + mid1*var2+mid2*var1-mid1*mid2;
+      auto _type = var1._mod->options.SCALING_TYPE;
+      //auto _type_temp = _type;
+      if(_type == ISModel<T>::Options::ADAPT){
+        T rst1(0.25 * ( Op<T>::sqr( bnd1 + bnd2 ) - Op<T>::sqr( bnd1 - bnd2 ) ));
+        T rst2(coef1 * coef2 * 0.25 * ( Op<T>::sqr( bnd1/coef1 + bnd2/coef2 ) - Op<T>::sqr( bnd1/coef1 - bnd2/coef2 ) ));
+        T rst3(coef1 * coef2 * 0.25 * ( Op<T>::sqr( (bnd1-mid1)/coef1 + (bnd2-mid2)/coef2 ) - Op<T>::sqr( (bnd1-mid1)/coef1 - (bnd2-mid2)/coef2 ) ) + mid1*bnd2+mid2*bnd1-mid1*mid2);
+        std::cout<<Op<T>::u(rst1)-Op<T>::l(rst1)<<"  "<<Op<T>::u(rst2)-Op<T>::l(rst2)<<"  "<<Op<T>::u(rst3)-Op<T>::l(rst3)<<std::endl; 
+        if ((Op<T>::u(rst1)-Op<T>::l(rst1)) <= (Op<T>::u(rst2)-Op<T>::l(rst2))){
+          if((Op<T>::u(rst1)-Op<T>::l(rst1)) <= (Op<T>::u(rst3)-Op<T>::l(rst3)))
+            _type = ISModel<T>::Options::NONE;
+          else
+            _type = ISModel<T>::Options::FULL;  
+        }
+        else{
+          if((Op<T>::u(rst2)-Op<T>::l(rst2)) <= (Op<T>::u(rst3)-Op<T>::l(rst3)))
+            _type = ISModel<T>::Options::PARTIAL;
+          else
+            _type = ISModel<T>::Options::FULL;  
+        }            
+      }
+      switch( _type ){          
+        case ISModel<T>::Options::PARTIAL:{
+          return (var1._mod->options.INTERSECTION_USE?intersect(coef1 * coef2 * 0.25 * ( sqr( var1/coef1 + var2/coef2 ) - sqr( var1/coef1 - var2/coef2 ) ),bnd1*bnd2):coef1 * coef2 * 0.25 * ( sqr( var1/coef1 + var2/coef2 ) - sqr( var1/coef1 - var2/coef2 ) ) );
+          break;
+        }
+        case ISModel<T>::Options::FULL:{
+          return (var1._mod->options.INTERSECTION_USE?intersect(coef1 * coef2 * 0.25 * ( sqr( (var1-mid1)/coef1 + (var2-mid2)/coef2 ) - sqr( (var1-mid1)/coef1 - (var2-mid2)/coef2 ) ) + mid1*var2+mid2*var1-mid1*mid2,bnd1*bnd2):coef1 * coef2 * 0.25 * ( sqr( (var1-mid1)/coef1 + (var2-mid2)/coef2 ) - sqr( (var1-mid1)/coef1 - (var2-mid2)/coef2 ) ) + mid1*var2+mid2*var1-mid1*mid2);
+          break;
+        }
+        case ISModel<T>::Options::NONE: default:{
+          return (var1._mod->options.INTERSECTION_USE?intersect(0.25 * ( sqr( var1 + var2 ) - sqr( var1 - var2 ) ),bnd1*bnd2):0.25 * ( sqr( var1 + var2 ) - sqr( var1 - var2 ) ));
+          break;
+        }
+      }
+    }
+
   ISVar<T> var3( var2 );
   var3 *= var1;
-  return var3;
+  return (var1._mod->options.INTERSECTION_USE?intersect(var3,bnd1*bnd2):var3);
+  //return intersect(var3,bnd1*bnd2);
 }
 
 template <typename T>
@@ -2509,6 +2875,34 @@ prod
   }
 }
 
+
+template <typename T>
+inline
+ISVar<T> intersect
+( ISVar<T> const& var , T _rangebnd )
+{
+  if( !var._mod )
+    return var._cst;
+
+  ISVar<T> var2( var );
+  var2._mod->_intersect( var2._mat, var2._ndep , _rangebnd);
+  var2._bnd.second = false;
+  return var2;
+}
+
+template <typename T>
+inline
+ISVar<T> intersect
+( ISVar<T> && var , T _rangebnd )
+{
+  if( !var._mod )
+    return var._cst;
+
+  var._mod->_intersect( var._mat, var._ndep , _rangebnd);
+  var._bnd.second = false;
+  return var;
+}
+
 template <typename T>
 inline
 ISVar<T>
@@ -2583,7 +2977,7 @@ max
     return std::max( var1._cst, cst2 );
 
   ISVar<T> var2( var1 );
-  auto const& f = [=]( const T& x ){ return Op<T>::max( x, cst2 ); };
+  auto const& f = [=]( const double& x ){return std::max( x, cst2 ); };//Op<T>::max( x, cst2 ); }; // why not  return std::max( x, cst2 ); };
   var2._mod->_asym( var2._mat, var2._ndep, f, cst2, true ); // convex term, min cst2
   var2._bnd.second = false;
   return var2;
@@ -2662,7 +3056,7 @@ min
   if( !var1._mod ) 
     return std::min( var1._cst, cst2 );
 
-  auto const& f = [=]( const T& x ){ return Op<T>::min( x, cst2 ); };
+  auto const& f = [=]( const double& x ){return std::min( x, cst2 ); };//Op<T>::min( x, cst2 ); }; // why not return std::min( x, cst2 ); };
   var1._mod->_asym( var1._mat, var1._ndep, f, cst2, false ); // concave term, max cst2
   var1._bnd.second = false;
   return var1;
