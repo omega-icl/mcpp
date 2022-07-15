@@ -451,12 +451,22 @@ class ISModel
   template <typename PUNIV>
   void _asymDCdecNTC
   ( std::vector<std::vector<T>>& mat, unsigned const& ndep, PUNIV const& f,
-    double const& zopt, bool const cvx )
+    double const& zopt, bool const cvx_ccv )
   const;
   template <typename PUNIV>
   void _asymDCdecNTC
   ( std::vector<std::vector<T>>& mat, unsigned const& ndep, PUNIV const& f,
-    double const& zopt, bool const cvx, T const& bnd )
+    double const& zopt, bool const cvx_ccv, T const& bnd )
+  const;
+
+
+ template <typename PUNIV>
+  void _asymNTCsym
+  ( std::vector<std::vector<T>>& mat, unsigned const& ndep, PUNIV const& f)
+  const;
+  template <typename PUNIV>
+  void _asymNTCsym
+  ( std::vector<std::vector<T>>& mat, unsigned const& ndep, PUNIV const& f, T const& bnd )
   const;
 
   void _inv
@@ -868,6 +878,7 @@ const
             double Dl2 = fright( -_lambda + _L1[i] - Op<T>::l(mat[i][j]));
             double Dl = std::max(0. , std::min(Dl1,Dl2)); 
             mat[i][j] = T( El+Dl, Du+Eu );
+            //mat[i][j] = T( El, Du);   Used for evaluating the performance of the estimator for tanh(min(g,c))
           }
         }
         else{
@@ -922,6 +933,87 @@ const
           }
         }
         */
+      }  
+    }
+  }
+
+}
+
+template <typename T>
+template <typename PUNIV>
+inline
+void
+ISModel<T>::_asymNTCsym
+( std::vector<std::vector<T>>& mat, unsigned const& ndep, PUNIV const& f)
+const
+{
+  assert( !mat.empty() );
+  T bnd = _B( mat, 1 );
+  return _asymNTCsym( mat, ndep, f, bnd );
+}
+
+template <typename T>
+template <typename PUNIV>
+inline
+void
+ISModel<T>::_asymNTCsym
+( std::vector<std::vector<T>>& mat, unsigned const& ndep, PUNIV const& f, T const& bnd )
+const
+{
+  // anchor points
+  
+  double _lambda( Op<T>::l(bnd)), _mu(Op<T>::u(bnd));
+  double _range(_mu-_lambda);
+  
+
+  double f_lambda = f( _lambda );
+  double f_lambda_over_ndep = f_lambda / ndep;
+  
+  if(isequal( _range, 0. ) ){
+      for( unsigned int i=0; i<_nvar; i++ ){
+        if( mat[i].empty() ) continue;
+        for( unsigned int j=0; j<_ndiv; j++ ){ 
+          mat[i][j] = f_lambda_over_ndep * T(1.,1.);
+        }
+      }
+  }
+  else{
+
+  
+    double f_mu = f( _mu );
+    //double sum_c1( 0. );
+    //double f_iflec_lambda = f_lambda*(ndep-1) + f_iflec;
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;
+      //double _temp(0.);
+      _r1[i] = ( _U1[i] - _L1[i] );                       // Delta_i
+      _r2[i] = _r1[i]/_range;                             // theta_i
+     
+      _c1[i] = (1.0 - _r2[i])*f_lambda; //_c1[i] +  _r2[i] * f_iflec_lambda; // v_i
+      _c2[i] = (1.0 - _r2[i])*f_mu;
+
+    }
+    
+
+
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;   
+      if( isequal( _r1[i], 0. ) ){
+        for( unsigned int j=0; j<_ndiv; j++ )
+          mat[i][j] = T(0.);
+        continue;
+      }
+      else{
+        //std::cout<<_theta_fiflec<<std::endl;
+        for( unsigned int j=0; j<_ndiv; j++ ){ 
+          double El = f(Op<T>::l(mat[i][j]) - _L1[i] + _lambda)  - _c1[i] ;
+          double D = _r2[i]*f( _mu + (Op<T>::u(mat[i][j]) - _U1[i])/_r2[i] );
+          double Eu = f(Op<T>::u(mat[i][j]) - _U1[i] +  _mu  )  - _c2[i];
+          //std::cout<<Du1<<" and "<<Du2<<" and "<<_theta_fiflec<<" and "<<Du<<" and "<<El<<std::endl;
+          
+          // this makes use of the constructor of T, which always compares the value of the two imputs
+          mat[i][j] = T( std::min(El , D) , std::max(Eu , D) );   
+        }
       }  
     }
   }
@@ -993,9 +1085,10 @@ const
     //std::cout<<"fcv"<<std::endl;
     //return _asym( mat, ndep, fcv, -DBL_MAX, true, bnd );
     
-    // auto const& frev = [=]( const double& x ){ return std::tanh( -x )+2.0; }; // for debugging concave-convex function with nonzero function value at the inflection point
+    //auto const& fmin = [=]( const double& x ){ return std::min(0.,std::tanh( x )); /*return std::tanh( -x )+2.0;*/ }; // for debugging concave-convex function with nonzero function value at the inflection point
     //return _asymDCdecNTC( mat, ndep, frev, 0., false, bnd );
-    return _asymDCdecNTC( mat, ndep, f, 0., true, bnd );
+    return _asymNTCsym( mat, ndep, f, bnd );
+    //return _asymDCdecNTC( mat, ndep, f, 0., true, bnd );
   }
     
   /*
@@ -1970,7 +2063,12 @@ class ISVar
       if( _mat[i].empty() ) continue;
       double l = Op<T>::l( _mod->_bndvar[i] );
       double u = Op<T>::u( _mod->_bndvar[i] );
-      assert( point[i] >= l && point[i] <= u );
+      if(point[i] < l || point[i] > u){
+        //std::cout<<"l: "<<l<<" p: "<<point[i]<<" u: "<<u<<std::endl;
+        const double _eps (0.00000000000001);
+        if (point[i] - u >= _eps || point[i] - l <= -_eps)
+          assert( point[i] >= l && point[i] <= u );
+      }
       double h = Op<T>::diam( _mod->_bndvar[i] ) / (double)_ndiv;
       int ndx = std::floor( ( point[i] - l ) /  h );
       if( ndx < 0 ) ndx = 0;
