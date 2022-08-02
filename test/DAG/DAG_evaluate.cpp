@@ -112,7 +112,7 @@ int test_eval1()
 
 int test_eval2()
 {
-  std::cout << "\n==============================================\ntest_fadiff2:\n";
+  std::cout << "\n==============================================\ntest_eval2:\n";
 
   // Create DAG
   const unsigned int NX = 2, NF = 2;
@@ -170,6 +170,41 @@ int test_eval2()
     std::cout << "\nDAG " << NTE << "th-order dense Chebyshev model evaluation - with preallocation, no variadic template: " << (cputime/=NREP) << " CPU-sec\n";
     for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << CF[i].R() << std::endl;
   }
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+int test_eval3()
+{
+  std::cout << "\n==============================================\ntest_eval3:\n";
+
+  // Create DAG for the residual r = ( y - 0.5 * x / exp(p) )^2
+  mc::FFGraph DAG;
+  mc::FFVar X( &DAG ), P( &DAG ), Y( &DAG );
+  mc::FFVar F = sqr( Y - 0.5 * X * exp( P ) );
+  std::cout << DAG;
+
+  auto F_op  = DAG.subgraph( 1, &F );
+  DAG.output( F_op );
+  std::ofstream o_F( "eval3_F.dot", std::ios_base::out );
+  DAG.dot_script( 1, &F, o_F );
+  o_F.close();
+
+  // Compute bounds on residual sum-of-squares by specializing the DAG at 3 different data points
+  std::vector< double > xdat = { 1, 2, 3 };
+  std::vector< double > ydat = { 2, 5, 9 };
+  I IP(-1.,1.), IF( 0. );  
+  std::vector<I> IWK;
+  for( size_t k=0; k<xdat.size(); ++k ){
+    // Assign constant values to the variables X and Y
+    X.set( xdat[k] );
+    Y.set( ydat[k] );
+    // Evaluate the current residual - the final 'true' argument is to append the result to IF instead of overwriting IF
+    DAG.eval( F_op, IWK, 1, &F, &IF, 1, &P, &IP, true );
+  }
+  std::cout << "\nSSE bound: " << IF << std::endl;
 
   return 0;
 }
@@ -605,12 +640,13 @@ int test_reval4()
 int main()
 {
   try{
-    test_eval1();
-    test_eval2();
-    test_reval1();
-    test_reval2();
-    test_reval3();
-    test_reval4();
+    //test_eval1();
+    //test_eval2();
+    test_eval3();
+    //test_reval1();
+    //test_reval2();
+    //test_reval3();
+    //test_reval4();
   }
   catch( mc::FFGraph::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
