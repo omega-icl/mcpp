@@ -1056,10 +1056,7 @@ template <> struct Op<mc::Interval>
   static T exp (const T& x) { return mc::exp(x);  }
   static T log (const T& x) { return mc::log(x);  }
   static T xlog(const T& x) { return mc::xlog(x); }
-  static T lmtd(const T& x, const T& y) { return mc::lmtd(x,y); }
-  static T rlmtd(const T& x, const T& y) { return mc::rlmtd(x,y); }
   static T fabs(const T& x) { return mc::fabs(x); }
-  static T relu(const T& x) { return mc::relu(x); }
   static T sin (const T& x) { return mc::sin(x);  }
   static T cos (const T& x) { return mc::cos(x);  }
   static T tan (const T& x) { return mc::tan(x);  }
@@ -1075,7 +1072,6 @@ template <> struct Op<mc::Interval>
   static T bstep(const T& x) { return mc::bstep(x); }
   static T min (const T& x, const T& y) { return mc::min(x,y);  }
   static T max (const T& x, const T& y) { return mc::max(x,y);  }
-  static T arh (const T& x, const double k) { return mc::arh(x,k); }
   template <typename X, typename Y> static T pow(const X& x, const Y& y) { return mc::pow(x,y); }
   static T cheb (const T& x, const unsigned n) { return mc::cheb(x,n); }
   static T prod (const unsigned int n, const T* x) { return mc::prod(n,x); }

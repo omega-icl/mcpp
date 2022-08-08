@@ -1,4 +1,4 @@
-#define TEST_EXP1	// <-- select test function here
+#define TEST_TANH	// <-- select test function here
 #define USE_DAG        // <-- specify to evaluate via a DAG of the function
 #define SAVE_RESULTS   // <-- specify whether to save results to file
 const int NX = 40;	// <-- select X discretization here
@@ -139,6 +139,18 @@ T myfunc
   return 1.+x-sin(2.*x+3.*y)-cos(3.*x-5.*y);
 }
 
+#elif defined( TEST_TANH )
+const double XL   =  -1.;	// <-- X range lower bound
+const double XU   =   2.;	// <-- X range upper bound
+const double YL   =  -2.;	// <-- Y range lower bound
+const double YU   =   1.;	// <-- Y range upper bound
+template <class T>
+T myfunc
+( const T&x, const T&y )
+{
+  return tanh(x+y);
+}
+
 #elif defined( TEST_NORM )
 const double XL   = -1.;	// <-- X range lower bound
 const double XU   =  1.;	// <-- X range upper bound
@@ -150,31 +162,6 @@ T myfunc
 {
   return sqrt(pow(x,2)+pow(y,2));
 }
-
-#elif defined( TEST_LMTD )
-const double XL   =  0.1;	// <-- X range lower bound
-const double XU   =  2.;	// <-- X range upper bound
-const double YL   =  0.1;	// <-- Y range lower bound
-const double YU   =  2.;	// <-- Y range upper bound
-template <class T>
-T myfunc
-( const T&x, const T&y )
-{
-  return lmtd(x,y);
-}
-
-#elif defined( TEST_RLMTD )
-const double XL   =  0.1;	// <-- X range lower bound
-const double XU   =  2.;	// <-- X range upper bound
-const double YL   =  0.1;	// <-- Y range lower bound
-const double YU   =  2.;	// <-- Y range upper bound
-template <class T>
-T myfunc
-( const T&x, const T&y )
-{
-  return rlmtd(x,y);
-}
-
 #endif
 
 ////////////////////////////////////////////////////////////////////////

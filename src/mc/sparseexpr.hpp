@@ -1,4 +1,4 @@
-// Copyright (C) 2018 Benoit Chachuat, Imperial College London.
+// Copyright (C) Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
@@ -60,7 +60,7 @@ The last line displays the following information about the factorable function D
 Next, an environment <a>mc::SparseEnv</a> is defined for manipulating the factorable expressions in <a>DAG</a>. The factorable expressions are processed into sparse polynomial and transcendental subexpressions by calling the method <a>mc::SparseEnv::process</a>:
 
 \code
-      mc::SparseEnv SPE( &DAG );
+      mc::SparseEnv<mc::FFGraph<>> SPE( &DAG );
       SPE.process( NF, F );
 \endcode
 
@@ -165,55 +165,56 @@ Finally, the original vector-valued function \f${\bf f}(x_0,x_1)\f$ is equal to 
 namespace mc
 {
 
-class SparseExpr;
+template <typename DAG> class SparseExpr;
 
 //! @brief C++ class for reformulation of a factorable function in sparse polynomial/rational/transcendental subexpressions
 ////////////////////////////////////////////////////////////////////////
 //! mc::SparseEnv is a C++ class for reformulation of a factorable
 //! function in sparse polynomial/rational/transcendental subexpressions
 ////////////////////////////////////////////////////////////////////////
+template < typename DAG >
 class SparseEnv
 ////////////////////////////////////////////////////////////////////////
 {
-  friend class SparseExpr;
-  friend  std::ostream& operator<< ( std::ostream&, const SparseEnv& );
-  friend  SparseExpr inv ( const SparseExpr& );
-  friend  SparseExpr exp ( const SparseExpr& );
-  friend  SparseExpr log ( const SparseExpr& );
-  friend  SparseExpr xlog( const SparseExpr& );
-  friend  SparseExpr sqrt( const SparseExpr& );
-  friend  SparseExpr sqr ( const SparseExpr& );
-  friend  SparseExpr pow ( const SparseExpr&, const int );  
-  friend  SparseExpr pow ( const SparseExpr&, const double );  
-  friend  SparseExpr cheb( const SparseExpr&, const unsigned );  
-  friend  SparseExpr prod( const unsigned, const SparseExpr* );  
-  friend  SparseExpr cos ( const SparseExpr& );
-  friend  SparseExpr sin ( const SparseExpr& );
-  friend  SparseExpr tan ( const SparseExpr& );
-  friend  SparseExpr acos( const SparseExpr& );
-  friend  SparseExpr asin( const SparseExpr& );
-  friend  SparseExpr atan( const SparseExpr& );
-  friend  SparseExpr cosh( const SparseExpr& );
-  friend  SparseExpr sinh( const SparseExpr& );
-  friend  SparseExpr tanh( const SparseExpr& );
-  friend  SparseExpr fabs( const SparseExpr& );
-  friend  SparseExpr erf( const SparseExpr& );
-  friend  SparseExpr fstep( const SparseExpr& );
-  friend  SparseExpr max( const SparseExpr&, const SparseExpr& );  
-  friend  SparseExpr min( const SparseExpr&, const SparseExpr& );  
-  friend  SparseExpr lmtd( const SparseExpr&, const SparseExpr& );  
-  friend  SparseExpr rlmtd( const SparseExpr&, const SparseExpr& );  
+  friend class SparseExpr<DAG>;
+  template <typename D> friend  std::ostream& operator<< ( std::ostream&, SparseEnv<D> const& );
+  template <typename D> friend  SparseExpr<D> inv ( SparseExpr<D> const& );
+  template <typename D> friend  SparseExpr<D> exp ( SparseExpr<D> const& );
+  template <typename D> friend  SparseExpr<D> log ( SparseExpr<D> const& );
+  template <typename D> friend  SparseExpr<D> xlog( SparseExpr<D> const& );
+  template <typename D> friend  SparseExpr<D> sqrt( SparseExpr<D> const& );
+  template <typename D> friend  SparseExpr<D> sqr ( SparseExpr<D> const& );
+  template <typename D> friend  SparseExpr<D> pow ( SparseExpr<D> const&, int const );  
+  template <typename D> friend  SparseExpr<D> pow ( SparseExpr<D> const&, double const& );  
+  template <typename D> friend  SparseExpr<D> cheb( SparseExpr<D> const&, const unsigned );  
+  template <typename D> friend  SparseExpr<D> prod( const unsigned, SparseExpr<D> const* );  
+  template <typename D> friend  SparseExpr<D> cos ( SparseExpr<D> const& );
+  template <typename D> friend  SparseExpr<D> sin ( SparseExpr<D> const& );
+  template <typename D> friend  SparseExpr<D> tan ( SparseExpr<D> const& );
+  template <typename D> friend  SparseExpr<D> acos( SparseExpr<D> const& );
+  template <typename D> friend  SparseExpr<D> asin( SparseExpr<D> const& );
+  template <typename D> friend  SparseExpr<D> atan( SparseExpr<D> const& );
+  template <typename D> friend  SparseExpr<D> cosh( SparseExpr<D> const& );
+  template <typename D> friend  SparseExpr<D> sinh( SparseExpr<D> const& );
+  template <typename D> friend  SparseExpr<D> tanh( SparseExpr<D> const& );
+  template <typename D> friend  SparseExpr<D> fabs( SparseExpr<D> const& );
+  template <typename D> friend  SparseExpr<D> erf( SparseExpr<D> const& );
+  template <typename D> friend  SparseExpr<D> fstep( SparseExpr<D> const& );
+  template <typename D> friend  SparseExpr<D> max( SparseExpr<D> const&, SparseExpr<D> const& );  
+  template <typename D> friend  SparseExpr<D> min( SparseExpr<D> const&, SparseExpr<D> const& );  
+  template <typename D> friend  SparseExpr<D> lmtd( SparseExpr<D> const&, SparseExpr<D> const& );  
+  template <typename D> friend  SparseExpr<D> rlmtd( SparseExpr<D> const&, SparseExpr<D> const& );  
 
 public:
 
-  typedef std::list< std::pair< const FFOp*, std::vector<const SparseExpr*> > > t_Interm;
-  typedef std::map< const FFVar*, const FFVar*, lt_FFVar > t_Aux;
-  typedef std::vector< const FFVar* > t_Expr;
+  typedef std::list< std::pair< FFOp const*, std::vector<SparseExpr<DAG> const*> > > t_Interm;
+  typedef std::map< FFVar const*, FFVar const*, lt_FFVar > t_Aux;
+  typedef std::vector< FFVar const* > t_Expr;
   typedef SPoly<FFVar const*, lt_FFVar> SPolyExpr;
 
   //! @brief Default Constructor
   SparseEnv
-    ( FFGraph* dag=nullptr )
+    ( DAG* dag=nullptr )
     : _dag( dag )
     {}
 
@@ -223,7 +224,7 @@ public:
     { _reset(); }
   
   // Retreive pointer to DAG
-  FFGraph* dag
+  DAG* dag
     ()
     const
     { return _dag; };
@@ -243,11 +244,6 @@ public:
     ()
     { return _Var; }
 
-//  //! @brief Retreive reference to vector of new dependent DAG variables
-//  std::vector<FFVar>& Dep
-//    ()
-//    { return _Dep; }
-
   //! @brief Retreive reference to mapping between existing DAG auxiliaries and new DAG variables
   t_Aux& Aux
     ()
@@ -260,7 +256,7 @@ public:
 
   //! @brief Set DAG environment
   void set
-    (  FFGraph* dag )
+    (  DAG* dag )
     { _dag = dag; _reset(); }
 
   //! @brief Reset sparse intermediate expressions
@@ -270,14 +266,11 @@ public:
 
   //! @brief Process the dependents in set <a>sDep</a>
   void process
-    ( std::set<unsigned> const& ndxDep, const FFVar*pDep, bool const add2dag=true );
+    ( std::set<unsigned> const& ndxDep, FFVar const* pDep, bool const add2dag=true );
 
   //! @brief Process the <a>nDep</a> dependents in array <a>pDep</a>
   void process
-    ( const unsigned nDep, const FFVar*pDep, const bool add2dag=true );
-
-  // List of auxiliary variables corresponding to intermediate SparseExpr
-  // Auxiliairies should correspond to already existing DAG variables! -> use dag->curop() and see _append_var in ImgPol
+    ( unsigned const nDep, FFVar const* pDep, const bool add2dag=true );
 
   //! @brief Exceptions of mc::SparseExpr
   class Exceptions
@@ -316,7 +309,7 @@ public:
     Options():
       LIFTDIV( true ), LIFTIPOW( false )//, LIFTUPOL( false )
       {}
-    //! @brief Assignment of mc::SparseEnv::Options
+    //! @brief Assignment of mc::SparseEnv<DAG>::Options
     Options& operator=
       ( Options& opt ){
         LIFTDIV  = opt.LIFTDIV;
@@ -334,7 +327,7 @@ public:
 
 protected:
   //! @brief pointer to underlying dag
-  FFGraph* _dag;
+  DAG* _dag;
 
   //! @brief Map of DAG variables and sparse expressions
   t_Interm _Interm;
@@ -351,53 +344,52 @@ protected:
   //! @brief Vector of independent DAG variables participating in expressions
   std::vector<FFVar> _Var;
 
-//  //! @brief Vector of new DAG dependent variables
-//  std::vector<FFVar> _Dep;
-
   //! @brief Vector of independent sparse variables
-  std::vector<SparseExpr> _SPVar;
+  std::vector<SparseExpr<DAG>> _SPVar;
 
   //! @brief Vector of dependent sparse expressions
-  std::vector<SparseExpr> _SPDep;
+  std::vector<SparseExpr<DAG>> _SPDep;
 
   //! @brief Add new intermediate uni- or bi-variate expression in _Interm
   void _append_interm
-    ( const FFOp*op, const SparseExpr*var1, const SparseExpr*var2=0 );
+    ( FFOp const* op, SparseExpr<DAG> const* var1, SparseExpr<DAG> const* var2=nullptr );
 
 //  //! @brief Add new intermediate n-variate expression in _Interm
 //  void _append_interm
-//    ( const FFOp*op, const unsigned nvars, const SparseExpr**pvars );
+//    ( FFOp const* op, unsigned const nvars, SparseExpr<DAG> const*const* pvars );
 
   //! @brief Insert an auxiliary variable corresponding to a rational/polynomial expression into DAG
-  const FFVar* _insert_expr
-    ( const FFVar*oper, const SparseExpr*expr );
+  FFVar const* _insert_expr
+    ( FFVar const* oper, SparseExpr<DAG> const* expr );
 
   //! @brief Insert a non-rational operation into DAG via the introduction of auxiliary variables
   void _insert_expr
-    ( const FFOp*pOp, std::vector<const FFVar*>&vAux );
+    ( FFOp const* pOp, std::vector<const FFVar*>& vAux );
 
   //! @brief Transcribe sparse rational/polynomial expression (SparseExpr) into DAG
   FFVar _SPolyExpr_to_FFVar
-    ( const SPolyExpr&expr );
+    ( SPolyExpr const& expr );
 
   //! @brief Find auxiliary variable in DAG and return corresponding new DAG variable (or NULL if undefined)
-  const FFVar* _find_aux
-    ( const FFVar*aux );
+  FFVar const* _find_aux
+    ( FFVar const* aux );
 
   //! @brief Lift current univariate operation
-  SparseExpr _lift_univariate_term
-    ( const SparseExpr&var );
+  SparseExpr<DAG> _lift_univariate_term
+    ( SparseExpr<DAG> const& var );
 
   //! @brief Lift current bivariate operation
-  SparseExpr _lift_bivariate_term
-    ( const SparseExpr&var1, const SparseExpr&var2 );
+  SparseExpr<DAG> _lift_bivariate_term
+    ( SparseExpr<DAG> const& var1, SparseExpr<DAG> const& var2 );
 
   //! @brief Erase all entries in _Interm
   void _reset
     ();
 };
 
-inline SparseEnv::Options SparseEnv::options;
+
+template <typename DAG>
+inline typename SparseEnv<DAG>::Options SparseEnv<DAG>::options;
 
 //! @brief C++ class for sparse rational function representation and arithmetic
 ////////////////////////////////////////////////////////////////////////
@@ -405,6 +397,7 @@ inline SparseEnv::Options SparseEnv::options;
 //! functions contaning polynomial, rational or transcendental
 //! subexpressions
 ////////////////////////////////////////////////////////////////////////
+template < typename DAG >
 class SparseExpr
 ////////////////////////////////////////////////////////////////////////
 {
@@ -415,7 +408,7 @@ public:
 private:
 
   //! @brief Pointer to sparse rational function environment
-  SparseEnv *_env;
+  SparseEnv<DAG> *_env;
 
 protected:
 
@@ -425,17 +418,17 @@ protected:
   // Denominator sparse polynomial
   SPolyExpr _denom;
 
-  //! @brief Set rational expression equal to <a>var</a>
-  SparseExpr& _set
-    ( const SparseExpr& var );
+  //! @brief Initialize sparse rational expression with existing expression
+  SparseExpr<DAG>& _set
+    ( SparseExpr<DAG> const& var );
 
-  //! @brief Set rational expression equal to constant <a>d</a>
-  SparseExpr& _set
-    ( const double d );
+  //! @brief Initialize sparse expression as constant
+  SparseExpr<DAG>& _set
+    ( double const& d );
 
-  //! @brief Set rational expression equal to variable <a>x</a>
-  SparseExpr& _set
-    ( const FFVar& x );
+  //! @brief Initialize sparse rational expression as DAG variable
+  SparseExpr<DAG>& _set
+    ( FFVar const& x );
 
 public:
 
@@ -446,26 +439,26 @@ public:
 
   //! @brief Constructor of sparse rational expression as constant
   SparseExpr
-    ( const double d )
+    ( double const& d )
     : _env( 0 )
     { _set( d ); }
 
-  //! @brief Constructor of sparse rational expression as variable
+  //! @brief Constructor of sparse rational expression as DAG variable
   SparseExpr
-    ( SparseEnv* env, const FFVar& x)
+    ( SparseEnv<DAG>* env, FFVar const& x)
     : _env( env )
     { if( env->dag() != x.dag() )
-        throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::DAGERR );
+        throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::DAGERR );
       _set( x ); }
 
   //! @brief Copy constructor of sparse rational expression
   SparseExpr
-    ( const SparseExpr& var )
+    ( SparseExpr<DAG> const& var )
     { _set( var ); }
 
-  //! @brief Constructor of sparse rational expression as variable
+  //! @brief Constructor of sparse rational expression
   SparseExpr
-    ( SparseEnv* env, const SPolyExpr& n, const SPolyExpr& d )
+    ( SparseEnv<DAG>* env, SPolyExpr const& n, SPolyExpr const& d )
     : _env( env ), _numer( n ), _denom( d )
     {}
 
@@ -474,53 +467,53 @@ public:
     {}
 
   //! @brief Initialize variable in sparse rational envrionment <a>env</a> corresponding to DAG variable <a>x</a>
-  SparseExpr& set
-    ( SparseEnv* env, const FFVar& x )
+  SparseExpr<DAG>& set
+    ( SparseEnv<DAG>* env, FFVar const& x )
     { _env = env;
       if( env->dag() != x.dag() )
-        throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::DAGERR );
+        throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::DAGERR );
       _set( x ); return *this; }
 
   //! @brief Overloaded operator '=' for sparse rational expression
-  SparseExpr& operator=
-    ( const SparseExpr& var )
+  SparseExpr<DAG>& operator=
+    ( SparseExpr<DAG> const& var )
     { _set( var ); return *this; }
 
   //! @brief Overloaded operator '=' for constant 
-  SparseExpr& operator=
-    ( const double d )
+  SparseExpr<DAG>& operator=
+    ( double const& d )
     { _env = 0; _set( d ); return *this; }
 
   //! @brief Overloaded operator '+=' for sparse rational function
-  SparseExpr& operator+=
-    ( const SparseExpr& var );
+  SparseExpr<DAG>& operator+=
+    ( SparseExpr<DAG> const& var );
 
   //! @brief Overloaded operator '-=' for sparse rational function
-  SparseExpr& operator-=
-    ( const SparseExpr& var );
+  SparseExpr<DAG>& operator-=
+    ( SparseExpr<DAG> const& var );
 
   //! @brief Overloaded operator '*=' for sparse rational function
-  SparseExpr& operator*=
-    ( const SparseExpr& var );
+  SparseExpr<DAG>& operator*=
+    ( SparseExpr<DAG> const& var );
 
   //! @brief Overloaded operator '/=' for sparse rational function
-  SparseExpr& operator/=
-    ( const SparseExpr& var );
+  SparseExpr<DAG>& operator/=
+    ( SparseExpr<DAG> const& var );
 
   // Sparse rational polynomial environment
-  SparseEnv* env
+  SparseEnv<DAG>* env
     ()
     const
     { return _env; };
 
   // numerator sparse polynomial
-  const SPolyExpr& numer
+  SPolyExpr const& numer
     ()
     const
     { return _numer; };
 
   // Denominator sparse polynomial
-  const SPolyExpr& denom
+  SPolyExpr const& denom
     ()
     const
     { return _denom; };
@@ -528,20 +521,21 @@ public:
 
 ////////////////////////////////////////////////////////////////////////
 
+template < typename DAG >
 inline std::ostream&
 operator<<
-( std::ostream&out, const SparseExpr&var )
+( std::ostream& out, SparseExpr<DAG> const& var )
 {
   out << std::endl
       << "NUMERATOR:"   << var.numer()
-      //<< std::endl
       << "DENOMINATOR:" << var.denom();
   return out;
 }
 
+template < typename DAG >
 inline std::ostream&
 operator<<
-( std::ostream&out, const SparseEnv&env)
+( std::ostream& out, SparseEnv<DAG> const& env)
 {
   unsigned count = 0;
   for( auto&& expr : env._Interm ){
@@ -554,9 +548,10 @@ operator<<
   return out;
 }
 
+template < typename DAG >
 inline void
-SparseEnv::process
-( std::set<unsigned> const& ndxDep, const FFVar*pDep, bool const add2dag )
+SparseEnv<DAG>::process
+( std::set<unsigned> const& ndxDep, FFVar const* pDep, bool const add2dag )
 {
   if( ndxDep.empty() ) return; // Nothing to do!
   std::vector<FFVar> vpDep;//( sDep.begin(), sDep.end() );
@@ -565,9 +560,10 @@ SparseEnv::process
   process( ndxDep.size(), vpDep.data(), add2dag );
 }
 
+template < typename DAG >
 inline void
-SparseEnv::process
-( const unsigned nDep, const FFVar*pDep, const bool add2dag )
+SparseEnv<DAG>::process
+( unsigned const nDep, FFVar const* pDep, bool const add2dag )
 {
   // Reset intermediate / auxiliary arrays
   _reset();
@@ -607,7 +603,7 @@ SparseEnv::process
     for( auto&& operand : expr.first->pops ){
 #ifdef MC__SPARSEENV_CHECK
       if( itSV == expr.second.end() )
-        throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::INTERNAL );
+        throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::INTERNAL );
 #endif
       vAux.push_back( _insert_expr( operand, *itSV ) );
       ++itSV;
@@ -637,9 +633,10 @@ SparseEnv::process
 #endif
 }
 
+template < typename DAG >
 inline FFVar const*
-SparseEnv::_insert_expr
-( FFVar const* var, SparseExpr const* expr )
+SparseEnv<DAG>::_insert_expr
+( FFVar const* var, SparseExpr<DAG> const* expr )
 { 
   auto itdagvar = _dag->Vars().find( const_cast<FFVar*>(var) );
 #ifdef MC__SPARSEENV_CHECK
@@ -683,17 +680,18 @@ SparseEnv::_insert_expr
   return *itnewvar;
 }
 
+template < typename DAG >
 inline void
-SparseEnv::_insert_expr
+SparseEnv<DAG>::_insert_expr
 ( FFOp const* pOp, std::vector<FFVar const*>& vAux )
 { 
 #ifdef MC__SPARSEENV_CHECK
   // Throw exception if DAG auxiliary was already made a DAG variable
   if( _Aux.find( pOp->pres ) != _Aux.end() )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::INTERNAL );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::INTERNAL );
 #endif
 #ifdef MC__SPARSEENV_DEBUG_PROCESS
-  std::cout <<std::endl << "operand: " << *pOp->pres << std::endl;
+  std::cout << std::endl << "operand: " << *pOp->pres << std::endl;
 #endif
 
   // Append new DAG variable in _Aux
@@ -721,8 +719,6 @@ SparseEnv::_insert_expr
    case FFOp::LOG:   return _Trans.push_back( exp( **itnewvar ) - *vAux.at(0) );
    case FFOp::XLOG:  return _Trans.push_back( **itnewvar - xlog( *vAux.at(0) ) );
    case FFOp::DPOW:  return _Trans.push_back( **itnewvar - pow( *vAux.at(0), vAux.at(1)->num().val() ) );
-   case FFOp::LMTD:  return _Trans.push_back( **itnewvar - lmtd( *vAux.at(0), *vAux.at(1) ) );
-   case FFOp::RLMTD: return _Trans.push_back( **itnewvar - rlmtd( *vAux.at(0), *vAux.at(1) ) );
    case FFOp::COS:   return _Trans.push_back( **itnewvar - cos( *vAux.at(0) ) );
    case FFOp::SIN:   return _Trans.push_back( **itnewvar - sin( *vAux.at(0) ) );
    case FFOp::TAN:   return _Trans.push_back( **itnewvar - tan( *vAux.at(0) ) );
@@ -747,13 +743,14 @@ SparseEnv::_insert_expr
    case FFOp::SCALE:
    case FFOp::TIMES:
    case FFOp::PROD:
-   default:          throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::INTERNAL );
+   default:          throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::INTERNAL );
   }
 }
 
-inline const FFVar*
-SparseEnv::_find_aux
-( const FFVar*aux )
+template < typename DAG >
+inline FFVar const*
+SparseEnv<DAG>::_find_aux
+( FFVar const* aux )
 {
   if( aux->ops().first->type == FFOp::VAR ) return aux;
   auto it = _Aux.find( aux );
@@ -761,9 +758,10 @@ SparseEnv::_find_aux
   return (FFVar*)0;
 }
 
+template < typename DAG >
 inline FFVar
-SparseEnv::_SPolyExpr_to_FFVar
-( const SPolyExpr&expr )
+SparseEnv<DAG>::_SPolyExpr_to_FFVar
+( SPolyExpr const& expr )
 {
   FFVar var = 0.;
   for( auto it=expr.mapmon().begin(); it!=expr.mapmon().end(); ++it ){
@@ -771,7 +769,7 @@ SparseEnv::_SPolyExpr_to_FFVar
     for( auto ie=it->first.expr.begin(); ie!=it->first.expr.end(); ++ie ){
       const FFVar*oper = _find_aux( ie->first );
       if( !oper ) 
-        throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::INTERNAL );
+        throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::INTERNAL );
       switch( SPolyExpr::options.BASIS ){
        case SPolyExpr::Options::MONOM:
         prodmon *= pow( *oper, (int)ie->second );
@@ -788,8 +786,9 @@ SparseEnv::_SPolyExpr_to_FFVar
   return var;
 }
 
+template < typename DAG >
 inline void
-SparseEnv::_reset
+SparseEnv<DAG>::_reset
 ()
 {
   for( auto&& expr : _Interm )
@@ -806,27 +805,29 @@ SparseEnv::_reset
   _SPDep.clear();
 }
 
+template < typename DAG >
 inline void
-SparseEnv::_append_interm
-( const FFOp*op, const SparseExpr*var1, const SparseExpr*var2 )
+SparseEnv<DAG>::_append_interm
+( FFOp const* op, SparseExpr<DAG> const* var1, SparseExpr<DAG> const* var2 )
 {
 #ifdef MC__SPARSEENV_CHECK
   if( !var1 )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::INTERNAL );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::INTERNAL );
 #endif
-  std::vector<const SparseExpr*> vops;
+  std::vector<SparseExpr<DAG> const*> vops;
   vops.push_back( new SparseExpr( *var1 ) );
   if( var2 ) vops.push_back( new SparseExpr( *var2 ) );
   _Interm.push_back( std::make_pair( op, vops ) );
 }
 
-inline SparseExpr
-SparseEnv::_lift_univariate_term
-( const SparseExpr&var )
+template < typename DAG >
+inline SparseExpr<DAG>
+SparseEnv<DAG>::_lift_univariate_term
+( SparseExpr<DAG> const& var )
 {
 #ifdef MC__SPARSENV_CHECK
   if( !_dag->curOp() )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::INTERNAL );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::INTERNAL );
 #endif
 
   // Append new intermediate expression and assert that same operation was not previously appended
@@ -834,13 +835,14 @@ SparseEnv::_lift_univariate_term
   return SparseExpr( this, *(_dag->curOp()->pres) );
 }
 
-inline SparseExpr
-SparseEnv::_lift_bivariate_term
-( const SparseExpr&var1, const SparseExpr&var2 )
+template < typename DAG >
+inline SparseExpr<DAG>
+SparseEnv<DAG>::_lift_bivariate_term
+( SparseExpr<DAG> const& var1, SparseExpr<DAG> const& var2 )
 {
 #ifdef MC__SPARSENV_CHECK
   if( !_dag->curOp() )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::INTERNAL );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::INTERNAL );
 #endif
 
   // Append new intermediate expression and assert that same operation was not previously appended
@@ -848,27 +850,30 @@ SparseEnv::_lift_bivariate_term
   return SparseExpr( this, *(_dag->curOp()->pres) );
 }
 
-inline SparseExpr&
-SparseExpr::_set
-( const double d )
+template < typename DAG >
+inline SparseExpr<DAG>&
+SparseExpr<DAG>::_set
+( double const& d )
 {
   _numer = d;
   _denom = 1;
   return *this;
 }
 
-inline SparseExpr&
-SparseExpr::_set
-( const FFVar&x )
+template < typename DAG >
+inline SparseExpr<DAG>&
+SparseExpr<DAG>::_set
+( FFVar const& x )
 {
   _numer.var( &x );
   _denom = 1;
   return *this;
 }
 
-inline SparseExpr&
-SparseExpr::_set
-( const SparseExpr&var )
+template < typename DAG >
+inline SparseExpr<DAG>&
+SparseExpr<DAG>::_set
+( SparseExpr<DAG> const& var )
 {
   if( this == &var ) return *this;
   _env = var._env;
@@ -877,21 +882,23 @@ SparseExpr::_set
   return *this;
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
 operator+
-( const SparseExpr&var )
+( SparseExpr<DAG> const& var )
 {
   return var;
 }
 
-inline SparseExpr&
-SparseExpr::operator+=
-( const SparseExpr&var )
+template < typename DAG >
+inline SparseExpr<DAG>&
+SparseExpr<DAG>::operator+=
+( SparseExpr<DAG> const& var )
 {
   if( !_env )
     _env = var._env;
   else if( var._env && _env != var._env )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::ENVERR );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
 
   _numer *= var._denom;
   _numer += var._numer * _denom;
@@ -899,30 +906,43 @@ SparseExpr::operator+=
   return *this;
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
 operator+
-( const SparseExpr&var1, const SparseExpr&var2 )
+( SparseExpr<DAG> const& var1, SparseExpr<DAG> const& var2 )
 {
-  SparseExpr var3( var1 );
+  SparseExpr<DAG> var3( var1 );
   var3 += var2;
   return var3;
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
+operator+
+( SparseExpr<DAG> const& var1, double const& cst2 )
+{
+  SparseExpr<DAG> var3( var1 );
+  var3 += cst2;
+  return var3;
+}
+
+template < typename DAG >
+inline SparseExpr<DAG>
 operator-
-( const SparseExpr&var )
+( SparseExpr<DAG> const& var )
 {
   return SparseExpr( var.env(), -var.numer(), var.denom() );
 }
 
-inline SparseExpr&
-SparseExpr::operator-=
-( const SparseExpr&var )
+template < typename DAG >
+inline SparseExpr<DAG>&
+SparseExpr<DAG>::operator-=
+( SparseExpr<DAG> const& var )
 {
   if( !_env )
     _env = var._env;
   else if( var._env && _env != var._env )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::ENVERR );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
 
   _numer *= var._denom;
   _numer -= var._numer * _denom;
@@ -930,48 +950,72 @@ SparseExpr::operator-=
   return *this;
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
 operator-
-( const SparseExpr&var1, const SparseExpr&var2 )
+( SparseExpr<DAG> const& var1, SparseExpr<DAG> const& var2 )
 {
-  SparseExpr var3( var1 );
+  SparseExpr<DAG> var3( var1 );
   var3 -= var2;
   return var3;
 }
 
-inline SparseExpr&
-SparseExpr::operator*=
-( const SparseExpr&var )
+template < typename DAG >
+inline SparseExpr<DAG>
+operator-
+( SparseExpr<DAG> const& var1, double const& cst2 )
+{
+  SparseExpr<DAG> var3( var1 );
+  var3 -= cst2;
+  return var3;
+}
+
+template < typename DAG >
+inline SparseExpr<DAG>&
+SparseExpr<DAG>::operator*=
+( SparseExpr<DAG> const& var )
 {
   if( !_env )
     _env = var._env;
   else if( var._env && _env != var._env )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::ENVERR );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
 
   _numer *= var._numer;
   _denom *= var._denom;
   return *this;
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
 operator*
-( const SparseExpr&var1, const SparseExpr&var2 )
+( SparseExpr<DAG> const& var1, SparseExpr<DAG> const& var2 )
 {
-  SparseExpr var3( var1 );
+  SparseExpr<DAG> var3( var1 );
   var3 *= var2;
   return var3;
 }
 
-inline SparseExpr&
-SparseExpr::operator/=
-( const SparseExpr&var )
+template < typename DAG >
+inline SparseExpr<DAG>
+operator*
+( SparseExpr<DAG> const& var1, double const& cst2 )
+{
+  SparseExpr<DAG> var3( var1 );
+  var3 *= cst2;
+  return var3;
+}
+
+template < typename DAG >
+inline SparseExpr<DAG>&
+SparseExpr<DAG>::operator/=
+( SparseExpr<DAG> const& var )
 {
   if( !_env )
     _env = var._env;
   else if( var._env && _env != var._env )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::ENVERR );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
 
-  if( SparseEnv::options.LIFTDIV )
+  if( SparseEnv<DAG>::options.LIFTDIV )
     *this = _env->_lift_bivariate_term( *this, var );
   else{
     _numer *= var._denom;
@@ -980,81 +1024,99 @@ SparseExpr::operator/=
   return *this;
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
 operator/
-( const SparseExpr&var1, const SparseExpr&var2 )
+( SparseExpr<DAG> const& var1, SparseExpr<DAG> const& var2 )
 {
-  SparseExpr var3( var1 );
+  SparseExpr<DAG> var3( var1 );
   var3 /= var2;
   return var3;
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
+operator/
+( double const& cst1, SparseExpr<DAG> const& var2 )
+{
+  SparseExpr<DAG> var3( cst1 );
+  var3 /= var2;
+  return var3;
+}
+
+template < typename DAG >
+inline SparseExpr<DAG>
 sqr
-( const SparseExpr&var )
+( SparseExpr<DAG> const& var )
 {
 #ifdef MC__SPARSENV_CHECK
   if( !var.env() )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::ENVERR );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
 #endif
-  if( SparseEnv::options.LIFTIPOW )
+  if( SparseEnv<DAG>::options.LIFTIPOW )
     return var.env()->_lift_univariate_term( var );
-  return SparseExpr( var.env(), sqr( var.numer() ), sqr( var.denom() ) );
+  return SparseExpr<DAG>( var.env(), sqr( var.numer() ), sqr( var.denom() ) );
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
 inv
-( const SparseExpr&var )
+( SparseExpr<DAG> const& var )
 {
 #ifdef MC__SPARSENV_CHECK
   if( !var.env() )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::ENVERR );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
 #endif
-  if( SparseEnv::options.LIFTDIV )
+  if( SparseEnv<DAG>::options.LIFTDIV )
     return var.env()->_lift_bivariate_term( 1, var );
-  return SparseExpr( var.env(), var.denom(), var.numer() );
+  return SparseExpr<DAG>( var.env(), var.denom(), var.numer() );
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
 pow
-( const SparseExpr&var, const double a )
+( SparseExpr<DAG> const& var, double const& a )
 {
 #ifdef MC__SPARSENV_CHECK
   if( !var.env() )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::ENVERR );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_bivariate_term( var, a );
 }
-inline SparseExpr
+
+template < typename DAG >
+inline SparseExpr<DAG>
 pow
-( const SparseExpr&var, const int n )
+( SparseExpr<DAG> const& var, int const n )
 {
   if( n < 0 ) return pow( inv( var ), -n );
   switch( n ){
    case 0:  return 1.;
    case 1:  return var;
    case 2:  return sqr( var );
-   default: if( SparseEnv::options.LIFTIPOW ) return var.env()->_lift_bivariate_term( var, n );
+   default: if( SparseEnv<DAG>::options.LIFTIPOW ) return var.env()->_lift_bivariate_term( var, n );
             return SparseExpr( var.env(), pow( var.numer(), (unsigned)n ), pow( var.denom(), (unsigned)n ) );
   }
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
 cheb
-( const SparseExpr&var, const unsigned n )
+( SparseExpr<DAG> const& var, unsigned const n )
 {
   switch( n ){
    case 0:  return 1.;
    case 1:  return var;
-   case 2:  return 2 * sqr( var ) - 1;
-   default: if( SparseEnv::options.LIFTIPOW ) return var.env()->_lift_bivariate_term( var, n );
-            return 2 * var * cheb( var, n-1 ) - cheb( var, n-2 );
+   case 2:  return sqr( var ) * 2. - 1.;
+   default: if( SparseEnv<DAG>::options.LIFTIPOW ) return var.env()->_lift_bivariate_term( var, n );
+            return var * cheb( var, n-1 ) * 2. - cheb( var, n-2 );
   }
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
 prod
-(const unsigned int nvars, const SparseExpr*pvars )
+( unsigned int const nvars, SparseExpr<DAG> const* pvars )
 {
   switch( nvars ){
    case 0:  return 1.;
@@ -1063,9 +1125,10 @@ prod
   }
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
 monom
-( const unsigned int nvars, const SparseExpr*pvars, const unsigned*k, const bool chebbasis=false )
+( unsigned int const nvars, SparseExpr<DAG> const* pvars, unsigned const* k, bool const chebbasis=false )
 {
   switch( nvars ){
    case 0:  return 1.;
@@ -1074,218 +1137,238 @@ monom
   }
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
 exp
-( const SparseExpr&var )
+( SparseExpr<DAG> const& var )
 {
 #ifdef MC__SPARSENV_CHECK
   if( !var.env() )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::ENVERR );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
 log
-( const SparseExpr&var )
+( SparseExpr<DAG> const& var )
 {
 #ifdef MC__SPARSENV_CHECK
   if( !var.env() )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::ENVERR );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
 xlog
-( const SparseExpr&var )
+( SparseExpr<DAG> const& var )
 {
 #ifdef MC__SPARSENV_CHECK
   if( !var.env() )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::ENVERR );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
 sqrt
-( const SparseExpr&var )
+( SparseExpr<DAG> const& var )
 {
 #ifdef MC__SPARSENV_CHECK
   if( !var.env() )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::ENVERR );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
 cos
-( const SparseExpr&var )
+( SparseExpr<DAG> const& var )
 {
 #ifdef MC__SPARSENV_CHECK
   if( !var.env() )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::ENVERR );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
 sin
-( const SparseExpr&var )
+( SparseExpr<DAG> const& var )
 {
 #ifdef MC__SPARSENV_CHECK
   if( !var.env() )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::ENVERR );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
 tan
-( const SparseExpr&var )
+( SparseExpr<DAG> const& var )
 {
 #ifdef MC__SPARSENV_CHECK
   if( !var.env() )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::ENVERR );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
 acos
-( const SparseExpr&var )
+( SparseExpr<DAG> const& var )
 {
 #ifdef MC__SPARSENV_CHECK
   if( !var.env() )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::ENVERR );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
 asin
-( const SparseExpr&var )
+( SparseExpr<DAG> const& var )
 {
 #ifdef MC__SPARSENV_CHECK
   if( !var.env() )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::ENVERR );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
 atan
-( const SparseExpr&var )
+( SparseExpr<DAG> const& var )
 {
 #ifdef MC__SPARSENV_CHECK
   if( !var.env() )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::ENVERR );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
 cosh
-( const SparseExpr&var )
+( SparseExpr<DAG> const& var )
 {
 #ifdef MC__SPARSENV_CHECK
   if( !var.env() )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::ENVERR );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
 sinh
-( const SparseExpr&var )
+( SparseExpr<DAG> const& var )
 {
 #ifdef MC__SPARSENV_CHECK
   if( !var.env() )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::ENVERR );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
 tanh
-( const SparseExpr&var )
+( SparseExpr<DAG> const& var )
 {
 #ifdef MC__SPARSENV_CHECK
   if( !var.env() )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::ENVERR );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
 fabs
-( const SparseExpr&var )
+( SparseExpr<DAG> const& var )
 {
 #ifdef MC__SPARSENV_CHECK
   if( !var.env() )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::ENVERR );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
 erf
-( const SparseExpr&var )
+( SparseExpr<DAG> const& var )
 {
 #ifdef MC__SPARSENV_CHECK
   if( !var.env() )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::ENVERR );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
 fstep
-( const SparseExpr&var )
+( SparseExpr<DAG> const& var )
 {
 #ifdef MC__SPARSENV_CHECK
   if( !var.env() )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::ENVERR );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
 max
-( const SparseExpr&var1, const SparseExpr&var2 )
+( SparseExpr<DAG> const& var1, SparseExpr<DAG> const& var2 )
 {
   if( var1.env() && var2.env() && var1.env() != var2.env() )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::ENVERR );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
 
   return var1.env()->_lift_bivariate_term( var1, var2 );
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
 min
-( const SparseExpr&var1, const SparseExpr&var2 )
+( SparseExpr<DAG> const& var1, SparseExpr<DAG> const& var2 )
 {
   if( var1.env() && var2.env() && var1.env() != var2.env() )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::ENVERR );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
 
   return var1.env()->_lift_bivariate_term( var1, var2 );
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
 lmtd
-( const SparseExpr&var1, const SparseExpr&var2 )
+( SparseExpr<DAG> const& var1, SparseExpr<DAG> const& var2 )
 {
   if( var1.env() && var2.env() && var1.env() != var2.env() )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::ENVERR );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
 
   return var1.env()->_lift_bivariate_term( var1, var2 );
 }
 
-inline SparseExpr
+template < typename DAG >
+inline SparseExpr<DAG>
 rlmtd
-( const SparseExpr&var1, const SparseExpr&var2 )
+( SparseExpr<DAG> const& var1, SparseExpr<DAG> const& var2 )
 {
   if( var1.env() && var2.env() && var1.env() != var2.env() )
-    throw typename SparseEnv::Exceptions( SparseEnv::Exceptions::ENVERR );
+    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
 
   return var1.env()->_lift_bivariate_term( var1, var2 );
 }
@@ -1298,9 +1381,9 @@ namespace mc
 {
 
 //! @brief Specialization of the structure mc::Op to allow usage of the type mc::SparseExpr for DAG evaluation or as a template parameter in other MC++ classes
-template <> struct Op<mc::SparseExpr>
+template <typename DAG> struct Op<mc::SparseExpr<DAG>>
 {
-  typedef mc::SparseExpr T;
+  typedef mc::SparseExpr<DAG> T;
   static T point( const double c ) { return T(c); }
   static T zeroone() { throw std::runtime_error("operation not permitted"); }
   static void I(T& x, const T&y) { x = y; }

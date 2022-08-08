@@ -391,6 +391,16 @@ Possible errors encountered during quadratization of a multivariate polynomial a
 #include "spoly.hpp"
 #include "mclapack.hpp"
 
+#if defined(MC__USE_CPLEX)
+ #include "ilcplex/ilocplex.h"
+#elif defined(MC__USE_GUROBI)
+ #include "gurobi_c++.h"
+ extern "C"{
+  #include <fenv.h>
+  int fedisableexcept( int );
+ }
+#endif
+
 #define MC__SQUAD_CHECK
 #undef  MC__SQUAD_PROCESS_DEBUG
 
@@ -444,20 +454,37 @@ public:
   typedef std::set< key_SQuad, lt_SQuad<COMP> > set_SQuad;
   typedef std::map< key_SQuad, double, lt_SQuad<COMP> > map_SQuad;
   typedef std::map< unsigned, t_SPoly > vecmap_SPoly;
-  
+
   //! @brief Options of mc::SQuad
   static struct Options
   {
     //! @brief Constructor
     Options():
-      BASIS(MONOM), ORDER(DEC), REDUC(false), CHKTOL(1e-10), DISPLEN(5)
+      BASIS(MONOM), ORDER(DEC), REDUC(false),
+#if defined(MC__USE_CPLEX) || defined(MC__USE_GUROBI)
+      LPALGO( LPALGO_DEFAULT ), LPPRESOLVE(-1),
+      LPFEASTOL(1e-9), LPOPTIMTOL(1e-9), MIPRELGAP(1e-7), MIPABSGAP(1e-7),
+      MIPDISPLEVEL(1), MIPOUTPUTFILE(""), MIPTIMELIMIT(600),
+#endif
+      CHKTOL(1e-10), DISPLEN(5)
       {}
     //! @brief Assignment of mc::SQuad::Options
     Options& operator=
       ( Options& opt ){
-        BASIS   = opt.BASIS;
-        ORDER   = opt.ORDER;
-        REDUC   = opt.REDUC;
+        BASIS         = opt.BASIS;
+        ORDER         = opt.ORDER;
+        REDUC         = opt.REDUC;
+#if defined(MC__USE_CPLEX) || defined(MC__USE_GUROBI)
+        LPALGO        = opt.LPALGO;
+        LPPRESOLVE    = opt.LPPRESOLVE;
+        LPFEASTOL     = opt.LPFEASTOL;
+        LPOPTIMTOL    = opt.LPOPTIMTOL;
+        MIPRELGAP     = opt.MIPRELGAP;
+        MIPABSGAP     = opt.MIPABSGAP;
+        MIPDISPLEVEL  = opt.MIPDISPLEVEL;
+        MIPOUTPUTFILE = opt.MIPOUTPUTFILE;
+        MIPTIMELIMIT  = opt.MIPTIMELIMIT;
+#endif
         CHKTOL  = opt.CHKTOL;
         DISPLEN = opt.DISPLEN;
         return *this;
@@ -478,82 +505,38 @@ public:
     int ORDER;
     //! @brief Whether to search for and append extra reduction constraints
     bool REDUC;
+#if defined(MC__USE_CPLEX) || defined(MC__USE_GUROBI)
+    //! @brief LP algorithm
+    int LPALGO;
+    //! @brief LP presolve
+    int LPPRESOLVE;
+    //! @brief Tolerance on LP feasibility
+    double LPFEASTOL;
+     //! @brief Tolerance on LP optimality
+    double LPOPTIMTOL;
+    //! @brief Tolerance on relative MIP gap
+    double MIPRELGAP;
+    //! @brief Tolerance on absolute MIP gap
+    double MIPABSGAP;
+    //! @brief Display level for MIP
+    int MIPDISPLEVEL;
+    //! @brief Name of output file for optimization model
+    std::string MIPOUTPUTFILE;
+    //! @brief Maximum run time (seconds)
+    double MIPTIMELIMIT;
+#endif
     //! @brief Zero tolerance for checking quadratic forms
     double CHKTOL;
     //! @brief Number of digits in output stream for sparse polynomial coefficients
     unsigned DISPLEN;
+
+  //! @brief Default option for LP solver
+#if defined(MC__USE_CPLEX)
+    static const int LPALGO_DEFAULT = 0;
+#elif defined(MC__USE_GUROBI)
+    static const int LPALGO_DEFAULT = -1;
+#endif
   } options;
-
-  //! @brief Default Constructor
-  SQuad
-    ()
-    {}
-
-  //! @brief Destructor
-  virtual ~SQuad
-    ()
-    { _reset(); }
-  
-  //! @brief Process the sparse polynomials in array <a>pPol</a> indexed by <a>ndxSPol</a>
-  template <typename POL>
-  double process
-    ( std::set<unsigned> const& ndxSPol, POL const* pSPol, map_SPoly const& (POL::*mapmon)() const,
-      int const BASIS=options.BASIS, bool const CHECK=false );
-
-  //! @brief Process the <a>nPol</a> sparse polynomials in array <a>pPol</a>
-  template <typename POL>
-  double process
-    ( unsigned const nSPol, POL const* pSPol, map_SPoly const& (POL::*mapmon)() const,
-      int const BASIS=options.BASIS, bool const CHECK=false );
-
-  //! @brief Process the sparse polynomial <a>Pol</a>
-  template <typename POL>
-  double process
-    ( POL const& SPol, map_SPoly const& (POL::*mapmon)() const,
-      int const BASIS=options.BASIS, bool const CHECK=false );
-
-  //! @brief Decompose the quadratic expression <a>mat</a> into separable expressions
-  std::list< map_SQuad > separate
-    ( map_SQuad const& mat )
-    const;
-
-  //! @brief Factorize the quadratic expression <a>mat</a> using eigenvalue decomposition
-  std::multimap< double, map_SPoly > factorize
-    ( map_SQuad const& mat )
-    const;
-
-  //! @brief Generate positive semi-definite cuts to tighten the quadratic reformulation
-  void tighten
-    ( bool const threevar=false );
-
-  //! @brief Retreive reference to vector of sparse coefficient matrices defining the main quadratic forms
-  std::vector<map_SQuad> const& MatFct
-    ()
-    const
-    { return _MatFct; }
-
-  //! @brief Retreive reference to vector of sparse coefficient matrices defining the auxiliary quadratic forms
-  std::vector<map_SQuad> const& MatRed
-    ()
-    const
-    { return _MatRed; }
-
-  //! @brief Retreive reference to vector of sparse coefficient matrices defining the positive semi-definite cuts
-  std::vector<map_SQuad> const& MatPSD
-    ()
-    const
-    { return _MatPSD; }
-
-  //! @brief Retreive reference to set of monomials in quadratic forms
-  set_SMon const& SetMon
-    ()
-    const
-    { return _SetMon; }
-
-  //! @brief Reset quadratic form expressions
-  void reset
-    ()
-    { _reset(); }
     
   //! @brief Exceptions of mc::SQuad
   class Exceptions
@@ -592,6 +575,159 @@ protected:
 
   //! @brief Vector of sparse coefficient matrices defining the postiive semi-defninite cuts
   std::vector<map_SQuad> _MatPSD;
+  
+#if defined(MC__USE_CPLEX) || defined(MC__USE_GUROBI)
+  //! @brief whether the MIP solver has sent an exception
+  bool _MIPexcpt;
+  //! @brief Set of monomials in MIP optimization model
+  set_SMon _MIP_SetMon;
+  //! @brief Dummy monomial storing partipating variables and their higest degrees in MIP optimization model
+  t_SMon _MIP_VarDeg;
+#endif
+#if defined(MC__USE_CPLEX)
+  //! @brief MIP environment
+  IloEnv* _ILOenv;
+  //! @brief MIP model
+  IloModel* _ILOmodel;
+  //! @brief MIP object
+  IloCplex* _ILOcplex;
+  //! @brief MIP objective
+  IloExpr* _MIPobj;
+  //! @brief vector of binary variables indicating active auxiliary variables
+  std::vector<IloNumVar> _MIP_auxbin;
+  //! @brief vector of continuous variables describing the monomial structure of auxiliary variables
+  std::vector<std::vector<IloNumVar>> _MIP_auxexp;
+  //! @brief vectors of binary variables describing the quadratic decomposition of auxiliary variables
+  std::vector<std::vector<IloNumVar>> _MIP_auxdec1;
+  std::vector<std::vector<IloNumVar>> _MIP_auxdec2;
+  //! @brief vectors of binary variables describing the quadratic decomposition of monomials
+  std::vector<std::vector<IloNumVar>> _MIP_mondec1;
+  std::vector<std::vector<IloNumVar>> _MIP_mondec2;
+#elif defined(MC__USE_GUROBI)
+  //! @brief MIP environment
+  GRBEnv* _GRBenv;
+  //! @brief MIP model
+  GRBModel* _GRBmodel;
+  //! @brief vector of binary variables indicating active auxiliary variables
+  std::vector<GRBVar> _MIP_auxbin;
+  //! @brief vector of continuous variables describing the monomial structure of auxiliary variables
+  std::vector<std::vector<GRBVar>> _MIP_auxexp;
+  //! @brief vectors of binary variables describing the quadratic decomposition of auxiliary variables
+  std::vector<std::vector<GRBVar>> _MIP_auxdec1;
+  std::vector<std::vector<GRBVar>> _MIP_auxdec2;
+  //! @brief vectors of binary variables describing the quadratic decomposition of monomials
+  std::vector<std::vector<GRBVar>> _MIP_mondec1;
+  std::vector<std::vector<GRBVar>> _MIP_mondec2;
+#endif
+
+public:
+
+  //! @brief Default Constructor
+  SQuad
+    ()
+    {
+#if defined(MC__USE_CPLEX)
+      _ILOenv   = new IloEnv;
+      _ILOmodel = nullptr;
+      _ILOcplex = nullptr;
+      _ILPobj = nullptr;
+#elif defined(MC__USE_GUROBI)
+      _GRBenv   = new GRBEnv();
+      _GRBmodel = nullptr;
+#endif
+    }
+
+  //! @brief Destructor
+  virtual ~SQuad
+    ()
+    {
+      _reset();
+#if defined(MC__USE_CPLEX)
+      delete _ILPobj;
+      delete _ILOmodel;
+      delete _ILOcplex;
+      _ILOenv->end();
+      delete _ILOenv;
+#elif defined(MC__USE_GUROBI)
+      delete _GRBmodel;
+      delete _GRBenv;
+#endif
+    }
+  
+  //! @brief Process the sparse polynomials in array <a>pPol</a> indexed by <a>ndxSPol</a>
+  template <typename POL>
+  double process
+    ( std::set<unsigned> const& ndxSPol, POL const* pSPol, map_SPoly const& (POL::*mapmon)() const,
+      int const BASIS=options.BASIS, bool const CHECK=false );
+
+  //! @brief Process the <a>nPol</a> sparse polynomials in array <a>pPol</a>
+  template <typename POL>
+  double process
+    ( unsigned const nSPol, POL const* pSPol, map_SPoly const& (POL::*mapmon)() const,
+      int const BASIS=options.BASIS, bool const CHECK=false );
+
+  //! @brief Process the sparse polynomial <a>Pol</a>
+  template <typename POL>
+  double process
+    ( POL const& SPol, map_SPoly const& (POL::*mapmon)() const,
+      int const BASIS=options.BASIS, bool const CHECK=false );
+
+  //! @brief Optimize the quadratic expressions for sparsity
+  void optimize
+    ( unsigned const minOrd=2, bool const warmStart=true );
+
+  //! @brief Decompose the quadratic expression <a>mat</a> into separable expressions
+  std::list< map_SQuad > separate
+    ( map_SQuad const& mat )
+    const;
+
+  //! @brief Factorize the quadratic expression <a>mat</a> using eigenvalue decomposition
+  std::multimap< double, map_SPoly > factorize
+    ( map_SQuad const& mat )
+    const;
+
+  //! @brief Generate positive semi-definite cuts to tighten the quadratic reformulation
+  void tighten
+    ( bool const threevar=false );
+
+  //! @brief Check quadratic form expressions by comparing with Chebyshev model
+  template <typename POL>
+  double check
+    ( unsigned const nSPol, POL const* pSPol, map_SPoly const& (POL::*mapmon)() const,
+      int const BASIS )
+    const
+    { return _check( nSPol, pSPol, mapmon, BASIS ); }
+
+  //! @brief Retreive reference to vector of sparse coefficient matrices defining the main quadratic forms
+  std::vector<map_SQuad> const& MatFct
+    ()
+    const
+    { return _MatFct; }
+
+  //! @brief Retreive reference to vector of sparse coefficient matrices defining the auxiliary quadratic forms
+  std::vector<map_SQuad> const& MatRed
+    ()
+    const
+    { return _MatRed; }
+
+  //! @brief Retreive reference to vector of sparse coefficient matrices defining the positive semi-definite cuts
+  std::vector<map_SQuad> const& MatPSD
+    ()
+    const
+    { return _MatPSD; }
+
+  //! @brief Retreive reference to set of monomials in quadratic forms
+  set_SMon const& SetMon
+    ()
+    const
+    { return _SetMon; }
+
+  //! @brief Reset quadratic form expressions
+  void reset
+    ()
+    { _reset(); }
+
+protected:
 
   //! @brief Reorder entries in a monomial pair
   key_SQuad& _reorder
@@ -629,7 +765,7 @@ protected:
   //! @brief Search for extra reduction constraints for <a>mon</a> and append them to <a>_MatRed</a>
   void _reduction
     ( t_SMon const& mon );
-    
+
   //! @brief Check quadratic form expressions by comparing with Chebyshev model
   template <typename POL>
   double _check
@@ -662,6 +798,35 @@ protected:
     ( vecmap_SPoly const& vecSPol )
     const;
 
+  //! @brief Encode MIP optimization model for minimal decomposition
+  void _MIP_encode
+    ( unsigned const maxAux, unsigned const minOrd );
+
+  //! @brief Encode MIP optimization model for minimal decomposition
+  void _MIP_decode
+    ( unsigned const minOrd );
+
+  //! @brief Reset variable vectors in MIP optimization model
+  void _MIP_reset
+    ();
+
+  //! @brief Set options in MIP optimization model
+  void _MIP_options
+    ();
+
+  //! @brief Initialize MIP optimization model with current decomposition
+  void _MIP_initialize
+    ( unsigned const minOrd );
+
+  //! @brief Solve MIP optimization model
+  void _MIP_solve
+    ();
+
+  //! @brief Display MIP current point
+  void _MIP_display
+    ( std::ostream& os=std::cout )
+    const;
+
 private:
 
   //! @brief Reset the quadratic form
@@ -671,6 +836,11 @@ private:
 
 template <typename KEY, typename COMP>
 inline typename SQuad<KEY,COMP>::Options SQuad<KEY,COMP>::options;
+
+#if defined(MC__USE_CPLEX) || defined(MC__USE_GUROBI)
+template <typename KEY, typename COMP>
+inline int const SQuad<KEY,COMP>::Options::LPALGO_DEFAULT;
+#endif
 
 ////////////////////////////////////////////////////////////////////////
 
@@ -1022,17 +1192,6 @@ const
   return sumdiff;
 }
 
-//template <typename KEY, typename COMP>
-//inline double
-//SQuad<KEY,COMP>::process
-//( unsigned const nSPol, map_SPoly const* pSPol,
-//  int const BASIS, bool const CHK )
-//{
-//  for( unsigned i=0; i<nSPol; i++ )
-//    process( pSPol[i], BASIS, false );
-//  return( CHK? check( nSPol, pSPol, BASIS ): 0. );
-//}
-
 template <typename KEY, typename COMP>
 template <typename POL >
 inline double
@@ -1121,7 +1280,7 @@ const
 }
 
 template <typename KEY, typename COMP>
-template <typename POL >
+template <typename POL>
 inline double
 SQuad<KEY,COMP>::process
 ( unsigned const nSPol, POL const* pSPol, map_SPoly const& (POL::*mapmon)() const,
@@ -1149,6 +1308,7 @@ SQuad<KEY,COMP>::process
       _SetMon.insert( t_SMon( var ) );
   }
   SPoly<KEY,COMP>::options.BASIS = options.BASIS;
+  //unsigned const defVar = _SetMon.size();
 
   // Iterate through monomial terms
   for( ; !_empty( vecSPol ); ){
@@ -1194,70 +1354,456 @@ SQuad<KEY,COMP>::process
   return( CHK? _check( nSPol, pSPol, mapmon, BASIS ): 0. );
 }
 
-//template <typename KEY, typename COMP>
-//template <typename POL >
-//inline double
-//SQuad<KEY,COMP>::process
-//( POL const& SPol, map_SPoly const& (POL::*mapmon)() const,
-//  int const BASIS, bool const CHK )
-//{
-//  // Local copy and conversion to desired basis
-//  SPoly<KEY,COMP>::options.BASIS = BASIS;
-//  t_SPoly SPolConv( (SPol.*mapmon)() ); SPolConv.convert( options.BASIS );
-//  map_SPoly& mmon = SPolConv.mapmon();
-//  SPoly<KEY,COMP>::options.BASIS = options.BASIS;
+#if defined(MC__USE_CPLEX) || defined(MC__USE_GUROBI)
+template <typename KEY, typename COMP>
+inline void
+SQuad<KEY,COMP>::optimize
+( unsigned const minOrd_, bool const warmStart )
+{
+  if( options.BASIS != Options::MONOM ) return;
+  // Only working with minOrd = 2 currently
+  unsigned const minOrd = 2;
+  
+  // Current number of auxiliaries
+  unsigned maxAux = 0;
+  for( auto const& mon : _SetMon ){
+    if( mon.tord < minOrd ) continue;
+    maxAux++;
+  }
+  
+  // Run MIP optimization for a minimal representation
+  _MIP_encode( maxAux, minOrd );
+  if( warmStart) _MIP_initialize( minOrd );
+  _MIP_solve();
+  _MIP_decode( minOrd );
+}
 
-//  // Append entry in <a>MatFct</a>
-//  unsigned ndxmat = _MatFct.size();
-//  _MatFct.push_back( map_SQuad() );
-//  auto& mat = _MatFct[ndxmat];
+template <typename KEY, typename COMP>
+inline void
+SQuad<KEY,COMP>::_MIP_initialize
+( unsigned const minOrd )
+{
+  std::map< t_SMon const*, unsigned, lt_pSMon<COMP> > mapMon;
+  std::map< KEY, unsigned, COMP > mapVar;
+  unsigned const nVar   = _MIP_VarDeg.expr.size();
+  unsigned const maxAux = _MIP_auxbin.size();
+  auto const* pone = &*_SetMon.cbegin();
+  mapMon[ pone ] = nVar + maxAux;
 
-//  // Initialize monomial vector with constant monomial and participating variables
-//  _SetMon.insert( t_SMon() );
-//  for( auto var : SPolConv.setvar() )
-//    _SetMon.insert( t_SMon( var ) );
+  // Map participating variables
+  unsigned i = 0;
+  for( auto const& [var,expmax] : _MIP_VarDeg.expr ){
+    mapVar[ var ] = i;
+    auto itmon = _SetMon.find( t_SMon( var ) );
+    assert( itmon != _SetMon.end() );
+    mapMon[ &*itmon ] = i;
+    ++i;
+  }
 
-//  // Iterate through monomial terms
-//  for( ; !mmon.empty(); ){
-//    // Local copy of next monomial, then erase
-//    auto const [mon,coef] = options.ORDER==Options::INC? *mmon.cbegin(): *mmon.crbegin();
-//    mmon.erase( mon );
+  // Activate auxiliary binaries and initialize auxiliary exponents
+  unsigned k = 0;
+  for( auto const& mon : _SetMon ){
+    if( mon.tord < minOrd ) continue;
+    _MIP_auxbin[k].set( GRB_DoubleAttr_Start, 1. );
+    for( auto& grbvar : _MIP_auxexp[k] )
+      grbvar.set( GRB_DoubleAttr_Start, 0. );
+    for( auto const& [var,ord] : mon.expr )
+      _MIP_auxexp[k][ mapVar[var] ].set( GRB_DoubleAttr_Start, ord );
+    mapMon[ &mon ] = nVar + k;
+    ++k;
+  }
 
-//    // Monomial already present in _SetMon
-//    auto itmon = _SetMon.find( mon );
-//    if( itmon != _SetMon.end() ){
-//#ifdef MC__SQUAD_DEBUG_DECOMP
-//      std::cout << "Inserted: " << itmon->display(options.BASIS)
-//                << " = " << _SetMon.cbegin()->display(options.BASIS)
-//                << " · " << itmon->display(options.BASIS)
-//                << std::endl;
-//#endif
-//      bool ins = _insert( mat, &(*itmon), coef, true );  
-//#ifdef MC__SQUAD_CHECK
-//      assert( ins );
-//#endif
-//      continue;
-//    }
-//      
-//    // Mononial needs further decomposition
-//    auto const& [plmon,prmon] = _decompose( mon );
-//#ifdef MC__SQUAD_CHECK
-//    assert( plmon && prmon );
-//#endif
-//#ifdef MC__SQUAD_DEBUG_DECOMP
-//  std::cout << "Inserted: " << mon.display(options.BASIS)
-//            << " = " << plmon->display(options.BASIS)
-//            << " · " << prmon->display(options.BASIS)
-//            << std::endl;
-//#endif
-//    bool ins = _insert( mat, mmon, plmon, prmon, coef );
-//#ifdef MC__SQUAD_CHECK
-//    assert( ins );
-//#endif
-//  }
+  // Initialize monomial decomposition binaries
+  for( auto const& mat : _MatFct ){
+    for( auto const& [ijmon,coef] : mat ){
+      if( ijmon.first->tord + ijmon.second->tord < minOrd ) continue;
+      auto itmon = _MIP_SetMon.find( *ijmon.first + *ijmon.second );
+      assert( itmon != _MIP_SetMon.cend() );
+      unsigned j = 0;
+      for( auto jtmon = _MIP_SetMon.cbegin(); jtmon != itmon; ++jtmon, ++j ) continue;
+      for( auto& grbvar : _MIP_mondec1[j] )
+        grbvar.set( GRB_DoubleAttr_Start, 0. );
+      for( auto& grbvar : _MIP_mondec2[j] )
+        grbvar.set( GRB_DoubleAttr_Start, 0. );
+      std::cout << "Auxiliary monomial " << itmon->display( Options::MONOM ) << ": "
+                                         << ijmon.first->display( Options::MONOM ) << ", " 
+                                         << ijmon.second->display( Options::MONOM ) << std::endl;
+      std::cout << "Auxiliary monomial #" << j << ": " << mapMon[ijmon.first]
+                                               << ", " << mapMon[ijmon.second] << std::endl;
+      if( ijmon.first != pone ){
+        _MIP_mondec1[j][ mapMon[ijmon.first]  ].set( GRB_DoubleAttr_Start, 1. );
+        if( ijmon.second != pone )
+          _MIP_mondec2[j][ mapMon[ijmon.second] ].set( GRB_DoubleAttr_Start, 1. );
+      }
+      else if( ijmon.second != pone )
+        _MIP_mondec1[j][ mapMon[ijmon.second] ].set( GRB_DoubleAttr_Start, 1. );
+    }
+  }
 
-//  return( CHK? _check( 1, &SPol, mapmon, BASIS ): 0. );
-//}
+  // Initialize auxiliary decomposition binaries
+  for( auto const& mat : _MatRed ){
+    assert( mat.size() == 2 );
+    auto const& ijmon = mat.cbegin()->first;
+    assert( ijmon.first == pone );
+    if( mapMon.find( ijmon.second ) == mapMon.end() ) continue;
+    unsigned k = mapMon[ijmon.second] - nVar;
+    for( auto& grbvar : _MIP_auxdec1[k] )
+      grbvar.set( GRB_DoubleAttr_Start, 0. );
+    for( auto& grbvar : _MIP_auxdec2[k] )
+      grbvar.set( GRB_DoubleAttr_Start, 0. );
+    auto const& ijmon2 = mat.crbegin()->first;
+    assert( ijmon2.first != pone && ijmon2.second != pone );
+    _MIP_auxdec1[k][ mapMon[ijmon2.first]  ].set( GRB_DoubleAttr_Start, 1. );
+    _MIP_auxdec2[k][ mapMon[ijmon2.second] ].set( GRB_DoubleAttr_Start, 1. );
+  }
+}
+
+template <typename KEY, typename COMP>
+inline void
+SQuad<KEY,COMP>::_MIP_decode
+( unsigned const minOrd )
+{
+  set_SMon SetMonOpt;
+  std::vector<map_SQuad> MatFctOpt, MatRedOpt;
+  std::vector<t_SMon const*> vecMonOpt;
+  unsigned const nVar   = _MIP_VarDeg.expr.size();
+  unsigned const optAux = std::round( _GRBmodel->get( GRB_DoubleAttr_ObjVal ) );
+  vecMonOpt.resize( nVar+optAux+1 ); // Unit monomial stored in last position
+  
+  // Add auxiliary monomials to SetMonOpt 
+  auto const& [itone,ins] = SetMonOpt.insert( t_SMon() );
+  vecMonOpt[nVar+optAux] = &*itone;
+  for( unsigned k=0; k<optAux; ++k ){
+    t_SMon mon;
+    unsigned i = 0;
+    for( auto const& [var,expmax] : _MIP_VarDeg.expr ){
+      unsigned exp = std::round( _MIP_auxexp[k][i++].get( GRB_DoubleAttr_X ) );
+      if( !exp ) continue;
+      mon += t_SMon( var, exp );
+    }
+    //std::cout << "Auxiliary monomial #" << k << ": " << mon.display( Options::MONOM ) << std::endl;
+    auto const& [itmon,ins] = SetMonOpt.insert( mon );
+    assert( ins );
+    vecMonOpt[nVar+k] = &*itmon;    
+  }
+  
+  // Duplicate entries in MatFctOpt and SetMonOpt for lower degree monomials
+  for( auto const& mat : _MatFct ){
+    MatFctOpt.push_back( map_SQuad() );
+    auto& matopt = MatFctOpt.back();
+    for( auto const& [ijmon,coef] : mat ){
+      if( ijmon.first->tord + ijmon.second->tord >= minOrd ) continue;
+      auto const& [itmon1,ins1] = SetMonOpt.insert( *ijmon.first );
+      auto const& [itmon2,ins2] = SetMonOpt.insert( *ijmon.second );
+      _insert( matopt, &*itmon1, &*itmon2, coef );
+    }
+  }
+
+  // Complete vector entries in vecMonOpt
+  unsigned i = 0;
+  for( auto const& [var,maxExp] : _MIP_VarDeg.expr ){
+    auto const& [itmon,ins] = SetMonOpt.insert( t_SMon( var ) );
+    assert( itmon != SetMonOpt.end() );
+    vecMonOpt[i++] = &*itmon;
+  }
+
+  // Add entries in MatFctOpt for higher degree monomials
+  auto itmatopt = MatFctOpt.begin();
+  for( auto const& mat : _MatFct ){
+    auto& matopt = *itmatopt;
+    for( auto const& [ijmon,coef] : mat ){
+      if( ijmon.first->tord + ijmon.second->tord < minOrd ) continue;
+      auto itmon = _MIP_SetMon.find( *ijmon.first + *ijmon.second );
+      assert( itmon != _MIP_SetMon.cend() );
+      unsigned j = 0;
+      for( auto jtmon = _MIP_SetMon.cbegin(); jtmon != itmon; ++jtmon, ++j )
+        continue;
+      unsigned i1 = 0, i2 = 0;
+      for( auto i1mon = _MIP_mondec1[j].cbegin(); i1 < nVar+optAux; ++i1mon, ++i1 )
+        if( i1mon->get(GRB_DoubleAttr_X) > 0.9 ) break;
+      for( auto i2mon = _MIP_mondec2[j].cbegin(); i2 < nVar+optAux; ++i2mon, ++i2 )
+        if( i2mon->get(GRB_DoubleAttr_X) > 0.9 ) break;
+      //std::cout << "j,i1,i2 = " << j << "," << i1 << "," << i2 << " (max: " << nVar+optAux << ")" << std::endl;
+      _insert( matopt, vecMonOpt[i1], vecMonOpt[i2], coef );
+    }
+    ++itmatopt;
+  }
+
+  // Add entries in MatRedOpt for auxiliary monomials
+  for( unsigned k=0; k<optAux; ++k ){
+    MatRedOpt.push_back( map_SQuad() );
+    auto& matopt = MatRedOpt.back();
+    _insert( matopt, vecMonOpt[nVar+optAux], vecMonOpt[nVar+k], 1. );
+    unsigned i1 = 0, i2 = 0;
+    for( auto i1mon = _MIP_auxdec1[k].cbegin(); i1mon != _MIP_auxdec1[k].cend(); ++i1mon, ++i1 )
+      if( i1mon->get(GRB_DoubleAttr_X) > 0.9 ) break;
+    for( auto i2mon = _MIP_auxdec2[k].cbegin(); i2mon != _MIP_auxdec2[k].cend(); ++i2mon, ++i2 )
+      if( i2mon->get(GRB_DoubleAttr_X) > 0.9 ) break;
+    _insert( matopt, vecMonOpt[i1], vecMonOpt[i2], -1. );
+  }
+
+  _SetMon.swap( SetMonOpt );
+  _MatFct.swap( MatFctOpt );
+  _MatRed.swap( MatRedOpt );
+}
+
+template <typename KEY, typename COMP>
+inline void
+SQuad<KEY,COMP>::_MIP_encode
+( unsigned const maxAux, unsigned const minOrd )
+{
+  // Reset variable vectors
+  _MIP_reset();
+
+  // Construct a set of monomials of degree minOrd or greater, and corresponding set of participating variables
+  _MIP_SetMon.clear();
+  _MIP_VarDeg.expr.clear(); _MIP_VarDeg.tord = 0;
+  for( auto const& mat : _MatFct ){
+    for( auto const& [ijmon,coef] : mat ){
+      if( ijmon.first->tord + ijmon.second->tord < minOrd ) continue;
+      auto const& [itmon,ins] = _MIP_SetMon.insert( *ijmon.first + *ijmon.second );
+      if( ins ) _MIP_VarDeg.hull( *itmon ); 
+    }
+  }
+
+  unsigned const nVar = _MIP_VarDeg.expr.size(); // Number of participating variables
+  _MIP_auxbin.reserve( maxAux );
+  _MIP_auxexp.reserve( maxAux );
+  _MIP_auxdec1.reserve( maxAux );
+  _MIP_auxdec2.reserve( maxAux );
+
+  for( unsigned k=0; k<maxAux; ++k ){
+#if defined(MC__USE_GUROBI)
+    _MIP_auxbin.push_back( _GRBmodel->addVar( 0., 1., 1., GRB_BINARY ) );
+    if( k ) _GRBmodel->addConstr( _MIP_auxbin[k-1], GRB_GREATER_EQUAL, _MIP_auxbin[k] );
+
+    _MIP_auxexp.push_back( std::vector<GRBVar>() );
+    _MIP_auxexp[k].reserve( nVar );
+    for( auto const& [Var,maxExp] : _MIP_VarDeg.expr )
+      _MIP_auxexp[k].push_back( _GRBmodel->addVar( 0., maxExp, 0., GRB_CONTINUOUS ) );
+
+    _MIP_auxdec1.push_back( std::vector<GRBVar>() );
+    _MIP_auxdec2.push_back( std::vector<GRBVar>() );
+    _MIP_auxdec1[k].reserve( nVar+k );
+    _MIP_auxdec2[k].reserve( nVar+k );
+    GRBLinExpr sum_auxdec1, sum_auxdec2;
+    for( unsigned i=0; i<nVar+k; ++i ){
+      _MIP_auxdec1[k].push_back( _GRBmodel->addVar( 0., 1., 0., GRB_BINARY ) );
+      _MIP_auxdec2[k].push_back( _GRBmodel->addVar( 0., 1., 0., GRB_BINARY ) );
+      sum_auxdec1 += _MIP_auxdec1[k][i];
+      sum_auxdec2 += _MIP_auxdec2[k][i];
+      _GRBmodel->addConstr( sum_auxdec1, GRB_GREATER_EQUAL, sum_auxdec2 ); // symmetry breaking
+    }
+    _GRBmodel->addConstr( sum_auxdec1, GRB_EQUAL, _MIP_auxbin[k] );//1. );
+    _GRBmodel->addConstr( sum_auxdec2, GRB_EQUAL, _MIP_auxbin[k] );//1. );
+
+    for( unsigned i=0; i<nVar; ++i ){
+      GRBQuadExpr sum_auxexp;
+      sum_auxexp += _MIP_auxdec1[k][i] + _MIP_auxdec2[k][i];
+      for( unsigned l=0; l<k; ++l ){
+        sum_auxexp.addTerm( 1., _MIP_auxdec1[k][nVar+l], _MIP_auxexp[l][i] );
+        sum_auxexp.addTerm( 1., _MIP_auxdec2[k][nVar+l], _MIP_auxexp[l][i] );
+      }
+      _GRBmodel->addQConstr( sum_auxexp, GRB_EQUAL, _MIP_auxexp[k][i] );
+    }      
+#endif
+  }
+
+  unsigned const nMon = _MIP_SetMon.size(); // Number of monomials to be decomposed
+  _MIP_mondec1.reserve( nMon );
+  _MIP_mondec2.reserve( nMon );
+
+  auto jmon = _MIP_SetMon.cbegin();
+  for( unsigned j=0; j<nMon; ++j, ++jmon ){
+#if defined(MC__USE_GUROBI)
+    _MIP_mondec1.push_back( std::vector<GRBVar>() );
+    _MIP_mondec2.push_back( std::vector<GRBVar>() );
+    _MIP_mondec1[j].reserve( nVar+maxAux );
+    _MIP_mondec2[j].reserve( nVar+maxAux );
+    GRBLinExpr sum_mondec1, sum_mondec2;
+    for( unsigned i=0; i<nVar+maxAux; ++i ){
+      _MIP_mondec1[j].push_back( _GRBmodel->addVar( 0., 1., 0., GRB_BINARY ) );
+      _MIP_mondec2[j].push_back( _GRBmodel->addVar( 0., 1., 0., GRB_BINARY ) );
+      sum_mondec1 += _MIP_mondec1[j][i];
+      sum_mondec2 += _MIP_mondec2[j][i];
+      _GRBmodel->addConstr( sum_mondec1, GRB_GREATER_EQUAL, sum_mondec2 ); // symmetry breaking
+    }
+    _GRBmodel->addConstr( sum_mondec1, GRB_LESS_EQUAL, 1. );
+    _GRBmodel->addConstr( sum_mondec2, GRB_LESS_EQUAL, 1. );
+
+    auto imonvar = _MIP_VarDeg.expr.cbegin();
+    for( unsigned i=0; i<nVar; ++i, ++imonvar ){
+      GRBQuadExpr sum_monexp;
+      sum_monexp += _MIP_mondec1[j][i] + _MIP_mondec2[j][i];
+      for( unsigned k=0; k<maxAux; ++k ){
+        sum_monexp.addTerm( 1., _MIP_mondec1[j][nVar+k], _MIP_auxexp[k][i] );
+        sum_monexp.addTerm( 1., _MIP_mondec2[j][nVar+k], _MIP_auxexp[k][i] );
+      }
+      auto ivar = jmon->expr.find( imonvar->first );
+      if( ivar != jmon->expr.cend() )
+        _GRBmodel->addQConstr( sum_monexp, GRB_EQUAL, ivar->second );
+      else
+        _GRBmodel->addQConstr( sum_monexp, GRB_EQUAL, 0. );
+    }
+#endif
+  }
+}
+
+template <typename KEY, typename COMP>
+inline void
+SQuad<KEY,COMP>::_MIP_solve
+()
+{
+  _MIP_options();
+  _MIPexcpt = false;
+#if defined(MC__USE_CPLEX)
+  try{
+    _ILOmodel->add( IloMinimize( *_ILOenv, *_ILPobj ) );
+    if( options.MIPOUTPUTFILE != "" )
+      _ILOcplex->exportModel( options.MIPOUTPUTFILE.c_str() );
+    _ILOcplex->solve();
+    if( options.MIPDISPLEVEL )
+      std::cout << "  #auxiliary variables: " << _ILOcplex->getObjValue() << std::endl;
+  }
+  catch(IloException& e){
+    if( options.MIPDISPLEVEL )
+      std::cout << "Error code = " << e.getMessage() << std::endl;
+    _MIPexcpt = true;
+  }
+#elif defined(MC__USE_GUROBI)
+  try{
+    _GRBmodel->update();
+    //_MIP_display();
+    if( options.MIPOUTPUTFILE != "" )
+      _GRBmodel->write( options.MIPOUTPUTFILE );
+    fedisableexcept(FE_ALL_EXCEPT);
+    _GRBmodel->optimize();
+    if( options.MIPDISPLEVEL )
+      std::cout << "  #auxiliary variables: " << _GRBmodel->get( GRB_DoubleAttr_ObjVal ) << std::endl;
+  }
+  catch(GRBException& e){
+    if( options.MIPDISPLEVEL )
+      std::cout << "Error code = " << e.getErrorCode() << std::endl
+                << e.getMessage() << std::endl;
+    _MIPexcpt = true;
+  }
+#endif
+  _MIP_display();
+}
+
+template <typename KEY, typename COMP>
+inline void
+SQuad<KEY,COMP>::_MIP_display
+( std::ostream& os )
+const
+{
+  bool first;
+  os << std::fixed << std::setprecision(0);
+  os << "z  = ";
+  for( auto const& grbvar : _MIP_auxbin )
+    os << std::round( grbvar.get(GRB_DoubleAttr_X) ) << " ";
+  os << std::endl;
+  os << "y1 = ";
+  first = true;
+  for( auto const& grbvec : _MIP_mondec1 ){
+    if( !first ) os << "     ";
+    for( auto const& grbvar : grbvec )
+      os << std::round( grbvar.get(GRB_DoubleAttr_X) ) << " ";
+    os << std::endl;
+    first = false;
+  }
+  os << "y2 = ";
+  first = true;
+  for( auto const& grbvec : _MIP_mondec2 ){
+    if( !first ) os << "     ";
+    for( auto const& grbvar : grbvec )
+      os << std::round( grbvar.get(GRB_DoubleAttr_X) ) << " ";
+    os << std::endl;
+    first = false;
+  }
+  os << "w1 = ";
+  first = true;
+  for( auto const& grbvec : _MIP_auxdec1 ){
+    if( !first ) os << "     ";
+    for( auto const& grbvar : grbvec )
+      os << std::round( grbvar.get(GRB_DoubleAttr_X) ) << " ";
+    os << std::endl;
+    first = false;
+  }
+  os << "w2 = ";
+  first = true;
+  for( auto const& grbvec : _MIP_auxdec2 ){
+    if( !first ) os << "     ";
+    for( auto const& grbvar : grbvec )
+      os << std::round( grbvar.get(GRB_DoubleAttr_X) ) << " ";
+    os << std::endl;
+    first = false;
+  }
+  os << "b  = ";
+  first = true;
+  for( auto const& grbvec : _MIP_auxexp ){
+    if( !first ) os << "     ";
+    for( auto const& grbvar : grbvec )
+      os << std::round( grbvar.get(GRB_DoubleAttr_X) ) << " ";
+    os << std::endl;
+    first = false;
+  }
+
+}
+
+template <typename KEY, typename COMP>
+inline void
+SQuad<KEY,COMP>::_MIP_options
+()
+{
+#if defined(MC__USE_CPLEX)
+  // CPLEX options
+  _ILOcplex->extract(*_ILOmodel);
+  _ILOcplex->setWarning( options.MIPDISPLEVEL? std::cout: _ILOenv->getNullStream() );
+  _ILOcplex->setOut( options.MIPDISPLEVEL? std::cout: _ILOenv->getNullStream() );
+  _ILOcplex->setParam( IloCplex::RootAlg, options.LPALGO );
+  _ILOcplex->setParam( IloCplex::PreInd,  options.LPPRESOLVE?true:false );
+  _ILOcplex->setParam( IloCplex::EpOpt,   options.LPOPTIMTOL );
+  _ILOcplex->setParam( IloCplex::EpRHS,   options.LPFEASTOL );
+  _ILOcplex->setParam( IloCplex::EpGap,   options.MIPRELGAP );
+  _ILOcplex->setParam( IloCplex::EpAGap,  options.MIPABSGAP );
+  _ILOcplex->setParam( IloCplex::TiLim,   options.MIPTIMELIMIT );
+#elif defined(MC__USE_GUROBI)
+  // Gurobi options
+  _GRBmodel->getEnv().set( GRB_IntParam_OutputFlag,        options.MIPDISPLEVEL );
+  _GRBmodel->getEnv().set( GRB_IntParam_Method,            options.LPALGO );
+  _GRBmodel->getEnv().set( GRB_IntParam_Presolve,          options.LPPRESOLVE  );
+  _GRBmodel->getEnv().set( GRB_DoubleParam_FeasibilityTol, options.LPFEASTOL );
+  _GRBmodel->getEnv().set( GRB_DoubleParam_OptimalityTol,  options.LPOPTIMTOL );
+  _GRBmodel->getEnv().set( GRB_DoubleParam_MIPGap,         options.MIPRELGAP );
+  _GRBmodel->getEnv().set( GRB_DoubleParam_MIPGapAbs,      options.MIPABSGAP );
+  _GRBmodel->getEnv().set( GRB_DoubleParam_TimeLimit,      options.MIPTIMELIMIT );
+#endif
+}
+
+template <typename KEY, typename COMP>
+inline void
+SQuad<KEY,COMP>::_MIP_reset
+()
+{
+  _MIP_auxbin.clear();
+  _MIP_auxexp.clear();
+  _MIP_auxdec1.clear();
+  _MIP_auxdec2.clear();
+  _MIP_mondec1.clear();
+  _MIP_mondec2.clear();
+#if defined(MC__USE_CPLEX)
+  delete _ILPobj;
+  delete _ILOmodel; delete _ILOcplex;
+  _ILOmodel = new IloModel( *_ILOenv );
+  _ILOcplex = new IloCplex( *_ILOenv );
+  _ILPobj = new IloExpr( *_ILOenv );
+#elif defined(MC__USE_GUROBI)
+  delete _GRBmodel;
+  _GRBmodel = new GRBModel( *_GRBenv );
+#endif
+}
+#endif
 
 template <typename KEY, typename COMP>
 inline typename SQuad<KEY,COMP>::key_SQuad&

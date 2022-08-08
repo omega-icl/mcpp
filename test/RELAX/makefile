@@ -3,29 +3,20 @@ PATH_MC = $(shell cd ../../ ; pwd)
 # Compilation options
 include $(PATH_MC)/src/makeoptions.mk
 
-#FLAGS_OPT = -Ofast
-
-LIB_MC = -L$(PATH_MC)/lib $(LIB_FADBAD) $(LIB_PROFIL) $(LIB_FILIB) $(LIB_LAPACK) $(LIB_HSL)
-INC_MC = -I$(PATH_MC)/src/mc $(INC_FADBAD) $(INC_LAPACK) $(INC_PROFIL) $(INC_FILIB) $(INC_HSL)
-FLAGS_MC = $(FLAGS_FILIB) $(FLAGS_HSL)
-
 PATH_GUROBI = $(GUROBI_HOME)
-LIB_GUROBI  = -L$(PATH_GUROBI)/lib -lgurobi_g++5.2 -lgurobi91 -pthread
-INC_GUROBI  = -I$(PATH_GUROBI)/include
-
-FLAGS_ALL = $(FLAGS_CPP) $(FLAGS_OPT) $(FLAGS_MC) -DMC__USE_GUROBI
-LIB_ALL   = $(LIB_MC) $(LIB_GUROBI)
-INC_ALL   = $(INC_MC) $(INC_GUROBI)
+LIB_MIP     = -L$(PATH_GUROBI)/lib -lgurobi_g++5.2 -lgurobi95 -pthread
+INC_MIP     = -I$(PATH_GUROBI)/include
+FLAG_MIP    = -DMC__USE_GUROBI
 
 #####
 
 all: LINREL_build LINREL_build2 LINREL_build3 LINREL_1d LINREL_2d
 
 LINREL_% : LINREL_%.o
-	$(CPP) -o $@ $< $(LIB_ALL)
+	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC) $(LIB_MIP)
 
-LINREL_%.o: LINREL_%.cpp
-	$(CPP) -c $(FLAGS_ALL) -I../../src $(INC_ALL) -o $@ $<
+%.o: %.cpp 
+	$(CPP) -c $(FLAG_CPP) $(FLAG_MC) $(INC_MC) $(FLAG_MIP) $(INC_MIP) $< -o $@
 
 #####
 

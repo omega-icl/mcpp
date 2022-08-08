@@ -298,7 +298,7 @@ int main()
     return eObj.ierr();
   }
 #endif
-  catch( FFGraph::Exceptions &eObj ){
+  catch( FFBase::Exceptions &eObj ){
     cerr << "Error " << eObj.ierr()
          << " in DAG evaluation:" << endl
 	 << eObj.what() << endl

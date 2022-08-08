@@ -1,20 +1,38 @@
-#define TEST_DPOW       // <-- select test function here
+#define TEST_EXP       // <-- select test function here
 const int NX = 200;     // <-- select discretization here
 const int NE = 5;       // <-- select polynomial model expansion here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
 #undef  USE_POLYMOD     // <-- specify whether to use a Chebyshev expansion before relaxation
 #define  ADD_BREAKPOINT  // <-- specify whether to add breakpoints to the variables
 const int NDIV = 2;     // <-- select number of breakpoints
-#undef  USE_CMODEL	    // <-- Use Chebyshev models?
-#define USE_MILP        // <-- specify whether to use piecewise-linear cuts
+#define USE_CMODEL	    // <-- Use Chebyshev models?
+#define USE_MIP         // <-- specify whether to use piecewise-linear cuts
 
 ////////////////////////////////////////////////////////////////////////
 
 #include <fstream>
 #include <iomanip>
 
-#include "interval.hpp"
-typedef mc::Interval  I;
+#ifdef MC__USE_PROFIL
+ #include "mcprofil.hpp"
+ typedef INTERVAL I;
+#else
+ #ifdef MC__USE_FILIB
+  #include "mcfilib.hpp"
+  typedef filib::interval<double,filib::native_switched,filib::i_mode_extended> I;
+ #else
+  #ifdef MC__USE_BOOST
+   #include "mcboost.hpp"
+   typedef boost::numeric::interval_lib::save_state<boost::numeric::interval_lib::rounded_transc_opp<double>> T_boost_round;
+   typedef boost::numeric::interval_lib::checking_base<double> T_boost_check;
+   typedef boost::numeric::interval_lib::policies<T_boost_round,T_boost_check> T_boost_policy;
+   typedef boost::numeric::interval<double,T_boost_policy> I;
+  #else
+   #include "interval.hpp"
+   typedef mc::Interval I;
+  #endif
+ #endif
+#endif
 
 #ifdef USE_CMODEL
   #include "cmodel.hpp"
@@ -27,17 +45,17 @@ typedef mc::Interval  I;
 #endif
 
 #include "polimage.hpp"
-#include "gurobi_c++.h"
-
-typedef std::map< const mc::PolVar<I>*, GRBVar, mc::lt_PolVar<I> > t_GRBVar;
-t_GRBVar DAGVars;
-typedef std::map< const mc::PolCut<I>*, GRBConstr, mc::lt_PolCut<I> > t_GRBCut;
-t_GRBCut DAGCuts;
-
-extern "C"{
+#if defined( MC__USE_GUROBI )
+ #include "gurobi_c++.h"
+ extern "C"{
   #include <fenv.h>
   int fedisableexcept( int );
-}
+ }
+ typedef std::map< const mc::PolVar<I>*, GRBVar, mc::lt_PolVar<I> > t_GRBVar;
+ t_GRBVar DAGVars;
+ typedef std::map< const mc::PolCut<I>*, GRBConstr, mc::lt_PolCut<I> > t_GRBCut;
+ t_GRBCut DAGCuts;
+#endif
 
 using namespace mc;
 
@@ -51,8 +69,6 @@ T myfunc
 ( const T&x )
 {
   return fabs(sqr(x)-1);
-  //return x*(x-1);
-  //return 1/(x-2.5);
 }
 
 #elif defined( TEST_XLOG )
@@ -76,7 +92,7 @@ T myfunc
   return pow(x,1.6);
 }
 
-#elif defined( TEST_SQRT )
+#elif defined( TEST_2NORM )
 const double XL   = -2.;	// <-- range lower bound
 const double XU   =  1.;	// <-- range upper bound
 template <class T>
@@ -89,14 +105,21 @@ T myfunc
 #elif defined( TEST_HILL )
 const double XL   =  0.05;	// <-- range lower bound
 const double XU   =  5.;	// <-- range upper bound
-//const double XL   =  0.6;	// <-- range lower bound
-//const double XU   =  1.2;	// <-- range upper bound
 template <class T>
 T myfunc
 ( const T&x )
 {
   return 1./(1.+pow(x,-6));
-  //return pow(x,3)/(1+pow(x,3));
+}
+
+#elif defined( TEST_HILL2 )
+const double XL   =  0.6;	// <-- range lower bound
+const double XU   =  1.2;	// <-- range upper bound
+template <class T>
+T myfunc
+( const T&x )
+{
+  return pow(x,3)/(1+pow(x,3));
 }
 
 #elif defined( TEST_EXP )
@@ -106,22 +129,8 @@ template <class T>
 T myfunc
 ( const T&x )
 {
-  //return x*(x+1);
-  //return pow(x+1,2);
-  //return mc::fstep(x) * mc::sqr(x) + mc::bstep(x) * x;
-  //return pow(x+2.5,-3);
-  //return x/(1+pow(x,2));
-  //return 1/(x+3.);
-  //return pow(x,3);
-  //return mc::sqr(x);
-  //return exp(x)+log(x+3);
-  //return log(x+3)*(1+2*sqrt(x+3));
-  //T pi = mc::PI;
-  return x*exp(-pow(x,2));
-  //return x*exp(-pow(x,2)+2*x+1);
-  //return x*exp(pow(x,3));
-  //return exp(1.+3./(10.+x));
-  //return (-2e0)/(x+1e0);
+  return exp(x);
+  //return x*exp(-pow(x,2));
 }
 
 #elif defined( TEST_EXP2 )
@@ -134,17 +143,6 @@ T myfunc
   return x*exp(-fabs(pow(x,3)));
 }
 
-#elif defined( TEST_TAN )
-const double XL   = -0.95;	// <-- range lower bound
-const double XU   =  0.95;	// <-- range upper bound
-template <class T>
-T myfunc
-( const T&x )
-{
-  return asin(x)+acos(x);
-  //return sqr(sinh(x))-sqr(cosh(x));
-}
-
 #elif defined( TEST_ERF )
 const double XL   = -3.;	// <-- range lower bound
 const double XU   =  3.;	// <-- range upper bound
@@ -152,7 +150,6 @@ template <class T>
 T myfunc
 ( const T&x )
 {
-  //return tanh(x);
   return erf(x);
 }
 
@@ -169,15 +166,11 @@ T myfunc
 #elif defined( TEST_TRIG )
 const double XL   =  mc::PI/2.;	// <-- range lower bound
 const double XU   =  5.*mc::PI/4.;	// <-- range upper bound
-//const double XL   =  -mc::PI;	// <-- range lower bound
-//const double XU   =  mc::PI;	// <-- range upper bound
 template <class T>
 T myfunc
 ( const T&x )
 {
-  //return cos(x-mc::PI/2);
   return sin(x);
-  //return tan(cos(x*atan(x)));
 }
 
 #elif defined( TEST_TRIG2 )
@@ -188,6 +181,26 @@ T myfunc
 ( const T&x )
 {
   return cos(pow(x,2))*sin(pow(x,-3));
+}
+
+#elif defined( TEST_TRIG3 )
+const double XL   =  -mc::PI;	// <-- range lower bound
+const double XU   =  mc::PI;	// <-- range upper bound
+template <class T>
+T myfunc
+( const T&x )
+{
+  return tan(cos(x*atan(x)));
+}
+
+#elif defined( TEST_TRIG4 )
+const double XL   = -0.95;	// <-- range lower bound
+const double XU   =  0.95;	// <-- range upper bound
+template <class T>
+T myfunc
+( const T&x )
+{
+  return asin(x)+acos(x);
 }
 
 #elif defined( TEST_XLOG )
@@ -208,12 +221,7 @@ template <class T>
 T myfunc
 ( const T&x )
 {
-  //T m[2] = { -x, x };
-  //T m[2] = { pow(x-1,2), 1. };
-  //T m[2] = { pow(x-1,2), pow(x+1,2) };
-  //return min(2,m);
   return min(pow(x-1,2), 1.);
-  //return max( pow(x-1,2), pow(x+1,2) );
 }
 
 #elif defined( TEST_MIN2 )
@@ -234,7 +242,6 @@ template <class T>
 T myfunc
 ( const T&x )
 {
-  //return fstep(x);
   return fstep(4-x)*(fstep(x-3)*(exp(4-x)+3-(fstep(3-x)*(-sqr(x-2.5)+4)))
                    +(fstep(3-x)*(-sqr(x-2.5)+4))-(2*x-7))+(2*x-7);
 }
@@ -266,7 +273,6 @@ template <class T>
 T myfunc
 ( const T&x )
 {
-  //return cheb(x,5);
   return cheb(x,2)+0.5*cheb(x,3)-0.3*cheb(x,4);
 }
 
@@ -299,6 +305,8 @@ T myfunc
 #endif
 
 ////////////////////////////////////////////////////////////////////////
+
+#if defined( MC__USE_GUROBI )
 
 void append_cut
 ( GRBModel &model, const mc::PolCut<I>*pCut )
@@ -342,124 +350,110 @@ void append_cut
       DAGCuts.insert( std::make_pair( pCut, model.addConstr( lhs,
         GRB_GREATER_EQUAL, pCut->rhs() ) ) );
       break;
+    default:
+      throw std::runtime_error("cut type not found");
   }
 }
 
+#endif
+
 ////////////////////////////////////////////////////////////////////////
 
-void relax()
+int main()
 {
 #ifdef SAVE_RESULTS
-    std::ofstream res( "LINREL_1d.out", std::ios_base::out );
-    res << std::scientific << std::setprecision(5) << std::right;
+  std::ofstream res( "LINREL_1d.out", std::ios_base::out );
+  res << std::scientific << std::setprecision(5) << std::right;
 #endif
 
-    I IX = { XL, XU };
+  I IX = { XL, XU };
 
-    mc::FFGraph DAG;
-    DAG.options.CHEBRECURS = true;
-    mc::FFVar X( &DAG );
+  mc::FFGraph DAG;
+  mc::FFVar X( &DAG );
 
 #ifndef USE_POLYMOD
-    mc::FFVar F = myfunc( X );
-    std::cout << DAG;
+  mc::FFVar F = myfunc( X );
+  std::cout << DAG;
 #ifdef SAVE_RESULTS
-    DAG.output( DAG.subgraph( 1, &F ) );
-    std::ofstream ofdag( "LINREL_1d.dot", std::ios_base::out );
-    DAG.dot_script( 1, &F, ofdag );
-    ofdag.close();
+  DAG.output( DAG.subgraph( 1, &F ) );
+  std::ofstream ofdag( "LINREL_1d.dot", std::ios_base::out );
+  DAG.dot_script( 1, &F, ofdag );
+  ofdag.close();
 #endif
-    //return;
 
-    mc::PolImg<I> PolEnv;
-    PolEnv.options.AGGREG_LQ = true;
-#ifndef USE_MILP
-    PolEnv.options.RELAX_DISC = 1;
+  mc::PolImg<I> PolEnv;
+  PolEnv.options.AGGREG_LQ = true;
+#ifndef USE_MIPRELAX
+  PolEnv.options.RELAX_DISC = 1;
 #else
-    PolEnv.options.RELAX_DISC = 2;
+  PolEnv.options.RELAX_DISC = 2;
 #endif
-    PolEnv.options.SANDWICH_MAXCUT = 6;
-    mc::PolVar<I> X_Pol( &PolEnv, X, IX ), F_Pol;
+  PolEnv.options.SANDWICH_MAXCUT = 6;
+  mc::PolVar<I> X_Pol( &PolEnv, X, IX ), F_Pol;
 #ifndef ADD_BREAKPOINT
-    DAG.eval( 1, &F, &F_Pol, 1, &X, &X_Pol );
-    //return;
+  DAG.eval( 1, &F, &F_Pol, 1, &X, &X_Pol );
 #else
-    PolEnv.options.BREAKPOINT_TYPE = mc::PolImg<I>::Options::BIN;//SOS2;//NONE;
-    DAG.eval( 1, &F, &F_Pol, 1, &X, &X_Pol );
-    // Add breakpoints to all variables in DAG
-    for( auto&& var : PolEnv.Vars() ){
-      for( unsigned i=0; i<NDIV; i++ ){
-        double pt = mc::Op<I>::l(var.second->range())
-                  + mc::Op<I>::diam(var.second->range())*(i+1.)/(NDIV+1.);
-        var.second->add_breakpt( pt );
-      }
+  PolEnv.options.BREAKPOINT_TYPE = mc::PolImg<I>::Options::BIN;//SOS2;//NONE;
+  DAG.eval( 1, &F, &F_Pol, 1, &X, &X_Pol );
+  // Add breakpoints to all variables in DAG
+  for( auto&& var : PolEnv.Vars() ){
+    for( unsigned i=0; i<NDIV; i++ ){
+      double pt = mc::Op<I>::l(var.second->range())
+                + mc::Op<I>::diam(var.second->range())*(i+1.)/(NDIV+1.);
+      var.second->add_breakpt( pt );
     }
+  }
 #endif
-    //return;
 
 #else
-    // Compute polynomial model
-    PM PMenv( 1, NE );
-    //PMenv.options.BOUNDER_TYPE = PM::Options::NAIVE;//EIGEN;
-    PV PMX( &PMenv, 0, IX );
-    PV PMF = myfunc( PMX );
-    std::cout << PMF;
+  // Compute polynomial model
+  PM PMenv( 1, NE );
+  PV PMX( &PMenv, 0, IX );
+  PV PMF = myfunc( PMX );
+  std::cout << PMF;
 
-    // Add polynomial model to DAG
-    mc::FFVar Y[2];
-    Y[0] = X;
-    Y[1].set( &DAG );
-    mc::FFVar**Xrcheb = PMenv.get_basis( NE, Y );
-    mc::FFVar F = PMenv.get_bound( PMF.coefmon().second, Xrcheb, &Y[1], PM::Options::NAIVE );
-    std::cout << DAG;
+  // Add polynomial model to DAG
+  mc::FFVar Y[2];
+  Y[0] = X;
+  Y[1].set( &DAG );
+#ifdef USE_CMODEL
+  mc::FFVar**Xrbasis = PMenv.get_basis( NE, Y );
+#else
+  mc::FFVar**Xrbasis = PMenv.get_basis( Y );
+#endif
+  mc::FFVar F = PMenv.get_bound( PMF.coefmon().second, Xrbasis, &Y[1], PM::Options::NAIVE );
+  std::cout << DAG;
 
-    // Relax polynomial model range
-    mc::PolImg<I> PolEnv;
-    PolEnv.options.SANDWICH_MAXCUT = 10;
-    PolEnv.options.AGGREG_LIN = true;
-    mc::PolVar<I> X_Pol, Y_Pol[2], F_Pol;
-    Y_Pol[0].set( &PolEnv, Y[0], IX );
-    Y_Pol[1].set( &PolEnv, Y[1], PMF.R() );
-    X_Pol = Y_Pol[0];
-    DAG.eval( 1, &F, &F_Pol, 2, Y, Y_Pol );
-    std::cout << PolEnv;
-    {int dum; std::cin >> dum;}
-
-    //F = myfunc( X );
-    //std::cout << DAG;
-    //return;
+  // Relax polynomial model range
+  mc::PolImg<I> PolEnv;
+  PolEnv.options.SANDWICH_MAXCUT = 6;
+  PolEnv.options.AGGREG_LQ = true;
+  mc::PolVar<I> X_Pol, Y_Pol[2], F_Pol;
+  Y_Pol[0].set( &PolEnv, Y[0], IX );
+  Y_Pol[1].set( &PolEnv, Y[1], PMF.R() );
+  X_Pol = Y_Pol[0];
+  DAG.eval( 1, &F, &F_Pol, 2, Y, Y_Pol );
 #endif
 
-    PolEnv.generate_cuts( 1, &F_Pol, true );
-    std::cout << DAG;
-    std::cout << PolEnv;
-    //return;
+  PolEnv.generate_cuts( 1, &F_Pol, true );
+  std::cout << PolEnv;
 
-    //DAG.output( DAG.subgraph( 1, &F ) );
-    //std::ofstream o_F( "F.dot", std::ios_base::out );
-    //DAG.dot_script( 1, &F, o_F );
-    //o_F.close();
-
-
+#if defined( MC__USE_GUROBI )
+  try{
     GRBEnv GRBenv;
     GRBModel GRBmodel( GRBenv );
-    //GRBmodel.getEnv().set( GRB_IntParam_Method,            FPMethod );
-    //GRBmodel.getEnv().set( GRB_IntParam_OutputFlag,        FPRelax<T>::options.SOLVER_DISPLAY );
     GRBmodel.getEnv().set( GRB_DoubleParam_FeasibilityTol, 1e-9 );
     GRBmodel.getEnv().set( GRB_DoubleParam_OptimalityTol,  1e-9 );
-    //GRBmodel.getEnv().set( GRB_DoubleParam_MIPGap,         FPRelax<T>::options.MILP_RELGAP );
-    //GRBmodel.getEnv().set( GRB_DoubleParam_MIPGapAbs,      FPRelax<T>::options.MILP_ABSGAP );
-    //GRBmodel.getEnv().set( GRB_IntParam_Presolve, -1 );
+    GRBmodel.getEnv().set( GRB_IntParam_OutputFlag,        0    );
 
     auto itvar = PolEnv.Vars().find( &X_Pol.var() );
     auto itobj = PolEnv.Vars().find( &F_Pol.var() );
     auto jtvar = DAGVars.end(), jtobj = DAGVars.end();
     for( auto itv=PolEnv.Vars().begin(); itv!=PolEnv.Vars().end(); ++itv ){
-      //if( !itv->second->cuts() ) continue;
-      std::cout << itv->second->name() << ": " << itv->second->has_cuts() << std::endl;
+      //std::cout << itv->second->name() << ": " << itv->second->has_cuts() << std::endl;
       GRBVar DAGVar = GRBmodel.addVar( mc::Op<I>::l(itv->second->range()),
-          mc::Op<I>::u(itv->second->range()), 0.0, GRB_CONTINUOUS,
-          itv->second->name() );
+            mc::Op<I>::u(itv->second->range()), 0.0, GRB_CONTINUOUS,
+            itv->second->name() );
       auto jtv = DAGVars.insert( std::make_pair( itv->second, DAGVar ) );
       if( itv == itvar ) jtvar = jtv.first;
       if( itv == itobj ) jtobj = jtv.first;
@@ -486,12 +480,10 @@ void relax()
     for( auto itc=PolEnv.Cuts().begin(); itc!=PolEnv.Cuts().end(); ++itc )
       append_cut( GRBmodel, *itc ); 
 
-    for( int iX=0; iX<NX; iX++ ){ 
-
+    for( int iX=0; iX<NX; iX++ ){
       fedisableexcept(FE_ALL_EXCEPT);
 
       double X_val = XL+iX*(XU-XL)/(NX-1.);
-      //auto itx = PolEnv.add_cut( mc::PolCut<I>::EQ, X_val, X_Pol, 1. );
       double Z_val = myfunc( X_val);
 
       GRBmodel.update();
@@ -504,7 +496,6 @@ void relax()
       GRBmodel.write( "LINREL_1d.lp" ); //return;
       GRBmodel.optimize();
       double Zcv = GRBmodel.get( GRB_DoubleAttr_ObjVal );
-      //break;
 
       GRBmodel.set( GRB_IntAttr_ModelSense, -1 ); // MIN:1, MAX:-1
       GRBmodel.update();
@@ -521,29 +512,19 @@ void relax()
           << std::endl;
 #endif
     }
-
-#ifdef USE_POLYMOD
-    delete[] Xrcheb[0];
-    delete[] Xrcheb;
-#endif
-
-  return;
-}
-
-////////////////////////////////////////////////////////////////////////
-
-int main()
-{
-  try{ 
-    relax();
   }
+  
   catch(GRBException& ex) {
     std::cerr << "Error code = " << ex.getErrorCode() << std::endl;
     std::cerr << ex.getMessage() << std::endl;
   }
+#endif
+
+#ifdef USE_POLYMOD
+  delete[] Xrbasis[0];
+  delete[] Xrbasis;
+#endif
 
   return 0;
 }
-
-
 

@@ -1,7 +1,4 @@
 ////////////////////////////////////////////////////////////////////////
-#undef USE_PROFIL	// <-- specify to use PROFIL for interval arithmetic
-#undef USE_FILIB	// <-- specify to use FILIB++ for interval arithmetic
-////////////////////////////////////////////////////////////////////////
 
 #include <fstream>
 #include <iomanip>
@@ -116,6 +113,94 @@ int test_fadiff2()
 
 ///////////////////////////////////////////////////////////////////////////////
 
+int test_fadiff3()
+{
+  std::cout << "\n==============================================\ntest_fadiff3:\n";
+
+  // Create DAG
+  const unsigned NX = 3, NF = 2;
+  mc::FFGraph DAG;
+  mc::FFVar X[NX];
+  for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
+  mc::FFVar F[NF] = { X[0]+5*X[2], // };//+2*sqr(X[1]) };//,
+                      //X[1]*sqr(X[2])+5*X[2]+3*X[0]-10.,
+                      X[1]*X[2]-2                    };
+  std::cout << DAG;
+  std::ofstream o_F( "fadiff3_F.dot", std::ios_base::out );
+  DAG.dot_script( NF, F, o_F );
+  o_F.close();
+
+  // Forward AD
+  const mc::FFVar* dFdX = DAG.FAD( NF, F, NX, X, true );
+  DAG.output( DAG.subgraph( NX*NF, dFdX ), " dFdX (non-recursive)" );
+  std::ofstream o_dFdX( "fadiff3_dFdX.dot", std::ios_base::out );
+  DAG.dot_script( NF*NX, dFdX, o_dFdX );
+  o_dFdX.close();
+  delete[] dFdX;
+
+  // Forward AD recursive
+  const mc::FFVar* dFdX_recur = DAG.FAD( NF, F, 1, &X[0], 1, &X[1], 1, &X[2], true );
+  DAG.output( DAG.subgraph( NX*NF, dFdX_recur ), " dFdX (recursive)" );
+  std::ofstream o_dFdX_recur( "fadiff3_dFdX_recur.dot", std::ios_base::out );
+  DAG.dot_script( NF*NX, dFdX_recur, o_dFdX_recur );
+  o_dFdX_recur.close();
+  delete[] dFdX_recur;
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+int test_fadiff4()
+{
+  std::cout << "\n==============================================\ntest_fadiff4:\n";
+
+  // DAG
+  mc::FFGraph DAG;
+  const unsigned NX = 2;
+  mc::FFVar X[NX];
+  for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
+
+  // matrix
+  mc::FFVar A[NX*NX] = { sqr(X[0]),     0.5*X[0]*X[1],
+                         0.5*X[0]*X[1], sqr(X[1])      };
+  std::cout << DAG;
+  std::ofstream o_A( "fadiff4_A.dot", std::ios_base::out );
+  DAG.dot_script( NX*NX, A, o_A );
+  o_A.close();
+
+  // determinant
+  mc::FFVar  Adet = DAG.det( NX, A );
+  std::ofstream o_Adet( "fadiff4_Adet.dot", std::ios_base::out );
+  DAG.dot_script( 1, &Adet, o_Adet );
+  o_Adet.close();
+
+  // backward AD of determinant
+  mc::FFVar* dAdetdX = DAG.BAD( 1, &Adet, NX, X, true );
+  std::ofstream o_dAdetdX( "fadiff4_dAdetdX.dot", std::ios_base::out );
+  DAG.dot_script( NX, dAdetdX, o_dAdetdX );
+  o_dAdetdX.close();
+
+  // inverse matrix
+  mc::FFVar* Ainv = DAG.inv( NX, A ); 
+  std::ofstream o_Ainv( "fadiff4_Ainv.dot", std::ios_base::out );
+  DAG.dot_script( NX*NX, Ainv, o_Ainv );
+  o_Ainv.close();
+
+  // forward AD of inverse matrix
+  mc::FFVar* dAinvdX = DAG.FAD( NX*NX, Ainv, NX, X, true );
+  std::ofstream o_dAinvdX( "fadiff4_dAinvdX.dot", std::ios_base::out );
+  DAG.dot_script( NX*NX*NX, dAinvdX, o_dAinvdX );
+  o_dAinvdX.close();
+
+  delete[] dAdetdX;
+  delete[] Ainv;
+  delete[] dAinvdX;
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 int test_fadiff_directional()
 {
   std::cout << "\n==============================================\ntest_fadiff_directional:\n";
@@ -161,15 +246,29 @@ int test_gradient_sparse()
   // Create DAG
   mc::FFGraph DAG;
   const unsigned NX = 2, NF = 3;
-  mc::FFVar X[NX], D[NX] = { 1., 2. };
+  mc::FFVar X[NX];
   for( unsigned i(0); i<NX; i++ )  X[i].set( &DAG );
-  mc::FFVar F[NF] = { 0.5*X[0], X[0]*X[1], sqrt(X[0])*exp(X[1])*X[0]+1. };
+  mc::FFVar F[3] = { 0.5*X[0], X[0]*X[1], sqrt(X[1])*exp(X[1])*X[1]+1. };
   std::cout << DAG;
 
+  // Sparse directional forward AD
+  mc::FFVar D[NX] = { 1., 2. };  
+  auto dFdXxD_FAD = DAG.SDFAD( NF, F, NX, X, D );
+  std::cout << "\nNon-zero Jacobian elements (DFAD, non-recursive): "
+            << std::get<0>(dFdXxD_FAD) << std::endl;
+  for( unsigned ie=0; ie<std::get<0>(dFdXxD_FAD); ie++ )
+    std::cout << "(" << std::get<1>(dFdXxD_FAD)[ie] << "," << std::get<2>(dFdXxD_FAD)[ie] << ") "
+                     << std::get<3>(dFdXxD_FAD)[ie] << std::endl;
+  DAG.output( DAG.subgraph( std::get<0>(dFdXxD_FAD), std::get<3>(dFdXxD_FAD) ) );
+  std::ofstream o_dFdXxD_FAD( "gradient_sparse_DFAD.dot", std::ios_base::out );
+  DAG.dot_script( std::get<0>(dFdXxD_FAD), std::get<3>(dFdXxD_FAD), o_dFdXxD_FAD );
+  o_dFdXxD_FAD.close();
+  delete[] std::get<1>(dFdXxD_FAD);
+  delete[] std::get<2>(dFdXxD_FAD);
+  delete[] std::get<3>(dFdXxD_FAD);
+
   // Sparse forward AD
-  //auto dFdX_FAD = DAG.SDFAD( NF, F, NX-1, X, D, 1, X+NX-1, D+NX-1 );
-  //auto dFdX_FAD = DAG.SFAD( NF, F, NX, X );
-  auto dFdX_FAD = DAG.SFAD( NF, F, NX-1, X, 1, X+NX-1 );
+  auto dFdX_FAD = DAG.SFAD( NF, F, NX, X );
   std::cout << "\nNon-zero Jacobian elements (FAD, non-recursive): "
             << std::get<0>(dFdX_FAD) << std::endl;
   for( unsigned ie=0; ie<std::get<0>(dFdX_FAD); ie++ )
@@ -184,8 +283,7 @@ int test_gradient_sparse()
   delete[] std::get<3>(dFdX_FAD);
 
   // Sparse backward AD
-  //auto dFdX_BAD = DAG.SBAD( NF, F, NX, X );
-  auto dFdX_BAD = DAG.SBAD( NF, F, NX-1, X, 1, X+NX-1 );
+  auto dFdX_BAD = DAG.SBAD( NF, F, NX, X );
   std::cout << "\nNon-zero Jacobian elements (BAD, non-recursive): "
             << std::get<0>(dFdX_BAD) << std::endl;
   for( unsigned ie=0; ie<std::get<0>(dFdX_BAD); ie++ )
@@ -357,16 +455,18 @@ int test_tadiff3()
 int main()
 {
   try{
-    //test_fadiff1();
-    //test_fadiff2();
-    //test_fadiff_directional();
-    //test_gradient_sparse();
-    //test_hessian_sparse();
-    //test_tadiff1();
-    //test_tadiff2();
+    test_fadiff1();
+    test_fadiff2();
+    test_fadiff3();
+    test_fadiff4();
+    test_fadiff_directional();
+    test_gradient_sparse();
+    test_hessian_sparse();
+    test_tadiff1();
+    test_tadiff2();
     test_tadiff3();
   }
-  catch( mc::FFGraph::Exceptions &eObj ){
+  catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
               << " in factorable function manipulation:" << std::endl
               << eObj.what() << std::endl

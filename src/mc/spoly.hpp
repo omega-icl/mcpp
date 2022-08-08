@@ -862,9 +862,18 @@ inline SPoly<KEY,COMP>&
 SPoly<KEY,COMP>::operator/=
 ( SPoly<KEY,COMP> const& spoly )
 {
-  if( !spoly.size() ) throw typename SPoly<KEY,COMP>::Exceptions( SPoly<KEY,COMP>::Exceptions::DIVZERO );
-  if( spoly.size() == 1 && spoly.cbegin()->first.tord ) return operator/=( spoly.cbegin()->second );
+  if( !spoly._mapmon.size() ) throw typename SPoly<KEY,COMP>::Exceptions( SPoly<KEY,COMP>::Exceptions::DIVZERO );
+  if( spoly._mapmon.size() == 1 && !spoly._mapmon.cbegin()->first.tord ) return operator/=( spoly._mapmon.cbegin()->second );
   throw typename SPoly<KEY,COMP>::Exceptions( SPoly<KEY,COMP>::Exceptions::DIVPOLY );
+}
+
+template <typename KEY, typename COMP>
+inline SPoly<KEY,COMP>
+operator/
+( double const& d, SPoly<KEY,COMP> const& spoly1 )
+{
+  SPoly<KEY,COMP> spoly2( d );
+  return spoly2 /= spoly1;
 }
 
 template <typename KEY, typename COMP>

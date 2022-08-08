@@ -1916,7 +1916,7 @@ operator<<
 #endif
 
   // Constant model
-  if( !TV._TM ){
+  if( !TV._TM )
     out << "   a0    = " << std::right << std::setw(IDISP+7) << TV._coefmon[0]
         << std::endl;
 
@@ -1950,6 +1950,7 @@ operator<<
   out << std::right << "   B     =  "
       << "[" << std::setw(IDISP+7) << Op<T>::l(TV.B())
       << "," << std::setw(IDISP+7) << Op<T>::u(TV.B()) << "]"
+      << std::endl;
 
   return out;
 }

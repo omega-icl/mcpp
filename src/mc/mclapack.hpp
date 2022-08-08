@@ -328,6 +328,44 @@ inline int dgeqrf( const dgematrix& Amat, dgematrix& Qmat, dgematrix& Rmat )
   return INFO;
 }
 
+inline int dgeqrf( const dgematrix& Amat, double& Adet )
+{ 
+  VERBOSE_REPORT;
+  if(Amat.m!=Amat.n){
+    ERROR_REPORT;
+    std::cerr << "This matrix is not square and has no determinant." << std::endl
+              << "Your input was (" << Amat.m << "x" << Amat.n << ")." << std::endl;
+    return -1;
+  }
+
+  dgematrix A(Amat);
+  const int M(Amat.m), N(Amat.n), NM = (M<N?M:N);
+  dcovector TAU(NM), WORK(M);
+
+  // Get optimal size for QR decomposition
+  int LWORK(-1), INFO(0);
+  dgeqrf_(&M, &N, A.array, &N, TAU.array, WORK.array, &LWORK, &INFO);
+  LWORK = (int)*WORK.array;
+  WORK.resize(LWORK);
+
+  // Perform QR decomposition
+  dgeqrf_(&M, &N, A.array, &N, TAU.array, WORK.array, &LWORK, &INFO);
+  if( INFO ){
+    WARNING_REPORT;
+    std::cerr << "DGEQRF: Serious trouble happend. INFO = " << INFO << "." << std::endl;
+    return INFO;
+  }
+
+  // Post-process QR decomposition results for determinant
+  Adet = -1.;
+  for( int ir=0; ir<NM; ir++ )
+    Adet *= -A(ir,ir);
+#ifdef MC__DEBUG_DGEQRF
+  std::cout << "det(A) = " << Adet << std::endl;
+#endif
+  return INFO;
+}
+
 inline int dgesv( const dgematrix& mat, dgematrix& mat_inv )
 {
   VERBOSE_REPORT;

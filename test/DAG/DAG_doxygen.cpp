@@ -1,12 +1,8 @@
 ////////////////////////////////////////////////////////////////////////
-#undef USE_PROFIL	// <-- specify to use PROFIL for interval arithmetic
-#undef USE_FILIB	// <-- specify to use FILIB++ for interval arithmetic
-////////////////////////////////////////////////////////////////////////
 
 #include <fstream>
 #include <iomanip>
 
-#include "mctime.hpp"
 #include "ffunc.hpp"
 #include "interval.hpp"
 #include "scmodel.hpp"
@@ -14,6 +10,8 @@
 typedef mc::Interval I;
 typedef mc::SCModel<I> SCM;
 typedef mc::SCVar<I> SCV;
+
+I IINF = 1e20 * I(-1,1);
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -128,7 +126,7 @@ int test_eval()
     I IX[NX] = { I(0,0.5), I(1,2), I(-1,-0.8), I(0.5,1) },
       IdFdXdir[NF] = { I(0.,1.), I(0.,5.) };
     std::vector<I> IWK;
-    int flag = DAG.reval( IWK, NF, dFdXdir, IdFdXdir, NX, X, IX );
+    int flag = DAG.reval( IWK, NF, dFdXdir, IdFdXdir, NX, X, IX, IINF );
     std::cout << "\nDAG interval evaluation w/ forward/backward passes:\n";
     // Display results
     std::cout << "FLAG = " << flag << std::endl;
@@ -141,6 +139,7 @@ int test_eval()
     std::cout << "\nInterval forward/backward propagation failed\n";
   }
 
+  delete[] dFdXdir;
   return 0;
 }
 
@@ -152,7 +151,7 @@ int main()
     test_build();
     test_eval();
   }
-  catch( mc::FFGraph::Exceptions &eObj ){
+  catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
               << " in factorable function manipulation:" << std::endl
               << eObj.what() << std::endl

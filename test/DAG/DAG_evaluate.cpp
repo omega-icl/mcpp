@@ -1,6 +1,4 @@
 ////////////////////////////////////////////////////////////////////////
-#define USE_PROFIL	// <-- specify to use PROFIL for interval arithmetic
-#undef  USE_FILIB	// <-- specify to use FILIB++ for interval arithmetic
 #undef  MC__FFUNC_CPU_EVAL
 ////////////////////////////////////////////////////////////////////////
 
@@ -10,17 +8,25 @@
 #include "mctime.hpp"
 #include "ffunc.hpp"
 
-#ifdef USE_PROFIL
-  #include "mcprofil.hpp"
-  typedef INTERVAL I;
+#ifdef MC__USE_PROFIL
+ #include "mcprofil.hpp"
+ typedef INTERVAL I;
 #else
-  #ifdef USE_FILIB
-    #include "mcfilib.hpp"
-    typedef filib::interval<double> I;
+ #ifdef MC__USE_FILIB
+  #include "mcfilib.hpp"
+  typedef filib::interval<double,filib::native_switched,filib::i_mode_extended> I;
+ #else
+  #ifdef MC__USE_BOOST
+   #include "mcboost.hpp"
+   typedef boost::numeric::interval_lib::save_state<boost::numeric::interval_lib::rounded_transc_opp<double>> T_boost_round;
+   typedef boost::numeric::interval_lib::checking_base<double> T_boost_check;
+   typedef boost::numeric::interval_lib::policies<T_boost_round,T_boost_check> T_boost_policy;
+   typedef boost::numeric::interval<double,T_boost_policy> I;
   #else
-    #include "interval.hpp"
-    typedef mc::Interval I;
+   #include "interval.hpp"
+   typedef mc::Interval I;
   #endif
+ #endif
 #endif
 
 #include "cmodel.hpp"
@@ -30,6 +36,8 @@ typedef mc::CVar<I> CV;
 #include "scmodel.hpp"
 typedef mc::SCModel<I> SCM;
 typedef mc::SCVar<I> SCV;
+
+I IINF = 1e20 * I(-1,1);
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -51,7 +59,7 @@ int test_eval1()
   o_F.close();
 
   double cputime;
-  const unsigned NREP=1000000;
+  const unsigned NREP=100000;
 
   // Evaluate with doubles, no parameter pack
   auto F_op  = DAG.subgraph( NF, F );
@@ -122,7 +130,7 @@ int test_eval2()
   o_F.close();
 
   double cputime;
-  const unsigned NREP=10000;
+  const unsigned NREP=1000;
 
   // Evaluate in interval arithmetic
   std::vector<I> IWK;
@@ -133,13 +141,6 @@ int test_eval2()
     DAG.eval( F_op, IWK, NF, F, IF, NX, X, IX );
   cputime += mc::cpuclock();
   std::cout << "\nDAG interval evaluation - with preallocation, no variadic template: " << (cputime/=NREP) << " CPU-sec\n";
-  for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << IF[i] << std::endl;
-
-  cputime = -mc::cpuclock();
-  for( unsigned i=0; i<NREP; i++ )
-    DAG.eval( F_op, NF, F, IF, NX, X, IX );
-  cputime += mc::cpuclock();
-  std::cout << "\nDAG interval evaluation - no preallocation, no variadic template: " << (cputime/=NREP) << " CPU-sec\n";
   for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << IF[i] << std::endl;
 
   for( unsigned NTE=1; NTE<=7; NTE++ ){
@@ -153,14 +154,7 @@ int test_eval2()
       DAG.eval( F_op, SCWK, NF, F, SCF, NX, X, SCX );
     cputime += mc::cpuclock();
     std::cout << "\nDAG " << NTE << "th-order sparse Chebyshev model evaluation - with preallocation, no variadic template: " << (cputime/=NREP) << " CPU-sec\n";
-    for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << SCF[i].R() << std::endl;
-
-    cputime = -mc::cpuclock();
-    for( unsigned i=0; i<NREP; i++ )
-      DAG.eval( F_op, NF, F, SCF, NX, X, SCX );
-    cputime += mc::cpuclock();
-    std::cout << "\nDAG " << NTE << "th-order sparse Chebyshev model evaluation - no preallocation, no variadic template: " << (cputime/=NREP) << " CPU-sec\n";
-    for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << SCF[i].R() << std::endl;
+    for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << SCF[i].P().B() << " +/- " << SCF[i].R() << std::endl;
   }
 
   for( unsigned NTE=1; NTE<=7; NTE++ ){
@@ -174,15 +168,43 @@ int test_eval2()
       DAG.eval( F_op, CWK, NF, F, CF, NX, X, CX );
     cputime += mc::cpuclock();
     std::cout << "\nDAG " << NTE << "th-order dense Chebyshev model evaluation - with preallocation, no variadic template: " << (cputime/=NREP) << " CPU-sec\n";
-    for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << CF[i].R() << std::endl;
-
-    cputime = -mc::cpuclock();
-    for( unsigned i=0; i<NREP; i++ )
-      DAG.eval( F_op, NF, F, CF, NX, X, CX );
-    cputime += mc::cpuclock();
-    std::cout << "\nDAG " << NTE << "th-order dense Chebyshev model evaluation - no preallocation, no variadic template: " << (cputime/=NREP) << " CPU-sec\n";
-    for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << CF[i].R() << std::endl;
+    for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << CF[i].P().B() << " +/- " << CF[i].R() << std::endl;
   }
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+int test_eval3()
+{
+  std::cout << "\n==============================================\ntest_eval3:\n";
+
+  // Create DAG for the residual r = ( y - 0.5 * x / exp(p) )^2
+  mc::FFGraph DAG;
+  mc::FFVar X( &DAG ), P( &DAG ), Y( &DAG );
+  mc::FFVar F = sqr( Y - 0.5 * X * exp( P ) );
+  std::cout << DAG;
+
+  auto F_op  = DAG.subgraph( 1, &F );
+  DAG.output( F_op );
+  std::ofstream o_F( "eval3_F.dot", std::ios_base::out );
+  DAG.dot_script( 1, &F, o_F );
+  o_F.close();
+
+  // Compute bounds on residual sum-of-squares by specializing the DAG at 3 different data points
+  std::vector< double > xdat = { 1, 2, 3 };
+  std::vector< double > ydat = { 2, 5, 9 };
+  I IP(-1.,1.), IF( 0. );  
+  std::vector<I> IWK;
+  for( size_t k=0; k<xdat.size(); ++k ){
+    // Assign constant values to the variables X and Y
+    X.set( xdat[k] );
+    Y.set( ydat[k] );
+    // Evaluate the current residual - the final 'true' argument is to append the result to IF instead of overwriting IF
+    DAG.eval( F_op, IWK, 1, &F, &IF, 1, &P, &IP, true );
+  }
+  std::cout << "\nSSE bound: " << IF << std::endl;
 
   return 0;
 }
@@ -236,13 +258,13 @@ int test_reval1()
     int flag = 0;
     for( unsigned i=0; i<NREP; i++ ){
       I IX[NX] = { I(-0.8,-0.3), I(6.,9.) };
-      flag = DAG.reval( SGF, IWKF, NF, F, IF, NX, X, IX, maxpass );
+      flag = DAG.reval( SGF, IWKF, NF, F, IF, NX, X, IX, IINF, maxpass );
     }
     cputime += mc::cpuclock();
     std::cout << "\nDAG interval evaluation w/ " << flag << " forward/backward passes: "
               << (cputime/=NREP) << " CPU-sec\n";
     I IX[NX] = { I(-0.8,-0.3), I(6.,9.) };
-    DAG.reval( SGF, IWKF, NF, F, IF, NX, X, IX, maxpass );
+    DAG.reval( SGF, IWKF, NF, F, IF, NX, X, IX, IINF, maxpass );
     for( unsigned i=0; i<NX; i++ ) std::cout << "X[" << i << "] = " << IX[i] << std::endl;
     for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << IF[i] << std::endl;
   }
@@ -289,7 +311,7 @@ int test_reval2()
   try{
     I IX[NX] = { I(-1,1), I(-1,1), I(0,4) },
       IF[NF] = { I(-INF,-10), I(-INF,INF), I(0,2) };
-    int flag = DAG.reval( SGF, IWKF, NF, F, IF, NX, X, IX );
+    int flag = DAG.reval( SGF, IWKF, NF, F, IF, NX, X, IX, IINF );
     std::cout << "\nDAG interval evaluation w/ forward/backward passes:\n";
     for( unsigned i=0; i<NX; i++ ) std::cout << "X[" << i << "] = " << IX[i] << std::endl;
     for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << IF[i] << std::endl;
@@ -342,7 +364,7 @@ int test_reval3()
   try{
     I IX[NX] = { I(23,26), I(4,8), I(10,11), I(14,17), I(124,130), I(0,INF), I(0,INF) },
       IF[NF] = { I(0), I(0), I(0), I(0) };
-    int flag = DAG.reval( SGF, IWKF, NF, F, IF, NX, X, IX );
+    int flag = DAG.reval( SGF, IWKF, NF, F, IF, NX, X, IX, IINF );
     std::cout << "\nDAG interval evaluation w/ forward/backward passes:\n";
     for( unsigned i=0; i<NX; i++ ) std::cout << "X[" << i << "] = " << IX[i] << std::endl;
     for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << IF[i] << std::endl;
@@ -600,7 +622,7 @@ int test_reval4()
   vIp.assign( Ip_3stg, Ip_3stg+NP ); vIf.assign( NF, I(0.) );
   std::cout << "\nDAG interval evaluation using forward/backward passes:";
   int flag = 0;
-  try{ flag = DAG.reval( SGF, IWKF, NF, F, vIf.data(), NP, P, vIp.data() ); }
+  try{ flag = DAG.reval( SGF, IWKF, NF, F, vIf.data(), NP, P, vIp.data(), IINF ); }
   catch(...){ std::cout << "Failure\n"; }
   if( flag < 0 ) std::cout << " infeasible\n";
   else std::cout << " " << flag << " passes\n";
@@ -610,51 +632,6 @@ int test_reval4()
   for( unsigned i=0; i<vIf.size(); i++ )
     std::cout << "  " << F[i] << " = " << vIf[i] << std::endl;
 
-  /*
-    ############## REFORMULATION USING SPARSEEXPR ##################################
-
-  */
-//  mc::SparseEnv SPE( &DAG );
-//  SPE.options.LIFTDIV = true;
-
-//  const unsigned NF0 = NF;
-//  SPE.process( NF0, F );
-
-//  std::cout << std::endl << SPE.Var().size() << " PARTICIPATING VARIABLES: ";
-//  for( auto&& var : SPE.Var() ) std::cout << var << " ";
-//  std::cout << std::endl;
-
-//  std::cout << std::endl << SPE.Aux().size() << " LIFTED VARIABLES: ";
-//  for( auto&& aux : SPE.Aux() ) std::cout << *aux.first << "->" << *aux.second << " ";
-//  std::cout << std::endl;
-//  std::cout << std::endl << SPE.Expr().size() << " LIFTED EXPRESSIONS: " << std::endl;
-//  for( auto&& expr : SPE.Expr() ) DAG.output( DAG.subgraph( 1, &expr ) );
-
-//  return 0;
-
-//  // Compute values of auxiliary variables
-//  std::cout << "Iaux =" << std::endl;
-//  for( auto&& aux : SPE.Aux() ){
-//    I val;
-//    DAG.eval( 1, aux.first, &val, NP, Fp.data(), Ip.data() );
-//    std::cout << "  " << *aux.first << "->" << *aux.second << " = " << val << std::endl;
-//    Fp.push_back( *aux.second ); Ip.push_back( val );
-//  }
-
-//  // Make constraint variables equal to 0
-//  for( auto it=Fp.rbegin(); it!=Fp.rbegin()+NF0; ++it )
-//    it->set(0.);
-
-//  // Compute values of reformulated functions
-//  If.resize( SPE.Expr().size() );
-//  //DAG.eval( 1, SPE.Expr().data(), If.data(), Fp.size(), Fp.data(), Ip.data() );
-//  DAG.eval( SPE.Expr().size(), SPE.Expr().data(), If.data(), Fp.size(), Fp.data(), Ip.data() );
-//  //DAG.output( DAG.subgraph( 1, SPE.Expr().data() ) );
-//  std::cout << "Iexpr =" << std::endl;
-//  for( auto&& val : If ){
-//    std::cout << "  " << val << std::endl; //break;
-//  }
-
   return 0;
 }
 
@@ -663,30 +640,29 @@ int test_reval4()
 int main()
 {
   try{
-//    test_eval1();
-//    test_eval2();
-    test_reval1();
-    test_reval2();
-    test_reval3();
-    test_reval4();
+    //test_eval1();
+    //test_eval2();
+    test_eval3();
+    //test_reval1();
+    //test_reval2();
+    //test_reval3();
+    //test_reval4();
   }
-  catch( mc::FFGraph::Exceptions &eObj ){
+  catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
               << " in factorable function manipulation:" << std::endl
               << eObj.what() << std::endl
               << "Aborts." << std::endl;
     return eObj.ierr();
   }
-#ifndef USE_PROFIL
-#ifndef USE_FILIB
+#if !defined(MC__USE_PROFIL) && !defined(MC__USE_FILIB) && !defined(MC__USE_BOOST)
   catch( I::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
-              << " in interval arithmetic:" << std::endl
-              << eObj.what() << std::endl
-              << "Aborts." << std::endl;
+         << " in natural interval extension:" <<    std::endl
+	 << eObj.what() << std::endl
+         << "Aborts." << std::endl;
     return eObj.ierr();
   }
-#endif
 #endif
   catch( SCM::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()

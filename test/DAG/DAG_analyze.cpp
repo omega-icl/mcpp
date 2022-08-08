@@ -2,11 +2,9 @@
 #include <sstream>
 #include <iomanip>
 
-#include "mctime.hpp"
 #include "ffunc.hpp"
 #include "rltred.hpp"
 #include "sparseexpr.hpp"
-#include "quadexpr.hpp"
 
 #ifdef USE_PROFIL
   #include "mcprofil.hpp"
@@ -396,95 +394,6 @@ int test_rltred4()
   }
 
   /*
-    ############## REFORMULATION USING SPARSEEXPR ##################################
-  */
-//  mc::SparseEnv SPE( &DAG );
-//  SPE.options.LIFTDIV = true;
-
-//  const unsigned NF0 = NF;
-//  SPE.process( NF0, F );
-
-//  std::cout << std::endl << SPE.Var().size() << " PARTICIPATING VARIABLES: ";
-//  for( auto&& var : SPE.Var() ) std::cout << var << " ";
-//  std::cout << std::endl;
-
-//  std::cout << std::endl << SPE.Aux().size() << " LIFTED VARIABLES: ";
-//  for( auto&& aux : SPE.Aux() ) std::cout << *aux.first << "->" << *aux.second << " ";
-//  std::cout << std::endl;
-//  std::cout << std::endl << SPE.Expr().size() << " LIFTED EXPRESSIONS: " << std::endl;
-//  for( auto&& expr : SPE.Expr() ) DAG.output( DAG.subgraph( 1, &expr ) );
-
-//#ifdef MC__USE_HSL
-//  std::vector<int> IP(SPE.Expr().size()), IQ(SPE.Var().size()), IPROF(SPE.Var().size()), IFLAG(3);
-//  DAG.MC33( SPE.Expr().size()-NF, SPE.Expr().data(), SPE.Var().size()-NP, SPE.Var().data()+NP,
-//            IP.data(), IQ.data(), IPROF.data(), IFLAG.data(), true );
-//#endif
-//  return 0;
-
-  /*
-    ############## EVALUATION OF ORIGINAL AND REFORMULATED EXPRESSIONS #############
-  */
-
-//  const I Ip_3stg[NP] = { 
-//    I(4.51882712332260e-01,4.53400900000000e-01),
-//    I(8.51605100000000e-01,8.52364800000000e-01),
-//    I(7.98175092047527e-01,8.00297694717604e-01),
-//    I(4.41986225216501e-01,4.59569700000000e-01),
-//    I(2.95642700000000e-02,2.99233900000000e-02),
-//    I(5.11901000000000e-02,5.19930600000000e-02),
-//    I(1.57389600000000e-01,1.62274478001944e-01),
-//    I(1.18065000000000e-01,1.18472600000000e-01),
-//    I(1.48509700000000e-01,1.49843600000000e-01),
-//    I(3.82601600000000e-01,3.89211950000000e-01),
-//    I(1.02686900000000e+00,1.02749100000000e+00),
-//    I(1.07442300000000e+00,1.07664100000000e+00),
-//    I(1.75775700000000e+00,1.82370300000000e+00),
-//    I(5.51961100000000e-01,5.52927300000000e-01),
-//    I(4.90793000000000e-01,4.93025500000000e-01),
-//    I(3.05665600000000e-01,3.09595538816592e-01),
-//    I(9.15561400000000e-01,9.17969100000000e-01),
-//    I(7.68530500000000e-01,7.73717500000000e-01),
-//    I(3.65186900000000e-01,3.74117500000000e-01),
-//    I(3.36703700000000e+02,3.36707700000000e+02),
-//    I(3.36960000000000e+02,3.36970800000000e+02),
-//    I(3.38874100000000e+02,3.39011800000000e+02)
-//  };
-
-//  // Compute values of original functions
-//  std::vector<mc::FFVar> Fp( P, P+NP );
-//  std::vector<I> If( NF0 ), Ip( Ip_3stg, Ip_3stg+NP );
-//  std::cout << "Ip =" << std::endl;
-//  for( unsigned i=0; i<Ip.size(); i++ )
-//    std::cout << "  " << Fp[i] << " = " << Ip[i] << std::endl;
-//  DAG.eval( NF0, F, If.data(), NP, Fp.data(), Ip.data() );
-//  std::cout << "If =" << std::endl;
-//  for( auto&& val : If )
-//    std::cout << "  " << val << std::endl;
-
-//  // Compute values of auxiliary variables
-//  std::cout << "Iaux =" << std::endl;
-//  for( auto&& aux : SPE.Aux() ){
-//    I val;
-//    DAG.eval( 1, aux.first, &val, NP, Fp.data(), Ip.data() );
-//    std::cout << "  " << *aux.first << "->" << *aux.second << " = " << val << std::endl;
-//    Fp.push_back( *aux.second ); Ip.push_back( val );
-//  }
-
-//  // Make constraint variables equal to 0
-//  for( auto it=Fp.rbegin(); it!=Fp.rbegin()+NF0; ++it )
-//    it->set(0.);
-
-//  // Compute values of reformulated functions
-//  If.resize( SPE.Expr().size() );
-//  //DAG.eval( 1, SPE.Expr().data(), If.data(), Fp.size(), Fp.data(), Ip.data() );
-//  DAG.eval( SPE.Expr().size(), SPE.Expr().data(), If.data(), Fp.size(), Fp.data(), Ip.data() );
-//  //DAG.output( DAG.subgraph( 1, SPE.Expr().data() ) );
-//  std::cout << "Iexpr =" << std::endl;
-//  for( auto&& val : If ){
-//    std::cout << "  " << val << std::endl; //break;
-//  }
-
-  /*
     ############## REDUCTION CONSTRAINTS ###########################################
   */
   mc::RLTRed RRLT( &DAG );
@@ -719,69 +628,29 @@ int test_rltred6()
 
 ///////////////////////////////////////////////////////////////////////////////
 
-int test_spolyexpr1()
+int test_spoly1()
 {
-  std::cout << "\n==============================================\ntest_spolyexpr1:\n";
+  std::cout << "\n==============================================\ntest_spoly1:\n";
 
   mc::FFGraph DAG;
   const unsigned NX = 4;
   mc::FFVar X[NX];
-  mc::SPolyExpr SPX[NX];
+  typedef mc::SPoly< mc::FFVar const*, mc::lt_FFVar > t_SPoly;
+  t_SPoly SPX[NX];
   for( unsigned i(0); i<NX; i++ ){
     X[i].set( &DAG );
-    SPX[i] = X[i];
+    SPX[i].var( &X[i] );
   }
-  mc::SPolyExpr SPF;
+  //mc::FFVar F = pow( X[0] - sqr( X[1] ) - 1, 3 );
+  //mc::FFVar F = pow( 2 + X[0] + X[1] - X[2] + (-X[3]) + X[0] - 3, 4 );
+  mc::FFVar F = sqr( sqr( 2 + X[0] + X[1] - X[2] + (-X[3]) + X[0] - 3 ) );
+  t_SPoly SPF;
 
-  //mc::SPolyExpr::options.BASIS = mc::SPolyExpr::Options::MONOM;
-  //SPF = pow( SPX[0]+1, 4 );
-  //SPF = 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3;
-  //SPF = SPX[1] - sqr( SPX[0] );
-  //SPF = ( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3 ) * SPX[1];
-  //SPF = ( SPX[0] - SPX[1] + 1 - SPX[1] ) * SPX[0];
-  //SPF = ( SPX[0] - SPX[1] + 1 - SPX[1] ) * ( SPX[0] + 1 );
-  //SPF = ( SPX[0] - SPX[1] + 1 - SPX[1] ) * ( SPX[0] - SPX[1] + 1 );
-  //SPF = sqr( SPX[0] - SPX[1] + 1 - SPX[1] ) * ( SPX[0] - SPX[2] + 1 );
-  //SPF = pow( SPX[0] - SPX[1] + 1 - SPX[1], 3 );
-  //SPF = pow( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3, 4 );
-  //SPF = pow( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3, 3 ) * ( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3);
-  SPF = 2 + SPX[0] - 3;
-  //SPF = sqr( sqr( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3 ) );
-  //SPF = sqr( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3 ) * sqr( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3 );
-  std::cout << std::endl << "Sparse polynomial expression in monomial basis: " << SPF << std::endl;
-
-  mc::SPolyExpr::options.BASIS = mc::SPolyExpr::Options::CHEB;
-  //SPF = SPX[0] * SPX[0] * SPX[0];
-  //SPF = 4*pow(SPX[0],3) - 3*SPX[0];
-  //SPF = 8*pow(SPX[0],4) - 8*pow(SPX[0],2) + 1;
-  //SPF = 32*pow(SPX[0],6) - 48*pow(SPX[0],4) + 18*pow(SPX[0],2) - 1;
-  //SPF = pow( 2 + SPX[0] + SPX[1] - SPX[2] + (-SPX[3]) + SPX[0] - 3, 4 );
-  //std::cout << "Sparse polynomial expression in chebyshev basis: " << SPF << std::endl;
-
-  return 0;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-int test_spolyexpr2()
-{
-  std::cout << "\n==============================================\ntest_spolyexpr2:\n";
-
-  mc::FFGraph DAG;
-  const unsigned NX = 4;
-  mc::FFVar X[NX];
-  mc::SPolyExpr SPX[NX];
-  for( unsigned i(0); i<NX; i++ ){
-    X[i].set( &DAG );
-    SPX[i] = X[i];
-  }
-  mc::FFVar F = pow( X[0] - sqr( X[1] ) - 1, 3 );
-  mc::SPolyExpr SPF;
-
+  SPF.options.BASIS = t_SPoly::Options::MONOM;
   DAG.eval( 1, &F, &SPF, NX, X, SPX );
   std::cout << std::endl << "Sparse polynomial expression in monomial basis: " << SPF << std::endl;
 
-  mc::SPolyExpr::options.BASIS = mc::SPolyExpr::Options::CHEB;
+  SPF.options.BASIS = t_SPoly::Options::CHEB;
   DAG.eval( 1, &F, &SPF, NX, X, SPX );
   std::cout << std::endl << "Sparse polynomial expression in chebyshev basis: " << SPF << std::endl;
 
@@ -790,9 +659,9 @@ int test_spolyexpr2()
 
 ///////////////////////////////////////////////////////////////////////////////
 
-int test_sparseexpr()
+int test_sexpr1()
 {
-  std::cout << "\n==============================================\ntest_SparseExpr:\n";
+  std::cout << "\n==============================================\ntest_sexpr1:\n";
 
   mc::FFGraph DAG;
   const unsigned NX = 4, NF = 1;
@@ -800,16 +669,16 @@ int test_sparseexpr()
   for( unsigned i(0); i<NX; i++ ) X[i].set( &DAG );
   mc::FFVar F[NF];
   //F[0] = pow( X[0] + X[1], 3 );
-  //F[0] = pow( X[0] + 1 / sqr( X[1] ), 3 );
+  F[0] = pow( X[0] + 1 / sqr( X[1] ), 3 );
   //F[0] = 4*sqr(X[0]) - 2.1*pow(X[0],4) + pow(X[0],6)/3 + X[0]*X[1] - 4*sqr(X[1]) + 4*pow(X[1],4);
-  F[0] = 250*exp(X[2])*X[0] + 250*pow(X[3],0.6)*X[1];
+  //F[0] = 250*exp(X[2])*X[0] + 250*pow(X[3],0.6)*X[1];
   //F[1] = exp( 2 * sqr( X[1] ) - 1 );
   std::cout << DAG;
 
-  mc::SPolyExpr::options.BASIS = mc::SPolyExpr::Options::MONOM;
-  mc::SparseEnv SPE( &DAG );
+  mc::SparseExpr<mc::FFGraph<>>::SPolyExpr::options.BASIS = mc::SparseExpr<mc::FFGraph<>>::SPolyExpr::Options::MONOM;
+  mc::SparseEnv<mc::FFGraph<>> SPE( &DAG );
   SPE.options.LIFTDIV = true;//false;//
-  SPE.options.LIFTIPOW = true;//false;//
+  SPE.options.LIFTIPOW = true; //false;//
 
   SPE.process( NF, F );
 
@@ -825,140 +694,6 @@ int test_sparseexpr()
   std::cout << std::endl << SPE.Trans().size() << " transcendental constraints: " << std::endl;
   for( auto&& expr : SPE.Trans() ) DAG.output( DAG.subgraph( 1, &expr ) );
 
-#ifdef MC__HSL_USE
-  std::vector<int> IP(SPE.Expr().size()), IQ(SPE.Var().size()), IPROF(SPE.Var().size()), IFLAG(3);
-  DAG.MC33( SPE.Expr().size(), SPE.Expr().data(), SPE.Var().size(), SPE.Var().data(),
-            IP.data(), IQ.data(), IPROF.data(), IFLAG.data(), true );
-#endif
-
-  std::vector<mc::SPolyExpr> SPVar;
-  for( auto&& var : SPE.Var() ) SPVar.push_back( var );
-  std::vector<mc::SPolyExpr> SPPoly( SPE.Poly().size() );
-  DAG.eval( SPE.Poly().size(), SPE.Poly().data(), SPPoly.data(), SPE.Var().size(), SPE.Var().data(), SPVar.data() );
-  unsigned int count = 0;
-  for( auto&& expr : SPPoly )
-    std::cout << std::endl << "Polynomial constraint #" << ++count << ":" << expr << std::endl;
-  std::cout << std::endl;
-
-  mc::QuadEnv QF( &DAG );
-  mc::QuadEnv::options.REDUC = mc::QuadEnv::Options::ALL;
-  QF.process( SPPoly.size(), SPPoly.data() );
-  std::cout << std::endl << "Sparse quadratic form: " << QF << std::endl;
-
-  return 0;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-int test_quadexpr1()
-{
-  std::cout << "\n==============================================\ntest_QuadExpr1:\n";
-
-  mc::FFGraph DAG;
-  const unsigned NX = 3;
-  mc::FFVar X[NX];
-  mc::SPolyExpr SPX[NX];
-  for( unsigned i(0); i<NX; i++ ){
-    X[i].set( &DAG );
-    SPX[i] = X[i];
-  }
-  mc::FFVar F = 2 * sqr( X[1] ) - 1;
-  //mc::FFVar F = 4*sqr(X[0]) - 2.1*pow(X[0],4) + pow(X[0],6)/3 + X[0]*X[1] - 4*sqr(X[1]) + 4*pow(X[1],4);
-  //mc::FFVar F = X[0] - X[1] + 2 * sqr( X[1] ) - X[0]*X[1] + X[0]*X[1]*X[2]
-  //              + sqr( X[1] ) * X[0] + pow( X[0], 3 ) + pow( X[1], 4 ) + pow( X[0], 5 );
-  //mc::FFVar F = pow( X[0] - sqr( X[1] ) - 1, 3 );
-  mc::SPolyExpr SPF;
-    
-  DAG.eval( 1, &F, &SPF, NX, X, SPX );
-  std::cout << std::endl << "Sparse polynomial expression in monomial basis: " << SPF << std::endl;
-
-  auto&& SPFDEC = SPF.extract_univariate();
-  for( auto && comp : SPFDEC ){
-    if( comp.first )
-      std::cout << std::endl << "Univariate polynomial contribution in " << *comp.first << ": " << comp.second << std::endl;
-    else
-      std::cout << std::endl << "Remaining multivariate polynomial contribution: " << comp.second << std::endl;
-  }
-
-  mc::QuadEnv QF( &DAG );
-  mc::QuadEnv::options.REDUC = mc::QuadEnv::Options::ONE;//ALL;
-  QF.process( SPF, true );
-  std::cout << std::endl << "Sparse quadratic form in monomial basis: " << QF << std::endl;
-
-  return 0;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-int test_quadexpr2()
-{
-  std::cout << "\n==============================================\ntest_QuadExpr2:\n";
-
-  mc::FFGraph DAG;
-  const unsigned NX = 3, NF = 1;
-  mc::FFVar X[NX];
-  mc::SPolyExpr SPX[NX];
-  for( unsigned i(0); i<NX; i++ ){
-    X[i].set( &DAG );
-    SPX[i] = X[i];
-  }
-  mc::FFVar F[NF];
-  F[0] = pow( X[0] + sqr( X[1] ) - 2 * X[2], 3 );
-  //F[0] = pow( X[0] + X[1] + X[2], 3 );// + sqr( X[0] * X[1] );
-  //F[1] = 2 * sqr( X[1] ) - 1;
-
-  mc::SPolyExpr SPF[NF];
-  DAG.eval( NF, F, SPF, NX, X, SPX );
-  std::cout << std::endl << "Sparse polynomial expressions in monomial basis: " << std::endl << std::endl;
-  for( unsigned i(0); i<NF; i++ ) std::cout << "P[" << i+1 << "] =" << SPF[i] << std::endl;
-  
-  mc::QuadEnv QF( &DAG );
-  mc::QuadEnv::options.REDUC = mc::QuadEnv::Options::ONE;//ALL;
-  QF.process( NF, SPF, true );
-  std::cout << "Sparse quadratic form in monomial basis: " << QF << std::endl;
-
-  return 0;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-int test_quadexpr3()
-{
-  std::cout << "\n==============================================\ntest_QuadExpr3:\n";
-
-  mc::FFGraph DAG;
-  const unsigned NX = 7, NF = 12;
-  mc::FFVar X[NX];
-  mc::SPolyExpr SPX[NX];
-  for( unsigned i(0); i<NX; i++ ){
-    X[i].set( &DAG );
-    SPX[i] = X[i];
-  }
-  mc::FFVar F[NF];
-  //F[0] = sqr(X[0]*X[1]*X[2])*X[1]*X[2];
-  F[0] = 0.7854*X[0]*sqr(X[1])*(3.3333*sqr(X[2]) + 14.9334*X[2] - 43.0934) - 1.508*X[0]*(sqr(X[5]) + sqr(X[6])) + 7.477*(pow(X[5],3) + pow(X[6],3)) + 0.7854*(X[3]*sqr(X[5]) + X[4]*sqr(X[6]));
-  F[1] = 27*X[0]*X[1]*X[2] - sqr(X[0]*X[1]*X[2])*X[1];
-  F[2] = 397.5*X[0]*X[1]*X[2] - sqr(X[0]*X[1]*X[2])*X[1]*X[2];
-  F[3] = 1.93*X[1]*X[2]*pow(X[3],3)*X[5] - sqr(X[1]*X[2])*pow(X[5],5);
-  F[4] = 1.93*X[1]*X[2]*pow(X[4],3)*X[6] - sqr(X[1]*X[2])*pow(X[6],5);
-  F[5] = 745*X[3] + 16.9*1000000*sqr(X[1]*X[2]) - 12100*pow(X[5],6)*sqr(X[1]*X[2]);
-  F[6] = 745*X[4] + 157.5*1000000*sqr(X[1]*X[2]) - 7225*pow(X[6],6)*sqr(X[1]*X[2]);
-  F[7] = X[1]*X[2] - 40;
-  F[8] = 5*X[1] - X[0];
-  F[9] = X[0] - 12*X[1];
-  F[10] = (1.5*X[5] + 1.9)*X[3] - sqr(X[3]);
-  F[11] = (1.1*X[6] + 1.9)*X[4] - sqr(X[4]);
-
-  mc::SPolyExpr SPF[NF];
-  DAG.eval( NF, F, SPF, NX, X, SPX );
-  std::cout << std::endl << "Sparse polynomial expressions in monomial basis: " << std::endl << std::endl;
-  for( unsigned i(0); i<NF; i++ ) std::cout << "P[" << i+1 << "] =" << SPF[i] << std::endl;
-  
-  mc::QuadEnv QF( &DAG );
-  mc::QuadEnv::options.REDUC = mc::QuadEnv::Options::ALL;
-  QF.process( NF, SPF );
-  std::cout << "Sparse quadratic form in monomial basis: " << QF << std::endl;
-
   return 0;
 }
 
@@ -967,24 +702,27 @@ int test_quadexpr3()
 int main()
 {
   try{
-    //test_dep1();
-    //test_dep2();
-    //test_spolyexpr1();
-    //test_spolyexpr2();
-    //test_sparseexpr();
-    //test_quadexpr1();
-    test_quadexpr2();
-    //test_quadexpr3();
-    //test_rltred1();
-    //test_rltred2();
-    //test_rltred3();
-    //test_rltred4();
-    //test_rltred5();
-    //test_rltred6();
+//    test_dep1();
+//    test_dep2();
+//    test_rltred1();
+//    test_rltred2();
+//    test_rltred3();
+//    test_rltred4();
+//    test_rltred5();
+//    test_rltred6();
+    test_spoly1();
+    test_sexpr1();
   }
-  catch( mc::FFGraph::Exceptions &eObj ){
+  catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
               << " in factorable function manipulation:" << std::endl
+              << eObj.what() << std::endl
+              << "Aborts." << std::endl;
+    return eObj.ierr();
+  }
+  catch( mc::SparseEnv<mc::FFGraph<>>::Exceptions &eObj ){
+    std::cerr << "Error " << eObj.ierr()
+              << " in sparse expression manipulation:" << std::endl
               << eObj.what() << std::endl
               << "Aborts." << std::endl;
     return eObj.ierr();

@@ -78,6 +78,10 @@ struct SMon
     ()
     const;
 
+  //! @brief Union with other monomial
+  void hull
+    ( SMon<KEY,COMP> const& Mon );
+
   //! @brief Test for intersection
   bool inter
     ( SMon<KEY,COMP> const& Mon )
@@ -118,7 +122,7 @@ struct SMon
   class Exceptions
   {
    public:
-    //! @brief Enumeration type for mc::Interval exceptions
+    //! @brief Enumeration type for mc::SMon exceptions
     enum TYPE{
       SUB=1,   //!< Subtraction of a monomial that is not a proper subset
       DIV,	//!< Division by a factor greater than the greatest common exponent
@@ -230,6 +234,19 @@ const
   for( ++it; it!=expr.cend(); ++it )
     if( le > it->second ) le = it->second;
   return le;
+}
+
+template <typename KEY, typename COMP>
+inline void
+SMon<KEY,COMP>::hull
+( SMon<KEY,COMP> const& Mon )
+{
+  for( auto const& [var,ord] : Mon.expr ){
+    if( expr[var] < ord ){
+      tord += ord - expr[var];
+      expr[var] = ord;
+    }
+  }
 }
 
 template <typename KEY, typename COMP>
@@ -358,13 +375,6 @@ operator+
   // Create a copy of Mon1 and add terms with Mon2 
   SMon<KEY,COMP> Mon3( Mon1 );
   return( Mon3 += Mon2 );
-//  for( auto&& it2=Mon2.expr.begin(); it2!=Mon2.expr.end(); ++it2 ){
-//    auto&& it3 = Mon3.expr.insert( *it2 );
-//    // If element from Mon2 was not inserted, increment existing variable order
-//    if( !it3.second ) it3.first->second += it2->second;
-//  }
-//  Mon3.tord += Mon2.tord;
-//  return Mon3;
 }
 
 template <typename KEY, typename COMP>
@@ -404,26 +414,6 @@ operator-
   // Create a copy of Mon1 and add terms with Mon2 
   SMon<KEY,COMP> Mon3( Mon1 );
   return( Mon3 -= Mon2 );
-//  // Mon2 must be a proper subset of Mon1 
-//  if( !Mon2.subseteq( Mon1 ) )
-//    throw typename SMon<KEY,COMP>::Exceptions( SMon<KEY,COMP>::Exceptions::SUB );
-
-//  // Return constant monomial if Mon1 and Mon2 are identical 
-//  if( Mon1.tord == Mon2.tord )
-//    return SMon();
-
-//  // Create a copy of Mon1 and cancel the common terms with Mon2 
-//  SMon Mon3( Mon1 );
-//  for( auto&& it2=Mon2.expr.begin(); it2!=Mon2.expr.end(); ++it2 ){
-//    auto&& it3 = Mon3.expr.find( it2->first );
-//    assert( it3 != Mon3.expr.end() );
-//    if( it3->second == it2->second )
-//      Mon3.expr.erase( it3 );
-//    else
-//      it3->second -= it2->second;
-//  }
-//  Mon3.tord -= Mon2.tord;
-//  return Mon3;
 }
 
 //! @brief C++ structure for ordering of monomials in graded lexicographic order (grlex)

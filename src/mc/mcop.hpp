@@ -28,8 +28,6 @@ template <typename T> struct Op
   static T exp (const T& x) { return exp(x);  }
   static T log (const T& x) { return log(x);  }
   static T xlog(const T& x) { return xlog(x); }
-  static T lmtd(const T& x,const T& y) { return lmtd(x,y); }
-  static T rlmtd(const T& x,const T& y) { return rlmtd(x,y); }
   static T fabs(const T& x) { return fabs(x); }
   static T sin (const T& x) { return sin(x);  }
   static T cos (const T& x) { return cos(x);  }
@@ -47,7 +45,6 @@ template <typename T> struct Op
   static T hull(const T& x, const T& y) { return hull(x,y); }
   static T min (const T& x, const T& y) { return min(x,y);  }
   static T max (const T& x, const T& y) { return max(x,y);  }
-  static T arh (const T& x, const double k) { return arh(x,k); }
   template <typename X, typename Y> static T pow(const X& x, const Y& y) { return pow(x,y); }
   static T cheb (const T& x, const unsigned n) { return cheb(x,n); }
   static T prod (const unsigned n, const T* x) { return prod(n,x); }
@@ -86,8 +83,6 @@ template <> struct Op< double >
   static double exp (const double& x) { return std::exp(x);  }
   static double log (const double& x) { return std::log(x);  }
   static double xlog(const double& x) { return mc::xlog(x); }
-  static double lmtd(const double& x,const double& y) { return mc::lmtd(x,y); }
-  static double rlmtd(const double& x,const double& y) { return mc::rlmtd(x,y); }
   static double fabs(const double& x) { return std::fabs(x); }
   static double sin (const double& x) { return std::sin(x);  }
   static double cos (const double& x) { return std::cos(x);  }
@@ -105,10 +100,9 @@ template <> struct Op< double >
   static double hull(const double& x, const double& y) { throw std::runtime_error("mc::Op<double>::hull -- function not overloaded"); }
   static double min (const double& x, const double& y) { return std::min(x,y);  }
   static double max (const double& x, const double& y) { return std::max(x,y);  }
-  static double arh (const double& x, const double k) { return mc::arh(x,k); }
   static double cheb (const double& x, const unsigned n) { return mc::cheb(x,n); }
   template <typename X, typename Y> static double pow(const X& x, const Y& y) { return std::pow(x,y); }
-  static double prod (const unsigned n, const double* x) { return prod(n,x); }
+  static double prod (const unsigned n, const double* x) { return mc::prod(n,x); }
   static double monom (const unsigned n, const double* x, const unsigned* k) { return mc::monom(n,x,k); }
   static bool inter(double& xIy, const double& x, const double& y) { xIy = x; return true; }//{ throw std::runtime_error("mc::Op<double>::inter -- operation not permitted"); }
   static bool eq(const double& x, const double& y) { return x==y; }

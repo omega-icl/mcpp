@@ -156,6 +156,7 @@ inline double prod
 ( const unsigned int n, const double*x )
 {
   // Return product term \prod_i x[i]
+  //std::cout << "prod(" << n << ",x)" << std::endl;
   switch( n ){
    case 0:  return 1.;
    case 1:  return x[0];

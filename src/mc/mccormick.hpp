@@ -4597,8 +4597,7 @@ namespace mc
 {
 
 //! @brief Specialization of the structure mc::Op to allow usage of the type mc::McCormick as a template parameter in the classes mc::TModel, mc::TVar, and mc::SpecBnd
-// template <> template<typename T> struct Op< mc::McCormick<T> >
-template<typename T> struct Op< mc::McCormick<T> > // Modified at AVT.SVT in July 2016 to avoid problems with Intel C++ or MSVC++
+template <typename T> struct Op< mc::McCormick<T> >
 {
   typedef mc::McCormick<T> MC;
   static MC point( const double c ) { return MC(c); }
@@ -4615,8 +4614,6 @@ template<typename T> struct Op< mc::McCormick<T> > // Modified at AVT.SVT in Jul
   static MC exp (const MC& x) { return mc::exp(x);  }
   static MC log (const MC& x) { return mc::log(x);  }
   static MC xlog(const MC& x) { return mc::xlog(x); }
-  static MC lmtd(const MC& x,const MC& y) { return mc::lmtd(x,y); }
-  static MC rlmtd(const MC& x,const MC& y) { return mc::rlmtd(x,y); }
   static MC fabs(const MC& x) { return mc::fabs(x); }
   static MC sin (const MC& x) { return mc::sin(x);  }
   static MC cos (const MC& x) { return mc::cos(x);  }
@@ -4634,7 +4631,6 @@ template<typename T> struct Op< mc::McCormick<T> > // Modified at AVT.SVT in Jul
   static MC hull(const MC& x, const MC& y) { return mc::Op<T>::hull(x.I(),y.I()); }
   static MC min (const MC& x, const MC& y) { return mc::min(x,y);  }
   static MC max (const MC& x, const MC& y) { return mc::max(x,y);  }
-  static MC arh (const MC& x, const double k) { return mc::arh(x,k); }
   template <typename X, typename Y> static MC pow(const X& x, const Y& y) { return mc::pow(x,y); }
   static MC cheb (const MC& x, const unsigned n) { return mc::cheb(x,n); }
   static MC prod (const unsigned int n, const MC* x) { return mc::prod(n,x); }

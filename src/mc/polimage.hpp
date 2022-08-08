@@ -1652,68 +1652,46 @@ operator <<
     case PolCut<T>::NLIN:
       out << " ";
       switch( cut._op->type ){
+        case FFOp::CHEB:
         case FFOp::IPOW:
-          out << cut._var[0].name() << " = " << "IPOW(" << cut._var[1].name()
+          out << cut._var[0].name() << " = " << cut._op->name() << "(" << cut._var[1].name()
               << ", " << cut._op->pops[1]->num().n << ")"; break;
         case FFOp::DPOW:
-          out << cut._var[0].name() << " = " << "DPOW(" << cut._var[1].name()
+          out << cut._var[0].name() << " = " << cut._op->name() << "(" << cut._var[1].name()
               << ", " << cut._op->pops[1]->num().x << ")"; break;
-        case FFOp::CHEB:
-          out << cut._var[0].name() << " = " << "CHEB(" << cut._var[1].name()
-              << ", " << cut._op->pops[1]->num().n << ")"; break;
         case FFOp::SQR:
-          out << cut._var[0].name() << " = " << "SQR(" << cut._var[1].name() << ")"; break;
         case FFOp::SQRT:
-          out << cut._var[0].name() << " = " << "SQRT(" << cut._var[1].name() << ")"; break;
         case FFOp::EXP:
-          out << cut._var[0].name() << " = " << "EXP(" << cut._var[1].name() << ")"; break;
         case FFOp::LOG:
-          out << cut._var[0].name() << " = " << "LOG(" << cut._var[1].name() << ")"; break;
         case FFOp::XLOG:
-          out << cut._var[0].name() << " = " << "XLOG(" << cut._var[1].name() << ")"; break;
         case FFOp::FABS:
-          out << cut._var[0].name() << " = " << "FABS(" << cut._var[1].name() << ")"; break;
         case FFOp::FSTEP:
-          out << cut._var[0].name() << " = " << "FSTEP(" << cut._var[1].name() << ")"; break;
         case FFOp::COS:
-          out << cut._var[0].name() << " = " << "COS(" << cut._var[1].name() << ")"; break;
         case FFOp::SIN:
-          out << cut._var[0].name() << " = " << "SIN(" << cut._var[1].name() << ")"; break;
         case FFOp::TAN:
-          out << cut._var[0].name() << " = " << "TAN(" << cut._var[1].name() << ")"; break;
         case FFOp::ACOS:
-          out << cut._var[0].name() << " = " << "ACOS(" << cut._var[1].name() << ")"; break;
         case FFOp::ASIN:
-          out << cut._var[0].name() << " = " << "ASIN(" << cut._var[1].name() << ")"; break;
         case FFOp::ATAN:
-          out << cut._var[0].name() << " = " << "ATAN(" << cut._var[1].name() << ")"; break;
         case FFOp::COSH:
-          out << cut._var[0].name() << " = " << "COSH(" << cut._var[1].name() << ")"; break;
         case FFOp::SINH:
-          out << cut._var[0].name() << " = " << "SINH(" << cut._var[1].name() << ")"; break;
         case FFOp::TANH:
-          out << cut._var[0].name() << " = " << "TANH(" << cut._var[1].name() << ")"; break;
         case FFOp::ERF:
-          out << cut._var[0].name() << " = " << "ERF(" << cut._var[1].name() << ")"; break;
+          out << cut._var[0].name() << " = " << cut._op->name() << "(" << cut._var[1].name() << ")"; break;
         case FFOp::MINF:
-          out << cut._var[0].name() << " = " << "MIN(" << cut._var[1].name() << ", ";
-          if( cut._var.size() > 2 ) out << cut._var[2].name();
-          else                      out << cut._rhs;
-          out << ")"; break;
         case FFOp::MAXF:
-          out << cut._var[0].name() << " = " << "MAX(" << cut._var[1].name() << ", ";
+          out << cut._var[0].name() << " = " << cut._op->name() << "(" << cut._var[1].name() << ", ";
           if( cut._var.size() > 2 ) out << cut._var[2].name();
           else                      out << cut._rhs;
           out << ")"; break;
-        case FFOp::LMTD:
-          out << cut._var[0].name() << " = " << "LMTD(" << cut._var[1].name() << ", "
-              << cut._var[2].name() << ")"; break;
-        case FFOp::RLMTD:
-          out << cut._var[0].name() << " = " << "RMLTD(" << cut._var[1].name() << ", "
-              << cut._var[2].name() << ")"; break;
         default:
+          if( cut._op->type >= FFOp::EXTERN ){
+            out << cut._var[0].name() << " = " << cut._op->name() << "(";
+            for( unsigned i=0; i<cut._op->pops.size()-1; i++ ) out << cut._var[i].name() << ", ";
+            out << cut._var[cut._op->pops.size()-1].name() << " )"; break;
+          }
+          // Should not reach this point
           throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::BADCUT );
-      } 
+      }
     }
   return out;
 }
@@ -1722,6 +1700,7 @@ operator <<
 template <class T> 
 struct lt_PolCut
 {
+
   bool operator()
     ( const PolCut<T>*Cut1, const PolCut<T>*Cut2 ) const
     {
@@ -2822,7 +2801,7 @@ operator^
   if( Var1._img && Var2._img && Var1._img != Var2._img )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::ENVMIS );
   PolImg<T>* img = Var1._img? Var1._img: Var2._img;
-  FFGraph* dag = Var1._var.cst()? Var2._var.dag(): Var1._var.dag();
+  FFBase* dag = Var1._var.cst()? Var2._var.dag(): Var1._var.dag();
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
   FFVar* pFFVarR = dag->curOp()->pres;
@@ -2857,7 +2836,7 @@ operator+
 ( const PolVar<T>&Var1, const double Cst2 )
 {
   PolImg<T>* img = Var1._img;
-  FFGraph* dag = Var1._var.dag();
+  FFBase* dag = Var1._var.dag();
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
   FFVar* pFFVarR = dag->curOp()->pres;
@@ -2873,7 +2852,7 @@ operator+
   if( Var1._img && Var2._img && Var1._img != Var2._img )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::ENVMIS );
   PolImg<T>* img = Var1._img? Var1._img: Var2._img;
-  FFGraph* dag = Var1._var.cst()? Var2._var.dag(): Var1._var.dag();
+  FFBase* dag = Var1._var.cst()? Var2._var.dag(): Var1._var.dag();
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
   FFVar* pFFVarR = dag->curOp()->pres;
@@ -2930,7 +2909,7 @@ inline PolVar<T>
 operator-
 ( const PolVar<T>&Var1 )
 {
-  FFGraph* dag = Var1._var.dag();
+  FFBase* dag = Var1._var.dag();
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
   PolImg<T>* img = Var1._img;
@@ -2973,7 +2952,7 @@ operator-
   if( Var1._img && Var2._img && Var1._img != Var2._img )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::ENVMIS );
   PolImg<T>* img = Var1._img? Var1._img: Var2._img;
-  FFGraph* dag = Var1._var.cst()? Var2._var.dag(): Var1._var.dag();
+  FFBase* dag = Var1._var.cst()? Var2._var.dag(): Var1._var.dag();
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
   FFVar* pFFVarR = dag->curOp()->pres;
@@ -3031,7 +3010,7 @@ operator*
 ( const PolVar<T>&Var1, const double Cst2 )
 {
   PolImg<T>* img = Var1._img;
-  FFGraph* dag = Var1._var.dag();
+  FFBase* dag = Var1._var.dag();
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
   FFVar* pFFVarR = dag->curOp()->pres;
@@ -3047,7 +3026,7 @@ operator*
   if( Var1._img && Var2._img && Var1._img != Var2._img )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::ENVMIS );
   PolImg<T>* img = Var1._img? Var1._img: Var2._img;
-  FFGraph* dag = Var1._var.cst()? Var2._var.dag(): Var1._var.dag();
+  FFBase* dag = Var1._var.cst()? Var2._var.dag(): Var1._var.dag();
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
   FFVar* pFFVarR = dag->curOp()->pres;
@@ -3176,7 +3155,7 @@ operator/
 ( const double Cst1, const PolVar<T>&Var2 )
 {
   PolImg<T>* img = Var2._img;
-  FFGraph* dag = Var2._var.dag();
+  FFBase* dag = Var2._var.dag();
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
   FFVar* pFFVarR = dag->curOp()->pres;
@@ -3192,7 +3171,7 @@ operator/
   if( Var1._img && Var2._img && Var1._img != Var2._img )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::ENVMIS );
   PolImg<T>* img = Var1._img? Var1._img: Var2._img;
-  FFGraph* dag = Var1._var.cst()? Var2._var.dag(): Var1._var.dag();
+  FFBase* dag = Var1._var.cst()? Var2._var.dag(): Var1._var.dag();
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
   FFVar* pFFVarR = dag->curOp()->pres;
@@ -3698,7 +3677,7 @@ inline PolVar<T>
 sqr
 ( const PolVar<T>&Var1 )
 {
-  FFGraph* dag = Var1._var.dag();
+  FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
@@ -3796,7 +3775,7 @@ inline PolVar<T>
 sqrt
 ( const PolVar<T>&Var1 )
 {
-  FFGraph* dag = Var1._var.dag();
+  FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
@@ -3843,7 +3822,7 @@ inline PolVar<T>
 pow
 ( const PolVar<T>&Var1, const double dExp )
 {
-  FFGraph* dag = Var1._var.dag();
+  FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
@@ -3903,7 +3882,7 @@ pow
   if( iExp == 0 || iExp == 1 || iExp == 2 )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
-  FFGraph* dag = Var1._var.dag();
+  FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
@@ -4060,7 +4039,7 @@ cheb
   if( iOrd <= 2 )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
-  FFGraph* dag = Var1._var.dag();
+  FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
@@ -4129,7 +4108,7 @@ prod
   if( nVar <= 2 )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
-  FFGraph* dag = pVar->_var.dag();
+  FFBase* dag = pVar->_var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
@@ -4250,7 +4229,7 @@ inline PolVar<T>
 exp
 ( const PolVar<T>&Var1 )
 {
-  FFGraph* dag = Var1._var.dag();
+  FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
@@ -4293,7 +4272,7 @@ inline PolVar<T>
 log
 ( const PolVar<T>&Var1 )
 {
-  FFGraph* dag = Var1._var.dag();
+  FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
@@ -4340,7 +4319,7 @@ inline PolVar<T>
 xlog
 ( const PolVar<T>&Var1 )
 {
-  FFGraph* dag = Var1._var.dag();
+  FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
@@ -4377,7 +4356,7 @@ inline PolVar<T>
 cos
 ( const PolVar<T>&Var1 )
 {
-  FFGraph* dag = Var1._var.dag();
+  FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
@@ -4547,7 +4526,7 @@ inline PolVar<T>
 sin
 ( const PolVar<T>&Var1 )
 {
-  FFGraph* dag = Var1._var.dag();
+  FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
@@ -4717,7 +4696,7 @@ inline PolVar<T>
 tan
 ( const PolVar<T>&Var1 )
 {
-  FFGraph* dag = Var1._var.dag();
+  FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
@@ -4840,7 +4819,7 @@ inline PolVar<T>
 acos
 ( const PolVar<T>&Var1 )
 {
-  FFGraph* dag = Var1._var.dag();
+  FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
@@ -4974,7 +4953,7 @@ inline PolVar<T>
 asin
 ( const PolVar<T>&Var1 )
 {
-  FFGraph* dag = Var1._var.dag();
+  FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
@@ -5108,7 +5087,7 @@ inline PolVar<T>
 atan
 ( const PolVar<T>&Var1 )
 {
-  FFGraph* dag = Var1._var.dag();
+  FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
@@ -5242,7 +5221,7 @@ inline PolVar<T>
 cosh
 ( const PolVar<T>&Var1 )
 {
-  FFGraph* dag = Var1._var.dag();
+  FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
@@ -5279,7 +5258,7 @@ inline PolVar<T>
 sinh
 ( const PolVar<T>&Var1 )
 {
-  FFGraph* dag = Var1._var.dag();
+  FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
@@ -5396,7 +5375,7 @@ inline PolVar<T>
 tanh
 ( const PolVar<T>&Var1 )
 {
-  FFGraph* dag = Var1._var.dag();
+  FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
@@ -5524,7 +5503,7 @@ inline PolVar<T>
 erf
 ( const PolVar<T>&Var1 )
 {
-  FFGraph* dag = Var1._var.dag();
+  FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
@@ -5652,7 +5631,7 @@ inline PolVar<T>
 fabs
 ( const PolVar<T>&Var1 )
 {
-  FFGraph* dag = Var1._var.dag();
+  FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
@@ -5738,7 +5717,7 @@ inline PolVar<T>
 fstep
 ( const PolVar<T>&Var1 )
 {
-  FFGraph* dag = Var1._var.dag();
+  FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
@@ -5819,7 +5798,7 @@ min
   if( Var1._img && Var2._img && Var1._img != Var2._img )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::ENVMIS );
   PolImg<T>* img = Var1._img? Var1._img: Var2._img;
-  FFGraph* dag = Var1._var.cst()? Var2._var.dag(): Var1._var.dag();
+  FFBase* dag = Var1._var.cst()? Var2._var.dag(): Var1._var.dag();
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
   FFVar* pFFVarR = dag->curOp()->pres;
@@ -5967,7 +5946,7 @@ max
   if( Var1._img && Var2._img && Var1._img != Var2._img )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::ENVMIS );
   PolImg<T>* img = Var1._img? Var1._img: Var2._img;
-  FFGraph* dag = Var1._var.cst()? Var2._var.dag(): Var1._var.dag();
+  FFBase* dag = Var1._var.cst()? Var2._var.dag(): Var1._var.dag();
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
   FFVar* pFFVarR = dag->curOp()->pres;

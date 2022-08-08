@@ -1,12 +1,6 @@
-////////////////////////////////////////////////////////////////////////
-#undef USE_PROFIL	// <-- specify to use PROFIL for interval arithmetic
-#undef USE_FILIB	// <-- specify to use FILIB++ for interval arithmetic
-////////////////////////////////////////////////////////////////////////
-
 #include <fstream>
 #include <iomanip>
 
-#include "mctime.hpp"
 #include "ffunc.hpp"
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -100,14 +94,45 @@ int test_compose3()
 
 ///////////////////////////////////////////////////////////////////////////////
 
+int test_insert()
+{
+  std::cout << "\n==============================================\ntest_insert:\n";
+
+  mc::FFGraph DAG1;
+  mc::FFVar X1[3], F1[3];
+  for( unsigned i=0; i<3; i++ )
+    X1[i].set( &DAG1 );
+  F1[0] = exp(X1[1]);
+  F1[1] = sqr(X1[0])-exp(X1[1])*X1[0];
+  F1[2] = sqr(X1[2])-exp(X1[1])*X1[2];
+  std::cout << DAG1;
+
+  mc::FFGraph DAG2;
+  mc::FFVar F2[2];
+  DAG2.insert( &DAG1, 1, F1, F2 );
+  std::cout << DAG2;
+  DAG2.insert( &DAG1, 1, F1+1, F2+1 );
+  std::cout << DAG2;
+
+  mc::FFGraph DAG3;
+  mc::FFVar F3[3];
+  DAG3.insert( &DAG1, 3, F1, F3 );
+  std::cout << DAG3;
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 int main()
 {
   try{
     test_compose1();
     test_compose2();
     test_compose3();
+    test_insert();
   }
-  catch( mc::FFGraph::Exceptions &eObj ){
+  catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
               << " in factorable function manipulation:" << std::endl
               << eObj.what() << std::endl

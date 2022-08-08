@@ -1,4 +1,4 @@
-// Copyright (C) 2015- Benoit Chachuat, Imperial College London.
+// Copyright (C) Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
@@ -245,10 +245,10 @@ bilinear programming problems</A>, <i>Journal of Global Optimization</i>, <b>2</
 #ifndef MC__RLTRED_HPP
 #define MC__RLTRED_HPP
 
-#include "ffunc.hpp"
-#include "spolyexpr.hpp"
 #include "mclapack.hpp"
 #include "mctime.hpp"
+#include "ffunc.hpp"
+#include "spoly.hpp"
 
 #if defined(MC__USE_CPLEX)
  #include "ilcplex/ilocplex.h"
@@ -356,6 +356,7 @@ class RLTRed
 {
 public:
   typedef typename FFVar::pt_idVar pt_idVar;
+  typedef SPoly< FFVar const*, lt_FFVar > t_SPoly;
   typedef std::set< const FFVar*, lt_FFVar > t_Vars;
   typedef std::pair< const FFOp*, unsigned int > pt_Op;
   typedef std::list< const FFOp* > l_Ops;
@@ -370,10 +371,10 @@ public:
   typedef std::map< std::pair< const t_RLTVar, const FFOp* >, GRBVar, lt_RLTEdge > t_ILPCtr;
   typedef std::map< std::pair< const t_RLTVar, const FFVar* >, GRBVar, lt_RLTNew > t_ILPVar;
 #endif
-
+  
 private:
   //! @brief Pointer to DAG
-  FFGraph* _dag;
+  FFBase* _dag;
 
   //! @brief Subset of linear operations
   t_Ops _linTerms;
@@ -445,7 +446,7 @@ public:
   
   //! @brief Default Constructor
   RLTRed
-    ( FFGraph* dag )
+    ( FFBase* dag )
     : _dag( dag )
     {
 #if defined(MC__USE_CPLEX)
@@ -629,6 +630,11 @@ private:
   //! @brief Add reduced constraint expressions to DAG and display
   void _add_to_dag
     ( const std::vector<const FFVar*>& vlhs );
+  //! @brief Insert polynomial expression in DAG
+  FFVar _insert_in_dag
+    ( FFBase* dag, t_SPoly const& ctr )
+    const;
+
   //! @brief Process all terms in reduced constraint
   void _process_constraint
     ( const unsigned iRow, const std::vector<const FFVar*>& vlhs, const t_RLTVar& RLTVar,
@@ -826,20 +832,20 @@ RLTRed::_add_to_dag
   }
 
   // Build "hidden" relationships from QR decomposition
-  std::vector<SPolyExpr> vSCtr;
+  std::vector<t_SPoly> vSCtr;
 
   for( int ip=nRLTRed-1; ip>=0; ip-- ){
     if( !isequal( R(ip,ip), 0 ) ) break;
-    SPolyExpr ctr = 0;
+    t_SPoly ctr = 0;
     for( unsigned jp=0; jp<nRLTRed; jp++ ){
       if( isequal( Q(jp,ip), 0 ) ) continue;
       assert(_rhsRed[jp]);
       if( _rhsRed[jp]->cst() )
         ctr += _rhsRed[jp]->num().val() * Q(jp,ip);
       else if( _rhsRed[jp]->ops().first->type != FFOp::NEG )
-        ctr += SPolyExpr( *_rhsRed[jp] ) * Q(jp,ip);
+        ctr += t_SPoly().var( _rhsRed[jp] ) * Q(jp,ip);
       else
-        ctr -= SPolyExpr( *_rhsRed[jp]->ops().first->pops[0] ) * Q(jp,ip);
+        ctr -= t_SPoly().var( _rhsRed[jp]->ops().first->pops[0] ) * Q(jp,ip);
     }
     if( options.DISPLEVEL >= 2 )
       std::cout << "New constraint #" << ip << ":" << ctr;
@@ -887,18 +893,18 @@ RLTRed::_add_to_dag
 
   // Build "hidden" relationships using forward substitution
   else if( INFO > 0 ){
-    std::vector<SPolyExpr> vSCtr;
+    std::vector<t_SPoly> vSCtr;
     
     for( auto&& ip : PIV ){
       assert(_rhsRed[ip]);
       const unsigned k = vSCtr.size();
-      SPolyExpr ctr = 0;
+      t_SPoly ctr = 0;
       if( _rhsRed[ip]->cst() )
         ctr += _rhsRed[ip]->num().val();
       else if( _rhsRed[ip]->ops().first->type != FFOp::NEG )
-        ctr += SPolyExpr( *_rhsRed[ip] );
+        ctr += t_SPoly().var( _rhsRed[ip] );
       else
-        ctr -= SPolyExpr( *_rhsRed[ip]->ops().first->pops[0] );
+        ctr -= t_SPoly().var( _rhsRed[ip]->ops().first->pops[0] );
       for( unsigned j=0; j<k; j++ )
         if( !isequal( L(k,j), 0 ) ) ctr += (-L(k,j)) * vSCtr[j];
       ctr /= L(k,k);
@@ -932,7 +938,7 @@ RLTRed::_add_to_dag
 
     // Build "hidden" relationships in DAG
     for( auto&& sctr : vSCtr ){
-      FFVar var = sctr.insert(_dag);
+      FFVar var = _insert_in_dag( _dag, sctr );
       auto itvar = _dag->Vars().find( &var );
       if( itvar == _dag->Vars().end() ){
         if( !isequal( var.num().val(), 0 ) ){
@@ -964,6 +970,34 @@ RLTRed::_add_to_dag
     // Generate list of operation for reduction constraints
     _dag->output( _dag->subgraph( _ctrRed ) );
   }
+}
+
+inline FFVar
+RLTRed::_insert_in_dag
+( FFBase* dag, t_SPoly const& ctr )
+const
+{
+  FFVar var = 0.;
+  for( auto const& [mon,coef] : ctr.mapmon() ){
+    FFVar prodmon = coef;
+    for( auto const& [pvar,ord] : mon.expr ){
+      auto itVar = dag->Vars().find( const_cast<FFVar*>(pvar) );
+      if( itVar == dag->Vars().end() )
+        throw std::runtime_error( "Internal error" );
+      switch( ctr.options.BASIS ){
+       case t_SPoly::Options::MONOM:
+        prodmon *= pow( **itVar, (int)ord );
+        break;
+       case t_SPoly::Options::CHEB:
+        prodmon *= cheb( **itVar, ord );
+        break;
+      }
+    }
+    if( mon.expr.empty() ) var = prodmon;
+    else                   var+= prodmon;
+  }
+  // ADD OPTION TO RETURN A PRODMON OR MONOM TERM?
+  return var;
 }
 
 inline void
