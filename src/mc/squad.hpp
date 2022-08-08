@@ -6,7 +6,7 @@
 \page page_SQUAD Decomposition of Sparse Polynomials into Quadratic Forms
 \author Benoit Chachuat, Tanuj Karia & OMEGA Research Group (http://www3.imperial.ac.uk/environmentenergyoptimisation)
 \date 2020
-\bug No known bugs.
+\bug mc::SQuad::Optimize only working with default argument OnlyminOrd=2 presently.
 
 The class mc::SQuad defined in <tt>squad.hpp</tt> enables the reformulation of sparse multivariate polynomials into a set of quadratic forms via the introduction of auxiliary variables [<A href="https://doi.org/10.1007/BF01070233">Shor, 1987</A>; <A href="https://doi.org/10.1080/00986449208936033">Manousiouthakis & Sourlas, 1992</A>; <A href="http://www.biomedcentral.com/1752-0509/4/69">Rumschinski <i>et al.</i>, 2010</A>]
 
@@ -672,7 +672,7 @@ public:
     ( POL const& SPol, map_SPoly const& (POL::*mapmon)() const,
       int const BASIS=options.BASIS, bool const CHECK=false );
 
-  //! @brief Optimize the quadratic expressions for sparsity
+  //! @brief Optimize the quadratic expressions for sparsity. BUG: Only working with default option minOrd=2 
   void optimize
     ( unsigned const minOrd=2, bool const warmStart=true );
 
