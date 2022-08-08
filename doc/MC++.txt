@@ -88,7 +88,6 @@ A description of the main bounding components of MC++ can be found under <A HREF
 .
 Information about the DAG construction and manipulation in MC++ can also be found under <A HREF="pages.html">Related Pages</A>:
 - \ref page_FFUNC
-- \ref page_SQUAD
 .
 
 \section sec_MC_examples How Do I Run the Examples of MC++?
@@ -136,14 +135,16 @@ $ gnuplot MC-1D.g
 A (growing) selection of papers that describe or use MC++ are:
 - Bompadre, A., A. Mitsos, <A href="http://dx.doi.org/10.1007/s10898-011-9685-2">Convergence rate of McCormick relaxations</A>, <I>Journal of Global Optimization</I> <B>52</B>(1):1-28, 2012
 - Bompadre, A., A. Mitsos, B. Chachuat, <A href="http://dx.doi.org/10.1007/s10898-012-9998-9">Convergence analysis of Taylor models and McCormick-Taylor models</A>, <i>Journal of Global Optimization</i>, <b>57</b>(1):75-114, 2013
+- Bongartz, D., J. Najman, S. Sass, A. Mitsos, <A HREF="http://permalink.avt.rwth-aachen.de/?id=729717"> MAiNGO – McCormick-based Algorithm for mixed-integer Nonlinear Global Optimization</A>, <I>Technical Report</I>, Process Systems Engineering (AVT.SVT), RWTH Aachen University, 2018
 - Chachuat, B, B. Houska, R. Paulen, N. Peric, J. Rajyaguru, M.E. Villanueva, <A href="http://dx.doi.org/10.1016/j.ifacol.2015.09.097">Set-Theoretic Approaches in Analysis, Estimation and Control of Nonlinear Systems</A>, <I>IFAC-PapersOnLine</I>, <b>48</b>(8):981-995, 2015
-- Houska, B., M.E. Villanueva, B. Chachuat, <A href="http://cdc2013.units.it/index.php">A validated integration algorithm for nonlinear ODEs using Taylor models and ellipsoidal calculus</A>, <I>52nd IEEE Conference on Decision and Control (CDC)</I>, December 10-13, 2013, Florence, Italy
+- Houska, B., M.E. Villanueva, B. Chachuat, <A href="https://doi.org/10.1109/CDC.2013.6759928">A validated integration algorithm for nonlinear ODEs using Taylor models and ellipsoidal calculus</A>, <I>52nd IEEE Conference on Decision and Control (CDC)</I>, 484-489, 2013
+- Karia, T., C.S. Adjiman, B. Chachuat, <A href="https://doi.org/10.1016/j.compchemeng.2022.107909">Assessment of a Two-Step Approach for Global Optimization of Mixed-Integer Polynomial Programs using Quadratic Reformulation</A>, <i>Computers & Chemical Engineering</i>, <b>165</b>:107909, 2022
 - Mitsos, A., B. Chachuat, P.I. Barton, <A href="http://dx.doi.org/10.1137/080717341">McCormick-based relaxations of algorithms</A>, <i>SIAM Journal on Optimization</i>, <b>20</b>(2):573-601, 2009
-- Rajyaguru, J., Villanueva M.E., Houska B., Chachuat B., <A href="http://dx.doi.org/10.1007/s10898-016-0474-9">Chebyshev model arithmetic for factorable functions</A>, <i>Journal of Global Optimization</i>, in press
+- Rajyaguru, J., Villanueva M.E., Houska B., Chachuat B., <A href="http://dx.doi.org/10.1007/s10898-016-0474-9">Chebyshev model arithmetic for factorable functions</A>, <i>Journal of Global Optimization</i>, <b>68</b>, 413-438, 2017
 - Sahlodin, M.A., and B. Chachuat, <A href="http://dx.doi.org/10.1016/j.compchemeng.2011.01.031">Convex/concave relaxations of parametric ODEs using Taylor models</A>, <i>Computers & Chemical Engineering</i>, <b>35</b>(5):844-857, 2011
 - Scott, J.K., M.D. Stuber, P.I. Barton, <A href="http://dx.doi.org/10.1007/s10898-011-9664-7">Generalized McCormick relaxations</A>. <i>Journal of Global Optimization</i>, <b>51</b>(4), 569-606, 2011
 - Tsoukalas, A., A. Mitsos, <A href="http://www.optimization-online.org/DB_HTML/2012/05/3473.html">Multi-variate McCormick relaxations</A>, <i>Journal of Global Optimization</i>, <b>59</b>(2):633-662, 2014
-- Villanueva, M.E., J. Rajyagurua, B. Houskab, B. Chachuat, <A href="https://doi.org/10.1016/B978-0-444-63578-5.50123-7">"Ellipsoidal Arithmetic for Multivariate Systems"</A>, <i>Computer Aided Chemical Engineering</i>, <b>37</b>, 767-772, 2015.
+- Villanueva, M.E., J. Rajyagurua, B. Houskab, B. Chachuat, <A href="https://doi.org/10.1016/B978-0-444-63578-5.50123-7">"Ellipsoidal Arithmetic for Multivariate Systems"</A>, <i>Computer Aided Chemical Engineering</i>, <b>37</b>, 767-772, 2015
 - Wechsung, A., P.I. Barton, <A href="http://dx.doi.org/10.1007/s10898-013-0060-3">Global optimization of bounded factorable functions with discontinuities</A>, <i>Journal of Global Optimization</i>, <b>58</b>(1):1-30, 2014
 .
 

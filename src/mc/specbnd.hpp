@@ -4,7 +4,7 @@
 
 /*!
 \page page_SPECBND Eigenvalue Arithmetic for Factorable Functions
-\author Nikola Peri&cacute;, Akshay Shah, Jai Rajyaguru & Beno&icirc;t Chachuat
+\author Nikola Peric, Akshay Shah, Jai Rajyaguru & Beno&icirc;t Chachuat
 
 Given a factorable, multivariate function \f$f:\mathbb{R}^n\to\mathbb{R}\f$, that is twice-continuously differentiable on a box \f$X:=[x^{\rm L},x^{\rm U}]\f$, M&ouml;nnigmann's technique [M&ouml;nnigmann, 2008; 2011] provides a means for computing spectral bounds of its Hessian matrix \f$\nabla^2f(x)\f$ at any point \f$x\in X\f$&mdash;without actually computing \f$\nabla^2f(x)\f$. Applications of this technique are in determining whether a function is convex or concave on a particular domain, as well as in constructing convex/concave relaxations for complete search approaches in global optimization. Alternative techniques for determining spectral bounds include the interval variant of Gershgorin's circle criterion [Adjiman <I>et al.</I>, 1998] as well as Hertz & Rohn's method [Hertz, 1992], which rely on an interval enclosure of the set of all possible Hessian matrices \f$[\nabla^2f] \supseteq \{\nabla^2f(x) \mid x\in X\}\f$. See also \ref page_MCCORMICK for an alternative way of constructing convex/concave relaxations. 
 

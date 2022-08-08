@@ -379,7 +379,7 @@ Possible errors encountered during quadratization of a multivariate polynomial a
 - JP Ruiz, IE Grossmann, <A href="https://doi.org/10.1016/j.compchemeng.2011.01.035">Using redundancy to strengthen the relaxation for the global optimization of MINLP problems</A>, <I>Computers & Chemical Engineering</I> <B>35</B>:2729–2740, 2011
 - P Rumschinski, S Borchers, S Bosio, R Weismantel, R Findeisen, <A href="http://www.biomedcentral.com/1752-0509/4/69">Set-base dynamical parameter estimation and model invalidation for biochemical reaction networks</A>, <I>BMC Systems Biology</I> <b>4</b>:69, 2010
 - NZ Shor, <A href="https://doi.org/10.1007/BF01070233">Class of global minimum bounds of polynomial functions</A>, <I>Cybernetics</I> <B>23</B>:731–734, 1987 
-- <A href="https://en.wikipedia.org/w/index.php?title=Sum-of-squares_optimization&oldid=929488354">Sum-of-squares optimization</A>, <i>Wikipedia, accessed: 27-Jan-2020
+- <A href="https://en.wikipedia.org/w/index.php?title=Sum-of-squares_optimization&oldid=929488354">Sum-of-squares optimization</A>, <i>Wikipedia</i>, accessed: 27-Jan-2020
 .
 */
 

@@ -119,8 +119,8 @@ protected:
   //! @brief Lifting of sparse polynomial coefficient maps
   static void _slift1D
     ( t_poly const& spoly, double const& dscal, t_poly& splift,
-      typename t_var::const_iterator itvar, unsigned int const iord );
-
+      typename t_var::const_iterator itvar, unsigned const iord );
+      
   //! @brief Convert univariate polynomial from Chebyshev to monomial basis
   void _convert
     ( t_poly& mapmon, t_var const& setvar, int const BASIS )

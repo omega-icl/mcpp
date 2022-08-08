@@ -646,7 +646,7 @@ private:
 
   //! @brief Create subset of operations of given type
   t_Ops _subset_op
-    ( const l_Ops& Ops, const unsigned int nOp, const typename FFOp::TYPE*typeOp )
+    ( const l_Ops& Ops, const unsigned nOp, const typename FFOp::TYPE*typeOp )
     const;
   //! @brief Create subset of operations of given type
   t_Ops _subset_op
@@ -1799,7 +1799,7 @@ RLTRed::_augpath_RLT
 
 inline typename RLTRed::t_Ops
 RLTRed::_subset_op
-( const typename RLTRed::l_Ops& Ops, const unsigned int nOp, const typename FFOp::TYPE*typeOp )
+( const l_Ops& Ops, const unsigned nOp, const typename FFOp::TYPE*typeOp )
 const
 {
   // Create subset of operations of given type
@@ -1816,7 +1816,7 @@ const
 
 inline typename RLTRed::t_Ops
 RLTRed::_subset_op
-( const typename RLTRed::l_Ops& Ops, const typename FFOp::TYPE&typeOp )
+( const l_Ops& Ops, const typename FFOp::TYPE&typeOp )
 const
 {
   // Create subset of operations of given type

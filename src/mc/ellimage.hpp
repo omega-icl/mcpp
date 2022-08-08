@@ -707,7 +707,8 @@ T EllVar<T>::TOne
 
 template <class T> 
 inline 
-EllImg<T>::EllImg()
+EllImg<T>::EllImg
+()
 : _nx(0), _curRow(0)
 {
 #ifdef MC__ELLIMAGE_DEBUG
@@ -718,7 +719,7 @@ EllImg<T>::EllImg()
 template <class T> 
 inline 
 EllImg<T>::EllImg
-( const CPPL::dsymatrix& Q, const CPPL::dcovector& c )
+( CPPL::dsymatrix const& Q, CPPL::dcovector const& c )
 : Ellipsoid( Q, c )
 {
 #ifdef MC__ELLIMAGE_DEBUG
@@ -730,7 +731,7 @@ EllImg<T>::EllImg
 template <class T> 
 inline 
 EllImg<T>::EllImg
-( const EllImg<T>& E )
+( EllImg<T> const& E )
 : Ellipsoid( E )//, options( E.options )
 {
 #ifdef MC__ELLIMAGE_DEBUG
@@ -742,7 +743,7 @@ EllImg<T>::EllImg
 template <class T> 
 inline 
 EllImg<T>::EllImg
-( const unsigned int n, const double*Q, const double*c )
+( unsigned const n, double const* Q, double const* c )
 : Ellipsoid( n, Q, c )
 {
 #ifdef MC__ELLIMAGE_DEBUG
@@ -754,7 +755,7 @@ EllImg<T>::EllImg
 template <class T> 
 inline 
 EllImg<T>::EllImg
-( const CPPL::dcovector& r, const CPPL::dcovector& c )
+( CPPL::dcovector const& r, CPPL::dcovector const& c )
 : Ellipsoid( r, c )
 {
 #ifdef MC__ELLIMAGE_DEBUG
@@ -765,7 +766,8 @@ EllImg<T>::EllImg
 
 template <class T> 
 inline 
-EllImg<T>::~EllImg()
+EllImg<T>::~EllImg
+()
 {
 #ifdef MC__ELLIMAGE_DEBUG
   _dbugout.close();

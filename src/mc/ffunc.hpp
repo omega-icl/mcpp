@@ -14,7 +14,7 @@ Factorable functions can be represented using <b>directed acyclic graphs (DAGs)<
 
 The classes mc::FFGraph, mc::FFBase, mc::FFVar and mc::FFOp defined in <tt>ffunc.hpp</tt> implement such a DAG construction for factorable functions. They also provide a basis for their manipulation, including differentiation and Taylor expansion, as well as their evaluation, in particular with the types mc::McCormick, mc::Specbnd, mc::TVar and mc::CVar of MC++. Additional classes building on mc::FFGraph for DAG manipulation include:
 - \subpage page_SPEXPR
-- \subpage page_QUADEXPR
+- \subpage page_SQUAD
 - \subpage page_RLTRED
 .
 
