@@ -1042,6 +1042,17 @@ public:
   //! @brief Flag for current operation (during a DAG traversal)
   mutable int iflag;
 
+
+  //! @brief Set unary operand and result
+  FFOp& set
+    ( FFVar* lop, FFVar* res );
+  //! @brief Set binary operands and result
+  FFOp& set
+    ( FFVar* lop, FFVar* rop, FFVar* res );
+  //! @brief Set n-ary operands and result
+  FFOp& set
+    ( unsigned const nop, FFVar** ops, FFVar* res );
+
   //! @brief Propagate subset of operations participating in subgraph
   void propagate_subgraph
     ( std::list<FFOp const*>& Ops )
@@ -3364,6 +3375,39 @@ FFOp::FFOp
   std::sort( pops.begin(), pops.end(), lt_FFVar() );
 }
 
+inline FFOp&
+FFOp::set
+( FFVar* lop, FFVar* res )
+{
+  pres = res;
+  pops.assign( { lop } );
+  return *this;
+}
+
+inline FFOp&
+FFOp::set
+( FFVar* lop, FFVar* rop, FFVar* res )
+{
+  pres = res;
+  // Reorder operands in commutative operations
+  if( commutative() && lt_FFVar()( rop, lop ) )
+    pops.assign( { rop, lop } );
+  else
+    pops.assign( { lop, rop } );
+  return *this;
+}
+
+inline FFOp&
+FFOp::set
+( unsigned const nop, FFVar** ops, FFVar* res )
+{
+  pres = res;
+  pops.assign( ops, ops+nop );
+  if( nop < 2 || !commutative() ) return *this;
+  std::sort( pops.begin(), pops.end(), lt_FFVar() );
+  return *this;
+}
+
 template <typename ExtOp>
 inline FFVar&
 FFOp::insert_external_operation
@@ -4650,7 +4694,8 @@ FFBase::_insert_nary_external_operation
       vVar.push_back( pVar[i]._ops.first->pres );
   }
   
-  FFOp* pOp = new ExtOp( Op.type, nVar, vVar.data(), nullptr );
+  FFOp* pOp = new ExtOp();
+  pOp->set( nVar, vVar.data(), nullptr );
   auto itOp = dag->_Ops.find( pOp );
   if( itOp != dag->_Ops.end() ){
     delete pOp;
@@ -4688,7 +4733,8 @@ FFBase::_insert_binary_external_operation
   else
     pVar2 = Var2._ops.first->pres;  
 
-  FFOp* pOp = new ExtOp( Op.type, pVar1, pVar2, nullptr );
+  FFOp* pOp = new ExtOp();
+  pOp->set( pVar1, pVar2, nullptr );
   auto itOp = dag->_Ops.find( pOp );
   if( itOp != dag->_Ops.end() ){
     delete pOp;
@@ -4711,7 +4757,8 @@ FFBase::_insert_unary_external_operation
   if( Var._dag == nullptr ) throw Exceptions( Exceptions::DAG );
   FFVar *pVar = Var._ops.first->pres;
 
-  FFOp* pOp = new ExtOp( Op.type, pVar, nullptr );
+  FFOp* pOp = new ExtOp();
+  pOp->set( pVar, nullptr );
   auto itOp = Var._dag->_Ops.find( pOp );
   if( itOp != Var._dag->_Ops.end() ){
     delete pOp;

@@ -52,10 +52,6 @@ public:
     ()
     : FFOp( (int)EXTERN )
     {}
-  FFnorm2
-    ( int const type, unsigned const nVar, FFVar** pVar, FFVar* pRes )
-    : FFOp( type, nVar, pVar, pRes )
-    {}
 
   // Functor
   FFVar& operator()
@@ -97,11 +93,6 @@ public:
     ()
     const
     { return true; }
-  //! @brief Test type-info
-  bool sameid
-    ( std::type_info const& id )
-    const
-    { return( typeid(*this) == id ); };
 };
 
 class FFxlog
@@ -112,10 +103,6 @@ public:
   FFxlog
     ()
     : FFOp( (int)EXTERN+1 )
-    {}
-  FFxlog
-    ( int const type, FFVar* pVar, FFVar* pRes )
-    : FFOp( type, pVar, pRes )
     {}
 
   // Functor
@@ -134,7 +121,7 @@ public:
     const
     { 
       assert( nVar == 1 );
-      std::cout << "Generic instantiation!\n"; 
+      std::cout << "xlog generic instantiation\n"; 
       vRes = vVar[0] * Op<T>::log( vVar[0] );
     }
   template< typename T > void eval
@@ -142,7 +129,7 @@ public:
     const
     {
       assert( nVar == 1 );
-      std::cout << "McCormick instantiation!\n"; 
+      std::cout << "xlog McCormick instantiation\n"; 
       vRes = xlog( vVar[0] );
     }
   void eval
@@ -158,12 +145,6 @@ public:
     ()
     const
     { return "XLOG"; }
-
-  //! @brief Test type-info
-  bool sameid
-    ( std::type_info const& id )
-    const
-    { return( typeid(*this) == id ); }
 };
 
 class FFdet
@@ -174,10 +155,6 @@ public:
   FFdet
     ()
     : FFOp( (int)EXTERN+2 )
-    {}
-  FFdet
-    ( int const type, unsigned const nVar, FFVar** pVar, FFVar* pRes )
-    : FFOp( type, nVar, pVar, pRes )
     {}
 
   // Functor
@@ -201,6 +178,7 @@ public:
     ( T& vRes, unsigned const nVar, T const* vVar )
     const
     {
+      std::cout << "Det generic instantiation\n"; 
       const unsigned nDim = std::sqrt(nVar);
       switch( nDim ){
         case 0:  vRes = T( 0. ); break;
@@ -212,6 +190,7 @@ public:
     ( double& vRes, unsigned const nVar, double const* pVar )
     const
     {
+      std::cout << "Det double instantiation\n"; 
       const unsigned nDim = std::sqrt(nVar);
       CPPL::dgematrix Amat( nDim, nDim );
       for( unsigned i=0; i<nDim; ++i )
@@ -237,11 +216,6 @@ public:
     ()
     const
     { return true; }
-  //! @brief Test type-info
-  bool sameid
-    ( std::type_info const& id )
-    const
-    { return( typeid(*this) == id ); };
 };
 }
 
@@ -341,7 +315,7 @@ int test_external2()
 
 int test_external3()
 {
-  std::cout << "\n==============================================\ntest_external2:\n";
+  std::cout << "\n==============================================\ntest_external3:\n";
 
   //mc::FFGraphExt DAG;
   mc::FFGraph<mc::FFnorm2,mc::FFxlog> DAG;
