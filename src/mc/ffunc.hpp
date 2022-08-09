@@ -1,4 +1,4 @@
-// Copyright (C) 2013-2018 Benoit Chachuat, Imperial College London.
+// Copyright (C) 2013-2022 Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
@@ -8,18 +8,17 @@
 \date 2022
 \bug No known bugs.
 
-Originally introduced by McCormick [McCormick, 1976] for the development of a convex/concave relaxation arithmetic, <B>factorable functions</B> cover an extremely inclusive class of functions which can be represented finitely on a computer by means of a code list or a computational graph involving atom operations. These are typically unary and binary operations within a library of atom operators, which can be based for example on the C-code library <tt>math.h</tt>. Besides convex/concave relaxations, factorable functions find applications in automatic differentiation (AD) [Naumann, 2009] as well as in interval analysis [Moore <I>et al.</I>, 2009] and Taylor model arithmetic [Neumaier, 2002].
+Originally introduced by McCormick [McCormick, 1976] for the development of a convex/concave relaxation arithmetic, <B>factorable functions</B> cover an extremely inclusive class of functions which can be represented finitely on a computer by means of a code list or a computational graph involving atom operations. These are typically unary and binary operations within a library of atom operators, which can be based for example on the C-code library <tt>math.h</tt>. Besides convex/concave relaxations, factorable functions find applications in automatic differentiation (AD) [Naumann, 2009] as well as in interval analysis [Moore <I>et al.</I>, 2009] and other set arithmetics [Chachuat <I>et al.</i>, 2015].
 
-Factorable functions can be represented using <b>directed acyclic graphs (DAGs)</b>, whose nodes are subexpressions and whose directed edges are computational flows [Schichl & Neumaier, 2005]. Compared to tree-based representations, DAGs offer the essential advantage of more accurately handling the influence of subexpressions shared by several functions during evaluation.
+Factorable functions can be represented using <b>directed acyclic graphs (DAGs)</b>, whose nodes are subexpressions and whose directed edges are computational flows [Schichl & Neumaier, 2005]. A key advantage of DAGs is that they can handle common subexpressions shared by several functions effectively.
 
-The classes mc::FFGraph, mc::FFBase, mc::FFVar and mc::FFOp defined in <tt>ffunc.hpp</tt> implement such a DAG construction for factorable functions. They also provide a basis for their manipulation, including differentiation and Taylor expansion, as well as their evaluation, in particular with the types mc::McCormick, mc::Specbnd, mc::TVar and mc::CVar of MC++. Additional classes building on mc::FFGraph for DAG manipulation include:
+The classes mc::FFGraph, mc::FFBase, mc::FFVar and mc::FFOp defined in <tt>ffunc.hpp</tt> provide an implementation of DAGs for factorable functions in MC++. They enable their evaluation using any of the arithmetics supported by MC++, including interval ranges (mc::Interval), McCormick relaxations (mc::McCormick), Taylor and Chebyshev models (mc::TVar, mc::CVar, mc::SCVar), spectral bounds (mc::Specbnd), polyhedral relaxations (mc::PolVar), and interval superposition models (mc::ISVar). They also enable their symbolic manipulation, including automatic differentiation, sparse factorization, and quadratization; see:
 - \subpage page_SPEXPR
 - \subpage page_SQUAD
 - \subpage page_RLTRED
 .
 
-
-\section sec_FFUNC_dag How Do I Construct the DAG of a Factorable Function?
+\section sec_FFUNC_dag How do I construct the DAG of a factorable function?
 
 For illustration, suppose we want to construct a DAG for the factorable function \f${\bf f}:\mathbb{R}^4\to\mathbb{R}^2\f$ defined by
 \f{align*}
@@ -32,7 +31,7 @@ The constructions require the header file <tt>ffunc.hpp</tt> to be included:
       #include "ffunc.hpp"
 \endcode
 
-An environment <a>mc::FFGraph</a> is first defined for recording the factorable function DAG. All four variables <a>mc::FFVar</a> participating in that function are then defined in the enviornment using the method <a>mc::FFVar::set</a>:
+An environment mc::FFGraph is first defined for recording the factorable function DAG. All four variables mc::FFVar participating in that function are then defined in the environment using the method mc::FFVar::set:
 
 \code
       mc::FFGraph DAG;
@@ -61,15 +60,15 @@ The last line displays the following information about the factorable function D
       X3     => { Z0 }
 
     DAG INTERMEDIATES:
-      Z0    <=  X2 * X3              => { Z1 Z2 }
-      Z1    <=  Z0 - X0              => { }
-      Z2    <=  EXP( Z0 )            => { Z4 }
-      Z4    <=  Z2 + Z3              => { Z6 }
-      Z6    <=  POW( Z4, Z5 )        => { Z7 }
-      Z7    <=  X0 * Z6              => { Z8 }
-      Z8    <=  X1 + Z7              => { }
-      Z5    <=  4(I)                 => { Z6 }
-      Z3    <=  3(D)                 => { Z4 }
+      Z0	<=  X2 x X3		 => { Z1 Z2 }
+      Z1	<=  Z0 - X0		 => { }
+      Z2	<=  EXP( Z0 )		 => { Z4 }
+      Z4	<=  Z2 + Z3		 => { Z6 }
+      Z6	<=  IPOW( Z4, Z5 )	 => { Z7 }
+      Z7	<=  X0 x Z6		 => { Z8 }
+      Z8	<=  X1 + Z7		 => { }
+      Z5	<=  4(I)		 => { Z6 }
+      Z3	<=  3.1(D)		 => { Z4 }
 \endverbatim
 
 Observe that 9 auxiliary variables, \f$z_0,\ldots,z_8\f$, have been created in the DAG, which correspond to the various unary and binary operations in the factorable function expression, as well as the (integer or real) participating constants. Observe, in particular, that the common sub-expression \f$x_2x_3\f$ is detected here; that is, the intermediate \f$z_0\f$ is reused to obtain both subsequent auxiliary variables \f$z_1\f$ and \f$z_2\f$.
@@ -87,16 +86,16 @@ Here, the first line generates and displays a subgraph of both components of \f$
     OPERATIONS IN SUBGRAPH F:
       X2	<=  VARIABLE
       X3	<=  VARIABLE
-      Z0	<=  X2 * X3	
+      Z0	<=  X2 x X3	
       X0	<=  VARIABLE
       Z1	<=  Z0 - X0	
       X1	<=  VARIABLE
       Z2	<=  EXP( Z0 )	
-      Z3	<=  3(D)	
+      Z3	<=  3.1(D)	
       Z4	<=  Z2 + Z3	
       Z5	<=  4(I)	
-      Z6	<=  POW( Z4, Z5 )
-      Z7	<=  X0 * Z6	
+      Z6	<=  IPOW( Z4, Z5 )
+      Z7	<=  X0 x Z6	
       Z8	<=  X1 + Z7	
 
     DEPENDENTS IN SUBGRAPH F:
@@ -106,7 +105,7 @@ Here, the first line generates and displays a subgraph of both components of \f$
     OPERATIONS IN SUBGRAPH F0:
       X2	<=  VARIABLE
       X3	<=  VARIABLE
-      Z0	<=  X2 * X3	
+      Z0	<=  X2 x X3	
       X0	<=  VARIABLE
       Z1	<=  Z0 - X0	
 
@@ -129,8 +128,8 @@ The obtained subgraphs can also be depicted using the (open source) graph plotti
 The graphs can be visualized, e.g., after generating SVG files using the command line as:
 
 \verbatim
-    $ dot -Tsvg -O F.dot;  display F.dot.svg
-    $ dot -Tsvg -O F0.dot; display F0.dot.svg
+    $ dot -Tpng -O F.dot;  display F.dot.png
+    $ dot -Tpng -O F0.dot; display F0.dot.png
 \endverbatim
 
 <CENTER><TABLE BORDER=0>
@@ -141,7 +140,7 @@ The graphs can be visualized, e.g., after generating SVG files using the command
 </TABLE></CENTER>
 
 
-\section sec_FFUNC_FADBAD How Do I Obtain the DAG of a Factorable Function's Derivatives?
+\section sec_FFUNC_FADBAD How do I obtain the DAG of a factorable function's derivatives?
 
 Derivatives of a factorable function in mc::FFGraph can be obtained with the methods mc::FFGraph::FAD and mc::FFGraph::BAD, which implement the forward and reverse mode of automatic differentiation (AD), respectively. It should be noted that mc::FFGraph does <a>not</a> implement these AD methods per se, but uses the classes fadbad::F and fadbad::B as part of <A href="http://www.fadbad.com/fadbad.html">FADBAD++</A>.
 
@@ -240,149 +239,7 @@ The corresponding graphs are shown below. Note that the reverse mode leads to a 
 The class mc::FFGraph also supports sparse derivatives, both in forward and backward modes, as well as directional derivatives in forward mode.
 
 
-\section sec_FFUNC_eval How Do I Evaluate the DAG of a Factorable Function in a Given Arithmetic?
-
-Having created the DAG of a factorable function or its derivatives, one can evaluate these functions in any arithmetic implemented in MC++ using the method mc::FFGraph::eval.
-
-Coming back to our initial example, suppose that we want to compute interval bounds on the first-order derivatives of the factorable function 
-\f{align*}
-  {\bf f} = \left(\begin{array}{c} x_2x_3-x_0\\ x_0(\exp(x_2x_3)+3.0)^4)+x_1\end{array}\right)
-\f}
-in the direction \f$(0,1,1,0)\f$, with \f$x_0\in[0,0.5]\f$, \f$x_1\in[1,2]\f$, \f$x_2\in[-1,-0.8]\f$, and \f$x_3\in[0.5,1]\f$.
-
-For simplicity, the default interval type mc::Interval of MC++ is used here:
-
-\code
-      #include "ffunc.hpp"
-      #include "interval.hpp"
-      typedef mc::Interval I;
-\endcode
-
-A DAG of the directional derivatives of \f$f\f$ is constructed first:
-
-\code
-      // DAG environment
-      mc::FFGraph DAG;
-
-      // Independent variables and derivative direction
-      const unsigned int NX = 4;
-      mc::FFVar X[NX], D[NX] = { 0., 1., 1., 0. };
-      for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
-
-      // Dependent variables
-      const unsigned int NF = 2;
-      mc::FFVar F[NF]
-        = { X[2]*X[3]-X[0],
-            X[0]*pow(exp(X[2]*X[3])+3.,4)+X[1] };
-
-      // DAG of directional derivatives
-      const mc::FFVar* dFdXdir = DAG.DFAD( NF, F, NX, X, D );
-\endcode
-
-In a second step, the DAG of directional derivatives is evaluated in interval arithmetic as follows:
-
-\code
-      // Evaluation in interval arithmetic
-      I IX[NX] = { I(0,0.5), I(1,2), I(-1,-0.8), I(0.5,1) }, IdFdXdir[NF];
-      std::vector<I> IWK;
-      DAG.eval( IWK, NF, dFdXdir, IdFdXdir, NX, X, IX );
-
-      // Display results
-      for( unsigned i=0; i<NF; i++ )
-        std::cout << "  dF("<< i << ")dX·D = " << IdFdXdir[i] << std::endl;
-\endcode
-
-The DAG evaluation can be carried out in sparse Chebyshev model arithmetic likewise:
-
-\code
-      #include "scmodel.hpp"
-      typedef mc::SCModel<I> SCM;
-      typedef mc::SCVar<I> SCV;
-\endcode
-
-\code
-      // Evaluation in 3rd-order Chebyshev model arithmetic
-      const unsigned ORD = 3;
-      SCM CMenv( ORD );
-      SCV CMX[NX], CMdFdXdir[NF];
-      for( unsigned i=0; i<NX; i++ ) CMX[i].set( &CMenv, i, IX[i] );
-      std::vector<SCV> SCVWK;
-      DAG.eval( SCVWK, NF, dFdXdir, CMdFdXdir, NX, X, CMX );
-
-      // Display results
-      for( unsigned i=0; i<NF; i++ )
-        std::cout << "  dF("<< i << ")dX·D = " << CMdFdXdir[i] << std::endl;
-\endcode
-
-Both <a>IWK</a> and <a>SCVWK</a> are working arrays, used as storage for DAG intermediates during the forward propagation. These evaluations produce the following results:
-
-<h3>Evaluation in Interval Arithmetic</h3>
-\verbatim
-      dF(0)dX·D = [  5.00000e-01 :  1.00000e+00 ]
-      dF(1)dX·D = [  1.00000e+00 :  6.72863e+01 ]
-\endverbatim
-
-<h3>Evaluation in Sparse Chebyshev Model Arithmetic</h3>
-\verbatim
-      dF(0)dX·D = 
-       7.50000e-01   
-       2.50000e-01   T1[3] 
-       R     =  [  0.00000e+00 :  0.00000e+00 ]
-       B     =  [  5.00000e-01 :  1.00000e+00 ]
-
-      dF(1)dX·D = 
-       1.71660e+01   
-       1.61660e+01   T1[0] 
-       1.73038e+00   T1[2] 
-       3.45209e-01   T1[3] 
-       1.73038e+00   T1[0] T1[2] 
-       3.45209e-01   T1[0] T1[3] 
-       5.09515e-01   T1[2] T1[3] 
-       5.64787e-02   T2[2] 
-      -3.95484e-01   T2[3] 
-       5.09515e-01   T1[0] T1[2] T1[3] 
-       5.64787e-02   T1[0] T2[2] 
-      -3.95484e-01   T1[0] T2[3] 
-      -5.04161e-02   T1[2] T2[3] 
-       3.06189e-02   T2[2] T1[3] 
-       1.49579e-03   T3[2] 
-       4.80200e-02   T3[3] 
-       R     =  [ -1.87089e-01 :  1.87089e-01 ]
-       B     =  [  1.00000e+00 :  3.91087e+01 ]
-\endverbatim
-
-Backward propagation is also possible through the DAG, e.g. for contraint propagation. Assuming that interval bounds are known for the directional derivatives, we want to tighten the bounds on the independent variables through reverse DAG propagation:
-
-\code
-      // Evaluation in interval arithmetic
-      I IX[NX] = { I(0,0.5), I(1,2), I(-1,-0.8), I(0.5,1) },
-        IdFdXdir[NF] = { I(0.,1.), I(0.,5.) };
-      std::vector<I> IWK;
-      int flag = DAG.reval( IWK, NF, dFdXdir, IdFdXdir, NX, X, IX );
-      std::cout << "\nDAG interval evaluation w/ forward/backward passes:\n";
-
-      // Display results
-      for( unsigned i=0; i<NX; i++ )
-        std::cout << "  X(" << i << ") = " << IX[i] << std::endl;
-      for( unsigned i=0; i<NF; i++ )
-        std::cout << "  dF("<< i << ")dX·D = " << IdFdXdir[i] << std::endl;
-\endcode
-
-This evaluation produces the following results:
-
-<h3>Constraint Propagation in Interval Arithmetic</h3>
-\verbatim
-      X(0) = [  0.00000e+00 :  1.42316e-01 ]
-      X(1) = [  1.00000e+00 :  2.00000e+00 ]
-      X(2) = [ -1.00000e+00 : -8.00000e-01 ]
-      X(3) = [  5.00000e-01 :  1.00000e+00 ]
-      dF(0)dX·D = [  5.00000e-01 :  1.00000e+00 ]
-      dF(1)dX·D = [  1.00000e+00 :  5.00000e+00 ]
-\endverbatim
-
-In practice, it is paramount to use reverse propagation of verified types (e.g. types that acount for round-off errors). Otherwise, the behavior could be unpredictable; e.g., a feasible set of constraints might be declared infeasible. 
-
-\section sec_FFUNC_TAD How Do I Obtain the DAG of the Taylor Expansion of ODE solutions?
+\section sec_FFUNC_TAD How do I obtain the DAG of the Taylor expansion of ODE solutions?
 
 Consider a dynamic system of the form
 \f{align*}
@@ -494,13 +351,270 @@ DEPENDENTS IN SUBGRAPH F_TAD:
 In turn, the resulting DAG of Taylor coefficients may be differentiated using mc::FFGraph::FAD or mc::FFGraph::BAD, or evaluated in any compatible arithmetic as explained next.
 
 
-\section sec_FFUNC_err What Errors Can I Encounter While Creating or Manipulating the DAG of a Factorable Function?
+\section sec_FFUNC_eval How do I evaluate the DAG of a factorable function in a given arithmetic?
+
+Having created the DAG of a factorable function or its derivatives, one can evaluate these functions in any arithmetic implemented in MC++ using the method mc::FFGraph::eval.
+
+Coming back to our initial example, suppose that we want to compute interval bounds on the first-order derivatives of the factorable function 
+\f{align*}
+  {\bf f} = \left(\begin{array}{c} x_2x_3-x_0\\ x_0(\exp(x_2x_3)+3.0)^4)+x_1\end{array}\right)
+\f}
+in the direction \f$(0,1,1,0)\f$, with \f$x_0\in[0,0.5]\f$, \f$x_1\in[1,2]\f$, \f$x_2\in[-1,-0.8]\f$, and \f$x_3\in[0.5,1]\f$.
+
+For simplicity, the default interval type mc::Interval of MC++ is used here:
+
+\code
+      #include "ffunc.hpp"
+      #include "interval.hpp"
+      typedef mc::Interval I;
+\endcode
+
+A DAG of the directional derivatives of \f$f\f$ is constructed first:
+
+\code
+      // DAG environment
+      mc::FFGraph DAG;
+
+      // Independent variables and derivative direction
+      const unsigned int NX = 4;
+      mc::FFVar X[NX], D[NX] = { 0., 1., 1., 0. };
+      for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
+
+      // Dependent variables
+      const unsigned int NF = 2;
+      mc::FFVar F[NF]
+        = { X[2]*X[3]-X[0],
+            X[0]*pow(exp(X[2]*X[3])+3.,4)+X[1] };
+
+      // DAG of directional derivatives
+      const mc::FFVar* dFdXdir = DAG.DFAD( NF, F, NX, X, D );
+\endcode
+
+In a second step, the DAG of directional derivatives is evaluated in interval arithmetic as follows:
+
+\code
+      // Evaluation in interval arithmetic
+      I IX[NX] = { I(0,0.5), I(1,2), I(-1,-0.8), I(0.5,1) }, IdFdXdir[NF];
+      DAG.eval( NF, dFdXdir, IdFdXdir, NX, X, IX );
+
+      // Display results
+      for( unsigned i=0; i<NF; i++ )
+        std::cout << "  dF("<< i << ")dX·D = " << IdFdXdir[i] << std::endl;
+\endcode
+
+The DAG evaluation can be carried out in sparse Chebyshev model arithmetic likewise:
+
+\code
+      #include "scmodel.hpp"
+      typedef mc::SCModel<I,mc::FFVar*,mc::lt_FFVar> SCM;
+      typedef mc::SCVar<I,mc::FFVar*,mc::lt_FFVar> SCV;
+\endcode
+
+\code
+      // Evaluation in 3rd-order Chebyshev model arithmetic
+      const unsigned ORD = 3;
+      SCM CMenv( ORD );
+      SCV CMX[NX], CMdFdXdir[NF];
+      for( unsigned i=0; i<NX; i++ ) CMX[i].set( &CMenv, i, IX[i] );
+      std::vector<SCV> SCVWK;
+      DAG.eval( SCVWK, NF, dFdXdir, CMdFdXdir, NX, X, CMX );
+
+      // Display results
+      for( unsigned i=0; i<NF; i++ )
+        std::cout << "  dF("<< i << ")dX·D = " << CMdFdXdir[i] << std::endl;
+\endcode
+
+Note that for repeated function evaluations, it is recommended to pass a pre-sized working array and a subgraph of the function to mc::FFGraph::eval for efficiency. These evaluations produce the following results:
+
+<h3>Evaluation in Interval Arithmetic</h3>
+\verbatim
+      dF(0)dX·D = [  5.00000e-01 :  1.00000e+00 ]
+      dF(1)dX·D = [  1.00000e+00 :  6.72863e+01 ]
+\endverbatim
+
+<h3>Evaluation in Sparse Chebyshev Model Arithmetic</h3>
+\verbatim
+      dF(0)dX·D = 
+         7.5000000e-01   0  1
+         2.5000000e-01   1  T1[X3]
+         R     =  [ 0.0000000e+00, 0.0000000e+00]
+         B     =  [ 5.0000000e-01, 1.0000000e+00]
+
+      dF(1)dX·D = 
+         1.7166062e+01   0  1
+         1.6166062e+01   1  T1[X0]
+         1.7305014e+00   1  T1[X2]
+         3.4528311e-01   1  T1[X3]
+         1.7305014e+00   2  T1[X0]·T1[X2]
+         3.4528311e-01   2  T1[X0]·T1[X3]
+         5.6453307e-02   2  T2[X2]
+         5.0915026e-01   2  T1[X2]·T1[X3]
+        -3.9506502e-01   2  T2[X3]
+         5.6453307e-02   3  T1[X0]·T2[X2]
+         5.0915026e-01   3  T1[X0]·T1[X2]·T1[X3]
+        -3.9506502e-01   3  T1[X0]·T2[X3]
+         1.5084111e-03   3  T3[X2]
+         3.0422535e-02   3  T2[X2]·T1[X3]
+        -4.9916695e-02   3  T1[X2]·T2[X3]
+         4.7740483e-02   3  T3[X3]
+         R     =  [-1.8750872e-01, 1.8750872e-01]
+         B     =  [-5.2770965e+00, 3.9414566e+01]
+\endverbatim
+
+Backward propagation is also possible through the DAG, e.g. for contraint propagation. Assuming that interval bounds are known for the directional derivatives, we want to tighten the bounds on the independent variables through reverse DAG propagation:
+
+\code
+      // Evaluation in interval arithmetic
+      I IX[NX] = { I(0,0.5), I(1,2), I(-1,-0.8), I(0.5,1) };
+      I IdFdXdir[NF] = { I(0.6,0.9), I(2.,5.) };
+      I IINF = 1e20 * I(-1,1);
+      int flag = DAG.reval( NF, dFdXdir, IdFdXdir, NX, X, IX, IINF );
+      std::cout << "\nDAG interval evaluation w/ " << flag << " forward/backward passes:\n";
+
+      // Display results
+      for( unsigned i=0; i<NX; i++ )
+        std::cout << "  X(" << i << ") = " << IX[i] << std::endl;
+      for( unsigned i=0; i<NF; i++ )
+        std::cout << "  dF("<< i << ")dX·D = " << IdFdXdir[i] << std::endl;
+\endcode
+
+This evaluation produces the following results:
+
+<h3>Constraint Propagation in Interval Arithmetic</h3>
+\verbatim
+      DAG interval evaluation w/ 4 forward/backward passes:
+      X(0) = [  9.47264e-03 :  1.03696e-01 ]
+      X(1) = [  1.00000e+00 :  2.00000e+00 ]
+      X(2) = [ -1.00000e+00 : -8.00000e-01 ]
+      X(3) = [  6.00000e-01 :  9.00000e-01 ]
+      dF(0)dX·D = [  6.00000e-01 :  9.00000e-01 ]
+      dF(1)dX·D = [  2.00000e+00 :  5.00000e+00 ]
+\endverbatim
+
+In practice, it is paramount to use reverse propagation of verified types; that is, types that account for round-off errors. Otherwise, the behavior could be unreliable and unpredictable; e.g., a feasible set of constraints might be declared infeasible. 
+
+
+\section sec_FFUNC_ext How do I add an external operation in the DAG of a factorable function?
+
+For illustration, suppose we want to construct a DAG for the factorable function \f$g:\mathbb{R}^3\to\mathbb{R}\f$ defined by
+\f{align*}
+  g({\bf x}) = \left\|{\bf x}\right\|_2
+\f}
+Although \f$\left\|\cdot\right\|_2\f$ is not a default operation in mc::FFOp, we may define this operation externally and pass it as a template argument to the DAG class mc::FFGraph. 
+
+A new external operation mc::FFnorm2 is first derived from the base class of mc::FFOp as follows:
+
+\code
+      namespace mc
+      {
+        class FFnorm2
+        : public FFOp
+        {
+        public:
+          // Constructors
+          FFnorm2
+            ()
+            : FFOp( (int)EXTERN )
+            {}
+
+          // Functor
+          FFVar& operator()
+            ( unsigned const nVar, FFVar const* pVar )
+            const
+            {
+              auto dep = FFDep();
+              for( unsigned i=0; i<nVar; ++i ) dep += pVar[i].dep();
+              dep.update( FFDep::TYPE::N );
+              return insert_external_operation( *this, dep, nVar, pVar );
+            }
+
+          // Evaluation overloads
+          template< typename T > void eval
+            ( T& vRes, unsigned const nVar, T const* vVar )
+            {
+              switch( nVar ){
+                case 0: vRes = T( 0. ); break;
+                case 1: vRes = vVar[0]; break;
+                default: vRes = Op<T>::sqr( vVar[0] );
+                         for( unsigned i=1; i<nVar; ++i ) vRes += Op<T>::sqr( vVar[i] );
+                         vRes = Op<T>::sqrt( vRes ); break;
+              }
+            }
+          void eval
+            ( FFVar& vRes, unsigned const nVar, FFVar const* pVar )
+            const
+            {
+              vRes = operator()( nVar, pVar );
+            }
+
+          // Properties
+          std::string name
+            ()
+            const
+            { return "NORM2"; }
+          //! @brief Return whether or not operation is commutative
+          bool commutative
+            ()
+            const
+            { return true; }
+        };
+      }
+\endcode
+
+Notice that the identifier passed to mc::FFOp in the constructor of mc::FFnorm2 must be unique to a given external function, starting from the value mc::FFOp::EXTERN. Insertion of this external operation in the DAG of a function is via the mc::FFnorm2::operator() overload, where the type of dependencies is also defined per mc::FFDep. The mc::FFnorm2::eval overloads can be specialized to particular set arithmetics in MC++. Finally, mc::FFnorm2::name and mc::FFnorm2::commutative are used to set, respectively, the name of the external operation and whether the operation is commutative.
+
+Then, a templated environment mc::FFGraph<FFnorm2> is defined for recording the DAG, and the three participating variables are defined using mc::FFVar::set as previously. 
+
+\code
+      mc::FFGraph<FFnorm2> DAG;
+      const unsigned int NX = 3;
+      mc::FFVar X[NX];
+      for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
+\endcode
+
+After declaring the external operation, we may use it to define the DAG of our function:
+
+\code
+      mc::FFnorm2 norm2;
+      mc::FFVar F = norm2( NX, X );
+      std::cout << DAG;
+\endcode
+
+The last line displays the resulting DAG:
+
+\verbatim
+    DAG VARIABLES:
+      X0	 => { Z0 }
+      X1	 => { Z0 }
+      X2	 => { Z0 }
+
+    DAG INTERMEDIATES:
+      Z0	<=  NORM2( X0, X1, X2 )		 => { }
+\endverbatim
+
+Naturally, like with any other DAG, we may evaluate our function in any arithmetic:
+
+\code
+      I IX[NX] = { I(0,0.5), I(1,2), I(-1,-0.8) }, IF;
+      DAG.eval( 1, &F, &IF, NX, X, IX );
+      std::cout << "  " << F << " = " << IF << std::endl;
+\endcode
+
+This evaluation produces the following result:
+
+\verbatim
+      Z0 = [  1.28062e+00 :  2.29129e+00 ]
+\endverbatim
+
+
+\section sec_FFUNC_err What errors may I encounter while creating or manipulating the DAG of a factorable function?
 
 Errors are managed based on the exception handling mechanism of the C++ language. Each time an error is encountered, an instance of the class mc::FFBase::Exceptions is thrown, which contains the type of error. It is the user's responsibility to test whether an exception was thrown during the creation/manipulation of a DAG, and then make the appropriate changes.  Additional exceptions may be sent by the template argument class in propagating a given arithmetic through the DAG. Should an exception be thrown and not caught by the calling program, the execution will abort.
 
 
 \section sec_FFUNC_refs References
 
+- Chachuat, B, B. Houska, R. Paulen, N. Peric, J. Rajyaguru, M.E. Villanueva, <A href="http://dx.doi.org/10.1016/j.ifacol.2015.09.097">Set-Theoretic Approaches in Analysis, Estimation and Control of Nonlinear Systems</A>, <I>IFAC-PapersOnLine</I>, <b>48</b>(8):981-995, 2015
 - McCormick, G.P., <A href="http://dx.doi.org/10.1007/BF01580665">Computability of global solutions to factorable nonconvex programs: Part I. Convex underestimating problems</A>, <i>Mathematical Programming</i>, <b>10</b>(2):147-175, 1976
 - Moore, R.E., Cloud, M.J., Kearfott, R.B., <I><A href="http://books.google.co.uk/books/about/Introduction_to_interval_analysis.html?id=tT7ykKbqfEwC&redir_esc=y">Introduction to Interval Analysis</A></I>, SIAM, 2009
 - Naumann, U., <I><A href="http://books.google.co.uk/books/about/The_Art_of_Differentiating_Computer_Prog.html?id=OgQuUR4nLu0C&redir_esc=y">The Art of Differentiating Computer Programs: An Introduction to Algorithmic
@@ -1902,10 +2016,22 @@ public:
       U*vDep, const std::list<unsigned>&l_nVar, const std::list<const FFVar*>&l_pVar,
       const std::list<const U*>&l_vVar, const bool add=false );
 
+  //! @brief Evaluate the dependents in array <a>pDep</a> indexed by <a>ndxDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and use a priori information about the dependents in <a>vDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, U*vVar}, as well as optional flags {const unsigned MAXPASS, const double THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function allocates memory for intermediate operations internally. It also creates the subgraph for the dependent variables internally. The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
+  template <typename U, typename... Deps> 
+  int reval
+    ( const std::set<unsigned>&ndxDep, const FFVar*pDep, U*vDep, 
+      const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args );
+
   //! @brief Evaluate the dependents in array <a>pDep</a> indexed by <a>ndxDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and use a priori information about the dependents in <a>vDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, U*vVar}, as well as optional flags {const unsigned MAXPASS, const double THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It creates the subgraph for the dependent variables internally. The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
   template <typename U, typename... Deps> 
   int reval
     ( std::vector<U>&wkDep, const std::set<unsigned>&ndxDep, const FFVar*pDep,
+      U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args );
+
+  //! @brief Evaluate the dependents in array <a>pDep</a> indexed by <a>ndxDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and use a priori information about the dependents in <a>vDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, U*vVar}, including optional flags {const unsigned MAXPASS, const double THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function allocates memory for intermediate operations internally. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions). The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
+  template <typename U, typename... Deps> 
+  int reval
+    ( FFSubgraph&sgDep, const std::set<unsigned>&ndxDep, const FFVar*pDep, 
       U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args );
 
   //! @brief Evaluate the dependents in array <a>pDep</a> indexed by <a>ndxDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and use a priori information about the dependents in <a>vDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, U*vVar}, including optional flags {const unsigned MAXPASS, const double THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions). The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
@@ -1915,10 +2041,22 @@ public:
       const FFVar*pDep, U*vDep, const unsigned nVar, const FFVar*pVar,
       U*vVar, Deps... args );
 
+  //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and use a priori information about the dependents in <a>vDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, U*vVar}, as well as optional flags {const unsigned MAXPASS, const double THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function allocates memory for intermediate operations internally. It also creates the subgraph for the dependent variables internally. The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
+  template <typename U, typename... Deps> 
+  int reval
+    ( const unsigned nDep, const FFVar*pDep, U*vDep, 
+      const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args );
+
   //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and use a priori information about the dependents in <a>vDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, U*vVar}, as well as optional flags {const unsigned MAXPASS, const double THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It creates the subgraph for the dependent variables internally. The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
   template <typename U, typename... Deps> 
   int reval
     ( std::vector<U>&wkDep, const unsigned nDep, const FFVar*pDep,
+      U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args );
+
+  //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and use a priori information about the dependents in <a>vDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, U*vVar}, including optional flags {const unsigned MAXPASS, const double THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function allocates memory for intermediate operations internally. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions). The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
+  template <typename U, typename... Deps> 
+  int reval
+    ( FFSubgraph&sgDep, const unsigned nDep, const FFVar*pDep,
       U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args );
 
   //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and use a priori information about the dependents in <a>vDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, U*vVar}, including optional flags {const unsigned MAXPASS, const double THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions). The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
@@ -6392,12 +6530,38 @@ template <typename... ExtOps>
 template <typename U, typename... Deps>
 inline int
 FFGraph<ExtOps...>::reval
+( const std::set<unsigned>&ndxDep, const FFVar*pDep,
+  U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args )
+{
+  if( ndxDep.empty() ) return 0; // Nothing to do!
+
+  std::vector<U> wkDep;
+  return reval( wkDep, ndxDep, pDep, vDep, nVar, pVar, vVar, args... );
+}
+
+template <typename... ExtOps>
+template <typename U, typename... Deps>
+inline int
+FFGraph<ExtOps...>::reval
 ( std::vector<U>&wkDep, const std::set<unsigned>&ndxDep, const FFVar*pDep,
   U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args )
 {
   if( ndxDep.empty() ) return 0; // Nothing to do!
 
   FFSubgraph sgDep;
+  return reval( sgDep, wkDep, ndxDep, pDep, vDep, nVar, pVar, vVar, args... );
+}
+
+template <typename... ExtOps>
+template <typename U, typename... Deps>
+inline int
+FFGraph<ExtOps...>::reval
+( FFSubgraph&sgDep, const std::set<unsigned>&ndxDep, const FFVar*pDep,
+  U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args )
+{
+  if( ndxDep.empty() ) return 0; // Nothing to do!
+
+  std::vector<U> wkDep;
   return reval( sgDep, wkDep, ndxDep, pDep, vDep, nVar, pVar, vVar, args... );
 }
 
@@ -6429,6 +6593,21 @@ template <typename... ExtOps>
 template <typename U, typename... Deps>
 inline int
 FFGraph<ExtOps...>::reval
+( const unsigned nDep, const FFVar*pDep,
+  U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args )
+{
+  auto sgDep = subgraph( nDep, pDep );
+  std::vector<U> wkDep;
+  std::list<unsigned> l_nVar;     l_nVar.push_back(nVar);
+  std::list<const FFVar*> l_pVar; l_pVar.push_back(pVar);
+  std::list<U*> l_vVar;           l_vVar.push_back(vVar);
+  return reval( sgDep, wkDep, nDep, pDep, vDep, nVar, pVar, vVar, args... );
+}
+
+template <typename... ExtOps>
+template <typename U, typename... Deps>
+inline int
+FFGraph<ExtOps...>::reval
 ( std::vector<U>&wkDep, const unsigned nDep, const FFVar*pDep,
   U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args )
 {
@@ -6437,6 +6616,20 @@ FFGraph<ExtOps...>::reval
   std::list<const FFVar*> l_pVar; l_pVar.push_back(pVar);
   std::list<U*> l_vVar;           l_vVar.push_back(vVar);
   return reval( sgDep, wkDep, nDep, pDep, vDep, l_nVar, l_pVar, l_vVar, args... );
+}
+
+template <typename... ExtOps>
+template <typename U, typename... Deps>
+inline int
+FFGraph<ExtOps...>::reval
+( FFSubgraph&sgDep, const unsigned nDep, const FFVar*pDep,
+  U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args )
+{
+  std::vector<U> wkDep;
+  std::list<unsigned> l_nVar;     l_nVar.push_back(nVar);
+  std::list<const FFVar*> l_pVar; l_pVar.push_back(pVar);
+  std::list<U*> l_vVar;           l_vVar.push_back(vVar);
+  return reval( sgDep, wkDep, nDep, pDep, vDep, nVar, pVar, vVar, args... );
 }
 
 template <typename... ExtOps>

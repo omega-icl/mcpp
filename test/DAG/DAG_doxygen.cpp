@@ -8,10 +8,10 @@
 #include "scmodel.hpp"
 
 typedef mc::Interval I;
-typedef mc::SCModel<I> SCM;
-typedef mc::SCVar<I> SCV;
-
 I IINF = 1e20 * I(-1,1);
+
+typedef mc::SCModel<I,mc::FFVar*,mc::lt_FFVar> SCM;
+typedef mc::SCVar<I,mc::FFVar*,mc::lt_FFVar> SCV;
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -29,7 +29,7 @@ int test_build()
   const unsigned int NF = 2;
   mc::FFVar F[NF]
     = { X[2]*X[3]-X[0],
-        X[0]*pow(exp(X[2]*X[3])+3.,4)+X[1] };
+        X[0]*pow(exp(X[2]*X[3])+3.1,4)+X[1] };
   std::cout << DAG;
 
   DAG.output( DAG.subgraph( NF, F ), " F" );
@@ -94,8 +94,7 @@ int test_eval()
   // Evaluation in interval arithmetic
   try{
     I IX[NX] = { I(0,0.5), I(1,2), I(-1,-0.8), I(0.5,1) }, IdFdXdir[NF];
-    std::vector<I> IWK;
-    DAG.eval( IWK, NF, dFdXdir, IdFdXdir, NX, X, IX );
+    DAG.eval( NF, dFdXdir, IdFdXdir, NX, X, IX );
     // Display results
     for( unsigned i=0; i<NF; i++ )
       std::cout << "  dF("<< i << ")dX·D = " << IdFdXdir[i] << std::endl;
@@ -110,9 +109,8 @@ int test_eval()
     SCM CMenv( ORD );
     SCV CMX[NX], CMdFdXdir[NF];
     I IX[NX] = { I(0,0.5), I(1,2), I(-1,-0.8), I(0.5,1) };
-    for( unsigned i=0; i<NX; i++ ) CMX[i].set( &CMenv, i, IX[i] );
-    std::vector<SCV> SCVWK;
-    DAG.eval( SCVWK, NF, dFdXdir, CMdFdXdir, NX, X, CMX );
+    for( unsigned i=0; i<NX; i++ ) CMX[i].set( &CMenv, &X[i], IX[i] );
+    DAG.eval( NF, dFdXdir, CMdFdXdir, NX, X, CMX );
     // Display results
     for( unsigned i=0; i<NF; i++ )
       std::cout << "  dF("<< i << ")dX·D = " << CMdFdXdir[i] << std::endl;
@@ -124,12 +122,10 @@ int test_eval()
   // Forward/backward evaluation in interval arithmetic
   try{
     I IX[NX] = { I(0,0.5), I(1,2), I(-1,-0.8), I(0.5,1) },
-      IdFdXdir[NF] = { I(0.,1.), I(0.,5.) };
-    std::vector<I> IWK;
-    int flag = DAG.reval( IWK, NF, dFdXdir, IdFdXdir, NX, X, IX, IINF );
-    std::cout << "\nDAG interval evaluation w/ forward/backward passes:\n";
+      IdFdXdir[NF] = { I(0.6,0.9), I(2.,5.) };
+    int flag = DAG.reval( NF, dFdXdir, IdFdXdir, NX, X, IX, IINF );
+    std::cout << "\nDAG interval evaluation w/ " << flag << " forward/backward passes:\n";
     // Display results
-    std::cout << "FLAG = " << flag << std::endl;
     for( unsigned i=0; i<NX; i++ )
       std::cout << "  X(" << i << ") = " << IX[i] << std::endl;
     for( unsigned i=0; i<NF; i++ )
@@ -145,11 +141,115 @@ int test_eval()
 
 ///////////////////////////////////////////////////////////////////////////////
 
+namespace mc
+{
+class FFnorm2
+: public FFOp
+{
+public:
+  // Constructors
+  FFnorm2
+    ()
+    : FFOp( (int)EXTERN )
+    {}
+
+  // Functor
+  FFVar& operator()
+    ( unsigned const nVar, FFVar const* pVar )
+    const
+    {
+      auto dep = FFDep();
+      for( unsigned i=0; i<nVar; ++i ) dep += pVar[i].dep();
+      dep.update( FFDep::TYPE::N );
+      return insert_external_operation( *this, dep, nVar, pVar );
+    }
+
+  // Evaluation overloads
+  template< typename T > void eval
+    ( T& vRes, unsigned const nVar, T const* vVar )
+    {
+      switch( nVar ){
+        case 0: vRes = T( 0. ); break;
+        case 1: vRes = vVar[0]; break;
+        default: vRes = Op<T>::sqr( vVar[0] );
+                 for( unsigned i=1; i<nVar; ++i ) vRes += Op<T>::sqr( vVar[i] );
+                 vRes = Op<T>::sqrt( vRes ); break;
+      }
+    }
+  void eval
+    ( FFVar& vRes, unsigned const nVar, FFVar const* pVar )
+    const
+    {
+      vRes = operator()( nVar, pVar );
+    }
+
+  // Properties
+  std::string name
+    ()
+    const
+    { return "NORM2"; }
+  //! @brief Return whether or not operation is commutative
+  bool commutative
+    ()
+    const
+    { return true; }
+};
+}
+
+int test_extern()
+{
+  std::cout << "\n==============================================\ntest_extern:\n";
+
+  // DAG environment
+  mc::FFGraph<mc::FFnorm2> DAG;
+  const unsigned int NX = 3;
+  mc::FFVar X[NX];
+  for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
+  mc::FFnorm2 norm2;
+  mc::FFVar F = norm2( NX, X );
+  std::cout << DAG;
+
+  // Evaluation in interval arithmetic
+  try{
+    I IX[NX] = { I(0,0.5), I(1,2), I(-1,-0.8) }, IF;
+    DAG.eval( 1, &F, &IF, NX, X, IX );
+    // Display results
+    std::cout << "  " << F << " = " << IF << std::endl;
+  }
+  catch(...){
+    std::cout << "\nInterval evaluation failed\n";
+  }
+
+  // Differentiation
+  const mc::FFVar* dFFAD = DAG.FAD( 1, &F, NX, X );
+  std::cout << DAG;
+  DAG.output( DAG.subgraph( NX, dFFAD ), " dnorm2_FAD" );
+
+  std::ofstream o_FFAD( "dnorm2_FAD.dot", std::ios_base::out );
+  DAG.dot_script( NX, dFFAD, o_FFAD );
+  o_FFAD.close();
+  delete[] dFFAD;
+
+  const mc::FFVar* dFBAD = DAG.BAD( 1, &F, NX, X );
+  std::cout << DAG;
+  DAG.output( DAG.subgraph( NX, dFBAD ), " dnorm2_BAD" );
+
+  std::ofstream o_FBAD( "dnorm2_BAD.dot", std::ios_base::out );
+  DAG.dot_script( NX, dFBAD, o_FBAD );
+  o_FBAD.close();
+  delete[] dFBAD;
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 int main()
 {
   try{
     test_build();
     test_eval();
+    test_extern();
   }
   catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()

@@ -226,7 +226,6 @@ int test_external1()
   std::cout << "\n==============================================\ntest_external1:\n";
 
   // Create DAG
-  //mc::FFGraphExt DAG;
   mc::FFGraph<mc::FFnorm2,mc::FFxlog> DAG;
   const unsigned NX = 2, NF = 2;
   mc::FFVar X[NX];
@@ -274,7 +273,6 @@ int test_external2()
 {
   std::cout << "\n==============================================\ntest_external2:\n";
 
-  //mc::FFGraphExt DAG;
   mc::FFGraph<mc::FFdet> DAG;
   const unsigned NX = 4, NF = NX*NX;
   mc::FFVar X[NX];
@@ -317,7 +315,6 @@ int test_external3()
 {
   std::cout << "\n==============================================\ntest_external3:\n";
 
-  //mc::FFGraphExt DAG;
   mc::FFGraph<mc::FFnorm2,mc::FFxlog> DAG;
   mc::FFVar X, Y, F, G;
   X.set( &DAG );

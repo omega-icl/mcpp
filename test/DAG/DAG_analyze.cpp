@@ -709,7 +709,7 @@ int main()
 //    test_rltred3();
 //    test_rltred4();
 //    test_rltred5();
-//    test_rltred6();
+    test_rltred6();
     test_spoly1();
     test_sexpr1();
   }
