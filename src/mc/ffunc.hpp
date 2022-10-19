@@ -399,7 +399,7 @@ In a second step, the DAG of directional derivatives is evaluated in interval ar
 
       // Display results
       for( unsigned i=0; i<NF; i++ )
-        std::cout << "  dF("<< i << ")dX路D = " << IdFdXdir[i] << std::endl;
+        std::cout << "  dF("<< i << ")dX稤 = " << IdFdXdir[i] << std::endl;
 \endcode
 
 The DAG evaluation can be carried out in sparse Chebyshev model arithmetic likewise:
@@ -421,41 +421,41 @@ The DAG evaluation can be carried out in sparse Chebyshev model arithmetic likew
 
       // Display results
       for( unsigned i=0; i<NF; i++ )
-        std::cout << "  dF("<< i << ")dX路D = " << CMdFdXdir[i] << std::endl;
+        std::cout << "  dF("<< i << ")dX稤 = " << CMdFdXdir[i] << std::endl;
 \endcode
 
 Note that for repeated function evaluations, it is recommended to pass a pre-sized working array and a subgraph of the function to mc::FFGraph::eval for efficiency. These evaluations produce the following results:
 
 <h3>Evaluation in Interval Arithmetic</h3>
 \verbatim
-      dF(0)dX路D = [  5.00000e-01 :  1.00000e+00 ]
-      dF(1)dX路D = [  1.00000e+00 :  6.72863e+01 ]
+      dF(0)dX稤 = [  5.00000e-01 :  1.00000e+00 ]
+      dF(1)dX稤 = [  1.00000e+00 :  6.72863e+01 ]
 \endverbatim
 
 <h3>Evaluation in Sparse Chebyshev Model Arithmetic</h3>
 \verbatim
-      dF(0)dX路D = 
+      dF(0)dX稤 = 
          7.5000000e-01   0  1
          2.5000000e-01   1  T1[X3]
          R     =  [ 0.0000000e+00, 0.0000000e+00]
          B     =  [ 5.0000000e-01, 1.0000000e+00]
 
-      dF(1)dX路D = 
+      dF(1)dX稤 = 
          1.7166062e+01   0  1
          1.6166062e+01   1  T1[X0]
          1.7305014e+00   1  T1[X2]
          3.4528311e-01   1  T1[X3]
-         1.7305014e+00   2  T1[X0]路T1[X2]
-         3.4528311e-01   2  T1[X0]路T1[X3]
+         1.7305014e+00   2  T1[X0]稵1[X2]
+         3.4528311e-01   2  T1[X0]稵1[X3]
          5.6453307e-02   2  T2[X2]
-         5.0915026e-01   2  T1[X2]路T1[X3]
+         5.0915026e-01   2  T1[X2]稵1[X3]
         -3.9506502e-01   2  T2[X3]
-         5.6453307e-02   3  T1[X0]路T2[X2]
-         5.0915026e-01   3  T1[X0]路T1[X2]路T1[X3]
-        -3.9506502e-01   3  T1[X0]路T2[X3]
+         5.6453307e-02   3  T1[X0]稵2[X2]
+         5.0915026e-01   3  T1[X0]稵1[X2]稵1[X3]
+        -3.9506502e-01   3  T1[X0]稵2[X3]
          1.5084111e-03   3  T3[X2]
-         3.0422535e-02   3  T2[X2]路T1[X3]
-        -4.9916695e-02   3  T1[X2]路T2[X3]
+         3.0422535e-02   3  T2[X2]稵1[X3]
+        -4.9916695e-02   3  T1[X2]稵2[X3]
          4.7740483e-02   3  T3[X3]
          R     =  [-1.8750872e-01, 1.8750872e-01]
          B     =  [-5.2770965e+00, 3.9414566e+01]
@@ -475,7 +475,7 @@ Backward propagation is also possible through the DAG, e.g. for contraint propag
       for( unsigned i=0; i<NX; i++ )
         std::cout << "  X(" << i << ") = " << IX[i] << std::endl;
       for( unsigned i=0; i<NF; i++ )
-        std::cout << "  dF("<< i << ")dX路D = " << IdFdXdir[i] << std::endl;
+        std::cout << "  dF("<< i << ")dX稤 = " << IdFdXdir[i] << std::endl;
 \endcode
 
 This evaluation produces the following results:
@@ -487,8 +487,8 @@ This evaluation produces the following results:
       X(1) = [  1.00000e+00 :  2.00000e+00 ]
       X(2) = [ -1.00000e+00 : -8.00000e-01 ]
       X(3) = [  6.00000e-01 :  9.00000e-01 ]
-      dF(0)dX路D = [  6.00000e-01 :  9.00000e-01 ]
-      dF(1)dX路D = [  2.00000e+00 :  5.00000e+00 ]
+      dF(0)dX稤 = [  6.00000e-01 :  9.00000e-01 ]
+      dF(1)dX稤 = [  2.00000e+00 :  5.00000e+00 ]
 \endverbatim
 
 In practice, it is paramount to use reverse propagation of verified types; that is, types that account for round-off errors. Otherwise, the behavior could be unreliable and unpredictable; e.g., a feasible set of constraints might be declared infeasible. 
@@ -531,6 +531,7 @@ A new external operation mc::FFnorm2 is first derived from the base class of mc:
           // Evaluation overloads
           template< typename T > void eval
             ( T& vRes, unsigned const nVar, T const* vVar )
+            const
             {
               switch( nVar ){
                 case 0: vRes = T( 0. ); break;
