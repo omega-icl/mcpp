@@ -161,22 +161,21 @@ Sparse quadratic forms:
     1.00000e+00    ( [0] ; [0] )
 \endverbatim
 
-These results show that a total of 12 monomials participate in the quadratic forms: The constant monomial \f$1\f$; the participating variables \f$x_0,x_1,x_2\f$; and 6 lifted monomials \f$x_3:=x_0^2, x_4:=x_0\cdot x_1, x_5:=x_0\cdot x_2, x_6:=x_1^2, x_7:=x_1\cdot x_2, x_8:=x_2^2, x_9:=x_1^3, x_10:=x_1^4\f$. A reformulation of the factorable function \f${\bf f}\f$ in terms of these monomials is given by:
+These results show that a total of 12 monomials participate in the quadratic forms: The constant monomial \f$\xi_0=1\f$; the participating variables \f$\xi_1:=x_0\f$, \f$\xi_2:=x_1\f$, \f$\xi_3=x_2\f$; and 8 lifted monomials \f$x_4:=x_0^2\f$, \f$\xi_5:=x_0\cdot x_1\f$, \f$\xi_6:=x_0\cdot x_2\f$, \f$\xi_7:=x_1^2\f$, \f$\xi_8:=x_1\cdot x_2\f$, \f$\xi_9:=x_2^2\f$, \f$\xi_{10}:=x_1^3\f$, \f$\xi_{11}:=x_1^4\f$. A reformulation of the polynomials \f$p_0,p_1\f$ in terms of these monomials is given by:
 \f{align*}
-  q_0(x_0,\ldots,x_10) = x_0 x_3 - 6 x_0 x_5 + 12 x_0 x_8 + 3 x_0 x_{10} - 8 x_2 x_8 - 6 x_2 x_{10} + 3 x_4^2 - 12 x_5 x_6 + 12 x_7^2 + x_9^2\\
-  q_1(x_0,\ldots,x_10) = - 1 + 2 x_1^2
+  q_0(\xi_0,\ldots,\xi_{11}) =\ & \xi_1\cdot \xi_4 - 6 \xi_1\cdot \xi_6 + 12 \xi_1\cdot \xi_9 + 3 \xi_1\cdot \xi_{11} - 8 \xi_3\cdot \xi_9 - 6 \xi_3\cdot \xi_{11} + 3 \xi_5^2 - 12 \xi_6\cdot \xi_7 + 12 \xi_8^2 + \xi_{10}^2\\
+  q_1(\xi_0,\ldots,\xi_{11}) =\ & - \xi_0^2 + 2 \xi_0\cdot\xi_7
 \f}
 with the following 8 auxiliary quadratic constraints are also generated:
 \f{align*}
-  x_0^2 - x_3 =\ & 0\\
-  x_0x_1 - x_4 =\ & 0\\
-  x_0x_2 - x_5 =\ & 0\\
-  x_1^2 - x_6 =\ & 0\\
-  x_1x_2 - x_7 =\ & 0\\
-  x_2^2 - x_8 =\ & 0\\
-  x_1x_6 - x_9 =\ & 0\\
-  x_1x_9 - x_{10} =\ & 0\\
-
+  \xi_1^2 - \xi_0\cdot\xi_4 =\ & 0\\
+  \xi_1\cdot\xi_2 - \xi_0\cdot\xi_5 =\ & 0\\
+  \xi_1\cdot\xi_3 - \xi_0\cdot\xi_6 =\ & 0\\
+  \xi_2^2 - \xi_0\cdot\xi_7 =\ & 0\\
+  \xi_2\cdot\xi_3 - \xi_0\cdot\xi_8 =\ & 0\\
+  \xi_3^2 - \xi_0\cdot\xi_9 =\ & 0\\
+  \xi_2\cdot\xi_7 - \xi_0\cdot\xi_{10} =\ & 0\\
+  \xi_2\cdot\xi_{10} - \xi_0\cdot\xi_{11} =\ & 0\\
 \f}
 
 With the redundant constraint option activated before the quadratization:
@@ -314,24 +313,24 @@ Sparse quadratic forms:
 \endverbatim
 The quadratization still introduces 12 monomials but 26 auxiliary quadratic constraints are now identified, including the following 18 redundant quadratic constraints:
 \f{align*}
-  x_6^2 - x_1x_9 =\ & 0\\
-  x_6x_9 - x_1x_{10} =\ & 0\\
-  x_9^2 - x_6x_{10} =\ & 0\\
-  x_1x_7 - x_2x_6 =\ & 0\\
-  x_2x_9 - x_6x_7 =\ & 0\\
-  x_2x_{10} - x_7x_9 =\ & 0\\
-  x_0x_7 - x_1x_5 =\ & 0\\
-  x_0x_6 - x_1x_4 =\ & 0\\
-  x_1x_5 - x_2x_4 =\ & 0\\
-  x_0x_7 - x_2x_4 =\ & 0\\
-  x_4x_6 - x_0x_9 =\ & 0\\
-  x_4x_9 - x_0x_{10} =\ & 0\\
-  x_2x_5 - x_0x_8 =\ & 0\\
-  x_2x_7 - x_1x_8 =\ & 0\\
-  x_5x_7 - x_4x_8 =\ & 0\\
-  x_7^2 - x_6x_8 =\ & 0\\
-  x_0x_4 - x_1x_3 =\ & 0\\
-  x_0x_5 - x_2x_3 =\ & 0\\
+  \xi_7^2 - \xi_2\cdot\xi_{10} =\ & 0\\
+  \xi_7\cdot\xi_{10} - \xi_2\cdot\xi_{11} =\ & 0\\
+  \xi_{10}^2 - \xi_7\cdot\xi_{11} =\ & 0\\
+  \xi_2\cdot\xi_8 - \xi_3\cdot\xi_7 =\ & 0\\
+  \xi_3\cdot\xi_{10} - \xi_7\cdot\xi_8 =\ & 0\\
+  \xi_3\cdot\xi_{11} - \xi_8\cdot\xi_{10} =\ & 0\\
+  \xi_1\cdot\xi_8 - \xi_2\cdot\xi_6 =\ & 0\\
+  \xi_1\cdot\xi_7 - \xi_2\cdot\xi_5 =\ & 0\\
+  \xi_2\cdot\xi_6 - \xi_3\cdot\xi_5 =\ & 0\\
+  \xi_1\cdot\xi_8 - \xi_3\cdot\xi_5 =\ & 0\\
+  \xi_5\cdot\xi_7 - \xi_1\cdot\xi_{10} =\ & 0\\
+  \xi_5\cdot\xi_{10} - \xi_1\cdot\xi_{11} =\ & 0\\
+  \xi_3\cdot\xi_6 - \xi_1\cdot\xi_9 =\ & 0\\
+  \xi_3\cdot\xi_8 - \xi_2\cdot\xi_9 =\ & 0\\
+  \xi_6\cdot\xi_8 - \xi_5\cdot\xi_9 =\ & 0\\
+  \xi_8^2 - \xi_7\cdot\xi_9 =\ & 0\\
+  \xi_1\cdot\xi_5 - \xi_2\cdot\xi_4 =\ & 0\\
+  \xi_1\cdot\xi_6 - \xi_3\cdot\xi_4 =\ & 0\\
 \f}
 
 The quadratization may also be performed in Chebyshev basis instead of the default monomial basis. And the monomials may be processed in increasing grlex order rather than the default decreasing grlex order.
@@ -341,7 +340,99 @@ Pointers of type mc::SMon to the monomials participating in the quadratic forms 
 The sparse coefficient matrices defining the main quadratic forms for each processed multivariate polynomial and the corresponding auxiliary quadratic constraints can be retrieved with the methods mc::SQuad::MatFct and mc::SQuad::MatRed, respectively. These coefficient matrices are of the type std::map<std::pair<SMon const*,SMon const*>,double,lt_SQuad> where the comparison operator mc::lt_SQuad orders monomial pairs in grlex order for both elements. 
 
 
-\section sec_SQUAD_opt What Are the Options in mc::SQuad and How Are They Set?
+\section sec_SQUAD_optim How do I minimize the number of auxiliary variables in my reformulation?
+
+Having decomposed a set of multivariate polynomials into quadratic forms using Algorithm 1, one may seek to further improve the decomposition by minimizing the number of auxiliary variables needed. Altough computing such a minimal decomposition is NP-hard in general, it can be automated using mixed-integer programming (MIP) and may be tractable for simple multivariate polynomials. The MIP model implemented in class mc::SQuad is the following:
+
+\f{align*}
+\displaystyle\min_{\boldsymbol{z},\boldsymbol{\nu}^{\rm L},\boldsymbol{\nu}^{\rm R},\boldsymbol{\beta},\boldsymbol{\omega}^{\rm L},\boldsymbol{\omega}^{\rm R}}\ & \sum_{k=1}^{n_a} z_k\\
+\displaystyle\text{s.t.}\ \ \ & z_k \geq z_{k+1},\ \ k=1\ldots n_a-1\\
+& \sum_{i=1}^{n_x+k-1} \nu^{\rm L}_{k,i} = z_k,\ \ k=1\ldots n_a\\
+& \sum_{i=1}^{n_x+k-1} \nu^{\rm R}_{k,i} = z_k,\ \ k=1\ldots n_a\\
+& \sum_{i=1}^{n_x+n_a} \omega^{\rm L}_{j,i} = 1,\ \ j=1\ldots n_m\\
+& \sum_{i=1}^{n_x+n_a} \omega^{\rm R}_{j,i} \leq 1,\ \ j=1\ldots n_m\\
+& \beta_{k,i} = \nu^{\rm L}_{k,i} + \nu^{\rm R}_{k,i} + \sum_{l=1}^{k-1} \left(\nu^{\rm L}_{k,l} + \nu^{\rm R}_{k,l}\right) \beta_{l,i},\ \ i=1\ldots n_x,\ \ k=1\ldots n_a\\
+& \alpha_{j,i} = \omega^{\rm L}_{j,i} + \omega^{\rm R}_{j,i} + \sum_{l=1}^{n_a} \left(\omega^{\rm L}_{j,l} + \omega^{\rm R}_{j,l}\right) \beta_{l,i},\ \ i=1\ldots n_x,\ \ j=1\ldots n_m\\
+& \beta_{k,i} \leq z_k\ \max\{\alpha_{j,i}: j=1\ldots n_m\},\ \ i=1\ldots n_x,\ \ k=1\ldots n_a\\
+& \sum_{i=1}^{n_x} \beta_{k,i} \leq \max\left\{\sum_{i=1}^{n_x}\alpha_{j,i}: j=1\ldots n_m\right\}-1,\ \ k=1\ldots n_a\\
+& z_k, \nu^{\rm L}_{k,i}, \nu^{\rm R}_{k,i}, \omega^{\rm L}_{j,i}, \omega^{\rm R}_{j,i}\in\{0,1\},\ \ \beta_{k,i}\geq 0,\ \ i=1\ldots n_x+n_a,\ \ j=1\ldots n_m,\ \ k=1\ldots n_a
+\f}
+where the following sets and variables are used:
+- \f$n_m\f$, number of monomial terms to decompose, given by \f$m_{j} := \xi_1^{\alpha_{j,1}}\cdots \xi_{n_x}^{\alpha_{j,n_x}},\ j = 1\ldots n_m\f$
+- \f$n_x\f$, original number of variables, \f$x_i=\xi_i,\ i=1\ldots n_x\f$ 
+- \f$n_a\f$, maximal number of auxiliary variables; e.g., determined using the heuristic approach in Algorithm 1
+- \f$z_k\f$, whether the auxiliary \f$\xi_{n_x+k},\ k=1\ldots n_a\f$ is used in decomposition
+- \f$\nu^{\rm L}_{k,i},\nu^{\rm R}_{k,i}\f$, whether the variable or auxiliary \f$\xi_{i},\ i=1\ldots n_x+k\f$ decomposes the auxiliary \f$\xi_{n_x+k},\ k=1\ldots n_a\f$
+- \f$\beta_{k,i}\f$, integer power of variable \f$\xi_{i},\ i=1\ldots n_x\f$ in the auxiliary \f$\xi_{n_x+k},\ k=1\ldots n_a\f$
+- \f$\omega^{\rm L}_{j,i}, \omega^{\rm R}_{j,i}\f$, whether the variable or auxiliary \f$\xi_{1+i}, i=1\ldots n_x+k\f$ decomposes the monomial \f$m_{j},\ j = 1\ldots n_m\f$
+.
+
+Continuing the illustrative example in the previous section, a minimal quadratic form is computed by calling the method <a>mc::SQuad::optimize</a>:
+\code
+      SQF.optimize();
+      std::cout << "\nSparse quadratic forms:\n" << SQF;
+\endcode
+By default, this optimization may be warm-started with the heuristic decomposition obtained from the method <a>mc::SQuad::process</a> implementing Algorithm 1. In particular, the redundant constraints are ignored. The final line displays the minimal quadratic forms:
+\verbatim
+Sparse quadratic forms:
+
+  9 Monomials: [ 1 [0] [1] [2] [0]^2 [1]^2 [2]^2 [0]·[1]^2 [1]^4 ]
+
+  Quadratic form for P[0]:
+    1.00000e+00    ( [0] ; [0]^2 )
+    1.20000e+01    ( [0] ; [2]^2 )
+    3.00000e+00    ( [0] ; [0]·[1]^2 )
+    3.00000e+00    ( [0] ; [1]^4 )
+   -6.00000e+00    ( [2] ; [0]^2 )
+   -8.00000e+00    ( [2] ; [2]^2 )
+   -1.20000e+01    ( [2] ; [0]·[1]^2 )
+   -6.00000e+00    ( [2] ; [1]^4 )
+    1.20000e+01    ( [1]^2 ; [2]^2 )
+    1.00000e+00    ( [1]^2 ; [1]^4 )
+
+  Quadratic form for P[1]:
+   -1.00000e+00    ( 1 ; 1 )
+    2.00000e+00    ( [1] ; [1] )
+
+  Auxiliary quadratic form #1:
+    1.00000e+00    ( 1 ; [1]^2 )
+   -1.00000e+00    ( [1] ; [1] )
+
+  Auxiliary quadratic form #2:
+    1.00000e+00    ( 1 ; [0]·[1]^2 )
+   -1.00000e+00    ( [0] ; [1]^2 )
+
+  Auxiliary quadratic form #3:
+    1.00000e+00    ( 1 ; [2]^2 )
+   -1.00000e+00    ( [2] ; [2] )
+
+  Auxiliary quadratic form #4:
+    1.00000e+00    ( 1 ; [1]^4 )
+   -1.00000e+00    ( [1]^2 ; [1]^2 )
+
+  Auxiliary quadratic form #5:
+    1.00000e+00    ( 1 ; [0]^2 )
+   -1.00000e+00    ( [0] ; [0] )
+\endverbatim
+
+These results, therfore, show that a minimum of 5 auxiliary variables only are needed to decompose the multivariate polynomials into quadratic forms: \f$\xi_4:=x_0^2, \xi_5:=x_1^2, \xi_6:=x_2^2, \xi_7:=x_0\cdot x_1^2, \xi_8:=x_1^4\f$. The resulting decomposition is given by:
+\f{align*}
+  q_0(\xi_0,\ldots,\xi_8) =\ & \xi_1\cdot\xi_4 + 12 \xi_1\cdot\xi_6 + 3 \xi_1\cdot\xi_7 + 3 \xi_1\cdot\xi_8 - 6 \xi_3\cdot\xi_4 - 8 \xi_3\cdot\xi_6 - 12 \xi_3\cdot\xi_7 - 6 \xi_3\cdot\xi_8 + 12 \xi_3 \xi_7 + 12 \xi_5\cdot\xi_6 + \xi_5\cdot\xi_8\\
+  q_1(\xi_0,\ldots,\xi_8) =\ & - \xi_0^2 + 2 \xi_2^2
+\f}
+with the following 8 auxiliary quadratic constraints are also generated:
+\f{align*}
+  \xi_0\cdot\xi_4 - \xi_1^2 =\ & 0\\
+  \xi_0\cdot\xi_5 - \xi_2^2 =\ & 0\\
+  \xi_0\cdot\xi_6 - \xi_3^2 =\ & 0\\
+  \xi_0\cdot\xi_7 - \xi_1\cdot\xi_5 =\ & 0\\
+  \xi_0\cdot\xi_8 - \xi_5^2 =\ & 0\\
+\f}
+
+Note that this minimal decomposition is currently implemented for polynomials expressed in monomial basis only.
+
+
+\section sec_SQUAD_opt What are the options in mc::SQuad and how do I set them?
 
 The public static class member mc::SQuad::options that can be used to set/modify the options; e.g.,
 
@@ -354,10 +445,24 @@ The available options are the following:
 
 <TABLE border="1">
  <TR><TH><b>Name</b>  <TD><b>Type</b> <TD><b>Default</b> <TD><b>Description</b>
- <TR><TH><tt>mc::SQuad::Options::BASIS</tt> <TD><tt>int</tt> <TD>mc::SQuad::Options::MONOM <TD>Basis representation of the multivariate polynomial - mc::SQuad::Options::MONOM: monomial basis, mc::SQuad::Options::CHEB: Chebyshev basis
- <TR><TH><tt>mc::SQuad::Options::ORDER</tt> <TD><tt>int</tt> <TD>mc::SQuad::Options::DEC <TD>Processing order for the monomial terms - mc::SQuad::Options::INC: increasing grlex monomial order, mc::SQuad::Options::DEC: decreasing grlex monomial order
- <TR><TH><tt>mc::SQuad::Options::REDUC</tt> <TD><tt>bool</tt> <TD>false <TD>Whether to search for and append extra reduction constraints
- <TR><TH><tt>mc::SQuad::Options::DISPLEN</tt> <TD><tt>unsigned int</tt> <TD>5 <TD>Number of digits in output stream
+ <TR><TD><tt>mc::SQuad::Options::BASIS</tt> <TD><tt>int</tt> <TD>mc::SQuad::Options::MONOM <TD>Basis representation of the multivariate polynomial - mc::SQuad::Options::MONOM: monomial basis, mc::SQuad::Options::CHEB: Chebyshev basis
+ <TR><TD><tt>mc::SQuad::Options::ORDER</tt> <TD><tt>int</tt> <TD>mc::SQuad::Options::DEC <TD>Processing order for the monomial terms - mc::SQuad::Options::INC: increasing grlex monomial order, mc::SQuad::Options::DEC: decreasing grlex monomial order
+ <TR><TD><tt>mc::SQuad::Options::REDUC</tt> <TD><tt>bool</tt> <TD>false <TD>Whether to search for and append extra reduction constraints
+ <TR><TD><tt>mc::SQuad::Options::CHKTOL</tt> <TD><tt>double</tt> <TD>1e-10 <TD>Tolerance for checking exactness of quadratic forms
+ <TR><TD><tt>mc::SQuad::Options::LPALGO</tt> <TD><tt>int</tt> <TD>-1 <TD>LP algorithm used by MIP solver
+ <TR><TD><tt>mc::SQuad::Options::LPPRESOLVE</tt> <TD><tt>int</tt> <TD>-1 <TD>LP presolve strategy in MIP solver
+ <TR><TD><tt>mc::SQuad::Options::LPFEASTOL</tt> <TD><tt>double</tt> <TD>1e-9 <TD>Tolerance on LP feasibility in MIP solver
+ <TR><TD><tt>mc::SQuad::Options::LPOPTIMTOL</tt> <TD><tt>double</tt> <TD>1e-9 <TD>Tolerance on LP optimality in MIP solver
+ <TR><TD><tt>mc::SQuad::Options::MIPRELGAP</tt> <TD><tt>double</tt> <TD>1e-7 <TD>Tolerance on relative gap in MIP solver
+ <TR><TD><tt>mc::SQuad::Options::MIPABSGAP</tt> <TD><tt>double</tt> <TD>1e-7 <TD>Tolerance on absolute gap in MIP solver
+ <TR><TD><tt>mc::SQuad::Options::MIPTHREADS</tt> <TD><tt>int</tt> <TD>0 <TD>Number of threads used by MIP solver
+ <TR><TD><tt>mc::SQuad::Options::MIPCONCURRENT</tt> <TD><tt>int</tt> <TD>1 <TD>Number of independent MIP solves in parallel
+ <TR><TD><tt>mc::SQuad::Options::MIPFOCUS</tt> <TD><tt>int</tt> <TD>0 <TD>MIP high-level solution strategy
+ <TR><TD><tt>mc::SQuad::Options::MIPHEURISTICS</tt> <TD><tt>double</tt> <TD>0.2 <TD>Fraction of time spent in MIP heuristics
+ <TR><TD><tt>mc::SQuad::Options::MIPDISPLEVEL</tt> <TD><tt>int</tt> <TD>1 <TD>Display level for MIP solver
+ <TR><TD><tt>mc::SQuad::Options::MIPOUTPUTFILE</tt> <TD><tt>std::string</tt> <TD>"" <TD>Name of output file for MIP model
+ <TR><TD><tt>mc::SQuad::Options::MIPTIMELIMIT</tt> <TD><tt>double</tt> <TD>600 <TD>Maximum MIP runtime (seconds)
+ <TR><TD><tt>mc::SQuad::Options::DISPLEN</tt> <TD><tt>unsigned int</tt> <TD>5 <TD>Number of digits in output stream
 </TABLE>
 
 
@@ -391,9 +496,8 @@ Possible errors encountered during quadratization of a multivariate polynomial a
 #include "spoly.hpp"
 #include "mclapack.hpp"
 
-#if defined(MC__USE_CPLEX)
- #include "ilcplex/ilocplex.h"
-#elif defined(MC__USE_GUROBI)
+//#define MC__USE_GUROBI
+#if defined(MC__USE_GUROBI)
  #include "gurobi_c++.h"
  extern "C"{
   #include <fenv.h>
@@ -460,33 +564,38 @@ public:
   {
     //! @brief Constructor
     Options():
-      BASIS(MONOM), ORDER(DEC), REDUC(false),
-#if defined(MC__USE_CPLEX) || defined(MC__USE_GUROBI)
+      BASIS(MONOM), ORDER(DEC), REDUC(false), CHKTOL(1e-10),
+#if defined(MC__USE_GUROBI)
       LPALGO( LPALGO_DEFAULT ), LPPRESOLVE(-1),
       LPFEASTOL(1e-9), LPOPTIMTOL(1e-9), MIPRELGAP(1e-7), MIPABSGAP(1e-7),
+      MIPTHREADS(0), MIPCONCURRENT(1), MIPFOCUS(0), MIPHEURISTICS(0.2),
       MIPDISPLEVEL(1), MIPOUTPUTFILE(""), MIPTIMELIMIT(600),
 #endif
-      CHKTOL(1e-10), DISPLEN(5)
+      DISPLEN(5)
       {}
     //! @brief Assignment of mc::SQuad::Options
     Options& operator=
       ( Options& opt ){
-        BASIS         = opt.BASIS;
-        ORDER         = opt.ORDER;
-        REDUC         = opt.REDUC;
-#if defined(MC__USE_CPLEX) || defined(MC__USE_GUROBI)
-        LPALGO        = opt.LPALGO;
-        LPPRESOLVE    = opt.LPPRESOLVE;
-        LPFEASTOL     = opt.LPFEASTOL;
-        LPOPTIMTOL    = opt.LPOPTIMTOL;
-        MIPRELGAP     = opt.MIPRELGAP;
-        MIPABSGAP     = opt.MIPABSGAP;
-        MIPDISPLEVEL  = opt.MIPDISPLEVEL;
-        MIPOUTPUTFILE = opt.MIPOUTPUTFILE;
-        MIPTIMELIMIT  = opt.MIPTIMELIMIT;
+        BASIS          = opt.BASIS;
+        ORDER          = opt.ORDER;
+        REDUC          = opt.REDUC;
+        CHKTOL         = opt.CHKTOL;
+#if defined(MC__USE_GUROBI)
+        LPALGO         = opt.LPALGO;
+        LPPRESOLVE     = opt.LPPRESOLVE;
+        LPFEASTOL      = opt.LPFEASTOL;
+        LPOPTIMTOL     = opt.LPOPTIMTOL;
+        MIPRELGAP      = opt.MIPRELGAP;
+        MIPABSGAP      = opt.MIPABSGAP;
+        MIPTHREADS     = opt.MIPTHREADS;
+        MIPCONCURRENT  = opt.MIPCONCURRENT;
+        MIPFOCUS       = opt.MIPFOCUS;
+        MIPHEURISTICS  = opt.MIPHEURISTICS;
+        MIPDISPLEVEL   = opt.MIPDISPLEVEL;
+        MIPOUTPUTFILE  = opt.MIPOUTPUTFILE;
+        MIPTIMELIMIT   = opt.MIPTIMELIMIT;
 #endif
-        CHKTOL  = opt.CHKTOL;
-        DISPLEN = opt.DISPLEN;
+        DISPLEN        = opt.DISPLEN;
         return *this;
       }
     //! @brief Available basis representations
@@ -505,35 +614,41 @@ public:
     int ORDER;
     //! @brief Whether to search for and append extra reduction constraints
     bool REDUC;
-#if defined(MC__USE_CPLEX) || defined(MC__USE_GUROBI)
-    //! @brief LP algorithm
+    //! @brief Tolerance for checking exactness of quadratic forms
+    double CHKTOL;
+#if defined(MC__USE_GUROBI)
+    //! @brief LP algorithm used by MIP solver
     int LPALGO;
-    //! @brief LP presolve
+    //! @brief LP presolve strategy in MIP solver
     int LPPRESOLVE;
-    //! @brief Tolerance on LP feasibility
+    //! @brief Tolerance on LP feasibility in MIP solver
     double LPFEASTOL;
-     //! @brief Tolerance on LP optimality
+     //! @brief Tolerance on LP optimality in MIP solver
     double LPOPTIMTOL;
-    //! @brief Tolerance on relative MIP gap
+    //! @brief Tolerance on relative gap in MIP solver
     double MIPRELGAP;
-    //! @brief Tolerance on absolute MIP gap
+    //! @brief Tolerance on absolute gap in MIP solver
     double MIPABSGAP;
-    //! @brief Display level for MIP
+    //! @brief Number of threads used by MIP solver - default value of 0 allows to use all available threads
+    int MIPTHREADS;
+    //! @brief Number of independent MIP solves in parallel
+    int MIPCONCURRENT;
+    //! @brief MIP high-level solution strategy - default value of 0 seeks to a balance between finding new feasible solutions and proving that the current solution is optimal
+    int MIPFOCUS;
+    //! @brief Fraction of time spent in MIP heuristics - default value of 0.2 aims to spend 20% of runtime on heuristics
+    double MIPHEURISTICS;
+    //! @brief Display level for MIP solver
     int MIPDISPLEVEL;
-    //! @brief Name of output file for optimization model
+    //! @brief Name of output file for MIP model
     std::string MIPOUTPUTFILE;
-    //! @brief Maximum run time (seconds)
+    //! @brief Maximum MIP run time (seconds)
     double MIPTIMELIMIT;
 #endif
-    //! @brief Zero tolerance for checking quadratic forms
-    double CHKTOL;
     //! @brief Number of digits in output stream for sparse polynomial coefficients
     unsigned DISPLEN;
 
   //! @brief Default option for LP solver
-#if defined(MC__USE_CPLEX)
-    static const int LPALGO_DEFAULT = 0;
-#elif defined(MC__USE_GUROBI)
+#if defined(MC__USE_GUROBI)
     static const int LPALGO_DEFAULT = -1;
 #endif
   } options;
@@ -576,34 +691,13 @@ protected:
   //! @brief Vector of sparse coefficient matrices defining the postiive semi-defninite cuts
   std::vector<map_SQuad> _MatPSD;
   
-#if defined(MC__USE_CPLEX) || defined(MC__USE_GUROBI)
+#if defined(MC__USE_GUROBI)
   //! @brief whether the MIP solver has sent an exception
   bool _MIPexcpt;
   //! @brief Set of monomials in MIP optimization model
   set_SMon _MIP_SetMon;
   //! @brief Dummy monomial storing partipating variables and their higest degrees in MIP optimization model
   t_SMon _MIP_VarDeg;
-#endif
-#if defined(MC__USE_CPLEX)
-  //! @brief MIP environment
-  IloEnv* _ILOenv;
-  //! @brief MIP model
-  IloModel* _ILOmodel;
-  //! @brief MIP object
-  IloCplex* _ILOcplex;
-  //! @brief MIP objective
-  IloExpr* _MIPobj;
-  //! @brief vector of binary variables indicating active auxiliary variables
-  std::vector<IloNumVar> _MIP_auxbin;
-  //! @brief vector of continuous variables describing the monomial structure of auxiliary variables
-  std::vector<std::vector<IloNumVar>> _MIP_auxexp;
-  //! @brief vectors of binary variables describing the quadratic decomposition of auxiliary variables
-  std::vector<std::vector<IloNumVar>> _MIP_auxdec1;
-  std::vector<std::vector<IloNumVar>> _MIP_auxdec2;
-  //! @brief vectors of binary variables describing the quadratic decomposition of monomials
-  std::vector<std::vector<IloNumVar>> _MIP_mondec1;
-  std::vector<std::vector<IloNumVar>> _MIP_mondec2;
-#elif defined(MC__USE_GUROBI)
   //! @brief MIP environment
   GRBEnv* _GRBenv;
   //! @brief MIP model
@@ -626,12 +720,7 @@ public:
   SQuad
     ()
     {
-#if defined(MC__USE_CPLEX)
-      _ILOenv   = new IloEnv;
-      _ILOmodel = nullptr;
-      _ILOcplex = nullptr;
-      _ILPobj = nullptr;
-#elif defined(MC__USE_GUROBI)
+#if defined(MC__USE_GUROBI)
       _GRBenv   = new GRBEnv();
       _GRBmodel = nullptr;
 #endif
@@ -642,13 +731,7 @@ public:
     ()
     {
       _reset();
-#if defined(MC__USE_CPLEX)
-      delete _ILPobj;
-      delete _ILOmodel;
-      delete _ILOcplex;
-      _ILOenv->end();
-      delete _ILOenv;
-#elif defined(MC__USE_GUROBI)
+#if defined(MC__USE_GUROBI)
       delete _GRBmodel;
       delete _GRBenv;
 #endif
@@ -672,9 +755,9 @@ public:
     ( POL const& SPol, map_SPoly const& (POL::*mapmon)() const,
       int const BASIS=options.BASIS, bool const CHECK=false );
 
-  //! @brief Optimize the quadratic expressions for sparsity. BUG: Only working with default option minOrd=2 
+  //! @brief Optimize the quadratic expressions for minimum number of auxiliaries 
   void optimize
-    ( unsigned const minOrd=2, bool const warmStart=true );
+    ( bool const warmStart=true );
 
   //! @brief Decompose the quadratic expression <a>mat</a> into separable expressions
   std::list< map_SQuad > separate
@@ -837,7 +920,7 @@ private:
 template <typename KEY, typename COMP>
 inline typename SQuad<KEY,COMP>::Options SQuad<KEY,COMP>::options;
 
-#if defined(MC__USE_CPLEX) || defined(MC__USE_GUROBI)
+#if defined(MC__USE_GUROBI)
 template <typename KEY, typename COMP>
 inline int const SQuad<KEY,COMP>::Options::LPALGO_DEFAULT;
 #endif
@@ -1354,28 +1437,157 @@ SQuad<KEY,COMP>::process
   return( CHK? _check( nSPol, pSPol, mapmon, BASIS ): 0. );
 }
 
-#if defined(MC__USE_CPLEX) || defined(MC__USE_GUROBI)
+#if defined(MC__USE_GUROBI)
 template <typename KEY, typename COMP>
 inline void
 SQuad<KEY,COMP>::optimize
-( unsigned const minOrd_, bool const warmStart )
+( bool const warmStart )
 {
   if( options.BASIS != Options::MONOM ) return;
-  // Only working with minOrd = 2 currently
-  unsigned const minOrd = 2;
-  
+
   // Current number of auxiliaries
   unsigned maxAux = 0;
   for( auto const& mon : _SetMon ){
-    if( mon.tord < minOrd ) continue;
+    if( mon.tord < 2 ) continue;
     maxAux++;
   }
   
+  // Only working with minOrd = 2 currently
+  unsigned const minOrd = 2;
+
   // Run MIP optimization for a minimal representation
   _MIP_encode( maxAux, minOrd );
   if( warmStart) _MIP_initialize( minOrd );
   _MIP_solve();
   _MIP_decode( minOrd );
+}
+
+template <typename KEY, typename COMP>
+inline void
+SQuad<KEY,COMP>::_MIP_encode
+( unsigned const maxAux, unsigned const minOrd )
+{
+  // Reset variable vectors
+  _MIP_reset();
+
+  // Construct a set of monomials of degree minOrd or greater, and corresponding set of participating variables
+  _MIP_SetMon.clear();
+  _MIP_VarDeg.expr.clear(); _MIP_VarDeg.tord = 0;
+  for( auto const& mat : _MatFct ){
+    for( auto const& [ijmon,coef] : mat ){
+      if( ijmon.first->tord + ijmon.second->tord < minOrd ) continue;
+      auto const& [itmon,ins] = _MIP_SetMon.insert( *ijmon.first + *ijmon.second );
+      if( ins ) _MIP_VarDeg.hull( *itmon ); 
+    }
+  }
+  unsigned const maxDeg = _MIP_SetMon.rbegin()->tord;
+
+  unsigned const nVar = _MIP_VarDeg.expr.size(); // Number of participating variables
+  _MIP_auxbin.reserve( maxAux );   // z[k]: whether auxiliary x[nVar+k], 0<=k<maxAux, used in decomposition
+  _MIP_auxexp.reserve( maxAux );   // b[k,i]: power of variable x[i], 0<=i<nVar, in auxiliary x[nVar+k], 0<=k<maxAux
+  _MIP_auxdec1.reserve( maxAux );  // v1|2[k,i]: whether variable/auxiliary x[i], 0<=i<nVar+k, in decomposition of 
+  _MIP_auxdec2.reserve( maxAux );  //            auxiliary x[nVar+k], 0<=k<maxAux
+
+  for( unsigned k=0; k<maxAux; ++k ){
+#if defined(MC__USE_GUROBI)
+    // z[k] in {0,1} with corresponding cost coefficient c[k] = 1
+    _MIP_auxbin.push_back( _GRBmodel->addVar( 0., 1., 1., GRB_BINARY ) );
+    // z[k] <= z[k-1]
+    if( k ) _GRBmodel->addConstr( _MIP_auxbin[k-1], GRB_GREATER_EQUAL, _MIP_auxbin[k] );
+
+    // b[k,i] in [0,maxDeg(Var[i])], 0<=i<nVar
+    // b[k,i] <= z[k] * maxDeg(Var[i]), 0<=i<nVar
+    _MIP_auxexp.push_back( std::vector<GRBVar>() );
+    _MIP_auxexp[k].reserve( nVar );
+    for( auto const& [Var,maxExp] : _MIP_VarDeg.expr ){
+      _MIP_auxexp[k].push_back( _GRBmodel->addVar( 0., maxExp, 0., GRB_CONTINUOUS ) );
+      _GRBmodel->addConstr( _MIP_auxexp[k].back(), GRB_LESS_EQUAL, maxExp * _MIP_auxbin[k] );
+    }
+    
+    // v1[k,i], v2[k,i] in {0,1}, 0<=i<nVar+k
+    _MIP_auxdec1.push_back( std::vector<GRBVar>() );
+    _MIP_auxdec2.push_back( std::vector<GRBVar>() );
+    _MIP_auxdec1[k].reserve( nVar+k );
+    _MIP_auxdec2[k].reserve( nVar+k );
+    // SUM( 0<=i<nVar+k, v1[k,i] ) = z[k]
+    // SUM( 0<=i<nVar+k, v2[k,i] ) = z[k]
+    // SUM( 0<=i<j, v1[k,i] ) >= SUM( 0<=i<j, v2[k,i] ), 0<=j<nVar+k
+    GRBLinExpr sum_auxdec1, sum_auxdec2;
+    for( unsigned i=0; i<nVar+k; ++i ){
+      _MIP_auxdec1[k].push_back( _GRBmodel->addVar( 0., 1., 0., GRB_BINARY ) );
+      _MIP_auxdec2[k].push_back( _GRBmodel->addVar( 0., 1., 0., GRB_BINARY ) );
+      sum_auxdec1 += _MIP_auxdec1[k][i];
+      sum_auxdec2 += _MIP_auxdec2[k][i];
+      //_GRBmodel->addConstr( sum_auxdec1, GRB_GREATER_EQUAL, sum_auxdec2 ); // symmetry breaking
+    }
+    _GRBmodel->addConstr( sum_auxdec1, GRB_EQUAL, _MIP_auxbin[k] );//1. );
+    _GRBmodel->addConstr( sum_auxdec2, GRB_EQUAL, _MIP_auxbin[k] );//1. );
+
+    // b[k,i] = v1[k,i]+v2[k,i] + SUM( 0<=l<k, (v1[k,nVar+l]+v2[k,nVar+l])*b[l,i] ), 0<=i<nVar
+    for( unsigned i=0; i<nVar; ++i ){
+      GRBQuadExpr sum_auxexp;
+      sum_auxexp += _MIP_auxdec1[k][i] + _MIP_auxdec2[k][i];
+      for( unsigned l=0; l<k; ++l ){
+        sum_auxexp.addTerm( 1., _MIP_auxdec1[k][nVar+l], _MIP_auxexp[l][i] );
+        sum_auxexp.addTerm( 1., _MIP_auxdec2[k][nVar+l], _MIP_auxexp[l][i] );
+      }
+      _GRBmodel->addQConstr( sum_auxexp, GRB_EQUAL, _MIP_auxexp[k][i] );
+    }      
+#endif
+  }
+
+  unsigned const nMon = _MIP_SetMon.size(); // Number of monomials to be decomposed
+  std::cout << "No monomials to decompose: " << nMon << std::endl;
+  _MIP_mondec1.reserve( nMon );  // w1|2[j,i]: whether variable/auxiliary x[i], 0<=i<nVar+k, in decomposition of 
+  _MIP_mondec2.reserve( nMon );  //            monomial m[j], 0<=j<nMon
+
+  auto jmon = _MIP_SetMon.cbegin();
+  for( unsigned j=0; j<nMon; ++j, ++jmon ){
+#if defined(MC__USE_GUROBI)
+    // w1[k,i], w2[k,i] in {0,1}, 0<=i<nMon
+    _MIP_mondec1.push_back( std::vector<GRBVar>() );
+    _MIP_mondec2.push_back( std::vector<GRBVar>() );
+    _MIP_mondec1[j].reserve( nVar+maxAux );
+    _MIP_mondec2[j].reserve( nVar+maxAux );
+    // SUM( 0<=i<nVar+maxAux, w1[j,i] )  = 1
+    // SUM( 0<=i<nVar+maxAux, w2[j,i] ) <= 1  could be 0 if monomial present
+    // SUM( 0<=i<k, w1[j,i] ) >= SUM( 0<=i<k, w2[j,i] ), 0<=k<nVar+maxAux
+    GRBLinExpr sum_mondec1, sum_mondec2;
+    for( unsigned i=0; i<nVar+maxAux; ++i ){
+      _MIP_mondec1[j].push_back( _GRBmodel->addVar( 0., 1., 0., GRB_BINARY ) );
+      _MIP_mondec2[j].push_back( _GRBmodel->addVar( 0., 1., 0., GRB_BINARY ) );
+      sum_mondec1 += _MIP_mondec1[j][i];
+      sum_mondec2 += _MIP_mondec2[j][i];
+      //_GRBmodel->addConstr( sum_mondec1, GRB_GREATER_EQUAL, sum_mondec2 ); // symmetry breaking
+    }
+    _GRBmodel->addConstr( sum_mondec1, GRB_EQUAL, 1. );
+    _GRBmodel->addConstr( sum_mondec2, GRB_LESS_EQUAL, 1. );
+
+    // b[k,i] = w1[j,i]+w2[j,i] + SUM( 0<=k<maxAux, (w1[j,nVar+k]+w2[j,nVar+k])*b[k,i] ), 0<=i<nVar
+    auto imonvar = _MIP_VarDeg.expr.cbegin();
+    for( unsigned i=0; i<nVar; ++i, ++imonvar ){
+      GRBQuadExpr sum_monexp;
+      sum_monexp += _MIP_mondec1[j][i] + _MIP_mondec2[j][i];
+      for( unsigned k=0; k<maxAux; ++k ){
+        sum_monexp.addTerm( 1., _MIP_mondec1[j][nVar+k], _MIP_auxexp[k][i] );
+        sum_monexp.addTerm( 1., _MIP_mondec2[j][nVar+k], _MIP_auxexp[k][i] );
+      }
+      auto ivar = jmon->expr.find( imonvar->first );
+      if( ivar != jmon->expr.cend() )
+        _GRBmodel->addQConstr( sum_monexp, GRB_EQUAL, ivar->second );
+      else
+        _GRBmodel->addQConstr( sum_monexp, GRB_EQUAL, 0. );
+    }
+#endif
+  }
+  
+  // SUM( 0<=i<nVar, b[l,i] ) <= maxDeg(Mon[j], 0<=j<nMon), 0<=l<nAux
+  for( unsigned l=0; l<maxAux; ++l ){
+    GRBLinExpr sum_auxexp;
+    for( unsigned i=0; i<nVar; ++i )
+      sum_auxexp += _MIP_auxexp[l][i];
+    _GRBmodel->addConstr( sum_auxexp, GRB_LESS_EQUAL, maxDeg-1 );
+  }
 }
 
 template <typename KEY, typename COMP>
@@ -1407,8 +1619,12 @@ SQuad<KEY,COMP>::_MIP_initialize
     _MIP_auxbin[k].set( GRB_DoubleAttr_Start, 1. );
     for( auto& grbvar : _MIP_auxexp[k] )
       grbvar.set( GRB_DoubleAttr_Start, 0. );
-    for( auto const& [var,ord] : mon.expr )
+    std::cout << "b[" << k << "] =";
+    for( auto const& [var,ord] : mon.expr ){
+      std::cout << " " << mapVar[var] << ":" << ord;
       _MIP_auxexp[k][ mapVar[var] ].set( GRB_DoubleAttr_Start, ord );
+    }
+    std::cout << std::endl;
     mapMon[ &mon ] = nVar + k;
     ++k;
   }
@@ -1442,9 +1658,11 @@ SQuad<KEY,COMP>::_MIP_initialize
 
   // Initialize auxiliary decomposition binaries
   for( auto const& mat : _MatRed ){
-    assert( mat.size() == 2 );
+    if( mat.size() != 2 ) continue; // only auxiliary constraints defining new auxiliaries
+    //assert( mat.size() == 2 );
     auto const& ijmon = mat.cbegin()->first;
-    assert( ijmon.first == pone );
+    if( ijmon.first != pone ) continue; // only auxiliary constraints defining new auxiliaries
+    //assert( ijmon.first == pone );
     if( mapMon.find( ijmon.second ) == mapMon.end() ) continue;
     unsigned k = mapMon[ijmon.second] - nVar;
     for( auto& grbvar : _MIP_auxdec1[k] )
@@ -1481,9 +1699,9 @@ SQuad<KEY,COMP>::_MIP_decode
       if( !exp ) continue;
       mon += t_SMon( var, exp );
     }
-    //std::cout << "Auxiliary monomial #" << k << ": " << mon.display( Options::MONOM ) << std::endl;
+    std::cout << "Auxiliary monomial #" << k << ": " << mon.display( Options::MONOM ) << std::endl;
     auto const& [itmon,ins] = SetMonOpt.insert( mon );
-    assert( ins );
+    //assert( ins ); // Suboptimal solutions may include the same monomial multiple times!
     vecMonOpt[nVar+k] = &*itmon;    
   }
   
@@ -1549,128 +1767,12 @@ SQuad<KEY,COMP>::_MIP_decode
 
 template <typename KEY, typename COMP>
 inline void
-SQuad<KEY,COMP>::_MIP_encode
-( unsigned const maxAux, unsigned const minOrd )
-{
-  // Reset variable vectors
-  _MIP_reset();
-
-  // Construct a set of monomials of degree minOrd or greater, and corresponding set of participating variables
-  _MIP_SetMon.clear();
-  _MIP_VarDeg.expr.clear(); _MIP_VarDeg.tord = 0;
-  for( auto const& mat : _MatFct ){
-    for( auto const& [ijmon,coef] : mat ){
-      if( ijmon.first->tord + ijmon.second->tord < minOrd ) continue;
-      auto const& [itmon,ins] = _MIP_SetMon.insert( *ijmon.first + *ijmon.second );
-      if( ins ) _MIP_VarDeg.hull( *itmon ); 
-    }
-  }
-
-  unsigned const nVar = _MIP_VarDeg.expr.size(); // Number of participating variables
-  _MIP_auxbin.reserve( maxAux );
-  _MIP_auxexp.reserve( maxAux );
-  _MIP_auxdec1.reserve( maxAux );
-  _MIP_auxdec2.reserve( maxAux );
-
-  for( unsigned k=0; k<maxAux; ++k ){
-#if defined(MC__USE_GUROBI)
-    _MIP_auxbin.push_back( _GRBmodel->addVar( 0., 1., 1., GRB_BINARY ) );
-    if( k ) _GRBmodel->addConstr( _MIP_auxbin[k-1], GRB_GREATER_EQUAL, _MIP_auxbin[k] );
-
-    _MIP_auxexp.push_back( std::vector<GRBVar>() );
-    _MIP_auxexp[k].reserve( nVar );
-    for( auto const& [Var,maxExp] : _MIP_VarDeg.expr )
-      _MIP_auxexp[k].push_back( _GRBmodel->addVar( 0., maxExp, 0., GRB_CONTINUOUS ) );
-
-    _MIP_auxdec1.push_back( std::vector<GRBVar>() );
-    _MIP_auxdec2.push_back( std::vector<GRBVar>() );
-    _MIP_auxdec1[k].reserve( nVar+k );
-    _MIP_auxdec2[k].reserve( nVar+k );
-    GRBLinExpr sum_auxdec1, sum_auxdec2;
-    for( unsigned i=0; i<nVar+k; ++i ){
-      _MIP_auxdec1[k].push_back( _GRBmodel->addVar( 0., 1., 0., GRB_BINARY ) );
-      _MIP_auxdec2[k].push_back( _GRBmodel->addVar( 0., 1., 0., GRB_BINARY ) );
-      sum_auxdec1 += _MIP_auxdec1[k][i];
-      sum_auxdec2 += _MIP_auxdec2[k][i];
-      _GRBmodel->addConstr( sum_auxdec1, GRB_GREATER_EQUAL, sum_auxdec2 ); // symmetry breaking
-    }
-    _GRBmodel->addConstr( sum_auxdec1, GRB_EQUAL, _MIP_auxbin[k] );//1. );
-    _GRBmodel->addConstr( sum_auxdec2, GRB_EQUAL, _MIP_auxbin[k] );//1. );
-
-    for( unsigned i=0; i<nVar; ++i ){
-      GRBQuadExpr sum_auxexp;
-      sum_auxexp += _MIP_auxdec1[k][i] + _MIP_auxdec2[k][i];
-      for( unsigned l=0; l<k; ++l ){
-        sum_auxexp.addTerm( 1., _MIP_auxdec1[k][nVar+l], _MIP_auxexp[l][i] );
-        sum_auxexp.addTerm( 1., _MIP_auxdec2[k][nVar+l], _MIP_auxexp[l][i] );
-      }
-      _GRBmodel->addQConstr( sum_auxexp, GRB_EQUAL, _MIP_auxexp[k][i] );
-    }      
-#endif
-  }
-
-  unsigned const nMon = _MIP_SetMon.size(); // Number of monomials to be decomposed
-  _MIP_mondec1.reserve( nMon );
-  _MIP_mondec2.reserve( nMon );
-
-  auto jmon = _MIP_SetMon.cbegin();
-  for( unsigned j=0; j<nMon; ++j, ++jmon ){
-#if defined(MC__USE_GUROBI)
-    _MIP_mondec1.push_back( std::vector<GRBVar>() );
-    _MIP_mondec2.push_back( std::vector<GRBVar>() );
-    _MIP_mondec1[j].reserve( nVar+maxAux );
-    _MIP_mondec2[j].reserve( nVar+maxAux );
-    GRBLinExpr sum_mondec1, sum_mondec2;
-    for( unsigned i=0; i<nVar+maxAux; ++i ){
-      _MIP_mondec1[j].push_back( _GRBmodel->addVar( 0., 1., 0., GRB_BINARY ) );
-      _MIP_mondec2[j].push_back( _GRBmodel->addVar( 0., 1., 0., GRB_BINARY ) );
-      sum_mondec1 += _MIP_mondec1[j][i];
-      sum_mondec2 += _MIP_mondec2[j][i];
-      _GRBmodel->addConstr( sum_mondec1, GRB_GREATER_EQUAL, sum_mondec2 ); // symmetry breaking
-    }
-    _GRBmodel->addConstr( sum_mondec1, GRB_LESS_EQUAL, 1. );
-    _GRBmodel->addConstr( sum_mondec2, GRB_LESS_EQUAL, 1. );
-
-    auto imonvar = _MIP_VarDeg.expr.cbegin();
-    for( unsigned i=0; i<nVar; ++i, ++imonvar ){
-      GRBQuadExpr sum_monexp;
-      sum_monexp += _MIP_mondec1[j][i] + _MIP_mondec2[j][i];
-      for( unsigned k=0; k<maxAux; ++k ){
-        sum_monexp.addTerm( 1., _MIP_mondec1[j][nVar+k], _MIP_auxexp[k][i] );
-        sum_monexp.addTerm( 1., _MIP_mondec2[j][nVar+k], _MIP_auxexp[k][i] );
-      }
-      auto ivar = jmon->expr.find( imonvar->first );
-      if( ivar != jmon->expr.cend() )
-        _GRBmodel->addQConstr( sum_monexp, GRB_EQUAL, ivar->second );
-      else
-        _GRBmodel->addQConstr( sum_monexp, GRB_EQUAL, 0. );
-    }
-#endif
-  }
-}
-
-template <typename KEY, typename COMP>
-inline void
 SQuad<KEY,COMP>::_MIP_solve
 ()
 {
   _MIP_options();
   _MIPexcpt = false;
-#if defined(MC__USE_CPLEX)
-  try{
-    _ILOmodel->add( IloMinimize( *_ILOenv, *_ILPobj ) );
-    if( options.MIPOUTPUTFILE != "" )
-      _ILOcplex->exportModel( options.MIPOUTPUTFILE.c_str() );
-    _ILOcplex->solve();
-    if( options.MIPDISPLEVEL )
-      std::cout << "  #auxiliary variables: " << _ILOcplex->getObjValue() << std::endl;
-  }
-  catch(IloException& e){
-    if( options.MIPDISPLEVEL )
-      std::cout << "Error code = " << e.getMessage() << std::endl;
-    _MIPexcpt = true;
-  }
-#elif defined(MC__USE_GUROBI)
+#if defined(MC__USE_GUROBI)
   try{
     _GRBmodel->update();
     //_MIP_display();
@@ -1756,23 +1858,15 @@ inline void
 SQuad<KEY,COMP>::_MIP_options
 ()
 {
-#if defined(MC__USE_CPLEX)
-  // CPLEX options
-  _ILOcplex->extract(*_ILOmodel);
-  _ILOcplex->setWarning( options.MIPDISPLEVEL? std::cout: _ILOenv->getNullStream() );
-  _ILOcplex->setOut( options.MIPDISPLEVEL? std::cout: _ILOenv->getNullStream() );
-  _ILOcplex->setParam( IloCplex::RootAlg, options.LPALGO );
-  _ILOcplex->setParam( IloCplex::PreInd,  options.LPPRESOLVE?true:false );
-  _ILOcplex->setParam( IloCplex::EpOpt,   options.LPOPTIMTOL );
-  _ILOcplex->setParam( IloCplex::EpRHS,   options.LPFEASTOL );
-  _ILOcplex->setParam( IloCplex::EpGap,   options.MIPRELGAP );
-  _ILOcplex->setParam( IloCplex::EpAGap,  options.MIPABSGAP );
-  _ILOcplex->setParam( IloCplex::TiLim,   options.MIPTIMELIMIT );
-#elif defined(MC__USE_GUROBI)
+#if defined(MC__USE_GUROBI)
   // Gurobi options
   _GRBmodel->getEnv().set( GRB_IntParam_OutputFlag,        options.MIPDISPLEVEL );
   _GRBmodel->getEnv().set( GRB_IntParam_Method,            options.LPALGO );
-  _GRBmodel->getEnv().set( GRB_IntParam_Presolve,          options.LPPRESOLVE  );
+  _GRBmodel->getEnv().set( GRB_IntParam_Presolve,          options.LPPRESOLVE );
+  _GRBmodel->getEnv().set( GRB_IntParam_Threads,           options.MIPTHREADS );
+  _GRBmodel->getEnv().set( GRB_IntParam_ConcurrentMIP,     options.MIPCONCURRENT );
+  _GRBmodel->getEnv().set( GRB_IntParam_MIPFocus,          options.MIPFOCUS );
+  _GRBmodel->getEnv().set( GRB_DoubleParam_Heuristics,     options.MIPHEURISTICS );
   _GRBmodel->getEnv().set( GRB_DoubleParam_FeasibilityTol, options.LPFEASTOL );
   _GRBmodel->getEnv().set( GRB_DoubleParam_OptimalityTol,  options.LPOPTIMTOL );
   _GRBmodel->getEnv().set( GRB_DoubleParam_MIPGap,         options.MIPRELGAP );
@@ -1792,13 +1886,7 @@ SQuad<KEY,COMP>::_MIP_reset
   _MIP_auxdec2.clear();
   _MIP_mondec1.clear();
   _MIP_mondec2.clear();
-#if defined(MC__USE_CPLEX)
-  delete _ILPobj;
-  delete _ILOmodel; delete _ILOcplex;
-  _ILOmodel = new IloModel( *_ILOenv );
-  _ILOcplex = new IloCplex( *_ILOenv );
-  _ILPobj = new IloExpr( *_ILOenv );
-#elif defined(MC__USE_GUROBI)
+#if defined(MC__USE_GUROBI)
   delete _GRBmodel;
   _GRBmodel = new GRBModel( *_GRBenv );
 #endif

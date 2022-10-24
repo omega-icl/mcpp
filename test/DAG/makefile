@@ -49,6 +49,7 @@ gendot :
 gensvg :
 	@for FILE in $(shell ls *.png); do \
 	  echo $$FILE; \
+      convert -resize 70% $$FILE $$FILE; \
 	  (display $$FILE &); \
 	done
 
