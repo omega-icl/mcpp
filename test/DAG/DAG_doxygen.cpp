@@ -167,6 +167,7 @@ public:
   // Evaluation overloads
   template< typename T > void eval
     ( T& vRes, unsigned const nVar, T const* vVar )
+    const
     {
       switch( nVar ){
         case 0: vRes = T( 0. ); break;

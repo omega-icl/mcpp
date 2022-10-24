@@ -67,6 +67,7 @@ public:
   // Evaluation overloads
   template< typename T > void eval
     ( T& vRes, unsigned const nVar, T const* vVar )
+    const
     {
       switch( nVar ){
         case 0: vRes = T( 0. ); break;
@@ -301,7 +302,7 @@ int test_external2()
 
   // Evaluation in interval arithmetic
   I IX[NX], IG;
-  for( unsigned i=0; i<NX; ++i ) IX[i] = i+1+1e-10*I(-1,1);
+  for( unsigned i=0; i<NX; ++i ) IX[i] = 1e-10*I(-1,1)+(double)i+1.;
   std::vector<I> iwk;
   DAG.eval( G_op, iwk, 1, &G, &IG, NX, X, IX );
   std::cout << "G = " << IG << std::endl;
