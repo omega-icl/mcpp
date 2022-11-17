@@ -1,116 +1,160 @@
-// Copyright (C) 2009-2021 Benoit Chachuat, Imperial College London.
+// Copyright (C) Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
 /*!
-\page page_INTCHEBYSHEV Interval Chebyshev Model Arithmetic for Factorable Functions
-\author Yanlin Zha, Beno&icirc;t Chachuat
+\page page_CHEBYSHEV_SPARSEINT Sparse Interval Chebyshev Model Arithmetic for Factorable Functions
 
-A \f$q\f$th-order interval Chebyshev model of a Lipschitz-continuous function \f$f:\mathbb{R}^n\to\mathbb{R}\f$ on a box domain \f$X\subseteq \mathbb{R}^n\f$, consists of a \f$q^{\rm th}\f$-order multivariate polynomial \f$\mathcal P_f\f$ in Chebyshev basis:
+The classes mc::SICModel and mc::SICVar provide an implementation of sparse interval Chebyshev model arithmetic [Zha & Chachuat, 2021]. By contrast to sparse Chebyshev model arithmetic, the distinction between the polynomial part and the remainder part is blurred in a sparse interval Chebyshev model by considering a multivariate polynomial with interval coefficients, \f$\mathcal P:\mathbb{R}^n\to\mathbb{IR}\f$, so that:
 \f{align*}
-  \mathcal P_f({x}) = \sum_{|\kappa|\leq q} A_\kappa T_\kappa(\xi)
+  f({x}) \in \mathcal P({x}), \quad \forall {x}\in D.
 \f}
-where \f$A_\kappa\f$ are interval coefficients and \f$\xi := \frac{x-{\rm mid}(X)}{{\rm rad}(X)} \in [-1,1]^n\f$, so that:
-\f{align*}
-  f({x}) \in \mathcal P_f({x}), \quad \forall {x}\in X.
-\f}
-Unlike traditional Taylor/Chebyshev models where the polynomial part is propagated symbolically and accounts for functional dependencies, while the remainder term bounds the discrepancy between the function and this polynomial paproximant, interval Taylor/Chebyshev models directly capture the discrepancy in terms of the monomial coefficient. 
+These interval coefficients are propagated in the arithmetic of the templated type, typically a verified interval arithmetic. Sparse interval Chebyshev models yield a superset of sparse Chebyhev models. In general, they enable tighter inclusions by taking advantage of the distribution of the remainder term over the participating monomials. 
 
-The classes mc::SICModel and mc::SICVar provide an implementation of interval Chebyshev model arithmetic. We note that mc::SICModel / mc::SICVar is <b>not a verified implementation</b> in the sense that some rounding errors may not be accounted for in propagating the coefficients in the multivariate polynomial.
+\section sec_CHEBYSHEV_SPARSEINT_use How do I compute a sparse interval Chebyshev model of a factorable function?
 
-The implementation of mc::SICModel and mc::SICVar relies on the operator/function overloading mechanism of C++. The usual functions <tt>exp</tt>, <tt>log</tt>, <tt>sqr</tt>, <tt>sqrt</tt>, <tt>pow</tt>, <tt>inv</tt>, <tt>cos</tt>, <tt>sin</tt>, <tt>tan</tt>, <tt>acos</tt>, <tt>asin</tt>, <tt>atan</tt>, <tt>cosh</tt>, <tt>sinh</tt>, <tt>tanh</tt> and <tt>fabs</tt> are all overloaded. This makes the computation of interval Chebyshev models both simple and intuitive, similar to computing function values in real arithmetics or function bounds in interval arithmetic (see \ref page_INTERVAL). Moreover, mc::SICVar can be used as the template parameter of other available types in MC++ or <A href="http://www.fadbad.com/fadbad.html">FADBAD++</A>; for instance, mc::SICVa can be used as the template parameter of the types fadbad::F, fadbad::B and fadbad::T for computing Chebyshev models of either the partial derivatives or the Chebyshev coefficients of a factorable function.
-
-mc::SICModel and mc::SICVar themselves are templated in the type used to propagate bounds on the interval coefficients. By default, mc::SICModel and mc::SICVar can be used with the non-verified interval type mc::Interval of MC++. For reliability, however, it is strongly recommended to use verified interval arithmetic such as <A href="http://www.ti3.tu-harburg.de/Software/PROFILEnglisch.html">PROFIL</A> (header file <tt>mcprofil.hpp</tt>), <A href="http://www.math.uni-wuppertal.de/~xsc/software/filib.html">FILIB++</A> (header file <tt>mcfilib.hpp</tt>) or <A href="https://www.boost.org/doc/libs/1_66_0/libs/numeric/interval/doc/interval.htm">BOOST</A> (header file <tt>mcboost.hpp</tt>).
-
-
-\section sec_INTCHEBYSHEV_I How do I compute an interval Chebyshev model of a factorable function?
-
-Suppose we want to compute a 4th-order Chebyshev model for the real-valued function \f$f(x,y)=x\exp(x+y^2)-y^2\f$ with \f$(x,y)\in [1,2]\times[0,1]\f$. For simplicity, bounds on the remainder terms are computed using the default interval type mc::Interval here:
+Suppose we want to compute a 4th-order sparse interval Chebyshev model for the real-valued function \f$f(x,y)=x\exp(y^2)-y^2\f$ with \f$(x,y)\in [1,2]\times[0,1]\f$. For simplicity, bounds on the remainder terms are computed using the default interval type mc::Interval here:
 
 \code
       #include "interval.hpp"
       #include "sicmodel.hpp"
       typedef mc::Interval I;
-      typedef mc::SICModel<I> CM;
-      typedef mc::SICVar<I> CV;
+      typedef mc::SICModel<I> SICM;
+      typedef mc::SICVar<I> SICV;
 \endcode
 
-First, the number of independent variables in the factorable function (\f$x\f$ and \f$y\f$ here) as well as the order of the Chebyshev model (4th order here) are specified by defining an mc::SICModel object as:
+
+First, an mc::SICModel object is initialized by passing the order of the polynomial inclusion (4th order here):
 
 \code
-      CM mod( 4 );
+      SICM mod( 4 );
 \endcode
 
-Next, the variables \f$x\f$ and \f$y\f$ are defined as follows:
+Next, the variables \f$x\f$ and \f$y\f$ are added to the sparse interval Chebyshev model:
 
 \code
-      CV X( &mod, 0, I(1.,2.) );
-      CV Y( &mod, 1, I(0.,1.) );
+      SICV X( &mod, 0, I(1.,2.) );
+      SICV Y( &mod, 1, I(0.,1.) );
 \endcode
 
-Essentially, the first line means that <tt>X</tt> is a variable of class mc::SICVar, participating in the Chebyshev model <tt>mod</tt>, belonging to the interval \f$[1,2]\f$, and having index 0 (indexing in C/C++ start at 0 by convention!). The same holds for the Chebyshev variable <tt>Y</tt>, participating in the model <tt>mod</tt>, belonging to the interval \f$[0,1]\f$, and having index 1.
+Essentially, the first line means that <tt>X</tt> is a variable of class mc::SICVar, participating in the Chebyshev model <tt>mod</tt>, belonging to the interval \f$[1,2]\f$, and having index 0 (C-style indexing in use). The same holds for the variable <tt>Y</tt>, participating in the model <tt>mod</tt>, belonging to the interval \f$[0,1]\f$, and having index 1.
 
-Having defined the variables, a Chebyshev model of \f$f(x,y)=x\exp(x+y^2)-y^2\f$ on \f$[1,2]\times[0,1]\f$ at the mid-point \f$(\frac{3}{2},\frac{1}{2})\f$ is simply computed as:
+Having defined the variables, a sparse Chebyshev model of \f$f(x,y)=x\exp(x+y^2)-y^2\f$ on \f$[1,2]\times[0,1]\f$ at the mid-point \f$(\frac{3}{2},\frac{1}{2})\f$ is computed as:
 
 \code
-      CV F = X*exp(X+pow(Y,2))-pow(Y,2);
+      SICV F = X*exp(pow(Y,2))-pow(Y,2);
 \endcode
 
 This model can be displayed to the standard output as:
 
 \code
-      std::cout << "f interval Chebyshev model: " << F << std::endl;
+      std::cout << "f sparse interval Chebyshev model: " << F << std::endl;
 \endcode
 
 which produces the following output:
 
 \verbatim
-f interval Chebyshev model: 
-[ 1.95989e+00, 1.96780e+00]   0  1
-[ 7.75232e-01, 7.83996e-01]   1  T1[0]
-[ 7.01332e-01, 7.01332e-01]   1  T1[1]
-[ 4.00444e-01, 4.00444e-01]   2  T1[0]·T1[1]
-[ 3.05842e-01, 3.05842e-01]   2  T2[1]
-[ 1.43614e-01, 1.43614e-01]   3  T1[0]·T2[1]
-[ 8.42347e-02, 8.42347e-02]   3  T3[1]
-[ 2.80782e-02, 2.80782e-02]   4  T1[0]·T3[1]
-[ 1.53184e-02, 2.14458e-02]   4  T4[1]
-   B     =  [-5.27392e-03, 4.43678e+00]
-   I     =  { 0 1 }
+f sparse interval Chebyshev model: 
+[ 1.9601057e+00, 1.9675908e+00]   0  1
+[ 7.7530158e-01, 7.8393061e-01]   1  T1[0]
+[ 7.0133649e-01, 7.0133649e-01]   1  T1[1]
+[ 4.0044550e-01, 4.0044550e-01]   2  T1[0]·T1[1]
+[ 3.0580072e-01, 3.0580072e-01]   2  T2[1]
+[ 1.4360024e-01, 1.4360024e-01]   3  T1[0]·T2[1]
+[ 8.4292715e-02, 8.4292715e-02]   3  T3[1]
+[ 2.8097572e-02, 2.8097572e-02]   4  T1[0]·T3[1]
+[ 1.5334992e-02, 2.1468989e-02]   4  T4[1]
+   B     =  [-5.0886708e-01, 4.4365637e+00]
 \endverbatim
 
-The first 9 lines display the interval coefficients and corresponding monomials in the interval Chebyshev model. The penultimate line reports the interval Chebyshev model range. And the final line reports the dependency set I.
+The interval coefficients and corresponding monomials in the Chebyshev model are displayed first, with the middle integer being the total monomial order. The Chebyshev model range estimator is reported last.
 
-Other operations involve bounding the interval Chebyshev model over the entire domain or evaluating the interval polynomial at a given point:
+Other operations involve retreiving the model range, or computing the range of the interval-valued polynomial at a given point:
 
 \code
-      I Pbnd = F.B();
-      double x[2] = { 0.5, 1.5 };
-      I Pval = F.P( x );
+      I B = F.B();
+      double x[2] = { 1.5, 0.5 };
+      I Pval = F.IP( x );
 \endcode
 
 See the documentations of mc::SICModel and mc::SICVar for a complete list of member functions. 
 
-\section sec_INTCHEBYSHEV_opt How are the options set for the computation of an interval Chebyshev model?
 
-The class mc::SICModel has a public member of type mc::SICModel::Options that can be used to modify the options.
+\section sec_CHEBYSHEV_SPARSEINT_fct Which functions are overloaded for sparse interval Chebyshev model arithmetic?
+
+mc::SICVar overloads the usual functions <tt>exp</tt>, <tt>log</tt>, <tt>sqr</tt>, <tt>sqrt</tt>, <tt>pow</tt>, <tt>inv</tt>, <tt>cos</tt>, <tt>sin</tt>, <tt>tan</tt>, <tt>acos</tt>, <tt>asin</tt>, <tt>atan</tt>, <tt>cosh</tt>, <tt>sinh</tt>, <tt>tanh</tt>, <tt>erf</tt>, <tt>erfc</tt>, <tt>fabs</tt>. The functions <tt>min</tt>, <tt>max</tt>, <tt>fstep</tt>, <tt>bstep</tt>, <tt>inter</tt>, and <tt>hull</tt> are not currently overloaded in mc::SICVar.
+
+\section sec_CHEBYSHEV_SPARSEINT_opt How are the options set for the computation of a sparse interval Chebyshev model?
+
+The class mc::SICModel has a public member called mc::SICModel::options that can be used to set/modify the options. For instance:
+
+\code
+      mod.options.BOUNDER_TYPE = SICM::Options::NAIVE;
+      mod.options.SCALE_VARIABLES = true;
+\endcode
+
+The available options are the following:
+
+<TABLE border="1">
+<CAPTION><EM>Options in mc::SICModel::Options: name, type and description</EM></CAPTION>
+     <TR><TH><b>Name</b>  <TD><b>Type</b><TD><b>Default</b>
+         <TD><b>Description</b>
+     <TR><TH><tt>BASIS</tt> <TD><tt>unsigned int</tt> <TD>1
+         <TD>Basis representation of the monomials: 0-Monomial basis; 1-Chebyshev basis.
+     <TR><TH><tt>HOT_SPLIT</tt> <TD><tt>mc::SICModel::Options::ALLOCATION</tt> <TD>mc::SICModel::Options::FULL
+         <TD>Strategy for allocating higher-order terms to monomials in sparse product terms.
+     <TR><TH><tt>PRODBND_SPLIT</tt> <TD><tt>bool</tt> <TD>false
+         <TD>Whether to distribute uncertainty in product with interval bound.
+     <TR><TH><tt>REMEZ_USE</tt> <TD><tt>bool</tt> <TD>false
+         <TD>Whether to use the Remez algorithm for computing a minimax approximation for univariate terms.
+     <TR><TH><tt>REMEZ_MAXIT</tt> <TD><tt>unsigned int</tt> <TD>10
+         <TD>Maximal number of iterations in Remez algorithm for computing a minimax approximation for univariate terms.
+     <TR><TH><tt>REMEZ_TOL</tt> <TD><tt>double</tt> <TD>1e-5
+         <TD>Stopping tolerance in Remez algorithm for computing a minimax approximation for univariate terms.
+     <TR><TH><tt>REMEZ_MIG</tt> <TD><tt>double</tt> <TD>1e-10
+         <TD>Threshold for interval width below which Remez algorithm is not useds.
+     <TR><TH><tt>INTERP_EXTRA</tt> <TD><tt>unsigned int</tt> <TD>0
+         <TD>Extra terms in Chebyshev interpolation of univariates: 0-Chebyshev interpolation of order NORD; extra terms allow approximation of Chebyshev truncated series.
+     <TR><TH><tt>INTERP_THRES</tt> <TD><tt>double</tt> <TD>1e2*machprec()
+         <TD>Threshold for coefficient values in Chebyshev expansion for bounding of transcendental univariates.
+     <TR><TH><tt>BOUNDER_TYPE</tt> <TD><tt>mc::SICModel::Options::BOUNDER</tt> <TD>mc::SICModel::Options::LSB
+         <TD>Chebyshev model range bounder.
+     <TR><TH><tt>MIXED_IA</tt> <TD><tt>bool</tt> <TD>false
+         <TD>Whether to intersect internal bounds with underlying bounds in the templated arithmetics.
+     <TR><TH><tt>MIN_FACTOR</tt> <TD><tt>double</tt> <TD>0e0
+         <TD>Threshold for monomial coefficients below which the term is removed and appended to the remainder term.
+     <TR><TH><tt>REF_POLY</tt> <TD><tt>double</tt> <TD>0.
+         <TD>Scalar in \f$[0,1]\f$ related to the choice of the polynomial part in the overloaded functions mc::inter and mc::hull (see \ref sec_CHEBYSHEV_SPARSEINT_fct). A value of 0. amounts to selecting the polynomial part of the left operand, whereas a value of 1. selects the right operand.
+     <TR><TH><tt>DISPLAY_DIGITS</tt> <TD><tt>unsigned int</tt> <TD>5
+         <TD>Number of digits in output stream for Chebyshev model coefficients.
+</TABLE>
 
 
-\section sec_INTCHEBYSHEV_err What errors can I encounter during computation of an interval Chebyshev model?
+\section sec_CHEBYSHEV_SPARSEINT_err Errors What errors can I encounter during computation of a sparse interval Chebyshev model?
 
-Errors are managed based on the exception handling mechanism of the C++ language. Each time an error is encountered, a class object of type mc::SICModel::Exceptions is thrown, which contains the type of error. It is the user's responsibility to test whether an exception was thrown during the computation of a Chebyshev model, and then make the appropriate changes. Should an exception be thrown and not caught by the calling program, the execution will abort.
+Errors are managed based on the exception handling mechanism of the C++ language. Each time an error is encountered, a class object of type mc::SICModel::Exceptions is thrown, which contains the type of error. Possible errors encountered during the computation of a sparse interval Chebyshev model are:
 
-Moreover, exceptions may be thrown by the template parameter class itself.
+<TABLE border="1">
+<CAPTION><EM>Errors from class mc::CModel::Exceptions during the Computation of a Chebyshev Model</EM></CAPTION>
+     <TR><TH><b>Number</b> <TD><b>Description</b>
+     <TR><TH><tt>1</tt> <TD>Division by zero scalar
+     <TR><TH><tt>2</tt> <TD>Inverse operation with zero in range
+     <TR><TH><tt>3</tt> <TD>Log operation with non-positive numbers in range
+     <TR><TH><tt>4</tt> <TD>Square-root operation with negative numbers in range
+     <TR><TH><tt>5</tt> <TD>Real power operation with negative numbers in range
+     <TR><TH><tt>6</tt> <TD>Tangent operation with (k+1/2)·PI in range
+     <TR><TH><tt>7</tt> <TD>Cosine inverse operation with range outside [-1,1]
+     <TR><TH><tt>8</tt> <TD>Sine inverse operation with range outside [-1,1]
+     <TR><TH><tt>9</tt> <TD>Failed to compose sparse Chebyshev variable
+     <TR><TH><tt>-1</tt> <TD>Failed to construct sparse Chebyshev variable
+     <TR><TH><tt>-2</tt> <TD>Inconsistent bounds with template parameter arithmetic
+     <TR><TH><tt>-3</tt> <TD>Operation between Chebyshev variables linked to different Chebyshev models
+     <TR><TH><tt>-4</tt> <TD>Internal error
+     <TR><TH><tt>-33</tt> <TD>Feature not yet implemented in mc::SICModel
+</TABLE>
 
+Further exceptions may be thrown by the template parameter class itself.
 
-\section sec_INTCHEBYSHEV_refs References
-
-- Brisebarre, N., and M. Joldes, <A href="http://hal.archives-ouvertes.fr/docs/00/48/17/37/PDF/RRLIP2010-13.pdf">Chebyshev Interpolation Polynomial-based Tools for Rigorous Computing</A>, <i>Research Report No RR2010-13</i>, Ecole Normale Sup&eaccute;rieure de Lyon, Unit&eaccute; Mixte de Recherche CNRS-INRIA-ENS LYON-UCBL No 5668, 2010
-- T Dzetkulic, <A HREF="http://dx.doi.org/10.1007%2Fs11075-014-9889-x">Rigorous integration of non-linear ordinary differential equations in Chebyshev basis</A>. <I>Numerical Algorithms</I> <B>69</B>(1):183–205, 2015
-J Rajyaguru, ME Villanueva, B Houska, B Chachuat, <A href="">Chebyshev Model Arithmetic for Factorable Functions</A>, <I>Journal of Global Optimization</I> <B>68</B>:413-438, 2017
-- J Rajyaguru, ME Villanueva, B Houska, B Chachuat, <A href="https://doi.org/10.1007/s10898-016-0474-9">Chebyshev Model Arithmetic for Factorable Functions</A>, <I>Journal of Global Optimization</I> <B>68</B>:413-438, 2017
-- LN Trefethen,<A HREF="http://www.chebfun.org/ATAP/"><I>Approximation Theory and Approximation Practice</I></A>. SIAM, Philadelphia (PA), 2013
-.
 */
 
 #ifndef MC__SICMODEL_H
@@ -135,7 +179,7 @@ J Rajyaguru, ME Villanueva, B Houska, B Chachuat, <A href="">Chebyshev Model Ari
 #include "mcfunc.hpp"
 #include "mclapack.hpp"
 #include "mcop.hpp"
-#include "spolymon.hpp"
+#include "smon.hpp"
 #include "remez.hpp"
 
 #undef  MC__SICMODEL_DEBUG
@@ -154,94 +198,102 @@ J Rajyaguru, ME Villanueva, B Houska, B Chachuat, <A href="">Chebyshev Model Ari
 namespace mc
 {
 
-template <typename T> class SICVar;
+template <typename T, typename KEY, typename COMP> class SCModel;
+template <typename T, typename KEY, typename COMP> class SICVar;
 
-//! @brief C++ class for the computation of sparse Chebyshev models for factorable function: environment
+//! @brief C++ class for the computation of sparse interval Chebyshev models for factorable function: environment
 ////////////////////////////////////////////////////////////////////////
 //! mc::SICModel is a C++ class for definition of interval Chebyshev
-//! model environment in sparse format. Propagation of interval
+//! model environment in sparse format. Propagation of sparse interval
 //! Chebyshev models for factorable functions is via the C++ class
-//! mc::SICVar. The template parameter corresponds to the type
-//! of the polynomial coefficients.
+//! mc::SICVar. The template parameter corresponds to the type used to
+//! propagate the polynomial coefficients.
+
 ////////////////////////////////////////////////////////////////////////
-template <typename T>
+template < typename T, typename KEY=unsigned, typename COMP=std::less<unsigned> >
 class SICModel
 ////////////////////////////////////////////////////////////////////////
 {
-  friend class SICVar<T>;
-  template <typename U> friend class SICModel;
-  template <typename U> friend SICVar<U> inv
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> sqr
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> sqrt
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> exp
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> log
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> xlog
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> pow
-    ( const SICVar<U>&, const int );
-  template <typename U> friend SICVar<U> pow
-    ( const SICVar<U>&, double const );
-  template <typename U> friend SICVar<U> pow
-    ( double const, const SICVar<U>& );
-  template <typename U> friend SICVar<U> pow
-    ( const SICVar<U>&, const SICVar<U>& );
-  template <typename U> friend SICVar<U> prod
-    ( const unsigned int, const SICVar<U>* );
-  template <typename U> friend SICVar<U> monom
-    ( const unsigned int, const SICVar<U>*, const unsigned* );
-  template <typename U> friend SICVar<U> cheb
-    ( const SICVar<U>&, const unsigned );
-  template <typename U> friend SICVar<U> cos
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> sin
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> tan
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> acos
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> asin
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> atan
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> cosh
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> sinh
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> tanh
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> fabs
-    ( const SICVar<U>& );
+  friend class SICVar<T,KEY,COMP>;
+  template <typename U, typename K, typename C> friend class SICModel;
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> inv
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> sqr
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> sqrt
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> exp
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> log
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> xlog
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> pow
+    ( const SICVar<U,K,C>&, const int );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> pow
+    ( const SICVar<U,K,C>&, double const& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> pow
+    ( double const, const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> pow
+    ( const SICVar<U,K,C>&, const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> prod
+    ( const unsigned int, const SICVar<U,K,C>* );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> monom
+    ( const unsigned int, const SICVar<U,K,C>*, const unsigned* );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> cheb
+    ( const SICVar<U,K,C>&, const unsigned );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> cos
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> sin
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> tan
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> acos
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> asin
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> atan
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> cosh
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> sinh
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> tanh
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> erf
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> erfc
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> fabs
+    ( const SICVar<U,K,C>& );
 
-  typedef std::map< SPolyMon, T, lt_SPolyMon > t_coefmon;
-  typedef std::set< unsigned > t_var;
+public:
+
+  // Monomial representation: SMon := <total order, <variable, order>>
+  typedef SMon<KEY,COMP> t_mon;
+  typedef lt_SMon<COMP> lt_mon;
+  typedef std::map< t_mon, T, lt_mon > t_poly;
+  typedef std::set< KEY, COMP > t_var;
 
 protected:
 
   //! @brief Max order of polynomial model
   unsigned _maxord;
 
-  //! @brief Max number of variables in polynomial model
-  unsigned _maxvar;
+  //! @brief Set of participating variable indices
+  t_var _setvar;
 
-  //! @brief Set of particpating variable indices
-  std::set<unsigned> _setvar;
+  //! @brief Set of auxiliary (lifted) variables
+  t_var _setaux;
 
   //! @brief Bounds on model variables
-  std::vector<T> _bndvar;
+  std::map<KEY,T,COMP> _bndvar;
 
   //! @brief Reference points for the model variables
-  std::vector<double> _refvar;
+  std::map<KEY,double,COMP> _refvar;
 
   //! @brief Scaling factors of the model variables
-  std::vector<double> _scalvar; 
-
-  //! @brief Interval coefficients in Chebyshev interpolant of univariate functions
-  std::vector<T> _coefuniv;
+  std::map<KEY,double,COMP> _scalvar; 
 
   //! @brief Coefficients in Chebyshev interpolant of univariate functions
   std::vector<double> _ainterp;
@@ -252,41 +304,77 @@ protected:
   //! @brief Function values in Chebyshev interpolant of univariate functions
   std::vector<double> _finterp;
 
-  //! @brief Resize the model variable data containers
-  void _resize
-    ( const unsigned ivar )
-    { if( ivar < _maxvar ) return; _maxvar = ivar+1;
-      _bndvar.resize( _maxvar ); _refvar.resize( _maxvar ); _scalvar.resize( _maxvar ); }
-      
+  //! @brief Interval coefficients in Chebyshev interpolant of univariate functions
+  std::vector<T> _coefuniv;
+
+//  //! @brief Resize and return a pointer to the Chebyshev coefficient interpolant array
+//  std::vector<double>& _resize_coefuniv
+//    ()
+//    { _coefuniv.resize( _maxord + options.INTERP_EXTRA + 1 );
+//      return _coefuniv; }
+
   //! @brief Resize the model variable data containers
   void _set
-    ( const unsigned i, T const& X )
-    { _resize( i ); _setvar.insert( i );
-      _bndvar[i] = X; _refvar[i] = Op<T>::mid(X); _scalvar[i] = 0.5*Op<T>::diam(X); }
+    ( KEY const& id, T const& X );
 
-  //! @brief Resize and return a pointer to the Chebyshev coefficient interpolant array
-  std::vector<double>& _resize_coefuniv
-    ()
-    { _coefuniv.resize( _maxord + options.INTERP_EXTRA + 1 );
-      return _coefuniv; }
+  //! @brief Overloads returning a pointer of a new KEY
+  template<typename K>
+  static K* _newaux
+   ( K* dum, int ndx )
+   { return new K( ndx ); }
+   //{ K* aux = new K( ndx ); std::cout << "AUX: " << aux << std::endl; return aux; }
+  template<typename K>
+  static K _newaux
+   ( K& dum, int ndx )
+   { return K( ndx ); }
+
+  //! @brief Overloads deleting a KEY
+  template<typename K>
+  static void _delaux
+   ( K* aux )
+   { delete aux; }
+   //{ std::cout << "AUX: " << aux << std::endl; delete aux; }
+  template<typename K>
+  static void _delaux
+   ( K& aux )
+   {}
 
 public:
-  /** @addtogroup SCHEBYSHEV Chebyshev Model Arithmetic for Factorable Functions
+  /** @addtogroup SICHEBYSHEV Sparse Interval Chebyshev Model Arithmetic for Factorable Functions
    *  @{
    */
   //! @brief Constructor of Sparse Chebyshev model environment for maximal order <tt>maxord</tt>
   SICModel
-    ( const unsigned maxord=3, const unsigned nvarres=0 )
-    : _maxord( maxord ), _maxvar( 0 )
-    { _coefuniv.reserve( _maxord );
-      if( !nvarres ) return;
-      _bndvar.reserve( nvarres );
-      _refvar.reserve( nvarres );
-      _scalvar.reserve( nvarres ); }
+    ( const unsigned maxord=3 )
+    : _maxord( maxord )
+    { _coefuniv.reserve( _maxord + options.INTERP_EXTRA + 1 ); }
+
+  //! @brief Copy constructor of Sparse Chebyshev model environment
+  SICModel
+    ( SICModel<T,KEY,COMP> const& mod )
+    : _maxord( mod._maxord ), _setvar( mod._setvar ),
+      _bndvar( mod._bndvar ), _refvar( mod._refvar ), _scalvar( mod._scalvar )
+    { _coefuniv.reserve( _maxord + options.INTERP_EXTRA + 1 ); }
+
+  //! @brief Copy constructor of Sparse Chebyshev model environment
+  SICModel
+    ( SCModel<T> const& mod )
+    : _maxord( mod.maxord() ), _setvar( mod.setvar() ),
+      _bndvar( mod.bndvar() ), _refvar( mod.refvar() ), _scalvar( mod.scalvar() )
+    { _coefuniv.reserve( _maxord + options.INTERP_EXTRA + 1 ); }
 
   //! @brief Destructor of Sparse Chebyshev model environment
-  ~SICModel()
-    {}
+  ~SICModel
+    ()
+    { reset_aux(); }
+
+  //! @brief Append new auxiliary variable and return a reference
+   KEY const& append_aux
+     ();
+
+  //! @brief Maximal order of polynomial model
+  void reset_aux
+    ();
 
   //! @brief Maximal order of polynomial model
   unsigned maxord
@@ -294,42 +382,56 @@ public:
     const
     { return _maxord; };
 
-  //! @brief Number of variables in polynomial model
-  unsigned maxvar
+  //! @brief Retrieve auxiliary variables
+  t_var const& setaux
     ()
     const
-    { return _maxvar; };
+    { return _setaux; }
 
-  //! @brief Const reference to reference points for the model variables
-  std::set<unsigned> const& setvar() const
+  //! @brief Retrieve reference points for the model variables
+  t_var const& setvar
+    ()
+    const
     { return _setvar; }
 
-  //! @brief Const reference to the bounds of the model variables
-  std::vector<T> const& bndvar() const
+  //! @brief Retrieve bounds of the model variables
+  std::map<KEY,T,COMP> const& bndvar
+    ()
+    const
     { return _bndvar; }
 
-  //! @brief Const reference to reference points for the model variables
-  std::vector<double> const& refvar() const
+  //! @brief Retrieve reference points for the model variables
+  std::map<KEY,double,COMP> const& refvar
+    ()
+    const
     { return _refvar; }
 
-  //! @brief Const reference to the scaling factors of the model variables
-  std::vector<double> const& scalvar() const
+  //! @brief Retrieve scaling factors of the model variables
+  std::map<KEY,double,COMP> const& scalvar
+    ()
+    const
     { return _scalvar; }
 
-  //! @brief Get Chebyshev basis functions in U arithmetic for variable array <a>X</a>
-  template <typename U> U** get_basis
-    ( const unsigned maxord, const U*bndvar, const bool scaled=false ) const;
 
-  //! @brief Get Chebyshev monomial bounds in U arithmetic for variable array <a>X</a> and monomial indexes in <a>ndxmon</a>
-  template <typename U> void get_bndmon
-    ( std::map<SPolyMon,U,lt_SPolyMon>& bndmon, U const* bndvar,
-      bool const scaled=false ) const;
+  //! @brief Get Chebyshev basis functions in U arithmetic for variable bounds <a>bndvar</a>
+  template <typename U>
+  std::map<KEY,std::vector<U>,COMP>& get_basis
+    ( const unsigned maxord, std::map<KEY,U,COMP> const& bndvar,
+      std::map<KEY,std::vector<U>,COMP>& bndbasis, const bool scaled=false )
+    const;
+
+  //! @brief Get Chebyshev monomial bounds in U arithmetic for variable bounds <a>bndvar</a>
+  template <typename U>
+  void get_bndmon
+    ( std::map<t_mon,U,lt_mon>& bndmon, std::map<KEY,U,COMP> const& bndvar,
+      bool const scaled=false )
+    const;
 
   //! @brief Exceptions of mc::SICModel
   class Exceptions
   {
   public:
-    //! @brief Enumeration type for SICModel exception handling
+    //! @brief Enumeration type for mc::SICModel exception handling
     enum TYPE{
       DIV=1,	//!< Division by zero scalar
       INV,	//!< Inverse operation with zero in range
@@ -339,11 +441,10 @@ public:
       TAN,	//!< Tangent operation with (k+1/2)·PI in range
       ACOS,	//!< Cosine inverse operation with range outside [-1,1]
       ASIN,	//!< Sine inverse operation with range outside [-1,1]
-      EIGEN,	//!< Failed to compute eigenvalue decomposition in range bounder SICModel::Options::EIGEN
       COMPOSE,	//!< Failed to compose Chebyshev variable
       INIT=-1,	//!< Failed to construct Chebyshev variable
-      INCON=-2, //!< Chebyshev model bound does not intersect with bound in template parameter arithmetic
-      SICMODEL=-3,//!< Operation between Chebyshev variables linked to different Chebyshev models
+      INCON=-2, //!< Inconsistent bounds with template parameter arithmetic
+      MODEL=-3,//!< Operation between Chebyshev variables linked to different Chebyshev models
       INTERNAL = -4,//!< Internal error
       UNDEF=-33 //!< Feature not yet implemented in mc::SICModel
     };
@@ -370,18 +471,16 @@ public:
         return "mc::SICModel\t Cosine inverse operation with range outside [-1,1]";
       case ASIN:
         return "mc::SICModel\t Sine inverse operation with range outside [-1,1]";
-      case EIGEN:
-        return "mc::SICModel\t Range bounder with eigenvalue decomposition failed";
       case COMPOSE:
         return "mc::SICModel\t Chebyshev composition failed";
       case INIT:
         return "mc::SICModel\t Chebyshev variable initialization failed";
       case INCON:
         return "mc::SICModel\t Inconsistent bounds with template parameter arithmetic";
-      case SICMODEL:
-        return "mc::SICModel\t Operation between Chebyshev variables in different Chebyshev model environment not allowed";
+      case MODEL:
+        return "mc::SICModel\t Operation between variables in different model environments";
       case UNDEF:
-        return "mc::SICModel\t Feature not yet implemented in mc::SICModel class";
+        return "mc::SICModel\t Feature not yet implemented";
       case INTERNAL:
       default:
         return "mc::SICModel\t Internal error";
@@ -397,17 +496,23 @@ public:
   {
     //! @brief Constructor of mc::SICModel::Options
     Options():
-      BASIS(CHEB), HOT_SPLIT(FULL),
+      BASIS(CHEB),
+      HOT_SPLIT(FULL), PRODBND_SPLIT(false), 
+      LIFT_USE(false), LIFT_ATOL(1e-10), LIFT_RTOL(1e-3),
       REMEZ_USE(true), REMEZ_MAXIT(10), REMEZ_TOL(1e-5), REMEZ_MIG(1e-10),
       INTERP_EXTRA(0), INTERP_THRES(1e2*machprec()), BOUNDER_TYPE(LSB),
-      MIXED_IA(true), MIN_FACTOR(0.), REF_POLY(0.),
-      DISPLAY_DIGITS(7)
+      MIG_USE(false), MIG_ATOL(0e0), MIG_RTOL(machprec()), 
+      MIXED_IA(false), REF_POLY(0e0), DISPLAY_DIGITS(7)
       {}
     //! @brief Copy constructor of mc::SICModel::Options
     template <typename U> Options
       ( U&options )
       : BASIS( options.BASIS ),
         HOT_SPLIT( options.HOT_SPLIT ),
+        PRODBND_SPLIT( options.PRODBND_SPLIT ),
+        LIFT_USE( options.LIFT_USE ),
+        LIFT_ATOL( options.LIFT_ATOL ),
+        LIFT_RTOL( options.LIFT_RTOL ),
         REMEZ_USE( options.REMEZ_USE ),
         REMEZ_MAXIT( options.REMEZ_MAXIT ),
         REMEZ_TOL( options.REMEZ_TOL ),
@@ -415,7 +520,9 @@ public:
         INTERP_EXTRA( options.INTERP_EXTRA ),
         INTERP_THRES( options.INTERP_THRES ),
         BOUNDER_TYPE( options.BOUNDER_TYPE ),
-        MIN_FACTOR( options.MIN_FACTOR ),
+        MIG_USE( options.MIG_USE ),
+        MIG_ATOL( options.MIG_ATOL ),
+        MIG_RTOL( options.MIG_RTOL ),
         MIXED_IA( options.MIXED_IA ),
         REF_POLY(options.REF_POLY),
         DISPLAY_DIGITS( options.DISPLAY_DIGITS )
@@ -425,6 +532,10 @@ public:
       ( U&options ){
         BASIS            = options.BASIS;
         HOT_SPLIT        = options.HOT_SPLIT;
+        PRODBND_SPLIT    = options.PRODBND_SPLIT;
+        LIFT_USE         = options.LIFT_USE;
+        LIFT_ATOL        = options.LIFT_ATOL;
+        LIFT_RTOL        = options.LIFT_RTOL;
         REMEZ_USE        = options.REMEZ_USE;
         REMEZ_MAXIT      = options.REMEZ_MAXIT;
         REMEZ_TOL        = options.REMEZ_TOL;
@@ -432,7 +543,9 @@ public:
         INTERP_EXTRA     = options.INTERP_EXTRA;
         INTERP_THRES     = options.INTERP_THRES;
         BOUNDER_TYPE     = (BOUNDER)options.BOUNDER_TYPE;
-        MIN_FACTOR       = options.MIN_FACTOR;
+        MIG_USE          = options.MIG_USE;
+        MIG_ATOL         = options.MIG_ATOL;
+        MIG_RTOL         = options.MIG_RTOL;
         MIXED_IA         = options.MIXED_IA;
         REF_POLY         = options.REF_POLY;
         DISPLAY_DIGITS   = options.DISPLAY_DIGITS;
@@ -451,13 +564,21 @@ public:
     };
     //! @brief Available basis representations
     enum MONBASIS{
-      POW=0,	//!< Power basis
+      MONOM=0,	//!< Power basis
       CHEB	//!< Chebyshev basis
     };
     //! @brief Basis representation of the monomials
     unsigned BASIS;
     //! @brief Strategy for allocating higher-order terms to monomials in sparse product terms
     ALLOCATION HOT_SPLIT;
+    //! @brief Whether to distribute uncertainty in product with interval bound
+    bool PRODBND_SPLIT;
+    //! @brief Whether to lift the remainder term in nonlinear operations by introducing auxiliary variables in the model
+    bool LIFT_USE;
+    //! @brief Absolute tolerance for lifting the reminder term - only if LIFT_USE == true
+    double LIFT_ATOL;
+    //! @brief relative tolerance for lifting the reminder term - only if LIFT_USE == true
+    double LIFT_RTOL;
     //! @brief Whether to use the Remez algorithm for computing a minimax approximation for univariate terms
     bool REMEZ_USE;
     //! @brief Maximal number of iterations in Remez algorithm for computing a minimax approximation for univariate terms
@@ -474,10 +595,14 @@ public:
     BOUNDER BOUNDER_TYPE;
     //! @brief Array of Chebyshev model range bounder names (for display)
     static const std::string BOUNDER_NAME[2];
+    //! @brief Whether to simplify the monomial terms with small magnitude in the model
+    bool MIG_USE;
+    //! @brief Absolute tolerance for simplifying monomial terms - only if MIG_USE == true
+    double MIG_ATOL;
+    //! @brief relative tolerance for simplifying monomial terms - only if MIG_USE == true
+    double MIG_RTOL;
     //! @brief Whether to intersect internal bounds with underlying bounds in T arithmetics
     bool MIXED_IA;
-    //! @brief Threshold for monomial coefficients below which the term is removed and appended to the remainder term.
-    double MIN_FACTOR;
     //! @brief Scalar in \f$[0,1]\f$ related to the choice of the polynomial part in the overloaded functions mc::inter and mc::hull. A value of 0 amounts to selecting the polynomial part of the left operand, whereas a value of 1 selects the right operand.
     double REF_POLY;
     //! @brief Number of digits in output stream for Chebyshev model coefficients.
@@ -496,14 +621,15 @@ private:
 
   //! @brief Get Chebyshev basis functions in U arithmetic for variable <a>bndvar</a>
   template <typename U>
-  U* _get_bndpow
-    ( const unsigned maxord, U const& bndvar, double const ref, double const scal )
+  std::vector<U>& _get_bndpow
+    ( unsigned const maxord, U const& bndvar, double const& refvar, double const& scalvar,
+      std::vector<U>& bndpow )
     const;
 
   //! @brief Get Chebyshev basis functions in U arithmetic for [-1,1] scaled variable <a>bndvar</a>
   template <typename U>
-  U* _get_bndpow
-    ( const unsigned maxord, U const& bndvar )
+  std::vector<U>& _get_bndpow
+    ( unsigned const maxord, U const& bndvar, std::vector<U>& bndpow )
     const;
 
   //! @brief Conversion from power series to Chebyshev series
@@ -520,7 +646,7 @@ private:
   //! @brief Compose minimax polynomial for univariate <a>f</a> with Chebyshev variable <a>CV</a> and return resulting Chebyshev variable in <a>CV2</a>
   template <typename PUNIV>
   bool _minimax
-    ( PUNIV const& f, SICVar<T> const& CV, SICVar<T>& CV2 );
+    ( PUNIV const& f, SICVar<T,KEY,COMP> const& CV, SICVar<T,KEY,COMP>& CV2 );
 
   //! @brief Return error at bound between univariate <a>f</a> and corresponding interpolating coefficients in <a>_coefuniv</a>
   template <typename PUNIV>
@@ -538,207 +664,241 @@ private:
     ( PUNIV const& f, double const tol, unsigned& maxord );
 
   //! @brief Apply the Clenshaw algorithm
-  SICVar<T> _clenshaw
-    ( SICVar<T> const& CVinner, unsigned const maxord );
+  SICVar<T,KEY,COMP> _clenshaw
+    ( SICVar<T,KEY,COMP> const& CVinner, unsigned const maxord );
 
   //! @brief Apply the Horner algorithm
-  SICVar<T> _horner
-    ( SICVar<T> const& CVinner, unsigned const maxord );
+  SICVar<T,KEY,COMP> _horner
+    ( SICVar<T,KEY,COMP> const& CVinner, unsigned const maxord );
     
   //! @brief Compose interpolating polynomial for univariate <a>f</a> with Chebyshev variable <a>CV</a> and return resulting Chebyshev variable in <a>CV2</a>
   template <typename PUNIV>
   bool _chebinterp
-    ( PUNIV const& f, SICVar<T> const& CV, SICVar<T>& CV2, bool const rematbound );
+    ( PUNIV const& f, SICVar<T,KEY,COMP> const& CV, SICVar<T,KEY,COMP>& CV2,
+      bool const rematbound );
 
   //! @brief Apply Chebyshev composition to variable <a>CVI</a> using the coefficients <a>coefmon</a> of the outer function
-  template <typename U> static SICVar<T> _composition
+  template <typename U> static SICVar<T,KEY,COMP> _composition
     ( std::vector<U> const& coefouter, unsigned const maxord,
-      SICVar<T> const& CVinner );
+      SICVar<T,KEY,COMP> const& CVinner );
 
   //! @brief Recursive calculation of nonnegative integer powers
-  SICVar<T> _intpow
-    ( SICVar<T> const& CV, int const n ) const;
+  SICVar<T,KEY,COMP> _intpow
+    ( SICVar<T,KEY,COMP> const& CV, int const n )
+    const;
 
   //! @brief Polynomial range bounder - Naive approach
   template <typename C, typename U> U _polybound_naive
-    ( std::map<SPolyMon,C,lt_SPolyMon> const& coefmon, U const* const* bndbasis,
-      unsigned const minord=0 ) const;
+    ( std::map<t_mon,C,lt_mon> const& coefmon,
+      std::map<KEY,std::vector<U>,COMP> const& bndbasis,
+      unsigned const minord=0 )
+    const;
 
   //! @brief Polynomial range bounder - Lin & Stadtherr approach
   template <typename C, typename U> U _polybound_LSB
-    ( std::map<SPolyMon,C,lt_SPolyMon> const& coefmon, U const* const* bndbasis ) const;
+    ( std::map<t_mon,C,lt_mon> const& coefmon, 
+      std::map<KEY,std::vector<U>,COMP> const& bndbasis )
+    const;
 
   //! @brief Polynomial range bounder using specified bounder <a>type</a> with basis functions <a>bndbasis</a> in U arithmetic and monomial coefficients <a>coefmon</a> in C arithmetic
   template <typename C, typename U> U _polybound
-    ( std::map<SPolyMon,C,lt_SPolyMon> const& coefmon, U const *const* bndbasis,
-      int const type );
+    ( std::map<t_mon,C,lt_mon> const& coefmon,
+      std::map<KEY,std::vector<U>,COMP> const& bndbasis,
+      int const type )
+    const;
+
+  //! @brief Monomial range bounder for <a>mon</a>
+  T _monbound
+    ( t_mon const& mon )
+    const;
+
+  //! @brief Monomial value of <a>mon</a> at point <a>x</a>
+  double _monval
+    ( t_mon const& mon, std::map<KEY,double,COMP> const& x )
+    const;
 
   //! @brief Recursive product of univariate Chebyshev polynomials
   void _sprod1D
-    ( std::map<unsigned,t_coefmon> const& sp1map,
-      std::map<unsigned,t_coefmon> const& sp2map,
-      t_coefmon& coefmon, std::set<unsigned> const& ndxvar,
-      typename t_var::const_iterator itvar ) const;
+    ( std::map<unsigned,t_poly> const& sp1map,
+      std::map<unsigned,t_poly> const& sp2map,
+      t_poly& coefmon, t_var const& ndxvar,
+      typename t_var::const_iterator itvar )
+    const;
 
   //! @brief Scaling of Chebyshev coefficient maps
   void _sscal1D
-    ( const t_coefmon& coefmon0, T const&coefscal,
-      t_coefmon& coefmon ) const;
+    ( const t_poly& coefmon0, T const&coefscal,
+      t_poly& coefmon )
+    const;
 
   //! @brief Lifting of Chebyshev coefficient maps
   void _slift1D
-    ( const t_coefmon& coefmon0, double const& dscal,
-      t_coefmon& coefmon ) const;
+    ( const t_poly& coefmon0, double const& dscal,
+      t_poly& coefmon )
+    const;
 
   //! @brief Lifting of Chebyshev coefficient maps
   void _slift1D
-    ( t_coefmon const& coefmon0, double const& dscal,
-      t_coefmon& coefmon, typename t_var::const_iterator itvar,
-      unsigned const ndxord ) const;
+    ( t_poly const& coefmon0, double const& dscal,
+      t_poly& coefmon, typename t_var::const_iterator itvar,
+      unsigned const ndxord )
+    const;
 
   //! @brief Build 1D vector of Chebyshev coefficients
   void _svec1D
     ( typename t_var::const_iterator itvar,
-      std::pair<SPolyMon,T> const& mon,
-      std::map<unsigned,t_coefmon>& mapspoly ) const;
+      std::pair<t_mon,T> const& mon,
+      std::map<unsigned,t_poly>& mapspoly )
+    const;
 
   //! @brief Display of recursive univariate Chebyshev polynomials
   void _sdisp1D
-    ( const std::vector<SICVar<T>>& coefmon, const unsigned ndxvar,
-      const std::string&name="", std::ostream&os=std::cout ) const;
+    ( std::map<unsigned,t_poly> const& coefmon, typename t_var::const_iterator itvar,
+      const std::string&name="", std::ostream&os=std::cout )
+    const;
 
   //! @brief Display of recursive univariate Chebyshev polynomials
   void _sdisp1D
-    ( std::map<unsigned,t_coefmon> const& coefmon, typename t_var::const_iterator itvar,
-      const std::string&name="", std::ostream&os=std::cout ) const;
-
-  //! @brief Display of recursive univariate Chebyshev polynomials
-  void _sdisp1D
-    ( const t_coefmon& coefmon, const std::string&name="",
-      std::ostream&os=std::cout ) const;
+    ( const t_poly& coefmon, const std::string&name="",
+      std::ostream&os=std::cout )
+    const;
 
   //! @brief Build 1D vector of Chebyshev coefficients
   void _svec1Dfull
-    ( unsigned const ndxvar, std::pair<SPolyMon,T> const& coefmon,
-      std::vector<SICVar<T>>& vec ) const;
+    ( typename t_var::const_iterator itvar,
+      std::pair<t_mon,T> const& mon,
+      std::vector< SICVar<T,KEY,COMP> >& vec )
+    const;
+
+  //! @brief Display of recursive univariate Chebyshev polynomials
+  void _sdisp1Dfull
+    ( std::vector< SICVar<T,KEY,COMP> > const& vec, typename t_var::const_iterator itvar,
+      std::string const& name="", std::ostream& os=std::cout )
+    const;
 
   //! @brief Product of multivariate Chebyshev polynomials in sparse format
   void _sprod
-    ( SICVar<T> const& CV1, SICVar<T> const& CV2, t_coefmon& coefmon,
-      double&coefrem ) const;
-
-  //! @brief Squaring of multivariate Chebyshev polynomials in sparse format
-  void _ssqr
-    ( SICVar<T> const& CV, t_coefmon& coefmon, double&coefrem ) const;
+    ( SICVar<T,KEY,COMP> const& CV1, SICVar<T,KEY,COMP> const& CV2,
+      t_poly& coefmon, double& coefrem )
+    const;
 };
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-const std::string SICModel<T>::Options::BOUNDER_NAME[2]
+const std::string SICModel<T,KEY,COMP>::Options::BOUNDER_NAME[2]
   = { "NAIVE", "LSB" };
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-T SICModel<T>::TZerOne
+T SICModel<T,KEY,COMP>::TZerOne
   = Op<T>::zeroone();
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-T SICModel<T>::TOne
+T SICModel<T,KEY,COMP>::TOne
   = 2.*Op<T>::zeroone()-1.;
 
-//! @brief C++ class for Chebyshev model computation of factorable function - Chebyshev model propagation
+//! @brief C++ class for the computation of sparse interval Chebyshev models for factorable function: propagation
 ////////////////////////////////////////////////////////////////////////
-//! mc::SICVar is a C++ class for propagation of Chebyshev models through
-//! factorable functions. The template parameter corresponds to the
-//! type used in computing the remainder bound.
+//! mc::SICVar is a C++ class for propagation of sparse interval
+//! Chebyshev models through factorable functions. Variables of type
+//! mc::SICVar are registered in a Chebyshev model environment of class
+//! mc::SICModel. The template parameter corresponds to the type used in
+//! computing the interval coefficients.
 ////////////////////////////////////////////////////////////////////////
-template <typename T>
+template < typename T, typename KEY=unsigned, typename COMP=std::less<unsigned> >
 class SICVar
 ////////////////////////////////////////////////////////////////////////
 {
-  template <typename U> friend class SICVar;
-  template <typename U> friend class SICModel;
+  template <typename U, typename K, typename C> friend class SICVar;
+  template <typename U, typename K, typename C> friend class SICModel;
 
-  template <typename U> friend SICVar<U> operator-
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> operator*
-    ( const SICVar<U>&, const SICVar<U>& );
-  template <typename U> friend std::ostream& operator<<
-    ( std::ostream&, const SICVar<U>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> operator-
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> operator*
+    ( const SICVar<U,K,C>&, const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend std::ostream& operator<<
+    ( std::ostream&, const SICVar<U,K,C>& );
 
-  template <typename U> friend U funcptr
+  template <typename U, typename K, typename C> friend U funcptr
     ( const U, const unsigned  );
-  template <typename U> friend void interpolation
-    ( double*, const SICVar<U>&, const unsigned  );
-  template <typename U> friend SICVar<U> composition
-    ( double const*, const SICVar<U>& );
+  template <typename U, typename K, typename C> friend void interpolation
+    ( double*, const SICVar<U,K,C>&, const unsigned  );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> composition
+    ( double const*, const SICVar<U,K,C>& );
 
-  template <typename U> friend SICVar<U> inv
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> sqr
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> sqrt
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> exp
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> log
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> xlog
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> pow
-    ( const SICVar<U>&, const int );
-  template <typename U> friend SICVar<U> pow
-    ( const SICVar<U>&, double const );
-  template <typename U> friend SICVar<U> pow
-    ( double const, const SICVar<U>& );
-  template <typename U> friend SICVar<U> pow
-    ( const SICVar<U>&, const SICVar<U>& );
-  template <typename U> friend SICVar<U> prod
-    ( const unsigned int, const SICVar<U>* );
-  template <typename U> friend SICVar<U> monom
-    ( const unsigned int, const SICVar<U>*, const unsigned* );
-  template <typename U> friend SICVar<U> cheb
-    ( const SICVar<U>&, const unsigned );
-  template <typename U> friend SICVar<U> cos
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> sin
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> tan
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> acos
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> asin
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> atan
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> cosh
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> sinh
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> tanh
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> fabs
-    ( const SICVar<U>& );
-  template <typename U> friend SICVar<U> hull
-    ( const SICVar<U>&, const SICVar<U>& );
-  template <typename U> friend bool inter
-    ( SICVar<U>&, const SICVar<U>&, const SICVar<U>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> inv
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> sqr
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> sqrt
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> exp
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> log
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> xlog
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> pow
+    ( const SICVar<U,K,C>&, const int );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> pow
+    ( const SICVar<U,K,C>&, double const& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> pow
+    ( double const, const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> pow
+    ( const SICVar<U,K,C>&, const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> prod
+    ( const unsigned int, const SICVar<U,K,C>* );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> monom
+    ( const unsigned int, const SICVar<U,K,C>*, const unsigned* );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> cheb
+    ( const SICVar<U,K,C>&, const unsigned );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> cos
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> sin
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> tan
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> acos
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> asin
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> atan
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> cosh
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> sinh
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> tanh
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> erf
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> erfc
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> fabs
+    ( const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SICVar<U,K,C> hull
+    ( const SICVar<U,K,C>&, const SICVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend bool inter
+    ( SICVar<U,K,C>&, const SICVar<U,K,C>&, const SICVar<U,K,C>& );
 
 public:
-  // Monomial representation: <total order, <variable index, order>>
-  typedef std::map< SPolyMon, T, lt_SPolyMon > t_coefmon;
-  typedef std::set< unsigned > t_var;
+
+  // Monomial representation: SMon := <total order, <variable, order>>
+  typedef SMon<KEY,COMP> t_mon;
+  typedef lt_SMon<COMP> lt_mon;
+  typedef std::map< t_mon, T, lt_mon > t_poly;
+  typedef std::set< KEY, COMP> t_var;
   
 private:
   //! @brief Pointer to Chebyshev model environment
-  SICModel<T> *_CM;
+  SICModel<T,KEY,COMP> *_CM;
 
   //! @brief Set of participating variables in polynomial expression
   t_var _ndxvar;
 
   //! @brief Array of size <tt>_nmon</tt> with monomial coefficients of variable
-  t_coefmon _coefmon;
+  t_poly _coefmon;
 
   //! @brief Pointer to variable bound in underlying T arithmetic (possibly NULL if not computed)
   mutable T* _bndT;
@@ -782,46 +942,48 @@ private:
   void _unset_bndpol
     ();
 
-  //! @brief Original bounds on variable <tt>ivar</tt>
-  T const&  _bndvar
-    ( const unsigned ivar )
+  //! @brief Original bounds on variable <tt>id</tt>
+  T const& _bndvar
+    ( KEY const& id )
     const
-    { return _CM->_bndvar[ivar]; };
+    { return _CM->_bndvar[id]; };
 
-  //! @brief Reference point for variable <tt>ivar</tt> in Chebyshev model
-  double _refvar
-    ( const unsigned ivar )
+  //! @brief Reference point for variable <tt>id</tt> in Chebyshev model
+  double const& _refvar
+    ( KEY const& id )
     const
-    { return _CM->_refvar[ivar]; };
+    { return _CM->_refvar[id]; };
 
-  //! @brief Scaling for variable <tt>ivar</tt> in Cheyshev model
-  double _scalvar
-    ( const unsigned ivar ) const
-    { return _CM->_scalvar[ivar]; };
+  //! @brief Scaling for variable <tt>id</tt> in Cheyshev model
+  double const& _scalvar
+    ( KEY const& id )
+    const
+    { return _CM->_scalvar[id]; };
 
   //! @brief Set Chebyshev variable equal to <a>CV</a>
-  SICVar<T>& _set
-    ( SICVar<T> const& CV );
+  SICVar<T,KEY,COMP>& _set
+    ( SICVar<T,KEY,COMP> const& CV );
 
   //! @brief Set Chebyshev variable equal to <a>CV</a>
-  SICVar<T>& _set
-    ( SICVar<T> && CV );
+  SICVar<T,KEY,COMP>& _set
+    ( SICVar<T,KEY,COMP> && CV );
 
-  //! @brief Set Chebyshev variable with index <a>ix</a> (starting from 0) and bounded by <a>X</a>
-  SICVar<T>& _set
-    ( const unsigned ivar, T const& X, const bool updMod=true );
+  //! @brief Set Chebyshev variable <a>id</a> with domain <a>dom</a>
+  SICVar<T,KEY,COMP>& _set
+    ( KEY const& id, T const& dom, const bool updt=true );
 
 public:
-  /** @addtogroup CHEBYSHEV Chebyshev Model Arithmetic for Factorable Functions
+  /** @addtogroup SICHEBYSHEV Sparse Interval Chebyshev Model Arithmetic for Factorable Functions
    *  @{
    */
+
   //! @brief Display sparse polynomial
   std::string display
-    ( typename SICVar::t_coefmon coefmon, int const& BASIS=1, int const& IDISP=5 )
+    ( t_poly coefmon, int const& BASIS=1, int const& IDISP=5 )
     const;
     
   //! @brief Get pointer to linked Chebyshev model environment
-  SICModel<T>* env() const
+  SICModel<T,KEY,COMP>* env() const
     { return _CM; }
 
   //! @brief Max order of model environment
@@ -829,12 +991,6 @@ public:
     ()
     const
     { return( _CM? _CM->_maxord: 0 ); };
-
-  //! @brief Max number of variables in model environment
-  unsigned maxvar
-    ()
-    const
-    { return( _CM? _CM->_maxvar: 0 ); };
 
   //! @brief Max order of participating variables in polynomial variable
   unsigned nord
@@ -856,13 +1012,13 @@ public:
     { return _coefmon.size(); }
 
   //! @brief Get const map of monomial coefficients
-  t_coefmon const& coefmon
+  t_poly const& coefmon
     ()
     const
     { return _coefmon; }
 
   //! @brief Get map of monomial coefficients
-  t_coefmon& coefmon
+  t_poly& coefmon
     ()
     { return _coefmon; }
 
@@ -879,57 +1035,64 @@ public:
 
   //! @brief Constructor of Chebyshev variable for a real scalar
   SICVar
-    ( SICModel<T>*CM );
+    ( SICModel<T,KEY,COMP>*CM );
 
   //! @brief Constructor of Chebyshev variable for a real scalar
   SICVar
-    ( double const d=0., SICModel<T>*CM=0 );
+    ( double const& d = 0., SICModel<T,KEY,COMP>* CM = nullptr );
 
   //! @brief Constructor of Chebyshev variable for a remainder bound
   SICVar
-    ( T const& B, SICModel<T>*CM=0 );
+    ( T const& B, SICModel<T,KEY,COMP>*CM = nullptr );
 
-  //! @brief Constructor of Chebyshev variable with index <a>ix</a> (starting from 0) and bounded by <a>X</a>
+  //! @brief Constructor of Chebyshev variable <a>id</a> with domain <a>dom</a>
   SICVar
-    ( SICModel<T>*CM, const unsigned ix, T const& X );
-
-  //! @brief Copy constructor of Chebyshev variable
-  SICVar
-    ( SICVar<T> const& CV );
+    ( SICModel<T,KEY,COMP>* CM, KEY const& id, T const& dom );
 
   //! @brief Copy constructor of Chebyshev variable
   SICVar
-    ( SICVar<T> && CV );
+    ( SICVar<T,KEY,COMP> const& CV );
+
+  //! @brief Copy constructor of Chebyshev variable
+  SICVar
+    ( SICVar<T,KEY,COMP> && CV );
 
   //! @brief Destructor of Chebyshev variable
   ~SICVar
     ()
     { _unset_bndpol(); _unset_bndT(); }
 
-  //! @brief Set Chebyshev variable with index <a>ix</a> (starting from 0) and bounded by <a>X</a>
-  SICVar<T>& set
-    ( SICModel<T>*CM, const unsigned ix, T const& X )
-    { set( CM ); _set( ix, X ); return *this; }
+  //! @brief Set Chebyshev variable <a>id</a> with domain <a>dom</a>
+  SICVar<T,KEY,COMP>& set
+    ( SICModel<T,KEY,COMP>* CM, KEY const& id, T const& dom )
+    { set( CM ); _set( id, dom ); return *this; }
 
   //! @brief Set environment in Chebyshev model
-  SICVar<T>& set
-    ( SICModel<T>*CM )
+  SICVar<T,KEY,COMP>& set
+    ( SICModel<T,KEY,COMP>* CM )
     { _CM = CM; return *this; }
     
   //! @brief Set multivariate polynomial coefficients in variable as <tt>coefmon</tt>
-  SICVar<T>& set
-    ( t_coefmon& coefmon )
-    { _coefmon = coefmon; _unset_bndT(); _unset_bndpol();
+  SICVar<T,KEY,COMP>& set
+    ( t_poly& coefmon )//, t_var const& ndxvar )
+    { _coefmon = coefmon; 
+      //_ndxvar  = ndxvar;
+      _unset_bndT(); _unset_bndpol();
       return *this; } // this is assuming the same order and number of variables
-#if 0
-  //! @brief Set multivariate polynomial coefficients and remainder term equal to those in variable <tt>var</tt>, possibly defined in another polynomial model environment with fewer variables or with a different expansion order. Coefficients involving other variables or higher order are initialized to 0 if <tt>reset=true</tt> (default), otherwise they are left unmodified. Higher-order terms in TV are bounded and added to the remainder bound.
-  SICVar<T>& set
-    ( SICVar<T> const& var, bool const reset=true );
 
-  //! @brief Copy multivariate polynomial coefficients from current variable into variable <tt>var</tt>, possibly defined in another polynomial model environment with less variables or with a lower expansion order. Copied coefficients are reset to 0 in current Taylor variable if <tt>reset=true</tt>, otherwise they are left unmodified (default).
-  SICVar<T>& get
-    ( SICVar<T>&var, const bool reset=false );
-#endif
+  //! @brief Set multivariate polynomial coefficients in variable as <tt>coefmon</tt>
+  SICVar<T,KEY,COMP>& set
+    ( std::map< t_mon, double, lt_mon > const& coefmon, t_var const& ndxvar,
+      T const& bndrem, T const* bndT=nullptr )
+    { _coefmon.clear();
+      for( auto [mon,coef] : coefmon ) _coefmon.insert( std::make_pair(mon,coef) ); 
+      _ndxvar = ndxvar;
+      _unset_bndpol();
+      *this += bndrem;
+      if( bndT ) _set_bndT( bndT );
+      else       _unset_bndT();
+      return *this; } // this is assuming the same order and number of variables
+
   //! @brief Compute bound on variable using bounder <a>type</a>
   T bound
     ( int const type )
@@ -948,14 +1111,15 @@ public:
   //! @brief Retreive bound on variable using default bounder in U arithmetic
   template <typename U>
   U bound
-    ( const U*const*bndbasis )
+    ( std::map<KEY,std::vector<U>,COMP> const& bndbasis )
     const
     { return _polybound( bndbasis ); }
 
   //! @brief Retreive bound on variable using bounder <a>type</a> in U arithmetic
   template <typename U>
   U bound
-    ( const U*const*bndbasis, const int type ) const
+    ( std::map<KEY,std::vector<U>,COMP> const& bndbasis, const int type )
+    const
     { return _polybound( bndbasis, type ); }
 
   //! @brief Retreive bound on multivariate polynomial using default bounder
@@ -970,7 +1134,7 @@ public:
     ( const unsigned minord )
     const
     { if( !_CM ) return !minord && !_coefmon.empty() && !_coefmon.begin()->first.tord? _coefmon.begin()->second: 0.;
-      return _CM->_polybound_naive( _coefmon, (T const* const*)0, minord ); }
+      return _CM->_polybound_naive( _coefmon, std::map<KEY,std::vector<T>,COMP>(), minord ); }
 
   //! @brief Shortcut to mc::SICVar::bound
   T B
@@ -984,122 +1148,133 @@ public:
     const
     { return bound(); }
 
-  //! @brief Evaluate mid-point polynomial part at <tt>x</tt>
+  //! @brief Evaluate mid-point polynomial at <tt>x</tt>
   double P
-    ( double const*x )
+    ( std::map<KEY,double,COMP> const& x )
     const;
 
-  //! @brief Evaluate interval polynomial part at <tt>x</tt>
+  //! @brief Evaluate interval polynomial at <tt>x</tt>
   T IP
-    ( double const*x )
+    ( std::map<KEY,double,COMP> const& x )
     const;
-#if 0
-  //! @brief Return new Chebyshev variable with same multivariate polynomial part but zero remainder
-  SICVar<T> polynomial
-    ()
-    const
-    { SICVar<T> var = *this; var._bndrem = 0.; return var; }
 
-  //! @brief Shortcut to mc::SICVar::polynomial
-  SICVar<T> P
+  //! @brief Return new Chebyshev variable with ranges on constant coefficient
+  SICVar<T,KEY,COMP> P
     ()
-    const
-    { return polynomial(); }
-#endif
+    const;
+
   //! @brief Get coefficient of constant term in Chebyshev variable. The value of this coefficient is reset to 0 if <tt>reset=true</tt>, otherwise it is left unmodified (default).
   T constant
     ( bool const reset=false );
 
-  //! @brief Get coefficients of linear term for variable <tt>ivar</tt> in Chebyshev variable. The value of this coefficient is reset to 0 if <tt>reset=true</tt>, otherwise it is left unmodified (default).
+  //! @brief Get coefficients of linear term for variable <tt>id</tt> in Chebyshev variable. The value of this coefficient is reset to 0 if <tt>reset=true</tt>, otherwise it is left unmodified (default).
   T linear
-    ( unsigned const ivar, bool const reset=false );
+    ( KEY const& id, bool const reset = false );
+    
+  //! @brief Lift the model by appending new auxiliary variable corresponding to the sum of uncertainties if magnitude greater than TOL
+  SICVar<T,KEY,COMP>& lift
+    ( SICModel<T,KEY,COMP>* SCM, double const& ATOL, double const& RTOL );
 
-  //! @brief Simplify the model by appending coefficient less than TOL as well as terms with order greater than or equal to ORD to the remainder term
-  SICVar<T>& simplify
-    ( int const& BASIS=1, double const& TOL=0e0, int const& TORD=-1 );
+  //! @brief Project the model by removing auxiliary variables participating in monomials
+  SICVar<T,KEY,COMP>& project
+    ( bool const reset=false );
+
+  //! @brief Project the model by removing variable id participating in monomials
+  SICVar<T,KEY,COMP>& project
+    ( KEY const& id );
+
+  //! @brief Simplify the model by appending coefficient less than TOL as well as terms with order greater than or equal to TORD to the constant term
+  SICVar<T,KEY,COMP>& simplify
+    ( double const& ATOL = 0e0, double const& RTOL = 0e0, int const TORD = -1 );
     
-  //! @brief Scale coefficients in Chebyshev variable for the modified range <a>X</a> of variable i
-  SICVar<T>& scale
-    ( unsigned const i, T const& X );
+  //! @brief Scale coefficients in Chebyshev variable for the modified domain <a>dom</a> of variable id
+  SICVar<T,KEY,COMP>& scale
+    ( KEY const& id, T const& dom );
     
-  //! @brief Scale coefficients in Chebyshev variable for the modified variable ranges <a>X</a>
-  SICVar<T>& scale
-    ( T const* X );
+  //! @brief Scale coefficients in Chebyshev variable <a>id</a> for the modified variables domain <a>dom</a>
+  SICVar<T,KEY,COMP>& scale
+    ( std::map<KEY,T,COMP> const& dom );
     
-  //! @brief Rescale coefficients in Chebyshev variable for their original variable ranges
-  SICVar<T>::t_coefmon unscale
+  //! @brief Unscale coefficients in Chebyshev variable for their original variable ranges
+  SICVar<T,KEY,COMP>::t_poly unscale
     ()
     const;
         
   //! @brief Return new coefficient map in monomial basis representation
-  t_coefmon to_monomial
+  t_poly to_monomial
     ( bool const scaled=false )
     const;
     
   //! @brief Return new coefficient map in monomial basis representation after removing terms with coefficient less than TOL or order greater than or equal to ORD, and also return a bound on the removed terms
-  std::pair<t_coefmon,T> to_monomial
-    ( bool const scaled, double const TOL, int const TORD=-1 )
+  std::pair<t_poly,T> to_monomial
+    ( bool const scaled, double const& ATOL, double const& RTOL, int const TORD = -1 )
     const;
  /** @} */
 
-  SICVar<T>& operator=
-    ( SICVar<T> const& );
-  SICVar<T>& operator=
-    ( SICVar<T> && );
-  SICVar<T>& operator=
-    ( double const );
-  SICVar<T>& operator=
+  SICVar<T,KEY,COMP>& operator=
+    ( SICVar<T,KEY,COMP> const& );
+  SICVar<T,KEY,COMP>& operator=
+    ( SICVar<T,KEY,COMP> && );
+  SICVar<T,KEY,COMP>& operator=
+    ( double const& );
+  SICVar<T,KEY,COMP>& operator=
     ( T const&  );
-  template <typename U> SICVar<T>& operator+=
-    ( SICVar<U> const& );
-  template <typename U> SICVar<T>& operator+=
+  template <typename U> SICVar<T,KEY,COMP>& operator+=
+    ( SICVar<U,KEY,COMP> const& );
+  template <typename U> SICVar<T,KEY,COMP>& operator+=
     ( U const&  );
-  SICVar<T>& operator+=
-    ( double const );
-  template <typename U> SICVar<T>& operator-=
-    ( const SICVar<U>& );
-  template <typename U> SICVar<T>& operator-=
+  SICVar<T,KEY,COMP>& operator+=
+    ( double const& );
+  template <typename U> SICVar<T,KEY,COMP>& operator-=
+    ( const SICVar<U,KEY,COMP>& );
+  template <typename U> SICVar<T,KEY,COMP>& operator-=
     ( U const&  );
-  SICVar<T>& operator-=
-    ( double const );
-  SICVar<T>& operator*=
-    ( const SICVar<T>& );
-  SICVar<T>& operator*=
-    ( double const );
-  SICVar<T>& operator*=
+  SICVar<T,KEY,COMP>& operator-=
+    ( double const& );
+  SICVar<T,KEY,COMP>& operator*=
+    ( const SICVar<T,KEY,COMP>& );
+  SICVar<T,KEY,COMP>& operator*=
+    ( double const& );
+  SICVar<T,KEY,COMP>& operator*=
     ( T const&  );
-  SICVar<T>& operator/=
-    ( SICVar<T> const& );
-  SICVar<T>& operator/=
-    ( double const );
+  SICVar<T,KEY,COMP>& operator/=
+    ( SICVar<T,KEY,COMP> const& );
+  SICVar<T,KEY,COMP>& operator/=
+    ( double const& );
 
 private:
+
   //! @brief Polynomial range bounder using specified bounder <a>type</a> with basis functions <a>bndbasis</a> in U arithmetic
   template <typename U>
   U _polybound
-    ( U const* const* bndbasis, int const type ) const
+    ( std::map<KEY,std::vector<U>,COMP> const& bndbasis, int const type )
+    const
     { if( !_CM ) return !_coefmon.empty() && !_coefmon.begin()->first.tord? _coefmon.begin()->second: 0.;
       return _CM->_polybound( _coefmon, bndbasis, type ); }
 
   //! @brief Polynomial range bounder using default bounder in U arithmetic
   template <typename U>
   U _polybound
-    ( U const* const* bndbasis ) const
+    ( std::map<KEY,std::vector<U>,COMP> const& bndbasis )
+    const
     { return _polybound( bndbasis, _CM? _CM->options.BOUNDER_TYPE: 0 ); }
 
   //! @brief Polynomial range bounder using specified bounder <a>type</a>
   T _polybound
-    ( int const type ) const
-    { return _polybound( (const T*const*)nullptr, type ); }
+    ( int const type )
+    const
+    { return _polybound( std::map<KEY,std::vector<T>,COMP>(), type ); }
 
   //! @brief Polynomial range bounder using default bounder
   T _polybound
-    () const
+    ()
+    const
     { return _polybound( _CM? _CM->options.BOUNDER_TYPE: 0 ); }
 
   //! @brief Scale current variable in order for its range to be within [-1,1], with <a>c</a> and <a>w</a> respectively the center and width, respectively, of the orginal variable range
-  SICVar<T> _rescale
-    ( double const w, double const c ) const
+  SICVar<T,KEY,COMP> _rescale
+    ( double const w, double const c )
+    const
     { return( !isequal(w,0.)? (*this-c)/w: c ); }
 
   //! @brief Scale variable <a>X</a>
@@ -1108,131 +1283,175 @@ private:
     ( U& X, double const w, double const c )
     { return( !isequal(w,0.)? (X-c)/w: c ); }
 
-  //! @brief Return an array of Chebyshev variables representing the coefficients in the univariate polynomial for variable <a>ivar</a> only
-  SICVar<T>* _single
-    ( unsigned const ivar );
+  //! @brief Simplify the monomial itmon by appending coefficient less than TOL as well as terms with order greater than or equal to TORD to the remainder term
+  SICVar<T,KEY,COMP>& _simplify
+    ( typename SICVar<T,KEY,COMP>::t_poly::iterator itmon,
+      double const& ATOL, double const& RTOL, int const TORD=-1 );
 
   //! @brief Cancel zero entries in coefficient map <a>coefmon</a>
   void _simplify
-    ( t_coefmon& coefmon )
+    ( t_poly& coefmon )
     const;
 
   //! @brief Simplify the coefficient map <a>coefmon</a> by removing entries with coefficient less than TOL or order greater than or equal to ORD, and return a bound on the removed entries
   T _simplify_monomial
-    ( typename SICVar<T>::t_coefmon& coefmon, bool const scaled,
-      double const& TOL=0e0, int const& TORD=-1 )
+    ( t_poly& coefmon, bool const scaled,
+      double const& ATOL, double const& RTOL, int const TORD=-1 )
     const;
 
-  //! @brief Scale coefficient map <a>coefmon</a> for the modified range <a>X</a> of variable i
+  //! @brief Scale coefficient map <a>coefmon</a> for the modified range <a>bnd</a> of variable id
   void _scale
-    ( unsigned const i, T const& X, typename SICVar<T>::t_coefmon& coefmon )
+    ( typename t_var::const_iterator itvar, T const& bndvar, t_poly& coefmon )
     const;
 
   //! @brief Convert Chebyshev basis into monomial basis for variable <a>ivar</a> in coefficient map <a>coefmon</a>
   void _to_monomial
-    ( unsigned const ivar, typename SICVar<T>::t_coefmon& coefmon )
+    ( KEY const& id, t_poly& coefmon )
     const;
 };
 
 ////////////////////////////////// SICModel //////////////////////////////////////
 
-template <typename T>
-template <typename U>
-inline U*
-SICModel<T>::_get_bndpow
-( unsigned const maxord, U const& bndvar, double const ref, double const scal )
-const
+template <typename T, typename KEY, typename COMP>
+inline
+void
+SICModel<T,KEY,COMP>::_set
+( KEY const& id, T const& X )
 {
-  U *bndmon = new U[maxord+1];
-  bndmon[0] = 1;
-  if( maxord ) bndmon[1] = ( bndvar - ref ) / scal;
-  for( unsigned i=2; i<=maxord; i++ )
-    switch( options.BASIS ){
-      case Options::POW:  bndmon[i] = Op<U>::pow( bndmon[1], i );  break;
-      case Options::CHEB: bndmon[i] = Op<U>::cheb( bndmon[1], i ); break;
-    }
- return bndmon;
+  _setvar.insert( id );
+  _bndvar[id] = X;
+  _refvar[id] = Op<T>::mid(X);
+  _scalvar[id] = 0.5*Op<T>::diam(X);
 }
 
-template <typename T>
-template <typename U>
-inline U*
-SICModel<T>::_get_bndpow
-( unsigned const maxord, U const& bndvar )
-const
+template <typename T, typename KEY, typename COMP>
+inline
+void
+SICModel<T,KEY,COMP>::reset_aux
+()
 {
-  U* bndmon = new U[maxord+1];
-  bndmon[0] = 1;
-  if( maxord ) bndmon[1] = bndvar;
-  for( unsigned i=2; i<=maxord; i++ )
-    switch( options.BASIS ){
-      case Options::POW:  bndmon[i] = Op<U>::pow( bndmon[1], i );  break;
-      case Options::CHEB: bndmon[i] = Op<U>::cheb( bndmon[1], i ); break;
-    }
- return bndmon;
+  for( auto& aux : _setaux ){
+    _setvar.erase( aux );
+    _bndvar.erase( aux );
+    _refvar.erase( aux );
+    _scalvar.erase( aux );
+    _delaux( aux );
+  }
+  _setaux.clear();
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
+inline
+KEY const&
+SICModel<T,KEY,COMP>::append_aux
+()
+{
+  auto dummy = KEY();
+  auto [itaux,ins] = _setaux.insert( _newaux( dummy, 10000+_setaux.size() ) );
+  assert( ins );
+  _setvar.insert( *itaux );
+  _bndvar[*itaux] = TOne;
+  _refvar[*itaux] = 0e0;
+  _scalvar[*itaux] = 1e0;
+  return *itaux;
+}
+
+template <typename T, typename KEY, typename COMP>
 template <typename U>
-inline U**
-SICModel<T>::get_basis
-( unsigned const maxord, U const* bndvar, bool const scaled )
+inline
+std::vector<U>&
+SICModel<T,KEY,COMP>::_get_bndpow
+( unsigned const maxord, U const& bndvar, double const& refvar, double const& scalvar,
+  std::vector<U>& bndpow )
 const
 {
-  assert ( bndvar );
-  U** bndbasis = new U*[_maxvar];
-  for( unsigned i=0; i<_maxvar; i++){
-    if( _setvar.find(i) == _setvar.end() ){
-      bndbasis[i] = nullptr;
-      continue;
+  bndpow.reserve( maxord+1 );
+  bndpow[0] = 1;
+  if( maxord ) bndpow[1] = ( bndvar - refvar ) / scalvar;
+  for( unsigned i=2; i<=maxord; i++ )
+    switch( options.BASIS ){
+      case Options::MONOM: bndpow[i] = Op<U>::pow( bndpow[1], i );  break;
+      case Options::CHEB:  bndpow[i] = Op<U>::cheb( bndpow[1], i ); break;
     }
-    bndbasis[i] = scaled? _get_bndpow( maxord, bndvar[i] ):
-                          _get_bndpow( maxord, bndvar[i], _refvar[i], _scalvar[i] );
+ return bndpow;
+}
+
+template <typename T, typename KEY, typename COMP>
+template <typename U>
+inline
+std::vector<U>&
+SICModel<T,KEY,COMP>::_get_bndpow
+( unsigned const maxord, U const& bndvar, std::vector<U>& bndpow )
+const
+{
+  bndpow.reserve( maxord+1 );
+  bndpow[0] = 1;
+  if( maxord ) bndpow[1] = bndvar;
+  for( unsigned i=2; i<=maxord; i++ )
+    switch( options.BASIS ){
+      case Options::MONOM: bndpow[i] = Op<U>::pow( bndpow[1], i );  break;
+      case Options::CHEB:  bndpow[i] = Op<U>::cheb( bndpow[1], i ); break;
+    }
+ return bndpow;
+}
+
+template <typename T, typename KEY, typename COMP>
+template <typename U>
+inline
+std::map<KEY,std::vector<U>,COMP>&
+SICModel<T,KEY,COMP>::get_basis
+( unsigned const maxord, std::map<KEY,U,COMP> const& bndvar,
+  std::map<KEY,std::vector<U>,COMP>& bndbasis, bool const scaled )
+const
+{
+  bndbasis.clear();
+  for( auto const& id : _setvar ){
+    bndbasis[id].clear();
+    if( scaled ) _get_bndpow( maxord, bndvar[id], bndbasis[id] );
+    else         _get_bndpow( maxord, bndvar[id], _refvar[id], _scalvar[id] );
   }
   return bndbasis;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 template <typename U>
-inline void
-SICModel<T>::get_bndmon
-( std::map<SPolyMon,U,lt_SPolyMon>& bndmon, U const* bndvar,
+inline
+void
+SICModel<T,KEY,COMP>::get_bndmon
+( std::map<t_mon,U,lt_mon>& bndmon, std::map<KEY,U,COMP> const& bndvar,
   bool const scaled )
 const
 {
   if( bndmon.empty() ) return;
 
   unsigned const nord = bndmon.rbegin()->first.tord;
-  U** bndbasis = get_basis( nord, bndvar, scaled );
+  std::map<KEY,std::vector<U>,COMP>& bndbasis;
+  get_basis( nord, bndvar, bndbasis, scaled );
 
-#ifdef MC__SICMODEL_USE_PROD
-  std::vector<U> Umon; Umon.reserve(_maxvar);
   auto it = bndmon.begin();
   if( !it->first.tord ){ it->second = 1; ++it; }
+#ifdef MC__SICMODEL_USE_PROD
+  std::vector<U> Umon( _setvar.size() );
   for( ; it!=bndmon.end(); ++it ){
-    Umon.clear();
-    for( auto& [ivar,iord] : it->first.second )
-      Umon.push_back( bndbasis[ivar][iord] );
-    it->second = prod( Umon.size(), Umon.data() );
+    unsigned i=0;
+    for( auto const& [ivar,iord] : it->first.second )
+      Umon[i++] = bndbasis[ivar][iord];
+    it->second = prod( it->first.second.size(), Umon.data() );
   }
 #else
-  auto it = bndmon.begin();
-  if( !it->first.tord ){ it->second = 1; ++it; }
   for( ; it!=bndmon.end(); ++it ){
     it->second = 1;
-    for( auto& [ivar,iord] : it->first.second )
+    for( auto const& [ivar,iord] : it->first.second )
       it->second *= bndbasis[ivar][iord];
   }
 #endif
-
-  for( unsigned j : _setvar ) delete[] bndbasis[j];
-  delete[] bndbasis;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 template <typename PUNIV>
-inline double
-SICModel<T>::_minimax
+inline
+double
+SICModel<T,KEY,COMP>::_minimax
 ( PUNIV const& f, unsigned const maxord ) // range of f assumed as [-1,1]
 {
   boost::math::tools::remez_minimax<double> problem
@@ -1253,17 +1472,18 @@ SICModel<T>::_minimax
   case Options::CHEB:
     _ainterp = _to_chebyshev(problem.numerator().data());
     break;
-  case Options::POW:
+  case Options::MONOM:
     _ainterp = problem.numerator().data();
     break;
   }
   return problem.max_error();
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 template <typename VEC>
-inline VEC
-SICModel<T>::_to_chebyshev
+inline
+VEC
+SICModel<T,KEY,COMP>::_to_chebyshev
 ( VEC const& veccoef )
 const
 {
@@ -1293,15 +1513,18 @@ const
   return vecnew;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 template <typename PUNIV>
-inline bool
-SICModel<T>::_minimax
-( PUNIV const& f, SICVar<T> const& CV, SICVar<T>& CV2 )
+inline
+bool
+SICModel<T,KEY,COMP>::_minimax
+( PUNIV const& f, SICVar<T,KEY,COMP> const& CV, SICVar<T,KEY,COMP>& CV2 )
 {
+  auto LIFT_USE_SAVE = options.LIFT_USE;
+  options.LIFT_USE = false;
+
   try{
-    // Minimax interpolant
-    double m( Op<SICVar<T>>::mid(CV) ), r( 0.5*Op<SICVar<T>>::diam(CV) );
+    double m( Op<SICVar<T,KEY,COMP>>::mid(CV) ), r( 0.5*Op<SICVar<T,KEY,COMP>>::diam(CV) );
     auto const& fscaled = [=]( const double& x ){ return f( r*x + m ); };
     unsigned const nord = _maxord + options.INTERP_EXTRA;
     double rem = _minimax( fscaled, nord );
@@ -1323,29 +1546,32 @@ SICModel<T>::_minimax
     }
 
     // Composition
-    SICVar<T> CVI( this );
+    SICVar<T,KEY,COMP> CVI( this );
     CVI = CV._rescale(r,m);
     switch( options.BASIS ){
     case Options::CHEB:
       CV2 = _clenshaw( CVI, _maxord ) + TOne * rem;
       break;
-    case Options::POW:
+    case Options::MONOM:
       CV2 = _horner( CVI, _maxord ) + TOne * rem;
       break;
     }
-    //CV2._ndxvar = CV._ndxvar;
-    if( options.MIN_FACTOR >= 0. ) CV2.simplify( options.BASIS, options.MIN_FACTOR );
+    if( options.MIN_FACTOR >= 0. ) CV2.simplify( options.MIN_FACTOR );
   }
   catch(...){
+    options.LIFT_USE = LIFT_USE_SAVE;
     return false;
   }
+  
+  options.LIFT_USE = LIFT_USE_SAVE;
   return true;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 template <typename PUNIV>
-inline double
-SICModel<T>::_rematbound
+inline
+double
+SICModel<T,KEY,COMP>::_rematbound
 ( PUNIV const& f ) // range of f assumed as [-1,1]
 {
   double ub(0), lb(0);
@@ -1356,10 +1582,11 @@ SICModel<T>::_rematbound
   return std::max( std::fabs( f(1.) - ub ), std::fabs( f(-1.) - lb ) );
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 template <typename PUNIV>
-inline void
-SICModel<T>::_chebinterp
+inline
+void
+SICModel<T,KEY,COMP>::_chebinterp
 ( PUNIV const& f, unsigned const maxord ) // range of f assumed as [-1,1]
 {
   _xinterp.resize( maxord+1 );
@@ -1403,10 +1630,10 @@ SICModel<T>::_chebinterp
   }
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 template <typename PUNIV>
 inline void
-SICModel<T>::_chebinterp
+SICModel<T,KEY,COMP>::_chebinterp
 ( PUNIV const& f, double const tol, unsigned& maxord ) // range of f assumed as [-1,1]
 {
   _chebinterp( f, maxord );
@@ -1421,10 +1648,11 @@ SICModel<T>::_chebinterp
   }
 }
 
-template <typename T>
-inline SICVar<T>
-SICModel<T>::_horner
-( SICVar<T> const& CVinner, unsigned const maxord )
+template <typename T, typename KEY, typename COMP>
+inline
+SICVar<T,KEY,COMP>
+SICModel<T,KEY,COMP>::_horner
+( SICVar<T,KEY,COMP> const& CVinner, unsigned const maxord )
 {
   assert( maxord < _coefuniv.size() );
   
@@ -1434,7 +1662,7 @@ SICModel<T>::_horner
     return _coefuniv[0];
     break;
   default:
-    SICVar<T> CV2 = _coefuniv[maxord] * CVinner;
+    SICVar<T,KEY,COMP> CV2 = _coefuniv[maxord] * CVinner;
     for( unsigned ord=maxord-1; ord>0; --ord ){
       CV2 += _coefuniv[ord];
       CV2 *= CVinner;
@@ -1444,10 +1672,11 @@ SICModel<T>::_horner
   }
 }
 
-template <typename T>
-inline SICVar<T>
-SICModel<T>::_clenshaw
-( SICVar<T> const& CVinner, unsigned const maxord )
+template <typename T, typename KEY, typename COMP>
+inline
+SICVar<T,KEY,COMP>
+SICModel<T,KEY,COMP>::_clenshaw
+( SICVar<T,KEY,COMP> const& CVinner, unsigned const maxord )
 {
   assert( maxord < _coefuniv.size() );
   
@@ -1458,16 +1687,16 @@ SICModel<T>::_clenshaw
     return CVinner * _coefuniv[1] + _coefuniv[0];
 
   //composition based on http://en.wikipedia.org/wiki/Clenshaw_algorithm#Special_case_for_Chebyshev_series
-  SICVar<T> CVinnerx2 = 2. * CVinner;
+  SICVar<T,KEY,COMP> CVinnerx2 = 2. * CVinner;
 #ifdef MC__SICMODEL_DEBUG_COMPOSITION
   std::cout << "CVinner:" << CVinner;
   std::cout << "CVinnerx2:" << CVinnerx2;
 #endif
-  SICVar<T> CV1 = _coefuniv[maxord];
+  SICVar<T,KEY,COMP> CV1 = _coefuniv[maxord];
 #ifdef MC__SICMODEL_DEBUG_COMPOSITION
   std::cout << "CV1:" << CV1;
 #endif
-  SICVar<T> CV2 = _coefuniv[maxord-1] + CVinnerx2 * CV1;
+  SICVar<T,KEY,COMP> CV2 = _coefuniv[maxord-1] + CVinnerx2 * CV1;
 #ifdef MC__SICMODEL_DEBUG_COMPOSITION
   std::cout << "CV2:" << CV2;
 #endif
@@ -1510,14 +1739,18 @@ SICModel<T>::_clenshaw
 #endif
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 template <typename PUNIV>
-inline bool
-SICModel<T>::_chebinterp
-( PUNIV const& f, SICVar<T> const& CV, SICVar<T>& CV2, bool const rematbound )
+inline
+bool
+SICModel<T,KEY,COMP>::_chebinterp
+( PUNIV const& f, SICVar<T,KEY,COMP> const& CV, SICVar<T,KEY,COMP>& CV2, bool const rematbound )
 {
+  auto LIFT_USE_SAVE = options.LIFT_USE;
+  options.LIFT_USE = false;
+
   try{
-    double m( Op<SICVar<T>>::mid(CV) ), r( 0.5*Op<SICVar<T>>::diam(CV) ), rem( 0. );
+    double m( Op<SICVar<T,KEY,COMP>>::mid(CV) ), r( 0.5*Op<SICVar<T,KEY,COMP>>::diam(CV) ), rem( 0. );
     auto const& fscaled = [=]( const double& x ){ return f( r*x + m ); };
     _coefuniv.resize( _maxord+1 );
     if( rematbound ){
@@ -1538,24 +1771,27 @@ SICModel<T>::_chebinterp
         rem += std::fabs( _ainterp[i] );
     }
 
-    //SICVar<T> CVI( this );
-    //CVI = CV._rescale( r, m );
     CV2 = _clenshaw( CV._rescale( r, m ), _maxord );
     CV2 += TOne * rem;
-    //CV2._ndxvar = CV._ndxvar;
-    if( options.MIN_FACTOR >= 0. ) CV2.simplify( options.BASIS, options.MIN_FACTOR );
+    CV2._ndxvar = CV._ndxvar;
+    if( options.MIN_FACTOR >= 0. ) CV2.simplify( options.MIN_FACTOR );
   }
+
   catch(...){
+    options.LIFT_USE = LIFT_USE_SAVE;
     return false;
   }
+
+  options.LIFT_USE = LIFT_USE_SAVE;
   return true;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 template <typename U>
-inline SICVar<T>
-SICModel<T>::_composition
-( std::vector<U> const& coefouter, unsigned const maxord, SICVar<T> const& CVinner )
+inline
+SICVar<T,KEY,COMP>
+SICModel<T,KEY,COMP>::_composition
+( std::vector<U> const& coefouter, unsigned const maxord, SICVar<T,KEY,COMP> const& CVinner )
 {
   //composition based on http://en.wikipedia.org/wiki/Clenshaw_algorithm#Special_case_for_Chebyshev_series
   if( !maxord )
@@ -1564,16 +1800,16 @@ SICModel<T>::_composition
   else if( maxord == 1 )
     return CVinner * coefouter[1] + coefouter[0];
 
-  SICVar<T> CVinnerx2 = 2. * CVinner;
+  SICVar<T,KEY,COMP> CVinnerx2 = 2. * CVinner;
 #ifdef MC__SICMODEL_DEBUG_COMPOSITION
   std::cout << "CVinner:" << CVinner;
   std::cout << "CVinnerx2:" << CVinnerx2;
 #endif
-  SICVar<T> CV1 = coefouter[maxord];
+  SICVar<T,KEY,COMP> CV1 = coefouter[maxord];
 #ifdef MC__SICMODEL_DEBUG_COMPOSITION
   std::cout << "CV1:" << CV1;
 #endif
-  SICVar<T> CV2 = coefouter[maxord-1] + CVinnerx2 * CV1;
+  SICVar<T,KEY,COMP> CV2 = coefouter[maxord-1] + CVinnerx2 * CV1;
 #ifdef MC__SICMODEL_DEBUG_COMPOSITION
   std::cout << "CV2:" << CV2;
 #endif
@@ -1614,34 +1850,37 @@ SICModel<T>::_composition
 #endif
 }
 
-template <typename T>
-inline SICVar<T>
-SICModel<T>::_intpow
-( SICVar<T> const& CV, int const n ) const
+template <typename T, typename KEY, typename COMP>
+inline
+SICVar<T,KEY,COMP>
+SICModel<T,KEY,COMP>::_intpow
+( SICVar<T,KEY,COMP> const& CV, int const n )
+ const
 {
   if( n == 0 ) return 1.;
   else if( n == 1 ) return CV;
+  else if( n == 2 ) return sqr(CV);
   return n%2 ? sqr( _intpow( CV, n/2 ) ) * CV : sqr( _intpow( CV, n/2 ) );
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline void
-SICModel<T>::_sscal1D
-( t_coefmon const& coefmon0, T const& dscal, t_coefmon& coefmon )
+SICModel<T,KEY,COMP>::_sscal1D
+( t_poly const& coefmon0, T const& Iscal, t_poly& coefmon )
 const
 {
-  if( Op<T>::abs(dscal) == 0. ) return;
+  if( Op<T>::abs(Iscal) == 0. ) return;
   coefmon = coefmon0;
-//  if( isequal(dscal,1.) ) return;
-  for( auto& [mon,coef] : coefmon )
-    coef *= dscal;
+    for( auto& [mon,coef] : coefmon )
+      coef *= Iscal;
   return;
 }
 
-template <typename T>
-inline void
-SICModel<T>::_slift1D
-( t_coefmon const& coefmon0, double const& dscal, t_coefmon& coefmon )
+template <typename T, typename KEY, typename COMP>
+inline
+void
+SICModel<T,KEY,COMP>::_slift1D
+( t_poly const& coefmon0, double const& dscal, t_poly& coefmon )
 const
 {
   if( isequal(dscal,0.) ) return;
@@ -1656,172 +1895,12 @@ const
     }
   }
 }
-#if 0
-template <typename T>
-inline 
+
+template <typename T, typename KEY, typename COMP>
+inline
 void
-SICModel<T>::_slift1D
-( t_coefmon const& coefmon0, double const& dscal, t_coefmon& coefmon,
-  typename t_var::const_iterator itvar, unsigned const ndxord )
-const
-{
-  for( auto const& [mon0,coef0] : coefmon0 ){
-    // If total order too large then allocate among monomials
-    if( mon0.tord + ndxord > _maxord ){
-      switch( options.BASIS ){
-      case Options::CHEB:
-        switch( options.HOT_SPLIT ){ 
-        case Options::FULL:
-        {
-          if( ndxord <= _maxord ){
-            T add2mon = (dscal/double(mon0.expr.size()+1))*coef0*TOne;
-            for( auto const& [ivar,iord] : mon0.expr ){
-              auto [itmon1,ins1] = coefmon.insert( std::make_pair( SPolyMon(ivar,iord), add2mon ) );
-              if( !ins1 ) itmon1->second += add2mon;
-#ifdef MC__SIRMODEL_DEBUG_SLIFT
-              std::cout << "_slift1D: " << itmon1->first.display(options.BASIS) << "  " << add2mon << std::endl;
-#endif
-            }
-            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(*itvar,ndxord), add2mon ) );
-            if( !ins2 ) itmon2->second += add2mon;
-#ifdef MC__SIRMODEL_DEBUG_SLIFT
-            std::cout << "_slift1D: " << itmon2->first.display(options.BASIS) << "  " << add2mon << std::endl;
-#endif
-          }
-          else if( mon0.tord ){
-            T add2mon = (dscal/double(mon0.expr.size()))*coef0*TOne;
-            for( auto const& [ivar,iord] : mon0.expr ){
-              auto [itmon1,ins1] = coefmon.insert( std::make_pair( SPolyMon(ivar,iord), add2mon ) );
-              if( !ins1 ) itmon1->second += add2mon;
-#ifdef MC__SIRMODEL_DEBUG_SLIFT
-              std::cout << "_slift1D: " << itmon1->first.display(options.BASIS) << "  " << add2mon << std::endl;
-#endif
-            }
-          }
-          else{       
-            T add2mon = dscal*coef0*TOne;
-            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(), add2mon ) );
-            if( !ins2 ) itmon2->second += add2mon;
-#ifdef MC__SIRMODEL_DEBUG_SLIFT
-            std::cout << "_slift1D: " << itmon2->first.display(options.BASIS) << "  " << add2mon << std::endl;
-#endif
-          }
-          continue;
-        }
-        case Options::SIMPLE:
-        {
-          if( mon0.tord && ndxord <= _maxord ){
-            T add2mon = (0.5*dscal)*coef0*TOne;
-            auto [itmon1,ins1] = coefmon.insert( std::make_pair( mon0, add2mon ) );
-            if( !ins1 ) itmon1->second += add2mon;
-#ifdef MC__SIRMODEL_DEBUG_SLIFT
-            std::cout << "_slift1D: " << itmon1->first.display(options.BASIS) << "  " << add2mon << std::endl;
-#endif
-            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(*itvar,ndxord), add2mon ) );
-            if( !ins2 ) itmon2->second += add2mon;
-#ifdef MC__SIRMODEL_DEBUG_SLIFT
-            std::cout << "_slift1D: " << itmon2->first.display(options.BASIS) << "  " << add2mon << std::endl;
-#endif
-          }
-          else if( mon0.tord ){
-            T add2mon = dscal*coef0*TOne;
-            auto [itmon1,ins1] = coefmon.insert( std::make_pair( mon0, add2mon ) );
-            if( !ins1 ) itmon1->second += add2mon;
-#ifdef MC__SIRMODEL_DEBUG_SLIFT
-            std::cout << "_slift1D: " << itmon1->first.display(options.BASIS) << "  " << add2mon << std::endl;
-#endif
-          }
-          else if( ndxord <= _maxord ){
-            T add2mon = dscal*coef0*TOne;
-            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(*itvar,ndxord), add2mon ) );
-            if( !ins2 ) itmon2->second += add2mon;
-#ifdef MC__SIRMODEL_DEBUG_SLIFT
-            std::cout << "_slift1D: " << itmon2->first.display(options.BASIS) << "  " << add2mon << std::endl;
-#endif
-          }
-          else{
-            T add2mon = dscal*coef0*TOne;
-            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(), add2mon ) );
-            if( !ins2 ) itmon2->second += add2mon;
-#ifdef MC__SIRMODEL_DEBUG_SLIFT
-            std::cout << "_slift1D: " << itmon2->first.display(options.BASIS) << "  " << add2mon << std::endl;
-#endif
-          }
-          continue;
-        }
-        case Options::NONE:
-        {
-          T add2mon = dscal*coef0*TOne;
-          auto [itmon,ins] = coefmon.insert( std::make_pair( SPolyMon(), add2mon ) );
-          if( !ins ) itmon->second += add2mon;
-#ifdef MC__SIRMODEL_DEBUG_SLIFT
-          std::cout << "_slift1D: " << itmon->first.display(options.BASIS) << "  " << add2mon << std::endl;
-#endif
-          continue;
-        }}
-
-      case Options::POW:
-        switch( options.HOT_SPLIT ){ 
-        case Options::FULL:
-        {
-          T add2mon1 = (0.5*dscal)*coef0*(ndxord%2? TOne: TZerOne);
-          for( auto const& [ivar,iord] : mon0.expr ){
-            auto [itmon1,ins1] = coefmon.insert( std::make_pair( SPolyMon(ivar,iord), add2mon1 ) );
-            if( !ins1 ) itmon1->second += add2mon1;
-          }
-          T add2mon2 = (0.5*dscal)*coef0*(mon0.gcexp()%2? TOne: TZerOne);         
-          if( ndxord <= _maxord ){
-            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(*itvar,ndxord), add2mon2 ) );
-            if( !ins2 ) itmon2->second += add2mon2;
-          }
-          else{
-            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(), add2mon2 ) );
-            if( !ins2 ) itmon2->second += add2mon2; 
-          }
-          continue;
-        }
-        case Options::SIMPLE:
-        {
-          T add2mon1 = (0.5*dscal)*coef0*(ndxord%2? TOne: TZerOne);
-          auto [itmon1,ins1] = coefmon.insert( std::make_pair( mon0, add2mon1 ) );
-          if( !ins1 ) itmon1->second += add2mon1;
-          T add2mon2 = (0.5*dscal)*coef0*(mon0.gcexp()%2? TOne: TZerOne);         
-          if( ndxord <= _maxord ){
-            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(*itvar,ndxord), add2mon2 ) );
-            if( !ins2 ) itmon2->second += add2mon2;
-          }
-          else{
-            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(), add2mon2 ) );
-            if( !ins2 ) itmon2->second += add2mon2; 
-          }
-          continue;
-        }
-        case Options::NONE:
-        {
-          T add2mon = dscal*coef0*(ndxord%2 || mon0.gcexp()%2? TOne: TZerOne); continue;
-          auto [itmon,ins] = coefmon.insert( std::make_pair( SPolyMon(), add2mon ) );
-          if( !ins ) itmon->second += add2mon;           
-          continue;
-        }}
-      }
-    }
-
-    // Else introduce new product monomial
-    SPolyMon mon = mon0; // local copy for modification
-#ifdef MC__SPOLYEXPR_DEBUG_SPROD
-    std::cout << "mon: " << mon.display(1) << "  (" << *itvar << "," << ndxord << ")" << std::endl;
-#endif
-    mon.tord += ndxord;
-    assert( mon.expr.insert( std::make_pair( *itvar, ndxord ) ).second );
-    auto [itmon,ins] = coefmon.insert( std::make_pair( mon, coef0*dscal ) );
-    if( !ins ) itmon->second += coef0*dscal;
-  }
-}
-#endif
-template <typename T>
-inline void
-SICModel<T>::_slift1D
-( t_coefmon const& coefmon0, double const& dscal, t_coefmon& coefmon,
+SICModel<T,KEY,COMP>::_slift1D
+( t_poly const& coefmon0, double const& dscal, t_poly& coefmon,
   typename t_var::const_iterator itvar, unsigned const ndxord )
 const
 {
@@ -1835,21 +1914,21 @@ const
         {
           T add2mon = (dscal/double(mon0.expr.size()+1))*coef0*TOne;
           for( auto const& [ivar,iord] : mon0.expr ){
-            auto [itmon1,ins1] = coefmon.insert( std::make_pair( SPolyMon(ivar,iord), add2mon ) );
+            auto [itmon1,ins1] = coefmon.insert( std::make_pair( t_mon(ivar,iord), add2mon ) );
             if( !ins1 ) itmon1->second += add2mon;
 #ifdef MC__SICMODEL_DEBUG_SLIFT
             std::cout << "_slift1D: " << itmon1->first.display(options.BASIS) << "  " << add2mon << std::endl;
 #endif
           }
           if( ndxord <= _maxord ){
-            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(*itvar,ndxord), add2mon ) );
+            auto [itmon2,ins2] = coefmon.insert( std::make_pair( t_mon(*itvar,ndxord), add2mon ) );
             if( !ins2 ) itmon2->second += add2mon;
 #ifdef MC__SICMODEL_DEBUG_SLIFT
             std::cout << "_slift1D: " << itmon2->first.display(options.BASIS) << "  " << add2mon << std::endl;
 #endif
           }
           else{
-            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(), add2mon ) );
+            auto [itmon2,ins2] = coefmon.insert( std::make_pair( t_mon(), add2mon ) );
             if( !ins2 ) itmon2->second += add2mon;
 #ifdef MC__SICMODEL_DEBUG_SLIFT
             std::cout << "_slift1D: " << itmon2->first.display(options.BASIS) << "  " << add2mon << std::endl;
@@ -1866,14 +1945,14 @@ const
           std::cout << "_slift1D: " << itmon1->first.display(options.BASIS) << "  " << itmon1->second << std::endl;
 #endif
           if( ndxord <= _maxord ){
-            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(*itvar,ndxord), add2mon ) );
+            auto [itmon2,ins2] = coefmon.insert( std::make_pair( t_mon(*itvar,ndxord), add2mon ) );
             if( !ins2 ) itmon2->second += add2mon;
 #ifdef MC__SICMODEL_DEBUG_SLIFT
             std::cout << "_slift1D: " << itmon2->first.display(options.BASIS) << "  " << add2mon << std::endl;
 #endif
           }
           else{
-            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(), add2mon ) );
+            auto [itmon2,ins2] = coefmon.insert( std::make_pair( t_mon(), add2mon ) );
             if( !ins2 ) itmon2->second += add2mon;
 #ifdef MC__SICMODEL_DEBUG_SLIFT
             std::cout << "_slift1D: " << itmon2->first.display(options.BASIS) << "  " << add2mon << std::endl;
@@ -1884,30 +1963,30 @@ const
         case Options::NONE:
         {
           T add2mon = dscal*coef0*TOne;
-          auto [itmon,ins] = coefmon.insert( std::make_pair( SPolyMon(), add2mon ) );
+          auto [itmon,ins] = coefmon.insert( std::make_pair( t_mon(), add2mon ) );
           if( !ins ) itmon->second += add2mon;
 #ifdef MC__SICMODEL_DEBUG_SLIFT
-          std::cout << "_slift1D: " << itmon->first.display(options.BASIS) << "  " << add2mon << std::endl;
+          std::cout << "_slift1D: " << itmon->first.display(options.BASIS) << "  " << itmon->second << std::endl;
 #endif
           continue;
         }}
 
-      case Options::POW:
+      case Options::MONOM:
         switch( options.HOT_SPLIT ){ 
         case Options::FULL:
         {
           T add2mon1 = (0.5*dscal)*coef0*(ndxord%2? TOne: TZerOne);
           for( auto const& [ivar,iord] : mon0.expr ){
-            auto [itmon1,ins1] = coefmon.insert( std::make_pair( SPolyMon(ivar,iord), add2mon1 ) );
+            auto [itmon1,ins1] = coefmon.insert( std::make_pair( t_mon(ivar,iord), add2mon1 ) );
             if( !ins1 ) itmon1->second += add2mon1;
           }
           T add2mon2 = (0.5*dscal)*coef0*(mon0.gcexp()%2? TOne: TZerOne);         
           if( ndxord <= _maxord ){
-            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(*itvar,ndxord), add2mon2 ) );
+            auto [itmon2,ins2] = coefmon.insert( std::make_pair( t_mon(*itvar,ndxord), add2mon2 ) );
             if( !ins2 ) itmon2->second += add2mon2;
           }
           else{
-            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(), add2mon2 ) );
+            auto [itmon2,ins2] = coefmon.insert( std::make_pair( t_mon(), add2mon2 ) );
             if( !ins2 ) itmon2->second += add2mon2; 
           }
           continue;
@@ -1919,11 +1998,11 @@ const
           if( !ins1 ) itmon1->second += add2mon1;
           T add2mon2 = (0.5*dscal)*coef0*(mon0.gcexp()%2? TOne: TZerOne);         
           if( ndxord <= _maxord ){
-            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(*itvar,ndxord), add2mon2 ) );
+            auto [itmon2,ins2] = coefmon.insert( std::make_pair( t_mon(*itvar,ndxord), add2mon2 ) );
             if( !ins2 ) itmon2->second += add2mon2;
           }
           else{
-            auto [itmon2,ins2] = coefmon.insert( std::make_pair( SPolyMon(), add2mon2 ) );
+            auto [itmon2,ins2] = coefmon.insert( std::make_pair( t_mon(), add2mon2 ) );
             if( !ins2 ) itmon2->second += add2mon2; 
           }
           continue;
@@ -1931,7 +2010,7 @@ const
         case Options::NONE:
         {
           T add2mon = dscal*coef0*(ndxord%2 || mon0.gcexp()%2? TOne: TZerOne); continue;
-          auto [itmon,ins] = coefmon.insert( std::make_pair( SPolyMon(), add2mon ) );
+          auto [itmon,ins] = coefmon.insert( std::make_pair( t_mon(), add2mon ) );
           if( !ins ) itmon->second += add2mon;           
           continue;
         }}
@@ -1939,9 +2018,9 @@ const
     }
 
     // Else introduce new product monomial
-    SPolyMon mon = mon0; // local copy for modification
-#ifdef MC__SPOLYEXPR_DEBUG_SPROD
-    std::cout << "mon: " << mon.display(1) << "  (" << *itvar << "," << ndxord << ")" << std::endl;
+    t_mon mon = mon0; // local copy for modification
+#ifdef MC__SICMODEL_DEBUG_SPROD
+    std::cout << "mon: " << mon.display(options.BASIS) << "  (" << *itvar << "," << ndxord << ")" << std::endl;
 #endif
     mon.tord += ndxord;
     assert( mon.expr.insert( std::make_pair( *itvar, ndxord ) ).second );
@@ -1950,10 +2029,11 @@ const
   }
 }
 
-template <typename T>
-inline void
-SICModel<T>::_sdisp1D
-( t_coefmon const& coefmon, std::string const& name, std::ostream& os )
+template <typename T, typename KEY, typename COMP>
+inline
+void
+SICModel<T,KEY,COMP>::_sdisp1D
+( t_poly const& coefmon, std::string const& name, std::ostream& os )
 const
 {
   os << name;
@@ -1966,10 +2046,11 @@ const
   //os << std::endl;
 }
 
-template <typename T>
-inline void
-SICModel<T>::_sdisp1D
-( std::map<unsigned,t_coefmon> const& coefmap, typename t_var::const_iterator itvar,  
+template <typename T, typename KEY, typename COMP>
+inline
+void
+SICModel<T,KEY,COMP>::_sdisp1D
+( std::map<unsigned,t_poly> const& coefmap, typename t_var::const_iterator itvar,  
   std::string const& name, std::ostream& os )
 const
 {
@@ -1985,50 +2066,48 @@ const
   os << std::endl;
 }
 
-template <typename T>
-inline void
-SICModel<T>::_sdisp1D
-( std::vector<SICVar<T>> const& vec, unsigned const ivar, 
+template <typename T, typename KEY, typename COMP>
+inline
+void
+SICModel<T,KEY,COMP>::_sdisp1Dfull
+( std::vector<SICVar<T,KEY,COMP>> const& vec, typename t_var::const_iterator itvar, 
   std::string const& name, std::ostream& os )
 const
 {
   os << name;
-  for( unsigned i=0; i<vec.size(); i++ ){
-    if( i ) os << " + T" << i << "[" << ivar << "] ·";
+  bool first = true;
+  unsigned i=0;
+  for( auto const& term : vec ){
+    if( !first ) os << " + T" << i++ << "[" << *itvar << "] ·";
     os << " { ";
-    bool first = true;
-    for( auto const& [mon,coef] : vec[i].coefmon() ){
-      if( !first ) os << " + ";
-      first = false;
-      os << coef;
-      for( auto const& [ivar,iord] : mon.expr )
-        os << "·T" << iord << "[" << ivar << "]";
-    }
+    _sdisp1D( term.coefmon(), "", os );
     os << " }";
+    first = false;
   }
   os << std::endl;
 }
 
-template <typename T>
-inline void
-SICModel<T>::_sprod1D
-( std::map<unsigned,t_coefmon> const& sp1map,
-  std::map<unsigned,t_coefmon> const& sp2map,
-  t_coefmon& coefmon, std::set<unsigned> const& ndxvar,
+template <typename T, typename KEY, typename COMP>
+inline
+void
+SICModel<T,KEY,COMP>::_sprod1D
+( std::map<unsigned,t_poly> const& sp1map,
+  std::map<unsigned,t_poly> const& sp2map,
+  t_poly& coefmon, t_var const& ndxvar,
   typename t_var::const_iterator itvar )
 const
 {
   // construct product matrix of polynomial coefficients
   auto itvarnext = itvar;
   if( !ndxvar.empty() ) std::advance( itvarnext, 1 );
-  std::map<std::pair<unsigned,unsigned>,t_coefmon> sp12map;
+  std::map<std::pair<unsigned,unsigned>,t_poly> sp12map;
   for( auto& [ndx1,coefmon1] : sp1map ){
     // empty monomial in sp1
     if( coefmon1.empty() ) continue; 
     // constant monomial in sp1
     if( coefmon1.size() == 1 && !coefmon1.begin()->first.tord ){
       for( auto& [ndx2,coefmon2] : sp2map ){
-        auto [it12,ins] = sp12map.insert( std::make_pair( std::make_pair(ndx1,ndx2), t_coefmon() ) );
+        auto [it12,ins] = sp12map.insert( std::make_pair( std::make_pair(ndx1,ndx2), t_poly() ) );
         assert( ins ); // map is initially empty
         _sscal1D( coefmon2, coefmon1.begin()->second, it12->second );
       }
@@ -2040,26 +2119,26 @@ const
       if( coefmon2.empty() ) continue; // no term
       // constant monomial in sp2
       if( coefmon2.size() == 1 && !coefmon2.begin()->first.tord ){
-        auto [it12,ins] = sp12map.insert( std::make_pair( std::make_pair(ndx1,ndx2), t_coefmon() ) );
+        auto [it12,ins] = sp12map.insert( std::make_pair( std::make_pair(ndx1,ndx2), t_poly() ) );
         assert( ins ); // map is initially empty
         _sscal1D( coefmon1, coefmon2.begin()->second, it12->second );
         continue;
       }
-#ifdef MC__SPOLYEXPR_DEBUG_SPROD
+#ifdef MC__SICMODEL_DEBUG_SPROD
       std::cout << "Term (" << ndx1 << "," << ndx2 << "):\n";
 #endif
-      std::map<unsigned,t_coefmon> sp11map, sp22map;
+      std::map<unsigned,t_poly> sp11map, sp22map;
       for( auto& mon1 : coefmon1 )
         _svec1D( itvarnext, mon1, sp11map );
-#ifdef MC__SPOLYEXPR_DEBUG_SPROD
+#ifdef MC__SICMODEL_DEBUG_SPROD
       _sdisp1D( sp11map, itvarnext, "Poly #1: " );
 #endif
       for( auto& mon2 : coefmon2 )
         _svec1D( itvarnext, mon2, sp22map );
-#ifdef MC__SPOLYEXPR_DEBUG_SPROD
+#ifdef MC__SICMODEL_DEBUG_SPROD
       _sdisp1D( sp22map, itvarnext, "Poly #2: " );
 #endif
-      auto [it12,ins] = sp12map.insert( std::make_pair( std::make_pair(ndx1,ndx2), t_coefmon() ) );
+      auto [it12,ins] = sp12map.insert( std::make_pair( std::make_pair(ndx1,ndx2), t_poly() ) );
       assert( ins ); // map is initially empty
       _sprod1D( sp11map, sp22map, it12->second, ndxvar, itvarnext );
     }
@@ -2089,59 +2168,61 @@ const
             _slift1D( coefmon12, .5, coefmon, itvar, ndx2-ndx1 );
           break;
         // Power basis functions
-        case Options::POW:
+        case Options::MONOM:
           _slift1D( coefmon12, 1., coefmon, itvar, ndx1+ndx2 );
           break;
       }
     }
   }
-#ifdef MC__POLYMODEL_DEBUG_SPROD
+#ifdef MC__SICMODEL_DEBUG_SPROD
   _sdisp1D( coefmon, "Prod: " );
   std::endl;
 #endif
 }
 
-template <typename T>
-inline void
-SICModel<T>::_svec1D
-( typename t_var::const_iterator itvar, std::pair<SPolyMon,T> const& mon,
-  std::map<unsigned,t_coefmon>& mapspoly )
+template <typename T, typename KEY, typename COMP>
+inline
+void
+SICModel<T,KEY,COMP>::_svec1D
+( typename t_var::const_iterator itvar, std::pair<t_mon,T> const& mon,
+  std::map<unsigned,t_poly>& mapspoly )
 const
 {
   auto const& [ivar,iord] = *mon.first.expr.begin();
   if( !mon.first.tord || ivar != *itvar ) // no dependence on variable *itvar 
     mapspoly[ 0 ].insert( mon );
   else     // dependence on variable *itvar of order iord
-    mapspoly[ iord ].insert( std::make_pair( SPolyMon( mon.first.tord - iord,
-      std::map<unsigned,unsigned>( ++mon.first.expr.begin(), mon.first.expr.end() ) ),
+    mapspoly[ iord ].insert( std::make_pair( t_mon( mon.first.tord - iord,
+      std::map<KEY,unsigned,COMP>( ++mon.first.expr.begin(), mon.first.expr.end() ) ),
       mon.second ) );
 }
 
-template <typename T>
-inline void
-SICModel<T>::_svec1Dfull
-( unsigned const ivar, std::pair<SPolyMon,T> const& coefmon,
-  std::vector<SICVar<T>>& vec )
+template <typename T, typename KEY, typename COMP>
+inline
+void
+SICModel<T,KEY,COMP>::_svec1Dfull
+( typename t_var::const_iterator itvar, std::pair<t_mon,T> const& coefmon,
+  std::vector< SICVar<T,KEY,COMP> >& vec )
 const
 {
   auto& [mon,coef] = coefmon;
-  auto ie = mon.expr.find( ivar );
-  if( ie == mon.expr.end() ) // no dependence on variable ivar 
+  auto ie = mon.expr.find( *itvar );
+  if( ie == mon.expr.end() ) // no dependence on variable *itvar 
     vec[ 0 ].coefmon().insert( coefmon );
-  else{
+  else{ // dependence on variable *itvar of order iord
     auto& [ivar,iord] = *ie;
-    SPolyMon monmod( mon.tord - iord, mon.expr );
-    monmod.expr.erase( ivar ); // remove T[ivar] entry
+    t_mon monmod( mon.tord - iord, mon.expr );
+    monmod.expr.erase( ivar ); // remove *itvar entry
     vec[ iord ].coefmon().insert( std::make_pair( monmod, coef ) );
   }
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 template <typename C, typename U>
 inline
 U
-SICModel<T>::_polybound_LSB
-( std::map<SPolyMon,C,lt_SPolyMon> const& coefmon, U const* const* bndbasis )
+SICModel<T,KEY,COMP>::_polybound_LSB
+( std::map<t_mon,C,lt_mon> const& coefmon, std::map<KEY,std::vector<U>,COMP> const& bndbasis )
 const
 {
   // Constant or linear model
@@ -2151,53 +2232,58 @@ const
   // Quadratic terms in combination with linear terms
   static double const TOL = 1e-8;
   U bndpol = coefmon.cbegin()->first.tord? 0.: coefmon.cbegin()->second;
-  auto it1 = coefmon.lower_bound( SPolyMon( 1, std::map<unsigned,unsigned>() ) );
-  auto it2 = coefmon.lower_bound( SPolyMon( 2, std::map<unsigned,unsigned>() ) );
-  auto it3 = coefmon.lower_bound( SPolyMon( 3, std::map<unsigned,unsigned>() ) );
-  std::map<SPolyMon,C,lt_SPolyMon> coeflin; coeflin.insert( it1, it2 );
+  auto it1 = coefmon.lower_bound( t_mon( 1, std::map<KEY,unsigned,COMP>() ) );
+  auto it2 = coefmon.lower_bound( t_mon( 2, std::map<KEY,unsigned,COMP>() ) );
+  auto it3 = coefmon.lower_bound( t_mon( 3, std::map<KEY,unsigned,COMP>() ) );
+  std::map<t_mon,C,lt_mon> coeflin; coeflin.insert( it1, it2 );
+
   for( ; it2!=it3; ++it2 ){
     auto ie2 = it2->first.expr.begin();
     if( ie2->second == 1 ){ // off-diagonal quadratic terms
-      bndpol += it2->second * ( bndbasis? bndbasis[ie2->first][1] * bndbasis[(++ie2)->first][1]: TOne );
+      bndpol += it2->second * ( !bndbasis.empty()? bndbasis.at(ie2->first)[1] * bndbasis.at((++ie2)->first)[1]: TOne );
       continue;
     }
-    SPolyMon explin( 1, std::map<unsigned,unsigned>() );
+    t_mon explin( 1, std::map<KEY,unsigned,COMP>() );
     explin.expr.insert( std::make_pair( ie2->first, 1 ) ); 
     it1 = coeflin.find( explin );
+
     switch( options.BASIS ){
       case Options::CHEB:
         if( it1 != coeflin.end() && std::fabs( Op<C>::mid(it2->second) ) > TOL ){
-          double ai = Op<C>::mid( it1->second ), aii = Op<C>::mid( it2->second );
-          bndpol += ( it2->second - aii ) * ( bndbasis? bndbasis[ie2->first][2]: TOne )
-                  + ( it1->second - ai  ) * ( bndbasis? bndbasis[ie2->first][1]: TOne )
-                  + (2.*aii) * Op<U>::sqr( (bndbasis? bndbasis[ie2->first][1]: TOne) + ai/(aii*4.) )
+          double const ai  = Op<C>::mid( it1->second );
+	  double const aii = Op<C>::mid( it2->second );
+          bndpol += ( it2->second - aii ) * ( !bndbasis.empty()? bndbasis.at(ie2->first)[2]: TOne )
+                  + ( it1->second - ai  ) * ( !bndbasis.empty()? bndbasis.at(ie2->first)[1]: TOne )
+                  + (2.*aii) * Op<U>::sqr((!bndbasis.empty()? bndbasis.at(ie2->first)[1]: TOne) + ai/(aii*4.) )
                   - aii - ai*ai/(8.*aii);
           coeflin.erase( it1 );
         }
         else if( it1 != coeflin.end() ){
-          bndpol += it2->second * ( bndbasis? bndbasis[ie2->first][2]: TOne )
-                  + it1->second * ( bndbasis? bndbasis[ie2->first][1]: TOne );
+          bndpol += it2->second * ( !bndbasis.empty()? bndbasis.at(ie2->first)[2]: TOne )
+                  + it1->second * ( !bndbasis.empty()? bndbasis.at(ie2->first)[1]: TOne );
           coeflin.erase( it1 );
         }
         else
-          bndpol += it2->second * ( bndbasis? bndbasis[ie2->first][2]: TOne );
+          bndpol += it2->second * ( !bndbasis.empty()? bndbasis.at(ie2->first)[2]: TOne );
         break;
-      case Options::POW:
-        if( it1 != coeflin.end() && std::fabs( Op<C>::l(it2->second) ) > TOL ){
-          double ai = Op<C>::mid( it1->second ), aii = Op<C>::mid( it2->second );
-          bndpol += ( it2->second - aii ) * ( bndbasis? bndbasis[ie2->first][2]: TZerOne )
-                  + ( it1->second - ai  ) * ( bndbasis? bndbasis[ie2->first][1]: TOne )
-                  + aii * Op<U>::sqr( (bndbasis? bndbasis[ie2->first][1]: TOne) + ai/(aii*2.) )
+
+      case Options::MONOM:
+        if( it1 != coeflin.end() && std::fabs( Op<C>::l(it2->second) ) > TOL ){ // WHY Op<C>::l NOT Op<C>::mid??
+          double const ai  = Op<C>::mid( it1->second );
+	  double const aii = Op<C>::mid( it2->second );
+          bndpol += ( it2->second - aii ) * ( !bndbasis.empty()? bndbasis.at(ie2->first)[2]: TZerOne )
+                  + ( it1->second - ai  ) * ( !bndbasis.empty()? bndbasis.at(ie2->first)[1]: TOne )
+                  + aii * Op<U>::sqr( (!bndbasis.empty()? bndbasis.at(ie2->first)[1]: TOne) + ai/(aii*2.) )
                   - ai*ai/(aii*4.);
           coeflin.erase( it1 );
         }
         else if( it1 != coeflin.end() ){
-          bndpol += it2->second * ( bndbasis? bndbasis[ie2->first][2]: TZerOne )
-                  + it1->second * ( bndbasis? bndbasis[ie2->first][1]: TOne );
+          bndpol += it2->second * ( !bndbasis.empty()? bndbasis.at(ie2->first)[2]: TZerOne )
+                  + it1->second * ( !bndbasis.empty()? bndbasis.at(ie2->first)[1]: TOne );
           coeflin.erase( it1 );
         }
         else
-          bndpol += it2->second * ( bndbasis? bndbasis[ie2->first][2]: TZerOne );
+          bndpol += it2->second * ( !bndbasis.empty()? bndbasis.at(ie2->first)[2]: TZerOne );
         break;
     }
   }
@@ -2205,28 +2291,29 @@ const
   // Remaining linear terms
   for( it1=coeflin.begin(); it1!=coeflin.end(); ++it1 ){
     auto ie1 = it1->first.expr.begin();
-    bndpol += it1->second * ( bndbasis? bndbasis[ie1->first][1]: TOne );
+    bndpol += it1->second * ( !bndbasis.empty()? bndbasis.at(ie1->first)[1]: TOne );
   }
 
-  // Thrid and higher-order terms
+  // Third and higher-order terms
   if( coefmon.rbegin()->first.tord > 2 )
     bndpol += _polybound_naive( coefmon, bndbasis, 3 );
 
+  //std::cout << "bndpol_LSB = " << bndpol << std::endl;
   return bndpol;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 template <typename C, typename U>
 inline
 U
-SICModel<T>::_polybound_naive
-( std::map<SPolyMon,C,lt_SPolyMon> const& coefmon, U const* const* bndbasis,
+SICModel<T,KEY,COMP>::_polybound_naive
+( std::map<t_mon,C,lt_mon> const& coefmon, std::map<KEY,std::vector<U>,COMP> const& bndbasis,
   unsigned const minord )
 const
 {
   // Empty model
   if( coefmon.empty() || coefmon.rbegin()->first.tord < minord ) return 0.;
-  auto it = coefmon.lower_bound( SPolyMon( minord, std::map<unsigned,unsigned>() ) );
+  auto it = coefmon.lower_bound( t_mon( minord, std::map<KEY,unsigned,COMP>() ) );
 
   // Polynomial bounding in T arithmetic
   if( !bndbasis ){
@@ -2239,7 +2326,7 @@ const
           bndpol += it->second * TOne;
         return bndpol;
       }
-      case Options::POW:
+      case Options::MONOM:
       {
         T bndpol = 0.;
         if( !it->first.tord ){ bndpol = it->second; ++it; }
@@ -2255,20 +2342,21 @@ const
   if( !it->first.tord ){ bndpol = it->second; ++it; }
   for( ; it!=coefmon.end(); ++it ){
     U bndmon( 1. );
-    for( auto& [ivar,iord] : it->first.expr )
-      bndmon *= bndbasis[ivar][iord];
+    for( auto const& [var,ord] : it->first.expr )
+      bndmon *= bndbasis.at(var)[ord];
     bndpol += it->second  * bndmon;
   }
   return bndpol;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 template <typename C, typename U>
 inline
 U
-SICModel<T>::_polybound
-( std::map<SPolyMon,C,lt_SPolyMon> const& coefmon, U const* const* bndbasis,
+SICModel<T,KEY,COMP>::_polybound
+( std::map<t_mon,C,lt_mon> const& coefmon, std::map<KEY,std::vector<U>,COMP> const& bndbasis,
   int const type )
+const
 {
   switch( type ){
   case Options::LSB:
@@ -2278,12 +2366,51 @@ SICModel<T>::_polybound
   }
 }
 
+template <typename T, typename KEY, typename COMP>
+inline
+T
+SICModel<T,KEY,COMP>::_monbound
+( t_mon const& mon )
+const
+{
+  if( !mon.tord ) return 1.;
+  switch( options.BASIS ){
+    case Options::CHEB:
+      return TOne;
+    case Options::MONOM: default:
+      return (mon.gcexp()%2? TOne: TZerOne);
+  }
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
+double
+SICModel<T,KEY,COMP>::_monval
+( t_mon const& mon, std::map<KEY,double,COMP> const& x )
+const
+{
+  double monval = 1.;
+  for( auto& [id,ord] : mon.expr ){
+    switch( options.BASIS ){
+      case Options::CHEB:
+        monval *= isequal(_scalvar[id],0.)? _refvar[id]: 
+                  mc::cheb((x.at(id)-_refvar[id])/_scalvar[id],ord);
+        break;
+      case Options::MONOM:
+        monval *= isequal(_scalvar[id],0.)? _refvar[id]: 
+                  std::pow((x.at(id)-_refvar[id])/_scalvar[id],(int)ord);
+        break;
+    }
+  }
+  return monval;
+}
+
 ////////////////////////////////// SICVar ///////////////////////////////////////
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
 void
-SICVar<T>::_init
+SICVar<T,KEY,COMP>::_init
 ()
 {
   _bndpol = nullptr;
@@ -2291,10 +2418,10 @@ SICVar<T>::_init
   return;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
 void
-SICVar<T>::_cleanup
+SICVar<T,KEY,COMP>::_cleanup
 ()
 {
   _unset_bndpol();
@@ -2303,30 +2430,30 @@ SICVar<T>::_cleanup
   _coefmon.clear();
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
 void
-SICVar<T>::_reinit
+SICVar<T,KEY,COMP>::_reinit
 ()
 {
   _cleanup();
   _init();
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
 void
-SICVar<T>::_unset_bndpol
+SICVar<T,KEY,COMP>::_unset_bndpol
 ()
 {
   delete _bndpol;
   _bndpol = nullptr;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
 void
-SICVar<T>::_set_bndpol
+SICVar<T,KEY,COMP>::_set_bndpol
 ( const T*bndpol )
 {
   if( !bndpol ){
@@ -2339,10 +2466,10 @@ SICVar<T>::_set_bndpol
     *_bndpol = *bndpol;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
 void
-SICVar<T>::_set_bndpol
+SICVar<T,KEY,COMP>::_set_bndpol
 ( const T&bndpol )
 {
   if( !_bndpol )
@@ -2351,20 +2478,20 @@ SICVar<T>::_set_bndpol
     *_bndpol = bndpol;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
 void
-SICVar<T>::_unset_bndT
+SICVar<T,KEY,COMP>::_unset_bndT
 ()
 {
   delete _bndT;
   _bndT = nullptr;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
 void
-SICVar<T>::_set_bndT
+SICVar<T,KEY,COMP>::_set_bndT
 ( const T*bndT )
 {
   if( !bndT ){
@@ -2377,10 +2504,10 @@ SICVar<T>::_set_bndT
     *_bndT = *bndT;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
 void
-SICVar<T>::_set_bndT
+SICVar<T,KEY,COMP>::_set_bndT
 ( const T&bndT )
 {
   if( !_bndT )
@@ -2389,30 +2516,30 @@ SICVar<T>::_set_bndT
     *_bndT = bndT;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>::SICVar
-( SICVar<T> const& CV )
+SICVar<T,KEY,COMP>::SICVar
+( SICVar<T,KEY,COMP> const& CV )
 {
   _init();
   _set( CV );
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>&
-SICVar<T>::operator=
-( SICVar<T> const& CV )
+SICVar<T,KEY,COMP>&
+SICVar<T,KEY,COMP>::operator=
+( SICVar<T,KEY,COMP> const& CV )
 {
   _set( CV );
   return *this;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>&
-SICVar<T>::_set
-( SICVar<T> const& CV )
+SICVar<T,KEY,COMP>&
+SICVar<T,KEY,COMP>::_set
+( SICVar<T,KEY,COMP> const& CV )
 {
   // Same SICVar?
   if( this == &CV ) return *this;
@@ -2429,36 +2556,36 @@ SICVar<T>::_set
   return *this;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>::SICVar
-( SICVar<T> && CV )
+SICVar<T,KEY,COMP>::SICVar
+( SICVar<T,KEY,COMP> && CV )
 {
 #ifdef MC__SICMODEL_TRACE
-    std::cerr << "-- SICVar<T>( SICVar<T> && )\n";
+    std::cerr << "-- SICVar<T,KEY,COMP>( SICVar<T,KEY,COMP> && )\n";
 #endif
   _init();
   _set( CV );
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>&
-SICVar<T>::operator=
-( SICVar<T> && CV )
+SICVar<T,KEY,COMP>&
+SICVar<T,KEY,COMP>::operator=
+( SICVar<T,KEY,COMP> && CV )
 {
 #ifdef MC__SICMODEL_TRACE
-    std::cerr << "-- SICVar<T>& operator= ( SICVar<T> && )\n";
+    std::cerr << "-- SICVar<T,KEY,COMP>& operator= ( SICVar<T,KEY,COMP> && )\n";
 #endif
   _set( CV );
   return *this;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>&
-SICVar<T>::_set
-( SICVar<T> && CV )
+SICVar<T,KEY,COMP>&
+SICVar<T,KEY,COMP>::_set
+( SICVar<T,KEY,COMP> && CV )
 {
   // Same SICVar?
   if( this == &CV ) return *this;
@@ -2475,10 +2602,10 @@ SICVar<T>::_set
   return *this;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>::SICVar
-( SICModel<T>*CM )
+SICVar<T,KEY,COMP>::SICVar
+( SICModel<T,KEY,COMP>* CM )
 : _CM( CM )
 {
   _init();
@@ -2486,237 +2613,151 @@ SICVar<T>::SICVar
   if( _CM->options.MIXED_IA ) _set_bndT( 0. );
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>::SICVar
-( double const d, SICModel<T>*CM )
+SICVar<T,KEY,COMP>::SICVar
+( double const& d, SICModel<T,KEY,COMP>* CM )
 : _CM( CM )
 {
   _init();
-  _coefmon.insert( std::make_pair( SPolyMon(), d ) );
+  if( d == 0. ) return;
+  _coefmon.insert( std::make_pair( t_mon(), d ) );
   _set_bndpol( d );
   if( !_CM || _CM->options.MIXED_IA ) _set_bndT( d );
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>&
-SICVar<T>::operator=
-( double const d )
+SICVar<T,KEY,COMP>&
+SICVar<T,KEY,COMP>::operator=
+( double const& d )
 {
   _reinit();
   _CM = nullptr;
-  _coefmon.insert( std::make_pair( SPolyMon(), d ) );
+  if( d != 0. ) _coefmon.insert( std::make_pair( t_mon(), d ) );
   _set_bndpol( d );
   _set_bndT( d );
   return *this;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>::SICVar
-( T const& B, SICModel<T>*CM )
+SICVar<T,KEY,COMP>::SICVar
+( T const& B, SICModel<T,KEY,COMP>* CM )
 : _CM( CM )
 {
   _init();
-  _coefmon.insert( std::make_pair( SPolyMon(), B ) );
+  _coefmon.insert( std::make_pair( t_mon(), B ) );
   _set_bndpol( B );
   if( !_CM || _CM->options.MIXED_IA ) _set_bndT( B );
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>&
-SICVar<T>::operator=
+SICVar<T,KEY,COMP>&
+SICVar<T,KEY,COMP>::operator=
 ( T const& B )
 {
   _reinit();
   _CM = nullptr;
-  _coefmon.insert( std::make_pair( SPolyMon(), B ) );
+  _coefmon.insert( std::make_pair( t_mon(), B ) );
   _set_bndpol( B );
   _set_bndT( B );
   return *this;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>::SICVar
-( SICModel<T>* CM, unsigned const ivar, T const& X )
+SICVar<T,KEY,COMP>::SICVar
+( SICModel<T,KEY,COMP>* CM, KEY const& id, T const& dom )
 : _CM( CM )
 {
   _init();
-  _set( ivar, X );
+  _set( id, dom );
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>&
-SICVar<T>::_set
-( unsigned const i, T const& X, bool const updMod )
+SICVar<T,KEY,COMP>&
+SICVar<T,KEY,COMP>::_set
+( KEY const& id, T const& dom, bool const updt )
 {
-  if( !_CM ) throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::INIT );  
+  if( !_CM ) throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::INIT );  
 
   // Keep data for variable #ivar in model environment
-  if( updMod ) _CM->_set( i, X );
+  if( updt ) _CM->_set( id, dom );
 
   // Populate model variable
   _ndxvar.clear();
-  _ndxvar.insert(i);
+  _ndxvar.insert( id );
   _coefmon.clear();
-  auto [itmon,ins] = _coefmon.insert( std::make_pair( SPolyMon(), _refvar(i) ) );
-  if( _CM->_maxord && !isequal(_scalvar(i),0.) ){
-    _coefmon.insert( std::make_pair( SPolyMon(i), _scalvar(i) ) );
-    _set_bndpol( _bndvar(i) );
+  auto [itmon,ins] = _coefmon.insert( std::make_pair( t_mon(), _refvar(id) ) );
+  if( _CM->_maxord && !isequal(_scalvar(id),0.) ){
+    _coefmon.insert( std::make_pair( t_mon(id), _scalvar(id) ) );
+    _set_bndpol( _bndvar(id) );
   }
   else{
-    _set_bndpol( _refvar(i) );
-    itmon->second += _bndvar(i) - _refvar(i);
+    _set_bndpol( _refvar(id) );
+    itmon->second += _bndvar(id) - _refvar(id);
   }
-  if( _CM->options.MIN_FACTOR >= 0. )
-    simplify( _CM->options.BASIS, _CM->options.MIN_FACTOR );
+  if( _CM->options.MIN_FACTOR >= 0. ) simplify( _CM->options.MIN_FACTOR );
 #if 0
   std::cout << "coefmon size: " << _coefmon.size() << std::endl;
 #endif
 
   // Interval bounds
-  if( _CM->options.MIXED_IA ) _set_bndT( _bndvar(i) );
+  if( _CM->options.MIXED_IA ) _set_bndT( _bndvar(id) );
   else                        _unset_bndT();
   return *this;
 }
-#if 0
-template <typename T>
-inline
-SICVar<T>&
-SICVar<T>::set
-( const SICVar<T>& CV, const bool reset )
-{
-  if( reset ){
-    _ndxvar.clear();
-    _coefmon.clear();
-  }
-  auto&& itord = CV._coefmon.upper_bound( SPolyMon( maxord()+1, std::map<unsigned,unsigned>() ) );
-  for( auto&& it=CV._coefmon.begin(); it!=itord; ++it ){
-    for( auto&& [var,order] : it->first.expr ) _ndxvar.insert( var );
-    _coefmon.insert( *it );
-  }
-  _bndrem  = CV._bndrem + CV.bndord(maxord()+1);  // CV may have a higher order than *this
-  _unset_bndT();
-  _unset_bndpol();
 
-  return *this;
-}
-
-template <typename T>
-inline
-SICVar<T>&
-SICVar<T>::get
-( SICVar<T>& var, const bool reset )
-{
-  if( !_PM ){
-    var._ndxmon.clear();
-    if( var._PM && var._PM->sparse() ) var._ndxmon.insert(0);
-    var._coefmon[0] = _coefmon[0];
-    // Reset monomial coefficients to 0
-    if( reset ) _coefmon[0] = 0.;
-    return *this;
-  }
-  if( !var._PM || nvar() < var.nvar() || nord() < var.nord() ) // looks fishy...
-    return *this;
-
-  // Copy monomial coefficients from *this into var
-  unsigned*iexp = new unsigned[nvar()];
-  // Case: sparse representation
-  for( auto it=_ndxmon.begin(); it!=_ndxmon.end() && *it<_posord(nord()+1); ++it ){
-    for( unsigned ivar=0; ivar<nvar(); ivar++ )
-      iexp[ivar] = ( ivar<var.nvar()? var._expmon(*it)[ivar]: 0 );
-    //unsigned imon = _loc_expmon(iexp);
-    auto pmon = _ndxmon.insert( _loc_expmon(iexp) );
-    var._coefmon[*it] = _coefmon[*(pmon.first)];
-    // Reset monomial coefficients to 0
-    if( reset ) _coefmon[*(pmon.first)] = 0.;
-  }
-  // Case: dense representation
-  for( unsigned jmon=0; _ndxmon.empty() && jmon<var.nmon(); jmon++ ){
-    for( unsigned ivar=0; ivar<nvar(); ivar++ )
-      iexp[ivar] = ( ivar<var.nvar()? var._expmon(jmon)[ivar]: 0 );
-    var._coefmon[jmon] = _coefmon[_loc_expmon(iexp)];
-    // Reset monomial coefficients to 0
-    if( reset ) _coefmon[_loc_expmon(iexp)] = 0.;
-  }
-  delete[] iexp;
-  *var._bndrem = 0.;
-  var._unset_bndT();
-  var._unset_bndpol();
-  var._bndord_uptd = false;
-
-  if( reset ){
-    _unset_bndT();
-    _unset_bndpol();
-    _bndord_uptd = false;
-  }
-
-  return *this;
-}
-#endif
-
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
 T
-SICVar<T>::IP
-( double const* x ) const
+SICVar<T,KEY,COMP>::IP
+( std::map<KEY,double,COMP> const& x )
+const
 {
   T Pval = 0.;
-  for( auto& [mon,coef] : _coefmon ){
-    double monval = 1.;
-    for( auto& [ivar,iord] : mon.expr ){
-      switch( _CM->options.BASIS ){
-        case SICModel<T>::Options::CHEB:
-          monval *= isequal(_scalvar(ivar),0.)? _refvar(ivar): 
-                    mc::cheb((x[ivar]-_refvar(ivar))/_scalvar(ivar),iord);
-          break;
-        case SICModel<T>::Options::POW:
-          monval *= isequal(_scalvar(ivar),0.)? _refvar(ivar): 
-                    std::pow((x[ivar]-_refvar(ivar))/_scalvar(ivar),(int)iord);
-          break;
-      }
-    }
-    
-    Pval += coef * monval;
-  }
+  for( auto const& [mon,coef] : _coefmon ) Pval += coef * _monval( mon, x );
   return Pval;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
 double
-SICVar<T>::P
-( double const* x ) const
+SICVar<T,KEY,COMP>::P
+( std::map<KEY,double,COMP> const& x )
+const
 {
   double Pval = 0.;
-  for( auto& [mon,coef] : _coefmon ){
-    double monval = 1.;
-    for( auto& [ivar,iord] : mon.expr ){
-      switch( _CM->options.BASIS ){
-        case SICModel<T>::Options::CHEB:
-          monval *= isequal(_scalvar(ivar),0.)? _refvar(ivar): 
-                    mc::cheb((x[ivar]-_refvar(ivar))/_scalvar(ivar),iord);
-          break;
-        case SICModel<T>::Options::POW:
-          monval *= isequal(_scalvar(ivar),0.)? _refvar(ivar): 
-                    std::pow((x[ivar]-_refvar(ivar))/_scalvar(ivar),(int)iord);
-          break;
-      }
-    }
-    
-    Pval += Op<T>::mid(coef) * monval;
-  }
+  for( auto& [mon,coef] : _coefmon ) Pval += Op<T>::mid(coef) * _monval( mon, x );
   return Pval;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
+inline
+SICVar<T,KEY,COMP>
+SICVar<T,KEY,COMP>::P
+()
+const
+{
+  SICVar<T,KEY,COMP> var( *this );
+  if( !var._coefmon.begin()->first.tord ) var._coefmon.insert( std::make_pair( t_mon(), 0. ) ); 
+  auto& cstcoef = var._coefmon.begin()->second;
+  for( auto& [mon,coef] : var._coefmon ){
+    if( !mon.tord ) continue;
+    cstcoef += 0.5*Op<T>::diam( coef );
+    coef = Op<T>::mid( coef );
+  }
+  return var;
+}
+
+template <typename T, typename KEY, typename COMP>
 inline
 T
-SICVar<T>::constant( const bool reset )
+SICVar<T,KEY,COMP>::constant
+( const bool reset )
 {
   auto it_0 = ( _coefmon.empty() || _coefmon.begin()->first.tord? _coefmon.end(): _coefmon.begin() );
   T coefcst = ( it_0 != _coefmon.end()? it_0->second: 0. );
@@ -2728,15 +2769,14 @@ SICVar<T>::constant( const bool reset )
   return coefcst;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
 T
-SICVar<T>::linear
-( const unsigned i, const bool reset )
+SICVar<T,KEY,COMP>::linear
+( KEY const& id, bool const reset )
 {
-  if( i>=nvar() || !nord() ) return 0.;
-  auto it_i = ( _coefmon.empty()? _coefmon.end(): _coefmon.find( SPolyMon( i ) ) );
-  T coeflin = ( it_i == _coefmon.end() || isequal(_scalvar(i),0.)? 0.: it_i->second/_scalvar(i) );
+  auto it_i = ( !nord() || _coefmon.empty()? _coefmon.end(): _coefmon.find( t_mon( id ) ) );
+  T coeflin = ( it_i == _coefmon.end() || isequal(_scalvar( id ),0.)? 0.: it_i->second / _scalvar( id ) );
   if( reset && it_i != _coefmon.end() ){
     _coefmon.erase( it_i );
     _unset_bndpol();
@@ -2745,48 +2785,27 @@ SICVar<T>::linear
   return coeflin;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
 void
-SICVar<T>::_scale
-( unsigned const ivar, T const& Xivar, typename SICVar<T>::t_coefmon& coefmon )
+SICVar<T,KEY,COMP>::_scale
+( typename t_var::const_iterator itvar, T const& bndvar, t_poly& coefmon )
 const
 {
-  // Nothing to do if model _CM is NULL, i is outside of variable range,
-  // or variable range X did not change
-  if( !_CM || _ndxvar.find( ivar ) == _ndxvar.end()
-   || ( isequal( Op<T>::l(Xivar), Op<T>::l(_bndvar(ivar)) )
-     && isequal( Op<T>::u(Xivar), Op<T>::u(_bndvar(ivar)) ) ) ) return;
+  // Nothing to do if model _CM is nullptr, or variable range X did not change
+  if( !_CM
+   || ( isequal( Op<T>::l(bndvar), Op<T>::l(_bndvar(*itvar)) )
+     && isequal( Op<T>::u(bndvar), Op<T>::u(_bndvar(*itvar)) ) ) ) return;
 
-  // Get coefficients in univariate polynomial representation w.r.t variable #ivar
-  std::vector<SICVar<T>> veccoef( nord()+1, SICVar<T>(_CM) );
-  for( auto const& [mon,coef] : coefmon ){
-    auto ie = mon.expr.find( ivar );
-    if( ie == mon.expr.end() ){ // no dependence on variable ivar
-#ifdef MC__POLYMODEL_DEBUG_SCALE
-      std::cout << "Inserting: " << coef << "  " << mon.display(1) << " (" << mon.tord << ")" << std::endl; 
-      if( veccoef[ 0 ]._coefmon.find( mon ) != veccoef[ 0 ]._coefmon.end() ) std::cout << "Already present!" << std::endl;
-#endif
-      auto&& [it,ins] = veccoef[ 0 ]._coefmon.insert( std::make_pair( mon, coef ) );
-      assert( ins );
-      for( auto const& [jvar,jord] : mon.expr )
-        veccoef[ 0 ]._ndxvar.insert( jvar );
-    }
-    else{
-      auto const& [ivar,iord] = *ie;
-      SPolyMon monmod( mon.tord - iord, mon.expr );
-      monmod.expr.erase( ivar ); // remove T[ivar] entry
-      veccoef[ iord ]._coefmon.insert( std::make_pair( monmod, coef ) );
-      for( auto const& [jvar,jord] : monmod.expr )
-        veccoef[ iord ]._ndxvar.insert( jvar );
-    }
-  }
+  // Get coefficients in univariate polynomial representation w.r.t variable *itvar
+  std::vector< SICVar<T,KEY,COMP> > veccoef( nord()+1, SICVar<T,KEY,COMP>(_CM) );
+  for( auto const& mon : coefmon ) _CM->_svec1Dfull( itvar, mon, veccoef );
   for( auto&& coef : veccoef ){
     coef._unset_bndpol();
     coef._unset_bndT();
   }
-#ifdef MC__POLYMODEL_DEBUG_SCALE
-  _CM->_sdisp1D( veccoef, ivar, "Var #i: " );
+#ifdef MC__SICMODEL_DEBUG_SCALE
+  _CM->_sdisp1Dfull( veccoef, itvar, "Var #i: " );
 #endif
  
   // Nothing to scale if independent of current variable #i
@@ -2796,89 +2815,195 @@ const
   if( nodep ) return;
 
   // Compose with rescaled inner variable
-  SICVar<T> CVivar( _CM ); CVivar._set( ivar, Xivar, false );
-#ifdef MC__POLYMODEL_DEBUG_SCALE
-  std::cout << "CVivar[" << ivar << "]:" << CVivar;
+  SICVar<T,KEY,COMP> cvvar( _CM ); cvvar._set( *itvar, bndvar, false );
+#ifdef MC__SCMODEL_DEBUG_SCALE
+  std::cout << "cvvar[" << *itvar << "]:" << cvvar;
 #endif
-  if( !isequal(_scalvar(ivar),0.) ){
-    CVivar -= _refvar(ivar);
-    CVivar *= Op<T>::diam(Xivar) / (2.*_scalvar(ivar) );
-    CVivar += Op<T>::mid(Xivar);
+  if( !isequal(_scalvar(*itvar),0.) ){
+    cvvar -= _refvar(*itvar);
+    cvvar *= Op<T>::diam(bndvar) / (2.*_scalvar(*itvar) );
+    cvvar += Op<T>::mid(bndvar);
   }
-#ifdef MC__POLYMODEL_DEBUG_SCALE
-  std::cout << "CVivar[" << ivar << "]:" << CVivar;
+#ifdef MC__SCMODEL_DEBUG_SCALE
+  std::cout << "cvvar[" << *itvar << "]:" << cvvar;
 #endif
-  CVivar = CVivar._rescale( _scalvar(ivar), _refvar(ivar) );
-#ifdef MC__POLYMODEL_DEBUG_SCALE
-  std::cout << "CVivar[" << ivar << "]:" << CVivar;
+  cvvar = cvvar._rescale( _scalvar(*itvar), _refvar(*itvar) );
+#ifdef MC__SCMODEL_DEBUG_SCALE
+  std::cout << "cvvar[" << *itvar << "]:" << cvvar;
 #endif
-  coefmon = _CM->_composition( veccoef, nord(), CVivar )._coefmon;
+  coefmon = _CM->_composition( veccoef, nord(), cvvar )._coefmon;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>&
-SICVar<T>::scale
-( unsigned const i, T const& X )
+SICVar<T,KEY,COMP>&
+SICVar<T,KEY,COMP>::scale
+( KEY const& id, T const& dom )
 {
-  _scale( i, X, _coefmon );
-  _unset_bndpol();
-  _unset_bndT();
+  auto itvar = _ndxvar.find( id );
+  if( itvar != _ndxvar.end() ){
+    _scale( itvar, dom, _coefmon );
+    _unset_bndpol();
+    _unset_bndT();
+  }
   return *this;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>&
-SICVar<T>::scale
-( T const* X )
+SICVar<T,KEY,COMP>&
+SICVar<T,KEY,COMP>::scale
+( std::map<KEY,T,COMP> const& dom )
 {
   // Return *this if null pointer to model _CM or variable ranges X
-  if( !X || !_CM ) return *this;
-  for( unsigned i : _ndxvar ) scale( i, X[i] );
-  if( _CM && _CM->options.MIN_FACTOR >= 0. )
-    simplify( _CM->options.BASIS, _CM->options.MIN_FACTOR );
+  if( dom.empty() || !_CM ) return *this;
+  for( auto const& id : _ndxvar ) scale( id, dom[id] );
+  if( _CM && _CM->options.MIN_FACTOR >= 0. ) simplify( _CM->options.MIN_FACTOR );
   return *this;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-typename SICVar<T>::t_coefmon
-SICVar<T>::unscale
+typename SICVar<T,KEY,COMP>::t_poly
+SICVar<T,KEY,COMP>::unscale
 ()
 const
 {
   // Return *this if null pointer to model _CM or variable ranges X
   if( !_CM ) return _coefmon;
-  t_coefmon coefmon = _coefmon;
-  for( unsigned i : _ndxvar ) _scale( i, T(-1,1), coefmon );
-  if( _CM && _CM->options.MIN_FACTOR >= 0. )
-    simplify( _CM->options.BASIS, _CM->options.MIN_FACTOR );
+  t_poly coefmon = _coefmon;
+  for( auto const& id : _ndxvar ) _scale( id, T(-1,1), coefmon );
+  if( _CM && _CM->options.MIN_FACTOR >= 0. ) simplify( _CM->options.MIN_FACTOR );
   return coefmon;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>&
-SICVar<T>::simplify
-( int const& BASIS, double const& TOL, int const& TORD )
+SICVar<T,KEY,COMP>&
+SICVar<T,KEY,COMP>::lift
+( SICModel<T,KEY,COMP>* SCM, double const& ATOL, double const& RTOL )
+{
+  // Need for lifting?
+  double remrad = 0.;
+  for( auto const& [mon,coef] : _coefmon ) remrad += 0.5*Op<T>::diam( coef );
+//#ifdef MC__SCMODEL_DEBUG_LIFT
+  if( Op<T>::abs(_polybound()) < 1e-10 )
+    std::cout << "polybound magnitude is: " << _polybound() << std::endl;
+  std::cout << remrad << " < " << 0.5*RTOL*Op<T>::diam(_polybound()) + ATOL + machprec() << " : "
+            << ( remrad < 0.5*RTOL*Op<T>::diam(_polybound()) + ATOL + machprec() ) << std::endl;
+//#endif
+  if( !_CM->_maxord || ( remrad < 0.5*RTOL*Op<T>::diam(_polybound()) + ATOL + machprec() ) ) return *this;
+
+  // Allocate range to constant coefficient
+  if( !_coefmon.begin()->first.tord ) _coefmon.insert( std::make_pair( t_mon(), 0. ) ); 
+  auto& cstcoef = _coefmon.begin()->second;
+  for( auto& [mon,coef] : _coefmon ){
+    if( mon.tord ) continue;
+    cstcoef += 0.5*Op<T>::diam( coef );
+    coef = Op<T>::mid( coef );
+  }
+
+  // Add auxiliary variable
+  KEY const& id = SCM->append_aux();
+  _ndxvar.insert( id );
+  _coefmon.insert( std::make_pair( t_mon( id ), 0.5*Op<T>::diam( cstcoef ) ) );
+  cstcoef = Op<T>::mid( cstcoef );
+  _simplify( _coefmon );
+  // No need to update _bndpol
+  return *this;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
+SICVar<T,KEY,COMP>&
+SICVar<T,KEY,COMP>::project
+( bool const reset )
+{
+  // Nothing to do
+  if( _coefmon.empty() || !_CM || _CM->_setaux.empty() ) return *this;
+  
+  // Detect auxiliary variables and eliminate
+  for( auto it=_coefmon.begin(); it!=_coefmon.end(); ){
+    if( !_coefmon.begin()->first.tord ) continue;
+    auto& [mon,coef] = *it;
+    
+    // Detect auxiliary variable in monomial
+    t_mon monaux;
+    for( auto const& aux : _CM->_setaux ){
+      auto itaux = mon.expr.find( aux );
+      if( itaux == mon.expr.end() ) continue;
+      monaux += smon( itaux->first, itaux->second );
+    }
+    if( monaux.empty() ){ ++it; continue; }
+
+    // Insert reduced monomial
+    t_mon const monred = mon - monaux;
+    T const coefred = coef * _CM->_monbound( monaux );
+    auto [itmon, ins] = _coefmon.insert( std::make_pair( monred, coefred ) );
+    if( !ins ) itmon->second += coefred;
+    it = _coefmon.erase( it );
+  }
+
+  // Remove dependencies
+  for( auto const& aux : _CM->_setaux ) _ndxvar.erase( aux );
+  if( reset ) _CM->reset_aux();
+
+  return *this;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
+SICVar<T,KEY,COMP>&
+SICVar<T,KEY,COMP>::project
+( KEY const& id )
+{
+  // Nothing to do
+  if( _coefmon.empty() || !_CM || _CM->_setaux.empty() ) return *this;
+  
+  // Detect auxiliary variables and eliminate
+  for( auto it=_coefmon.begin(); it!=_coefmon.end(); ){
+    if( !_coefmon.begin()->first.tord ) continue;
+    auto& [mon,coef] = *it;
+    
+    // Detect auxiliary variable id in monomial
+    auto itaux = mon.expr.find( id );
+    if( itaux == mon.expr.end() ){ ++it; continue; }
+    t_mon const monaux = smon( itaux->first, itaux->second );
+
+    // Insert reduced monomial
+    t_mon const monred = mon - monaux;
+    T const coefred = coef * _CM->_monbound( monaux );
+    auto [itmon, ins] = _coefmon.insert( std::make_pair( monred, coefred ) );
+    if( !ins ) itmon->second += coefred;
+    it = _coefmon.erase( it );
+  }
+
+  // Remove dependencies
+  _ndxvar.erase( id );
+
+  return *this;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
+SICVar<T,KEY,COMP>&
+SICVar<T,KEY,COMP>::simplify
+( double const& ATOL, double const& RTOL, int const TORD )
 {
   if( _coefmon.empty() ) return *this;
   for( auto it=_coefmon.begin(); it!=_coefmon.end(); ){
+    auto const& [mon,coef] = *it;
     // Eliminate any terms with zero coefficient
-    if( Op<T>::abs(it->second) == 0e0 ){
+    if( Op<T>::abs(coef) == 0e0 ){
       it = _coefmon.erase( it );
       continue;
     }
     // Eliminate any non-constant terms with small enough coefficient or large enough total order
-    if( ( TOL > 0e0 && it->first.tord && Op<T>::abs(it->second) <= TOL )
-     || ( TORD >= 0 && (int)it->first.tord > TORD ) ){
-      T bndmon = ( BASIS == SICModel<T>::Options::POW && !(it->first.gcexp()%2) ?
-                   SICModel<T>::TZerOne : SICModel<T>::TOne );
-      if( _coefmon.empty() || _coefmon.begin()->first.tord ) 
-        _coefmon.insert( std::make_pair( SPolyMon(), bndmon ) );
-      else
-        _coefmon.begin()->second += bndmon;
+    double const THRES = ( RTOL>0? 0.5*RTOL*Op<T>::diam(_polybound()): 0e0 ) + ATOL;
+    if( ( mon.tord && std::fabs(coef) <= THRES ) || ( TORD >= 0 && (int)mon.tord > TORD ) ){
+      auto const monbound = coef * _CM->_monbound( mon );
+      auto [itcst, ins] = _coefmon.insert( std::make_pair( t_mon(), monbound ) );
+      if( !ins ) itcst->second += monbound;
       _unset_bndpol();
       it = _coefmon.erase( it );
       continue;
@@ -2888,12 +3013,39 @@ SICVar<T>::simplify
   return *this;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
+inline
+SICVar<T,KEY,COMP>&
+SICVar<T,KEY,COMP>::_simplify
+( typename SICVar<T,KEY,COMP>::t_poly::iterator itmon,
+  double const& ATOL, double const& RTOL, int const TORD )
+{
+  auto const& [mon,coef] = *itmon;
+
+  // Eliminate any terms with zero coefficient
+  if( Op<T>::abs(coef) == 0e0 ){
+    _coefmon.erase( itmon );
+    return *this;
+  }
+    
+  // Eliminate any non-constant terms with small enough coefficient or large enough total order
+  double const THRES = ( RTOL>0? 0.5*RTOL*Op<T>::diam(_polybound()): 0e0 ) + ATOL;
+  if( ( mon.tord && std::fabs(coef) <= THRES ) || ( TORD >= 0 && (int)mon.tord > TORD ) ){
+    auto const monbound = coef * _CM->_monbound( mon );
+    auto [itcst, ins] = _coefmon.insert( std::make_pair( t_mon(), monbound ) );
+    if( !ins ) itcst->second += monbound;
+    _unset_bndpol();
+    _coefmon.erase( itmon );
+  }
+  return *this;
+}
+
+template <typename T, typename KEY, typename COMP>
 inline
 T
-SICVar<T>::_simplify_monomial
-( typename SICVar<T>::t_coefmon& coefmon, bool const scaled,
-  double const& TOL, int const& TORD )
+SICVar<T,KEY,COMP>::_simplify_monomial
+( typename SICVar<T,KEY,COMP>::t_poly& coefmon, bool const scaled,
+  double const& ATOL, double const& RTOL, int const TORD )
 const
 {
   T bndrem( 0e0 );
@@ -2909,13 +3061,12 @@ const
     }
 
     // Eliminate any non-constant terms with small enough coefficient or large enough total order
-    //if( ( TOL > 0e0 && mon.tord && std::fabs(coef) <= TOL )
-    if( ( TOL > 0e0 && Op<T>::abs(coef) <= TOL )
-     || ( TORD >= 0 && (int)mon.tord > TORD ) ){
+    double const THRES = ( RTOL>0? 0.5*RTOL*Op<T>::diam(_polybound()): 0e0 ) + ATOL;
+    if( ( mon.tord && THRES > 0e0 && std::fabs(coef) <= THRES ) || ( TORD >= 0 && (int)mon.tord > TORD ) ){
       // compute monomial bound
       T bndmon( 1e0 );
-      for( auto const& [ivar,iord] : mon.expr )
-        bndmon *= Op<T>::pow( scaled? SICModel<T>::TOne: _bndvar(ivar), (int)iord );
+      for( auto const& [var,ord] : mon.expr )
+        bndmon *= Op<T>::pow( scaled? SICModel<T,KEY,COMP>::TOne: _bndvar(var), (int)ord );
       bndrem += bndmon * coef;
       it = coefmon.erase( it );
       continue;
@@ -2925,11 +3076,11 @@ const
   return bndrem;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
 void
-SICVar<T>::_simplify
-( typename SICVar<T>::t_coefmon& coefmon )
+SICVar<T,KEY,COMP>::_simplify
+( typename SICVar<T,KEY,COMP>::t_poly& coefmon )
 const
 {
   if( coefmon.empty() ) return;
@@ -2943,23 +3094,23 @@ const
   }
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
 void
-SICVar<T>::_to_monomial
-( unsigned const ivar, typename SICVar<T>::t_coefmon& coefmon )
+SICVar<T,KEY,COMP>::_to_monomial
+( KEY const& id, typename SICVar<T,KEY,COMP>::t_poly& coefmon )
 const
 {
-  // Get coefficients in univariate polynomial representation w.r.t variable #ivar
-  std::vector<t_coefmon> veccoef( nord()+1, t_coefmon() );
+  // Get coefficients in univariate polynomial representation w.r.t variable id
+  std::vector<t_poly> veccoef( nord()+1, t_poly() );
   for( auto [mon,coef] : coefmon ){
-    auto ie = mon.expr.find( ivar );
-    if( ie == mon.expr.end() ) // no dependence on variable ivar 
+    auto ie = mon.expr.find( id );
+    if( ie == mon.expr.end() ) // no dependence on variable id 
       veccoef[ 0 ].insert( std::make_pair( mon, coef ) );
     else{
-      auto const& [ivar,iord] = *ie;
-      SPolyMon monmod( mon.tord - iord, mon.expr );
-      monmod.expr.erase( ivar ); // remove T[ivar] entry
+      auto const& iord = ie->second;
+      t_mon monmod( mon.tord - iord, mon.expr );
+      monmod.expr.erase( id ); // remove T[id] entry
       veccoef[ iord ].insert( std::make_pair( monmod, coef ) );
     }
   }
@@ -3000,57 +3151,56 @@ const
   // Collect monomials back together into <a>coefmon</a>
   coefmon = veccoef[0];
   for( unsigned iord=1; iord<=nord(); iord++ ){
-    for( auto& [mon,coef] : veccoef[iord] ){
-      SPolyMon monmod( mon.tord + iord, mon.expr );
-      monmod.expr[ ivar ] = iord;
+    for( auto const& [mon,coef] : veccoef[iord] ){
+      t_mon monmod( mon.tord + iord, mon.expr );
+      monmod.expr[ id ] = iord;
       coefmon[ monmod ] = coef;
     }
   }
 }
 
-template <typename T>
+
+template <typename T, typename KEY, typename COMP>
 inline
-typename SICVar<T>::t_coefmon
-SICVar<T>::to_monomial
+typename SICVar<T,KEY,COMP>::t_poly
+SICVar<T,KEY,COMP>::to_monomial
 ( bool const scaled )
 const
 {
   if( !_CM || _coefmon.empty() || !nord() ) return _coefmon;
-  //std::cout << *this;
 
   // Convert to monomial form
-  t_coefmon coefmon = _coefmon;
+  t_poly coefmon = _coefmon;
   if( !scaled ){
-    for( unsigned i : _ndxvar ){
-      _scale( i, SICModel<T>::TOne, coefmon );
-    }
+    for( auto const& id : _ndxvar )
+      _scale( id, SICModel<T,KEY,COMP>::TOne, coefmon );
   }
   
-  for( unsigned i : _ndxvar ){
-    _to_monomial( i, coefmon );
+  for( auto const& id : _ndxvar ){
+    _to_monomial( id, coefmon );
     _simplify( coefmon );
   }
   
   return coefmon;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-std::pair<typename SICVar<T>::t_coefmon,T>
-SICVar<T>::to_monomial
-( bool const scaled, double const TOL, int const TORD )
+std::pair< typename SICVar<T,KEY,COMP>::t_poly, T >
+SICVar<T,KEY,COMP>::to_monomial
+( bool const scaled, double const& ATOL, double const& RTOL, int const TORD )
 const
 {
   auto&& coefmon = to_monomial( scaled );
-  auto&& bndrem  = _simplify_monomial( coefmon, scaled, TOL, TORD );
+  auto&& bndrem  = _simplify_monomial( coefmon, scaled, ATOL, RTOL, TORD );
   return std::make_pair( coefmon, bndrem );
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
 std::string
-SICVar<T>::display
-( typename SICVar::t_coefmon coefmon, int const& BASIS, int const& IDISP )
+SICVar<T,KEY,COMP>::display
+( typename SICVar::t_poly coefmon, int const& BASIS, int const& IDISP )
 const
 {
   std::ostringstream out;
@@ -3066,15 +3216,14 @@ const
   return out.str();
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
 std::ostream&
 operator<<
-( std::ostream& out, SICVar<T> const& CV )
+( std::ostream& out, SICVar<T,KEY,COMP> const& CV )
 {
-  //std::cout << "*NORD = " << CV.nord() << " " << CV._coefmon.rbegin()->first.display(1) << std::endl;
-  unsigned IDISP = CV._CM? CV._CM->options.DISPLAY_DIGITS: 5;
-  int BASIS = CV._CM? CV._CM->options.BASIS: SICModel<T>::Options::CHEB;
+  unsigned IDISP = CV._CM? CV._CM->options.DISPLAY_DIGITS: 7;
+  int BASIS = CV._CM? CV._CM->options.BASIS: SICModel<T,KEY,COMP>::Options::CHEB;
   out << CV.display( CV._coefmon, BASIS, IDISP )
       << std::scientific << std::setprecision(IDISP) << std::right;
 
@@ -3085,32 +3234,33 @@ operator<<
       << std::endl;
 
   // Index set
+#if 0
   out << std::right << "   I     =  {";
   for( auto const& ndx : CV._ndxvar )
     out << std::right << " " << ndx;
   out << std::right << " }" << std::endl;
-
+#endif
   return out;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>
+SICVar<T,KEY,COMP>
 operator+
-( SICVar<T> const& CV )
+( SICVar<T,KEY,COMP> const& CV )
 {
   return CV;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 template <typename U>
 inline
-SICVar<T>&
-SICVar<T>::operator+=
-( SICVar<U> const& CV )
+SICVar<T,KEY,COMP>&
+SICVar<T,KEY,COMP>::operator+=
+( SICVar<U,KEY,COMP> const& CV )
 {
   if( _CM && CV._CM && _CM != CV._CM )
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::SICMODEL );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::MODEL );
   if( CV._CM && !_CM ) _CM = CV._CM;
 
   _ndxvar.insert( CV._ndxvar.begin(), CV._ndxvar.end() );
@@ -3119,8 +3269,7 @@ SICVar<T>::operator+=
     auto [itmon, ins] = _coefmon.insert( std::make_pair( mon, coef ) );
     if( !ins ) itmon->second += coef;
   }
-  if( _CM && _CM->options.MIN_FACTOR >= 0. )
-    simplify( _CM->options.BASIS, _CM->options.MIN_FACTOR );
+  if( _CM && _CM->options.MIN_FACTOR >= 0. ) simplify( _CM->options.MIN_FACTOR );
 
   _unset_bndpol();
   if( _bndT && CV._bndT ) *_bndT += *CV._bndT;
@@ -3129,123 +3278,128 @@ SICVar<T>::operator+=
   return *this;
 }
 
-template <typename T, typename U>
-inline SICVar<T>
+template <typename T, typename KEY, typename COMP, typename U>
+inline SICVar<T,KEY,COMP>
 operator+
-( SICVar<T> const& CV1, SICVar<U> const& CV2 )
+( SICVar<T,KEY,COMP> const& CV1, SICVar<U,KEY,COMP> const& CV2 )
 {
   if( CV1.nmon() >= CV2.nmon() ){
-    SICVar<T> CV3( CV1 );
+    SICVar<T,KEY,COMP> CV3( CV1 );
     CV3 += CV2;
     return CV3;
   }
   
-  SICVar<T> CV3( CV2 );
+  SICVar<T,KEY,COMP> CV3( CV2 );
   CV3 += CV1;
   return CV3;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>&
-SICVar<T>::operator +=
-( double const c )
+SICVar<T,KEY,COMP>&
+SICVar<T,KEY,COMP>::operator +=
+( double const& c )
 {
-  if( _coefmon.empty() || _coefmon.begin()->first.tord ) 
-    _coefmon.insert( std::make_pair( SPolyMon(), c ) );
-  else
-    _coefmon.begin()->second += c;
+  if( c == 0. ) return *this;
+  auto [itcst, ins] = _coefmon.insert( std::make_pair( t_mon(), c ) );
+  if( !ins ){
+    itcst->second += c;
+    if( _CM && _CM->options.MIN_FACTOR >= 0. ) _simplify( itcst, _CM->options.MIN_FACTOR );
+  }
   if( _bndpol ) *_bndpol += c;
   if( _bndT )   *_bndT += c;
   return *this;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>
+SICVar<T,KEY,COMP>
 operator+
-( SICVar<T> const& CV1, double const c )
+( SICVar<T,KEY,COMP> const& CV1, double const& c )
 {
-  SICVar<T> CV3( CV1 );
+  SICVar<T,KEY,COMP> CV3( CV1 );
   CV3 += c;
   return CV3;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>
+SICVar<T,KEY,COMP>
 operator+
-( double const c, SICVar<T> const& CV2 )
+( double const& c, SICVar<T,KEY,COMP> const& CV2 )
 {
-  SICVar<T> CV3( CV2 );
+  SICVar<T,KEY,COMP> CV3( CV2 );
   CV3 += c;
   return CV3;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 template <typename U>
 inline
-SICVar<T>&
-SICVar<T>::operator+=
+SICVar<T,KEY,COMP>&
+SICVar<T,KEY,COMP>::operator+=
 ( U const& B )
 {
-  if( _coefmon.empty() || _coefmon.begin()->first.tord ) 
-    _coefmon.insert( std::make_pair( SPolyMon(), B ) );
-  else
-    _coefmon.begin()->second += B;
+  if( Op<T>::abs(B) == 0. ) return *this;
+  auto [itcst, ins] = _coefmon.insert( std::make_pair( t_mon(), B ) );
+  if( !ins ){
+    itcst->second += B;
+    if( _CM && _CM->options.MIN_FACTOR >= 0. ) _simplify( itcst, _CM->options.MIN_FACTOR );
+  }
   if( _bndpol ) *_bndpol += B;
   if( _bndT )   *_bndT += B;
   return *this;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>
+SICVar<T,KEY,COMP>
 operator+
-( SICVar<T> const& CV1, T const& B )
+( SICVar<T,KEY,COMP> const& CV1, T const& B )
 {
-  SICVar<T> CV3( CV1 );
+  SICVar<T,KEY,COMP> CV3( CV1 );
   CV3 += B;
   return CV3;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>
+SICVar<T,KEY,COMP>
 operator+
-( T const& B, SICVar<T> const& CV2 )
+( T const& B, SICVar<T,KEY,COMP> const& CV2 )
 {
-  SICVar<T> CV3( CV2 );
+  SICVar<T,KEY,COMP> CV3( CV2 );
   CV3 += B;
   return CV3;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>
+SICVar<T,KEY,COMP>
 operator-
-( SICVar<T> const& CV )
+( SICVar<T,KEY,COMP> const& CV )
 {
-  SICVar<T> CV2;
+  //std::cout << "CV:" << CV;
+  SICVar<T,KEY,COMP> CV2;
   CV2.set( CV._CM );
   CV2._ndxvar = CV._ndxvar;
   for( auto& [mon,coef] : CV._coefmon )
     CV2._coefmon.insert( std::make_pair( mon, -coef ) );
   if( CV._bndpol ) CV2._set_bndpol( - *CV._bndpol );
   if( CV._bndT )   CV2._set_bndT( - *CV._bndT );
-  else             CV2._unset_bndT();
+  //std::cout << "-CV:" << CV2;
   return CV2;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 template <typename U>
 inline
-SICVar<T>&
-SICVar<T>::operator-=
-( SICVar<U> const& CV )
+SICVar<T,KEY,COMP>&
+SICVar<T,KEY,COMP>::operator-=
+( SICVar<U,KEY,COMP> const& CV )
 {
   if( _CM && CV._CM && _CM != CV._CM )
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::SICMODEL );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::MODEL );
   if( CV._CM && !_CM ) _CM = CV._CM;
 
   _ndxvar.insert( CV._ndxvar.begin(), CV._ndxvar.end() );
@@ -3254,8 +3408,7 @@ SICVar<T>::operator-=
     auto [itmon, ins] = _coefmon.insert( std::make_pair( mon, -coef ) );
     if( !ins ) itmon->second -= coef;
   }
-  if( _CM && _CM->options.MIN_FACTOR >= 0. )
-    simplify( _CM->options.BASIS, _CM->options.MIN_FACTOR );
+  if( _CM && _CM->options.MIN_FACTOR >= 0. ) simplify( _CM->options.MIN_FACTOR );
 
   _unset_bndpol();
   if( _bndT && CV._bndT ) *_bndT -= *CV._bndT;
@@ -3264,111 +3417,114 @@ SICVar<T>::operator-=
   return *this;
 }
 
-template <typename T, typename U>
+template <typename T, typename KEY, typename COMP, typename U>
 inline
-SICVar<T>
+SICVar<T,KEY,COMP>
 operator-
-( SICVar<T> const& CV1, SICVar<U> const& CV2 )
+( SICVar<T,KEY,COMP> const& CV1, SICVar<U,KEY,COMP> const& CV2 )
 {
   if( CV1.nmon() >= CV2.nmon() ){
-    SICVar<T> CV3( CV1 );
+    SICVar<T,KEY,COMP> CV3( CV1 );
     CV3 -= CV2;
     return CV3;
   }
 
-  SICVar<T> CV3( -CV2 );
+  SICVar<T,KEY,COMP> CV3( -CV2 );
   CV3 += CV1;
   return CV3;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>&
-SICVar<T>::operator-=
-( double const c )
+SICVar<T,KEY,COMP>&
+SICVar<T,KEY,COMP>::operator-=
+( double const& c )
 {
-  if( _coefmon.empty() || _coefmon.begin()->first.tord ) 
-    _coefmon.insert( std::make_pair( SPolyMon(), -c ) );
-  else{
-    _coefmon.begin()->second -= c;
-    if( Op<T>::abs(_coefmon.begin()->second) == 0. )
-      _coefmon.erase( _coefmon.begin() );
+  if( c == 0. ) return *this;
+  auto [itcst, ins] = _coefmon.insert( std::make_pair( t_mon(), -c ) );
+  if( !ins ){
+    itcst->second -= c;
+    if( _CM && _CM->options.MIN_FACTOR >= 0. ) _simplify( itcst, _CM->options.MIN_FACTOR );
   }
   if( _bndpol ) *_bndpol -= c;
   if( _bndT )   *_bndT -= c;
   return *this;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>
+SICVar<T,KEY,COMP>
 operator-
-( SICVar<T> const& CV1, double const c )
+( SICVar<T,KEY,COMP> const& CV1, double const& c )
 {
-  SICVar<T> CV3( CV1 );
+  SICVar<T,KEY,COMP> CV3( CV1 );
   CV3 -= c;
   return CV3;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>
+SICVar<T,KEY,COMP>
 operator-
-( double const c, SICVar<T> const& CV2 )
+( double const& c, SICVar<T,KEY,COMP> const& CV2 )
 {
-  SICVar<T> CV3( -CV2 );
+  SICVar<T,KEY,COMP> CV3( -CV2 );
   CV3 += c;
   return CV3;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 template <typename U>
 inline
-SICVar<T>&
-SICVar<T>::operator-=
+SICVar<T,KEY,COMP>&
+SICVar<T,KEY,COMP>::operator-=
 ( U const& B )
 {
-  if( _coefmon.empty() || _coefmon.begin()->first.tord ) 
-    _coefmon.insert( std::make_pair( SPolyMon(), -B ) );
-  else{
-    _coefmon.begin()->second -= B;
-    if( Op<T>::abs(_coefmon.begin()->second) == 0. )
-      _coefmon.erase( _coefmon.begin() );
+  if( Op<T>::abs(B) == 0. ) return *this;
+  auto [itcst, ins] = _coefmon.insert( std::make_pair( t_mon(), -B ) );
+  if( !ins ){
+    itcst->second -= B;
+    if( _CM && _CM->options.MIN_FACTOR >= 0. ) _simplify( itcst, _CM->options.MIN_FACTOR );
   }
   if( _bndpol ) *_bndpol -= B;
   if( _bndT )   *_bndT -= B;
   return *this;
 }
 
-template <typename T>
-inline SICVar<T>
+template <typename T, typename KEY, typename COMP>
+inline SICVar<T,KEY,COMP>
 operator-
-( SICVar<T> const& CV1, T const& B )
+( SICVar<T,KEY,COMP> const& CV1, T const& B )
 {
-  SICVar<T> CV3( CV1 );
+  SICVar<T,KEY,COMP> CV3( CV1 );
   CV3 -= B;
   return CV3;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>
+SICVar<T,KEY,COMP>
 operator-
-( T const& B, SICVar<T> const& CV2 )
+( T const& B, SICVar<T,KEY,COMP> const& CV2 )
 {
-  SICVar<T> CV3( -CV2 );
+  SICVar<T,KEY,COMP> CV3( -CV2 );
   CV3 += B;
   return CV3;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>&
-SICVar<T>::operator*=
-( SICVar<T> const& CV )
+SICVar<T,KEY,COMP>&
+SICVar<T,KEY,COMP>::operator*=
+( SICVar<T,KEY,COMP> const& CV )
 {
+  if( this == &CV ){
+    *this = sqr( CV );
+    return *this;
+  }
+
   if( _CM && CV._CM && _CM != CV._CM )
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::SICMODEL );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::MODEL );
 
   if( CV._CM && !_CM ) _CM = CV._CM;
   else if( !CV._CM && !_CM ) return operator*=( CV.bound() );
@@ -3380,7 +3536,7 @@ SICVar<T>::operator*=
 #endif
 
   // Extract uncertain parts
-  SICVar<T> tmpCV0( *this );
+  SICVar<T,KEY,COMP> tmpCV0( *this );
   for( auto& [mon,coef] : tmpCV0._coefmon ) coef -= Op<T>::mid(coef);
   tmpCV0._unset_bndpol();
   T BCV0 = tmpCV0.bound();
@@ -3388,7 +3544,7 @@ SICVar<T>::operator*=
   std::cout << "Uncertain part Poly #1:" << tmpCV0;
 #endif
 
-  SICVar<T> tmpCV( CV );
+  SICVar<T,KEY,COMP> tmpCV( CV );
   for( auto& [mon,coef] : tmpCV._coefmon ) coef -= Op<T>::mid(coef);
   tmpCV._unset_bndpol();
   T BCV = tmpCV.bound();
@@ -3408,7 +3564,7 @@ SICVar<T>::operator*=
   // Coefficient maps for first participating variable
   _ndxvar.insert( CV._ndxvar.begin(), CV._ndxvar.end() );
   auto itvar = _ndxvar.begin();
-  std::map<unsigned,t_coefmon> sp1map, sp2map;
+  std::map<unsigned,t_poly> sp1map, sp2map;
   for( auto& [mon,coef] : _coefmon )
     _CM->_svec1D( itvar, std::make_pair(mon,Op<T>::mid(coef)), sp1map );
 #ifdef MC__SICMODEL_DEBUG_SPROD
@@ -3422,152 +3578,143 @@ SICVar<T>::operator*=
 
   // Recursive product of univariate Chebyshev polynomials
   _CM->_sprod1D( sp1map, sp2map, _coefmon, _ndxvar, itvar );
-  if( _CM && _CM->options.MIN_FACTOR >= 0. )
-    simplify( _CM->options.BASIS, _CM->options.MIN_FACTOR );
+  if( _CM && _CM->options.MIN_FACTOR >= 0. ) simplify( _CM->options.MIN_FACTOR );
 #ifdef MC__SICMODEL_DEBUG_SPROD
   _unset_bndpol();
   std::cout << "Product of mid parts:" << *this;
 #endif
   
   // Uncertainty propagation
-//#if 0
-  switch( _CM->options.HOT_SPLIT ){
-  case SICModel<T>::Options::NONE:
-//#endif
+  tmpCV0 *= BCV;
+  tmpCV  *= BCV0;
 #ifdef MC__SICMODEL_DEBUG_SPROD
-    std::cout << "Uncertainty propagation 1:" << tmpCV0.bound() * BCV << std::endl;
-    std::cout << "Uncertainty propagation 2:" << tmpCV.bound() * BCV0 << std::endl;
+  std::cout << "Uncertainty propagation 1:" << tmpCV0;
+  std::cout << "Uncertainty propagation 2:" << tmpCV;
 #endif
-    operator+=( tmpCV0.bound() * BCV + tmpCV.bound() * BCV0 + BCV * BCV0 );
-//#if 0
-    break;
-  case SICModel<T>::Options::SIMPLE:
-  case SICModel<T>::Options::FULL:
-    tmpCV0 *= BCV;
-    tmpCV  *= BCV0;
-#ifdef MC__SICMODEL_DEBUG_SPROD
-    std::cout << "Uncertainty propagation 1:" << tmpCV0;
-    std::cout << "Uncertainty propagation 2:" << tmpCV;
-#endif
-    operator+=( tmpCV0 + tmpCV + BCV * BCV0 );
-    break;
-  }
-//#endif  
+  operator+=( tmpCV0 + tmpCV + BCV * BCV0 );
+
   // Update bounds
   if( _bndT && CV._bndT ) *_bndT *= *CV._bndT;
   else _unset_bndT();
+  if( _CM && _CM->options.MIG_USE ) simplify( _CM->options.MIG_ATOL, _CM->options.MIG_RTOL );
+  if( _CM->options.LIFT_USE ) lift( _CM, _CM->options.LIFT_ATOL, _CM->options.LIFT_RTOL );
 
+#ifdef MC__SICMODEL_DEBUG_SPROD
+  std::cout << "Product model:" << *this;
+#endif
   return *this;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>
+SICVar<T,KEY,COMP>
 operator*
-( SICVar<T> const& CV1, SICVar<T> const& CV2 )
+( SICVar<T,KEY,COMP> const& CV1, SICVar<T,KEY,COMP> const& CV2 )
 {
   if( &CV1 == &CV2 ) return sqr( CV1 );
   if( CV1.nmon() >= CV2.nmon() ){
-    SICVar<T> CV3( CV1 );
+    SICVar<T,KEY,COMP> CV3( CV1 );
     CV3 *= CV2;
     return CV3;
   }
 
-  SICVar<T> CV3( CV2 );
+  SICVar<T,KEY,COMP> CV3( CV2 );
   CV3 *= CV1;
   return CV3;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>&
-SICVar<T>::operator*=
-( double const c )
+SICVar<T,KEY,COMP>&
+SICVar<T,KEY,COMP>::operator*=
+( double const& c )
 {
   if( c == 0. ){ *this = 0.; return *this; }
-//  if( isequal( c, 1. ) ) return *this;
+  if( c == 1. ) return *this;
   for( auto& [mon,coef] : _coefmon ) coef *= c;
-  if( _CM && _CM->options.MIN_FACTOR >= 0. )
-    simplify( _CM->options.BASIS, _CM->options.MIN_FACTOR );
-
   if( _bndpol ) *_bndpol *= c;
   if( _bndT ) *_bndT *= c;
   return *this;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>
+SICVar<T,KEY,COMP>
 operator*
-( SICVar<T> const& CV1, double const c )
+( SICVar<T,KEY,COMP> const& CV1, double const& c )
 {
-  SICVar<T> CV3( CV1 );
+  SICVar<T,KEY,COMP> CV3( CV1 );
   CV3 *= c;
   return CV3;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>
+SICVar<T,KEY,COMP>
 operator*
-( double const c, SICVar<T> const& CV2 )
+( double const& c, SICVar<T,KEY,COMP> const& CV2 )
 {
-  SICVar<T> CV3( CV2 );
+  SICVar<T,KEY,COMP> CV3( CV2 );
   CV3 *= c;
   return CV3;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>&
-SICVar<T>::operator*=
+SICVar<T,KEY,COMP>&
+SICVar<T,KEY,COMP>::operator*=
 ( T const& B )
 {
-  if( Op<T>::abs(B) == 0. ){ *this = 0.; return *this; }
-  for( auto& [mon,coef] : _coefmon ) coef *= B;
-  if( _CM && _CM->options.MIN_FACTOR >= 0. )
-    simplify( _CM->options.BASIS, _CM->options.MIN_FACTOR );
-
-  if( _bndpol ) *_bndpol *= B;
-  if( _bndT ) *_bndT *= B;
+  if( Op<T>::abs(B) == 0. ){ *this  = 0.; return *this; }
+  if( !_CM || _CM->options.PRODBND_SPLIT ){
+    double const Bmid = Op<T>::mid(B);
+    T const bndmod = bound();
+    operator*=( Bmid );
+    operator+=( ( B - Bmid ) * bndmod );
+  }
+  else{
+    for( auto& [mon,coef] : _coefmon ) coef *= B;
+    _unset_bndpol();
+    if( _bndT ) *_bndT *= B;
+  }
   return *this;
 }
 
-template <typename T> inline SICVar<T>
+template <typename T, typename KEY, typename COMP> inline SICVar<T,KEY,COMP>
 operator*
-( SICVar<T> const& CV1, T const& I )
+( SICVar<T,KEY,COMP> const& CV1, T const& B )
 {
-  SICVar<T> CV3( CV1 );
-  CV3 *= I;
+  SICVar<T,KEY,COMP> CV3( CV1 );
+  CV3 *= B;
   return CV3;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>
+SICVar<T,KEY,COMP>
 operator*
-( T const& I, SICVar<T> const& CV2 )
+( T const& B, SICVar<T,KEY,COMP> const& CV2 )
 {
-  SICVar<T> CV3( CV2 );
-  CV3 *= I;
+  SICVar<T,KEY,COMP> CV3( CV2 );
+  CV3 *= B;
   return CV3;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>
+SICVar<T,KEY,COMP>
 sqr
-( SICVar<T> const& CV )
+( SICVar<T,KEY,COMP> const& CV )
 {
   if( !CV._CM ) return Op<T>::sqr( CV.B() );
   
   // Extract uncertain parts
-  SICVar<T> tmpCV( CV );
+  SICVar<T,KEY,COMP> tmpCV( CV );
   for( auto& [mon,coef] : tmpCV._coefmon ) coef -= Op<T>::mid(coef);
   tmpCV._unset_bndpol();
   T BCV = tmpCV.bound();
 #ifdef MC__SICMODEL_DEBUG_SPROD
-  std::cout << "Uncertain part Poly #2:" << tmpCV;
+  std::cout << "Uncertain part:" << tmpCV;
 #endif
 
   // Uncertainty propagation
@@ -3577,35 +3724,38 @@ sqr
 
   // Coefficient maps for first participating variable
   auto itvar = CV._ndxvar.begin();
-  std::map<unsigned,typename SICVar<T>::t_coefmon> sp1map, sp2map;
+  std::map<unsigned,typename SICVar<T,KEY,COMP>::t_poly> sp1map, sp2map;
   for( auto& [mon,coef] : CV._coefmon )
     CV._CM->_svec1D( itvar, std::make_pair(mon,Op<T>::mid(coef)), sp1map );
 #ifdef MC__SPOLYEXPR_DEBUG_SQR
+  SICVar<T,KEY,COMP> tmp2CV( CV );
+  for( auto& [mon,coef] : tmp2CV._coefmon ) coef = Op<T>::mid(coef);
+  std::cout << "Mid part Var: " << tmp2CV;
   CV._CM->_sdisp1D( sp1map, itvar, "Mid part Var: " );
 #endif
 
   // Recursive product of univariate Chebyshev polynomials
-  SICVar<T> CVSQR;
+  SICVar<T,KEY,COMP> CVSQR;
   CVSQR.set( CV._CM );
   CVSQR._ndxvar = CV._ndxvar;
   CV._CM->_sprod1D( sp1map, sp1map, CVSQR._coefmon, CVSQR._ndxvar, itvar );
-  if( CV._CM->options.MIN_FACTOR >= 0. )
-    CVSQR.simplify( CV._CM->options.BASIS, CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.MIN_FACTOR >= 0. ) CVSQR.simplify( CV._CM->options.MIN_FACTOR );
   CVSQR._unset_bndpol();
 #ifdef MC__SICMODEL_DEBUG_SPROD
+  CVSQR._unset_bndT();
   std::cout << "Product of mid parts:" << CVSQR;
 #endif
   
   // Uncertainty propagation
   switch( CV._CM->options.HOT_SPLIT ){
-  case SICModel<T>::Options::NONE:
+   case SICModel<T,KEY,COMP>::Options::NONE:
 #ifdef MC__SICMODEL_DEBUG_SPROD
     std::cout << "Uncertainty propagation:" << tmpCV.bound() * BCV;
 #endif
     CVSQR += 2. * tmpCV.bound() * BCV + Op<T>::sqr( BCV );
     break;
-  case SICModel<T>::Options::SIMPLE:
-  case SICModel<T>::Options::FULL:
+   case SICModel<T,KEY,COMP>::Options::SIMPLE:
+   case SICModel<T,KEY,COMP>::Options::FULL:
     tmpCV *= BCV;
 #ifdef MC__SICMODEL_DEBUG_SPROD
     std::cout << "Uncertainty propagation:" << tmpCV;
@@ -3615,221 +3765,239 @@ sqr
   }
   
   // Bound propagation
-  if( CV._CM->options.MIXED_IA ) CVSQR._set_bndT( Op<T>::sqr( CV.bound() ) );
-  else CVSQR._unset_bndT();
+  if( CV._CM->options.MIXED_IA ) CVSQR._set_bndT( Op<T>::sqr(CV.bound()) );
+  if( CV._CM->options.MIG_USE ) CVSQR.simplify( CVSQR._CM->options.MIG_ATOL, CVSQR._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CVSQR.lift( CVSQR._CM, CVSQR._CM->options.LIFT_ATOL, CVSQR._CM->options.LIFT_RTOL );
+  
   return CVSQR;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>&
-SICVar<T>::operator/=
-( SICVar<T> const& CV )
+SICVar<T,KEY,COMP>&
+SICVar<T,KEY,COMP>::operator/=
+( SICVar<T,KEY,COMP> const& CV )
 {
   *this *= inv(CV);
   return *this;
 }
 
-template <typename T> inline SICVar<T>
+template <typename T, typename KEY, typename COMP> inline SICVar<T,KEY,COMP>
 operator/
-( SICVar<T> const& CV1, SICVar<T> const& CV2 )
+( SICVar<T,KEY,COMP> const& CV1, SICVar<T,KEY,COMP> const& CV2 )
 {
   return CV1 * inv(CV2);
 }
 
-template <typename T> inline SICVar<T>&
-SICVar<T>::operator/=
-( double const c )
+template <typename T, typename KEY, typename COMP> inline SICVar<T,KEY,COMP>&
+SICVar<T,KEY,COMP>::operator/=
+( double const& c )
 {
   if( isequal( c, 0. ) )
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::DIV );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::DIV );
   if( c == 1. ) return *this;
   *this *= (1./c);
   return *this;
 }
 
-template <typename T> inline SICVar<T>
+template <typename T, typename KEY, typename COMP> inline SICVar<T,KEY,COMP>
 operator/
-( SICVar<T> const& CV, double const c )
+( SICVar<T,KEY,COMP> const& CV, double const& c )
 {
   if ( isequal( c, 0. ))
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::DIV );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::DIV );
   if( c == 1. ) return CV;
   return CV * (1./c);
 }
 
-template <typename T> inline SICVar<T>
+template <typename T, typename KEY, typename COMP> inline SICVar<T,KEY,COMP>
 operator/
-( double const c, SICVar<T> const& CV )
+( double const& c, SICVar<T,KEY,COMP> const& CV )
 {
   if( c == 0. ) return 0.;
   if( c == 1. ) return inv(CV);
   return inv(CV) * c;
 }
 
-template <typename T> inline SICVar<T>
+template <typename T, typename KEY, typename COMP> inline SICVar<T,KEY,COMP>
 inv
-( SICVar<T> const& CV )
+( SICVar<T,KEY,COMP> const& CV )
 {
   if( !CV._CM )
-    return SICVar<T>( Op<T>::inv( CV.B() ) );
+    return SICVar<T,KEY,COMP>( Op<T>::inv( CV.B() ) );
   if ( Op<T>::l(CV.B()) <= 0. && Op<T>::u(CV.B()) >= 0. )
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::INV );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::INV );
 
-  SICVar<T> CV2( CV._CM );
+  SICVar<T,KEY,COMP> CV2( CV._CM );
   auto const& f = [=]( const double& x ){ return 1./x; };
   if( ( !CV._CM->options.REMEZ_USE
      || CV._CM->options.REMEZ_MIG > Op<T>::diam(CV.B())
      || !CV._CM->_minimax( f, CV, CV2 ) )
      && !CV._CM->_chebinterp( f, CV, CV2, true ) ) // with remainder at bound
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::COMPOSE );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
-  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::inv( CV.B() ) );
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sqrt( CV.B() ) );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
-template <typename T> inline SICVar<T>
+template <typename T, typename KEY, typename COMP> inline SICVar<T,KEY,COMP>
 sqrt
-( SICVar<T> const& CV )
+( SICVar<T,KEY,COMP> const& CV )
 {
   if( !CV._CM )
-    return SICVar<T>( Op<T>::sqrt( CV.B() ) );
+    return SICVar<T,KEY,COMP>( Op<T>::sqrt( CV.B() ) );
   if ( Op<T>::l(CV.B()) < 0. )
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::SQRT );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::SQRT );
 
-  SICVar<T> CV2( CV._CM );
+  SICVar<T,KEY,COMP> CV2( CV._CM );
   auto const& f = [=]( const double& x ){ return std::sqrt( x ); };
   if( ( !CV._CM->options.REMEZ_USE
      || CV._CM->options.REMEZ_MIG > Op<T>::diam(CV.B())
      || !CV._CM->_minimax( f, CV, CV2 ) )
      && !CV._CM->_chebinterp( f, CV, CV2, true ) ) // with remainder at bound
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::COMPOSE );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sqrt( CV.B() ) );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
-template <typename T> inline SICVar<T>
+template <typename T, typename KEY, typename COMP> inline SICVar<T,KEY,COMP>
 exp
-( SICVar<T> const& CV )
+( SICVar<T,KEY,COMP> const& CV )
 { 
   if( !CV._CM )
-    return SICVar<T>( Op<T>::exp( CV.B() ) );
+    return SICVar<T,KEY,COMP>( Op<T>::exp( CV.B() ) );
 
-  SICVar<T> CV2( CV._CM );
+  SICVar<T,KEY,COMP> CV2( CV._CM );
   auto const& f = [=]( const double& x ){ return std::exp( x ); };
   if( ( !CV._CM->options.REMEZ_USE
      || CV._CM->options.REMEZ_MIG > Op<T>::diam(CV.B())
      || !CV._CM->_minimax( f, CV, CV2 ) )
      && !CV._CM->_chebinterp( f, CV, CV2, true ) ) // with remainder at bound
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::COMPOSE );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
-  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::exp( CV.B() ) );
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sqrt( CV.B() ) );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
-template <typename T> inline SICVar<T>
+template <typename T, typename KEY, typename COMP> inline SICVar<T,KEY,COMP>
 log
-( SICVar<T> const& CV )
+( SICVar<T,KEY,COMP> const& CV )
 {
   if( !CV._CM )
-    return SICVar<T>( Op<T>::log( CV.B() ) );
+    return SICVar<T,KEY,COMP>( Op<T>::log( CV.B() ) );
   if ( Op<T>::l(CV.B()) <= 0. )
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::LOG );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::LOG );
 
-  SICVar<T> CV2( CV._CM );
+  SICVar<T,KEY,COMP> CV2( CV._CM );
   auto const& f = [=]( const double& x ){ return std::log( x ); };
   if( ( !CV._CM->options.REMEZ_USE
      || CV._CM->options.REMEZ_MIG > Op<T>::diam(CV.B())
      || !CV._CM->_minimax( f, CV, CV2 ) )
      && !CV._CM->_chebinterp( f, CV, CV2, true ) ) // with remainder at bound
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::COMPOSE );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
-  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::log( CV.B() ) );
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sqrt( CV.B() ) );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
-template <typename T> inline SICVar<T>
+template <typename T, typename KEY, typename COMP> inline SICVar<T,KEY,COMP>
 xlog
-( SICVar<T> const& CV )
+( SICVar<T,KEY,COMP> const& CV )
 {
 #if 0
   return CV * log( CV );
 #endif
 
   if( !CV._CM )
-    return SICVar<T>( Op<T>::xlog( CV.B() ) );
+    return SICVar<T,KEY,COMP>( Op<T>::xlog( CV.B() ) );
   if ( Op<T>::l(CV.B()) <= 0. )
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::LOG );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::LOG );
 
-  SICVar<T> CV2( CV._CM );
+  SICVar<T,KEY,COMP> CV2( CV._CM );
   auto const& f = [=]( const double& x ){ return x*std::log( x ); };
   if( ( !CV._CM->options.REMEZ_USE
      || CV._CM->options.REMEZ_MIG > Op<T>::diam(CV.B())
      || !CV._CM->_minimax( f, CV, CV2 ) )
      && !CV._CM->_chebinterp( f, CV, CV2, false ) ) // remainder not at bound
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::COMPOSE );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
-  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::xlog( CV.B() ) );
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sqrt( CV.B() ) );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
-template <typename T> inline SICVar<T>
+template <typename T, typename KEY, typename COMP> inline SICVar<T,KEY,COMP>
 pow
-( SICVar<T> const& CV, const int n )
+( SICVar<T,KEY,COMP> const& CV, const int n )
 {
   if( !CV._CM )
-    return SICVar<T>( Op<T>::pow( CV.B(), n ) );
+    return SICVar<T,KEY,COMP>( Op<T>::pow( CV.B(), n ) );
 
-  if( n < 0 ) return pow( inv( CV ), -n );
-  SICVar<T> CV2( CV._CM->_intpow( CV, n ) );
-  
-  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::pow( CV.B(), n ) );
+  auto LIFT_USE_SAVE = CV._CM->options.LIFT_USE;
+  CV._CM->options.LIFT_USE = false;
+  SICVar<T,KEY,COMP> CV2( CV._CM->_intpow( CV, n ) );
+  CV._CM->options.LIFT_USE = LIFT_USE_SAVE;
+
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sqrt( CV.B() ) );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
-template <typename T> inline SICVar<T>
+template <typename T, typename KEY, typename COMP> inline SICVar<T,KEY,COMP>
 pow
-( const SICVar<T> &CV, double const a )
+( const SICVar<T,KEY,COMP> &CV, double const a )
 {
 #if 0
   return exp( a * log( CV ) );
 #endif
 
   if( !CV._CM )
-    return SICVar<T>( Op<T>::pow( CV.B(), a ) );
+    return SICVar<T,KEY,COMP>( Op<T>::pow( CV.B(), a ) );
   if ( Op<T>::l(CV.B()) <= 0. )
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::DPOW );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::DPOW );
 
-  SICVar<T> CV2( CV._CM );
+  SICVar<T,KEY,COMP> CV2( CV._CM );
   auto const& f = [=]( const double& x ){ return std::pow( x, a ); };
   if( ( !CV._CM->options.REMEZ_USE
      || CV._CM->options.REMEZ_MIG > Op<T>::diam(CV.B())
      || !CV._CM->_minimax( f, CV, CV2 ) )
      && !CV._CM->_chebinterp( f, CV, CV2, true ) ) // with remainder at bound
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::COMPOSE );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
-  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::pow( CV.B(), a ) );
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sqrt( CV.B() ) );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
-template <typename T> inline SICVar<T>
+template <typename T, typename KEY, typename COMP> inline SICVar<T,KEY,COMP>
 pow
-( const SICVar<T> &CV1, const SICVar<T> &CV2 )
+( const SICVar<T,KEY,COMP> &CV1, const SICVar<T,KEY,COMP> &CV2 )
 {
   return exp( CV2 * log( CV1 ) );
 }
 
-template <typename T> inline SICVar<T>
+template <typename T, typename KEY, typename COMP> inline SICVar<T,KEY,COMP>
 pow
-( double const a, const SICVar<T> &CV )
+( double const a, const SICVar<T,KEY,COMP> &CV )
 {
   return exp( CV * std::log( a ) );
 }
 
-template <typename T> inline SICVar<T>
+template <typename T, typename KEY, typename COMP> inline SICVar<T,KEY,COMP>
 prod
-( const unsigned n, const SICVar<T>*CV )
+( const unsigned n, const SICVar<T,KEY,COMP>*CV )
 {
   switch( n ){
    case 0:  return 1.;
@@ -3838,9 +4006,9 @@ prod
   }
 }
 
-template <typename T> inline SICVar<T>
+template <typename T, typename KEY, typename COMP> inline SICVar<T,KEY,COMP>
 monom
-( const unsigned n, const SICVar<T>*CV, const unsigned*k )
+( const unsigned n, const SICVar<T,KEY,COMP>*CV, const unsigned*k )
 {
   switch( n ){
    case 0:  return 1.;
@@ -3849,264 +4017,332 @@ monom
   }
 }
 
-template <typename T> inline SICVar<T>
+template <typename T, typename KEY, typename COMP> inline SICVar<T,KEY,COMP>
 cheb
-( const SICVar<T> &CV, const unsigned n )
+( const SICVar<T,KEY,COMP> &CV, const unsigned n )
 {
   switch( n ){
     case 0:  return 1.;
     case 1:  return CV;
     default: break;
   }
-  SICVar<T> CV2( 2.*(CV*cheb(CV,n-1))-cheb(CV,n-2) );
+  SICVar<T,KEY,COMP> CV2( 2.*(CV*cheb(CV,n-1))-cheb(CV,n-2) );
   
-  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::cheb( CV.B(), n ) );
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sqrt( CV.B() ) );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
-template <typename T> inline SICVar<T>
+template <typename T, typename KEY, typename COMP> inline SICVar<T,KEY,COMP>
 cos
-( const SICVar<T> &CV )
+( const SICVar<T,KEY,COMP> &CV )
 {
   if( !CV._CM )
-    return SICVar<T>( Op<T>::cos( CV.B() ) );
+    return SICVar<T,KEY,COMP>( Op<T>::cos( CV.B() ) );
 
-  SICVar<T> CV2( CV._CM );
+  SICVar<T,KEY,COMP> CV2( CV._CM );
   auto const& f = [=]( const double& x ){ return std::cos( x ); };
   if( ( !CV._CM->options.REMEZ_USE
      || CV._CM->options.REMEZ_MIG > Op<T>::diam(CV.B())
      || !CV._CM->_minimax( f, CV, CV2 ) )
      && !CV._CM->_chebinterp( f, CV, CV2, false ) ) // remainder not at bound
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::COMPOSE );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
-  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::cos( CV.B() ) );
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sqrt( CV.B() ) );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
-template <typename T> inline SICVar<T>
+template <typename T, typename KEY, typename COMP> inline SICVar<T,KEY,COMP>
 sin
-( const SICVar<T> &CV )
+( const SICVar<T,KEY,COMP> &CV )
 {
 #if 0
   return cos( CV - PI/2. );
 #endif
 
   if( !CV._CM )
-    return SICVar<T>( Op<T>::sin( CV.B() ) );
+    return SICVar<T,KEY,COMP>( Op<T>::sin( CV.B() ) );
 
-  SICVar<T> CV2( CV._CM );
+  SICVar<T,KEY,COMP> CV2( CV._CM );
   auto const& f = [=]( const double& x ){ return std::sin( x ); };
   if( ( !CV._CM->options.REMEZ_USE
      || CV._CM->options.REMEZ_MIG > Op<T>::diam(CV.B())
      || !CV._CM->_minimax( f, CV, CV2 ) )
      && !CV._CM->_chebinterp( f, CV, CV2, false ) ) // remainder not at bound
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::COMPOSE );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
-  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sin( CV.B() ) );
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sqrt( CV.B() ) );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
-template <typename T> inline SICVar<T>
+template <typename T, typename KEY, typename COMP> inline SICVar<T,KEY,COMP>
 tan
-( const SICVar<T> &CV )
+( const SICVar<T,KEY,COMP> &CV )
 {
 #if 0
   return sin( CV ) / cos( CV );
 #endif
 
   if( !CV._CM )
-    return SICVar<T>( Op<T>::tan( CV.B() ) );
+    return SICVar<T,KEY,COMP>( Op<T>::tan( CV.B() ) );
   if ( Op<T>::l(Op<T>::cos(CV.B())) <= 0. && Op<T>::u(Op<T>::cos(CV.B())) >= 0. )
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::TAN );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::TAN );
 
-  SICVar<T> CV2( CV._CM );
+  SICVar<T,KEY,COMP> CV2( CV._CM );
   auto const& f = [=]( const double& x ){ return std::tan( x ); };
   if( ( !CV._CM->options.REMEZ_USE
      || CV._CM->options.REMEZ_MIG > Op<T>::diam(CV.B())
      || !CV._CM->_minimax( f, CV, CV2 ) )
      && !CV._CM->_chebinterp( f, CV, CV2, false ) ) // remainder not at bound
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::COMPOSE );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
-  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::tan( CV.B() ) );
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sqrt( CV.B() ) );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
-template <typename T> inline SICVar<T>
+template <typename T, typename KEY, typename COMP> inline SICVar<T,KEY,COMP>
 acos
-( const SICVar<T> &CV )
+( const SICVar<T,KEY,COMP> &CV )
 {
   if( !CV._CM )
-    return SICVar<T>( Op<T>::acos( CV.B() ) );
+    return SICVar<T,KEY,COMP>( Op<T>::acos( CV.B() ) );
   if ( Op<T>::l(CV.B()) < -1. || Op<T>::u(CV.B()) > 1. )
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::ACOS );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::ACOS );
 
-  SICVar<T> CV2( CV._CM );
+  SICVar<T,KEY,COMP> CV2( CV._CM );
   auto const& f = [=]( const double& x ){ return std::acos( x ); };
   if( ( !CV._CM->options.REMEZ_USE
      || CV._CM->options.REMEZ_MIG > Op<T>::diam(CV.B())
      || !CV._CM->_minimax( f, CV, CV2 ) )
      && !CV._CM->_chebinterp( f, CV, CV2, false ) ) // remainder not at bound
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::COMPOSE );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
-  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::acos( CV.B() ) );
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sqrt( CV.B() ) );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
-template <typename T> inline SICVar<T>
+template <typename T, typename KEY, typename COMP> inline SICVar<T,KEY,COMP>
 asin
-( const SICVar<T> &CV )
+( const SICVar<T,KEY,COMP> &CV )
 {
 #if 0
   return PI/2. - acos( CV );
 #endif
 
   if( !CV._CM )
-    return SICVar<T>( Op<T>::asin( CV.B() ) );
+    return SICVar<T,KEY,COMP>( Op<T>::asin( CV.B() ) );
   if ( Op<T>::l(CV.B()) < -1. || Op<T>::u(CV.B()) > 1. )
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::ASIN );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::ASIN );
 
-  SICVar<T> CV2( CV._CM );
+  SICVar<T,KEY,COMP> CV2( CV._CM );
   auto const& f = [=]( const double& x ){ return std::asin( x ); };
   if( ( !CV._CM->options.REMEZ_USE
      || CV._CM->options.REMEZ_MIG > Op<T>::diam(CV.B())
      || !CV._CM->_minimax( f, CV, CV2 ) )
      && !CV._CM->_chebinterp( f, CV, CV2, false ) ) // remainder not at bound
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::COMPOSE );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
-  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::asin( CV.B() ) );
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sqrt( CV.B() ) );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
-template <typename T> inline SICVar<T>
+template <typename T, typename KEY, typename COMP> inline SICVar<T,KEY,COMP>
 atan
-( const SICVar<T> &CV )
+( const SICVar<T,KEY,COMP> &CV )
 {
 #if 0
   return asin( CV / sqrt( sqr( CV ) + 1. ) );
 #endif
 
   if( !CV._CM )
-    return SICVar<T>( Op<T>::atan( CV.B() ) );
+    return SICVar<T,KEY,COMP>( Op<T>::atan( CV.B() ) );
 
-  SICVar<T> CV2( CV._CM );
+  SICVar<T,KEY,COMP> CV2( CV._CM );
   auto const& f = [=]( const double& x ){ return std::atan( x ); };
   if( ( !CV._CM->options.REMEZ_USE
      || CV._CM->options.REMEZ_MIG > Op<T>::diam(CV.B())
      || !CV._CM->_minimax( f, CV, CV2 ) )
      && !CV._CM->_chebinterp( f, CV, CV2, false ) ) // remainder not at bound
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::COMPOSE );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
-  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::atan( CV.B() ) );
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sqrt( CV.B() ) );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
-template <typename T> inline SICVar<T>
+template <typename T, typename KEY, typename COMP> inline SICVar<T,KEY,COMP>
 cosh
-( const SICVar<T> &CV )
+( const SICVar<T,KEY,COMP> &CV )
 {
 #if 0
   return 0.5*(mc::exp(CV)+mc::exp(-CV));
 #endif
 
   if( !CV._CM )
-    return SICVar<T>( Op<T>::cosh( CV.B() ) );
+    return SICVar<T,KEY,COMP>( Op<T>::cosh( CV.B() ) );
 
-  SICVar<T> CV2( CV._CM );
+  SICVar<T,KEY,COMP> CV2( CV._CM );
   auto const& f = [=]( const double& x ){ return std::cosh( x ); };
   if( ( !CV._CM->options.REMEZ_USE
      || CV._CM->options.REMEZ_MIG > Op<T>::diam(CV.B())
      || !CV._CM->_minimax( f, CV, CV2 ) )
      && !CV._CM->_chebinterp( f, CV, CV2, false ) ) // remainder not at bound
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::COMPOSE );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
-  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::cosh( CV.B() ) );
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sqrt( CV.B() ) );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
-template <typename T> inline SICVar<T>
+template <typename T, typename KEY, typename COMP> inline SICVar<T,KEY,COMP>
 sinh
-( const SICVar<T> &CV )
+( const SICVar<T,KEY,COMP> &CV )
 {
 #if 0
   return 0.5*(mc::exp(CV)-mc::exp(-CV));
 #endif
 
   if( !CV._CM )
-    return SICVar<T>( Op<T>::sinh( CV.B() ) );
+    return SICVar<T,KEY,COMP>( Op<T>::sinh( CV.B() ) );
 
-  SICVar<T> CV2( CV._CM );
+  SICVar<T,KEY,COMP> CV2( CV._CM );
   auto const& f = [=]( const double& x ){ return std::sinh( x ); };
   if( ( !CV._CM->options.REMEZ_USE
      || CV._CM->options.REMEZ_MIG > Op<T>::diam(CV.B())
      || !CV._CM->_minimax( f, CV, CV2 ) )
      && !CV._CM->_chebinterp( f, CV, CV2, false ) ) // remainder not at bound
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::COMPOSE );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
-  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sinh( CV.B() ) );
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sqrt( CV.B() ) );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
-template <typename T> inline SICVar<T>
+template <typename T, typename KEY, typename COMP> inline SICVar<T,KEY,COMP>
 tanh
-( const SICVar<T> &CV )
+( const SICVar<T,KEY,COMP> &CV )
 {
 #if 0
   return (mc::exp(2*CV)-1)/(mc::exp(2*CV)+1);
 #endif
 
   if( !CV._CM )
-    return SICVar<T>( Op<T>::tanh( CV.B() ) );
+    return SICVar<T,KEY,COMP>( Op<T>::tanh( CV.B() ) );
 
-  SICVar<T> CV2( CV._CM );
+  SICVar<T,KEY,COMP> CV2( CV._CM );
   auto const& f = [=]( const double& x ){ return std::tanh( x ); };
   if( ( !CV._CM->options.REMEZ_USE
      || CV._CM->options.REMEZ_MIG > Op<T>::diam(CV.B())
      || !CV._CM->_minimax( f, CV, CV2 ) )
      && !CV._CM->_chebinterp( f, CV, CV2, false ) ) // remainder not at bound
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::COMPOSE );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
-  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::tanh( CV.B() ) );
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sqrt( CV.B() ) );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
-template <typename T>
-inline
-SICVar<T>
-fabs
-( const SICVar<T> &CV )
+template <typename T, typename KEY, typename COMP> inline SICVar<T,KEY,COMP>
+erf
+( const SICVar<T,KEY,COMP> &CV )
 {
   if( !CV._CM )
-    return SICVar<T>( Op<T>::fabs( CV.B() ) );
+    return SICVar<T,KEY,COMP>( Op<T>::erf( CV.B() ) );
+
+  SICVar<T,KEY,COMP> CV2( CV._CM );
+  auto const& f = [=]( const double& x ){ return std::erf( x ); };
+  if( ( !CV._CM->options.REMEZ_USE
+     || CV._CM->options.REMEZ_MIG > Op<T>::diam(CV.B())
+     || !CV._CM->_minimax( f, CV, CV2 ) )
+     && !CV._CM->_chebinterp( f, CV, CV2, false ) ) // remainder not at bound
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::COMPOSE );
+
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sqrt( CV.B() ) );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
+  return CV2;
+}
+
+template <typename T, typename KEY, typename COMP> inline SICVar<T,KEY,COMP>
+erfc
+( const SICVar<T,KEY,COMP> &CV )
+{
+#if 0
+  return( 1 - mc::erf(CV) );
+#endif
+
+  if( !CV._CM )
+    return SICVar<T,KEY,COMP>( Op<T>::erfc( CV.B() ) );
+
+  SICVar<T,KEY,COMP> CV2( CV._CM );
+  auto const& f = [=]( const double& x ){ return std::erfc( x ); };
+  if( ( !CV._CM->options.REMEZ_USE
+     || CV._CM->options.REMEZ_MIG > Op<T>::diam(CV.B())
+     || !CV._CM->_minimax( f, CV, CV2 ) )
+     && !CV._CM->_chebinterp( f, CV, CV2, false ) ) // remainder not at bound
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::COMPOSE );
+
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sqrt( CV.B() ) );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
+  return CV2;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
+SICVar<T,KEY,COMP>
+fabs
+( const SICVar<T,KEY,COMP> &CV )
+{
+  if( !CV._CM )
+    return SICVar<T,KEY,COMP>( Op<T>::fabs( CV.B() ) );
   if ( Op<T>::l(CV.B()) >= 0. )
     return CV;
   if ( Op<T>::u(CV.B()) <= 0. )
     return -CV;
 
 #if 0
-  SICVar<T> CV2( sqrt( sqr(CV) ) );
+  SICVar<T,KEY,COMP> CV2( sqrt( sqr(CV) ) );
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::fabs( CV.B() ) );
   return CV2;
 #endif
 
-  SICVar<T> CV2( CV._CM );
+  SICVar<T,KEY,COMP> CV2( CV._CM );
   auto const& f = [=]( const double& x ){ return std::fabs( x ); };
   if( ( !CV._CM->options.REMEZ_USE
      || CV._CM->options.REMEZ_MIG > Op<T>::diam(CV.B())
      || !CV._CM->_minimax( f, CV, CV2 ) )
      && !CV._CM->_chebinterp( f, CV, CV2, false ) ) // remainder not at bound
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::COMPOSE );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
-  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::fabs( CV.B() ) );
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sqrt( CV.B() ) );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
-SICVar<T>
+SICVar<T,KEY,COMP>
 hull
-( SICVar<T> const& CV1, SICVar<T> const& CV2 )
+( SICVar<T,KEY,COMP> const& CV1, SICVar<T,KEY,COMP> const& CV2 )
 {
-  throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::UNDEF );
+  throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::UNDEF );
 #if 0 
   // Neither operands associated to SICModel -- Make intersection in T type     
   if( !CV1._CM && !CV2._CM ){
@@ -4121,16 +4357,16 @@ hull
 
   // Second operand not associated to SICModel
   else if( !CV2._CM ){
-    SICVar<T> CVR = CV1.P();
+    SICVar<T,KEY,COMP> CVR = CV1.P();
     return CVR + Op<T>::hull( CV1.R(), CV2._coefmon[0]+CV2._bndrem-CVR.B() );
   }
 
   // SICModel for first and second operands are inconsistent
   else if( CV1._CM != CV2._CM )
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::SICMODEL );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::MODEL );
 
   // Perform union
-  SICVar<T> CV1C( CV1 ), CV2C( CV2 );
+  SICVar<T,KEY,COMP> CV1C( CV1 ), CV2C( CV2 );
   double const eta = CV1._CM->options.REF_POLY;
   T R1C = CV1C.C().R(), R2C = CV2C.C().R(); 
   CV1C.set(T(0.));
@@ -4140,13 +4376,13 @@ hull
 #endif
 }
 
-template <typename T>
+template <typename T, typename KEY, typename COMP>
 inline
 bool
 inter
-( SICVar<T>&CVR, SICVar<T> const& CV1, SICVar<T> const& CV2 )
+( SICVar<T,KEY,COMP>&CVR, SICVar<T,KEY,COMP> const& CV1, SICVar<T,KEY,COMP> const& CV2 )
 {
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::UNDEF );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::UNDEF );
 #if 0 
   // Neither operands associated to SICModel -- Make intersection in T type     
   if( !CV1._CM && !CV2._CM ){
@@ -4183,7 +4419,7 @@ inter
 
   // SICModel for first and second operands are inconsistent
   else if( CV1._CM != CV2._CM )
-    throw typename SICModel<T>::Exceptions( SICModel<T>::Exceptions::SICMODEL );
+    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::MODEL );
 
   // First intersect in T arithmetic
   T BR;
@@ -4191,7 +4427,7 @@ inter
     return false;
 
   // Perform intersection in PM arithmetic
-  SICVar<T> CV1C( CV1 ), CV2C( CV2 );
+  SICVar<T,KEY,COMP> CV1C( CV1 ), CV2C( CV2 );
   double const eta = CV1._CM->options.REF_POLY;
   T R1C = CV1C.C().R(), R2C = CV2C.C().R(); 
   CV1C.set(T(0.));
@@ -4211,65 +4447,11 @@ inter
 #endif
 }
 
-} // namespace mc
-
-#include "mcfadbad.hpp"
-
-namespace fadbad
-{
-
-//! @brief Specialization of the structure fadbad::Op for use of the type mc::SICVar of MC++ as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
-template< typename T > struct Op< mc::SICVar<T> >
-{ 
-  typedef mc::SICVar<T> CV;
-  typedef double Base;
-  static Base myInteger( const int i ) { return Base(i); }
-  static Base myZero() { return myInteger(0); }
-  static Base myOne() { return myInteger(1);}
-  static Base myTwo() { return myInteger(2); }
-  static double myPI() { return mc::PI; }
-  static CV myPos( const CV& x ) { return  x; }
-  static CV myNeg( const CV& x ) { return -x; }
-  template <typename U> static CV& myCadd( CV& x, U const&  y ) { return x+=y; }
-  template <typename U> static CV& myCsub( CV& x, U const&  y ) { return x-=y; }
-  template <typename U> static CV& myCmul( CV& x, U const&  y ) { return x*=y; }
-  template <typename U> static CV& myCdiv( CV& x, U const&  y ) { return x/=y; }
-  static CV myInv( const CV& x ) { return mc::inv( x ); }
-  static CV mySqr( const CV& x ) { return mc::pow( x, 2 ); }
-  template <typename X, typename Y> static CV myPow( const X& x, const Y& y ) { return mc::pow( x, y ); }
-  //static CV myCheb( const CV& x, const unsigned n ) { return mc::cheb( x, n ); }
-  static CV mySqrt( const CV& x ) { return mc::sqrt( x ); }
-  static CV myLog( const CV& x ) { return mc::log( x ); }
-  static CV myExp( const CV& x ) { return mc::exp( x ); }
-  static CV mySin( const CV& x ) { return mc::sin( x ); }
-  static CV myCos( const CV& x ) { return mc::cos( x ); }
-  static CV myTan( const CV& x ) { return mc::tan( x ); }
-  static CV myAsin( const CV& x ) { return mc::asin( x ); }
-  static CV myAcos( const CV& x ) { return mc::acos( x ); }
-  static CV myAtan( const CV& x ) { return mc::atan( x ); }
-  static CV mySinh( const CV& x ) { return mc::sinh( x ); }
-  static CV myCosh( const CV& x ) { return mc::cosh( x ); }
-  static CV myTanh( const CV& x ) { return mc::tanh( x ); }
-  static bool myEq( const CV& x, const CV& y ) { return mc::Op<T>::eq(const_cast<CV*>(&x)->bound(),const_cast<CV*>(&y)->bound()); } 
-  static bool myNe( const CV& x, const CV& y ) { return mc::Op<T>::ne(const_cast<CV*>(&x)->bound(),const_cast<CV*>(&y)->bound()); }
-  static bool myLt( const CV& x, const CV& y ) { return mc::Op<T>::lt(const_cast<CV*>(&x)->bound(),const_cast<CV*>(&y)->bound()); }
-  static bool myLe( const CV& x, const CV& y ) { return mc::Op<T>::le(const_cast<CV*>(&x)->bound(),const_cast<CV*>(&y)->bound()); }
-  static bool myGt( const CV& x, const CV& y ) { return mc::Op<T>::gt(const_cast<CV*>(&x)->bound(),const_cast<CV*>(&y)->bound()); }
-  static bool myGe( const CV& x, const CV& y ) { return mc::Op<T>::ge(const_cast<CV*>(&x)->bound(),const_cast<CV*>(&y)->bound()); }
-};
-
-} // end namespace fadbad
-
-
-//#include "mcop.hpp"
-
-namespace mc
-{
-
 //! @brief C++ structure for specialization of the mc::Op templated structure for use of mc::SICVar in DAG evaluation and as template parameter in other MC++ types
-template< typename T > struct Op< mc::SICVar<T> >
+template <typename T, typename KEY, typename COMP>
+struct Op< mc::SICVar<T,KEY,COMP> >
 {
-  typedef mc::SICVar<T> CV;
+  typedef mc::SICVar<T,KEY,COMP> CV;
   static CV point( double const c ) { return CV(c); }
   static CV zeroone() { return CV( mc::Op<T>::zeroone() ); }
   static void I(CV& x, const CV&y) { x = y; }
@@ -4296,8 +4478,8 @@ template< typename T > struct Op< mc::SICVar<T> >
   static CV sinh(const CV& x) { return mc::sinh(x); }
   static CV cosh(const CV& x) { return mc::cosh(x); }
   static CV tanh(const CV& x) { return mc::tanh(x); }
-  static CV erf (const CV& x) { throw typename mc::SICModel<T>::Exceptions( SICModel<T>::Exceptions::UNDEF ); }
-  static CV erfc(const CV& x) { throw typename mc::SICModel<T>::Exceptions( SICModel<T>::Exceptions::UNDEF ); }
+  static CV erf (const CV& x) { return mc::erf(x);  }
+  static CV erfc(const CV& x) { return mc::erfc(x); }
   static CV fstep(const CV& x) { return CV( mc::Op<T>::fstep(x.B()) ); }
   static CV bstep(const CV& x) { return CV( mc::Op<T>::bstep(x.B()) ); }
   static CV hull(const CV& x, const CV& y) { return mc::hull(x,y); }
@@ -4318,6 +4500,54 @@ template< typename T > struct Op< mc::SICVar<T> >
 };
 
 } // namespace mc
+
+#include "mcfadbad.hpp"
+
+namespace fadbad
+{
+
+//! @brief Specialization of the structure fadbad::Op for use of the type mc::SICVar of MC++ as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
+template <typename T, typename KEY, typename COMP>
+struct Op< mc::SICVar<T,KEY,COMP> >
+{ 
+  typedef mc::SICVar<T,KEY,COMP> CV;
+  typedef double Base;
+  static Base myInteger( const int i ) { return Base(i); }
+  static Base myZero() { return myInteger(0); }
+  static Base myOne() { return myInteger(1);}
+  static Base myTwo() { return myInteger(2); }
+  static double myPI() { return mc::PI; }
+  static CV myPos( const CV& x ) { return  x; }
+  static CV myNeg( const CV& x ) { return -x; }
+  template <typename U> static CV& myCadd( CV& x, U const&  y ) { return x+=y; }
+  template <typename U> static CV& myCsub( CV& x, U const&  y ) { return x-=y; }
+  template <typename U> static CV& myCmul( CV& x, U const&  y ) { return x*=y; }
+  template <typename U> static CV& myCdiv( CV& x, U const&  y ) { return x/=y; }
+  static CV myInv( const CV& x ) { return mc::inv( x ); }
+  static CV mySqr( const CV& x ) { return mc::sqr( x ); }
+  template <typename X, typename Y> static CV myPow( const X& x, const Y& y ) { return mc::pow( x, y ); }
+  //static CV myCheb( const CV& x, const unsigned n ) { return mc::cheb( x, n ); }
+  static CV mySqrt( const CV& x ) { return mc::sqrt( x ); }
+  static CV myLog( const CV& x ) { return mc::log( x ); }
+  static CV myExp( const CV& x ) { return mc::exp( x ); }
+  static CV mySin( const CV& x ) { return mc::sin( x ); }
+  static CV myCos( const CV& x ) { return mc::cos( x ); }
+  static CV myTan( const CV& x ) { return mc::tan( x ); }
+  static CV myAsin( const CV& x ) { return mc::asin( x ); }
+  static CV myAcos( const CV& x ) { return mc::acos( x ); }
+  static CV myAtan( const CV& x ) { return mc::atan( x ); }
+  static CV mySinh( const CV& x ) { return mc::sinh( x ); }
+  static CV myCosh( const CV& x ) { return mc::cosh( x ); }
+  static CV myTanh( const CV& x ) { return mc::tanh( x ); }
+  static bool myEq( const CV& x, const CV& y ) { return mc::Op<T>::eq(const_cast<CV*>(&x)->bound(),const_cast<CV*>(&y)->bound()); } 
+  static bool myNe( const CV& x, const CV& y ) { return mc::Op<T>::ne(const_cast<CV*>(&x)->bound(),const_cast<CV*>(&y)->bound()); }
+  static bool myLt( const CV& x, const CV& y ) { return mc::Op<T>::lt(const_cast<CV*>(&x)->bound(),const_cast<CV*>(&y)->bound()); }
+  static bool myLe( const CV& x, const CV& y ) { return mc::Op<T>::le(const_cast<CV*>(&x)->bound(),const_cast<CV*>(&y)->bound()); }
+  static bool myGt( const CV& x, const CV& y ) { return mc::Op<T>::gt(const_cast<CV*>(&x)->bound(),const_cast<CV*>(&y)->bound()); }
+  static bool myGe( const CV& x, const CV& y ) { return mc::Op<T>::ge(const_cast<CV*>(&x)->bound(),const_cast<CV*>(&y)->bound()); }
+};
+
+} // end namespace fadbad
 
 #endif
 

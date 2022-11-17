@@ -34,7 +34,7 @@ From Property 2, decomposing the elements in \f$\Xi\f$ with degree higher than 1
 \f}
 for suitable real symmetric matrices \f$\mathbf{A}_i\in\mathbb{S}_+^{n_\xi}\f$.
 
-<CENTER><TABLE BORDER=0>
+<CENTER><TABLE BORDER=0> 
 <TR>
 <TD>\image html Quadratization_algo.png width=35%</TD>
 </TR>
@@ -346,25 +346,46 @@ Having decomposed a set of multivariate polynomials into quadratic forms using A
 
 \f{align*}
 \displaystyle\min_{\boldsymbol{z},\boldsymbol{\nu}^{\rm L},\boldsymbol{\nu}^{\rm R},\boldsymbol{\beta},\boldsymbol{\omega}^{\rm L},\boldsymbol{\omega}^{\rm R}}\ & \sum_{k=1}^{n_a} z_k\\
-\displaystyle\text{s.t.}\ \ \ & z_k \geq z_{k+1},\ \ k=1\ldots n_a-1\\
+\displaystyle\text{s.t.}\ \ \ 
 & \sum_{i=1}^{n_x+k-1} \nu^{\rm L}_{k,i} = z_k,\ \ k=1\ldots n_a\\
 & \sum_{i=1}^{n_x+k-1} \nu^{\rm R}_{k,i} = z_k,\ \ k=1\ldots n_a\\
 & \sum_{i=1}^{n_x+n_a} \omega^{\rm L}_{j,i} = 1,\ \ j=1\ldots n_m\\
 & \sum_{i=1}^{n_x+n_a} \omega^{\rm R}_{j,i} \leq 1,\ \ j=1\ldots n_m\\
-& \beta_{k,i} = \nu^{\rm L}_{k,i} + \nu^{\rm R}_{k,i} + \sum_{l=1}^{k-1} \left(\nu^{\rm L}_{k,l} + \nu^{\rm R}_{k,l}\right) \beta_{l,i},\ \ i=1\ldots n_x,\ \ k=1\ldots n_a\\
-& \alpha_{j,i} = \omega^{\rm L}_{j,i} + \omega^{\rm R}_{j,i} + \sum_{l=1}^{n_a} \left(\omega^{\rm L}_{j,l} + \omega^{\rm R}_{j,l}\right) \beta_{l,i},\ \ i=1\ldots n_x,\ \ j=1\ldots n_m\\
-& \beta_{k,i} \leq z_k\ \max\{\alpha_{j,i}: j=1\ldots n_m\},\ \ i=1\ldots n_x,\ \ k=1\ldots n_a\\
-& \sum_{i=1}^{n_x} \beta_{k,i} \leq \max\left\{\sum_{i=1}^{n_x}\alpha_{j,i}: j=1\ldots n_m\right\}-1,\ \ k=1\ldots n_a\\
-& z_k, \nu^{\rm L}_{k,i}, \nu^{\rm R}_{k,i}, \omega^{\rm L}_{j,i}, \omega^{\rm R}_{j,i}\in\{0,1\},\ \ \beta_{k,i}\geq 0,\ \ i=1\ldots n_x+n_a,\ \ j=1\ldots n_m,\ \ k=1\ldots n_a
+& \beta_{k,i} = \nu^{\rm L}_{k,i} + \nu^{\rm R}_{k,i} + \sum_{l=1}^{k-1} \left(\nu^{\rm L}_{k,n_x+l} + \nu^{\rm R}_{k,n_x+l}\right) \beta_{l,i},\ \ i=1\ldots n_x,\ \ k=1\ldots n_a\\
+& \alpha_{j,i} = \omega^{\rm L}_{j,i} + \omega^{\rm R}_{j,i} + \sum_{l=1}^{n_a} \left(\omega^{\rm L}_{j,n_x+l} + \omega^{\rm R}_{j,n_x+l}\right) \beta_{l,i},\ \ i=1\ldots n_x,\ \ j=1\ldots n_m\\
+& z_k, \nu^{\rm L}_{k,i}, \nu^{\rm R}_{k,i}, \omega^{\rm L}_{j,i}, \omega^{\rm R}_{j,i}\in\{0,1\},\ \beta_{k,i}\in[0,\max\{\alpha_{j,i}: j=1\ldots n_m\}],\ \ i=1\ldots n_x+n_a,\ \ j=1\ldots n_m,\ \ k=1\ldots n_a
 \f}
 where the following sets and variables are used:
 - \f$n_m\f$, number of monomial terms to decompose, given by \f$m_{j} := \xi_1^{\alpha_{j,1}}\cdots \xi_{n_x}^{\alpha_{j,n_x}},\ j = 1\ldots n_m\f$
 - \f$n_x\f$, original number of variables, \f$x_i=\xi_i,\ i=1\ldots n_x\f$ 
 - \f$n_a\f$, maximal number of auxiliary variables; e.g., determined using the heuristic approach in Algorithm 1
 - \f$z_k\f$, whether the auxiliary \f$\xi_{n_x+k},\ k=1\ldots n_a\f$ is used in decomposition
-- \f$\nu^{\rm L}_{k,i},\nu^{\rm R}_{k,i}\f$, whether the variable or auxiliary \f$\xi_{i},\ i=1\ldots n_x+k\f$ decomposes the auxiliary \f$\xi_{n_x+k},\ k=1\ldots n_a\f$
-- \f$\beta_{k,i}\f$, integer power of variable \f$\xi_{i},\ i=1\ldots n_x\f$ in the auxiliary \f$\xi_{n_x+k},\ k=1\ldots n_a\f$
-- \f$\omega^{\rm L}_{j,i}, \omega^{\rm R}_{j,i}\f$, whether the variable or auxiliary \f$\xi_{1+i}, i=1\ldots n_x+k\f$ decomposes the monomial \f$m_{j},\ j = 1\ldots n_m\f$
+- \f$\nu^{\rm L}_{k,i},\nu^{\rm R}_{k,i}\f$, whether the variable or auxiliary \f$\xi_{i},\ i=1\ldots n_x+k-1\f$ decomposes the auxiliary \f$\xi_{n_x+k},\ k=1\ldots n_a\f$
+- \f$\beta_{k,i}\f$, degree of variable \f$\xi_{i},\ i=1\ldots n_x\f$ in the auxiliary \f$\xi_{n_x+k},\ k=1\ldots n_a\f$
+- \f$\omega^{\rm L}_{j,i}, \omega^{\rm R}_{j,i}\f$, whether the variable or auxiliary \f$\xi_{i}, i=1\ldots n_x+n_a\f$ decomposes the monomial \f$m_{j},\ j = 1\ldots n_m\f$
+.
+
+The following symmetry breaking constraints may also be used to expedite convergence:
+
+\f{align*}
+& z_k \geq z_{k+1},\ \ k=1\ldots n_a-1\\[.5em]
+& \beta_{k,i} \leq z_k\ \max\{\alpha_{j,i}: j=1\ldots n_m\},\ \ i=1\ldots n_x,\ \ k=1\ldots n_a\\
+& \sum_{i=1}^{n_x} \beta_{k,i} \leq \sum_{i=1}^{n_x} \beta_{k+1,i} + (1-z_{k+1})\left(\max\left\{\sum_{i=1}^{n_x}\alpha_{j,i}: j=1\ldots n_m\right\}-1\right),\ \ k=1\ldots n_a-1\\
+& \sum_{i=1}^{n_x} \beta_{n_a,i} \leq \max\left\{\sum_{i=1}^{n_x}\alpha_{j,i}: j=1\ldots n_m\right\}-1\\[.5em]
+& (\overline{\nu}^{\rm L}_k-i)\, \nu^{\rm L}_{k,i} = 0,\ \ i=1\ldots n_x+k-1,\ \ k=1\ldots n_a\\
+& (\overline{\nu}^{\rm U}_k-i)\, \nu^{\rm U}_{k,i} = 0,\ \ i=1\ldots n_x+k-1,\ \ k=1\ldots n_a\\
+& \overline{\nu}^{\rm L}_k \leq \overline{\nu}^{\rm U}_k,\ \ k=1\ldots n_a\\
+& \overline{\nu}^{\rm L}_k + \overline{\nu}^{\rm U}_k \leq \overline{\nu}^{\rm L}_{k+1} + \overline{\nu}^{\rm U}_{k+1},\ \ k=1\ldots n_a-1\\
+& 0 \leq \overline{\nu}^{\rm L}_k, \overline{\nu}^{\rm U}_k \leq n_x+k-1,\ \ k=1\ldots n_a\\[.5em]
+& (\overline{\omega}^{\rm L}_j-i)\, \omega^{\rm L}_{j,i} = 0,\ \ i=1\ldots n_x+n_a,\ \ j=1\ldots n_m\\
+& (\overline{\omega}^{\rm U}_j-i)\, \omega^{\rm U}_{j,i} = 0,\ \ i=1\ldots n_x+n_a,\ \ j=1\ldots n_m\\
+& \overline{\omega}^{\rm L}_j \leq \overline{\omega}^{\rm U}_j,\ \ j=1\ldots n_m\\
+& \overline{\omega}^{\rm L}_j + \overline{\omega}^{\rm U}_j \leq \overline{\omega}^{\rm L}_{j+1} + \overline{\omega}^{\rm U}_{j+1},\ \ j=1\ldots n_m-1\\
+& 0 \leq \overline{\omega}^{\rm L}_j, \overline{\omega}^{\rm U}_j \leq n_x+n_a,\ \ j=1\ldots n_m
+\f}
+where the following extra variables are used:
+- \f$\overline{\nu}^{\rm L}_k,\overline{\nu}^{\rm R}_k\f$, index \f$i=1\ldots n_x+k-1\f$ of variable or auxiliary \f$\xi_{i}\f$ decomposing the auxiliary \f$\xi_{n_x+k},\ k=1\ldots n_a\f$
+- \f$\overline{\omega}^{\rm L}_j,\overline{\omega}^{\rm R}_j\f$, index \f$i=1\ldots n_x+n_a\f$ of variable or auxiliary \f$\xi_{i}\f$ decomposing the monomial \f$m_{j},\ j = 1\ldots n_m\f$
 .
 
 Continuing the illustrative example in the previous section, a minimal quadratic form is computed by calling the method <a>mc::SQuad::optimize</a>:
@@ -507,6 +528,7 @@ Possible errors encountered during quadratization of a multivariate polynomial a
 
 #define MC__SQUAD_CHECK
 #undef  MC__SQUAD_PROCESS_DEBUG
+#undef  MC__SQUAD_CHECK_START
 
 namespace mc
 {
@@ -567,35 +589,39 @@ public:
       BASIS(MONOM), ORDER(DEC), REDUC(false), CHKTOL(1e-10),
 #if defined(MC__USE_GUROBI)
       LPALGO( LPALGO_DEFAULT ), LPPRESOLVE(-1),
-      LPFEASTOL(1e-9), LPOPTIMTOL(1e-9), MIPRELGAP(1e-7), MIPABSGAP(1e-7),
-      MIPTHREADS(0), MIPCONCURRENT(1), MIPFOCUS(0), MIPHEURISTICS(0.2),
-      MIPDISPLEVEL(1), MIPOUTPUTFILE(""), MIPTIMELIMIT(600),
+      LPFEASTOL(1e-7), LPOPTIMTOL(1e-7), MIPSYMCUTS(2),
+      MIPRELGAP(1e-3), MIPABSGAP(1e-3), MIPTHREADS(0),
+      MIPCONCURRENT(1), MIPFOCUS(0), MIPHEURISTICS(0.2),
+      MIPNUMFOCUS(0), MIPDISPLEVEL(1), MIPOUTPUTFILE(""),
+      MIPTIMELIMIT(600),
 #endif
       DISPLEN(5)
       {}
     //! @brief Assignment of mc::SQuad::Options
     Options& operator=
       ( Options& opt ){
-        BASIS          = opt.BASIS;
-        ORDER          = opt.ORDER;
-        REDUC          = opt.REDUC;
-        CHKTOL         = opt.CHKTOL;
+        BASIS           = opt.BASIS;
+        ORDER           = opt.ORDER;
+        REDUC           = opt.REDUC;
+        CHKTOL          = opt.CHKTOL;
 #if defined(MC__USE_GUROBI)
-        LPALGO         = opt.LPALGO;
-        LPPRESOLVE     = opt.LPPRESOLVE;
-        LPFEASTOL      = opt.LPFEASTOL;
-        LPOPTIMTOL     = opt.LPOPTIMTOL;
-        MIPRELGAP      = opt.MIPRELGAP;
-        MIPABSGAP      = opt.MIPABSGAP;
-        MIPTHREADS     = opt.MIPTHREADS;
-        MIPCONCURRENT  = opt.MIPCONCURRENT;
-        MIPFOCUS       = opt.MIPFOCUS;
-        MIPHEURISTICS  = opt.MIPHEURISTICS;
-        MIPDISPLEVEL   = opt.MIPDISPLEVEL;
-        MIPOUTPUTFILE  = opt.MIPOUTPUTFILE;
-        MIPTIMELIMIT   = opt.MIPTIMELIMIT;
+        LPALGO          = opt.LPALGO;
+        LPPRESOLVE      = opt.LPPRESOLVE;
+        LPFEASTOL       = opt.LPFEASTOL;
+        LPOPTIMTOL      = opt.LPOPTIMTOL;
+        MIPSYMCUTS      = opt.MIPSYMCUTS;
+        MIPRELGAP       = opt.MIPRELGAP;
+        MIPABSGAP       = opt.MIPABSGAP;
+        MIPTHREADS      = opt.MIPTHREADS;
+        MIPCONCURRENT   = opt.MIPCONCURRENT;
+        MIPFOCUS        = opt.MIPFOCUS;
+        MIPHEURISTICS   = opt.MIPHEURISTICS;
+        MIPNUMFOCUS     = opt.MIPNUMERICFOCUS;
+        MIPDISPLEVEL    = opt.MIPDISPLEVEL;
+        MIPOUTPUTFILE   = opt.MIPOUTPUTFILE;
+        MIPTIMELIMIT    = opt.MIPTIMELIMIT;
 #endif
-        DISPLEN        = opt.DISPLEN;
+        DISPLEN         = opt.DISPLEN;
         return *this;
       }
     //! @brief Available basis representations
@@ -625,6 +651,8 @@ public:
     double LPFEASTOL;
      //! @brief Tolerance on LP optimality in MIP solver
     double LPOPTIMTOL;
+    //! @brief Level of symmetry breaking cuts in MIP
+    unsigned MIPSYMCUTS;
     //! @brief Tolerance on relative gap in MIP solver
     double MIPRELGAP;
     //! @brief Tolerance on absolute gap in MIP solver
@@ -637,6 +665,8 @@ public:
     int MIPFOCUS;
     //! @brief Fraction of time spent in MIP heuristics - default value of 0.2 aims to spend 20% of runtime on heuristics
     double MIPHEURISTICS;
+    //! @brief Degree to which the code attempts to detect and manage numerical issues - default setting of 0 makes an automatic choice, with a slight preference for speed 
+    int MIPNUMFOCUS;
     //! @brief Display level for MIP solver
     int MIPDISPLEVEL;
     //! @brief Name of output file for MIP model
@@ -706,12 +736,17 @@ protected:
   std::vector<GRBVar> _MIP_auxbin;
   //! @brief vector of continuous variables describing the monomial structure of auxiliary variables
   std::vector<std::vector<GRBVar>> _MIP_auxexp;
+  std::vector<GRBLinExpr> _MIP_auxexpsum;
   //! @brief vectors of binary variables describing the quadratic decomposition of auxiliary variables
   std::vector<std::vector<GRBVar>> _MIP_auxdec1;
   std::vector<std::vector<GRBVar>> _MIP_auxdec2;
+  std::vector<GRBVar> _MIP_auxndx1;
+  std::vector<GRBVar> _MIP_auxndx2;
   //! @brief vectors of binary variables describing the quadratic decomposition of monomials
   std::vector<std::vector<GRBVar>> _MIP_mondec1;
   std::vector<std::vector<GRBVar>> _MIP_mondec2;
+  std::vector<GRBVar> _MIP_monndx1;
+  std::vector<GRBVar> _MIP_monndx2;
 #endif
 
 public:
@@ -907,7 +942,7 @@ protected:
 
   //! @brief Display MIP current point
   void _MIP_display
-    ( std::ostream& os=std::cout )
+    ( bool const opt, std::ostream& os=std::cout )
     const;
 
 private:
@@ -1454,12 +1489,22 @@ SQuad<KEY,COMP>::optimize
   
   // Only working with minOrd = 2 currently
   unsigned const minOrd = 2;
-
-  // Run MIP optimization for a minimal representation
-  _MIP_encode( maxAux, minOrd );
-  if( warmStart) _MIP_initialize( minOrd );
-  _MIP_solve();
-  _MIP_decode( minOrd );
+  _MIPexcpt = false;
+  try{
+    // Run MIP optimization for a minimal representation
+    _MIP_encode( maxAux, minOrd );
+    if( warmStart) _MIP_initialize( minOrd );
+    _MIP_solve();
+#ifndef MC__SQUAD_CHECK_START
+    _MIP_decode( minOrd );
+#endif
+  }
+  catch(GRBException& e){
+    if( options.MIPDISPLEVEL )
+      std::cout << "Error code = " << e.getErrorCode() << std::endl
+                << e.getMessage() << std::endl;
+    _MIPexcpt = true;
+  }
 }
 
 template <typename KEY, typename COMP>
@@ -1486,12 +1531,14 @@ SQuad<KEY,COMP>::_MIP_encode
   _MIP_auxbin.reserve( maxAux );   // z[k]: whether auxiliary x[nVar+k], 0<=k<maxAux, used in decomposition
   _MIP_auxexp.reserve( maxAux );   // b[k,i]: power of variable x[i], 0<=i<nVar, in auxiliary x[nVar+k], 0<=k<maxAux
   _MIP_auxdec1.reserve( maxAux );  // v1|2[k,i]: whether variable/auxiliary x[i], 0<=i<nVar+k, in decomposition of 
-  _MIP_auxdec2.reserve( maxAux );  //            auxiliary x[nVar+k], 0<=k<maxAux
+  _MIP_auxdec2.reserve( maxAux );  //            auxiliary x[k], nVar<=k<nVar+maxAux
+  _MIP_auxndx1.reserve( maxAux );  // v1|2[k]: index i of variable/auxiliary x[i], 0<=i<nVar+k, in decomposition of 
+  _MIP_auxndx2.reserve( maxAux );  //          auxiliary x[k], nVar<=k<nVar+maxAux
 
   for( unsigned k=0; k<maxAux; ++k ){
 #if defined(MC__USE_GUROBI)
     // z[k] in {0,1} with corresponding cost coefficient c[k] = 1
-    _MIP_auxbin.push_back( _GRBmodel->addVar( 0., 1., 1., GRB_BINARY ) );
+    _MIP_auxbin.push_back( _GRBmodel->addVar( 0., 1., 1., GRB_CONTINUOUS ) );
     // z[k] <= z[k-1]
     if( k ) _GRBmodel->addConstr( _MIP_auxbin[k-1], GRB_GREATER_EQUAL, _MIP_auxbin[k] );
 
@@ -1523,6 +1570,25 @@ SQuad<KEY,COMP>::_MIP_encode
     _GRBmodel->addConstr( sum_auxdec1, GRB_EQUAL, _MIP_auxbin[k] );//1. );
     _GRBmodel->addConstr( sum_auxdec2, GRB_EQUAL, _MIP_auxbin[k] );//1. );
 
+    // v1[k], v2[k] in {0,1}
+    if( options.MIPSYMCUTS > 1 ){
+      _MIP_auxndx1.push_back( _GRBmodel->addVar( 0., nVar+k-1, 0., GRB_CONTINUOUS ) );
+      _MIP_auxndx2.push_back( _GRBmodel->addVar( 0., nVar+k-1, 0., GRB_CONTINUOUS ) );
+      for( unsigned i=0; i<nVar+k; ++i ){
+        GRBQuadExpr complem1, complem2;
+        complem1.addTerm( 1., _MIP_auxdec1[k][i], _MIP_auxndx1[k] );
+        complem2.addTerm( 1., _MIP_auxdec2[k][i], _MIP_auxndx2[k] );
+        _GRBmodel->addQConstr( complem1, GRB_EQUAL, i * _MIP_auxdec1[k][i] );
+        _GRBmodel->addQConstr( complem2, GRB_EQUAL, i * _MIP_auxdec2[k][i] );
+      }
+      _GRBmodel->addConstr( _MIP_auxndx1[k], GRB_LESS_EQUAL, _MIP_auxndx2[k] ); // symmetry breaking
+      if( k ){
+        _GRBmodel->addConstr( _MIP_auxndx2[k-1], GRB_LESS_EQUAL, _MIP_auxndx2[k] ); // symmetry breaking
+        _GRBmodel->addConstr( _MIP_auxndx1[k-1], GRB_LESS_EQUAL, _MIP_auxndx1[k] + maxAux * ( _MIP_auxndx2[k] - _MIP_auxndx2[k-1] ) ); // symmetry breaking
+      }
+      //if( k ) _GRBmodel->addConstr( _MIP_auxndx1[k-1]+_MIP_auxndx2[k-1], GRB_LESS_EQUAL, _MIP_auxndx1[k]+_MIP_auxndx2[k] ); // symmetry breaking
+    }
+    
     // b[k,i] = v1[k,i]+v2[k,i] + SUM( 0<=l<k, (v1[k,nVar+l]+v2[k,nVar+l])*b[l,i] ), 0<=i<nVar
     for( unsigned i=0; i<nVar; ++i ){
       GRBQuadExpr sum_auxexp;
@@ -1544,7 +1610,7 @@ SQuad<KEY,COMP>::_MIP_encode
   auto jmon = _MIP_SetMon.cbegin();
   for( unsigned j=0; j<nMon; ++j, ++jmon ){
 #if defined(MC__USE_GUROBI)
-    // w1[k,i], w2[k,i] in {0,1}, 0<=i<nMon
+    // w1[j,i], w2[j,i] in {0,1}, 0<=i<nVar+maxAux
     _MIP_mondec1.push_back( std::vector<GRBVar>() );
     _MIP_mondec2.push_back( std::vector<GRBVar>() );
     _MIP_mondec1[j].reserve( nVar+maxAux );
@@ -1560,8 +1626,23 @@ SQuad<KEY,COMP>::_MIP_encode
       sum_mondec2 += _MIP_mondec2[j][i];
       //_GRBmodel->addConstr( sum_mondec1, GRB_GREATER_EQUAL, sum_mondec2 ); // symmetry breaking
     }
-    _GRBmodel->addConstr( sum_mondec1, GRB_EQUAL, 1. );
-    _GRBmodel->addConstr( sum_mondec2, GRB_LESS_EQUAL, 1. );
+    _GRBmodel->addConstr( sum_mondec1, GRB_LESS_EQUAL, 1. );
+    _GRBmodel->addConstr( sum_mondec2, GRB_EQUAL, 1. );
+
+    // w1[j], w2[j] in {0,1}
+    if( options.MIPSYMCUTS > 1 ){
+      _MIP_monndx1.push_back( _GRBmodel->addVar( 0., nVar+maxAux-1, 0., GRB_CONTINUOUS ) );
+      _MIP_monndx2.push_back( _GRBmodel->addVar( 0., nVar+maxAux-1, 0., GRB_CONTINUOUS ) );
+      for( unsigned i=0; i<nVar+maxAux; ++i ){
+        GRBQuadExpr complem1, complem2;
+        complem1.addTerm( 1., _MIP_mondec1[j][i], _MIP_monndx1[j] );
+        complem2.addTerm( 1., _MIP_mondec2[j][i], _MIP_monndx2[j] );
+        _GRBmodel->addQConstr( complem1, GRB_EQUAL, i * _MIP_mondec1[j][i] );
+        _GRBmodel->addQConstr( complem2, GRB_EQUAL, i * _MIP_mondec2[j][i] );
+      }
+      _GRBmodel->addConstr( _MIP_monndx1[j], GRB_LESS_EQUAL, _MIP_monndx2[j] ); // symmetry breaking
+      //if( j ) _GRBmodel->addConstr( _MIP_monndx1[j-1]+_MIP_monndx2[j-1], GRB_LESS_EQUAL, _MIP_monndx1[j]+_MIP_monndx2[j] ); // symmetry breaking
+    }
 
     // b[k,i] = w1[j,i]+w2[j,i] + SUM( 0<=k<maxAux, (w1[j,nVar+k]+w2[j,nVar+k])*b[k,i] ), 0<=i<nVar
     auto imonvar = _MIP_VarDeg.expr.cbegin();
@@ -1581,12 +1662,23 @@ SQuad<KEY,COMP>::_MIP_encode
 #endif
   }
   
+  // SUM( 0<=i<nVar, b[l,i] ) <= SUM( 0<=i<nVar, b[l,i] ) + (1-z[l]) * (maxDeg(Mon[j], 0<=j<nMon)-1), 1<=l<nAux-1
   // SUM( 0<=i<nVar, b[l,i] ) <= maxDeg(Mon[j], 0<=j<nMon), 0<=l<nAux
-  for( unsigned l=0; l<maxAux; ++l ){
-    GRBLinExpr sum_auxexp;
-    for( unsigned i=0; i<nVar; ++i )
-      sum_auxexp += _MIP_auxexp[l][i];
-    _GRBmodel->addConstr( sum_auxexp, GRB_LESS_EQUAL, maxDeg-1 );
+  if( options.MIPSYMCUTS > 0 ){
+    _MIP_auxexpsum.reserve( maxAux );  // sum( 0<=l<nAux, b[l,i] )
+    for( unsigned l=0; l<maxAux; ++l ){
+      GRBLinExpr sum_auxexp;
+      for( unsigned i=0; i<nVar; ++i ) sum_auxexp += _MIP_auxexp[l][i];
+      _MIP_auxexpsum.push_back( sum_auxexp );
+      _GRBmodel->addConstr( _MIP_auxexpsum[l], GRB_LESS_EQUAL, maxDeg-1 );
+    }
+//    for( unsigned l=1; l<=maxAux-1; ++l ){
+//      GRBLinExpr sum_auxexp;
+//      for( unsigned i=0; i<nVar; ++i ) sum_auxexp += _MIP_auxexp[l][i];
+//      _MIP_auxexpsum.push_back( sum_auxexp );
+//      _GRBmodel->addConstr( _MIP_auxexpsum[l-1], GRB_LESS_EQUAL, _MIP_auxexpsum[l] + (1-_MIP_auxbin[l])*(maxDeg-1) );
+//    }
+//    _GRBmodel->addConstr( _MIP_auxexpsum[maxAux-1], GRB_LESS_EQUAL, maxDeg-1 );
   }
 }
 
@@ -1595,10 +1687,12 @@ inline void
 SQuad<KEY,COMP>::_MIP_initialize
 ( unsigned const minOrd )
 {
-  std::map< t_SMon const*, unsigned, lt_pSMon<COMP> > mapMon;
-  std::map< KEY, unsigned, COMP > mapVar;
   unsigned const nVar   = _MIP_VarDeg.expr.size();
   unsigned const maxAux = _MIP_auxbin.size();
+  std::map< t_SMon const*, key_SQuad, lt_pSMon<COMP> > mapDec;
+  std::map< t_SMon const*, unsigned, lt_pSMon<COMP> > mapMon;
+  std::vector< t_SMon const* > vecMon( nVar + maxAux );
+  std::map< KEY, unsigned, COMP > mapVar;
   auto const* pone = &*_SetMon.cbegin();
   mapMon[ pone ] = nVar + maxAux;
 
@@ -1609,23 +1703,117 @@ SQuad<KEY,COMP>::_MIP_initialize
     auto itmon = _SetMon.find( t_SMon( var ) );
     assert( itmon != _SetMon.end() );
     mapMon[ &*itmon ] = i;
+    vecMon[ i ] = &*itmon;
     ++i;
   }
 
-  // Activate auxiliary binaries and initialize auxiliary exponents
+  // Map auxiliary variables
   unsigned k = 0;
   for( auto const& mon : _SetMon ){
     if( mon.tord < minOrd ) continue;
-    _MIP_auxbin[k].set( GRB_DoubleAttr_Start, 1. );
-    for( auto& grbvar : _MIP_auxexp[k] )
-      grbvar.set( GRB_DoubleAttr_Start, 0. );
-    std::cout << "b[" << k << "] =";
-    for( auto const& [var,ord] : mon.expr ){
-      std::cout << " " << mapVar[var] << ":" << ord;
-      _MIP_auxexp[k][ mapVar[var] ].set( GRB_DoubleAttr_Start, ord );
-    }
-    std::cout << std::endl;
     mapMon[ &mon ] = nVar + k;
+    vecMon[ nVar + k++ ] = &mon;
+  }
+#ifdef MC__SQUAD_DEBUG_MIP  
+  std::cout << "\nvecMon:" << std::endl;
+  k = 0;
+  for( auto const& pmon : vecMon )
+    std::cout << k++ << ": " << pmon->display( Options::MONOM ) << std::endl;
+  std::cout << "\nmapMon:" << std::endl;
+  for( auto const& [pmon,k] : mapMon )
+    std::cout << k << ": " << pmon->display( Options::MONOM ) << std::endl;
+#endif
+  
+  // Map auxiliary variables decomposition
+  for( auto const& mat : _MatRed ){
+    if( mat.size() != 2 ) continue; // only auxiliary constraints defining new auxiliaries
+    //assert( mat.size() == 2 );
+    auto const& [pcst,pmon] = mat.cbegin()->first; // pointer to monomial
+    auto const& pdec = mat.crbegin()->first; // pointer to left and right monomials in decomposition
+    if( pcst != pone ) continue; // only auxiliary constraints defining new auxiliaries
+    //assert( ijmon.first == pone );
+    mapDec[pmon] = pdec;
+  }
+#ifdef MC__SQUAD_DEBUG_MIP
+  std::cout << "\nmapDec:" << std::endl;
+  for( auto const& [pmon,pdec] : mapDec )
+    std::cout << pmon->display( Options::MONOM ) << ": "
+              << pdec.first->display( Options::MONOM ) << " * "
+              << pdec.second->display( Options::MONOM ) << std::endl;
+#endif
+
+  // Reorder auxiliary variables
+  for( bool has_swapped = true; has_swapped; ){
+    has_swapped = false;
+    for( size_t k=nVar; k<vecMon.size()-1; ++k ){
+      size_t m = k;
+
+      for( size_t l=k+1; l<vecMon.size(); ++l ){
+        auto const& [mmonL,mmonR] = mapDec[ vecMon[m] ]; // pointing to last element  
+        auto const& [lmonL,lmonR] = mapDec[ vecMon[l] ]; // pointing to last element
+        assert( mmonL != pone && mmonR != pone );
+        assert( lmonL != pone && lmonR != pone );
+#ifdef MC__SQUAD_DEBUG_MIP
+        std::cout << "mmon: " << mmonL->display( Options::MONOM ) << " * "
+                              << mmonR->display( Options::MONOM ) << std::endl;
+        std::cout << "lmon: " << lmonL->display( Options::MONOM ) << " * "
+                              << lmonR->display( Options::MONOM ) << std::endl;
+#endif
+        if( mapMon[lmonR] < mapMon[mmonR]
+          || ( mapMon[lmonR] == mapMon[mmonR] && mapMon[lmonL] < mapMon[mmonL] ) )
+          m = l;
+      }
+      if( m == k ) continue; // no need to swap
+      has_swapped = true;
+
+#ifdef MC__SQUAD_DEBUG_MIP
+      auto const& [kmonL,kmonR] = mapDec[ vecMon[k] ]; // pointing to last element  
+      auto const& [mmonL,mmonR] = mapDec[ vecMon[m] ]; // pointing to last element  
+      std::cout << "swapping rows: " << k << " [" << mapMon[kmonL] << ":" << mapMon[kmonR] << "]"
+                          << " <=> " << m << " [" << mapMon[mmonL] << ":" << mapMon[mmonR] << "]"
+                          << std::endl;
+#endif
+      std::swap( mapMon[vecMon[k]], mapMon[vecMon[m]] );
+      std::swap( vecMon[k], vecMon[m] );
+    }
+  }
+
+  // Activate auxiliary binaries and initialize auxiliary exponents
+  k = 0;
+  for( auto const& pmon : vecMon ){
+    if( pmon->tord < minOrd ) continue;
+    
+    // Auxiliary binaries all set to one
+    _MIP_auxbin[k].set( GRB_DoubleAttr_Start, 1. );
+#ifdef MC__SQUAD_CHECK_START
+    _MIP_auxbin[k].set( GRB_DoubleAttr_LB, 1. );
+    _MIP_auxbin[k].set( GRB_DoubleAttr_UB, 1. );
+#endif
+
+    // Default initialization of auxiliary exponents to 0
+    for( auto& grbvar : _MIP_auxexp[k] ){
+      grbvar.set( GRB_DoubleAttr_Start, 0. );
+#ifdef MC__SQUAD_CHECK_START
+      grbvar.set( GRB_DoubleAttr_LB, 0. );
+      grbvar.set( GRB_DoubleAttr_UB, 0. );
+#endif
+    }
+#ifdef MC__SQUAD_DEBUG_MIP
+    std::cout << "b[" << k << "] =";
+#endif
+    for( auto const& [var,ord] : pmon->expr ){
+#ifdef MC__SQUAD_DEBUG_MIP
+      std::cout << " " << mapVar[var] << ":" << ord;
+#endif
+      _MIP_auxexp[k][ mapVar[var] ].set( GRB_DoubleAttr_Start, ord );
+#ifdef MC__SQUAD_CHECK_START
+      _MIP_auxexp[k][ mapVar[var] ].set( GRB_DoubleAttr_LB, ord );
+      _MIP_auxexp[k][ mapVar[var] ].set( GRB_DoubleAttr_UB, ord );
+#endif
+    }
+#ifdef MC__SQUAD_DEBUG_MIP
+    std::cout << std::endl;
+#endif
     ++k;
   }
 
@@ -1635,44 +1823,139 @@ SQuad<KEY,COMP>::_MIP_initialize
       if( ijmon.first->tord + ijmon.second->tord < minOrd ) continue;
       auto itmon = _MIP_SetMon.find( *ijmon.first + *ijmon.second );
       assert( itmon != _MIP_SetMon.cend() );
+
       unsigned j = 0;
       for( auto jtmon = _MIP_SetMon.cbegin(); jtmon != itmon; ++jtmon, ++j ) continue;
-      for( auto& grbvar : _MIP_mondec1[j] )
+      
+      for( auto& grbvar : _MIP_mondec1[j] ){
         grbvar.set( GRB_DoubleAttr_Start, 0. );
-      for( auto& grbvar : _MIP_mondec2[j] )
+#ifdef MC__SQUAD_CHECK_START
+        grbvar.set( GRB_DoubleAttr_LB, 0. );
+        grbvar.set( GRB_DoubleAttr_UB, 0. );
+#endif
+      }
+      for( auto& grbvar : _MIP_mondec2[j] ){
         grbvar.set( GRB_DoubleAttr_Start, 0. );
+#ifdef MC__SQUAD_CHECK_START
+        grbvar.set( GRB_DoubleAttr_LB, 0. );
+        grbvar.set( GRB_DoubleAttr_UB, 0. );
+#endif
+      }
+      if( !_MIP_monndx1.empty() ){
+        _MIP_monndx1[j].set( GRB_DoubleAttr_Start, 0. );
+#ifdef MC__SQUAD_CHECK_START
+        _MIP_monndx1[j].set( GRB_DoubleAttr_LB, 0. );
+        _MIP_monndx1[j].set( GRB_DoubleAttr_UB, 0. );
+#endif
+      }
+      if( !_MIP_monndx2.empty() ){
+        _MIP_monndx2[j].set( GRB_DoubleAttr_Start, 0. );
+#ifdef MC__SQUAD_CHECK_START
+        _MIP_monndx2[j].set( GRB_DoubleAttr_LB, 0. );
+        _MIP_monndx2[j].set( GRB_DoubleAttr_UB, 0. );
+#endif
+      }
+#ifdef MC__SQUAD_DEBUG_MIP
       std::cout << "Auxiliary monomial " << itmon->display( Options::MONOM ) << ": "
                                          << ijmon.first->display( Options::MONOM ) << ", " 
                                          << ijmon.second->display( Options::MONOM ) << std::endl;
       std::cout << "Auxiliary monomial #" << j << ": " << mapMon[ijmon.first]
                                                << ", " << mapMon[ijmon.second] << std::endl;
-      if( ijmon.first != pone ){
-        _MIP_mondec1[j][ mapMon[ijmon.first]  ].set( GRB_DoubleAttr_Start, 1. );
-        if( ijmon.second != pone )
-          _MIP_mondec2[j][ mapMon[ijmon.second] ].set( GRB_DoubleAttr_Start, 1. );
+#endif
+      if( ijmon.first != pone && ijmon.second != pone ){
+        unsigned const& ndxL = (mapMon[ijmon.first] <= mapMon[ijmon.second]? mapMon[ijmon.first]: mapMon[ijmon.second]); 
+        unsigned const& ndxR = (mapMon[ijmon.first] <= mapMon[ijmon.second]? mapMon[ijmon.second]: mapMon[ijmon.first]); 
+#ifdef MC__SQUAD_DEBUG_MIP
+        std::cout << "[ndxL,ndxR] = " << ndxL << "," << ndxR << std::endl;
+#endif
+        _MIP_mondec1[j][ ndxL ].set( GRB_DoubleAttr_Start, 1. );
+#ifdef MC__SQUAD_CHECK_START
+        _MIP_mondec1[j][ ndxL ].set( GRB_DoubleAttr_LB, 1. );
+        _MIP_mondec1[j][ ndxL ].set( GRB_DoubleAttr_UB, 1. );
+#endif
+        _MIP_mondec2[j][ ndxR ].set( GRB_DoubleAttr_Start, 1. );
+#ifdef MC__SQUAD_CHECK_START
+        _MIP_mondec2[j][ ndxR ].set( GRB_DoubleAttr_LB, 1. );
+        _MIP_mondec2[j][ ndxR ].set( GRB_DoubleAttr_UB, 1. );
+#endif
+        if( !_MIP_monndx1.empty() && !_MIP_monndx2.empty() ){
+          _MIP_monndx1[j].set( GRB_DoubleAttr_Start, ndxL );
+#ifdef MC__SQUAD_CHECK_START
+          _MIP_monndx1[j].set( GRB_DoubleAttr_LB, ndxL );
+          _MIP_monndx1[j].set( GRB_DoubleAttr_UB, ndxL );
+#endif
+          _MIP_monndx2[j].set( GRB_DoubleAttr_Start, ndxR );
+#ifdef MC__SQUAD_CHECK_START
+          _MIP_monndx2[j].set( GRB_DoubleAttr_LB, ndxR );
+          _MIP_monndx2[j].set( GRB_DoubleAttr_UB, ndxR );
+#endif
+        }
       }
-      else if( ijmon.second != pone )
-        _MIP_mondec1[j][ mapMon[ijmon.second] ].set( GRB_DoubleAttr_Start, 1. );
+
+      else if( ijmon.second != pone ){
+        unsigned const& ndxR = mapMon[ijmon.second]; 
+        _MIP_mondec2[j][ ndxR ].set( GRB_DoubleAttr_Start, 1. );
+#ifdef MC__SQUAD_CHECK_START
+        _MIP_mondec2[j][ ndxR ].set( GRB_DoubleAttr_LB, 1. );
+        _MIP_mondec2[j][ ndxR ].set( GRB_DoubleAttr_UB, 1. );
+#endif
+        if( !_MIP_monndx1.empty() ){
+          _MIP_monndx2[j].set( GRB_DoubleAttr_Start, ndxR );
+#ifdef MC__SQUAD_CHECK_START
+          _MIP_monndx2[j].set( GRB_DoubleAttr_LB, ndxR );
+          _MIP_monndx2[j].set( GRB_DoubleAttr_UB, ndxR );
+#endif
+        }
+      }
     }
   }
 
   // Initialize auxiliary decomposition binaries
-  for( auto const& mat : _MatRed ){
-    if( mat.size() != 2 ) continue; // only auxiliary constraints defining new auxiliaries
-    //assert( mat.size() == 2 );
-    auto const& ijmon = mat.cbegin()->first;
-    if( ijmon.first != pone ) continue; // only auxiliary constraints defining new auxiliaries
-    //assert( ijmon.first == pone );
-    if( mapMon.find( ijmon.second ) == mapMon.end() ) continue;
-    unsigned k = mapMon[ijmon.second] - nVar;
-    for( auto& grbvar : _MIP_auxdec1[k] )
+  for( auto const& pmon : vecMon ){
+    if( pmon->tord < minOrd ) continue;
+    unsigned k = mapMon[pmon] - nVar;
+    
+    for( auto& grbvar : _MIP_auxdec1[k] ){
       grbvar.set( GRB_DoubleAttr_Start, 0. );
-    for( auto& grbvar : _MIP_auxdec2[k] )
+#ifdef MC__SQUAD_CHECK_START
+      grbvar.set( GRB_DoubleAttr_LB, 0. );
+      grbvar.set( GRB_DoubleAttr_UB, 0. );
+#endif
+    }
+    for( auto& grbvar : _MIP_auxdec2[k] ){
       grbvar.set( GRB_DoubleAttr_Start, 0. );
-    auto const& ijmon2 = mat.crbegin()->first;
-    assert( ijmon2.first != pone && ijmon2.second != pone );
-    _MIP_auxdec1[k][ mapMon[ijmon2.first]  ].set( GRB_DoubleAttr_Start, 1. );
-    _MIP_auxdec2[k][ mapMon[ijmon2.second] ].set( GRB_DoubleAttr_Start, 1. );
+#ifdef MC__SQUAD_CHECK_START
+      grbvar.set( GRB_DoubleAttr_LB, 0. );
+      grbvar.set( GRB_DoubleAttr_UB, 0. );
+#endif
+    }
+    auto const& [pmonL,pmonR] = mapDec[ pmon ];
+    assert( pmonL != pone && pmonR != pone );
+
+    _MIP_auxdec1[k][ mapMon[pmonL] ].set( GRB_DoubleAttr_Start, 1. );
+#ifdef MC__SQUAD_CHECK_START
+    _MIP_auxdec1[k][ mapMon[pmonL] ].set( GRB_DoubleAttr_LB, 1. );
+    _MIP_auxdec1[k][ mapMon[pmonL] ].set( GRB_DoubleAttr_UB, 1. );
+#endif
+    _MIP_auxdec2[k][ mapMon[pmonR] ].set( GRB_DoubleAttr_Start, 1. );
+#ifdef MC__SQUAD_CHECK_START
+    _MIP_auxdec2[k][ mapMon[pmonR] ].set( GRB_DoubleAttr_LB, 1. );
+    _MIP_auxdec2[k][ mapMon[pmonR] ].set( GRB_DoubleAttr_UB, 1. );
+#endif
+    if( !_MIP_auxndx1.empty() ){
+      _MIP_auxndx1[k].set( GRB_DoubleAttr_Start, mapMon[pmonL] );
+#ifdef MC__SQUAD_CHECK_START
+      _MIP_auxndx1[k].set( GRB_DoubleAttr_LB, mapMon[pmonL] );
+      _MIP_auxndx1[k].set( GRB_DoubleAttr_UB, mapMon[pmonL] );
+#endif
+    }
+    if( !_MIP_auxndx2.empty() ){
+      _MIP_auxndx2[k].set( GRB_DoubleAttr_Start, mapMon[pmonR] );
+#ifdef MC__SQUAD_CHECK_START
+      _MIP_auxndx2[k].set( GRB_DoubleAttr_LB, mapMon[pmonR] );
+      _MIP_auxndx2[k].set( GRB_DoubleAttr_UB, mapMon[pmonR] );
+#endif
+    }
   }
 }
 
@@ -1771,86 +2054,124 @@ SQuad<KEY,COMP>::_MIP_solve
 ()
 {
   _MIP_options();
-  _MIPexcpt = false;
 #if defined(MC__USE_GUROBI)
-  try{
-    _GRBmodel->update();
-    //_MIP_display();
-    if( options.MIPOUTPUTFILE != "" )
-      _GRBmodel->write( options.MIPOUTPUTFILE );
-    fedisableexcept(FE_ALL_EXCEPT);
-    _GRBmodel->optimize();
-    if( options.MIPDISPLEVEL )
-      std::cout << "  #auxiliary variables: " << _GRBmodel->get( GRB_DoubleAttr_ObjVal ) << std::endl;
-  }
-  catch(GRBException& e){
-    if( options.MIPDISPLEVEL )
-      std::cout << "Error code = " << e.getErrorCode() << std::endl
-                << e.getMessage() << std::endl;
-    _MIPexcpt = true;
-  }
+  _GRBmodel->update();
+//#ifdef MC__SQUAD_DEBUG_MIP
+  _MIP_display( false );
+//#endif
+  if( options.MIPOUTPUTFILE != "" )
+    _GRBmodel->write( options.MIPOUTPUTFILE );
+  fedisableexcept(FE_ALL_EXCEPT);
+#ifdef MC__SQUAD_CHECK_START
+  _GRBmodel->computeIIS();
+  _MIP_display( false );
+  _GRBmodel->write( "test.ilp" );
+#else
+  _GRBmodel->optimize();
+  if( options.MIPDISPLEVEL )
+    std::cout << "  #auxiliary variables: " << _GRBmodel->get( GRB_DoubleAttr_ObjVal ) << std::endl;
+  _MIP_display( true );
 #endif
-  _MIP_display();
+#endif
 }
 
 template <typename KEY, typename COMP>
 inline void
 SQuad<KEY,COMP>::_MIP_display
-( std::ostream& os )
+( bool const opt, std::ostream& os )
 const
 {
+#if defined(MC__USE_GUROBI)
   bool first;
   os << std::fixed << std::setprecision(0);
+
   os << "z  = ";
   for( auto const& grbvar : _MIP_auxbin )
-    os << std::round( grbvar.get(GRB_DoubleAttr_X) ) << " ";
+    if( opt ) os << std::round( grbvar.get(GRB_DoubleAttr_X) ) << " ";
+    else      os << std::round( grbvar.get(GRB_DoubleAttr_Start) ) << " ";
   os << std::endl;
-  os << "y1 = ";
+
+  os << "wL = ";
+  auto itvec = _MIP_monndx1.cbegin();
   first = true;
   for( auto const& grbvec : _MIP_mondec1 ){
     if( !first ) os << "     ";
+    if( itvec != _MIP_monndx1.cend() ){
+      if( opt ) os << std::round( itvec->get(GRB_DoubleAttr_X) ) << ": ";
+      else      os << std::round( itvec->get(GRB_DoubleAttr_Start) ) << ": ";
+      ++itvec;
+    }
     for( auto const& grbvar : grbvec )
-      os << std::round( grbvar.get(GRB_DoubleAttr_X) ) << " ";
+      if( opt ) os << std::round( grbvar.get(GRB_DoubleAttr_X) ) << " ";
+      else      os << std::round( grbvar.get(GRB_DoubleAttr_Start) ) << " ";
     os << std::endl;
     first = false;
   }
-  os << "y2 = ";
+  
+  os << "wR = ";
+  itvec = _MIP_monndx2.cbegin();
   first = true;
   for( auto const& grbvec : _MIP_mondec2 ){
     if( !first ) os << "     ";
+    if( itvec != _MIP_monndx2.cend() ){
+      if( opt ) os << std::round( itvec->get(GRB_DoubleAttr_X) ) << ": ";
+      else      os << std::round( itvec->get(GRB_DoubleAttr_Start) ) << ": ";
+      ++itvec;
+    }
     for( auto const& grbvar : grbvec )
-      os << std::round( grbvar.get(GRB_DoubleAttr_X) ) << " ";
+      if( opt ) os << std::round( grbvar.get(GRB_DoubleAttr_X) ) << " ";
+      else      os << std::round( grbvar.get(GRB_DoubleAttr_Start) ) << " ";
     os << std::endl;
     first = false;
   }
-  os << "w1 = ";
+
+  os << "vL = ";
+  itvec = _MIP_auxndx1.cbegin();
   first = true;
   for( auto const& grbvec : _MIP_auxdec1 ){
+    //if( opt && std::round(_MIP_auxbin[z].get(GRB_DoubleAttr_X)) == 0.
+    //  || std::round(_MIP_auxbin[z].get(GRB_DoubleAttr_Start)) == 0. ) continue; 
     if( !first ) os << "     ";
+    if( itvec != _MIP_auxndx1.cend() ){
+      if( opt ) os << std::round( itvec->get(GRB_DoubleAttr_X) ) << ": ";
+      else      os << std::round( itvec->get(GRB_DoubleAttr_Start) ) << ": ";
+      ++itvec;
+    }
     for( auto const& grbvar : grbvec )
-      os << std::round( grbvar.get(GRB_DoubleAttr_X) ) << " ";
+      if( opt ) os << std::round( grbvar.get(GRB_DoubleAttr_X) ) << " ";
+      else      os << std::round( grbvar.get(GRB_DoubleAttr_Start) ) << " ";
     os << std::endl;
     first = false;
   }
-  os << "w2 = ";
+  
+  os << "vR = ";
+  itvec = _MIP_auxndx2.cbegin();
   first = true;
   for( auto const& grbvec : _MIP_auxdec2 ){
     if( !first ) os << "     ";
+    if( itvec != _MIP_auxndx2.cend() ){
+      if( opt ) os << std::round( itvec->get(GRB_DoubleAttr_X) ) << ": ";
+      else      os << std::round( itvec->get(GRB_DoubleAttr_Start) ) << ": ";
+      ++itvec;
+    }
     for( auto const& grbvar : grbvec )
-      os << std::round( grbvar.get(GRB_DoubleAttr_X) ) << " ";
+      if( opt ) os << std::round( grbvar.get(GRB_DoubleAttr_X) ) << " ";
+      else      os << std::round( grbvar.get(GRB_DoubleAttr_Start) ) << " ";
     os << std::endl;
     first = false;
   }
+  
   os << "b  = ";
   first = true;
   for( auto const& grbvec : _MIP_auxexp ){
     if( !first ) os << "     ";
     for( auto const& grbvar : grbvec )
-      os << std::round( grbvar.get(GRB_DoubleAttr_X) ) << " ";
+      if( opt ) os << std::round( grbvar.get(GRB_DoubleAttr_X) ) << " ";
+      else      os << std::round( grbvar.get(GRB_DoubleAttr_Start) ) << " ";
     os << std::endl;
     first = false;
   }
-
+#endif
 }
 
 template <typename KEY, typename COMP>
@@ -1866,6 +2187,7 @@ SQuad<KEY,COMP>::_MIP_options
   _GRBmodel->getEnv().set( GRB_IntParam_Threads,           options.MIPTHREADS );
   _GRBmodel->getEnv().set( GRB_IntParam_ConcurrentMIP,     options.MIPCONCURRENT );
   _GRBmodel->getEnv().set( GRB_IntParam_MIPFocus,          options.MIPFOCUS );
+  _GRBmodel->getEnv().set( GRB_IntParam_NumericFocus,      options.MIPNUMFOCUS );
   _GRBmodel->getEnv().set( GRB_DoubleParam_Heuristics,     options.MIPHEURISTICS );
   _GRBmodel->getEnv().set( GRB_DoubleParam_FeasibilityTol, options.LPFEASTOL );
   _GRBmodel->getEnv().set( GRB_DoubleParam_OptimalityTol,  options.LPOPTIMTOL );
@@ -1882,10 +2204,15 @@ SQuad<KEY,COMP>::_MIP_reset
 {
   _MIP_auxbin.clear();
   _MIP_auxexp.clear();
+  _MIP_auxexpsum.clear();
   _MIP_auxdec1.clear();
   _MIP_auxdec2.clear();
+  _MIP_auxndx1.clear();
+  _MIP_auxndx2.clear();
   _MIP_mondec1.clear();
   _MIP_mondec2.clear();
+  _MIP_monndx1.clear();
+  _MIP_monndx2.clear();
 #if defined(MC__USE_GUROBI)
   delete _GRBmodel;
   _GRBmodel = new GRBModel( *_GRBenv );

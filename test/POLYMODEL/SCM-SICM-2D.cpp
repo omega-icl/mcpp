@@ -1,7 +1,7 @@
-#define TEST_INV2            // <-- select test function here
+#define TEST_HILL            // <-- select test function here
 #undef  USE_DAG              // <-- specify to evaluate via a DAG of the function
 #define SAVE_RESULTS         // <-- specify whether to save results to file
-const int NTE = 5;           // <-- select expansion order here
+const int NTE = 8;           // <-- select expansion order here
 const int NX = 25;	         // <-- select X discretization here
 const int NY = 25;	         // <-- select Y discretization here
 const unsigned NREP = 1;  // <-- select repetition for acurate timing 
@@ -44,18 +44,19 @@ typedef mc::CModel<I> CM;
 typedef mc::CVar<I> CV;
 
 #include "scmodel.hpp"
+#include "sicmodel.hpp"
 #ifdef USE_DAG
  #include "ffunc.hpp"
  typedef mc::SCModel<I,mc::FFVar*,mc::lt_FFVar> SCM;
  typedef mc::SCVar<I,mc::FFVar*,mc::lt_FFVar> SCV;
+ typedef mc::SCModel<I,mc::FFVar*,mc::lt_FFVar> SICM;
+ typedef mc::SCVar<I,mc::FFVar*,mc::lt_FFVar> SICV;
 #else
  typedef mc::SCModel<I> SCM;
- typedef mc::SCVar<I> SCV;
+ typedef mc::SCVar<I> SICV;
+ typedef mc::SCModel<I> SCM;
+ typedef mc::SCVar<I> SICV;
 #endif
-
-//#include "sicmodel.hpp"
-//typedef mc::SICModel<I> SICM;
-//typedef mc::SICVar<I> SICV;
 
 using namespace std;
 using namespace mc;
@@ -84,7 +85,7 @@ template <class T>
 T myfunc
 ( const T&x, const T&y )
 {
-  return pow(x,y)/(0.5+pow(x,y));
+  return pow(x,y);///(0.5+pow(x,y));
   //return 1./(1.+0.5*pow(x,-y));
 }
 
@@ -97,7 +98,6 @@ template <class T>
 T myfunc
 ( const T&x, const T&y )
 {
-  //return exp(sqrt(x+y));
   return cos(exp(x+y));
 }
 
@@ -111,6 +111,7 @@ T myfunc
 ( const T&x, const T&y )
 {
   //return exp(x)*exp(y);
+  //return exp(sqrt(x+y));
   return x*exp(pow(y,2))-pow(y,2);
 }
 
@@ -333,11 +334,12 @@ int main()
  {
   try{ 
     SCM modSCM( NTE );
-    modSCM.options.REMEZ_USE    = true;//false;
+    modSCM.options.REMEZ_USE    = false;//true;//false;
     modSCM.options.BOUNDER_TYPE = SCM::Options::LSB; //NAIVE;
     modSCM.options.MIXED_IA     = false;//true;//false;
-    modSCM.options.LIFT_REM     = false;//true;//false;
-    modSCM.options.MIN_FACTOR   = 1e-10;
+    modSCM.options.LIFT_USE     = true;//true;//false;
+    modSCM.options.MIG_USE      = true;//false;
+    modSCM.options.MIG_RTOL     = 1e-6;
 
 #ifdef USE_DAG
     // Construct DAG representation of the factorable function
@@ -430,45 +432,101 @@ int main()
   }
 #endif
  }
-#if 0
- {
-  SICM modSICM( NTE );
-  
-  modSICM.options.REMEZ_USE    = true;
-  modSICM.options.INTERP_EXTRA = 0;//2*NTE;
-  modSICM.options.BOUNDER_TYPE = SICM::Options::LSB; //NAIVE;
-  modSICM.options.HOT_SPLIT    = SICM::Options::FULL;
-  modSICM.options.MIXED_IA     = false;//true;//false;
 
-  SICV X( &modSICM, 0, I(XL,XU) );
-  SICV Y( &modSICM, 1, I(YL,YU) );
-  SICV F = myfunc( X, Y );
-  std::cout << F;
-  double tStart = mc::userclock();
-  for( unsigned i=0; i<NREP; i++ )
-    F = myfunc( X, Y );
-  std::cout << "\nChebyshev model (sparse interval implementation):" << (mc::userclock()-tStart)/(double)NREP << " CPU-sec\n";
+ {
+   try{ 
+    SICM modSICM( NTE );
+    modSICM.options.HOT_SPLIT    = SICM::Options::FULL;
+    modSICM.options.REMEZ_USE    = false;//true;//false;
+    modSICM.options.BOUNDER_TYPE = SICM::Options::LSB; //NAIVE;
+    modSICM.options.MIXED_IA     = false;//true;//false;
+    modSICM.options.LIFT_USE     = true;//true;//false;
+    modSICM.options.MIG_USE      = true;//false;
+    modSICM.options.MIG_RTOL     = 1e-6;
+
+#ifdef USE_DAG
+    // Construct DAG representation of the factorable function
+    FFGraph DAG;
+    FFVar X( &DAG );
+    FFVar Y( &DAG );
+    FFVar F = myfunc( X, Y );
+    auto GF = DAG.subgraph( 1, &F );
+#endif
+
+    // Calculate polynomial inclusions
+    double tStart = mc::userclock();
+#ifdef USE_DAG
+    SICV CX( &modSICM, &X, I(XL,XU) );
+    SICV CY( &modSICM, &Y, I(YL,YU) );
+    SICV CF;
+    for( unsigned i=0; i<NREP; i++ )
+      DAG.eval( GF, 1, &F, &CF, 1, &X, &CX, 1, &Y, &CY );
+#else
+    SICV CX( &modSICM, 0, I(XL,XU) );
+    SICV CY( &modSICM, 1, I(YL,YU) );
+    SICV CF;
+    for( unsigned i=0; i<NREP; i++ )
+      CF = myfunc( CX, CY );
+#endif
+    std::cout << "\nChebyshev model (sparse interval implementation):" << (mc::userclock()-tStart)/(double)NREP << " CPU-sec\n";
+    std::cout << CF;
+    //std::cout << CF.project();
 
 #ifdef SAVE_RESULTS
-  ofstream res( "SICM-2D.out", ios_base::out );
-  res << std::scientific << std::setprecision(5) << std::right;
-  // Repeated calculations at grid points (for display)
-  for( int iX=0; iX<NX; iX++ ){ 
-    for( int iY=0; iY<NY; iY++ ){ 
-      double DXY[2] = { XL+iX*(XU-XL)/(NX-1.), YL+iY*(YU-YL)/(NY-1.) };
-      double DF = myfunc( DXY[0], DXY[1] );
-      double PF = F.P( DXY );
-      I IF = F.IP( DXY );
-      res << std::setw(14) << DXY[0] << std::setw(14) << DXY[1]
-          << std::setw(14) << DF << std::setw(14) << PF
-          << std::setw(14) << Op<I>::l(IF) << std::setw(14) << Op<I>::u(IF)
-          << std::endl;
+    ofstream res( "SCM-2D.out", ios_base::out );
+    res << std::scientific << std::setprecision(5) << std::right;
+    // Repeated calculations at grid points (for display)
+    for( int iX=0; iX<NX; iX++ ){ 
+      for( int iY=0; iY<NY; iY++ ){ 
+#ifdef USE_DAG
+        map<FFVar*,double,lt_FFVar> DXY = { { &X, XL+iX*(XU-XL)/(NX-1.) }, { &Y, YL+iY*(YU-YL)/(NY-1.) } };
+        double DF;
+        DAG.eval( GF, 1, &F, &DF, 1, &X, &DXY[&X], 1, &Y, &DXY[&Y] );
+#else
+        map<unsigned,double> DXY = { { 0, XL+iX*(XU-XL)/(NX-1.) }, { 1, YL+iY*(YU-YL)/(NY-1.) } };
+        double DF = myfunc( DXY[0], DXY[1] );
+#endif
+        double PF = CF.P( DXY );
+        I IF = CF.IP( DXY );
+#ifdef USE_DAG
+        res << std::setw(14) << DXY[&X] << std::setw(14) << DXY[&Y]
+#else
+        res << std::setw(14) << DXY[0] << std::setw(14) << DXY[1]
+#endif
+            << std::setw(14) << DF << std::setw(14) << PF
+            << std::setw(14) << Op<I>::l(IF) << std::setw(14) << Op<I>::u(IF)
+            << std::endl;
+      }
+      res << endl;
     }
-    res << endl;
+#endif
+  }
+#if !defined(MC__USE_PROFIL) && !defined(MC__USE_FILIB) && !defined(MC__USE_BOOST)
+  catch( I::Exceptions &eObj ){
+    cerr << "Error " << eObj.ierr()
+         << " in natural interval extension:" << endl
+	 << eObj.what() << endl
+         << "Aborts." << endl;
+    return eObj.ierr();
+  }
+#endif
+  catch( SICM::Exceptions &eObj ){
+    cerr << "Error " << eObj.ierr()
+         << " in sparse interval Chebyshev arithmetic:" << endl
+	 << eObj.what() << endl
+         << "Aborts." << endl;
+    return eObj.ierr();
+  }
+#ifdef USE_DAG
+  catch( FFGraph::Exceptions &eObj ){
+    cerr << "Error " << eObj.ierr()
+         << " in DAG evaluation:" << endl
+	 << eObj.what() << endl
+         << "Aborts." << endl;
+    return eObj.ierr();
   }
 #endif
  }
-#endif
 
   return 0;
 } 

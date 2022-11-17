@@ -79,7 +79,7 @@ See the documentations of mc::SCModel and mc::SCVar for a complete list of membe
 
 \section sec_CHEBYSHEV_SPARSE_fct Which functions are overloaded for sparse Chebyshev model arithmetic?
 
-mc::SCVar overloads the usual functions <tt>exp</tt>, <tt>log</tt>, <tt>sqr</tt>, <tt>sqrt</tt>, <tt>pow</tt>, <tt>inv</tt>, <tt>cos</tt>, <tt>sin</tt>, <tt>tan</tt>, <tt>acos</tt>, <tt>asin</tt>, <tt>atan</tt>, <tt>cosh</tt>, <tt>sinh</tt>, <tt>tanh</tt>, <tt>fabs</tt>. The functions <tt>erf</tt>, <tt>erfc</tt>, <tt>min</tt>, <tt>max</tt>, <tt>fstep</tt>, and <tt>bstep</tt> are not currently overloaded in mc::SCVar. Moreover, mc::SCVar defines the following functions:
+mc::SCVar overloads the usual functions <tt>exp</tt>, <tt>log</tt>, <tt>sqr</tt>, <tt>sqrt</tt>, <tt>pow</tt>, <tt>inv</tt>, <tt>cos</tt>, <tt>sin</tt>, <tt>tan</tt>, <tt>acos</tt>, <tt>asin</tt>, <tt>atan</tt>, <tt>cosh</tt>, <tt>sinh</tt>, <tt>tanh</tt>, <tt>erf</tt>, <tt>erfc</tt>, <tt>fabs</tt>. The functions <tt>min</tt>, <tt>max</tt>, <tt>fstep</tt>, and <tt>bstep</tt> are not currently overloaded in mc::SCVar. Moreover, mc::SCVar defines the following functions:
 - <tt>inter(x,y,z)</tt>, computing a Chebyshev model of the intersection \f$x = y\cap z\f$ of two Chebyshev models and returning true/false if the intersection is nonempty/empty. With Chebyshev models \f$\mathcal P_y\oplus\mathcal R_y\f$ and \f$\mathcal P_z\oplus\mathcal R_z\f$, this intersection is computed as follows:
 \f{align*}
   \mathcal P_{x} =\ & (1-\eta) \mathcal P_y^{\rm C} + \eta \mathcal P_z^{\rm C}\\
@@ -263,6 +263,10 @@ class SCModel
     ( const SCVar<U,K,C>& );
   template <typename U, typename K, typename C> friend SCVar<U,K,C> tanh
     ( const SCVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SCVar<U,K,C> erf
+    ( const SCVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SCVar<U,K,C> erfc
+    ( const SCVar<U,K,C>& );
   template <typename U, typename K, typename C> friend SCVar<U,K,C> fabs
     ( const SCVar<U,K,C>& );
 
@@ -302,16 +306,16 @@ protected:
       
   //! @brief Function values in Chebyshev interpolant of univariate functions
   std::vector<double> _finterp;
-      
+
   //! @brief Resize the model variable data containers
   void _set
     ( KEY const& id, T const& X );
 
-  //! @brief Resize and return a pointer to the Chebyshev coefficient interpolant array
-  std::vector<double>& _resize_coefuniv
-    ()
-    { _coefuniv.resize( _maxord + options.INTERP_EXTRA + 1 );
-      return _coefuniv; }
+//  //! @brief Resize and return a pointer to the Chebyshev coefficient interpolant array
+//  std::vector<double>& _resize_coefuniv
+//    ()
+//    { _coefuniv.resize( _maxord + options.INTERP_EXTRA + 1 );
+//      return _coefuniv; }
 
   //! @brief Overloads returning a pointer of a new KEY
   template<typename K>
@@ -346,7 +350,8 @@ public:
     { _coefuniv.reserve( _maxord + options.INTERP_EXTRA + 1 ); }
 
   //! @brief Destructor of Sparse Chebyshev model environment
-  ~SCModel()
+  ~SCModel
+    ()
     { reset_aux(); }
 
   //! @brief Append new auxiliary variable and return a reference
@@ -363,44 +368,44 @@ public:
     const
     { return _maxord; };
 
-  //! @brief Const reference to auxiliary variables
+  //! @brief Retrieve auxiliary variables
   t_var const& setaux
     ()
     const
     { return _setaux; }
 
-  //! @brief Const reference to model variables
+  //! @brief Retrieve model variables
   t_var const& setvar
     ()
     const
     { return _setvar; }
 
-  //! @brief Const reference to the bounds of the model variables
+  //! @brief Retrieve bounds of the model variables
   std::map<KEY,T,COMP> const& bndvar
     ()
     const
     { return _bndvar; }
 
-  //! @brief Const reference to reference points for the model variables
+  //! @brief Retrieve reference points for the model variables
   std::map<KEY,double,COMP> const& refvar
     ()
     const
     { return _refvar; }
 
-  //! @brief Const reference to the scaling factors of the model variables
+  //! @brief Retrieve scaling factors of the model variables
   std::map<KEY,double,COMP> const& scalvar
     ()
     const
     { return _scalvar; }
 
-  //! @brief Get Chebyshev basis functions in U arithmetic for variable array <a>X</a>
+  //! @brief Get Chebyshev basis functions in U arithmetic for variable bounds <a>bndvar</a>
   template <typename U>
   std::map<KEY,std::vector<U>,COMP>& get_basis
     ( const unsigned maxord, std::map<KEY,U,COMP> const& bndvar,
       std::map<KEY,std::vector<U>,COMP>& bndbasis, const bool scaled=false )
     const;
 
-  //! @brief Get Chebyshev monomial bounds in U arithmetic for variable array <a>X</a> and monomial indexes in <a>ndxmon</a>
+  //! @brief Get Chebyshev monomial bounds in U arithmetic for variable bounds <a>bndvar</a>
   template <typename U>
   void get_bndmon
     ( std::map<t_mon,U,lt_mon>& bndmon, std::map<KEY,U,COMP> const& bndvar,
@@ -411,7 +416,7 @@ public:
   class Exceptions
   {
   public:
-    //! @brief Enumeration type for SCModel exception handling
+    //! @brief Enumeration type for mc::SCModel exception handling
     enum TYPE{
       DIV=1,	//!< Division by zero scalar
       INV,	//!< Inverse operation with zero in range
@@ -424,9 +429,9 @@ public:
       COMPOSE,	//!< Failed to compose Chebyshev variable
       INIT=-1,	//!< Failed to construct Chebyshev variable
       INCON=-2, //!< Inconsistent bounds with template parameter arithmetic
-      SCMODEL=-3,//!< Operation between Chebyshev variables linked to different Chebyshev models
+      MODEL=-3,//!< Operation between variables linked to different models
       INTERNAL = -4,//!< Internal error
-      UNDEF=-33 //!< Feature not yet implemented in mc::SCModel
+      UNDEF=-33 //!< Feature not yet implemented
     };
     //! @brief Constructor for error <a>ierr</a>
     Exceptions( TYPE ierr ) : _ierr( ierr ){}
@@ -457,10 +462,10 @@ public:
         return "mc::SCModel\t Chebyshev variable initialization failed";
       case INCON:
         return "mc::SCModel\t Inconsistent bounds with template parameter arithmetic";
-      case SCMODEL:
-        return "mc::SCModel\t Operation between Chebyshev variables in different Chebyshev model environment";
+      case MODEL:
+        return "mc::SCModel\t Operation between variables in different model environments";
       case UNDEF:
-        return "mc::SCModel\t Feature not yet implemented in mc::SCModel class";
+        return "mc::SCModel\t Feature not yet implemented";
       case INTERNAL:
       default:
         return "mc::SCModel\t Internal error";
@@ -477,25 +482,28 @@ public:
     //! @brief Constructor of mc::SCModel::Options
     Options():
       BASIS(CHEB),
-      LIFT_REM(false),
+      LIFT_USE(false), LIFT_ATOL(1e-10), LIFT_RTOL(1e-3),
       REMEZ_USE(true), REMEZ_MAXIT(10), REMEZ_TOL(1e-5), REMEZ_MIG(1e-10),
       INTERP_EXTRA(0), INTERP_THRES(1e2*machprec()), BOUNDER_TYPE(LSB),
-      MIXED_IA(false), MIN_FACTOR(0.), REF_POLY(0.),
-      DISPLAY_DIGITS(7)
+      MIG_USE(false), MIG_ATOL(0e0), MIG_RTOL(machprec()), 
+      MIXED_IA(false), REF_POLY(0e0), DISPLAY_DIGITS(7)
       {}
     //! @brief Copy constructor of mc::SCModel::Options
     template <typename U> Options
       ( U const& options )
       : BASIS( options.BASIS ),
-        LIFT_REM( options.LIFT_REM ),
+        LIFT_USE( options.LIFT_USE ),
+        LIFT_ATOL( options.LIFT_ATOL ),
+        LIFT_RTOL( options.LIFT_RTOL ),
         REMEZ_MAXIT( options.REMEZ_MAXIT ),
         REMEZ_TOL( options.REMEZ_TOL ),
         REMEZ_MIG( options.REMEZ_MIG ),
         INTERP_EXTRA( options.INTERP_EXTRA ),
         INTERP_THRES( options.INTERP_THRES ),
         BOUNDER_TYPE( options.BOUNDER_TYPE ),
-        //BOUNDER_ORDER( options.BOUNDER_ORDER ),
-        MIN_FACTOR( options.MIN_FACTOR ),
+        MIG_USE( options.MIG_USE ),
+        MIG_ATOL( options.MIG_ATOL ),
+        MIG_RTOL( options.MIG_RTOL ),
         MIXED_IA( options.MIXED_IA ),
         REF_POLY(options.REF_POLY),
         DISPLAY_DIGITS( options.DISPLAY_DIGITS )
@@ -504,7 +512,9 @@ public:
     template <typename U> Options& operator=
       ( U const& options ){
         BASIS            = options.BASIS;
-        LIFT_REM         = options.LIFT_REM;
+        LIFT_USE         = options.LIFT_USE;
+        LIFT_ATOL        = options.LIFT_ATOL;
+        LIFT_RTOL        = options.LIFT_RTOL;
         REMEZ_USE        = options.REMEZ_USE;
         REMEZ_MAXIT      = options.REMEZ_MAXIT;
         REMEZ_TOL        = options.REMEZ_TOL;
@@ -512,8 +522,9 @@ public:
         INTERP_EXTRA     = options.INTERP_EXTRA;
         INTERP_THRES     = options.INTERP_THRES;
         BOUNDER_TYPE     = (BOUNDER)options.BOUNDER_TYPE;
-        //BOUNDER_ORDER    = options.BOUNDER_ORDER;
-        MIN_FACTOR       = options.MIN_FACTOR;
+        MIG_USE          = options.MIG_USE;
+        MIG_ATOL         = options.MIG_ATOL;
+        MIG_RTOL         = options.MIG_RTOL;
         MIXED_IA         = options.MIXED_IA;
         REF_POLY         = options.REF_POLY;
         DISPLAY_DIGITS   = options.DISPLAY_DIGITS;
@@ -532,7 +543,11 @@ public:
     //! @brief Basis representation of the monomials
     unsigned BASIS;
     //! @brief Whether to lift the remainder term in nonlinear operations by introducing auxiliary variables in the model
-    bool LIFT_REM;
+    bool LIFT_USE;
+    //! @brief Absolute tolerance for lifting the reminder term - only if LIFT_USE == true
+    double LIFT_ATOL;
+    //! @brief relative tolerance for lifting the reminder term - only if LIFT_USE == true
+    double LIFT_RTOL;
     //! @brief Whether to use the Remez algorithm for computing a minimax approximation for univariate terms
     bool REMEZ_USE;
     //! @brief Maximal number of iterations in Remez algorithm for computing a minimax approximation for univariate terms
@@ -547,14 +562,16 @@ public:
     double INTERP_THRES;
     //! @brief Chebyshev model range bounder - See \ref sec_CHEBYSHEV_SPARSE_opt
     BOUNDER BOUNDER_TYPE;
-    ////! @brief Order of Bernstein polynomial for Chebyshev model range bounding (no less than Chebyshev model order!). Only if mc::SCModel::options::BOUNDER_TYPE is set to mc::SCModel::options::BERNSTEIN.
-    //unsigned BOUNDER_ORDER;
     //! @brief Array of Chebyshev model range bounder names (for display)
     static const std::string BOUNDER_NAME[2];
+    //! @brief Whether to simplify the monomial terms with small magnitude in the model
+    bool MIG_USE;
+    //! @brief Absolute tolerance for simplifying monomial terms - only if MIG_USE == true
+    double MIG_ATOL;
+    //! @brief relative tolerance for simplifying monomial terms - only if MIG_USE == true
+    double MIG_RTOL;
     //! @brief Whether to intersect internal bounds with underlying bounds in T arithmetics
     bool MIXED_IA;
-    //! @brief Threshold for monomial coefficients below which the term is removed and appended to the remainder term.
-    double MIN_FACTOR;
     //! @brief Scalar in \f$[0,1]\f$ related to the choice of the polynomial part in the overloaded functions mc::inter and mc::hull (see \ref sec_CHEBYSHEV_SPARSE_fct). A value of 0. amounts to selecting the polynomial part of the left operand, whereas a value of 1. selects the right operand.
     double REF_POLY;
     //! @brief Number of digits in output stream for Chebyshev model coefficients.
@@ -625,7 +642,8 @@ private:
   //! @brief Compose interpolating polynomial for univariate <a>f</a> with Chebyshev variable <a>CV</a> and return resulting Chebyshev variable in <a>CV2</a>
   template <typename PUNIV>
   bool _chebinterp
-    ( PUNIV const& f, SCVar<T,KEY,COMP> const& CV, SCVar<T,KEY,COMP>& CV2, bool const rematbound );
+    ( PUNIV const& f, SCVar<T,KEY,COMP> const& CV, SCVar<T,KEY,COMP>& CV2,
+      bool const rematbound );
 
   //! @brief Apply Chebyshev composition to variable <a>CVI</a> using the coefficients <a>coefmon</a> of the outer function
   template <typename U> static SCVar<T,KEY,COMP> _composition
@@ -660,6 +678,11 @@ private:
   //! @brief Monomial range bounder for <a>mon</a>
   T _monbound
     ( t_mon const& mon )
+    const;
+
+  //! @brief Monomial value of <a>mon</a> at point <a>x</a>
+  double _monval
+    ( t_mon const& mon, std::map<KEY,double,COMP> const& x )
     const;
 
   //! @brief Recursive product of univariate Chebyshev polynomials
@@ -730,11 +753,8 @@ private:
   //! @brief Product of multivariate Chebyshev polynomials in sparse format
   void _sprod
     ( SCVar<T,KEY,COMP> const& CV1, SCVar<T,KEY,COMP> const& CV2, t_poly& coefmon,
-      double&coefrem ) const;
-
-  //! @brief Squaring of multivariate Chebyshev polynomials in sparse format
-  void _ssqr
-    ( SCVar<T,KEY,COMP> const& CV, t_poly& coefmon, double&coefrem ) const;
+      double&coefrem )
+    const;
 };
 
 template <typename T, typename KEY, typename COMP>
@@ -824,6 +844,10 @@ class SCVar
   template <typename U, typename K, typename C> friend SCVar<U,K,C> sinh
     ( const SCVar<U,K,C>& );
   template <typename U, typename K, typename C> friend SCVar<U,K,C> tanh
+    ( const SCVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SCVar<U,K,C> erf
+    ( const SCVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SCVar<U,K,C> erfc
     ( const SCVar<U,K,C>& );
   template <typename U, typename K, typename C> friend SCVar<U,K,C> fabs
     ( const SCVar<U,K,C>& );
@@ -936,12 +960,6 @@ private:
     const
     { return _CM->_sprod( CV1, CV2, coefmon, coefrem ); }
 
-  //! @brief Squaring of multivariate Chebyshev polynomials in sparse format
-  void _ssqr
-    ( const SCVar<T,KEY,COMP>& CV, t_poly& coefmon, double& coefrem )
-    const
-    { return _CM->_ssqr( CV, coefmon, coefrem ); }
-
 public:
   /** @addtogroup SCHEBYSHEV Sparse Chebyshev Model Arithmetic for Factorable Functions
    *  @{
@@ -1017,7 +1035,7 @@ public:
 
   //! @brief Constructor of Chebyshev variable <a>id</a> with domain <a>dom</a>
   SCVar
-    ( SCModel<T,KEY,COMP>* CM, KEY const& id, T const& dom);
+    ( SCModel<T,KEY,COMP>* CM, KEY const& id, T const& dom );
 
   //! @brief Copy constructor of Chebyshev variable
   SCVar
@@ -1053,14 +1071,6 @@ public:
     ( T const& bndrem )
     { _bndrem = bndrem; return *this; }
 
-  //! @brief Set multivariate polynomial coefficients and remainder term equal to those in variable <tt>var</tt>, possibly defined in another polynomial model environment with fewer variables or with a different expansion order. Coefficients involving other variables or higher order are initialized to 0 if <tt>reset=true</tt> (default), otherwise they are left unmodified. Higher-order terms in TV are bounded and added to the remainder bound.
-  SCVar<T,KEY,COMP>& set
-    ( SCVar<T,KEY,COMP> const& var, bool const reset=true );
-/*
-  //! @brief Copy multivariate polynomial coefficients from current variable into variable <tt>var</tt>, possibly defined in another polynomial model environment with less variables or with a lower expansion order. Copied coefficients are reset to 0 in current Taylor variable if <tt>reset=true</tt>, otherwise they are left unmodified (default).
-  SCVar<T,KEY,COMP>& get
-    ( SCVar<T,KEY,COMP>&var, const bool reset=false );
-*/
   //! @brief Compute bound on variable using bounder <a>type</a>
   T bound
     ( int const type )
@@ -1103,14 +1113,9 @@ public:
   T bndord
     ( const unsigned minord )
     const
-    { if( !_CM ) return !minord && !_coefmon.empty() && !_coefmon.begin()->first.tord? _coefmon.begin()->second: 0.;
-      return _CM->_polybound_naive( _coefmon, (T const* const*)0, minord ); }
-
-  //! @brief Return remainder term of variable
-  T remainder
-    ()
-    const
-    { return _bndrem; }
+    { if( !_CM ) return !minord && !_coefmon.empty() && !_coefmon.begin()->first.tord?
+                                   _coefmon.begin()->second: 0.;
+      return _CM->_polybound_naive( _coefmon, std::map<KEY,std::vector<T>,COMP>(), minord ); }
 
   //! @brief Shortcut to mc::SCVar::bound
   T B
@@ -1124,34 +1129,22 @@ public:
     const
     { return bound(); }
 
-  //! @brief Shortcut to mc::SCVar::remainder
+  //! @brief Return remainder term of variable
   T R
     ()
     const
-    { return remainder(); }
+    { return _bndrem; }
 
   //! @brief Evaluate polynomial part at <tt>x</tt>
-  double polynomial
+  double P
     ( std::map<KEY,double,COMP> const& x )
     const;
 
-  //! @brief Shortcut to mc::SCVar::polynomial
-  double P
-    ( std::map<KEY,double,COMP> const& x )
-    const
-    { return polynomial( x ); }
-
   //! @brief Return new Chebyshev variable with same multivariate polynomial part but zero remainder
-  SCVar<T,KEY,COMP> polynomial
-    ()
-    const
-    { SCVar<T,KEY,COMP> var = *this; var._bndrem = 0.; return var; }
-
-  //! @brief Shortcut to mc::SCVar::polynomial
   SCVar<T,KEY,COMP> P
     ()
     const
-    { return polynomial(); }
+    { SCVar<T,KEY,COMP> var( *this ); var._bndrem = 0.; return var; }
 
   //! @brief Center remainder term of Chebyshev variable
   SCVar<T,KEY,COMP>& center
@@ -1171,17 +1164,21 @@ public:
   double linear
     ( KEY const& id, bool const reset = false );
 
-  //! @brief Lift the model by appending new variable corresponding to the remainder term if magnitude greater than TOL
+  //! @brief Lift the model by appending new vauxiliary ariable corresponding to the remainder term if magnitude greater than TOL
   SCVar<T,KEY,COMP>& lift
-    ( SCModel<T,KEY,COMP>* SCM, double const& TOL = 0e0 );
+    ( SCModel<T,KEY,COMP>* SCM, double const& ATOL, double const& RTOL );
 
-  //! @brief Project the model by removing monimals with auxiliary variables participating
+  //! @brief Project the model by removing monomials with auxiliary variables participating
   SCVar<T,KEY,COMP>& project
     ( bool const reset=false );
 
-  //! @brief Simplify the model by appending coefficient less than TOL as well as terms with order greater than or equal to ORD to the remainder term
+  //! @brief Project the model by removing monomials with variable id participating
+  SCVar<T,KEY,COMP>& project
+    ( KEY const& id );
+
+  //! @brief Simplify the model by appending coefficient less than TOL as well as terms with order greater than or equal to TORD to the remainder term
   SCVar<T,KEY,COMP>& simplify
-    ( double const& TOL = 0e0, int const TORD = -1 );
+    ( double const& ATOL = 0e0, double const& RTOL = 0e0, int const TORD = -1 );
     
   //! @brief Scale coefficients in Chebyshev variable for the modified domain <a>dom</a> of variable id
   SCVar<T,KEY,COMP>& scale
@@ -1191,7 +1188,7 @@ public:
   SCVar<T,KEY,COMP>& scale
     ( std::map<KEY,T,COMP> const& dom );
     
-  //! @brief Rescale coefficients in Chebyshev variable for their original variable ranges
+  //! @brief Unscale coefficients in Chebyshev variable for their original variable ranges
   SCVar<T,KEY,COMP>::t_poly unscale
     ()
     const;
@@ -1203,7 +1200,7 @@ public:
     
   //! @brief Return new coefficient map in monomial basis representation after removing terms with coefficient less than TOL or order greater than or equal to ORD, and also return a bound on the removed terms
   std::pair<t_poly,T> to_monomial
-    ( bool const scaled, double const& TOL, int const TORD = -1 )
+    ( bool const scaled, double const& ATOL, double const& RTOL, int const TORD = -1 )
     const;
  /** @} */
 
@@ -1239,6 +1236,7 @@ public:
     ( double const& );
 
 private:
+ 
   //! @brief Polynomial range bounder using specified bounder <a>type</a> with basis functions <a>bndbasis</a> in U arithmetic
   template <typename U>
   U _polybound
@@ -1282,10 +1280,15 @@ private:
     ( t_poly& coefmon )
     const;
 
+  //! @brief Simplify the monomial itmon by appending coefficient less than TOL as well as terms with order greater than or equal to TORD to the remainder term
+  SCVar<T,KEY,COMP>& _simplify
+    ( typename SCVar<T,KEY,COMP>::t_poly::iterator itmon,
+      double const& ATOL, double const& RTOL, int const TORD=-1 );
+
   //! @brief Simplify the coefficient map <a>coefmon</a> by removing entries with coefficient less than TOL or order greater than or equal to ORD, and return a bound on the removed entries
   T _simplify_monomial
-    ( typename SCVar<T,KEY,COMP>::t_poly& coefmon, bool const scaled,
-      double const& TOL=0e0, int const TORD=-1 )
+    ( t_poly& coefmon, bool const scaled,
+      double const& ATOL, double const& RTOL, int const TORD=-1 )
     const;
 
   //! @brief Scale coefficient map <a>coefmon</a> for the modified range <a>bnd</a> of variable id
@@ -1295,7 +1298,7 @@ private:
 
   //! @brief Convert Chebyshev basis into monomial basis for variable <a>ivar</a> in coefficient map <a>coefmon</a>
   void _to_monomial
-    ( KEY const& id, typename SCVar<T,KEY,COMP>::t_poly& coefmon )
+    ( KEY const& id, t_poly& coefmon )
     const;
 };
 
@@ -1420,7 +1423,7 @@ const
   auto it = bndmon.begin();
   if( !it->first.tord ){ it->second = 1; ++it; }
 #ifdef MC__SCMODEL_USE_PROD
-  std::vector<U> Umon; Umon.reserve( _setvar.size() );
+  std::vector<U> Umon( _setvar.size() );
   for( ; it!=bndmon.end(); ++it ){
     unsigned i=0;
     for( auto const& [ivar,iord] : it->first.second )
@@ -1509,8 +1512,8 @@ bool
 SCModel<T,KEY,COMP>::_minimax
 ( PUNIV const& f, SCVar<T,KEY,COMP> const& CV, SCVar<T,KEY,COMP>& CV2 )
 {
-  auto LIFT_REM_SAVE = options.LIFT_REM;
-  options.LIFT_REM = false;
+  auto LIFT_USE_SAVE = options.LIFT_USE;
+  options.LIFT_USE = false;
 
   try{
     double m( Op<SCVar<T,KEY,COMP>>::mid(CV) ), r( 0.5*Op<SCVar<T,KEY,COMP>>::diam(CV) );
@@ -1527,14 +1530,15 @@ SCModel<T,KEY,COMP>::_minimax
       CV2 = _horner( CVI, _maxord ) + TOne * rem;
       break;
     }
+    if( options.MIG_USE ) CV2.simplify( options.MIG_ATOL, options.MIG_RTOL );
   }
 
   catch(...){
-    options.LIFT_REM = LIFT_REM_SAVE;
+    options.LIFT_USE = LIFT_USE_SAVE;
     return false;
   }
 
-  options.LIFT_REM = LIFT_REM_SAVE;
+  options.LIFT_USE = LIFT_USE_SAVE;
   return true;
 }
 
@@ -1718,8 +1722,8 @@ bool
 SCModel<T,KEY,COMP>::_chebinterp
 ( PUNIV const& f, SCVar<T,KEY,COMP> const& CV, SCVar<T,KEY,COMP>& CV2, bool const rematbound )
 {
-  auto LIFT_REM_SAVE = options.LIFT_REM;
-  options.LIFT_REM = false;
+  auto LIFT_USE_SAVE = options.LIFT_USE;
+  options.LIFT_USE = false;
 
   try{
     double m( Op<SCVar<T,KEY,COMP>>::mid(CV) ), r( 0.5*Op<SCVar<T,KEY,COMP>>::diam(CV) ), rem( 0. );
@@ -1738,19 +1742,18 @@ SCModel<T,KEY,COMP>::_chebinterp
         rem += std::fabs( _coefuniv[i] );
     }
 
-    //SCVar<T,KEY,COMP> CVI( this );
-    //CVI = CV._rescale( r, m );
     CV2 = _clenshaw( CV._rescale( r, m ), _maxord );
     CV2 += TOne * rem;
-    CV2._ndxvar = CV._ndxvar;
+    //CV2._ndxvar = CV._ndxvar;
+    if( options.MIG_USE ) CV2.simplify( options.MIG_ATOL, options.MIG_RTOL );
   }
 
   catch(...){
-    options.LIFT_REM = LIFT_REM_SAVE;
+    options.LIFT_USE = LIFT_USE_SAVE;
     return false;
   }
 
-  options.LIFT_REM = LIFT_REM_SAVE;
+  options.LIFT_USE = LIFT_USE_SAVE;
   return true;
 }
 
@@ -1823,10 +1826,12 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>
 SCModel<T,KEY,COMP>::_intpow
-( SCVar<T,KEY,COMP> const& CV, int const n ) const
+( SCVar<T,KEY,COMP> const& CV, int const n )
+const
 {
   if( n == 0 ) return 1.;
   else if( n == 1 ) return CV;
+  else if( n == 2 ) return sqr( CV );
   return n%2 ? sqr( _intpow( CV, n/2 ) ) * CV : sqr( _intpow( CV, n/2 ) );
 }
 
@@ -1880,7 +1885,7 @@ const
       }
     }
     auto mon = mon0; // local copy for modification
-#ifdef MC__SPOLYEXPR_DEBUG_SPROD
+#ifdef MC__SCMODEL_DEBUG_SPROD
     std::cout << "mon: " << mon.display(options.BASIS) << "  (" << *itvar << "," << ndxord << ")" << std::endl;
 #endif
     mon.tord += ndxord;
@@ -2000,18 +2005,18 @@ const
         _sscal1D( coefmon1, coefmon2.begin()->second, it12->second );
         continue;
       }
-#ifdef MC__SPOLYEXPR_DEBUG_SPROD
+#ifdef MC__SCMODEL_DEBUG_SPROD
       std::cout << "Term (" << ndx1 << "," << ndx2 << "):\n";
 #endif
       std::map<unsigned,t_poly> sp11map, sp22map;
       for( auto& mon1 : coefmon1 )
         _svec1D( itvarnext, mon1, sp11map );
-#ifdef MC__SPOLYEXPR_DEBUG_SPROD
+#ifdef MC__SCMODEL_DEBUG_SPROD
       _sdisp1D( sp11map, itvarnext, "Poly #1: " );
 #endif
       for( auto& mon2 : coefmon2 )
         _svec1D( itvarnext, mon2, sp22map );
-#ifdef MC__SPOLYEXPR_DEBUG_SPROD
+#ifdef MC__SCMODEL_DEBUG_SPROD
       _sdisp1D( sp22map, itvarnext, "Poly #2: " );
 #endif
       auto [it12,ins] = sp12map.insert( std::make_pair( std::make_pair(ndx1,ndx2), t_poly() ) );
@@ -2056,7 +2061,7 @@ const
       }
     }
   }
-#ifdef MC__POLYMODEL_DEBUG_SPROD
+#ifdef MC__SCMODEL_DEBUG_SPROD
   _sdisp1D( coefmon, "Prod: " );
   std::endl;
 #endif
@@ -2118,6 +2123,7 @@ const
   auto it2 = coefmon.lower_bound( t_mon( 2, std::map<KEY,unsigned,COMP>() ) );
   auto it3 = coefmon.lower_bound( t_mon( 3, std::map<KEY,unsigned,COMP>() ) );
   std::map<t_mon,C,lt_mon> coeflin; coeflin.insert( it1, it2 );
+
   for( ; it2!=it3; ++it2 ){
     auto ie2 = it2->first.expr.begin();
     if( ie2->second == 1 ){ // off-diagonal quadratic terms
@@ -2127,6 +2133,7 @@ const
     t_mon explin( 1, std::map<KEY,unsigned,COMP>() );
     explin.expr.insert( std::make_pair( ie2->first, 1 ) ); 
     it1 = coeflin.find( explin );
+
     switch( options.BASIS ){
       case Options::CHEB:
         if( it1 != coeflin.end() && std::fabs(it2->second) > TOL ){
@@ -2143,6 +2150,7 @@ const
         else
           bndpol += it2->second * ( !bndbasis.empty()? bndbasis.at(ie2->first)[2]: TOne );
         break;
+	
       case Options::MONOM:
         if( it1 != coeflin.end() && std::fabs(it2->second) > TOL ){
           double const& ai  = it1->second;
@@ -2167,7 +2175,7 @@ const
     bndpol += it1->second * ( !bndbasis.empty()? bndbasis.at(ie1->first)[1]: TOne );
   }
 
-  // Thrid and higher-order terms
+  // Third and higher-order terms
   if( coefmon.rbegin()->first.tord > 2 )
     bndpol += _polybound_naive( coefmon, bndbasis, 3 );
 
@@ -2252,6 +2260,41 @@ const
     case Options::MONOM: default:
       return (mon.gcexp()%2? TOne: TZerOne);
   }
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
+double
+SCModel<T,KEY,COMP>::_monval
+( t_mon const& mon, std::map<KEY,double,COMP> const& x )
+const
+{
+#if 0
+  std::cout << std::right << " setvar =  {";
+  for( auto const& id : _setvar )
+    std::cout << std::right << " " << id;
+  std::cout << std::right << " }" << std::endl;
+  std::cout << mon.display( options.BASIS ) << std::endl;
+#endif
+
+  double monval = 1.;
+  for( auto const& [id,ord] : mon.expr ){
+#if 0
+    std::cout << "(id,ord): " << id << "," << ord << std::endl;
+#endif
+    if( _setaux.find( id ) != _setaux.end() ) return 0e0; // case an auxiliary is encoutered
+    switch( options.BASIS ){
+      case Options::CHEB:
+        monval *= isequal(_scalvar.at(id),0.)? _refvar.at(id): 
+                  mc::cheb((x.at(id)-_refvar.at(id))/_scalvar.at(id),ord);
+        break;
+      case Options::MONOM:
+        monval *= isequal(_scalvar.at(id),0.)? _refvar.at(id): 
+                  std::pow((x.at(id)-_refvar.at(id))/_scalvar.at(id),(int)ord);
+        break;
+    }
+  }
+  return monval;
 }
 
 ////////////////////////////////// SCVar ///////////////////////////////////////
@@ -2472,7 +2515,7 @@ SCVar<T,KEY,COMP>::_set
 template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>::SCVar
-( SCModel<T,KEY,COMP>*CM )
+( SCModel<T,KEY,COMP>* CM )
 : _CM( CM )
 {
   _init();
@@ -2483,11 +2526,11 @@ SCVar<T,KEY,COMP>::SCVar
 template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>::SCVar
-( double const& d, SCModel<T,KEY,COMP>*CM )
+( double const& d, SCModel<T,KEY,COMP>* CM )
 : _CM( CM )
 {
   _init();
-  if( isequal( d, 0. ) ) return;
+  if( d == 0. ) return;
   _coefmon.insert( std::make_pair( t_mon(), d ) );
   _bndrem = 0.;
   _set_bndpol( d );
@@ -2502,7 +2545,7 @@ SCVar<T,KEY,COMP>::operator=
 {
   _reinit();
   _CM = nullptr;
-  _coefmon.insert( std::make_pair( t_mon(), d ) );
+  if( d != 0. ) _coefmon.insert( std::make_pair( t_mon(), d ) );
   _bndrem = 0.;
   _set_bndpol( d );
   _set_bndT( d );
@@ -2512,7 +2555,7 @@ SCVar<T,KEY,COMP>::operator=
 template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>::SCVar
-( T const& B, SCModel<T,KEY,COMP>*CM )
+( T const& B, SCModel<T,KEY,COMP>* CM )
 : _CM( CM )
 {
   _init();
@@ -2564,7 +2607,7 @@ SCVar<T,KEY,COMP>::_set
   _ndxvar.clear();
   _ndxvar.insert( id );
   _coefmon.clear();
-  _coefmon.insert( std::make_pair( t_mon(),_refvar( id ) ) );
+  _coefmon.insert( std::make_pair( t_mon(), _refvar( id ) ) );
   if( _CM->_maxord && !isequal( _scalvar( id ), 0. ) ){
     _coefmon.insert( std::make_pair( t_mon( id ), _scalvar( id ) ) );
     _set_bndpol( _bndvar( id ) );
@@ -2574,6 +2617,7 @@ SCVar<T,KEY,COMP>::_set
     _set_bndpol( _refvar( id ) );
     _bndrem = _bndvar( id ) - _refvar( id );
   }
+  if( _CM->options.MIG_USE ) simplify( _CM->options.MIG_ATOL, _CM->options.MIG_RTOL );
 #if 0
   std::cout << "coefmon size: " << _coefmon.size() << std::endl;
 #endif
@@ -2581,110 +2625,21 @@ SCVar<T,KEY,COMP>::_set
   // Interval bounds
   if( _CM->options.MIXED_IA ) _set_bndT( _bndvar( id ) );
   else                        _unset_bndT();
-  if( _CM->options.MIN_FACTOR >= 0. ) simplify( _CM->options.MIN_FACTOR );
   return *this;
 }
-
-template <typename T, typename KEY, typename COMP>
-inline
-SCVar<T,KEY,COMP>&
-SCVar<T,KEY,COMP>::set
-( const SCVar<T,KEY,COMP>& CV, const bool reset )
-{
-  if( reset ){
-    _ndxvar.clear();
-    _coefmon.clear();
-  }
-  auto&& itord = CV._coefmon.upper_bound( t_mon( maxord()+1, std::map<KEY,unsigned,COMP>() ) );
-  for( auto&& it=CV._coefmon.begin(); it!=itord; ++it ){
-    for( auto&& [var,order] : it->first.expr ) _ndxvar.insert( var );
-    _coefmon.insert( *it );
-  }
-  _bndrem  = CV._bndrem + CV.bndord(maxord()+1);  // CV may have a higher order than *this
-  _unset_bndT();
-  _unset_bndpol();
-
-  return *this;
-}
-/*
-template <typename T, typename KEY, typename COMP>
-inline
-SCVar<T,KEY,COMP>&
-SCVar<T,KEY,COMP>::get
-( SCVar<T,KEY,COMP>& var, const bool reset )
-{
-  if( !_PM ){
-    var._ndxmon.clear();
-    if( var._PM && var._PM->sparse() ) var._ndxmon.insert(0);
-    var._coefmon[0] = _coefmon[0];
-    // Reset monomial coefficients to 0
-    if( reset ) _coefmon[0] = 0.;
-    return *this;
-  }
-  if( !var._PM || nvar() < var.nvar() || nord() < var.nord() ) // looks fishy...
-    return *this;
-
-  // Copy monomial coefficients from *this into var
-  unsigned*iexp = new unsigned[nvar()];
-  // Case: sparse representation
-  for( auto it=_ndxmon.begin(); it!=_ndxmon.end() && *it<_posord(nord()+1); ++it ){
-    for( unsigned ivar=0; ivar<nvar(); ivar++ )
-      iexp[ivar] = ( ivar<var.nvar()? var._expmon(*it)[ivar]: 0 );
-    //unsigned imon = _loc_expmon(iexp);
-    auto pmon = _ndxmon.insert( _loc_expmon(iexp) );
-    var._coefmon[*it] = _coefmon[*(pmon.first)];
-    // Reset monomial coefficients to 0
-    if( reset ) _coefmon[*(pmon.first)] = 0.;
-  }
-  // Case: dense representation
-  for( unsigned jmon=0; _ndxmon.empty() && jmon<var.nmon(); jmon++ ){
-    for( unsigned ivar=0; ivar<nvar(); ivar++ )
-      iexp[ivar] = ( ivar<var.nvar()? var._expmon(jmon)[ivar]: 0 );
-    var._coefmon[jmon] = _coefmon[_loc_expmon(iexp)];
-    // Reset monomial coefficients to 0
-    if( reset ) _coefmon[_loc_expmon(iexp)] = 0.;
-  }
-  delete[] iexp;
-  *var._bndrem = 0.;
-  var._unset_bndT();
-  var._unset_bndpol();
-  var._bndord_uptd = false;
-
-  if( reset ){
-    _unset_bndT();
-    _unset_bndpol();
-    _bndord_uptd = false;
-  }
-
-  return *this;
-}
-*/
 
 template <typename T, typename KEY, typename COMP>
 inline
 double
-SCVar<T,KEY,COMP>::polynomial
+SCVar<T,KEY,COMP>::P
 ( std::map<KEY,double,COMP> const& x )
 const
 {
-  // -> Is there a multivariate version of Clenshaw? Use recursively?
-
+  assert( _CM || _coefmon.size() <= 1 );
   double Pval = 0.;
   for( auto const& [mon,coef] : _coefmon ){
-    double val = coef;
-    for( auto const& [ivar,iord] : mon.expr ){
-      switch( _CM->options.BASIS ){
-        case SCModel<T,KEY,COMP>::Options::CHEB:
-          val *= isequal(_scalvar(ivar),0.)? _refvar(ivar): 
-                 mc::cheb((x.at(ivar)-_refvar(ivar))/_scalvar(ivar),iord);
-          break;
-        case SCModel<T,KEY,COMP>::Options::MONOM:
-          val *= isequal(_scalvar(ivar),0.)? _refvar(ivar): 
-                 std::pow((x.at(ivar)-_refvar(ivar))/_scalvar(ivar),(int)iord);
-          break;
-      }
-    }
-    Pval += val;
+    if( !mon.tord ) Pval += coef;
+    else            Pval += coef * _CM->_monval( mon, x );
   }
   return Pval;
 }
@@ -2740,7 +2695,7 @@ const
     coef._unset_bndpol();
     coef._unset_bndT();
   }
-#ifdef MC__POLYMODEL_DEBUG_SCALE
+#ifdef MC__SCMODEL_DEBUG_SCALE
   _CM->_sdisp1Dfull( veccoef, itvar, "Var #i: " );
 #endif
  
@@ -2752,7 +2707,7 @@ const
 
   // Compose with rescaled inner variable
   SCVar<T,KEY,COMP> cvvar( _CM ); cvvar._set( *itvar, bndvar, false );
-#ifdef MC__POLYMODEL_DEBUG_SCALE
+#ifdef MC__SCMODEL_DEBUG_SCALE
   std::cout << "cvvar[" << *itvar << "]:" << cvvar;
 #endif
   if( !isequal(_scalvar(*itvar),0.) ){
@@ -2760,11 +2715,11 @@ const
     cvvar *= Op<T>::diam(bndvar) / (2.*_scalvar(*itvar) );
     cvvar += Op<T>::mid(bndvar);
   }
-#ifdef MC__POLYMODEL_DEBUG_SCALE
+#ifdef MC__SCMODEL_DEBUG_SCALE
   std::cout << "cvvar[" << *itvar << "]:" << cvvar;
 #endif
   cvvar = cvvar._rescale( _scalvar(*itvar), _refvar(*itvar) );
-#ifdef MC__POLYMODEL_DEBUG_SCALE
+#ifdef MC__SCMODEL_DEBUG_SCALE
   std::cout << "cvvar[" << *itvar << "]:" << cvvar;
 #endif
   coefmon = _CM->_composition( veccoef, nord(), cvvar )._coefmon;
@@ -2794,7 +2749,7 @@ SCVar<T,KEY,COMP>::scale
   // Return *this if null pointer to model _CM or variable ranges X
   if( dom.empty() || !_CM ) return *this;
   for( auto const& id : _ndxvar ) scale( id, dom[id] );
-  if( _CM && _CM->options.MIN_FACTOR >= 0. ) simplify( _CM->options.MIN_FACTOR );
+  if( _CM && _CM->options.MIG_USE ) simplify( _CM->options.MIG_ATOL, _CM->options.MIG_RTOL );
   return *this;
 }
 
@@ -2809,7 +2764,7 @@ const
   if( !_CM ) return _coefmon;
   t_poly coefmon = _coefmon;
   for( auto const& id : _ndxvar ) _scale( id, T(-1,1), coefmon );
-  if( _CM && _CM->options.MIN_FACTOR >= 0. ) simplify( _CM->options.MIN_FACTOR );
+  if( _CM && _CM->options.MIG_USE ) simplify( _CM->options.MIG_ATOL, _CM->options.MIG_RTOL );
   return coefmon;
 }
 
@@ -2817,10 +2772,16 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::lift
-( SCModel<T,KEY,COMP>* SCM, double const& TOL )
+( SCModel<T,KEY,COMP>* SCM, double const& ATOL, double const& RTOL )
 {
   double const remrad = 0.5*Op<T>::diam(_bndrem);
-  if( !_CM->_maxord || remrad < TOL + machprec() ) return *this;
+//#ifdef MC__SCMODEL_DEBUG_LIFT
+  if( Op<T>::abs(_polybound()) < 1e-10 )
+    std::cout << "polybound magnitude is: " << _polybound() << std::endl;
+  std::cout << remrad << " < " << 0.5*RTOL*Op<T>::diam(_polybound()) + ATOL << " : "
+            << ( remrad < 0.5*RTOL*Op<T>::diam(_polybound()) + ATOL ) << std::endl;
+//#endif
+  if( !_CM->_maxord || ( remrad < 0.5*RTOL*Op<T>::diam(_polybound()) + ATOL + machprec() ) ) return *this;
   _center();
 
   // Add auxiliary variable
@@ -2838,27 +2799,78 @@ SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::project
 ( bool const reset )
 {
+  // Nothing to do
   if( _coefmon.empty() || !_CM || _CM->_setaux.empty() ) return *this;
+
+  // Detect auxiliary variables and eliminate
   for( auto it=_coefmon.begin(); it!=_coefmon.end(); ){
+    if( !_coefmon.begin()->first.tord ) continue;
+    auto& [mon,coef] = *it;
+    
     // Detect auxiliary variable in monomial
-    auto const& [mon,coef] = *it;
-    bool auxdep = false;
+    t_mon monaux;
     for( auto const& aux : _CM->_setaux ){
-      if( mon.expr.find( aux ) != mon.expr.end() ){
-        auxdep = true;
-        break;
-      }
+      auto itaux = mon.expr.find( aux );
+      if( itaux == mon.expr.end() ) continue;
+      monaux += smon( itaux->first, itaux->second );
     }
-    // Add to remainder any monomial with auxiliary variable
-    if( auxdep ){
-      _bndrem += coef * _CM->_monbound( mon );
-      _unset_bndpol();
-      it = _coefmon.erase( it );
-      continue;
+    if( monaux.empty() ){ ++it; continue; }
+
+    // Insert reduced monomial
+    t_mon const monred = mon - monaux;
+    T const monbound = _CM->_monbound( monaux );
+    double const monmid = Op<T>::mid(monbound);
+    _bndrem += coef * ( _CM->_monbound( mon ) - monmid );
+    if( monmid != 0. ){
+      double const coefred = coef * monmid;
+      auto [itmon, ins] = _coefmon.insert( std::make_pair( monred, coefred ) );
+      if( !ins ) itmon->second += coefred;
     }
-    ++it; // only increment if current monomial was not projected
+    it = _coefmon.erase( it );
   }
+
+  // Remove dependencies
+  for( auto const& aux : _CM->_setaux ) _ndxvar.erase( aux );
   if( reset ) _CM->reset_aux();
+
+  return *this;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
+SCVar<T,KEY,COMP>&
+SCVar<T,KEY,COMP>::project
+( KEY const& id )
+{
+  // Nothing to do
+  if( _coefmon.empty() || !_CM || _CM->_setaux.empty() ) return *this;
+
+  // Detect auxiliary variables and eliminate
+  for( auto it=_coefmon.begin(); it!=_coefmon.end(); ){
+    if( !_coefmon.begin()->first.tord ) continue;
+    auto const& [mon,coef] = *it;
+
+    // Detect auxiliary variable in monomial
+    auto itaux = mon.expr.find( id );
+    if( itaux == mon.expr.end() ){ ++it; continue; }
+    t_mon const monaux = smon( itaux->first, itaux->second );
+
+    // Insert reduced monomial
+    t_mon const monred = mon - monaux;
+    T const monbound = _CM->_monbound( monaux );
+    double const monmid = Op<T>::mid(monbound);
+    _bndrem += coef * ( _CM->_monbound( mon ) - monmid );
+    if( monmid != 0. ){
+      double const coefred = coef * monmid;
+      auto [itmon, ins] = _coefmon.insert( std::make_pair( monred, coefred ) );
+      if( !ins ) itmon->second += coefred;
+    }
+    it = _coefmon.erase( it );
+  }
+
+  // Remove dependencies
+  _ndxvar.erase( id );
+
   return *this;
 }
 
@@ -2866,7 +2878,7 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::simplify
-( double const& TOL, int const TORD )
+( double const& ATOL, double const& RTOL, int const TORD )
 {
   if( _coefmon.empty() ) return *this;
   for( auto it=_coefmon.begin(); it!=_coefmon.end(); ){
@@ -2877,8 +2889,8 @@ SCVar<T,KEY,COMP>::simplify
       continue;
     }
     // Eliminate any non-constant terms with small enough coefficient or large enough total order
-    if( ( TOL > 0e0 && mon.tord && std::fabs(coef) <= TOL )
-     || ( TORD >= 0 && (int)mon.tord > TORD ) ){
+    double const THRES = ( RTOL>0? 0.5*RTOL*Op<T>::diam(_polybound()): 0e0 ) + ATOL;
+    if( ( mon.tord && std::fabs(coef) <= THRES ) || ( TORD >= 0 && (int)mon.tord > TORD ) ){
       _bndrem += coef * _CM->_monbound( mon );
       _unset_bndpol();
       it = _coefmon.erase( it );
@@ -2891,10 +2903,35 @@ SCVar<T,KEY,COMP>::simplify
 
 template <typename T, typename KEY, typename COMP>
 inline
+SCVar<T,KEY,COMP>&
+SCVar<T,KEY,COMP>::_simplify
+( typename SCVar<T,KEY,COMP>::t_poly::iterator itmon,
+  double const& ATOL, double const& RTOL, int const TORD )
+{
+  auto const& [mon,coef] = *itmon;
+
+  // Eliminate any terms with zero coefficient
+  if( coef == 0e0 ){
+    _coefmon.erase( itmon );
+    return *this;
+  }
+  
+  // Eliminate any non-constant terms with small enough coefficient or large enough total order
+  double const THRES = ( RTOL>0? 0.5*RTOL*Op<T>::diam(_polybound()): 0e0 ) + ATOL;
+  if( ( mon.tord && std::fabs(coef) <= THRES ) || ( TORD >= 0 && (int)mon.tord > TORD ) ){
+    _bndrem += coef * _CM->_monbound( mon );
+    _unset_bndpol();
+    _coefmon.erase( itmon );
+  }
+  return *this;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
 T
 SCVar<T,KEY,COMP>::_simplify_monomial
 ( typename SCVar<T,KEY,COMP>::t_poly& coefmon, bool const scaled,
-  double const& TOL, int const TORD )
+  double const& ATOL, double const& RTOL, int const TORD )
 const
 {
   T bndrem( 0e0 );
@@ -2910,14 +2947,16 @@ const
     }
 
     // Eliminate any non-constant terms with small enough coefficient or large enough total order
-    //if( ( TOL > 0e0 && mon.tord && std::fabs(coef) <= TOL )
-    if( ( TOL > 0e0 && std::fabs(coef) <= TOL )
-     || ( TORD >= 0 && (int)mon.tord > TORD ) ){
+    double const THRES = ( RTOL>0? 0.5*RTOL*Op<T>::diam(_polybound()): 0e0 ) + ATOL;
+    if( ( mon.tord && THRES > 0e0 && std::fabs(coef) <= THRES ) || ( TORD >= 0 && (int)mon.tord > TORD ) ){
       // compute monomial bound
-      T bndmon( 1e0 );
-      for( auto const& [ivar,iord] : mon.expr )
-        bndmon *= Op<T>::pow( scaled? SCModel<T,KEY,COMP>::TOne: _bndvar(ivar), (int)iord );
-      bndrem += bndmon * coef;
+      if( scaled ) bndrem += coef * _CM->_monbound( mon );
+      else{
+        T bndmon( 1e0 );    
+        for( auto const& [var,ord] : mon.expr )
+          bndmon *= Op<T>::pow( _bndvar(var), (int)ord );
+        bndrem += bndmon * coef;
+      }
       it = coefmon.erase( it );
       continue;
     }
@@ -3021,13 +3060,12 @@ const
   // Convert to monomial form
   t_poly coefmon = _coefmon;
   if( !scaled ){
-    for( auto const& id : _ndxvar ){
+    for( auto const& id : _ndxvar )
       _scale( id, SCModel<T,KEY,COMP>::TOne, coefmon );
-    }
   }
   
-  for( unsigned i : _ndxvar ){
-    _to_monomial( i, coefmon );
+  for( auto const& id : _ndxvar ){
+    _to_monomial( id, coefmon );
     _simplify( coefmon );
   }
   
@@ -3038,11 +3076,11 @@ template <typename T, typename KEY, typename COMP>
 inline
 std::pair<typename SCVar<T,KEY,COMP>::t_poly,T>
 SCVar<T,KEY,COMP>::to_monomial
-( bool const scaled, double const& TOL, int const TORD )
+( bool const scaled, double const& ATOL, double const& RTOL, int const TORD )
 const
 {
   auto&& coefmon = to_monomial( scaled );
-  auto&& bndrem  = _simplify_monomial( coefmon, scaled, TOL, TORD );
+  auto&& bndrem  = _simplify_monomial( coefmon, scaled, ATOL, RTOL, TORD );
   return std::make_pair( coefmon, bndrem );
 }
 
@@ -3114,7 +3152,7 @@ SCVar<T,KEY,COMP>::operator+=
 ( SCVar<U,KEY,COMP> const& CV )
 {
   if( _CM && CV._CM && _CM != CV._CM )
-    throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::SCMODEL );
+    throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::MODEL );
   if( CV._CM && !_CM ) _CM = CV._CM;
 
   _ndxvar.insert( CV._ndxvar.begin(), CV._ndxvar.end() );
@@ -3123,12 +3161,12 @@ SCVar<T,KEY,COMP>::operator+=
     auto [itmon, ins] = _coefmon.insert( std::make_pair( mon, coef ) );
     if( !ins ) itmon->second += coef;
   }
+  if( _CM && _CM->options.MIG_USE ) simplify( _CM->options.MIG_ATOL, _CM->options.MIG_RTOL );
 
   _bndrem += CV._bndrem;
   _unset_bndpol();
   if( _bndT && CV._bndT ) *_bndT += *CV._bndT;
   else _unset_bndT();
-  if( _CM && _CM->options.MIN_FACTOR >= 0. ) simplify( _CM->options.MIN_FACTOR );
 
   return *this;
 }
@@ -3155,11 +3193,12 @@ SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::operator +=
 ( double const& c )
 {
-  if( isequal( c, 0. ) ) return *this;
-  if( _coefmon.empty() || _coefmon.begin()->first.tord ) 
-    _coefmon.insert( std::make_pair( t_mon(), c ) );
-  else
-    _coefmon.begin()->second += c;
+  if( c == 0. ) return *this;
+  auto [itcst, ins] = _coefmon.insert( std::make_pair( t_mon(), c ) );
+  if( !ins ){
+    itcst->second += c;
+    if( _CM && _CM->options.MIG_USE ) _simplify( itcst, _CM->options.MIG_ATOL, _CM->options.MIG_RTOL );
+  }
   if( _bndpol ) *_bndpol += c;
   if( _bndT )   *_bndT += c;
   return *this;
@@ -3192,11 +3231,12 @@ template <typename U>
 inline
 SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::operator+=
-( U const& I )
+( U const& B )
 {
-  _bndrem += I;
+  if( Op<T>::abs(B) == 0. ) return *this;
+  _bndrem += B;
   _center();
-  if( _bndT ) *_bndT += I;
+  if( _bndT ) *_bndT += B;
   return *this;
 }
 
@@ -3204,10 +3244,10 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>
 operator+
-( SCVar<T,KEY,COMP> const& CV1, T const& I )
+( SCVar<T,KEY,COMP> const& CV1, T const& B )
 {
   SCVar<T,KEY,COMP> CV3( CV1 );
-  CV3 += I;
+  CV3 += B;
   return CV3;
 }
 
@@ -3215,10 +3255,10 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>
 operator+
-( T const& I, SCVar<T,KEY,COMP> const& CV2 )
+( T const& B, SCVar<T,KEY,COMP> const& CV2 )
 {
   SCVar<T,KEY,COMP> CV3( CV2 );
-  CV3 += I;
+  CV3 += B;
   return CV3;
 }
 
@@ -3249,7 +3289,7 @@ SCVar<T,KEY,COMP>::operator-=
 ( SCVar<U,KEY,COMP> const& CV )
 {
   if( _CM && CV._CM && _CM != CV._CM )
-    throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::SCMODEL );
+    throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::MODEL );
   if( CV._CM && !_CM ) _CM = CV._CM;
 
   _ndxvar.insert( CV._ndxvar.begin(), CV._ndxvar.end() );
@@ -3263,7 +3303,7 @@ SCVar<T,KEY,COMP>::operator-=
   _unset_bndpol();
   if( _bndT && CV._bndT ) *_bndT -= *CV._bndT;
   else _unset_bndT();
-  if( _CM && _CM->options.MIN_FACTOR >= 0. ) simplify( _CM->options.MIN_FACTOR );
+  if( _CM && _CM->options.MIG_USE ) simplify( _CM->options.MIG_ATOL, _CM->options.MIG_RTOL );
 
   return *this;
 }
@@ -3291,13 +3331,11 @@ SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::operator-=
 ( double const& c )
 {
-  if( isequal( c, 0. ) ) return *this;
-  if( _coefmon.empty() || _coefmon.begin()->first.tord ) 
-    _coefmon.insert( std::make_pair( t_mon(), -c ) );
-  else{
-    _coefmon.begin()->second -= c;
-    if( isequal( _coefmon.begin()->second, 0 ) )
-      _coefmon.erase( _coefmon.begin() );
+  if( c == 0. ) return *this;
+  auto [itcst, ins] = _coefmon.insert( std::make_pair( t_mon(), -c ) );
+  if( !ins ){
+    itcst->second -= c;
+    if( _CM && _CM->options.MIG_USE ) _simplify( itcst, _CM->options.MIG_ATOL, _CM->options.MIG_RTOL );
   }
   if( _bndpol ) *_bndpol -= c;
   if( _bndT )   *_bndT -= c;
@@ -3333,19 +3371,20 @@ SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::operator-=
 ( U const& I )
 {
-  *_bndrem -= I;
+  if( Op<T>::abs(B) == 0. ) return *this;
+  *_bndrem -= B;
   _center();
-  if( _bndT ) *_bndT -= I;
+  if( _bndT ) *_bndT -= B;
   return *this;
 }
 
 template <typename T, typename KEY, typename COMP>
 inline SCVar<T,KEY,COMP>
 operator-
-( SCVar<T,KEY,COMP> const& CV1, T const& I )
+( SCVar<T,KEY,COMP> const& CV1, T const& B )
 {
   SCVar<T,KEY,COMP> CV3( CV1 );
-  CV3 -= I;
+  CV3 -= B;
   return CV3;
 }
 
@@ -3353,10 +3392,10 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>
 operator-
-( T const& I, SCVar<T,KEY,COMP> const& CV2 )
+( T const& B, SCVar<T,KEY,COMP> const& CV2 )
 {
   SCVar<T,KEY,COMP> CV3( -CV2 );
-  CV3 += I;
+  CV3 += B;
   return CV3;
 }
 
@@ -3372,7 +3411,7 @@ SCVar<T,KEY,COMP>::operator*=
   }
    
   if( _CM && CV._CM && _CM != CV._CM )
-    throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::SCMODEL );
+    throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::MODEL );
   if( CV._CM && !_CM ) _CM = CV._CM;
 
   // Remainder propagation
@@ -3413,8 +3452,8 @@ SCVar<T,KEY,COMP>::operator*=
   _unset_bndpol();
   if( _bndT && CV._bndT ) *_bndT *= *CV._bndT;
   else _unset_bndT();
-  if( _CM && _CM->options.MIN_FACTOR >= 0. ) simplify( _CM->options.MIN_FACTOR );
-  if( _CM->options.LIFT_REM ) lift( _CM, _CM->options.MIN_FACTOR );
+  if( _CM && _CM->options.MIG_USE ) simplify( _CM->options.MIG_ATOL, _CM->options.MIG_RTOL );
+  if( _CM->options.LIFT_USE ) lift( _CM, _CM->options.LIFT_ATOL, _CM->options.LIFT_RTOL );
 
 #ifdef MC__SCMODEL_DEBUG_SPROD
   std::cout << "Product model:" << *this;
@@ -3446,8 +3485,8 @@ SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::operator*=
 ( double const& c )
 {
-  if( isequal( c, 0. ) ){ *this = 0.; return *this; }
-  if( isequal( c, 1. ) ) return *this;
+  if( c == 0. ){ *this = 0.; return *this; }
+  if( c == 1. ) return *this;
   for( auto& [mon,coef] : _coefmon ) coef *= c;
   _bndrem *= c;
   if( _bndpol ) *_bndpol *= c;
@@ -3483,6 +3522,7 @@ SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::operator*=
 ( T const& B )
 {
+  if( Op<T>::abs(B) == 0. ){ *this  = 0.; return *this; }
   double const Bmid = Op<T>::mid(B);
   T const bndmod = bound();
   for( auto& [mon,coef] : _coefmon ) coef *= Bmid;
@@ -3497,10 +3537,10 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>
 operator*
-( SCVar<T,KEY,COMP> const& CV1, T const& I )
+( SCVar<T,KEY,COMP> const& CV1, T const& B )
 {
   SCVar<T,KEY,COMP> CV3( CV1 );
-  CV3 *= I;
+  CV3 *= B;
   return CV3;
 }
 
@@ -3508,10 +3548,10 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>
 operator*
-( T const& I, SCVar<T,KEY,COMP> const& CV2 )
+( T const& B, SCVar<T,KEY,COMP> const& CV2 )
 {
   SCVar<T,KEY,COMP> CV3( CV2 );
-  CV3 *= I;
+  CV3 *= B;
   return CV3;
 }
 
@@ -3549,8 +3589,10 @@ sqr
   CVSQR += 2. * CV._polybound() * CV._bndrem + Op<T>::sqr( CV._bndrem );
 
   // Bound propagation
-  if( CVSQR._CM->options.MIXED_IA ) CVSQR._set_bndT( Op<T>::sqr(CV.bound()) );
-  if( CVSQR._CM->options.MIN_FACTOR >= 0. ) CVSQR.simplify( CVSQR._CM->options.MIN_FACTOR );
+  if( CV._CM->options.MIXED_IA ) CVSQR._set_bndT( Op<T>::sqr(CV.bound()) );
+  if( CV._CM->options.MIG_USE ) CVSQR.simplify( CVSQR._CM->options.MIG_ATOL, CVSQR._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CVSQR.lift( CVSQR._CM, CVSQR._CM->options.LIFT_ATOL, CVSQR._CM->options.LIFT_RTOL );
+
   return CVSQR;
 }
 
@@ -3581,7 +3623,7 @@ SCVar<T,KEY,COMP>::operator/=
 {
   if( isequal( c, 0. ) )
     throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::DIV );
-  if( isequal( c, 1. ) ) return *this;
+  if( c == 1. ) return *this;
   *this *= (1./c);
   return *this;
 }
@@ -3594,7 +3636,7 @@ operator/
 {
   if ( isequal( c, 0. ))
     throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::DIV );
-  if( isequal( c, 1. ) ) return CV;
+  if( c == 1. ) return CV;
   return CV * (1./c);
 }
 
@@ -3604,8 +3646,8 @@ SCVar<T,KEY,COMP>
 operator/
 ( double const& c, SCVar<T,KEY,COMP> const& CV )
 {
-  if( isequal( c, 0. ) ) return 0.;
-  if( isequal( c, 1. ) ) return inv(CV);
+  if( c == 0. ) return 0.;
+  if( c == 1. ) return inv(CV);
   return inv(CV) * c;
 }
 
@@ -3629,8 +3671,8 @@ inv
     throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::inv( CV.B() ) );
-  if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
-  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
@@ -3654,8 +3696,8 @@ sqrt
     throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sqrt( CV.B() ) );
-  if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
-  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
@@ -3676,10 +3718,9 @@ exp
      && !CV._CM->_chebinterp( f, CV, CV2, true ) ) // with remainder at bound
     throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
-
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::exp( CV.B() ) );
-  if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
-  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
@@ -3703,8 +3744,8 @@ log
     throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::log( CV.B() ) );
-  if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
-  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
@@ -3732,8 +3773,8 @@ xlog
     throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::xlog( CV.B() ) );
-  if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
-  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
@@ -3745,13 +3786,16 @@ pow
 {
   if( !CV._CM )
     return SCVar<T,KEY,COMP>( Op<T>::pow( CV.B(), n ) );
-
   if( n < 0 ) return pow( inv( CV ), -n );
-  SCVar<T,KEY,COMP> CV2( CV._CM->_intpow( CV, n ) );
   
+  auto LIFT_USE_SAVE = CV._CM->options.LIFT_USE;
+  CV._CM->options.LIFT_USE = false;
+  SCVar<T,KEY,COMP> CV2( CV._CM->_intpow( CV, n ) );
+  CV._CM->options.LIFT_USE = LIFT_USE_SAVE;
+
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::pow( CV.B(), n ) );
-  if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
-  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
@@ -3779,8 +3823,8 @@ pow
     throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::pow( CV.B(), a ) );
-  if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
-  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
@@ -3842,8 +3886,8 @@ cheb
   SCVar<T,KEY,COMP> CV2( 2.*(CV*cheb(CV,n-1))-cheb(CV,n-2) );
   
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::cheb( CV.B(), n ) );
-  if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
-  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
@@ -3864,10 +3908,9 @@ cos
      && !CV._CM->_chebinterp( f, CV, CV2, false ) ) // remainder not at bound
     throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
-  CV2._ndxvar = CV._ndxvar;
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::cos( CV.B() ) );
-  if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
-  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
@@ -3892,10 +3935,9 @@ sin
      && !CV._CM->_chebinterp( f, CV, CV2, false ) ) // remainder not at bound
     throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
-  CV2._ndxvar = CV._ndxvar;
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sin( CV.B() ) );
-  if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
-  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
@@ -3923,8 +3965,8 @@ tan
     throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::tan( CV.B() ) );
-  if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
-  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
@@ -3948,8 +3990,8 @@ acos
     throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::acos( CV.B() ) );
-  if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
-  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
@@ -3977,8 +4019,8 @@ asin
     throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::asin( CV.B() ) );
-  if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
-  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
@@ -4004,8 +4046,8 @@ atan
     throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::atan( CV.B() ) );
-  if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
-  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
@@ -4031,8 +4073,8 @@ cosh
     throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::cosh( CV.B() ) );
-  if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
-  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
@@ -4058,8 +4100,8 @@ sinh
     throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::sinh( CV.B() ) );
-  if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
-  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
@@ -4085,8 +4127,58 @@ tanh
     throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::tanh( CV.B() ) );
-  if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
-  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
+  return CV2;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
+SCVar<T,KEY,COMP>
+erf
+( const SCVar<T,KEY,COMP> &CV )
+{
+  if( !CV._CM )
+    return SCVar<T,KEY,COMP>( Op<T>::erf( CV.B() ) );
+
+  SCVar<T,KEY,COMP> CV2( CV._CM );
+  auto const& f = [=]( const double& x ){ return std::erf( x ); };
+  if( ( !CV._CM->options.REMEZ_USE
+     || CV._CM->options.REMEZ_MIG > Op<T>::diam(CV.B())
+     || !CV._CM->_minimax( f, CV, CV2 ) )
+     && !CV._CM->_chebinterp( f, CV, CV2, false ) ) // remainder not at bound
+    throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::COMPOSE );
+
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::erf( CV.B() ) );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
+  return CV2;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
+SCVar<T,KEY,COMP>
+erfc
+( const SCVar<T,KEY,COMP> &CV )
+{
+#if 0
+  return( 1 - mc::erf(CV) );
+#endif
+
+  if( !CV._CM )
+    return SCVar<T,KEY,COMP>( Op<T>::erfc( CV.B() ) );
+
+  SCVar<T,KEY,COMP> CV2( CV._CM );
+  auto const& f = [=]( const double& x ){ return std::erf( x ); };
+  if( ( !CV._CM->options.REMEZ_USE
+     || CV._CM->options.REMEZ_MIG > Op<T>::diam(CV.B())
+     || !CV._CM->_minimax( f, CV, CV2 ) )
+     && !CV._CM->_chebinterp( f, CV, CV2, false ) ) // remainder not at bound
+    throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::COMPOSE );
+
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::erfc( CV.B() ) );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
@@ -4118,8 +4210,8 @@ fabs
     throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::COMPOSE );
 
   if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::fabs( CV.B() ) );
-  if( CV._CM->options.MIN_FACTOR >= 0. ) CV2.simplify( CV._CM->options.MIN_FACTOR );
-  if( CV._CM->options.LIFT_REM ) CV2.lift( CV._CM, CV._CM->options.MIN_FACTOR );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
 }
 
@@ -4148,7 +4240,7 @@ hull
 
   // SCModel for first and second operands are inconsistent
   else if( CV1._CM != CV2._CM )
-    throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::SCMODEL );
+    throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::MODEL );
 
   // Perform union
   SCVar<T,KEY,COMP> CV1C( CV1 ), CV2C( CV2 ), CVR( CV1._CM );;
@@ -4160,8 +4252,8 @@ hull
   CVR = (1.-eta)*CV1C + eta*CV2C + Op<T>::hull( R1C+eta*BCVD, R2C+(eta-1.)*BCVD );
 
   if( CV1._CM->options.MIXED_IA ) CVR._set_bndT( Op<T>::hull( CV1.B(), CV2.B() ) );
-  if( CV1._CM->options.MIN_FACTOR >= 0. ) CV1.simplify( CV1._CM->options.MIN_FACTOR );
-  if( CV1._CM->options.LIFT_REM ) CVR.lift( CV1._CM, CV1._CM->options.MIN_FACTOR );
+  if( CV1._CM->options.MIG_USE )  CV1.simplify(CV1. _CM->options.MIG_ATOL, CV1._CM->options.MIG_RTOL );
+  if( CV1._CM->options.LIFT_USE ) CVR.lift( CV1._CM, CV1._CM->options.LIFT_ATOL, CV1._CM->options.LIFT_RTOL );
   return CVR;
 }
 
@@ -4206,7 +4298,7 @@ inter
 
   // SCModel for first and second operands are inconsistent
   else if( CV1._CM != CV2._CM )
-    throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::SCMODEL );
+    throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::MODEL );
 
   // First intersect in T arithmetic
   T BR;
@@ -4228,66 +4320,10 @@ inter
 
   if( CV1._CM->options.MIXED_IA ) CVR._set_bndT( BR );
   else                            CVR._unset_bndT();
-  if( CV1._CM->options.MIN_FACTOR >= 0. ) CVR.simplify( CV1._CM->options.MIN_FACTOR );
-  if( CV1._CM->options.LIFT_REM ) CVR.lift( CV1._CM, CV1._CM->options.MIN_FACTOR );
+  if( CV1._CM->options.MIG_USE )  CVR.simplify(CV1. _CM->options.MIG_ATOL, CV1._CM->options.MIG_RTOL );
+  if( CV1._CM->options.LIFT_USE ) CVR.lift( CV1._CM, CV1._CM->options.LIFT_ATOL, CV1._CM->options.LIFT_RTOL );
   return true;
 }
-
-} // namespace mc
-
-#include "mcfadbad.hpp"
-
-namespace fadbad
-{
-
-//! @brief Specialization of the structure fadbad::Op for use of the type mc::SCVar of MC++ as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
-template <typename T, typename KEY, typename COMP>
-struct Op< mc::SCVar<T,KEY,COMP> >
-{ 
-  typedef mc::SCVar<T,KEY,COMP> CV;
-  typedef double Base;
-  static Base myInteger( const int i ) { return Base(i); }
-  static Base myZero() { return myInteger(0); }
-  static Base myOne() { return myInteger(1);}
-  static Base myTwo() { return myInteger(2); }
-  static double myPI() { return mc::PI; }
-  static CV myPos( const CV& x ) { return  x; }
-  static CV myNeg( const CV& x ) { return -x; }
-  template <typename U> static CV& myCadd( CV& x, U const&  y ) { return x+=y; }
-  template <typename U> static CV& myCsub( CV& x, U const&  y ) { return x-=y; }
-  template <typename U> static CV& myCmul( CV& x, U const&  y ) { return x*=y; }
-  template <typename U> static CV& myCdiv( CV& x, U const&  y ) { return x/=y; }
-  static CV myInv( const CV& x ) { return mc::inv( x ); }
-  static CV mySqr( const CV& x ) { return mc::pow( x, 2 ); }
-  template <typename X, typename Y> static CV myPow( const X& x, const Y& y ) { return mc::pow( x, y ); }
-  //static CV myCheb( const CV& x, const unsigned n ) { return mc::cheb( x, n ); }
-  static CV mySqrt( const CV& x ) { return mc::sqrt( x ); }
-  static CV myLog( const CV& x ) { return mc::log( x ); }
-  static CV myExp( const CV& x ) { return mc::exp( x ); }
-  static CV mySin( const CV& x ) { return mc::sin( x ); }
-  static CV myCos( const CV& x ) { return mc::cos( x ); }
-  static CV myTan( const CV& x ) { return mc::tan( x ); }
-  static CV myAsin( const CV& x ) { return mc::asin( x ); }
-  static CV myAcos( const CV& x ) { return mc::acos( x ); }
-  static CV myAtan( const CV& x ) { return mc::atan( x ); }
-  static CV mySinh( const CV& x ) { return mc::sinh( x ); }
-  static CV myCosh( const CV& x ) { return mc::cosh( x ); }
-  static CV myTanh( const CV& x ) { return mc::tanh( x ); }
-  static bool myEq( const CV& x, const CV& y ) { return mc::Op<T>::eq(const_cast<CV*>(&x)->bound(),const_cast<CV*>(&y)->bound()); } 
-  static bool myNe( const CV& x, const CV& y ) { return mc::Op<T>::ne(const_cast<CV*>(&x)->bound(),const_cast<CV*>(&y)->bound()); }
-  static bool myLt( const CV& x, const CV& y ) { return mc::Op<T>::lt(const_cast<CV*>(&x)->bound(),const_cast<CV*>(&y)->bound()); }
-  static bool myLe( const CV& x, const CV& y ) { return mc::Op<T>::le(const_cast<CV*>(&x)->bound(),const_cast<CV*>(&y)->bound()); }
-  static bool myGt( const CV& x, const CV& y ) { return mc::Op<T>::gt(const_cast<CV*>(&x)->bound(),const_cast<CV*>(&y)->bound()); }
-  static bool myGe( const CV& x, const CV& y ) { return mc::Op<T>::ge(const_cast<CV*>(&x)->bound(),const_cast<CV*>(&y)->bound()); }
-};
-
-} // end namespace fadbad
-
-
-//#include "mcop.hpp"
-
-namespace mc
-{
 
 //! @brief C++ structure for specialization of the mc::Op templated structure for use of mc::SCVar in DAG evaluation and as template parameter in other MC++ types
 template <typename T, typename KEY, typename COMP>
@@ -4320,8 +4356,8 @@ struct Op< mc::SCVar<T,KEY,COMP> >
   static CV sinh(const CV& x) { return mc::sinh(x); }
   static CV cosh(const CV& x) { return mc::cosh(x); }
   static CV tanh(const CV& x) { return mc::tanh(x); }
-  static CV erf (const CV& x) { throw typename mc::SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::UNDEF ); }
-  static CV erfc(const CV& x) { throw typename mc::SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::UNDEF ); }
+  static CV erf (const CV& x) { return mc::erf(x);  }
+  static CV erfc(const CV& x) { return mc::erfc(x); }
   static CV fstep(const CV& x) { return CV( mc::Op<T>::fstep(x.B()) ); }
   static CV bstep(const CV& x) { return CV( mc::Op<T>::bstep(x.B()) ); }
   static CV hull(const CV& x, const CV& y) { return mc::hull(x,y); }
@@ -4342,6 +4378,54 @@ struct Op< mc::SCVar<T,KEY,COMP> >
 };
 
 } // namespace mc
+
+#include "mcfadbad.hpp"
+
+namespace fadbad
+{
+
+//! @brief Specialization of the structure fadbad::Op for use of the type mc::SCVar of MC++ as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
+template <typename T, typename KEY, typename COMP>
+struct Op< mc::SCVar<T,KEY,COMP> >
+{ 
+  typedef mc::SCVar<T,KEY,COMP> CV;
+  typedef double Base;
+  static Base myInteger( const int i ) { return Base(i); }
+  static Base myZero() { return myInteger(0); }
+  static Base myOne() { return myInteger(1);}
+  static Base myTwo() { return myInteger(2); }
+  static double myPI() { return mc::PI; }
+  static CV myPos( const CV& x ) { return  x; }
+  static CV myNeg( const CV& x ) { return -x; }
+  template <typename U> static CV& myCadd( CV& x, U const&  y ) { return x+=y; }
+  template <typename U> static CV& myCsub( CV& x, U const&  y ) { return x-=y; }
+  template <typename U> static CV& myCmul( CV& x, U const&  y ) { return x*=y; }
+  template <typename U> static CV& myCdiv( CV& x, U const&  y ) { return x/=y; }
+  static CV myInv( const CV& x ) { return mc::inv( x ); }
+  static CV mySqr( const CV& x ) { return mc::sqr( x ); }
+  template <typename X, typename Y> static CV myPow( const X& x, const Y& y ) { return mc::pow( x, y ); }
+  //static CV myCheb( const CV& x, const unsigned n ) { return mc::cheb( x, n ); }
+  static CV mySqrt( const CV& x ) { return mc::sqrt( x ); }
+  static CV myLog( const CV& x ) { return mc::log( x ); }
+  static CV myExp( const CV& x ) { return mc::exp( x ); }
+  static CV mySin( const CV& x ) { return mc::sin( x ); }
+  static CV myCos( const CV& x ) { return mc::cos( x ); }
+  static CV myTan( const CV& x ) { return mc::tan( x ); }
+  static CV myAsin( const CV& x ) { return mc::asin( x ); }
+  static CV myAcos( const CV& x ) { return mc::acos( x ); }
+  static CV myAtan( const CV& x ) { return mc::atan( x ); }
+  static CV mySinh( const CV& x ) { return mc::sinh( x ); }
+  static CV myCosh( const CV& x ) { return mc::cosh( x ); }
+  static CV myTanh( const CV& x ) { return mc::tanh( x ); }
+  static bool myEq( const CV& x, const CV& y ) { return mc::Op<T>::eq(const_cast<CV*>(&x)->bound(),const_cast<CV*>(&y)->bound()); } 
+  static bool myNe( const CV& x, const CV& y ) { return mc::Op<T>::ne(const_cast<CV*>(&x)->bound(),const_cast<CV*>(&y)->bound()); }
+  static bool myLt( const CV& x, const CV& y ) { return mc::Op<T>::lt(const_cast<CV*>(&x)->bound(),const_cast<CV*>(&y)->bound()); }
+  static bool myLe( const CV& x, const CV& y ) { return mc::Op<T>::le(const_cast<CV*>(&x)->bound(),const_cast<CV*>(&y)->bound()); }
+  static bool myGt( const CV& x, const CV& y ) { return mc::Op<T>::gt(const_cast<CV*>(&x)->bound(),const_cast<CV*>(&y)->bound()); }
+  static bool myGe( const CV& x, const CV& y ) { return mc::Op<T>::ge(const_cast<CV*>(&x)->bound(),const_cast<CV*>(&y)->bound()); }
+};
+
+} // end namespace fadbad
 
 #endif
 

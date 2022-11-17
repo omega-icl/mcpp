@@ -1,4 +1,4 @@
-#define TEST_DOXYGEN  // <-- select test example
+#define TEST_TUNCPHD30 // <-- select test example
 #undef  USE_CHEB       // <-- whether to perform the decomposition in Chebyshev basis
 #undef  USE_DAG        // <-- whether to define a DAG of the expressions
 #define USE_OPTIM      // <-- whether to optimize the quadratic form
@@ -32,7 +32,7 @@ int main()
 #endif
 #if defined( TEST_DOXYGEN )
     //unsigned const NX = 1, NP = 1;
-    unsigned const NX = 3, NP = 2;
+    unsigned const NX = 3, NP = 1;
     t_SPoly X[NX], P[NP];
 #if defined( USE_DAG )
     FFGraph DAG;
@@ -43,7 +43,7 @@ int main()
 #endif
     //P[0] = pow( X[0], 4 ) + pow( X[0], 6 );
     P[0] = pow( X[0] + sqr( X[1] ) - 2 * X[2], 3 );
-    P[1] = 2 * sqr( X[1] ) - 1;
+    //P[1] = 2 * sqr( X[1] ) - 1;
 
 #elif defined( TEST_MLIN )
     unsigned const NX = 4, NP = 1;
@@ -128,7 +128,7 @@ int main()
 
 
 #elif defined( TEST_TUNCPHD33 )
-    unsigned const NX = 4, NP = 1;
+    unsigned const NX = 3, NP = 1;
     //unsigned const NX = 8, NP = 1;
     t_SPoly X[NX], P[NP];
 #if defined( USE_DAG )
@@ -193,13 +193,16 @@ int main()
     double viol = 0.;
 
     t_SQuad SQF;
-    //t_SQuad::options.ORDER = t_SQuad::Options::INC;
-    t_SQuad::options.REDUC = true;
+    t_SQuad::options.ORDER = t_SQuad::Options::DEC;
+    //t_SQuad::options.REDUC = true;
     t_SQuad::options.MIPOUTPUTFILE = "quad.lp";
-    t_SQuad::options.MIPTIMELIMIT  = 1800;
+    //t_SQuad::options.MIPNUMFOCUS = 3;
+    t_SQuad::options.LPFEASTOL = 1e-7;
+    t_SQuad::options.MIPSYMCUTS = 2;
+    //t_SQuad::options.MIPTIMELIMIT  = 1800;
     //t_SQuad::options.MIPCONCURRENT = 4;
     //t_SQuad::options.MIPFOCUS = 0;
-    //t_SQuad::options.MIPHEURISTICS = 0.5;
+    //t_SQuad::options.MIPHEURISTICS = 0.2;
 #if defined( USE_CHEB )
     t_SQuad::options.BASIS = t_SQuad::Options::CHEB;
     viol = SQF.process( NP, P, &t_SPoly::mapmon, t_SQuad::Options::CHEB, true );
