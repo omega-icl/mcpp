@@ -3452,7 +3452,7 @@ SCVar<T,KEY,COMP>::operator*=
   _unset_bndpol();
   if( _bndT && CV._bndT ) *_bndT *= *CV._bndT;
   else _unset_bndT();
-  if( _CM && _CM->options.MIG_USE ) simplify( _CM->options.MIG_ATOL, _CM->options.MIG_RTOL );
+  if( _CM->options.MIG_USE ) simplify( _CM->options.MIG_ATOL, _CM->options.MIG_RTOL );
   if( _CM->options.LIFT_USE ) lift( _CM, _CM->options.LIFT_ATOL, _CM->options.LIFT_RTOL );
 
 #ifdef MC__SCMODEL_DEBUG_SPROD

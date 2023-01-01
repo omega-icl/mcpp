@@ -117,14 +117,14 @@ The available options are the following:
          <TD>Extra terms in Chebyshev interpolation of univariates: 0-Chebyshev interpolation of order NORD; extra terms allow approximation of Chebyshev truncated series.
      <TR><TH><tt>INTERP_THRES</tt> <TD><tt>double</tt> <TD>1e2*machprec()
          <TD>Threshold for coefficient values in Chebyshev expansion for bounding of transcendental univariates.
-     <TR><TH><tt>BOUNDER_TYPE</tt> <TD><tt>mc::SICModel::Options::BOUNDER</tt> <TD>mc::SICModel::Options::LSB
+     <TR><TH><tt>BOUNDER_TYPE</tt> <TD><tt>mc::SCModel::Options::BOUNDER</tt> <TD>mc::SCModel::Options::LSB
          <TD>Chebyshev model range bounder.
      <TR><TH><tt>MIXED_IA</tt> <TD><tt>bool</tt> <TD>false
          <TD>Whether to intersect internal bounds with underlying bounds in the templated arithmetics.
      <TR><TH><tt>MIN_FACTOR</tt> <TD><tt>double</tt> <TD>0e0
          <TD>Threshold for monomial coefficients below which the term is removed and appended to the remainder term.
      <TR><TH><tt>REF_POLY</tt> <TD><tt>double</tt> <TD>0.
-         <TD>Scalar in \f$[0,1]\f$ related to the choice of the polynomial part in the overloaded functions mc::inter and mc::hull (see \ref sec_CHEBYSHEV_SPARSEINT_fct). A value of 0. amounts to selecting the polynomial part of the left operand, whereas a value of 1. selects the right operand.
+         <TD>Scalar in \f$[0,1]\f$ related to the choice of the polynomial part in the overloaded functions mc::inter and mc::hull (see \ref sec_CHEBYSHEV_SPARSE_fct). A value of 0. amounts to selecting the polynomial part of the left operand, whereas a value of 1. selects the right operand.
      <TR><TH><tt>DISPLAY_DIGITS</tt> <TD><tt>unsigned int</tt> <TD>5
          <TD>Number of digits in output stream for Chebyshev model coefficients.
 </TABLE>
@@ -1556,7 +1556,7 @@ SICModel<T,KEY,COMP>::_minimax
       CV2 = _horner( CVI, _maxord ) + TOne * rem;
       break;
     }
-    if( options.MIN_FACTOR >= 0. ) CV2.simplify( options.MIN_FACTOR );
+    if( options.MIG_USE ) CV2.simplify( options.MIG_ATOL, options.MIG_RTOL );
   }
   catch(...){
     options.LIFT_USE = LIFT_USE_SAVE;
@@ -1773,8 +1773,8 @@ SICModel<T,KEY,COMP>::_chebinterp
 
     CV2 = _clenshaw( CV._rescale( r, m ), _maxord );
     CV2 += TOne * rem;
-    CV2._ndxvar = CV._ndxvar;
-    if( options.MIN_FACTOR >= 0. ) CV2.simplify( options.MIN_FACTOR );
+    //CV2._ndxvar = CV._ndxvar;
+    if( options.MIG_USE ) CV2.simplify( options.MIG_ATOL, options.MIG_RTOL );
   }
 
   catch(...){
@@ -2316,7 +2316,7 @@ const
   auto it = coefmon.lower_bound( t_mon( minord, std::map<KEY,unsigned,COMP>() ) );
 
   // Polynomial bounding in T arithmetic
-  if( !bndbasis ){
+  if( bndbasis.empty() ){
     switch( options.BASIS ){
       case Options::CHEB:
       {
@@ -2393,12 +2393,12 @@ const
   for( auto& [id,ord] : mon.expr ){
     switch( options.BASIS ){
       case Options::CHEB:
-        monval *= isequal(_scalvar[id],0.)? _refvar[id]: 
-                  mc::cheb((x.at(id)-_refvar[id])/_scalvar[id],ord);
+        monval *= isequal(_scalvar.at(id),0.)? _refvar.at(id): 
+                  mc::cheb((x.at(id)-_refvar.at(id))/_scalvar.at(id),ord);
         break;
       case Options::MONOM:
-        monval *= isequal(_scalvar[id],0.)? _refvar[id]: 
-                  std::pow((x.at(id)-_refvar[id])/_scalvar[id],(int)ord);
+        monval *= isequal(_scalvar.at(id),0.)? _refvar.at(id): 
+                  std::pow((x.at(id)-_refvar.at(id))/_scalvar.at(id),(int)ord);
         break;
     }
   }
@@ -2700,7 +2700,7 @@ SICVar<T,KEY,COMP>::_set
     _set_bndpol( _refvar(id) );
     itmon->second += _bndvar(id) - _refvar(id);
   }
-  if( _CM->options.MIN_FACTOR >= 0. ) simplify( _CM->options.MIN_FACTOR );
+  if( _CM->options.MIG_USE ) simplify( _CM->options.MIG_ATOL, _CM->options.MIG_RTOL );
 #if 0
   std::cout << "coefmon size: " << _coefmon.size() << std::endl;
 #endif
@@ -2718,8 +2718,12 @@ SICVar<T,KEY,COMP>::IP
 ( std::map<KEY,double,COMP> const& x )
 const
 {
+  assert( _CM || _coefmon.size() <= 1 );
   T Pval = 0.;
-  for( auto const& [mon,coef] : _coefmon ) Pval += coef * _monval( mon, x );
+  for( auto const& [mon,coef] : _coefmon ){
+    if( !mon.tord ) Pval += coef;
+    else            Pval += coef * _CM->_monval( mon, x );
+  }
   return Pval;
 }
 
@@ -2730,8 +2734,12 @@ SICVar<T,KEY,COMP>::P
 ( std::map<KEY,double,COMP> const& x )
 const
 {
+  assert( _CM || _coefmon.size() <= 1 );
   double Pval = 0.;
-  for( auto& [mon,coef] : _coefmon ) Pval += Op<T>::mid(coef) * _monval( mon, x );
+  for( auto const& [mon,coef] : _coefmon ){
+    if( !mon.tord ) Pval += Op<T>::mid(coef);
+    else            Pval += Op<T>::mid(coef) * _CM->_monval( mon, x );
+  }
   return Pval;
 }
 
@@ -2858,7 +2866,7 @@ SICVar<T,KEY,COMP>::scale
   // Return *this if null pointer to model _CM or variable ranges X
   if( dom.empty() || !_CM ) return *this;
   for( auto const& id : _ndxvar ) scale( id, dom[id] );
-  if( _CM && _CM->options.MIN_FACTOR >= 0. ) simplify( _CM->options.MIN_FACTOR );
+  if( _CM && _CM->options.MIG_USE ) simplify( _CM->options.MIG_ATOL, _CM->options.MIG_RTOL );
   return *this;
 }
 
@@ -2873,7 +2881,7 @@ const
   if( !_CM ) return _coefmon;
   t_poly coefmon = _coefmon;
   for( auto const& id : _ndxvar ) _scale( id, T(-1,1), coefmon );
-  if( _CM && _CM->options.MIN_FACTOR >= 0. ) simplify( _CM->options.MIN_FACTOR );
+  if( _CM && _CM->options.MIG_USE ) simplify( _CM->options.MIG_ATOL, _CM->options.MIG_RTOL );
   return coefmon;
 }
 
@@ -3000,7 +3008,7 @@ SICVar<T,KEY,COMP>::simplify
     }
     // Eliminate any non-constant terms with small enough coefficient or large enough total order
     double const THRES = ( RTOL>0? 0.5*RTOL*Op<T>::diam(_polybound()): 0e0 ) + ATOL;
-    if( ( mon.tord && std::fabs(coef) <= THRES ) || ( TORD >= 0 && (int)mon.tord > TORD ) ){
+    if( ( mon.tord && Op<T>::abs(coef) <= THRES ) || ( TORD >= 0 && (int)mon.tord > TORD ) ){
       auto const monbound = coef * _CM->_monbound( mon );
       auto [itcst, ins] = _coefmon.insert( std::make_pair( t_mon(), monbound ) );
       if( !ins ) itcst->second += monbound;
@@ -3030,7 +3038,7 @@ SICVar<T,KEY,COMP>::_simplify
     
   // Eliminate any non-constant terms with small enough coefficient or large enough total order
   double const THRES = ( RTOL>0? 0.5*RTOL*Op<T>::diam(_polybound()): 0e0 ) + ATOL;
-  if( ( mon.tord && std::fabs(coef) <= THRES ) || ( TORD >= 0 && (int)mon.tord > TORD ) ){
+  if( ( mon.tord && Op<T>::abs(coef) <= THRES ) || ( TORD >= 0 && (int)mon.tord > TORD ) ){
     auto const monbound = coef * _CM->_monbound( mon );
     auto [itcst, ins] = _coefmon.insert( std::make_pair( t_mon(), monbound ) );
     if( !ins ) itcst->second += monbound;
@@ -3062,7 +3070,7 @@ const
 
     // Eliminate any non-constant terms with small enough coefficient or large enough total order
     double const THRES = ( RTOL>0? 0.5*RTOL*Op<T>::diam(_polybound()): 0e0 ) + ATOL;
-    if( ( mon.tord && THRES > 0e0 && std::fabs(coef) <= THRES ) || ( TORD >= 0 && (int)mon.tord > TORD ) ){
+    if( ( mon.tord && THRES > 0e0 && Op<T>::abs(coef) <= THRES ) || ( TORD >= 0 && (int)mon.tord > TORD ) ){
       // compute monomial bound
       T bndmon( 1e0 );
       for( auto const& [var,ord] : mon.expr )
@@ -3269,7 +3277,7 @@ SICVar<T,KEY,COMP>::operator+=
     auto [itmon, ins] = _coefmon.insert( std::make_pair( mon, coef ) );
     if( !ins ) itmon->second += coef;
   }
-  if( _CM && _CM->options.MIN_FACTOR >= 0. ) simplify( _CM->options.MIN_FACTOR );
+  if( _CM && _CM->options.MIG_USE ) simplify( _CM->options.MIG_ATOL, _CM->options.MIG_RTOL );
 
   _unset_bndpol();
   if( _bndT && CV._bndT ) *_bndT += *CV._bndT;
@@ -3304,7 +3312,7 @@ SICVar<T,KEY,COMP>::operator +=
   auto [itcst, ins] = _coefmon.insert( std::make_pair( t_mon(), c ) );
   if( !ins ){
     itcst->second += c;
-    if( _CM && _CM->options.MIN_FACTOR >= 0. ) _simplify( itcst, _CM->options.MIN_FACTOR );
+    if( _CM && _CM->options.MIG_USE ) _simplify( itcst, _CM->options.MIG_ATOL, _CM->options.MIG_RTOL );
   }
   if( _bndpol ) *_bndpol += c;
   if( _bndT )   *_bndT += c;
@@ -3344,7 +3352,7 @@ SICVar<T,KEY,COMP>::operator+=
   auto [itcst, ins] = _coefmon.insert( std::make_pair( t_mon(), B ) );
   if( !ins ){
     itcst->second += B;
-    if( _CM && _CM->options.MIN_FACTOR >= 0. ) _simplify( itcst, _CM->options.MIN_FACTOR );
+    if( _CM && _CM->options.MIG_USE ) _simplify( itcst, _CM->options.MIG_ATOL, _CM->options.MIG_RTOL );
   }
   if( _bndpol ) *_bndpol += B;
   if( _bndT )   *_bndT += B;
@@ -3408,12 +3416,12 @@ SICVar<T,KEY,COMP>::operator-=
     auto [itmon, ins] = _coefmon.insert( std::make_pair( mon, -coef ) );
     if( !ins ) itmon->second -= coef;
   }
-  if( _CM && _CM->options.MIN_FACTOR >= 0. ) simplify( _CM->options.MIN_FACTOR );
 
   _unset_bndpol();
   if( _bndT && CV._bndT ) *_bndT -= *CV._bndT;
   else _unset_bndT();
-
+  if( _CM && _CM->options.MIG_USE ) simplify( _CM->options.MIG_ATOL, _CM->options.MIG_RTOL );
+  
   return *this;
 }
 
@@ -3444,7 +3452,7 @@ SICVar<T,KEY,COMP>::operator-=
   auto [itcst, ins] = _coefmon.insert( std::make_pair( t_mon(), -c ) );
   if( !ins ){
     itcst->second -= c;
-    if( _CM && _CM->options.MIN_FACTOR >= 0. ) _simplify( itcst, _CM->options.MIN_FACTOR );
+    if( _CM && _CM->options.MIG_USE ) _simplify( itcst, _CM->options.MIG_ATOL, _CM->options.MIG_RTOL );
   }
   if( _bndpol ) *_bndpol -= c;
   if( _bndT )   *_bndT -= c;
@@ -3484,7 +3492,7 @@ SICVar<T,KEY,COMP>::operator-=
   auto [itcst, ins] = _coefmon.insert( std::make_pair( t_mon(), -B ) );
   if( !ins ){
     itcst->second -= B;
-    if( _CM && _CM->options.MIN_FACTOR >= 0. ) _simplify( itcst, _CM->options.MIN_FACTOR );
+    if( _CM && _CM->options.MIG_USE ) _simplify( itcst, _CM->options.MIG_ATOL, _CM->options.MIG_RTOL );
   }
   if( _bndpol ) *_bndpol -= B;
   if( _bndT )   *_bndT -= B;
@@ -3578,7 +3586,6 @@ SICVar<T,KEY,COMP>::operator*=
 
   // Recursive product of univariate Chebyshev polynomials
   _CM->_sprod1D( sp1map, sp2map, _coefmon, _ndxvar, itvar );
-  if( _CM && _CM->options.MIN_FACTOR >= 0. ) simplify( _CM->options.MIN_FACTOR );
 #ifdef MC__SICMODEL_DEBUG_SPROD
   _unset_bndpol();
   std::cout << "Product of mid parts:" << *this;
@@ -3596,7 +3603,7 @@ SICVar<T,KEY,COMP>::operator*=
   // Update bounds
   if( _bndT && CV._bndT ) *_bndT *= *CV._bndT;
   else _unset_bndT();
-  if( _CM && _CM->options.MIG_USE ) simplify( _CM->options.MIG_ATOL, _CM->options.MIG_RTOL );
+  if( _CM->options.MIG_USE ) simplify( _CM->options.MIG_ATOL, _CM->options.MIG_RTOL );
   if( _CM->options.LIFT_USE ) lift( _CM, _CM->options.LIFT_ATOL, _CM->options.LIFT_RTOL );
 
 #ifdef MC__SICMODEL_DEBUG_SPROD
@@ -3739,7 +3746,7 @@ sqr
   CVSQR.set( CV._CM );
   CVSQR._ndxvar = CV._ndxvar;
   CV._CM->_sprod1D( sp1map, sp1map, CVSQR._coefmon, CVSQR._ndxvar, itvar );
-  if( CV._CM->options.MIN_FACTOR >= 0. ) CVSQR.simplify( CV._CM->options.MIN_FACTOR );
+  if( CV._CM && CV._CM->options.MIG_USE ) CVSQR.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
   CVSQR._unset_bndpol();
 #ifdef MC__SICMODEL_DEBUG_SPROD
   CVSQR._unset_bndT();
@@ -4437,12 +4444,11 @@ inter
   T BCVD = CV1C.B();
   if( !Op<T>::inter( CVR._bndrem, R1C+eta*BCVD, R2C+(eta-1.)*BCVD ) )
     return false;
-  if( CVR._CM->options.MIN_FACTOR >= 0. )
-    CVR.simplify( CVR._CM->options.BASIS, CVR._CM->options.MIN_FACTOR );
-//  CVR._center();
 
-  if( CVR._CM->options.MIXED_IA ) CVR._set_bndT( BR );
-  else CVR._unset_bndT();
+  if( CV1._CM->options.MIXED_IA ) CVR._set_bndT( BR );
+  else                            CVR._unset_bndT();
+  if( CV1._CM->options.MIG_USE )  CVR.simplify(CV1. _CM->options.MIG_ATOL, CV1._CM->options.MIG_RTOL );
+  if( CV1._CM->options.LIFT_USE ) CVR.lift( CV1._CM, CV1._CM->options.LIFT_ATOL, CV1._CM->options.LIFT_RTOL );
   return true;
 #endif
 }

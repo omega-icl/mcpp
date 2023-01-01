@@ -1,7 +1,7 @@
-#define TEST_HILL            // <-- select test function here
+#define TEST_EXP1             // <-- select test function here
 #undef  USE_DAG              // <-- specify to evaluate via a DAG of the function
 #define SAVE_RESULTS         // <-- specify whether to save results to file
-const int NTE = 8;           // <-- select expansion order here
+const int NTE = 5;           // <-- select expansion order here
 const int NX = 25;	         // <-- select X discretization here
 const int NY = 25;	         // <-- select Y discretization here
 const unsigned NREP = 1;  // <-- select repetition for acurate timing 
@@ -53,9 +53,9 @@ typedef mc::CVar<I> CV;
  typedef mc::SCVar<I,mc::FFVar*,mc::lt_FFVar> SICV;
 #else
  typedef mc::SCModel<I> SCM;
- typedef mc::SCVar<I> SICV;
- typedef mc::SCModel<I> SCM;
- typedef mc::SCVar<I> SICV;
+ typedef mc::SCVar<I> SCV;
+ typedef mc::SICModel<I> SICM;
+ typedef mc::SICVar<I> SICV;
 #endif
 
 using namespace std;
@@ -318,7 +318,7 @@ int main()
 //#if 0
  {
   CM modCM( 2, NTE );
-  modCM.options.BOUNDER_TYPE = CM::Options::LSB;//NAIVE;//LSB;
+  modCM.options.BOUNDER_TYPE = CM::Options::LSB; //NAIVE;//
   modCM.options.MIXED_IA = false;//true;//false;
 
   CV X( &modCM, 0, I(XL,XU) );
@@ -335,9 +335,9 @@ int main()
   try{ 
     SCM modSCM( NTE );
     modSCM.options.REMEZ_USE    = false;//true;//false;
-    modSCM.options.BOUNDER_TYPE = SCM::Options::LSB; //NAIVE;
+    modSCM.options.BOUNDER_TYPE = SCM::Options::LSB; //NAIVE;//
     modSCM.options.MIXED_IA     = false;//true;//false;
-    modSCM.options.LIFT_USE     = true;//true;//false;
+    modSCM.options.LIFT_USE     = false;//true;//false;
     modSCM.options.MIG_USE      = true;//false;
     modSCM.options.MIG_RTOL     = 1e-6;
 
@@ -438,9 +438,9 @@ int main()
     SICM modSICM( NTE );
     modSICM.options.HOT_SPLIT    = SICM::Options::FULL;
     modSICM.options.REMEZ_USE    = false;//true;//false;
-    modSICM.options.BOUNDER_TYPE = SICM::Options::LSB; //NAIVE;
+    modSICM.options.BOUNDER_TYPE = SICM::Options::LSB; //NAIVE;//
     modSICM.options.MIXED_IA     = false;//true;//false;
-    modSICM.options.LIFT_USE     = true;//true;//false;
+    modSICM.options.LIFT_USE     = false;//true;//false;
     modSICM.options.MIG_USE      = true;//false;
     modSICM.options.MIG_RTOL     = 1e-6;
 
@@ -473,7 +473,7 @@ int main()
     //std::cout << CF.project();
 
 #ifdef SAVE_RESULTS
-    ofstream res( "SCM-2D.out", ios_base::out );
+    ofstream res( "SICM-2D.out", ios_base::out );
     res << std::scientific << std::setprecision(5) << std::right;
     // Repeated calculations at grid points (for display)
     for( int iX=0; iX<NX; iX++ ){ 
