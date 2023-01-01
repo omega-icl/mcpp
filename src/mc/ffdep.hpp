@@ -3,7 +3,7 @@
 // This code is published under the Eclipse Public License.
 
 /*!
-\page page_FFDEP Structure and Dependency Detection for Factorable Functions
+\page page_FFDEP Dependence Structure Detection for Factorable Functions
 \author Benoit C. Chachuat
 \version 1.0
 \date 2017
@@ -151,6 +151,9 @@ class FFDep
 
 public:
 
+  /** @defgroup FFDep Dependence Structure Detection for Factorable Functions
+   *  @{
+   */
   //! @brief Exceptions of mc::FFDep
   class Exceptions
   {
@@ -180,9 +183,6 @@ public:
     }
   };
 
-  /** @defgroup FFDep Structure and Dependency Detection for Factorable Functions
-   *  @{
-   */
   //! @brief Dependence type
   enum TYPE{
     L=0, //!< Linear
