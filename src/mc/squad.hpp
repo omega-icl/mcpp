@@ -371,16 +371,16 @@ The following symmetry breaking constraints may also be used to expedite converg
 & z_k \geq z_{k+1},\ \ k=1\ldots n_a-1\\[.5em]
 & \beta_{k,i} \leq z_k\ \max\{\alpha_{j,i}: j=1\ldots n_m\},\ \ i=1\ldots n_x,\ \ k=1\ldots n_a\\
 & \sum_{i=1}^{n_x} \beta_{k,i} \leq \sum_{i=1}^{n_x} \beta_{k+1,i} + (1-z_{k+1})\left(\max\left\{\sum_{i=1}^{n_x}\alpha_{j,i}: j=1\ldots n_m\right\}-1\right),\ \ k=1\ldots n_a-1\\
-& \sum_{i=1}^{n_x} \beta_{n_a,i} \leq \max\left\{\sum_{i=1}^{n_x}\alpha_{j,i}: j=1\ldots n_m\right\}-1\\[.5em]
+& \sum_{i=1}^{n_x} \beta_{k,i} \leq \max\left\{\sum_{i=1}^{n_x}\alpha_{j,i}: j=1\ldots n_m\right\}-1\ \ k=1\ldots n_a-1\\[.5em]
 & (\overline{\nu}^{\rm L}_k-i)\, \nu^{\rm L}_{k,i} = 0,\ \ i=1\ldots n_x+k-1,\ \ k=1\ldots n_a\\
 & (\overline{\nu}^{\rm U}_k-i)\, \nu^{\rm U}_{k,i} = 0,\ \ i=1\ldots n_x+k-1,\ \ k=1\ldots n_a\\
 & \overline{\nu}^{\rm L}_k \leq \overline{\nu}^{\rm U}_k,\ \ k=1\ldots n_a\\
-& \overline{\nu}^{\rm L}_k + \overline{\nu}^{\rm U}_k \leq \overline{\nu}^{\rm L}_{k+1} + \overline{\nu}^{\rm U}_{k+1},\ \ k=1\ldots n_a-1\\
+& \overline{\nu}^{\rm U}_k \leq \overline{\nu}^{\rm U}_{k+1},\ \ k=1\ldots n_a-1\\
+& \overline{\nu}^{\rm L}_k \leq \overline{\nu}^{\rm L}_{k+1} - 1 + (n_x+k) (\overline{\nu}^{\rm U}_{k+1}-\overline{\nu}^{\rm U}_k),\ \ k=1\ldots n_a-1\\
 & 0 \leq \overline{\nu}^{\rm L}_k, \overline{\nu}^{\rm U}_k \leq n_x+k-1,\ \ k=1\ldots n_a\\[.5em]
 & (\overline{\omega}^{\rm L}_j-i)\, \omega^{\rm L}_{j,i} = 0,\ \ i=1\ldots n_x+n_a,\ \ j=1\ldots n_m\\
 & (\overline{\omega}^{\rm U}_j-i)\, \omega^{\rm U}_{j,i} = 0,\ \ i=1\ldots n_x+n_a,\ \ j=1\ldots n_m\\
 & \overline{\omega}^{\rm L}_j \leq \overline{\omega}^{\rm U}_j,\ \ j=1\ldots n_m\\
-& \overline{\omega}^{\rm L}_j + \overline{\omega}^{\rm U}_j \leq \overline{\omega}^{\rm L}_{j+1} + \overline{\omega}^{\rm U}_{j+1},\ \ j=1\ldots n_m-1\\
 & 0 \leq \overline{\omega}^{\rm L}_j, \overline{\omega}^{\rm U}_j \leq n_x+n_a,\ \ j=1\ldots n_m
 \f}
 where the following extra variables are used:
@@ -1584,7 +1584,7 @@ SQuad<KEY,COMP>::_MIP_encode
       _GRBmodel->addConstr( _MIP_auxndx1[k], GRB_LESS_EQUAL, _MIP_auxndx2[k] ); // symmetry breaking
       if( k ){
         _GRBmodel->addConstr( _MIP_auxndx2[k-1], GRB_LESS_EQUAL, _MIP_auxndx2[k] ); // symmetry breaking
-        _GRBmodel->addConstr( _MIP_auxndx1[k-1], GRB_LESS_EQUAL, _MIP_auxndx1[k] + maxAux * ( _MIP_auxndx2[k] - _MIP_auxndx2[k-1] ) ); // symmetry breaking
+        _GRBmodel->addConstr( _MIP_auxndx1[k-1], GRB_LESS_EQUAL, _MIP_auxndx1[k]-1 + (nVar+k-1) * ( _MIP_auxndx2[k] - _MIP_auxndx2[k-1] ) ); // symmetry breaking
       }
       //if( k ) _GRBmodel->addConstr( _MIP_auxndx1[k-1]+_MIP_auxndx2[k-1], GRB_LESS_EQUAL, _MIP_auxndx1[k]+_MIP_auxndx2[k] ); // symmetry breaking
     }
@@ -1662,23 +1662,26 @@ SQuad<KEY,COMP>::_MIP_encode
 #endif
   }
   
-  // SUM( 0<=i<nVar, b[l,i] ) <= SUM( 0<=i<nVar, b[l,i] ) + (1-z[l]) * (maxDeg(Mon[j], 0<=j<nMon)-1), 1<=l<nAux-1
-  // SUM( 0<=i<nVar, b[l,i] ) <= maxDeg(Mon[j], 0<=j<nMon), 0<=l<nAux
+  // 1: SUM( 0<=i<nVar, b[l,i] ) <= maxDeg(Mon[j], 0<=j<nMon), 0<=l<nAux
+  // 2: SUM( 0<=i<nVar, b[l,i] ) <= SUM( 0<=i<nVar, b[l,i] ) + (1-z[l]) * (maxDeg(Mon[j], 0<=j<nMon)-1), 1<=l<nAux-1
   if( options.MIPSYMCUTS > 0 ){
     _MIP_auxexpsum.reserve( maxAux );  // sum( 0<=l<nAux, b[l,i] )
+    // Add cuts type 1 if MIPSYMCUTS > 0
     for( unsigned l=0; l<maxAux; ++l ){
       GRBLinExpr sum_auxexp;
       for( unsigned i=0; i<nVar; ++i ) sum_auxexp += _MIP_auxexp[l][i];
       _MIP_auxexpsum.push_back( sum_auxexp );
       _GRBmodel->addConstr( _MIP_auxexpsum[l], GRB_LESS_EQUAL, maxDeg-1 );
     }
-//    for( unsigned l=1; l<=maxAux-1; ++l ){
-//      GRBLinExpr sum_auxexp;
-//      for( unsigned i=0; i<nVar; ++i ) sum_auxexp += _MIP_auxexp[l][i];
-//      _MIP_auxexpsum.push_back( sum_auxexp );
-//      _GRBmodel->addConstr( _MIP_auxexpsum[l-1], GRB_LESS_EQUAL, _MIP_auxexpsum[l] + (1-_MIP_auxbin[l])*(maxDeg-1) );
-//    }
-//    _GRBmodel->addConstr( _MIP_auxexpsum[maxAux-1], GRB_LESS_EQUAL, maxDeg-1 );
+    // Add cuts type 2 if MIPSYMCUT = 1 (otherwise conflicts with cuts in MIPSYMCUTS = 2)
+    if( options.MIPSYMCUTS == 1 ){
+      for( unsigned l=1; l<=maxAux-1; ++l ){
+        GRBLinExpr sum_auxexp;
+        for( unsigned i=0; i<nVar; ++i ) sum_auxexp += _MIP_auxexp[l][i];
+        _MIP_auxexpsum.push_back( sum_auxexp );
+        _GRBmodel->addConstr( _MIP_auxexpsum[l-1], GRB_LESS_EQUAL, _MIP_auxexpsum[l] + (1-_MIP_auxbin[l])*(maxDeg-1) );
+      }
+    }
   }
 }
 

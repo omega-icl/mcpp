@@ -1,4 +1,4 @@
-#define TEST_TUNCPHD30 // <-- select test example
+#define TEST_TUNCPHD33  // <-- select test example
 #undef  USE_CHEB       // <-- whether to perform the decomposition in Chebyshev basis
 #undef  USE_DAG        // <-- whether to define a DAG of the expressions
 #define USE_OPTIM      // <-- whether to optimize the quadratic form
@@ -128,7 +128,7 @@ int main()
 
 
 #elif defined( TEST_TUNCPHD33 )
-    unsigned const NX = 3, NP = 1;
+    unsigned const NX = 4, NP = 1;
     //unsigned const NX = 8, NP = 1;
     t_SPoly X[NX], P[NP];
 #if defined( USE_DAG )
@@ -148,7 +148,7 @@ int main()
     //P[0] = pow((X[0]*X[0]*X[0] + X[1]*X[1]*X[1] + X[2]*X[2]*X[2] + X[3]*X[3]*X[3] + X[4]*X[4]*X[4] + X[5]*X[5]*X[5] + X[6]*X[6]*X[6] + X[7]*X[7]*X[7]),2) - ((X[0]*X[0]*X[0]*X[0] + X[1]*X[1]*X[1]*X[1] + X[2]*X[2]*X[2]*X[2] + X[3]*X[3]*X[3]*X[3] + X[4]*X[4]*X[4]*X[4] + X[5]*X[5]*X[5]*X[5] + X[6]*X[6]*X[6]*X[6] + X[7]*X[7]*X[7]*X[7])*(X[0]*X[0] + X[1]*X[1] + X[2]*X[2] + X[3]*X[3] + X[4]*X[4] + X[5]*X[5] + X[6]*X[6] + X[7]*X[7]));
 
 #elif defined( TEST_NONDQUAR )
-    unsigned const NX = 4, NP = 1;
+    unsigned const NX = 6, NP = 1;
     t_SPoly X[NX], P[NP];
 #if defined( USE_DAG )
     FFGraph DAG;
@@ -163,7 +163,8 @@ int main()
       P[0] += pow( X[i]+X[i+1]+X[NX-1], 4 ); 
 
 #elif defined( TEST_BROYDENBAND )
-    unsigned const NX = 60, NP = 1;
+    unsigned const NX = 3, NP = 1;
+    //unsigned const NX = 60, NP = 1;
     t_SPoly X[NX], P[NP];
 #if defined( USE_DAG )
     FFGraph DAG;
@@ -176,7 +177,7 @@ int main()
     // sum {i in 1..N} ( x[i]*(2+5*x[i]^2) + 1 - sum {j in J[i]} x[j]*(1+x[j]) );
     P[0] = 0.;
     for( int i=0; i<(int)NX; i++ ){
-      SCV S = X[i]*(2+5*pow(X[i],2)) + 1;
+      t_SPoly S = X[i]*(2+5*pow(X[i],2)) + 1;
       for( int j=0; j<(int)NX; j++ ){
         if( j == i || j < i-5 || j > i+1 ) continue;
         S -= X[j]*(1+X[j]);
@@ -197,7 +198,7 @@ int main()
     //t_SQuad::options.REDUC = true;
     t_SQuad::options.MIPOUTPUTFILE = "quad.lp";
     //t_SQuad::options.MIPNUMFOCUS = 3;
-    t_SQuad::options.LPFEASTOL = 1e-7;
+    //t_SQuad::options.LPFEASTOL = 1e-7;
     t_SQuad::options.MIPSYMCUTS = 2;
     //t_SQuad::options.MIPTIMELIMIT  = 1800;
     //t_SQuad::options.MIPCONCURRENT = 4;
