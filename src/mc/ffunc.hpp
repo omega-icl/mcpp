@@ -13,8 +13,9 @@ Originally introduced by McCormick [McCormick, 1976] for the development of a co
 Factorable functions can be represented using <b>directed acyclic graphs (DAGs)</b>, whose nodes are subexpressions and whose directed edges are computational flows [Schichl & Neumaier, 2005]. A key advantage of DAGs is that they can handle common subexpressions shared by several functions effectively.
 
 The classes mc::FFGraph, mc::FFBase, mc::FFVar and mc::FFOp defined in <tt>ffunc.hpp</tt> provide an implementation of DAGs for factorable functions in MC++. They enable their evaluation using any of the arithmetics supported by MC++, including interval ranges (mc::Interval), McCormick relaxations (mc::McCormick), Taylor and Chebyshev models (mc::TVar, mc::CVar, mc::SCVar), spectral bounds (mc::Specbnd), polyhedral relaxations (mc::PolVar), and interval superposition models (mc::ISVar). They also enable their symbolic manipulation, including automatic differentiation, sparse factorization, and quadratization; see:
-- \subpage page_SPEXPR
 - \subpage page_SQUAD
+- \subpage page_SLIFT
+- \subpage page_SELIM
 - \subpage page_RLTRED
 .
 
