@@ -3,24 +3,24 @@
 // This code is published under the Eclipse Public License.
 
 /*!
-\page page_SPEXPR Manipulation of Sparse Factorable Expressions
-\author Benoit Chachuat & OMEGA Research Group (http://www3.imperial.ac.uk/environmentenergyoptimisation)
-\date 2018
+\page page_SElim Variable Elimination in Factorable Equality Constraints 
+\author Benoit Chachuat & Dominik Bongartz
+\date 2023
 \bug No known bugs.
 
-The class mc::SparseEnv defined in <tt>sparseexpr.hpp</tt> enables the reformulation of factorable expressions as sparse polynomial and transcendental expressions via the introduction of auxiliary variables.
+The classes mc::SElimEnv and mc::SELIM defined in <tt>selim.hpp</tt> enable the elimination of (a subset of) variables from factorable expressions through expoiting solvable (invertible) equality constraints.
 
-\section sec_SPEXPR_process How Do I Reformulate a Factorable Expression?
+\section sec_SElim_process How do I eliminate variables using factorable equality constraints?
 
 For illustration, consider the factorable function \f${\bf f}:\mathbb{R}^2\to\mathbb{R}^2\f$ defined by
 \f{align*}
   {\bf f}(x_0,x_1) = \left(\begin{array}{c} \left(x_0+\frac{1}{x_1^2}\right)^3\\ \exp\left(2\cdot x_1^2-1\right)\end{array}\right)
 \f}
 
-The decomposition requires the header file <tt>sparseexpr.hpp</tt> to be included:
+The lifting requires the header file <tt>selim.hpp</tt> to be included:
 
 \code
-      #include "sparseexpr.hpp"
+      #include "selim.hpp"
 \endcode
 
 A DAG of the factorable function is first created:
@@ -36,7 +36,7 @@ A DAG of the factorable function is first created:
       std::cout << DAG;
 \endcode
 
-The last line displays the following information about the factorable function DAG:
+The last line displays the following information about the DAG:
 
 \verbatim
     DAG VARIABLES:
@@ -48,7 +48,7 @@ The last line displays the following information about the factorable function D
       Z2    <=  Z1 / Z0         => { Z3 }
       Z3    <=  X0 + Z2         => { Z5 }
       Z5    <=  POW( Z3, Z4 )   => { }
-      Z7    <=  Z0 * Z6         => { Z9 }
+      Z7    <=  Z0 x Z6         => { Z9 }
       Z9    <=  Z7 + Z8         => { Z10 }
       Z10   <=  EXP( Z9 )       => { }
       Z4    <=  3(I)            => { Z5 }
@@ -57,14 +57,14 @@ The last line displays the following information about the factorable function D
       Z6    <=  2(D)            => { Z7 }
 \endverbatim
 
-Next, an environment <a>mc::SparseEnv</a> is defined for manipulating the factorable expressions in <a>DAG</a>. The factorable expressions are processed into sparse polynomial and transcendental subexpressions by calling the method <a>mc::SparseEnv::process</a>:
+Next, an environment <a>mc::SElimEnv</a> is defined for lifting the factorable expressions in <a>DAG</a>. The method <a>mc::SElimEnv::process</a> decomposes the factorable expressions recursively into sparse polynomial and transcendental subexpressions:
 
 \code
-      mc::SparseEnv<mc::FFGraph<>> SPE( &DAG );
+      mc::SElimEnv<mc::FFGraph<>> SPE( &DAG );
       SPE.process( NF, F );
 \endcode
 
-The resulting participating variables in the processed expressions, the lifted auxiliary variables, and the resulting expressions can be retreived and displayed as follows:
+The resulting participating variables in the processed expressions, the lifted variables, and the resulting subexpressions can be retreived and displayed as follows:
 
 \code
       std::cout << std::endl << SPE.Var().size() << " participating variables: ";
@@ -83,9 +83,9 @@ The resulting participating variables in the processed expressions, the lifted a
 The following information is displayed in this instance:
 
 \verbatim
-    7 participating variables: X0 X1 X2 X3 X4 X5 X6 
+    7 participating variables: X0 X1 X2 X3 X4 X5 X6
 
-    5 auxiliary variables: Z0->X2 Z2->X3 Z5->X6 Z9->X4 Z10->X5 
+    5 auxiliary variables: Z0->X2 Z2->X3 Z5->X6 Z9->X4 Z10->X5
 
     4 polynomial constraints: 
 
@@ -98,7 +98,7 @@ The following information is displayed in this instance:
     FACTORS IN SUBGRAPH:
       X2    <=  VARIABLE
       X3    <=  VARIABLE
-      Z12   <=  X2 * X3	
+      Z12   <=  X2 x X3	
       Z8    <=  -1(D)	
       Z13   <=  Z12 + Z8	
 
@@ -107,7 +107,7 @@ The following information is displayed in this instance:
       X1    <=  VARIABLE
       Z0    <=  SQR( X1 )	
       Z6    <=  2(D)	
-      Z7    <=  Z0 * Z6	
+      Z7    <=  Z0 x Z6	
       Z8    <=  -1(D)	
       Z9    <=  Z7 + Z8	
       Z14   <=  X4 - Z9	
@@ -116,13 +116,13 @@ The following information is displayed in this instance:
       X6    <=  VARIABLE
       X0    <=  VARIABLE
       Z17   <=  3(D)	
-      Z18   <=  X0 * Z17	
+      Z18   <=  X0 x Z17	
       X3    <=  VARIABLE
       Z19   <=  SQR( X3 )	
-      Z20   <=  Z18 * Z19	
+      Z20   <=  Z18 x Z19	
       Z21   <=  SQR( X0 )	
-      Z22   <=  Z21 * Z17	
-      Z23   <=  X3 * Z22	
+      Z22   <=  Z21 x Z17	
+      Z23   <=  X3 x Z22	
       Z24   <=  Z20 + Z23	
       Z4    <=  3(I)	
       Z25   <=  POW( X0, Z4 )
@@ -149,77 +149,75 @@ Finally, the original vector-valued function \f${\bf f}(x_0,x_1)\f$ is equal to 
 */
 
 // TO DO:
-// - Documentation
-// - Split subsets of polynomial and transcendental expressions
-// - Enforce reusing of intermediate variables in polynomial expressions - as a follow-up reduction step?
+// - Complete documentation
 
-#ifndef MC__SPARSEEXPR_H
-#define MC__SPARSEEXPR_H
+#ifndef MC__SELIM_H
+#define MC__SELIM_H
 
-#include <list>
 #include "ffunc.hpp"
-#include "spoly.hpp"
+#include "ffinv.hpp"
 
-#define MC__SPARSEENV_CHECK
+#define MC__SELIM_CHECK
 
 namespace mc
 {
 
-template <typename DAG> class SparseExpr;
+template <typename DAG> class SElimExpr;
 
-//! @brief C++ class for reformulation of a factorable function in sparse polynomial/rational/transcendental subexpressions
+//! @brief Environment for variable elimination in factorable equality constraints
 ////////////////////////////////////////////////////////////////////////
-//! mc::SparseEnv is a C++ class for reformulation of a factorable
-//! function in sparse polynomial/rational/transcendental subexpressions
+//! mc::SElimEnv is a C++ class defining the environment for variable
+//! elimination from factorable expressions through expoiting solvable
+//! equality constraints
 ////////////////////////////////////////////////////////////////////////
 template < typename DAG >
-class SparseEnv
+class SElimEnv
 ////////////////////////////////////////////////////////////////////////
 {
-  friend class SparseExpr<DAG>;
-  template <typename D> friend  std::ostream& operator<< ( std::ostream&, SparseEnv<D> const& );
-  template <typename D> friend  SparseExpr<D> inv ( SparseExpr<D> const& );
-  template <typename D> friend  SparseExpr<D> exp ( SparseExpr<D> const& );
-  template <typename D> friend  SparseExpr<D> log ( SparseExpr<D> const& );
-  template <typename D> friend  SparseExpr<D> xlog( SparseExpr<D> const& );
-  template <typename D> friend  SparseExpr<D> sqrt( SparseExpr<D> const& );
-  template <typename D> friend  SparseExpr<D> sqr ( SparseExpr<D> const& );
-  template <typename D> friend  SparseExpr<D> pow ( SparseExpr<D> const&, int const );  
-  template <typename D> friend  SparseExpr<D> pow ( SparseExpr<D> const&, double const& );  
-  template <typename D> friend  SparseExpr<D> cheb( SparseExpr<D> const&, const unsigned );  
-  template <typename D> friend  SparseExpr<D> prod( const unsigned, SparseExpr<D> const* );  
-  template <typename D> friend  SparseExpr<D> cos ( SparseExpr<D> const& );
-  template <typename D> friend  SparseExpr<D> sin ( SparseExpr<D> const& );
-  template <typename D> friend  SparseExpr<D> tan ( SparseExpr<D> const& );
-  template <typename D> friend  SparseExpr<D> acos( SparseExpr<D> const& );
-  template <typename D> friend  SparseExpr<D> asin( SparseExpr<D> const& );
-  template <typename D> friend  SparseExpr<D> atan( SparseExpr<D> const& );
-  template <typename D> friend  SparseExpr<D> cosh( SparseExpr<D> const& );
-  template <typename D> friend  SparseExpr<D> sinh( SparseExpr<D> const& );
-  template <typename D> friend  SparseExpr<D> tanh( SparseExpr<D> const& );
-  template <typename D> friend  SparseExpr<D> fabs( SparseExpr<D> const& );
-  template <typename D> friend  SparseExpr<D> erf( SparseExpr<D> const& );
-  template <typename D> friend  SparseExpr<D> fstep( SparseExpr<D> const& );
-  template <typename D> friend  SparseExpr<D> max( SparseExpr<D> const&, SparseExpr<D> const& );  
-  template <typename D> friend  SparseExpr<D> min( SparseExpr<D> const&, SparseExpr<D> const& );  
-  template <typename D> friend  SparseExpr<D> lmtd( SparseExpr<D> const&, SparseExpr<D> const& );  
-  template <typename D> friend  SparseExpr<D> rlmtd( SparseExpr<D> const&, SparseExpr<D> const& );  
+  friend class SElimExpr<DAG>;
+  template <typename D> friend  std::ostream& operator<< ( std::ostream&, SElimEnv<D> const& );
+  template <typename D> friend  SElimExpr<D> inv ( SElimExpr<D> const& );
+  template <typename D> friend  SElimExpr<D> exp ( SElimExpr<D> const& );
+  template <typename D> friend  SElimExpr<D> log ( SElimExpr<D> const& );
+  template <typename D> friend  SElimExpr<D> xlog( SElimExpr<D> const& );
+  template <typename D> friend  SElimExpr<D> sqrt( SElimExpr<D> const& );
+  template <typename D> friend  SElimExpr<D> sqr ( SElimExpr<D> const& );
+  template <typename D> friend  SElimExpr<D> pow ( SElimExpr<D> const&, int const );  
+  template <typename D> friend  SElimExpr<D> pow ( SElimExpr<D> const&, double const& );  
+  template <typename D> friend  SElimExpr<D> cheb( SElimExpr<D> const&, const unsigned );  
+  template <typename D> friend  SElimExpr<D> prod( const unsigned, SElimExpr<D> const* );  
+  template <typename D> friend  SElimExpr<D> cos ( SElimExpr<D> const& );
+  template <typename D> friend  SElimExpr<D> sin ( SElimExpr<D> const& );
+  template <typename D> friend  SElimExpr<D> tan ( SElimExpr<D> const& );
+  template <typename D> friend  SElimExpr<D> acos( SElimExpr<D> const& );
+  template <typename D> friend  SElimExpr<D> asin( SElimExpr<D> const& );
+  template <typename D> friend  SElimExpr<D> atan( SElimExpr<D> const& );
+  template <typename D> friend  SElimExpr<D> cosh( SElimExpr<D> const& );
+  template <typename D> friend  SElimExpr<D> sinh( SElimExpr<D> const& );
+  template <typename D> friend  SElimExpr<D> tanh( SElimExpr<D> const& );
+  template <typename D> friend  SElimExpr<D> fabs( SElimExpr<D> const& );
+  template <typename D> friend  SElimExpr<D> erf( SElimExpr<D> const& );
+  template <typename D> friend  SElimExpr<D> fstep( SElimExpr<D> const& );
+  template <typename D> friend  SElimExpr<D> max( SElimExpr<D> const&, SElimExpr<D> const& );  
+  template <typename D> friend  SElimExpr<D> min( SElimExpr<D> const&, SElimExpr<D> const& );  
+  template <typename D> friend  SElimExpr<D> lmtd( SElimExpr<D> const&, SElimExpr<D> const& );  
+  template <typename D> friend  SElimExpr<D> rlmtd( SElimExpr<D> const&, SElimExpr<D> const& );  
 
 public:
 
-  typedef std::list< std::pair< FFOp const*, std::vector<SparseExpr<DAG> const*> > > t_Interm;
+  typedef std::list< std::pair< FFOp const*, std::vector<SElimExpr<DAG> const*> > > t_Interm;
   typedef std::map< FFVar const*, FFVar const*, lt_FFVar > t_Aux;
   typedef std::vector< FFVar const* > t_Expr;
   typedef SPoly<FFVar const*, lt_FFVar> SPolyExpr;
 
   //! @brief Default Constructor
-  SparseEnv
+  SElimEnv
     ( DAG* dag=nullptr )
     : _dag( dag )
     {}
 
   //! @brief Destructor
-  virtual ~SparseEnv
+  virtual ~SElimEnv
     ()
     { _reset(); }
   
@@ -229,7 +227,7 @@ public:
     const
     { return _dag; };
 
-  //! @brief Retreive reference to vector of new DAG polynomial constraints
+  //! @brief Retreive reference to vector of new DAG rational constraints
   std::vector<FFVar>& Poly
     ()
     { return _Poly; }
@@ -249,7 +247,7 @@ public:
     ()
     { return _Aux; }
 
-  //! @brief Retreive reference to intermediate sparse expressions
+  //! @brief Retreive reference to intermediate expressions
   t_Interm& Interm
     ()
     { return _Interm; }
@@ -259,7 +257,7 @@ public:
     (  DAG* dag )
     { _dag = dag; _reset(); }
 
-  //! @brief Reset sparse intermediate expressions
+  //! @brief Reset intermediate expressions
   void reset
     ()
     { _reset(); }
@@ -272,14 +270,14 @@ public:
   void process
     ( unsigned const nDep, FFVar const* pDep, const bool add2dag=true );
 
-  //! @brief Exceptions of mc::SparseExpr
+  //! @brief Exceptions of mc::SElimExpr
   class Exceptions
   {
    public:
-    //! @brief Enumeration type for SparseExpr exception handling
+    //! @brief Enumeration type for SElimExpr exception handling
     enum TYPE{
-      DAGERR=0,       //!< Operation involving a sparse expression linked to a different DAG
-      ENVERR,         //!< Operation between sparse expressions linked to different environments or without an environment
+      DAGERR=0,       //!< Operation involving a factorable expression linked to a different DAG
+      ENVERR,         //!< Operation between factorable expressions linked to different environments or without an environment
       INTERNAL=-33    //!< Internal error
     };
     //! @brief Constructor for error <a>ierr</a>
@@ -290,26 +288,26 @@ public:
     std::string what(){
       switch( _ierr ){
       case DAGERR:
-        return "mc::SparseEnv\t Operation involving a sparse expression linked to a different DAG is not allowed";
+        return "mc::SElimEnv\t Operation involving a factorable expression linked to a different DAG is not allowed";
       case ENVERR:
-        return "mc::SparseEnv\t Operation between sparse rational expressions linked to different environments or without an environment is not allowed";
+        return "mc::SElimEnv\t Operation between factorable expressions linked to different environments or without an environment is not allowed";
       case INTERNAL:
       default:
-        return "mc::SparseEnv\t Internal error";
+        return "mc::SElimEnv\t Internal error";
       }
     }
    private:
     TYPE _ierr;
   };
 
-  //! @brief Options of mc::SparseEnv
+  //! @brief Options of mc::SElimEnv
   static struct Options
   {
     //! @brief Constructor
     Options():
       LIFTDIV( true ), LIFTIPOW( false )//, LIFTUPOL( false )
       {}
-    //! @brief Assignment of mc::SparseEnv<DAG>::Options
+    //! @brief Assignment of mc::SElimEnv<DAG>::Options
     Options& operator=
       ( Options& opt ){
         LIFTDIV  = opt.LIFTDIV;
@@ -335,7 +333,7 @@ protected:
   //! @brief Map of existing DAG auxiliaries to new DAG variables
   t_Aux _Aux;
 
-  //! @brief Vector of new DAG polynomial constraints
+  //! @brief Vector of new DAG polynomial/rational constraints
   std::vector<FFVar> _Poly;
 
   //! @brief Vector of new DAG transcendental constraints
@@ -345,28 +343,28 @@ protected:
   std::vector<FFVar> _Var;
 
   //! @brief Vector of independent sparse variables
-  std::vector<SparseExpr<DAG>> _SPVar;
+  std::vector<SElimExpr<DAG>> _SPVar;
 
   //! @brief Vector of dependent sparse expressions
-  std::vector<SparseExpr<DAG>> _SPDep;
+  std::vector<SElimExpr<DAG>> _SPDep;
 
   //! @brief Add new intermediate uni- or bi-variate expression in _Interm
   void _append_interm
-    ( FFOp const* op, SparseExpr<DAG> const* var1, SparseExpr<DAG> const* var2=nullptr );
+    ( FFOp const* op, SElimExpr<DAG> const* var1, SElimExpr<DAG> const* var2=nullptr );
 
 //  //! @brief Add new intermediate n-variate expression in _Interm
 //  void _append_interm
-//    ( FFOp const* op, unsigned const nvars, SparseExpr<DAG> const*const* pvars );
+//    ( FFOp const* op, unsigned const nvars, SElimExpr<DAG> const*const* pvars );
 
   //! @brief Insert an auxiliary variable corresponding to a rational/polynomial expression into DAG
   FFVar const* _insert_expr
-    ( FFVar const* oper, SparseExpr<DAG> const* expr );
+    ( FFVar const* oper, SElimExpr<DAG> const* expr );
 
   //! @brief Insert a non-rational operation into DAG via the introduction of auxiliary variables
   void _insert_expr
     ( FFOp const* pOp, std::vector<const FFVar*>& vAux );
 
-  //! @brief Transcribe sparse rational/polynomial expression (SparseExpr) into DAG
+  //! @brief Transcribe sparse rational/polynomial expression (SElimExpr) into DAG
   FFVar _SPolyExpr_to_FFVar
     ( SPolyExpr const& expr );
 
@@ -375,12 +373,12 @@ protected:
     ( FFVar const* aux );
 
   //! @brief Lift current univariate operation
-  SparseExpr<DAG> _lift_univariate_term
-    ( SparseExpr<DAG> const& var );
+  SElimExpr<DAG> _lift_univariate_term
+    ( SElimExpr<DAG> const& var );
 
   //! @brief Lift current bivariate operation
-  SparseExpr<DAG> _lift_bivariate_term
-    ( SparseExpr<DAG> const& var1, SparseExpr<DAG> const& var2 );
+  SElimExpr<DAG> _lift_bivariate_term
+    ( SElimExpr<DAG> const& var1, SElimExpr<DAG> const& var2 );
 
   //! @brief Erase all entries in _Interm
   void _reset
@@ -389,16 +387,16 @@ protected:
 
 
 template <typename DAG>
-inline typename SparseEnv<DAG>::Options SparseEnv<DAG>::options;
+inline typename SElimEnv<DAG>::Options SElimEnv<DAG>::options;
 
-//! @brief C++ class for sparse rational function representation and arithmetic
+//! @brief Arithmetic for variable elimination in factorable equality constraints
 ////////////////////////////////////////////////////////////////////////
-//! mc::SparseExpr is a C++ class for arithmetic manipulation in sparse
-//! functions contaning polynomial, rational or transcendental
-//! subexpressions
+//! mc::SElimExpr is a C++ class implementing an arithmetic for variable
+//! elimination from factorable expressions through expoiting solvable
+//! equality constraints
 ////////////////////////////////////////////////////////////////////////
 template < typename DAG >
-class SparseExpr
+class SElimExpr
 ////////////////////////////////////////////////////////////////////////
 {
 public:
@@ -407,8 +405,8 @@ public:
 
 private:
 
-  //! @brief Pointer to sparse rational function environment
-  SparseEnv<DAG> *_env;
+  //! @brief Pointer to recursive decomposition environment
+  SElimEnv<DAG> *_env;
 
 protected:
 
@@ -419,89 +417,89 @@ protected:
   SPolyExpr _denom;
 
   //! @brief Initialize sparse rational expression with existing expression
-  SparseExpr<DAG>& _set
-    ( SparseExpr<DAG> const& var );
+  SElimExpr<DAG>& _set
+    ( SElimExpr<DAG> const& var );
 
   //! @brief Initialize sparse expression as constant
-  SparseExpr<DAG>& _set
+  SElimExpr<DAG>& _set
     ( double const& d );
 
   //! @brief Initialize sparse rational expression as DAG variable
-  SparseExpr<DAG>& _set
+  SElimExpr<DAG>& _set
     ( FFVar const& x );
 
 public:
 
   //! @brief Default constructor of sparse rational expression
-  SparseExpr
+  SElimExpr
     ()
     {}
 
   //! @brief Constructor of sparse rational expression as constant
-  SparseExpr
+  SElimExpr
     ( double const& d )
     : _env( 0 )
     { _set( d ); }
 
   //! @brief Constructor of sparse rational expression as DAG variable
-  SparseExpr
-    ( SparseEnv<DAG>* env, FFVar const& x)
+  SElimExpr
+    ( SElimEnv<DAG>* env, FFVar const& x)
     : _env( env )
     { if( env->dag() != x.dag() )
-        throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::DAGERR );
+        throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::DAGERR );
       _set( x ); }
 
   //! @brief Copy constructor of sparse rational expression
-  SparseExpr
-    ( SparseExpr<DAG> const& var )
+  SElimExpr
+    ( SElimExpr<DAG> const& var )
     { _set( var ); }
 
   //! @brief Constructor of sparse rational expression
-  SparseExpr
-    ( SparseEnv<DAG>* env, SPolyExpr const& n, SPolyExpr const& d )
+  SElimExpr
+    ( SElimEnv<DAG>* env, SPolyExpr const& n, SPolyExpr const& d )
     : _env( env ), _numer( n ), _denom( d )
     {}
 
   //! @brief Destructor of sparse rational expression
-  virtual ~SparseExpr()
+  virtual ~SElimExpr()
     {}
 
   //! @brief Initialize variable in sparse rational envrionment <a>env</a> corresponding to DAG variable <a>x</a>
-  SparseExpr<DAG>& set
-    ( SparseEnv<DAG>* env, FFVar const& x )
+  SElimExpr<DAG>& set
+    ( SElimEnv<DAG>* env, FFVar const& x )
     { _env = env;
       if( env->dag() != x.dag() )
-        throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::DAGERR );
+        throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::DAGERR );
       _set( x ); return *this; }
 
   //! @brief Overloaded operator '=' for sparse rational expression
-  SparseExpr<DAG>& operator=
-    ( SparseExpr<DAG> const& var )
+  SElimExpr<DAG>& operator=
+    ( SElimExpr<DAG> const& var )
     { _set( var ); return *this; }
 
   //! @brief Overloaded operator '=' for constant 
-  SparseExpr<DAG>& operator=
+  SElimExpr<DAG>& operator=
     ( double const& d )
     { _env = 0; _set( d ); return *this; }
 
   //! @brief Overloaded operator '+=' for sparse rational function
-  SparseExpr<DAG>& operator+=
-    ( SparseExpr<DAG> const& var );
+  SElimExpr<DAG>& operator+=
+    ( SElimExpr<DAG> const& var );
 
   //! @brief Overloaded operator '-=' for sparse rational function
-  SparseExpr<DAG>& operator-=
-    ( SparseExpr<DAG> const& var );
+  SElimExpr<DAG>& operator-=
+    ( SElimExpr<DAG> const& var );
 
   //! @brief Overloaded operator '*=' for sparse rational function
-  SparseExpr<DAG>& operator*=
-    ( SparseExpr<DAG> const& var );
+  SElimExpr<DAG>& operator*=
+    ( SElimExpr<DAG> const& var );
 
   //! @brief Overloaded operator '/=' for sparse rational function
-  SparseExpr<DAG>& operator/=
-    ( SparseExpr<DAG> const& var );
+  SElimExpr<DAG>& operator/=
+    ( SElimExpr<DAG> const& var );
 
   // Sparse rational polynomial environment
-  SparseEnv<DAG>* env
+  SElimEnv<DAG>* env
     ()
     const
     { return _env; };
@@ -524,7 +522,7 @@ public:
 template < typename DAG >
 inline std::ostream&
 operator<<
-( std::ostream& out, SparseExpr<DAG> const& var )
+( std::ostream& out, SElimExpr<DAG> const& var )
 {
   out << std::endl
       << "NUMERATOR:"   << var.numer()
@@ -535,7 +533,7 @@ operator<<
 template < typename DAG >
 inline std::ostream&
 operator<<
-( std::ostream& out, SparseEnv<DAG> const& env)
+( std::ostream& out, SElimEnv<DAG> const& env)
 {
   unsigned count = 0;
   for( auto&& expr : env._Interm ){
@@ -550,7 +548,7 @@ operator<<
 
 template < typename DAG >
 inline void
-SparseEnv<DAG>::process
+SElimEnv<DAG>::process
 ( std::set<unsigned> const& ndxDep, FFVar const* pDep, bool const add2dag )
 {
   if( ndxDep.empty() ) return; // Nothing to do!
@@ -562,7 +560,7 @@ SparseEnv<DAG>::process
 
 template < typename DAG >
 inline void
-SparseEnv<DAG>::process
+SElimEnv<DAG>::process
 ( unsigned const nDep, FFVar const* pDep, bool const add2dag )
 {
   // Reset intermediate / auxiliary arrays
@@ -573,10 +571,10 @@ SparseEnv<DAG>::process
   for( auto&& Op : sgDep.l_op ){
     if( Op->type != FFOp::VAR ) continue;
     _Var.push_back( *Op->pres );
-    _SPVar.push_back( SparseExpr( this, *Op->pres ) );
+    _SPVar.push_back( SElimExpr( this, *Op->pres ) );
   }
 
-#ifdef MC__SPARSEENV_DEBUG_PROCESS
+#ifdef MC__SELIM_DEBUG_PROCESS
   std::cout << std::endl << _Var.size() << " Original Variables: ";
   for( auto&& var : _Var ) std::cout << var << " ";
   std::cout << std::endl;
@@ -586,7 +584,7 @@ SparseEnv<DAG>::process
   _SPDep.resize( nDep );
   _dag->eval( sgDep, nDep, pDep, _SPDep.data(), _Var.size(), _Var.data(), _SPVar.data() );
 
-#ifdef MC__SPARSEENV_DEBUG_PROCESS
+#ifdef MC__SELIM_DEBUG_PROCESS
   std::cout << *this;
   for( unsigned i=0; i<nDep; i++ )
     std::cout << std::endl << "SPDep[" << i << "]:" << _SPDep[i];
@@ -601,9 +599,9 @@ SparseEnv<DAG>::process
     std::vector<FFVar const*> vAux;
     auto itSV = expr.second.begin();
     for( auto&& operand : expr.first->pops ){
-#ifdef MC__SPARSEENV_CHECK
+#ifdef MC__SELIM_CHECK
       if( itSV == expr.second.end() )
-        throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::INTERNAL );
+        throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::INTERNAL );
 #endif
       vAux.push_back( _insert_expr( operand, *itSV ) );
       ++itSV;
@@ -618,7 +616,7 @@ SparseEnv<DAG>::process
 //    _Dep.push_back( *_insert_expr( pDep+i, &_SPDep.at(i) ) );
     _insert_expr( pDep+i, &_SPDep.at(i) );
 
-#ifdef MC__SPARSEENV_DEBUG_PROCESS
+#ifdef MC__SELIM_DEBUG_PROCESS
   std::cout << std::endl << _Aux.size() << " Auxiliary Variables: ";
   for( auto&& aux : _Aux ) std::cout << *aux.first << "->" << *aux.second << " ";
   std::cout << std::endl;
@@ -635,11 +633,11 @@ SparseEnv<DAG>::process
 
 template < typename DAG >
 inline FFVar const*
-SparseEnv<DAG>::_insert_expr
-( FFVar const* var, SparseExpr<DAG> const* expr )
+SElimEnv<DAG>::_insert_expr
+( FFVar const* var, SElimExpr<DAG> const* expr )
 { 
   auto itdagvar = _dag->Vars().find( const_cast<FFVar*>(var) );
-#ifdef MC__SPARSEENV_CHECK
+#ifdef MC__SELIM_CHECK
   assert( itdagvar != _dag->Vars().end() );
 #endif
 
@@ -653,15 +651,15 @@ SparseEnv<DAG>::_insert_expr
     return itv->second;
 
   // Append new DAG variable in _Aux and defining polynomial constraint in _Poly 
-#ifdef MC__SPARSEENV_DEBUG_PROCESS
+#ifdef MC__SELIM_DEBUG_PROCESS
   std::cout <<std::endl << "operand: " << **itdagvar << std::endl;
 #endif
   FFVar newvar( _dag );
   auto itnewvar = _dag->Vars().find( &newvar );
-#ifdef MC__SPARSEENV_CHECK
+#ifdef MC__SELIM_CHECK
   assert( itnewvar != _dag->Vars().end() );
 #endif
-#ifdef MC__SPARSEENV_DEBUG_PROCESS
+#ifdef MC__SELIM_DEBUG_PROCESS
   std::cout << "paired with new DAG variable: " << **itnewvar << std::endl;
 #endif
   _Aux.insert( std::make_pair( *itdagvar, *itnewvar ) );
@@ -669,10 +667,10 @@ SparseEnv<DAG>::_insert_expr
 
   FFVar polyctr = **itnewvar * _SPolyExpr_to_FFVar( expr->denom() ) - _SPolyExpr_to_FFVar( expr->numer() );
   auto itpolyctr = _dag->Vars().find( &polyctr );
-#ifdef MC__SPARSEENV_CHECK
+#ifdef MC__SELIM_CHECK
   assert( itpolyctr != _dag->Vars().end() );
 #endif
-#ifdef MC__SPARSEENV_DEBUG_PROCESS
+#ifdef MC__SELIM_DEBUG_PROCESS
   std::cout << "defined by DAG subexpression: ";
   _dag->output( _dag->subgraph( 1, *itpolyctr ) );
 #endif
@@ -682,25 +680,25 @@ SparseEnv<DAG>::_insert_expr
 
 template < typename DAG >
 inline void
-SparseEnv<DAG>::_insert_expr
+SElimEnv<DAG>::_insert_expr
 ( FFOp const* pOp, std::vector<FFVar const*>& vAux )
 { 
-#ifdef MC__SPARSEENV_CHECK
+#ifdef MC__SELIM_CHECK
   // Throw exception if DAG auxiliary was already made a DAG variable
   if( _Aux.find( pOp->pres ) != _Aux.end() )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::INTERNAL );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::INTERNAL );
 #endif
-#ifdef MC__SPARSEENV_DEBUG_PROCESS
+#ifdef MC__SELIM_DEBUG_PROCESS
   std::cout << std::endl << "operand: " << *pOp->pres << std::endl;
 #endif
 
   // Append new DAG variable in _Aux
   FFVar newvar( _dag );
   auto itnewvar = _dag->Vars().find( &newvar );
-#ifdef MC__SPARSEENV_CHECK
+#ifdef MC__SELIM_CHECK
   assert( itnewvar != _dag->Vars().end() );
 #endif
-#ifdef MC__SPARSEENV_DEBUG_PROCESS
+#ifdef MC__SELIM_DEBUG_PROCESS
   std::cout << "paired with new DAG variable: " << **itnewvar << std::endl;
 #endif
   _Aux.insert( std::make_pair( pOp->pres, *itnewvar ) );
@@ -743,13 +741,13 @@ SparseEnv<DAG>::_insert_expr
    case FFOp::SCALE:
    case FFOp::TIMES:
    case FFOp::PROD:
-   default:          throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::INTERNAL );
+   default:          throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::INTERNAL );
   }
 }
 
 template < typename DAG >
 inline FFVar const*
-SparseEnv<DAG>::_find_aux
+SElimEnv<DAG>::_find_aux
 ( FFVar const* aux )
 {
   if( aux->ops().first->type == FFOp::VAR ) return aux;
@@ -760,7 +758,7 @@ SparseEnv<DAG>::_find_aux
 
 template < typename DAG >
 inline FFVar
-SparseEnv<DAG>::_SPolyExpr_to_FFVar
+SElimEnv<DAG>::_SPolyExpr_to_FFVar
 ( SPolyExpr const& expr )
 {
   FFVar var = 0.;
@@ -769,7 +767,7 @@ SparseEnv<DAG>::_SPolyExpr_to_FFVar
     for( auto ie=it->first.expr.begin(); ie!=it->first.expr.end(); ++ie ){
       const FFVar*oper = _find_aux( ie->first );
       if( !oper ) 
-        throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::INTERNAL );
+        throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::INTERNAL );
       switch( SPolyExpr::options.BASIS ){
        case SPolyExpr::Options::MONOM:
         prodmon *= pow( *oper, (int)ie->second );
@@ -788,7 +786,7 @@ SparseEnv<DAG>::_SPolyExpr_to_FFVar
 
 template < typename DAG >
 inline void
-SparseEnv<DAG>::_reset
+SElimEnv<DAG>::_reset
 ()
 {
   for( auto&& expr : _Interm )
@@ -807,52 +805,52 @@ SparseEnv<DAG>::_reset
 
 template < typename DAG >
 inline void
-SparseEnv<DAG>::_append_interm
-( FFOp const* op, SparseExpr<DAG> const* var1, SparseExpr<DAG> const* var2 )
+SElimEnv<DAG>::_append_interm
+( FFOp const* op, SElimExpr<DAG> const* var1, SElimExpr<DAG> const* var2 )
 {
-#ifdef MC__SPARSEENV_CHECK
+#ifdef MC__SELIM_CHECK
   if( !var1 )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::INTERNAL );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::INTERNAL );
 #endif
-  std::vector<SparseExpr<DAG> const*> vops;
-  vops.push_back( new SparseExpr( *var1 ) );
-  if( var2 ) vops.push_back( new SparseExpr( *var2 ) );
+  std::vector<SElimExpr<DAG> const*> vops;
+  vops.push_back( new SElimExpr( *var1 ) );
+  if( var2 ) vops.push_back( new SElimExpr( *var2 ) );
   _Interm.push_back( std::make_pair( op, vops ) );
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
-SparseEnv<DAG>::_lift_univariate_term
-( SparseExpr<DAG> const& var )
+inline SElimExpr<DAG>
+SElimEnv<DAG>::_lift_univariate_term
+( SElimExpr<DAG> const& var )
 {
-#ifdef MC__SPARSENV_CHECK
+#ifdef MC__SELIM_CHECK
   if( !_dag->curOp() )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::INTERNAL );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::INTERNAL );
 #endif
 
   // Append new intermediate expression and assert that same operation was not previously appended
   _append_interm( _dag->curOp(), &var );
-  return SparseExpr( this, *(_dag->curOp()->pres) );
+  return SElimExpr( this, *(_dag->curOp()->pres) );
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
-SparseEnv<DAG>::_lift_bivariate_term
-( SparseExpr<DAG> const& var1, SparseExpr<DAG> const& var2 )
+inline SElimExpr<DAG>
+SElimEnv<DAG>::_lift_bivariate_term
+( SElimExpr<DAG> const& var1, SElimExpr<DAG> const& var2 )
 {
-#ifdef MC__SPARSENV_CHECK
+#ifdef MC__SELIM_CHECK
   if( !_dag->curOp() )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::INTERNAL );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::INTERNAL );
 #endif
 
   // Append new intermediate expression and assert that same operation was not previously appended
   _append_interm( _dag->curOp(), &var1, &var2 );
-  return SparseExpr( this, *(_dag->curOp()->pres) );
+  return SElimExpr( this, *(_dag->curOp()->pres) );
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>&
-SparseExpr<DAG>::_set
+inline SElimExpr<DAG>&
+SElimExpr<DAG>::_set
 ( double const& d )
 {
   _numer = d;
@@ -861,8 +859,8 @@ SparseExpr<DAG>::_set
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>&
-SparseExpr<DAG>::_set
+inline SElimExpr<DAG>&
+SElimExpr<DAG>::_set
 ( FFVar const& x )
 {
   _numer.var( &x );
@@ -871,9 +869,9 @@ SparseExpr<DAG>::_set
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>&
-SparseExpr<DAG>::_set
-( SparseExpr<DAG> const& var )
+inline SElimExpr<DAG>&
+SElimExpr<DAG>::_set
+( SElimExpr<DAG> const& var )
 {
   if( this == &var ) return *this;
   _env = var._env;
@@ -883,22 +881,22 @@ SparseExpr<DAG>::_set
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 operator+
-( SparseExpr<DAG> const& var )
+( SElimExpr<DAG> const& var )
 {
   return var;
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>&
-SparseExpr<DAG>::operator+=
-( SparseExpr<DAG> const& var )
+inline SElimExpr<DAG>&
+SElimExpr<DAG>::operator+=
+( SElimExpr<DAG> const& var )
 {
   if( !_env )
     _env = var._env;
   else if( var._env && _env != var._env )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::ENVERR );
 
   _numer *= var._denom;
   _numer += var._numer * _denom;
@@ -907,42 +905,42 @@ SparseExpr<DAG>::operator+=
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 operator+
-( SparseExpr<DAG> const& var1, SparseExpr<DAG> const& var2 )
+( SElimExpr<DAG> const& var1, SElimExpr<DAG> const& var2 )
 {
-  SparseExpr<DAG> var3( var1 );
+  SElimExpr<DAG> var3( var1 );
   var3 += var2;
   return var3;
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 operator+
-( SparseExpr<DAG> const& var1, double const& cst2 )
+( SElimExpr<DAG> const& var1, double const& cst2 )
 {
-  SparseExpr<DAG> var3( var1 );
+  SElimExpr<DAG> var3( var1 );
   var3 += cst2;
   return var3;
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 operator-
-( SparseExpr<DAG> const& var )
+( SElimExpr<DAG> const& var )
 {
-  return SparseExpr( var.env(), -var.numer(), var.denom() );
+  return SElimExpr( var.env(), -var.numer(), var.denom() );
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>&
-SparseExpr<DAG>::operator-=
-( SparseExpr<DAG> const& var )
+inline SElimExpr<DAG>&
+SElimExpr<DAG>::operator-=
+( SElimExpr<DAG> const& var )
 {
   if( !_env )
     _env = var._env;
   else if( var._env && _env != var._env )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::ENVERR );
 
   _numer *= var._denom;
   _numer -= var._numer * _denom;
@@ -951,34 +949,34 @@ SparseExpr<DAG>::operator-=
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 operator-
-( SparseExpr<DAG> const& var1, SparseExpr<DAG> const& var2 )
+( SElimExpr<DAG> const& var1, SElimExpr<DAG> const& var2 )
 {
-  SparseExpr<DAG> var3( var1 );
+  SElimExpr<DAG> var3( var1 );
   var3 -= var2;
   return var3;
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 operator-
-( SparseExpr<DAG> const& var1, double const& cst2 )
+( SElimExpr<DAG> const& var1, double const& cst2 )
 {
-  SparseExpr<DAG> var3( var1 );
+  SElimExpr<DAG> var3( var1 );
   var3 -= cst2;
   return var3;
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>&
-SparseExpr<DAG>::operator*=
-( SparseExpr<DAG> const& var )
+inline SElimExpr<DAG>&
+SElimExpr<DAG>::operator*=
+( SElimExpr<DAG> const& var )
 {
   if( !_env )
     _env = var._env;
   else if( var._env && _env != var._env )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::ENVERR );
 
   _numer *= var._numer;
   _denom *= var._denom;
@@ -986,36 +984,36 @@ SparseExpr<DAG>::operator*=
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 operator*
-( SparseExpr<DAG> const& var1, SparseExpr<DAG> const& var2 )
+( SElimExpr<DAG> const& var1, SElimExpr<DAG> const& var2 )
 {
-  SparseExpr<DAG> var3( var1 );
+  SElimExpr<DAG> var3( var1 );
   var3 *= var2;
   return var3;
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 operator*
-( SparseExpr<DAG> const& var1, double const& cst2 )
+( SElimExpr<DAG> const& var1, double const& cst2 )
 {
-  SparseExpr<DAG> var3( var1 );
+  SElimExpr<DAG> var3( var1 );
   var3 *= cst2;
   return var3;
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>&
-SparseExpr<DAG>::operator/=
-( SparseExpr<DAG> const& var )
+inline SElimExpr<DAG>&
+SElimExpr<DAG>::operator/=
+( SElimExpr<DAG> const& var )
 {
   if( !_env )
     _env = var._env;
   else if( var._env && _env != var._env )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::ENVERR );
 
-  if( SparseEnv<DAG>::options.LIFTDIV )
+  if( SElimEnv<DAG>::options.LIFTDIV )
     *this = _env->_lift_bivariate_term( *this, var );
   else{
     _numer *= var._denom;
@@ -1025,98 +1023,98 @@ SparseExpr<DAG>::operator/=
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 operator/
-( SparseExpr<DAG> const& var1, SparseExpr<DAG> const& var2 )
+( SElimExpr<DAG> const& var1, SElimExpr<DAG> const& var2 )
 {
-  SparseExpr<DAG> var3( var1 );
+  SElimExpr<DAG> var3( var1 );
   var3 /= var2;
   return var3;
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 operator/
-( double const& cst1, SparseExpr<DAG> const& var2 )
+( double const& cst1, SElimExpr<DAG> const& var2 )
 {
-  SparseExpr<DAG> var3( cst1 );
+  SElimExpr<DAG> var3( cst1 );
   var3 /= var2;
   return var3;
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 sqr
-( SparseExpr<DAG> const& var )
+( SElimExpr<DAG> const& var )
 {
-#ifdef MC__SPARSENV_CHECK
+#ifdef MC__SELIM_CHECK
   if( !var.env() )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::ENVERR );
 #endif
-  if( SparseEnv<DAG>::options.LIFTIPOW )
+  if( SElimEnv<DAG>::options.LIFTIPOW )
     return var.env()->_lift_univariate_term( var );
-  return SparseExpr<DAG>( var.env(), sqr( var.numer() ), sqr( var.denom() ) );
+  return SElimExpr<DAG>( var.env(), sqr( var.numer() ), sqr( var.denom() ) );
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 inv
-( SparseExpr<DAG> const& var )
+( SElimExpr<DAG> const& var )
 {
-#ifdef MC__SPARSENV_CHECK
+#ifdef MC__SELIM_CHECK
   if( !var.env() )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::ENVERR );
 #endif
-  if( SparseEnv<DAG>::options.LIFTDIV )
+  if( SElimEnv<DAG>::options.LIFTDIV )
     return var.env()->_lift_bivariate_term( 1, var );
-  return SparseExpr<DAG>( var.env(), var.denom(), var.numer() );
+  return SElimExpr<DAG>( var.env(), var.denom(), var.numer() );
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 pow
-( SparseExpr<DAG> const& var, double const& a )
+( SElimExpr<DAG> const& var, double const& a )
 {
-#ifdef MC__SPARSENV_CHECK
+#ifdef MC__SELIM_CHECK
   if( !var.env() )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_bivariate_term( var, a );
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 pow
-( SparseExpr<DAG> const& var, int const n )
+( SElimExpr<DAG> const& var, int const n )
 {
   if( n < 0 ) return pow( inv( var ), -n );
   switch( n ){
    case 0:  return 1.;
    case 1:  return var;
    case 2:  return sqr( var );
-   default: if( SparseEnv<DAG>::options.LIFTIPOW ) return var.env()->_lift_bivariate_term( var, n );
-            return SparseExpr( var.env(), pow( var.numer(), (unsigned)n ), pow( var.denom(), (unsigned)n ) );
+   default: if( SElimEnv<DAG>::options.LIFTIPOW ) return var.env()->_lift_bivariate_term( var, n );
+            return SElimExpr( var.env(), pow( var.numer(), (unsigned)n ), pow( var.denom(), (unsigned)n ) );
   }
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 cheb
-( SparseExpr<DAG> const& var, unsigned const n )
+( SElimExpr<DAG> const& var, unsigned const n )
 {
   switch( n ){
    case 0:  return 1.;
    case 1:  return var;
    case 2:  return sqr( var ) * 2. - 1.;
-   default: if( SparseEnv<DAG>::options.LIFTIPOW ) return var.env()->_lift_bivariate_term( var, n );
+   default: if( SElimEnv<DAG>::options.LIFTIPOW ) return var.env()->_lift_bivariate_term( var, n );
             return var * cheb( var, n-1 ) * 2. - cheb( var, n-2 );
   }
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 prod
-( unsigned int const nvars, SparseExpr<DAG> const* pvars )
+( unsigned int const nvars, SElimExpr<DAG> const* pvars )
 {
   switch( nvars ){
    case 0:  return 1.;
@@ -1126,9 +1124,9 @@ prod
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 monom
-( unsigned int const nvars, SparseExpr<DAG> const* pvars, unsigned const* k, bool const chebbasis=false )
+( unsigned int const nvars, SElimExpr<DAG> const* pvars, unsigned const* k, bool const chebbasis=false )
 {
   switch( nvars ){
    case 0:  return 1.;
@@ -1138,237 +1136,237 @@ monom
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 exp
-( SparseExpr<DAG> const& var )
+( SElimExpr<DAG> const& var )
 {
-#ifdef MC__SPARSENV_CHECK
+#ifdef MC__SELIM_CHECK
   if( !var.env() )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 log
-( SparseExpr<DAG> const& var )
+( SElimExpr<DAG> const& var )
 {
-#ifdef MC__SPARSENV_CHECK
+#ifdef MC__SELIM_CHECK
   if( !var.env() )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 xlog
-( SparseExpr<DAG> const& var )
+( SElimExpr<DAG> const& var )
 {
-#ifdef MC__SPARSENV_CHECK
+#ifdef MC__SELIM_CHECK
   if( !var.env() )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 sqrt
-( SparseExpr<DAG> const& var )
+( SElimExpr<DAG> const& var )
 {
-#ifdef MC__SPARSENV_CHECK
+#ifdef MC__SELIM_CHECK
   if( !var.env() )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 cos
-( SparseExpr<DAG> const& var )
+( SElimExpr<DAG> const& var )
 {
-#ifdef MC__SPARSENV_CHECK
+#ifdef MC__SELIM_CHECK
   if( !var.env() )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 sin
-( SparseExpr<DAG> const& var )
+( SElimExpr<DAG> const& var )
 {
-#ifdef MC__SPARSENV_CHECK
+#ifdef MC__SELIM_CHECK
   if( !var.env() )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 tan
-( SparseExpr<DAG> const& var )
+( SElimExpr<DAG> const& var )
 {
-#ifdef MC__SPARSENV_CHECK
+#ifdef MC__SELIM_CHECK
   if( !var.env() )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 acos
-( SparseExpr<DAG> const& var )
+( SElimExpr<DAG> const& var )
 {
-#ifdef MC__SPARSENV_CHECK
+#ifdef MC__SELIM_CHECK
   if( !var.env() )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 asin
-( SparseExpr<DAG> const& var )
+( SElimExpr<DAG> const& var )
 {
-#ifdef MC__SPARSENV_CHECK
+#ifdef MC__SELIM_CHECK
   if( !var.env() )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 atan
-( SparseExpr<DAG> const& var )
+( SElimExpr<DAG> const& var )
 {
-#ifdef MC__SPARSENV_CHECK
+#ifdef MC__SELIM_CHECK
   if( !var.env() )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 cosh
-( SparseExpr<DAG> const& var )
+( SElimExpr<DAG> const& var )
 {
-#ifdef MC__SPARSENV_CHECK
+#ifdef MC__SELIM_CHECK
   if( !var.env() )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 sinh
-( SparseExpr<DAG> const& var )
+( SElimExpr<DAG> const& var )
 {
-#ifdef MC__SPARSENV_CHECK
+#ifdef MC__SELIM_CHECK
   if( !var.env() )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 tanh
-( SparseExpr<DAG> const& var )
+( SElimExpr<DAG> const& var )
 {
-#ifdef MC__SPARSENV_CHECK
+#ifdef MC__SELIM_CHECK
   if( !var.env() )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 fabs
-( SparseExpr<DAG> const& var )
+( SElimExpr<DAG> const& var )
 {
-#ifdef MC__SPARSENV_CHECK
+#ifdef MC__SELIM_CHECK
   if( !var.env() )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 erf
-( SparseExpr<DAG> const& var )
+( SElimExpr<DAG> const& var )
 {
-#ifdef MC__SPARSENV_CHECK
+#ifdef MC__SELIM_CHECK
   if( !var.env() )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 fstep
-( SparseExpr<DAG> const& var )
+( SElimExpr<DAG> const& var )
 {
-#ifdef MC__SPARSENV_CHECK
+#ifdef MC__SELIM_CHECK
   if( !var.env() )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::ENVERR );
 #endif
   return var.env()->_lift_univariate_term( var );
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 max
-( SparseExpr<DAG> const& var1, SparseExpr<DAG> const& var2 )
+( SElimExpr<DAG> const& var1, SElimExpr<DAG> const& var2 )
 {
   if( var1.env() && var2.env() && var1.env() != var2.env() )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::ENVERR );
 
   return var1.env()->_lift_bivariate_term( var1, var2 );
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 min
-( SparseExpr<DAG> const& var1, SparseExpr<DAG> const& var2 )
+( SElimExpr<DAG> const& var1, SElimExpr<DAG> const& var2 )
 {
   if( var1.env() && var2.env() && var1.env() != var2.env() )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::ENVERR );
 
   return var1.env()->_lift_bivariate_term( var1, var2 );
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 lmtd
-( SparseExpr<DAG> const& var1, SparseExpr<DAG> const& var2 )
+( SElimExpr<DAG> const& var1, SElimExpr<DAG> const& var2 )
 {
   if( var1.env() && var2.env() && var1.env() != var2.env() )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::ENVERR );
 
   return var1.env()->_lift_bivariate_term( var1, var2 );
 }
 
 template < typename DAG >
-inline SparseExpr<DAG>
+inline SElimExpr<DAG>
 rlmtd
-( SparseExpr<DAG> const& var1, SparseExpr<DAG> const& var2 )
+( SElimExpr<DAG> const& var1, SElimExpr<DAG> const& var2 )
 {
   if( var1.env() && var2.env() && var1.env() != var2.env() )
-    throw typename SparseEnv<DAG>::Exceptions( SparseEnv<DAG>::Exceptions::ENVERR );
+    throw typename SElimEnv<DAG>::Exceptions( SElimEnv<DAG>::Exceptions::ENVERR );
 
   return var1.env()->_lift_bivariate_term( var1, var2 );
 }
@@ -1380,10 +1378,10 @@ rlmtd
 namespace mc
 {
 
-//! @brief Specialization of the structure mc::Op to allow usage of the type mc::SparseExpr for DAG evaluation or as a template parameter in other MC++ classes
-template <typename DAG> struct Op<mc::SparseExpr<DAG>>
+//! @brief Specialization of the structure mc::Op to allow usage of the type mc::SElimExpr for DAG evaluation or as a template parameter in other MC++ classes
+template <typename DAG> struct Op<mc::SElimExpr<DAG>>
 {
-  typedef mc::SparseExpr<DAG> T;
+  typedef mc::SElimExpr<DAG> T;
   static T point( const double c ) { return T(c); }
   static T zeroone() { throw std::runtime_error("operation not permitted"); }
   static void I(T& x, const T&y) { x = y; }

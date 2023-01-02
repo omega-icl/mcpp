@@ -5,7 +5,7 @@
 #include "ffunc.hpp"
 #include "ffinv.hpp"
 #include "rltred.hpp"
-#include "sparseexpr.hpp"
+#include "slift.hpp"
 
 #ifdef USE_PROFIL
   #include "mcprofil.hpp"
@@ -710,7 +710,7 @@ int test_spoly1()
 
 ///////////////////////////////////////////////////////////////////////////////
 
-int test_sexpr1()
+int test_slift1()
 {
   std::cout << "\n==============================================\ntest_sexpr1:\n";
 
@@ -726,8 +726,8 @@ int test_sexpr1()
   //F[1] = exp( 2 * sqr( X[1] ) - 1 );
   std::cout << DAG;
 
-  mc::SparseExpr<mc::FFGraph<>>::SPolyExpr::options.BASIS = mc::SparseExpr<mc::FFGraph<>>::SPolyExpr::Options::MONOM;
-  mc::SparseEnv<mc::FFGraph<>> SPE( &DAG );
+  mc::SLiftExpr<mc::FFGraph<>>::SPolyExpr::options.BASIS = mc::SLiftExpr<mc::FFGraph<>>::SPolyExpr::Options::MONOM;
+  mc::SLiftEnv<mc::FFGraph<>> SPE( &DAG );
   SPE.options.LIFTDIV = true;//false;//
   SPE.options.LIFTIPOW = true; //false;//
 
@@ -753,18 +753,18 @@ int test_sexpr1()
 int main()
 {
   try{
-    test_dep1();
-    test_inv1();
-    test_dep2();
-    test_inv2();
+//    test_dep1();
+//    test_inv1();
+//    test_dep2();
+//    test_inv2();
 //    test_rltred1();
 //    test_rltred2();
 //    test_rltred3();
 //    test_rltred4();
 //    test_rltred5();
 //    test_rltred6();
-//    test_spoly1();
-//    test_sexpr1();
+    test_spoly1();
+    test_slift1();
   }
   catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
@@ -773,7 +773,7 @@ int main()
               << "Aborts." << std::endl;
     return eObj.ierr();
   }
-  catch( mc::SparseEnv<mc::FFGraph<>>::Exceptions &eObj ){
+  catch( mc::SLiftEnv<mc::FFGraph<>>::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
               << " in sparse expression manipulation:" << std::endl
               << eObj.what() << std::endl

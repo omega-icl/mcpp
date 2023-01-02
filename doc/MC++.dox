@@ -863,13 +863,6 @@ INPUT                  = MC++.txt \
                          ../src/mc/mcfadbad.hpp \
                          ../src/mc/mclapack.hpp \
                          ../src/mc/mctime.hpp \
-                         ../src/mc/ffdep.hpp \
-                         ../src/mc/ffinv.hpp \
-                         ../src/mc/ffunc.hpp \
-                         ../src/mc/sparseexpr.hpp \
-                         ../src/mc/spoly.hpp \
-                         ../src/mc/squad.hpp \
-                         ../src/mc/rltred.hpp \
                          ../src/mc/interval.hpp \
                          ../src/mc/mccormick.hpp \
                          ../src/mc/specbnd.hpp \
@@ -882,7 +875,15 @@ INPUT                  = MC++.txt \
                          ../src/mc/ellipsoid.hpp \
                          ../src/mc/ellimage.hpp \
                          ../src/mc/polimage.hpp \
-                         ../src/mc/ismodel.hpp
+                         ../src/mc/ismodel.hpp \
+                         ../src/mc/spoly.hpp \
+                         ../src/mc/squad.hpp \
+                         ../src/mc/ffdep.hpp \
+                         ../src/mc/ffinv.hpp \
+                         ../src/mc/ffunc.hpp \
+                         ../src/mc/slift.hpp \
+                         ../src/mc/selim.hpp \
+                         ../src/mc/rltred.hpp
 
 # This tag can be used to specify the character encoding of the source files
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding. Doxygen uses

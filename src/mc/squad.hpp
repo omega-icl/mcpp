@@ -4,7 +4,7 @@
 
 /*!
 \page page_SQUAD Decomposition of Sparse Polynomials into Quadratic Forms
-\author Benoit Chachuat, Tanuj Karia & OMEGA Research Group (http://www3.imperial.ac.uk/environmentenergyoptimisation)
+\author Benoit Chachuat & Tanuj Karia
 \date 2020
 \bug mc::SQuad::Optimize only working with default argument OnlyminOrd=2 presently.
 
