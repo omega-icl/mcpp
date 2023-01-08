@@ -1,4 +1,4 @@
-#define TEST_TUNCPHD33  // <-- select test example
+#define TEST_DOXYGEN  // <-- select test example
 #undef  USE_CHEB       // <-- whether to perform the decomposition in Chebyshev basis
 #undef  USE_DAG        // <-- whether to define a DAG of the expressions
 #define USE_OPTIM      // <-- whether to optimize the quadratic form
@@ -6,7 +6,7 @@
 
 #include "mctime.hpp"
 #include "spoly.hpp"
-#include "squad.hpp"
+#include "squad_save.hpp"
 #if defined( USE_DAG )
   #include "ffunc.hpp"
   typedef mc::SPoly<mc::FFVar const*,mc::lt_FFVar> t_SPoly;
@@ -199,6 +199,7 @@ int main()
     t_SQuad::options.MIPOUTPUTFILE = "quad.lp";
     //t_SQuad::options.MIPNUMFOCUS = 3;
     //t_SQuad::options.LPFEASTOL = 1e-7;
+    t_SQuad::options.MIPFIXEDBASIS = true;
     t_SQuad::options.MIPSYMCUTS = 2;
     //t_SQuad::options.MIPTIMELIMIT  = 1800;
     //t_SQuad::options.MIPCONCURRENT = 4;
