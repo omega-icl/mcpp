@@ -2,6 +2,7 @@
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 #define NOTTOTRACKSHADOW
+#define MC__ISM_COMPUTATION_TOL  1e-13
 /*!
 \page page_ISM Interval Superposition Model Arithmetic for Factorable Functions
 \author Yanlin Zha, Beno&icirc;t Chachuat
@@ -3921,9 +3922,11 @@ const
         slope[i][j][0] = tmp_underEstimatorSlp_at_ij;
         slope[i][j][1] = tmp_overEstimatorSlp_at_ij;
         mat[i][j] = T(tmp_underEstimator_at_ij,tmp_overEstimator_at_ij);
+#ifdef MC__USE_FILIB         
         if(mat[i][j].isEmpty())
           std::cout << i << "," << j << ": " << std::setprecision(18)
                     << tmp_underEstimator_at_ij << " , " << tmp_overEstimator_at_ij;
+#endif
       }
 
     }
@@ -5756,7 +5759,7 @@ const
 }
 
 
-/ template <typename T>
+// template <typename T>
 // inline
 // void ISModel<T>::_intersect
 // ( std::vector<std::vector<T>>& mat, unsigned const& ndep, T _rangebnd)
@@ -5900,6 +5903,7 @@ const
           //T _update(_lb, _upbd);
           long double _tmp_l = Op<T>::l( mat[i][j]);
           mat[i][j] = T(_tmp_l,_upbd);
+#ifdef MC__USE_FILIB           
           if(mat[i][j].isEmpty()){
             if(std::fabs(_tmp_l - _upbd) <= 1e3*MC__ISM_COMPUTATION_TOL){
               mat[i][j] = T( _upbd,_tmp_l );
@@ -5909,7 +5913,8 @@ const
             else
                std::cout <<std::setprecision(18)<< "over " << _upbd << "    " << _tmp_l
                                                 << "    " << i << "," << j << std::endl;
-          }                     
+          }           
+#endif                    
           //std::cout<<"late"<<Op<T>::l(mat[i][j])<<std::endl;
         }
       }
@@ -5951,6 +5956,7 @@ const
           long double _lowerbound(std::max(in_first_term + _tmp_l, w_u) - second_term);
           long double _tmp_u = Op<T>::u( mat[i][j]);
           mat[i][j] = T(_lowerbound,_tmp_u );
+#ifdef MC__USE_FILIB           
           if(mat[i][j].isEmpty()){
             if(std::fabs(_lowerbound - _tmp_u) <= 1e3*MC__ISM_COMPUTATION_TOL){
               mat[i][j] = T( _tmp_u, _lowerbound );
@@ -5959,7 +5965,8 @@ const
             else
                std::cout <<std::setprecision(18)<< "under  " << _tmp_u << "    " << _lowerbound 
                                                 << "    " << i << "," << j << std::endl;
-          }              
+          }          
+#endif              
         }
       }
     }
@@ -6107,13 +6114,15 @@ const
           //T _update(_lb, _upbd);
           long double _tmp_l = Op<T>::l( mat[i][j]);
           mat[i][j] = T(_tmp_l,_upbd);
+#ifdef MC__USE_FILIB           
           if(mat[i][j].isEmpty()){
             if(std::fabs(_tmp_l - _upbd) <= 1e3*MC__ISM_COMPUTATION_TOL)
                 mat[i][j] = T( _upbd,_tmp_l );
             else
                std::cout <<std::setprecision(18)<< "over " << _upbd << "    " << _tmp_l
                                                 << "    " << i << "," << j << std::endl;
-          }                     
+          }          
+#endif                     
           //std::cout<<"late"<<Op<T>::l(mat[i][j])<<std::endl;
         }
       }
@@ -6152,13 +6161,15 @@ const
           long double _lowerbound(std::max(in_first_term + _tmp_l, w_u) - second_term);
           long double _tmp_u = Op<T>::u( mat[i][j]);
           mat[i][j] = T(_lowerbound,_tmp_u );
+#ifdef MC__USE_FILIB 
           if(mat[i][j].isEmpty()){
             if(std::fabs(_lowerbound - _tmp_u) <= 1e3*MC__ISM_COMPUTATION_TOL)
                 mat[i][j] = T( _tmp_u, _lowerbound );
             else
                std::cout <<std::setprecision(18)<< "under  " << _tmp_u << "    " << _lowerbound 
                                                 << "    " << i << "," << j << std::endl;
-          }              
+          }          
+#endif              
         }
       }
     }
