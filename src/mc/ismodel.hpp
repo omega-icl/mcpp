@@ -1,7 +1,7 @@
 // Copyright (C) Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
-
+#define NOTTOTRACKSHADOW
 /*!
 \page page_ISM Interval Superposition Model Arithmetic for Factorable Functions
 \author Yanlin Zha, Beno&icirc;t Chachuat
@@ -236,7 +236,9 @@ class ISModel
   std::vector<bool> _defvar;
   //! @brief Variable bounds
   std::vector<T> _bndvar;
-  
+   // Internal containing the parition sizes (length) of each variable
+  std::vector<long double> _psize;
+
   // Internal Intermediate containing lower bounds of coefficient matrix rows
   mutable std::vector<double> _L1;
   // Internal Intermediate containing lower bounds of coefficient matrix rows
@@ -272,10 +274,17 @@ class ISModel
     _c2.resize( _nvar );
     _r1.resize( _nvar );
     _r2.resize( _nvar );
+
+    _psize.resize( _nvar , 0. );
+
   }
 
   ~ISModel() 
-  {}
+  {
+#ifdef FISM_LIFITIME_DEBUG     
+    std::cout<< "ISM delated, nvar = " <<_nvar <<std::endl;
+#endif    
+  }
 
   //! @brief Retrieve number of variables in ISM
   unsigned nvar
@@ -289,13 +298,18 @@ class ISModel
   const
   { return _ndiv; };
 
+  //! @brief Retrieve partition sizes in ISM
+  std::vector<long double> psize
+  ()
+  const
+  { return _psize; };
 
  //! @brief Options of mc::ISModel
   static struct Options
   {
     //! @brief Constructor
     Options():
-      ASYREM_USE(true), DCDEC_USE(true), SCALING_TYPE(NONE), INTERSECTION_USE(true), ENVEL_USE(true), ROOT_MAXIT(100), ROOT_TOL(1e-10)
+      ASYREM_USE(true), DCDEC_USE(true), SCALING_TYPE(FULL), INTERSECTION_USE(true), ENVEL_USE(true), ROOT_MAXIT(100), ROOT_TOL(1e-10), SLOPE_USE(false),SHADOW_USE(false)
       {}
 
     //! @brief FISModel re-scaling option in binary product
@@ -319,6 +333,10 @@ class ISModel
     unsigned ROOT_MAXIT;
     //! @brief Termination tolerance in root search - Default: 1e-10
     double ROOT_TOL;
+    //! @brief Whether to use slope-based enhancement - Default: false
+    bool SLOPE_USE;
+    //! @brief Whether to use shadow enhancement - Default: false
+    bool SHADOW_USE;    
   } options;
 
   //! @brief Exceptions of mc::ISModel
@@ -448,6 +466,44 @@ class ISModel
     double const& zopt, bool const cvx, T const& bnd )
   const;
 
+
+  template <typename PUNIV, typename BNUIA>
+  void _asym_slope  ( std::vector<std::vector<T>>& mat,std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize, unsigned const& ndep, PUNIV const& f, BNUIA const& fDerv, double const& zopt, bool const cvx )
+  const;
+
+  template <typename PUNIV , typename BNUIA>
+  void _asym_slope  ( std::vector<std::vector<T>>& mat,std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize, unsigned const& ndep, PUNIV const& f, BNUIA const& fDerv, double const& zopt, bool const cvx, T const& bnd )
+  const;
+
+  //  template <typename PUNIV>
+  // void _asym_slope_sqr ( std::vector<std::vector<T>>& mat,std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize, unsigned const& ndep, PUNIV const& f, double const& zopt, bool const cvx, T const& bnd )
+  // const;
+
+  //  template <typename PUNIV>
+  // void _asym_slope_relu ( std::vector<std::vector<T>>& mat,std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize, unsigned const& ndep, PUNIV const& f, double const& zopt, bool const cvx )
+  // const;
+
+  void _asym_slope_relu ( std::vector<std::vector<T>>& mat,std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize, unsigned const& ndep)
+  const;
+
+  void _asym_slope_relu_ws ( std::vector<std::vector<T>>& mat,std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize, unsigned const& ndep,
+                          std::vector<std::vector<std::vector<long double>>>& shadow, std::vector<std::vector<std::vector<long double>>>& shadow_slope)
+  const;
+
+  void _asym_slope_relu_shadow ( std::vector<std::vector<T>>& mat,std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize, unsigned const& ndep, std::vector<std::vector<std::vector<long double>>>& shadow, std::vector<std::vector<std::vector<long double>>>& shadow_slope, std::vector<double> & shadow_info )
+  const;
+
+  void _add_aggregate_shadow ( std::vector<std::vector<T>>& Amat, const std::vector<std::vector<T>>& Bmat, std::vector<std::vector<std::vector<long double>>>& Aslope, const std::vector<std::vector<std::vector<long double>>>& Bslope,
+  std::vector<std::vector<std::vector<long double>>>& Ashadow, const std::vector<std::vector<std::vector<long double>>>& Bshadow, 
+  std::vector<std::vector<std::vector<long double>>>& Ashadow_slope, const std::vector<std::vector<std::vector<long double>>>& Bshadow_slope, 
+  std::vector<double>& Ashadow_info, const std::vector<double>& Bshadow_info,const std::vector<long double>& partitionSize, unsigned const& ndep,T const& bndB)
+  const;
+
+  //  template <typename PUNIV>
+  // void _asym_slope_max ( std::vector<std::vector<T>>& mat,std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize, unsigned const& ndep, PUNIV const& f, double const& zopt, bool const cvx )
+  // const;
+
+
   template <typename PUNIV>
   void _asymDCdecNTC
   ( std::vector<std::vector<T>>& mat, unsigned const& ndep, PUNIV const& f,
@@ -493,6 +549,34 @@ class ISModel
   void _cos
   ( std::vector<std::vector<T>>& mat, unsigned const& ndep )
   const;
+
+  // void _sin_slope
+  // ( std::vector<std::vector<T>>& mat,std::vector<std::vector<std::vector<long double>>>& slope, unsigned const& ndep )
+  // const;
+  void _cos_slope
+  ( std::vector<std::vector<T>>& mat,std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize, unsigned const& ndep )
+  const;
+  void _exp
+  ( std::vector<std::vector<T>>& mat,std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize, unsigned const& ndep )
+  const;
+  void _log
+  ( std::vector<std::vector<T>>& mat,std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize, unsigned const& ndep )
+  const;
+  void _sqrt
+  ( std::vector<std::vector<T>>& mat,std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize, unsigned const& ndep )
+  const;
+  void _inv
+  ( std::vector<std::vector<T>>& mat,std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize, unsigned const& ndep )
+  const;
+
+  void _sqr
+  ( std::vector<std::vector<T>>& mat,std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize, unsigned const& ndep )
+  const;
+
+  void _pow
+  ( std::vector<std::vector<T>>& mat,std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize, int const&iexp, unsigned const& ndep )
+  const;
+
   void _prod
   ( std::vector<std::vector<T>> const& mat1, std::vector<std::vector<T>> const& mat2,
     std::vector<std::vector<T>>& mat3, unsigned& ndep3 )
@@ -500,6 +584,10 @@ class ISModel
   void _intersect
   ( std::vector<std::vector<T>>& mat, unsigned const& ndep, T _rangebnd )
   const;
+  void _intersect
+  ( std::vector<std::vector<T>>& mat, std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize, unsigned const& ndep, T _rangebnd )
+  const;
+
   void _tanh
   ( std::vector<std::vector<T>>& mat, unsigned const& ndep )
   const;
@@ -683,6 +771,24 @@ const
   return out;
 }
 
+
+template <typename T>
+template <typename PUNIV, typename BNUIA>
+inline
+void
+ISModel<T>::_asym_slope
+( std::vector<std::vector<T>>& mat,std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize,
+    unsigned const& ndep, PUNIV const& f, BNUIA const& fDerv, double const& zopt, bool const cvx  )
+const
+{
+  assert( !mat.empty() );
+  T bnd = _B( mat, 1 );
+  return _asym_slope( mat, slope, partitionSize, ndep, f, fDerv, zopt, cvx, bnd );
+}
+
+
+
+
 template <typename T>
 template <typename PUNIV>
 inline
@@ -743,15 +849,42 @@ const
             T Zl = mat[i][j] - _c1[i] + C1;
             double El =  f( mid( Op<T>::l(Zl), Op<T>::u(Zl), zopt ) ) - fopt_over_ndep * (ndep-1.);//std::min( f( Op<T>::l(Zl) ), f( Op<T>::u(Zl) ) ) - fopt_over_ndep * (ndep-1.);
             mat[i][j] = T( El, Du );
+#ifdef MC__USE_FILIB
+            if(mat[i][j].isEmpty()){
+                if(std::fabs(El-Du) <= MC__ISM_COMPUTATION_TOL)
+                    mat[i][j] = T( El );}
+#ifdef FILIB__COMPUTATION_DEBUG   
+            if(mat[i][j].isEmpty())
+              std::cout<<"Case 1: " <<std::setprecision(18)<<El<<" > "<<Du<<std::endl;
+#endif
+#endif              
           }
           else if( !options.DCDEC_USE ){
             mat[i][j] = T( fopt_over_ndep, Du );
+#ifdef MC__USE_FILIB
+            if(mat[i][j].isEmpty()){
+                if(std::fabs(fopt_over_ndep - Du) <= MC__ISM_COMPUTATION_TOL)
+                    mat[i][j] = T( fopt_over_ndep );}
+#ifdef FILIB__COMPUTATION_DEBUG   
+            if(mat[i][j].isEmpty())
+              std::cout<<"Case 2: " <<std::setprecision(18)<<fopt_over_ndep<<" > "<<Du<<std::endl;             
+#endif 
+#endif            
           }
           else{
             auto const& flinc = [=]( const T& x ){ return Op<T>::l(x) < zopt? 0.: f( Op<T>::l(x) ) - fopt; };
             auto const& fldec = [=]( const T& x ){ return Op<T>::u(x) > zopt? 0.: f( Op<T>::u(x) ) - fopt; };
             double El = flinc( mat[i][j] - _c1[i] + C1 ) + fldec( mat[i][j] - _c2[i] + C2 ) + fopt_over_ndep;
             mat[i][j] = T( El, Du );
+#ifdef MC__USE_FILIB
+            if(mat[i][j].isEmpty()){
+                if(std::fabs(El - Du) <= MC__ISM_COMPUTATION_TOL)
+                    mat[i][j] = T( El );}
+#ifdef FILIB__COMPUTATION_DEBUG   
+            if(mat[i][j].isEmpty())
+              std::cout<<"Case 3: " <<std::setprecision(18)<<El<<" > "<<Du<<std::endl;             
+#endif
+#endif   
           }
         }
         else{
@@ -761,21 +894,3497 @@ const
             T Zu = mat[i][j] - _c1[i] + C1;
             double Eu = f( mid( Op<T>::l(Zu), Op<T>::u(Zu), zopt ) ) - fopt_over_ndep * (ndep-1.);
             mat[i][j] = T( Dl, Eu );
+#ifdef MC__USE_FILIB
+            if(mat[i][j].isEmpty()){
+                if(std::fabs(Dl - Eu) <= MC__ISM_COMPUTATION_TOL)
+                    mat[i][j] = T( Eu );}
+#ifdef FILIB__COMPUTATION_DEBUG   
+            if(mat[i][j].isEmpty())
+              std::cout<<"Case 4: " <<std::setprecision(18)<<Dl<<" > "<<Eu<<std::endl;              
+#endif
+#endif   
           }
           else if( !options.DCDEC_USE ){
             mat[i][j] = T( Dl, fopt_over_ndep );
+#ifdef MC__USE_FILIB
+            if(mat[i][j].isEmpty()){
+                if(std::fabs(Dl - fopt_over_ndep) <= MC__ISM_COMPUTATION_TOL)
+                    mat[i][j] = T( Dl );}
+#ifdef FILIB__COMPUTATION_DEBUG   
+            if(mat[i][j].isEmpty())
+              std::cout<<"Case 5: " <<std::setprecision(18)<<Dl<<" > "<<fopt_over_ndep<<std::endl;              
+#endif   
+#endif
           }
           else{
             auto const& fuinc = [=]( const T& x ){ return Op<T>::u(x) > zopt? 0.: f( Op<T>::u(x) ) - fopt; };
             auto const& fudec = [=]( const T& x ){ return Op<T>::l(x) < zopt? 0.: f( Op<T>::l(x) ) - fopt; };
             double Eu = fuinc( mat[i][j] - _c2[i] + C2 ) + fudec( mat[i][j] - _c1[i] + C1 ) + fopt_over_ndep;
             mat[i][j] = T( Dl, Eu );
+#ifdef MC__USE_FILIB
+            if(mat[i][j].isEmpty()){
+                if(std::fabs(Dl - Eu) <= MC__ISM_COMPUTATION_TOL)
+                    mat[i][j] = T( Eu );}
+#ifdef FILIB__COMPUTATION_DEBUG   
+            if(mat[i][j].isEmpty())
+              std::cout<<"Case 6: " <<std::setprecision(18)<<Dl<<" > "<<Eu<<std::endl;  
+#endif
+#endif                
           }
+        }
+#ifdef MC__USE_FILIB        
+#ifdef FILIB__COMPUTATION_DEBUG        
+        if(mat[i][j].isEmpty())
+          std::cout<<"_asym:" <<i<<" , "<<j<<std::endl;  
+#endif   
+#endif
+      }
+    }
+  }
+}
+
+
+template <typename T>
+template <typename PUNIV, typename BNUIA>
+inline
+void
+ISModel<T>::_asym_slope
+( std::vector<std::vector<T>>& mat, std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize,
+    unsigned const& ndep, PUNIV const& f, BNUIA const& fDerv, double const& zopt, bool const cvx, T const& bnd )
+const
+{
+  // anchor points
+  int imid( -1 );
+  mid( Op<T>::l(bnd), Op<T>::u(bnd), zopt, imid );
+  long double sum_r1( Op<T>::u(bnd) - Op<T>::l(bnd) );
+  double C1( 0. ), C2(0.);
+  for( unsigned int i=0; i<_nvar; i++ ){
+    if( mat[i].empty() ) continue;
+    switch( imid ){
+      case ICONV: _c1[i] = _L1[i], C1 += _c1[i]; break;
+      case ICONC: _c1[i] = _U1[i], C1 += _c1[i]; break;
+      case ICUT:  _c1[i] = _L1[i]; C1 += _c1[i];
+                  _c2[i] = _U1[i]; C2 += _c2[i]; break;
+    }
+    _r1[i] = ( _U1[i] - _L1[i] );
+  }
+
+  
+  double fopt = f( imid == ICUT? zopt: C1 );
+  double fopt_over_ndep = fopt / ndep;
+
+  for( unsigned int i=0; i<_nvar; i++ ){
+    if( mat[i].empty() ) continue;   
+    if( isequal( _r1[i], 0. ) ){
+      for( unsigned int j=0; j<_ndiv; j++ ){
+        mat[i][j] = T(fopt_over_ndep);
+        slope[i][j][0] = 0.;
+        slope[i][j][1] = 0.;
+      }
+      continue;
+    }
+    else{
+      long double scal_r1 = _r1[i] / sum_r1; 
+      for( unsigned int j=0; j<_ndiv; j++ ){
+        if( cvx ){
+          switch( imid ){
+            case ICONV: {
+              long double zU = Op<T>::u(mat[i][j]);
+              long double delta_u = std::fabs(slope[i][j][1]*partitionSize[i]);
+              long double Du = f(( zU - _c1[i] ) / _r1[i] * sum_r1 + C1);
+              long double slope1_to_be_multiplied = fDerv(( zU - delta_u - _c1[i] ) / _r1[i] * sum_r1 + C1);
+              if (delta_u > 1e2 * MC__ISM_COMPUTATION_TOL)
+                slope1_to_be_multiplied = (Du - f(( zU - delta_u - _c1[i] ) / _r1[i] * sum_r1 + C1))*(scal_r1/delta_u);
+              slope[i][j][1] = slope1_to_be_multiplied*slope[i][j][1];
+              Du = scal_r1 * (Du  - fopt ) + fopt_over_ndep;
+
+              long double zL = Op<T>::l(mat[i][j]);
+              long double El = f( zL - _c1[i] + C1 ) - fopt_over_ndep * (ndep-1.);
+              long double slope0_to_be_multiplied = fDerv( zL- _c1[i] + C1 );
+              slope[i][j][0] = slope0_to_be_multiplied*slope[i][j][0];
+
+              if(Du - El <= MC__ISM_COMPUTATION_TOL){
+                mat[i][j] = T(std::min(Du,El),std::max(Du,El)); 
+                slope[i][j][0] = 0.;
+                slope[i][j][1] = 0.;                
+              }      
+              else
+                mat[i][j] = T( El, Du );
+
+            }
+            break;
+            case ICONC: {
+              long double zL = Op<T>::l(mat[i][j]);
+              long double delta_l = std::fabs(slope[i][j][0]*partitionSize[i]);
+              long double Du = f(( zL - _c1[i] ) / _r1[i] * sum_r1 + C1);
+              long double slope1_to_be_set = fDerv(( zL + delta_l - _c1[i] ) / _r1[i] * sum_r1 + C1);
+              if (delta_l > 1e2 * MC__ISM_COMPUTATION_TOL)
+                slope1_to_be_set = (f(( zL + delta_l - _c1[i] ) / _r1[i] * sum_r1 + C1) - Du)*(scal_r1/delta_l);
+              slope1_to_be_set  = slope1_to_be_set*slope[i][j][0];
+              Du = scal_r1 * (Du  - fopt ) + fopt_over_ndep;
+
+              long double zU = Op<T>::u(mat[i][j]);
+              long double El = f( zU - _c1[i] + C1 ) - fopt_over_ndep * (ndep-1.);
+              long double slope0_to_be_multiplied = fDerv( zU - _c1[i] + C1 );
+              slope[i][j][0] = slope0_to_be_multiplied*slope[i][j][1];
+              slope[i][j][1] = slope1_to_be_set;
+
+              if(Du - El <= MC__ISM_COMPUTATION_TOL){
+                slope[i][j][0] = 0.;
+                slope[i][j][1] = 0.; 
+                mat[i][j] = T(std::min(Du,El),std::max(Du,El));     
+              }
+              else
+                mat[i][j] = T( El, Du );
+
+            }
+            break;
+            case ICUT: {
+
+              // f(x) = fInc(x) + fDec(x) + fopt = fInc(x) + fDec(x)  - sum scal_r1 * fopt + fopt_over_ndep
+              auto const& fInc     = [=]( const double& x ){ return x < zopt? 0.: f( x ) - fopt; };
+              auto const& fDec     = [=]( const double& x ){ return x > zopt? 0.: f( x ) - fopt; };      
+              auto const& fIncDerv = [=]( const double& x ){ return x < zopt? 0.: fDerv( x ); };
+              auto const& fDecDerv = [=]( const double& x ){ return x > zopt? 0.: fDerv( x ); };  
+
+              long double zU = Op<T>::u(mat[i][j]);
+              long double delta_u = std::fabs(slope[i][j][1]*partitionSize[i]);
+              long double DuInc = fInc(( zU - _c2[i] ) / _r1[i] * sum_r1 + C2);
+              long double slope1Inc_to_be_set = fIncDerv(( zU - delta_u - _c2[i] ) / _r1[i] * sum_r1 + C2);
+              if (delta_u > 1e2 * MC__ISM_COMPUTATION_TOL)
+                slope1Inc_to_be_set = (DuInc - fInc(( zU - delta_u - _c2[i] ) / _r1[i] * sum_r1 + C2))*(scal_r1/delta_u);
+              slope1Inc_to_be_set = slope1Inc_to_be_set*slope[i][j][1];
+              DuInc = scal_r1 * DuInc;    // For sum_i DuInc > fInc(x), its fIncOpt = 0;
+
+              long double zL = Op<T>::l(mat[i][j]);
+              long double delta_l = std::fabs(slope[i][j][0]*partitionSize[i]);
+              long double DuDec = fDec(( zL - _c1[i] ) / _r1[i] * sum_r1 + C1);
+              long double slope1Dec_to_be_set = fDecDerv(( zL + delta_l - _c1[i] ) / _r1[i] * sum_r1 + C1);
+              if (delta_l > 1e2 * MC__ISM_COMPUTATION_TOL)
+                slope1Dec_to_be_set = (fDec(( zL + delta_l - _c1[i] ) / _r1[i] * sum_r1 + C1) - DuDec)*(scal_r1/delta_l);
+              slope1Dec_to_be_set  = slope1Dec_to_be_set*slope[i][j][0];
+              DuDec = scal_r1 * DuDec;  // For sum_i DuDec > fDec(x), its fDecOpt = 0;
+                            
+              // The original one is: 
+              // T Zu = ( mat[i][j] - _c1[i] ) / _r1[i] * sum_r1 + C1; 
+              // double Du = scal_r1 * ( std::max( f( Op<T>::l(Zu) ), f( Op<T>::u(Zu) ) ) - fopt ) + fopt_over_ndep;
+              // which is the same as Du = std::max(DuInc, DuDec) - scal_r1 * fopt + fopt_over_ndep
+              long double slope1_to_be_set = slope1Inc_to_be_set + slope1Dec_to_be_set;    // Note that we should not directly assign values to slope[i][j][1] = 0. as we will use them later
+              long double upperbound_to_be_set = DuDec + DuInc;
+              if((slope1Inc_to_be_set < 0.) != (slope1Dec_to_be_set < 0.)){   
+                upperbound_to_be_set = upperbound_to_be_set - std::min(std::fabs(slope1Inc_to_be_set),std::fabs(slope1Dec_to_be_set))*partitionSize[i];
+              }
+
+              long double upperboundCandidate = std::max(DuInc, DuDec);
+              if ( upperbound_to_be_set > upperboundCandidate + MC__ISM_COMPUTATION_TOL){
+                  upperbound_to_be_set = upperboundCandidate;
+                  slope1_to_be_set = 0.;
+              }
+                     
+              // if (upperbound_to_be_set > Du){
+              //   upperbound_to_be_set = Du;
+              //   slope[i][j][1] = 0.;
+              // }
+              
+              // The original one is 
+              // double El = flinc( mat[i][j] - _c1[i] + C1 ) + fldec( mat[i][j] - _c2[i] + C2 ) + fopt_over_ndep;          
+              long double ElInc = fInc( zL - _c1[i] + C1 ); // For sum_i ElInc < fInc(x), its fIncOpt = 0;
+              long double slope0Inc_to_be_set = fIncDerv( zL- _c1[i] + C1 );
+              slope0Inc_to_be_set = slope0Inc_to_be_set*slope[i][j][0];
+
+              long double ElDec = fDec( zU - _c2[i] + C2 ); // For sum_i ElDec < fDec(x), its fDecOpt = 0;
+              long double slope0Dec_to_be_set = fDecDerv( zU - _c2[i] + C2 );
+              slope0Dec_to_be_set = slope0Dec_to_be_set*slope[i][j][1];
+
+              long double slope0_to_be_set = slope0Inc_to_be_set + slope0Dec_to_be_set;
+              
+              long double lowerbound_to_be_set = ElDec + ElInc;
+              if((slope0Inc_to_be_set < 0.) != (slope0Dec_to_be_set < 0.)){            
+               lowerbound_to_be_set = lowerbound_to_be_set + std::min(std::fabs(slope0Inc_to_be_set),std::fabs(slope0Dec_to_be_set))*partitionSize[i];
+              }
+
+              if ( lowerbound_to_be_set <  MC__ISM_COMPUTATION_TOL){
+                  lowerbound_to_be_set = 0.;
+                  slope0_to_be_set = 0.;                   
+              }
+
+               
+              // if (lowerbound_to_be_set < El){
+              //   lowerbound_to_be_set = Eul;
+              //   slope[i][j][0] = 0.;
+              // }
+
+
+              if(upperbound_to_be_set - lowerbound_to_be_set <= MC__ISM_COMPUTATION_TOL){
+                mat[i][j] = T(std::min(lowerbound_to_be_set,upperbound_to_be_set),std::max(lowerbound_to_be_set,upperbound_to_be_set))  + fopt_over_ndep;                               
+                slope[i][j][0] = 0.;
+                slope[i][j][1] = 0.;
+              }
+              else
+                mat[i][j] = T(lowerbound_to_be_set , upperbound_to_be_set ) + fopt_over_ndep;     
+                slope[i][j][0] = slope0_to_be_set;
+                slope[i][j][1] = slope1_to_be_set;                           
+            }
+            break;
+          }          
+
+        }
+        else{
+          switch( imid ){
+            case ICONV: {   // decreasing concave function
+              long double zU = Op<T>::u(mat[i][j]);
+              long double delta_u = std::fabs(slope[i][j][1]*partitionSize[i]);
+              long double Dl = f(( zU - _c1[i] ) / _r1[i] * sum_r1 + C1);
+              long double slope0_to_be_set = fDerv(( zU - delta_u - _c1[i] ) / _r1[i] * sum_r1 + C1);
+              if (delta_u > 1e2 * MC__ISM_COMPUTATION_TOL)
+                slope0_to_be_set = (Dl - f(( zU - delta_u - _c1[i] ) / _r1[i] * sum_r1 + C1))*(scal_r1/delta_u);
+              slope0_to_be_set = slope0_to_be_set*slope[i][j][1];
+              Dl = scal_r1 * (Dl  - fopt ) + fopt_over_ndep;
+
+              long double zL = Op<T>::l(mat[i][j]);
+              long double Eu = f( zL - _c1[i] + C1 ) - fopt_over_ndep * (ndep-1.);
+              long double slope1_to_be_set = fDerv( zL- _c1[i] + C1 );
+              slope1_to_be_set = slope1_to_be_set*slope[i][j][0];
+
+              if(Dl - Eu <= MC__ISM_COMPUTATION_TOL){
+                mat[i][j] = T(std::min(Dl,Eu),std::max(Dl,Eu)); 
+                slope[i][j][0] = 0.;
+                slope[i][j][1] = 0.;                
+              }      
+              else
+                mat[i][j] = T( Dl, Eu );
+                slope[i][j][0] = slope0_to_be_set;
+                slope[i][j][1] = slope1_to_be_set;    
+            }
+            break;
+            case ICONC: {   // increasing concave function
+              long double zL = Op<T>::l(mat[i][j]);
+              long double delta_l = std::fabs(slope[i][j][0]*partitionSize[i]);
+              long double Dl = f(( zL - _c1[i] ) / _r1[i] * sum_r1 + C1);
+              long double slope0_to_be_set = fDerv(( zL + delta_l - _c1[i] ) / _r1[i] * sum_r1 + C1);
+              if (delta_l > 1e2 * MC__ISM_COMPUTATION_TOL)
+                slope0_to_be_set = (f(( zL + delta_l - _c1[i] ) / _r1[i] * sum_r1 + C1) - Dl)*(scal_r1/delta_l);
+              slope0_to_be_set  = slope0_to_be_set*slope[i][j][0];
+              Dl = scal_r1 * (Dl  - fopt ) + fopt_over_ndep;
+
+              long double zU = Op<T>::u(mat[i][j]);
+              long double Eu = f( zU - _c1[i] + C1 ) - fopt_over_ndep * (ndep-1.);
+              long double slope1_to_be_set = fDerv( zU - _c1[i] + C1 );
+              slope1_to_be_set = slope1_to_be_set*slope[i][j][1];
+
+              if(Dl - Eu <= MC__ISM_COMPUTATION_TOL){
+                slope[i][j][0] = 0.;
+                slope[i][j][1] = 0.; 
+                mat[i][j] = T(std::min(Dl,Eu),std::max(Dl,Eu));     
+              }
+              else
+                mat[i][j] = T( Dl, Eu );
+                slope[i][j][0] = slope0_to_be_set;
+                slope[i][j][1] = slope1_to_be_set;    
+            }
+            break;
+            case ICUT: {
+              std::cout << "   ERROR: slope enhancer for the scenario: concave-cut has not yet implemented " << std::endl;
+              throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); 
+              // // f(x) = fInc(x) + fDec(x) + fopt = fInc(x) + fDec(x)  - sum scal_r1 * fopt + fopt_over_ndep
+              // auto const& fInc     = [=]( const double& x ){ return x < zopt? 0.: f( x ) - fopt; };
+              // auto const& fDec     = [=]( const double& x ){ return x > zopt? 0.: f( x ) - fopt; };      
+              // auto const& fIncDerv = [=]( const double& x ){ return x < zopt? 0.: fDerv( x ); };
+              // auto const& fDecDerv = [=]( const double& x ){ return x > zopt? 0.: fDerv( x ); };  
+
+              // long double zU = Op<T>::u(mat[i][j]);
+              // long double delta_u = std::fabs(slope[i][j][1]*partitionSize[i]);
+              // long double DuInc = fInc(( zU - _c1[i] ) / _r1[i] * sum_r1 + C1);
+              // long double slope1Inc_to_be_set = fIncDerv(( zU - delta_u - _c1[i] ) / _r1[i] * sum_r1 + C1);
+              // if (delta_u > 1e2 * MC__ISM_COMPUTATION_TOL)
+              //   slope1Inc_to_be_set = (DuInc - fInc(( zU - delta_u - _c1[i] ) / _r1[i] * sum_r1 + C1))*(scal_r1/delta_u);
+              // slope1Inc_to_be_set = slope1Inc_to_be_set*slope[i][j][1];
+              // DuInc = scal_r1 * DuInc;    // For sum_i DuInc > fInc(x), its fIncOpt = 0;
+
+              // long double zL = Op<T>::l(mat[i][j]);
+              // long double delta_l = std::fabs(slope[i][j][0]*partitionSize[i]);
+              // long double DuDec = fDec(( zL - _c1[i] ) / _r1[i] * sum_r1 + C1);
+              // long double slope1Dec_to_be_set = fDecDerv(( zL + delta_l - _c1[i] ) / _r1[i] * sum_r1 + C1);
+              // if (delta_l > 1e2 * MC__ISM_COMPUTATION_TOL)
+              //   slope1Dec_to_be_set = (fDec(( zL + delta_l - _c1[i] ) / _r1[i] * sum_r1 + C1) - DuDec)*(scal_r1/delta_l);
+              // slope1Dec_to_be_set  = slope1Dec_to_be_set*slope[i][j][0];
+              // DuDec = scal_r1 * DuDec;  // For sum_i DuDec > fDec(x), its fDecOpt = 0;
+                            
+              // // The original one is: 
+              // // T Zu = ( mat[i][j] - _c1[i] ) / _r1[i] * sum_r1 + C1; 
+              // // double Du = scal_r1 * ( std::max( f( Op<T>::l(Zu) ), f( Op<T>::u(Zu) ) ) - fopt ) + fopt_over_ndep;
+              // // which is the same as Du = std::max(DuInc, DuDec) - scal_r1 * fopt + fopt_over_ndep
+
+              // slope[i][j][1] = slope1Inc_to_be_set + slope1Dec_to_be_set;
+              // long double upperbound_to_be_set = DuDec + DuInc - std::min(std::fabs(slope1Inc_to_be_set),std::fabs(slope1Dec_to_be_set))*partitionSize[i];
+              // // if (upperbound_to_be_set > Du){
+              // //   upperbound_to_be_set = Du;
+              // //   slope[i][j][1] = 0.;
+              // // }
+              
+              // // The original one is 
+              // // double El = flinc( mat[i][j] - _c1[i] + C1 ) + fldec( mat[i][j] - _c2[i] + C2 ) + fopt_over_ndep;
+
+              
+              // long double ElInc = fInc( zL - _c1[i] + C1 ); // For sum_i ElInc < fInc(x), its fIncOpt = 0;
+              // long double slope0Inc_to_be_set = fIncDerv( zL- _c1[i] + C1 );
+              // slope0Inc_to_be_set = slope0Inc_to_be_set*slope[i][j][0];
+
+              // long double ElDec = fDec( zU - _c1[i] + C1 ); // For sum_i ElDec < fDec(x), its fDecOpt = 0;
+              // long double slope0Dec_to_be_set = fDecDerv( zU - _c1[i] + C1 );
+              // slope0Dec_to_be_set = slope0Dec_to_be_set*slope[i][j][1];
+
+              // slope[i][j][0] = slope0Inc_to_be_set + slope0Dec_to_be_set;
+              // long double lowerbound_to_be_set = ElDec + ElInc + std::min(std::fabs(slope0Inc_to_be_set),std::fabs(slope0Dec_to_be_set))*partitionSize[i];
+              // // if (lowerbound_to_be_set < El){
+              // //   lowerbound_to_be_set = Eul;
+              // //   slope[i][j][0] = 0.;
+              // // }
+
+              // if(upperbound_to_be_set - lowerbound_to_be_set <= MC__ISM_COMPUTATION_TOL){
+              //   mat[i][j] = T(std::min(lowerbound_to_be_set,upperbound_to_be_set),std::max(lowerbound_to_be_set,upperbound_to_be_set))  + fopt_over_ndep;                
+              //   slope[i][j][0] = 0.;
+              //   slope[i][j][1] = 0.;
+              // }
+              // else
+              //   mat[i][j] = T(lowerbound_to_be_set , upperbound_to_be_set ) + fopt_over_ndep;                
+            }
+            break;
+          }          
+          //throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); 
+          
         }
       }
     }
   }
 }
+
+
+// template <typename T>
+// template <typename PUNIV>
+// inline
+// void
+// ISModel<T>::_asym_slope_sqr
+// ( std::vector<std::vector<T>>& mat, std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize,
+//     unsigned const& ndep, PUNIV const& f, double const& zopt, bool const cvx, T const& bnd )
+// const
+// {
+//   auto const& fDerv = [=]( const double& x ){ return 2.0*x; };
+//   // anchor points
+//   int imid( -1 );
+//   mid( Op<T>::l(bnd), Op<T>::u(bnd), zopt, imid );
+//   long double sum_r1( Op<T>::u(bnd) - Op<T>::l(bnd) );
+//   double C1( 0. ), C2(0.);
+//   for( unsigned int i=0; i<_nvar; i++ ){
+//     if( mat[i].empty() ) continue;
+//     switch( imid ){
+//       case ICONV: _c1[i] = _L1[i], C1 += _c1[i]; break;
+//       case ICONC: _c1[i] = _U1[i], C1 += _c1[i]; break;
+//       case ICUT:  _c1[i] = _L1[i]; C1 += _c1[i];
+//                   _c2[i] = _U1[i]; C2 += _c2[i]; break;
+//     }
+//     _r1[i] = ( _U1[i] - _L1[i] );
+//   }
+
+
+//   double fopt = f( imid == ICUT? zopt: C1 );
+//   double fopt_over_ndep = fopt / ndep;
+
+//   for( unsigned int i=0; i<_nvar; i++ ){
+//     if( mat[i].empty() ) continue;   
+//     if( isequal( _r1[i], 0. ) ){
+//       for( unsigned int j=0; j<_ndiv; j++ ){
+//         mat[i][j] = T(fopt_over_ndep);
+//         slope[i][j][0] = 0.;
+//         slope[i][j][1] = 0.;
+//       }
+//       continue;
+//     }
+//     else{
+//       long double scal_r1 = _r1[i] / sum_r1; 
+//       for( unsigned int j=0; j<_ndiv; j++ ){
+//         if( cvx ){
+//           switch( imid ){
+//             case ICONV: {
+//               long double zU = Op<T>::u(mat[i][j]);
+//               long double delta_u = std::fabs(slope[i][j][1]*partitionSize[i]);
+//               long double Du = f(( zU - _c1[i] ) / _r1[i] * sum_r1 + C1);
+//               long double slope1_to_be_multiplied = fDerv(( zU - delta_u - _c1[i] ) / _r1[i] * sum_r1 + C1);
+//               if (delta_u > 1e2 * MC__ISM_COMPUTATION_TOL)
+//                 slope1_to_be_multiplied = (Du - f(( zU - delta_u - _c1[i] ) / _r1[i] * sum_r1 + C1))*(scal_r1/delta_u);
+//               slope[i][j][1] = slope1_to_be_multiplied*slope[i][j][1];
+//               Du = scal_r1 * (Du  - fopt ) + fopt_over_ndep;
+
+//               long double zL = Op<T>::l(mat[i][j]);
+//               long double El = f( zL - _c1[i] + C1 ) - fopt_over_ndep * (ndep-1.);
+//               long double slope0_to_be_multiplied = fDerv( zL- _c1[i] + C1 );
+//               slope[i][j][0] = slope0_to_be_multiplied*slope[i][j][0];
+
+//               if(Du - El <= MC__ISM_COMPUTATION_TOL){
+//                 mat[i][j] = T(El);
+//                 slope[i][j][0] = 0.;
+//                 slope[i][j][1] = 0.;                
+//               }      
+//               else
+//                 mat[i][j] = T( El, Du );
+
+//             }
+//             break;
+//             case ICONC: {
+//               long double zL = Op<T>::l(mat[i][j]);
+//               long double delta_l = std::fabs(slope[i][j][0]*partitionSize[i]);
+//               long double Du = f(( zL - _c1[i] ) / _r1[i] * sum_r1 + C1);
+//               long double slope1_to_be_set = fDerv(( zL + delta_l - _c1[i] ) / _r1[i] * sum_r1 + C1);
+//               if (delta_l > 1e2 * MC__ISM_COMPUTATION_TOL)
+//                 slope1_to_be_set = (f(( zL + delta_l - _c1[i] ) / _r1[i] * sum_r1 + C1) - Du)*(scal_r1/delta_l);
+//               slope1_to_be_set  = slope1_to_be_set*slope[i][j][0];
+//               Du = scal_r1 * (Du  - fopt ) + fopt_over_ndep;
+
+//               long double zU = Op<T>::u(mat[i][j]);
+//               long double El = f( zU - _c1[i] + C1 ) - fopt_over_ndep * (ndep-1.);
+//               long double slope0_to_be_multiplied = fDerv( zU - _c1[i] + C1 );
+//               slope[i][j][0] = slope0_to_be_multiplied*slope[i][j][1];
+//               slope[i][j][1] = slope1_to_be_set;
+
+//               if(Du - El <= MC__ISM_COMPUTATION_TOL){
+//                 slope[i][j][0] = 0.;
+//                 slope[i][j][1] = 0.; 
+//                 mat[i][j] = T(El);     
+//               }
+//               else
+//                 mat[i][j] = T( El, Du );
+
+//             }
+//             break;
+//             case ICUT: {
+//               // f(x) = fInc(x) + fDec(x) + fopt = fInc(x) + fDec(x)  - sum scal_r1 * fopt + fopt_over_ndep
+//               auto const& fInc     = [=]( const double& x ){ return x < zopt? 0.: f( x ) - fopt; };
+//               auto const& fDec     = [=]( const double& x ){ return x > zopt? 0.: f( x ) - fopt; };      
+//               auto const& fIncDerv = [=]( const double& x ){ return x < zopt? 0.: fDerv( x ); };
+//               auto const& fDecDerv = [=]( const double& x ){ return x > zopt? 0.: fDerv( x ); };  
+
+//               long double zU = Op<T>::u(mat[i][j]);
+//               long double delta_u = std::fabs(slope[i][j][1]*partitionSize[i]);
+//               long double DuInc = fInc(( zU - _c1[i] ) / _r1[i] * sum_r1 + C1);
+//               long double slope1Inc_to_be_set = fIncDerv(( zU - delta_u - _c1[i] ) / _r1[i] * sum_r1 + C1);
+//               if (delta_u > 1e2 * MC__ISM_COMPUTATION_TOL)
+//                 slope1Inc_to_be_set = (DuInc - fInc(( zU - delta_u - _c1[i] ) / _r1[i] * sum_r1 + C1))*(scal_r1/delta_u);
+//               slope1Inc_to_be_set = slope1Inc_to_be_set*slope[i][j][1];
+//               DuInc = scal_r1 * DuInc;    // For sum_i DuInc > fInc(x), its fIncOpt = 0;
+
+//               long double zL = Op<T>::l(mat[i][j]);
+//               long double delta_l = std::fabs(slope[i][j][0]*partitionSize[i]);
+//               long double DuDec = fDec(( zL - _c1[i] ) / _r1[i] * sum_r1 + C1);
+//               long double slope1Dec_to_be_set = fDecDerv(( zL + delta_l - _c1[i] ) / _r1[i] * sum_r1 + C1);
+//               if (delta_l > 1e2 * MC__ISM_COMPUTATION_TOL)
+//                 slope1Dec_to_be_set = (fDec(( zL + delta_l - _c1[i] ) / _r1[i] * sum_r1 + C1) - DuDec)*(scal_r1/delta_l);
+//               slope1Dec_to_be_set  = slope1Dec_to_be_set*slope[i][j][0];
+//               DuDec = scal_r1 * DuDec;  // For sum_i DuDec > fDec(x), its fDecOpt = 0;
+                            
+//               // The original one is: 
+//               // T Zu = ( mat[i][j] - _c1[i] ) / _r1[i] * sum_r1 + C1; 
+//               // double Du = scal_r1 * ( std::max( f( Op<T>::l(Zu) ), f( Op<T>::u(Zu) ) ) - fopt ) + fopt_over_ndep;
+//               // which is the same as Du = std::max(DuInc, DuDec) - scal_r1 * fopt + fopt_over_ndep
+
+//               slope[i][j][1] = slope1Inc_to_be_set + slope1Dec_to_be_set;
+//               long double upperbound_to_be_set = DuDec + DuInc - std::min(std::fabs(slope1Inc_to_be_set),std::fabs(slope1Dec_to_be_set))*partitionSize[i];
+//               // if (upperbound_to_be_set > Du){
+//               //   upperbound_to_be_set = Du;
+//               //   slope[i][j][1] = 0.;
+//               // }
+              
+//               // The original one is 
+//               // double El = flinc( mat[i][j] - _c1[i] + C1 ) + fldec( mat[i][j] - _c2[i] + C2 ) + fopt_over_ndep;
+
+              
+//               long double ElInc = fInc( zL - _c1[i] + C1 ); // For sum_i ElInc < fInc(x), its fIncOpt = 0;
+//               long double slope0Inc_to_be_set = fIncDerv( zL- _c1[i] + C1 );
+//               slope0Inc_to_be_set = slope0Inc_to_be_set*slope[i][j][0];
+
+//               long double ElDec = fDec( zU - _c1[i] + C1 ); // For sum_i ElDec < fDec(x), its fDecOpt = 0;
+//               long double slope0Dec_to_be_set = fDecDerv( zU - _c1[i] + C1 );
+//               slope0Dec_to_be_set = slope0Dec_to_be_set*slope[i][j][1];
+
+//               slope[i][j][0] = slope0Inc_to_be_set + slope0Dec_to_be_set;
+//               long double lowerbound_to_be_set = ElDec + ElInc + std::min(std::fabs(slope0Inc_to_be_set),std::fabs(slope0Dec_to_be_set))*partitionSize[i];
+//               // if (lowerbound_to_be_set < El){
+//               //   lowerbound_to_be_set = Eul;
+//               //   slope[i][j][0] = 0.;
+//               // }
+
+//               if(upperbound_to_be_set - lowerbound_to_be_set <= MC__ISM_COMPUTATION_TOL){
+//                 mat[i][j] = T(lowerbound_to_be_set + fopt_over_ndep);
+//                 slope[i][j][0] = 0.;
+//                 slope[i][j][1] = 0.;
+//               }
+//               else
+//                 mat[i][j] = T( lowerbound_to_be_set + fopt_over_ndep, upperbound_to_be_set + fopt_over_ndep);                
+//             }
+//             break;
+//           }          
+
+//         }
+//         else{
+//           throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); 
+          
+//         }
+
+//       }
+//     }
+//   }
+// }
+
+template <typename T>
+inline
+void
+ISModel<T>::_asym_slope_relu
+( std::vector<std::vector<T>>& mat, std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize,
+    unsigned const& ndep)
+const
+{
+
+  assert( !mat.empty() );
+
+  // // Get the maxima of all components of the input underestimator, stored in _L2[i]
+  // long double sigma_o = 0.;       // <- the maximum of the input underestimator
+  // for( unsigned int i=0; i<_nvar; i++ ){
+  //   if( mat[i].empty() ) continue;
+  //   long double _tmp_row = ((long double)(Op<T>::l( mat[i][0]) + std::fabs(slope[i][0][0]*partitionSize[i])));
+  //    for( unsigned int j=1; j<_ndiv; j++ ){
+  //      _tmp_row = std::max(_tmp_row, ((long double)(Op<T>::l( mat[i][j]) + std::fabs(slope[i][j][0]*partitionSize[i]))));
+  //    }
+  //    _L2[i]= _tmp_row;
+  //    sigma_o += _L2[i];
+  // }
+
+  // // Get the minima of all components of the input overestimator, stored in _U2[i] 
+  // long double sigma_u = 0.;       // <- the minimum of the input overestimator
+  // for( unsigned int i=0; i<_nvar; i++ ){
+  //   if( mat[i].empty() ) continue;
+  //   long double _tmp_row = ((long double)(Op<T>::u( mat[i][0]) - std::fabs(slope[i][0][1]*partitionSize[i])));
+  //    for( unsigned int j=1; j<_ndiv; j++ ){
+  //      _tmp_row = std::min(_tmp_row, ((long double)(Op<T>::u( mat[i][j]) - std::fabs(slope[i][j][1]*partitionSize[i]) )));
+  //    }
+  //    _U2[i]= _tmp_row;
+  //    sigma_u += _U2[i];
+  // }
+
+  // bool updateUnderEstimator = (sigma_o > MC__ISM_COMPUTATION_TOL);   // <- only compute the underestimator when some elements are greater than 0, o.w. we set all elements 0.
+  // bool updateOverEstimator = (sigma_u <  -MC__ISM_COMPUTATION_TOL);   // <- only update the overestimator when some elements are less than 0
+  
+  // if(false){//(!updateOverEstimator) && (!updateUnderEstimator)){       // only need to set underestimator to be zero.
+  //   for( unsigned int i=0; i<_nvar; i++ ){
+  //     if( mat[i].empty() ) continue;   
+  //     for( unsigned int j=0; j<_ndiv; j++ ){
+  //       mat[i][j] = T(0.,1.)*Op<T>::u(mat[i][j]);//T(0.,Op<T>::u(mat[i][j]));   // To avoid NaN in Filib
+  //       slope[i][j][0] = 0.;
+  //     }
+  //   }
+  // }
+  // else{
+
+  T bnd = _B( mat, 1 );
+  auto const& f = [=]( const double& x ){ return std::max( x, 0. ); };
+  auto const& fDerv = [=]( const double& x ){ return x > 0? 1.: 0.; };  
+
+  // anchor points
+  long double lambda ( Op<T>::l(bnd) );
+  long double mu ( Op<T>::u(bnd) );
+  long double sum_r1( mu - lambda );
+  long double C1( 0. ), C2(0.);
+  for( unsigned int i=0; i<_nvar; i++ ){
+    if( mat[i].empty() ) continue;
+    _c1[i] = _L1[i]; C1 += _c1[i];
+    _c2[i] = _U1[i]; C2 += _c2[i];     
+    // switch( imid ){
+    //   case ICONV: _c1[i] = _L1[i], C1 += _c1[i]; break;
+    //   case ICONC: _c1[i] = _U1[i], C1 += _c1[i]; break;
+    //   case ICUT:  _c1[i] = _L1[i]; C1 += _c1[i];
+    //               _c2[i] = _U1[i]; C2 += _c2[i]; break;
+    // }
+    _r1[i] = ( _U1[i] - _L1[i] );
+  }
+  if(std::fabs(C1 - lambda) > 1e2*MC__ISM_COMPUTATION_TOL || std::fabs(C2 - mu) > 1e2*MC__ISM_COMPUTATION_TOL){
+    std::cout << "numerical error in asym_slope_relu" << std::endl;
+    std::cout << std::setprecision(18) << std::fabs(C1 - lambda) - MC__ISM_COMPUTATION_TOL << std::endl;
+    std::cout << std::setprecision(18) << std::fabs(C2 - mu) - MC__ISM_COMPUTATION_TOL << std::endl;
+    throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); 
+  }
+      
+
+  for( unsigned int i=0; i<_nvar; i++ ){
+    if( mat[i].empty() ) continue;   
+    if( isequal( _r1[i], 0. ) ){
+      for( unsigned int j=0; j<_ndiv; j++ ){
+        mat[i][j] = T(0.);
+        slope[i][j][0] = 0.;
+        slope[i][j][1] = 0.;
+      }
+      continue;
+    }
+    else{
+      const long double rowOffsetUnder = - _c1[i] + C1;
+      const long double theta_i = _r1[i] / sum_r1;//(_c2[i] - _U2[i])/(C2 - sigma_u);
+      const long double theta_i_times_mu = theta_i*C2;
+      const long double rowOffsetOver =  - _c2[i] + theta_i_times_mu;
+
+      for( unsigned int j=0; j<_ndiv; j++ ){
+        const long double zU = Op<T>::u(mat[i][j]);
+        const long double upPtOverEstmt = zU + rowOffsetOver;
+        const long double Du = f(upPtOverEstmt);
+        
+        const long double delta_u = std::fabs(slope[i][j][1]*partitionSize[i]);        
+        long double slope1_to_be_multiplied = fDerv(upPtOverEstmt - delta_u);
+        if (delta_u > 1e2 * MC__ISM_COMPUTATION_TOL)
+          slope1_to_be_multiplied = (Du - f(upPtOverEstmt - delta_u))/delta_u; 
+        slope[i][j][1] = slope1_to_be_multiplied*slope[i][j][1];
+
+        const long double zL = Op<T>::l(mat[i][j]);            
+        const long double loPtUnderEstmt = zL + rowOffsetUnder;          
+        const long double El = f( loPtUnderEstmt );
+        const long double slope0_to_be_multiplied = fDerv( loPtUnderEstmt );
+        slope[i][j][0] = slope0_to_be_multiplied*slope[i][j][0];
+
+
+        if(Du - El <= MC__ISM_COMPUTATION_TOL){
+          mat[i][j] = T(std::min(Du,El),std::max(Du,El)); 
+          slope[i][j][0] = 0.;
+          slope[i][j][1] = 0.;
+          // slope[i][j][0] = std::min(slope[i][j][0],slope[i][j][1]);
+          // if (slope[i][j][0]*partitionSize[i] >1e2*MC__ISM_COMPUTATION_TOL){
+          //   slope[i][j][0] = 0.;
+          //   slope[i][j][1] = 0.;
+          // }
+          // else{
+          //   slope[i][j][1] = slope[i][j][0];
+          // }                          
+        }      
+        else
+          mat[i][j] = T( El, Du );
+      }
+    }
+  }
+
+
+
+//         long double theta_i = _r1[i] / sum_r1;//(_c2[i] - _U2[i])/(C2-sigma_u);//_r1[i] / sum_r1; 
+//         long double theta_i_times_mu = theta_i*C2;
+//         long double rowOffset = - _c2[i] + theta_i_times_mu;
+// //        if(_U2[i] + rowOffset < -MC__ISM_COMPUTATION_TOL){          // Only update the ith component of the overestimator when there are some elements less than zero
+//           for( unsigned int j=0; j<_ndiv; j++ ){
+//             long double zU = Op<T>::u(mat[i][j]);
+//             long double upPtOverEstmt = zU + rowOffset;
+//             long double Du = f(upPtOverEstmt);
+
+//             if(Du <= MC__ISM_COMPUTATION_TOL){
+//               mat[i][j] = T(std::min((double)Du,0.),std::max((double)Du,0.)); 
+//               slope[i][j][1] = 0.;           
+//               continue;  
+//             }      
+            
+//             mat[i][j] = T(Op<T>::l(mat[i][j]),Du);
+
+//             long double delta_u = std::fabs(slope[i][j][1]*partitionSize[i]);
+//             long double loPtOverEstmt = upPtOverEstmt - delta_u;
+//             long double slope1_to_be_multiplied = fDerv(loPtOverEstmt);
+//             if (delta_u > 1e2 * MC__ISM_COMPUTATION_TOL)
+//               slope1_to_be_multiplied = (Du - f(loPtOverEstmt))/delta_u;
+//             slope[i][j][1] = slope1_to_be_multiplied*slope[i][j][1];
+// //          }
+// //        }       
+
+//         rowOffset = - _c1[i] + C1; // reuse the containter
+// //        if(_L2[i] + rowOffset > MC__ISM_COMPUTATION_TOL){   // Only update the ith component of the underestimator when there are some elements greater than zero
+// //          for( unsigned int j=0; j<_ndiv; j++ ){
+//             long double zL = Op<T>::l(mat[i][j]);
+//             long double loPtUnderEstmt = zL + rowOffset;          
+//             //long double upPtUnderEstmt = loPtUnderEstmt + ;
+//             long double El = f( loPtUnderEstmt );
+
+//             if(Op<T>::u(mat[i][j]) - El <= MC__ISM_COMPUTATION_TOL){
+//               mat[i][j] = T(std::min(Op<T>::u(mat[i][j]),(double)El),std::max(Op<T>::u(mat[i][j]),(double)El)); 
+//               slope[i][j][0] = 0.;     
+//               continue;       
+//             }      
+            
+//             mat[i][j] = T( El, Op<T>::u(mat[i][j]) );
+
+//             long double slope0_to_be_multiplied = fDerv( loPtUnderEstmt );
+//             slope[i][j][0] = slope0_to_be_multiplied*slope[i][j][0];
+
+//           }
+//         // }
+//         // else{
+//         //   for( unsigned int j=0; j<_ndiv; j++ ){
+//         //     mat[i][j] = T(std::min(Op<T>::u(mat[i][j]),0.),std::max(Op<T>::u(mat[i][j]),0.));
+//         //     slope[i][j][0] = 0.;
+//         //   }          
+//         // }
+
+
+}
+
+
+
+template <typename T>
+inline
+void
+ISModel<T>::_asym_slope_relu_ws
+( std::vector<std::vector<T>>& mat, std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize,
+    unsigned const& ndep,
+    std::vector<std::vector<std::vector<long double>>>& shadow, std::vector<std::vector<std::vector<long double>>>& shadow_slope)
+const
+{
+#ifndef NOTTOTRACKSHADOW
+  std::cout << "relu_ws" << std::endl;
+  assert( !mat.empty() );
+#endif
+
+  // Get the maxima of all components of the input underestimator, stored in _L2[i]
+  long double sigma_o = 0.;       // <- the maximum of the input underestimator
+  for( unsigned int i=0; i<_nvar; i++ ){
+    if( mat[i].empty() ) continue;
+    long double _tmp_row = ((long double)(Op<T>::l( mat[i][0]) + std::fabs(slope[i][0][0]*partitionSize[i])));
+     for( unsigned int j=1; j<_ndiv; j++ ){
+       _tmp_row = std::max(_tmp_row, ((long double)(Op<T>::l( mat[i][j]) + std::fabs(slope[i][j][0]*partitionSize[i]))));
+     }
+     _L2[i]= _tmp_row;
+     sigma_o += _L2[i];
+  }
+
+  // // Get the minima of all components of the input overestimator, stored in _U2[i] 
+  // long double sigma_u = 0.;       // <- the minimum of the input overestimator
+  // for( unsigned int i=0; i<_nvar; i++ ){
+  //   if( mat[i].empty() ) continue;
+  //   long double _tmp_row = ((long double)(Op<T>::u( mat[i][0]) - std::fabs(slope[i][0][1]*partitionSize[i])));
+  //    for( unsigned int j=1; j<_ndiv; j++ ){
+  //      _tmp_row = std::min(_tmp_row, ((long double)(Op<T>::u( mat[i][j]) - std::fabs(slope[i][j][1]*partitionSize[i]) )));
+  //    }
+  //    _U2[i]= _tmp_row;
+  //    sigma_u += _U2[i];
+  // }
+
+  // bool updateUnderEstimator = (sigma_o > MC__ISM_COMPUTATION_TOL);   // <- only compute the underestimator when some elements are greater than 0, o.w. we set all elements 0.
+  // bool updateOverEstimator = (sigma_u <  -MC__ISM_COMPUTATION_TOL);   // <- only update the overestimator when some elements are less than 0
+   
+  // if(false){//(!updateOverEstimator) && (!updateUnderEstimator)){       // only need to set underestimator to be zero.
+  //   for( unsigned int i=0; i<_nvar; i++ ){
+  //     if( mat[i].empty() ) continue;   
+  //     for( unsigned int j=0; j<_ndiv; j++ ){
+  //       mat[i][j] = T(0.,1.)*Op<T>::u(mat[i][j]);//T(0.,Op<T>::u(mat[i][j]));   // To avoid NaN in Filib
+  //       slope[i][j][0] = 0.;
+  //     }
+  //   }
+  // }
+  // else{
+
+  T bnd = _B( mat, 1 );
+  auto const& f = [=]( const double& x ){ return std::max( x, 0. ); };
+  //auto const& fDerv = [=]( const double& x ){ return x > 1e2*MC__ISM_COMPUTATION_TOL? 1.: 0.; };  
+  auto const& fDerv = [=]( const double& x ){ return x > 0.? 1.: 0.; };  
+  // anchor points
+  long double lambda ( Op<T>::l(bnd) );
+  long double mu ( Op<T>::u(bnd) );
+  long double sum_r1( mu - lambda );
+  long double C1( 0. ), C2(0.);
+  for( unsigned int i=0; i<_nvar; i++ ){
+    if( mat[i].empty() ) continue;
+    _c1[i] = _L1[i]; C1 += _c1[i];
+    _c2[i] = _U1[i]; C2 += _c2[i];     
+    // switch( imid ){
+    //   case ICONV: _c1[i] = _L1[i], C1 += _c1[i]; break;
+    //   case ICONC: _c1[i] = _U1[i], C1 += _c1[i]; break;
+    //   case ICUT:  _c1[i] = _L1[i]; C1 += _c1[i];
+    //               _c2[i] = _U1[i]; C2 += _c2[i]; break;
+    // }
+    _r1[i] = ( _U1[i] - _L1[i] );
+  }
+  if(std::fabs(C1 - lambda) > 1e2*MC__ISM_COMPUTATION_TOL || std::fabs(C2 - mu) > 1e2*MC__ISM_COMPUTATION_TOL){
+    std::cout << "numerical error in asym_slope_relu" << std::endl;
+    std::cout << std::setprecision(18) << std::fabs(C1 - lambda) - MC__ISM_COMPUTATION_TOL << std::endl;
+    std::cout << std::setprecision(18) << std::fabs(C2 - mu) - MC__ISM_COMPUTATION_TOL << std::endl;
+    throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); 
+  }
+      
+  const long double shadow_global_offset = (1.0 - 1.0/((double) ndep))*sigma_o;
+#ifndef NOTTOTRACKSHADOW
+  std::cout << "    shadow_global_offset = " << shadow_global_offset << std::endl;
+#endif
+  for( unsigned int i=0; i<_nvar; i++ ){
+    if( mat[i].empty() ) continue;   
+    if( isequal( _r1[i], 0. ) ){
+      shadow[0][i].clear();
+      shadow[0][i].resize(_ndiv);
+      shadow_slope[0][i].clear();
+      shadow_slope[0][i].resize(_ndiv);
+
+      for( unsigned int j=0; j<_ndiv; j++ ){
+        mat[i][j] = T(0.);
+        slope[i][j][0] = 0.;
+        slope[i][j][1] = 0.;
+        shadow[0][i][j] = 0.;
+        shadow_slope[0][i][j] = 0.; 
+      }
+      continue;
+    }
+    else{
+      const long double rowOffsetUnder = - _c1[i] + C1;
+      const long double theta_i = _r1[i] / sum_r1;//(_c2[i] - _U2[i])/(C2 - sigma_u);
+      const long double theta_i_times_mu = theta_i*C2;
+      const long double rowOffsetOver =  - _c2[i] + theta_i_times_mu;
+      const long double rowOffsetShadow = - _L2[i] + sigma_o;
+      // shadow[0][i].clear();
+      // shadow[0][i].resize(_ndiv);      
+      // shadow_slope[0][i].clear();
+      // shadow_slope[0][i].resize(_ndiv);
+      for( unsigned int j=0; j<_ndiv; j++ ){
+        const long double zU = Op<T>::u(mat[i][j]);
+        const long double upPtOverEstmt = zU + rowOffsetOver;
+        const long double Du = f(upPtOverEstmt);
+        
+        const long double delta_u = std::fabs(slope[i][j][1]*partitionSize[i]);        
+        long double slope1_to_be_multiplied = fDerv(upPtOverEstmt - delta_u);
+        if (delta_u > 1e2 * MC__ISM_COMPUTATION_TOL)
+          slope1_to_be_multiplied = (Du - f(upPtOverEstmt - delta_u))/delta_u; 
+        slope[i][j][1] = slope1_to_be_multiplied*slope[i][j][1];
+
+        const long double zL = Op<T>::l(mat[i][j]);            
+        const long double loPtUnderEstmt = zL + rowOffsetUnder;          
+        const long double El = f( loPtUnderEstmt );
+        const long double slope0_to_be_set = fDerv( loPtUnderEstmt )*slope[i][j][0];
+        
+        //if(shadow_global_offset > 0){
+
+          // compute shadow
+          // Note that the function max(zi - zi^U + mu) - max(zi - zi^L + lambda) is no longer convex but still nondecreasing
+          const long double delta_l = std::fabs(slope[i][j][0]*partitionSize[i]); 
+          const long double loPtShadow = zL + rowOffsetShadow;//zL - _c2[i] + C2;
+          const long double upPtShadow = loPtShadow + delta_l;//zL - _c2[i] + C2;        
+          const long double shadowLoBnd = f( loPtShadow ) - El;
+          //const long double shadowUpBnd = f( upPtShadow ) - f( loPtUnderEstmt + delta_l);
+          shadow[0][i][j] = shadowLoBnd - f(shadow_global_offset);
+          //shadow[2][i][j] = shadowUpBnd - f(shadow_global_offset);
+            
+          //if(shadowUpBnd > shadowLoBnd + 1e2*MC__ISM_COMPUTATION_TOL ){
+            // The update of the derv needs special consideration
+            const long double upBndUnderEstmt = f(loPtUnderEstmt + delta_l);
+            long double slope0shadow_to_be_multiplied =  0.;//std::min(shadowFuncDervAtRightPt, shadowFuncDervAtLeftPt);
+            if (shadowLoBnd == 0.)//f(loPtUnderEstmtShadow) < 1e2*MC__ISM_COMPUTATION_TOL)
+              slope0shadow_to_be_multiplied = 0.;
+            else if (f(loPtUnderEstmt+delta_l + 1e5*MC__ISM_COMPUTATION_TOL) == 0. ){
+              slope0shadow_to_be_multiplied = std::min(fDerv(loPtShadow) - fDerv(loPtUnderEstmt),fDerv(upPtShadow) - fDerv(loPtUnderEstmt + delta_l));
+              //std::cout << f(loPtUnderEstmt+delta_l + 1e2*MC__ISM_COMPUTATION_TOL) << "," << shadowFuncValueAtLeftPt << std::endl;
+            }
+            else if (f(loPtUnderEstmt-1e2*MC__ISM_COMPUTATION_TOL) == 0.){
+              if ( delta_l > 1e2 * MC__ISM_COMPUTATION_TOL)
+                slope0shadow_to_be_multiplied = (f(upPtShadow) - upBndUnderEstmt - (f(loPtShadow) -f(loPtUnderEstmt)))/(delta_l);
+              else 
+                ;//slope0shadow_to_be_multiplied = fDerv(upPtShadow) - fDerv(loPtUnderEstmt + delta_l);
+            }
+            shadow_slope[0][i][j] = slope0shadow_to_be_multiplied * slope[i][j][0];
+    
+            // long double slope1shadow_to_be_multiplied =  1.;
+            // if (upBndUnderEstmt > 0.)
+            //   slope1shadow_to_be_multiplied = 0.;
+            // else if (f( loPtShadow ) > 1e2*MC__ISM_COMPUTATION_TOL ){
+            //   slope1shadow_to_be_multiplied = 1.;
+            //   //std::cout << f(loPtUnderEstmt+delta_l + 1e2*MC__ISM_COMPUTATION_TOL) << "," << shadowFuncValueAtLeftPt << std::endl;
+            // }
+            // else if (f(upPtShadow-1e2*MC__ISM_COMPUTATION_TOL) == 0.){
+            //   if ( delta_l > 1e2 * MC__ISM_COMPUTATION_TOL)
+            //     slope1shadow_to_be_multiplied = (f(upPtShadow) - f(loPtUnderEstmt + delta_l) - (f(loPtShadow) -f(loPtUnderEstmt)))/(delta_l);
+            //   else 
+            //     slope1shadow_to_be_multiplied = fDerv(loPtShadow) - fDerv(loPtUnderEstmt);
+            // }
+            // shadow_slope[2][i][j] = slope1shadow_to_be_multiplied * slope[i][j][0];
+    
+            slope[i][j][0] = slope0_to_be_set;
+            
+            //const long double shadowFuncDervAtRightPt = fDerv( zU - _L2[i] + sigma_o ) - fDerv(zU + rowOffsetUnder);
+            //const long double shadowFuncDervAtRightPt = fDerv( zL + delta_l - _L2[i] + sigma_o ) - fDerv(zL + delta_l + rowOffsetUnder);
+            //const long double shadowFuncDervAtLeftPt  = std::min(fDerv(zL - _L2[i] + sigma_o) -f(zL + rowOffsetUnder)); 
+            //const long double shadowFuncAtLeftPt = f( zL - _L2[i] + sigma_o - 1e2*MC__ISM_COMPUTATION_TOL) - f(zL + rowOffsetUnder - 1e2*MC__ISM_COMPUTATION_TOL);
+            //if(shadowFuncDervAtRightPt == 1. && shadowFuncDervAtLeftPt == 1.)
+            //  slope0shadow_to_be_multiplied = 1.;
+            //if (shadowFuncAtLeftPt > 1e2*MC__ISM_COMPUTATION_TOL )
+            //  slope0shadow_to_be_multiplied = 1.;
+            //if(shadowFuncDervAtRightPt == 0. && shadowFuncAtLeftPt > 1e2*MC__ISM_COMPUTATION_TOL){
+            //  if( delta_l > 1e2 * MC__ISM_COMPUTATION_TOL){
+            //    slope0shadow_to_be_multiplied = (f(zL + delta_l - _L2[i] + sigma_o) - f(zL + delta_l + rowOffsetUnder) - (f(zL - _L2[i] + sigma_o) -f(zL + rowOffsetUnder)))/(delta_l);
+            //  }
+            //  else
+            //    slope0shadow_to_be_multiplied = 0.;
+            //}
+            //shadow_slope[0][i][j] = slope0shadow_to_be_multiplied * original_slope0;  
+          //}
+          //else if(std::fabs(std::min(shadow[2][i][j],shadow[0][i][j])) < 1e2*MC__ISM_COMPUTATION_TOL){
+          //  shadow[0][i][j] = 0;
+          //  shadow[2][i][j] = 0;
+          //  shadow_slope[0][i][j] = 0;
+          //  shadow_slope[2][i][j] = 0;
+          //}
+          //else{
+          //}
+  
+          // if(std::fabs(shadow_slope[2][i][j]) * partitionSize[i] > shadow[2][i][j]-shadow[0][i][j]){
+          //   if (partitionSize[i] > 1e5 * MC__ISM_COMPUTATION_TOL)
+          //     shadow_slope[2][i][j] = (shadow[2][i][j]-shadow[0][i][j])/partitionSize[i];
+          //   else{
+          //     shadow[2][i][j] = shadow[2][i][j]+0.5*(std::fabs(shadow_slope[2][i][j]) * partitionSize[i]); 
+          //     shadow[0][i][j] = shadow[0][i][j]-0.5*(std::fabs(shadow_slope[2][i][j]) * partitionSize[i]); 
+          //   }   
+          // }
+            
+          // if(std::fabs(shadow_slope[0][i][j]) * partitionSize[i] > shadow[2][i][j]-shadow[0][i][j]){
+          //   if (partitionSize[i] > 1e5 * MC__ISM_COMPUTATION_TOL)
+          //     shadow_slope[0][i][j] = (shadow[2][i][j]-shadow[0][i][j])/partitionSize[i];
+          //   else{
+          //     shadow[2][i][j] = shadow[2][i][j]+0.5*(std::fabs(shadow_slope[0][i][j]) * partitionSize[i]); 
+          //     shadow[0][i][j] = shadow[0][i][j]-0.5*(std::fabs(shadow_slope[0][i][j]) * partitionSize[i]); 
+          //   }         
+          // } 
+        //}
+
+ 
+        if(Du - El <= -1e2*MC__ISM_COMPUTATION_TOL){
+          std::cout << "    error in relu_xs " << Du<<"," <<El<<std::endl; 
+          throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF );   
+        }
+        if(Du - El <= MC__ISM_COMPUTATION_TOL){  
+          mat[i][j] = T(std::min(Du,El),std::max(Du,El));
+          slope[i][j][0] = 0.;
+          slope[i][j][1] = 0.;   
+//          shadow_slope[0][i][j] = 0.;       
+          //slope[i][j][0] = std::min(slope[i][j][0],slope[i][j][1]);
+          //if (slope[i][j][0]*partitionSize[i] >1e2*MC__ISM_COMPUTATION_TOL){
+          //  slope[i][j][0] = 0.;
+          //  slope[i][j][1] = 0.;
+          //}
+          //else{
+          //  slope[i][j][1] = slope[i][j][0];
+          //}
+               
+          //if(std::max(Du,El)<MC__ISM_COMPUTATION_TOL){
+          //slope[i][j][0] = 0.;
+          //slope[i][j][1] = 0.;            
+          //} 
+          //slope[i][j][0] = 0.;
+          //slope[i][j][1] = 0.;
+          //shadow[0][i][j] = 0.;   
+          //shadow_slope[0][i][j] = 0.;
+        }      
+        else
+          mat[i][j] = T( El, Du );
+      }
+    }
+  }
+
+
+
+//         long double theta_i = _r1[i] / sum_r1;//(_c2[i] - _U2[i])/(C2-sigma_u);//_r1[i] / sum_r1; 
+//         long double theta_i_times_mu = theta_i*C2;
+//         long double rowOffset = - _c2[i] + theta_i_times_mu;
+// //        if(_U2[i] + rowOffset < -MC__ISM_COMPUTATION_TOL){          // Only update the ith component of the overestimator when there are some elements less than zero
+//           for( unsigned int j=0; j<_ndiv; j++ ){
+//             long double zU = Op<T>::u(mat[i][j]);
+//             long double upPtOverEstmt = zU + rowOffset;
+//             long double Du = f(upPtOverEstmt);
+
+//             if(Du <= MC__ISM_COMPUTATION_TOL){
+//               mat[i][j] = T(std::min((double)Du,0.),std::max((double)Du,0.)); 
+//               slope[i][j][1] = 0.;           
+//               continue;  
+//             }      
+            
+//             mat[i][j] = T(Op<T>::l(mat[i][j]),Du);
+
+//             long double delta_u = std::fabs(slope[i][j][1]*partitionSize[i]);
+//             long double loPtOverEstmt = upPtOverEstmt - delta_u;
+//             long double slope1_to_be_multiplied = fDerv(loPtOverEstmt);
+//             if (delta_u > 1e2 * MC__ISM_COMPUTATION_TOL)
+//               slope1_to_be_multiplied = (Du - f(loPtOverEstmt))/delta_u;
+//             slope[i][j][1] = slope1_to_be_multiplied*slope[i][j][1];
+// //          }
+// //        }       
+
+//         rowOffset = - _c1[i] + C1; // reuse the containter
+// //        if(_L2[i] + rowOffset > MC__ISM_COMPUTATION_TOL){   // Only update the ith component of the underestimator when there are some elements greater than zero
+// //          for( unsigned int j=0; j<_ndiv; j++ ){
+//             long double zL = Op<T>::l(mat[i][j]);
+//             long double loPtUnderEstmt = zL + rowOffset;          
+//             //long double upPtUnderEstmt = loPtUnderEstmt + ;
+//             long double El = f( loPtUnderEstmt );
+
+//             if(Op<T>::u(mat[i][j]) - El <= MC__ISM_COMPUTATION_TOL){
+//               mat[i][j] = T(std::min(Op<T>::u(mat[i][j]),(double)El),std::max(Op<T>::u(mat[i][j]),(double)El)); 
+//               slope[i][j][0] = 0.;     
+//               continue;       
+//             }      
+            
+//             mat[i][j] = T( El, Op<T>::u(mat[i][j]) );
+
+//             long double slope0_to_be_multiplied = fDerv( loPtUnderEstmt );
+//             slope[i][j][0] = slope0_to_be_multiplied*slope[i][j][0];
+
+//           }
+//         // }
+//         // else{
+//         //   for( unsigned int j=0; j<_ndiv; j++ ){
+//         //     mat[i][j] = T(std::min(Op<T>::u(mat[i][j]),0.),std::max(Op<T>::u(mat[i][j]),0.));
+//         //     slope[i][j][0] = 0.;
+//         //   }          
+//         // }
+
+
+}
+
+template <typename T>
+inline
+void
+ISModel<T>::_add_aggregate_shadow
+( std::vector<std::vector<T>>& Amat, const std::vector<std::vector<T>>& Bmat, std::vector<std::vector<std::vector<long double>>>& Aslope, const std::vector<std::vector<std::vector<long double>>>& Bslope,
+  std::vector<std::vector<std::vector<long double>>>& Ashadow, const std::vector<std::vector<std::vector<long double>>>& Bshadow, 
+  std::vector<std::vector<std::vector<long double>>>& Ashadow_slope, const std::vector<std::vector<std::vector<long double>>>& Bshadow_slope, 
+  std::vector<double>& Ashadow_info, const std::vector<double>& Bshadow_info, const std::vector<long double>& partitionSize, unsigned const& ndep, T const& bndB)
+const
+{
+#ifndef NOTTOTRACKSHADOW  
+  std::cout << "start agrt" << std::endl;
+#endif
+  const bool A_under_shadow = Ashadow_info[1];
+  const bool B_under_shadow = Bshadow_info[1];
+  const bool A_over_shadow = Ashadow_info[2];
+  const bool B_over_shadow = Bshadow_info[2];
+
+   // process the aggreagation mode
+  const unsigned char agrgatMode = A_under_shadow + 2*B_under_shadow + 4*A_over_shadow + 8*B_over_shadow;
+  if (agrgatMode == 0 ){     
+    std::cout << "    error in aggregating in preprocessing addition" << std::endl; 
+    throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF );   
+  }
+   
+   bool toUpdateUnderEstmt = false;
+   bool toUpdateOverEstmt = false;
+   
+  switch (agrgatMode){
+    case 0x01: 
+    case 0x02: 
+    case 0x03: toUpdateUnderEstmt = true; break;
+
+    case 0x04: 
+    case 0x08: 
+    case 0x0C: toUpdateOverEstmt = true; break;
+
+    case 0x05: //directionOver = false; directionUnder = false; toUpdateUnderEstmt = true; toUpdateOverEstmt = true; break;
+    case 0x0A: //directionOver = false; directionUnder = false; toUpdateUnderEstmt = true; toUpdateOverEstmt = true; break;
+    case 0x06: //; break;    
+    case 0x09: toUpdateUnderEstmt = true; toUpdateOverEstmt = true; break;
+
+    case 0x07: 
+    case 0x0B: toUpdateUnderEstmt = true; toUpdateOverEstmt = true; break;
+
+    case 0x0D: 
+    case 0x0E: 
+    case 0x0F: toUpdateUnderEstmt = true; toUpdateOverEstmt = true; break;   
+  }
+#ifndef NOTTOTRACKSHADOW  
+  std::cout << "    agrt mode setted, Mode: " << (int)agrgatMode << std::endl;
+  std::cout << "    Au    Bu    Ao    Bo    updO    updU    " << "\n"
+            << "     " << A_under_shadow << "     " << B_under_shadow 
+            << "     " << A_over_shadow  << "     " << B_over_shadow 
+            << "     " << toUpdateOverEstmt << "        " << toUpdateUnderEstmt  << std::endl;
+#endif
+  // Step 1: cross addition
+  T bndA = _B(Amat,1);
+  const long double muA = Op<T>::u(bndA);
+  const long double muB = Op<T>::u(bndB);  
+  const long double lambdaA = Op<T>::l(bndA);
+  const long double lambdaB = Op<T>::l(bndB);    
+#ifndef NOTTOTRACKSHADOW   
+  std::cout << "    A in [ " << lambdaA << " , " <<  muA <<" ]" << std::endl;
+  std::cout << "    B in [ " << lambdaB << " , " <<  muB <<" ]" << std::endl;
+#endif
+  bool underEstmtUpdated = false;
+  bool overEstmtUpdated  = false;
+
+  std::vector<std::vector<long double>> NewOverEstmt; 
+  std::vector<std::vector<long double>> NewOverEstmt_slope;   
+  std::vector<std::vector<long double>> NewOverEstmt_shadow; 
+  std::vector<std::vector<long double>> NewOverEstmt_shadow_slope;
+
+  std::vector<std::vector<long double>> NewUnderEstmt; 
+  std::vector<std::vector<long double>> NewUnderEstmt_slope;   
+  std::vector<std::vector<long double>> NewUnderEstmt_shadow; 
+  std::vector<std::vector<long double>> NewUnderEstmt_shadow_slope;  
+  //bool shadowPointingToB = false;
+  std::vector<std::vector<std::vector<long double>>> LocalBshadow = Bshadow;
+  std::vector<std::vector<std::vector<long double>>> LocalBshadow_slope = Bshadow_slope;
+
+
+  double Ashadow_sign = 0;
+  double Bshadow_sign = 0;
+  if(Ashadow_info[0] > 0 )
+    Ashadow_sign = 1;
+  else if(Ashadow_info[0] < 0 ) 
+    Ashadow_sign = -1;
+  else{
+    std::cout << "            Ashadow_sign error at shadow addition: Ashadow_info[0] = " << Ashadow_info[0] <<std::endl;
+    throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); 
+  }
+  if(Bshadow_info[0] > 0 )
+    Bshadow_sign = 1;
+  else if(Bshadow_info[0] < 0 ) 
+    Bshadow_sign = -1;
+  else{
+    std::cout << "            Bshadow_sign error at shadow addition: Bshadow_info[0] = " << Bshadow_info[0] << std::endl;
+    throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); 
+  }
+
+  NewOverEstmt.resize(_nvar);
+  NewOverEstmt_slope.resize(_nvar);
+  NewOverEstmt_shadow.resize(_nvar);    
+  NewOverEstmt_shadow_slope.resize(_nvar);    
+
+
+  if (toUpdateOverEstmt){
+#ifndef NOTTOTRACKSHADOW  
+    std::cout << "        toUpdateOverEstmt" << std::endl;
+#endif
+    std::vector<std::vector<long double>> NewAOverEstmt; 
+    std::vector<std::vector<long double>> NewAOverEstmt_slope;     
+    std::vector<std::vector<long double>> NewBOverEstmt; 
+    std::vector<std::vector<long double>> NewBOverEstmt_slope;   
+
+    NewAOverEstmt.resize(_nvar);
+    NewAOverEstmt_slope.resize(_nvar);
+    NewBOverEstmt.resize(_nvar);
+    NewBOverEstmt_slope.resize(_nvar);
+
+
+    bool Aupdated = false;
+    bool Bupdated = false;
+
+    if(A_over_shadow){
+    // B + A_shadow -> New B 
+#ifndef NOTTOTRACKSHADOW      
+      std::cout << "            A_over_shadow" << std::endl;
+#endif      
+      long double shadowEnhancedMax = 0.;
+      const double shadow_sign = Ashadow_sign;
+
+      if(shadow_sign > 0){
+#ifndef NOTTOTRACKSHADOW         
+        std::cout << "                shadow_sign > 0" << std::endl;       
+#endif          
+        for( unsigned int i=0; i<_nvar; i++ ){
+          bool updateShadowEnhancedMax = false;
+          if( !Amat[i].empty() && !Bmat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW                  
+            std::cout << "                    !Amat[i].empty() && !Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif
+            NewBOverEstmt[i].resize(_ndiv); 
+            NewBOverEstmt_slope[i].resize(_ndiv);
+            for( unsigned long long j=0; j<_ndiv; j++ ){
+              NewBOverEstmt[i][j] = Op<T>::u(Bmat[i][j]) + Ashadow[1][i][j];
+              if((Ashadow_slope[1][i][j] < 0.) != (Bslope[i][j][1] < 0.)){   
+                long double tightener = std::min(std::fabs(Ashadow_slope[1][i][j]),std::fabs(Bslope[i][j][1]))*(partitionSize[i]);
+                NewBOverEstmt[i][j] -= tightener;
+              }
+              NewBOverEstmt_slope[i][j] = Ashadow_slope[1][i][j] + Bslope[i][j][1];
+            }
+            updateShadowEnhancedMax = true;
+          }
+          else if( !Amat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW               
+            std::cout << "                    !Amat[i].empty() && Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif            
+            NewBOverEstmt[i].resize(_ndiv); 
+            NewBOverEstmt_slope[i].resize(_ndiv);            
+            for( unsigned long long j=0; j<_ndiv; j++ ){
+              NewBOverEstmt[i][j] = Ashadow[1][i][j];
+              NewBOverEstmt_slope[i][j] =  Ashadow_slope[1][i][j];
+            }
+            updateShadowEnhancedMax = true;
+          }
+          else if( !Bmat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW                
+            std::cout << "                    Amat[i].empty() && !Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif                
+            NewBOverEstmt[i].resize(_ndiv); 
+            NewBOverEstmt_slope[i].resize(_ndiv);            
+            for( unsigned long long j=0; j<_ndiv; j++ ){
+              NewBOverEstmt[i][j] = Op<T>::u(Bmat[i][j]);
+              NewBOverEstmt_slope[i][j] =  Bslope[i][j][1];
+            }
+            updateShadowEnhancedMax = true;
+          }          
+          if(updateShadowEnhancedMax){
+            const auto tmp_max = std::max_element(NewBOverEstmt[i].begin(),NewBOverEstmt[i].end());     
+            shadowEnhancedMax += (*tmp_max);
+          }
+        }
+      }
+      else if(shadow_sign < 0){
+#ifndef NOTTOTRACKSHADOW           
+        std::cout << "                shadow_sign < 0" << std::endl;  
+#endif 
+        for( unsigned int i=0; i<_nvar; i++ ){
+          bool updateShadowEnhancedMax = false;
+          if( !Amat[i].empty() && !Bmat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW   
+            std::cout << "                    !Amat[i].empty() && !Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif             
+            NewBOverEstmt[i].resize(_ndiv); 
+            NewBOverEstmt_slope[i].resize(_ndiv);
+            for( unsigned long long j=0; j<_ndiv; j++ ){
+              NewBOverEstmt[i][j] = Op<T>::u(Bmat[i][j]) - Ashadow[1][i][j];
+              if((Ashadow_slope[1][i][j] < 0.) == (Bslope[i][j][1] < 0.)){   
+                long double tightener = std::min(std::fabs(Ashadow_slope[1][i][j]),std::fabs(Bslope[i][j][1]))*(partitionSize[i]);
+                NewBOverEstmt[i][j] -= tightener;
+              }
+              NewBOverEstmt_slope[i][j] = - Ashadow_slope[1][i][j] + Bslope[i][j][1];
+            }
+            updateShadowEnhancedMax = true;
+          }
+          else if( !Amat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW                
+            std::cout << "                    !Amat[i].empty() && Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif             
+            NewBOverEstmt[i].resize(_ndiv); 
+            NewBOverEstmt_slope[i].resize(_ndiv);            
+            for( unsigned long long j=0; j<_ndiv; j++ ){
+              NewBOverEstmt[i][j] = -Ashadow[1][i][j];
+              NewBOverEstmt_slope[i][j] =  -Ashadow_slope[1][i][j];
+            }
+            updateShadowEnhancedMax = true;
+          }
+          else if( !Bmat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW                
+            std::cout << "                    Amat[i].empty() && !Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif                
+            NewBOverEstmt[i].resize(_ndiv); 
+            NewBOverEstmt_slope[i].resize(_ndiv);            
+            for( unsigned long long j=0; j<_ndiv; j++ ){
+              NewBOverEstmt[i][j] = Op<T>::u(Bmat[i][j]);
+              NewBOverEstmt_slope[i][j] =  Bslope[i][j][1];
+            }
+            updateShadowEnhancedMax = true;
+          }    
+
+          if(updateShadowEnhancedMax){
+            const auto tmp_max = std::max_element(NewBOverEstmt[i].begin(),NewBOverEstmt[i].end());     
+            shadowEnhancedMax += (*tmp_max);
+          }
+        }        
+      }
+      else {
+        std::cout << "error in binary addition aggr overestimator Ashadow when processing shadow sign for overestimator" <<std::endl;
+        throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); 
+      }
+  
+      if(shadowEnhancedMax < muB - MC__ISM_COMPUTATION_TOL){
+#ifndef NOTTOTRACKSHADOW                
+        std::cout << "                Bupdated = true: " << std::setprecision(18) << shadowEnhancedMax << " , " << muB <<std::endl;
+#endif
+        Bupdated = true;
+      }
+    }
+
+    if(B_over_shadow){
+    // A + B_shadow -> New A 
+      long double shadowEnhancedMax = 0.;
+      const double shadow_sign = Bshadow_sign;
+#ifndef NOTTOTRACKSHADOW        
+      std::cout << "            B_under_shadow" << std::endl;
+#endif      
+      if(shadow_sign > 0){
+#ifndef NOTTOTRACKSHADOW
+        std::cout << "                shadow_sign > 0" << std::endl;
+#endif
+        for( unsigned int i=0; i<_nvar; i++ ){
+          bool updateShadowEnhancedMax = false;
+          if( !Amat[i].empty() && !Bmat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW                    
+            std::cout << "                    !Amat[i].empty() && !Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif            
+            NewAOverEstmt[i].resize(_ndiv); 
+            NewAOverEstmt_slope[i].resize(_ndiv);
+            for( unsigned long long j=0; j<_ndiv; j++ ){
+              NewAOverEstmt[i][j] = Op<T>::u(Amat[i][j]) + Bshadow[1][i][j];
+              if((Bshadow_slope[1][i][j] < 0.) != (Aslope[i][j][1] < 0.)){   
+                long double tightener = std::min(std::fabs(Bshadow_slope[1][i][j]),std::fabs(Aslope[i][j][1]))*(partitionSize[i]);
+                NewAOverEstmt[i][j] -= tightener;
+              }
+              NewAOverEstmt_slope[i][j] = Bshadow_slope[1][i][j] + Aslope[i][j][1];
+            }
+            updateShadowEnhancedMax = true;
+          }
+          else if( !Amat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW                    
+            std::cout << "                    !Amat[i].empty() && Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif            
+            NewAOverEstmt[i].resize(_ndiv); 
+            NewAOverEstmt_slope[i].resize(_ndiv);            
+            for( unsigned long long j=0; j<_ndiv; j++ ){
+              NewAOverEstmt[i][j] = Op<T>::u(Amat[i][j]);
+              NewAOverEstmt_slope[i][j] =  Aslope[i][j][1];
+            }
+            updateShadowEnhancedMax = true;
+          }
+          else if( !Bmat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW                    
+            std::cout << "                    Amat[i].empty() && !Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif                
+            NewAOverEstmt[i].resize(_ndiv); 
+            NewAOverEstmt_slope[i].resize(_ndiv);            
+            for( unsigned long long j=0; j<_ndiv; j++ ){
+              NewAOverEstmt[i][j] = Bshadow[1][i][j];
+              NewAOverEstmt_slope[i][j] =  Bshadow_slope[1][i][j];
+            }
+            updateShadowEnhancedMax = true;
+          }          
+        
+          if(updateShadowEnhancedMax){
+            const auto tmp_max = std::max_element(NewAOverEstmt[i].begin(),NewAOverEstmt[i].end());     
+            shadowEnhancedMax += (*tmp_max);
+          }
+        }
+      }
+      else if(shadow_sign < 0){
+#ifndef NOTTOTRACKSHADOW                  
+        std::cout << "                shadow_sign < 0" << std::endl;
+#endif           
+        for( unsigned int i=0; i<_nvar; i++ ){
+          bool updateShadowEnhancedMax = false;
+          if( !Amat[i].empty() && !Bmat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW                    
+            std::cout << "                    !Amat[i].empty() && !Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif              
+            NewAOverEstmt[i].resize(_ndiv); 
+            NewAOverEstmt_slope[i].resize(_ndiv);
+            for( unsigned long long j=0; j<_ndiv; j++ ){
+              NewAOverEstmt[i][j] = Op<T>::u(Amat[i][j]) - Bshadow[1][i][j];
+              if((Bshadow_slope[1][i][j] < 0.) == (Aslope[i][j][1] < 0.)){   
+                long double tightener = std::min(std::fabs(Bshadow_slope[1][i][j]),std::fabs(Aslope[i][j][1]))*(partitionSize[i]);
+                NewAOverEstmt[i][j] -= tightener;
+              }
+              NewAOverEstmt_slope[i][j] = - Bshadow_slope[1][i][j] + Aslope[i][j][1];
+            }
+            updateShadowEnhancedMax = true;
+          }
+          else if( !Amat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW                 
+            std::cout << "                    !Amat[i].empty() && Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif              
+            NewAOverEstmt[i].resize(_ndiv); 
+            NewAOverEstmt_slope[i].resize(_ndiv);            
+            for( unsigned long long j=0; j<_ndiv; j++ ){
+              NewAOverEstmt[i][j] = Op<T>::u(Amat[i][j]);
+              NewAOverEstmt_slope[i][j] =  Aslope[i][j][1];
+            }
+            updateShadowEnhancedMax = true;
+          }
+          else if( !Bmat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW              
+            std::cout << "                    Amat[i].empty() && !Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif             
+            NewAOverEstmt[i].resize(_ndiv); 
+            NewAOverEstmt_slope[i].resize(_ndiv);            
+            for( unsigned long long j=0; j<_ndiv; j++ ){
+              NewAOverEstmt[i][j] = -Bshadow[1][i][j];
+              NewAOverEstmt_slope[i][j] =  -Bshadow_slope[1][i][j];
+            }
+            updateShadowEnhancedMax = true;
+          }          
+        
+          if(updateShadowEnhancedMax){
+            const auto tmp_max = std::max_element(NewAOverEstmt[i].begin(),NewAOverEstmt[i].end());     
+            shadowEnhancedMax += (*tmp_max);
+          }  
+        }        
+      }
+      else {
+        std::cout << "error in binary addition aggr overestimator Bshadow when processing shadow sign for overestimator " << shadow_sign << std::endl;
+        throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); 
+      }
+  
+      if(shadowEnhancedMax < muA - MC__ISM_COMPUTATION_TOL){
+#ifndef NOTTOTRACKSHADOW          
+        std::cout << "                Aupdated = true: " << std::setprecision(18) << shadowEnhancedMax << " , " << muA <<std::endl;
+#endif               
+        Aupdated = true;
+      }
+        
+    }
+
+
+    // Step 2.1: addition (overestimator)
+    long double shadowAMin(0.),shadowBMin(0.),shadowCMin(0.);
+#ifndef NOTTOTRACKSHADOW        
+    std::cout << "        Addition" << std::endl;
+#endif      
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( !Amat[i].empty() && !Bmat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW             
+        std::cout << "                    !Amat[i].empty() && !Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif              
+        NewOverEstmt[i].resize(_ndiv); 
+        NewOverEstmt_slope[i].resize(_ndiv);
+        NewOverEstmt_shadow[i].resize(_ndiv);            
+        NewOverEstmt_shadow_slope[i].resize(_ndiv);                
+        for( unsigned long long j=0; j<_ndiv; j++ ){
+          long double const tmp_AoverEstmt_at_ij = Aupdated? NewAOverEstmt[i][j]:Op<T>::u(Amat[i][j]);
+          long double const tmp_BoverEstmt_at_ij = Bupdated? NewBOverEstmt[i][j]:Op<T>::u(Bmat[i][j]);
+          long double const tmp_AoverEstmtSlp_at_ij = Aupdated? NewAOverEstmt_slope[i][j]:Aslope[i][j][1];
+          long double const tmp_BoverEstmtSlp_at_ij = Bupdated? NewBOverEstmt_slope[i][j]:Bslope[i][j][1];
+          
+          NewOverEstmt[i][j] = tmp_AoverEstmt_at_ij + tmp_BoverEstmt_at_ij;
+          if((tmp_AoverEstmtSlp_at_ij < 0.) != (tmp_BoverEstmtSlp_at_ij < 0.)){   
+            long double tightener = std::min(std::fabs(tmp_AoverEstmtSlp_at_ij),std::fabs(tmp_BoverEstmtSlp_at_ij))*(partitionSize[i]);
+            NewOverEstmt[i][j] -= tightener;
+          }
+          NewOverEstmt_slope[i][j] = tmp_AoverEstmtSlp_at_ij + tmp_BoverEstmtSlp_at_ij;
+          //std::cout << "                        estmator and slope updated at elm No. " << j << std::endl;
+
+
+          long double tmp_BoverEstmtShad_at_ij = 0.;
+          long double tmp_BoverEstmtShadSlp_at_ij =0.;
+          if(Bshadow_info[2]!=0){
+            if(!Aupdated){
+              tmp_BoverEstmtShad_at_ij = Bshadow_sign*Bshadow[1][i][j];
+              tmp_BoverEstmtShadSlp_at_ij = Bshadow_sign*Bshadow_slope[1][i][j];             
+            }
+            else
+            {
+              tmp_BoverEstmtShadSlp_at_ij = -Bshadow_sign*Bshadow_slope[1][i][j];
+              tmp_BoverEstmtShad_at_ij = -Bshadow_sign*Bshadow[1][i][j] + std::fabs(tmp_BoverEstmtShadSlp_at_ij)*partitionSize[i];       
+            }
+            LocalBshadow[1][i][j] = tmp_BoverEstmtShad_at_ij;
+            LocalBshadow_slope[1][i][j] = tmp_BoverEstmtShadSlp_at_ij;                   
+          }
+
+          long double tmp_AoverEstmtShad_at_ij = 0.;
+          long double tmp_AoverEstmtShadSlp_at_ij = 0.;
+          if(Ashadow_info[2]!=0){
+            if(!Bupdated){
+              tmp_AoverEstmtShad_at_ij = Ashadow_sign*Ashadow[1][i][j];
+              tmp_AoverEstmtShadSlp_at_ij = Ashadow_sign*Ashadow_slope[1][i][j];  
+            }
+            else{
+              tmp_AoverEstmtShadSlp_at_ij = -Ashadow_sign*Ashadow_slope[1][i][j];
+              tmp_AoverEstmtShad_at_ij = -Ashadow_sign*Ashadow[1][i][j] + std::fabs(tmp_AoverEstmtShadSlp_at_ij)*partitionSize[i];
+            }
+            Ashadow[1][i][j] = tmp_AoverEstmtShad_at_ij;
+            Ashadow_slope[1][i][j] = tmp_AoverEstmtShadSlp_at_ij;
+          }
+
+
+
+          // long double tmp_BoverEstmtShad_at_ij = 0.;
+          // long double tmp_BoverEstmtShadSlp_at_ij =0.;
+          // if(Bshadow_info[2]!=0){
+          //   tmp_BoverEstmtShad_at_ij = Bshadow_sign*(Aupdated?(- Bshadow[1][i][j] ):Bshadow[1][i][j]); 
+          //   tmp_BoverEstmtShadSlp_at_ij = Bshadow_sign*(Aupdated?(- Bshadow_slope[1][i][j] ):Bshadow_slope[1][i][j]);
+          //   LocalBshadow[1][i][j] = tmp_BoverEstmtShad_at_ij;
+          //   LocalBshadow_slope[1][i][j] = tmp_BoverEstmtShadSlp_at_ij;            
+          // }
+
+          // long double tmp_AoverEstmtShad_at_ij = 0.;
+          // long double tmp_AoverEstmtShadSlp_at_ij = 0.;
+          // if(Ashadow_info[2]!=0){
+          //   tmp_AoverEstmtShad_at_ij = Ashadow_sign*(Bupdated?(- Ashadow[1][i][j] ):Ashadow[1][i][j]);
+          //   tmp_AoverEstmtShadSlp_at_ij = Ashadow_sign*(Bupdated? (- Ashadow_slope[1][i][j]  ):Ashadow_slope[1][i][j]);
+          //   Ashadow[1][i][j] = tmp_AoverEstmtShad_at_ij;
+          //   Ashadow_slope[1][i][j] = tmp_AoverEstmtShadSlp_at_ij;
+          // }
+          
+          //std::cout << "                        ABshadow and slope updated at elm No. " << j << std::endl;
+
+          NewOverEstmt_shadow[i][j] = tmp_AoverEstmtShad_at_ij + tmp_BoverEstmtShad_at_ij;
+          if((tmp_AoverEstmtShadSlp_at_ij < 0.) != (tmp_BoverEstmtShadSlp_at_ij < 0.)){   
+            long double tightener = std::min(std::fabs(tmp_AoverEstmtShadSlp_at_ij),std::fabs(tmp_BoverEstmtShadSlp_at_ij))*(partitionSize[i]);
+            NewOverEstmt_shadow[i][j] -= tightener;
+          }
+          NewOverEstmt_shadow_slope[i][j] = tmp_AoverEstmtShadSlp_at_ij + tmp_BoverEstmtShadSlp_at_ij;                      
+        }
+      }
+      else if( !Amat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW           
+        std::cout << "                    !Amat[i].empty() && Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif
+        NewOverEstmt[i].resize(_ndiv); 
+        NewOverEstmt_slope[i].resize(_ndiv);
+        NewOverEstmt_shadow[i].resize(_ndiv);            
+        NewOverEstmt_shadow_slope[i].resize(_ndiv);           
+        for( unsigned long long j=0; j<_ndiv; j++ ){
+          long double const tmp_AoverEstmt_at_ij = Aupdated? NewAOverEstmt[i][j]:Op<T>::u(Amat[i][j]);
+          long double const tmp_BoverEstmt_at_ij = Bupdated? NewBOverEstmt[i][j]:0.;
+          long double const tmp_AoverEstmtSlp_at_ij = Aupdated? NewAOverEstmt_slope[i][j]:Aslope[i][j][1];
+          long double const tmp_BoverEstmtSlp_at_ij = Bupdated? NewBOverEstmt_slope[i][j]:0.;          
+          NewOverEstmt[i][j] = tmp_AoverEstmt_at_ij + tmp_BoverEstmt_at_ij;
+          if((tmp_AoverEstmtSlp_at_ij < 0.) != (tmp_BoverEstmtSlp_at_ij < 0.)){
+            long double tightener = std::min(std::fabs(tmp_AoverEstmtSlp_at_ij),std::fabs(tmp_BoverEstmtSlp_at_ij))*(partitionSize[i]);
+            NewOverEstmt[i][j] -= tightener;            
+          }
+          NewOverEstmt_slope[i][j] = tmp_AoverEstmtSlp_at_ij + tmp_BoverEstmtSlp_at_ij;
+
+          long double tmp_AoverEstmtShad_at_ij = 0.;
+          long double tmp_AoverEstmtShadSlp_at_ij = 0.;
+          if(Ashadow_info[2]!=0){
+            if(!Bupdated){
+              tmp_AoverEstmtShad_at_ij = Ashadow_sign*Ashadow[1][i][j];
+              tmp_AoverEstmtShadSlp_at_ij = Ashadow_sign*Ashadow_slope[1][i][j];  
+            }
+            else{
+              tmp_AoverEstmtShadSlp_at_ij = -Ashadow_sign*Ashadow_slope[1][i][j];
+              tmp_AoverEstmtShad_at_ij = -Ashadow_sign*Ashadow[1][i][j] + std::fabs(tmp_AoverEstmtShadSlp_at_ij)*partitionSize[i];
+            }
+            Ashadow[1][i][j] = tmp_AoverEstmtShad_at_ij;
+            Ashadow_slope[1][i][j] = tmp_AoverEstmtShadSlp_at_ij;
+          }
+          // if(Ashadow_info[2]!=0){
+          //   tmp_AoverEstmtShad_at_ij = Ashadow_sign*(Bupdated?(- Ashadow[1][i][j] ):Ashadow[1][i][j]);
+          //   tmp_AoverEstmtShadSlp_at_ij = Ashadow_sign*(Bupdated? (- Ashadow_slope[1][i][j]  ):Ashadow_slope[1][i][j]);
+          //   Ashadow[1][i][j] = tmp_AoverEstmtShad_at_ij;
+          //   Ashadow_slope[1][i][j] = tmp_AoverEstmtShadSlp_at_ij;
+          // }
+
+          NewOverEstmt_shadow[i][j] = tmp_AoverEstmtShad_at_ij;
+          NewOverEstmt_shadow_slope[i][j] = tmp_AoverEstmtShadSlp_at_ij;
+        }
+      }
+      else if( !Bmat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW             
+        std::cout << "                    Amat[i].empty() && !Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif
+        NewOverEstmt[i].resize(_ndiv); 
+        NewOverEstmt_slope[i].resize(_ndiv);   
+        NewOverEstmt_shadow[i].resize(_ndiv);            
+        NewOverEstmt_shadow_slope[i].resize(_ndiv);                   
+        for( unsigned long long j=0; j<_ndiv; j++ ){
+          long double const tmp_AoverEstmt_at_ij = Aupdated? NewAOverEstmt[i][j]:0.;
+          long double const tmp_BoverEstmt_at_ij = Bupdated? NewBOverEstmt[i][j]:Op<T>::u(Bmat[i][j]);
+          long double const tmp_AoverEstmtSlp_at_ij = Aupdated? NewAOverEstmt_slope[i][j]:0.;
+          long double const tmp_BoverEstmtSlp_at_ij = Bupdated? NewBOverEstmt_slope[i][j]:Bslope[i][j][1];          
+          NewOverEstmt[i][j] = tmp_AoverEstmt_at_ij + tmp_BoverEstmt_at_ij;
+          if((tmp_AoverEstmtSlp_at_ij < 0.) != (tmp_BoverEstmtSlp_at_ij < 0.)){
+            long double tightener = std::min(std::fabs(tmp_AoverEstmtSlp_at_ij),std::fabs(tmp_BoverEstmtSlp_at_ij))*(partitionSize[i]);
+            NewOverEstmt[i][j] -= tightener;            
+          }          
+          NewOverEstmt_slope[i][j] =  tmp_AoverEstmtSlp_at_ij + tmp_BoverEstmtSlp_at_ij;
+
+          long double tmp_BoverEstmtShad_at_ij = 0.;
+          long double tmp_BoverEstmtShadSlp_at_ij =0.;
+          if(Bshadow_info[2]!=0){
+            if(!Aupdated){
+              tmp_BoverEstmtShad_at_ij = Bshadow_sign*Bshadow[1][i][j];
+              tmp_BoverEstmtShadSlp_at_ij = Bshadow_sign*Bshadow_slope[1][i][j];             
+            }
+            else
+            {
+              tmp_BoverEstmtShadSlp_at_ij = -Bshadow_sign*Bshadow_slope[1][i][j];
+              tmp_BoverEstmtShad_at_ij = -Bshadow_sign*Bshadow[1][i][j] + std::fabs(tmp_BoverEstmtShadSlp_at_ij)*partitionSize[i];       
+            }
+            LocalBshadow[1][i][j] = tmp_BoverEstmtShad_at_ij;
+            LocalBshadow_slope[1][i][j] = tmp_BoverEstmtShadSlp_at_ij;                   
+          }
+          // if(Bshadow_info[2]!=0){
+          //   tmp_BoverEstmtShad_at_ij = Bshadow_sign*(Aupdated?(- Bshadow[1][i][j] ):Bshadow[1][i][j]); 
+          //   tmp_BoverEstmtShadSlp_at_ij = Bshadow_sign*(Aupdated?(- Bshadow_slope[1][i][j] ):Bshadow_slope[1][i][j]);
+          //   LocalBshadow[1][i][j] = tmp_BoverEstmtShad_at_ij;
+          //   LocalBshadow_slope[1][i][j] = tmp_BoverEstmtShadSlp_at_ij;            
+          // }
+
+          NewOverEstmt_shadow[i][j] = tmp_BoverEstmtShad_at_ij;
+          NewOverEstmt_shadow_slope[i][j] = tmp_BoverEstmtShadSlp_at_ij;          
+        }
+      }          
+
+      if(A_over_shadow && B_over_shadow ){     
+        //const auto [tmp_min,tmp_max] = std::minmax_element(shadow[1][i].begin(),shadow[1][i].end());
+        bool updateShadowCMin = false;
+        if( !Ashadow[1][i].empty() ){
+          const auto tmp_minA = std::min_element(Ashadow[1][i].begin(),Ashadow[1][i].end()); 
+          shadowAMin += (*tmp_minA); 
+          updateShadowCMin = true;
+  
+        }    
+        if( !LocalBshadow[1][i].empty() ){   
+          const auto tmp_minB = std::min_element(LocalBshadow[1][i].begin(),LocalBshadow[1][i].end());    
+          shadowBMin += (*tmp_minB);   
+          updateShadowCMin = true;
+   
+        }
+        if(updateShadowCMin){
+          const auto tmp_minC = std::min_element(NewOverEstmt_shadow[i].begin(),NewOverEstmt_shadow[i].end());     
+          shadowCMin += (*tmp_minC);
+        }
+      }
+    }
+
+
+    // Step 2.2: aggregation
+    if(A_over_shadow && B_over_shadow ){
+      if (shadowCMin > shadowBMin){
+        if(shadowBMin > shadowAMin){
+          NewOverEstmt_shadow.swap(Ashadow[1]);
+          NewOverEstmt_shadow_slope.swap(Ashadow_slope[1]);
+        }
+        else{
+          //shadowPointingToB = true;
+          NewOverEstmt_shadow.swap(LocalBshadow[1]);
+          NewOverEstmt_shadow_slope.swap(LocalBshadow_slope[1]);            
+        }
+       }
+       else {
+        if(shadowCMin > shadowAMin){ 
+          NewOverEstmt_shadow.swap(Ashadow[1]);
+          NewOverEstmt_shadow_slope.swap(Ashadow_slope[1]);
+        }
+      }  
+    }
+    // to keep simple we do not further aggregate the new shadow over-estimator
+    if (Aupdated || Bupdated)
+      overEstmtUpdated = true;
+  
+  } 
+  else{
+#ifndef NOTTOTRACKSHADOW    
+    std::cout << "        nottoUpdateOverEstmt" << std::endl;
+#endif
+    NewOverEstmt.resize(_nvar);
+    NewOverEstmt_slope.resize(_nvar);
+#ifndef NOTTOTRACKSHADOW      
+    std::cout << "        Addition Over no shadow" << std::endl;
+#endif
+
+
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( !Amat[i].empty() && !Bmat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW              
+        std::cout << "                    !Amat[i].empty() && !Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif        
+        NewOverEstmt[i].resize(_ndiv); 
+        NewOverEstmt_slope[i].resize(_ndiv);
+        for( unsigned long long j=0; j<_ndiv; j++ ){
+          long double const tmp_AoverEstmt_at_ij = Op<T>::u(Amat[i][j]);
+          long double const tmp_BoverEstmt_at_ij = Op<T>::u(Bmat[i][j]);
+          long double const tmp_AoverEstmtSlp_at_ij = Aslope[i][j][1];
+          long double const tmp_BoverEstmtSlp_at_ij = Bslope[i][j][1];
+          
+          NewOverEstmt[i][j] = tmp_AoverEstmt_at_ij + tmp_BoverEstmt_at_ij;
+          if((tmp_AoverEstmtSlp_at_ij < 0.) != (tmp_BoverEstmtSlp_at_ij < 0.)){   
+            long double tightener = std::min(std::fabs(tmp_AoverEstmtSlp_at_ij),std::fabs(tmp_BoverEstmtSlp_at_ij))*(partitionSize[i]);
+            NewOverEstmt[i][j] -= tightener;
+          }
+          NewOverEstmt_slope[i][j] = tmp_AoverEstmtSlp_at_ij + tmp_BoverEstmtSlp_at_ij;
+          //std::cout << std::setprecision(18) << i << "," << j << ": [ "  <<NewOverEstmt[i][j] << " ]   ";
+        }
+        //std::cout << std::endl;          
+      }
+      else if( !Amat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW         
+        std::cout << "                    !Amat[i].empty() && Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif             
+        NewOverEstmt[i].resize(_ndiv); 
+        NewOverEstmt_slope[i].resize(_ndiv);
+        for( unsigned long long j=0; j<_ndiv; j++ ){
+          NewOverEstmt[i][j] = Op<T>::u(Amat[i][j]);
+          NewOverEstmt_slope[i][j] =  Aslope[i][j][1];
+        }
+      }
+      else if( !Bmat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW           
+        std::cout << "                    Amat[i].empty() && !Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif
+        NewOverEstmt[i].resize(_ndiv); 
+        NewOverEstmt_slope[i].resize(_ndiv);   
+        for( unsigned long long j=0; j<_ndiv; j++ ){
+          NewOverEstmt[i][j] = Op<T>::u(Bmat[i][j]);
+          NewOverEstmt_slope[i][j] =  Bslope[i][j][1];
+        }
+      }          
+    }
+
+
+  }
+
+
+
+
+
+
+
+  NewUnderEstmt.resize(_nvar);
+  NewUnderEstmt_slope.resize(_nvar);
+  NewUnderEstmt_shadow.resize(_nvar);    
+  NewUnderEstmt_shadow_slope.resize(_nvar);   
+
+  if (toUpdateUnderEstmt){
+#ifndef NOTTOTRACKSHADOW   
+    std::cout << "        toUpdateUnderEstmt" << std::endl;
+#endif
+    std::vector<std::vector<long double>> NewAUnderEstmt; 
+    std::vector<std::vector<long double>> NewAUnderEstmt_slope;     
+    std::vector<std::vector<long double>> NewBUnderEstmt; 
+    std::vector<std::vector<long double>> NewBUnderEstmt_slope;   
+
+    NewAUnderEstmt.resize(_nvar);
+    NewAUnderEstmt_slope.resize(_nvar);
+    NewBUnderEstmt.resize(_nvar);
+    NewBUnderEstmt_slope.resize(_nvar);
+    
+
+
+    bool Aupdated = false;
+    bool Bupdated = false;
+
+    if(A_under_shadow){
+    // B + A_shadow -> New B 
+#ifndef NOTTOTRACKSHADOW   
+      std::cout << "            A_under_shadow" << std::endl;
+#endif
+      long double shadowEnhancedMin = 0.;
+      const double shadow_sign = Ashadow_sign;
+      if(shadow_sign > 0){
+#ifndef NOTTOTRACKSHADOW   
+        std::cout << "                shadow_sign > 0" << std::endl;
+#endif
+        for( unsigned int i=0; i<_nvar; i++ ){
+          bool updateShadowEnhancedMin = false;  
+          if( !Amat[i].empty() && !Bmat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW               
+            std::cout << "                    !Amat[i].empty() && !Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif
+            NewBUnderEstmt[i].resize(_ndiv); 
+            NewBUnderEstmt_slope[i].resize(_ndiv);
+            for( unsigned long long j=0; j<_ndiv; j++ ){
+              NewBUnderEstmt[i][j] = Op<T>::l(Bmat[i][j]) + Ashadow[0][i][j];
+              if((Ashadow_slope[0][i][j] < 0.) != (Bslope[i][j][0] < 0.)){   
+                long double tightener = std::min(std::fabs(Ashadow_slope[0][i][j]),std::fabs(Bslope[i][j][0]))*(partitionSize[i]);
+                NewBUnderEstmt[i][j] += tightener;
+              }
+              NewBUnderEstmt_slope[i][j] = Ashadow_slope[0][i][j] + Bslope[i][j][0];
+            }
+            updateShadowEnhancedMin = true;
+          }
+          else if( !Amat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW               
+            std::cout << "                    !Amat[i].empty() && Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif
+            NewBUnderEstmt[i].resize(_ndiv); 
+            NewBUnderEstmt_slope[i].resize(_ndiv);              
+            for( unsigned long long j=0; j<_ndiv; j++ ){
+              NewBUnderEstmt[i][j] = Ashadow[0][i][j];
+              NewBUnderEstmt_slope[i][j] = Ashadow_slope[0][i][j];// Bslope[i][j][0];
+            }
+            updateShadowEnhancedMin = true;
+          }
+          else if( !Bmat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW   
+            std::cout << "                    Amat[i].empty() && !Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif
+            NewBUnderEstmt[i].resize(_ndiv); 
+            NewBUnderEstmt_slope[i].resize(_ndiv);            
+            for( unsigned long long j=0; j<_ndiv; j++ ){
+              NewBUnderEstmt[i][j] = Op<T>::l(Bmat[i][j]);
+              NewBUnderEstmt_slope[i][j] = Bslope[i][j][0];
+            }
+            updateShadowEnhancedMin = true;
+          }          
+          if(updateShadowEnhancedMin){
+            const auto tmp_min = std::min_element(NewBUnderEstmt[i].begin(),NewBUnderEstmt[i].end());     
+            shadowEnhancedMin += (*tmp_min);
+          }
+        }
+      }
+      else if(shadow_sign < 0){
+#ifndef NOTTOTRACKSHADOW   
+        std::cout << "                shadow_sign < 0" << std::endl;
+#endif
+        for( unsigned int i=0; i<_nvar; i++ ){
+          bool updateShadowEnhancedMin = false;
+          if( !Amat[i].empty() && !Bmat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW               
+            std::cout << "                    !Amat[i].empty() && !Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif
+            NewBUnderEstmt[i].resize(_ndiv); 
+            NewBUnderEstmt_slope[i].resize(_ndiv);
+            for( unsigned long long j=0; j<_ndiv; j++ ){
+              NewBUnderEstmt[i][j] = Op<T>::l(Bmat[i][j]) - Ashadow[0][i][j];
+              if((Ashadow_slope[0][i][j] < 0.) == (Bslope[i][j][0] < 0.)){   
+                long double tightener = std::min(std::fabs(Ashadow_slope[0][i][j]),std::fabs(Bslope[i][j][0]))*(partitionSize[i]);
+                NewBUnderEstmt[i][j] += tightener;
+              }
+              NewBUnderEstmt_slope[i][j] = - Ashadow_slope[0][i][j] + Bslope[i][j][0];
+            }
+            updateShadowEnhancedMin = true;
+          }
+          else if( !Amat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW   
+            std::cout << "                    !Amat[i].empty() && Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif
+            NewBUnderEstmt[i].resize(_ndiv); 
+            NewBUnderEstmt_slope[i].resize(_ndiv);            
+            for( unsigned long long j=0; j<_ndiv; j++ ){
+              NewBUnderEstmt[i][j] = -Ashadow[0][i][j] ;
+              NewBUnderEstmt_slope[i][j] = -Ashadow_slope[0][i][j] ;
+            }
+            updateShadowEnhancedMin = true;
+          }
+          else if( !Bmat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW   
+            std::cout << "                    Amat[i].empty() && !Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif
+            NewBUnderEstmt[i].resize(_ndiv); 
+            NewBUnderEstmt_slope[i].resize(_ndiv);            
+            for( unsigned long long j=0; j<_ndiv; j++ ){
+              NewBUnderEstmt[i][j] = Op<T>::l(Bmat[i][j]);
+              NewBUnderEstmt_slope[i][j] = Bslope[i][j][0];
+            }
+            updateShadowEnhancedMin = true;
+          }    
+
+          if(updateShadowEnhancedMin){
+            const auto tmp_min = std::min_element(NewBUnderEstmt[i].begin(),NewBUnderEstmt[i].end());     
+            shadowEnhancedMin += (*tmp_min);
+          }
+        }        
+      }
+      else {
+        std::cout << "error in binary addition aggr overestimator Ashadow when processing shadow sign for underestimator" <<std::endl;
+        throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); 
+      }
+  
+      if(shadowEnhancedMin > lambdaB + MC__ISM_COMPUTATION_TOL){
+#ifndef NOTTOTRACKSHADOW   
+        std::cout << "                Bupdated = true: " << std::setprecision(18) << shadowEnhancedMin << " , " << lambdaB <<std::endl;
+#endif
+        Bupdated = true;
+      }  
+    }
+
+    if(B_under_shadow){
+    // A + B_shadow -> New A 
+#ifndef NOTTOTRACKSHADOW   
+      std::cout << "            B_under_shadow" << std::endl;
+#endif
+      long double shadowEnhancedMin = 0.;
+      const double shadow_sign = Bshadow_sign;
+      if(shadow_sign > 0){
+#ifndef NOTTOTRACKSHADOW   
+        std::cout << "                shadow_sign > 0" << std::endl;
+#endif
+        for( unsigned int i=0; i<_nvar; i++ ){
+          bool updateShadowEnhancedMin = false;
+          if( !Amat[i].empty() && !Bmat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW   
+            std::cout << "                    !Amat[i].empty() && !Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif            
+            NewAUnderEstmt[i].resize(_ndiv); 
+            NewAUnderEstmt_slope[i].resize(_ndiv);
+            for( unsigned long long j=0; j<_ndiv; j++ ){
+              NewAUnderEstmt[i][j] = Op<T>::l(Amat[i][j]) + Bshadow[0][i][j];
+              if((Bshadow_slope[0][i][j] < 0.) != (Aslope[i][j][0] < 0.)){   
+                long double tightener = std::min(std::fabs(Bshadow_slope[0][i][j]),std::fabs(Aslope[i][j][0]))*(partitionSize[i]);
+                NewAUnderEstmt[i][j] += tightener;
+              }
+              NewAUnderEstmt_slope[i][j] = Bshadow_slope[0][i][j] + Aslope[i][j][0];
+            }
+            updateShadowEnhancedMin = true;
+          }
+          else if( !Amat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW   
+            std::cout << "                    !Amat[i].empty() && Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif               
+            NewAUnderEstmt[i].resize(_ndiv); 
+            NewAUnderEstmt_slope[i].resize(_ndiv);            
+            for( unsigned long long j=0; j<_ndiv; j++ ){
+              NewAUnderEstmt[i][j] = Op<T>::l(Amat[i][j]);
+              NewAUnderEstmt_slope[i][j] =  Aslope[i][j][0];
+            }
+            updateShadowEnhancedMin = true;
+          }
+          else if( !Bmat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW               
+            std::cout << "                    Amat[i].empty() && !Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif                
+            NewAUnderEstmt[i].resize(_ndiv); 
+            NewAUnderEstmt_slope[i].resize(_ndiv);            
+            for( unsigned long long j=0; j<_ndiv; j++ ){
+              NewAUnderEstmt[i][j] = Bshadow[0][i][j];
+              NewAUnderEstmt_slope[i][j] =  Bshadow_slope[0][i][j];
+            }
+            updateShadowEnhancedMin = true;
+          }          
+        
+          if(updateShadowEnhancedMin){
+            const auto tmp_min = std::min_element(NewAUnderEstmt[i].begin(),NewAUnderEstmt[i].end());     
+            shadowEnhancedMin += (*tmp_min);
+          }
+        }
+      }
+      else if(shadow_sign < 0){
+#ifndef NOTTOTRACKSHADOW               
+        std::cout << "                shadow_sign < 0" << std::endl;
+#endif         
+        for( unsigned int i=0; i<_nvar; i++ ){
+          bool updateShadowEnhancedMin = false;
+          if( !Amat[i].empty() && !Bmat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW                 
+            std::cout << "                    !Amat[i].empty() && !Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif                
+            NewAUnderEstmt[i].resize(_ndiv); 
+            NewAUnderEstmt_slope[i].resize(_ndiv);
+            for( unsigned long long j=0; j<_ndiv; j++ ){
+              NewAUnderEstmt[i][j] = Op<T>::l(Amat[i][j]) - Bshadow[0][i][j];
+              if((Bshadow_slope[0][i][j] < 0.) == (Aslope[i][j][0] < 0.)){   
+                long double tightener = std::min(std::fabs(Bshadow_slope[0][i][j]),std::fabs(Aslope[i][j][0]))*(partitionSize[i]);
+                NewAUnderEstmt[i][j] += tightener;
+              }
+              NewAUnderEstmt_slope[i][j] = - Bshadow_slope[0][i][j] + Aslope[i][j][0];
+            }
+            updateShadowEnhancedMin = true;
+          }
+          else if( !Amat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW    
+            std::cout << "                    !Amat[i].empty() && Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif                   
+            NewAUnderEstmt[i].resize(_ndiv); 
+            NewAUnderEstmt_slope[i].resize(_ndiv);            
+            for( unsigned long long j=0; j<_ndiv; j++ ){
+              NewAUnderEstmt[i][j] = Op<T>::l(Amat[i][j]);
+              NewAUnderEstmt_slope[i][j] =  Aslope[i][j][0];
+            }
+            updateShadowEnhancedMin = true;
+          }
+          else if( !Bmat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW              
+            std::cout << "                    Amat[i].empty() && !Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif
+            NewAUnderEstmt[i].resize(_ndiv); 
+            NewAUnderEstmt_slope[i].resize(_ndiv);            
+            for( unsigned long long j=0; j<_ndiv; j++ ){
+              NewAUnderEstmt[i][j] = -Bshadow[0][i][j];
+              NewAUnderEstmt_slope[i][j] =  -Bshadow_slope[0][i][j];
+            }
+            updateShadowEnhancedMin = true;
+          }          
+        
+          if(updateShadowEnhancedMin){
+            const auto tmp_min = std::min_element(NewAUnderEstmt[i].begin(),NewAUnderEstmt[i].end());     
+            shadowEnhancedMin += (*tmp_min);
+          }  
+        }        
+      }
+      else {
+        std::cout << "error in binary addition aggr overestimator Bshadow when processing shadow sign for underestimator " << shadow_sign <<std::endl;
+        throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); 
+      }
+  
+      if(shadowEnhancedMin > lambdaA + MC__ISM_COMPUTATION_TOL){
+#ifndef NOTTOTRACKSHADOW          
+        std::cout << "                Aupdated = true: " << std::setprecision(18) << shadowEnhancedMin << " , " << lambdaA <<std::endl;
+#endif        
+        Aupdated = true;
+      }
+    }
+
+
+    // Step 2.1: addition (underestimator) 
+    long double shadowAMax(0.),shadowBMax(0.),shadowCMax(0.);
+#ifndef NOTTOTRACKSHADOW      
+    std::cout << "        Addition" << std::endl;
+#endif
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( !Amat[i].empty() && !Bmat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW          
+        std::cout << "                    !Amat[i].empty() && !Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif        
+        NewUnderEstmt[i].resize(_ndiv); 
+        NewUnderEstmt_slope[i].resize(_ndiv);
+        NewUnderEstmt_shadow[i].resize(_ndiv);
+        NewUnderEstmt_shadow_slope[i].resize(_ndiv);
+        for( unsigned long long j=0; j<_ndiv; j++ ){
+          long double const tmp_AoverEstmt_at_ij = Aupdated? NewAUnderEstmt[i][j]:Op<T>::l(Amat[i][j]);
+          long double const tmp_BoverEstmt_at_ij = Bupdated? NewBUnderEstmt[i][j]:Op<T>::l(Bmat[i][j]);
+          long double const tmp_AoverEstmtSlp_at_ij = Aupdated? NewAUnderEstmt_slope[i][j]:Aslope[i][j][0];
+          long double const tmp_BoverEstmtSlp_at_ij = Bupdated? NewBUnderEstmt_slope[i][j]:Bslope[i][j][0];
+          
+          NewUnderEstmt[i][j] = tmp_AoverEstmt_at_ij + tmp_BoverEstmt_at_ij;
+          if((tmp_AoverEstmtSlp_at_ij < 0.) != (tmp_BoverEstmtSlp_at_ij < 0.)){   
+            long double tightener = std::min(std::fabs(tmp_AoverEstmtSlp_at_ij),std::fabs(tmp_BoverEstmtSlp_at_ij))*(partitionSize[i]);
+            NewUnderEstmt[i][j] += tightener;
+          }
+          NewUnderEstmt_slope[i][j] = tmp_AoverEstmtSlp_at_ij + tmp_BoverEstmtSlp_at_ij;
+
+
+          long double tmp_BoverEstmtShad_at_ij = 0.;
+          long double tmp_BoverEstmtShadSlp_at_ij =0.;
+          if(Bshadow_info[1]!=0){
+            if(!Aupdated){
+              tmp_BoverEstmtShad_at_ij = Bshadow_sign*Bshadow[0][i][j];
+              tmp_BoverEstmtShadSlp_at_ij = Bshadow_sign*Bshadow_slope[0][i][j];             
+            }
+            else
+            {
+              tmp_BoverEstmtShadSlp_at_ij = -Bshadow_sign*Bshadow_slope[0][i][j];
+              tmp_BoverEstmtShad_at_ij = -Bshadow_sign*Bshadow[0][i][j] - std::fabs(tmp_BoverEstmtShadSlp_at_ij)*partitionSize[i];       
+            }
+            LocalBshadow[0][i][j] = tmp_BoverEstmtShad_at_ij;
+            LocalBshadow_slope[0][i][j] = tmp_BoverEstmtShadSlp_at_ij;                   
+          }
+          // std::cout << "    B shadow updated " << std::endl;
+          long double tmp_AoverEstmtShad_at_ij = 0.;
+          long double tmp_AoverEstmtShadSlp_at_ij = 0.;
+          if(Ashadow_info[1]!=0){
+            if(!Bupdated){
+              tmp_AoverEstmtShad_at_ij = Ashadow_sign*Ashadow[0][i][j];
+              tmp_AoverEstmtShadSlp_at_ij = Ashadow_sign*Ashadow_slope[0][i][j];  
+            }
+            else{
+              tmp_AoverEstmtShadSlp_at_ij = -Ashadow_sign*Ashadow_slope[0][i][j];
+              tmp_AoverEstmtShad_at_ij = -Ashadow_sign*Ashadow[0][i][j] - std::fabs(tmp_AoverEstmtShadSlp_at_ij)*partitionSize[i];
+            }
+            Ashadow[0][i][j] = tmp_AoverEstmtShad_at_ij;
+            Ashadow_slope[0][i][j] = tmp_AoverEstmtShadSlp_at_ij;
+          }
+          // std::cout << "    A shadow updated " << std::endl;
+          // long double const tmp_BoverEstmtShad_at_ij = Bshadow_sign*(Aupdated?(- Bshadow[0][i][j] ):Bshadow[0][i][j]);  
+          // long double const tmp_AoverEstmtShad_at_ij = Ashadow_sign*(Bupdated?(- Ashadow[0][i][j] ):Ashadow[0][i][j]);
+          // LocalBshadow[0][i][j] = tmp_BoverEstmtShad_at_ij;
+          // Ashadow[0][i][j] = tmp_AoverEstmtShad_at_ij;
+          // long double const tmp_BoverEstmtShadSlp_at_ij = Bshadow_sign*(Aupdated?(- Bshadow_slope[0][i][j] ):Bshadow_slope[0][i][j]);
+          // long double const tmp_AoverEstmtShadSlp_at_ij = Ashadow_sign*(Bupdated? (- Ashadow_slope[0][i][j]  ):Ashadow_slope[0][i][j]);
+          // LocalBshadow_slope[0][i][j] = tmp_BoverEstmtShadSlp_at_ij;
+          // Ashadow_slope[0][i][j] = tmp_AoverEstmtShadSlp_at_ij;
+
+          NewUnderEstmt_shadow[i][j] = tmp_AoverEstmtShad_at_ij + tmp_BoverEstmtShad_at_ij;
+          if((tmp_AoverEstmtShadSlp_at_ij < 0.) != (tmp_BoverEstmtShadSlp_at_ij < 0.)){   
+            long double tightener = std::min(std::fabs(tmp_AoverEstmtShadSlp_at_ij),std::fabs(tmp_BoverEstmtShadSlp_at_ij))*(partitionSize[i]);
+            NewUnderEstmt_shadow[i][j] += tightener;
+          }
+          NewUnderEstmt_shadow_slope[i][j] = tmp_AoverEstmtShadSlp_at_ij + tmp_BoverEstmtShadSlp_at_ij;                      
+        }
+      }
+      else if( !Amat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW          
+        std::cout << "                    !Amat[i].empty() && Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif        
+        NewUnderEstmt[i].resize(_ndiv); 
+        NewUnderEstmt_slope[i].resize(_ndiv);
+        NewUnderEstmt_shadow[i].resize(_ndiv);            
+        NewUnderEstmt_shadow_slope[i].resize(_ndiv);           
+        for( unsigned long long j=0; j<_ndiv; j++ ){
+          long double const tmp_AoverEstmt_at_ij = Aupdated? NewAUnderEstmt[i][j]:Op<T>::l(Amat[i][j]);
+          long double const tmp_BoverEstmt_at_ij = Bupdated? NewBUnderEstmt[i][j]:0.;
+          long double const tmp_AoverEstmtSlp_at_ij = Aupdated? NewAUnderEstmt_slope[i][j]:Aslope[i][j][0];
+          long double const tmp_BoverEstmtSlp_at_ij = Bupdated? NewBUnderEstmt_slope[i][j]:0.;          
+          NewUnderEstmt[i][j] = tmp_AoverEstmt_at_ij + tmp_BoverEstmt_at_ij;
+          if((tmp_AoverEstmtSlp_at_ij < 0.) != (tmp_BoverEstmtSlp_at_ij < 0.)){
+            long double tightener = std::min(std::fabs(tmp_AoverEstmtSlp_at_ij),std::fabs(tmp_BoverEstmtSlp_at_ij))*(partitionSize[i]);
+            NewUnderEstmt[i][j] += tightener;            
+          }
+          NewUnderEstmt_slope[i][j] = tmp_AoverEstmtSlp_at_ij + tmp_BoverEstmtSlp_at_ij;
+
+          //if( A_under_shadow ){
+            long double tmp_AoverEstmtShad_at_ij = 0.;
+            long double tmp_AoverEstmtShadSlp_at_ij = 0.;
+            if(Ashadow_info[1]!=0){
+              if(!Bupdated){
+                tmp_AoverEstmtShad_at_ij = Ashadow_sign*Ashadow[0][i][j];
+                tmp_AoverEstmtShadSlp_at_ij = Ashadow_sign*Ashadow_slope[0][i][j];  
+              }
+              else{
+                tmp_AoverEstmtShadSlp_at_ij = -Ashadow_sign*Ashadow_slope[0][i][j];
+                tmp_AoverEstmtShad_at_ij = -Ashadow_sign*Ashadow[0][i][j] - std::fabs(tmp_AoverEstmtShadSlp_at_ij)*partitionSize[i];
+              }
+              Ashadow[0][i][j] = tmp_AoverEstmtShad_at_ij;
+              Ashadow_slope[0][i][j] = tmp_AoverEstmtShadSlp_at_ij;
+            }
+
+            // if(Ashadow_info[1]!=0){
+            //   tmp_AoverEstmtShad_at_ij = Ashadow_sign*(Bupdated?(- Ashadow[0][i][j] ):Ashadow[0][i][j]);
+            //   tmp_AoverEstmtShadSlp_at_ij = Ashadow_sign*(Bupdated? (- Ashadow_slope[0][i][j]  ):Ashadow_slope[0][i][j]);
+            //   Ashadow[0][i][j] = tmp_AoverEstmtShad_at_ij;
+            //   Ashadow_slope[0][i][j] = tmp_AoverEstmtShadSlp_at_ij;
+            // }
+  
+            // long double const tmp_AoverEstmtShad_at_ij = Ashadow_sign*(Bupdated?(- Ashadow[0][i][j] ):Ashadow[0][i][j]);
+            // Ashadow[0][i][j] = tmp_AoverEstmtShad_at_ij;
+            // long double const tmp_AoverEstmtShadSlp_at_ij = Ashadow_sign*(Bupdated? (- Ashadow_slope[0][i][j]  ):Ashadow_slope[0][i][j]);
+            // Ashadow_slope[0][i][j] = tmp_AoverEstmtShadSlp_at_ij;
+  
+            NewUnderEstmt_shadow[i][j] = tmp_AoverEstmtShad_at_ij;
+            NewUnderEstmt_shadow_slope[i][j] = tmp_AoverEstmtShadSlp_at_ij;
+          //}
+        }
+      }
+      else if( !Bmat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW            
+        std::cout << "                    Amat[i].empty() && !Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif      
+        NewUnderEstmt[i].resize(_ndiv); 
+        NewUnderEstmt_slope[i].resize(_ndiv);   
+        NewUnderEstmt_shadow[i].resize(_ndiv);            
+        NewUnderEstmt_shadow_slope[i].resize(_ndiv);                   
+        for( unsigned long long j=0; j<_ndiv; j++ ){
+          long double const tmp_AoverEstmt_at_ij = Aupdated? NewAUnderEstmt[i][j]:0.;
+          long double const tmp_BoverEstmt_at_ij = Bupdated? NewBUnderEstmt[i][j]:Op<T>::l(Bmat[i][j]);
+          long double const tmp_AoverEstmtSlp_at_ij = Aupdated? NewAUnderEstmt_slope[i][j]:0.;
+          long double const tmp_BoverEstmtSlp_at_ij = Bupdated? NewBUnderEstmt_slope[i][j]:Bslope[i][j][0];          
+          NewUnderEstmt[i][j] = tmp_AoverEstmt_at_ij + tmp_BoverEstmt_at_ij;
+          if((tmp_AoverEstmtSlp_at_ij < 0.) != (tmp_BoverEstmtSlp_at_ij < 0.)){
+            long double tightener = std::min(std::fabs(tmp_AoverEstmtSlp_at_ij),std::fabs(tmp_BoverEstmtSlp_at_ij))*(partitionSize[i]);
+            NewUnderEstmt[i][j] += tightener;            
+          }          
+          NewUnderEstmt_slope[i][j] =  tmp_AoverEstmtSlp_at_ij + tmp_BoverEstmtSlp_at_ij;
+
+          // long double const tmp_BoverEstmtShad_at_ij = Bshadow_sign*(Aupdated?(- Bshadow[0][i][j] ):Bshadow[0][i][j]);  
+          // LocalBshadow[0][i][j] = tmp_BoverEstmtShad_at_ij;
+          // long double const tmp_BoverEstmtShadSlp_at_ij = Bshadow_sign*(Aupdated?(- Bshadow_slope[0][i][j] ):Bshadow_slope[0][i][j]);
+          // LocalBshadow_slope[0][i][j] = tmp_BoverEstmtShadSlp_at_ij;
+          //if( B_under_shadow ){
+            long double tmp_BoverEstmtShad_at_ij = 0.;
+            long double tmp_BoverEstmtShadSlp_at_ij =0.;
+            if(Bshadow_info[1]!=0){
+              if(!Aupdated){
+                tmp_BoverEstmtShad_at_ij = Bshadow_sign*Bshadow[0][i][j];
+                tmp_BoverEstmtShadSlp_at_ij = Bshadow_sign*Bshadow_slope[0][i][j];             
+              }
+              else
+              {
+                tmp_BoverEstmtShadSlp_at_ij = -Bshadow_sign*Bshadow_slope[0][i][j];
+                tmp_BoverEstmtShad_at_ij = -Bshadow_sign*Bshadow[0][i][j] - std::fabs(tmp_BoverEstmtShadSlp_at_ij)*partitionSize[i];       
+              }
+              LocalBshadow[0][i][j] = tmp_BoverEstmtShad_at_ij;
+              LocalBshadow_slope[0][i][j] = tmp_BoverEstmtShadSlp_at_ij;                   
+            }
+
+            // if(Bshadow_info[1]!=0){
+            //   tmp_BoverEstmtShad_at_ij = Bshadow_sign*(Aupdated?(- Bshadow[0][i][j] ):Bshadow[0][i][j]); 
+            //   tmp_BoverEstmtShadSlp_at_ij = Bshadow_sign*(Aupdated?(- Bshadow_slope[0][i][j] ):Bshadow_slope[0][i][j]);
+            //   LocalBshadow[0][i][j] = tmp_BoverEstmtShad_at_ij;
+            //   LocalBshadow_slope[0][i][j] = tmp_BoverEstmtShadSlp_at_ij;            
+            // }
+            // NewUnderEstmt_shadow[i][j] = tmp_BoverEstmtShad_at_ij;
+            // NewUnderEstmt_shadow_slope[i][j] = tmp_BoverEstmtShadSlp_at_ij;                  
+          //}
+
+    
+        }
+      }          
+    
+      //const auto [tmp_min,tmp_max] = std::minmax_element(shadow[1][i].begin(),shadow[1][i].end());
+      if( A_under_shadow && B_under_shadow){
+        bool updateShadowCMax = false;
+        if( !Ashadow[0][i].empty() ){
+          const auto tmp_maxA = std::max_element(Ashadow[0][i].begin(),Ashadow[0][i].end()); 
+          shadowAMax += (*tmp_maxA); 
+          updateShadowCMax = true;
+  
+        }    
+        if( !LocalBshadow[0][i].empty() ){   
+          const auto tmp_maxB = std::max_element(LocalBshadow[0][i].begin(),LocalBshadow[0][i].end());    
+          shadowBMax += (*tmp_maxB);   
+          updateShadowCMax = true;
+   
+        }
+        if(updateShadowCMax){
+          const auto tmp_maxC = std::max_element(NewUnderEstmt_shadow[i].begin(),NewUnderEstmt_shadow[i].end());     
+          shadowCMax += (*tmp_maxC);
+        }
+      }
+    }
+    
+    // Step 2.2: aggregation
+    if( A_under_shadow && B_under_shadow){
+      if (shadowCMax < shadowBMax){
+        if(shadowBMax < shadowAMax){
+          NewUnderEstmt_shadow.swap(Ashadow[0]);
+          NewUnderEstmt_shadow_slope.swap(Ashadow_slope[0]);
+        }
+        else{
+          //shadowPointingToB = true;     
+          NewUnderEstmt_shadow.swap(LocalBshadow[0]);
+          NewUnderEstmt_shadow_slope.swap(LocalBshadow_slope[0]);                 
+        }
+       }
+       else {
+        if(shadowCMax < shadowAMax){
+          NewUnderEstmt_shadow.swap(Ashadow[0]);
+          NewUnderEstmt_shadow_slope.swap(Ashadow_slope[0]);
+        }
+      }  
+    }
+    // to keep simple we do not further aggregate the new shadow over-estimator
+    if (Aupdated || Bupdated)
+      underEstmtUpdated = true;
+  
+  }
+  else{
+#ifndef NOTTOTRACKSHADOW       
+    std::cout << "        nottoUpdateUnderEstmt" << std::endl;
+#endif    
+    NewUnderEstmt.resize(_nvar);
+    NewUnderEstmt_slope.resize(_nvar);
+#ifndef NOTTOTRACKSHADOW       
+    std::cout << "        Addition Under no shadow" << std::endl;
+#endif    
+
+
+    for( unsigned int i=0; i<_nvar; i++ ){
+      
+      if( !Amat[i].empty() && !Bmat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW           
+        std::cout << "                    !Amat[i].empty() && !Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif        
+        NewUnderEstmt[i].resize(_ndiv); 
+        NewUnderEstmt_slope[i].resize(_ndiv);
+        for( unsigned long long j=0; j<_ndiv; j++ ){
+          long double const tmp_AoverEstmt_at_ij = Op<T>::l(Amat[i][j]);
+          long double const tmp_BoverEstmt_at_ij = Op<T>::l(Bmat[i][j]);
+          long double const tmp_AoverEstmtSlp_at_ij = Aslope[i][j][0];
+          long double const tmp_BoverEstmtSlp_at_ij = Bslope[i][j][0];
+          
+          NewUnderEstmt[i][j] = tmp_AoverEstmt_at_ij + tmp_BoverEstmt_at_ij;
+          if((tmp_AoverEstmtSlp_at_ij < 0.) != (tmp_BoverEstmtSlp_at_ij < 0.)){   
+            long double tightener = std::min(std::fabs(tmp_AoverEstmtSlp_at_ij),std::fabs(tmp_BoverEstmtSlp_at_ij))*(partitionSize[i]);
+            NewUnderEstmt[i][j] += tightener;
+          }
+          NewUnderEstmt_slope[i][j] = tmp_AoverEstmtSlp_at_ij + tmp_BoverEstmtSlp_at_ij;
+        }
+      }
+      else if( !Amat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW   
+        std::cout << "                    !Amat[i].empty() && Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif        
+        NewUnderEstmt[i].resize(_ndiv); 
+        NewUnderEstmt_slope[i].resize(_ndiv);
+        for( unsigned long long j=0; j<_ndiv; j++ ){
+          NewUnderEstmt[i][j] = Op<T>::l(Amat[i][j]);
+          NewUnderEstmt_slope[i][j] =  Aslope[i][j][0];
+        }
+      }
+      else if( !Bmat[i].empty() ){
+#ifndef NOTTOTRACKSHADOW           
+        std::cout << "                    Amat[i].empty() && !Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif
+        NewUnderEstmt[i].resize(_ndiv); 
+        NewUnderEstmt_slope[i].resize(_ndiv);   
+        for( unsigned long long j=0; j<_ndiv; j++ ){
+          NewUnderEstmt[i][j] = Op<T>::l(Bmat[i][j]);
+          NewUnderEstmt_slope[i][j] =  Bslope[i][j][0];
+        }
+      }          
+    }
+
+
+  }
+ 
+
+#ifndef NOTTOTRACKSHADOW   
+  std::cout << "    to align" << std::endl;
+#endif 
+ // Step 3: assemble Amat, Aslope, Ashadow, Ashadow_slope
+  if((!underEstmtUpdated) && (!overEstmtUpdated)){
+    //In this case we do not need to align, but the shadow/shadow slopes should be prepared
+#ifndef NOTTOTRACKSHADOW      
+    std::cout << "        (!underEstmtUpdated) && (!overEstmtUpdated)" << std::endl;
+#endif    
+    Ashadow_info.resize(2*_nvar+5);
+    Ashadow_info[0]=1.;
+    Ashadow_info[1]=(double)toUpdateUnderEstmt;
+    Ashadow_info[2]=(double)toUpdateOverEstmt;
+    Ashadow_info[3]=0;
+    Ashadow_info[4]=0;      
+
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if (Amat[i].empty() && Bmat[i].empty()) continue;
+#ifndef NOTTOTRACKSHADOW        
+      std::cout << "            Amat[i].empty = "<< Amat[i].empty() << " Bmat[i].empty() = " << Bmat[i].empty() << ", processing row No. " << i << std::endl;
+#endif
+      Ashadow_info[2*i+5]=0;
+      Ashadow_info[2*i+6]=0;
+      bool makeSpaceForA = false;
+      if(Amat[i].empty()){
+        makeSpaceForA = true;
+        Amat[i].resize(_ndiv);
+        Aslope[i].resize(_ndiv);
+      }   
+      for( unsigned long long j=0; j<_ndiv; j++ ){
+        if(NewOverEstmt[i][j] - NewUnderEstmt[i][j] > 0.)
+          Amat[i][j] = T(NewUnderEstmt[i][j],NewOverEstmt[i][j]);
+        else if(NewOverEstmt[i][j] - NewUnderEstmt[i][j] > -MC__ISM_COMPUTATION_TOL)
+          Amat[i][j] = T(std::min(NewUnderEstmt[i][j],NewOverEstmt[i][j]),std::max(NewUnderEstmt[i][j],NewOverEstmt[i][j]));
+        else {
+          std::cout << "            Numerical error in add agrt alinging: ub- lb = " << std::setprecision(18) << NewOverEstmt[i][j] - NewUnderEstmt[i][j] << std::endl;
+          throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); 
+        }
+        if(makeSpaceForA){
+          Amat[i][j] = T(0.,0.);
+          Aslope[i][j].resize(2);
+        }
+        Aslope[i][j][0] = NewUnderEstmt_slope[i][j];
+        Aslope[i][j][1] = NewOverEstmt_slope[i][j];  
+      }
+
+    }
+  
+    Ashadow[0].swap(NewUnderEstmt_shadow);
+    Ashadow[1].swap(NewOverEstmt_shadow);
+    Ashadow_slope[0].swap(NewUnderEstmt_shadow_slope);
+    Ashadow_slope[1].swap(NewOverEstmt_shadow_slope);
+
+    //std::cout << "    End processing " << std::endl;
+
+
+
+ }
+ else{
+#ifndef NOTTOTRACKSHADOW     
+    std::cout << "        underEstmtUpdated || overEstmtUpdated" << std::endl;
+#endif
+
+
+  // We extract superposition components from the shadow estimators before we compute addimissible ranges for all rows
+
+
+  //Get the maxima of all components of the input underestimator, stored in _L2[i]
+  if(toUpdateUnderEstmt && underEstmtUpdated){
+    long double sigma_o = 0.;       // <- the maximum of the input underestimator
+    long double underEstmtShadow_lambda = 0.;
+    //std::vector<long double>
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( NewUnderEstmt_shadow[i].empty() ) continue;
+      long double _tmp_rowMin = NewUnderEstmt_shadow[i][0];
+      long double _tmp_rowMax = _tmp_rowMin + std::fabs(NewUnderEstmt_shadow_slope[i][0])*partitionSize[i];
+       for( unsigned int j=1; j<_ndiv; j++ ){
+         _tmp_rowMax = std::max(_tmp_rowMax, NewUnderEstmt_shadow[i][j] + std::fabs(NewUnderEstmt_shadow_slope[i][j])*partitionSize[i]);
+         _tmp_rowMin = std::min(_tmp_rowMin, NewUnderEstmt_shadow[i][j]);
+       }
+       _L2[i] = _tmp_rowMax;
+       _L1[i] = _tmp_rowMin;
+       sigma_o += _L2[i];
+       underEstmtShadow_lambda += _L1[i];
+    }
+    // Only do the extraction if there exists nonzero explicit superposition components
+    // bool toExtractUnderEstmtShadow = false;
+    // for( unsigned int i=0; i<_nvar; i++ ){
+    //   if(_L2[i]-_L1[i]+underEstmtShadow_lambda)
+    //   {
+    //     toExtractUnderEstmtShadow = true;
+    //     break;
+    //   }
+      
+    // } 
+    auto const& f = [=]( const double& x ){ return std::max( x, 0. ); };
+    auto const& fDerv = [=]( const double& x ){ return x > 0.? 1.: 0.; };  
+
+    const long double shadow_global_offset = (1.0 - 1.0/((double) ndep))*sigma_o;
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( NewUnderEstmt_shadow[i].empty() ) continue;   
+      
+      const long double rowOffsetUnder  = - _L1[i] + underEstmtShadow_lambda;
+      const long double rowOffsetShadow = - _L2[i] + sigma_o;
+      for( unsigned int j=0; j<_ndiv; j++ ){  
+        const long double zL = NewUnderEstmt_shadow[i][j];            
+        const long double loPtUnderEstmt = zL + rowOffsetUnder;          
+        const long double El = f( loPtUnderEstmt );
+        const long double slope0_to_be_set = fDerv( loPtUnderEstmt )*NewUnderEstmt_shadow_slope[i][j];
+
+        // compute shadow
+        // Note that the function max(zi - zi^U + mu) - max(zi - zi^L + lambda) is no longer convex but still nondecreasing
+        const long double delta_l = std::fabs(NewUnderEstmt_shadow_slope[i][j]*partitionSize[i]); 
+        const long double loPtShadow = zL + rowOffsetShadow;//zL - _c2[i] + C2;
+        const long double upPtShadow = loPtShadow + delta_l;//zL - _c2[i] + C2;        
+        const long double shadowLoBnd = f( loPtShadow ) - El;
+        //const long double shadowUpBnd = f( upPtShadow ) - f( loPtUnderEstmt + delta_l);
+        NewUnderEstmt_shadow[i][j] = shadowLoBnd - f(shadow_global_offset);
+        //shadow[2][i][j] = shadowUpBnd - shadow_global_offset;
+        
+        // The update of the derv needs special consideration
+        const long double upBndUnderEstmt = f(loPtUnderEstmt + delta_l);
+        long double slope0shadow_to_be_multiplied =  0.;
+        if (shadowLoBnd == 0.)
+          slope0shadow_to_be_multiplied = 0.;
+        else if (f(loPtUnderEstmt+delta_l + 1e5*MC__ISM_COMPUTATION_TOL) == 0. ){
+          slope0shadow_to_be_multiplied = std::min(fDerv(loPtShadow) - fDerv(loPtUnderEstmt),fDerv(upPtShadow) - fDerv(loPtUnderEstmt + delta_l));
+          
+        }
+        else if (f(loPtUnderEstmt-1e2*MC__ISM_COMPUTATION_TOL) == 0.){
+          if ( delta_l > 1e2 * MC__ISM_COMPUTATION_TOL)
+            slope0shadow_to_be_multiplied = (f(upPtShadow) - upBndUnderEstmt - (f(loPtShadow) -f(loPtUnderEstmt)))/(delta_l);
+          else 
+            ;//slope0shadow_to_be_multiplied = fDerv(upPtShadow) - fDerv(loPtUnderEstmt + delta_l);
+        }
+        NewUnderEstmt_shadow_slope[i][j] = slope0shadow_to_be_multiplied * NewUnderEstmt_shadow_slope[i][j];
+        NewUnderEstmt[i][j] = NewUnderEstmt[i][j] + El;  
+        
+        if(NewUnderEstmt_slope[i][j] < 0 != slope0_to_be_set < 0 ){
+          long double tightener = std::min(std::fabs(NewUnderEstmt_slope[i][j]),std::fabs(slope0_to_be_set))*(partitionSize[i]);
+          NewUnderEstmt[i][j] += tightener;
+        }
+        NewUnderEstmt_slope[i][j] = NewUnderEstmt_slope[i][j] + slope0_to_be_set;           
+      }
+    }
+  }
+
+
+
+  // if(toUpdateOverEstmt && overEstmtUpdated){
+  //   long double sigma_u = 0.;       // <- the maximum of the input underestimator
+  //   long double overEstmtShadow_mu = 0.;
+
+  //   for( unsigned int i=0; i<_nvar; i++ ){
+  //     if( NewOverEstmt_shadow[i].empty() ) continue;
+  //     long double _tmp_rowMax = NewOverEstmt_shadow[i][0];
+  //     long double _tmp_rowMin = _tmp_rowMin - std::fabs(NewOverEstmt_shadow_slope[i][0])*partitionSize[i];
+  //      for( unsigned int j=1; j<_ndiv; j++ ){
+  //        _tmp_rowMin = std::min(_tmp_rowMin, NewOverEstmt_shadow[i][j] - std::fabs(NewOverEstmt_shadow_slope[i][j])*partitionSize[i]);
+  //        _tmp_rowMax = std::max(_tmp_rowMax, NewOverEstmt_shadow[i][j]);
+  //      }
+  //      _U2[i] = _tmp_rowMin;
+  //      _U1[i] = _tmp_rowMax;
+  //      sigma_u += _U2[i];
+  //      overEstmtShadow_mu += _U1[i];
+  //   }
+
+  //   auto const& f = [=]( const double& x ){ return std::min( x, 0. ); };
+  //   auto const& fDerv = [=]( const double& x ){ return x < 0.? 1.: 0.; };  
+
+  //   const long double shadow_global_offset = (1.0 - 1.0/((double) ndep))*sigma_u;
+  //   for( unsigned int i=0; i<_nvar; i++ ){
+  //     if( NewOverEstmt_shadow[i].empty() ) continue;   
+      
+  //     const long double rowOffsetOver   = - _U1[i] + overEstmtShadow_mu;
+  //     const long double rowOffsetShadow = - _U2[i] + sigma_u;
+  //     // shadow[0][i].clear();
+  //     // shadow[0][i].resize(_ndiv);      
+  //     // shadow_slope[0][i].clear();
+  //     // shadow_slope[0][i].resize(_ndiv);
+  //     for( unsigned int j=0; j<_ndiv; j++ ){  
+  //       const long double zU = NewOverEstmt_shadow[i][j];            
+  //       const long double loPtUnderEstmt = zU + rowOffsetOver;           
+  //       const long double Eu = f( loPtUnderEstmt );
+  //       const long double slope1_to_be_set = fDerv( loPtUnderEstmt )*NewOverEstmt_shadow_slope[i][j];
+
+  //       // compute shadow
+  //       // Note that the function max(zi - zi^U + mu) - max(zi - zi^L + lambda) is no longer convex but still nondecreasing
+  //       const long double delta_u = std::fabs(NewOverEstmt_shadow_slope[i][j]*partitionSize[i]); 
+  //       const long double loPtShadow = zU + rowOffsetShadow;//zL - _c2[i] + C2;
+  //       const long double upPtShadow = loPtShadow - delta_u;//zL - _c2[i] + C2;        
+  //       const long double shadowLoBnd = f( loPtShadow ) - Eu;
+  //       //const long double shadowUpBnd = f( upPtShadow ) - f( loPtUnderEstmt - delta_u);
+  //       NewOverEstmt_shadow[i][j] = shadowLoBnd - f(shadow_global_offset);
+  //       //shadow[2][i][j] = shadowUpBnd - shadow_global_offset;
+        
+  //       // The update of the derv needs special consideration
+  //       const long double upBndUnderEstmt = f(loPtUnderEstmt - delta_u);
+  //       long double slope1shadow_to_be_multiplied =  0.;
+  //       if (shadowLoBnd == 0.)
+  //         slope1shadow_to_be_multiplied = 0.;
+  //       else if (f(loPtUnderEstmt-delta_u + 1e5*MC__ISM_COMPUTATION_TOL) == 0. ){
+  //         slope1shadow_to_be_multiplied = 1.;
+          
+  //       }
+  //       else if (f(loPtUnderEstmt+1e2*MC__ISM_COMPUTATION_TOL) == 0.){
+  //         if ( delta_u > 1e2 * MC__ISM_COMPUTATION_TOL)
+  //           slope1shadow_to_be_multiplied = ( f(loPtShadow) -f(loPtUnderEstmt) - ( f(upPtShadow) - upBndUnderEstmt ))/(delta_u);
+  //         else 
+  //           slope1shadow_to_be_multiplied = std::fabs(fDerv(upPtShadow) - fDerv(loPtUnderEstmt - delta_u));
+  //       }
+  //       NewOverEstmt_shadow_slope[i][j] = slope1shadow_to_be_multiplied * NewOverEstmt_shadow_slope[i][j];
+  //       NewOverEstmt[i][j] = NewOverEstmt[i][j] + Eu;  
+        
+  //       if(NewOverEstmt_slope[i][j] < 0 != slope1_to_be_set < 0 ){
+  //         long double tightener = std::min(std::fabs(NewOverEstmt_slope[i][j]),std::fabs(slope1_to_be_set))*(partitionSize[i]);
+  //         NewOverEstmt[i][j] -= tightener;
+  //       }
+  //       NewOverEstmt_slope[i][j] = NewOverEstmt_slope[i][j] + slope1_to_be_set;           
+  //     }
+  //   }
+  // }
+
+
+
+
+    // compute the addimissible range for all rows
+    long double sum_adms_range = 0.;       // <- the minimum of the input overestimator
+    std::vector<long double> adms_range;
+    adms_range.resize(_nvar);
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( Amat[i].empty() && Bmat[i].empty()) continue;
+#ifndef NOTTOTRACKSHADOW      
+      std::cout << "            !Amat[i].empty() && !Bmat[i].empty(), processing row No. " << i << std::endl;
+#endif      
+      long double tmp_overEstimator_at_ij     = NewOverEstmt[i][0];
+      long double tmp_overEstimatorSlp_at_ij  = NewOverEstmt_slope[i][0];
+      long double tmp_underEstimator_at_ij    = NewUnderEstmt[i][0];
+      long double tmp_underEstimatorSlp_at_ij = NewUnderEstmt_slope[i][0];
+      long double adms_range_row = 0.;    
+      if (tmp_overEstimatorSlp_at_ij < 0 != tmp_underEstimatorSlp_at_ij < 0)       
+        adms_range_row = tmp_overEstimator_at_ij - tmp_underEstimator_at_ij - partitionSize[i]*(std::fabs(tmp_overEstimatorSlp_at_ij) - std::fabs(tmp_underEstimatorSlp_at_ij)*partitionSize[i]);
+      else 
+        adms_range_row = std::min(tmp_overEstimator_at_ij-std::fabs(tmp_overEstimatorSlp_at_ij)*partitionSize[i]-tmp_underEstimator_at_ij,
+                                  tmp_overEstimator_at_ij-std::fabs(tmp_underEstimatorSlp_at_ij)*partitionSize[i]-tmp_underEstimator_at_ij);
+
+      for( unsigned int j=1; j<_ndiv; j++ ){
+        //std::cout << "align 2 values in j = "<< j << std::endl;
+        long double tmp_overEstimator_at_ij     = NewOverEstmt[i][j];
+        long double tmp_overEstimatorSlp_at_ij  = NewOverEstmt_slope[i][j];
+        long double tmp_underEstimator_at_ij    = NewUnderEstmt[i][j];
+        long double tmp_underEstimatorSlp_at_ij = NewUnderEstmt_slope[i][j];
+        if (tmp_overEstimatorSlp_at_ij < 0 != tmp_underEstimatorSlp_at_ij < 0)       
+          adms_range_row = std::min(adms_range_row, tmp_overEstimator_at_ij - tmp_underEstimator_at_ij - partitionSize[i]*(std::fabs(tmp_overEstimatorSlp_at_ij) + std::fabs(tmp_underEstimatorSlp_at_ij)));
+        else
+          adms_range_row = std::min(adms_range_row,std::min(tmp_overEstimator_at_ij-std::fabs(tmp_overEstimatorSlp_at_ij)*partitionSize[i]-tmp_underEstimator_at_ij,
+                                    tmp_overEstimator_at_ij-std::fabs(tmp_underEstimatorSlp_at_ij)*partitionSize[i]-tmp_underEstimator_at_ij));
+      }
+      adms_range[i]= adms_range_row;
+      sum_adms_range += adms_range[i];
+    }
+    if (sum_adms_range < - 1e2*(_nvar)*MC__ISM_COMPUTATION_TOL){
+      //if(std::fabs(sum_adms_range) < 1e-2*(muA+muB - lambdaA - lambdaB)){
+      //  sum_adms_range = 1e-8*(muA+muB - lambdaA - lambdaB);
+      //}
+      //else{
+        for( unsigned int i=0; i<_nvar; i++ ){
+          if( NewOverEstmt[i].empty()) continue;
+          for( unsigned int j=1; j<_ndiv; j++ ){
+            std::cout << std::setprecision(18) << i << "," << j << ": [ " <<NewUnderEstmt[i][j] << " , " <<NewOverEstmt[i][j] << " ]   ";
+          }
+          std::cout << std::endl;
+        }  
+        std::cout << "error in aggregating in preprocessing relu(x) "<< std::setprecision(18) << sum_adms_range << std::endl; 
+        throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF );   
+      //}
+    }
+#ifndef NOTTOTRACKSHADOW    
+    std::cout << "                addimissible range finished: spare range = " << sum_adms_range <<  std::endl;
+#endif
+    Ashadow_info.resize(2*_nvar+5);
+    Ashadow_info[0]=1.;
+    Ashadow_info[1]=(double)toUpdateUnderEstmt;
+    Ashadow_info[2]=(double)toUpdateOverEstmt;
+    Ashadow_info[3]=0;
+    Ashadow_info[4]=0;      
+#ifndef NOTTOTRACKSHADOW
+    std::cout << "                assembly the mat and slope" << std::endl;
+#endif    
+    // assembly the mat and slope
+    const long double sumAdmsRange_over_ndep = sum_adms_range/ndep;
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if (Amat[i].empty() && Bmat[i].empty()) continue;
+      Ashadow_info[2*i+5]=0;
+      Ashadow_info[2*i+6]=0;
+      const long double rowOffset_over = - adms_range[i] + sumAdmsRange_over_ndep;
+      for( unsigned long long j=0; j<_ndiv; j++ ){
+        long double tmp_overEstimator_at_ij     = NewOverEstmt[i][j] + rowOffset_over;
+        long double tmp_underEstimator_at_ij    = NewUnderEstmt[i][j];
+        tmp_underEstimator_at_ij    = std::min(tmp_underEstimator_at_ij,tmp_overEstimator_at_ij);         //<- to avoid NaN in filib
+
+        Amat[i][j] = T(tmp_underEstimator_at_ij,tmp_overEstimator_at_ij);
+        Aslope[i][j][0] = NewUnderEstmt_slope[i][j];
+        Aslope[i][j][1] = NewOverEstmt_slope[i][j];  
+      }
+
+    }
+#ifndef NOTTOTRACKSHADOW
+    std::cout << "                assemblyed" << std::endl;
+#endif
+    Ashadow[0].swap(NewUnderEstmt_shadow);
+    Ashadow[1].swap(NewOverEstmt_shadow);
+    Ashadow_slope[0].swap(NewUnderEstmt_shadow_slope);
+    Ashadow_slope[1].swap(NewOverEstmt_shadow_slope);
+
+
+ }
+
+  //std::cout << "    End aggrt " << std::endl;
+}
+ 
+
+template <typename T>
+inline
+void
+ISModel<T>::_asym_slope_relu_shadow
+( std::vector<std::vector<T>>& mat, std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize, unsigned const& ndep, 
+  std::vector<std::vector<std::vector<long double>>>& shadow, std::vector<std::vector<std::vector<long double>>>& shadow_slope, std::vector<double>& shadow_info)
+const
+{
+#ifndef NOTTOTRACKSHADOW  
+  std::cout << "relu_shadow" << std::endl;
+#endif
+
+  assert( !mat.empty() );
+  if(shadow_info.size()<2){
+#ifndef NOTTOTRACKSHADOW 
+    std::cout << "    shadow_info.size()<2" << std::endl;
+#endif
+    shadow_info.resize(2*_nvar+5);
+    shadow_info[0]=1.;
+    shadow_info[1]=1;
+    shadow_info[2]=0;
+    shadow_info[3]=0;
+    shadow_info[4]=0; 
+    for(unsigned int i=0;i<_nvar;i++){
+      if( mat[i].empty() ) continue;
+      shadow_info[5+2*i]=0;
+      shadow_info[6+2*i]=0;
+      shadow[0][i].resize(_ndiv);    
+      shadow_slope[0][i].resize(_ndiv);
+      shadow[2][i].resize(_ndiv);    
+      shadow_slope[2][i].resize(_ndiv);
+    }   
+    return _asym_slope_relu_ws(mat,slope,partitionSize,ndep,shadow,shadow_slope);
+  }
+
+#ifndef NOTTOTRACKSHADOW     
+  std::cout << "    shadow_info.size()>1" << std::endl;
+#endif
+  const bool overShandowEnhancer  = shadow_info[2];
+  const bool underShandowEnhancer = shadow_info[1];
+  const double shadow_sign = shadow_info[0];
+  bool overEstmtUpdated  = false;
+  bool underEstmtUpdated = false; 
+  bool overEstmtElimit     = false;
+  bool underEstmtElimit    = false;
+
+  T bnd = _B( mat, 1 );
+  const long double mu = Op<T>::u(bnd);
+  const long double lambda = Op<T>::l(bnd);
+#ifndef NOTTOTRACKSHADOW 
+  std::cout << "    overShandowEnhancer: " << overShandowEnhancer << std::endl;
+  std::cout << "    underShandowEnhancer: " << underShandowEnhancer << std::endl;
+  std::cout << "    shadow_sign: " << shadow_sign << std::endl;
+#endif
+
+
+  if( overShandowEnhancer ){  // Process the shadow-enhancement for the overestimator
+#ifndef NOTTOTRACKSHADOW 
+    std::cout << "        overShandowEnhancer: " << std::endl;
+#endif
+    long double shadowEnhancedMax = 0.;
+    if(shadow_sign > 0){
+#ifndef NOTTOTRACKSHADOW       
+      std::cout << "            shadow_sign > 0: " << std::endl;
+#endif
+      for( unsigned int i=0; i<_nvar; i++ ){
+        if( mat[i].empty() ) continue;
+#ifndef NOTTOTRACKSHADOW  
+        std::cout << "                processing the row NO. " << i << std::endl;      
+#endif
+        for( unsigned long long j=0; j<_ndiv; j++ ){
+          shadow[1][i][j] += Op<T>::u(mat[i][j]);
+          if((shadow_slope[1][i][j] < 0.) != (slope[i][j][1] < 0.)){   
+            long double tightener = std::min(std::fabs(shadow_slope[1][i][j]),std::fabs(slope[i][j][1]))*(partitionSize[i]);
+            shadow[1][i][j] -= tightener;
+          }
+          shadow_slope[1][i][j] += slope[i][j][1];
+  
+        }
+        //const auto [tmp_min,tmp_max] = std::minmax_element(shadow[1][i].begin(),shadow[1][i].end());   
+        const auto tmp_max = std::max_element(shadow[1][i].begin(),shadow[1][i].end());  
+        shadow_info[2*i+6] = *tmp_max;      
+        shadowEnhancedMax += (*tmp_max);
+      }
+    }
+    else if(shadow_sign < 0){
+#ifndef NOTTOTRACKSHADOW 
+      std::cout << "            shadow_sign < 0: " << std::endl;
+#endif
+      for( unsigned int i=0; i<_nvar; i++ ){
+        if( mat[i].empty() ) continue;
+#ifndef NOTTOTRACKSHADOW 
+        std::cout << "                processing the row NO. " << i << std::endl;      
+#endif
+        for( unsigned long long j=0; j<_ndiv; j++ ){
+          shadow[1][i][j] =  Op<T>::u(mat[i][j]) - shadow[1][i][j];
+          if((shadow_slope[1][i][j] < 0.) == (slope[i][j][1] < 0.)){   
+            long double tightener = std::min(std::fabs(shadow_slope[1][i][j]),std::fabs(slope[i][j][1]))*(partitionSize[i]);
+            shadow[1][i][j] -= tightener;
+          }
+          shadow_slope[1][i][j] = slope[i][j][1] - shadow_slope[1][i][j];
+  
+        }
+        //const auto [tmp_min,tmp_max] = std::minmax_element(shadow[1][i].begin(),shadow[1][i].end());   
+        const auto tmp_max = std::max_element(shadow[1][i].begin(),shadow[1][i].end());  
+        shadow_info[2*i+6] = *tmp_max;      
+        shadowEnhancedMax += (*tmp_max);
+      } 
+      shadow_info[0] = 1.; 
+    }
+    else {
+      std::cout << "error in asym_slope_relu when processing shadow sign for overestimator" << shadow_sign << std::endl;
+      throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); 
+    }
+
+    shadow_info[4] = shadowEnhancedMax;
+    if(shadowEnhancedMax < 0.){
+#ifndef NOTTOTRACKSHADOW 
+      std::cout << "            overEstmtElimit = true " << std::endl;
+#endif
+      overEstmtElimit = true;
+    }
+    else if(shadowEnhancedMax < mu - MC__ISM_COMPUTATION_TOL){
+#ifndef NOTTOTRACKSHADOW 
+      std::cout << "            overEstmtUpdated = true " << std::endl;
+#endif
+      overEstmtUpdated = true;
+    }
+      
+
+  }
+
+  if(overEstmtElimit){
+    shadow_info[0] = 200.;
+#ifndef NOTTOTRACKSHADOW 
+    std::cout << "        shadow_info[0] = 200? : " << shadow_info[0] << std::endl;
+#endif
+    return;
+  }
+    
+
+
+  if( underShandowEnhancer ){  // Process the shadow-enhancement for the underestimator
+#ifndef NOTTOTRACKSHADOW    
+    std::cout << "        underShandowEnhancer: " << std::endl;
+#endif
+    long double shadowEnhancedMin = 0.;
+    if(shadow_sign > 0){
+#ifndef NOTTOTRACKSHADOW    
+      std::cout << "            shadow_sign > 0: " << std::endl;
+#endif
+      for( unsigned int i=0; i<_nvar; i++ ){
+        if( mat[i].empty() ) continue;
+#ifndef NOTTOTRACKSHADOW    
+        std::cout << "                processing the row NO. " << i << std::endl;   
+#endif
+        for( unsigned long long j=0; j<_ndiv; j++ ){
+          shadow[0][i][j] += Op<T>::l(mat[i][j]);
+          if((shadow_slope[0][i][j] < 0.) != (slope[i][j][0] < 0.)){   
+            long double tightener = std::min(std::fabs(shadow_slope[0][i][j]),std::fabs(slope[i][j][0]))*(partitionSize[i]);
+            shadow[0][i][j] += tightener;
+          }
+          shadow_slope[0][i][j] += slope[i][j][0];
+        }
+        //const auto [tmp_min,tmp_max] = std::minmax_element(shadow[0][i].begin(),shadow[0][i].end());     
+        const auto tmp_min = std::min_element(shadow[0][i].begin(),shadow[0][i].end());  
+        shadow_info[2*i+5] = *tmp_min;      
+        shadowEnhancedMin += (*tmp_min);
+      }
+    }
+    else if(shadow_sign < 0){
+#ifndef NOTTOTRACKSHADOW    
+      std::cout << "            shadow_sign < 0: " << std::endl;
+#endif
+      for( unsigned int i=0; i<_nvar; i++ ){
+        if( mat[i].empty() ) continue;
+#ifndef NOTTOTRACKSHADOW    
+        std::cout << "                processing the row NO. " << i << std::endl;    
+#endif
+        for( unsigned long long j=0; j<_ndiv; j++ ){
+          shadow[0][i][j] =  Op<T>::l(mat[i][j]) - shadow[0][i][j];
+          if((shadow_slope[0][i][j] < 0.) == (slope[i][j][0] < 0.)){   
+            long double tightener = std::min(std::fabs(shadow_slope[0][i][j]),std::fabs(slope[i][j][0]))*(partitionSize[i]);
+            shadow[0][i][j] -= tightener;
+          }
+          shadow_slope[0][i][j] = slope[i][j][0] - shadow_slope[0][i][j];
+  
+        }
+        //const auto [tmp_min,tmp_max] = std::minmax_element(shadow[0][i].begin(),shadow[0][i].end());   
+        const auto tmp_min = std::min_element(shadow[0][i].begin(),shadow[0][i].end());  
+        shadow_info[2*i+5] = *tmp_min;      
+        shadowEnhancedMin += (*tmp_min);
+      }
+      shadow_info[0] = 1.; 
+    }
+    else {
+      std::cout << "error in asym_slope_relu when processing shadow sign for underestimator" << shadow_sign <<std::endl;
+      throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); 
+    }
+
+
+    shadow_info[3] = shadowEnhancedMin;
+    if(shadowEnhancedMin > 0.){
+#ifndef NOTTOTRACKSHADOW    
+      std::cout << "            underEstmtElimit = true " << std::endl;
+#endif
+      underEstmtElimit = true;
+    }  
+    // if (!underEstmtElimit){
+    //   // Get the maxima of all components of the input underestimator, stored in _L2[i]
+    //   long double sigma_o = 0.;       // <- the maximum of the input underestimator
+    //   for( unsigned int i=0; i<_nvar; i++ ){
+    //     if( mat[i].empty() ) continue;
+    //     long double _tmp_row = ((long double)(Op<T>::l( mat[i][0]) + std::fabs(slope[i][0][0]*partitionSize[i])));
+    //      for( unsigned int j=1; j<_ndiv; j++ ){
+    //        _tmp_row = std::max(_tmp_row, ((long double)(Op<T>::l( mat[i][j]) + std::fabs(slope[i][j][0]*partitionSize[i]))));
+    //      }
+    //      _L2[i]= _tmp_row;
+    //      std::max(_L2[i] - _L1[i] + lambda,0.);
+    //      sigma_o += _L2[i];
+    //   }
+
+    //   std::max(_L2[i] - _L1[i] + lambda,0.);
+    //   underEstmtUpdated = true;
+    // }
+    if(shadowEnhancedMin > lambda + MC__ISM_COMPUTATION_TOL){
+#ifndef NOTTOTRACKSHADOW    
+      std::cout << "            underEstmtUpdated = true " << std::endl;
+#endif
+      underEstmtUpdated = true;      
+    }  
+
+  }
+
+
+  if(underEstmtElimit){ 
+    // this means the underestimator can be updated to allow positive result, so we should only aggregate estimators and finish the processing
+#ifndef NOTTOTRACKSHADOW    
+    std::cout << "        underEstmtElimit " << std::endl;
+#endif
+    // compute the addimissible range for all rows
+    long double sum_adms_range = 0.;       // <- the minimum of the input overestimator
+    std::vector<long double> adms_range;
+    adms_range.resize(_nvar);
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;
+#ifndef NOTTOTRACKSHADOW    
+      std::cout << "                processing the row NO. " << i << std::endl;    
+#endif
+      long double tmp_overEstimator_at_ij     = overEstmtUpdated?shadow[1][i][0]:Op<T>::u(mat[i][0]);
+      long double tmp_overEstimatorSlp_at_ij  = overEstmtUpdated?shadow_slope[1][i][0]:slope[i][0][1];
+      long double tmp_underEstimator_at_ij    = shadow[0][i][0];
+      long double tmp_underEstimatorSlp_at_ij = shadow_slope[0][i][0];
+      long double adms_range_row = 0.;
+      if (tmp_overEstimatorSlp_at_ij < 0 != tmp_underEstimatorSlp_at_ij < 0)       
+        adms_range_row = tmp_overEstimator_at_ij - tmp_underEstimator_at_ij - partitionSize[i]*(std::fabs(tmp_overEstimatorSlp_at_ij) + std::fabs(tmp_underEstimatorSlp_at_ij));
+      else 
+        adms_range_row = std::min(tmp_overEstimator_at_ij-std::fabs(tmp_overEstimatorSlp_at_ij)*partitionSize[i]-tmp_underEstimator_at_ij,
+                                  tmp_overEstimator_at_ij-std::fabs(tmp_underEstimatorSlp_at_ij)*partitionSize[i]-tmp_underEstimator_at_ij);
+
+       for( unsigned int j=1; j<_ndiv; j++ ){
+        long double tmp_overEstimator_at_ij     = overEstmtUpdated?shadow[1][i][j]:Op<T>::u(mat[i][j]);
+        long double tmp_overEstimatorSlp_at_ij  = overEstmtUpdated?shadow_slope[1][i][j]:slope[i][j][1];
+        long double tmp_underEstimator_at_ij    = shadow[0][i][j];
+        long double tmp_underEstimatorSlp_at_ij = shadow_slope[0][i][j];        
+        if (tmp_overEstimatorSlp_at_ij < 0 != tmp_underEstimatorSlp_at_ij < 0)       
+          adms_range_row = std::min(adms_range_row, tmp_overEstimator_at_ij - tmp_underEstimator_at_ij - partitionSize[i]*(std::fabs(tmp_overEstimatorSlp_at_ij) + std::fabs(tmp_underEstimatorSlp_at_ij)));
+        else
+          adms_range_row = std::min(adms_range_row,std::min(tmp_overEstimator_at_ij-std::fabs(tmp_overEstimatorSlp_at_ij)*partitionSize[i]-tmp_underEstimator_at_ij,
+                                    tmp_overEstimator_at_ij-std::fabs(tmp_underEstimatorSlp_at_ij)*partitionSize[i]-tmp_underEstimator_at_ij));
+       }
+       adms_range[i]= adms_range_row;
+       sum_adms_range += adms_range[i];
+    }
+    if (sum_adms_range < -  1e2*(_nvar)*MC__ISM_COMPUTATION_TOL){
+#ifndef NOTTOTRACKSHADOW    
+      std::cout << "error in aggregating in preprocessing relu_shadow(x): case: underEstmtElimit" << std::setprecision(18) << sum_adms_range << std::endl; 
+#endif
+      throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF );   
+    }
+#ifndef NOTTOTRACKSHADOW    
+    std::cout << "        addimissble range set " << std::endl;
+#endif
+
+
+    // assembly the mat and slope
+    const long double sumAdmsRange_over_ndep = sum_adms_range/ndep;
+    for( unsigned int i=0; i<_nvar; i++ ){ 
+      if( mat[i].empty() ) continue;
+#ifndef NOTTOTRACKSHADOW    
+      std::cout << "                processing the row NO. " << i << std::endl;    
+#endif
+      const long double rowOffset_over = - adms_range[i] + sumAdmsRange_over_ndep;
+
+      for( unsigned int j=0; j<_ndiv; j++ ){
+
+        long double tmp_overEstimator_at_ij     = (overEstmtUpdated?shadow[1][i][j]:Op<T>::u(mat[i][j])) + rowOffset_over;
+        long double tmp_overEstimatorSlp_at_ij  = overEstmtUpdated?shadow_slope[1][i][j]:slope[i][j][1];
+        long double tmp_underEstimator_at_ij    = std::min(shadow[0][i][j],tmp_overEstimator_at_ij);    //<- to avoid NaN in filib
+        long double tmp_underEstimatorSlp_at_ij = shadow_slope[0][i][j];  
+        slope[i][j][0] = tmp_underEstimatorSlp_at_ij;
+        slope[i][j][1] = tmp_overEstimatorSlp_at_ij;
+        mat[i][j] = T(tmp_underEstimator_at_ij,tmp_overEstimator_at_ij);
+      }
+
+    }    
+
+    // process shadow and shadowInfo
+    // Although that information can be directly passed without outer-approximation,
+    // because of the complexity, we employ a naive way that is to discard them
+
+
+    shadow_info.resize(1);
+    shadow_info[0]=1.;   
+    for( unsigned int i=0; i<_nvar; i++ ){
+#ifndef NOTTOTRACKSHADOW
+      std::cout << "                reset shadow and shadowslopes, the row NO. " << i << std::endl;    
+#endif
+      for (unsigned int k = 0; k < 4; k++){
+        shadow[k][i].clear();
+        shadow[k][i].resize(0);
+        shadow_slope[k][i].clear();
+        shadow_slope[k][i].resize(0);           
+      }
+      shadow_info[5+2*i]=0;
+      shadow_info[6+2*i]=0;          
+    }
+
+//     for( unsigned int i=0; i<_nvar; i++ ){
+//       if( mat[i].empty() ) continue;
+// #ifndef NOTTOTRACKSHADOW    
+//       std::cout << "                processing shadowInfo the row NO. " << i << std::endl;    
+// #endif
+//       for( unsigned int j=0; j<_ndiv; j++ ){
+//         shadow[0][i].clear();
+//         shadow[0][i].resize(0);
+//         shadow[1][i].clear();
+//         shadow[1][i].resize(0);
+//         shadow_slope[0][i].clear();
+//         shadow_slope[0][i].resize(0);
+//         shadow_slope[1][i].clear();
+//         shadow_slope[1][i].resize(0);        
+//       }
+//     }
+//     shadow_info.resize(1);
+//     shadow_info[0] = 1.;
+
+
+    return;
+  }
+
+  // Not let us aggregate 
+  if(overEstmtUpdated || underEstmtUpdated){
+#ifndef NOTTOTRACKSHADOW    
+    std::cout << "        overEstmtUpdated || underEstmtUpdated " << std::endl;
+#endif
+    // compute the addimissible range for all rows
+    long double sum_adms_range = 0.;       // <- the minimum of the input overestimator
+    std::vector<long double> adms_range;
+    adms_range.resize(_nvar);
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;
+#ifndef NOTTOTRACKSHADOW    
+      std::cout << "                processing the row NO. " << i << std::endl;    
+#endif
+      long double tmp_overEstimator_at_ij     = overEstmtUpdated?shadow[1][i][0]:Op<T>::u(mat[i][0]);
+      long double tmp_overEstimatorSlp_at_ij  = overEstmtUpdated?shadow_slope[1][i][0]:slope[i][0][1];
+      long double tmp_underEstimator_at_ij    = underEstmtUpdated?shadow[0][i][0]:Op<T>::l(mat[i][0]);
+      long double tmp_underEstimatorSlp_at_ij = underEstmtUpdated?shadow_slope[0][i][0]:slope[i][0][0];
+      long double adms_range_row = 0.;
+      if (tmp_overEstimatorSlp_at_ij < 0 != tmp_underEstimatorSlp_at_ij < 0)       
+        adms_range_row = tmp_overEstimator_at_ij - tmp_underEstimator_at_ij - partitionSize[i]*(std::fabs(tmp_overEstimatorSlp_at_ij) + std::fabs(tmp_underEstimatorSlp_at_ij));
+      else 
+        adms_range_row = std::min(tmp_overEstimator_at_ij-std::fabs(tmp_overEstimatorSlp_at_ij)*partitionSize[i]-tmp_underEstimator_at_ij,
+                                  tmp_overEstimator_at_ij-std::fabs(tmp_underEstimatorSlp_at_ij)*partitionSize[i]-tmp_underEstimator_at_ij);
+
+      for( unsigned int j=1; j<_ndiv; j++ ){
+        long double tmp_overEstimator_at_ij     = overEstmtUpdated?shadow[1][i][j]:Op<T>::u(mat[i][j]);
+        long double tmp_overEstimatorSlp_at_ij  = overEstmtUpdated?shadow_slope[1][i][j]:slope[i][j][1];
+        long double tmp_underEstimator_at_ij    = underEstmtUpdated?shadow[0][i][j]:Op<T>::l(mat[i][j]);
+        long double tmp_underEstimatorSlp_at_ij = underEstmtUpdated?shadow_slope[0][i][j]:slope[i][j][0];        
+        if (tmp_overEstimatorSlp_at_ij < 0 != tmp_underEstimatorSlp_at_ij < 0)       
+          adms_range_row = std::min(adms_range_row, tmp_overEstimator_at_ij - tmp_underEstimator_at_ij - partitionSize[i]*(std::fabs(tmp_overEstimatorSlp_at_ij) + std::fabs(tmp_underEstimatorSlp_at_ij)));
+        else
+          adms_range_row = std::min(adms_range_row,std::min(tmp_overEstimator_at_ij-std::fabs(tmp_overEstimatorSlp_at_ij)*partitionSize[i]-tmp_underEstimator_at_ij,
+                                    tmp_overEstimator_at_ij-std::fabs(tmp_underEstimatorSlp_at_ij)*partitionSize[i]-tmp_underEstimator_at_ij));
+
+      }
+      adms_range[i]= adms_range_row;
+      sum_adms_range += adms_range[i];
+    }
+    if (sum_adms_range < - 1e2*(_nvar)*MC__ISM_COMPUTATION_TOL){
+#ifndef NOTTOTRACKSHADOW    
+      std::cout << "error in aggregating in preprocessing relu_shadow(x):  case: overEstmtUpdated || underEstmtUpdated" << std::setprecision(18) << sum_adms_range << std::endl; 
+#endif 
+      throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF );   
+    }
+    std::cout << "        addimissble range set " << std::endl;
+   
+    // assembly the mat and slope
+    const long double sumAdmsRange_over_ndep = sum_adms_range/ndep;
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;
+#ifndef NOTTOTRACKSHADOW          
+      std::cout << "                processing the row NO. " << i << std::endl;    
+#endif
+      const long double rowOffset_over = - adms_range[i] + sumAdmsRange_over_ndep;
+      for( unsigned int j=0; j<_ndiv; j++ ){
+        long double tmp_overEstimator_at_ij     = rowOffset_over + (overEstmtUpdated?shadow[1][i][j]:Op<T>::u(mat[i][j]));
+        long double tmp_overEstimatorSlp_at_ij  = overEstmtUpdated?shadow_slope[1][i][j]:slope[i][j][1];
+        long double tmp_underEstimator_at_ij    = underEstmtUpdated?shadow[0][i][j]:Op<T>::l(mat[i][j]);
+        tmp_underEstimator_at_ij    = std::min(tmp_underEstimator_at_ij,tmp_overEstimator_at_ij);         //<- to avoid NaN in filib
+        long double tmp_underEstimatorSlp_at_ij = underEstmtUpdated?shadow_slope[0][i][j]:slope[i][j][0];  
+        slope[i][j][0] = tmp_underEstimatorSlp_at_ij;
+        slope[i][j][1] = tmp_overEstimatorSlp_at_ij;
+        mat[i][j] = T(tmp_underEstimator_at_ij,tmp_overEstimator_at_ij);
+        if(mat[i][j].isEmpty())
+          std::cout << i << "," << j << ": " << std::setprecision(18)
+                    << tmp_underEstimator_at_ij << " , " << tmp_overEstimator_at_ij;
+      }
+
+    }
+
+    // process shadow and shadowInfo
+    // Note that the information can be directly passed without outer-approximation,
+    // because of the complexity, we employ a naive way that is to discard them
+    
+    shadow_info.resize(2*_nvar+5);
+    shadow_info[0]=1.;
+    shadow_info[1]=1;
+    shadow_info[2]=0;
+    shadow_info[3]=0;
+    shadow_info[4]=0;      
+    for( unsigned int i=0; i<_nvar; i++ ){
+#ifndef NOTTOTRACKSHADOW
+      std::cout << "                reset shadow and shadowslopes, the row NO. " << i << std::endl;    
+#endif
+      for (unsigned int k = 0; k < 4; k++){
+        shadow[k][i].clear();
+        shadow[k][i].resize(0);
+        shadow_slope[k][i].clear();
+        shadow_slope[k][i].resize(0);           
+      }
+      if( mat[i].empty() ) continue;
+      shadow[0][i].resize(_ndiv);
+      shadow[2][i].resize(_ndiv);      
+      shadow_slope[0][i].resize(_ndiv);
+      shadow_slope[2][i].resize(_ndiv);      
+      shadow_info[5+2*i]=0;
+      shadow_info[6+2*i]=0;          
+    }
+    return _asym_slope_relu_ws(mat,slope,partitionSize,ndep,shadow,shadow_slope);
+
+
+ 
+
+  // // Get the maxima of all components of the input underestimator, stored in _L2[i]
+  // long double sigma_o = 0.;       // <- the maximum of the input underestimator
+  // for( unsigned int i=0; i<_nvar; i++ ){
+  //   if( mat[i].empty() ) continue;
+  //   long double _tmp_row = ((long double)(Op<T>::l( mat[i][0]) + std::fabs(slope[i][0][0]*partitionSize[i])));
+  //    for( unsigned int j=1; j<_ndiv; j++ ){
+  //      _tmp_row = std::max(_tmp_row, ((long double)(Op<T>::l( mat[i][j]) + std::fabs(slope[i][j][0]*partitionSize[i]))));
+  //    }
+  //    _L2[i]= _tmp_row;
+  //    sigma_o += _L2[i];
+  // }
+
+  // // Get the minima of all components of the input overestimator, stored in _U2[i] 
+  // long double sigma_u = 0.;       // <- the minimum of the input overestimator
+  // for( unsigned int i=0; i<_nvar; i++ ){
+  //   if( mat[i].empty() ) continue;
+  //   long double _tmp_row = ((long double)(Op<T>::u( mat[i][0]) - std::fabs(slope[i][0][1]*partitionSize[i])));
+  //    for( unsigned int j=1; j<_ndiv; j++ ){
+  //      _tmp_row = std::min(_tmp_row, ((long double)(Op<T>::u( mat[i][j]) - std::fabs(slope[i][j][1]*partitionSize[i]) )));
+  //    }
+  //    _U2[i]= _tmp_row;
+  //    sigma_u += _U2[i];
+  // }
+
+  }
+  if( (!overEstmtUpdated) && (!underEstmtUpdated) ){
+#ifndef NOTTOTRACKSHADOW
+      std::cout << "    No enhancement processed "  << std::endl;    
+#endif
+    // process shadow and shadowInfo
+    // Note that the information can be directly passed without outer-approximation,
+    // because of the complexity, we employ a naive way that is to discard them
+    
+    shadow_info.resize(2*_nvar+5);
+    shadow_info[0]=1.;
+    shadow_info[1]=1;
+    shadow_info[2]=0;
+    shadow_info[3]=0;
+    shadow_info[4]=0;      
+    for( unsigned int i=0; i<_nvar; i++ ){
+#ifndef NOTTOTRACKSHADOW
+      std::cout << "                reset shadow and shadowslopes, the row NO. " << i << std::endl;    
+#endif
+      for (unsigned int k = 0; k < 4; k++){
+        shadow[k][i].clear();
+        shadow[k][i].resize(0);
+        shadow_slope[k][i].clear();
+        shadow_slope[k][i].resize(0);           
+      }
+      if( mat[i].empty() ) continue;
+      shadow[0][i].resize(_ndiv);
+      shadow[2][i].resize(_ndiv);      
+      shadow_slope[0][i].resize(_ndiv);
+      shadow_slope[2][i].resize(_ndiv);      
+      shadow_info[5+2*i]=0;
+      shadow_info[6+2*i]=0;          
+    }
+    return _asym_slope_relu_ws(mat,slope,partitionSize,ndep,shadow,shadow_slope);
+
+  }
+
+
+  std::cout << "this part of function relu_shadow should not be processed" << std::endl;
+  throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); 
+  // process relu
+ 
+}
+
+
+// template <typename T>
+// template <typename PUNIV>
+// inline
+// void
+// ISModel<T>::_asym_slope_relu
+// ( std::vector<std::vector<T>>& mat, std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize,
+//     unsigned const& ndep, PUNIV const& f, double const& zopt, bool const cvx)
+// const
+// {
+//   assert( !mat.empty() );
+//   T bnd = _B( mat, 1 );
+
+//   auto const& fDerv = [=]( const double& x ){ return x > 0? 1.: 0.; };  
+//   // anchor points
+//   int imid( -1 );
+//   mid( Op<T>::l(bnd), Op<T>::u(bnd), zopt, imid );
+//   long double sum_r1( Op<T>::u(bnd) - Op<T>::l(bnd) );
+//   double C1( 0. ), C2(0.);
+//   for( unsigned int i=0; i<_nvar; i++ ){
+//     if( mat[i].empty() ) continue;
+//     switch( imid ){
+//       case ICONV: _c1[i] = _L1[i], C1 += _c1[i]; break;
+//       case ICONC: _c1[i] = _U1[i], C1 += _c1[i]; break;
+//       case ICUT:  _c1[i] = _L1[i]; C1 += _c1[i];
+//                   _c2[i] = _U1[i]; C2 += _c2[i]; break;
+//     }
+//     _r1[i] = ( _U1[i] - _L1[i] );
+//   }
+
+
+//   double fopt = f( imid == ICUT? zopt: C1 );
+//   double fopt_over_ndep = fopt / ndep;
+
+//   for( unsigned int i=0; i<_nvar; i++ ){
+//     if( mat[i].empty() ) continue;   
+//     if( isequal( _r1[i], 0. ) ){
+//       for( unsigned int j=0; j<_ndiv; j++ ){
+//         mat[i][j] = T(fopt_over_ndep);
+//         slope[i][j][0] = 0.;
+//         slope[i][j][1] = 0.;
+//       }
+//       continue;
+//     }
+//     else{
+//       long double scal_r1 = _r1[i] / sum_r1; 
+//       for( unsigned int j=0; j<_ndiv; j++ ){
+//         if( cvx ){
+//           switch( imid ){
+//             case ICONV: {
+//               long double zU = Op<T>::u(mat[i][j]);
+//               long double delta_u = std::fabs(slope[i][j][1]*partitionSize[i]);
+//               long double Du = f(( zU - _c1[i] ) / _r1[i] * sum_r1 + C1);
+//               long double slope1_to_be_multiplied = fDerv(( zU - delta_u - _c1[i] ) / _r1[i] * sum_r1 + C1);
+//               if (delta_u > 1e2 * MC__ISM_COMPUTATION_TOL)
+//                 slope1_to_be_multiplied = (Du - f(( zU - delta_u - _c1[i] ) / _r1[i] * sum_r1 + C1))*(scal_r1/delta_u);
+//               slope[i][j][1] = slope1_to_be_multiplied*slope[i][j][1];
+//               Du = scal_r1 * (Du  - fopt ) + fopt_over_ndep;
+
+//               long double zL = Op<T>::l(mat[i][j]);
+//               long double El = f( zL - _c1[i] + C1 ) - fopt_over_ndep * (ndep-1.);
+//               long double slope0_to_be_multiplied = fDerv( zL- _c1[i] + C1 );
+//               slope[i][j][0] = slope0_to_be_multiplied*slope[i][j][0];
+
+//               if(Du - El <= MC__ISM_COMPUTATION_TOL){
+//                 mat[i][j] = T(std::min(Du,El),std::max(Du,El));
+//                 slope[i][j][0] = 0.;
+//                 slope[i][j][1] = 0.;                
+//               }      
+//               else
+//                 mat[i][j] = T( El, Du );
+
+//             }
+//             break;
+//             case ICONC: {
+//               long double zL = Op<T>::l(mat[i][j]);
+//               long double delta_l = std::fabs(slope[i][j][0]*partitionSize[i]);
+//               long double Du = f(( zL - _c1[i] ) / _r1[i] * sum_r1 + C1);
+//               long double slope1_to_be_set = fDerv(( zL + delta_l - _c1[i] ) / _r1[i] * sum_r1 + C1);
+//               if (delta_l > 1e2 * MC__ISM_COMPUTATION_TOL)
+//                 slope1_to_be_set = (f(( zL + delta_l - _c1[i] ) / _r1[i] * sum_r1 + C1) - Du)*(scal_r1/delta_l);
+//               slope1_to_be_set  = slope1_to_be_set*slope[i][j][0];
+//               Du = scal_r1 * (Du  - fopt ) + fopt_over_ndep;
+
+//               long double zU = Op<T>::u(mat[i][j]);
+//               long double El = f( zU - _c1[i] + C1 ) - fopt_over_ndep * (ndep-1.);
+//               long double slope0_to_be_multiplied = fDerv( zU - _c1[i] + C1 );
+//               slope[i][j][0] = slope0_to_be_multiplied*slope[i][j][1];
+//               slope[i][j][1] = slope1_to_be_set;
+
+//               if(Du - El <= MC__ISM_COMPUTATION_TOL){
+//                 slope[i][j][0] = 0.;
+//                 slope[i][j][1] = 0.; 
+//                 mat[i][j] = T(El);     
+//               }
+//               else
+//                 mat[i][j] = T( El, Du );
+
+//             }
+//             break;
+//             case ICUT: {
+//               // f(x) = fInc(x) + fDec(x) + fopt = fInc(x) + fDec(x)  - sum scal_r1 * fopt + fopt_over_ndep
+//               auto const& fInc     = [=]( const double& x ){ return x < zopt? 0.: f( x ) - fopt; };
+//               auto const& fDec     = [=]( const double& x ){ return x > zopt? 0.: f( x ) - fopt; };      
+//               auto const& fIncDerv = [=]( const double& x ){ return x < zopt? 0.: fDerv( x ); };
+//               auto const& fDecDerv = [=]( const double& x ){ return x > zopt? 0.: fDerv( x ); };  
+
+//               long double zU = Op<T>::u(mat[i][j]);
+//               long double delta_u = std::fabs(slope[i][j][1]*partitionSize[i]);
+//               long double DuInc = fInc(( zU - _c1[i] ) / _r1[i] * sum_r1 + C1);
+//               long double slope1Inc_to_be_set = fIncDerv(( zU - delta_u - _c1[i] ) / _r1[i] * sum_r1 + C1);
+//               if (delta_u > 1e2 * MC__ISM_COMPUTATION_TOL)
+//                 slope1Inc_to_be_set = (DuInc - fInc(( zU - delta_u - _c1[i] ) / _r1[i] * sum_r1 + C1))*(scal_r1/delta_u);
+//               slope1Inc_to_be_set = slope1Inc_to_be_set*slope[i][j][1];
+//               DuInc = scal_r1 * DuInc;    // For sum_i DuInc > fInc(x), its fIncOpt = 0;
+
+//               long double zL = Op<T>::l(mat[i][j]);
+//               long double delta_l = std::fabs(slope[i][j][0]*partitionSize[i]);
+//               long double DuDec = fDec(( zL - _c1[i] ) / _r1[i] * sum_r1 + C1);
+//               long double slope1Dec_to_be_set = fDecDerv(( zL + delta_l - _c1[i] ) / _r1[i] * sum_r1 + C1);
+//               if (delta_l > 1e2 * MC__ISM_COMPUTATION_TOL)
+//                 slope1Dec_to_be_set = (fDec(( zL + delta_l - _c1[i] ) / _r1[i] * sum_r1 + C1) - DuDec)*(scal_r1/delta_l);
+//               slope1Dec_to_be_set  = slope1Dec_to_be_set*slope[i][j][0];
+//               DuDec = scal_r1 * DuDec;  // For sum_i DuDec > fDec(x), its fDecOpt = 0;
+                            
+//               // The original one is: 
+//               // T Zu = ( mat[i][j] - _c1[i] ) / _r1[i] * sum_r1 + C1; 
+//               // double Du = scal_r1 * ( std::max( f( Op<T>::l(Zu) ), f( Op<T>::u(Zu) ) ) - fopt ) + fopt_over_ndep;
+//               // which is the same as Du = std::max(DuInc, DuDec) - scal_r1 * fopt + fopt_over_ndep
+
+//               slope[i][j][1] = slope1Inc_to_be_set + slope1Dec_to_be_set;
+//               long double upperbound_to_be_set = DuDec + DuInc - std::min(std::fabs(slope1Inc_to_be_set),std::fabs(slope1Dec_to_be_set))*partitionSize[i];
+//               // if (upperbound_to_be_set > Du){
+//               //   upperbound_to_be_set = Du;
+//               //   slope[i][j][1] = 0.;
+//               // }
+              
+//               // The original one is 
+//               // double El = flinc( mat[i][j] - _c1[i] + C1 ) + fldec( mat[i][j] - _c2[i] + C2 ) + fopt_over_ndep;
+
+              
+//               long double ElInc = fInc( zL - _c1[i] + C1 ); // For sum_i ElInc < fInc(x), its fIncOpt = 0;
+//               long double slope0Inc_to_be_set = fIncDerv( zL- _c1[i] + C1 );
+//               slope0Inc_to_be_set = slope0Inc_to_be_set*slope[i][j][0];
+
+//               long double ElDec = fDec( zU - _c1[i] + C1 ); // For sum_i ElDec < fDec(x), its fDecOpt = 0;
+//               long double slope0Dec_to_be_set = fDecDerv( zU - _c1[i] + C1 );
+//               slope0Dec_to_be_set = slope0Dec_to_be_set*slope[i][j][1];
+
+//               slope[i][j][0] = slope0Inc_to_be_set + slope0Dec_to_be_set;
+//               long double lowerbound_to_be_set = ElDec + ElInc + std::min(std::fabs(slope0Inc_to_be_set),std::fabs(slope0Dec_to_be_set))*partitionSize[i];
+//               // if (lowerbound_to_be_set < El){
+//               //   lowerbound_to_be_set = Eul;
+//               //   slope[i][j][0] = 0.;
+//               // }
+
+//               if(upperbound_to_be_set - lowerbound_to_be_set <= MC__ISM_COMPUTATION_TOL){
+//                 mat[i][j] = T(lowerbound_to_be_set + fopt_over_ndep);
+//                 slope[i][j][0] = 0.;
+//                 slope[i][j][1] = 0.;
+//               }
+//               else
+//                 mat[i][j] = T( lowerbound_to_be_set + fopt_over_ndep, upperbound_to_be_set + fopt_over_ndep);                
+//             }
+//             break;
+//           }          
+
+//         }
+//         else{
+//           throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); 
+          
+//         }
+
+//       }
+//     }
+//   }
+// }
+
+// template <typename T>
+// template <typename PUNIV>
+// inline
+// void
+// ISModel<T>::_asym_slope_max
+// ( std::vector<std::vector<T>>& mat, std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize,
+//     unsigned const& ndep, PUNIV const& f, double const& zopt, bool const cvx)
+// const
+// {
+//   assert( !mat.empty() );
+//   T bnd = _B( mat, 1 );
+
+
+//   // anchor points
+//   int imid( -1 );
+//   mid( Op<T>::l(bnd), Op<T>::u(bnd), zopt, imid );
+//   long double sum_r1( Op<T>::u(bnd) - Op<T>::l(bnd) );
+//   double C1( 0. ), C2(0.);
+//   for( unsigned int i=0; i<_nvar; i++ ){
+//     if( mat[i].empty() ) continue;
+//     switch( imid ){
+//       case ICONV: _c1[i] = _L1[i], C1 += _c1[i]; break;
+//       case ICONC: _c1[i] = _U1[i], C1 += _c1[i]; break;
+//       case ICUT:  _c1[i] = _L1[i]; C1 += _c1[i];
+//                   _c2[i] = _U1[i]; C2 += _c2[i]; break;
+//     }
+//     _r1[i] = ( _U1[i] - _L1[i] );
+//   }
+
+
+//   double fopt = f( imid == ICUT? zopt: C1 );
+//   double fopt_over_ndep = fopt / ndep;
+//   auto const& fDerv = [=]( const double& x ){ return x > fopt? 1.: 0.; };  
+
+//   for( unsigned int i=0; i<_nvar; i++ ){
+//     if( mat[i].empty() ) continue;   
+//     if( isequal( _r1[i], 0. ) ){
+//       for( unsigned int j=0; j<_ndiv; j++ ){
+//         mat[i][j] = T(fopt_over_ndep);
+//         slope[i][j][0] = 0.;
+//         slope[i][j][1] = 0.;
+//       }
+//       continue;
+//     }
+//     else{
+//       long double scal_r1 = _r1[i] / sum_r1; 
+//       for( unsigned int j=0; j<_ndiv; j++ ){
+//         if( cvx ){
+//           switch( imid ){
+//             case ICONV: {
+//               long double zU = Op<T>::u(mat[i][j]);
+//               long double delta_u = std::fabs(slope[i][j][1]*partitionSize[i]);
+//               long double Du = f(( zU - _c1[i] ) / _r1[i] * sum_r1 + C1);
+//               long double slope1_to_be_multiplied = fDerv(( zU - delta_u - _c1[i] ) / _r1[i] * sum_r1 + C1);
+//               if (delta_u > 1e2 * MC__ISM_COMPUTATION_TOL)
+//                 slope1_to_be_multiplied = (Du - f(( zU - delta_u - _c1[i] ) / _r1[i] * sum_r1 + C1))*(scal_r1/delta_u);
+//               slope[i][j][1] = slope1_to_be_multiplied*slope[i][j][1];
+//               Du = scal_r1 * (Du  - fopt ) + fopt_over_ndep;
+
+//               long double zL = Op<T>::l(mat[i][j]);
+//               long double El = f( zL - _c1[i] + C1 ) - fopt_over_ndep * (ndep-1.);
+//               long double slope0_to_be_multiplied = fDerv( zL- _c1[i] + C1 );
+//               slope[i][j][0] = slope0_to_be_multiplied*slope[i][j][0];
+
+//               if(Du - El <= MC__ISM_COMPUTATION_TOL){
+//                 mat[i][j] = T(std::min(Du,El),std::max(Du,El));
+//                 slope[i][j][0] = 0.;
+//                 slope[i][j][1] = 0.;                
+//               }      
+//               else
+//                 mat[i][j] = T( El, Du );
+
+//             }
+//             break;
+//             case ICONC: {
+//               long double zL = Op<T>::l(mat[i][j]);
+//               long double delta_l = std::fabs(slope[i][j][0]*partitionSize[i]);
+//               long double Du = f(( zL - _c1[i] ) / _r1[i] * sum_r1 + C1);
+//               long double slope1_to_be_set = fDerv(( zL + delta_l - _c1[i] ) / _r1[i] * sum_r1 + C1);
+//               if (delta_l > 1e2 * MC__ISM_COMPUTATION_TOL)
+//                 slope1_to_be_set = (f(( zL + delta_l - _c1[i] ) / _r1[i] * sum_r1 + C1) - Du)*(scal_r1/delta_l);
+//               slope1_to_be_set  = slope1_to_be_set*slope[i][j][0];
+//               Du = scal_r1 * (Du  - fopt ) + fopt_over_ndep;
+
+//               long double zU = Op<T>::u(mat[i][j]);
+//               long double El = f( zU - _c1[i] + C1 ) - fopt_over_ndep * (ndep-1.);
+//               long double slope0_to_be_multiplied = fDerv( zU - _c1[i] + C1 );
+//               slope[i][j][0] = slope0_to_be_multiplied*slope[i][j][1];
+//               slope[i][j][1] = slope1_to_be_set;
+
+//               if(Du - El <= MC__ISM_COMPUTATION_TOL){
+//                 slope[i][j][0] = 0.;
+//                 slope[i][j][1] = 0.; 
+//                 mat[i][j] = T(El);     
+//               }
+//               else
+//                 mat[i][j] = T( El, Du );
+
+//             }
+//             break;
+//             case ICUT: {
+//               // f(x) = fInc(x) + fDec(x) + fopt = fInc(x) + fDec(x)  - sum scal_r1 * fopt + fopt_over_ndep
+//               auto const& fInc     = [=]( const double& x ){ return x < zopt? 0.: f( x ) - fopt; };
+//               auto const& fDec     = [=]( const double& x ){ return x > zopt? 0.: f( x ) - fopt; };      
+//               auto const& fIncDerv = [=]( const double& x ){ return x < zopt? 0.: fDerv( x ); };
+//               auto const& fDecDerv = [=]( const double& x ){ return x > zopt? 0.: fDerv( x ); };  
+
+//               long double zU = Op<T>::u(mat[i][j]);
+//               long double delta_u = std::fabs(slope[i][j][1]*partitionSize[i]);
+//               long double DuInc = fInc(( zU - _c1[i] ) / _r1[i] * sum_r1 + C1);
+//               long double slope1Inc_to_be_set = fIncDerv(( zU - delta_u - _c1[i] ) / _r1[i] * sum_r1 + C1);
+//               if (delta_u > 1e2 * MC__ISM_COMPUTATION_TOL)
+//                 slope1Inc_to_be_set = (DuInc - fInc(( zU - delta_u - _c1[i] ) / _r1[i] * sum_r1 + C1))*(scal_r1/delta_u);
+//               slope1Inc_to_be_set = slope1Inc_to_be_set*slope[i][j][1];
+//               DuInc = scal_r1 * DuInc;    // For sum_i DuInc > fInc(x), its fIncOpt = 0;
+
+//               long double zL = Op<T>::l(mat[i][j]);
+//               long double delta_l = std::fabs(slope[i][j][0]*partitionSize[i]);
+//               long double DuDec = fDec(( zL - _c1[i] ) / _r1[i] * sum_r1 + C1);
+//               long double slope1Dec_to_be_set = fDecDerv(( zL + delta_l - _c1[i] ) / _r1[i] * sum_r1 + C1);
+//               if (delta_l > 1e2 * MC__ISM_COMPUTATION_TOL)
+//                 slope1Dec_to_be_set = (fDec(( zL + delta_l - _c1[i] ) / _r1[i] * sum_r1 + C1) - DuDec)*(scal_r1/delta_l);
+//               slope1Dec_to_be_set  = slope1Dec_to_be_set*slope[i][j][0];
+//               DuDec = scal_r1 * DuDec;  // For sum_i DuDec > fDec(x), its fDecOpt = 0;
+                            
+//               // The original one is: 
+//               // T Zu = ( mat[i][j] - _c1[i] ) / _r1[i] * sum_r1 + C1; 
+//               // double Du = scal_r1 * ( std::max( f( Op<T>::l(Zu) ), f( Op<T>::u(Zu) ) ) - fopt ) + fopt_over_ndep;
+//               // which is the same as Du = std::max(DuInc, DuDec) - scal_r1 * fopt + fopt_over_ndep
+
+//               slope[i][j][1] = slope1Inc_to_be_set + slope1Dec_to_be_set;
+//               long double upperbound_to_be_set = DuDec + DuInc - std::min(std::fabs(slope1Inc_to_be_set),std::fabs(slope1Dec_to_be_set))*partitionSize[i];
+//               // if (upperbound_to_be_set > Du){
+//               //   upperbound_to_be_set = Du;
+//               //   slope[i][j][1] = 0.;
+//               // }
+              
+//               // The original one is 
+//               // double El = flinc( mat[i][j] - _c1[i] + C1 ) + fldec( mat[i][j] - _c2[i] + C2 ) + fopt_over_ndep;
+
+              
+//               long double ElInc = fInc( zL - _c1[i] + C1 ); // For sum_i ElInc < fInc(x), its fIncOpt = 0;
+//               long double slope0Inc_to_be_set = fIncDerv( zL- _c1[i] + C1 );
+//               slope0Inc_to_be_set = slope0Inc_to_be_set*slope[i][j][0];
+
+//               long double ElDec = fDec( zU - _c1[i] + C1 ); // For sum_i ElDec < fDec(x), its fDecOpt = 0;
+//               long double slope0Dec_to_be_set = fDecDerv( zU - _c1[i] + C1 );
+//               slope0Dec_to_be_set = slope0Dec_to_be_set*slope[i][j][1];
+
+//               slope[i][j][0] = slope0Inc_to_be_set + slope0Dec_to_be_set;
+//               long double lowerbound_to_be_set = ElDec + ElInc + std::min(std::fabs(slope0Inc_to_be_set),std::fabs(slope0Dec_to_be_set))*partitionSize[i];
+//               // if (lowerbound_to_be_set < El){
+//               //   lowerbound_to_be_set = Eul;
+//               //   slope[i][j][0] = 0.;
+//               // }
+
+//               if(upperbound_to_be_set - lowerbound_to_be_set <= MC__ISM_COMPUTATION_TOL){
+//                 mat[i][j] = T(lowerbound_to_be_set + fopt_over_ndep);
+//                 slope[i][j][0] = 0.;
+//                 slope[i][j][1] = 0.;
+//               }
+//               else
+//                 mat[i][j] = T( lowerbound_to_be_set + fopt_over_ndep, upperbound_to_be_set + fopt_over_ndep);                
+//             }
+//             break;
+//           }          
+
+//         }
+//         else{
+//           throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); 
+          
+//         }
+
+//       }
+//     }
+//   }
+// }
+
 
 
 template <typename T>
@@ -1007,12 +4616,26 @@ const
         //std::cout<<_theta_fiflec<<std::endl;
         for( unsigned int j=0; j<_ndiv; j++ ){ 
           double El = f(Op<T>::l(mat[i][j]) - _L1[i] + _lambda)  - _c1[i] ;
-          double D = _r2[i]*f( _mu + (Op<T>::u(mat[i][j]) - _U1[i])/_r2[i] );
+//          double D = _r2[i]*f( _mu + (Op<T>::u(mat[i][j]) - _U1[i])/_r2[i] );
+          double Du = _r2[i]*f( _mu + (Op<T>::u(mat[i][j]) - _U1[i])/_r2[i] );
+          double Dl = _r2[i]*f( _lambda + (Op<T>::l(mat[i][j]) - _L1[i])/_r2[i] );
           double Eu = f(Op<T>::u(mat[i][j]) - _U1[i] +  _mu  )  - _c2[i];
           //std::cout<<Du1<<" and "<<Du2<<" and "<<_theta_fiflec<<" and "<<Du<<" and "<<El<<std::endl;
           
           // this makes use of the constructor of T, which always compares the value of the two imputs
-          mat[i][j] = T( std::min(El , D) , std::max(Eu , D) );   
+//          mat[i][j] = T( std::min(El , D) , std::max(Eu , D) );   
+          mat[i][j] = T( std::min(El , Dl) , std::max(Eu , Du) );
+#ifdef MC__USE_FILIB 
+          if(mat[i][j].isEmpty()){
+            if(std::fabs(std::min(El , Dl) - std::max(Eu , Du)) <= MC__ISM_COMPUTATION_TOL)
+                mat[i][j] = T( El );}
+#ifdef FILIB__COMPUTATION_DEBUG             
+          if(std::min(El , Dl) > std::max(Eu , Du))
+             std::cout<<std::setprecision(18) << "warning: "<< std::min(El , Dl) << " > " << std::max(Eu , Du) <<std::endl;  
+          if(mat[i][j].isEmpty())
+             std::cout<<"_asymNTCsym:" <<i<<" , "<<j<<": "<<std::setprecision(18) << "warning: "<< std::min(El , Dl) << " > " << std::max(Eu , Du) <<std::endl;     
+#endif
+#endif
         }
       }  
     }
@@ -1146,6 +4769,54 @@ const
   }
 }
 */
+
+
+template <typename T>
+inline
+void ISModel<T>::_pow
+( std::vector<std::vector<T>>& mat, std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize, int const&iexp, unsigned const& ndep )
+const
+{
+  assert( !mat.empty() && iexp && iexp!=1 );
+  
+  // Bounds
+  T bnd = _B( mat, 1 );
+  double L( Op<T>::l(bnd) ), U( Op<T>::u(bnd) );
+  if ( iexp < 0 && L*U <= 0. )
+    throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::INV );
+  //std::cout << "in pow asym: " << iexp << std::endl;
+  // Asymetric inclusion
+  auto const& f = [=]( const double& x ){ return std::pow( x, iexp ); };
+  auto const& fDerv = [=]( const double& x ){ return iexp * std::pow( x, iexp - 1 ); };
+  if( L > 0. && iexp < 0 )
+    return _asym_slope( mat, slope, partitionSize, ndep, f, fDerv, DBL_MAX, true, bnd ); // convex part, min +INF 
+  if( U < 0. && iexp < 0 && (-iexp)%2 )
+    return _asym_slope( mat, slope, partitionSize, ndep, f, fDerv, -DBL_MAX, false, bnd ); // concave part, max -INF
+  if( U < 0. && iexp < 0 )
+    return _asym_slope( mat, slope, partitionSize, ndep, f, fDerv, -DBL_MAX, true, bnd ); // convex part, min -INF
+  //std::cout << "in pow asym positive" << std::endl;
+  if( iexp > 0 && !(iexp%2) ){//std::cout << "in pow asym even" << std::endl;
+    return _asym_slope( mat, slope, partitionSize, ndep, f, fDerv, 0., true, bnd );} // convex part, min 0
+  if( L >= 0. && iexp > 0 && iexp%2 ){//std::cout << "in pow asym 1" << std::endl;
+    return _asym_slope( mat, slope, partitionSize, ndep, f, fDerv, -DBL_MIN, true, bnd );} // convex part, min 0
+  if( U <= 0. && iexp > 0 && iexp%2 ){//std::cout << "in pow asym 2" << std::endl;
+    return _asym_slope( mat, slope, partitionSize, ndep, f, fDerv, DBL_MIN, false, bnd );} // concave part, max 0
+//std::cout << "in pow asym outer" << std::endl;
+  auto const& fcv = [=]( const double& x ){ return std::pow( std::max( x, 0. ), iexp ); };
+  auto const& fcc = [=]( const double& x ){ return std::pow( std::min( x, 0. ), iexp ); };
+  auto const& fcvDerv = [=]( const double& x ){ return x > 0. ? ( (double) iexp)*std::pow(x,iexp-1): 0.; };
+  auto const& fccDerv = [=]( const double& x ){ return x < 0. ? ( (double) iexp)*std::pow(x,iexp-1): 0.; };  
+  auto matcp = mat;
+  _asym_slope( mat, slope, partitionSize, ndep, fcv, fcvDerv, -DBL_MIN, true, bnd ); // convex part, min 0
+  _asym_slope( matcp, slope, partitionSize, ndep, fcc, fccDerv, DBL_MIN, false, bnd ); // concave part, max 0
+  for( unsigned int i=0; i<_nvar; i++ ){
+    if( matcp[i].empty() ) continue;   
+    for( unsigned int j=0; j<_ndiv; j++ )
+      mat[i][j] += matcp[i][j];
+  }
+  return;
+}
+
 template <typename T>
 inline
 void ISModel<T>::_pow
@@ -1159,7 +4830,7 @@ const
   double L( Op<T>::l(bnd) ), U( Op<T>::u(bnd) );
   if ( iexp < 0 && L*U <= 0. )
     throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::INV );
-
+  //std::cout << "in pow asym: " << iexp << std::endl;
   // Asymetric inclusion
   auto const& f = [=]( const double& x ){ return std::pow( x, iexp ); };
   if( L > 0. && iexp < 0 )
@@ -1168,14 +4839,14 @@ const
     return _asym( mat, ndep, f, -DBL_MAX, false, bnd ); // concave part, max -INF
   if( U < 0. && iexp < 0 )
     return _asym( mat, ndep, f, -DBL_MAX, true, bnd ); // convex part, min -INF
-
-  if( iexp > 0 && !iexp%2 )
-    return _asym( mat, ndep, f, 0, true, bnd ); // convex part, min 0
-  if( L >= 0. && iexp > 0 && iexp%2 )
-    return _asym( mat, ndep, f, -DBL_MIN, true, bnd ); // convex part, min 0
-  if( U <= 0. && iexp > 0 && iexp%2 )
-    return _asym( mat, ndep, f, DBL_MIN, false, bnd ); // concave part, max 0
-
+  //std::cout << "in pow asym positive" << std::endl;
+  if( iexp > 0 && !(iexp%2) ){//std::cout << "in pow asym even" << std::endl;
+    return _asym( mat, ndep, f, 0, true, bnd );} // convex part, min 0
+  if( L >= 0. && iexp > 0 && iexp%2 ){//std::cout << "in pow asym 1" << std::endl;
+    return _asym( mat, ndep, f, -DBL_MIN, true, bnd );} // convex part, min 0
+  if( U <= 0. && iexp > 0 && iexp%2 ){//std::cout << "in pow asym 2" << std::endl;
+    return _asym( mat, ndep, f, DBL_MIN, false, bnd );} // concave part, max 0
+//std::cout << "in pow asym outer" << std::endl;
   auto const& fcv = [=]( const double& x ){ return std::pow( std::max( x, 0. ), iexp ); };
   auto const& fcc = [=]( const double& x ){ return std::pow( std::min( x, 0. ), iexp ); };
   auto matcp = mat;
@@ -1187,6 +4858,28 @@ const
       mat[i][j] += matcp[i][j];
   }
   return;
+}
+
+template <typename T>
+inline
+void ISModel<T>::_inv
+( std::vector<std::vector<T>>& mat, std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize, unsigned const& ndep )
+const
+{
+  assert( !mat.empty() );
+
+  // Bounds
+  T bnd = _B( mat, 1 );
+  double L( Op<T>::l(bnd) ), U( Op<T>::u(bnd) );
+  if ( L*U <= 0. )
+    throw Exceptions( Exceptions::INV );
+
+  auto const& f = [=]( const double& x ){ return 1.0 / x; };
+  auto const& fDerv = [=]( const double& x ){ return -1.0 / (x*x); };
+  if( L > 0. )
+    return _asym_slope( mat, slope, partitionSize, ndep, f, fDerv, DBL_MAX, true, bnd ); // concave term, max +INF
+  else if( U < 0. )
+    return _asym_slope( mat, slope, partitionSize, ndep, f, fDerv, -DBL_MAX, false, bnd ); // concave term, max +INF  
 }
 
 template <typename T>
@@ -1244,6 +4937,24 @@ const
   }
 }
 
+// _sqr enhanced by using slopes
+template <typename T>
+inline
+void ISModel<T>::_sqr
+( std::vector<std::vector<T>>& mat, std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize, unsigned const& ndep )
+const
+{
+  assert( !mat.empty() );
+
+  // Bounds
+  T bnd = _B( mat, 1 );
+  
+  auto const& f = [=]( const double& x ){ return x*x; };
+  auto const& fDerv = [=]( const double& x ){ return 2.0*x; };
+  //std::cout << "SQR_ASYM" << std::endl;
+  return _asym_slope( mat, slope, partitionSize, ndep, f,fDerv, 0., true, bnd ); // convex term, min zero
+}
+
 template <typename T>
 inline
 void ISModel<T>::_sqr
@@ -1258,6 +4969,7 @@ const
   // Asymetric inclusion
   if( options.ASYREM_USE ){
     auto const& f = [=]( const double& x ){ return x*x; };
+    //std::cout << "SQR_ASYM" << std::endl;
     return _asym( mat, ndep, f, 0., true, bnd ); // convex term, min zero
   }
   
@@ -1285,6 +4997,28 @@ const
     for( unsigned int j=0; j<_ndiv; j++ )
       mat[i][j] = Op<T>::sqr((w-_c1[i])+mat[i][j]) + bnd;
   }
+}
+
+
+template <typename T>
+inline
+void ISModel<T>::_sqrt
+( std::vector<std::vector<T>>& mat, std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize, unsigned const& ndep )
+const
+{
+  assert( !mat.empty() );
+
+  // Bounds
+  T bnd = _B( mat, 1 );
+  double L( Op<T>::l(bnd) );
+  if ( L < 0. )
+    throw Exceptions( Exceptions::SQRT );
+
+  //T bnd1(Op<T>::l(bnd),Op<T>::u(bnd));
+
+  auto const& f = [=]( const double& x ){ return std::sqrt( x ); };
+  auto const& fDerv = [=]( const double& x ){ return 0.5/std::sqrt( x ); };
+  return _asym_slope( mat, slope, partitionSize, ndep, f, fDerv, DBL_MAX, false, bnd ); // concave term, max +INF
 }
 
 template <typename T>
@@ -1330,6 +5064,25 @@ const
   }
 }
 
+
+template <typename T>
+inline
+void ISModel<T>::_exp
+( std::vector<std::vector<T>>& mat, std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize, unsigned const& ndep )
+const
+{
+  assert( !mat.empty() );
+
+  // Bounds
+  T bnd = _B( mat, 1 );
+
+  //T bnd1(Op<T>::l(bnd),Op<T>::u(bnd));
+
+  auto const& f = [=]( const double& x ){ return std::exp( x ); };
+  auto const& fDerv = [=]( const double& x ){ return std::exp( x ); };
+  return _asym_slope( mat, slope, partitionSize, ndep, f, fDerv, -DBL_MAX, true, bnd ); // concave term, max +INF
+}
+
 template <typename T>
 inline
 void ISModel<T>::_exp
@@ -1371,6 +5124,27 @@ const
       mat[i][j] = Op<T>::exp((w-_c1[i])+mat[i][j]) + bnd;
   }
   //_intersect(mat,ndep,Op<T>::exp(bnd1));
+}
+
+
+template <typename T>
+inline
+void ISModel<T>::_log
+( std::vector<std::vector<T>>& mat, std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize, unsigned const& ndep )
+const
+{
+  assert( !mat.empty() );
+
+  // Bounds
+  T bnd = _B( mat, 1 );
+  double L( Op<T>::l(bnd) );
+  if ( L <= 0. )
+    throw Exceptions( Exceptions::LOG );
+
+
+  auto const& f = [=]( const double& x ){ return std::log( x ); };
+  auto const& fDerv = [=]( const double& x ){ return 1.0/x; };
+  return _asym_slope( mat, slope, partitionSize, ndep, f, fDerv, DBL_MAX, false, bnd ); // concave term, max +INF
 }
 
 template <typename T>
@@ -1512,6 +5286,353 @@ const
   }
 }
 
+// template <typename T>
+// inline
+// void ISModel<T>::_sin_slope
+// ( std::vector<std::vector<T>>& mat, unsigned const& ndep )
+// const
+// {
+//   assert( !mat.empty() );
+
+//   // Central points
+//   T bnd = _B( mat, 1 );
+//   double w( 0. ), r( 0. ), s( 0. ), p( 1. );
+//   for( unsigned int i=0; i<_nvar; i++ ){
+//     if( mat[i].empty() ) continue;
+//     _c1[i] = 0.5 * ( _L1[i] + _U1[i] );
+//     w += _c1[i];
+//     r = 0.25 * ( _U1[i] - _L1[i] );
+//     if( r <= 0.5*PI )
+//       _r1[i] = 2. * std::sin( r );
+//     else
+//       _r1[i] = 2.;
+//     s += _r1[i];
+//     p *= _r1[i] + 1.;
+//   }
+
+//   // Remainder
+//   double rem( (std::fabs(std::sin(w))+std::fabs(std::cos(w))) * ( p - s - 1. ) );
+
+//   // Interval matrix coefficients
+//   bnd = T(-1.,1.)*(rem/double(ndep)) - (ndep-1.)/double(ndep)*std::sin(w);
+//   for( unsigned int i=0; i<_nvar; i++ ){
+//     if( mat[i].empty() ) continue;
+//     for( unsigned int j=0; j<_ndiv; j++ )
+//       mat[i][j] = Op<T>::sin((w-_c1[i])+mat[i][j]) + bnd;
+//   }
+// }
+
+template <typename T>
+inline
+void ISModel<T>::_cos_slope
+( std::vector<std::vector<T>>& mat, std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize, unsigned const& ndep )
+const
+{
+  assert( !mat.empty() );
+
+  // this function is implemented only for the cases when ndep = 1
+  // T bnd = _B( mat, 1 );
+  // long double lambda = Op<T>::l(bnd);
+  // long double mu = Op<T>::u(bnd);
+  for( unsigned int i=0; i<_nvar; i++ ){
+    if( mat[i].empty() ) continue;
+    for( unsigned int j=0; j<_ndiv; j++ ){
+      long double zL = Op<T>::l(mat[i][j]), zU = Op<T>::u(mat[i][j]);
+      const int k = std::ceil(-(1.+zL/PI)/2.); // -pi <= xL+2*k*pi < pi
+      const long double l = zL+2.*PI*k, u = zU+2.*PI*k;
+      if( l <= 0 ){
+        if( u <= 0 ){
+          long double delta_zL = std::fabs(slope[i][j][0]*partitionSize[i]);
+          long double slope0_candidate_1 = -std::sin(l);
+          long double slope0_candidate_2 = slope0_candidate_1;
+          if (delta_zL > 1e2*MC__ISM_COMPUTATION_TOL)
+            slope0_candidate_2 = ( std::cos(l + delta_zL) - std::cos(l) )/delta_zL;
+          else
+            slope0_candidate_2 = std::min(-std::sin(l),-std::sin(l+delta_zL));
+          long double slope0_to_be_multiplied = std::min(slope0_candidate_1,slope0_candidate_2);      // positive slope
+          slope[i][j][0] = slope[i][j][0]*slope0_to_be_multiplied;
+
+          long double delta_zU = std::fabs(slope[i][j][1]*partitionSize[i]);
+          long double slope1_candidate_1 = -std::sin(u);
+          long double slope1_candidate_2 = slope1_candidate_1;
+          if (delta_zU > 1e2*MC__ISM_COMPUTATION_TOL)
+            slope1_candidate_2 = ( std::cos(u) - std::cos(u - delta_zU) )/delta_zU;
+          else 
+            slope1_candidate_2 = std::min(-std::sin(u),-std::sin(u-delta_zU));
+          long double slope1_to_be_multiplied = std::min(slope1_candidate_1,slope1_candidate_2);      // positive slope
+          slope[i][j][1] = slope[i][j][1]*slope1_to_be_multiplied;
+
+          mat[i][j] = T(std::cos(l), std::cos(u));
+          //return Interval( std::cos(l), std::cos(u) );
+        }   
+        else if( u >= PI ){
+          // note that there are better ways to do so, c.f. envelope
+          mat[i][j] = T(-1., 1.);
+          slope[i][j][0] = 0.;
+          slope[i][j][1] = 0.;
+          //return Interval( -1., 1. );
+        } 
+        else { // l <= 0  0 < u < pi
+          // long double delta_zL = std::fabs(slope[i][j][0]*partitionSize[i]);
+          // long double slope_left_candidate_1 = -std::sin(l);
+          // // Since we have known that l in [-pi,0] u in [0,pi] 
+          // long double slope_left_candidate_2 = slope_left_candidate_1;
+          // if (delta_zL > 1e2*MC__ISM_COMPUTATION_TOL){
+          //   if (l + delta_zL < 0.)
+          //     slope_left_candidate_2 = ( std::cos(l + delta_zL) - std::cos(l) )/delta_zL;
+          //   else
+          //     slope_left_candidate_2 = ( 1.0 - std::cos(l) )/delta_zL;
+          // }
+          // long double slope_left_to_be_set = slope[i][j][0]*std::min(slope_left_candidate_1,slope_left_candidate_2);     // positive slope
+          // long double lowerbound_left = std::cos(l);
+  
+          // long double delta_zU = std::fabs(slope[i][j][1]*partitionSize[i]);
+          // long double slope_right_candidate_1 = -std::sin(u);
+          // long double slope_right_candidate_2 = slope_right_candidate_1;
+          // if (delta_zU > 1e2*MC__ISM_COMPUTATION_TOL){
+          //   if (u - delta_zU > 0)
+          //     slope_right_candidate_2 = (std::cos(u) - std::cos(u - delta_zU))/delta_zU;
+          //   else
+          //     slope_right_candidate_2 = (std::cos(u) - 1.)/delta_zU; 
+          // }       
+          // long double slope_right_to_be_set = slope[i][j][1]*std::max(slope_right_candidate_1,slope_right_candidate_2);  // negative slope
+          // long double lowerbound_right = std::cos(u);
+  
+          // slope[i][j][0] = slope_left_to_be_set + slope_right_to_be_set;
+          // long double lowerbound_to_be_set = -1.0 + lowerbound_left + lowerbound_right;
+          // if((slope_left_to_be_set < 0.) != (slope_right_to_be_set < 0.)){   
+          //   lowerbound_to_be_set = lowerbound_to_be_set + std::min(std::fabs(slope_left_to_be_set),std::fabs(slope_right_to_be_set))*partitionSize[i];
+          // }
+          // if ( 1.0 - lowerbound_to_be_set  < MC__ISM_COMPUTATION_TOL)
+          //   mat[i][j] = T(1.);
+          // else if (lowerbound_to_be_set < std::min(std::cos(l), std::cos(u))){
+          //   mat[i][j] = T(std::min(std::cos(l), std::cos(u)),1.);
+          //   slope[i][j][0] = 0.;
+          // }
+          // else 
+          //   mat[i][j] = T(lowerbound_to_be_set, 1.);
+          
+          //slope[i][j][1] = 0.;
+          //return Interval( std::min(std::cos(l), std::cos(u)), 1. );
+          // mat[i][j] = T(std::min(std::cos(l), std::cos(u)),1.);
+          // slope[i][j][1] = 0.;
+          // slope[i][j][0] = 0.;
+          // std::cout << "j = " << j << std::endl;
+          const long double delta_zL = std::fabs(slope[i][j][0]*partitionSize[i]);
+          long double slope0_left_candidate_1 = -std::sin(l);
+          // // Since we have known that l in [-pi,0] u in [0,pi] 
+          long double slope0_left_candidate_2 = std::max((long double)0.,-std::sin(l+delta_zL));
+          if (delta_zL > 1e2*MC__ISM_COMPUTATION_TOL){
+            if (l + delta_zL < 0.)
+              slope0_left_candidate_2 = std::max(slope0_left_candidate_2,( std::cos(l + delta_zL) - std::cos(l) )/delta_zL);
+            else
+              slope0_left_candidate_2 = std::max(slope0_left_candidate_2,( 1.0 - std::cos(l) )/delta_zL);
+          }
+          long double slope0_left_to_be_set = slope[i][j][0]*std::min(slope0_left_candidate_1,slope0_left_candidate_2);     // positive slope
+          long double lowerbound_left = std::cos(l);
+          // std::cout << "slope0_left_candidate_1 = " << slope0_left_candidate_1 << std::endl;
+          // std::cout << "slope0_left_candidate_2 = " << slope0_left_candidate_2 << std::endl;
+          // std::cout << "slope0_left_to_be_set = " << slope0_left_to_be_set << std::endl;
+
+          //long double slope1_right = 0.;
+          //long double upperbound_right = 1.;
+
+          long double delta_zU = std::fabs(slope[i][j][1]*partitionSize[i]);
+          long double slope0_right_candidate_1 = -std::sin(u);
+          long double slope0_right_candidate_2 = std::min((long double)0.,-std::sin(u-delta_zU));
+          if (delta_zU > 1e2*MC__ISM_COMPUTATION_TOL){
+            if (u - delta_zU > 0)
+              slope0_right_candidate_2 = std::min(slope0_right_candidate_2,(std::cos(u) - std::cos(u - delta_zU))/delta_zU);
+            else
+              slope0_right_candidate_2 = std::min(slope0_right_candidate_2,(std::cos(u) - 1.)/delta_zU); 
+          }       
+          long double slope0_right_to_be_set = slope[i][j][1]*std::max(slope0_right_candidate_1,slope0_right_candidate_2);  // negative slope
+          long double lowerbound_right = std::cos(u);
+          // std::cout << "slope0_right_candidate_1 = " << slope0_right_candidate_1 << std::endl;
+          // std::cout << "slope0_right_candidate_2 = " << slope0_right_candidate_2 << std::endl;
+          // std::cout << "slope0_right_to_be_set = " << slope0_right_to_be_set << std::endl;
+
+
+          //long double slope1_left = 0.;
+          //long double upperbound_left = 1.;
+          slope[i][j][1] = 0.;
+
+          long double lowerbound_to_be_set = -1.0 + lowerbound_left + lowerbound_right;
+          slope[i][j][0] = slope0_left_to_be_set + slope0_right_to_be_set;
+          // if(slope[i][j][0]>0)
+          //   lowerbound_to_be_set += slope0_right_to_be_set*partitionSize[i];
+          // else 
+          //   lowerbound_to_be_set += slope0_left_to_be_set*partitionSize[i];
+            
+          if((slope0_left_to_be_set < 0.) != (slope0_right_to_be_set < 0.)){   
+            lowerbound_to_be_set += std::min(std::fabs(slope0_left_to_be_set),std::fabs(slope0_right_to_be_set))*partitionSize[i];
+          }
+          if ( 1.0 - lowerbound_to_be_set  < MC__ISM_COMPUTATION_TOL)
+            mat[i][j] = T(std::min((long double)1.,lowerbound_to_be_set),1.);
+          else if (lowerbound_to_be_set < std::min(std::cos(l), std::cos(u))){
+            mat[i][j] = T(std::min(std::cos(l), std::cos(u)),1.);
+            slope[i][j][0] = 0.;
+          }
+          else 
+            mat[i][j] = T(lowerbound_to_be_set, 1.);
+
+        } 
+        
+      }
+      else if( u <= PI ){
+        long double delta_zL = std::fabs(slope[i][j][0]*partitionSize[i]);
+        long double slope1_candidate_1 = -std::sin(l);
+        long double slope1_candidate_2 = slope1_candidate_1;
+        if (delta_zL > 1e2*MC__ISM_COMPUTATION_TOL)
+          slope1_candidate_2 = ( std::cos(l + delta_zL) - std::cos(l) )/delta_zL;
+        else 
+          slope1_candidate_2 = std::max(-std::sin(l),-std::sin(l+delta_zL));
+        long double slope1_to_be_set   = slope[i][j][0]*std::max(slope1_candidate_1,slope1_candidate_2);     // negative slope, still anchoring at the same point w.r.t. to x
+
+        long double delta_zU = std::fabs(slope[i][j][1]*partitionSize[i]);
+        long double slope0_candidate_1 = -std::sin(u);
+        long double slope0_candidate_2 = slope0_candidate_1;
+        if (delta_zU > 1e2*MC__ISM_COMPUTATION_TOL)
+          slope0_candidate_2 = ( std::cos(u) - std::cos(u - delta_zU) )/delta_zU;
+        else 
+          slope0_candidate_2 = std::max(-std::sin(u),-std::sin(u-delta_zU));
+        long double slope0_to_be_set  = slope[i][j][1]*std::max(slope0_candidate_1,slope0_candidate_2);     // negative slope, still anchoring at the same point w.r.t. to x
+
+        slope[i][j][0] = slope0_to_be_set;
+        slope[i][j][1] = slope1_to_be_set;
+        
+        mat[i][j] = T(std::cos(u), std::cos(l));
+        //return Interval( std::cos(u), std::cos(l) );
+      }    
+      else if( u >= 2.*PI ){
+        // note that there are better ways to do so c.f. envelope
+        mat[i][j] = T(-1., 1.);
+        slope[i][j][0] = 0.;
+        slope[i][j][1] = 0.;
+        //return Interval( -1., 1. );
+      }
+      else{ // l > 0, u \in (PI,2PI)
+        // long double delta_zL = std::fabs(slope[i][j][0]*partitionSize[i]);
+        // long double slope_left_candidate_1 = -std::sin(l);
+        // // Since we have known that l > 0 
+        // long double slope_left_candidate_2 = slope_left_candidate_1;
+        // if (delta_zL > 1e2*MC__ISM_COMPUTATION_TOL){
+        //   if (l + delta_zL < PI)
+        //     slope_left_candidate_2 = (std::cos(l + delta_zL) - std::cos(l))/delta_zL;
+        //   else
+        //     slope_left_candidate_2 = ( (-1.) - std::cos(l) )/delta_zL;
+        // }
+        // long double slope_left_to_be_set = slope[i][j][0]*std::max(slope_left_candidate_1,slope_left_candidate_2);     // negative slope
+        // long double upperbound_left = std::cos(l);
+
+        // long double delta_zU = std::fabs(slope[i][j][1]*partitionSize[i]);
+        // long double slope_right_candidate_1 = -std::sin(u);
+        // long double slope_right_candidate_2 = slope_right_candidate_1;
+        // if (delta_zU > 1e2*MC__ISM_COMPUTATION_TOL){
+        //   if (u - delta_zU > PI)
+        //     slope_right_candidate_2 = (std::cos(u) - std::cos(u - delta_zU))/delta_zU;
+        //   else
+        //     slope_right_candidate_2 = (std::cos(u) - (-1.))/delta_zU; 
+        // }       
+        // long double slope_right_to_be_set = slope[i][j][1]*std::min(slope_right_candidate_1,slope_right_candidate_2);  // positive slope
+        // long double upperbound_right = std::cos(u);
+
+        // slope[i][j][1] = slope_left_to_be_set + slope_right_to_be_set;
+        // long double upperbound_to_be_set = 1.0 + upperbound_left + upperbound_right - std::min(std::fabs(slope_left_to_be_set),std::fabs(slope_right_to_be_set))*partitionSize[i];
+        // if((slope_left_to_be_set < 0.) != (slope_right_to_be_set < 0.)){   
+        //   upperbound_to_be_set = upperbound_to_be_set - std::min(std::fabs(slope_left_to_be_set),std::fabs(slope_right_to_be_set))*partitionSize[i];
+        // }
+        // if ( upperbound_to_be_set + 1.0  < MC__ISM_COMPUTATION_TOL)
+        //   mat[i][j] = T(-1.);
+        // else if (upperbound_to_be_set > std::max(std::cos(l), std::cos(u))) {
+        //   mat[i][j] = T(-1.,std::max(std::cos(l), std::cos(u)));
+        //   slope[i][j][1] = 0.;
+        // }
+        // else 
+        //   mat[i][j] = T(-1., upperbound_to_be_set);
+
+        // if ( slope1_to_be_set > MC__ISM_COMPUTATION_TOL){
+        //   upperbound_to_be_set = upperbound_to_be_set - ;
+        // }
+        // else if( slope1_to_be_set < -MC__ISM_COMPUTATION_TOL){
+        //   upperbound_to_be_set = upperbound_to_be_set - ;
+        // }
+        // else 
+        //   upperbound_to_be_set = upperbound_to_be_set - ;
+
+        //slope[i][j][0] = 0.;
+          // mat[i][j] = T( -1., std::max(std::cos(l), std::cos(u)));
+          // slope[i][j][1] = 0.;
+          // slope[i][j][0] = 0.;        
+        //return Interval( -1., std::max(std::cos(l), std::cos(u)));
+
+          // std::cout << "j = " << j << std::endl;
+          const long double delta_zL = std::fabs(slope[i][j][0]*partitionSize[i]);
+          long double slope1_left_candidate_1 = -std::sin(l);
+          // // Since we have known that l in [0, pi] u in [pi,2pi] 
+          long double slope1_left_candidate_2 = std::min((long double)0.,-std::sin(l+delta_zL));
+          if (delta_zL > 1e2*MC__ISM_COMPUTATION_TOL){
+            if (l + delta_zL < PI)
+              slope1_left_candidate_2 = std::min(slope1_left_candidate_2,( std::cos(l + delta_zL) - std::cos(l) )/delta_zL);
+            else
+              slope1_left_candidate_2 = std::min(slope1_left_candidate_2,( -1.0 - std::cos(l))/delta_zL);
+          }
+          long double slope1_left_to_be_set = slope[i][j][0]*std::max(slope1_left_candidate_1,slope1_left_candidate_2);     // negative slope
+          long double upperbound_left = std::cos(l);
+
+          //long double slope0_right = 0.;
+          //long double lowerbound_right = -1.;
+          
+          // std::cout << "slope1_left_candidate_1 = " << slope1_left_candidate_1 << std::endl;
+          // std::cout << "slope1_left_candidate_2 = " << slope1_left_candidate_2 << std::endl;
+          // std::cout << "slope1_left_to_be_set = " << slope1_left_to_be_set << std::endl;
+
+          long double delta_zU = std::fabs(slope[i][j][1]*partitionSize[i]);
+          long double slope1_right_candidate_1 = -std::sin(u);
+          long double slope1_right_candidate_2 = std::max((long double)0.,-std::sin(u-delta_zU));
+          if (delta_zU > 1e2*MC__ISM_COMPUTATION_TOL){
+            if (u - delta_zU > PI)
+              slope1_right_candidate_2 = std::max(slope1_right_candidate_2,(std::cos(u) - std::cos(u - delta_zU))/delta_zU);
+            else
+              slope1_right_candidate_2 = std::max(slope1_right_candidate_2,(std::cos(u) + 1.)/delta_zU); 
+          }       
+          long double slope1_right_to_be_set = slope[i][j][1]*std::min(slope1_right_candidate_1,slope1_right_candidate_2);  // postive slope
+          long double upperbound_right = std::cos(u);
+
+          //long double slope0_left = 0.;
+          //long double lowerbound_left = -1.;
+          slope[i][j][0] = 0.;
+          // std::cout << "slope1_right_candidate_1 = " << slope1_right_candidate_1 << std::endl;
+          // std::cout << "slope1_right_candidate_2 = " << slope1_right_candidate_2 << std::endl;
+          // std::cout << "slope1_right_to_be_set = " << slope1_right_to_be_set << std::endl;
+
+
+          long double upperbound_to_be_set = 1.0 + upperbound_left + upperbound_right;
+          slope[i][j][1] = slope1_left_to_be_set + slope1_right_to_be_set;
+          // if(slope[i][j][0]>0)
+          //   lowerbound_to_be_set += slope0_right_to_be_set*partitionSize[i];
+          // else 
+          //   lowerbound_to_be_set += slope0_left_to_be_set*partitionSize[i];
+            
+          if((slope1_left_to_be_set < 0.) != (slope1_right_to_be_set < 0.)){   
+            upperbound_to_be_set -= std::min(std::fabs(slope1_left_to_be_set),std::fabs(slope1_right_to_be_set))*partitionSize[i];
+          }
+          if (upperbound_to_be_set + 1.0 < MC__ISM_COMPUTATION_TOL)
+            mat[i][j] = T(-1,std::max((long double)-1.,upperbound_to_be_set));
+          else if (upperbound_to_be_set > std::max(std::cos(l), std::cos(u))){
+            mat[i][j] = T(-1.,std::max(std::cos(l), std::cos(u)));
+            slope[i][j][1] = 0.;
+          }
+          else 
+            mat[i][j] = T(-1.,upperbound_to_be_set);
+        }
+      //slope[i][j][1] = 0.;
+      //slope[i][j][0] = 0.;
+    }
+  }
+}
+
+
 template <typename T>
 inline
 void ISModel<T>::_prod
@@ -1635,6 +5756,291 @@ const
 }
 
 
+/ template <typename T>
+// inline
+// void ISModel<T>::_intersect
+// ( std::vector<std::vector<T>>& mat, unsigned const& ndep, T _rangebnd)
+// const
+// {
+//   assert( !mat.empty() );
+
+//   // Bounds
+//   T sigma = _B( mat, 3 );
+//   T bnd = _B( mat, 1 );
+//   double lambda = Op<T>::l(bnd);
+//   double mu =  Op<T>::u(bnd);
+//   double z_u = Op<T>::l(_rangebnd);
+//   double z_o = Op<T>::u(_rangebnd);
+//   //std::cout<<z_o<<std::endl;
+
+//   // Step 1: Auxilary constants 
+//   double sigma_o(0.),sigma_u(0.) ;
+//   for( unsigned int i=0; i<_nvar; i++ ){
+//     if( mat[i].empty() ) continue;
+//     sigma_o += _L2[i]; 
+//     sigma_u += _U2[i];
+//   }
+
+//   // Step 2: anchor points
+//   double w_u (0.), w_o (0.);
+//   w_u = std::max(lambda,z_u);
+//   w_o = std::min(mu,z_o);
+//   //std::cout<<sigma_o<<std::endl;
+
+
+//   // Step 3-7: Interval matrix coefficients
+//   if(sigma_u == lambda && sigma_o == mu)
+//   ;
+//   else{
+//     if(sigma_u != lambda){
+//       for( unsigned int i=0; i<_nvar; i++ ){
+//         if( mat[i].empty() ) continue;
+//         double in_first_term( -_L1[i] + lambda );
+//         double second_term( w_u + ( _U2[i] - _L1[i] )/( sigma_u - lambda ) * ( sigma_u - w_u) - _U2[i] );
+//         for( unsigned int j=0; j<_ndiv; j++ ){
+//           double _lowerbound(std::max(Op<T>::l( mat[i][j]) + in_first_term, w_u) - second_term);
+//           mat[i][j] = T(_lowerbound,Op<T>::u( mat[i][j]) );
+//         }
+//       }
+//     }
+//     if(sigma_o != mu){
+//       //double temp(0.);
+//       for( unsigned int i=0; i<_nvar; i++ ){
+//         if( mat[i].empty() ) continue;
+//         double in_first_term( -_U1[i] + mu );
+//         double second_term( w_o + ( _L2[i] - _U1[i] )/( sigma_o - mu ) * ( sigma_o - w_o) - _L2[i] );
+//         //temp += second_term;
+//         for( unsigned int j=0; j<_ndiv; j++ ){
+//           double _upbd(0.);
+//           _upbd = std::min(Op<T>::u( mat[i][j]) + in_first_term, w_o) - second_term;
+//           //std::cout<<"i"<<i<<"j"<<j<<std::endl;
+//           //std::cout<<"prev"<<Op<T>::u( mat[i][j])<<std::endl;
+//           //std::cout<<"uppe"<<_upbd <<std::endl;
+//           //T _update(_lb, _upbd);
+//           mat[i][j] = T(Op<T>::l( mat[i][j]),_upbd);
+//           //std::cout<<"late"<<Op<T>::l(mat[i][j])<<std::endl;
+//         }
+//       }
+//       //std::cout<<temp<<std::endl;
+//       //T bnd = _B( mat, 1 );
+//       //std::cout<< Op<T>::u(bnd)<<std::endl;
+//     }
+//   //T bnd = _B( mat, 1 );
+//   //std::cout<< Op<T>::u(bnd)<<std::endl;
+//   } 
+// }
+
+
+template <typename T>
+inline
+void ISModel<T>::_intersect
+( std::vector<std::vector<T>>& mat, std::vector<std::vector<std::vector<long double>>>& slope, const std::vector<long double>& partitionSize, unsigned const& ndep, T _rangebnd )
+const  
+{
+  assert( !mat.empty() );
+  //std::cout << "Intersection for slope is processing" << std::endl;
+  // Bounds
+  T bnd = _B( mat, 1 );   // Note that _U1 and _L1 have been updated here 
+
+  // std::vector<long double> rowlb,rowub;
+  // rowlb.resize(_nvar);
+  // rowub.resize(_nvar);  
+  // for( unsigned int i=0; i<_nvar; i++ ){
+  //   if( mat[i].empty() ) continue;
+  //   rowlb[i] = _L1[i];
+  //   rowub[i] = _U1[i];
+  // }
+  long double lambda = Op<T>::l(bnd);
+  long double mu =  Op<T>::u(bnd);
+  long double z_u = Op<T>::l(_rangebnd);
+  long double z_o = Op<T>::u(_rangebnd);
+
+  
+  
+
+  if(z_o < mu - MC__ISM_COMPUTATION_TOL){
+
+    // Update all maximum of all components of the input overestimator, stored in _L2[i]
+    long double sigma_o = 0.;
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;
+      long double _tmp_row = ((long double)(Op<T>::l( mat[i][0]) + std::fabs(slope[i][0][0]*partitionSize[i])));
+       for( unsigned int j=1; j<_ndiv; j++ ){
+         _tmp_row = std::max(_tmp_row, ((long double)(Op<T>::l( mat[i][j]) + std::fabs(slope[i][j][0]*partitionSize[i]))));
+       }
+       _L2[i]= _tmp_row;
+       sigma_o += _L2[i];
+    }
+
+    if (z_o < sigma_o - MC__ISM_COMPUTATION_TOL)  // when there is something wrong, as the input _rangebnd must be valid over the whole domain
+      throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); 
+    else if (z_o < sigma_o + MC__ISM_COMPUTATION_TOL) // when z_o does not make improvement  
+      ;
+    else {
+      // Step 2: anchor points
+      long double w_o (0.);
+      w_o = std::min(mu,z_o);
+
+      // Step 3: update the upper bounds
+      for( unsigned int i=0; i<_nvar; i++ ){
+        if( mat[i].empty() ) continue;
+        long double in_first_term( -_U1[i] + mu );
+        long double second_term( w_o + ( _L2[i] - _U1[i] )/( sigma_o - mu ) * ( sigma_o - w_o) - _L2[i] );
+        //temp += second_term;
+        for( unsigned int j=0; j<_ndiv; j++ ){
+          long double _upbd(0.);
+          long double _tmp_u = Op<T>::u( mat[i][j]);
+          _upbd = std::min(in_first_term + _tmp_u, w_o) - second_term;
+
+          if (in_first_term >= w_o - _tmp_u) slope[i][j][1] = 0.;      
+
+          //std::cout<<"i"<<i<<"j"<<j<<std::endl;
+          //std::cout<<"prev"<<Op<T>::u( mat[i][j])<<std::endl;
+          //std::cout<<"uppe"<<_upbd <<std::endl;
+          //T _update(_lb, _upbd);
+          long double _tmp_l = Op<T>::l( mat[i][j]);
+          mat[i][j] = T(_tmp_l,_upbd);
+          if(mat[i][j].isEmpty()){
+            if(std::fabs(_tmp_l - _upbd) <= 1e3*MC__ISM_COMPUTATION_TOL){
+              mat[i][j] = T( _upbd,_tmp_l );
+              slope[i][j][1] = 0.;
+            }
+                
+            else
+               std::cout <<std::setprecision(18)<< "over " << _upbd << "    " << _tmp_l
+                                                << "    " << i << "," << j << std::endl;
+          }                     
+          //std::cout<<"late"<<Op<T>::l(mat[i][j])<<std::endl;
+        }
+      }
+    }
+  } 
+
+  if(z_u  >  lambda + MC__ISM_COMPUTATION_TOL){
+    // Update all minimum of all components of the input overestimator, stored in _U2[i]
+    long double sigma_u = 0.;
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;
+      long double _tmp_row = ((long double)(Op<T>::u( mat[i][0]) - std::fabs(slope[i][0][1]*partitionSize[i])));
+       for( unsigned int j=1; j<_ndiv; j++ ){
+         _tmp_row = std::min(_tmp_row, ((long double)(Op<T>::u( mat[i][j]) - std::fabs(slope[i][j][1]*partitionSize[i]) )));
+       }
+       _U2[i]= _tmp_row;
+       sigma_u += _U2[i];
+    }
+    
+    if (z_u > sigma_u + MC__ISM_COMPUTATION_TOL)  // when there is something wrong, as the input _rangebnd must be valid over the whole domain
+      throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); 
+    else if (z_u > sigma_u - MC__ISM_COMPUTATION_TOL) // when z_u does not make improvement  
+      ;
+    else {
+      // Step 2: anchor points
+      long double w_u (0.);
+      w_u = std::max(lambda,z_u);
+      
+      // Step 3: update the lower bounds
+      for( unsigned int i=0; i<_nvar; i++ ){
+        if( mat[i].empty() ) continue;
+        long double in_first_term( -_L1[i] + lambda );
+        long double second_term( w_u + ( _U2[i] - _L1[i] )/( sigma_u - lambda ) * ( sigma_u - w_u) - _U2[i] );
+        for( unsigned int j=0; j<_ndiv; j++ ){
+          long double _tmp_l = Op<T>::l( mat[i][j]);
+
+          if (in_first_term <= w_u - _tmp_l) slope[i][j][0] = 0.;
+
+          long double _lowerbound(std::max(in_first_term + _tmp_l, w_u) - second_term);
+          long double _tmp_u = Op<T>::u( mat[i][j]);
+          mat[i][j] = T(_lowerbound,_tmp_u );
+          if(mat[i][j].isEmpty()){
+            if(std::fabs(_lowerbound - _tmp_u) <= 1e3*MC__ISM_COMPUTATION_TOL){
+              mat[i][j] = T( _tmp_u, _lowerbound );
+              slope[i][j][0] = 0.;
+            }
+            else
+               std::cout <<std::setprecision(18)<< "under  " << _tmp_u << "    " << _lowerbound 
+                                                << "    " << i << "," << j << std::endl;
+          }              
+        }
+      }
+    }
+  }
+
+}
+
+// template <typename T>
+// inline
+// void ISModel<T>::_intersect
+// ( std::vector<std::vector<T>>& mat, unsigned const& ndep, T _rangebnd)
+// const
+// {
+//   assert( !mat.empty() );
+
+//   // Bounds
+//   T sigma = _B( mat, 3 );
+//   T bnd = _B( mat, 1 );
+//   double lambda = Op<T>::l(bnd);
+//   double mu =  Op<T>::u(bnd);
+//   double z_u = Op<T>::l(_rangebnd);
+//   double z_o = Op<T>::u(_rangebnd);
+//   //std::cout<<z_o<<std::endl;
+
+//   // Step 1: Auxilary constants 
+//   double sigma_o(0.),sigma_u(0.) ;
+//   for( unsigned int i=0; i<_nvar; i++ ){
+//     if( mat[i].empty() ) continue;
+//     sigma_o += _L2[i]; 
+//     sigma_u += _U2[i];
+//   }
+
+//   // Step 2: anchor points
+//   double w_u (0.), w_o (0.);
+//   w_u = std::max(lambda,z_u);
+//   w_o = std::min(mu,z_o);
+//   //std::cout<<sigma_o<<std::endl;
+
+
+//   // Step 3-7: Interval matrix coefficients
+//   if(sigma_u == lambda && sigma_o == mu)
+//   ;
+//   else{
+//     if(sigma_u != lambda){
+//       for( unsigned int i=0; i<_nvar; i++ ){
+//         if( mat[i].empty() ) continue;
+//         double in_first_term( -_L1[i] + lambda );
+//         double second_term( w_u + ( _U2[i] - _L1[i] )/( sigma_u - lambda ) * ( sigma_u - w_u) - _U2[i] );
+//         for( unsigned int j=0; j<_ndiv; j++ ){
+//           double _lowerbound(std::max(Op<T>::l( mat[i][j]) + in_first_term, w_u) - second_term);
+//           mat[i][j] = T(_lowerbound,Op<T>::u( mat[i][j]) );
+//         }
+//       }
+//     }
+//     if(sigma_o != mu){
+//       //double temp(0.);
+//       for( unsigned int i=0; i<_nvar; i++ ){
+//         if( mat[i].empty() ) continue;
+//         double in_first_term( -_U1[i] + mu );
+//         double second_term( w_o + ( _L2[i] - _U1[i] )/( sigma_o - mu ) * ( sigma_o - w_o) - _L2[i] );
+//         //temp += second_term;
+//         for( unsigned int j=0; j<_ndiv; j++ ){
+//           double _upbd(0.);
+//           _upbd = std::min(Op<T>::u( mat[i][j]) + in_first_term, w_o) - second_term;
+//           //std::cout<<"i"<<i<<"j"<<j<<std::endl;
+//           //std::cout<<"prev"<<Op<T>::u( mat[i][j])<<std::endl;
+//           //std::cout<<"uppe"<<_upbd <<std::endl;
+//           //T _update(_lb, _upbd);
+//           mat[i][j] = T(Op<T>::l( mat[i][j]),_upbd);
+//           //std::cout<<"late"<<Op<T>::l(mat[i][j])<<std::endl;
+//         }
+//       }
+//       //std::cout<<temp<<std::endl;
+//       //T bnd = _B( mat, 1 );
+//       //std::cout<< Op<T>::u(bnd)<<std::endl;
+//     }
+//   //T bnd = _B( mat, 1 );
+//   //std::cout<< Op<T>::u(bnd)<<std::endl;
+//   } 
+// }
+
 template <typename T>
 inline
 void ISModel<T>::_intersect
@@ -1644,70 +6050,121 @@ const
   assert( !mat.empty() );
 
   // Bounds
-  T sigma = _B( mat, 3 );
-  T bnd = _B( mat, 1 );
-  double lambda = Op<T>::l(bnd);
-  double mu =  Op<T>::u(bnd);
-  double z_u = Op<T>::l(_rangebnd);
-  double z_o = Op<T>::u(_rangebnd);
-  //std::cout<<z_o<<std::endl;
+  T bnd = _B( mat, 1 );   // Note that _U1 and _L1 have been updated here 
 
-  // Step 1: Auxilary constants 
-  double sigma_o(0.),sigma_u(0.) ;
-  for( unsigned int i=0; i<_nvar; i++ ){
-    if( mat[i].empty() ) continue;
-    sigma_o += _L2[i]; 
-    sigma_u += _U2[i];
-  }
+  // std::vector<long double> rowlb,rowub;
+  // rowlb.resize(_nvar);
+  // rowub.resize(_nvar);  
+  // for( unsigned int i=0; i<_nvar; i++ ){
+  //   if( mat[i].empty() ) continue;
+  //   rowlb[i] = _L1[i];
+  //   rowub[i] = _U1[i];
+  // }
+  long double lambda = Op<T>::l(bnd);
+  long double mu =  Op<T>::u(bnd);
+  long double z_u = Op<T>::l(_rangebnd);
+  long double z_o = Op<T>::u(_rangebnd);
 
-  // Step 2: anchor points
-  double w_u (0.), w_o (0.);
-  w_u = std::max(lambda,z_u);
-  w_o = std::min(mu,z_o);
-  //std::cout<<sigma_o<<std::endl;
+  
+  
 
+  if(z_o < mu - MC__ISM_COMPUTATION_TOL){
 
-  // Step 3-7: Interval matrix coefficients
-  if(sigma_u == lambda && sigma_o == mu)
-  ;
-  else{
-    if(sigma_u != lambda){
-      for( unsigned int i=0; i<_nvar; i++ ){
-        if( mat[i].empty() ) continue;
-        double in_first_term( -_L1[i] + lambda );
-        double second_term( w_u + ( _U2[i] - _L1[i] )/( sigma_u - lambda ) * ( sigma_u - w_u) - _U2[i] );
-        for( unsigned int j=0; j<_ndiv; j++ ){
-          double _lowerbound(std::max(Op<T>::l( mat[i][j]) + in_first_term, w_u) - second_term);
-          mat[i][j] = T(_lowerbound,Op<T>::u( mat[i][j]) );
-        }
-      }
+    // Update all maximum of all components of the input overestimator, stored in _L2[i]
+    long double sigma_o = 0.;
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;
+      long double _tmp_row = ((long double)(Op<T>::l( mat[i][0])));
+       for( unsigned int j=1; j<_ndiv; j++ ){
+         _tmp_row = std::max(_tmp_row, ((long double)(Op<T>::l( mat[i][j]))));
+       }
+       _L2[i]= _tmp_row;
+       sigma_o += _L2[i];
     }
-    if(sigma_o != mu){
-      //double temp(0.);
+
+    if (z_o < sigma_o - MC__ISM_COMPUTATION_TOL)  // when there is something wrong, as the input _rangebnd must be valid over the whole domain
+      throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); 
+    else if (z_o < sigma_o + MC__ISM_COMPUTATION_TOL) // when z_o does not make improvement  
+      ;
+    else {
+      // Step 2: anchor points
+      long double w_o (0.);
+      w_o = std::min(mu,z_o);
+
+      // Step 3: update the upper bounds
       for( unsigned int i=0; i<_nvar; i++ ){
         if( mat[i].empty() ) continue;
-        double in_first_term( -_U1[i] + mu );
-        double second_term( w_o + ( _L2[i] - _U1[i] )/( sigma_o - mu ) * ( sigma_o - w_o) - _L2[i] );
+        long double in_first_term( -_U1[i] + mu );
+        long double second_term( w_o + ( _L2[i] - _U1[i] )/( sigma_o - mu ) * ( sigma_o - w_o) - _L2[i] );
         //temp += second_term;
         for( unsigned int j=0; j<_ndiv; j++ ){
-          double _upbd(0.);
-          _upbd = std::min(Op<T>::u( mat[i][j]) + in_first_term, w_o) - second_term;
+          long double _upbd(0.);
+          long double _tmp_u = Op<T>::u( mat[i][j]);
+          _upbd = std::min(in_first_term + _tmp_u, w_o) - second_term;
           //std::cout<<"i"<<i<<"j"<<j<<std::endl;
           //std::cout<<"prev"<<Op<T>::u( mat[i][j])<<std::endl;
           //std::cout<<"uppe"<<_upbd <<std::endl;
           //T _update(_lb, _upbd);
-          mat[i][j] = T(Op<T>::l( mat[i][j]),_upbd);
+          long double _tmp_l = Op<T>::l( mat[i][j]);
+          mat[i][j] = T(_tmp_l,_upbd);
+          if(mat[i][j].isEmpty()){
+            if(std::fabs(_tmp_l - _upbd) <= 1e3*MC__ISM_COMPUTATION_TOL)
+                mat[i][j] = T( _upbd,_tmp_l );
+            else
+               std::cout <<std::setprecision(18)<< "over " << _upbd << "    " << _tmp_l
+                                                << "    " << i << "," << j << std::endl;
+          }                     
           //std::cout<<"late"<<Op<T>::l(mat[i][j])<<std::endl;
         }
       }
-      //std::cout<<temp<<std::endl;
-      //T bnd = _B( mat, 1 );
-      //std::cout<< Op<T>::u(bnd)<<std::endl;
     }
-  //T bnd = _B( mat, 1 );
-  //std::cout<< Op<T>::u(bnd)<<std::endl;
   } 
+
+  if(z_u  >  lambda + MC__ISM_COMPUTATION_TOL){
+    // Update all minimum of all components of the input overestimator, stored in _U2[i]
+    long double sigma_u = 0.;
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( mat[i].empty() ) continue;
+      long double _tmp_row = ((long double)(Op<T>::u( mat[i][0])));
+       for( unsigned int j=1; j<_ndiv; j++ ){
+         _tmp_row = std::min(_tmp_row, ((long double)(Op<T>::u( mat[i][j]))));
+       }
+       _U2[i]= _tmp_row;
+       sigma_u += _U2[i];
+    }
+    
+    if (z_u > sigma_u + MC__ISM_COMPUTATION_TOL)  // when there is something wrong, as the input _rangebnd must be valid over the whole domain
+      throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); 
+    else if (z_u > sigma_u - MC__ISM_COMPUTATION_TOL) // when z_u does not make improvement  
+      ;
+    else {
+      // Step 2: anchor points
+      long double w_u (0.);
+      w_u = std::max(lambda,z_u);
+      
+      // Step 3: update the lower bounds
+      for( unsigned int i=0; i<_nvar; i++ ){
+        if( mat[i].empty() ) continue;
+        long double in_first_term( -_L1[i] + lambda );
+        long double second_term( w_u + ( _U2[i] - _L1[i] )/( sigma_u - lambda ) * ( sigma_u - w_u) - _U2[i] );
+        for( unsigned int j=0; j<_ndiv; j++ ){
+          long double _tmp_l = Op<T>::l( mat[i][j]);
+          long double _lowerbound(std::max(in_first_term + _tmp_l, w_u) - second_term);
+          long double _tmp_u = Op<T>::u( mat[i][j]);
+          mat[i][j] = T(_lowerbound,_tmp_u );
+          if(mat[i][j].isEmpty()){
+            if(std::fabs(_lowerbound - _tmp_u) <= 1e3*MC__ISM_COMPUTATION_TOL)
+                mat[i][j] = T( _tmp_u, _lowerbound );
+            else
+               std::cout <<std::setprecision(18)<< "under  " << _tmp_u << "    " << _lowerbound 
+                                                << "    " << i << "," << j << std::endl;
+          }              
+        }
+      }
+    }
+  }
 }
+
 
 //! @brief C++ class for interval superposition models of factorable functions: variable
 ////////////////////////////////////////////////////////////////////////
@@ -1846,6 +6303,21 @@ class ISVar
   //! @brief Variable bound
   mutable std::pair<T,bool> _bnd;
 
+  //! @brief Slope matrix
+  std::vector<std::vector<std::vector<long double>>> _slope;
+  //! @brief Shadow matrix
+  std::vector<std::vector<std::vector<long double>>> _shadow;
+  //std::vector<std::vector<std::vector<T>>> _shadow_mat;
+  //! @brief Shadow slop matrix
+  std::vector<std::vector<std::vector<long double>>> _shadow_slope;  
+
+  mutable std::vector<double> _shadow_info;
+
+  // std::vector<std::vector<T>> _matForAgrt;  
+  // std::vector<std::vector<std::vector<long double>>> _slopeForAgrt;
+  // std::vector<std::vector<std::vector<long double>>> _shadowForAgrt;
+  // std::vector<std::vector<std::vector<long double>>> _shadow_slopeForAgrt;     
+
  public:
  
   ISVar<T>& operator+=
@@ -1878,6 +6350,12 @@ class ISVar
     _mat.clear(); // may not resize _mat
     _cst = cst;
     _bnd = std::make_pair( 0., false );
+    _slope.clear();  // added for allowing slope-based enhancement
+    _shadow.clear(); // added for allowing shadow enhancement
+    _shadow_slope.clear(); // added for allowing shadow enhancement
+    _shadow_info.clear();
+    _shadow_info.resize(1);
+    _shadow_info[0] = 1.;    
     return *this;
   }
 
@@ -1896,6 +6374,10 @@ class ISVar
     _ndep = var._ndep;
     _mat = var._mat;
     _bnd = var._bnd;
+    _slope = var._slope;
+    _shadow = var._shadow;
+    _shadow_slope = var._shadow_slope;   
+    _shadow_info = var._shadow_info;    
     return *this;
   }
 
@@ -1913,35 +6395,116 @@ class ISVar
     _ndiv = var._ndiv;
     _ndep = var._ndep;
     //_mat = var._mat;
-    std::swap( _mat, var._mat );
+    //std::swap( _mat, var._mat );
+    _mat.swap(var._mat);
     _bnd = var._bnd;
+    //std::swap( _slope, var._slope );
+    _slope.swap(var._slope);
+    _shadow.swap(var._shadow);
+    _shadow_slope.swap(var._shadow_slope);
+    _shadow_info = var._shadow_info;    
     return *this;
   }
 
+  // ISVar
+  // ( ISModel<T>* const mod )
+  // : _mod(mod), _ndiv(mod->_ndiv), _nvar(mod->_nvar), _ndep(0), _mat(_nvar), _bnd(0.,false)
+  // {}
+
+  // ISVar
+  // ( ISModel<T>* const mod, unsigned int ndx, T const& bnd )
+  // : _mod(mod), _ndiv(mod->_ndiv), _nvar(mod->_nvar), _ndep(1), _mat(_nvar), _bnd(bnd,true)
+  // {
+  //   if( ndx >= _nvar )
+  //     throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::INDEX );
+
+  //   double l = Op<T>::l(bnd);
+  //   double h = Op<T>::diam(bnd) / (double)_ndiv;
+  //   _mat[ndx].resize( _ndiv );
+  //   for( unsigned int j=0; j<_ndiv; j++, l+=h )
+  //     _mat[ndx][j] = T( l, l+h );
+  //   _mod->_defvar[ndx] = true;
+  //   _mod->_bndvar[ndx] = bnd;
+  // }
+
   ISVar
   ( ISModel<T>* const mod )
-  : _mod(mod), _ndiv(mod->_ndiv), _nvar(mod->_nvar), _ndep(0), _mat(_nvar), _bnd(0.,false)
-  {}
+  : _mod(mod), _ndiv(mod->_ndiv), _nvar(mod->_nvar), _ndep(0), _mat(_nvar), _bnd(0.,false), _slope(_nvar),_shadow(4), _shadow_slope(4),_shadow_info(1)
+  {
+    for(unsigned i = 0; i< 4; i++){
+      _shadow[i].resize(_nvar);
+      _shadow_slope[i].resize(_nvar);
+    }
+    _shadow_info[0] = 1.;
+  }
+
+ 
 
   ISVar
   ( ISModel<T>* const mod, unsigned int ndx, T const& bnd )
-  : _mod(mod), _ndiv(mod->_ndiv), _nvar(mod->_nvar), _ndep(1), _mat(_nvar), _bnd(bnd,true)
+  : _mod(mod), _ndiv(mod->_ndiv), _nvar(mod->_nvar), _ndep(1), _mat(_nvar), _bnd(bnd,true), _slope(_nvar), _shadow(4), _shadow_slope(4),_shadow_info(1)
   {
     if( ndx >= _nvar )
       throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::INDEX );
 
-    double l = Op<T>::l(bnd);
-    double h = Op<T>::diam(bnd) / (double)_ndiv;
+    long double l = Op<T>::l(bnd);
+    long double h = Op<T>::diam(bnd) / (long double)_ndiv;
     _mat[ndx].resize( _ndiv );
-    for( unsigned int j=0; j<_ndiv; j++, l+=h )
+    for( unsigned int j=0; j<_ndiv-1; j++, l+=h )
       _mat[ndx][j] = T( l, l+h );
+    _mat[ndx][_ndiv-1] = T( Op<T>::u(bnd)-h, Op<T>::u(bnd));  
     _mod->_defvar[ndx] = true;
     _mod->_bndvar[ndx] = bnd;
+
+    if (_mod->options.SLOPE_USE){
+      _mod->_psize[ndx] = h;
+      _slope[ndx].resize( _ndiv );
+      for( unsigned int j=0; j<_ndiv; j++){
+        _slope[ndx][j].resize(2);
+        _slope[ndx][j][0] = 1.;
+        _slope[ndx][j][1] = 1.;
+      }
+    }
+
+    if (_mod->options.SHADOW_USE){
+      //for( unsigned int j=0; j<_ndiv; j++){
+      for(unsigned i = 0; i< 4; i++){
+        _shadow[i].resize(_nvar);
+        _shadow_slope[i].resize(_nvar);
+      }
+      // _shadow[0].resize(_nvar);
+      // _shadow[1].resize(_nvar);
+      // _shadow_slope[0].resize(_nvar);
+      // _shadow_slope[1].resize(_nvar);
+        _shadow_info[0] = 1.;
+        // initialze containers and info
+      //}
+    }    
+
   }
+
+
+//   ISVar
+//   ( double const& cst=0. )
+//   : _mod(nullptr), _ndiv(0), _nvar(0), _ndep(0), _cst(cst), _bnd(0.,false)
+//   {}
+
+//   ISVar
+//   ( ISVar<T> const& var )
+//   : _mod(var._mod), _ndiv(var._ndiv), _nvar(var._nvar), _ndep(var._ndep)
+//   {
+// #ifdef MC__ISMODEL_TRACE
+//     std::cerr << "-- ISVar( ISVar<T> const& )\n";
+// #endif
+//     if( this == &var ) return;
+//     if( !_mod ) _cst = var._cst;
+//     _mat = var._mat;
+//     _bnd = var._bnd;
+//   }
 
   ISVar
   ( double const& cst=0. )
-  : _mod(nullptr), _ndiv(0), _nvar(0), _ndep(0), _cst(cst), _bnd(0.,false)
+  : _mod(nullptr), _ndiv(0), _nvar(0), _ndep(0), _cst(cst), _bnd(0.,false), _slope(0), _shadow(0), _shadow_slope(0),_shadow_info(0)
   {}
 
   ISVar
@@ -1955,6 +6518,12 @@ class ISVar
     if( !_mod ) _cst = var._cst;
     _mat = var._mat;
     _bnd = var._bnd;
+    _slope = var._slope;
+    _shadow = var._shadow;
+    _shadow_slope = var._shadow_slope;
+    _shadow_info = var._shadow_info;
+
+
   }
 
   ISVar
@@ -1967,13 +6536,23 @@ class ISVar
     if( this == &var ) return;
     if( !_mod ) _cst = var._cst;
     //_mat = var._mat;
-    std::swap( _mat, var._mat );
+    //std::swap( _mat, var._mat );
+    _mat.swap( var._mat );
     _bnd = var._bnd;
+    //std::swap( _slope, var._slope );
+    _slope.swap( var._slope );
+    _shadow.swap( var._shadow );
+    _shadow_slope.swap( var._shadow_slope);
+    _shadow_info = var._shadow_info;    
   }
 
   ~ISVar
   () 
-  {}
+  {
+#ifdef FISM_LIFITIME_DEBUG 
+    std::cout<< "ISV delated, nvar = " <<_nvar <<std::endl;
+#endif    
+  }
 
   ISVar<T>& set
   ( ISModel<T>* const mod )
@@ -1985,6 +6564,17 @@ class ISVar
     _mat.clear();
     _mat.resize( _nvar );
     _bnd = std::make_pair( 0., false );
+    _slope.clear();
+    _slope.resize( _nvar );
+    _shadow.clear();
+    _shadow.resize(4);
+    _shadow_slope.clear();
+    _shadow_slope.resize(4);
+    for(unsigned i = 0; i< 4; i++){
+      _shadow[i].resize(_nvar);
+      _shadow_slope[i].resize(_nvar);
+    }
+    _shadow_info[0] = 1.;
 
     return *this;
   }
@@ -2001,15 +6591,43 @@ class ISVar
     _ndep = 1;
     _mat.clear();
     _mat.resize( _nvar );
-    double l = Op<T>::l(bnd);
-    double h = Op<T>::diam(bnd) / (double)_ndiv;
+    long double l = Op<T>::l(bnd);
+    long double h = Op<T>::diam(bnd) / (long double)_ndiv;
     _mat[ndx].resize( _ndiv );
-    for( unsigned int j=0; j<_ndiv; j++, l+=h )
+    for( unsigned int j=0; j<_ndiv - 1; j++, l+=h )
       _mat[ndx][j] = T( l, l+h );
-
+      _mat[ndx][_ndiv - 1] = T( Op<T>::u(bnd) - h, Op<T>::u(bnd) );
     _mod->_defvar[ndx] = true;
     _mod->_bndvar[ndx] = bnd;
     _bnd = std::make_pair( bnd, true );
+
+    _slope.clear();
+    _slope.resize( _nvar );
+    if (_mod->options.SLOPE_USE){
+      _mod->_psize[ndx] = h;
+      _slope[ndx].resize( _ndiv );
+      for( unsigned int j=0; j<_ndiv; j++){
+        _slope[ndx][j].resize(2);
+        _slope[ndx][j][0] = 1.;
+        _slope[ndx][j][1] = 1.;
+      }
+    }
+
+    if (_mod->options.SHADOW_USE){
+      //for( unsigned int j=0; j<_ndiv; j++){
+      _shadow.clear();
+      _shadow.resize(4);
+      _shadow_slope.clear();
+      _shadow_slope.resize(4);
+      for(unsigned i = 0; i< 4; i++){
+        _shadow[i].resize(_nvar);
+        _shadow_slope[i].resize(_nvar);
+      }
+      _shadow_info[0] = 1.;        
+        ;//initialize containers and info
+      //}
+    }
+ 
 
     return *this;
   }
@@ -2018,6 +6636,27 @@ class ISVar
   ()
   const
   { return _mat; }
+
+  std::vector<std::vector<std::vector<long double>>> const& get_slopes
+  ()
+  const
+  { return _slope; }
+
+  std::vector<std::vector<std::vector<long double>>> const& get_shadow
+  ()
+  const
+  { return _shadow; }
+
+  std::vector<std::vector<std::vector<long double>>> const& get_shadow_slopes
+  ()
+  const
+  { return _shadow_slope; }
+
+  std::vector<double> const& get_shadow_info
+  ()
+  const
+  { return _shadow_info; }
+
 
   std::vector<std::vector<T>>& C
   ()
@@ -2036,6 +6675,16 @@ class ISVar
   unsigned int& ndep
   ()
   { return _ndep; }
+
+  double ub
+  ()
+  const
+  { return Op<T>::u(bound()); }
+
+  double lb
+  ()
+  const
+  { return Op<T>::l(bound()); }
 
   T B
   ()
@@ -2059,22 +6708,130 @@ class ISVar
     assert( point );
     if( !_mod ) return _cst;
     T val( 0. );
+
+    long double sum_underEnhancer = 0.0;
+    long double sum_overEnhancer = 0.0;
+    const long double longdoublezero = 0.;
+    long double shadow_sign = 0.;
+    //std::cout << "eval at point" <<std::endl;    
     for( unsigned int i=0; i<_nvar; i++ ){
-      if( _mat[i].empty() ) continue;
+      if( _mat[i].empty() ) { 
+        //std::cout << "skip variable i = " << i << std::endl;   
+        continue;
+      }
       double l = Op<T>::l( _mod->_bndvar[i] );
       double u = Op<T>::u( _mod->_bndvar[i] );
+      //std::cout << "the lower bound is " << l << std::endl;
+      //std::cout << "the upper bound is " << u << std::endl;      
       if(point[i] < l || point[i] > u){
         //std::cout<<"l: "<<l<<" p: "<<point[i]<<" u: "<<u<<std::endl;
         const double _eps (0.00000000000001);
         if (point[i] - u >= _eps || point[i] - l <= -_eps)
           assert( point[i] >= l && point[i] <= u );
       }
-      double h = Op<T>::diam( _mod->_bndvar[i] ) / (double)_ndiv;
-      int ndx = std::floor( ( point[i] - l ) /  h );
+    //   double h = Op<T>::diam( _mod->_bndvar[i] ) / (double)_ndiv;
+    //   int ndx = std::floor( ( point[i] - l ) /  h );
+    //   if( ndx < 0 ) ndx = 0;
+    //   if( ndx >= (int)_ndiv ) ndx = _ndiv-1;      
+    //   val += _mat[i][ndx];
+      long double h = Op<T>::diam( _mod->_bndvar[i] ) / (long double)_ndiv;
+      int ndx = std::floor( ( point[i] - l ) /  h ); 
       if( ndx < 0 ) ndx = 0;
       if( ndx >= (int)_ndiv ) ndx = _ndiv-1;      
-      val += _mat[i][ndx];
+      val += _mat[i][ndx]; 
+       
+      //std::cout << "val computed at " << i <<std::endl;
+      
+      if ( _mod->options.SLOPE_USE){
+        //std::cout << " in slope " << i <<std::endl;
+        long double valL = Op<T>::l(val);
+        long double valU = Op<T>::u(val);
+        if (_slope[i][ndx][0]>MC__ISM_COMPUTATION_TOL){
+          valL = valL + _slope[i][ndx][0]*(point[i] - h*((double) ndx) - l); 
+          //std::cout << "pl " << std::setprecision(18) << _slope[i][ndx][0]*(point[i] - h*((double) ndx) - l) << "," << h << std::endl;
+        }
+        else if (_slope[i][ndx][0] < -MC__ISM_COMPUTATION_TOL){
+          valL = valL + _slope[i][ndx][0]*(point[i] - h*((double)(ndx+1)) - l);
+          //std::cout << "pu " << std::setprecision(18) << _slope[i][ndx][0]*(point[i] - h*((double)(ndx+1)) - l) << "," << h << std::endl;
+        }
+          
+        if (_slope[i][ndx][1]>MC__ISM_COMPUTATION_TOL)
+          valU = valU + _slope[i][ndx][1]*(point[i] - h*((double)(ndx+1)) - l);
+        else if (_slope[i][ndx][1] < -MC__ISM_COMPUTATION_TOL)
+          valU = valU + _slope[i][ndx][1]*(point[i] - h*((double) ndx) - l);
+
+        if (valU - valL > MC__ISM_COMPUTATION_TOL)
+          val = T(valL,valU);
+        else if (valU - valL < -1e2*MC__ISM_COMPUTATION_TOL){
+          std::cout << "Error in slope: at " << i << "," << ndx << std::endl; 
+          std::cout << std::setprecision(18) << valU - valL << "," << valU << "," << valL << std::endl; 
+        }
+        else 
+          val = T(std::min(valL,valU),std::max(valL,valU));
+
+        if(_mod->options.SHADOW_USE && _shadow_info.size()>1){
+          //std::cout << "shadow" << std::endl;
+          long double underEnhancer = 0.;
+          long double overEnhancer = 0.;
+          if(_shadow_info[0]>0)
+            shadow_sign = 1.;
+          else if(_shadow_info[0]<0)
+            shadow_sign = -1.;
+          else
+            throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF );
+ 
+
+          if(_shadow_info[1] == 1){
+            underEnhancer = _shadow[0][i][ndx];
+            if (_shadow_slope[0][i][ndx]>MC__ISM_COMPUTATION_TOL){
+              underEnhancer = underEnhancer + _shadow_slope[0][i][ndx]*(point[i] - h*((double) ndx) - l); 
+              //std::cout << "pl " << std::setprecision(18) << _slope[i][ndx][0]*(point[i] - h*((double) ndx) - l) << "," << h << std::endl;
+            }
+            else if (_shadow_slope[0][i][ndx] < -MC__ISM_COMPUTATION_TOL){
+              underEnhancer = underEnhancer + _shadow_slope[0][i][ndx]*(point[i] - h*((double)(ndx+1)) - l);
+              //std::cout << "pu " << std::setprecision(18) << _slope[i][ndx][0]*(point[i] - h*((double)(ndx+1)) - l) << "," << h << std::endl;
+            }
+            //underEnhancer = std::max(shadow_sign*underEnhancer,longdoublezero);
+          }
+          if(_shadow_info[2] == 1){
+            overEnhancer = _shadow[1][i][ndx];    
+            if (_shadow_slope[1][i][ndx]>MC__ISM_COMPUTATION_TOL)
+              overEnhancer = overEnhancer + _shadow_slope[1][i][ndx]*(point[i] - h*((double)(ndx+1)) - l);
+            else if (_shadow_slope[1][i][ndx] < -MC__ISM_COMPUTATION_TOL)
+              overEnhancer = overEnhancer + _shadow_slope[1][i][ndx]*(point[i] - h*((double) ndx) - l);
+            //overEnhancer = std::min(shadow_sign*overEnhancer,longdoublezero);
+          }
+          //std::cout << "proccessed" <<std::endl;
+          sum_underEnhancer += underEnhancer;
+          sum_overEnhancer += overEnhancer;
+        }
+      }
+        
     }
+
+    //std::cout << "after for loop" <<std::endl;   
+
+    if(_mod->options.SHADOW_USE ){
+      if(_shadow_info.size()>1){
+        long double valL = Op<T>::l(val)+std::max(shadow_sign*sum_underEnhancer,longdoublezero);
+
+        // if(std::max(shadow_sign*sum_underEnhancer,longdoublezero)>0.)
+        //   std::cout << std::max(shadow_sign*sum_underEnhancer,longdoublezero) << std::endl;
+
+        long double valU = Op<T>::u(val)+std::min(shadow_sign*sum_overEnhancer,longdoublezero);       
+        if (valU - valL > MC__ISM_COMPUTATION_TOL)
+          val = T(valL,valU);
+        else if (valU - valL < -1e2*MC__ISM_COMPUTATION_TOL){
+          std::cout << "Error in shadowslope: " << std::endl; 
+          std::cout << std::setprecision(18) << "valU - valL = " <<valU - valL << "," 
+                    << "valU = " << valU << ", valL = " << valL << std::endl; 
+        }
+        else 
+          val = T(std::min(valL,valU),std::max(valL,valU));    
+      }
+
+    }
+
     return val;
   }
 
@@ -2088,10 +6845,20 @@ class ISVar
   
  private:
 
+  // ISVar
+  // ( ISModel<T> const* const mod )
+  // : _mod(mod), _ndiv(mod->_ndiv), _nvar(mod->_nvar ), _mat(_nvar), _bnd(0.,false)
+  // {}
+
   ISVar
   ( ISModel<T> const* const mod )
-  : _mod(mod), _ndiv(mod->_ndiv), _nvar(mod->_nvar ), _mat(_nvar), _bnd(0.,false)
-  {}
+  : _mod(mod), _ndiv(mod->_ndiv), _nvar(mod->_nvar ), _mat(_nvar), _bnd(0.,false), _slope(_nvar),_shadow(4), _shadow_slope(4),_shadow_info(1)
+  {
+    for(unsigned i = 0; i< 4; i++){
+      _shadow[i].resize(_nvar);
+      _shadow_slope[i].resize(_nvar);
+    }  
+  }
 
 };
 
@@ -2168,6 +6935,59 @@ ISVar<T>& ISVar<T>::operator+=
   if( _mod != var._mod )
     throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::MODEL );
 
+  if (_mod->options.SHADOW_USE){
+#ifndef NOTTOTRACKSHADOW    
+    std::cout << "SHADOW ADDITION" << std::endl;
+#endif
+    bool toAggregate = false;
+    if (_shadow_info.size() > 1 && var._shadow_info.size() > 1){
+      if (_shadow_info[1] > 0 || _shadow_info[2] > 0 || var._shadow_info[1]>0 || var._shadow_info[2] > 0)
+        toAggregate = true;
+      else{
+        std::cout << "error in shadow info in processing binary addition" << std::endl;
+        throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF );
+      }  
+    }
+    else if(_shadow_info.size() > 1){
+      var._shadow_info.push_back(0.);
+      var._shadow_info.push_back(0.);
+      toAggregate = true;
+    }
+    else if(var._shadow_info.size() > 1){
+      _shadow_info.push_back(0.);
+      _shadow_info.push_back(0.);
+      toAggregate = true;
+    }  
+    if (toAggregate){
+
+#ifndef NOTTOTRACKSHADOW
+      for (size_t k = 0;k<_shadow_info.size();k++){
+        std::cout << "_shadow_info[" << k << "] " <<_shadow_info[k] << "\n";
+      }
+      std::cout << std::endl;
+#endif
+#ifndef NOTTOTRACKSHADOW           
+      for (size_t k = 0;k<var._shadow_info.size();k++){
+        std::cout << "var_shadow_info[" << k << "] " << var._shadow_info[k] << "\n";
+      }
+      std::cout << std::endl;
+#endif
+
+       //update ndep
+      for( unsigned int i=0; i<_nvar; i++ ){
+        if( !_mat[i].empty() && !var._mat[i].empty() )
+          ;
+        else if( !var._mat[i].empty() ){
+          _ndep++;                // add dependency
+        }
+      }     
+
+      T bndB = var.bound();
+      _mod->_add_aggregate_shadow( _mat, var._mat, _slope, var._slope, _shadow, var._shadow, _shadow_slope, var._shadow_slope, _shadow_info, var._shadow_info, _mod->_psize, _ndep,bndB);
+      return *this; 
+    } 
+  }
+
   for( unsigned int i=0; i<_nvar; i++ ){
     if( !_mat[i].empty() && !var._mat[i].empty() )
       for( unsigned int j=0; j<_ndiv; j++ )
@@ -2178,6 +6998,40 @@ ISVar<T>& ISVar<T>::operator+=
     }
   }
   _bnd.second = false;
+
+  //use slope information to tighten interval bounds
+  if (_mod->options.SLOPE_USE){
+    for( unsigned int i=0; i<_nvar; i++ ){
+      //std::cout << "slope cases " << i << ":" <<_slope[i].empty() <<" , "<< var._slope[i].empty() << std::endl;
+      if( (!_slope[i].empty()) && (!var._slope[i].empty()) ){
+        //std::cout << "    Slope addition" << std::endl;
+        for( unsigned int j=0; j<_ndiv; j++ ){
+          if((_slope[i][j][0] < 0.) != (var._slope[i][j][0] < 0.)){   
+            long double tightener = std::min(std::fabs(_slope[i][j][0]),std::fabs(var._slope[i][j][0]))*(_mod->_psize[i]);
+            if ( Op<T>::u(_mat[i][j]) - tightener - Op<T>::l(_mat[i][j]) < MC__ISM_COMPUTATION_TOL)
+              _mat[i][j] = T(Op<T>::l(_mat[i][j]) + tightener);
+            else
+              _mat[i][j] = T(Op<T>::l(_mat[i][j]) + tightener , Op<T>::u(_mat[i][j]));
+          }
+ 
+          if((_slope[i][j][1] < 0.) != (var._slope[i][j][1] < 0.)){   
+            long double tightener = std::min(std::fabs(_slope[i][j][1]),std::fabs(var._slope[i][j][1]))*(_mod->_psize[i]);
+            if ( Op<T>::u(_mat[i][j]) - tightener - Op<T>::l(_mat[i][j]) < MC__ISM_COMPUTATION_TOL)
+              _mat[i][j] = T(Op<T>::u(_mat[i][j]) - tightener);
+            else 
+              _mat[i][j] = T(Op<T>::l(_mat[i][j]) , Op<T>::u(_mat[i][j]) - tightener);
+         }
+          _slope[i][j][0] += var._slope[i][j][0];
+          _slope[i][j][1] += var._slope[i][j][1];
+        }
+      }
+      else if( !var._slope[i].empty() ){
+        //std:: cout << "copy row " << i <<std::endl; 
+        _slope[i] = var._slope[i];  // copy entire row
+      }
+    }
+    //std::cout << "slope cases ended" << std::endl;
+  }
 
   return *this;
 }
@@ -2239,6 +7093,36 @@ ISVar<T> operator-
       for( unsigned int j=0; j<var2._ndiv; j++ )
         mat2[i][j] *= -1;
     }
+
+    if(var2._mod->options.SLOPE_USE){
+      auto&& slope2 = var2._slope;
+      for( unsigned int i=0; i<var2._nvar; i++ ){
+        if( mat2[i].empty() ) continue;
+        for( unsigned int j=0; j<var2._ndiv; j++ ){
+          slope2[i][j][0] = -1*slope2[i][j][0];
+          slope2[i][j][1] = -1*slope2[i][j][1];
+          std::swap(slope2[i][j][0],slope2[i][j][1]);
+        }
+      }      
+    }
+
+    if(var2._mod->options.SHADOW_USE){
+      if(var2._shadow_info.size()>1){
+        var2._shadow[0].swap(var2._shadow[1]);
+//        var2._shadow[2].swap(var2._shadow[3]);
+        var2._shadow_slope[0].swap(var2._shadow_slope[1]);
+//        var2._shadow_slope[2].swap(var2._shadow_slope[3]);      
+        var2._shadow_info[0] *= -1.;
+
+        std::swap(var2._shadow_info[1],var2._shadow_info[2]);
+        std::swap(var2._shadow_info[3],var2._shadow_info[4]);
+        for ( unsigned int i=0; i< var2._nvar; i++ ){
+          if( mat2[i].empty() ) continue;
+          std::swap(var2._shadow_info[2*i+5],var2._shadow_info[2*i+6]);       
+        }
+
+      }
+    }
   }
   auto&& bnd = var2._bnd;
   if( bnd.second ) bnd.first *= -1;
@@ -2277,6 +7161,11 @@ ISVar<T>& ISVar<T>::operator-=
   if( _mod != var._mod )
     throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::MODEL );
 
+  if(_mod->options.SHADOW_USE){
+    std::cout << "operator -= error" << std::endl;
+    throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF );
+  }
+
   for( unsigned int i=0; i<_nvar; i++ ){
     if( !_mat[i].empty() && !var._mat[i].empty() )
       for( unsigned int j=0; j<_ndiv; j++ )
@@ -2290,6 +7179,43 @@ ISVar<T>& ISVar<T>::operator-=
   }
   _bnd.second = false;
 
+  // use slope information to tighten interval bounds
+  if (_mod->options.SLOPE_USE){
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( !_slope[i].empty() && !var._slope[i].empty() )
+        for( unsigned int j=0; j<_ndiv; j++ ){
+
+          if((_slope[i][j][0] < 0.) == (var._slope[i][j][1] < 0.)){   
+            long double tightener = std::min(std::fabs(_slope[i][j][0]),std::fabs(var._slope[i][j][1]))*(_mod->_psize[i]);
+            if ( Op<T>::u(_mat[i][j]) - tightener - Op<T>::l(_mat[i][j]) < MC__ISM_COMPUTATION_TOL)
+              _mat[i][j] = T(Op<T>::l(_mat[i][j]) + tightener);
+            else
+              _mat[i][j] = T(Op<T>::l(_mat[i][j]) + tightener , Op<T>::u(_mat[i][j]));
+          }
+
+          if((_slope[i][j][1] < 0.) == (var._slope[i][j][0] < 0.)){   
+            long double tightener = std::min(std::fabs(_slope[i][j][1]),std::fabs(var._slope[i][j][0]))*(_mod->_psize[i]);
+            if ( Op<T>::u(_mat[i][j]) - tightener - Op<T>::l(_mat[i][j]) < MC__ISM_COMPUTATION_TOL)
+              _mat[i][j] = T(Op<T>::u(_mat[i][j]) - tightener);
+            else
+              _mat[i][j] = T(Op<T>::l(_mat[i][j]) , Op<T>::u(_mat[i][j]) - tightener);
+         }
+
+          _slope[i][j][0] -= var._slope[i][j][1];
+          _slope[i][j][1] -= var._slope[i][j][0];
+        }
+      else if( !var._slope[i].empty() ){
+        _slope[i].resize(_ndiv);
+        for( unsigned int j=0; j<_ndiv; j++ ){
+          _slope[i][j].resize(2);
+          _slope[i][j][0] = -var._slope[i][j][1];
+          _slope[i][j][1] = -var._slope[i][j][0];
+        }
+      }
+    }
+  }
+
+
   return *this;
 }
 
@@ -2302,7 +7228,11 @@ ISVar<T> operator-
     return( var1._cst - var2._cst );
   if( var1._mod ){
     ISVar<T> var3( var1 );
-    var3 -= var2;
+    if(var1._mod->options.SHADOW_USE){
+      var3 += (-var2);
+    }
+    else
+      var3 -= var2;    
     return var3;
   }
   ISVar<T> var3( -var2 );
@@ -2360,6 +7290,83 @@ ISVar<T>& ISVar<T>::operator*=
   }
   if( _bnd.second ) _bnd.first *= cst;
 
+  if (_mod->options.SLOPE_USE){
+    if (cst >=0.){
+      for( unsigned int i=0; i<_nvar; i++ ){
+        if( _slope[i].empty() ) continue;
+        for( unsigned int j=0; j<_ndiv; j++ ){
+          _slope[i][j][0] *= cst;
+          _slope[i][j][1] *= cst;
+        }
+      } 
+    }
+    else {
+      for( unsigned int i=0; i<_nvar; i++ ){
+        if( _mat[i].empty() ) continue;
+        for( unsigned int j=0; j<_ndiv; j++ ){
+          _slope[i][j][0] *= cst;
+          _slope[i][j][1] *= cst;
+          std::swap(_slope[i][j][0],_slope[i][j][1]);
+        }
+      } 
+    } 
+  }
+
+  if (_mod->options.SHADOW_USE && _ndep > 1){
+#ifndef NOTTOTRACKSHADOW
+    for (unsigned i = 0; i < _shadow_info.size();i++){
+      std::cout << "_shadow_info[" << i << "] = " <<_shadow_info[i] <<"\n";    
+    }
+    std::cout << std::endl;
+#endif
+    if (_shadow_info.size() > 1){
+      if(cst < 0.){
+        std::swap(_shadow_info[1],_shadow_info[2]); 
+        _shadow[0].swap(_shadow[1]);
+//        _shadow[2].swap(_shadow[3]);
+        _shadow_slope[0].swap(_shadow_slope[1]);
+//        _shadow_slope[2].swap(_shadow_slope[3]);        
+      }
+#ifndef NOTTOTRACKSHADOW
+      std::cout << "    shadow info swaped" << std::endl;    
+#endif      
+      for ( unsigned int i=0; i<_nvar+1; i++ ){
+        if( _mat[i].empty() ) continue;
+        _shadow_info[2*i+3] *= cst;
+        _shadow_info[2*i+4] *= cst; 
+        if(cst < 0.){
+          std::swap(_shadow_info[2*i+3],_shadow_info[2*i+4]);   
+        }    
+      }
+
+      for( unsigned int i=0; i<_nvar; i++ ){
+        if( _shadow[0][i].empty() ) continue;
+        for( unsigned int j=0; j<_ndiv; j++ ){
+            _shadow[0][i][j] *= cst;
+            _shadow_slope[0][i][j] *= cst;
+            // _shadow[2][i][j] *= cst;
+            // _shadow_slope[2][i][j] *= cst;          
+        }
+      }      
+#ifndef NOTTOTRACKSHADOW
+      std::cout << "    shadow under swaped" << std::endl;    
+#endif      
+      for( unsigned int i=0; i<_nvar; i++ ){
+        if( _shadow[1][i].empty() ) continue;
+        for( unsigned int j=0; j<_ndiv; j++ ){
+            _shadow[1][i][j] *= cst;
+            _shadow_slope[1][i][j] *= cst;
+            // _shadow[3][i][j] *= cst;
+            // _shadow_slope[3][i][j] *= cst;
+        }
+      } 
+#ifndef NOTTOTRACKSHADOW
+      std::cout << "    shadow over swaped" << std::endl;    
+#endif            
+    }       
+
+
+  }
   return *this;
 }
 
@@ -2385,6 +7392,12 @@ ISVar<T>& ISVar<T>::operator*=
   if( _mod != var._mod )
     throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::MODEL );
 
+  if( var._mod->options.SLOPE_USE ){
+    throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF );
+  }
+
+
+  // To be developed: currently =* does not allow rescalling
   _mod->_prod( _mat, var._mat, _mat, _ndep );
   _bnd.second = false;
 
@@ -2409,57 +7422,67 @@ ISVar<T> operator*
     return var3;
   }
 
+  // if( var1._mod->options.SLOPE_USE ){
+  //   return sqr( 0.5*var1 + 0.5*var2 ) - sqr( 0.5*var1 - 0.5*var2 );
+  // }
+
   auto bnd1 = var1.bound();
   auto bnd2 = var2.bound();
   if( var1._mod->options.DCDEC_USE ){
-      //double coef1(0.),coef2(0.),mid1(0.),mid2(0.);
-      
-      double coef1 = 0.5 * (Op<T>::u(bnd1)-Op<T>::l(bnd1)); //0.5*(bnd1.first.u()-bnd1.first.l());
-      double coef2 = 0.5 * (Op<T>::u(bnd2)-Op<T>::l(bnd2)); //0.5*(bnd2.first.u()-bnd2.first.l());
-      double mid1 = 0.5 * (Op<T>::u(bnd1)+Op<T>::l(bnd1));
-      double mid2 = 0.5 * (Op<T>::u(bnd2)+Op<T>::l(bnd2));
-      
-      //std::cout<<Op<T>::u(bnd1*bnd2)<<std::endl;
-      //return coef1 * coef2 * 0.25 * ( sqr( var1/coef1 + var2/coef2 ) - sqr( var1/coef1 - var2/coef2 ) );      
-      //return intersect( coef1 * coef2 * 0.25 * ( sqr( var1/coef1 + var2/coef2 ) - sqr( var1/coef1 - var2/coef2 ) ), bnd1*bnd2);
-      //return 0.25 * ( sqr( var1 + var2 ) - sqr( var1 - var2 ) );
-      //return intersect( 0.25 * ( sqr( var1 + var2 ) - sqr( var1 - var2 ) ), bnd1*bnd2);
-      //return coef1 * coef2 * 0.25 * ( sqr( (var1-mid1)/coef1 + (var2-mid2)/coef2 ) - sqr( (var1-mid1)/coef1 - (var2-mid2)/coef2 ) ) + mid1*var2+mid2*var1-mid1*mid2;
-      auto _type = var1._mod->options.SCALING_TYPE;
-      //auto _type_temp = _type;
-      if(_type == ISModel<T>::Options::ADAPT){
-        T rst1(0.25 * ( Op<T>::sqr( bnd1 + bnd2 ) - Op<T>::sqr( bnd1 - bnd2 ) ));
-        T rst2(coef1 * coef2 * 0.25 * ( Op<T>::sqr( bnd1/coef1 + bnd2/coef2 ) - Op<T>::sqr( bnd1/coef1 - bnd2/coef2 ) ));
-        T rst3(coef1 * coef2 * 0.25 * ( Op<T>::sqr( (bnd1-mid1)/coef1 + (bnd2-mid2)/coef2 ) - Op<T>::sqr( (bnd1-mid1)/coef1 - (bnd2-mid2)/coef2 ) ) + mid1*bnd2+mid2*bnd1-mid1*mid2);
-        std::cout<<Op<T>::u(rst1)-Op<T>::l(rst1)<<"  "<<Op<T>::u(rst2)-Op<T>::l(rst2)<<"  "<<Op<T>::u(rst3)-Op<T>::l(rst3)<<std::endl; 
-        if ((Op<T>::u(rst1)-Op<T>::l(rst1)) <= (Op<T>::u(rst2)-Op<T>::l(rst2))){
-          if((Op<T>::u(rst1)-Op<T>::l(rst1)) <= (Op<T>::u(rst3)-Op<T>::l(rst3)))
-            _type = ISModel<T>::Options::NONE;
-          else
-            _type = ISModel<T>::Options::FULL;  
-        }
-        else{
-          if((Op<T>::u(rst2)-Op<T>::l(rst2)) <= (Op<T>::u(rst3)-Op<T>::l(rst3)))
-            _type = ISModel<T>::Options::PARTIAL;
-          else
-            _type = ISModel<T>::Options::FULL;  
-        }            
+    //double coef1(0.),coef2(0.),mid1(0.),mid2(0.);
+    
+    double coef1 = 0.5 * (Op<T>::u(bnd1)-Op<T>::l(bnd1)); //0.5*(bnd1.first.u()-bnd1.first.l());
+    double coef2 = 0.5 * (Op<T>::u(bnd2)-Op<T>::l(bnd2)); //0.5*(bnd2.first.u()-bnd2.first.l());
+    double mid1 = 0.5 * (Op<T>::u(bnd1)+Op<T>::l(bnd1));
+    double mid2 = 0.5 * (Op<T>::u(bnd2)+Op<T>::l(bnd2));
+    
+    //std::cout<<Op<T>::u(bnd1*bnd2)<<std::endl;
+    //return coef1 * coef2 * 0.25 * ( sqr( var1/coef1 + var2/coef2 ) - sqr( var1/coef1 - var2/coef2 ) );      
+    //return intersect( coef1 * coef2 * 0.25 * ( sqr( var1/coef1 + var2/coef2 ) - sqr( var1/coef1 - var2/coef2 ) ), bnd1*bnd2);
+    //return 0.25 * ( sqr( var1 + var2 ) - sqr( var1 - var2 ) );
+    //return intersect( 0.25 * ( sqr( var1 + var2 ) - sqr( var1 - var2 ) ), bnd1*bnd2);
+    //return coef1 * coef2 * 0.25 * ( sqr( (var1-mid1)/coef1 + (var2-mid2)/coef2 ) - sqr( (var1-mid1)/coef1 - (var2-mid2)/coef2 ) ) + mid1*var2+mid2*var1-mid1*mid2;
+    auto _type = var1._mod->options.SCALING_TYPE;
+    //auto _type_temp = _type;
+    if(_type == ISModel<T>::Options::ADAPT){
+      T rst1(0.25 * ( Op<T>::sqr( bnd1 + bnd2 ) - Op<T>::sqr( bnd1 - bnd2 ) ));
+      T rst2(coef1 * coef2 * 0.25 * ( Op<T>::sqr( bnd1/coef1 + bnd2/coef2 ) - Op<T>::sqr( bnd1/coef1 - bnd2/coef2 ) ));
+      T rst3(coef1 * coef2 * 0.25 * ( Op<T>::sqr( (bnd1-mid1)/coef1 + (bnd2-mid2)/coef2 ) - Op<T>::sqr( (bnd1-mid1)/coef1 - (bnd2-mid2)/coef2 ) ) + mid1*bnd2+mid2*bnd1-mid1*mid2);
+      //std::cout<<Op<T>::u(rst1)-Op<T>::l(rst1)<<"  "<<Op<T>::u(rst2)-Op<T>::l(rst2)<<"  "<<Op<T>::u(rst3)-Op<T>::l(rst3)<<std::endl; 
+      if ((Op<T>::u(rst1)-Op<T>::l(rst1)) <= (Op<T>::u(rst2)-Op<T>::l(rst2))){
+        if((Op<T>::u(rst1)-Op<T>::l(rst1)) <= (Op<T>::u(rst3)-Op<T>::l(rst3)))
+          _type = ISModel<T>::Options::NONE;
+        else
+          _type = ISModel<T>::Options::FULL;  
       }
-      switch( _type ){          
-        case ISModel<T>::Options::PARTIAL:{
-          return (var1._mod->options.INTERSECTION_USE?intersect(coef1 * coef2 * 0.25 * ( sqr( var1/coef1 + var2/coef2 ) - sqr( var1/coef1 - var2/coef2 ) ),bnd1*bnd2):coef1 * coef2 * 0.25 * ( sqr( var1/coef1 + var2/coef2 ) - sqr( var1/coef1 - var2/coef2 ) ) );
-          break;
-        }
-        case ISModel<T>::Options::FULL:{
-          return (var1._mod->options.INTERSECTION_USE?intersect(coef1 * coef2 * 0.25 * ( sqr( (var1-mid1)/coef1 + (var2-mid2)/coef2 ) - sqr( (var1-mid1)/coef1 - (var2-mid2)/coef2 ) ) + mid1*var2+mid2*var1-mid1*mid2,bnd1*bnd2):coef1 * coef2 * 0.25 * ( sqr( (var1-mid1)/coef1 + (var2-mid2)/coef2 ) - sqr( (var1-mid1)/coef1 - (var2-mid2)/coef2 ) ) + mid1*var2+mid2*var1-mid1*mid2);
-          break;
-        }
-        case ISModel<T>::Options::NONE: default:{
-          return (var1._mod->options.INTERSECTION_USE?intersect(0.25 * ( sqr( var1 + var2 ) - sqr( var1 - var2 ) ),bnd1*bnd2):0.25 * ( sqr( var1 + var2 ) - sqr( var1 - var2 ) ));
-          break;
-        }
+      else{
+        if((Op<T>::u(rst2)-Op<T>::l(rst2)) <= (Op<T>::u(rst3)-Op<T>::l(rst3)))
+          _type = ISModel<T>::Options::PARTIAL;
+        else
+          _type = ISModel<T>::Options::FULL;  
+      }            
+    }
+    switch( _type ){          
+      case ISModel<T>::Options::PARTIAL:{
+//        return (var1._mod->options.INTERSECTION_USE?intersect(coef1 * coef2 * 0.25 * ( sqr( var1/coef1 + var2/coef2 ) - sqr( var1/coef1 - var2/coef2 ) ),bnd1*bnd2):coef1 * coef2 * 0.25 * ( sqr( var1/coef1 + var2/coef2 ) - sqr( var1/coef1 - var2/coef2 ) ) );
+        return (var1._mod->options.INTERSECTION_USE?intersect((coef1 * coef2) * ( sqr( var1/(2.0*coef1) + var2/(2.0*coef2) ) - sqr( var1/(2.0*coef1) - var2/(2.0*coef2) ) ),bnd1*bnd2)
+                                                             :(coef1 * coef2) * ( sqr( var1/(2.0*coef1) + var2/(2.0*coef2) ) - sqr( var1/(2.0*coef1) - var2/(2.0*coef2) ) ));
+        break;
+      }
+      case ISModel<T>::Options::FULL:{
+//        return (var1._mod->options.INTERSECTION_USE?intersect(coef1 * coef2 * 0.25 * ( sqr( (var1-mid1)/coef1 + (var2-mid2)/coef2 ) - sqr( (var1-mid1)/coef1 - (var2-mid2)/coef2 ) ) + mid1*var2+mid2*var1-mid1*mid2,bnd1*bnd2):coef1 * coef2 * 0.25 * ( sqr( (var1-mid1)/coef1 + (var2-mid2)/coef2 ) - sqr( (var1-mid1)/coef1 - (var2-mid2)/coef2 ) ) + mid1*var2+mid2*var1-mid1*mid2);
+        return (var1._mod->options.INTERSECTION_USE? intersect((coef1 * coef2) * ( sqr( (var1-mid1)/(2.0*coef1) + (var2-mid2)/(2.0*coef2) ) - sqr( (var1-mid1)/(2.0*coef1) - (var2-mid2)/(2.0*coef2) ) ) + mid1*var2+mid2*var1-mid1*mid2,bnd1*bnd2)
+                                                              :(coef1 * coef2) * ( sqr( (var1-mid1)/(2.0*coef1) + (var2-mid2)/(2.0*coef2) ) - sqr( (var1-mid1)/(2.0*coef1) - (var2-mid2)/(2.0*coef2) ) ) + mid1*var2+mid2*var1-mid1*mid2);
+        break;
+      }
+      case ISModel<T>::Options::NONE: default:{
+//        return (var1._mod->options.INTERSECTION_USE?intersect(0.25 * ( sqr( var1 + var2 ) - sqr( var1 - var2 ) ),bnd1*bnd2):0.25 * ( sqr( var1 + var2 ) - sqr( var1 - var2 ) ));
+        return (var1._mod->options.INTERSECTION_USE?intersect(  sqr( (var1 + var2)*0.5 ) - sqr( (var1 - var2)*0.5 ) ,bnd1*bnd2)
+                                                               :sqr( (var1 + var2)*0.5 ) - sqr( (var1 - var2)*0.5 ));
+        break;
       }
     }
+  }
 
   ISVar<T> var3( var2 );
   var3 *= var1;
@@ -2550,6 +7573,11 @@ ISVar<T> inv
     return 1./var._cst;
 
   ISVar<T> var2( var );
+  if (var2._mod->options.SLOPE_USE ){
+    var2._mod->_inv( var2._mat, var2._slope, var2._mod->_psize, var2._ndep );
+    var2._bnd.second = false;
+    return var2;
+  }    
   var2._mod->_inv( var2._mat, var2._ndep );
   var2._bnd.second = false;
   return var2;
@@ -2562,6 +7590,12 @@ ISVar<T> inv
 {
   if( !var._mod )
     return 1./var._cst;
+
+  if (var._mod->options.SLOPE_USE ){
+    var._mod->_inv( var._mat, var._slope, var._mod->_psize, var._ndep );
+    var._bnd.second = false;
+    return var;
+  }
 
   var._mod->_inv( var._mat, var._ndep );
   var._bnd.second = false;
@@ -2577,6 +7611,11 @@ ISVar<T> sqr
     return sqr(var._cst);
 
   ISVar<T> var2( var );
+  if (var2._mod->options.SLOPE_USE ){
+    var2._mod->_sqr( var2._mat, var2._slope, var2._mod->_psize, var2._ndep );
+    var2._bnd.second = false;
+    return var2;
+  }  
   var2._mod->_sqr( var2._mat, var2._ndep );
   var2._bnd.second = false;
   return var2;
@@ -2589,6 +7628,12 @@ ISVar<T> sqr
 {
   if( !var._mod )
     return sqr(var._cst);
+
+  if (var._mod->options.SLOPE_USE ){
+    var._mod->_sqr( var._mat, var._slope, var._mod->_psize, var._ndep );
+    var._bnd.second = false;
+    return var;
+  }
 
   var._mod->_sqr( var._mat, var._ndep );
   var._bnd.second = false;
@@ -2630,9 +7675,44 @@ ISVar<T> relu
 ( ISVar<T> const& var )
 {
   if( !var._mod )
-    return relu(var._cst);
+    //return relu(var._cst);
+    return std::max(var._cst,0.);
+
+  T lazyBnd = var.bound();
+  
+  if(Op<T>::l(lazyBnd) > -MC__ISM_COMPUTATION_TOL){
+    ISVar<T> var2( var );
+    var2._bnd.second = false;
+    return var2;
+  } 
+  
+  if(Op<T>::u(lazyBnd) < MC__ISM_COMPUTATION_TOL){
+    ISVar<T> var2( 0. );
+    return var2;
+  }  
+
 
   ISVar<T> var2( var );
+  //auto const& f = [=]( const double& x ){ return std::max( x, 0. ); };
+  if (var2._mod->options.SLOPE_USE ){ 
+     //auto const& fDerv = [=]( const double& x ){ return x > 0? 1.: 0.; };  
+     //var2._mod->_asym_slope( var2._mat, var2._slope, var2._mod->_psize, var2._ndep, f,fDerv, -DBL_MAX, true );
+     //var2._mod->_asym_slope_relu( var2._mat, var2._slope, var2._mod->_psize, var2._ndep);
+    if(var2._mod->options.SHADOW_USE && var2._ndep>1){
+#ifndef NOTTOTRACKSHADOW     
+      std::cout << "_asym_slope_relu_shadow" << std::endl;
+#endif
+      var2._mod->_asym_slope_relu_shadow( var2._mat, var2._slope, var2._mod->_psize, var2._ndep,var2._shadow,var2._shadow_slope,var2._shadow_info);
+      if(std::fabs(var2._shadow_info[0]) > 100.){
+        return var2*=0;
+      }
+    }
+    else{
+      var2._mod->_asym_slope_relu( var2._mat, var2._slope, var2._mod->_psize, var2._ndep);
+    }
+    var2._bnd.second = false;
+    return var2;
+  }
   auto const& f = [=]( const double& x ){ return std::max( x, 0. ); };
   var2._mod->_asym( var2._mat, var2._ndep, f, 0., true ); // convex term, min 0
   var2._bnd.second = false;
@@ -2645,13 +7725,116 @@ ISVar<T> relu
 ( ISVar<T> && var )
 {
   if( !var._mod )
-    return relu(var._cst);
+    //return relu(var._cst);
+    return std::max(var._cst,0.);
 
+  T lazyBnd = var.bound();
+  
+  if(Op<T>::l(lazyBnd)> -MC__ISM_COMPUTATION_TOL){
+    var._bnd.second = false;
+    return var;
+  } 
+  
+  if(Op<T>::u(lazyBnd) < MC__ISM_COMPUTATION_TOL){
+    var = 0.;
+    return var;
+  }  
+
+  //auto const& f = [=]( const double& x ){ return std::max( x, 0. ); };
+  if (var._mod->options.SLOPE_USE){
+    //auto const& fDerv = [=]( const double& x ){ return x > 0? 1.: 0.; }; 
+    //var._mod->_asym_slope( var._mat, var._slope, var._mod->_psize, var._ndep, f,fDerv, -DBL_MAX, true );
+    if(var._mod->options.SHADOW_USE){
+#ifndef NOTTOTRACKSHADOW     
+      std::cout << "_asym_slope_relu_shadow" << std::endl;
+#endif
+      var._mod->_asym_slope_relu_shadow( var._mat, var._slope, var._mod->_psize, var._ndep,var._shadow,var._shadow_slope,var._shadow_info);
+      if(std::fabs(var._shadow_info[0]) > 100.){
+        return var*=0;
+      }
+    }
+    else{
+      var._mod->_asym_slope_relu( var._mat, var._slope, var._mod->_psize, var._ndep);
+    }
+    var._bnd.second = false;
+    return var;
+  }
   auto const& f = [=]( const double& x ){ return std::max( x, 0. ); };
   var._mod->_asym( var._mat, var._ndep, f, 0., true ); // convex term, min 0
   var._bnd.second = false;
   return var;
 }
+
+// template <typename T>
+// inline
+// ISVar<T> relu
+// ( ISVar<T> const& var )
+// {
+//   if( !var._mod )
+//     return std::max(var._cst,0.);
+
+
+//   T lazyBnd = var.bound();
+  
+//   if(Op<T>::l(lazyBnd) > -MC__ISM_COMPUTATION_TOL){
+//     ISVar<T> var2( var );
+//     var2._bnd.second = false;
+//     return var2;
+//   } 
+  
+//   if(Op<T>::u(lazyBnd) < MC__ISM_COMPUTATION_TOL){
+//     ISVar<T> var2( 0. );
+//     return var2;
+//   }  
+
+
+//   ISVar<T> var2( var );
+//   auto const& f = [=]( const double& x ){ return std::max( x, 0. ); };
+//   if (var2._mod->options.SLOPE_USE ){ 
+//      auto const& fDerv = [=]( const double& x ){ return x > 0? 1.: 0.; };  
+//      var2._mod->_asym_slope( var2._mat, var2._slope, var2._mod->_psize, var2._ndep, f,fDerv, -DBL_MAX, true );
+//      var2._bnd.second = false;
+//     return var2;
+//   }    
+//   var2._mod->_asym( var2._mat, var2._ndep, f, 0., true ); // convex term, min 0
+//   var2._bnd.second = false;
+//   return var2;
+// }
+
+// template <typename T>
+// inline
+// ISVar<T> relu
+// ( ISVar<T> && var )
+// {
+//   if( !var._mod )
+//     return std::max(var._cst,0.);
+
+//   T lazyBnd = var.bound();
+  
+//   if(Op<T>::l(lazyBnd)> -MC__ISM_COMPUTATION_TOL){
+//     var._bnd.second = false;
+//     return var;
+//   } 
+  
+//   if(Op<T>::u(lazyBnd) < MC__ISM_COMPUTATION_TOL){
+//     var = 0.;
+//     return var;
+//   }  
+
+
+//   auto const& f = [=]( const double& x ){ return std::max( x, 0. ); };
+//   if (var._mod->options.SLOPE_USE){
+//     auto const& fDerv = [=]( const double& x ){ return x > 0? 1.: 0.; }; 
+//     var._mod->_asym_slope( var._mat, var._slope, var._mod->_psize, var._ndep, f,fDerv, -DBL_MAX, true );
+//     var._bnd.second = false;
+//     return var;
+//   }
+
+//   var._mod->_asym( var._mat, var._ndep, f, 0., true ); // convex term, min 0
+//   var._bnd.second = false;
+//   return var;
+// }
+
 
 template <typename T>
 inline
@@ -2662,6 +7845,11 @@ ISVar<T> sqrt
     return std::sqrt(var._cst);
 
   ISVar<T> var2( var );
+  if (var2._mod->options.SLOPE_USE ){
+    var2._mod->_sqrt( var2._mat, var2._slope, var2._mod->_psize, var2._ndep );
+    var2._bnd.second = false;
+    return var2;
+  }    
   var2._mod->_sqrt( var2._mat, var2._ndep );
   var2._bnd.second = false;
   return var2;
@@ -2674,6 +7862,12 @@ ISVar<T> sqrt
 {
   if( !var._mod )
     return std::sqrt(var._cst);
+
+  if (var._mod->options.SLOPE_USE ){
+    var._mod->_sqrt( var._mat, var._slope, var._mod->_psize, var._ndep );
+    var._bnd.second = false;
+    return var;
+  }
 
   var._mod->_sqrt( var._mat, var._ndep );
   var._bnd.second = false;
@@ -2689,6 +7883,11 @@ ISVar<T> exp
     return std::exp(var._cst);
 
   ISVar<T> var2( var );
+  if (var2._mod->options.SLOPE_USE ){
+    var2._mod->_exp( var2._mat, var2._slope, var2._mod->_psize, var2._ndep );
+    var2._bnd.second = false;
+    return var2;
+  }
   var2._mod->_exp( var2._mat, var2._ndep );
   var2._bnd.second = false;
   return var2;
@@ -2701,6 +7900,12 @@ ISVar<T> exp
 {
   if( !var._mod )
     return std::exp(var._cst);
+
+  if (var._mod->options.SLOPE_USE ){
+    var._mod->_exp( var._mat, var._slope, var._mod->_psize, var._ndep );
+    var._bnd.second = false;
+    return var;
+  }
 
   var._mod->_exp( var._mat, var._ndep );
   var._bnd.second = false;
@@ -2716,6 +7921,11 @@ ISVar<T> log
     return std::log(var._cst);
 
   ISVar<T> var2( var );
+  if (var2._mod->options.SLOPE_USE ){
+    var2._mod->_log( var2._mat, var2._slope, var2._mod->_psize, var2._ndep );
+    var2._bnd.second = false;
+    return var2;
+  }    
   var2._mod->_log( var2._mat, var2._ndep );
   var2._bnd.second = false;
   return var2;
@@ -2728,6 +7938,12 @@ ISVar<T> log
 {
   if( !var._mod )
     return std::log(var._cst);
+
+  if (var._mod->options.SLOPE_USE ){
+    var._mod->_log( var._mat, var._slope, var._mod->_psize, var._ndep );
+    var._bnd.second = false;
+    return var;
+  }
 
   var._mod->_log( var._mat, var._ndep );
   var._bnd.second = false;
@@ -2769,6 +7985,10 @@ ISVar<T> sin
   if( !var._mod )
     return std::sin(var._cst);
 
+  if (var._mod->options.SLOPE_USE && var._ndep == 1){
+    return cos(var - PI/2.);
+  }
+
   ISVar<T> var2( var );
   var2._mod->_sin( var2._mat, var2._ndep );
   var2._bnd.second = false;
@@ -2782,6 +8002,10 @@ ISVar<T> sin
 {
   if( !var._mod )
     return std::sin(var._cst);
+
+  if (var._mod->options.SLOPE_USE && var._ndep == 1){
+    return cos(var - PI/2.);
+  }
 
   var._mod->_sin( var._mat, var._ndep );
   var._bnd.second = false;
@@ -2797,6 +8021,12 @@ ISVar<T> cos
     return std::cos(var._cst);
 
   ISVar<T> var2( var );
+  if (var2._mod->options.SLOPE_USE && var2._ndep == 1){
+    var2._mod->_cos_slope( var2._mat, var2._slope, var2._mod->_psize, var2._ndep );
+    var2._bnd.second = false;
+    return var2;
+  }  
+
   var2._mod->_cos( var2._mat, var2._ndep );
   var2._bnd.second = false;
   return var2;
@@ -2809,6 +8039,12 @@ ISVar<T> cos
 {
   if( !var._mod )
     return std::cos(var._cst);
+
+  if (var._mod->options.SLOPE_USE && var._ndep == 1){
+    var._mod->_cos_slope( var._mat, var._slope, var._mod->_psize, var._ndep );
+    var._bnd.second = false;
+    return var;
+  }
 
   var._mod->_cos( var._mat, var._ndep );
   var._bnd.second = false;
@@ -2871,8 +8107,13 @@ pow
       sqr( pow( var, n/2 ) ) * var;
   }
   
-  ISVar<T> var2( var );
-  var2._mod->_pow( var2._mat, n, var2._ndep );
+  ISVar<T> var2( var );\
+  if(var2._mod->options.SLOPE_USE){
+    var2._mod->_pow( var2._mat, var2._slope, var2._mod->_psize, n, var2._ndep );
+  }
+  else{  
+    var2._mod->_pow( var2._mat, n, var2._ndep );
+  }  
   var2._bnd.second = false;
   return var2;
 }
@@ -2901,7 +8142,12 @@ pow
       sqr( pow( var, n/2 ) ) * var;
   }
   
-  var._mod->_pow( var._mat, n, var._ndep );
+  if(var._mod->options.SLOPE_USE){
+    var._mod->_pow( var._mat,var._slope, var._mod->_psize, n, var._ndep );
+  }
+  else{
+    var._mod->_pow( var._mat, n, var._ndep );
+  }  
   var._bnd.second = false;
   return var;
 }
@@ -2983,6 +8229,11 @@ ISVar<T> intersect
     return var._cst;
 
   ISVar<T> var2( var );
+  if (var2._mod->options.SLOPE_USE ){
+    var2._mod->_intersect( var2._mat, var2._slope, var2._mod->_psize, var2._ndep , _rangebnd);
+    var2._bnd.second = false;
+    return var2;
+  }        
   var2._mod->_intersect( var2._mat, var2._ndep , _rangebnd);
   var2._bnd.second = false;
   return var2;
@@ -2995,6 +8246,12 @@ ISVar<T> intersect
 {
   if( !var._mod )
     return var._cst;
+
+  if (var._mod->options.SLOPE_USE ){
+    var._mod->_intersect( var._mat, var._slope, var._mod->_psize, var._ndep , _rangebnd);
+    var._bnd.second = false;
+    return var;
+  }
 
   var._mod->_intersect( var._mat, var._ndep , _rangebnd);
   var._bnd.second = false;
@@ -3071,11 +8328,35 @@ ISVar<T>
 max
 ( ISVar<T> const& var1, double const& cst2 )
 {
+
+  if(isequal(cst2,0.)){
+    return relu(var1);
+  }
+
   if( !var1._mod ) 
     return std::max( var1._cst, cst2 );
 
+  T lazyBnd = var1.bound();
+  
+  if(Op<T>::l(lazyBnd)> cst2){
+    ISVar<T> var2( var1 );
+    var2._bnd.second = false;
+    return var2;
+  } 
+
+  if(Op<T>::u(lazyBnd) < cst2){
+    ISVar<T> var2( cst2 );
+    return var2;
+  }  
+
   ISVar<T> var2( var1 );
   auto const& f = [=]( const double& x ){return std::max( x, cst2 ); };//Op<T>::max( x, cst2 ); }; // why not  return std::max( x, cst2 ); };
+  if (var2._mod->options.SLOPE_USE ){ 
+    auto const& fDerv = [=]( const double& x ){ return x > cst2? 1.: 0.; };  
+    var2._mod->_asym_slope( var2._mat, var2._slope, var2._mod->_psize, var2._ndep, f,fDerv, -DBL_MAX, true );
+    var2._bnd.second = false;
+    return var2;
+  }        
   var2._mod->_asym( var2._mat, var2._ndep, f, cst2, true ); // convex term, min cst2
   var2._bnd.second = false;
   return var2;
@@ -3087,10 +8368,34 @@ ISVar<T>
 max
 ( ISVar<T> && var1, double const& cst2 )
 {
+
+  if(isequal(cst2,0.)){
+    return relu(var1);
+  }
+
   if( !var1._mod ) 
     return std::max( var1._cst, cst2 );
 
+
+  T lazyBnd = var1.bound();
+  
+  if(Op<T>::l(lazyBnd)> cst2){
+    var1._bnd.second = false;
+    return var1;
+  } 
+  
+  if(Op<T>::u(lazyBnd) < cst2){
+    var1 = cst2;
+    return var1;
+  }  
+
   auto const& f = [=]( const double& x ){ return std::max( x, cst2 ); };
+  if (var1._mod->options.SLOPE_USE){
+    auto const& fDerv = [=]( const double& x ){ return x > cst2? 1.: 0.; }; 
+    var1._mod->_asym_slope( var1._mat, var1._slope, var1._mod->_psize, var1._ndep, f,fDerv, -DBL_MAX, true );
+    var1._bnd.second = false;
+    return var1;
+  }  
   var1._mod->_asym( var1._mat, var1._ndep, f, cst2, true ); // convex term, min cst2
   var1._bnd.second = false;
   return var1;
@@ -3140,6 +8445,12 @@ min
 
   ISVar<T> var2( var1 );
   auto const& f = [=]( const double& x ){ return std::min( x, cst2 ); };
+  if (var2._mod->options.SLOPE_USE ){ 
+    auto const& fDerv = [=]( const double& x ){ return x < cst2? 1.: 0.; };  
+    var2._mod->_asym_slope( var2._mat, var2._slope, var2._mod->_psize, var2._ndep, f,fDerv, DBL_MAX, false );
+    var2._bnd.second = false;
+    return var2;
+  }      
   var2._mod->_asym( var2._mat, var2._ndep, f, cst2, false ); // convex term, max cst2
   var2._bnd.second = false;
   return var2;
@@ -3155,6 +8466,12 @@ min
     return std::min( var1._cst, cst2 );
 
   auto const& f = [=]( const double& x ){return std::min( x, cst2 ); };//Op<T>::min( x, cst2 ); }; // why not return std::min( x, cst2 ); };
+  if (var1._mod->options.SLOPE_USE){
+    auto const& fDerv = [=]( const double& x ){ return x < cst2? 1.: 0.; }; 
+    var1._mod->_asym_slope( var1._mat, var1._slope, var1._mod->_psize, var1._ndep, f,fDerv, DBL_MAX, false );
+    var1._bnd.second = false;
+    return var1;
+  }  
   var1._mod->_asym( var1._mat, var1._ndep, f, cst2, false ); // concave term, max cst2
   var1._bnd.second = false;
   return var1;
