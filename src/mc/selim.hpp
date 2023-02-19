@@ -8,17 +8,15 @@
 \date 2023
 \bug No known bugs.
 
-The classes mc::SElimEnv and mc::SElimVar defined in <tt>selim.hpp</tt> enable the elimination of (a subset of) variables from factorable expressions through expoiting solvable (invertible) equality constraints. 
+The classes mc::SElimEnv and mc::SElimVar defined in <tt>selim.hpp</tt> enable the elimination of a subset of variables from factorable expressions through expoiting solvable (invertible) equality constraints. 
 
 Given a set of equality constraints \f${\bf f}({\bf x}) = {\bf 0}\f$, we week a partition of the variable set \f${\bf x} =: [{\bf x},  = {\bf 0}\f$
 The elimination proceeds in 3 steps:
-- 1. Identify which equality constraints can be solved analytically for which variables.
+-# Identify which equality constraints can be inverted analytically for which variables.
 
-2. Determine the order to process the equality constraints to minimize the number of remaining variables based on the method of Hernandez & Sargent (1979).
+-# Determine which variables to eliminate using which equality constraints in order to maximize the number of eliminated variables, based on: (i) a mixed-integer programming (MIP) formulation; or (ii) a greedy heuristic inspired by the method of Hernandez & Sargent (1979) to reorder the equations then select the variables through reordering the incidence matrix to bordered lower-triangular form.
 
-3. Select which variables to eliminate through reordering the incidence matrix to bordered lower-triangular form.
-
-4. Rearrange the optimization problem accordingly, and introduce new (possibly nonlinear) inequality constraints to account for the variable bounds of the eliminated variables 𝑥𝑒𝑙. 
+-# Construct expressions for the eliminated variables, so they can be eliminated through composition.
 .
 
 \section sec_SElim_process How do I eliminate variables using factorable equality constraints?
@@ -178,13 +176,11 @@ Finally, the original vector-valued function \f${\bf f}(x_0,x_1)\f$ is equal to 
 #endif
 
 #define MC__SELIM_CHECK
-#define MC__SELIM_DEBUG_PROCESS
-#define MC__SELIM_DEBUG_INSERT
+//#define MC__SELIM_DEBUG_PROCESS
+//#define MC__SELIM_DEBUG_INSERT
 
 namespace mc
 {
-
-//template <typename DAG> class SElimVar;
 
 //! @brief Environment for variable elimination in factorable equality constraints
 ////////////////////////////////////////////////////////////////////////
@@ -197,45 +193,16 @@ class SElimEnv:
   protected virtual SLiftEnv<DAG>
 ////////////////////////////////////////////////////////////////////////
 {
-/*
-  friend class SElimVar<DAG>;
-  template <typename D> friend  std::ostream& operator<< ( std::ostream&, SElimEnv<D> const& );
-  template <typename D> friend  SElimVar<D> inv ( SElimVar<D> const& );
-  template <typename D> friend  SElimVar<D> exp ( SElimVar<D> const& );
-  template <typename D> friend  SElimVar<D> log ( SElimVar<D> const& );
-  template <typename D> friend  SElimVar<D> xlog( SElimVar<D> const& );
-  template <typename D> friend  SElimVar<D> sqrt( SElimVar<D> const& );
-  template <typename D> friend  SElimVar<D> sqr ( SElimVar<D> const& );
-  template <typename D> friend  SElimVar<D> pow ( SElimVar<D> const&, int const );  
-  template <typename D> friend  SElimVar<D> pow ( SElimVar<D> const&, double const& );  
-  template <typename D> friend  SElimVar<D> cheb( SElimVar<D> const&, const unsigned );  
-  template <typename D> friend  SElimVar<D> prod( const unsigned, SElimVar<D> const* );  
-  template <typename D> friend  SElimVar<D> cos ( SElimVar<D> const& );
-  template <typename D> friend  SElimVar<D> sin ( SElimVar<D> const& );
-  template <typename D> friend  SElimVar<D> tan ( SElimVar<D> const& );
-  template <typename D> friend  SElimVar<D> acos( SElimVar<D> const& );
-  template <typename D> friend  SElimVar<D> asin( SElimVar<D> const& );
-  template <typename D> friend  SElimVar<D> atan( SElimVar<D> const& );
-  template <typename D> friend  SElimVar<D> cosh( SElimVar<D> const& );
-  template <typename D> friend  SElimVar<D> sinh( SElimVar<D> const& );
-  template <typename D> friend  SElimVar<D> tanh( SElimVar<D> const& );
-  template <typename D> friend  SElimVar<D> fabs( SElimVar<D> const& );
-  template <typename D> friend  SElimVar<D> erf( SElimVar<D> const& );
-  template <typename D> friend  tSElimVar<D> fstep( SElimVar<D> const& );
-  template <typename D> friend  SElimVar<D> max( SElimVar<D> const&, SElimVar<D> const& );  
-  template <typename D> friend  SElimVar<D> min( SElimVar<D> const&, SElimVar<D> const& );  
-  template <typename D> friend  SElimVar<D> lmtd( SElimVar<D> const&, SElimVar<D> const& );  
-  template <typename D> friend  SElimVar<D> rlmtd( SElimVar<D> const&, SElimVar<D> const& );  
-*/
-
   using SLiftEnv<DAG>::_dag;
   using SLiftEnv<DAG>::_Interm;
   using SLiftEnv<DAG>::_SPDep;
+
+  using SLiftEnv<DAG>::dag;
   using SLiftEnv<DAG>::insert_dag;
 
 public:
 
-  typedef std::map< FFVar const*, FFVar const*, lt_FFVar > t_VarElim;
+  typedef std::vector< std::tuple< FFVar const*, FFVar const*, FFVar const* > > t_VarElim;
   typedef SLiftEnv<DAG> t_lift;
   typedef typename SLiftVar<DAG>::t_poly t_poly;
   typedef typename t_poly::t_mon t_mon;
@@ -261,14 +228,8 @@ public:
       delete _GRBenv;
 #endif
     }
-    
-  // Retreive pointer to DAG
-  DAG* dag
-    ()
-    const
-    { return _dag; };
 
-  //! @brief Retreive map between eliminated DAG variables and coresponding equality constraint
+  //! @brief Retreive vector of tuples <ELIMINATED VARIABLE, INVERTED CONSTRAINT, INVERTED EXPRESSION> with entries in a feasible order of elimination
   t_VarElim& VarElim
     ()
     { return _VarElim; }
@@ -303,9 +264,7 @@ public:
    public:
     //! @brief Enumeration type for SElimVar exception handling
     enum TYPE{
-      DAGERR=0,       //!< Operation involving a factorable expression linked to a different DAG
-      ENVERR,         //!< Operation between factorable expressions linked to different environments or without an environment
-      MIPERR,         //!< Call to MIP solver disabled
+      MIPERR=0,       //!< Call to MIP solver disabled
       INVERT,         //!< Elimnation process failed
       INTERNAL=-33    //!< Internal error
     };
@@ -316,15 +275,10 @@ public:
     //! @brief Error description
     std::string what(){
       switch( _ierr ){
-      case DAGERR:
-        return "mc::SElimEnv\t Operation involving a factorable expression linked to a different DAG is not allowed";
-      case ENVERR:
-        return "mc::SElimEnv\t Operation between factorable expressions linked to different environments or without an environment is not allowed";
       case MIPERR:
         return "mc::SElimEnv\t Mixed-integer programming solver is disabled";
       case INVERT:
         return "mc::SElimEnv\t Internal error during elimination process";
-      case INTERNAL:
       default:
         return "mc::SElimEnv\t Internal error";
       }
@@ -416,8 +370,6 @@ public:
 
 
 protected:
-  //! @brief pointer to underlying dag
-  //DAG* _dag;
 
   //! @brief Map between eliminated DAG variables and coresponding equality constraint
   t_VarElim _VarElim;
@@ -479,7 +431,6 @@ protected:
 
   //! @brief Binary variables matching eliminated variable with other participating variables
   std::map<unsigned,std::map<unsigned,GRBVar>> _MIP_varvar;
-#endif
 
   //! @brief Optimize the quadratic expressions for minimum number of auxiliaries 
   void _MIP_optimize
@@ -504,6 +455,7 @@ protected:
   //! @brief Set options in MIP optimization model
   void _MIP_options
     ();
+#endif
 
   //! @brief Insert an auxiliary variable corresponding to operand of inverse operation into DAG
   FFVar const* _insert_expr
@@ -533,14 +485,6 @@ inline std::ostream&
 operator<<
 ( std::ostream& out, SElimEnv<DAG> const& env)
 {
-  unsigned count = 0;
-  for( auto&& expr : env._Interm ){
-    out << std::endl << "Intermediate #" << ++count << ": "
-        << *(expr.first->pres) << " = " << *(expr.first) << std::endl;
-    unsigned pos = 0;
-    for( auto&& oper : expr.second )
-      out << "Operand " << *expr.first->pops[pos++] << ": " << *oper;
-  }
   return out;
 }
 */
@@ -703,11 +647,15 @@ SElimEnv<DAG>::process
 #endif
 
   // Determine an optimal elimination set
+#if defined(MC__USE_GUROBI)
   _MIP_optimize();
+#else
+  throw Exceptions( Exceptions::MIPERR );
+#endif
 
 #ifdef MC__SELIM_DEBUG_PROCESS
   std::cout << std::endl << "Eliminated variables and corresponding constraints:" << std::endl;
-  for( auto const& [pvar,pctr] : _VarElim )
+  for( auto const& [pvar,pctr,paux] : _VarElim )
     std::cout << *pvar << " <- " << *pctr << std::endl;
 #endif
   
@@ -718,7 +666,7 @@ SElimEnv<DAG>::process
   t_lift::options.LIFTDIV  = true;
   t_lift::options.LIFTIPOW = false;
 
-  for( auto&& [pvarel,pctr] : _VarElim ){
+  for( auto&& [pvarel,pctr,paux] : _VarElim ){
     t_lift::process( 1, pctr, false );
 #ifdef MC__SELIM_DEBUG_PROCESS
     std::cout << *this;
@@ -764,7 +712,13 @@ SElimEnv<DAG>::process
       // Case dependent is a DAG variable
       if( pdep->id().first == FFVar::VAR ){
         // Create new DAG expression and copy pointer to expression in _VarElim
-        pctr = _insert_expr( VarEl, polyindep, polydep, false );
+        paux = _insert_expr( VarEl, polyindep, polydep, false );
+#ifdef MC__SELIM_DEBUG_PROCESS
+        std::cout << "INSERTED DAG EXPRESSION:";
+        std::ostringstream ext; 
+        ext << " OF " << *pdep;
+        _dag->output( _dag->subgraph( 1, paux ), ext.str() );
+#endif
         break; // EXIT THE INNER FOR LOOP ON INTERMEDIATE VARIABLES
       }
 
@@ -774,9 +728,12 @@ SElimEnv<DAG>::process
         if( pOp->pres->id().first  != FFVar::AUX ) throw Exceptions( Exceptions::INVERT );
         if( pOp->pres->id().second != pdep->id().second ) continue;
         found_Op = true;
-        // Create new DAG expression and update pctr with pointer to expression
-        pctr  = _insert_expr( VarEl, pOp, polyindep, polydep, false );
+        // Create new DAG expression and update paux with pointer to expression
+        paux  = _insert_expr( VarEl, pOp, polyindep, polydep, false );
 	spvar = SPVar.at(0);
+#ifdef MC__SELIM_DEBUG_PROCESS
+      std::cout << "Next dependent variable: " << *spvar << std::endl;
+#endif
         break;
       }
       if( !found_Op ) throw Exceptions( Exceptions::INVERT );
@@ -868,7 +825,8 @@ SElimEnv<DAG>::_insert_expr
 {
   // Case inverse operation is needed
   if( inverse ){
-    var += insert_dag( polyindep, useprod );
+    if( !polyindep.mapmon().empty() )
+      var += insert_dag( polyindep, useprod );
     var =  insert_dag( polydep, useprod ) / var;
   }
   
@@ -877,15 +835,20 @@ SElimEnv<DAG>::_insert_expr
     double const cst = polydep.coefmon( t_mon() );
     // Constant dependent term is one
     if( cst == 1e0 ){
-      var += insert_dag( polyindep, useprod );
+      if( !polyindep.mapmon().empty() )
+        var += insert_dag( polyindep, useprod );
     }
     // Constant dependent term is negative one
     else if( cst == -1e0 ){
-      var = insert_dag( - polyindep, useprod ) - var;
+      if( !polyindep.mapmon().empty() )
+        var = insert_dag( - polyindep, useprod ) - var;
+      else
+        var = -var;
     }
     else{
-      var += insert_dag( polyindep, useprod );
-      var *=  cst;
+      if( !polyindep.mapmon().empty() )
+        var += insert_dag( polyindep, useprod );
+      var /=  cst;
     }
   }
 
@@ -912,7 +875,8 @@ SElimEnv<DAG>::_insert_expr
     }
     // No common divider
     else{
-      var += insert_dag( polyindep, useprod );
+      if( !polyindep.mapmon().empty() )
+        var += insert_dag( polyindep, useprod );
       var /= insert_dag( mondep, useprod );
     }
   }
@@ -926,17 +890,21 @@ SElimEnv<DAG>::_insert_expr
 
   // Return pointer to internal DAG variable
   auto itvar = _dag->Vars().find( &var );
-#ifdef MC__SELIM_CHECK
-  assert( itvar != _dag->Vars().end() );
-#endif
+  if( itvar != _dag->Vars().end() ){
 #ifdef MC__SELIM_DEBUG_INSERT
-  std::cout << "INSERTED DAG EXPRESSION:";
-  _dag->output( _dag->subgraph( 1, *itvar ) );
+    std::cout << "INSERTED DAG EXPRESSION:";
+    _dag->output( _dag->subgraph( 1, *itvar ) );
 #endif
-  return *itvar;
+    return *itvar;
+  }
+  
+#ifdef MC__SELIM_CHECK
+  assert( var.cst() );
+#endif
+  return _dag->add_constant( var.num().val() );
 }
 
-//#if defined(MC__USE_GUROBI)
+#if defined(MC__USE_GUROBI)
 template <typename DAG>
 inline void
 SElimEnv<DAG>::_MIP_optimize
@@ -948,11 +916,12 @@ SElimEnv<DAG>::_MIP_optimize
     // Run MIP optimization for a minimal representation
     _MIP_reset();
     _MIP_encode();
-    //_MIP_initialize( minOrd );
+    //_MIP_initialize();
     _MIP_options();
     _MIP_solve();
     _MIP_decode();
   }
+  
   catch(GRBException& e){
     if( options.MIPDISPLEVEL )
       std::cout << "Error code = " << e.getErrorCode() << std::endl
@@ -966,22 +935,12 @@ inline void
 SElimEnv<DAG>::_MIP_solve
 ()
 {
-#if defined(MC__USE_GUROBI)
   _GRBmodel->update();
-//#ifdef MC__SELIM_DEBUG_MIP
-//  _MIP_display( false );
-//#endif
   if( options.MIPOUTPUTFILE != "" )
     _GRBmodel->write( options.MIPOUTPUTFILE );
   fedisableexcept(FE_ALL_EXCEPT);
   _GRBmodel->set( GRB_IntAttr_ModelSense, -1 );
   _GRBmodel->optimize();
-  //if( options.MIPDISPLEVEL )
-  //  std::cout << "  #eliminated variables: " << _GRBmodel->get( GRB_DoubleAttr_ObjVal ) << std::endl;
-  //_MIP_display( true );
-#else
-  throw Exceptions( Exceptions::MIPERR );
-#endif
 }
 
 template <typename DAG>
@@ -1065,17 +1024,27 @@ inline void
 SElimEnv<DAG>::_MIP_decode
 ()
 {
-  // Add entries in _VarElim for eliminated variables and corresponding constraints
-#ifdef MC__SELIM_DEBUG_MIP
+  // Get order of variable elimination
+  std::map<double,unsigned> VarMTZ;
   for( auto const& [v,grbvar] : _MIP_var ){
     if( grbvar.get(GRB_DoubleAttr_X) < 0.9 ) continue;
-    std::cout << "Variable " << v << " eliminated\n";
-  }
+    VarMTZ[_MIP_varMTZ[v].get(GRB_DoubleAttr_X)] = v;
+#ifdef MC__SELIM_DEBUG_MIP
+    std::cout << "Variable " << v << " (" << _Var[v] << ") eliminated - MTZ index: "
+              << _MIP_varMTZ[v].get(GRB_DoubleAttr_X) << std::endl;
 #endif
+  }
+  std::map<unsigned,unsigned> OrdElim;
+  unsigned count=VarMTZ.size();
+  for( auto const& [u,v] : VarMTZ )
+    OrdElim[v] = --count;
+  
+  // Add entries in _VarElim for eliminated variables and corresponding constraints
+  _VarElim.resize( OrdElim.size() );
   for( auto const& [e,vmap] : _MIP_ctrvar ){
     if( _MIP_ctr[e].get(GRB_DoubleAttr_X) < 0.9 ) continue;
 #ifdef MC__SELIM_DEBUG_MIP
-    std::cout << "Constraint " << e << " used for elimination\n";
+    std::cout << "Constraint " << e << " (" << _Ctr[e] << ") used for elimination\n";
 #endif
     for( auto const& [v,grbvar] : vmap ){
       if( grbvar.get(GRB_DoubleAttr_X) < 0.9 ) continue;
@@ -1087,7 +1056,7 @@ SElimEnv<DAG>::_MIP_decode
 #ifdef MC__SELIM_CHECK
       assert( itdagctr != _dag->Vars().end() );
 #endif
-      _VarElim[*itdagvar] = *itdagctr;
+      _VarElim[OrdElim[v]] = std::make_tuple( *itdagvar, *itdagctr, nullptr );
     }
   }
 }
@@ -1097,8 +1066,6 @@ inline void
 SElimEnv<DAG>::_MIP_options
 ()
 {
-#if defined(MC__USE_GUROBI)
-  // Gurobi options
   _GRBmodel->getEnv().set( GRB_IntParam_OutputFlag,        options.MIPDISPLEVEL );
   _GRBmodel->getEnv().set( GRB_IntParam_Method,            options.LPALGO );
   _GRBmodel->getEnv().set( GRB_IntParam_Presolve,          options.LPPRESOLVE );
@@ -1112,7 +1079,6 @@ SElimEnv<DAG>::_MIP_options
   _GRBmodel->getEnv().set( GRB_DoubleParam_MIPGap,         options.MIPRELGAP );
   _GRBmodel->getEnv().set( GRB_DoubleParam_MIPGapAbs,      options.MIPABSGAP );
   _GRBmodel->getEnv().set( GRB_DoubleParam_TimeLimit,      options.MIPTIMELIMIT );
-#endif
 }
 
 template < typename DAG >
@@ -1125,12 +1091,10 @@ SElimEnv<DAG>::_MIP_reset
   _MIP_ctr.clear();
   _MIP_ctrvar.clear();
   _MIP_varvar.clear();
-#if defined(MC__USE_GUROBI)
   delete _GRBmodel;
   _GRBmodel = new GRBModel( *_GRBenv );
-#endif
 }
-//#endif
+#endif // #if defined(MC__USE_GUROBI)
 
 } // namespace mc
 

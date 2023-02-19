@@ -761,28 +761,24 @@ int test_selim1()
   for( unsigned i(0); i<NX; i++ ) X[i].set( &DAG );
   mc::FFVar F[NF];
   F[0] = X[0] + X[1] * sqr( X[3] ) + X[1] * exp( X[2] );
-  F[1] = exp( 2 * sqrt( X[3] - X[1] ) ) - 1;
+  F[1] = exp( 2 * sqrt( X[3] - X[1] ) ) - 2;
   F[2] = sqr( X[0] ) + sqrt( X[1] ) - 1;
   F[3] = sum( NX, X ) - 1;
   std::cout << DAG;
 
   mc::SElimEnv<mc::FFGraph<>> SPE( &DAG );
-  SPE.options.ELIM_MLIN = true;
+  SPE.options.ELIM_MLIN     = true;
+  SPE.options.MIPDISPLEVEL  = 0;
   SPE.options.MIPOUTPUTFILE = "test_selim1.lp";
 
   SPE.process( NF, F );
 
-//   std::cout << std::endl << SPE.Var().size() << " participating variables: ";
-//   for( auto&& var : SPE.Var() ) std::cout << var << " ";
-//   std::cout << std::endl;
-//   std::cout << std::endl << SPE.Aux().size() << " auxiliary variables: ";
-//   for( auto&& aux : SPE.Aux() ) std::cout << *aux.first << "->" << *aux.second << " ";
-//   std::cout << std::endl;
-//   std::cout << std::endl << SPE.Poly().size() << " polynomial constraints: " << std::endl;
-//   for( auto&& expr : SPE.Poly() ) DAG.output( DAG.subgraph( 1, &expr ) );
-//   //std::cout << std::endl;
-//   std::cout << std::endl << SPE.Trans().size() << " transcendental constraints: " << std::endl;
-//   for( auto&& expr : SPE.Trans() ) DAG.output( DAG.subgraph( 1, &expr ) );
+  std::cout << std::endl << SPE.VarElim().size() << " VARIABLES CAN BE ELIMINATED" << std::endl;
+  for( auto const& [var,ctr,aux] : SPE.VarElim() ){
+    std::ostringstream ext; 
+    ext << " OF " << *var << " USING " << *ctr << "=0";
+    DAG.output( DAG.subgraph( 1, aux ), ext.str() );
+  }
 
   return 0;
 }
