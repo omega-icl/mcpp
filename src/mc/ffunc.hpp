@@ -1544,6 +1544,11 @@ public:
     ()
     { _clear_variables(); _clear_operations(); _naux = _nvar = 0; }
 
+  //! @brief Looks for the real constant <a>x</a> and adds it if not found
+  FFVar const* add_constant
+    ( double const x )
+    { return _add_constant( x ); }
+
   //! @brief Extract subgraph corresponding to <a>nDep</a> dependents in array <a>pDep</a>
   FFSubgraph subgraph
     ( unsigned int const nDep, FFVar const* pDep );
@@ -4576,9 +4581,10 @@ const
     U vres;
     if( pops.empty() )
       throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
-    else if( pops.size() == 1 )
+    else if( pops.size() == 1 ){
       //op.eval( vres, 1, static_cast<U*>( pops[0]->val() ) );
       if( !op.reval( vres, 1, static_cast<U*>( pops[0]->val() ) ) ) return false;
+    }
     //else if( pops.size() == 2 )
     //  op.eval( *itU, *static_cast<U*>( pops[0]->val() ), *static_cast<U*>( pops[1]->val() ) );
     //  if( !op.reval( vres, static_cast<U*>( pops[0]->val() ),
