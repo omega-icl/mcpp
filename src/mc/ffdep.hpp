@@ -218,6 +218,7 @@ public:
   //! @brief Determine if current object is dependent on the variable of index <a>ind</a>
   std::pair<bool,TYPE> dep
     ( const int ind )
+    const
     { auto it = _dep.find(ind);
       return( it==_dep.end()? std::make_pair(false,TYPE::L):
                               std::make_pair(true,it->second) ); }

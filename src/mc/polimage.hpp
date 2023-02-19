@@ -1442,9 +1442,9 @@ public:
       }
     }
   //! @brief Constructor for cut w/ variable and coefficient maps
-  template <typename U> PolCut
-    ( FFOp*op, TYPE type, const double b, const std::map<U,PolVar<T>>&X,
-      const std::map<U,double>&a )
+  template <typename KEY, typename COMP> PolCut
+    ( FFOp*op, TYPE type, const double b, const std::map<KEY,PolVar<T>,COMP>&X,
+      const std::map<KEY,double,COMP>&a )
     : _op(op), _type(type), _rhs(b), _var(a.size()), _coef(a.size())
     {
       auto ita = a.cbegin();
@@ -1518,9 +1518,9 @@ public:
       _var[ndx.size()]  = X1;
     }
   //! @brief Constructor for cut w/ variable and coefficient maps plus 1 linear variable
-  template <typename U> PolCut
-    ( FFOp*op, TYPE type, const double b, const std::map<U,PolVar<T>>&X,
-      const std::map<U,double>&a, const PolVar<T>&X1, const double a1 )
+  template <typename KEY, typename COMP> PolCut
+    ( FFOp*op, TYPE type, const double b, const std::map<KEY,PolVar<T>,COMP>&X,
+      const std::map<KEY,double,COMP>&a, const PolVar<T>&X1, const double a1 )
     : _op(op), _type(type), _rhs(b), _var(a.size()+1), _coef(a.size()+1)
     {
       auto ita = a.cbegin();
@@ -1535,9 +1535,9 @@ public:
       _var[a.size()]  = X1;
     }
   //! @brief Constructor for cut w/ variable and coefficient maps plus 2 linear variables
-  template <typename U> PolCut
-    ( FFOp*op, TYPE type, const double b, const std::map<U,PolVar<T>>&X,
-      const std::map<U,double>&a, const PolVar<T>&X1, const double a1,
+  template <typename KEY, typename COMP> PolCut
+    ( FFOp*op, TYPE type, const double b, const std::map<KEY,PolVar<T>,COMP>&X,
+      const std::map<KEY,double,COMP>&a, const PolVar<T>&X1, const double a1,
       const PolVar<T>&X2, const double a2 )
     : _op(op), _type(type), _rhs(b), _var(a.size()+2), _coef(a.size()+2)
     {
@@ -1922,9 +1922,9 @@ protected:
     ( FFOp*op, const typename PolCut<T>::TYPE type, const double b,
       const std::set<unsigned>&ndx, const PolVar<T>*X, const double*a );
   //! @brief Appends new relaxation cut in _Cuts w/ variable and coefficient maps
-  template <typename U> typename t_Cuts::iterator _add_cut
+  template <typename KEY, typename COMP> typename t_Cuts::iterator _add_cut
     ( FFOp*op, const typename PolCut<T>::TYPE type, const double b,
-      const std::map<U,PolVar<T>>&X, const std::map<U,double>&a );
+      const std::map<KEY,PolVar<T>,COMP>&X, const std::map<KEY,double,COMP>&a );
   //! @brief Appends new relaxation cut in _Cuts w/ <a>n+1</a> variables
   typename t_Cuts::iterator _add_cut
     ( FFOp*op, const typename PolCut<T>::TYPE type, const double b,
@@ -1949,14 +1949,14 @@ protected:
       const std::set<unsigned>&ndx, const PolVar<T>*X, const double*a,
       const PolVar<T>&X1, const double a1 );
   //! @brief Appends new relaxation cut in _Cuts w/ 1 variable and coefficient maps
-  template <typename U> typename t_Cuts::iterator _add_cut
+  template <typename KEY, typename COMP> typename t_Cuts::iterator _add_cut
     ( FFOp*op, const typename PolCut<T>::TYPE type, const double b,
-      const std::map<U,PolVar<T>>&X, const std::map<U,double>&a,
+      const std::map<KEY,PolVar<T>,COMP>&X, const std::map<KEY,double,COMP>&a,
       const PolVar<T>&X1, const double a1 );
   //! @brief Appends new relaxation cut in _Cuts w/ 2 variables and coefficient maps
-  template <typename U> typename t_Cuts::iterator _add_cut
+  template <typename KEY, typename COMP> typename t_Cuts::iterator _add_cut
     ( FFOp*op, const typename PolCut<T>::TYPE type, const double b,
-      const std::map<U,PolVar<T>>&X, const std::map<U,double>&a,
+      const std::map<KEY,PolVar<T>,COMP>&X, const std::map<KEY,double,COMP>&a,
       const PolVar<T>&X1, const double a1,
       const PolVar<T>&X2, const double a2 );
         //! @brief Appends new relaxation cut in _Cuts w/ 3 variables and coefficient maps
@@ -2284,8 +2284,8 @@ public:
   void generate_cuts
     ( const std::set<unsigned>&ndxdep, const PolVar<T>*pdep, const bool reset=false );
   //! @brief Append relaxation cuts for the dependents in the map <a>mdep</a>
-  template <typename U> void generate_cuts
-    ( const std::map<U,PolVar<T>>&mdep, const bool reset=false );
+  template <typename KEY, typename COMP> void generate_cuts
+    ( std::map<KEY,PolVar<T>,COMP> const& mdep, const bool reset=false );
 
   //! @brief Append new nonlinear cut w/ 1 variable
   typename t_Cuts::iterator add_cut
@@ -2340,9 +2340,9 @@ public:
       const std::set<unsigned>&ndx, const PolVar<T>*X, const double*a )
     { return _add_cut( 0, type, b, ndx, X, a ); }
   //! @brief Append new relaxation cut w/ variable and coefficient maps
-  template <typename U> typename t_Cuts::iterator add_cut
+  template <typename KEY, typename COMP> typename t_Cuts::iterator add_cut
     ( const typename PolCut<T>::TYPE type, const double b,
-      const std::map<U,PolVar<T>>&X, const std::map<U,double>&a )
+      const std::map<KEY,PolVar<T>,COMP>&X, const std::map<KEY,double,COMP>&a )
     { return _add_cut( 0, type, b, X, a ); }
   //! @brief Append new relaxation cut w/ <a>n+1</a> variables
   typename t_Cuts::iterator add_cut
@@ -2372,15 +2372,15 @@ public:
       const PolVar<T>&X1, const double a1 )
     { return _add_cut( 0, type, b, ndx, X, a, X1, a1 ); }
   //! @brief Append new relaxation cut w/ variable and coefficient maps
-  template <typename U> typename t_Cuts::iterator add_cut
+  template <typename KEY, typename COMP> typename t_Cuts::iterator add_cut
     ( const typename PolCut<T>::TYPE type, const double b,
-      const std::map<U,PolVar<T>>&X, const std::map<U,double>&a,
+      const std::map<KEY,PolVar<T>,COMP>&X, const std::map<KEY,double,COMP>&a,
       const PolVar<T>&X1, const double a1 )
     { return _add_cut( 0, type, b, X, a, X1, a1 ); }
   //! @brief Append new relaxation cut w/ variable and coefficient maps
-  template <typename U> typename t_Cuts::iterator add_cut
+  template <typename KEY, typename COMP> typename t_Cuts::iterator add_cut
     ( const typename PolCut<T>::TYPE type, const double b,
-      const std::map<U,PolVar<T>>&X, const std::map<U,double>&a,
+      const std::map<KEY,PolVar<T>,COMP>&X, const std::map<KEY,double,COMP>&a,
       const PolVar<T>&X1, const double a1, const PolVar<T>&X2, const double a2 )
     { return _add_cut( 0, type, b, X, a, X1, a1, X2, a2 ); }
 
@@ -2634,12 +2634,12 @@ PolImg<T>::_add_cut
   return _Cuts.insert( pCut );
 }
 
-template <typename T> template <typename U>
+template <typename T> template <typename KEY, typename COMP>
 inline typename PolImg<T>::t_Cuts::iterator
 PolImg<T>::_add_cut
 ( FFOp*op, const typename PolCut<T>::TYPE type,
-  const double b, const std::map<U,PolVar<T>>&X,
-  const std::map<U,double>&a )
+  const double b, const std::map<KEY,PolVar<T>,COMP>&X,
+  const std::map<KEY,double,COMP>&a )
 {
   PolCut<T>* pCut = new PolCut<T>( op, type, b, X, a );
   return _Cuts.insert( pCut );
@@ -2699,24 +2699,24 @@ PolImg<T>::_add_cut
   return _Cuts.insert( pCut );
 }
 
-template <typename T> template <typename U>
+template <typename T> template <typename KEY, typename COMP>
 inline typename PolImg<T>::t_Cuts::iterator
 PolImg<T>::_add_cut
 ( FFOp*op, const typename PolCut<T>::TYPE type,
-  const double b, const std::map<U,PolVar<T>>&X,
-  const std::map<U,double>&a, const PolVar<T>&X1,
+  const double b, const std::map<KEY,PolVar<T>,COMP>&X,
+  const std::map<KEY,double,COMP>&a, const PolVar<T>&X1,
   const double a1 )
 {
   PolCut<T>* pCut = new PolCut<T>( op, type, b, X, a, X1, a1 );
   return _Cuts.insert( pCut );
 }
 
-template <typename T> template <typename U>
+template <typename T> template <typename KEY, typename COMP>
 inline typename PolImg<T>::t_Cuts::iterator
 PolImg<T>::_add_cut
 ( FFOp*op, const typename PolCut<T>::TYPE type,
-  const double b, const std::map<U,PolVar<T>>&X,
-  const std::map<U,double>&a, const PolVar<T>&X1,
+  const double b, const std::map<KEY,PolVar<T>,COMP>&X,
+  const std::map<KEY,double,COMP>&a, const PolVar<T>&X1,
   const double a1, const PolVar<T>&X2, const double a2 )
 {
   PolCut<T>* pCut = new PolCut<T>( op, type, b, X, a, X1, a1, X2, a2 );
@@ -2752,10 +2752,10 @@ PolImg<T>::generate_cuts
   }
 }
 
-template <typename T> template <typename U>
+template <typename T> template <typename KEY, typename COMP>
 inline void
 PolImg<T>::generate_cuts
-( const std::map<U,PolVar<T>>&mdep, const bool reset )
+( std::map<KEY,PolVar<T>,COMP> const& mdep, const bool reset )
 {
   // Reset cuts in polyhedral image?
   if( reset ) reset_cuts();

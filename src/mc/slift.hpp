@@ -3,12 +3,12 @@
 // This code is published under the Eclipse Public License.
 
 /*!
-\page page_SLift Recursive Decomposition in Sparse Factorable Expressions 
+\page page_SLIFT Recursive Decomposition in Factorable Expressions 
 \author Benoit Chachuat
 \date 2023
 \bug No known bugs.
 
-The classes mc::SLiftEnv and mc::SLiftExpr defined in <tt>slift.hpp</tt> enable the recursive decomposition of factorable expressions as a collection of polynomial/rational and transcendental subexpressions via the introduction of auxiliary variables.
+The classes mc::SLiftEnv and mc::SLiftVar defined in <tt>slift.hpp</tt> enable the recursive decomposition of factorable expressions as a collection of polynomial/rational and transcendental subexpressions via the introduction of auxiliary variables.
 
 \section sec_SLift_process How do I decompose a factorable expression?
 
@@ -165,7 +165,7 @@ Finally, the original vector-valued function \f${\bf f}(x_0,x_1)\f$ is equal to 
 namespace mc
 {
 
-template <typename DAG> class SLiftExpr;
+template <typename DAG> class SLiftVar;
 
 //! @brief Environment for recursive decomposition of factorable expressions into polynomial/rational and transcendental subexpressions
 ////////////////////////////////////////////////////////////////////////
@@ -177,41 +177,43 @@ template < typename DAG >
 class SLiftEnv
 ////////////////////////////////////////////////////////////////////////
 {
-  friend class SLiftExpr<DAG>;
+  friend class SLiftVar<DAG>;
   template <typename D> friend  std::ostream& operator<< ( std::ostream&, SLiftEnv<D> const& );
-  template <typename D> friend  SLiftExpr<D> inv ( SLiftExpr<D> const& );
-  template <typename D> friend  SLiftExpr<D> exp ( SLiftExpr<D> const& );
-  template <typename D> friend  SLiftExpr<D> log ( SLiftExpr<D> const& );
-  template <typename D> friend  SLiftExpr<D> xlog( SLiftExpr<D> const& );
-  template <typename D> friend  SLiftExpr<D> sqrt( SLiftExpr<D> const& );
-  template <typename D> friend  SLiftExpr<D> sqr ( SLiftExpr<D> const& );
-  template <typename D> friend  SLiftExpr<D> pow ( SLiftExpr<D> const&, int const );  
-  template <typename D> friend  SLiftExpr<D> pow ( SLiftExpr<D> const&, double const& );  
-  template <typename D> friend  SLiftExpr<D> cheb( SLiftExpr<D> const&, const unsigned );  
-  template <typename D> friend  SLiftExpr<D> prod( const unsigned, SLiftExpr<D> const* );  
-  template <typename D> friend  SLiftExpr<D> cos ( SLiftExpr<D> const& );
-  template <typename D> friend  SLiftExpr<D> sin ( SLiftExpr<D> const& );
-  template <typename D> friend  SLiftExpr<D> tan ( SLiftExpr<D> const& );
-  template <typename D> friend  SLiftExpr<D> acos( SLiftExpr<D> const& );
-  template <typename D> friend  SLiftExpr<D> asin( SLiftExpr<D> const& );
-  template <typename D> friend  SLiftExpr<D> atan( SLiftExpr<D> const& );
-  template <typename D> friend  SLiftExpr<D> cosh( SLiftExpr<D> const& );
-  template <typename D> friend  SLiftExpr<D> sinh( SLiftExpr<D> const& );
-  template <typename D> friend  SLiftExpr<D> tanh( SLiftExpr<D> const& );
-  template <typename D> friend  SLiftExpr<D> fabs( SLiftExpr<D> const& );
-  template <typename D> friend  SLiftExpr<D> erf( SLiftExpr<D> const& );
-  template <typename D> friend  SLiftExpr<D> fstep( SLiftExpr<D> const& );
-  template <typename D> friend  SLiftExpr<D> max( SLiftExpr<D> const&, SLiftExpr<D> const& );  
-  template <typename D> friend  SLiftExpr<D> min( SLiftExpr<D> const&, SLiftExpr<D> const& );  
-  template <typename D> friend  SLiftExpr<D> lmtd( SLiftExpr<D> const&, SLiftExpr<D> const& );  
-  template <typename D> friend  SLiftExpr<D> rlmtd( SLiftExpr<D> const&, SLiftExpr<D> const& );  
+  template <typename D> friend  SLiftVar<D> inv ( SLiftVar<D> const& );
+  template <typename D> friend  SLiftVar<D> exp ( SLiftVar<D> const& );
+  template <typename D> friend  SLiftVar<D> log ( SLiftVar<D> const& );
+  template <typename D> friend  SLiftVar<D> xlog( SLiftVar<D> const& );
+  template <typename D> friend  SLiftVar<D> sqrt( SLiftVar<D> const& );
+  template <typename D> friend  SLiftVar<D> sqr ( SLiftVar<D> const& );
+  template <typename D> friend  SLiftVar<D> pow ( SLiftVar<D> const&, int const );  
+  template <typename D> friend  SLiftVar<D> pow ( SLiftVar<D> const&, double const& );  
+  template <typename D> friend  SLiftVar<D> cheb( SLiftVar<D> const&, const unsigned );  
+  template <typename D> friend  SLiftVar<D> prod( const unsigned, SLiftVar<D> const* );  
+  template <typename D> friend  SLiftVar<D> cos ( SLiftVar<D> const& );
+  template <typename D> friend  SLiftVar<D> sin ( SLiftVar<D> const& );
+  template <typename D> friend  SLiftVar<D> tan ( SLiftVar<D> const& );
+  template <typename D> friend  SLiftVar<D> acos( SLiftVar<D> const& );
+  template <typename D> friend  SLiftVar<D> asin( SLiftVar<D> const& );
+  template <typename D> friend  SLiftVar<D> atan( SLiftVar<D> const& );
+  template <typename D> friend  SLiftVar<D> cosh( SLiftVar<D> const& );
+  template <typename D> friend  SLiftVar<D> sinh( SLiftVar<D> const& );
+  template <typename D> friend  SLiftVar<D> tanh( SLiftVar<D> const& );
+  template <typename D> friend  SLiftVar<D> fabs( SLiftVar<D> const& );
+  template <typename D> friend  SLiftVar<D> erf( SLiftVar<D> const& );
+  template <typename D> friend  SLiftVar<D> fstep( SLiftVar<D> const& );
+  template <typename D> friend  SLiftVar<D> max( SLiftVar<D> const&, SLiftVar<D> const& );  
+  template <typename D> friend  SLiftVar<D> min( SLiftVar<D> const&, SLiftVar<D> const& );  
+  template <typename D> friend  SLiftVar<D> lmtd( SLiftVar<D> const&, SLiftVar<D> const& );  
+  template <typename D> friend  SLiftVar<D> rlmtd( SLiftVar<D> const&, SLiftVar<D> const& );  
 
 public:
 
-  typedef std::list< std::pair< FFOp const*, std::vector<SLiftExpr<DAG> const*> > > t_Interm;
+  typedef std::list< std::pair< FFOp const*, std::vector<SLiftVar<DAG> const*> > > t_Interm;
   typedef std::map< FFVar const*, FFVar const*, lt_FFVar > t_Aux;
   typedef std::vector< FFVar const* > t_Expr;
-  typedef SPoly<FFVar const*, lt_FFVar> SPolyExpr;
+  
+  typedef SMon<FFVar const*, lt_FFVar> t_mon;
+  typedef SPoly<FFVar const*, lt_FFVar> t_poly;
 
   //! @brief Default Constructor
   SLiftEnv
@@ -273,11 +275,19 @@ public:
   void process
     ( unsigned const nDep, FFVar const* pDep, const bool add2dag=true );
 
-  //! @brief Exceptions of mc::SLiftExpr
+  //! @brief Transcribe sparse polynomial into DAG
+  FFVar insert_dag
+    ( t_poly const& poly, bool const useprod=false );
+
+  //! @brief Transcribe sparse monomial into DAG
+  FFVar insert_dag
+    ( t_mon const& mon, bool const useprod=false );
+
+  //! @brief Exceptions of mc::SLiftVar
   class Exceptions
   {
    public:
-    //! @brief Enumeration type for SLiftExpr exception handling
+    //! @brief Enumeration type for SLiftVar exception handling
     enum TYPE{
       DAGERR=0,       //!< Operation involving a factorable expression linked to a different DAG
       ENVERR,         //!< Operation between factorable expressions linked to different environments or without an environment
@@ -346,42 +356,38 @@ protected:
   std::vector<FFVar> _Var;
 
   //! @brief Vector of independent sparse variables
-  std::vector<SLiftExpr<DAG>> _SPVar;
+  std::vector<SLiftVar<DAG>> _SPVar;
 
   //! @brief Vector of dependent sparse expressions
-  std::vector<SLiftExpr<DAG>> _SPDep;
+  std::vector<SLiftVar<DAG>> _SPDep;
 
   //! @brief Add new intermediate uni- or bi-variate expression in _Interm
   void _append_interm
-    ( FFOp const* op, SLiftExpr<DAG> const* var1, SLiftExpr<DAG> const* var2=nullptr );
+    ( FFOp const* op, SLiftVar<DAG> const* var1, SLiftVar<DAG> const* var2=nullptr );
 
 //  //! @brief Add new intermediate n-variate expression in _Interm
 //  void _append_interm
-//    ( FFOp const* op, unsigned const nvars, SLiftExpr<DAG> const*const* pvars );
+//    ( FFOp const* op, unsigned const nvars, SLiftVar<DAG> const*const* pvars );
 
   //! @brief Insert an auxiliary variable corresponding to a rational/polynomial expression into DAG
   FFVar const* _insert_expr
-    ( FFVar const* oper, SLiftExpr<DAG> const* expr );
+    ( FFVar const* oper, SLiftVar<DAG> const* expr );
 
   //! @brief Insert a non-rational operation into DAG via the introduction of auxiliary variables
   void _insert_expr
     ( FFOp const* pOp, std::vector<const FFVar*>& vAux );
-
-  //! @brief Transcribe sparse rational/polynomial expression (SLiftExpr) into DAG
-  FFVar _SPolyExpr_to_FFVar
-    ( SPolyExpr const& expr );
 
   //! @brief Find auxiliary variable in DAG and return corresponding new DAG variable (or NULL if undefined)
   FFVar const* _find_aux
     ( FFVar const* aux );
 
   //! @brief Lift current univariate operation
-  SLiftExpr<DAG> _lift_univariate_term
-    ( SLiftExpr<DAG> const& var );
+  SLiftVar<DAG> _lift_univariate_term
+    ( SLiftVar<DAG> const& var );
 
   //! @brief Lift current bivariate operation
-  SLiftExpr<DAG> _lift_bivariate_term
-    ( SLiftExpr<DAG> const& var1, SLiftExpr<DAG> const& var2 );
+  SLiftVar<DAG> _lift_bivariate_term
+    ( SLiftVar<DAG> const& var1, SLiftVar<DAG> const& var2 );
 
   //! @brief Erase all entries in _Interm
   void _reset
@@ -394,17 +400,17 @@ inline typename SLiftEnv<DAG>::Options SLiftEnv<DAG>::options;
 
 //! @brief Arithmetic for recursive decomposition of factorable expressions into polynomial/rational and transcendental subexpressions
 ////////////////////////////////////////////////////////////////////////
-//! mc::SLiftExpr is a C++ class implementing an arithmetic for
+//! mc::SLiftVar is a C++ class implementing an arithmetic for
 //! recursive decomposition of factorable expressions into polynomial/
 //! rational and transcendental subexpressions
 ////////////////////////////////////////////////////////////////////////
 template < typename DAG >
-class SLiftExpr
+class SLiftVar
 ////////////////////////////////////////////////////////////////////////
 {
 public:
 
-  typedef SPoly<FFVar const*, lt_FFVar> SPolyExpr;
+  typedef SPoly<FFVar const*, lt_FFVar> t_poly;
 
 private:
 
@@ -414,38 +420,38 @@ private:
 protected:
 
   // numerator sparse polynomial
-  SPolyExpr _numer;
+  t_poly _numer;
 
   // Denominator sparse polynomial
-  SPolyExpr _denom;
+  t_poly _denom;
 
   //! @brief Initialize sparse rational expression with existing expression
-  SLiftExpr<DAG>& _set
-    ( SLiftExpr<DAG> const& var );
+  SLiftVar<DAG>& _set
+    ( SLiftVar<DAG> const& var );
 
   //! @brief Initialize sparse expression as constant
-  SLiftExpr<DAG>& _set
+  SLiftVar<DAG>& _set
     ( double const& d );
 
   //! @brief Initialize sparse rational expression as DAG variable
-  SLiftExpr<DAG>& _set
+  SLiftVar<DAG>& _set
     ( FFVar const& x );
 
 public:
 
   //! @brief Default constructor of sparse rational expression
-  SLiftExpr
+  SLiftVar
     ()
     {}
 
   //! @brief Constructor of sparse rational expression as constant
-  SLiftExpr
+  SLiftVar
     ( double const& d )
     : _env( 0 )
     { _set( d ); }
 
   //! @brief Constructor of sparse rational expression as DAG variable
-  SLiftExpr
+  SLiftVar
     ( SLiftEnv<DAG>* env, FFVar const& x)
     : _env( env )
     { if( env->dag() != x.dag() )
@@ -453,22 +459,22 @@ public:
       _set( x ); }
 
   //! @brief Copy constructor of sparse rational expression
-  SLiftExpr
-    ( SLiftExpr<DAG> const& var )
+  SLiftVar
+    ( SLiftVar<DAG> const& var )
     { _set( var ); }
 
   //! @brief Constructor of sparse rational expression
-  SLiftExpr
-    ( SLiftEnv<DAG>* env, SPolyExpr const& n, SPolyExpr const& d )
+  SLiftVar
+    ( SLiftEnv<DAG>* env, t_poly const& n, t_poly const& d )
     : _env( env ), _numer( n ), _denom( d )
     {}
 
   //! @brief Destructor of sparse rational expression
-  virtual ~SLiftExpr()
+  virtual ~SLiftVar()
     {}
 
   //! @brief Initialize variable in sparse rational envrionment <a>env</a> corresponding to DAG variable <a>x</a>
-  SLiftExpr<DAG>& set
+  SLiftVar<DAG>& set
     ( SLiftEnv<DAG>* env, FFVar const& x )
     { _env = env;
       if( env->dag() != x.dag() )
@@ -476,30 +482,30 @@ public:
       _set( x ); return *this; }
 
   //! @brief Overloaded operator '=' for sparse rational expression
-  SLiftExpr<DAG>& operator=
-    ( SLiftExpr<DAG> const& var )
+  SLiftVar<DAG>& operator=
+    ( SLiftVar<DAG> const& var )
     { _set( var ); return *this; }
 
   //! @brief Overloaded operator '=' for constant 
-  SLiftExpr<DAG>& operator=
+  SLiftVar<DAG>& operator=
     ( double const& d )
     { _env = 0; _set( d ); return *this; }
 
   //! @brief Overloaded operator '+=' for sparse rational function
-  SLiftExpr<DAG>& operator+=
-    ( SLiftExpr<DAG> const& var );
+  SLiftVar<DAG>& operator+=
+    ( SLiftVar<DAG> const& var );
 
   //! @brief Overloaded operator '-=' for sparse rational function
-  SLiftExpr<DAG>& operator-=
-    ( SLiftExpr<DAG> const& var );
+  SLiftVar<DAG>& operator-=
+    ( SLiftVar<DAG> const& var );
 
   //! @brief Overloaded operator '*=' for sparse rational function
-  SLiftExpr<DAG>& operator*=
-    ( SLiftExpr<DAG> const& var );
+  SLiftVar<DAG>& operator*=
+    ( SLiftVar<DAG> const& var );
 
   //! @brief Overloaded operator '/=' for sparse rational function
-  SLiftExpr<DAG>& operator/=
-    ( SLiftExpr<DAG> const& var );
+  SLiftVar<DAG>& operator/=
+    ( SLiftVar<DAG> const& var );
 
   // Sparse rational polynomial environment
   SLiftEnv<DAG>* env
@@ -508,13 +514,13 @@ public:
     { return _env; };
 
   // numerator sparse polynomial
-  SPolyExpr const& numer
+  t_poly const& numer
     ()
     const
     { return _numer; };
 
   // Denominator sparse polynomial
-  SPolyExpr const& denom
+  t_poly const& denom
     ()
     const
     { return _denom; };
@@ -525,7 +531,7 @@ public:
 template < typename DAG >
 inline std::ostream&
 operator<<
-( std::ostream& out, SLiftExpr<DAG> const& var )
+( std::ostream& out, SLiftVar<DAG> const& var )
 {
   out << std::endl
       << "NUMERATOR:"   << var.numer()
@@ -539,13 +545,16 @@ operator<<
 ( std::ostream& out, SLiftEnv<DAG> const& env)
 {
   unsigned count = 0;
-  for( auto&& expr : env._Interm ){
+  for( auto const& expr : env._Interm ){
     out << std::endl << "Intermediate #" << ++count << ": "
         << *(expr.first->pres) << " = " << *(expr.first) << std::endl;
     unsigned pos = 0;
     for( auto&& oper : expr.second )
       out << "Operand " << *expr.first->pops[pos++] << ": " << *oper;
   }
+  count = 0;
+  for( auto const& spdep : env._SPDep )
+    out << std::endl << "Dependent #" << ++count << ": " << spdep;
   return out;
 }
 
@@ -574,7 +583,7 @@ SLiftEnv<DAG>::process
   for( auto&& Op : sgDep.l_op ){
     if( Op->type != FFOp::VAR ) continue;
     _Var.push_back( *Op->pres );
-    _SPVar.push_back( SLiftExpr( this, *Op->pres ) );
+    _SPVar.push_back( SLiftVar( this, *Op->pres ) );
   }
 
 #ifdef MC__SLIFT_DEBUG_PROCESS
@@ -637,7 +646,7 @@ SLiftEnv<DAG>::process
 template < typename DAG >
 inline FFVar const*
 SLiftEnv<DAG>::_insert_expr
-( FFVar const* var, SLiftExpr<DAG> const* expr )
+( FFVar const* var, SLiftVar<DAG> const* expr )
 { 
   auto itdagvar = _dag->Vars().find( const_cast<FFVar*>(var) );
 #ifdef MC__SLIFT_CHECK
@@ -668,7 +677,7 @@ SLiftEnv<DAG>::_insert_expr
   _Aux.insert( std::make_pair( *itdagvar, *itnewvar ) );
   _Var.push_back( **itnewvar );
 
-  FFVar polyctr = **itnewvar * _SPolyExpr_to_FFVar( expr->denom() ) - _SPolyExpr_to_FFVar( expr->numer() );
+  FFVar polyctr = **itnewvar * insert_dag( expr->denom() ) - insert_dag( expr->numer() );
   auto itpolyctr = _dag->Vars().find( &polyctr );
 #ifdef MC__SLIFT_CHECK
   assert( itpolyctr != _dag->Vars().end() );
@@ -744,7 +753,7 @@ SLiftEnv<DAG>::_insert_expr
    case FFOp::SCALE:
    case FFOp::TIMES:
    case FFOp::PROD:
-   default:          throw typename SLiftEnv<DAG>::Exceptions( SLiftEnv<DAG>::Exceptions::INTERNAL );
+   default:          throw Exceptions( Exceptions::INTERNAL );
   }
 }
 
@@ -761,30 +770,81 @@ SLiftEnv<DAG>::_find_aux
 
 template < typename DAG >
 inline FFVar
-SLiftEnv<DAG>::_SPolyExpr_to_FFVar
-( SPolyExpr const& expr )
+SLiftEnv<DAG>::insert_dag
+( t_poly const& pol, bool const useprod )
 {
-  FFVar var = 0.;
-  for( auto it=expr.mapmon().begin(); it!=expr.mapmon().end(); ++it ){
-    FFVar prodmon = it->second;
-    for( auto ie=it->first.expr.begin(); ie!=it->first.expr.end(); ++ie ){
-      const FFVar*oper = _find_aux( ie->first );
-      if( !oper ) 
-        throw typename SLiftEnv<DAG>::Exceptions( SLiftEnv<DAG>::Exceptions::INTERNAL );
-      switch( SPolyExpr::options.BASIS ){
-       case SPolyExpr::Options::MONOM:
-        prodmon *= pow( *oper, (int)ie->second );
+  FFVar var;
+  bool first = true;
+  for( auto const& [mon,coef] : pol.mapmon() ){
+    if( first ){
+      var  = coef * insert_dag( mon, useprod );
+      first = false;
+    }
+    else
+      var += coef * insert_dag( mon, useprod );
+  }
+
+//   for( auto it=pol.mapmon().begin(); it!=pol.mapmon().end(); ++it ){
+//     FFVar prodmon = it->second;
+//     for( auto ie=it->first.expr.begin(); ie!=it->first.expr.end(); ++ie ){
+//       const FFVar*oper = _find_aux( ie->first );
+//       if( !oper ) 
+//         throw typename SLiftEnv<DAG>::Exceptions( SLiftEnv<DAG>::Exceptions::INTERNAL );
+//       switch( t_poly::options.BASIS ){
+//        case t_poly::Options::MONOM:
+//         prodmon *= pow( *oper, (int)ie->second );
+//         break;
+//        case t_poly::Options::CHEB:
+//         prodmon *= cheb( *oper, ie->second );
+//         break;
+//       }
+//     }
+//     if( it->first.expr.empty() ) var = prodmon;
+//     else                         var+= prodmon;
+//   }
+//   // ADD OPTION TO RETURN A PRODMON OR MONOM TERM?
+  return var;
+}
+
+template < typename DAG >
+inline FFVar
+SLiftEnv<DAG>::insert_dag
+( t_mon const& mon, bool const useprod )
+{
+  if( useprod ){
+    std::vector<FFVar> pvar;
+    pvar.reserve( mon.expr.size() );
+    for( auto const& [var,ord] : mon.expr ){
+      FFVar const* oper = _find_aux( var );
+      if( oper == nullptr )
+        throw Exceptions( Exceptions::INTERNAL );
+      switch( t_poly::options.BASIS ){
+       case t_poly::Options::MONOM:
+        pvar.push_back( pow( *oper, (int)ord ) );
         break;
-       case SPolyExpr::Options::CHEB:
-        prodmon *= cheb( *oper, ie->second );
+       case t_poly::Options::CHEB:
+        pvar.push_back( cheb( *oper, ord ) );
         break;
       }
     }
-    if( it->first.expr.empty() ) var = prodmon;
-    else                         var+= prodmon;
+    return prod( pvar.size(), pvar.data() );
   }
-  // ADD OPTION TO RETURN A PRODMON OR MONOM TERM?
-  return var;
+    
+  FFVar prodmon = 1;
+  for( auto const& [var,ord] : mon.expr ){
+    FFVar const* oper = _find_aux( var );
+    if( oper == nullptr )
+      throw Exceptions( Exceptions::INTERNAL );
+    switch( t_poly::options.BASIS ){
+     case t_poly::Options::MONOM:
+      prodmon *= pow( *oper, (int)ord );
+      break;
+     case t_poly::Options::CHEB:
+      prodmon *= cheb( *oper, ord );
+      break;
+    }
+  }
+  return prodmon;
 }
 
 template < typename DAG >
@@ -809,22 +869,22 @@ SLiftEnv<DAG>::_reset
 template < typename DAG >
 inline void
 SLiftEnv<DAG>::_append_interm
-( FFOp const* op, SLiftExpr<DAG> const* var1, SLiftExpr<DAG> const* var2 )
+( FFOp const* op, SLiftVar<DAG> const* var1, SLiftVar<DAG> const* var2 )
 {
 #ifdef MC__SLIFT_CHECK
   if( !var1 )
     throw typename SLiftEnv<DAG>::Exceptions( SLiftEnv<DAG>::Exceptions::INTERNAL );
 #endif
-  std::vector<SLiftExpr<DAG> const*> vops;
-  vops.push_back( new SLiftExpr( *var1 ) );
-  if( var2 ) vops.push_back( new SLiftExpr( *var2 ) );
+  std::vector<SLiftVar<DAG> const*> vops;
+  vops.push_back( new SLiftVar( *var1 ) );
+  if( var2 ) vops.push_back( new SLiftVar( *var2 ) );
   _Interm.push_back( std::make_pair( op, vops ) );
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 SLiftEnv<DAG>::_lift_univariate_term
-( SLiftExpr<DAG> const& var )
+( SLiftVar<DAG> const& var )
 {
 #ifdef MC__SLIFT_CHECK
   if( !_dag->curOp() )
@@ -833,13 +893,13 @@ SLiftEnv<DAG>::_lift_univariate_term
 
   // Append new intermediate expression and assert that same operation was not previously appended
   _append_interm( _dag->curOp(), &var );
-  return SLiftExpr( this, *(_dag->curOp()->pres) );
+  return SLiftVar( this, *(_dag->curOp()->pres) );
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 SLiftEnv<DAG>::_lift_bivariate_term
-( SLiftExpr<DAG> const& var1, SLiftExpr<DAG> const& var2 )
+( SLiftVar<DAG> const& var1, SLiftVar<DAG> const& var2 )
 {
 #ifdef MC__SLIFT_CHECK
   if( !_dag->curOp() )
@@ -848,12 +908,12 @@ SLiftEnv<DAG>::_lift_bivariate_term
 
   // Append new intermediate expression and assert that same operation was not previously appended
   _append_interm( _dag->curOp(), &var1, &var2 );
-  return SLiftExpr( this, *(_dag->curOp()->pres) );
+  return SLiftVar( this, *(_dag->curOp()->pres) );
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>&
-SLiftExpr<DAG>::_set
+inline SLiftVar<DAG>&
+SLiftVar<DAG>::_set
 ( double const& d )
 {
   _numer = d;
@@ -862,8 +922,8 @@ SLiftExpr<DAG>::_set
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>&
-SLiftExpr<DAG>::_set
+inline SLiftVar<DAG>&
+SLiftVar<DAG>::_set
 ( FFVar const& x )
 {
   _numer.var( &x );
@@ -872,9 +932,9 @@ SLiftExpr<DAG>::_set
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>&
-SLiftExpr<DAG>::_set
-( SLiftExpr<DAG> const& var )
+inline SLiftVar<DAG>&
+SLiftVar<DAG>::_set
+( SLiftVar<DAG> const& var )
 {
   if( this == &var ) return *this;
   _env = var._env;
@@ -884,17 +944,17 @@ SLiftExpr<DAG>::_set
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 operator+
-( SLiftExpr<DAG> const& var )
+( SLiftVar<DAG> const& var )
 {
   return var;
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>&
-SLiftExpr<DAG>::operator+=
-( SLiftExpr<DAG> const& var )
+inline SLiftVar<DAG>&
+SLiftVar<DAG>::operator+=
+( SLiftVar<DAG> const& var )
 {
   if( !_env )
     _env = var._env;
@@ -908,37 +968,37 @@ SLiftExpr<DAG>::operator+=
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 operator+
-( SLiftExpr<DAG> const& var1, SLiftExpr<DAG> const& var2 )
+( SLiftVar<DAG> const& var1, SLiftVar<DAG> const& var2 )
 {
-  SLiftExpr<DAG> var3( var1 );
+  SLiftVar<DAG> var3( var1 );
   var3 += var2;
   return var3;
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 operator+
-( SLiftExpr<DAG> const& var1, double const& cst2 )
+( SLiftVar<DAG> const& var1, double const& cst2 )
 {
-  SLiftExpr<DAG> var3( var1 );
+  SLiftVar<DAG> var3( var1 );
   var3 += cst2;
   return var3;
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 operator-
-( SLiftExpr<DAG> const& var )
+( SLiftVar<DAG> const& var )
 {
-  return SLiftExpr( var.env(), -var.numer(), var.denom() );
+  return SLiftVar( var.env(), -var.numer(), var.denom() );
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>&
-SLiftExpr<DAG>::operator-=
-( SLiftExpr<DAG> const& var )
+inline SLiftVar<DAG>&
+SLiftVar<DAG>::operator-=
+( SLiftVar<DAG> const& var )
 {
   if( !_env )
     _env = var._env;
@@ -952,29 +1012,29 @@ SLiftExpr<DAG>::operator-=
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 operator-
-( SLiftExpr<DAG> const& var1, SLiftExpr<DAG> const& var2 )
+( SLiftVar<DAG> const& var1, SLiftVar<DAG> const& var2 )
 {
-  SLiftExpr<DAG> var3( var1 );
+  SLiftVar<DAG> var3( var1 );
   var3 -= var2;
   return var3;
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 operator-
-( SLiftExpr<DAG> const& var1, double const& cst2 )
+( SLiftVar<DAG> const& var1, double const& cst2 )
 {
-  SLiftExpr<DAG> var3( var1 );
+  SLiftVar<DAG> var3( var1 );
   var3 -= cst2;
   return var3;
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>&
-SLiftExpr<DAG>::operator*=
-( SLiftExpr<DAG> const& var )
+inline SLiftVar<DAG>&
+SLiftVar<DAG>::operator*=
+( SLiftVar<DAG> const& var )
 {
   if( !_env )
     _env = var._env;
@@ -987,29 +1047,29 @@ SLiftExpr<DAG>::operator*=
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 operator*
-( SLiftExpr<DAG> const& var1, SLiftExpr<DAG> const& var2 )
+( SLiftVar<DAG> const& var1, SLiftVar<DAG> const& var2 )
 {
-  SLiftExpr<DAG> var3( var1 );
+  SLiftVar<DAG> var3( var1 );
   var3 *= var2;
   return var3;
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 operator*
-( SLiftExpr<DAG> const& var1, double const& cst2 )
+( SLiftVar<DAG> const& var1, double const& cst2 )
 {
-  SLiftExpr<DAG> var3( var1 );
+  SLiftVar<DAG> var3( var1 );
   var3 *= cst2;
   return var3;
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>&
-SLiftExpr<DAG>::operator/=
-( SLiftExpr<DAG> const& var )
+inline SLiftVar<DAG>&
+SLiftVar<DAG>::operator/=
+( SLiftVar<DAG> const& var )
 {
   if( !_env )
     _env = var._env;
@@ -1026,29 +1086,29 @@ SLiftExpr<DAG>::operator/=
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 operator/
-( SLiftExpr<DAG> const& var1, SLiftExpr<DAG> const& var2 )
+( SLiftVar<DAG> const& var1, SLiftVar<DAG> const& var2 )
 {
-  SLiftExpr<DAG> var3( var1 );
+  SLiftVar<DAG> var3( var1 );
   var3 /= var2;
   return var3;
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 operator/
-( double const& cst1, SLiftExpr<DAG> const& var2 )
+( double const& cst1, SLiftVar<DAG> const& var2 )
 {
-  SLiftExpr<DAG> var3( cst1 );
+  SLiftVar<DAG> var3( cst1 );
   var3 /= var2;
   return var3;
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 sqr
-( SLiftExpr<DAG> const& var )
+( SLiftVar<DAG> const& var )
 {
 #ifdef MC__SLIFT_CHECK
   if( !var.env() )
@@ -1056,13 +1116,13 @@ sqr
 #endif
   if( SLiftEnv<DAG>::options.LIFTIPOW )
     return var.env()->_lift_univariate_term( var );
-  return SLiftExpr<DAG>( var.env(), sqr( var.numer() ), sqr( var.denom() ) );
+  return SLiftVar<DAG>( var.env(), sqr( var.numer() ), sqr( var.denom() ) );
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 inv
-( SLiftExpr<DAG> const& var )
+( SLiftVar<DAG> const& var )
 {
 #ifdef MC__SLIFT_CHECK
   if( !var.env() )
@@ -1070,13 +1130,13 @@ inv
 #endif
   if( SLiftEnv<DAG>::options.LIFTDIV )
     return var.env()->_lift_bivariate_term( 1, var );
-  return SLiftExpr<DAG>( var.env(), var.denom(), var.numer() );
+  return SLiftVar<DAG>( var.env(), var.denom(), var.numer() );
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 pow
-( SLiftExpr<DAG> const& var, double const& a )
+( SLiftVar<DAG> const& var, double const& a )
 {
 #ifdef MC__SLIFT_CHECK
   if( !var.env() )
@@ -1086,9 +1146,9 @@ pow
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 pow
-( SLiftExpr<DAG> const& var, int const n )
+( SLiftVar<DAG> const& var, int const n )
 {
   if( n < 0 ) return pow( inv( var ), -n );
   switch( n ){
@@ -1096,14 +1156,14 @@ pow
    case 1:  return var;
    case 2:  return sqr( var );
    default: if( SLiftEnv<DAG>::options.LIFTIPOW ) return var.env()->_lift_bivariate_term( var, n );
-            return SLiftExpr( var.env(), pow( var.numer(), (unsigned)n ), pow( var.denom(), (unsigned)n ) );
+            return SLiftVar( var.env(), pow( var.numer(), (unsigned)n ), pow( var.denom(), (unsigned)n ) );
   }
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 cheb
-( SLiftExpr<DAG> const& var, unsigned const n )
+( SLiftVar<DAG> const& var, unsigned const n )
 {
   switch( n ){
    case 0:  return 1.;
@@ -1115,9 +1175,9 @@ cheb
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 prod
-( unsigned int const nvars, SLiftExpr<DAG> const* pvars )
+( unsigned int const nvars, SLiftVar<DAG> const* pvars )
 {
   switch( nvars ){
    case 0:  return 1.;
@@ -1127,9 +1187,9 @@ prod
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 monom
-( unsigned int const nvars, SLiftExpr<DAG> const* pvars, unsigned const* k, bool const chebbasis=false )
+( unsigned int const nvars, SLiftVar<DAG> const* pvars, unsigned const* k, bool const chebbasis=false )
 {
   switch( nvars ){
    case 0:  return 1.;
@@ -1139,9 +1199,9 @@ monom
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 exp
-( SLiftExpr<DAG> const& var )
+( SLiftVar<DAG> const& var )
 {
 #ifdef MC__SLIFT_CHECK
   if( !var.env() )
@@ -1151,9 +1211,9 @@ exp
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 log
-( SLiftExpr<DAG> const& var )
+( SLiftVar<DAG> const& var )
 {
 #ifdef MC__SLIFT_CHECK
   if( !var.env() )
@@ -1163,9 +1223,9 @@ log
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 xlog
-( SLiftExpr<DAG> const& var )
+( SLiftVar<DAG> const& var )
 {
 #ifdef MC__SLIFT_CHECK
   if( !var.env() )
@@ -1175,9 +1235,9 @@ xlog
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 sqrt
-( SLiftExpr<DAG> const& var )
+( SLiftVar<DAG> const& var )
 {
 #ifdef MC__SLIFT_CHECK
   if( !var.env() )
@@ -1187,9 +1247,9 @@ sqrt
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 cos
-( SLiftExpr<DAG> const& var )
+( SLiftVar<DAG> const& var )
 {
 #ifdef MC__SLIFT_CHECK
   if( !var.env() )
@@ -1199,9 +1259,9 @@ cos
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 sin
-( SLiftExpr<DAG> const& var )
+( SLiftVar<DAG> const& var )
 {
 #ifdef MC__SLIFT_CHECK
   if( !var.env() )
@@ -1211,9 +1271,9 @@ sin
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 tan
-( SLiftExpr<DAG> const& var )
+( SLiftVar<DAG> const& var )
 {
 #ifdef MC__SLIFT_CHECK
   if( !var.env() )
@@ -1223,9 +1283,9 @@ tan
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 acos
-( SLiftExpr<DAG> const& var )
+( SLiftVar<DAG> const& var )
 {
 #ifdef MC__SLIFT_CHECK
   if( !var.env() )
@@ -1235,9 +1295,9 @@ acos
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 asin
-( SLiftExpr<DAG> const& var )
+( SLiftVar<DAG> const& var )
 {
 #ifdef MC__SLIFT_CHECK
   if( !var.env() )
@@ -1247,9 +1307,9 @@ asin
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 atan
-( SLiftExpr<DAG> const& var )
+( SLiftVar<DAG> const& var )
 {
 #ifdef MC__SLIFT_CHECK
   if( !var.env() )
@@ -1259,9 +1319,9 @@ atan
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 cosh
-( SLiftExpr<DAG> const& var )
+( SLiftVar<DAG> const& var )
 {
 #ifdef MC__SLIFT_CHECK
   if( !var.env() )
@@ -1271,9 +1331,9 @@ cosh
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 sinh
-( SLiftExpr<DAG> const& var )
+( SLiftVar<DAG> const& var )
 {
 #ifdef MC__SLIFT_CHECK
   if( !var.env() )
@@ -1283,9 +1343,9 @@ sinh
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 tanh
-( SLiftExpr<DAG> const& var )
+( SLiftVar<DAG> const& var )
 {
 #ifdef MC__SLIFT_CHECK
   if( !var.env() )
@@ -1295,9 +1355,9 @@ tanh
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 fabs
-( SLiftExpr<DAG> const& var )
+( SLiftVar<DAG> const& var )
 {
 #ifdef MC__SLIFT_CHECK
   if( !var.env() )
@@ -1307,9 +1367,9 @@ fabs
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 erf
-( SLiftExpr<DAG> const& var )
+( SLiftVar<DAG> const& var )
 {
 #ifdef MC__SLIFT_CHECK
   if( !var.env() )
@@ -1319,9 +1379,9 @@ erf
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 fstep
-( SLiftExpr<DAG> const& var )
+( SLiftVar<DAG> const& var )
 {
 #ifdef MC__SLIFT_CHECK
   if( !var.env() )
@@ -1331,9 +1391,9 @@ fstep
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 max
-( SLiftExpr<DAG> const& var1, SLiftExpr<DAG> const& var2 )
+( SLiftVar<DAG> const& var1, SLiftVar<DAG> const& var2 )
 {
   if( var1.env() && var2.env() && var1.env() != var2.env() )
     throw typename SLiftEnv<DAG>::Exceptions( SLiftEnv<DAG>::Exceptions::ENVERR );
@@ -1342,9 +1402,9 @@ max
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 min
-( SLiftExpr<DAG> const& var1, SLiftExpr<DAG> const& var2 )
+( SLiftVar<DAG> const& var1, SLiftVar<DAG> const& var2 )
 {
   if( var1.env() && var2.env() && var1.env() != var2.env() )
     throw typename SLiftEnv<DAG>::Exceptions( SLiftEnv<DAG>::Exceptions::ENVERR );
@@ -1353,9 +1413,9 @@ min
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 lmtd
-( SLiftExpr<DAG> const& var1, SLiftExpr<DAG> const& var2 )
+( SLiftVar<DAG> const& var1, SLiftVar<DAG> const& var2 )
 {
   if( var1.env() && var2.env() && var1.env() != var2.env() )
     throw typename SLiftEnv<DAG>::Exceptions( SLiftEnv<DAG>::Exceptions::ENVERR );
@@ -1364,9 +1424,9 @@ lmtd
 }
 
 template < typename DAG >
-inline SLiftExpr<DAG>
+inline SLiftVar<DAG>
 rlmtd
-( SLiftExpr<DAG> const& var1, SLiftExpr<DAG> const& var2 )
+( SLiftVar<DAG> const& var1, SLiftVar<DAG> const& var2 )
 {
   if( var1.env() && var2.env() && var1.env() != var2.env() )
     throw typename SLiftEnv<DAG>::Exceptions( SLiftEnv<DAG>::Exceptions::ENVERR );
@@ -1381,10 +1441,10 @@ rlmtd
 namespace mc
 {
 
-//! @brief Specialization of the structure mc::Op to allow usage of the type mc::SLiftExpr for DAG evaluation or as a template parameter in other MC++ classes
-template <typename DAG> struct Op<mc::SLiftExpr<DAG>>
+//! @brief Specialization of the structure mc::Op to allow usage of the type mc::SLiftVar for DAG evaluation or as a template parameter in other MC++ classes
+template <typename DAG> struct Op<mc::SLiftVar<DAG>>
 {
-  typedef mc::SLiftExpr<DAG> T;
+  typedef mc::SLiftVar<DAG> T;
   static T point( const double c ) { return T(c); }
   static T zeroone() { throw std::runtime_error("operation not permitted"); }
   static void I(T& x, const T&y) { x = y; }

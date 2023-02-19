@@ -26,6 +26,8 @@ template <typename KEY=unsigned, typename COMP=std::less<unsigned>>
 struct SMon
 ////////////////////////////////////////////////////////////////////////
 {
+  typedef std::map<KEY,unsigned,COMP> t_expr;
+
   //! @brief Monomial total order
   unsigned tord;
 
@@ -62,7 +64,12 @@ struct SMon
   std::string display
     ( int const& basis )
     const;
-
+    
+  //! @brief Exponent of variable <a>ivar</a> in monomial
+  unsigned int exp
+    ( KEY const& ivar )
+    const;
+    
   //! @brief Greatest common exponent of terms in monomial
   unsigned int gcexp
     ()
@@ -192,6 +199,16 @@ const
   auto itvar = expr.find( ivar );
   if( itvar == expr.end() ) return SMon<KEY,COMP>();
   return SMon<KEY,COMP>( itvar->second, {*itvar} );
+}
+
+template <typename KEY, typename COMP>
+inline unsigned int
+SMon<KEY,COMP>::exp
+( KEY const& ivar )
+const
+{
+  auto itvar = expr.find( ivar );
+  return( itvar != expr.end() ? itvar->second : 0 );
 }
 
 template <typename KEY, typename COMP>

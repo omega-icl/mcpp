@@ -409,7 +409,7 @@ public:
   template <typename U>
   void get_bndmon
     ( std::map<t_mon,U,lt_mon>& bndmon, std::map<KEY,U,COMP> const& bndvar,
-      bool const scaled=false )
+      bool const scaled=false, bool const useprod=false )
     const;
 
   //! @brief Exceptions of mc::SCModel
@@ -1189,7 +1189,7 @@ public:
     ( std::map<KEY,T,COMP> const& dom );
     
   //! @brief Unscale coefficients in Chebyshev variable for their original variable ranges
-  SCVar<T,KEY,COMP>::t_poly unscale
+  t_poly unscale
     ()
     const;
         
@@ -1411,7 +1411,7 @@ inline
 void
 SCModel<T,KEY,COMP>::get_bndmon
 ( std::map<t_mon,U,lt_mon>& bndmon, std::map<KEY,U,COMP> const& bndvar,
-  bool const scaled )
+  bool const scaled, bool const useprod )
 const
 {
   if( bndmon.empty() ) return;
@@ -1422,21 +1422,27 @@ const
 
   auto it = bndmon.begin();
   if( !it->first.tord ){ it->second = 1; ++it; }
-#ifdef MC__SCMODEL_USE_PROD
-  std::vector<U> Umon( _setvar.size() );
-  for( ; it!=bndmon.end(); ++it ){
-    unsigned i=0;
-    for( auto const& [ivar,iord] : it->first.second )
-      Umon[i++] = bndbasis[ivar][iord];
-    it->second = prod( it->first.second.size(), Umon.data() );
+
+  // Use product operation in U arithmetic
+  if( useprod ){
+    std::vector<U> Umon( _setvar.size() );
+    for( ; it!=bndmon.end(); ++it ){
+      unsigned nmon=0;
+      for( auto const& [ivar,iord] : it->first.second )
+        Umon[nmon++] = bndbasis[ivar][iord];
+      if( nmon == 1 ) it->second = Umon.front();
+      else            it->second = Op<U>::prod( nmon, Umon.data() );
+    }
   }
-#else
-  for( ; it!=bndmon.end(); ++it ){
-    it->second = 1;
-    for( auto const& [ivar,iord] : it->first.second )
-      it->second *= bndbasis[ivar][iord];
+
+  // Create product operation recursively in U arithmetic
+  else{
+    for( ; it!=bndmon.end(); ++it ){
+      it->second = 1;
+      for( auto const& [ivar,iord] : it->first.second )
+        it->second *= bndbasis[ivar][iord];
+    }
   }
-#endif
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -3060,8 +3066,8 @@ const
   // Convert to monomial form
   t_poly coefmon = _coefmon;
   if( !scaled ){
-    for( auto const& id : _ndxvar )
-      _scale( id, SCModel<T,KEY,COMP>::TOne, coefmon );
+    for( auto itvar=_ndxvar.cbegin(); itvar!=_ndxvar.cend(); ++itvar )
+      _scale( itvar, SCModel<T,KEY,COMP>::TOne, coefmon );
   }
   
   for( auto const& id : _ndxvar ){

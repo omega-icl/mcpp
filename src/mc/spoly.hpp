@@ -190,6 +190,29 @@ public:
   SPoly<KEY,COMP>& convert
     ( int const BASIS );
 
+  //! @brief Maximal degree of monomial terms in polynomial variable
+  unsigned maxord
+    ()
+    const
+    { return _mapmon.empty()? 0: _mapmon.crbegin()->first.tord; }
+
+  //! @brief Minimal degree of monomial terms in polynomial variable
+  unsigned minord
+    ()
+    const
+    { return _mapmon.empty()? 0: _mapmon.cbegin()->first.tord; }
+
+  //! @brief Minimal degree of variable monomial terms in polynomial variable
+  unsigned minord
+    ( KEY const& x )
+    const
+    { if( _mapmon.empty() || !minord() ) return 0;
+      unsigned ord = maxord();
+      for( auto const& [mon,coef] : mapmon ){
+        unsigned const exp = mon.exp(x);
+        if( exp < ord ) ord = exp;
+      } }
+
   //! @brief Total number of monomial terms in polynomial variable
   unsigned nmon
     ()

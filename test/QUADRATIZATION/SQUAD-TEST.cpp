@@ -1,4 +1,4 @@
-#define TEST_DOXYGEN  // <-- select test example
+#define TEST_TUNCPHD33 // <-- select test example
 #undef  USE_CHEB       // <-- whether to perform the decomposition in Chebyshev basis
 #undef  USE_DAG        // <-- whether to define a DAG of the expressions
 #define USE_OPTIM      // <-- whether to optimize the quadratic form
@@ -6,7 +6,7 @@
 
 #include "mctime.hpp"
 #include "spoly.hpp"
-#include "squad_save.hpp"
+#include "squad.hpp"
 #if defined( USE_DAG )
   #include "ffunc.hpp"
   typedef mc::SPoly<mc::FFVar const*,mc::lt_FFVar> t_SPoly;
@@ -163,7 +163,7 @@ int main()
       P[0] += pow( X[i]+X[i+1]+X[NX-1], 4 ); 
 
 #elif defined( TEST_BROYDENBAND )
-    unsigned const NX = 3, NP = 1;
+    unsigned const NX = 4, NP = 1;
     //unsigned const NX = 60, NP = 1;
     t_SPoly X[NX], P[NP];
 #if defined( USE_DAG )
@@ -194,13 +194,13 @@ int main()
     double viol = 0.;
 
     t_SQuad SQF;
-    t_SQuad::options.ORDER = t_SQuad::Options::DEC;
+    t_SQuad::options.ORDER = t_SQuad::Options::INC;//DEC;
     //t_SQuad::options.REDUC = true;
     t_SQuad::options.MIPOUTPUTFILE = "quad.lp";
     //t_SQuad::options.MIPNUMFOCUS = 3;
     //t_SQuad::options.LPFEASTOL = 1e-7;
-    t_SQuad::options.MIPFIXEDBASIS = true;
-    t_SQuad::options.MIPSYMCUTS = 2;
+    t_SQuad::options.MIPFIXEDBASIS = true;//false;//true;
+    t_SQuad::options.MIPSYMCUTS = 3;
     //t_SQuad::options.MIPTIMELIMIT  = 1800;
     //t_SQuad::options.MIPCONCURRENT = 4;
     //t_SQuad::options.MIPFOCUS = 0;
@@ -216,6 +216,12 @@ int main()
               << "(discrepancy: " << viol << ")\n"
               << SQF;
 #if defined( USE_OPTIM )
+    SQF.optimize( true ); // warmstart
+    viol = SQF.check( NP, P, &t_SPoly::mapmon, t_SQuad::Options::MONOM );
+    std::cout << "\nSparse quadratic forms: " << mc::userclock()-tStart << " CPU-sec\n"
+              << "(discrepancy: " << viol << ")\n"
+              << SQF;
+    t_SQuad::options.MIPFIXEDBASIS = false;//true;
     SQF.optimize( true ); // warmstart
     viol = SQF.check( NP, P, &t_SPoly::mapmon, t_SQuad::Options::MONOM );
     std::cout << "\nSparse quadratic forms: " << mc::userclock()-tStart << " CPU-sec\n"

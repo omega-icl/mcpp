@@ -509,6 +509,8 @@ Possible errors encountered during quadratization of a multivariate polynomial a
 .
 */
 
+// bug: optimization with fixed basis needs warm-start enabled
+
 #ifndef MC__SQUAD_H
 #define MC__SQUAD_H
 
@@ -589,7 +591,8 @@ public:
       BASIS(MONOM), ORDER(DEC), REDUC(false), CHKTOL(1e-10),
 #if defined(MC__USE_GUROBI)
       LPALGO( LPALGO_DEFAULT ), LPPRESOLVE(-1),
-      LPFEASTOL(1e-7), LPOPTIMTOL(1e-7), MIPSYMCUTS(2),
+      LPFEASTOL(1e-7), LPOPTIMTOL(1e-7),
+      MIPFIXEDBASIS(false), MIPSYMCUTS(2),
       MIPRELGAP(1e-3), MIPABSGAP(1e-3), MIPTHREADS(0),
       MIPCONCURRENT(1), MIPFOCUS(0), MIPHEURISTICS(0.2),
       MIPNUMFOCUS(0), MIPDISPLEVEL(1), MIPOUTPUTFILE(""),
@@ -609,6 +612,7 @@ public:
         LPPRESOLVE      = opt.LPPRESOLVE;
         LPFEASTOL       = opt.LPFEASTOL;
         LPOPTIMTOL      = opt.LPOPTIMTOL;
+        MIPFIXEDBASIS   = opt.MIPFIXEDBASIS;
         MIPSYMCUTS      = opt.MIPSYMCUTS;
         MIPRELGAP       = opt.MIPRELGAP;
         MIPABSGAP       = opt.MIPABSGAP;
@@ -616,7 +620,7 @@ public:
         MIPCONCURRENT   = opt.MIPCONCURRENT;
         MIPFOCUS        = opt.MIPFOCUS;
         MIPHEURISTICS   = opt.MIPHEURISTICS;
-        MIPNUMFOCUS     = opt.MIPNUMERICFOCUS;
+        MIPNUMFOCUS     = opt.MIPNUMFOCUS;
         MIPDISPLEVEL    = opt.MIPDISPLEVEL;
         MIPOUTPUTFILE   = opt.MIPOUTPUTFILE;
         MIPTIMELIMIT    = opt.MIPTIMELIMIT;
@@ -651,6 +655,8 @@ public:
     double LPFEASTOL;
      //! @brief Tolerance on LP optimality in MIP solver
     double LPOPTIMTOL;
+    //! @brief Whether to restrict candidate monomials to the basis provided by greedy heuristic
+    bool MIPFIXEDBASIS;
     //! @brief Level of symmetry breaking cuts in MIP
     unsigned MIPSYMCUTS;
     //! @brief Tolerance on relative gap in MIP solver
@@ -673,14 +679,11 @@ public:
     std::string MIPOUTPUTFILE;
     //! @brief Maximum MIP run time (seconds)
     double MIPTIMELIMIT;
+    //! @brief Default option for LP solver
+    static const int LPALGO_DEFAULT = -1;
 #endif
     //! @brief Number of digits in output stream for sparse polynomial coefficients
     unsigned DISPLEN;
-
-  //! @brief Default option for LP solver
-#if defined(MC__USE_GUROBI)
-    static const int LPALGO_DEFAULT = -1;
-#endif
   } options;
     
   //! @brief Exceptions of mc::SQuad
@@ -920,7 +923,7 @@ protected:
   void _MIP_encode
     ( unsigned const maxAux, unsigned const minOrd );
 
-  //! @brief Encode MIP optimization model for minimal decomposition
+  //! @brief Decode MIP optimal solution for minimal decomposition
   void _MIP_decode
     ( unsigned const minOrd );
 
@@ -1173,7 +1176,7 @@ const
 {
   // Populate sparse symmetric coefficient matrix
   CPPL::dssmatrix coefmat;
-  map_SPoly indexmap;
+  std::map< t_SMon, unsigned, lt_SMon<COMP> > indexmap;
   unsigned index = 0;
   for( auto const& [ijmon,coef] : mat ){
     auto itimon = indexmap.find( *ijmon.first );
@@ -1493,7 +1496,7 @@ SQuad<KEY,COMP>::optimize
   try{
     // Run MIP optimization for a minimal representation
     _MIP_encode( maxAux, minOrd );
-    if( warmStart) _MIP_initialize( minOrd );
+    if( warmStart ) _MIP_initialize( minOrd );
     _MIP_solve();
 #ifndef MC__SQUAD_CHECK_START
     _MIP_decode( minOrd );
@@ -1540,15 +1543,21 @@ SQuad<KEY,COMP>::_MIP_encode
     // z[k] in {0,1} with corresponding cost coefficient c[k] = 1
     _MIP_auxbin.push_back( _GRBmodel->addVar( 0., 1., 1., GRB_CONTINUOUS ) );
     // z[k] <= z[k-1]
-    if( k ) _GRBmodel->addConstr( _MIP_auxbin[k-1], GRB_GREATER_EQUAL, _MIP_auxbin[k] );
+    if( !options.MIPFIXEDBASIS && k )
+      _GRBmodel->addConstr( _MIP_auxbin[k-1], GRB_GREATER_EQUAL, _MIP_auxbin[k] );
 
     // b[k,i] in [0,maxDeg(Var[i])], 0<=i<nVar
     // b[k,i] <= z[k] * maxDeg(Var[i]), 0<=i<nVar
     _MIP_auxexp.push_back( std::vector<GRBVar>() );
     _MIP_auxexp[k].reserve( nVar );
     for( auto const& [Var,maxExp] : _MIP_VarDeg.expr ){
-      _MIP_auxexp[k].push_back( _GRBmodel->addVar( 0., maxExp, 0., GRB_CONTINUOUS ) );
-      _GRBmodel->addConstr( _MIP_auxexp[k].back(), GRB_LESS_EQUAL, maxExp * _MIP_auxbin[k] );
+      if( !options.MIPFIXEDBASIS ){
+        _MIP_auxexp[k].push_back( _GRBmodel->addVar( 0., maxExp, 0., GRB_CONTINUOUS ) );
+        _GRBmodel->addConstr( _MIP_auxexp[k].back(), GRB_LESS_EQUAL, maxExp * _MIP_auxbin[k] );
+      }
+      else{
+        _MIP_auxexp[k].push_back( _GRBmodel->addVar( 0., maxExp, 0., GRB_SEMICONT ) );
+      }
     }
     
     // v1[k,i], v2[k,i] in {0,1}, 0<=i<nVar+k
@@ -1571,15 +1580,28 @@ SQuad<KEY,COMP>::_MIP_encode
     _GRBmodel->addConstr( sum_auxdec2, GRB_EQUAL, _MIP_auxbin[k] );//1. );
 
     // v1[k], v2[k] in {0,1}
-    if( options.MIPSYMCUTS > 1 ){
+    if( !options.MIPFIXEDBASIS && options.MIPSYMCUTS > 1 ){
       _MIP_auxndx1.push_back( _GRBmodel->addVar( 0., nVar+k-1, 0., GRB_CONTINUOUS ) );
       _MIP_auxndx2.push_back( _GRBmodel->addVar( 0., nVar+k-1, 0., GRB_CONTINUOUS ) );
-      for( unsigned i=0; i<nVar+k; ++i ){
-        GRBQuadExpr complem1, complem2;
-        complem1.addTerm( 1., _MIP_auxdec1[k][i], _MIP_auxndx1[k] );
-        complem2.addTerm( 1., _MIP_auxdec2[k][i], _MIP_auxndx2[k] );
-        _GRBmodel->addQConstr( complem1, GRB_EQUAL, i * _MIP_auxdec1[k][i] );
-        _GRBmodel->addQConstr( complem2, GRB_EQUAL, i * _MIP_auxdec2[k][i] );
+      if( options.MIPSYMCUTS == 2 ){
+        //std::cout << "MIPSYMCUTS = " << options.MIPSYMCUTS;
+        for( unsigned i=0; i<nVar+k; ++i ){
+          GRBQuadExpr complem1, complem2;
+          complem1.addTerm( 1., _MIP_auxdec1[k][i], _MIP_auxndx1[k] );
+          complem2.addTerm( 1., _MIP_auxdec2[k][i], _MIP_auxndx2[k] );
+          _GRBmodel->addQConstr( complem1, GRB_EQUAL, i * _MIP_auxdec1[k][i] );
+          _GRBmodel->addQConstr( complem2, GRB_EQUAL, i * _MIP_auxdec2[k][i] );
+        }
+      }
+      else{
+        //std::cout << "MIPSYMCUTS = " << options.MIPSYMCUTS;
+        GRBLinExpr sum1, sum2;
+        for( unsigned i=0; i<nVar+k; ++i ){
+          sum1 += i * _MIP_auxdec1[k][i];
+          sum2 += i * _MIP_auxdec2[k][i];
+        }
+        _GRBmodel->addConstr( sum1 + (nVar+k-1)*(1-_MIP_auxbin[k]), GRB_EQUAL, _MIP_auxndx1[k] );
+        _GRBmodel->addConstr( sum2 + (nVar+k-1)*(1-_MIP_auxbin[k]), GRB_EQUAL, _MIP_auxndx2[k] );
       }
       _GRBmodel->addConstr( _MIP_auxndx1[k], GRB_LESS_EQUAL, _MIP_auxndx2[k] ); // symmetry breaking
       if( k ){
@@ -1630,7 +1652,7 @@ SQuad<KEY,COMP>::_MIP_encode
     _GRBmodel->addConstr( sum_mondec2, GRB_EQUAL, 1. );
 
     // w1[j], w2[j] in {0,1}
-    if( options.MIPSYMCUTS > 1 ){
+    if( !options.MIPFIXEDBASIS && options.MIPSYMCUTS > 1 ){
       _MIP_monndx1.push_back( _GRBmodel->addVar( 0., nVar+maxAux-1, 0., GRB_CONTINUOUS ) );
       _MIP_monndx2.push_back( _GRBmodel->addVar( 0., nVar+maxAux-1, 0., GRB_CONTINUOUS ) );
       for( unsigned i=0; i<nVar+maxAux; ++i ){
@@ -1664,7 +1686,7 @@ SQuad<KEY,COMP>::_MIP_encode
   
   // 1: SUM( 0<=i<nVar, b[l,i] ) <= maxDeg(Mon[j], 0<=j<nMon), 0<=l<nAux
   // 2: SUM( 0<=i<nVar, b[l,i] ) <= SUM( 0<=i<nVar, b[l,i] ) + (1-z[l]) * (maxDeg(Mon[j], 0<=j<nMon)-1), 1<=l<nAux-1
-  if( options.MIPSYMCUTS > 0 ){
+  if( !options.MIPFIXEDBASIS && options.MIPSYMCUTS > 0 ){
     _MIP_auxexpsum.reserve( maxAux );  // sum( 0<=l<nAux, b[l,i] )
     // Add cuts type 1 if MIPSYMCUTS > 0
     for( unsigned l=0; l<maxAux; ++l ){
@@ -1674,7 +1696,7 @@ SQuad<KEY,COMP>::_MIP_encode
       _GRBmodel->addConstr( _MIP_auxexpsum[l], GRB_LESS_EQUAL, maxDeg-1 );
     }
     // Add cuts type 2 if MIPSYMCUT = 1 (otherwise conflicts with cuts in MIPSYMCUTS = 2)
-    if( options.MIPSYMCUTS == 1 ){
+    if( !options.MIPFIXEDBASIS && options.MIPSYMCUTS == 1 ){
       for( unsigned l=1; l<=maxAux-1; ++l ){
         GRBLinExpr sum_auxexp;
         for( unsigned i=0; i<nVar; ++i ) sum_auxexp += _MIP_auxexp[l][i];
@@ -1715,7 +1737,8 @@ SQuad<KEY,COMP>::_MIP_initialize
   for( auto const& mon : _SetMon ){
     if( mon.tord < minOrd ) continue;
     mapMon[ &mon ] = nVar + k;
-    vecMon[ nVar + k++ ] = &mon;
+    vecMon[ nVar + k ] = &mon;
+    k++;
   }
 #ifdef MC__SQUAD_DEBUG_MIP  
   std::cout << "\nvecMon:" << std::endl;
@@ -1745,8 +1768,8 @@ SQuad<KEY,COMP>::_MIP_initialize
               << pdec.second->display( Options::MONOM ) << std::endl;
 #endif
 
-  // Reorder auxiliary variables
-  for( bool has_swapped = true; has_swapped; ){
+  // Reorder auxiliary variables - only if monomials not restricted to basis
+  for( bool has_swapped = !options.MIPFIXEDBASIS; has_swapped; ){
     has_swapped = false;
     for( size_t k=nVar; k<vecMon.size()-1; ++k ){
       size_t m = k;
@@ -1799,6 +1822,11 @@ SQuad<KEY,COMP>::_MIP_initialize
 #ifdef MC__SQUAD_CHECK_START
       grbvar.set( GRB_DoubleAttr_LB, 0. );
       grbvar.set( GRB_DoubleAttr_UB, 0. );
+#else
+      if( options.MIPFIXEDBASIS ){
+        grbvar.set( GRB_DoubleAttr_LB, 0. );
+        grbvar.set( GRB_DoubleAttr_UB, 0. );
+      }
 #endif
     }
 #ifdef MC__SQUAD_DEBUG_MIP
@@ -1812,6 +1840,11 @@ SQuad<KEY,COMP>::_MIP_initialize
 #ifdef MC__SQUAD_CHECK_START
       _MIP_auxexp[k][ mapVar[var] ].set( GRB_DoubleAttr_LB, ord );
       _MIP_auxexp[k][ mapVar[var] ].set( GRB_DoubleAttr_UB, ord );
+#else
+      if( options.MIPFIXEDBASIS ){
+        _MIP_auxexp[k][ mapVar[var] ].set( GRB_DoubleAttr_LB, ord );
+        _MIP_auxexp[k][ mapVar[var] ].set( GRB_DoubleAttr_UB, ord );
+      }
 #endif
     }
 #ifdef MC__SQUAD_DEBUG_MIP
@@ -1971,13 +2004,16 @@ SQuad<KEY,COMP>::_MIP_decode
   std::vector<map_SQuad> MatFctOpt, MatRedOpt;
   std::vector<t_SMon const*> vecMonOpt;
   unsigned const nVar   = _MIP_VarDeg.expr.size();
-  unsigned const optAux = std::round( _GRBmodel->get( GRB_DoubleAttr_ObjVal ) );
-  vecMonOpt.resize( nVar+optAux+1 ); // Unit monomial stored in last position
+  unsigned const maxAux = _MIP_auxbin.size();
+  //unsigned const optAux = std::round( _GRBmodel->get( GRB_DoubleAttr_ObjVal ) );
+  vecMonOpt.resize( nVar+maxAux+1 ); // Unit monomial stored in last position
   
   // Add auxiliary monomials to SetMonOpt 
   auto const& [itone,ins] = SetMonOpt.insert( t_SMon() );
-  vecMonOpt[nVar+optAux] = &*itone;
-  for( unsigned k=0; k<optAux; ++k ){
+  vecMonOpt[nVar+maxAux] = &*itone;
+  for( unsigned k=0; k<maxAux; ++k ){
+    if( _MIP_auxbin[k].get( GRB_DoubleAttr_X ) < 0.9 ) continue;
+  //for( unsigned k=0; k<optAux; ++k ){
     t_SMon mon;
     unsigned i = 0;
     for( auto const& [var,expmax] : _MIP_VarDeg.expr ){
@@ -2023,9 +2059,9 @@ SQuad<KEY,COMP>::_MIP_decode
       for( auto jtmon = _MIP_SetMon.cbegin(); jtmon != itmon; ++jtmon, ++j )
         continue;
       unsigned i1 = 0, i2 = 0;
-      for( auto i1mon = _MIP_mondec1[j].cbegin(); i1 < nVar+optAux; ++i1mon, ++i1 )
+      for( auto i1mon = _MIP_mondec1[j].cbegin(); i1 < nVar+maxAux; ++i1mon, ++i1 )
         if( i1mon->get(GRB_DoubleAttr_X) > 0.9 ) break;
-      for( auto i2mon = _MIP_mondec2[j].cbegin(); i2 < nVar+optAux; ++i2mon, ++i2 )
+      for( auto i2mon = _MIP_mondec2[j].cbegin(); i2 < nVar+maxAux; ++i2mon, ++i2 )
         if( i2mon->get(GRB_DoubleAttr_X) > 0.9 ) break;
       //std::cout << "j,i1,i2 = " << j << "," << i1 << "," << i2 << " (max: " << nVar+optAux << ")" << std::endl;
       _insert( matopt, vecMonOpt[i1], vecMonOpt[i2], coef );
@@ -2034,10 +2070,12 @@ SQuad<KEY,COMP>::_MIP_decode
   }
 
   // Add entries in MatRedOpt for auxiliary monomials
-  for( unsigned k=0; k<optAux; ++k ){
+  for( unsigned k=0; k<maxAux; ++k ){
+    if( _MIP_auxbin[k].get( GRB_DoubleAttr_X ) < 0.9 ) continue;
+  //for( unsigned k=0; k<optAux; ++k ){
     MatRedOpt.push_back( map_SQuad() );
     auto& matopt = MatRedOpt.back();
-    _insert( matopt, vecMonOpt[nVar+optAux], vecMonOpt[nVar+k], 1. );
+    _insert( matopt, vecMonOpt[nVar+maxAux], vecMonOpt[nVar+k], 1. );
     unsigned i1 = 0, i2 = 0;
     for( auto i1mon = _MIP_auxdec1[k].cbegin(); i1mon != _MIP_auxdec1[k].cend(); ++i1mon, ++i1 )
       if( i1mon->get(GRB_DoubleAttr_X) > 0.9 ) break;
