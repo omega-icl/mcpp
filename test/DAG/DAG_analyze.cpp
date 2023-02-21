@@ -848,8 +848,8 @@ int main()
 //    test_spoly1();
 //    test_slift1();
     test_selim0();
-//    test_selim1();
-//    test_selim2();
+    test_selim1();
+    test_selim2();
   }
   catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
