@@ -864,16 +864,20 @@ public:
   /** @defgroup FFunc Construction, Manipulation and Evaluation of DAGs for Factorable Functions
    *  @{
    */
-  //! @brief Index for 'free' variables in factorable function
+  //! @brief Index for unreferenced variables in DAG
   static const long NOREF = -33;
-  //! @brief Enumeration type for variables in factorable function
+  //! @brief Default name for independent variables in DAG
+  static const std::string VARNAME;
+  //! @brief Default name for auxiliary variables in DAG
+  static const std::string AUXNAME;
+  //! @brief Enumeration type for variables in DAG
   enum TYPE{
     VAR=0,	//!< Original variable
     AUX,	//!< Auxiliary variable
     CINT,	//!< Integer constant
     CREAL	//!< Real constant
   };
-  //! @brief Typedef for variable identifier in factorable function
+  //! @brief Typedef for variable identifier in DAG
   typedef std::pair< TYPE, long > pt_idVar;
   /** @} */
 
@@ -892,6 +896,8 @@ private:
   mutable bool _cst;
   //! @brief Pointer to parent (_ops.first) and children (_ops.second) operations - _ops.first := NULL for unreferenced constants
   pt_Ops _ops;
+  //! @brief Non-default name
+  std::string _nam;
 
 public:
 
@@ -900,7 +906,7 @@ public:
    */
   //! @brief Constructor for variable in DAG <a>*dag</a>
   FFVar
-    ( FFBase* dag );
+    ( FFBase* dag, std::string const& name="" );
 
   //! @brief Constructor for variable in DAG <a>*dag</a> with constant real value <a>d</a>
   FFVar
@@ -912,8 +918,8 @@ public:
 
   //! @brief Attach variable to DAG <a>*dag</a>.
   FFVar& set
-    ( FFBase* dag )
-    { *this = FFVar( dag );
+    ( FFBase* dag, std::string const& name="" )
+    { *this = FFVar( dag, name );
       return *this; }
 
   //! @brief Attach variable to DAG <a>*dag</a>.
@@ -931,21 +937,23 @@ public:
   //! @brief Constructor for integer constant
   FFVar
     ( int const i=0 )
-    : _dag( 0 ), _id( CINT, NOREF ), _num( i ), _dep( i ), _val( nullptr ), _cst( true )
-    { _ops.first = 0; }
+    : _dag( nullptr ), _id( CINT, NOREF ), _num( i ), _dep( i ), _val( nullptr ),
+      _cst( true ), _nam( "" )
+    { _ops.first = nullptr; }
 
   //! @brief Constructor for real parameter
   FFVar
     ( double const& d )
-    : _dag( 0 ), _id( CREAL, NOREF ), _num( d ), _dep( d ), _val( nullptr ), _cst( true )
-    { _ops.first = 0;
+    : _dag( nullptr ), _id( CREAL, NOREF ), _num( d ), _dep( d ), _val( nullptr ),
+      _cst( true ), _nam( "" )
+    { _ops.first = nullptr;
       if( _num.t == FFNum::INT ) _id.first = CINT; }
 
   //! @brief Copy constructor
   FFVar
     ( FFVar const& Var )
     : _dag( Var._dag ), _id( Var._id ), _num( Var._num ), _dep( Var._dep ),
-      _val( Var._val ), _cst( Var._cst ), _ops( Var._ops )
+      _val( Var._val ), _cst( Var._cst ), _ops( Var._ops ), _nam( Var._nam )
     {}
   /** @} */
 
@@ -957,7 +965,7 @@ private:
 
   //! @brief Constructor for a variable with identifier <a>id</a> in factorable function <a>*dag</a>
   FFVar
-    ( FFBase* dag, pt_idVar const& id );
+    ( FFBase* dag, pt_idVar const& id, std::string const& name="" );
     
 public:
 
@@ -1032,9 +1040,9 @@ public:
 
   //! @brief Get variable name
   std::string name
-    ()
+    ( bool const user=false )
     const
-    { return _name(_id); }
+    { return ( user || !_nam.empty() ) ? _nam : _name(_id); }
 
   //! @brief Get constness
   const bool cst
@@ -1049,15 +1057,20 @@ public:
 
   //! @brief Set variable at a constant value
   void set
+    ( std::string const& name )
+    { _nam = name; }
+
+  //! @brief Set variable at a constant value
+  void set
     ( const double d )
     const;
 
-  ////! @brief Set variable at a constant value
+  //! @brief Set variable at a constant value
   void set
     ( const int i )
     const;
 
-  ////! @brief Unset variable at a constant value
+  //! @brief Unset variable at a constant value
   void unset
     ()
     const;
@@ -1070,12 +1083,14 @@ private:
     ( std::pair<TYPE,long> const& id )
     {
       std::ostringstream ovar;
-      ovar << (id.first==VAR? "X": "Z") << id.second;
+      ovar << (id.first==VAR? VARNAME: AUXNAME) << id.second;
       return ovar.str();
     }
 };
 
 inline long const FFVar::NOREF;
+inline std::string const FFVar::VARNAME = "V";
+inline std::string const FFVar::AUXNAME = "Z";
 
 //! @brief Structure comparing variable identifiers in a factorable function for ordering in set FFBase::_Vars
 ////////////////////////////////////////////////////////////////////////
@@ -1749,7 +1764,7 @@ protected:
 
   //! @brief Create the variable with identify <a>id</a> and adds it if not found
   FFVar _create_var
-    ( typename FFVar::pt_idVar const& id );
+    ( typename FFVar::pt_idVar const& id, std::string const& name );
 
 private:
   //! @brief Private methods to block default compiler methods
@@ -1932,9 +1947,15 @@ public:
   //! @brief Compose the <a>nDepOut</a> dependents in array <a>pDepOut</a> with the <a>nDepIn</a> dependents in array <a>pDepIn</a> for the variables <a>pVarOut</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nDepIn,      const FFVar*pVarOut, const FFVar*pDepIn}. This function creates the subgraph for the outer dependent variables internally
   template <typename... Deps>
   FFVar* compose
-    ( const unsigned nDepOut, const FFVar*pDepOut, const unsigned nDepIn,
-      const FFVar*pVarOut, const FFVar*pDepIn, Deps... args );
+    ( unsigned const nDepOut, FFVar const* pDepOut, unsigned const nDepIn,
+      FFVar const* pVarOut, FFVar const* pDepIn, Deps... args );
 
+  //! @brief Compose the dependents indexed by <a>ndxDepOut</a> in array <a>pDepOut</a> with the <a>nDepIn</a> dependents in array <a>pDepIn</a> for the variables <a>pVarOut</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nDepIn,      const FFVar*pVarOut, const FFVar*pDepIn}. This function creates the subgraph for the outer dependent variables internally
+  template <typename... Deps>
+  FFVar* compose
+    ( std::set<unsigned> const& ndxDepOut, FFVar const* pDepOut, unsigned const nDepIn,
+      FFVar const* pVarOut, FFVar const* pDepIn, Deps... args );
+ 
   //! @brief Evaluate the dependents in array <a>pDep</a> indexed by <a>ndxDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result into <a>vDep</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, const U*vVar}. This function allocates memory for intermediate operations internally. It creates the subgraph for the dependent variables internally. 
   template <typename U, typename... Deps> 
   void eval
@@ -2215,16 +2236,18 @@ operator<<
 }
 
 inline FFVar::FFVar
-( FFBase* dag )
+( FFBase* dag, std::string const& name )
 : _dag( dag? dag: throw typename FFBase::Exceptions( FFBase::Exceptions::INIT )),
-  _id( VAR, _dag->_nvar++ ), _num( 0./0. ), _dep(), _val( 0 ), _cst( false )
+  _id( VAR, _dag->_nvar++ ), _num( 0./0. ), _dep(), _val( nullptr ),
+  _cst( false ), _nam( name )
 {
   // Initialize dependence
   _dep.indep(_id.second);
 
   // Insert new variable in set FFBase::_Vars and corresponding operation in set FFBase::_Ops
   FFVar* pVar = new FFVar( *this );
-  FFOp* pOp = new FFOp( FFOp::VAR, 0, pVar );
+  //std::cout << "name of inserted DAG variable: " << pVar->name() << std::endl;
+  FFOp* pOp = new FFOp( FFOp::VAR, nullptr, pVar );
   _dag->_Ops.insert( pOp );
   pVar->_ops.first = _ops.first = pOp;
   _dag->_append_var( pVar );
@@ -2233,14 +2256,15 @@ inline FFVar::FFVar
 inline FFVar::FFVar
 ( FFBase* dag, double const d )
 : _dag( dag? dag: throw typename FFBase::Exceptions( FFBase::Exceptions::INIT )),
-  _id( VAR, _dag->_nvar++ ), _num( d ), _dep(), _val( 0 ), _cst( true )
+  _id( VAR, _dag->_nvar++ ), _num( d ), _dep(), _val( nullptr ),
+  _cst( true ), _nam( "" )
 { 
   // Initialize dependence
   _dep.indep(_id.second);
 
   // Insert new variable in set FFBase::_Vars and corresponding operation in set FFBase::_Ops
   FFVar* pVar = new FFVar( *this );
-  FFOp* pOp = new FFOp( FFOp::VAR, 0, pVar );
+  FFOp* pOp = new FFOp( FFOp::VAR, nullptr, pVar );
   _dag->_Ops.insert( pOp );
   pVar->_ops.first = _ops.first = pOp;
   _dag->_append_var( pVar );
@@ -2249,14 +2273,15 @@ inline FFVar::FFVar
 inline FFVar::FFVar
 ( FFBase* dag, int const i )
 : _dag( dag? dag: throw typename FFBase::Exceptions( FFBase::Exceptions::INIT )),
-  _id( VAR, _dag->_nvar++ ), _num( i ), _dep(), _val( 0 ), _cst( true )
+  _id( VAR, _dag->_nvar++ ), _num( i ), _dep(), _val( nullptr ),
+  _cst( true ), _nam( "" )
 { 
   // Initialize dependence
   _dep.indep(_id.second);
 
   // Insert new variable in set FFBase::_Vars and corresponding operation in set FFBase::_Ops
   FFVar* pVar = new FFVar( *this );
-  FFOp* pOp = new FFOp( FFOp::VAR, 0, pVar );
+  FFOp* pOp = new FFOp( FFOp::VAR, nullptr, pVar );
   _dag->_Ops.insert( pOp );
   pVar->_ops.first = _ops.first = pOp;
   _dag->_append_var( pVar );
@@ -2265,20 +2290,20 @@ inline FFVar::FFVar
 inline FFVar::FFVar
 ( FFBase* dag, FFDep const& dep, FFOp* op )
 : _dag( dag ), _id( AUX, dag->_naux++ ), _num( 0./0. ), _dep( dep ),
-  _val ( 0 ), _cst( false )
+  _val ( nullptr ), _cst( false ), _nam( "" )
 { _ops.first = op; }
 
 inline FFVar::FFVar
-( FFBase* dag, pt_idVar const& id )
+( FFBase* dag, pt_idVar const& id, std::string const& name )
 : _dag( dag? dag: throw typename FFBase::Exceptions( FFBase::Exceptions::INIT )),
-  _id( id ), _num( 0./0. ), _dep(), _val( 0 ), _cst( false )
+  _id( id ), _num( 0./0. ), _dep(), _val( nullptr ), _cst( false ), _nam( name )
 {
   // Initialize dependence
   _dep.indep(_id.second);
 
   // Insert new variable in set FFBase::_Vars and corresponding operation in set FFBase::_Ops
   FFVar* pVar = new FFVar( *this );
-  FFOp* pOp = new FFOp( FFOp::VAR, 0, pVar );
+  FFOp* pOp = new FFOp( FFOp::VAR, nullptr, pVar );
   _dag->_Ops.insert( pOp );
   pVar->_ops.first = _ops.first = pOp;
   _dag->_append_var( pVar );
@@ -2341,6 +2366,7 @@ FFVar::operator=
   _val  = Var._val;
   _cst  = Var._cst;
   _ops  = Var._ops;
+  _nam  = Var._nam;
   return *this;
 }
 
@@ -2351,10 +2377,11 @@ FFVar::operator=
   _num  = i;
   _id   = std::make_pair(CINT,NOREF);
   _dep  = i;
-  _dag  = 0;
-  _val  = 0;
+  _dag  = nullptr;
+  _val  = nullptr;
   _cst  = true;
-  _ops.first = 0;
+  _nam  = "";
+  _ops.first = nullptr;
   _ops.second.clear();
   return *this;
 }
@@ -2366,10 +2393,11 @@ FFVar::operator=
   _num  = x;
   _id   = std::make_pair((_num.t==FFNum::INT?CINT:CREAL),NOREF);
   _dep  = x;
-  _dag  = 0;
-  _val  = 0;
+  _dag  = nullptr;
+  _val  = nullptr;
   _cst  = true;
-  _ops.first = 0;
+  _nam  = "";
+  _ops.first = nullptr;
   _ops.second.clear();
   return *this;
 }
@@ -3438,7 +3466,7 @@ operator <<
                       break;
     case FFOp::VAR:   if( Op.pres->cst() ) out << Op.pres->num(); else out << "VARIABLE";
                       break;
-    case FFOp::NEG:   out << "- " << FFVar::_name( Op.pops[0]->id() ) << "\t" ;
+    case FFOp::NEG:   out << "- " << Op.pops[0]->name() << "\t" ;
                       break;
     case FFOp::PLUS:
     case FFOp::SHIFT: 
@@ -3446,15 +3474,15 @@ operator <<
     case FFOp::TIMES:
     case FFOp::SCALE: 
     case FFOp::DIV:
-    case FFOp::INV:   out << FFVar::_name( Op.pops[0]->id() ) << Op.name() << FFVar::_name( Op.pops[1]->id() ) << "\t";
+    case FFOp::INV:   out << Op.pops[0]->name() << Op.name() << Op.pops[1]->name() << "\t";
                       break;
     case FFOp::IPOW:
     case FFOp::DPOW:
     case FFOp::CHEB:
     case FFOp::MINF:
     case FFOp::MAXF:
-    case FFOp::INTER: out << Op.name() << "( " << FFVar::_name( Op.pops[0]->id() ) << ", "
-                                               << FFVar::_name( Op.pops[1]->id() ) << " )";
+    case FFOp::INTER: out << Op.name() << "( " << Op.pops[0]->name() << ", "
+                                               << Op.pops[1]->name() << " )";
                       break;
     case FFOp::SQR:
     case FFOp::SQRT:
@@ -3472,17 +3500,17 @@ operator <<
     case FFOp::TANH:
     case FFOp::ERF:
     case FFOp::FABS:
-    case FFOp::FSTEP: out << Op.name() << "( " << FFVar::_name( Op.pops[0]->id() ) << " )\t";
+    case FFOp::FSTEP: out << Op.name() << "( " << Op.pops[0]->name() << " )\t";
                       break;
     case FFOp::PROD:  out << Op.name() << "( ";
-                      for( unsigned i=0; i<Op.pops.size()-1; i++ ) out << FFVar::_name( Op.pops[i]->id() ) << ", ";
-                      out << FFVar::_name( Op.pops[Op.pops.size()-1]->id() ) << " )\t";
+                      for( unsigned i=0; i<Op.pops.size()-1; i++ ) out << Op.pops[i]->name() << ", ";
+                      out << Op.pops[Op.pops.size()-1]->name() << " )\t";
                       break;
     default: 
       if( Op.type >= FFOp::EXTERN ){
                       out << Op.name() << "( ";
-                      for( unsigned i=0; i<Op.pops.size()-1; i++ ) out << FFVar::_name( Op.pops[i]->id() ) << ", ";
-                      out << FFVar::_name( Op.pops[Op.pops.size()-1]->id() ) << " )\t";
+                      for( unsigned i=0; i<Op.pops.size()-1; i++ ) out << Op.pops[i]->name() << ", ";
+                      out << Op.pops[Op.pops.size()-1]->name() << " )\t";
                       break;
       }
       // Should not reach this point
@@ -5143,9 +5171,9 @@ FFBase::_find_var
 
 inline FFVar
 FFBase::_create_var
-( typename FFVar::pt_idVar const& id )
+( typename FFVar::pt_idVar const& id, std::string const& name )
 {
-  return FFVar( this, id );
+  return FFVar( this, id, name );
 }   
 
 inline FFSubgraph
@@ -5261,7 +5289,7 @@ FFBase::output
   os << "\nOPERATIONS IN SUBGRAPH" << header.c_str() << ":\n";
   for( auto && op : sgDep.l_op )
     os << "  " << *op->pres << "\t" << "<=  " << *op << std::endl;
-  os << "\nDEPENDENTS IN SUBGRAPH" << header.c_str() << ":\n";
+  os << "DEPENDENTS IN SUBGRAPH" << header.c_str() << ":\n";
   unsigned idep = 0;
   for( auto && op: sgDep.op_dep )
     os << "  " << idep++ << ":  " << *(op->pres) << std::endl;
@@ -6005,7 +6033,7 @@ FFGraph<ExtOps...>::TAD
 ( const unsigned int ordermax, const unsigned nDep, const FFVar* const pDep,
   const unsigned nVar, const FFVar* const pVar, const FFVar* const pIndep )
 {
-  if( !nDep || !nVar ) return 0;  // Nothing to do!
+  if( !nDep || !nVar ) return nullptr;  // Nothing to do!
   assert( pDep && pVar );
 
   std::vector<const FFVar*> vDep, vVar;
@@ -6152,10 +6180,8 @@ FFGraph<ExtOps...>::insert
     vVarIn.push_back( *op->pres );
     auto iVar = _Vars.find( op->pres );
     if( iVar == _Vars.end() ){
-      vVarOut.push_back( _create_var( op->pres->id() ) );
-      //vVarOut.push_back( FFVar( this, op->pres->id() ) );
+      vVarOut.push_back( _create_var( op->pres->id(), op->pres->name(true) ) );
       if( (long int)_nvar <= op->pres->id().second ) _nvar = op->pres->id().second+1;
-      //std::cout << "nvar = " << _nvar << std::endl;
     }
     else
       vVarOut.push_back( **iVar );
@@ -6170,21 +6196,42 @@ template <typename... ExtOps>
 template <typename... Deps>
 inline FFVar*
 FFGraph<ExtOps...>::compose
-( const unsigned nDepOut, const FFVar*pDepOut, const unsigned nDepIn,
-  const FFVar*pVarOut,  const FFVar*pDepIn, Deps... args )
+( std::set<unsigned> const& ndxDepOut, FFVar const* pDepOut, unsigned const nDepIn,
+  FFVar const* pVarOut, FFVar const* pDepIn, Deps... args )
+{
+  if( ndxDepOut.empty() ) return nullptr; // Nothing to do!
+
+  std::vector<FFVar const*> vDepOut; vDepOut.reserve( ndxDepOut.size() );
+  for( unsigned const& i : ndxDepOut ) vDepOut.push_back( pDepOut+i );
+  std::vector< std::pair<const FFVar*,const FFVar*> > vDepIn; vDepIn.reserve( nDepIn );
+  for( unsigned i=0; i<nDepIn; i++ ) vDepIn.push_back( std::make_pair(pVarOut+i,pDepIn+i) );
+  std::vector<const FFVar*> vDepComp = compose( vDepOut, vDepIn, args... );
+
+  FFVar* pDepComp = new FFVar[ *ndxDepOut.rbegin()+1 ];
+  typename std::vector<FFVar const*>::const_iterator it = vDepComp.begin();
+  for( unsigned const& i : ndxDepOut ) pDepComp[i] = **(it++);
+  return pDepComp;
+}
+
+template <typename... ExtOps>
+template <typename... Deps>
+inline FFVar*
+FFGraph<ExtOps...>::compose
+( unsigned const nDepOut, FFVar const* pDepOut, unsigned const nDepIn,
+  FFVar const* pVarOut, FFVar const* pDepIn, Deps... args )
 {
   if( !nDepOut ) return 0;
   //if( !nDepIn ) return pDepOut;  // Nothing to do!
   assert( pDepOut && pVarOut && pDepIn );
 
-  std::vector<const FFVar*> vDepOut;
+  std::vector<FFVar const*> vDepOut; vDepOut.reserve( nDepOut );
   for( unsigned i=0; i<nDepOut; i++ ) vDepOut.push_back( pDepOut+i );
-  std::vector< std::pair<const FFVar*,const FFVar*> > vDepIn;
+  std::vector< std::pair<const FFVar*,const FFVar*> > vDepIn; vDepIn.reserve( nDepIn );
   for( unsigned i=0; i<nDepIn; i++ ) vDepIn.push_back( std::make_pair(pVarOut+i,pDepIn+i) );
   std::vector<const FFVar*> vDepComp = compose( vDepOut, vDepIn, args... );
 
   FFVar* pDepComp = new FFVar[ vDepComp.size() ];
-  typename std::vector<const FFVar*>::const_iterator it = vDepComp.begin();
+  typename std::vector<FFVar const*>::const_iterator it = vDepComp.begin();
   for( unsigned k=0; it!=vDepComp.end(); ++it, k++ ) pDepComp[k] = **it;
   return pDepComp;
 }

@@ -277,11 +277,11 @@ public:
 
   //! @brief Transcribe sparse polynomial into DAG
   FFVar insert_dag
-    ( t_poly const& poly, bool const useprod=false );
+    ( t_poly const& poly, bool const useprod=false, bool const dagaux=false );
 
   //! @brief Transcribe sparse monomial into DAG
   FFVar insert_dag
-    ( t_mon const& mon, bool const useprod=false );
+    ( t_mon const& mon, bool const useprod=false, bool const dagaux=false );
 
   //! @brief Exceptions of mc::SLiftVar
   class Exceptions
@@ -545,16 +545,44 @@ operator<<
 ( std::ostream& out, SLiftEnv<DAG> const& env)
 {
   unsigned count = 0;
-  for( auto const& expr : env._Interm ){
-    out << std::endl << "Intermediate #" << ++count << ": "
-        << *(expr.first->pres) << " = " << *(expr.first) << std::endl;
-    unsigned pos = 0;
-    for( auto&& oper : expr.second )
-      out << "Operand " << *expr.first->pops[pos++] << ": " << *oper;
+
+  if( env._Poly.empty() ){
+    for( auto const& expr : env._Interm ){
+      out << std::endl << "INTERMEDIATE #" << ++count << ": "
+          << *(expr.first->pres) << " = " << *(expr.first) << std::endl;
+      unsigned pos = 0;
+      for( auto&& oper : expr.second )
+        out << "Operand " << *expr.first->pops[pos++] << ": " << *oper;
+    }
+    
+    count = 0;
+    for( auto const& spdep : env._SPDep )
+      out << std::endl << "DEPENDENT #" << ++count << ": " << spdep;
+    return out;
   }
+
+  std::cout << std::endl
+            << env._Aux.size() << " AUXILIARY VARIABLE";
+  if( env._Aux.size() > 1 ) std::cout << "S";
+  std::cout << ":";
+  for( auto&& aux : env._Aux )
+    std::cout << " " << *aux.first << "->" << *aux.second;
+  std::cout << std::endl;
+
   count = 0;
-  for( auto const& spdep : env._SPDep )
-    out << std::endl << "Dependent #" << ++count << ": " << spdep;
+  for( auto&& expr : env._Poly ){
+    std::ostringstream ext; 
+    ext << " OF POLYNOMIAL CONSTRAINT #" << ++count;
+    env._dag->output( env._dag->subgraph( 1, &expr ), ext.str(), out );
+  }
+
+  count = 0;
+  for( auto&& expr : env._Trans ){
+    std::ostringstream ext; 
+    ext << " OF NON-POLYNOMIAL CONSTRAINT #" << ++count;
+    env._dag->output( env._dag->subgraph( 1, &expr ), ext.str(), out );
+  
+  }
   return out;
 }
 
@@ -771,51 +799,34 @@ SLiftEnv<DAG>::_find_aux
 template < typename DAG >
 inline FFVar
 SLiftEnv<DAG>::insert_dag
-( t_poly const& pol, bool const useprod )
+( t_poly const& pol, bool const useprod, bool const dagaux )
 {
   FFVar var;
   bool first = true;
   for( auto const& [mon,coef] : pol.mapmon() ){
     if( first ){
-      var  = coef * insert_dag( mon, useprod );
+      var  = coef * insert_dag( mon, useprod, dagaux );
       first = false;
     }
     else
-      var += coef * insert_dag( mon, useprod );
+      var += coef * insert_dag( mon, useprod,dagaux );
   }
-
-//   for( auto it=pol.mapmon().begin(); it!=pol.mapmon().end(); ++it ){
-//     FFVar prodmon = it->second;
-//     for( auto ie=it->first.expr.begin(); ie!=it->first.expr.end(); ++ie ){
-//       const FFVar*oper = _find_aux( ie->first );
-//       if( !oper ) 
-//         throw typename SLiftEnv<DAG>::Exceptions( SLiftEnv<DAG>::Exceptions::INTERNAL );
-//       switch( t_poly::options.BASIS ){
-//        case t_poly::Options::MONOM:
-//         prodmon *= pow( *oper, (int)ie->second );
-//         break;
-//        case t_poly::Options::CHEB:
-//         prodmon *= cheb( *oper, ie->second );
-//         break;
-//       }
-//     }
-//     if( it->first.expr.empty() ) var = prodmon;
-//     else                         var+= prodmon;
-//   }
-//   // ADD OPTION TO RETURN A PRODMON OR MONOM TERM?
   return var;
 }
 
 template < typename DAG >
 inline FFVar
 SLiftEnv<DAG>::insert_dag
-( t_mon const& mon, bool const useprod )
+( t_mon const& mon, bool const useprod, bool const dagaux )
 {
   if( useprod ){
     std::vector<FFVar> pvar;
     pvar.reserve( mon.expr.size() );
-    for( auto const& [var,ord] : mon.expr ){
-      FFVar const* oper = _find_aux( var );
+  for( auto const& [var,ord] : mon.expr ){
+      FFVar const* oper = nullptr;
+      if( dagaux ) oper = *_dag->Vars().find( const_cast<FFVar*>(var) );
+      else         oper = _find_aux( var );
+      //FFVar const* oper = _find_aux( var );
       if( oper == nullptr )
         throw Exceptions( Exceptions::INTERNAL );
       switch( t_poly::options.BASIS ){
@@ -832,7 +843,11 @@ SLiftEnv<DAG>::insert_dag
     
   FFVar prodmon = 1;
   for( auto const& [var,ord] : mon.expr ){
-    FFVar const* oper = _find_aux( var );
+    //std::cout << "[var,ord] = " << *var << "^" << ord << std::endl;
+    FFVar const* oper = nullptr;
+    if( dagaux ) oper = *_dag->Vars().find( const_cast<FFVar*>(var) );
+    else         oper = _find_aux( var );
+    //FFVar const* oper = _find_aux( var );
     if( oper == nullptr )
       throw Exceptions( Exceptions::INTERNAL );
     switch( t_poly::options.BASIS ){

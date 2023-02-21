@@ -353,23 +353,37 @@ class PolVar
     //! @brief Typedef for variable identifier in factorable program
     typedef std::pair< TYPE, unsigned > t_idVar;
 
+    //! @brief Default name for continuous variables in DAG
+    static const std::string VARCONTNAME;
+    //! @brief Default name for integer variables in DAG
+    static const std::string VARINTNAME;
+    //! @brief Default name for continuous auxiliaries in DAG
+    static const std::string AUXCONTNAME;
+    //! @brief Default name for integer auxiliaries in DAG
+    static const std::string AUXINTNAME;
+    //! @brief Default name for auxiliary constants in DAG
+    static const std::string AUXCSTNAME;
+
     //! @brief Return string with variable name for identifier <a>id</a>
     std::string name
       () const
-      {
-        std::ostringstream ovar;
+      { // Use DAG variable name if user-defined
+        if( !_var.name(true).empty() )
+          return _var.name(true);
+        // Otherwise create default name
+	std::ostringstream ovar;
         switch( _id.first ){
-          case VARCONT: ovar << "X"; break;
-          case VARINT:  ovar << "Y"; break;
-          case AUXCONT: ovar << "W"; break;
-          case AUXINT:  ovar << "Z"; break;
-          case AUXCST:  ovar << "C"; break;
-        }
+          case VARCONT: ovar << VARCONTNAME; break;
+          case VARINT:  ovar << VARINTNAME;  break;
+          case AUXCONT: ovar << AUXCONTNAME; break;
+          case AUXINT:  ovar << AUXINTNAME;  break;
+          case AUXCST:  ovar << AUXCSTNAME;  break;
+        } 
         ovar << _id.second;
         return ovar.str();
      }
   /** @} */ 
-							  
+						  
   private:
     //! @brief pointer to underlying polytope
     PolImg<T>* _img;
@@ -575,6 +589,12 @@ class PolVar
     PolVar<T>& operator/=( const PolVar<T>& );
   /** @} */ 
 };
+
+template <typename T> inline std::string const PolVar<T>::VARCONTNAME = "V";
+template <typename T> inline std::string const PolVar<T>::VARINTNAME  = "Y";
+template <typename T> inline std::string const PolVar<T>::AUXCONTNAME = "W";
+template <typename T> inline std::string const PolVar<T>::AUXINTNAME  = "Z";
+template <typename T> inline std::string const PolVar<T>::AUXCSTNAME  = "C";
 
 //! @brief C++ structure for ordering of polytopic variables
 template <class T> 

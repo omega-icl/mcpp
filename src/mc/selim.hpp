@@ -200,9 +200,13 @@ class SElimEnv:
   using SLiftEnv<DAG>::dag;
   using SLiftEnv<DAG>::insert_dag;
 
+  template <typename D> friend std::ostream& operator<<
+    ( std::ostream&, const SElimEnv<D>& );
+
 public:
 
-  typedef std::vector< std::tuple< FFVar const*, FFVar const*, FFVar const* > > t_VarElim;
+  typedef std::tuple< std::vector<FFVar>, std::vector<FFVar>, std::vector<FFVar> > t_VarElim;
+  //typedef std::vector< std::tuple< FFVar const*, FFVar const*, FFVar const* > > t_VarElim;
   typedef SLiftEnv<DAG> t_lift;
   typedef typename SLiftVar<DAG>::t_poly t_poly;
   typedef typename t_poly::t_mon t_mon;
@@ -463,9 +467,17 @@ protected:
       bool const inverse = false );
 
   //! @brief Insert an auxiliary variable corresponding to inverse operation into DAG
-  FFVar const* _insert_expr
-    ( FFVar& var, FFOp const* op, t_poly const& polyindep, t_poly const& polydep,
-      bool const useprod );
+  std::pair< FFVar const*, SLiftVar<DAG> const* > _insert_expr
+    ( long const ndxVarEl, FFVar& var, std::vector<SLiftVar<DAG> const*> const& SPVar,
+      FFOp const* pOp, t_poly const& polyindep, t_poly const& polydep, bool const useprod );
+
+  //! @brief Check dependency in variable ndxVarEl in a lifted variable
+  std::set< FFVar const*, lt_FFVar > _dep_expr
+    ( long const ndxVarEl, t_poly const& numer, t_poly const& denom );
+
+  //! @brief Return pointer to intrenal DAG variable of expression
+  FFVar const* _ptr_expr
+    ( FFVar& var );
 
   //! @brief Erase all entries in _Interm
   void _reset
@@ -479,15 +491,31 @@ inline typename SElimEnv<DAG>::Options SElimEnv<DAG>::options;
 template <typename DAG>
 inline int const SElimEnv<DAG>::Options::LPALGO_DEFAULT;
 #endif
-/*
+
 template < typename DAG >
 inline std::ostream&
 operator<<
 ( std::ostream& out, SElimEnv<DAG> const& env)
 {
+  auto const& [vvar,vctr,vaux] = env._VarElim;
+  std::cout << std::endl
+            << vvar.size() << " VARIABLES CAN BE ELIMINATED" << std::endl;
+
+  if( vaux.empty() ){
+    for( auto itvar = vvar.begin(), itctr = vctr.begin();
+         itvar != vvar.end(); ++itvar, ++itctr )
+      out << "VARIABLE " << *itvar << " ELIMINATED USING " << *itctr << "=0";
+    return out;
+  }
+
+  for( auto itvar = vvar.begin(), itctr = vctr.begin(), itaux = vaux.begin();
+       itvar != vvar.end(); ++itvar, ++itctr, ++itaux ){
+    std::ostringstream ext; 
+    ext << " OF " << *itvar << " USING " << *itctr << "=0";
+    env._dag->output( env._dag->subgraph( 1, &*itaux ), ext.str(), out );
+  }
   return out;
 }
-*/
 
 template < typename DAG >
 inline void
@@ -507,7 +535,10 @@ SElimEnv<DAG>::_reset
   _mapCtrVar.clear();
   _mapCtrVarCand.clear();
 
-  _VarElim.clear();
+  std::get<0>( _VarElim ).clear();
+  std::get<1>( _VarElim ).clear();
+  std::get<2>( _VarElim ).clear();
+  //_VarElim.clear();
 }
 
 template < typename DAG >
@@ -653,48 +684,122 @@ SElimEnv<DAG>::process
   throw Exceptions( Exceptions::MIPERR );
 #endif
 
+  auto& [vvar,vctr,vaux] = _VarElim;
 #ifdef MC__SELIM_DEBUG_PROCESS
   std::cout << std::endl << "Eliminated variables and corresponding constraints:" << std::endl;
-  for( auto const& [pvar,pctr,paux] : _VarElim )
-    std::cout << *pvar << " <- " << *pctr << std::endl;
+  for( auto itvar = vvar.cbegin(), itctr = vctr.cbegin();
+       itvar != vvar.cend(); ++itvar, ++itctr )
+    std::cout << *itvar << " <- " << *itctr << std::endl;
+  //for( auto const& [pvar,pctr,paux] : _VarElim )
+  //  std::cout << *pvar << " <- " << *pctr << std::endl;
 #endif
   
   // No transcription in DAG if <a>add2dag</a> is false
-  //if( !add2dag ) return;
+  if( !add2dag ) return;
 
   t_poly::options.BASIS = t_poly::Options::MONOM;
   t_lift::options.LIFTDIV  = true;
   t_lift::options.LIFTIPOW = false;
 
-  for( auto&& [pvarel,pctr,paux] : _VarElim ){
-    t_lift::process( 1, pctr, false );
+
+#ifdef MC__SELIM_CHECK
+  assert( vvar.size() == vctr.size() );
+#endif
+  vaux.resize( vvar.size() );
+  for( auto itvarel = vvar.begin(), itctr = vctr.begin(), itaux = vaux.begin();
+       itvarel != vvar.end(); ++itvarel, ++itctr, ++itaux ){
+    t_lift::process( 1, &*itctr, false );
 #ifdef MC__SELIM_DEBUG_PROCESS
-    std::cout << *this;
+    std::cout << *(t_lift*)this;
 #endif
     // Initialize lifted variable to current dependent
     auto const* spvar = &_SPDep.front();
+#ifdef MC__SELIM_DEBUG_PROCESS
+      std::cout << "First dependent variable: " << *spvar << std::endl;
+#endif
 
     // Initialize lifted variable and loop over intermediate operations
     for( FFVar VarEl = 0.; ; ){
 
-      // Check denominator is 1
+      // Check active dependence of spvar
       auto const& denom = spvar->denom();
-      if( denom.maxord() || denom.coefmon( t_mon() ) != 1e0 )
+      auto const& numer = spvar->numer();
+      long ndxVarEl = itvarel->id().second;
+      auto&& sdep = _dep_expr( ndxVarEl, numer, denom );
+      //std::cout << "HERE2\n";
+      
+      if( sdep.empty() )
         throw Exceptions( Exceptions::INVERT );
 
-      // Check numerator dependence in pvarel
-      auto const& numer = spvar->numer();
-      long ndxvarel = pvarel->id().second;
-      FFVar const* pdep = nullptr;
-      for( auto const& pvar : numer.setvar() ){
-        if( pvar->dep().dep( ndxvarel ).first ){
-          if( pdep ) throw Exceptions( Exceptions::INVERT );
-          pdep = pvar;
-        }  
-      }
-      if( pdep == nullptr ) throw Exceptions( Exceptions::INVERT );
+      // Case multiple dependents
+      else if( sdep.size() > 1 ){
+        // Check all dependences are separably linear
+        t_mon monvarel( &*itvarel );
+	std::vector<t_mon> vmondep; vmondep.reserve( sdep.size() );
+	for( auto pdep : sdep ) vmondep.push_back( t_mon( pdep ) );
+        t_poly polyindep;
+        FFVar funcdep, funcindep;
+        for( auto const& [mon,coef] : numer.mapmon() ){
+	  auto itdep = sdep.cbegin();
+	  for( auto const& mondep : vmondep ){
+            if( !mondep.subseteq( mon ) ){
+	      ++itdep;
+	      continue;
+	    }
 
+	    // Eliminated variable directly partipates in monomial
+	    if( monvarel.subseteq( mon ) )
+              funcdep += insert_dag( mon - monvarel, false, true ) * coef;
+
+	    // Eliminated variable indirectly partipates in monomial
+            else{
+              bool found_Op = false;
+              for( auto const& [pOp,SPVar] : _Interm ){
+                if( pOp->pres->id().first  != FFVar::AUX ) throw Exceptions( Exceptions::INVERT );
+                if( pOp->pres->id().second != (*itdep)->id().second ) continue;
+		//std::cout << "OPERATION: " << *pOp << std::endl;
+		if( pOp->type != FFOp::DIV ) throw Exceptions( Exceptions::INVERT );
+                assert( SPVar.size() == 2 ); // exactly two operands
+                found_Op = true;
+		// Check denominator is independent
+                int ndep2 = _dep_expr( ndxVarEl, SPVar.at(1)->numer(), SPVar.at(1)->denom() ).size();
+		assert( ndep2 == 0 );
+		// Check numerator is dependent
+                int ndep1 = _dep_expr( ndxVarEl, SPVar.at(0)->numer(), SPVar.at(0)->denom() ).size();
+		assert( ndep1 == 1 );
+                // Split numerator into dependent and independent parts
+                t_poly polydep, polyindep;
+                for( auto const& [monaux,coefaux] : SPVar.at(0)->numer().mapmon() ){
+                  if( monvarel.subseteq( monaux ) )
+                    polydep += std::make_pair( monaux - monvarel, coefaux );
+                  else
+                    polyindep -= std::make_pair( mon, coef );
+                }
+                // Append dependent and independent parts
+		FFVar vardenom = insert_dag( SPVar.at(1)->numer(), false, true );
+                funcdep += insert_dag( polydep, false, true ) / vardenom;
+                funcindep -= insert_dag( polyindep, false, true ) / vardenom;
+		break;
+	      }
+              if( !found_Op ) throw Exceptions( Exceptions::INVERT );
+
+	    }
+	    break;
+	  }
+	  if( itdep == sdep.cend() )
+            funcindep -= insert_dag( mon, false, true ) * coef;
+        }
+
+        // Update eliminated variable expression and return pointer to internal DAG variable
+        VarEl += funcindep;
+        VarEl /= funcdep;
+        *itaux = *_ptr_expr( VarEl );
+        break; // EXIT THE INNER FOR LOOP ON INTERMEDIATE VARIABLES	
+        //throw Exceptions( Exceptions::INVERT );
+      }
+      
       // Split numerator into dependent and independent parts
+      FFVar const* pdep = *sdep.cbegin();
       t_mon mondep( pdep );
       t_poly polydep, polyindep;
       for( auto const& [mon,coef] : numer.mapmon() ){
@@ -709,15 +814,17 @@ SElimEnv<DAG>::process
       std::cout << "Independent part:" << polyindep;
 #endif
 
-      // Case dependent is a DAG variable
+      // Case unique dependent is a DAG variable
       if( pdep->id().first == FFVar::VAR ){
         // Create new DAG expression and copy pointer to expression in _VarElim
-        paux = _insert_expr( VarEl, polyindep, polydep, false );
+        *itaux = *_insert_expr( VarEl, polyindep, polydep, false );
+        //paux = _insert_expr( VarEl, polyindep, polydep, false );
 #ifdef MC__SELIM_DEBUG_PROCESS
         std::cout << "INSERTED DAG EXPRESSION:";
         std::ostringstream ext; 
         ext << " OF " << *pdep;
-        _dag->output( _dag->subgraph( 1, paux ), ext.str() );
+        _dag->output( _dag->subgraph( 1, &*itaux ), ext.str() );
+        //_dag->output( _dag->subgraph( 1, paux ), ext.str() );
 #endif
         break; // EXIT THE INNER FOR LOOP ON INTERMEDIATE VARIABLES
       }
@@ -728,9 +835,12 @@ SElimEnv<DAG>::process
         if( pOp->pres->id().first  != FFVar::AUX ) throw Exceptions( Exceptions::INVERT );
         if( pOp->pres->id().second != pdep->id().second ) continue;
         found_Op = true;
-        // Create new DAG expression and update paux with pointer to expression
-        paux  = _insert_expr( VarEl, pOp, polyindep, polydep, false );
-	spvar = SPVar.at(0);
+        // Create new DAG expression and update inverted expression
+        auto pexpr = _insert_expr( ndxVarEl, VarEl, SPVar, pOp, polyindep, polydep, false );
+        *itaux = *pexpr.first;
+        spvar  = pexpr.second;
+        //paux  = _insert_expr( VarEl, pOp, polyindep, polydep, false );
+	//spvar = SPVar.at(0);
 #ifdef MC__SELIM_DEBUG_PROCESS
       std::cout << "Next dependent variable: " << *spvar << std::endl;
 #endif
@@ -742,10 +852,36 @@ SElimEnv<DAG>::process
 }
 
 template < typename DAG >
-inline FFVar const*
-SElimEnv<DAG>::_insert_expr
-( FFVar& var, FFOp const* pOp, t_poly const& polyindep, t_poly const& polydep, bool const useprod )
+inline std::set< FFVar const*, lt_FFVar >
+SElimEnv<DAG>::_dep_expr
+( long const ndxVarEl, t_poly const& numer, t_poly const& denom )
 {
+  // Check denominator is 1
+  if( denom.maxord() || denom.coefmon( t_mon() ) != 1e0 )
+    throw Exceptions( Exceptions::INVERT );
+	
+  // Check numerator active dependence in ndxVarEl
+  std::set< FFVar const*, lt_FFVar > sdep;
+  //std::cout << "DEPENDENTS:";
+  for( auto const& pvar : numer.setvar() ){
+    if( pvar->dep().dep( ndxVarEl ).first ){
+      sdep.insert( pvar );
+      //std::cout << " " << *pvar;
+    }
+  }
+  //std::cout << std::endl;
+  return sdep;
+}
+
+template < typename DAG >
+inline std::pair< FFVar const*, SLiftVar<DAG> const* >
+SElimEnv<DAG>::_insert_expr
+( long const ndxVarEl, FFVar& var, std::vector<SLiftVar<DAG> const*> const& SPVar,
+  FFOp const* pOp, t_poly const& polyindep, t_poly const& polydep, bool const useprod )
+{
+  //std::cout << *pOp << std::endl;
+  unsigned ndxsp = 0; // variable index for SLiftVar dependence in eliminated variable
+  
   // Insert inverse operation in DAG
   switch( pOp->type ){
    case FFOp::IPOW:  _insert_expr( var, polyindep, polydep, useprod );
@@ -753,9 +889,6 @@ SElimEnv<DAG>::_insert_expr
    case FFOp::DPOW:  _insert_expr( var, polyindep, polydep, useprod );
                      var = pow( var, 1./pOp->pops.at(1)->num().val() );     break;
 
-   case FFOp::INV:   _insert_expr( var, polyindep, polydep, useprod, true );
-                     break;
-		     
    case FFOp::SQR:   _insert_expr( var, polyindep, polydep, useprod );
                      var = sqrt( var ); break;
    case FFOp::SQRT:  _insert_expr( var, polyindep, polydep, useprod );
@@ -777,8 +910,34 @@ SElimEnv<DAG>::_insert_expr
    case FFOp::ATAN:  _insert_expr( var, polyindep, polydep, useprod );
                      var = tan( var );  break;
 
+   case FFOp::INV:   //std::cout << "INV OPERATIONS!\n";
+                     assert( pOp->pops.at(0)->cst() );
+                     _insert_expr( var, polyindep, polydep*pOp->pops.at(0)->num().val(),
+		                   useprod, true );
+                     ndxsp = 1;
+                     break;
+		     
+   case FFOp::DIV: { //std::cout << "DIV OPERATIONS!\n";
+                     assert( SPVar.size() == 2 ); // exactly two operands
+                     int ndep1 = _dep_expr( ndxVarEl, SPVar.at(0)->numer(), SPVar.at(0)->denom() ).size();
+                     int ndep2 = _dep_expr( ndxVarEl, SPVar.at(1)->numer(), SPVar.at(1)->denom() ).size();
+		     assert( ndep1 + ndep2 == 1 ); // exactly one dependence in numerator or denominator
+                     // numerator depends on variable ndxVarEl
+                     if( ndep1 ){
+                       _insert_expr( var, polyindep, polydep, useprod );
+		       var *= *pOp->pops.at(1);
+                       ndxsp = 0;
+		     }
+                     // denominatordepends on variable ndxVarEl
+                     else{
+                       _insert_expr( var, polyindep, polydep, useprod, true );
+		       var *= *pOp->pops.at(0);
+                       ndxsp = 1;
+		     }
+                     break;
+		   }
+
    case FFOp::CHEB:
-   case FFOp::DIV:
    case FFOp::XLOG:
    case FFOp::COSH:
    case FFOp::SINH:
@@ -802,19 +961,7 @@ SElimEnv<DAG>::_insert_expr
   }
 
   // Return pointer to internal DAG variable
-  auto itvar = _dag->Vars().find( &var );
-  if( itvar != _dag->Vars().end() ){
-#ifdef MC__SELIM_DEBUG_INSERT
-    std::cout << "INSERTED DAG EXPRESSION:";
-    _dag->output( _dag->subgraph( 1, *itvar ) );
-#endif
-    return *itvar;
-  }
-  
-#ifdef MC__SELIM_CHECK
-  assert( var.cst() );
-#endif
-  return _dag->add_constant( var.num().val() );
+  return std::make_pair( _ptr_expr( var ), SPVar.at( ndxsp ) );
 }
 
 template < typename DAG >
@@ -823,11 +970,18 @@ SElimEnv<DAG>::_insert_expr
 ( FFVar& var, t_poly const& polyindep, t_poly const& polydep, bool const useprod,
   bool const inverse )
 {
+  //std::cout << "ENTERING _insert_expr\n";
+  bool const dagaux = true;
+
   // Case inverse operation is needed
   if( inverse ){
-    if( !polyindep.mapmon().empty() )
-      var += insert_dag( polyindep, useprod );
-    var =  insert_dag( polydep, useprod ) / var;
+    if( !polyindep.mapmon().empty() ){
+      //std::cout << "var = " << var << std::endl;
+      var += insert_dag( polyindep, useprod, dagaux );
+      //std::cout << "var = " << var << std::endl;
+    }
+    var =  insert_dag( polydep, useprod, dagaux ) / var;
+    //std::cout << "var = " << var << std::endl;
   }
   
   // Case dependent term is constant
@@ -836,18 +990,18 @@ SElimEnv<DAG>::_insert_expr
     // Constant dependent term is one
     if( cst == 1e0 ){
       if( !polyindep.mapmon().empty() )
-        var += insert_dag( polyindep, useprod );
+        var += insert_dag( polyindep, useprod, dagaux );
     }
     // Constant dependent term is negative one
     else if( cst == -1e0 ){
       if( !polyindep.mapmon().empty() )
-        var = insert_dag( - polyindep, useprod ) - var;
+        var = insert_dag( - polyindep, useprod, dagaux ) - var;
       else
         var = -var;
     }
     else{
       if( !polyindep.mapmon().empty() )
-        var += insert_dag( polyindep, useprod );
+        var += insert_dag( polyindep, useprod, dagaux );
       var /=  cst;
     }
   }
@@ -870,24 +1024,33 @@ SElimEnv<DAG>::_insert_expr
         auto const& [mon,coef] = *it;
         polyindepred += std::make_pair( mon-mondep, coef );
       }
-      var /= insert_dag( mondep, useprod );
-      var += insert_dag( polyindepred, useprod );
+      var /= insert_dag( mondep, useprod, dagaux );
+      var += insert_dag( polyindepred, useprod, dagaux );
     }
     // No common divider
     else{
       if( !polyindep.mapmon().empty() )
-        var += insert_dag( polyindep, useprod );
-      var /= insert_dag( mondep, useprod );
+        var += insert_dag( polyindep, useprod, dagaux );
+      var /= insert_dag( mondep, useprod, dagaux );
     }
   }
   
   // Case dependent term is linear
   // General case
   else{
-    var += insert_dag( polyindep, useprod );
-    var /= insert_dag( polydep, useprod );
+    var += insert_dag( polyindep, useprod, dagaux );
+    var /= insert_dag( polydep, useprod, dagaux );
   }
 
+  // Return pointer to internal DAG variable
+  return _ptr_expr( var );
+}
+
+template < typename DAG >
+inline FFVar const*
+SElimEnv<DAG>::_ptr_expr
+( FFVar& var )
+{
   // Return pointer to internal DAG variable
   auto itvar = _dag->Vars().find( &var );
   if( itvar != _dag->Vars().end() ){
@@ -1040,7 +1203,10 @@ SElimEnv<DAG>::_MIP_decode
     OrdElim[v] = --count;
   
   // Add entries in _VarElim for eliminated variables and corresponding constraints
-  _VarElim.resize( OrdElim.size() );
+  auto& [vvar,vctr,vaux] = _VarElim;
+  vvar.resize( OrdElim.size() );
+  vctr.resize( OrdElim.size() );
+  //_VarElim.resize( OrdElim.size() );
   for( auto const& [e,vmap] : _MIP_ctrvar ){
     if( _MIP_ctr[e].get(GRB_DoubleAttr_X) < 0.9 ) continue;
 #ifdef MC__SELIM_DEBUG_MIP
@@ -1056,7 +1222,9 @@ SElimEnv<DAG>::_MIP_decode
 #ifdef MC__SELIM_CHECK
       assert( itdagctr != _dag->Vars().end() );
 #endif
-      _VarElim[OrdElim[v]] = std::make_tuple( *itdagvar, *itdagctr, nullptr );
+      vvar[OrdElim[v]] = **itdagvar;
+      vctr[OrdElim[v]] = **itdagctr;
+      //_VarElim[OrdElim[v]] = std::make_tuple( *itdagvar, *itdagctr, nullptr );
     }
   }
 }
