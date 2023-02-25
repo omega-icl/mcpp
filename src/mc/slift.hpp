@@ -808,8 +808,10 @@ SLiftEnv<DAG>::insert_dag
       var  = coef * insert_dag( mon, useprod, dagaux );
       first = false;
     }
-    else
+    else if( coef >= 0 )
       var += coef * insert_dag( mon, useprod,dagaux );
+    else
+      var -= (-coef) * insert_dag( mon, useprod,dagaux );
   }
   return var;
 }

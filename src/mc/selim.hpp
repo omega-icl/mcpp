@@ -206,7 +206,6 @@ class SElimEnv:
 public:
 
   typedef std::tuple< std::vector<FFVar>, std::vector<FFVar>, std::vector<FFVar> > t_VarElim;
-  //typedef std::vector< std::tuple< FFVar const*, FFVar const*, FFVar const* > > t_VarElim;
   typedef SLiftEnv<DAG> t_lift;
   typedef typename SLiftVar<DAG>::t_poly t_poly;
   typedef typename t_poly::t_mon t_mon;
@@ -233,7 +232,7 @@ public:
 #endif
     }
 
-  //! @brief Retreive vector of tuples <ELIMINATED VARIABLE, INVERTED CONSTRAINT, INVERTED EXPRESSION> with entries in a feasible order of elimination
+  //! @brief Retreive tuple of vectors <ELIMINATED VARIABLE, INVERTED CONSTRAINT, INVERTED EXPRESSION> with entries in a feasible order of elimination
   t_VarElim& VarElim
     ()
     { return _VarElim; }
@@ -304,8 +303,8 @@ public:
       MIPNUMFOCUS(0), MIPDISPLEVEL(1), MIPOUTPUTFILE(""),
       MIPTIMELIMIT(600),
 #endif
-      ELIM_LIN(true), ELIM_MLIN(true),
-      ELIM_NLIN( {FFInv::Options::INV,FFInv::Options::SQRT,FFInv::Options::EXP,
+      ELIMLIN(true), ELIMMLIN(true),
+      ELIMNLIN( {FFInv::Options::INV,FFInv::Options::SQRT,FFInv::Options::EXP,
                   FFInv::Options::LOG,FFInv::Options::RPOW} )
       {}
     //! @brief Assignment of mc::SElimEnv<DAG>::Options
@@ -327,9 +326,9 @@ public:
         MIPOUTPUTFILE   = opt.MIPOUTPUTFILE;
         MIPTIMELIMIT    = opt.MIPTIMELIMIT;
 #endif
-        ELIM_LIN  = opt.ELIM_LIN;
-        ELIM_MLIN = opt.ELIM_MLIN;
-        ELIM_NLIN = opt.ELIM_NLIN;
+        ELIMLIN  = opt.ELIMLIN;
+        ELIMMLIN = opt.ELIMMLIN;
+        ELIMNLIN = opt.ELIMNLIN;
         return *this;
       }
 #if defined(MC__USE_GUROBI)
@@ -365,11 +364,11 @@ public:
     static const int LPALGO_DEFAULT = -1;
 #endif
     //! @brief Whether to invert linear operations
-    bool ELIM_LIN;
+    bool ELIMLIN;
     //! @brief Whether to invert multilinear operations
-    bool ELIM_MLIN;
+    bool ELIMMLIN;
     //! @brief Set of invertible nonlinear operations
-    std::set<FFInv::Options::NLINV> ELIM_NLIN;
+    std::set<FFInv::Options::NLINV> ELIMNLIN;
   } options;
 
 
@@ -499,12 +498,12 @@ operator<<
 {
   auto const& [vvar,vctr,vaux] = env._VarElim;
   std::cout << std::endl
-            << vvar.size() << " VARIABLES CAN BE ELIMINATED" << std::endl;
+            << vvar.size() << " VARIABLES MAY BE ELIMINATED" << std::endl;
 
   if( vaux.empty() ){
     for( auto itvar = vvar.begin(), itctr = vctr.begin();
          itvar != vvar.end(); ++itvar, ++itctr )
-      out << "VARIABLE " << *itvar << " ELIMINATED USING " << *itctr << "=0";
+      out << "VARIABLE " << *itvar << " USING CONSTRAINT" << *itctr << "=0";
     return out;
   }
 
@@ -538,7 +537,6 @@ SElimEnv<DAG>::_reset
   std::get<0>( _VarElim ).clear();
   std::get<1>( _VarElim ).clear();
   std::get<2>( _VarElim ).clear();
-  //_VarElim.clear();
 }
 
 template < typename DAG >
@@ -585,25 +583,27 @@ SElimEnv<DAG>::process
   // Find out variable invertibility in equality constraints
   _Ctr.assign( pCtr, pCtr+nCtr );
   _ICtr.resize( nCtr );
-  FFInv::options.INVOP = options.ELIM_NLIN;
+  FFInv::options.INVOP = options.ELIMNLIN;
+  std::cout << "FFInv::options.INVOP: " << FFInv::options.INVOP.size() << std::endl;
   _dag->eval( sgCtr, nCtr, pCtr, _ICtr.data(), _Var.size(), _Var.data(), _IVar.data() );
 
   // Create candidate variable and constraint sets and maps
   for( unsigned j=0; j<_ICtr.size(); ++j ){
-#ifdef MC__SELIM_DEBUG_PROCESS
+//#ifdef MC__SELIM_DEBUG_PROCESS
     std::cout << j << ": " << _ICtr[j] << std::endl;
-#endif
+//#endif
     bool isinvert = false;
     for( auto const& [i,type] : _ICtr[j].inv() ){
+      if( _VarWeight[i] <= 0. ) continue;
       switch( type ){
         case FFInv::L:
-          if( options.ELIM_LIN ){
+          if( options.ELIMLIN ){
 	    _ndxVar.insert( i );
 	    isinvert = true;
 	  }
           break;
 	case FFInv::S:
-          if( options.ELIM_MLIN ){
+          if( options.ELIMMLIN ){
 	    _ndxVar.insert( i );
 	    isinvert = true;
 	  }
@@ -636,8 +636,8 @@ SElimEnv<DAG>::process
       _mapCtrVar[j].insert( i );
       bool insert = false;
       switch( type ){
-        case FFInv::L: if( options.ELIM_LIN )  insert = true; break;
-	case FFInv::S: if( options.ELIM_MLIN ) insert = true; break;
+        case FFInv::L: if( options.ELIMLIN )  insert = true; break;
+	case FFInv::S: if( options.ELIMMLIN ) insert = true; break;
 	case FFInv::N: insert = true; break;
 	case FFInv::U: default: break;
       }
@@ -650,7 +650,7 @@ SElimEnv<DAG>::process
       }
     }
   }
-#ifdef MC__SELIM_DEBUG_PROCESS
+//#ifdef MC__SELIM_DEBUG_PROCESS
   std::cout << std::endl << "Participating variables in each constraint:" << std::endl;
   for( auto const& [e,ndx] : _mapCtrVar ){
     std::cout << e << " (" << _Ctr[e] << "):";
@@ -675,7 +675,7 @@ SElimEnv<DAG>::process
     for( auto const& j : ndx ) std::cout << " " << j;
     std::cout << std::endl;
   }
-#endif
+//#endif
 
   // Determine an optimal elimination set
 #if defined(MC__USE_GUROBI)
@@ -690,8 +690,6 @@ SElimEnv<DAG>::process
   for( auto itvar = vvar.cbegin(), itctr = vctr.cbegin();
        itvar != vvar.cend(); ++itvar, ++itctr )
     std::cout << *itvar << " <- " << *itctr << std::endl;
-  //for( auto const& [pvar,pctr,paux] : _VarElim )
-  //  std::cout << *pvar << " <- " << *pctr << std::endl;
 #endif
   
   // No transcription in DAG if <a>add2dag</a> is false
@@ -795,7 +793,6 @@ SElimEnv<DAG>::process
         VarEl /= funcdep;
         *itaux = *_ptr_expr( VarEl );
         break; // EXIT THE INNER FOR LOOP ON INTERMEDIATE VARIABLES	
-        //throw Exceptions( Exceptions::INVERT );
       }
       
       // Split numerator into dependent and independent parts
@@ -818,13 +815,11 @@ SElimEnv<DAG>::process
       if( pdep->id().first == FFVar::VAR ){
         // Create new DAG expression and copy pointer to expression in _VarElim
         *itaux = *_insert_expr( VarEl, polyindep, polydep, false );
-        //paux = _insert_expr( VarEl, polyindep, polydep, false );
 #ifdef MC__SELIM_DEBUG_PROCESS
         std::cout << "INSERTED DAG EXPRESSION:";
         std::ostringstream ext; 
         ext << " OF " << *pdep;
         _dag->output( _dag->subgraph( 1, &*itaux ), ext.str() );
-        //_dag->output( _dag->subgraph( 1, paux ), ext.str() );
 #endif
         break; // EXIT THE INNER FOR LOOP ON INTERMEDIATE VARIABLES
       }
@@ -839,8 +834,6 @@ SElimEnv<DAG>::process
         auto pexpr = _insert_expr( ndxVarEl, VarEl, SPVar, pOp, polyindep, polydep, false );
         *itaux = *pexpr.first;
         spvar  = pexpr.second;
-        //paux  = _insert_expr( VarEl, pOp, polyindep, polydep, false );
-	//spvar = SPVar.at(0);
 #ifdef MC__SELIM_DEBUG_PROCESS
       std::cout << "Next dependent variable: " << *spvar << std::endl;
 #endif
@@ -862,14 +855,20 @@ SElimEnv<DAG>::_dep_expr
 	
   // Check numerator active dependence in ndxVarEl
   std::set< FFVar const*, lt_FFVar > sdep;
-  //std::cout << "DEPENDENTS:";
+#ifdef MC__SELIM_DEBUG_PROCESS
+  std::cout << "DEPENDENTS:";
+#endif
   for( auto const& pvar : numer.setvar() ){
     if( pvar->dep().dep( ndxVarEl ).first ){
       sdep.insert( pvar );
-      //std::cout << " " << *pvar;
+#ifdef MC__SELIM_DEBUG_PROCESS
+      std::cout << " " << *pvar;
+#endif
     }
   }
-  //std::cout << std::endl;
+#ifdef MC__SELIM_DEBUG_PROCESS
+  std::cout << std::endl;
+#endif
   return sdep;
 }
 
@@ -910,15 +909,13 @@ SElimEnv<DAG>::_insert_expr
    case FFOp::ATAN:  _insert_expr( var, polyindep, polydep, useprod );
                      var = tan( var );  break;
 
-   case FFOp::INV:   //std::cout << "INV OPERATIONS!\n";
-                     assert( pOp->pops.at(0)->cst() );
+   case FFOp::INV:   assert( pOp->pops.at(0)->cst() );
                      _insert_expr( var, polyindep, polydep*pOp->pops.at(0)->num().val(),
 		                   useprod, true );
                      ndxsp = 1;
                      break;
 		     
-   case FFOp::DIV: { //std::cout << "DIV OPERATIONS!\n";
-                     assert( SPVar.size() == 2 ); // exactly two operands
+   case FFOp::DIV: { assert( SPVar.size() == 2 ); // exactly two operands
                      int ndep1 = _dep_expr( ndxVarEl, SPVar.at(0)->numer(), SPVar.at(0)->denom() ).size();
                      int ndep2 = _dep_expr( ndxVarEl, SPVar.at(1)->numer(), SPVar.at(1)->denom() ).size();
 		     assert( ndep1 + ndep2 == 1 ); // exactly one dependence in numerator or denominator
@@ -976,12 +973,9 @@ SElimEnv<DAG>::_insert_expr
   // Case inverse operation is needed
   if( inverse ){
     if( !polyindep.mapmon().empty() ){
-      //std::cout << "var = " << var << std::endl;
       var += insert_dag( polyindep, useprod, dagaux );
-      //std::cout << "var = " << var << std::endl;
     }
     var =  insert_dag( polydep, useprod, dagaux ) / var;
-    //std::cout << "var = " << var << std::endl;
   }
   
   // Case dependent term is constant
@@ -1188,10 +1182,14 @@ SElimEnv<DAG>::_MIP_decode
 ()
 {
   // Get order of variable elimination
-  std::map<double,unsigned> VarMTZ;
+  std::multimap<double,unsigned> VarMTZ;
   for( auto const& [v,grbvar] : _MIP_var ){
+#ifdef MC__SELIM_DEBUG_MIP
+    std::cout << "Variable " << v << " (" << _Var[v] << "): "
+              << _MIP_var[v].get(GRB_DoubleAttr_X) << std::endl;
+#endif
     if( grbvar.get(GRB_DoubleAttr_X) < 0.9 ) continue;
-    VarMTZ[_MIP_varMTZ[v].get(GRB_DoubleAttr_X)] = v;
+    VarMTZ.insert( std::make_pair( _MIP_varMTZ[v].get(GRB_DoubleAttr_X), v ) );
 #ifdef MC__SELIM_DEBUG_MIP
     std::cout << "Variable " << v << " (" << _Var[v] << ") eliminated - MTZ index: "
               << _MIP_varMTZ[v].get(GRB_DoubleAttr_X) << std::endl;

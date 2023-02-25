@@ -4,6 +4,7 @@
 
 #include "ffunc.hpp"
 #include "ffinv.hpp"
+#include "ffexpr.hpp"
 #include "rltred.hpp"
 #include "slift.hpp"
 #include "selim.hpp"
@@ -70,6 +71,37 @@ int test_dep2()
 
   for( unsigned int i=0; i<NF; i++ )
     std::cout << "Dependence structure of F[" << i << "]: " << depF[i] << std::endl;
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+int test_expr1()
+{
+  std::cout << "\n==============================================\ntest_expr1:\n";
+
+  // Create DAG
+  const unsigned NX = 4, NF = 2;
+  mc::FFGraph DAG;
+  mc::FFVar X[NX];
+  for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
+  mc::FFVar F[NF] = { -1 + log( X[2]/(-8*X[3]) - 2 * sqr(X[1]) + X[0] ) * sqr(X[3]) - 2.,
+                      X[2]*X[3]+X[0]/X[2] };
+  std::cout << DAG;
+
+  std::ofstream o_F( "expr1_F.dot", std::ios_base::out );
+  DAG.dot_script( NF, F, o_F );
+  o_F.close();
+
+  // Evaluate with dependents
+  auto Fop  = DAG.subgraph( NF, F );
+  mc::FFExpr<mc::FFGraph<>> EX[NX], EF[NF];
+  for( unsigned int i=0; i<NX; i++ ) EX[i].set( X[i] );
+  DAG.eval( Fop, NF, F, EF, NX, X, EX );
+
+  for( unsigned int i=0; i<NF; i++ )
+    std::cout << "Expression of F[" << i << "]: " << EF[i] << std::endl;
 
   return 0;
 }
@@ -835,6 +867,7 @@ int test_selim2()
 int main()
 {
   try{
+    test_expr1();
 //    test_dep1();
 //    test_inv1();
 //    test_dep2();
@@ -847,9 +880,9 @@ int main()
 //    test_rltred6();
 //    test_spoly1();
 //    test_slift1();
-    test_selim0();
-    test_selim1();
-    test_selim2();
+//    test_selim0();
+//    test_selim1();
+//    test_selim2();
   }
   catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
