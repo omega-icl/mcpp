@@ -359,7 +359,7 @@ public:
   typedef SPoly< FFVar const*, lt_FFVar > t_SPoly;
   typedef std::set< const FFVar*, lt_FFVar > t_Vars;
   typedef std::pair< const FFOp*, unsigned int > pt_Op;
-  typedef std::list< const FFOp* > l_Ops;
+  typedef std::list< std::pair< const FFOp*, bool > > l_Ops;
   typedef std::set< const FFOp*,  lt_FFOp > t_Ops;
   typedef std::multimap< const FFVar*, const FFOp*, lt_FFVar > t_Edges;
   typedef std::pair< const FFVar*, typename FFOp::TYPE > t_RLTVar;
@@ -1227,12 +1227,12 @@ RLTRed::_search_sequential
 ( const typename RLTRed::l_Ops& Ops )
 {
   // MAIN LOOP: Valid RRLT cut for each candidate multiplier/divider variables
-  for( auto ito = Ops.rbegin(); ito != Ops.rend(); ++ito ){
-    assert( (*ito)->pres );
-    const pt_idVar& idVar = (*ito)->pres->id();
+  for( auto const& [op,mov] : Ops ){
+    assert( op->pres );
+    const pt_idVar& idVar = op->pres->id();
 
     // Multiplying/dividing constraints by a constant is pointless
-    if( idVar.first == FFVar::CINT || idVar.first == FFVar::CREAL || (*ito)->pres->cst() ) continue;
+    if( idVar.first == FFVar::CINT || idVar.first == FFVar::CREAL || op->pres->cst() ) continue;
 
     // Multiplier/divider variables limited to primary variables (no auxiliary)
     if( options.LEVEL == Options::PRIMSEQ && idVar.first == FFVar::AUX ) continue;
@@ -1241,11 +1241,11 @@ RLTRed::_search_sequential
     static const unsigned nlinOp = 5;
     static const typename FFOp::TYPE linOp[nlinOp] = { FFOp::PLUS, FFOp::NEG, FFOp::MINUS, FFOp::SHIFT, FFOp::SCALE };
     bool is_lin = false;
-    for( auto&& op : linOp ) if( (*ito)->type == op ){ is_lin = true; break; }
+    for( auto const& lop : linOp ) if( op->type == lop ){ is_lin = true; break; }
     if( is_lin ) continue;
 
     // Drop any linear variable participating in a nonlinear terms multiplied by variable <a>idVar</a> and the corresponding edges
-    auto VarMult = std::make_pair( (*ito)->pres, FFOp::TIMES );
+    auto VarMult = std::make_pair( op->pres, FFOp::TIMES );
     stats.tGRAPH -= cpuclock();
     _RLTVars = _linVars;
     _RLTEdges = _linEdges;
@@ -1277,7 +1277,7 @@ RLTRed::_search_sequential
      if( options.NODIV ) continue;
  
    // Drop any linear variable participating in a nonlinear terms divided by variable <a>idVar</a> and the corresponding edges
-    auto VarDiv = std::make_pair( (*ito)->pres, FFOp::DIV );
+    auto VarDiv = std::make_pair( op->pres, FFOp::DIV );
     _RLTVars = _linVars;
     _RLTEdges = _linEdges;
     _bigraph_RLT( VarDiv, _RLTVars, _RLTEdges );
@@ -1320,12 +1320,12 @@ RLTRed::_search_simultaneous
   stats.tILPSET += cpuclock();
 
   // MAIN LOOP: Valid RRLT cut for all candidate multiplier/divider variables
-  for( auto ito = Ops.rbegin(); ito != Ops.rend(); ++ito ){
-    assert( (*ito)->pres );
-    const pt_idVar& idVar = (*ito)->pres->id();
+  for( auto const& [op,mov] : Ops ){
+    assert( op->pres );
+    const pt_idVar& idVar = op->pres->id();
 
     // Multiplying/dividing constraints by a constant is pointless
-    if( idVar.first == FFVar::CINT || idVar.first == FFVar::CREAL || (*ito)->pres->cst() ) continue;
+    if( idVar.first == FFVar::CINT || idVar.first == FFVar::CREAL || op->pres->cst() ) continue;
 
     // Multiplier/divider variables limited to primary variables (no auxiliary)
     if( options.LEVEL == Options::PRIMSIM && idVar.first == FFVar::AUX ) continue;
@@ -1334,11 +1334,11 @@ RLTRed::_search_simultaneous
     static const unsigned nlinOp = 5;
     static const typename FFOp::TYPE linOp[nlinOp] = { FFOp::PLUS, FFOp::NEG, FFOp::MINUS, FFOp::SHIFT, FFOp::SCALE };
     bool is_lin = false;
-    for( auto&& op : linOp ) if( (*ito)->type == op ){ is_lin = true; break; }
+    for( auto const& lop : linOp ) if( op->type == lop ){ is_lin = true; break; }
     if( is_lin ) continue;
 
     // Drop any linear variable participating in a nonlinear terms multiplied by variable <a>idVar</a> and the corresponding edges
-    auto VarMult = std::make_pair( (*ito)->pres, FFOp::TIMES );
+    auto VarMult = std::make_pair( op->pres, FFOp::TIMES );
     stats.tGRAPH -= cpuclock();
     _RLTVars = _linVars;
     _RLTEdges = _linEdges;
@@ -1353,7 +1353,7 @@ RLTRed::_search_simultaneous
      if( options.NODIV ) continue;
  
    // Drop any linear variable participating in a nonlinear terms divided by variable <a>idVar</a> and the corresponding edges
-    auto VarDiv = std::make_pair( (*ito)->pres, FFOp::DIV );
+    auto VarDiv = std::make_pair( op->pres, FFOp::DIV );
     stats.tGRAPH -= cpuclock();
     _RLTVars = _linVars;
     _RLTEdges = _linEdges;
@@ -1727,7 +1727,7 @@ RLTRed::_extract_RLT
 ()
 {
   // Need checking successfull opimization first
-  for( auto&& binctr : _ILPctr ){
+  for( auto const& binctr : _ILPctr ){
 #if defined(MC__USE_CPLEX)
     if( !isequal( _ILOcplex->getValue( binctr.second ), 0 ) )
 #elif defined(MC__USE_GUROBI)
@@ -1805,7 +1805,7 @@ const
   // Create subset of operations of given type
   t_Ops subOps;
   for( unsigned i=0; i<nOp; i++ ){
-    for( auto&& op : Ops ){
+    for( auto const& [op,mov] : Ops ){
       if( op->type != typeOp[i] ) continue;
       subOps.insert( op );
     }
@@ -1821,7 +1821,7 @@ const
 {
   // Create subset of operations of given type
   t_Ops subOps;
-  for( auto&& op : Ops ){
+  for( auto const& [op,mov] : Ops ){
     if( op->type != typeOp ) continue;
     subOps.insert( op );
   }
@@ -1839,8 +1839,8 @@ const
   Edges.clear();
 
   // Create subset of variables participating in a set of operations Ops
-  for( auto&& operation : Ops ){
-    for( auto&& operand : operation->pops ){
+  for( auto const& operation : Ops ){
+    for( auto const& operand : operation->pops ){
       Vars.insert( operand ); // Keep constants in variable list for division
       Edges.insert( std::make_pair( operand, operation ) );
     }
@@ -1856,7 +1856,7 @@ RLTRed::_is_rhs
 ( const std::vector<const FFVar*>& vlhs, const FFVar& varRes )
 const
 {
-  for( auto&& lhs : vlhs )
+  for( auto const& lhs : vlhs )
     if( *lhs == varRes ) return true;
   return false;
 }

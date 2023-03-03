@@ -3702,8 +3702,7 @@ const
       std::cout << "calling SHIFT w/ move for " << *pops[0] << std::endl;
 #endif
       U& val = *static_cast<U*>( pops[0]->val() );
-      *itU = std::move( val.operator+=( pops[1]->num().val() ) );
-
+      *itU = std::move( val += pops[1]->num().val() );
     }
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
@@ -3719,7 +3718,7 @@ const
       std::cout << "calling SCALE w/ move for " << *pops[0] << std::endl;
 #endif
       U& val = *static_cast<U*>( pops[0]->val() );
-      *itU = std::move( val.operator*=( 2. ) );
+      *itU = std::move( val *= 2. );
     }
     else if( &pops[0] == &pops[1] ){
 #ifdef MC__FFUNC_EVAL_MOVE
@@ -3732,14 +3731,14 @@ const
       std::cout << "calling PLUS w/ move for " << *pops[0] << std::endl;
 #endif
       U& val = *static_cast<U*>( pops[0]->val() );
-      *itU = std::move( val.operator+=( *static_cast<U*>( pops[1]->val() ) ) );
+      *itU = std::move( val += *static_cast<U*>( pops[1]->val() ) );
     }
     else if( pops[1]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
       std::cout << "calling PLUS w/ move for " << *pops[1] << std::endl;
 #endif
       U& val = *static_cast<U*>( pops[1]->val() );
-      *itU = std::move( val.operator+=( *static_cast<U*>( pops[0]->val() ) ) );
+      *itU = std::move( val += *static_cast<U*>( pops[0]->val() ) );
     }
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
@@ -3755,7 +3754,7 @@ const
       std::cout << "calling NEG w/ move for " << *pops[0] << std::endl;
 #endif
       U& val = *static_cast<U*>( pops[0]->val() );
-      *itU = operator-( std::move( val ) );
+      *itU = - std::move( val );
     }
     else{
       *itU = - *static_cast<U*>( pops[0]->val() );
@@ -3770,13 +3769,13 @@ const
       std::cout << "calling MINUS w/ move for " << *pops[0] << std::endl;
 #endif
       U& val = *static_cast<U*>( pops[0]->val() );
-      *itU = std::move( val.operator-=( *static_cast<U*>( pops[1]->val() ) ) );
+      *itU = std::move( val -= *static_cast<U*>( pops[1]->val() ) );
     }
     //else if( pops[1]->mov() ){
     //  std::cout << "calling MINUS w/ move for " << *pops[1] << std::endl;
     //  U& val  = *static_cast<U*>( pops[1]->val() );
     //  U&& neg = operator-( std::move( val ) );
-    //  *itU = std::move( neg.operator+=( *static_cast<U*>( pops[0]->val() ) ) );
+    //  *itU = std::move( neg += *static_cast<U*>( pops[0]->val() ) );
     //}
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
@@ -3792,7 +3791,7 @@ const
       std::cout << "calling SCALE w/ move for " << *pops[0] << std::endl;
 #endif
       U& val = *static_cast<U*>( pops[0]->val() );
-      *itU = std::move( val.operator*=( pops[1]->num().val() ) );
+      *itU = std::move( val *= pops[1]->num().val() );
     }
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
@@ -3821,14 +3820,14 @@ const
       std::cout << "calling TIMES w/ move for " << *pops[0] << std::endl;
 #endif
       U& val = *static_cast<U*>( pops[0]->val() );
-      *itU = std::move( val.operator*=( *static_cast<U*>( pops[1]->val() ) ) );
+      *itU = std::move( val *= *static_cast<U*>( pops[1]->val() ) );
     }
     else if( pops[1]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
       std::cout << "calling TIMES w/ move for " << *pops[1] << std::endl;
 #endif
       U& val = *static_cast<U*>( pops[1]->val() );
-      *itU = std::move( val.operator*=( *static_cast<U*>( pops[0]->val() ) ) );
+      *itU = std::move( val *= *static_cast<U*>( pops[0]->val() ) );
     }
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
@@ -3844,7 +3843,7 @@ const
       std::cout << "calling INV w/ move for " << *pops[1] << std::endl;
 #endif
       U& val = *static_cast<U*>( pops[1]->val() );
-      *itU = operator/( pops[0]->num().val(), std::move( val ) );
+      *itU = pops[0]->num().val() / std::move( val );
     }
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
@@ -3862,13 +3861,13 @@ const
       std::cout << "calling DIV w/ move for " << *pops[0] << std::endl;
 #endif
       U& val = *static_cast<U*>( pops[0]->val() );
-      *itU = std::move( val.operator/=( *static_cast<U*>( pops[1]->val() ) ) );
+      *itU = std::move( val /= *static_cast<U*>( pops[1]->val() ) );
     }
     //else if( pops[1]->mov() ){
     //  std::cout << "calling DIV w/ move for " << *pops[1] << std::endl;
     //  U& val  = *static_cast<U*>( pops[1]->val() );
     //  U&& inv = Op<U>::inv( std::move( val ) );
-    //  *itU = std::move( inv.operator*=( *static_cast<U*>( pops[0]->val() ) ) );
+    //  *itU = std::move( inv *= *static_cast<U*>( pops[0]->val() ) );
     //}
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
@@ -6194,7 +6193,7 @@ FFGraph<ExtOps...>::SFAD
 
       // Evaluate current operation
       if( _curOp->type < FFOp::EXTERN )
-        _curOp->evaluate( itw, _wkSFAD.data(), ito->second );
+        _curOp->evaluate( itw, _wkSFAD.data(), false );//ito->second );
       else if( !sizeof...(ExtOps) )
         throw Exceptions( Exceptions::EXTERN );
       else
@@ -6398,7 +6397,7 @@ FFGraph<ExtOps...>::SBAD
       
       // Evaluate current operation
       if( _curOp->type < FFOp::EXTERN )
-        _curOp->evaluate( itw, _wkSBAD.data(), ito->second );
+        _curOp->evaluate( itw, _wkSBAD.data(), false );//ito->second );
       else if( !sizeof...(ExtOps) )
         throw Exceptions( Exceptions::EXTERN );
       else
@@ -6517,7 +6516,7 @@ FFGraph<ExtOps...>::TAD
     
     // Evaluate current operation
     if( _curOp->type < FFOp::EXTERN )
-      _curOp->evaluate( itw, _wkTAD.data(), ito->second );
+      _curOp->evaluate( itw, _wkTAD.data(), false );//ito->second );
     else if( !sizeof...(ExtOps) )
       throw Exceptions( Exceptions::EXTERN );
     else

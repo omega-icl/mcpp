@@ -608,7 +608,7 @@ SLiftEnv<DAG>::process
 
   // Update participating variables in _Var
   auto sgDep = _dag->subgraph( nDep, pDep );
-  for( auto&& Op : sgDep.l_op ){
+  for( auto const& [Op,mov] : sgDep.l_op ){
     if( Op->type != FFOp::VAR ) continue;
     _Var.push_back( *Op->pres );
     _SPVar.push_back( SLiftVar( this, *Op->pres ) );
@@ -616,7 +616,7 @@ SLiftEnv<DAG>::process
 
 #ifdef MC__SLIFT_DEBUG_PROCESS
   std::cout << std::endl << _Var.size() << " Original Variables: ";
-  for( auto&& var : _Var ) std::cout << var << " ";
+  for( auto const& var : _Var ) std::cout << var << " ";
   std::cout << std::endl;
 #endif
 
@@ -634,11 +634,11 @@ SLiftEnv<DAG>::process
   if( !add2dag ) return;
 
   // Insert auxiliary expressions into DAG
-  for( auto&& expr : _Interm ){
+  for( auto const& expr : _Interm ){
     // Insert all operands and their defining expressions
     std::vector<FFVar const*> vAux;
     auto itSV = expr.second.begin();
-    for( auto&& operand : expr.first->pops ){
+    for( auto const& operand : expr.first->pops ){
 #ifdef MC__SLIFT_CHECK
       if( itSV == expr.second.end() )
         throw typename SLiftEnv<DAG>::Exceptions( SLiftEnv<DAG>::Exceptions::INTERNAL );

@@ -787,7 +787,7 @@ int test_selim0()
   std::cout << DAG;
 
   mc::SElimEnv<mc::FFGraph<>> SPE( &DAG );
-  SPE.options.ELIM_MLIN     = true;
+  SPE.options.ELIMMLIN      = true;
   SPE.options.MIPDISPLEVEL  = 1;
   SPE.options.MIPOUTPUTFILE = "test_selim0.lp";
 
@@ -815,7 +815,7 @@ int test_selim1()
   std::cout << DAG;
 
   mc::SElimEnv<mc::FFGraph<>> SPE( &DAG );
-  SPE.options.ELIM_MLIN     = true;
+  SPE.options.ELIMMLIN      = true;
   SPE.options.MIPDISPLEVEL  = 0;
   SPE.options.MIPOUTPUTFILE = "test_selim1.lp";
 
@@ -852,7 +852,7 @@ int test_selim2()
   Flift.insert( Flift.end(), SPL.Trans().begin(), SPL.Trans().end() );
 
   mc::SElimEnv<mc::FFGraph<>> SPE( &DAG );
-  SPE.options.ELIM_MLIN     = true;
+  SPE.options.ELIMMLIN      = true;
   SPE.options.MIPDISPLEVEL  = 0;
   SPE.options.MIPOUTPUTFILE = "test_selim1.lp";
 
@@ -872,17 +872,17 @@ int main()
 //    test_inv1();
 //    test_dep2();
 //    test_inv2();
-//    test_rltred1();
+    test_rltred1();
 //    test_rltred2();
 //    test_rltred3();
 //    test_rltred4();
 //    test_rltred5();
 //    test_rltred6();
 //    test_spoly1();
-//    test_slift1();
-//    test_selim0();
-//    test_selim1();
-//    test_selim2();
+    test_slift1();
+    test_selim0();
+    test_selim1();
+    test_selim2();
   }
   catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()

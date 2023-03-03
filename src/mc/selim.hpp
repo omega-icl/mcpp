@@ -566,7 +566,7 @@ SElimEnv<DAG>::process
   // Update participating variables in _Var
   auto sgCtr = _dag->subgraph( nCtr, pCtr );
   unsigned v=0;
-  for( auto&& Op : sgCtr.l_op ){
+  for( auto const& [Op,mov] : sgCtr.l_op ){
     if( Op->type != FFOp::VAR ) continue;
     _Var.push_back( *Op->pres );
     _IVar.push_back( FFInv().indep( v ) );
@@ -576,7 +576,7 @@ SElimEnv<DAG>::process
   }
 #ifdef MC__SELIM_DEBUG_PROCESS
   std::cout << std::endl << _Var.size() << " Original Variables: ";
-  for( auto&& var : _Var ) std::cout << var << " ";
+  for( auto const& var : _Var ) std::cout << var << " ";
   std::cout << std::endl;
 #endif
 
