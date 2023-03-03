@@ -1,3 +1,4 @@
+#define TEST_MOVE
 ////////////////////////////////////////////////////////////////////////
 
 #include <fstream>
@@ -5,10 +6,14 @@
 
 #include "ffunc.hpp"
 #include "interval.hpp"
+#include "ismodel.hpp"
 #include "scmodel.hpp"
 
 typedef mc::Interval I;
 I IINF = 1e20 * I(-1,1);
+
+typedef mc::ISModel<I> ISM;
+typedef mc::ISVar<I> ISV;
 
 typedef mc::SCModel<I,mc::FFVar*,mc::lt_FFVar> SCM;
 typedef mc::SCVar<I,mc::FFVar*,mc::lt_FFVar> SCV;
@@ -88,13 +93,13 @@ int test_eval()
   // DAG of second-order derivatives
   const mc::FFVar* dFdXdir = DAG.DFAD( NF, F, NX, X, D );
 
-  DAG.output( DAG.subgraph( 1, &dFdXdir[0] ), " dF(0)dX·D" );
-  DAG.output( DAG.subgraph( 1, &dFdXdir[1] ), " dF(1)dX·D" );
+  auto sgF = DAG.subgraph( 2, dFdXdir );
+  DAG.output( sgF, " OF dFdX·D" );
 
   // Evaluation in interval arithmetic
   try{
     I IX[NX] = { I(0,0.5), I(1,2), I(-1,-0.8), I(0.5,1) }, IdFdXdir[NF];
-    DAG.eval( NF, dFdXdir, IdFdXdir, NX, X, IX );
+    DAG.eval( sgF, NF, dFdXdir, IdFdXdir, NX, X, IX );
     // Display results
     for( unsigned i=0; i<NF; i++ )
       std::cout << "  dF("<< i << ")dX·D = " << IdFdXdir[i] << std::endl;
@@ -103,6 +108,22 @@ int test_eval()
     std::cout << "\nInterval forward propagation failed\n";
   }
 
+  // Evaluation in interval superposition arithmetic
+  try{
+    const unsigned DIV = 16;
+    ISM ISenv( NX, DIV );
+    ISV ISX[NX], ISdFdXdir[NF];
+    I IX[NX] = { I(0,0.5), I(1,2), I(-1,-0.8), I(0.5,1) };
+    for( unsigned i=0; i<NX; i++ ) ISX[i].set( &ISenv, i, IX[i] );
+    DAG.eval( NF, dFdXdir, ISdFdXdir, NX, X, ISX );
+    // Display results
+    for( unsigned i=0; i<NF; i++ )
+      std::cout << "  dF("<< i << ")dX·D = " << ISdFdXdir[i] << std::endl;
+  }
+  catch(...){
+    std::cout << "\nInterval superposition forward propagation failed\n";
+  }
+  
   // Evaluation in 3rd-order Chebyshev model arithmetic
   try{
     const unsigned ORD = 3;
@@ -248,9 +269,9 @@ int test_extern()
 int main()
 {
   try{
-    test_build();
+    //test_build();
     test_eval();
-    test_extern();
+    //test_extern();
   }
   catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()

@@ -195,10 +195,10 @@ class ISModel
   template <typename U> friend ISVar<U> relu
     ( ISVar<U> const& );
   template <typename U> friend ISVar<U> relu
-    ( ISVar<U> && );    
+    ( ISVar<U> && );
   template <typename U> friend ISVar<U> exp
     ( ISVar<U> const& );
-  template <typename U> friend ISVar<U> exp
+  template <typename U> friend ISVar<U> && exp
     ( ISVar<U> && );
   template <typename U> friend ISVar<U> log
     ( ISVar<U> const& );
@@ -222,7 +222,7 @@ class ISModel
     ( ISVar<U> &&, int const& n );
   template <typename U> friend ISVar<U> tanh
     ( ISVar<U> const& );
-  template <typename U> friend ISVar<U> tanh
+  template <typename U> friend ISVar<U> && tanh
     ( ISVar<U> && );
   template <typename U> friend ISVar<U> intersect
     ( ISVar<U> const& , U);
@@ -5774,7 +5774,7 @@ class ISVar
     ( ISVar<U> && );    
   template <typename U> friend ISVar<U> exp
     ( ISVar<U> const& );
-  template <typename U> friend ISVar<U> exp
+  template <typename U> friend ISVar<U> && exp
     ( ISVar<U> && );
   template <typename U> friend ISVar<U> log
     ( ISVar<U> const& );
@@ -5798,7 +5798,7 @@ class ISVar
     ( ISVar<U> && );
   template <typename U> friend ISVar<U> tanh
     ( ISVar<U> const& );
-  template <typename U> friend ISVar<U> tanh
+  template <typename U> friend ISVar<U> && tanh
     ( ISVar<U> && );
   template <typename U> friend ISVar<U> pow
     ( ISVar<U> const&, int const& n );
@@ -7827,7 +7827,11 @@ ISVar<T> exp
 ( ISVar<T> const& var )
 {
   if( !var._mod )
-    return exp(var._cst);
+    return Op<T>::exp( var._cst );
+
+#ifdef TEST_MOVE
+std::cout << "Exp Copy" << std::endl;
+#endif
 
   ISVar<T> var2( var );
   if (var2._mod->options.SLOPE_USE ){
@@ -7842,25 +7846,27 @@ ISVar<T> exp
 
 template <typename T>
 inline
-ISVar<T> exp
+ISVar<T> && exp
 ( ISVar<T> && varIn )
 {
   if( !varIn._mod ){
-    varIn._cst = exp(varIn._cst);
-    return varIn;
+    varIn._cst = Op<T>::exp( varIn._cst );
+    return std::move( varIn );
+  }
+  
+#ifdef TEST_MOVE
+std::cout << "Exp Move" << std::endl;
+#endif
+
+  if (varIn._mod->options.SLOPE_USE ){
+    varIn._mod->_exp( varIn._mat, varIn._slope, varIn._mod->_psize, varIn._ndep );
+    varIn._bnd.second = false;
+    return std::move( varIn );
   }
 
-  ISVar<T> var(std::move(varIn));
-
-  if (var._mod->options.SLOPE_USE ){
-    var._mod->_exp( var._mat, var._slope, var._mod->_psize, var._ndep );
-    var._bnd.second = false;
-    return var;
-  }
-
-  var._mod->_exp( var._mat, var._ndep );
-  var._bnd.second = false;
-  return var;
+  varIn._mod->_exp( varIn._mat, varIn._ndep );
+  varIn._bnd.second = false;
+  return std::move( varIn );
 }
 
 template <typename T>
@@ -8088,31 +8094,31 @@ std::cout << "Tanh Copy" << std::endl;
 
 template <typename T>
 inline
-ISVar<T> tanh
+ISVar<T> && tanh
 ( ISVar<T> && varIn )
 {
   if( !varIn._mod ){
-    varIn._cst = tanh(varIn._cst);
-    return varIn;//std::tanh(var._cst);
+    varIn._cst = std::move( Op<T>::tanh( varIn._cst ) );
+    return std::move( varIn );
   }
 #ifdef TEST_MOVE
 std::cout << "Tanh Move" << std::endl;
 #endif
-  ISVar<T> var(std::move(varIn));
 
-  if( !var._mod->options.DCDEC_USE )
-    return 1-2/(exp(2*var)+1);
-
-  if (var._mod->options.SLOPE_USE ){
-    var._mod->_tanh( var._mat, var._slope, var._mod->_psize, var._ndep );
-    var._bnd.second = false;
-    return var;
+  if( !varIn._mod->options.DCDEC_USE ){
+    varIn = 1 - 2 / ( exp(2*varIn) + 1 );
+    return std::move( varIn );
+  }
+  
+  if (varIn._mod->options.SLOPE_USE ){
+    varIn._mod->_tanh( varIn._mat, varIn._slope, varIn._mod->_psize, varIn._ndep );
+    varIn._bnd.second = false;
+    return std::move( varIn );
   }
 
-  var._mod->_tanh( var._mat, var._ndep );
-  var._bnd.second = false;
-  return var;
-
+  varIn._mod->_tanh( varIn._mat, varIn._ndep );
+  varIn._bnd.second = false;
+  return std::move( varIn );
 }
 
 template <typename T>
@@ -8675,6 +8681,7 @@ template< typename T > struct Op< mc::ISVar<T> >
   static ISV sqr (const ISV& x) { return mc::sqr(x);  }
   static ISV sqrt(const ISV& x) { return mc::sqrt(x); }
   static ISV exp (const ISV& x) { return mc::exp(x);  }
+  static ISV&& exp (ISV&& x) { return mc::exp(std::move(x));  }
   static ISV log (const ISV& x) { return mc::log(x);  }
   static ISV xlog(const ISV& x) { return mc::xlog(x); }
   static ISV lmtd(const ISV& x, const ISV& y) { return (x-y)/(mc::log(x)-mc::log(y)); }
@@ -8689,7 +8696,7 @@ template< typename T > struct Op< mc::ISVar<T> >
   static ISV sinh(const ISV& x) { throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); }
   static ISV cosh(const ISV& x) { throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); }
   static ISV tanh(const ISV& x) { return mc::tanh(x); } // {ISV y(std::move(x)); return mc::tanh(std::move(y));} //
-  //static ISV tanh(ISV && x) { ISV y(std::move(x)); return mc::tanh(std::move(y)); }  
+  static ISV&& tanh(ISV&& x) { return mc::tanh(std::move(x)); }
   static ISV erf (const ISV& x) { throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); }
   static ISV erfc(const ISV& x) { throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); }
   static ISV fstep(const ISV& x) { throw typename ISModel<T>::Exceptions( ISModel<T>::Exceptions::UNDEF ); }

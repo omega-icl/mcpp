@@ -1,6 +1,7 @@
-#define TEST_EXP2       // <-- select test function here
-#define USE_DAG         // <-- specify whether to use a DAG or operator overloading
+#define TEST_EXP       // <-- select test function here
+#undef USE_DAG         // <-- specify whether to use a DAG or operator overloading
 #define SAVE_RESULTS    // <-- specify whether to save results to file
+#define MC__INTERVAL_TRACE
 const int NX = 500;	 // <-- select discretization here
 ////////////////////////////////////////////////////////////////////////
 
@@ -64,7 +65,7 @@ template <class T>
 T myfunc
 ( const T&x )
 {
-  return x*exp(-pow(x,2));
+  return x*exp(-pow(x,2)+1);
 }
 
 #elif defined( TEST_EXP2 )
@@ -222,7 +223,7 @@ T myfunc
 ////////////////////////////////////////////////////////////////////////
 int main()
 ////////////////////////////////////////////////////////////////////////
-{ 
+{
   cout << "INTERVAL LIBRARY: "; 
 #ifdef MC__USE_PROFIL
   cout << "PROFIL/BIAS" << endl;
@@ -264,7 +265,7 @@ int main()
     I IF;
     DAG.eval( GF, 1, &F, &IF, 1, &X, &IX );
 #else
-    I IF = myfunc( IX )
+    I IF = myfunc( IX );
 #endif
     cout << endl
          << "DOMAIN: " << IX << endl
@@ -298,6 +299,7 @@ int main()
     return eObj.ierr();
   }
 #endif
+#if defined(MC__USE_DAG)
   catch( FFBase::Exceptions &eObj ){
     cerr << "Error " << eObj.ierr()
          << " in DAG evaluation:" << endl
@@ -305,6 +307,13 @@ int main()
          << "Aborts." << endl;
     return eObj.ierr();
   }
+#else
+  catch(...){
+    cerr << "Undefined errror" << endl
+         << "Aborts." << endl;
+    return -1;
+  }
+#endif
 #ifdef SAVE_RESULTS
   res.close();
 #endif

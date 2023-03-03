@@ -892,7 +892,9 @@ private:
   FFDep _dep;
   //! @brief Pointer to value field - has to be const_cast'ed in order to retreive original pointer type
   mutable void *_val;
-  //! @brief Constness
+  //! @brief Movability attribute
+  mutable bool _mov;
+  //! @brief Constness attribute
   mutable bool _cst;
   //! @brief Pointer to parent (_ops.first) and children (_ops.second) operations - _ops.first := NULL for unreferenced constants
   pt_Ops _ops;
@@ -938,14 +940,14 @@ public:
   FFVar
     ( int const i=0 )
     : _dag( nullptr ), _id( CINT, NOREF ), _num( i ), _dep( i ), _val( nullptr ),
-      _cst( true ), _nam( "" )
+      _mov( false ), _cst( true ), _nam( "" )
     { _ops.first = nullptr; }
 
   //! @brief Constructor for real parameter
   FFVar
     ( double const& d )
     : _dag( nullptr ), _id( CREAL, NOREF ), _num( d ), _dep( d ), _val( nullptr ),
-      _cst( true ), _nam( "" )
+      _mov( false ), _cst( true ), _nam( "" )
     { _ops.first = nullptr;
       if( _num.t == FFNum::INT ) _id.first = CINT; }
 
@@ -953,7 +955,8 @@ public:
   FFVar
     ( FFVar const& Var )
     : _dag( Var._dag ), _id( Var._id ), _num( Var._num ), _dep( Var._dep ),
-      _val( Var._val ), _cst( Var._cst ), _ops( Var._ops ), _nam( Var._nam )
+      _val( Var._val ), _mov( Var._mov ), _cst( Var._cst ), _ops( Var._ops ),
+      _nam( Var._nam )
     {}
   /** @} */
 
@@ -1037,6 +1040,11 @@ public:
   void reset_val
     ( U const&  U_dum )
     { if( !_val ) return; delete static_cast<U*>( _val ); _val = 0; }
+
+  //! @brief Get/set movability attribute
+  bool& mov
+    ()
+    { return _mov; }
 
   //! @brief Get variable name
   std::string name
@@ -1186,7 +1194,7 @@ public:
 
   //! @brief Propagate subset of operations participating in subgraph
   void propagate_subgraph
-    ( std::list<FFOp const*>& Ops )
+    ( std::list< std::pair< FFOp const*, bool > >& Ops )
     const;
   //! @brief Reset mc::FFVar::_val field in subgraph
   template <typename U>
@@ -1213,7 +1221,7 @@ public:
   //! @brief Evaluate operation in U arithmetic, putting the result at position <a>itU</a>
   template <typename U>
   void evaluate
-    ( typename std::vector<U>::iterator itU, U const* pU_dum )
+    ( typename std::vector<U>::iterator itU, U const* pU_dum, bool const movU )
     const;
   //! @brief Forward operation propagation in U arithmetic
   template <typename U>
@@ -1229,7 +1237,8 @@ public:
   //! @brief Evaluate external operation in U arithmetic, putting the result at position <a>itU</a>
   template <typename U, typename ExtOp, typename... NextOps>
   void evaluate_external
-    ( typename std::vector<U>::iterator itU, U const* pU_dum, ExtOp op, std::tuple<NextOps...> ops )
+    ( typename std::vector<U>::iterator itU, U const* pU_dum, 
+      ExtOp op, std::tuple<NextOps...> ops )
     const;
   //! @brief Forward external operation propagation in U arithmetic
   template <typename U, typename ExtOp, typename... NextOps>
@@ -1339,13 +1348,28 @@ struct FFSubgraph
 ////////////////////////////////////////////////////////////////////////
 {
   //! @brief List of (pointers to) operations in DAG
-  std::list< FFOp const* > l_op;
-  //! @brief Vector of (pointers to) operations defining dependent variables in DAG
+  std::list< std::pair< FFOp const*, bool > > l_op;
+
+  //! @brief Vector of (pointers to) operations defining dependent variables in DAG and whether they may be treated as r-values
   std::vector< FFOp const* > op_dep;
+
   //! @brief Clear subgraph
   void clear
     ()
     { l_op.clear(); op_dep.clear(); }
+
+  //! @brief Set dependent
+  void set_dep
+    ( unsigned const& iflag )
+    { assert( iflag );
+      auto it = l_op.begin();
+      std::advance( it, iflag-1 );
+      op_dep.push_back( it->first ); }
+
+  //! @brief Set move attributes
+  void set_move
+    ()
+    { for( auto& [op,mov] : l_op ) mov = op->pres->mov(); }
 };
 
 //! @brief C++ class representing the DAG of factorable functions
@@ -1765,6 +1789,10 @@ protected:
   //! @brief Create the variable with identify <a>id</a> and adds it if not found
   FFVar _create_var
     ( typename FFVar::pt_idVar const& id, std::string const& name );
+
+  //! @brief Get DAG constant for variable <a>pVar</a> and adds it if not found; return false if <a>pVar</a> is not a constant
+  bool _get_constant
+    ( FFVar const*& pVar );
 
 private:
   //! @brief Private methods to block default compiler methods
@@ -2239,7 +2267,7 @@ inline FFVar::FFVar
 ( FFBase* dag, std::string const& name )
 : _dag( dag? dag: throw typename FFBase::Exceptions( FFBase::Exceptions::INIT )),
   _id( VAR, _dag->_nvar++ ), _num( 0./0. ), _dep(), _val( nullptr ),
-  _cst( false ), _nam( name )
+  _mov( false ), _cst( false ), _nam( name )
 {
   // Initialize dependence
   _dep.indep(_id.second);
@@ -2257,7 +2285,7 @@ inline FFVar::FFVar
 ( FFBase* dag, double const d )
 : _dag( dag? dag: throw typename FFBase::Exceptions( FFBase::Exceptions::INIT )),
   _id( VAR, _dag->_nvar++ ), _num( d ), _dep(), _val( nullptr ),
-  _cst( true ), _nam( "" )
+  _mov( false ), _cst( true ), _nam( "" )
 { 
   // Initialize dependence
   _dep.indep(_id.second);
@@ -2274,7 +2302,7 @@ inline FFVar::FFVar
 ( FFBase* dag, int const i )
 : _dag( dag? dag: throw typename FFBase::Exceptions( FFBase::Exceptions::INIT )),
   _id( VAR, _dag->_nvar++ ), _num( i ), _dep(), _val( nullptr ),
-  _cst( true ), _nam( "" )
+  _mov( false ), _cst( true ), _nam( "" )
 { 
   // Initialize dependence
   _dep.indep(_id.second);
@@ -2290,13 +2318,14 @@ inline FFVar::FFVar
 inline FFVar::FFVar
 ( FFBase* dag, FFDep const& dep, FFOp* op )
 : _dag( dag ), _id( AUX, dag->_naux++ ), _num( 0./0. ), _dep( dep ),
-  _val ( nullptr ), _cst( false ), _nam( "" )
+  _val ( nullptr ), _mov( false ), _cst( false ), _nam( "" )
 { _ops.first = op; }
 
 inline FFVar::FFVar
 ( FFBase* dag, pt_idVar const& id, std::string const& name )
 : _dag( dag? dag: throw typename FFBase::Exceptions( FFBase::Exceptions::INIT )),
-  _id( id ), _num( 0./0. ), _dep(), _val( nullptr ), _cst( false ), _nam( name )
+  _id( id ), _num( 0./0. ), _dep(), _val( nullptr ), _mov( false ), _cst( false ),
+  _nam( name )
 {
   // Initialize dependence
   _dep.indep(_id.second);
@@ -2312,7 +2341,7 @@ inline FFVar::FFVar
 inline void FFVar::set
 ( int const i )
 const
-{ _num = i; _cst = true;
+{ _num = i; _cst = true; _mov = false;
   if( !_dag ) return;
   _dag->_set_constant( this, _num );
   return;
@@ -2321,7 +2350,7 @@ const
 inline void FFVar::set
 ( double const d )
 const
-{ _num = d; _cst = true;
+{ _num = d; _cst = true; _mov = false;
   if( !_dag ) return;
   _dag->_set_constant( this, _num );
   return;
@@ -2330,7 +2359,7 @@ const
 inline void FFVar::unset
 ()
 const
-{ _cst = false;
+{ _cst = false; _mov = false;
   if( !_dag ) return;
   _dag->_unset_constant( this );
   return;
@@ -2364,6 +2393,7 @@ FFVar::operator=
   _dep  = Var._dep;
   _dag  = Var._dag;
   _val  = Var._val;
+  _mov  = Var._mov;
   _cst  = Var._cst;
   _ops  = Var._ops;
   _nam  = Var._nam;
@@ -2379,6 +2409,7 @@ FFVar::operator=
   _dep  = i;
   _dag  = nullptr;
   _val  = nullptr;
+  _mov  = false;
   _cst  = true;
   _nam  = "";
   _ops.first = nullptr;
@@ -2395,6 +2426,7 @@ FFVar::operator=
   _dep  = x;
   _dag  = nullptr;
   _val  = nullptr;
+  _mov  = false;
   _cst  = true;
   _nam  = "";
   _ops.first = nullptr;
@@ -3607,17 +3639,22 @@ FFOp::insert_external_operation
 
 inline void
 FFOp::propagate_subgraph
-( std::list<const FFOp*>&Ops )
+( std::list< std::pair< FFOp const*, bool > >& Ops )
 const
 {
-  if( iflag ) return;
+  if( iflag ){
+    // indicate non-movability of current operation result 
+    pres->mov() = false;
+    return;
+  }
 
   for( auto it=pops.begin(); it!=pops.end(); ++it ){
     if( !(*it) || !(*it)->ops().first ) continue;
     (*it)->ops().first->propagate_subgraph( Ops );
   }
 
-  Ops.push_back( this );
+  Ops.push_back( std::make_pair( this, false ) );
+  pres->mov() = true;
   iflag = Ops.size();
 }
 
@@ -3633,15 +3670,18 @@ const
     if( !(*it) || !(*it)->ops().first ) continue;
     (*it)->ops().first->reset_val_subgraph( U_dum );
   }
-  if( pres && pres->val() ) pres->reset_val( U_dum );
+  if( !pres ) return;
+  if( pres->val() ) pres->reset_val( U_dum );
+  pres->mov() = false;
 }
 
 template <typename U> inline void
 FFOp::evaluate
-( typename std::vector<U>::iterator itU, const U* pU_dum )
+( typename std::vector<U>::iterator itU, U const* pU_dum, bool const movU )
 const
 {
-  pres->val() = &(*itU);
+  pres->val()  = &(*itU);
+  pres->mov() = movU;
   //std::cout << "evaluation of " << *pres << ": ";
 
   switch( type ){
@@ -3657,148 +3697,546 @@ const
     break;
 
    case FFOp::SHIFT:
-    *itU = *static_cast<U*>( pops[0]->val() ) + pops[1]->num().val();
+    if( pops[0]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling SHIFT w/ move for " << *pops[0] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[0]->val() );
+      *itU = std::move( val.operator+=( pops[1]->num().val() ) );
+
+    }
+    else{
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling SHIFT w/o move for " << *pops[0] << std::endl;
+#endif
+      *itU = *static_cast<U*>( pops[0]->val() ) + pops[1]->num().val();
+    }
     break;
 
    case FFOp::PLUS:
-    if( &pops[0] == &pops[1] )
+    if( &pops[0] == &pops[1] && pops[0]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling SCALE w/ move for " << *pops[0] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[0]->val() );
+      *itU = std::move( val.operator*=( 2. ) );
+    }
+    else if( &pops[0] == &pops[1] ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling SCALE w/o move for " << *pops[0] << std::endl;
+#endif
       *itU = *static_cast<U*>( pops[0]->val() ) * 2.;
-    else
+    }
+    else if( pops[0]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling PLUS w/ move for " << *pops[0] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[0]->val() );
+      *itU = std::move( val.operator+=( *static_cast<U*>( pops[1]->val() ) ) );
+    }
+    else if( pops[1]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling PLUS w/ move for " << *pops[1] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[1]->val() );
+      *itU = std::move( val.operator+=( *static_cast<U*>( pops[0]->val() ) ) );
+    }
+    else{
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling PLUS w/o move for " << *pops[0] << "," << *pops[1] << std::endl;
+#endif
       *itU = *static_cast<U*>( pops[0]->val() ) + *static_cast<U*>( pops[1]->val() );
+    }
     break;
 
    case FFOp::NEG:
-    //std::cout << *pres << "(" << pres->cst() << ") = -" << *pops[0] << "(" << pres->cst() << ") : ptrval = " << pops[0]->val() << std::endl;
-    *itU = - *static_cast<U*>( pops[0]->val() );
+    if( pops[0]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling NEG w/ move for " << *pops[0] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[0]->val() );
+      *itU = operator-( std::move( val ) );
+    }
+    else{
+      *itU = - *static_cast<U*>( pops[0]->val() );
+    }
     break;
 
    case FFOp::MINUS:
     if( &pops[0] == &pops[1] )
       *itU = 0.;
-    else
+    else if( pops[0]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling MINUS w/ move for " << *pops[0] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[0]->val() );
+      *itU = std::move( val.operator-=( *static_cast<U*>( pops[1]->val() ) ) );
+    }
+    //else if( pops[1]->mov() ){
+    //  std::cout << "calling MINUS w/ move for " << *pops[1] << std::endl;
+    //  U& val  = *static_cast<U*>( pops[1]->val() );
+    //  U&& neg = operator-( std::move( val ) );
+    //  *itU = std::move( neg.operator+=( *static_cast<U*>( pops[0]->val() ) ) );
+    //}
+    else{
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling MINUS w/ move for " << *pops[0] << "," << *pops[1] << std::endl;
+#endif
       *itU = *static_cast<U*>( pops[0]->val() ) - *static_cast<U*>( pops[1]->val() );
+    }
     break;
 
    case FFOp::SCALE:
-    *itU = *static_cast<U*>( pops[0]->val() ) * pops[1]->num().val();
+    if( pops[0]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling SCALE w/ move for " << *pops[0] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[0]->val() );
+      *itU = std::move( val.operator*=( pops[1]->num().val() ) );
+    }
+    else{
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling SCALE w/o move for " << *pops[0] << std::endl;
+#endif
+      *itU = *static_cast<U*>( pops[0]->val() ) * pops[1]->num().val();
+    }
     break;
 
    case FFOp::TIMES:
-    if( &pops[0] == &pops[1] )
+    if( &pops[0] == &pops[1] && pops[0]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling SQR w/ move for " << *pops[0] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[0]->val() );
+      *itU = Op<U>::sqr( std::move( val ) );
+    }
+    else if( &pops[0] == &pops[1] ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling SQR w/o move for " << *pops[0] << std::endl;
+#endif
       *itU = Op<U>::sqr( *static_cast<U*>( pops[0]->val() ) );
-    else
+    }
+    else if( pops[0]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling TIMES w/ move for " << *pops[0] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[0]->val() );
+      *itU = std::move( val.operator*=( *static_cast<U*>( pops[1]->val() ) ) );
+    }
+    else if( pops[1]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling TIMES w/ move for " << *pops[1] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[1]->val() );
+      *itU = std::move( val.operator*=( *static_cast<U*>( pops[0]->val() ) ) );
+    }
+    else{
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling TIMES w/o move for " << *pops[0] << "," << *pops[1] << std::endl;
+#endif
       *itU = *static_cast<U*>( pops[0]->val() ) * *static_cast<U*>( pops[1]->val() );
+    }
     break;
 
    case FFOp::INV:
-    *itU = pops[0]->num().val() / *static_cast<U*>( pops[1]->val() );
+    if( pops[0]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling INV w/ move for " << *pops[1] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[1]->val() );
+      *itU = operator/( pops[0]->num().val(), std::move( val ) );
+    }
+    else{
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling INV w/o move for " << *pops[1] << std::endl;
+#endif
+      *itU = pops[0]->num().val() / *static_cast<U*>( pops[1]->val() );
+    }
     break;
 
    case FFOp::DIV:  
     if( &pops[0] == &pops[1] )
       *itU = 1.;
-    else
+    else if( pops[0]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling DIV w/ move for " << *pops[0] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[0]->val() );
+      *itU = std::move( val.operator/=( *static_cast<U*>( pops[1]->val() ) ) );
+    }
+    //else if( pops[1]->mov() ){
+    //  std::cout << "calling DIV w/ move for " << *pops[1] << std::endl;
+    //  U& val  = *static_cast<U*>( pops[1]->val() );
+    //  U&& inv = Op<U>::inv( std::move( val ) );
+    //  *itU = std::move( inv.operator*=( *static_cast<U*>( pops[0]->val() ) ) );
+    //}
+    else{
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling DIV w/o move for " << *pops[0] << "," << *pops[1] << std::endl;
+#endif
       *itU = *static_cast<U*>( pops[0]->val() ) / *static_cast<U*>( pops[1]->val() );
+    }
     break;
 
    case FFOp::IPOW:
-    *itU = Op<U>::pow( *static_cast<U*>( pops[0]->val() ), pops[1]->num().n );
+    if( pops[0]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling IPOW w/ move for " << *pops[0] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[0]->val() );
+      *itU = Op<U>::pow( std::move( val ), pops[1]->num().n );
+    }
+    else{
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling IPOW w/o move for " << *pops[0] << std::endl;
+#endif
+      *itU = Op<U>::pow( *static_cast<U*>( pops[0]->val() ), pops[1]->num().n );
+    }
     break;
 
    case FFOp::DPOW:
-    *itU = Op<U>::pow( *static_cast<U*>( pops[0]->val() ), pops[1]->num().x );
+    if( pops[0]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling DPOW w/ move for " << *pops[0] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[0]->val() );
+      *itU = Op<U>::pow( std::move( val ), pops[1]->num().x );
+    }
+    else{
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling DPOW w/o move for " << *pops[0] << std::endl;
+#endif
+      *itU = Op<U>::pow( *static_cast<U*>( pops[0]->val() ), pops[1]->num().x );
+    }
     break;
 
    case FFOp::CHEB:
-    *itU = Op<U>::cheb( *static_cast<U*>( pops[0]->val() ), pops[1]->num().n );
+    if( pops[0]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling CHEB w/ move for " << *pops[0] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[0]->val() );
+      *itU = Op<U>::cheb( std::move( val ), pops[1]->num().n );
+    }
+    else{
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling CHEB w/o move for " << *pops[0] << std::endl;
+#endif
+      *itU = Op<U>::cheb( *static_cast<U*>( pops[0]->val() ), pops[1]->num().n );
+    }
     break;
 
    case FFOp::SQR:  
-    *itU = Op<U>::sqr( *static_cast<U*>( pops[0]->val() ) );
+    if( pops[0]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling SQR w/ move for " << *pops[0] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[0]->val() );
+      *itU = Op<U>::sqr( std::move( val ) );
+    }
+    else{
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling SQR w/o move for " << *pops[0] << std::endl;
+#endif
+      *itU = Op<U>::sqr( *static_cast<U*>( pops[0]->val() ) );
+    }
     break;
 
    case FFOp::SQRT: 
-    *itU = Op<U>::sqrt( *static_cast<U*>( pops[0]->val() ) );
+    if( pops[0]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling SQRT w/ move for " << *pops[0] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[0]->val() );
+      *itU = Op<U>::sqrt( std::move( val ) );
+    }
+    else{
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling SQRT w/o move for " << *pops[0] << std::endl;
+#endif
+      *itU = Op<U>::sqrt( *static_cast<U*>( pops[0]->val() ) );
+    }
     break;
 
    case FFOp::EXP:  
-    *itU = Op<U>::exp( *static_cast<U*>( pops[0]->val() ) );
+    if( pops[0]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling EXP w/ move for " << *pops[0] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[0]->val() );
+      *itU = Op<U>::exp( std::move( val ) );
+    }
+    else{
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling EXP w/o move for " << *pops[0] << std::endl;
+#endif
+      *itU = Op<U>::exp( *static_cast<U*>( pops[0]->val() ) );
+    }
     break;
 
    case FFOp::LOG:  
-    *itU = Op<U>::log( *static_cast<U*>( pops[0]->val() ) );
+    if( pops[0]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling LOG w/ move for " << *pops[0] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[0]->val() );
+      *itU = Op<U>::log( std::move( val ) );
+    }
+    else{
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling LOG w/o move for " << *pops[0] << std::endl;
+#endif
+      *itU = Op<U>::log( *static_cast<U*>( pops[0]->val() ) );
+    }
     break;
 
    case FFOp::XLOG:  
-    *itU = Op<U>::xlog( *static_cast<U*>( pops[0]->val() ) );
+    if( pops[0]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling XLOG w/ move for " << *pops[0] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[0]->val() );
+      *itU = Op<U>::xlog( std::move( val ) );
+    }
+    else{
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling XLOG w/o move for " << *pops[0] << std::endl;
+#endif
+      *itU = Op<U>::xlog( *static_cast<U*>( pops[0]->val() ) );
+    }
     break; 
 
    case FFOp::COS:  
-    *itU = Op<U>::cos( *static_cast<U*>( pops[0]->val() ) );
+    if( pops[0]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling COS w/ move for " << *pops[0] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[0]->val() );
+      *itU = Op<U>::cos( std::move( val ) );
+    }
+    else{
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling COS w/o move for " << *pops[0] << std::endl;
+#endif
+      *itU = Op<U>::cos( *static_cast<U*>( pops[0]->val() ) );
+    }
     break;
 
    case FFOp::SIN:  
-    *itU = Op<U>::sin( *static_cast<U*>( pops[0]->val() ) );
+    if( pops[0]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling SIN w/ move for " << *pops[0] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[0]->val() );
+      *itU = Op<U>::sin( std::move( val ) );
+    }
+    else{
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling SIN w/o move for " << *pops[0] << std::endl;
+#endif
+      *itU = Op<U>::sin( *static_cast<U*>( pops[0]->val() ) );
+    }
     break;
 
    case FFOp::TAN:  
-    *itU = Op<U>::tan( *static_cast<U*>( pops[0]->val() ) );
+    if( pops[0]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling TAN w/ move for " << *pops[0] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[0]->val() );
+      *itU = Op<U>::tan( std::move( val ) );
+    }
+    else{
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling TAN w/o move for " << *pops[0] << std::endl;
+#endif
+      *itU = Op<U>::tan( *static_cast<U*>( pops[0]->val() ) );
+    }
     break;
 
-   case FFOp::ACOS: 
-    *itU = Op<U>::acos( *static_cast<U*>( pops[0]->val() ) );
+   case FFOp::ACOS:  
+    if( pops[0]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling ACOS w/ move for " << *pops[0] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[0]->val() );
+      *itU = Op<U>::acos( std::move( val ) );
+    }
+    else{
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling ACOS w/o move for " << *pops[0] << std::endl;
+#endif
+      *itU = Op<U>::acos( *static_cast<U*>( pops[0]->val() ) );
+    }
     break;
 
-   case FFOp::ASIN: 
-    *itU = Op<U>::asin( *static_cast<U*>( pops[0]->val() ) );
+   case FFOp::ASIN:  
+    if( pops[0]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling ASIN w/ move for " << *pops[0] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[0]->val() );
+      *itU = Op<U>::asin( std::move( val ) );
+    }
+    else{
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling ASIN w/o move for " << *pops[0] << std::endl;
+#endif
+      *itU = Op<U>::asin( *static_cast<U*>( pops[0]->val() ) );
+    }
     break;
 
-   case FFOp::ATAN: 
-    *itU = Op<U>::atan( *static_cast<U*>( pops[0]->val() ) );
+   case FFOp::ATAN:  
+    if( pops[0]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling ATAN w/ move for " << *pops[0] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[0]->val() );
+      *itU = Op<U>::atan( std::move( val ) );
+    }
+    else{
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling ATAN w/o move for " << *pops[0] << std::endl;
+#endif
+      *itU = Op<U>::atan( *static_cast<U*>( pops[0]->val() ) );
+    }
     break;
 
-   case FFOp::COSH: 
-    *itU = Op<U>::cosh( *static_cast<U*>( pops[0]->val() ) );
+   case FFOp::COSH:  
+    if( pops[0]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling COSH w/ move for " << *pops[0] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[0]->val() );
+      *itU = Op<U>::cosh( std::move( val ) );
+    }
+    else{
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling COSH w/o move for " << *pops[0] << std::endl;
+#endif
+      *itU = Op<U>::cosh( *static_cast<U*>( pops[0]->val() ) );
+    }
     break;
 
-   case FFOp::SINH: 
-    *itU = Op<U>::sinh( *static_cast<U*>( pops[0]->val() ) );
+   case FFOp::SINH:  
+    if( pops[0]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling SINH w/ move for " << *pops[0] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[0]->val() );
+      *itU = Op<U>::sinh( std::move( val ) );
+    }
+    else{
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling SINH w/o move for " << *pops[0] << std::endl;
+#endif
+      *itU = Op<U>::sinh( *static_cast<U*>( pops[0]->val() ) );
+    }
     break;
 
-   case FFOp::TANH: 
-    *itU = Op<U>::tanh( *static_cast<U*>( pops[0]->val() ) );
+   case FFOp::TANH:  
+    if( pops[0]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling TANH w/ move for " << *pops[0] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[0]->val() );
+      *itU = Op<U>::tanh( std::move( val ) );
+    }
+    else{
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling TANH w/o move for " << *pops[0] << std::endl;
+#endif
+      *itU = Op<U>::tanh( *static_cast<U*>( pops[0]->val() ) );
+    }
     break;
 
    case FFOp::ERF:  
-    *itU = Op<U>::erf( *static_cast<U*>( pops[0]->val() ) );
+    if( pops[0]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling ERF w/ move for " << *pops[0] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[0]->val() );
+      *itU = Op<U>::erf( std::move( val ) );
+    }
+    else{
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling ERF w/o move for " << *pops[0] << std::endl;
+#endif
+      *itU = Op<U>::erf( *static_cast<U*>( pops[0]->val() ) );
+    }
     break;
 
-   case FFOp::FABS: 
-    *itU = Op<U>::fabs( *static_cast<U*>( pops[0]->val() ) );
+   case FFOp::FABS:  
+    if( pops[0]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling FABS w/ move for " << *pops[0] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[0]->val() );
+      *itU = Op<U>::fabs( std::move( val ) );
+    }
+    else{
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling FABS w/o move for " << *pops[0] << std::endl;
+#endif
+      *itU = Op<U>::fabs( *static_cast<U*>( pops[0]->val() ) );
+    }
     break;
 
-   case FFOp::FSTEP:
-    *itU = Op<U>::fstep( *static_cast<U*>( pops[0]->val() ) );
+   case FFOp::FSTEP:  
+    if( pops[0]->mov() ){
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling FSTEP w/ move for " << *pops[0] << std::endl;
+#endif
+      U& val = *static_cast<U*>( pops[0]->val() );
+      *itU = Op<U>::fstep( std::move( val ) );
+    }
+    else{
+#ifdef MC__FFUNC_EVAL_MOVE
+      std::cout << "calling FSTEP w/o move for " << *pops[0] << std::endl;
+#endif
+      *itU = Op<U>::fstep( *static_cast<U*>( pops[0]->val() ) );
+    }
     break;
 
    case FFOp::MINF: 
-    if( &pops[0] == &pops[1] )
+    if( &pops[0] == &pops[1] && pops[0]->mov() )
+      *itU = std::move( *static_cast<U*>( pops[0]->val() ) );
+    else if( &pops[0] == &pops[1] )
       *itU = *static_cast<U*>( pops[0]->val() );
+    else if( pops[0]->mov() )
+      *itU = Op<U>::min( std::move( *static_cast<U*>( pops[0]->val() ) ),
+                         *static_cast<U*>( pops[1]->val() ) );
+    else if( pops[1]->mov() )
+      *itU = Op<U>::min( std::move( *static_cast<U*>( pops[1]->val() ) ),
+                         *static_cast<U*>( pops[0]->val() ) );
     else
-      *itU = Op<U>::min( *static_cast<U*>( pops[0]->val() ), *static_cast<U*>( pops[1]->val() ) );
+      *itU = Op<U>::min( *static_cast<U*>( pops[0]->val() ),
+                         *static_cast<U*>( pops[1]->val() ) );
     break;
 
    case FFOp::MAXF: 
-    if( &pops[0] == &pops[1] )
+    if( &pops[0] == &pops[1] && pops[0]->mov() )
+      *itU = std::move( *static_cast<U*>( pops[0]->val() ) );
+    else if( &pops[0] == &pops[1] )
       *itU = *static_cast<U*>( pops[0]->val() );
+    else if( pops[0]->mov() )
+      *itU = Op<U>::max( std::move( *static_cast<U*>( pops[0]->val() ) ),
+                         *static_cast<U*>( pops[1]->val() ) );
+    else if( pops[1]->mov() )
+      *itU = Op<U>::max( std::move( *static_cast<U*>( pops[1]->val() ) ),
+                         *static_cast<U*>( pops[0]->val() ) );
     else
-      *itU = Op<U>::max( *static_cast<U*>( pops[0]->val() ), *static_cast<U*>( pops[1]->val() ) );
+      *itU = Op<U>::max( *static_cast<U*>( pops[0]->val() ),
+                         *static_cast<U*>( pops[1]->val() ) );
     break;
 
    case FFOp::INTER: 
-    if( &pops[0] == &pops[1] )
+    if( &pops[0] == &pops[1] && pops[0]->mov() )
+      *itU = std::move( *static_cast<U*>( pops[0]->val() ) );
+    else if( &pops[0] == &pops[1] )
       *itU = *static_cast<U*>( pops[0]->val() );
-    else if( !Op<U>::inter( *itU, *static_cast<U*>( pops[0]->val() ), *static_cast<U*>( pops[1]->val() ) ) )
+    else if( !Op<U>::inter( *itU, *static_cast<U*>( pops[0]->val() ),
+                                  *static_cast<U*>( pops[1]->val() ) ) )
       throw typename FFBase::Exceptions( FFBase::Exceptions::INTER );
     break;
 
@@ -5176,28 +5614,32 @@ FFBase::_create_var
   return FFVar( this, id, name );
 }   
 
+inline bool
+FFBase::_get_constant
+( FFVar const*& pVar )
+{
+  if( !pVar->cst() ) return false;
+  FFNum const& num = pVar->num();
+  switch( num.t ){
+    case FFNum::INT:  pVar = _add_constant( num.n ); break;
+    case FFNum::REAL: pVar = _add_constant( num.x ); break;
+  }
+  return true;
+}
+
 inline FFSubgraph
 FFBase::subgraph
-( std::vector<const FFVar*> const& vDep )
+( std::vector<FFVar const*> const& vDep )
 {
   _reset_operations();
   FFSubgraph sgDep;
-  for( auto && dep : vDep ){
+  for( auto const& dep : vDep ){
     FFVar const* pVar = dep;
-    if( !pVar->ops().first ){
-      assert( pVar->cst() );
-      FFNum const& num = pVar->num();
-      switch( num.t ){
-        case FFNum::INT:  pVar = _add_constant( num.n ); break;
-        case FFNum::REAL: pVar = _add_constant( num.x ); break;
-      }
-    }
+    if( !pVar->ops().first ) assert( _get_constant( pVar ) );
     pVar->ops().first->propagate_subgraph( sgDep.l_op );
-    assert( pVar->ops().first->iflag );
-    auto it = sgDep.l_op.begin();
-    std::advance( it, pVar->ops().first->iflag-1 );
-    sgDep.op_dep.push_back( *it );
+    sgDep.set_dep( pVar->ops().first->iflag );
   }
+  sgDep.set_move();
   return sgDep;
 }
 
@@ -5209,20 +5651,11 @@ FFBase::subgraph
   FFSubgraph sgDep;
   for( unsigned int i=0; i<nDep; i++ ){
     FFVar const* pVar = &pDep[i];
-    if( !pVar->ops().first ){
-      assert( pVar->cst() );
-      FFNum const& num = pVar->num();
-      switch( num.t ){
-        case FFNum::INT:  pVar = _add_constant( num.n ); break;
-        case FFNum::REAL: pVar = _add_constant( num.x ); break;
-      }
-    }
+    if( !pVar->ops().first ) assert( _get_constant( pVar ) );
     pVar->ops().first->propagate_subgraph( sgDep.l_op );
-    assert( pVar->ops().first->iflag );
-    auto it = sgDep.l_op.begin();
-    std::advance( it, pVar->ops().first->iflag-1 );
-    sgDep.op_dep.push_back( *it );
+    sgDep.set_dep( pVar->ops().first->iflag );
   }
+  sgDep.set_move();
   return sgDep;
 }
 
@@ -5232,23 +5665,13 @@ FFBase::subgraph
 {
   _reset_operations();
   FFSubgraph sgDep;
-  for( unsigned i : ndxDep ){
+  for( unsigned const& i : ndxDep ){
     FFVar const* pVar = &pDep[i];
-    if( !pVar->ops().first ){
-      assert( pVar->cst() );
-      FFNum const& num = pVar->num();
-      switch( num.t ){
-        case FFNum::INT:  pVar = _add_constant( num.n ); break;
-        case FFNum::REAL: pVar = _add_constant( num.x ); break;
-      }
-    }
+    if( !pVar->ops().first ) assert( _get_constant( pVar ) );
     pVar->ops().first->propagate_subgraph( sgDep.l_op );
-    assert( pVar->ops().first->iflag );
-    auto it = sgDep.l_op.begin();
-    std::advance( it, pVar->ops().first->iflag-1 );
-    sgDep.op_dep.push_back( *it );
+    sgDep.set_dep( pVar->ops().first->iflag );
   }
-  return sgDep;
+  sgDep.set_move();
 }
 
 template< typename V, typename COMP>
@@ -5258,22 +5681,13 @@ FFBase::subgraph
 {
   _reset_operations();
   FFSubgraph sgDep;
-  for( auto && iDep : mDep ){
+  for( auto const& iDep : mDep ){
     FFVar const* pVar = &iDep.second;
-    if( !pVar->ops().first ){
-      assert( pVar->cst() );
-      FFNum const& num = pVar->num();
-      switch( num.t ){
-        case FFNum::INT:  pVar = _add_constant( num.n ); break;
-        case FFNum::REAL: pVar = _add_constant( num.x ); break;
-      }
-    }
+    if( !pVar->ops().first ) assert( _get_constant( pVar ) );
     pVar->ops().first->propagate_subgraph( sgDep.l_op );
-    assert( pVar->ops().first->iflag );
-    auto it = sgDep.l_op.begin();
-    std::advance( it, pVar->ops().first->iflag-1 );
-    sgDep.op_dep.push_back( *it );
+    sgDep.set_dep( pVar->ops().first->iflag );
   }
+  sgDep.set_move();
   return sgDep;
 }
 
@@ -5287,11 +5701,11 @@ FFBase::output
     return;
   }
   os << "\nOPERATIONS IN SUBGRAPH" << header.c_str() << ":\n";
-  for( auto && op : sgDep.l_op )
-    os << "  " << *op->pres << "\t" << "<=  " << *op << std::endl;
+  for( auto const& [op,mov] : sgDep.l_op )
+    os << "  " << *op->pres << "\t" << (mov?"<<  ":"<-  ") << *op << std::endl;
   os << "DEPENDENTS IN SUBGRAPH" << header.c_str() << ":\n";
   unsigned idep = 0;
-  for( auto && op: sgDep.op_dep )
+  for( auto const& op: sgDep.op_dep )
     os << "  " << idep++ << ":  " << *(op->pres) << std::endl;
 }
 
@@ -5739,7 +6153,7 @@ FFGraph<ExtOps...>::SFAD
 
     // Count dependencies
     unsigned nIndep = 0;
-    for( auto const& op : sgDep.l_op ){
+    for( auto const& [op,mov] : sgDep.l_op ){
       if( op->type != FFOp::VAR ) continue;
       ++nIndep;
     }
@@ -5755,14 +6169,15 @@ FFGraph<ExtOps...>::SFAD
     auto ito = sgDep.l_op.begin();
     auto itw = _wkSFAD.begin();
     for( unsigned int j=0; ito!=sgDep.l_op.end(); ++ito, ++itw ){
-    
+      _curOp = ito->first;
+
       // Initialize variable using values in l_vVar
-      if( (*ito)->type == FFOp::VAR ){
-        *itw = *(*ito)->pres;
+      if( _curOp->type == FFOp::VAR ){
+        *itw = *_curOp->pres;
         auto iti = vIndep.begin();
         auto itd = vDir.begin();
         for( unsigned int ii=0; iti!=vIndep.end(); ++iti, ++itd, ++ii ){
-          if( (*ito)->pres->id() != (*iti)->id() ) continue;
+          if( _curOp->pres->id() != (*iti)->id() ) continue;
 #ifdef MC__FFUNC_SFAD_DEBUG
           std::cerr << "independent " << j << ": " << itw->val() << std::endl;
 #endif
@@ -5778,9 +6193,8 @@ FFGraph<ExtOps...>::SFAD
       }
 
       // Evaluate current operation
-      _curOp = *ito;
       if( _curOp->type < FFOp::EXTERN )
-        _curOp->evaluate( itw, _wkSFAD.data() );
+        _curOp->evaluate( itw, _wkSFAD.data(), ito->second );
       else if( !sizeof...(ExtOps) )
         throw Exceptions( Exceptions::EXTERN );
       else
@@ -5950,7 +6364,7 @@ FFGraph<ExtOps...>::SBAD
 
     // Count dependencies
     unsigned nIndep = 0;
-    for( auto const& op : sgDep.l_op ){
+    for( auto const& [op,mov] : sgDep.l_op ){
       if( op->type != FFOp::VAR ) continue;
       ++nIndep;
     }
@@ -5966,13 +6380,14 @@ FFGraph<ExtOps...>::SBAD
     auto ito = sgDep.l_op.begin();
     auto itw = _wkSBAD.begin();
     for( unsigned int j=0; ito!=sgDep.l_op.end(); ++ito, ++itw ){
-    
+      _curOp = ito->first;
+
       // Initialize variable using values in l_vVar
-      if( (*ito)->type == FFOp::VAR ){
-        *itw = *(*ito)->pres;
+      if( _curOp->type == FFOp::VAR ){
+        *itw = *_curOp->pres;
         auto iti = vIndep.begin();
         for( unsigned int ii=0; iti!=vIndep.end(); ++iti, ++ii ){
-          if( (*ito)->pres->id() != (*iti)->id() ) continue;
+          if( _curOp->pres->id() != (*iti)->id() ) continue;
 #ifdef MC__FFUNC_SBAD_DEBUG
           std::cerr << "independent " << j << ": " << itw->val() << std::endl;
 #endif
@@ -5982,9 +6397,8 @@ FFGraph<ExtOps...>::SBAD
       }
       
       // Evaluate current operation
-      _curOp = *ito;
       if( _curOp->type < FFOp::EXTERN )
-        _curOp->evaluate( itw, _wkSBAD.data() );
+        _curOp->evaluate( itw, _wkSBAD.data(), ito->second );
       else if( !sizeof...(ExtOps) )
         throw Exceptions( Exceptions::EXTERN );
       else
@@ -6076,10 +6490,11 @@ FFGraph<ExtOps...>::TAD
   auto ito = sgDep.l_op.begin();
   auto itw = _wkTAD.begin();
   for( ; ito!=sgDep.l_op.end(); ++ito, ++itw ){
+    _curOp = ito->first;
 
     // Initialize variable
-    if( (*ito)->type == FFOp::VAR ){
-      FFVar* pXi = (*ito)->pres;
+    if( _curOp->type == FFOp::VAR ){
+      FFVar* pXi = _curOp->pres;
       *itw = *pXi;
       // Independent variable
       if( pIndep && pXi->id() == pIndep->id() )
@@ -6101,9 +6516,8 @@ FFGraph<ExtOps...>::TAD
     }
     
     // Evaluate current operation
-    _curOp = *ito;
     if( _curOp->type < FFOp::EXTERN )
-      _curOp->evaluate( itw, _wkTAD.data() );
+      _curOp->evaluate( itw, _wkTAD.data(), ito->second );
     else if( !sizeof...(ExtOps) )
       throw Exceptions( Exceptions::EXTERN );
     else
@@ -6175,7 +6589,7 @@ FFGraph<ExtOps...>::insert
   // Populate variable arrays
   auto sg = dag->subgraph( nDep, pDepIn );
   std::vector<FFVar> vVarIn, vVarOut;
-  for( auto && op : sg.l_op ){
+  for( auto const& [op,mov] : sg.l_op ){
     if( op->type != FFOp::VAR ) continue;
     vVarIn.push_back( *op->pres );
     auto iVar = _Vars.find( op->pres );
@@ -6262,12 +6676,12 @@ FFGraph<ExtOps...>::compose
   std::vector<const FFVar*> vDepComp( vDepOut.size() ); // <- vector to hold new dependents
   std::vector<FFVar> wkDep( sgDep.l_op.size() );        // <- vector to hold intermediates
   auto itWork = wkDep.begin();
-  for( auto&& op : sgDep.l_op ){
+  for( auto const& [op,mov] : sgDep.l_op ){
     _curOp = op;
 
     // Check if _curOp is to be substituted
     bool is_set = false;
-    for( auto&& sub : vDepIn ){
+    for( auto const& sub : vDepIn ){
       if( sub.first->id() == _curOp->pres->id() ){
         *itWork = *sub.second;
         is_set = true; break;
@@ -6282,7 +6696,7 @@ FFGraph<ExtOps...>::compose
     if( is_set )
       _curOp->pres->val() = &(*itWork);
     else if( _curOp->type < FFOp::EXTERN )
-      _curOp->evaluate( itWork, wkDep.data() );
+      _curOp->evaluate( itWork, wkDep.data(), mov );
     else if( !sizeof...(ExtOps) )
       throw Exceptions( Exceptions::EXTERN );
     else
@@ -6290,7 +6704,7 @@ FFGraph<ExtOps...>::compose
 
     // Check for a corresponding dependent
     auto itNew = vDepComp.begin();
-    for( auto&& dep : vDepOut ){
+    for( auto const& dep : vDepOut ){
       if( dep->id() == _curOp->pres->id() ){
         auto pNew = static_cast<const FFVar*>( _curOp->pres->val() );
         *itNew = _find_var( pNew->id() );
@@ -6306,9 +6720,9 @@ FFGraph<ExtOps...>::compose
     ++itWork;
   }
 
-  // Reset FFVar::_val field
-  for( auto&& op : sgDep.l_op )
-    if( op->pres->val() ) op->pres->val() = nullptr;
+  // Reset FFVar::_val field - IS THIS NECESSARY?
+  //for( auto&& op : sgDep.l_op )
+  //  if( op->pres->val() ) op->pres->val() = nullptr;
 
   return vDepComp;
 }
@@ -6540,15 +6954,16 @@ FFGraph<ExtOps...>::eval
   auto ito = sgDep.l_op.begin();
   typename std::vector<U>::iterator itU = wkDep.begin();
   for( ; ito!=sgDep.l_op.end(); ++ito, ++itU ){
+    _curOp = ito->first;
 
     // Initialize variable using values in l_vVar
-    if( (*ito)->type == FFOp::VAR ){
+    if( _curOp->type == FFOp::VAR ){
       FFVar* pF = 0;
       auto itnVar = l_nVar.begin(); auto itpVar = l_pVar.begin(); auto itvVar = l_vVar.begin();
       for( ; !pF && itnVar != l_nVar.end(); ++itnVar, ++itpVar, ++itvVar ){
         for( unsigned i=0; i<(*itnVar); i++ ){
-          if( (*ito)->pres->id() != (*itpVar)[i].id() ) continue;
-          pF = (*ito)->pres;
+          if( _curOp->pres->id() != (*itpVar)[i].id() ) continue;
+          pF = _curOp->pres;
           *itU = (*itvVar)[i];
           break;
         }
@@ -6557,9 +6972,8 @@ FFGraph<ExtOps...>::eval
     }
 
     // Evaluate current operation
-    _curOp = *ito;
     if( _curOp->type < FFOp::EXTERN )
-      _curOp->evaluate( itU, wkDep.data() );
+      _curOp->evaluate( itU, wkDep.data(), ito->second );
     else if( !sizeof...(ExtOps) )
       throw Exceptions( Exceptions::EXTERN );
     else
@@ -6747,13 +7161,14 @@ FFGraph<ExtOps...>::reval
   auto ito = opDep.begin();
   typename std::vector<U>::iterator itU = wkDep.begin();
   for( ; ito!=opDep.end(); ++ito, ++itU ){
-    if( (*ito)->type == FFOp::VAR ){
+    _curOp = ito->first;
+    if( _curOp->type == FFOp::VAR ){
       FFVar* pF = 0;
       auto itnVar = l_nVar.begin(); auto itpVar = l_pVar.begin(); auto itvVar = l_vVar.begin();
       for( ; !pF && itnVar != l_nVar.end(); ++itnVar, ++itpVar, ++itvVar ){
         for( unsigned i=0; i<(*itnVar); i++ ){
-          if( (*ito)->pres->id() != (*itpVar)[i].id() ) continue;
-          pF = (*ito)->pres;
+          if( _curOp->pres->id() != (*itpVar)[i].id() ) continue;
+          pF = _curOp->pres;
           *itU = (*itvVar)[i];
           if( MAXPASS ) mapVar[&*itU] = &(*itvVar)[i];
 #ifdef MC__REVAL_DEBUG
@@ -6781,10 +7196,10 @@ FFGraph<ExtOps...>::reval
     for( ; ito != opDep.end(); ++ito, ++itU ){
       assert( itU != wkDep.end() );
       // Evaluate current operation
-      _curOp = *ito;
+      _curOp = ito->first;
       if( _curOp->type < FFOp::EXTERN ){
         try{
-          if( !ipass ) _curOp->evaluate( itU, wkDep.data() );
+          if( !ipass ) _curOp->evaluate( itU, wkDep.data(), false ); // move disabled for value fields
           else if( !_curOp->tighten_forward( wkDep.data() ) ) is_feasible = false;
         }
         catch(...){ continue; }
@@ -6820,18 +7235,18 @@ FFGraph<ExtOps...>::reval
     // Backward propagation in U arithmetic through subgraph
     bool is_tighter = false;
     for( auto rito = opDep.rbegin(); rito!=opDep.rend(); ++rito ){
-      _curOp = *rito;
+      _curOp = rito->first;
       // Store current operand variables
       curVar.resize( _curOp->pops.size() );
       unsigned iop = 0;
-      for( auto &&op : _curOp->pops )
+      for( auto const& op : _curOp->pops )
         curVar[iop++] = *static_cast<U*>( op->val() );
       // Tighten current operation
       try{ if( !_curOp->tighten_backward( wkDep.data() ) ) is_feasible = false; }
       catch(...){ continue; }
 #ifdef MC__REVAL_DEBUG
       std::cout << *_curOp->pres << " " << *static_cast<U*>(_curOp->pres->val()) << " = ";
-      for( auto &&op : _curOp->pops )        
+      for( auto const& op : _curOp->pops )        
         std::cout << *op << " " << *static_cast<U*>(op->val()) << " @ ";
       std::cout << std::endl;
 #endif
@@ -6840,7 +7255,7 @@ FFGraph<ExtOps...>::reval
       }
       // Test improvement of operand variables
       iop = 0;
-      for( auto &&op : _curOp->pops ){
+      for( auto const& op : _curOp->pops ){
         is_tighter = is_tighter
                   || Op<U>::l(*static_cast<U*>( op->val() )) > Op<U>::l(curVar[iop])
                      + THRESPASS*Op<U>::diam(curVar[iop])
@@ -6861,7 +7276,7 @@ FFGraph<ExtOps...>::reval
     }
 
     // Intersection of variable values with those in l_vVar 
-    for( auto&& pvar : mapVar ){
+    for( auto const& pvar : mapVar ){
       if( !Op<U>::inter( *pvar.second, *pvar.first, *pvar.second ) )
         return -ipass-1;
     }
@@ -6886,8 +7301,8 @@ FFGraph<ExtOps...>::wkextract
 ( FFSubgraph const& sgOut, std::vector<U>& wkOut, FFSubgraph const& sgIn, std::vector<U>& wkIn )
 {
   // Anything to do?
-  auto && opOut = sgOut.l_op;
-  auto && opIn  = sgIn.l_op;
+  auto const& opOut = sgOut.l_op;
+  auto const& opIn  = sgIn.l_op;
   if( opOut.empty() || opIn.empty() || wkIn.size() < opIn.size() ) return;
   wkOut.resize( opOut.size() );
 
@@ -6895,13 +7310,13 @@ FFGraph<ExtOps...>::wkextract
   auto itoi = opIn.begin();
   auto itwi = wkIn.begin();
   for( ; itoi != opIn.end(); ++itoi, ++itwi )
-    (*itoi)->pres->val() = &(*itwi);
+    itoi->first->pres->val() = &(*itwi);
 
   // Copy value fields to output operands
   auto itoo = opOut.begin();
   auto itwo = wkOut.begin();
   for( ; itoo != opOut.end(); ++itoo, ++itwo )
-    *itwo = *static_cast<U*>( (*itoo)->pres->val() );
+    *itwo = *static_cast<U*>( itoo->first->pres->val() );
 }
 
 #ifdef MC__USE_HSL
@@ -6917,7 +7332,7 @@ FFGraph<ExtOps...>::MC13
   std::vector<FFDep> vVar( nDep );
   for( unsigned i=0; i<nDep; i++ ) vVar[i].indep(i);
   auto sgDep = subgraph( nDep, pDep );
-  for( auto&& op : sgDep.l_op ){
+  for( auto const& [op,mov] : sgDep.l_op ){
     // Operation not a variable
     if( op->type != FFOp::VAR ) continue;
     bool isParam = true;
@@ -7022,7 +7437,7 @@ FFGraph<ExtOps...>::MC33
   std::vector<FFDep> vVar( nIndep );
   for( unsigned i=0; i<nIndep; i++ ) vVar[i].indep(i);
   auto sgDep = subgraph( nDep, pDep );
-  for( auto&& op : sgDep.l_op ){
+  for( auto const& [op,mov] : sgDep.l_op ){
     // Operation not a variable
     if( op->type != FFOp::VAR ) continue;
     bool isParam = true;

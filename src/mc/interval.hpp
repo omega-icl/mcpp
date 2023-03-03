@@ -118,6 +118,8 @@ Possible errors encountered in using mc::Interval are:
 
 #include "mcfunc.hpp"
 
+//#define MC__INTERVAL_TRACE
+
 namespace mc
 {
 //! @brief C++ class for (non-verified) interval bounding of factorable function
@@ -132,205 +134,236 @@ class Interval
 {
   // friends of class Interval for operator overloading
   friend Interval operator+
-    ( const Interval& );
+    ( Interval const& );
   friend Interval operator+
-    ( const Interval&, const Interval& );
+    ( Interval const&, Interval const& );
+  friend Interval && operator+
+    ( Interval &&, Interval const& )
+    noexcept;
   friend Interval operator+
-    ( const double, const Interval& );
+    ( double const&, Interval const& );
+  friend Interval && operator+
+    ( double const&, Interval && )
+    noexcept;
   friend Interval operator+
-    ( const Interval&, const double );
+    ( Interval const&, double const& );
+  friend Interval && operator+
+    ( Interval &&, double const& )
+    noexcept;
   friend Interval operator-
-    ( const Interval& );
+    ( Interval const& );
   friend Interval operator-
-    ( const Interval&, const Interval& );
+    ( Interval const&, Interval const& );
+  friend Interval && operator-
+    ( Interval &&, Interval const& )
+    noexcept;
   friend Interval operator-
-    ( const double, const Interval& );
+    ( double const&, Interval const& );
   friend Interval operator-
-    ( const Interval&, const double );
+    ( Interval const&, double const& );
+  friend Interval && operator-
+    ( Interval &&, double const& )
+    noexcept;
   friend Interval operator*
-    ( const Interval&, const Interval& );
+    ( Interval const&, Interval const& );
   friend Interval operator*
-    ( const Interval&, const double );
+    ( Interval const&, double const& );
   friend Interval operator*
-    ( const double, const Interval& );
+    ( double const&, Interval const& );
   friend Interval operator/
-    ( const Interval&, const Interval& );
+    ( Interval const&, Interval const& );
   friend Interval operator/
-    ( const Interval&, const double );
+    ( Interval const&, double const& );
   friend Interval operator/
-    ( const double, const Interval& );
+    ( double const&, Interval const& );
   friend std::ostream& operator<<
-    ( std::ostream&, const Interval& );
+    ( std::ostream&, Interval const& );
   friend bool operator==
-    ( const Interval&, const Interval& );
+    ( Interval const&, Interval const& );
   friend bool operator!=
-    ( const Interval&, const Interval& );
+    ( Interval const&, Interval const& );
   friend bool operator<=
-    ( const Interval&, const Interval& );
+    ( Interval const&, Interval const& );
   friend bool operator>=
-    ( const Interval&, const Interval& );
+    ( Interval const&, Interval const& );
   friend bool operator<
-    ( const Interval&, const Interval& );
+    ( Interval const&, Interval const& );
   friend bool operator>
-    ( const Interval&, const Interval& );
+    ( Interval const&, Interval const& );
 
   // friends of class Interval for function overloading
   friend double diam
-    ( const Interval& );
+    ( Interval const& );
   friend double abs
-    ( const Interval& );
+    ( Interval const& );
   friend double mid
-    ( const Interval& );
+    ( Interval const& );
   friend Interval inv
-    ( const Interval& );
+    ( Interval const& );
   friend Interval sqr
-    ( const Interval& );
+    ( Interval const& );
   friend Interval exp
-    ( const Interval& );
+    ( Interval const& );
+  friend Interval&& exp
+    ( Interval && );
   friend Interval log
-    ( const Interval& );
+    ( Interval const& );
   friend Interval cos
-    ( const Interval& );
+    ( Interval const& );
   friend Interval sin
-    ( const Interval& );
+    ( Interval const& );
   friend Interval tan
-    ( const Interval& );
+    ( Interval const& );
   friend Interval acos
-    ( const Interval& );
+    ( Interval const& );
   friend Interval asin
-    ( const Interval& );
+    ( Interval const& );
   friend Interval atan
-    ( const Interval& );
+    ( Interval const& );
   friend Interval cosh
-    ( const Interval& );
+    ( Interval const& );
   friend Interval sinh
-    ( const Interval& );
+    ( Interval const& );
   friend Interval tanh
-    ( const Interval& );
+    ( Interval const& );
   friend Interval fabs
-    ( const Interval& );
+    ( Interval const& );
   friend Interval relu
-    ( const Interval& );  
+    ( Interval const& );  
   friend Interval sqrt
-    ( const Interval& );
+    ( Interval const& );
   friend Interval xlog
-    ( const Interval& );
+    ( Interval const& );
   friend Interval lmtd
-    ( const Interval&, const Interval& );
+    ( Interval const&, Interval const& );
   friend Interval rlmtd
-    ( const Interval&, const Interval& );
+    ( Interval const&, Interval const& );
   friend Interval erf
-    ( const Interval& );
+    ( Interval const& );
   friend Interval erfc
-    ( const Interval& );
+    ( Interval const& );
   friend Interval fstep
-    ( const Interval& );
+    ( Interval const& );
   friend Interval bstep
-    ( const Interval& );
+    ( Interval const& );
   friend Interval arh
-    ( const Interval&, const double );
+    ( Interval const&, double const& );
   friend Interval pow
-    ( const Interval&, const int );
+    ( Interval const&, const int );
   friend Interval pow
-    ( const Interval&, const double );
+    ( Interval const&, double const& );
   friend Interval pow
-    ( const Interval&, const Interval& );
+    ( Interval const&, Interval const& );
   friend Interval prod
     ( const unsigned int, const Interval* );
   friend Interval monom
     ( const unsigned int, const Interval*, const unsigned* );
   friend Interval cheb
-    ( const Interval&, const unsigned );
+    ( Interval const&, const unsigned );
   friend Interval hull
-    ( const Interval&, const Interval& );
+    ( Interval const&, Interval const& );
   friend Interval min
-    ( const Interval&, const Interval& );
+    ( Interval const&, Interval const& );
   friend Interval max
-    ( const Interval&, const Interval& );
+    ( Interval const&, Interval const& );
   friend Interval min
     ( const unsigned int, const Interval* );
   friend Interval max
     ( const unsigned int, const Interval* );
   friend bool inter
-    ( Interval&, const Interval&, const Interval& );
+    ( Interval&, Interval const&, Interval const& );
 
 public:
 
   // other operator overloadings (inline)
   Interval& operator=
-    ( const double c )
+    ( double const& c )
     {
       _l = c;
       _u = c;
       return *this;
     }
   Interval& operator=
-    ( const Interval&I )
+    ( Interval const& I )
     {
-      _l = I._l;
-      _u = I._u;
+#ifdef MC__INTERVAL_TRACE
+      std::cout << "In operator=(Interval const&)\n";
+#endif
+      if( this != &I ){
+        _l = I._l;
+        _u = I._u;
+      }
+      return *this;
+    }
+  Interval& operator=
+    ( Interval&& I )
+    noexcept
+    {
+#ifdef MC__INTERVAL_TRACE
+      std::cout << "In operator=(Interval &&)\n";
+#endif
+      if( this != &I ){
+        _l = I._l;
+        _u = I._u;
+      }
       return *this;
     }
   Interval& operator+=
-    ( const double c )
+    ( double const& c )
     {
       _l += c;
       _u += c;
       return *this;
     }
   Interval& operator+=
-    ( const Interval&I )
+    ( const Interval& I )
     {
       _l += I._l;
       _u += I._u;
       return *this;
     }
   Interval& operator-=
-    ( const double c )
+    ( double const& c )
     {
       _l -= c;
       _u -= c;
       return *this;
     }
   Interval& operator-=
-    ( const Interval&I )
+    ( const Interval& I )
     {
-      Interval I2( _l, _u );
-      _l = I2._l - I._u;
-      _u = I2._u - I._l;
+      _l -= I._l;
+      _u -= I._u;
       return *this;
     }
   Interval& operator*=
-    ( const double c )
+    ( double const& c )
     {
-      Interval I2( _l, _u );
-      *this = I2 * c;
-      return *this;
-
-      double t = _l;
-      c>=0 ? _l*=c, _u*=c : _l=_u*c, _u=t*c;
+      _l *= c;
+      _u *= c;
+      if( c < 0. ) std::swap( _l, _u );
       return *this;
     }
   Interval& operator*=
-    ( const Interval&I )
+    ( Interval const& I )
     {
-      Interval I2( _l, _u );
-      *this = I2 * I;
+      double tmp = std::min( std::min(_l*I._l,_l*I._u), std::min(_u*I._l,_u*I._u) );
+      _u  = std::max( std::max(_l*I._l,_l*I._u), std::max(_u*I._l,_u*I._u) );
+      std::swap( _l, tmp );
       return *this;
     }
   Interval& operator/=
-    ( const double c )
+    ( double const& c )
     {
-      Interval I2( _l, _u );
-      *this = I2 / c;
+      _l /= c;
+      _u /= c;
+      if( c < 0. ) std::swap( _l, _u );
       return *this;
     }
   Interval& operator/=
-    ( const Interval&I )
+    ( Interval const& I )
     {
-      Interval I2( _l, _u );
-      *this = I2 / I;
-      return *this;
+      return operator*=( inv(I) );
     }
 
   /** @defgroup INTERVAL Non-Validated Interval Arithmetic for Factorable Functions
@@ -397,44 +430,57 @@ public:
     {}
   //! @brief Constructor for a constant value <a>c</a>
   Interval
-    ( const double c ):
+    ( double const& c ):
     _l(c), _u(c)
     {}
   //! @brief Constructor for a variable that belongs to the interval [<a>l</a>,<a>u</a>]
   Interval
-    ( const double l, const double u ):
+    ( double const& l, double const& u ):
     _l(l<u?l:u), _u(l<u?u:l)
     {}
   //! @brief Copy constructor for the interval <a>I</a>
   Interval
-    ( const Interval&I ):
+    ( Interval const& I ):
     _l(I._l), _u(I._u)
-    {}
-
+    {
+#ifdef MC__INTERVAL_TRACE
+      std::cout << "In Interval(Interval const&)\n";
+#endif
+    }
+  //! @brief Move constructor for the interval <a>I</a>
+  Interval
+    ( Interval && I )
+    noexcept
+    : _l(I._l), _u(I._u)
+    {
+#ifdef MC__INTERVAL_TRACE
+      std::cout << "In Interval(Interval &&)\n";
+#endif
+    }
   //! @brief Destructor
   ~Interval()
     {}
 
   //! @brief Return lower bound
-  const double& l() const
+  double const& l() const
     {
       return _l;
     }
   //! @brief Return upper bound
-  const double& u() const
+  double const& u() const
     {
       return _u;
     }
 
-  //! @brief Set lower bound to <a>lb</a>
-  void l ( const double lb )
+  //! @brief Return/set lower bound to <a>lb</a>
+  double& l()
     {
-      _l = lb;
+      return _l;
     }
   //! @brief Set upper bound to <a>ub</a>
-  void u ( const double ub )
+  double& u()
     {
-      _u = ub;
+      return _u;
     }
   /** @} */
   
@@ -452,97 +498,167 @@ inline Interval::Options Interval::options;
 
 inline Interval
 operator+
-( const Interval&I )
+( Interval const& I )
 {
   return I;
 }
 
 inline Interval
 operator-
-( const Interval&I )
+( Interval const& I )
 {
-  Interval I2( -I._u, -I._l );
-  return I2;
+  return Interval( -I._u, -I._l );
 }
 
 inline Interval
 operator+
-( const double c, const Interval&I )
+( double const& c, Interval const& I )
 {
-  Interval I2( c + I._l, c + I._u );
-  return I2;
+#ifdef MC__INTERVAL_TRACE
+      std::cout << "In operator+(double const&, Interval const&)\n";
+#endif
+  return Interval( c + I._l, c + I._u );
+}
+
+inline Interval &&
+operator+
+( double const& c, Interval && I )
+noexcept
+{
+#ifdef MC__INTERVAL_TRACE
+      std::cout << "In operator+(double const&, Interval &&)\n";
+#endif
+  I._l += c;
+  I._u += c; 
+  return std::move( I );
 }
 
 inline Interval
 operator+
-( const Interval&I, const double c )
+( Interval const& I, double const& c )
 {
-  Interval I2( c + I._l, c + I._u );
-  return I2;
+#ifdef MC__INTERVAL_TRACE
+      std::cout << "In operator+(Interval const&, double const&)\n";
+#endif
+  return Interval( c + I._l, c + I._u );
+}
+
+inline Interval &&
+operator+
+( Interval && I, double const& c )
+noexcept
+{
+#ifdef MC__INTERVAL_TRACE
+      std::cout << "In operator+(Interval &&, double const&)\n";
+#endif
+  I._l += c;
+  I._u += c; 
+  return std::move( I );
 }
 
 inline Interval
 operator+
-( const Interval&I1, const Interval&I2 )
+( Interval const& I1, Interval const& I2 )
 {
-  Interval I3( I1._l+I2._l, I1._u+I2._u );
-  return I3;
+#ifdef MC__INTERVAL_TRACE
+      std::cout << "In operator+(Interval const&, Interval const&)\n";
+#endif
+  return Interval( I1._l+I2._l, I1._u+I2._u );
+}
+
+inline Interval &&
+operator+
+( Interval && I1, Interval const& I2 )
+noexcept
+{
+#ifdef MC__INTERVAL_TRACE
+      std::cout << "In operator+(Interval &&, Interval const&)\n";
+#endif
+  I1._l += I2._l;
+  I1._u += I2._u;
+  return std::move( I1 );
 }
 
 inline Interval
 operator-
-( const double c, const Interval&I )
+( double const& c, Interval const& I )
 {
-  Interval I2( c - I._u, c - I._l );
-  return I2;
+  return Interval( c - I._u, c - I._l );
 }
 
 inline Interval
 operator-
-( const Interval&I, const double c )
+( Interval const& I, double const& c )
 {
-  Interval I2( I._l-c, I._u-c );
-  return I2;
+#ifdef MC__INTERVAL_TRACE
+      std::cout << "In operator-(Interval &&, double const&)\n";
+#endif
+  return Interval( I._l-c, I._u-c );
+}
+
+inline Interval &&
+operator-
+( Interval && I, double const& c )
+noexcept
+{
+#ifdef MC__INTERVAL_TRACE
+      std::cout << "In operator-(Interval &&, double const&)\n";
+#endif
+  I._l -= c;
+  I._u -= c; 
+  return std::move( I );
 }
 
 inline Interval
 operator-
-( const Interval&I1, const Interval&I2 )
+( Interval const& I1, Interval const& I2 )
 {
-  Interval I3( I1._l-I2._u, I1._u-I2._l );
-  return I3;
+#ifdef MC__INTERVAL_TRACE
+      std::cout << "In operator-(Interval const&, Interval const&)\n";
+#endif
+  return Interval( I1._l-I2._u, I1._u-I2._l );
+}
+
+inline Interval &&
+operator-
+( Interval && I1, Interval const& I2 )
+noexcept
+{
+#ifdef MC__INTERVAL_TRACE
+      std::cout << "In operator+(Interval &&, Interval const&)\n";
+#endif
+  I1._l -= I2._l;
+  I1._u -= I2._u;
+  return std::move( I1 );
 }
 
 inline Interval
 operator*
-( const double c, const Interval&I )
+( double const& c, Interval const& I )
 {
-  Interval I2( c>=0? c*I._l: c*I._u, c>=0? c*I._u: c*I._l );
-  return I2;
+  return Interval( c>=0? c*I._l: c*I._u, c>=0? c*I._u: c*I._l );
 }
 
 inline Interval
 operator*
-( const Interval&I, const double c )
+( Interval const& I, double const& c )
 {
-  Interval I2( c>=0? c*I._l: c*I._u, c>=0? c*I._u: c*I._l );
-  return I2;
+  return Interval( c>=0? c*I._l: c*I._u, c>=0? c*I._u: c*I._l );
 }
 
 inline Interval
 operator*
-( const Interval&I1, const Interval&I2 )
+( Interval const& I1, Interval const& I2 )
 {
-  Interval I3( std::min(std::min(I1._l*I2._l,I1._l*I2._u),
-                        std::min(I1._u*I2._l,I1._u*I2._u)),
-               std::max(std::max(I1._l*I2._l,I1._l*I2._u),
-                        std::max(I1._u*I2._l,I1._u*I2._u)) );
-  return I3;
+  return Interval( std::min(std::min(I1._l*I2._l,I1._l*I2._u),
+                            std::min(I1._u*I2._l,I1._u*I2._u)),
+                   std::max(std::max(I1._l*I2._l,I1._l*I2._u),
+                            std::max(I1._u*I2._l,I1._u*I2._u)) );
 }
 
 inline Interval
 operator/
-( const Interval &I, const double c )
+( Interval const& I, double const& c )
 {
   if( isequal(c,0.) ) throw Interval::Exceptions( Interval::Exceptions::DIV );
   return (1./c)*I;
@@ -550,51 +666,50 @@ operator/
 
 inline Interval
 operator/
-( const double c, const Interval&I )
+( double const& c, Interval const& I )
 {
   return c*inv(I);
 }
 
 inline Interval
 operator/
-( const Interval&I1, const Interval&I2 )
+( Interval const& I1, Interval const& I2 )
 {
   return I1*inv(I2);
 }
 
 inline double
 diam
-( const Interval &I )
+( Interval const& I )
 {
   return I._u-I._l;
 }
 
 inline double
 mid
-( const Interval &I )
+( Interval const& I )
 {
   return 0.5*(I._u+I._l);
 }
 
 inline double
 abs
-( const Interval &I )
+( Interval const& I )
 {
   return std::max(std::fabs(I._l),std::fabs(I._u));
 }
 
 inline Interval
 inv
-( const Interval &I )
+( Interval const& I )
 {
   if ( I._l <= 0. && I._u >= 0. ) throw Interval::Exceptions( Interval::Exceptions::INV );
-  Interval I2( 1./I._u, 1./I._l );
-  return I2;
+  return Interval( 1./I._u, 1./I._l );
 }
 
 inline Interval
 sqr
-( const Interval&I )
+( Interval const& I )
 {
   int imid = -1;
   return Interval( mc::sqr( mid(I._l,I._u,0.,imid) ),
@@ -603,21 +718,36 @@ sqr
 
 inline Interval
 exp
-( const Interval &I )
+( Interval const& I )
 {
+#ifdef MC__INTERVAL_TRACE
+  std::cout << "In exp(Interval const&)\n";
+#endif
   return Interval( std::exp(I._l), std::exp(I._u) );
+}
+
+inline Interval&&
+exp
+( Interval && I )
+{
+#ifdef MC__INTERVAL_TRACE
+  std::cout << "In exp(Interval &&)\n";
+#endif
+  I._l = std::exp(I._l);
+  I._u = std::exp(I._u);
+  return std::move( I );
 }
 
 inline Interval
 arh
-( const Interval &I, const double a )
+( Interval const& I, double const& a )
 {
   return exp(-a/I);
 }
 
 inline Interval
 log
-( const Interval &I )
+( Interval const& I )
 {
   if ( I._l <= 0. ) throw Interval::Exceptions( Interval::Exceptions::LOG );
   return Interval( std::log(I._l), std::log(I._u) );
@@ -625,7 +755,7 @@ log
 
 inline Interval
 xlog
-( const Interval&I )
+( Interval const& I )
 {
   if ( I._l < 0. ) throw Interval::Exceptions( Interval::Exceptions::LOG );
   int imid = -1;
@@ -636,7 +766,7 @@ xlog
 //added AVT.SVT 06.06.2017
 inline Interval
 lmtd
-( const Interval&I1, const Interval&I2 )
+( Interval const& I1, Interval const& I2 )
 {
   if ( I1._l <= 0. || I2._l <= 0. ) throw Interval::Exceptions( Interval::Exceptions::LOG );
 
@@ -646,7 +776,7 @@ lmtd
 //added AVT.SVT 06.06.2017
 inline Interval
 rlmtd
-( const Interval&I1, const Interval&I2 )
+( Interval const& I1, Interval const& I2 )
 {
   if ( I1._l <= 0. || I2._l <= 0. ) throw Interval::Exceptions( Interval::Exceptions::LOG );
 
@@ -655,21 +785,21 @@ rlmtd
 
 inline Interval
 erf
-( const Interval &I )
+( Interval const& I )
 {
   return Interval( ::erf(I._l), ::erf(I._u) );
 }
 
 inline Interval
 erfc
-( const Interval &I )
+( Interval const& I )
 {
   return Interval( ::erfc(I._u), ::erfc(I._l) );
 }
 
 inline Interval
 sqrt
-( const Interval&I )
+( Interval const& I )
 {
   if ( I._l < 0. ) throw Interval::Exceptions( Interval::Exceptions::SQRT );
   return Interval( std::sqrt(I._l), std::sqrt(I._u) );
@@ -677,7 +807,7 @@ sqrt
 
 inline Interval
 fabs
-( const Interval&I )
+( Interval const& I )
 {
   int imid = -1;
   return Interval( std::fabs(mid(I._l,I._u,0.,imid)),
@@ -686,7 +816,7 @@ fabs
 
 inline Interval
 relu
-( const Interval&I )
+( Interval const& I )
 {
   return Interval( std::max(I._l,0.),
                    std::max(I._u,0.) );
@@ -694,7 +824,7 @@ relu
 
 inline Interval
 pow
-( const Interval&I, const int n )
+( Interval const& I, const int n )
 {
   if( n == 0 ){
     return 1.;
@@ -737,7 +867,7 @@ monom
 
 inline Interval
 cheb
-( const Interval&I0, const unsigned n )
+( Interval const& I0, const unsigned n )
 {
   Interval I(-1.,1.);
   if( !inter( I, I0, I ) ){
@@ -775,35 +905,35 @@ cheb
 
 inline Interval
 pow
-( const Interval&I, const double a )
+( Interval const& I, double const& a )
 {
   return exp( a * log( I ) );
 }
 
 inline Interval
 pow
-( const Interval&I1, const Interval&I2 )
+( Interval const& I1, Interval const& I2 )
 {
   return exp( I2 * log( I1 ) );
 }
 
 inline Interval
 hull
-( const Interval&I1, const Interval&I2 )
+( Interval const& I1, Interval const& I2 )
 {
   return Interval( std::min( I1._l, I2._l ), std::max( I1._u, I2._u ) );
 }
 
 inline Interval
 min
-( const Interval&I1, const Interval&I2 )
+( Interval const& I1, Interval const& I2 )
 {
   return Interval( std::min( I1._l, I2._l ), std::min( I1._u, I2._u ) );
 }
 
 inline Interval
 max
-( const Interval&I1, const Interval&I2 )
+( Interval const& I1, Interval const& I2 )
 {
   return Interval( std::max( I1._l, I2._l ), std::max( I1._u, I2._u ) );
 }
@@ -828,7 +958,7 @@ max
 
 inline Interval
 cos
-( const Interval&I )
+( Interval const& I )
 {
   const int k = std::ceil(-(1.+I._l/PI)/2.); // -pi <= xL+2*k*pi < pi
   const double l = I._l+2.*PI*k, u = I._u+2.*PI*k;
@@ -844,14 +974,14 @@ cos
 
 inline Interval
 sin
-( const Interval &I )
+( Interval const& I )
 {
   return cos( I - PI/2. );
 }
 
 inline Interval
 tan
-( const Interval&I )
+( Interval const& I )
 {
   const int k = std::ceil(-0.5-I._l/PI); // -pi/2 <= xL+k*pi < pi/2
   const double l = I._l+PI*k, u = I._u+PI*k;
@@ -861,7 +991,7 @@ tan
 
 inline Interval
 acos
-( const Interval &I )
+( Interval const& I )
 {
   if ( I._l < -1. || I._u > 1. ) throw Interval::Exceptions( Interval::Exceptions::ACOS );
   return Interval( std::acos(I._u), std::acos(I._l) );
@@ -869,7 +999,7 @@ acos
 
 inline Interval
 asin
-( const Interval &I )
+( Interval const& I )
 {
   if ( I._l < -1. || I._u > 1. ) throw Interval::Exceptions( Interval::Exceptions::ASIN );
   return Interval( std::asin(I._l), std::asin(I._u) );
@@ -877,14 +1007,14 @@ asin
 
 inline Interval
 atan
-( const Interval &I )
+( Interval const& I )
 {
   return Interval( std::atan(I._l), std::atan(I._u) );
 }
 
 inline Interval
 cosh
-( const Interval &I )
+( Interval const& I )
 {
   int imid = -1;
   return Interval( std::cosh( mid(I._l,I._u,0.,imid) ),
@@ -893,21 +1023,21 @@ cosh
 
 inline Interval
 sinh
-( const Interval &I )
+( Interval const& I )
 {
   return Interval( std::sinh(I._l), std::sinh(I._u) );
 }
 
 inline Interval
 tanh
-( const Interval &I )
+( Interval const& I )
 {
   return Interval( std::tanh(I._l), std::tanh(I._u) );
 }
 
 inline Interval
 fstep
-( const Interval &I )
+( Interval const& I )
 {
   if( I._l >= 0 )     return Interval(1.);
   else if( I._u < 0 ) return Interval(0.);
@@ -916,14 +1046,14 @@ fstep
 
 inline Interval
 bstep
-( const Interval &I )
+( Interval const& I )
 {
   return fstep( -I );
 }
 
 inline std::ostream&
 operator<<
-( std::ostream&out, const Interval&I)
+( std::ostream& out, Interval const& I)
 {
   out << std::right << std::scientific << std::setprecision(Interval::options.DISPLAY_DIGITS);
   out << "[ "  << std::setw(Interval::options.DISPLAY_DIGITS+7) << I.l()
@@ -933,7 +1063,7 @@ operator<<
 
 inline bool
 inter
-( Interval &XIY, const Interval &X, const Interval &Y )
+( Interval& XIY, Interval const& X, Interval const& Y )
 {
   if( X._l > Y._u || Y._l > X._u ) return false;
   XIY._l = std::max( X._l, Y._l );
@@ -943,42 +1073,42 @@ inter
 
 inline bool
 operator==
-( const Interval&I1, const Interval&I2 )
+( Interval const& I1, Interval const& I2 )
 {
   return( I1._l == I2._l && I1._u == I2._u );
 }
 
 inline bool
 operator!=
-( const Interval&I1, const Interval&I2 )
+( Interval const& I1, Interval const& I2 )
 {
   return( I1._l != I2._l || I1._u != I2._u );
 }
 
 inline bool
 operator<=
-( const Interval&I1, const Interval&I2 )
+( Interval const& I1, Interval const& I2 )
 {
   return( I1._l >= I2._l && I1._u <= I2._u );
 }
 
 inline bool
 operator>=
-( const Interval&I1, const Interval&I2 )
+( Interval const& I1, Interval const& I2 )
 {
   return( I1._l <= I2._l && I1._u >= I2._u );
 }
 
 inline bool
 operator<
-( const Interval&I1, const Interval&I2 )
+( Interval const& I1, Interval const& I2 )
 {
   return( I1._l > I2._l && I1._u < I2._u );
 }
 
 inline bool
 operator>
-( const Interval&I1, const Interval&I2 )
+( Interval const& I1, Interval const& I2 )
 {
   return( I1._l < I2._l && I1._u > I2._u );
 }
@@ -1042,7 +1172,7 @@ namespace mc
 template <> struct Op<mc::Interval>
 {
   typedef mc::Interval T;
-  static T point( const double c ) { return T(c); }
+  static T point( double const& c ) { return T(c); }
   static T zeroone() { return T(0.,1.); }
   static void I(T& x, const T&y) { x = y; }
   static double l(const T& x) { return x.l(); }
@@ -1053,6 +1183,7 @@ template <> struct Op<mc::Interval>
   static T inv (const T& x) { return mc::inv(x);  }
   static T sqr (const T& x) { return mc::sqr(x);  }
   static T sqrt(const T& x) { return mc::sqrt(x); }
+  static T&& exp (T&& x) { return mc::exp(std::move(x));  }
   static T exp (const T& x) { return mc::exp(x);  }
   static T log (const T& x) { return mc::log(x);  }
   static T xlog(const T& x) { return mc::xlog(x); }
