@@ -1237,7 +1237,7 @@ public:
   //! @brief Evaluate external operation in U arithmetic, putting the result at position <a>itU</a>
   template <typename U, typename ExtOp, typename... NextOps>
   void evaluate_external
-    ( typename std::vector<U>::iterator itU, U const* pU_dum, 
+    ( typename std::vector<U>::iterator itU, U const* pU_dum, bool const movU,
       ExtOp op, std::tuple<NextOps...> ops )
     const;
   //! @brief Forward external operation propagation in U arithmetic
@@ -1267,7 +1267,7 @@ public:
   //! @brief Emulate virtual templated eval function
   template< typename U >
   void eval
-    ( U& vRes, unsigned const nVar, U const* vVar )
+    ( U& vRes, unsigned const nVar, U const* vVar, bool const mov )
     const;
   //! @brief Emulate virtual templated reval function
   template< typename U >
@@ -1541,12 +1541,15 @@ public:
     //! @brief Constructor
     Options():
       DETECTSIGNOM( true ),
-      CHEBRECURS( true )
+      CHEBRECURS( true ),
+      USEMOVE( true )
       {}
     //! @brief Whether to detect signomial terms as exp(d.log(x)) and handle them as x^d signomial terms
     bool DETECTSIGNOM;
     //! @brief Whether to intersect Chebyshev variables with their recursive expressions -- this may be used to build redundancy in constructing tighter relaxations
     bool CHEBRECURS;
+    //! @brief Whether to enable the move semantic during DAG evaluation
+    bool USEMOVE;
   } options;
 
   //! @brief Number of original variables in DAG
@@ -4259,7 +4262,8 @@ const
 template <typename U, typename ExtOp, typename... NextOps>
 inline void
 FFOp::evaluate_external
-( typename std::vector<U>::iterator itU, U const* pU_dum, ExtOp op, std::tuple<NextOps...> ops )
+( typename std::vector<U>::iterator itU, U const* pU_dum, bool const movU,
+  ExtOp op, std::tuple<NextOps...> ops )
 const
 {
   if( type < FFOp::EXTERN )
@@ -4268,16 +4272,20 @@ const
   // Current operation matches ExtOp type
   if( sameid( typeid(op) ) ){
     pres->val() = &(*itU);
+    pres->mov() = movU;
     if( pops.empty() )
       throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
     else if( pops.size() == 1 )
-      op.eval( *itU, 1, static_cast<U*>( pops[0]->val() ) );
+      op.eval( *itU, 1, static_cast<U*>( pops[0]->val() ), pops[0]->mov() );
     //else if( pops.size() == 2 )
     //  op.eval( *itU, *static_cast<U*>( pops[0]->val() ), *static_cast<U*>( pops[1]->val() ) );
     else{
       std::vector<U> ops_val; ops_val.reserve( pops.size() );
-      for( auto it=pops.begin(); it!=pops.end(); ++it ) ops_val.push_back( *static_cast<U*>( (*it)->val() ) );
-      op.eval( *itU, ops_val.size(), ops_val.data() );
+      for( auto it=pops.begin(); it!=pops.end(); ++it ){
+        if( (*it)->mov() ) ops_val.push_back( std::move( *static_cast<U*>( (*it)->val() ) ) );
+        else               ops_val.push_back( *static_cast<U*>( (*it)->val() ) );
+      }
+      op.eval( *itU, ops_val.size(), ops_val.data(), pops[0]->mov() );
     }
     return;
   }
@@ -4290,14 +4298,14 @@ const
   typedef std::tuple<NextOps...> t_NextOps;
   typedef typename remove_first_type< t_NextOps >::type t_NextNextOps;
   typedef typename first_type_of< NextOps... >::type FirstNextOps;
-  evaluate_external( itU, pU_dum, FirstNextOps(), t_NextNextOps() );
+  evaluate_external( itU, pU_dum, movU, FirstNextOps(), t_NextNextOps() );
   return;
 }   
 
 template <typename U>
 inline void
 FFOp::eval
-( U& vRes, unsigned const nVar, U const* vVar )
+( U& vRes, unsigned const nVar, U const* vVar, bool const mov )
 const
 {
   throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
@@ -4625,13 +4633,14 @@ const
     if( pops.empty() )
       throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
     else if( pops.size() == 1 )
-      op.eval( vres, 1, static_cast<U*>( pops[0]->val() ) );
+      op.eval( vres, 1, static_cast<U*>( pops[0]->val() ), false );
      //else if( pops.size() == 2 )
-    //  op.eval( vres, static_cast<U*>( pops[0]->val() ), static_cast<U*>( pops[1]->val() ) );
+    //  op.eval( vres, static_cast<U*>( pops[0]->val() ), static_cast<U*>( pops[1]->val() ), false );
     else{
       std::vector<U> ops_val; ops_val.reserve( pops.size() );
-      for( auto it=pops.begin(); it!=pops.end(); ++it ) ops_val.push_back( *static_cast<U*>( (*it)->val() ) );
-      op.eval( vres, ops_val.size(), ops_val.data() );
+      for( auto it=pops.begin(); it!=pops.end(); ++it )
+        ops_val.push_back( *static_cast<U*>( (*it)->val() ) );
+      op.eval( vres, ops_val.size(), ops_val.data(), false );
     }
     if( !Op<U>::inter( *static_cast<U*>( pres->val() ), vres,
                        *static_cast<U*>( pres->val() ) ) ) return false;
@@ -6197,7 +6206,7 @@ FFGraph<ExtOps...>::SFAD
       else if( !sizeof...(ExtOps) )
         throw Exceptions( Exceptions::EXTERN );
       else
-        _curOp->evaluate_external( itw, _wkSFAD.data(), FirstExtOps(), t_NextExtOps() );
+        _curOp->evaluate_external( itw, _wkSFAD.data(), false, FirstExtOps(), t_NextExtOps() );
     }
 
     // Copy dependent values in vDep 
@@ -6401,7 +6410,7 @@ FFGraph<ExtOps...>::SBAD
       else if( !sizeof...(ExtOps) )
         throw Exceptions( Exceptions::EXTERN );
       else
-        _curOp->evaluate_external( itw, _wkSBAD.data(), FirstExtOps(), t_NextExtOps() );
+        _curOp->evaluate_external( itw, _wkSBAD.data(), false, FirstExtOps(), t_NextExtOps() );
     }
 
     // Copy values in DepB, IndepB
@@ -6520,7 +6529,7 @@ FFGraph<ExtOps...>::TAD
     else if( !sizeof...(ExtOps) )
       throw Exceptions( Exceptions::EXTERN );
     else
-      _curOp->evaluate_external( itw, _wkTAD.data(), FirstExtOps(), t_NextExtOps() );
+      _curOp->evaluate_external( itw, _wkTAD.data(), false, FirstExtOps(), t_NextExtOps() );
   }
 
   // Set pointers to the dependents
@@ -6695,11 +6704,12 @@ FFGraph<ExtOps...>::compose
     if( is_set )
       _curOp->pres->val() = &(*itWork);
     else if( _curOp->type < FFOp::EXTERN )
-      _curOp->evaluate( itWork, wkDep.data(), mov );
+      _curOp->evaluate( itWork, wkDep.data(), (this->options.USEMOVE? mov: false) );
     else if( !sizeof...(ExtOps) )
       throw Exceptions( Exceptions::EXTERN );
     else
-      _curOp->evaluate_external( itWork, wkDep.data(), FirstExtOps(), t_NextExtOps() );
+      _curOp->evaluate_external( itWork, wkDep.data(), (this->options.USEMOVE? mov: false),
+                                 FirstExtOps(), t_NextExtOps() );
 
     // Check for a corresponding dependent
     auto itNew = vDepComp.begin();
@@ -6972,11 +6982,12 @@ FFGraph<ExtOps...>::eval
 
     // Evaluate current operation
     if( _curOp->type < FFOp::EXTERN )
-      _curOp->evaluate( itU, wkDep.data(), ito->second );
+      _curOp->evaluate( itU, wkDep.data(), (this->options.USEMOVE? ito->second: false) );
     else if( !sizeof...(ExtOps) )
       throw Exceptions( Exceptions::EXTERN );
     else
-      _curOp->evaluate_external( itU, wkDep.data(), FirstExtOps(), t_NextExtOps() );
+      _curOp->evaluate_external( itU, wkDep.data(), (this->options.USEMOVE? ito->second: false),
+                                 FirstExtOps(), t_NextExtOps() );
   }
 
   // Copy dependent values in vDep 
@@ -7207,7 +7218,7 @@ FFGraph<ExtOps...>::reval
         throw Exceptions( Exceptions::EXTERN );
       else{
         try{
-          if( !ipass ) _curOp->evaluate_external( itU, wkDep.data(), FirstExtOps(), t_NextExtOps() );
+          if( !ipass ) _curOp->evaluate_external( itU, wkDep.data(), false, FirstExtOps(), t_NextExtOps() );
           else if( !_curOp->tighten_forward_external( wkDep.data(), FirstExtOps(), t_NextExtOps() ) ) is_feasible = false;
         }
         catch(...){ continue; }
