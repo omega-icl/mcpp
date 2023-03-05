@@ -7049,10 +7049,16 @@ FFGraph<ExtOps...>::eval
   // Copy dependent values in vDep 
   unsigned int i=0;
   for( auto&& op : sgDep.op_dep ){
-    if( !add ) vDep[i++]  = *static_cast<U*>( op->pres->val() );
-    else       vDep[i++] += *static_cast<U*>( op->pres->val() );
+    if( !this->options.USEMOVE || !op->pres->mov() ){
+      if( !add ) vDep[i++]  = *static_cast<U*>( op->pres->val() );
+      else       vDep[i++] += *static_cast<U*>( op->pres->val() );
+    }
+    else{
+      if( !add ) vDep[i++]  = std::move( *static_cast<U*>( op->pres->val() ) );
+      else       vDep[i++] += std::move( *static_cast<U*>( op->pres->val() ) );    
+    }
   }
-
+  
   //std::cout << "#assigned dependents: " << curdep << std::endl;
 #ifdef MC__FFUNC_CPU_EVAL
   cputime += cpuclock();
