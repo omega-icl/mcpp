@@ -1267,7 +1267,7 @@ public:
   //! @brief Emulate virtual templated eval function
   template< typename U >
   void eval
-    ( U& vRes, unsigned const nVar, U const* vVar, bool const mov )
+    ( U& vRes, unsigned const nVar, U const* vVar )
     const;
   //! @brief Emulate virtual templated reval function
   template< typename U >
@@ -4244,8 +4244,13 @@ const
 
    case FFOp::PROD:{
     std::vector<U> ops_val; ops_val.reserve( pops.size() );
-    for( auto it=pops.begin(); it!=pops.end(); ++it ) ops_val.push_back( *static_cast<U*>( (*it)->val() ) );
-    *itU = Op<U>::prod( ops_val.size(), ops_val.data() );
+    for( auto it=pops.begin(); it!=pops.end(); ++it ){
+      if( (*it)->mov() )
+        ops_val.push_back( *static_cast<U*>( std::move( (*it)->val() ) ) );
+      else
+        ops_val.push_back( *static_cast<U*>( (*it)->val() ) );
+    }
+    *itU = std::move( Op<U>::prod( ops_val.size(), ops_val.data() ) );
     break;
    }
 
@@ -4275,17 +4280,30 @@ const
     pres->mov() = movU;
     if( pops.empty() )
       throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
-    else if( pops.size() == 1 )
-      op.eval( *itU, 1, static_cast<U*>( pops[0]->val() ), pops[0]->mov() );
-    //else if( pops.size() == 2 )
-    //  op.eval( *itU, *static_cast<U*>( pops[0]->val() ), *static_cast<U*>( pops[1]->val() ) );
+    else if( pops.size() == 1 ){
+      op.eval( *itU, 1, static_cast<U*>( pops[0]->val() ) );
+//      if( pops[0]->mov() )
+//        *itU = op.eval( std::move( *static_cast<U*>( pops[0]->val() ) ) );
+//      else
+//        *itU = std::move( op.eval( *static_cast<U*>( pops[0]->val() ) ) );
+//    }
+//    else if( pops.size() == 2 ){
+//      if( pops[0]->mov() )
+//        *itU = op.eval( std::move( *static_cast<U*>( pops[0]->val() ) ), *static_cast<U*>( pops[1]->val() ) );
+//      else if( pops[1]->mov() )
+//        *itU = op.eval( std::move( *static_cast<U*>( pops[1]->val() ) ), *static_cast<U*>( pops[0]->val() ) );
+//      else
+//        *itU = std::move( op.eval( *static_cast<U*>( pops[0]->val() ), *static_cast<U*>( pops[0]->val() ) ) );
+    }
     else{
       std::vector<U> ops_val; ops_val.reserve( pops.size() );
-      for( auto it=pops.begin(); it!=pops.end(); ++it ){
-        if( (*it)->mov() ) ops_val.push_back( std::move( *static_cast<U*>( (*it)->val() ) ) );
-        else               ops_val.push_back( *static_cast<U*>( (*it)->val() ) );
+      for( auto const& pvar : pops ){
+        if( pvar->mov() )
+          ops_val.push_back( std::move( *static_cast<U*>( pvar->val() ) ) );
+        else
+          ops_val.push_back( *static_cast<U*>( pvar->val() ) );
       }
-      op.eval( *itU, ops_val.size(), ops_val.data(), pops[0]->mov() );
+      op.eval( *itU, ops_val.size(), ops_val.data() );
     }
     return;
   }
@@ -4300,12 +4318,51 @@ const
   typedef typename first_type_of< NextOps... >::type FirstNextOps;
   evaluate_external( itU, pU_dum, movU, FirstNextOps(), t_NextNextOps() );
   return;
-}   
+}
+
+//template <typename U>
+//inline U&&
+//FFOp::eval
+//( U&& Var )
+//const
+//{
+//  return eval( std::forward( Var ) );
+//}
+
+//template <typename U>
+//inline U
+//FFOp::eval
+//( U const& Var )
+//const
+//{
+//  return eval( 1, &Var );
+//}
+
+//template <typename U>
+//inline U&&
+//FFOp::eval
+//( U&& Var1, U const& Var2 )
+//const
+//{
+//  return eval( std::forward( Var1 ), Var2 );
+//}
+
+//template <typename U>
+//inline U
+//FFOp::eval
+//( U const& Var1, U const& Var2 )
+//const
+//{
+//  std::vector<U> vVar; vVar.reserve( 2 );
+//  ops_val.push_back( std::move( *static_cast<U*>( Var1.val() ) ) );
+//  ops_val.push_back( *static_cast<U*>( Var2.val() ) );
+//  return eval( 1, &vVar );
+//}
 
 template <typename U>
 inline void
 FFOp::eval
-( U& vRes, unsigned const nVar, U const* vVar, bool const mov )
+( U& vRes, unsigned const nVar, U const* vVar )
 const
 {
   throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
@@ -4633,14 +4690,14 @@ const
     if( pops.empty() )
       throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
     else if( pops.size() == 1 )
-      op.eval( vres, 1, static_cast<U*>( pops[0]->val() ), false );
+      op.eval( vres, 1, static_cast<U*>( pops[0]->val() ) );
      //else if( pops.size() == 2 )
     //  op.eval( vres, static_cast<U*>( pops[0]->val() ), static_cast<U*>( pops[1]->val() ), false );
     else{
       std::vector<U> ops_val; ops_val.reserve( pops.size() );
       for( auto it=pops.begin(); it!=pops.end(); ++it )
         ops_val.push_back( *static_cast<U*>( (*it)->val() ) );
-      op.eval( vres, ops_val.size(), ops_val.data(), false );
+      op.eval( vres, ops_val.size(), ops_val.data() );
     }
     if( !Op<U>::inter( *static_cast<U*>( pres->val() ), vres,
                        *static_cast<U*>( pres->val() ) ) ) return false;
@@ -6704,12 +6761,11 @@ FFGraph<ExtOps...>::compose
     if( is_set )
       _curOp->pres->val() = &(*itWork);
     else if( _curOp->type < FFOp::EXTERN )
-      _curOp->evaluate( itWork, wkDep.data(), (this->options.USEMOVE? mov: false) );
+      _curOp->evaluate( itWork, wkDep.data(), false );
     else if( !sizeof...(ExtOps) )
       throw Exceptions( Exceptions::EXTERN );
     else
-      _curOp->evaluate_external( itWork, wkDep.data(), (this->options.USEMOVE? mov: false),
-                                 FirstExtOps(), t_NextExtOps() );
+      _curOp->evaluate_external( itWork, wkDep.data(), false, FirstExtOps(), t_NextExtOps() );
 
     // Check for a corresponding dependent
     auto itNew = vDepComp.begin();

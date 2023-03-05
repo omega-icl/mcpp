@@ -162,6 +162,59 @@ int test_eval()
 
 ///////////////////////////////////////////////////////////////////////////////
 
+int test_move()
+{
+  std::cout << "\n==============================================\ntest_move:\n";
+
+  // DAG environment
+  mc::FFGraph DAG;
+  // Independent variables and derivative direction
+  const unsigned int NX = 1;
+  mc::FFVar X[NX];
+  for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
+  // Dependent variables
+  const unsigned int NF = 1;
+  mc::FFVar F[NF]
+    = { tanh( 0.8*tanh( 0.8*tanh( 0.8*X[0] + 0.1 ) + 0.1 ) + 0.1 ) };
+
+  auto sgF = DAG.subgraph( 1, F );
+  DAG.output( sgF, " OF F" );
+
+  // Evaluation in interval arithmetic
+  try{
+    I IX[NX] = { I(-0.5,0.5) }, IF[NF];
+    DAG.eval( sgF, NF, F, IF, NX, X, IX );
+    // Display results
+    for( unsigned i=0; i<NF; i++ )
+      std::cout << "  F("<< i << ") = " << IF[i] << std::endl;
+  }
+  catch(...){
+    std::cout << "\nInterval propagation failed\n";
+  }
+
+  // Evaluation in interval superposition arithmetic
+  try{
+    const unsigned DIV = 16;
+    ISM ISenv( NX, DIV );
+    ISV ISX[NX], ISF[NF];
+    I IX[NX] = { I(-0.5,0.5) };
+    for( unsigned i=0; i<NX; i++ ) ISX[i].set( &ISenv, i, IX[i] );
+    DAG.eval( NF, F, ISF, NX, X, ISX );
+    // Display results
+    for( unsigned i=0; i<NF; i++ ){
+      std::cout << "  F(" << i << ") = " << ISF[i] << std::endl;
+      std::cout << "  F(" << i << ") = " << tanh( 0.8*tanh( 0.8*tanh( 0.8*ISX[0] + 0.1 ) + 0.1 ) + 0.1 ) << std::endl;
+    }
+  }
+  catch(...){
+    std::cout << "\nInterval superposition propagation failed\n";
+  }
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 namespace mc
 {
 class FFnorm2
@@ -269,9 +322,10 @@ int test_extern()
 int main()
 {
   try{
-    //test_build();
+    test_build();
     test_eval();
-    //test_extern();
+    test_move();
+    test_extern();
   }
   catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
