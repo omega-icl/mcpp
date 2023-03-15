@@ -66,7 +66,7 @@ public:
 
   // Evaluation overloads
   template< typename T > void eval
-    ( T& vRes, unsigned const nVar, T const* vVar )
+    ( T& vRes, unsigned const nVar, T const* vVar, bool const* mVar )
     const
     {
       switch( nVar ){
@@ -76,12 +76,6 @@ public:
                  for( unsigned i=1; i<nVar; ++i ) vRes += Op<T>::sqr( vVar[i] );
                  vRes = Op<T>::sqrt( vRes ); break;
       }
-    }
-  void eval
-    ( FFVar& vRes, unsigned const nVar, FFVar const* pVar )
-    const
-    {
-      vRes = operator()( nVar, pVar );
     }
 
   // Properties
@@ -118,7 +112,7 @@ public:
 
   // Evaluation overloads
   template< typename T > void eval
-    ( T& vRes, unsigned const nVar, T const* vVar )
+    ( T& vRes, unsigned const nVar, T const* vVar, bool const* mVar )
     const
     { 
       assert( nVar == 1 );
@@ -126,19 +120,12 @@ public:
       vRes = vVar[0] * Op<T>::log( vVar[0] );
     }
   template< typename T > void eval
-    ( McCormick<T>& vRes, unsigned const nVar, McCormick<T> const* vVar )
+    ( McCormick<T>& vRes, unsigned const nVar, McCormick<T> const* vVar, bool const* mVar )
     const
     {
       assert( nVar == 1 );
       std::cout << "xlog McCormick instantiation\n"; 
       vRes = xlog( vVar[0] );
-    }
-  void eval
-    ( FFVar& vRes, unsigned const nVar, FFVar const* vVar )
-    const
-    {
-      assert( nVar == 1 );
-      vRes = operator()( vVar[0] );
     }
 
   // Properties
@@ -176,7 +163,7 @@ public:
 
   // Evaluation overloads
   template< typename T > void eval
-    ( T& vRes, unsigned const nVar, T const* vVar )
+    ( T& vRes, unsigned const nVar, T const* vVar, bool const* mVar )
     const
     {
       std::cout << "Det generic instantiation\n"; 
@@ -188,7 +175,7 @@ public:
       }
     }
   void eval
-    ( double& vRes, unsigned const nVar, double const* pVar )
+    ( double& vRes, unsigned const nVar, double const* pVar, bool const* mVar )
     const
     {
       std::cout << "Det double instantiation\n"; 
@@ -199,12 +186,6 @@ public:
           Amat(i,j) = pVar[i+j*nDim];
       if( dgeqrf( Amat, vRes ) )
         throw FFBase::Exceptions( FFBase::Exceptions::EXTERN );
-    }
-  void eval
-    ( FFVar& vRes, unsigned const nVar, FFVar const* pVar )
-    const
-    {
-      vRes = operator()( nVar, pVar );
     }
 
   // Properties

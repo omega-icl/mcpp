@@ -1,4 +1,6 @@
 #define TEST_MOVE
+//#define MC__INTERVAL_TRACE
+//#define MC__FFUNC_EVAL_MOVEVAR
 ////////////////////////////////////////////////////////////////////////
 
 #include <fstream>
@@ -89,7 +91,7 @@ int test_eval()
   const unsigned int NF = 2;
   mc::FFVar F[NF]
     = { X[2]*X[3]-X[0],
-        X[0]*pow(exp(X[2]*X[3])+3.,4)+X[1] };
+        X[0]*pow(-exp(X[2]*X[3])+3.,4)+X[1] };
   // DAG of second-order derivatives
   const mc::FFVar* dFdXdir = DAG.DFAD( NF, F, NX, X, D );
 
@@ -240,22 +242,27 @@ public:
 
   // Evaluation overloads
   template< typename T > void eval
-    ( T& vRes, unsigned const nVar, T const* vVar )
+    ( T& vRes, unsigned const nVar, T const* vVar, bool const* mVar )
     const
     {
       switch( nVar ){
-        case 0: vRes = T( 0. ); break;
-        case 1: vRes = vVar[0]; break;
-        default: vRes = Op<T>::sqr( vVar[0] );
-                 for( unsigned i=1; i<nVar; ++i ) vRes += Op<T>::sqr( vVar[i] );
-                 vRes = Op<T>::sqrt( vRes ); break;
+        case 0:  vRes = T( 0. );
+                 break;
+        case 1:  if( mVar && mVar[0] ) vRes = std::move( vVar[0] );
+                 else                  vRes = vVar[0];
+                 break;
+        default: if( mVar && mVar[0] ) vRes = Op<T>::sqr( std::move( vVar[0] ) );
+                 else                  vRes = Op<T>::sqr( vVar[0] );
+                 std::cout << "Moveable Var[" << 0 << "]: " << mVar[0] << std::endl;
+                 vRes = Op<T>::sqr( vVar[0] );
+                 for( unsigned i=1; i<nVar; ++i ){
+                   if( mVar && mVar[i] ) vRes += Op<T>::sqr( std::move( vVar[i] ) );
+                   else                  vRes += Op<T>::sqr( vVar[i] );
+                   std::cout << "Moveable Var[" << i << "]: " << mVar[i] << std::endl;
+                 }
+                 vRes = Op<T>::sqrt( std::move( vRes ) );
+                 break;
       }
-    }
-  void eval
-    ( FFVar& vRes, unsigned const nVar, FFVar const* pVar )
-    const
-    {
-      vRes = operator()( nVar, pVar );
     }
 
   // Properties
@@ -281,12 +288,13 @@ int test_extern()
   mc::FFVar X[NX];
   for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
   mc::FFnorm2 norm2;
-  mc::FFVar F = norm2( NX, X );
+  mc::FFVar F = norm2( NX, X ) - X[0];
   std::cout << DAG;
 
   // Evaluation in interval arithmetic
   try{
     I IX[NX] = { I(0,0.5), I(1,2), I(-1,-0.8) }, IF;
+    DAG.output( DAG.subgraph( 1, &F ), " norm2" );
     DAG.eval( 1, &F, &IF, NX, X, IX );
     // Display results
     std::cout << "  " << F << " = " << IF << std::endl;
