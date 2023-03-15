@@ -633,11 +633,11 @@ private:
 
   //! @brief Apply the Clenshaw algorithm
   SCVar<T,KEY,COMP> _clenshaw
-    ( SCVar<T,KEY,COMP> const& CVinner, unsigned const maxord );
+    ( SCVar<T,KEY,COMP> && CVinner, unsigned const maxord );
 
   //! @brief Apply the Horner algorithm
   SCVar<T,KEY,COMP> _horner
-    ( SCVar<T,KEY,COMP> const& CVinner, unsigned const maxord );
+    ( SCVar<T,KEY,COMP> && CVinner, unsigned const maxord );
 
   //! @brief Compose interpolating polynomial for univariate <a>f</a> with Chebyshev variable <a>CV</a> and return resulting Chebyshev variable in <a>CV2</a>
   template <typename PUNIV>
@@ -789,6 +789,8 @@ class SCVar
 
   template <typename U, typename K, typename C> friend SCVar<U,K,C> operator-
     ( const SCVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SCVar<U,K,C> operator-
+    ( SCVar<U,K,C>&& );
   template <typename U, typename K, typename C> friend SCVar<U,K,C> operator*
     ( const SCVar<U,K,C>&, const SCVar<U,K,C>& );
   template <typename U, typename K, typename C> friend std::ostream& operator<<
@@ -1267,7 +1269,11 @@ private:
   //! @brief Scale current variable in order for its range to be within [-1,1], with <a>c</a> and <a>w</a> respectively the center and width, respectively, of the orginal variable range
   SCVar<T,KEY,COMP> _rescale
     ( double const& w, double const& c ) const
-    { return( !isequal(w,0.)? (*this-c)/w: c ); }
+    {
+#ifdef MC__SCMODEL_TRACE
+      std::cerr << "-- SCVar<T,KEY,COMP>& _rescale( double const&, double const& )\n";
+#endif
+      return( !isequal(w,0.)? (*this-c)/w: c ); }
 
   //! @brief Scale variable <a>var</a>
   template <typename U> static
@@ -1526,14 +1532,17 @@ SCModel<T,KEY,COMP>::_minimax
     double rem = _minimax( [=]( const double& x ){ return f( r*x + m ); } );
     assert( _coefuniv.size() == _maxord+1 );
 
-    SCVar<T,KEY,COMP> CVI( this );
-    CVI = CV._rescale(r,m);
+    //SCVar<T,KEY,COMP> CVI( this );
+//#ifdef MC__SCMODEL_DEBUG_COMPOSITION
+    //std::cout << "CVI:" << CVI;
+//#endif
+    //CVI = CV._rescale(r,m);
     switch( options.BASIS ){
     case Options::CHEB:
-      CV2 = _clenshaw( CVI, _maxord ) + TOne * rem;
+      CV2 = _clenshaw( CV._rescale(r,m), _maxord ) + TOne * rem;
       break;
     case Options::MONOM:
-      CV2 = _horner( CVI, _maxord ) + TOne * rem;
+      CV2 = _horner( CV._rescale(r,m), _maxord ) + TOne * rem;
       break;
     }
     if( options.MIG_USE ) CV2.simplify( options.MIG_ATOL, options.MIG_RTOL );
@@ -1634,7 +1643,7 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>
 SCModel<T,KEY,COMP>::_horner
-( SCVar<T,KEY,COMP> const& CVinner, unsigned const maxord )
+( SCVar<T,KEY,COMP> && CVinner, unsigned const maxord )
 {
   assert( maxord < _coefuniv.size() );
   
@@ -1658,7 +1667,7 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>
 SCModel<T,KEY,COMP>::_clenshaw
-( SCVar<T,KEY,COMP> const& CVinner, unsigned const maxord )
+( SCVar<T,KEY,COMP> && CVinner, unsigned const maxord )
 {
   assert( maxord < _coefuniv.size() );
   
@@ -1669,16 +1678,14 @@ SCModel<T,KEY,COMP>::_clenshaw
     return CVinner * _coefuniv[1] + _coefuniv[0];
 
   //composition based on http://en.wikipedia.org/wiki/Clenshaw_algorithm#Special_case_for_Chebyshev_series
-  SCVar<T,KEY,COMP> CVinnerx2 = 2. * CVinner;
 #ifdef MC__SCMODEL_DEBUG_COMPOSITION
   std::cout << "CVinner:" << CVinner;
-  std::cout << "CVinnerx2:" << CVinnerx2;
 #endif
   SCVar<T,KEY,COMP> CV1 = _coefuniv[maxord];
 #ifdef MC__SCMODEL_DEBUG_COMPOSITION
   std::cout << "CV1:" << CV1;
 #endif
-  SCVar<T,KEY,COMP> CV2 = _coefuniv[maxord-1] + CVinnerx2 * CV1;
+  SCVar<T,KEY,COMP> CV2 = _coefuniv[maxord-1] + 2 * CVinner * CV1;
 #ifdef MC__SCMODEL_DEBUG_COMPOSITION
   std::cout << "CV2:" << CV2;
 #endif
@@ -1689,11 +1696,11 @@ SCModel<T,KEY,COMP>::_clenshaw
     std::cout << "_coefuniv[i]:" << _coefuniv[i];
     std::cout << "_coefuniv[i] + CVinnerx2 * CV2" << _coefuniv[i] + CVinnerx2 * CV2;
 #endif
-    CV1 = _coefuniv[i]   + CVinnerx2 * CV2 - CV1;
+    CV1 = _coefuniv[i]   + 2 * CVinner * CV2 - CV1;
 #ifdef MC__SCMODEL_DEBUG_COMPOSITION
     std::cout << "CV1:" << CV1;
 #endif
-    CV2 = _coefuniv[i-1] + CVinnerx2 * CV1 - CV2;
+    CV2 = _coefuniv[i-1] + 2 * CVinner * CV1 - CV2;
 #ifdef MC__SCMODEL_DEBUG_COMPOSITION
     std::cout << "CV2:" << CV2;
 #endif
@@ -1709,7 +1716,7 @@ SCModel<T,KEY,COMP>::_clenshaw
 #endif
   }
 
-  CV1 = _coefuniv[1] + CVinnerx2 * CV2 - CV1;
+  CV1 = _coefuniv[1] + 2 * CVinner * CV2 - CV1;
 #ifdef MC__SCMODEL_DEBUG_COMPOSITION
   std::cout << "CV1:" << CV1;
   std::cout << "CVinner * CV1:" << CVinner * CV1;
@@ -1838,7 +1845,7 @@ const
   if( n == 0 ) return 1.;
   else if( n == 1 ) return CV;
   else if( n == 2 ) return sqr( CV );
-  return n%2 ? sqr( _intpow( CV, n/2 ) ) * CV : sqr( _intpow( CV, n/2 ) );
+  return n%2 ? sqr( _intpow( CV, n/2 ) ) *= CV : sqr( _intpow( CV, n/2 ) );
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -2435,6 +2442,9 @@ inline
 SCVar<T,KEY,COMP>::SCVar
 ( SCVar<T,KEY,COMP> const& CV )
 {
+#ifdef MC__SCMODEL_TRACE
+    std::cerr << "-- SCVar<T,KEY,COMP>( SCVar<T,KEY,COMP> const& )\n";
+#endif
   _init();
   _set( CV );
 }
@@ -2445,6 +2455,9 @@ SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::operator=
 ( SCVar<T,KEY,COMP> const& CV )
 {
+#ifdef MC__SCMODEL_TRACE
+    std::cerr << "-- SCVar<T,KEY,COMP>& operator= ( SCVar<T,KEY,COMP> const& )\n";
+#endif
   _set( CV );
   return *this;
 }
@@ -3151,12 +3164,24 @@ operator+
 }
 
 template <typename T, typename KEY, typename COMP>
+inline
+SCVar<T,KEY,COMP> &&
+operator+
+( SCVar<T,KEY,COMP> && CV )
+{
+  return std::move( CV );
+}
+
+template <typename T, typename KEY, typename COMP>
 template <typename U>
 inline
 SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::operator+=
 ( SCVar<U,KEY,COMP> const& CV )
 {
+#ifdef MC__SCMODEL_TRACE
+    std::cerr << "-- SCVar<T,KEY,COMP>& operator+= ( SCVar<T,KEY,COMP> const& )\n";
+#endif
   if( _CM && CV._CM && _CM != CV._CM )
     throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::MODEL );
   if( CV._CM && !_CM ) _CM = CV._CM;
@@ -3194,11 +3219,50 @@ operator+
 }
 
 template <typename T, typename KEY, typename COMP>
+inline SCVar<T,KEY,COMP>
+operator+
+( SCVar<T,KEY,COMP> && CV1, SCVar<T,KEY,COMP> const& CV2 )
+{
+    SCVar<T,KEY,COMP> CV3( std::move( CV1 ) );
+    CV3 += CV2;
+    return CV3;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline SCVar<T,KEY,COMP>
+operator+
+( SCVar<T,KEY,COMP> const& CV1, SCVar<T,KEY,COMP> && CV2 )
+{
+    SCVar<T,KEY,COMP> CV3( std::move( CV2 ) );
+    CV3 += CV1;
+    return CV3;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline SCVar<T,KEY,COMP>
+operator+
+( SCVar<T,KEY,COMP> && CV1, SCVar<T,KEY,COMP> && CV2 )
+{
+  if( CV1.nmon() >= CV2.nmon() ){
+    SCVar<T,KEY,COMP> CV3( std::move( CV1 ) );
+    CV3 += CV2;
+    return CV3;
+  }
+  
+  SCVar<T,KEY,COMP> CV3( std::move( CV2 ) );
+  CV3 += CV1;
+  return CV3;
+}
+
+template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::operator +=
 ( double const& c )
 {
+#ifdef MC__SCMODEL_TRACE
+    std::cerr << "-- SCVar<T,KEY,COMP>& operator+= ( double const& )\n";
+#endif
   if( c == 0. ) return *this;
   auto [itcst, ins] = _coefmon.insert( std::make_pair( t_mon(), c ) );
   if( !ins ){
@@ -3233,12 +3297,37 @@ operator+
 }
 
 template <typename T, typename KEY, typename COMP>
+inline
+SCVar<T,KEY,COMP>
+operator+
+( SCVar<T,KEY,COMP> && CV1, double const& c )
+{
+  SCVar<T,KEY,COMP> CV3( std::move( CV1 ) );
+  CV3 += c;
+  return CV3;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
+SCVar<T,KEY,COMP>
+operator+
+( double const& c, SCVar<T,KEY,COMP> && CV2 )
+{
+  SCVar<T,KEY,COMP> CV3( std::move( CV2 ) );
+  CV3 += c;
+  return CV3;
+}
+
+template <typename T, typename KEY, typename COMP>
 template <typename U>
 inline
 SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::operator+=
 ( U const& B )
 {
+#ifdef MC__SCMODEL_TRACE
+    std::cerr << "-- SCVar<T,KEY,COMP>& operator+= ( U const& )\n";
+#endif
   if( Op<T>::abs(B) == 0. ) return *this;
   _bndrem += B;
   _center();
@@ -3271,20 +3360,62 @@ operator+
 template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>
+operator+
+( SCVar<T,KEY,COMP> && CV1, T const& B )
+{
+  SCVar<T,KEY,COMP> CV3( std::move( CV1 ) );
+  CV3 += B;
+  return CV3;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
+SCVar<T,KEY,COMP>
+operator+
+( T const& B, SCVar<T,KEY,COMP> && CV2 )
+{
+  SCVar<T,KEY,COMP> CV3( std::move( CV2 ) );
+  CV3 += B;
+  return CV3;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
+SCVar<T,KEY,COMP>
 operator-
 ( SCVar<T,KEY,COMP> const& CV )
 {
-  //std::cout << "CV:" << CV;
+#ifdef MC__SCMODEL_TRACE
+    std::cerr << "-- SCVar<T,KEY,COMP> operator- ( SCVar<T,KEY,COMP> const& )\n";
+#endif
   SCVar<T,KEY,COMP> CV2;
   CV2.set( CV._CM );
   CV2._ndxvar = CV._ndxvar;
   for( auto& [mon,coef] : CV._coefmon )
     CV2._coefmon.insert( std::make_pair( mon, -coef ) );
   CV2._bndrem = - CV._bndrem;
+
   if( CV._bndpol ) CV2._set_bndpol( - *CV._bndpol );
   if( CV._bndT )   CV2._set_bndT( - *CV._bndT );
-  //std::cout << "-CV:" << CV2;
   return CV2;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
+SCVar<T,KEY,COMP>
+operator-
+( SCVar<T,KEY,COMP> && CV )
+{
+#ifdef MC__SCMODEL_TRACE
+    std::cerr << "-- SCVar<T,KEY,COMP> operator- ( SCVar<T,KEY,COMP>&& )\n";
+#endif
+  for( auto& [mon,coef] : CV._coefmon )
+    coef = - coef;
+  CV._bndrem = - CV._bndrem;
+
+  if( CV._bndpol ) *CV._bndpol = - *CV._bndpol;
+  if( CV._bndT )   *CV._bndT   = - *CV._bndT;
+  return SCVar<T,KEY,COMP>( std::move( CV ) );
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -3294,6 +3425,9 @@ SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::operator-=
 ( SCVar<U,KEY,COMP> const& CV )
 {
+#ifdef MC__SCMODEL_TRACE
+    std::cerr << "-- SCVar<T,KEY,COMP>& operator-= ( SCVar<T,KEY,COMP> const& )\n";
+#endif
   if( _CM && CV._CM && _CM != CV._CM )
     throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::MODEL );
   if( CV._CM && !_CM ) _CM = CV._CM;
@@ -3332,12 +3466,51 @@ operator-
 }
 
 template <typename T, typename KEY, typename COMP>
+inline SCVar<T,KEY,COMP>
+operator-
+( SCVar<T,KEY,COMP> && CV1, SCVar<T,KEY,COMP> const& CV2 )
+{
+    SCVar<T,KEY,COMP> CV3( std::move( CV1 ) );
+    CV3 -= CV2;
+    return CV3;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline SCVar<T,KEY,COMP>
+operator-
+( SCVar<T,KEY,COMP> const& CV1, SCVar<T,KEY,COMP> && CV2 )
+{
+    SCVar<T,KEY,COMP> CV3( std::move( -CV2 ) );
+    CV3 += CV1;
+    return CV3;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline SCVar<T,KEY,COMP>
+operator-
+( SCVar<T,KEY,COMP> && CV1, SCVar<T,KEY,COMP> && CV2 )
+{
+  if( CV1.nmon() >= CV2.nmon() ){
+    SCVar<T,KEY,COMP> CV3( std::move( CV1 ) );
+    CV3 -= CV2;
+    return CV3;
+  }
+  
+  SCVar<T,KEY,COMP> CV3( std::move( -CV2 ) );
+  CV3 += CV1;
+  return CV3;
+}
+
+template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::operator-=
 ( double const& c )
 {
-  if( c == 0. ) return *this;
+#ifdef MC__SCMODEL_TRACE
+    std::cerr << "-- SCVar<T,KEY,COMP>& operator-= ( double const& )\n";
+#endif
+ if( c == 0. ) return *this;
   auto [itcst, ins] = _coefmon.insert( std::make_pair( t_mon(), -c ) );
   if( !ins ){
     itcst->second -= c;
@@ -3371,12 +3544,37 @@ operator-
 }
 
 template <typename T, typename KEY, typename COMP>
+inline
+SCVar<T,KEY,COMP>
+operator-
+( SCVar<T,KEY,COMP> && CV1, double const& c )
+{
+  SCVar<T,KEY,COMP> CV3( std::move( CV1 ) );
+  CV3 -= c;
+  return CV3;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
+SCVar<T,KEY,COMP>
+operator-
+( double const& c, SCVar<T,KEY,COMP> && CV2 )
+{
+  SCVar<T,KEY,COMP> CV3( std::move( -CV2 ) );
+  CV3 += c;
+  return CV3;
+}
+
+template <typename T, typename KEY, typename COMP>
 template <typename U>
 inline
 SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::operator-=
 ( U const& I )
 {
+#ifdef MC__SCMODEL_TRACE
+    std::cerr << "-- SCVar<T,KEY,COMP>& operator-= ( U const& )\n";
+#endif
   if( Op<T>::abs(B) == 0. ) return *this;
   *_bndrem -= B;
   _center();
@@ -3407,6 +3605,28 @@ operator-
 
 template <typename T, typename KEY, typename COMP>
 inline
+SCVar<T,KEY,COMP>
+operator-
+( SCVar<T,KEY,COMP> && CV1, T const& B )
+{
+  SCVar<T,KEY,COMP> CV3( std::move( CV1 ) );
+  CV3 -= B;
+  return CV3;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
+SCVar<T,KEY,COMP>
+operator-
+( T const& B, SCVar<T,KEY,COMP> && CV2 )
+{
+  SCVar<T,KEY,COMP> CV3( std::move( -CV2 ) );
+  CV3 += B;
+  return CV3;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
 SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::operator*=
 ( SCVar<T,KEY,COMP> const& CV )
@@ -3415,7 +3635,10 @@ SCVar<T,KEY,COMP>::operator*=
     *this = sqr( CV );
     return *this;
   }
-   
+
+#ifdef MC__SCMODEL_TRACE
+    std::cerr << "-- SCVar<T,KEY,COMP>& operator*= ( SCVar<T,KEY,COMP> const& )\n";
+#endif   
   if( _CM && CV._CM && _CM != CV._CM )
     throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::MODEL );
   if( CV._CM && !_CM ) _CM = CV._CM;
@@ -3474,6 +3697,7 @@ operator*
 ( SCVar<T,KEY,COMP> const& CV1, SCVar<T,KEY,COMP> const& CV2 )
 {
   if( &CV1 == &CV2 ) return sqr( CV1 );
+  
   if( CV1.nmon() >= CV2.nmon() ){
     SCVar<T,KEY,COMP> CV3( CV1 );
     CV3 *= CV2;
@@ -3486,11 +3710,50 @@ operator*
 }
 
 template <typename T, typename KEY, typename COMP>
+inline SCVar<T,KEY,COMP>
+operator*
+( SCVar<T,KEY,COMP> && CV1, SCVar<T,KEY,COMP> const& CV2 )
+{
+    SCVar<T,KEY,COMP> CV3( std::move( CV1 ) );
+    CV3 *= CV2;
+    return CV3;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline SCVar<T,KEY,COMP>
+operator*
+( SCVar<T,KEY,COMP> const& CV1, SCVar<T,KEY,COMP> && CV2 )
+{
+    SCVar<T,KEY,COMP> CV3( std::move( CV2 ) );
+    CV3 *= CV1;
+    return CV3;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline SCVar<T,KEY,COMP>
+operator*
+( SCVar<T,KEY,COMP> && CV1, SCVar<T,KEY,COMP> && CV2 )
+{
+  if( CV1.nmon() >= CV2.nmon() ){
+    SCVar<T,KEY,COMP> CV3( std::move( CV1 ) );
+    CV3 *= CV2;
+    return CV3;
+  }
+  
+  SCVar<T,KEY,COMP> CV3( std::move( CV2 ) );
+  CV3 *= CV1;
+  return CV3;
+}
+
+template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::operator*=
 ( double const& c )
 {
+#ifdef MC__SCMODEL_TRACE
+    std::cerr << "-- SCVar<T,KEY,COMP>& operator*= ( double const& )\n";
+#endif
   if( c == 0. ){ *this = 0.; return *this; }
   if( c == 1. ) return *this;
   for( auto& [mon,coef] : _coefmon ) coef *= c;
@@ -3524,10 +3787,35 @@ operator*
 
 template <typename T, typename KEY, typename COMP>
 inline
+SCVar<T,KEY,COMP>
+operator*
+( SCVar<T,KEY,COMP> && CV1, double const& c )
+{
+  SCVar<T,KEY,COMP> CV3( std::move( CV1 ) );
+  CV3 *= c;
+  return CV3;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
+SCVar<T,KEY,COMP>
+operator*
+( double const& c, SCVar<T,KEY,COMP> && CV2 )
+{
+  SCVar<T,KEY,COMP> CV3( std::move( CV2 ) );
+  CV3 *= c;
+  return CV3;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
 SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::operator*=
 ( T const& B )
 {
+#ifdef MC__SCMODEL_TRACE
+    std::cerr << "-- SCVar<T,KEY,COMP>& operator*= ( T const& )\n";
+#endif
   if( Op<T>::abs(B) == 0. ){ *this  = 0.; return *this; }
   double const Bmid = Op<T>::mid(B);
   T const bndmod = bound();
@@ -3564,15 +3852,40 @@ operator*
 template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>
+operator*
+( SCVar<T,KEY,COMP> && CV1, T const& B )
+{
+  SCVar<T,KEY,COMP> CV3( std::move( CV1 ) );
+  CV3 *= B;
+  return CV3;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
+SCVar<T,KEY,COMP>
+operator*
+( T const& B, SCVar<T,KEY,COMP> && CV2 )
+{
+  SCVar<T,KEY,COMP> CV3( std::move( CV2 ) );
+  CV3 *= B;
+  return CV3;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
+SCVar<T,KEY,COMP>
 sqr
 ( SCVar<T,KEY,COMP> const& CV )
 {
+#ifdef MC__SCMODEL_TRACE
+    std::cerr << "-- SCVar<T,KEY,COMP> sqr( SCVar<T,KEY,COMP> const& )\n";
+#endif
   if( !CV._CM ) return Op<T>::sqr( CV.B() );
 
   // Coefficient maps for first participating variable
   auto itvar = CV._ndxvar.begin();
   std::map<unsigned,typename SCVar<T,KEY,COMP>::t_poly> sp1map;
-  for( auto&& mon : CV._coefmon ) CV._CM->_svec1D( itvar, mon, sp1map );
+  for( auto const& mon : CV._coefmon ) CV._CM->_svec1D( itvar, mon, sp1map );
 #ifdef MC__SPOLYEXPR_DEBUG_SQR
   std::cout << "Var: " << CV;
   CV._CM->_sdisp1D( sp1map, itvar, "Var: " );
@@ -3622,6 +3935,48 @@ operator/
 }
 
 template <typename T, typename KEY, typename COMP>
+inline SCVar<T,KEY,COMP>
+operator/
+( SCVar<T,KEY,COMP> && CV1, SCVar<T,KEY,COMP> const& CV2 )
+{
+  if( CV1.nmon() >= CV2.nmon() ){
+    SCVar<T,KEY,COMP> CV3( std::move( CV1 ) );
+    CV3 /= CV2;
+    return CV3;
+  }
+
+  SCVar<T,KEY,COMP> CV3( std::move( inv( CV2 ) ) );
+  CV3 *= CV1;
+  return CV3;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline SCVar<T,KEY,COMP>
+operator/
+( SCVar<T,KEY,COMP> const& CV1, SCVar<T,KEY,COMP> && CV2 )
+{
+    SCVar<T,KEY,COMP> CV3( std::move( inv( CV2 ) ) );
+    CV3 *= CV1;
+    return CV3;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline SCVar<T,KEY,COMP>
+operator/
+( SCVar<T,KEY,COMP> && CV1, SCVar<T,KEY,COMP> && CV2 )
+{
+  if( CV1.nmon() >= CV2.nmon() ){
+    SCVar<T,KEY,COMP> CV3( std::move( CV1 ) );
+    CV3 /= CV2;
+    return CV3;
+  }
+
+  SCVar<T,KEY,COMP> CV3( std::move( inv( CV2 ) ) );
+  CV3 *= CV1;
+  return CV3;
+}
+
+template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::operator/=
@@ -3650,11 +4005,22 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>
 operator/
+( SCVar<T,KEY,COMP> && CV1, double const& c )
+{
+  SCVar<T,KEY,COMP> CV3( std::move( CV1 ) );
+  CV3 /= c;
+  return CV3;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
+SCVar<T,KEY,COMP>
+operator/
 ( double const& c, SCVar<T,KEY,COMP> const& CV )
 {
   if( c == 0. ) return 0.;
-  if( c == 1. ) return inv(CV);
-  return inv(CV) * c;
+  if( c == 1. ) return inv( CV );
+  return inv( CV ) *= c;
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -3663,6 +4029,9 @@ SCVar<T,KEY,COMP>
 inv
 ( SCVar<T,KEY,COMP> const& CV )
 {
+#ifdef MC__SCMODEL_TRACE
+    std::cerr << "-- SCVar<T,KEY,COMP> inv( SCVar<T,KEY,COMP> const& )\n";
+#endif
   if( !CV._CM )
     return SCVar<T,KEY,COMP>( Op<T>::inv( CV.B() ) );
   if ( Op<T>::l(CV.B()) <= 0. && Op<T>::u(CV.B()) >= 0. )
@@ -3713,6 +4082,9 @@ SCVar<T,KEY,COMP>
 exp
 ( SCVar<T,KEY,COMP> const& CV )
 { 
+#ifdef MC__SCMODEL_TRACE
+    std::cerr << "-- SCVar<T,KEY,COMP> exp( SCVar<T,KEY,COMP> const& )\n";
+#endif
   if( !CV._CM )
     return SCVar<T,KEY,COMP>( Op<T>::exp( CV.B() ) );
 
@@ -3736,6 +4108,9 @@ SCVar<T,KEY,COMP>
 log
 ( SCVar<T,KEY,COMP> const& CV )
 {
+#ifdef MC__SCMODEL_TRACE
+    std::cerr << "-- SCVar<T,KEY,COMP> log( SCVar<T,KEY,COMP> const& )\n";
+#endif
   if( !CV._CM )
     return SCVar<T,KEY,COMP>( Op<T>::log( CV.B() ) );
   if ( Op<T>::l(CV.B()) <= 0. )
@@ -3761,10 +4136,9 @@ SCVar<T,KEY,COMP>
 xlog
 ( SCVar<T,KEY,COMP> const& CV )
 {
-#if 0
-  return CV * log( CV );
+#ifdef MC__SCMODEL_TRACE
+    std::cerr << "-- SCVar<T,KEY,COMP> xlog( SCVar<T,KEY,COMP> const& )\n";
 #endif
-
   if( !CV._CM )
     return SCVar<T,KEY,COMP>( Op<T>::xlog( CV.B() ) );
   if ( Op<T>::l(CV.B()) <= 0. )
@@ -3790,6 +4164,9 @@ SCVar<T,KEY,COMP>
 pow
 ( SCVar<T,KEY,COMP> const& CV, const int n )
 {
+#ifdef MC__SCMODEL_TRACE
+    std::cerr << "-- SCVar<T,KEY,COMP> pow( SCVar<T,KEY,COMP> const&, const int )\n";
+#endif
   if( !CV._CM )
     return SCVar<T,KEY,COMP>( Op<T>::pow( CV.B(), n ) );
   if( n < 0 ) return pow( inv( CV ), -n );
@@ -3811,10 +4188,9 @@ SCVar<T,KEY,COMP>
 pow
 ( const SCVar<T,KEY,COMP> &CV, double const& a )
 {
-#if 0
-  return exp( a * log( CV ) );
+#ifdef MC__SCMODEL_TRACE
+    std::cerr << "-- SCVar<T,KEY,COMP> pow( SCVar<T,KEY,COMP> const&, double const& )\n";
 #endif
-
   if( !CV._CM )
     return SCVar<T,KEY,COMP>( Op<T>::pow( CV.B(), a ) );
   if ( Op<T>::l(CV.B()) <= 0. )

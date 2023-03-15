@@ -792,6 +792,22 @@ public:
     ( const CVar<T>&CV )
     : PolyVar<T>( CV ), _CM( CV._CM )
     {
+#ifdef MC__CMODEL_TRACE
+    std::cerr << "-- CVar<T>( CVar<T> const& )\n";
+#endif
+#ifdef  MC__CMODEL_CHECK_PMODEL
+      if( _CM != dynamic_cast< CModel<T>* >( PolyVar<T>::_CM ) ) assert( false );
+#endif
+    }
+
+  //! @brief Move constructor of Chebyshev variable
+  CVar
+    ( CVar<T>&&CV )
+    : PolyVar<T>( std::move(CV) ), _CM( CV._CM )
+    {
+#ifdef MC__CMODEL_TRACE
+    std::cerr << "-- CVar<T>( CVar<T> && )\n";
+#endif
 #ifdef  MC__CMODEL_CHECK_PMODEL
       if( _CM != dynamic_cast< CModel<T>* >( PolyVar<T>::_CM ) ) assert( false );
 #endif
@@ -899,6 +915,8 @@ public:
     ( const T*X ) const;
  /** @} */
 
+  CVar<T>& operator =
+    ( CVar<T> && );
   CVar<T>& operator =
     ( const CVar<T>& );
   CVar<T>& operator =
@@ -1920,11 +1938,29 @@ CModel<T>::_polybound
 ////////////////////////////////// CVar ///////////////////////////////////////
 
 template <typename T> inline CVar<T>&
-CVar<T>::operator =
+CVar<T>::operator=
 ( const CVar<T>&CV )
 {
+#ifdef MC__CMODEL_TRACE
+    std::cerr << "-- CVar<T> operator= ( CVar<T> const& )\n";
+#endif
   _CM = CV._CM;
   _set( CV );
+#ifdef  MC__CMODEL_CHECK_PMODEL
+  if( _CM != dynamic_cast< CModel<T>* >( PolyVar<T>::_PM ) ) assert( false );
+#endif
+  return *this;
+}
+
+template <typename T> inline CVar<T>&
+CVar<T>::operator=
+( CVar<T>&&CV )
+{
+#ifdef MC__CMODEL_TRACE
+    std::cerr << "-- CVar<T> operator= ( CVar<T> && )\n";
+#endif
+  std::swap( _CM, CV._CM );
+  _set( std::move(CV) );
 #ifdef  MC__CMODEL_CHECK_PMODEL
   if( _CM != dynamic_cast< CModel<T>* >( PolyVar<T>::_PM ) ) assert( false );
 #endif

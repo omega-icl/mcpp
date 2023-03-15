@@ -637,6 +637,10 @@ protected:
   PolyVar<T>& _set
     ( const PolyVar<T>&var );
 
+  //! @brief Move variable from <a>var</a>
+  PolyVar<T>& _set
+    ( PolyVar<T>&&var );
+
   //! @brief Center remainder error term <tt>_bndrem</tt>
   virtual void _center();
 
@@ -709,8 +713,22 @@ public:
       if( var._bndT )   _bndT   = new T( *var._bndT   );
 
       // Copy sparsity information
-      _ndxmon = var._ndxmon;
-    }
+      _ndxmon = var._ndxmon; }
+
+  //! @brief Copy constructor of variable
+  PolyVar
+    ( PolyVar<T>&& var )
+    : _PM(nullptr), _coefmon(nullptr), _bndord(nullptr), _bndT(nullptr), _bndpol(nullptr) 
+    { if( this == &var ) return;
+      // Swap members
+      std::swap( _PM,          var._PM          );
+      std::swap( _coefmon,     var._coefmon     );
+      std::swap( _ndxmon,      var._ndxmon      );
+      std::swap( _bndrem,      var._bndrem      );
+      std::swap( _bndord,      var._bndord      );
+      std::swap( _bndord_uptd, var._bndord_uptd );
+      std::swap( _bndpol,      var._bndpol      );
+      std::swap( _bndT,        var._bndT        ); }
 
   //! @brief Destructor of variable
   virtual ~PolyVar()
@@ -844,9 +862,13 @@ public:
     ()
     const;
 
-  //! @brief Overloaded operator '=' for polynomial model variables
+  //! @brief Assignment operator for polynomial model variables
   virtual PolyVar<T>& operator=
     ( const PolyVar<T>& );
+
+  //! @brief Move operator for polynomial model variables
+  virtual PolyVar<T>& operator=
+    ( PolyVar<T>&& );
   /** @} */
 };
 
@@ -877,7 +899,7 @@ template <typename T> inline void
 PolyVar<T>::_cleanup()
 {
   delete [] _coefmon; delete [] _bndord; delete _bndpol; delete _bndT;
-  _coefmon = 0; _bndord = _bndrem = _bndpol = _bndT = 0;
+  _coefmon = nullptr; _bndord = _bndrem = _bndpol = _bndT = nullptr;
   _ndxmon.clear();
 }
 
@@ -898,6 +920,13 @@ PolyVar<T>::_resize
 template <typename T> inline PolyVar<T>&
 PolyVar<T>::operator=
 ( const PolyVar<T>&var )
+{
+  return _set( var );
+}
+
+template <typename T> inline PolyVar<T>&
+PolyVar<T>::operator=
+( PolyVar<T>&&var )
 {
   return _set( var );
 }
@@ -940,6 +969,26 @@ PolyVar<T>::_set
   _set_bndpol( var._bndpol );
   // Set underlying variable bound
   _set_bndT( var._bndT );
+
+  return *this;
+}
+
+template <typename T> inline PolyVar<T>&
+PolyVar<T>::_set
+( PolyVar<T>&&var )
+{
+  // Same PolyVar?
+  if( this == &var ) return *this;
+
+  // Swap members
+  std::swap( _PM,          var._PM          );
+  std::swap( _coefmon,     var._coefmon     );
+  std::swap( _ndxmon,      var._ndxmon      );
+  std::swap( _bndrem,      var._bndrem      );
+  std::swap( _bndord,      var._bndord      );
+  std::swap( _bndord_uptd, var._bndord_uptd );
+  std::swap( _bndpol,      var._bndpol      );
+  std::swap( _bndT,        var._bndT        );
 
   return *this;
 }

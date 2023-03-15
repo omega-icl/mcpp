@@ -957,6 +957,16 @@ public:
 #endif
     }
 
+  //! @brief Move constructor of Taylor variable
+  TVar
+    ( TVar<T>&&TV )
+    : PolyVar<T>( std::move(TV) ), _TM( TV._TM )
+    {
+#ifdef  MC__TMODEL_CHECK_PMODEL
+      if( _TM != dynamic_cast< TModel<T>* >( PolyVar<T>::_PM ) ) assert( false );
+#endif
+    }
+
   //! @brief Destructor of Taylor variable
   ~TVar()
     {}
@@ -1047,6 +1057,8 @@ public:
 
   TVar<T>& operator =
     ( const TVar<T>& );
+  TVar<T>& operator =
+    ( TVar<T>&& );
   TVar<T>& operator =
     ( const double );
   TVar<T>& operator =
@@ -1612,6 +1624,18 @@ TVar<T>::operator =
 {
   _TM = TV._TM;
   _set( TV );
+#ifdef  MC__TMODEL_CHECK_PMODEL
+  if( _TM != dynamic_cast< TModel<T>* >( PolyVar<T>::_PM ) ) assert( false );
+#endif
+  return *this;
+}
+
+template <typename T> inline TVar<T>&
+TVar<T>::operator =
+( TVar<T>&&TV )
+{
+  std::swap( _CM, CV._CM );
+  _set( std::move(TV) );
 #ifdef  MC__TMODEL_CHECK_PMODEL
   if( _TM != dynamic_cast< TModel<T>* >( PolyVar<T>::_PM ) ) assert( false );
 #endif

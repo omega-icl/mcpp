@@ -1,5 +1,7 @@
 ////////////////////////////////////////////////////////////////////////
 #undef  MC__FFUNC_CPU_EVAL
+#undef  MC__SCMODEL_TRACE
+#define MC__CMODEL_TRACE
 ////////////////////////////////////////////////////////////////////////
 
 #include <fstream>
@@ -76,33 +78,19 @@ int test_eval1()
   std::cout << "\nCompiled evaluation: " << (cputime/=NREP) << " CPU-sec\n";
   for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << dF[i] << std::endl;
 
-  cputime = -mc::cpuclock();
-  for( unsigned i=0; i<NREP; i++ )
-    DAG.eval( F_op, NF, F, dF, NX, X, dX );
-  cputime += mc::cpuclock();
-  std::cout << "\nDAG evaluation - no preallocation, no variadic template: " << (cputime/=NREP) << " CPU-sec\n";
-  for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << dF[i] << std::endl;
-
-  cputime = -mc::cpuclock();
-  for( unsigned i=0; i<NREP; i++ )
-    DAG.eval( F_op, NF, F, dF, 1, &X[0], &dX[0], 1, &X[1], &dX[1], 1, &X[2], &dX[2], 1, &X[3], &dX[3] );
-  cputime += mc::cpuclock();
-  std::cout << "\nDAG evaluation - no preallocation, with variadic template: " << (cputime/=NREP) << " CPU-sec\n";
-  for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << dF[i] << std::endl;
-
   std::vector<double> WK;
   cputime = -mc::cpuclock();
   for( unsigned i=0; i<NREP; i++ )
     DAG.eval( F_op, WK, NF, F, dF, NX, X, dX );
   cputime += mc::cpuclock();
-  std::cout << "\nDAG evaluation - with preallocation, no variadic template: " << (cputime/=NREP) << " CPU-sec\n";
+  std::cout << "\nDAG evaluation, w/ preallocation, w/o variadic template: " << (cputime/=NREP) << " CPU-sec\n";
   for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << dF[i] << std::endl;
 
   cputime = -mc::cpuclock();
   for( unsigned i=0; i<NREP; i++ )
     DAG.eval( F_op, WK, NF, F, dF, 1, &X[0], &dX[0], 1, &X[1], &dX[1], 1, &X[2], &dX[2], 1, &X[3], &dX[3] );
   cputime += mc::cpuclock();
-  std::cout << "\nDAG evaluation - with preallocation, with variadic template: " << (cputime/=NREP) << " CPU-sec\n";
+  std::cout << "\nDAG evaluation, w/ preallocation, w/ variadic template: " << (cputime/=NREP) << " CPU-sec\n";
   for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << dF[i] << std::endl;
 
   return 0;
@@ -112,15 +100,18 @@ int test_eval1()
 
 int test_eval2()
 {
-  std::cout << "\n==============================================\ntest_fadiff2:\n";
+  std::cout << "\n==============================================\ntest_eval2:\n";
 
   // Create DAG
-  const unsigned int NX = 2, NF = 2;
+  const unsigned NX = 4, NF = 2;
   mc::FFGraph DAG;
+  DAG.options.USEMOVE = true;
   mc::FFVar X[NX];
   for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
-  mc::FFVar F[NF] = { sqrt(X[0])*exp(X[1])*X[0],
-                      pow(X[1],3)*sqrt(X[0]) };
+  mc::FFVar F[NF] = { X[2]*X[3]-2./(X[1]+X[2]),
+                      X[0]/pow(exp(X[2]*X[1])+3.,3)+tanh(X[3]) };
+//  mc::FFVar F[NF] = { sqrt(X[0])*exp(X[1])*X[0],
+//                      pow(X[1],3)*sqrt(X[0]) };
   std::cout << DAG;
 
   auto F_op  = DAG.subgraph( NF, F );
@@ -130,44 +121,77 @@ int test_eval2()
   o_F.close();
 
   double cputime;
-  const unsigned NREP=1000;
+  const unsigned NREP=1;//000;
+  const unsigned NTEMIN=1, NTEMAX=7;
 
   // Evaluate in interval arithmetic
   std::vector<I> IWK;
-  I IX[NX] = { I(1.,2.), I(2.,3.) }, IF[2];
+  I IX[NX] = { I(-1.1,-0.9), I(-1.1, -0.9), I(1.6,2.4), I(2.5,3.5) }, IF[NF];
   for( unsigned i=0; i<NX; i++ ) std::cout << "X[" << i << "] = " << IX[i] << std::endl;
   cputime = -mc::cpuclock();
   for( unsigned i=0; i<NREP; i++ )
     DAG.eval( F_op, IWK, NF, F, IF, NX, X, IX );
   cputime += mc::cpuclock();
-  std::cout << "\nDAG interval evaluation - with preallocation, no variadic template: " << (cputime/=NREP) << " CPU-sec\n";
+  std::cout << "\nDAG interval evaluation, w/ preallocation, w/o variadic template: " << (cputime/=NREP) << " CPU-sec\n";
   for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << IF[i] << std::endl;
 
-  for( unsigned NTE=1; NTE<=7; NTE++ ){
+  for( unsigned NTE=NTEMIN; NTE<=NTEMAX; NTE++ ){
+    SCM modSCM( NTE );
+    //modSCM.options.BOUNDER_TYPE = SCM::Options::LSB;
+    modSCM.options.REMEZ_USE = false;
+    modSCM.options.MIXED_IA = false;
+    SCV SCX[NX] = {  SCV( &modSCM, 0, IX[0] ), SCV( &modSCM, 1, IX[1] ), SCV( &modSCM, 2, IX[2] ), SCV( &modSCM, 3, IX[3] ) }, SCF[NF];
+    cputime = -mc::cpuclock();
+    for( unsigned i=0; i<NREP; i++ ){
+      SCF[0] = SCX[2]*SCX[3]-2./(SCX[1]+SCX[2]);
+      SCF[1] = SCX[0]/pow(exp(SCX[2]*SCX[1])+3.,3)+tanh(SCX[3]);
+    }
+    cputime += mc::cpuclock();
+    std::cout << "\nDAG " << NTE << "th-order sparse Chebyshev model evaluation, w/ compilation: " << (cputime/=NREP) << " CPU-sec\n";
+    for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << SCF[i].P().B() << " +/- " << SCF[i].R() << std::endl;
+  }
+
+  for( unsigned NTE=NTEMIN; NTE<=NTEMAX; NTE++ ){
     std::vector<SCV> SCWK;
     SCM modSCM( NTE );
     //modSCM.options.BOUNDER_TYPE = SCM::Options::LSB;
+    modSCM.options.REMEZ_USE = false;
     modSCM.options.MIXED_IA = false;
-    SCV SCX[NX] = {  SCV( &modSCM, 0, IX[0] ), SCV( &modSCM, 1, IX[1] ) }, SCF[2];
+    SCV SCX[NX] = {  SCV( &modSCM, 0, IX[0] ), SCV( &modSCM, 1, IX[1] ), SCV( &modSCM, 2, IX[2] ), SCV( &modSCM, 3, IX[3] ) }, SCF[NF];
     cputime = -mc::cpuclock();
     for( unsigned i=0; i<NREP; i++ )
       DAG.eval( F_op, SCWK, NF, F, SCF, NX, X, SCX );
     cputime += mc::cpuclock();
-    std::cout << "\nDAG " << NTE << "th-order sparse Chebyshev model evaluation - with preallocation, no variadic template: " << (cputime/=NREP) << " CPU-sec\n";
+    std::cout << "\nDAG " << NTE << "th-order sparse Chebyshev model evaluation, w/ preallocation, w/o variadic template: " << (cputime/=NREP) << " CPU-sec\n";
     for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << SCF[i].P().B() << " +/- " << SCF[i].R() << std::endl;
   }
 
-  for( unsigned NTE=1; NTE<=7; NTE++ ){
+  for( unsigned NTE=NTEMIN; NTE<=NTEMAX; NTE++ ){
+    CM modCM( NX, NTE );
+    //modSCM.options.BOUNDER_TYPE = SCM::Options::LSB;
+    modCM.options.MIXED_IA = false;
+    CV CX[NX] = {  CV( &modCM, 0, IX[0] ), CV( &modCM, 1, IX[1] ), CV( &modCM, 2, IX[2] ), CV( &modCM, 3, IX[3] ) }, CF[NF];
+    cputime = -mc::cpuclock();
+    for( unsigned i=0; i<NREP; i++ ){
+      CF[0] = CX[2]*CX[3]-2./(CX[1]+CX[2]);
+      CF[1] = CX[0]/pow(exp(CX[2]*CX[1])+3.,3)+tanh(CX[3]);
+    }
+    cputime += mc::cpuclock();
+    std::cout << "\nDAG " << NTE << "th-order dense Chebyshev model evaluation, w/ compilation: " << (cputime/=NREP) << " CPU-sec\n";
+    for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << CF[i].P().B() << " +/- " << CF[i].R() << std::endl;
+  }
+
+  for( unsigned NTE=NTEMIN; NTE<=NTEMAX; NTE++ ){
     std::vector<CV> CWK;
     CM modCM( NX, NTE );
     //modSCM.options.BOUNDER_TYPE = SCM::Options::LSB;
     modCM.options.MIXED_IA = false;
-    CV CX[NX] = {  CV( &modCM, 0, IX[0] ), CV( &modCM, 1, IX[1] ) }, CF[2];
+    CV CX[NX] = {  CV( &modCM, 0, IX[0] ), CV( &modCM, 1, IX[1] ), CV( &modCM, 2, IX[2] ), CV( &modCM, 3, IX[3] ) }, CF[NF];
     cputime = -mc::cpuclock();
     for( unsigned i=0; i<NREP; i++ )
       DAG.eval( F_op, CWK, NF, F, CF, NX, X, CX );
     cputime += mc::cpuclock();
-    std::cout << "\nDAG " << NTE << "th-order dense Chebyshev model evaluation - with preallocation, no variadic template: " << (cputime/=NREP) << " CPU-sec\n";
+    std::cout << "\nDAG " << NTE << "th-order dense Chebyshev model evaluation, w/ preallocation, w/o variadic template: " << (cputime/=NREP) << " CPU-sec\n";
     for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << CF[i].P().B() << " +/- " << CF[i].R() << std::endl;
   }
 
@@ -640,8 +664,8 @@ int test_reval4()
 int main()
 {
   try{
-    //test_eval1();
-    //test_eval2();
+    test_eval1();
+    test_eval2();
     test_eval3();
     //test_reval1();
     //test_reval2();
