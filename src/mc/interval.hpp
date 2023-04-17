@@ -332,8 +332,8 @@ public:
   Interval& operator-=
     ( const Interval& I )
     {
-      _l -= I._l;
-      _u -= I._u;
+      _l -= I._u;
+      _u -= I._l;
       return *this;
     }
   Interval& operator*=
@@ -625,10 +625,10 @@ operator-
 noexcept
 {
 #ifdef MC__INTERVAL_TRACE
-      std::cout << "In operator+(Interval &&, Interval const&)\n";
+      std::cout << "In operator-(Interval &&, Interval const&)\n";
 #endif
-  I1._l -= I2._l;
-  I1._u -= I2._u;
+  I1._l -= I2._u;
+  I1._u -= I2._l;
   return std::move( I1 );
 }
 

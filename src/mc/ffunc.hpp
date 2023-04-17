@@ -6457,22 +6457,12 @@ FFGraph<ExtOps...>::SBAD
     auto sgDep = subgraph( 1, vDep[i] );
 #ifdef MC__FFUNC_SBAD_DEBUG
     output( sgDep );
+    std::cout << "l_op.size() = " << sgDep.l_op.size() << "  len_wk = " << sgDep.len_wk << std::endl;
 #endif
     _wkSBAD.clear();
-    std::cout << "l_op.size() = " << sgDep.l_op.size() << "  len_wk = " << sgDep.len_wk << std::endl;
     _wkSBAD.resize( sgDep.len_wk );
     auto pwk = ( sgDep.len_mov? _wkSBAD.data()+sgDep.l_op.size(): nullptr );
     std::map< unsigned, std::pair< unsigned,typename std::vector< fadbad::B<FFVar> >::iterator > > mapIndep;
-
-    // Count dependencies
-    unsigned nIndep = 0;
-    for( auto const& [op,mov] : sgDep.l_op ){
-      if( op->type != FFOp::VAR ) continue;
-      ++nIndep;
-    }
-#ifdef MC__FFUNC_SBAD_DEBUG
-    std::cerr << "#independents " << nIndep << std::endl;
-#endif
 
     // Propagate values in fadbad::F arithmetic through subgraph
 #ifdef MC__FFUNC_CPU_EVAL
@@ -6481,7 +6471,8 @@ FFGraph<ExtOps...>::SBAD
 #endif
     auto ito = sgDep.l_op.begin();
     auto itw = _wkSBAD.begin();
-    for( unsigned int j=0; ito!=sgDep.l_op.end(); ++ito, ++itw ){
+    unsigned nIndep = 0; // count dependencies
+    for( ; ito!=sgDep.l_op.end(); ++ito, ++itw ){
       _curOp = ito->first;
 
       // Initialize variable using values in l_vVar
@@ -6491,10 +6482,12 @@ FFGraph<ExtOps...>::SBAD
         for( unsigned int ii=0; iti!=vIndep.end(); ++iti, ++ii ){
           if( _curOp->pres->id() != (*iti)->id() ) continue;
 #ifdef MC__FFUNC_SBAD_DEBUG
-          std::cerr << "independent " << j << ": " << itw->val() << std::endl;
+          std::cerr << "independent " << nIndep << ": " << itw->val() << std::endl;
 #endif
-          //(*itw).diff( j++, nIndep );
-          mapIndep[j++] = std::make_pair( ii, itw );
+          mapIndep[nIndep++] = std::make_pair( ii, itw );
+#ifdef MC__FFUNC_SBAD_DEBUG
+          std::cerr << "mapIndep[" << nIndep-1 << "] = (" << ii << "," << &*itw <<")" << std::endl;
+#endif
         }
       }
       
@@ -7306,6 +7299,12 @@ FFGraph<ExtOps...>::reval
       assert( itU != wkDep.end() );
       // Evaluate current operation
       _curOp = ito->first;
+#ifdef MC__REVAL_DEBUG
+      std::cout << *_curOp->pres << " " << " : " << _curOp->name() << " ";
+      for( auto const& op : _curOp->pops )        
+        std::cout << *op << " @" << *static_cast<U*>(op->val()) << " ";
+      std::cout << std::endl;
+#endif
       if( _curOp->type < FFOp::EXTERN ){
         try{
           if( !ipass ) _curOp->evaluate( &*itU, false, pwk, sgDep.op_mov ); // move disabled for value fields
@@ -7345,6 +7344,13 @@ FFGraph<ExtOps...>::reval
     bool is_tighter = false;
     for( auto rito = opDep.rbegin(); rito!=opDep.rend(); ++rito ){
       _curOp = rito->first;
+#ifdef MC__REVAL_DEBUG
+      std::cout << *_curOp->pres << " @" << *static_cast<U*>(_curOp->pres->val())
+                << " " << " : " << _curOp->name() << " ";
+      for( auto const& op : _curOp->pops )        
+        std::cout << *op << " @" << *static_cast<U*>(op->val()) << " ";
+      std::cout << std::endl;
+#endif
       // Store current operand variables
       curVar.resize( _curOp->pops.size() );
       unsigned iop = 0;
@@ -7372,6 +7378,7 @@ FFGraph<ExtOps...>::reval
       std::cout << std::endl;
 #endif
       if( !is_feasible ){
+        std::cout << "Infeasible\n";
         return -ipass-1;
       }
       // Test improvement of operand variables
