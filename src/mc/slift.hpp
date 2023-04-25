@@ -801,6 +801,8 @@ inline FFVar
 SLiftEnv<DAG>::insert_dag
 ( t_poly const& pol, bool const useprod, bool const dagaux )
 {
+  assert( !pol.mapmon().empty() );
+
   FFVar var;
   bool first = true;
   for( auto const& [mon,coef] : pol.mapmon() ){

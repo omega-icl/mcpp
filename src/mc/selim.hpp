@@ -303,7 +303,7 @@ public:
       MIPNUMFOCUS(0), MIPDISPLEVEL(1), MIPOUTPUTFILE(""),
       MIPTIMELIMIT(600),
 #endif
-      ELIMLIN(true), ELIMMLIN(true),
+      MULTMAX(0), ELIMLIN(true), ELIMMLIN(true),
       ELIMNLIN( {FFInv::Options::INV,FFInv::Options::SQRT,FFInv::Options::EXP,
                   FFInv::Options::LOG,FFInv::Options::RPOW} )
       {}
@@ -326,6 +326,7 @@ public:
         MIPOUTPUTFILE   = opt.MIPOUTPUTFILE;
         MIPTIMELIMIT    = opt.MIPTIMELIMIT;
 #endif
+        MULTMAX  = opt.MULTMAX;
         ELIMLIN  = opt.ELIMLIN;
         ELIMMLIN = opt.ELIMMLIN;
         ELIMNLIN = opt.ELIMNLIN;
@@ -363,6 +364,8 @@ public:
   //! @brief Default option for LP solver
     static const int LPALGO_DEFAULT = -1;
 #endif
+    //! @brief Maximal multiplicity of eliminated variables
+    unsigned MULTMAX;
     //! @brief Whether to invert linear operations
     bool ELIMLIN;
     //! @brief Whether to invert multilinear operations
@@ -385,6 +388,9 @@ protected:
 
   //! @brief Candidate variables
   std::set<unsigned> _ndxVar;
+  
+  //! @brief Variable multiplicity
+  std::map<unsigned,unsigned> _mapVarMult;
 
   //! @brief Candidate constraints from which to eliminate a given variable
   std::map<unsigned,std::set<unsigned>> _mapVarCtrCand;
@@ -527,7 +533,8 @@ SElimEnv<DAG>::_reset
   _ndxVar.clear();
   _mapVarCtrCand.clear();
   _mapVarElVar.clear();
-  
+  _mapVarMult.clear();
+
   _Ctr.clear();
   _ICtr.clear();
   _ndxCtr.clear();
@@ -587,14 +594,29 @@ SElimEnv<DAG>::process
   std::cout << "FFInv::options.INVOP: " << FFInv::options.INVOP.size() << std::endl;
   _dag->eval( sgCtr, nCtr, pCtr, _ICtr.data(), _Var.size(), _Var.data(), _IVar.data() );
 
+  // Create variable multiplicity map !!!THIS IS NOT TRULY MULTIPLICITY - MULTIPLE OCCURENCES COULD BE WITHIN SINGLE FUNCTION
+  for( unsigned j=0; j<_ICtr.size(); ++j )
+    for( auto const& [i,type] : _ICtr[j].inv() )
+      if( _mapVarMult.count(i) ) _mapVarMult[i]++;
+      else                       _mapVarMult[i] = 1;
+#ifdef MC__SELIM_DEBUG_PROCESS
+  std::cout << std::endl << "Participating variable multiplicity:" << std::endl;
+  for( auto const& [i,m] : _mapVarMult ){
+    std::cout << i << " (" << _Var[i] << "):" << m;
+    std::cout << std::endl;
+  }
+#endif
+
   // Create candidate variable and constraint sets and maps
   for( unsigned j=0; j<_ICtr.size(); ++j ){
-//#ifdef MC__SELIM_DEBUG_PROCESS
+#ifdef MC__SELIM_DEBUG_PROCESS
     std::cout << j << ": " << _ICtr[j] << std::endl;
-//#endif
+#endif
     bool isinvert = false;
     for( auto const& [i,type] : _ICtr[j].inv() ){
-      if( _VarWeight[i] <= 0. ) continue;
+      // Exclude variables based on weight and/or multiplicity
+      if( _VarWeight[i] <= 0.
+       || (options.MULTMAX > 0 && _mapVarMult[i] > options.MULTMAX) ) continue;
       switch( type ){
         case FFInv::L:
           if( options.ELIMLIN ){
@@ -650,7 +672,7 @@ SElimEnv<DAG>::process
       }
     }
   }
-//#ifdef MC__SELIM_DEBUG_PROCESS
+#ifdef MC__SELIM_DEBUG_PROCESS
   std::cout << std::endl << "Participating variables in each constraint:" << std::endl;
   for( auto const& [e,ndx] : _mapCtrVar ){
     std::cout << e << " (" << _Ctr[e] << "):";
@@ -675,7 +697,7 @@ SElimEnv<DAG>::process
     for( auto const& j : ndx ) std::cout << " " << j;
     std::cout << std::endl;
   }
-//#endif
+#endif
 
   // Determine an optimal elimination set
 #if defined(MC__USE_GUROBI)
@@ -745,7 +767,7 @@ SElimEnv<DAG>::process
 	      continue;
 	    }
 
-	    // Eliminated variable directly partipates in monomial
+	    // Eliminated variable directly participates in monomial
 	    if( monvarel.subseteq( mon ) )
               funcdep += insert_dag( mon - monvarel, false, true ) * coef;
 
@@ -1002,31 +1024,21 @@ SElimEnv<DAG>::_insert_expr
 
   // Case dependent term is monomial
   else if( polydep.nmon() == 1 ){
-    // Check if common divider
-    bool common_div = true;
-    t_mon const& mondep = polydep.mapmon().cbegin()->first;
+
+    // Split numerator between reduced and non-reduced parts first
+    auto const& [mondep,coefdep] = *polydep.mapmon().cbegin();
+    t_poly polyindepred, polyindepnred;
     for( auto const& [mon,coef] : polyindep.mapmon() ){
-      if( mondep.subseteq( mon ) ) continue;
-      common_div = false;
-      break;
+      if( mondep.subseteq( mon ) )
+        polyindepred += std::make_pair( mon-mondep, coef/coefdep );
+      else
+        polyindepnred += std::make_pair( mon, coef );
     }
-    // If common divider, simplify polynomial division first
-    if( common_div ){
-      t_poly polyindepred;
-      auto it = polyindep.mapmon().cbegin();
-      for( ; it!=polyindep.mapmon().cend(); ++it ){
-        auto const& [mon,coef] = *it;
-        polyindepred += std::make_pair( mon-mondep, coef );
-      }
-      var /= insert_dag( mondep, useprod, dagaux );
+    if( !polyindepnred.mapmon().empty() )
+      var += insert_dag( polyindepnred, useprod, dagaux );
+    var /= insert_dag( polydep, useprod, dagaux );
+    if( !polyindepred.mapmon().empty() )
       var += insert_dag( polyindepred, useprod, dagaux );
-    }
-    // No common divider
-    else{
-      if( !polyindep.mapmon().empty() )
-        var += insert_dag( polyindep, useprod, dagaux );
-      var /= insert_dag( mondep, useprod, dagaux );
-    }
   }
   
   // Case dependent term is linear

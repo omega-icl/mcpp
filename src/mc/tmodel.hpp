@@ -1634,7 +1634,7 @@ template <typename T> inline TVar<T>&
 TVar<T>::operator =
 ( TVar<T>&&TV )
 {
-  std::swap( _CM, CV._CM );
+  std::swap( _TM, TV._TM );
   _set( std::move(TV) );
 #ifdef  MC__TMODEL_CHECK_PMODEL
   if( _TM != dynamic_cast< TModel<T>* >( PolyVar<T>::_PM ) ) assert( false );

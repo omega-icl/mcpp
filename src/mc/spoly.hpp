@@ -744,7 +744,7 @@ SPoly<KEY,COMP>::operator+=
 {
   if( isequal( d, 0. ) ) return *this;
   auto [itmon,ins] = _mapmon.insert( std::make_pair( t_mon(), d ) );
-  if( !ins ) itmon->second = d;
+  if( !ins ) itmon->second += d;
   _clean( _mapmon );
   return *this;
 }
