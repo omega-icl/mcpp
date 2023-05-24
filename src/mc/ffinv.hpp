@@ -528,16 +528,19 @@ inline FFInv
 sqr
 ( FFInv const& S )
 {
-  // Don't alter *this if S has no dependencies
-  if( S._inv.empty() )
-    return S;
-  FFInv S2( S );
+  return FFInv::copy( S, FFInv::_nlop( FFInv::Options::IPOW ) );
+//  
+//  // Don't alter *this if S has no dependencies
+//  if( S._inv.empty() )
+//    return S;
+//  FFInv S2( S );
 
-  // Set invertibility rules in squared term
-  for( auto& [varS2,invS2] : S2._inv )
-    invS2 = FFInv::_nlop( FFInv::Options::IPOW );
-
-  return S2;
+//  // Set invertibility rules in squared term
+//  for( auto& [varS2,invS2] : S2._inv )
+//    invS2 = FFInv::_nlop( FFInv::Options::IPOW );
+//  return( invmin > TYPE::L? S2.update( invmin ): S2 );
+//  
+//  return S2;
 }
 
 inline FFInv

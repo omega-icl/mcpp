@@ -5126,7 +5126,7 @@ PolImg<T>::_add_cuts_ATAN
     _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::atan( pVar1->num().val() ), *VarR, 1. );
     return;
   }
-  
+
   if( !options.RELAX_NLIN ){
     auto itVar1 = _Vars.find( pVar1 );
     _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
@@ -5414,7 +5414,13 @@ PolImg<T>::_add_cuts_TANH
     _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::tanh( pVar1->num().val() ), *VarR, 1. );
     return;
   }
-  
+
+  if( !options.RELAX_NLIN ){
+    auto itVar1 = _Vars.find( pVar1 );
+    _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
+    return;
+  }
+ 
   if( !options.ROOT_USE ) return;
 
   auto itVar1 = _Vars.find( pVar1 );

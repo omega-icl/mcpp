@@ -73,9 +73,10 @@ The resulting participating variables in the processed expressions, the lifted v
       std::cout << std::endl << SPE.Aux().size() << " auxiliary variables: ";
       for( auto&& aux : SPE.Aux() ) std::cout << *aux.first << "->" << *aux.second << " ";
       std::cout << std::endl;
+      std::cout << std::endl << SPE.Dep().size() << " dependent expressions: " << std::endl;;
+      for( auto&& expr : SPE.Dep() ) DAG.output( DAG.subgraph( 1, &expr ) );
       std::cout << std::endl << SPE.Poly().size() << " polynomial constraints: " << std::endl;
       for( auto&& expr : SPE.Poly() ) DAG.output( DAG.subgraph( 1, &expr ) );
-      std::cout << std::endl;
       std::cout << std::endl << SPE.Trans().size() << " transcendental constraints: " << std::endl;
       for( auto&& expr : SPE.Trans() ) DAG.output( DAG.subgraph( 1, &expr ) );
 \endcode
@@ -83,69 +84,97 @@ The resulting participating variables in the processed expressions, the lifted v
 The following information is displayed in this instance:
 
 \verbatim
-    7 participating variables: X0 X1 X2 X3 X4 X5 X6
+    6 participating variables: V0 V1 V2 V3 V4 V5 
 
-    5 auxiliary variables: Z0->X2 Z2->X3 Z5->X6 Z9->X4 Z10->X5
+    4 auxiliary variables: Z0->V2 Z2->V3 Z9->V4 Z10->V5 
 
-    4 polynomial constraints: 
+    2 dependent expressions: 
 
-    FACTORS IN SUBGRAPH:
-      X2    <=  VARIABLE
-      X1    <=  VARIABLE
-      Z0    <=  SQR( X1 )	
-      Z11   <=  X2 - Z0	
+    OPERATIONS IN SUBGRAPH:
+      V0	<-  VARIABLE
+      Z4	<-  3(I)	
+      Z17	<<  IPOW( V0, Z4 )
+      V3	<-  VARIABLE
+      Z18	<<  SQR( V0 )	
+      Z19	<<  V3 x Z18	
+      Z20	<<  Z19 x Z4	
+      Z21	<<  Z17 + Z20	
+      Z22	<<  SQR( V3 )	
+      Z23	<<  V0 x Z22	
+      Z24	<<  Z23 x Z4	
+      Z25	<<  Z21 + Z24	
+      Z26	<<  IPOW( V3, Z4 )
+      Z27	<<  Z25 + Z26	
+    DEPENDENTS IN SUBGRAPH:
+      0:  Z27
+    WORK ARRAY SIZE: 14
 
-    FACTORS IN SUBGRAPH:
-      X2    <=  VARIABLE
-      X3    <=  VARIABLE
-      Z12   <=  X2 x X3	
-      Z8    <=  -1(D)	
-      Z13   <=  Z12 + Z8	
+    OPERATIONS IN SUBGRAPH:
+      V5	<<  VARIABLE
+    DEPENDENTS IN SUBGRAPH:
+      0:  V5
+    WORK ARRAY SIZE: 1
 
-    FACTORS IN SUBGRAPH:
-      X4    <=  VARIABLE
-      X1    <=  VARIABLE
-      Z0    <=  SQR( X1 )	
-      Z6    <=  2(D)	
-      Z7    <=  Z0 x Z6	
-      Z8    <=  -1(D)	
-      Z9    <=  Z7 + Z8	
-      Z14   <=  X4 - Z9	
+    3 polynomial constraints: 
 
-    FACTORS IN SUBGRAPH:
-      X6    <=  VARIABLE
-      X0    <=  VARIABLE
-      Z17   <=  3(D)	
-      Z18   <=  X0 x Z17	
-      X3    <=  VARIABLE
-      Z19   <=  SQR( X3 )	
-      Z20   <=  Z18 x Z19	
-      Z21   <=  SQR( X0 )	
-      Z22   <=  Z21 x Z17	
-      Z23   <=  X3 x Z22	
-      Z24   <=  Z20 + Z23	
-      Z4    <=  3(I)	
-      Z25   <=  POW( X0, Z4 )
-      Z26   <=  Z24 + Z25	
-      Z27   <=  POW( X3, Z4 )
-      Z28   <=  Z26 + Z27	
-      Z29   <=  X6 - Z28	
+    OPERATIONS IN SUBGRAPH:
+      V2	<<  VARIABLE
+      V1	<<  VARIABLE
+      Z0	<<  SQR( V1 )	
+      Z11	<<  V2 - Z0	
+    DEPENDENTS IN SUBGRAPH:
+      0:  Z11
+    WORK ARRAY SIZE: 4
+
+    OPERATIONS IN SUBGRAPH:
+      V2	<<  VARIABLE
+      V3	<<  VARIABLE
+      Z12	<<  V2 x V3	
+      Z8	<<  -1(I)	
+      Z13	<<  Z12 + Z8	
+    DEPENDENTS IN SUBGRAPH:
+      0:  Z13
+    WORK ARRAY SIZE: 5
+
+    OPERATIONS IN SUBGRAPH:
+      V4	<<  VARIABLE
+      V1	<<  VARIABLE
+      Z0	<<  SQR( V1 )	
+      Z6	<<  2(I)	
+      Z7	<<  Z0 x Z6	
+      Z8	<<  -1(I)	
+      Z9	<<  Z7 + Z8	
+      Z14	<<  V4 - Z9	
+    DEPENDENTS IN SUBGRAPH:
+      0:  Z14
+    WORK ARRAY SIZE: 8
 
     1 transcendental constraints: 
 
-    FACTORS IN SUBGRAPH:
-      X5	<=  VARIABLE
-      X4	<=  VARIABLE
-      Z15	<=  EXP( X4 )	
-      Z16	<=  X5 - Z15	
-
+    OPERATIONS IN SUBGRAPH:
+      V5	<<  VARIABLE
+      V4	<<  VARIABLE
+      Z15	<<  EXP( V4 )	
+      Z16	<<  V5 - Z15	
+    DEPENDENTS IN SUBGRAPH:
+      0:  Z16
+    WORK ARRAY SIZE: 4
 \endverbatim
 
-These results show that 5 auxiliary variables have been added to the DAG, \f$x_2,\ldots,x_6\f$. These variables can be determined from the following implicit equations in terms of the original variables \f$x_0,x_1\f$:
+These results show that 4 auxiliary variables have been added to the DAG, \f$x_2,\ldots,x_5\f$. These variables can be determined from the following (possibly implicit) equations in terms of both original and lifted variables \f$x_0,\ldots,x_5\f$:
 \f{align*}
-  \left\{\begin{array}{rcl} 0 & = & x_2 - x_1^2\\ 0 & = & x_2\cdot x_3 - 1\\ 0 & = & 2\cdot x_1^2 - x_4 - 1\\ 0 & = & \exp(x_4) - x_5 \\ 0 & = & x_0^3 + 3\cdot x_0^2\cdot x_3 + 3\cdot x_0\cdot x_3^2 + x_3^3 - x_6  \end{array}\right.
+  0 & = x_2 - x_1^2\\
+  0 & = x_2\cdot x_3 - 1\\
+  0 & = x_4 - 2\cdot x_1^2 + 1\\
+  0 & = \exp(x_4) - x_5 
 \f}
-Finally, the original vector-valued function \f${\bf f}(x_0,x_1)\f$ is equal to \f$(x_6,x_5)^{\sf T}\f$.
+Finally, the original vector-valued function \f${\bf f}\f$ is now given by:
+\f{align*}
+  {\bf f}(x_0,\ldots,x_5) = \left(\begin{array}{c}
+    x_0^3 + 3\cdot x_0^2\cdot x_3 + 3\cdot x_0\cdot x_3^2 + x_3^3\\
+    x_5
+  \end{array}\right)
+\f}
 */
 
 // TO DO:
@@ -232,12 +261,17 @@ public:
     const
     { return _dag; };
 
-  //! @brief Retreive reference to vector of new DAG rational constraints
+  //! @brief Retreive reference to vector of depedent DAG subexpressions
+  std::vector<FFVar>& Dep
+    ()
+    { return _Dep; }
+
+  //! @brief Retreive reference to vector of auxiliary DAG polynomial constraints
   std::vector<FFVar>& Poly
     ()
     { return _Poly; }
 
-  //! @brief Retreive reference to vector of new DAG transcendental constraints
+  //! @brief Retreive reference to vector of auxiliary DAG non-polynomial constraints
   std::vector<FFVar>& Trans
     ()
     { return _Trans; }
@@ -346,10 +380,13 @@ protected:
   //! @brief Map of existing DAG auxiliaries to new DAG variables
   t_Aux _Aux;
 
-  //! @brief Vector of new DAG polynomial/rational constraints
+  //! @brief Vector of dependent DAG subexpressions
+  std::vector<FFVar> _Dep;
+
+  //! @brief Vector of auxiliary DAG polynomial/rational constraints
   std::vector<FFVar> _Poly;
 
-  //! @brief Vector of new DAG transcendental constraints
+  //! @brief Vector of auxiliary DAG transcendental constraints
   std::vector<FFVar> _Trans;
 
   //! @brief Vector of independent DAG variables participating in expressions
@@ -371,7 +408,7 @@ protected:
 
   //! @brief Insert an auxiliary variable corresponding to a rational/polynomial expression into DAG
   FFVar const* _insert_expr
-    ( FFVar const* oper, SLiftVar<DAG> const* expr );
+    ( FFVar const* oper, SLiftVar<DAG> const* expr, bool const isdep );
 
   //! @brief Insert a non-rational operation into DAG via the introduction of auxiliary variables
   void _insert_expr
@@ -546,7 +583,7 @@ operator<<
 {
   unsigned count = 0;
 
-  if( env._Poly.empty() ){
+  if( env._Dep.empty() ){
     for( auto const& expr : env._Interm ){
       out << std::endl << "INTERMEDIATE #" << ++count << ": "
           << *(expr.first->pres) << " = " << *(expr.first) << std::endl;
@@ -570,16 +607,23 @@ operator<<
   std::cout << std::endl;
 
   count = 0;
-  for( auto&& expr : env._Poly ){
+  for( auto const& expr : env._Dep ){
     std::ostringstream ext; 
-    ext << " OF POLYNOMIAL CONSTRAINT #" << ++count;
+    ext << " OF DEPENDENT EXPRESSION #" << ++count;
     env._dag->output( env._dag->subgraph( 1, &expr ), ext.str(), out );
   }
 
   count = 0;
-  for( auto&& expr : env._Trans ){
+  for( auto const& expr : env._Poly ){
     std::ostringstream ext; 
-    ext << " OF NON-POLYNOMIAL CONSTRAINT #" << ++count;
+    ext << " OF AUXILIARY POLYNOMIAL CONSTRAINT #" << ++count;
+    env._dag->output( env._dag->subgraph( 1, &expr ), ext.str(), out );
+  }
+
+  count = 0;
+  for( auto const& expr : env._Trans ){
+    std::ostringstream ext; 
+    ext << " OF AUXILIARY NON-POLYNOMIAL CONSTRAINT #" << ++count;
     env._dag->output( env._dag->subgraph( 1, &expr ), ext.str(), out );
   
   }
@@ -643,7 +687,7 @@ SLiftEnv<DAG>::process
       if( itSV == expr.second.end() )
         throw typename SLiftEnv<DAG>::Exceptions( SLiftEnv<DAG>::Exceptions::INTERNAL );
 #endif
-      vAux.push_back( _insert_expr( operand, *itSV ) );
+      vAux.push_back( _insert_expr( operand, *itSV, false ) );
       ++itSV;
     }
     // Insert operation result and their defining expressions
@@ -651,30 +695,32 @@ SLiftEnv<DAG>::process
   }
 
   // Insert terminal expressions into DAG
+  // Separate two cases:
+  // - _SPDep(i) is a polynomial function -> no need for an auxiliary variable
+  // - _SPDep(i) is a rational function   -> need to introduce an auxiliary
   for( unsigned i=0; i<nDep; i++ )
     // Insert operation result and defining expression
-//    _Dep.push_back( *_insert_expr( pDep+i, &_SPDep.at(i) ) );
-    _insert_expr( pDep+i, &_SPDep.at(i) );
+    _Dep.push_back( *_insert_expr( pDep+i, &_SPDep.at(i), true ) );
 
 #ifdef MC__SLIFT_DEBUG_PROCESS
   std::cout << std::endl << _Aux.size() << " Auxiliary Variables: ";
-  for( auto&& aux : _Aux ) std::cout << *aux.first << "->" << *aux.second << " ";
+  for( auto const& aux : _Aux ) std::cout << *aux.first << "->" << *aux.second << " ";
   std::cout << std::endl;
-//  std::cout << std::endl << _Dep.size() << " Dependent Variables: ";
-//  for( auto&& dep : _Dep ) std::cout << dep << " ";
-//  std::cout << std::endl;
-  std::cout << std::endl << _Poly.size() << " Polynomial Constraints: " << std::endl;
-  for( auto&& expr : _Poly ) _dag->output( _dag->subgraph( 1, &expr ) );
+  std::cout << std::endl << _Dep.size() << " Dependent Expressions: ";
+  for( auto const& expr : _Dep ) _dag->output( _dag->subgraph( 1, &expr ) );
   std::cout << std::endl;
-  std::cout << std::endl << _Trans.size() << " Transcendental Constraints: " << std::endl;
-  for( auto&& expr : _Trans ) _dag->output( _dag->subgraph( 1, &expr ) );
+  std::cout << std::endl << _Poly.size() << " Auxiliary Polynomial Constraints: " << std::endl;
+  for( auto const& expr : _Poly ) _dag->output( _dag->subgraph( 1, &expr ) );
+  std::cout << std::endl;
+  std::cout << std::endl << _Trans.size() << " Auxiliary Transcendental Constraints: " << std::endl;
+  for( auto const& expr : _Trans ) _dag->output( _dag->subgraph( 1, &expr ) );
 #endif
 }
 
 template < typename DAG >
 inline FFVar const*
 SLiftEnv<DAG>::_insert_expr
-( FFVar const* var, SLiftVar<DAG> const* expr )
+( FFVar const* var, SLiftVar<DAG> const* expr, bool const isdep )
 { 
   auto itdagvar = _dag->Vars().find( const_cast<FFVar*>(var) );
 #ifdef MC__SLIFT_CHECK
@@ -690,7 +736,19 @@ SLiftEnv<DAG>::_insert_expr
   if( itv != _Aux.end() )
     return itv->second;
 
-  // Append new DAG variable in _Aux and defining polynomial constraint in _Poly 
+  // If polynomial subexpression, add subexpression to DAG without defining new polynomial constraint in _Poly 
+  if( isdep && !expr->denom().maxord() ){
+    FFVar polyexpr = insert_dag( expr->numer() * expr->denom().coefmon() );
+#ifdef MC__SLIFT_CHECK
+    auto itdagaux = _dag->Vars().find( &polyexpr );
+    assert( itdagvar != _dag->Vars().end() );
+    return *itdagaux;
+#else
+    return _dag->Vars().find( &polyexpr );
+#endif  
+  }
+
+  // Otherwise rational subexpression, append new DAG variable in _Aux and define new polynomial constraint in _Poly 
 #ifdef MC__SLIFT_DEBUG_PROCESS
   std::cout <<std::endl << "operand: " << **itdagvar << std::endl;
 #endif
@@ -754,15 +812,18 @@ SLiftEnv<DAG>::_insert_expr
    case FFOp::INV:   return _Poly.push_back( **itnewvar * *vAux.at(1) - vAux.at(0)->num().val() );
    case FFOp::DIV:   return _Poly.push_back( **itnewvar * *vAux.at(1) - *vAux.at(0) );
    case FFOp::EXP:   return _Trans.push_back( **itnewvar - exp( *vAux.at(0) ) );
+   //case FFOp::LOG:   return _Trans.push_back( **itnewvar - log( *vAux.at(0) ) );
    case FFOp::LOG:   return _Trans.push_back( exp( **itnewvar ) - *vAux.at(0) );
    case FFOp::XLOG:  return _Trans.push_back( **itnewvar - xlog( *vAux.at(0) ) );
    case FFOp::DPOW:  return _Trans.push_back( **itnewvar - pow( *vAux.at(0), vAux.at(1)->num().val() ) );
    case FFOp::COS:   return _Trans.push_back( **itnewvar - cos( *vAux.at(0) ) );
    case FFOp::SIN:   return _Trans.push_back( **itnewvar - sin( *vAux.at(0) ) );
-   case FFOp::TAN:   return _Trans.push_back( **itnewvar - tan( *vAux.at(0) ) );
+   //case FFOp::TAN:   return _Trans.push_back( **itnewvar - tan( *vAux.at(0) ) );
+   case FFOp::TAN:   return _Trans.push_back( atan( **itnewvar ) - *vAux.at(0) );
    case FFOp::ACOS:  return _Trans.push_back( cos( **itnewvar ) - *vAux.at(0) );
    case FFOp::ASIN:  return _Trans.push_back( sin( **itnewvar ) - *vAux.at(0) );
-   case FFOp::ATAN:  return _Trans.push_back( tan( **itnewvar ) - *vAux.at(0) );
+   //case FFOp::ATAN:  return _Trans.push_back( tan( **itnewvar ) - *vAux.at(0) );
+   case FFOp::ATAN:  return _Trans.push_back( **itnewvar - atan( *vAux.at(0) ) );
    case FFOp::COSH:  return _Trans.push_back( **itnewvar - cosh( *vAux.at(0) ) );
    case FFOp::SINH:  return _Trans.push_back( **itnewvar - sinh( *vAux.at(0) ) );
    case FFOp::TANH:  return _Trans.push_back( **itnewvar - tanh( *vAux.at(0) ) );
@@ -880,7 +941,7 @@ SLiftEnv<DAG>::_reset
   _Poly.clear();
   _Trans.clear();
   _Var.clear();
-//  _Dep.clear();
+  _Dep.clear();
   _SPVar.clear();
   _SPDep.clear();
 }

@@ -351,6 +351,8 @@ Having decomposed a set of multivariate polynomials into quadratic forms using A
 & \sum_{i=1}^{n_x+k-1} \nu^{\rm R}_{k,i} = z_k,\ \ k=1\ldots n_a\\
 & \sum_{i=1}^{n_x+n_a} \omega^{\rm L}_{j,i} = 1,\ \ j=1\ldots n_m\\
 & \sum_{i=1}^{n_x+n_a} \omega^{\rm R}_{j,i} \leq 1,\ \ j=1\ldots n_m\\
+& \omega^{\rm L}_{j,k} \leq z_k,\ \ j=1\ldots n_m,\ \ k=1\ldots n_a\\
+& \omega^{\rm R}_{j,k} \leq z_k,\ \ j=1\ldots n_m,\ \ k=1\ldots n_a\\
 & \beta_{k,i} = \nu^{\rm L}_{k,i} + \nu^{\rm R}_{k,i} + \sum_{l=1}^{k-1} \left(\nu^{\rm L}_{k,n_x+l} + \nu^{\rm R}_{k,n_x+l}\right) \beta_{l,i},\ \ i=1\ldots n_x,\ \ k=1\ldots n_a\\
 & \alpha_{j,i} = \omega^{\rm L}_{j,i} + \omega^{\rm R}_{j,i} + \sum_{l=1}^{n_a} \left(\omega^{\rm L}_{j,n_x+l} + \omega^{\rm R}_{j,n_x+l}\right) \beta_{l,i},\ \ i=1\ldots n_x,\ \ j=1\ldots n_m\\
 & z_k, \nu^{\rm L}_{k,i}, \nu^{\rm R}_{k,i}, \omega^{\rm L}_{j,i}, \omega^{\rm R}_{j,i}\in\{0,1\},\ \beta_{k,i}\in[0,\max\{\alpha_{j,i}: j=1\ldots n_m\}],\ \ i=1\ldots n_x+n_a,\ \ j=1\ldots n_m,\ \ k=1\ldots n_a
@@ -1435,6 +1437,9 @@ SQuad<KEY,COMP>::process
   for( ; !_empty( vecSPol ); ){
     // Local copy of next monomial, then erase
     auto const [ ndxmat, mon, coef ] = _next( vecSPol );
+#ifdef MC__SQUAD_DEBUG_DECOMP
+    std::cout << "Processed: " << mon.display(options.BASIS) << std::endl;
+#endif
     vecSPol[ndxmat].mapmon().erase( mon );
     auto& mat = _MatFct[ndxmat];
 
@@ -1625,7 +1630,8 @@ SQuad<KEY,COMP>::_MIP_encode
   }
 
   unsigned const nMon = _MIP_SetMon.size(); // Number of monomials to be decomposed
-  std::cout << "No monomials to decompose: " << nMon << std::endl;
+  if( options.MIPDISPLEVEL > 1 )
+    std::cout << "No monomials to decompose: " << nMon << std::endl;
   _MIP_mondec1.reserve( nMon );  // w1|2[j,i]: whether variable/auxiliary x[i], 0<=i<nVar+k, in decomposition of 
   _MIP_mondec2.reserve( nMon );  //            monomial m[j], 0<=j<nMon
 
@@ -1639,17 +1645,21 @@ SQuad<KEY,COMP>::_MIP_encode
     _MIP_mondec2[j].reserve( nVar+maxAux );
     // SUM( 0<=i<nVar+maxAux, w1[j,i] )  = 1
     // SUM( 0<=i<nVar+maxAux, w2[j,i] ) <= 1  could be 0 if monomial present
-    // SUM( 0<=i<k, w1[j,i] ) >= SUM( 0<=i<k, w2[j,i] ), 0<=k<nVar+maxAux
     GRBLinExpr sum_mondec1, sum_mondec2;
     for( unsigned i=0; i<nVar+maxAux; ++i ){
       _MIP_mondec1[j].push_back( _GRBmodel->addVar( 0., 1., 0., GRB_BINARY ) );
       _MIP_mondec2[j].push_back( _GRBmodel->addVar( 0., 1., 0., GRB_BINARY ) );
       sum_mondec1 += _MIP_mondec1[j][i];
       sum_mondec2 += _MIP_mondec2[j][i];
-      //_GRBmodel->addConstr( sum_mondec1, GRB_GREATER_EQUAL, sum_mondec2 ); // symmetry breaking
     }
     _GRBmodel->addConstr( sum_mondec1, GRB_LESS_EQUAL, 1. );
     _GRBmodel->addConstr( sum_mondec2, GRB_EQUAL, 1. );
+
+    // w1[j,nVar+k], w2[j,nVar+k] <= z[k] 0<=k<maxAux
+    for( unsigned k=0; k<maxAux; ++k ){
+      _GRBmodel->addConstr( _MIP_mondec1[j][nVar+k], GRB_LESS_EQUAL, _MIP_auxbin[k] );
+      _GRBmodel->addConstr( _MIP_mondec2[j][nVar+k], GRB_LESS_EQUAL, _MIP_auxbin[k] );   
+    }
 
     // w1[j], w2[j] in {0,1}
     if( !options.MIPFIXEDBASIS && options.MIPSYMCUTS > 1 ){
@@ -2011,6 +2021,7 @@ SQuad<KEY,COMP>::_MIP_decode
   // Add auxiliary monomials to SetMonOpt 
   auto const& [itone,ins] = SetMonOpt.insert( t_SMon() );
   vecMonOpt[nVar+maxAux] = &*itone;
+  //std::cout << "Unit monomial #" << nVar+maxAux << ": " << vecMonOpt[nVar+maxAux]->display( Options::MONOM ) << std::endl;
   for( unsigned k=0; k<maxAux; ++k ){
     if( _MIP_auxbin[k].get( GRB_DoubleAttr_X ) < 0.9 ) continue;
   //for( unsigned k=0; k<optAux; ++k ){
@@ -2021,7 +2032,8 @@ SQuad<KEY,COMP>::_MIP_decode
       if( !exp ) continue;
       mon += t_SMon( var, exp );
     }
-    std::cout << "Auxiliary monomial #" << k << ": " << mon.display( Options::MONOM ) << std::endl;
+    if( options.MIPDISPLEVEL > 1 )
+      std::cout << "Auxiliary monomial #" << k << ": " << mon.display( Options::MONOM ) << std::endl;
     auto const& [itmon,ins] = SetMonOpt.insert( mon );
     //assert( ins ); // Suboptimal solutions may include the same monomial multiple times!
     vecMonOpt[nVar+k] = &*itmon;    
@@ -2063,7 +2075,11 @@ SQuad<KEY,COMP>::_MIP_decode
         if( i1mon->get(GRB_DoubleAttr_X) > 0.9 ) break;
       for( auto i2mon = _MIP_mondec2[j].cbegin(); i2 < nVar+maxAux; ++i2mon, ++i2 )
         if( i2mon->get(GRB_DoubleAttr_X) > 0.9 ) break;
-      //std::cout << "j,i1,i2 = " << j << "," << i1 << "," << i2 << " (max: " << nVar+optAux << ")" << std::endl;
+      //std::cout << "j,i1,i2 = " << j << "," << i1 << "," << i2
+      //          << " (max: " << nVar+maxAux << ")"
+      //          << std::endl;
+      //std::cout << vecMonOpt[i1]->display(options.BASIS) << std::endl;
+      //std::cout << vecMonOpt[i2]->display(options.BASIS) << std::endl;
       _insert( matopt, vecMonOpt[i1], vecMonOpt[i2], coef );
     }
     ++itmatopt;
@@ -2098,7 +2114,8 @@ SQuad<KEY,COMP>::_MIP_solve
 #if defined(MC__USE_GUROBI)
   _GRBmodel->update();
 //#ifdef MC__SQUAD_DEBUG_MIP
-  _MIP_display( false );
+  if( options.MIPDISPLEVEL > 1 )
+    _MIP_display( false );
 //#endif
   if( options.MIPOUTPUTFILE != "" )
     _GRBmodel->write( options.MIPOUTPUTFILE );
@@ -2109,9 +2126,10 @@ SQuad<KEY,COMP>::_MIP_solve
   _GRBmodel->write( "test.ilp" );
 #else
   _GRBmodel->optimize();
-  if( options.MIPDISPLEVEL )
+  if( options.MIPDISPLEVEL > 1 ){
     std::cout << "  #auxiliary variables: " << _GRBmodel->get( GRB_DoubleAttr_ObjVal ) << std::endl;
-  _MIP_display( true );
+    _MIP_display( true );
+  }
 #endif
 #endif
 }
@@ -2222,7 +2240,7 @@ SQuad<KEY,COMP>::_MIP_options
 {
 #if defined(MC__USE_GUROBI)
   // Gurobi options
-  _GRBmodel->getEnv().set( GRB_IntParam_OutputFlag,        options.MIPDISPLEVEL );
+  _GRBmodel->getEnv().set( GRB_IntParam_OutputFlag,        options.MIPDISPLEVEL?1:0 );
   _GRBmodel->getEnv().set( GRB_IntParam_Method,            options.LPALGO );
   _GRBmodel->getEnv().set( GRB_IntParam_Presolve,          options.LPPRESOLVE );
   _GRBmodel->getEnv().set( GRB_IntParam_Threads,           options.MIPTHREADS );

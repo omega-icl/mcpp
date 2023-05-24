@@ -127,6 +127,19 @@ public:
       std::cout << "xlog McCormick instantiation\n"; 
       vRes = xlog( vVar[0] );
     }
+//  void eval
+//    ( fadbad::F<FFVar>& vRes, unsigned const nVar, fadbad::F<FFVar> const* vVar, bool const* mVar )
+//    const
+//    {
+//      assert( nVar == 1 );
+//      std::cout << "xlog fadbad::F<FFVar> instantiation\n"; 
+//      vRes = operator()( vVar[0].val() );
+//      if( !vVar[0].depend() ) return;
+//      FFVar dxlog( log( vVar[0].val()) + 1 );
+//      vRes.setDepend( vVar[0] );
+//      for( unsigned int i=0; i<vRes.size(); ++i )
+//        vRes[i] = dxlog * vVar[0][i];
+//    }
 
   // Properties
   std::string name
@@ -197,7 +210,7 @@ public:
   bool commutative
     ()
     const
-    { return true; }
+    { return false; }
 };
 }
 
@@ -325,12 +338,37 @@ int test_external3()
 
 ///////////////////////////////////////////////////////////////////////////////
 
+int test_external4()
+{
+  std::cout << "\n==============================================\ntest_external4:\n";
+
+  mc::FFGraph<mc::FFxlog> DAG;
+  mc::FFVar X;
+  X.set( &DAG );
+  mc::FFxlog myxlog;
+
+  mc::FFVar F = myxlog(X);
+  std::cout << DAG;
+  DAG.output( DAG.subgraph( 1, &F ), " F" );
+
+  // Forward AD
+  const mc::FFVar* dFdX = DAG.FAD( 1, &F, 1, &X );
+  std::cout << DAG;
+  DAG.output( DAG.subgraph( 1, dFdX ), " dFdX" );
+
+  delete[] dFdX;
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 int main()
 {
   try{
     test_external1();
     test_external2();
     test_external3();
+    test_external4();
   }
   catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()

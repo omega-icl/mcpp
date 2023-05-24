@@ -4,7 +4,7 @@ PATH_MC = $(shell cd ../../ ; pwd)
 include $(PATH_MC)/src/makeoptions.mk
 
 PATH_GUROBI = $(GUROBI_HOME)
-LIB_MIP     = -L$(PATH_GUROBI)/lib -lgurobi_g++5.2 -lgurobi95 -pthread
+LIB_MIP     = -L$(PATH_GUROBI)/lib -lgurobi_g++5.2 -lgurobi100 -pthread
 INC_MIP     = -I$(PATH_GUROBI)/include
 FLAG_MIP    = -DMC__USE_GUROBI
 

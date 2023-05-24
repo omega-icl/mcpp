@@ -321,7 +321,7 @@ SMon<KEY,COMP>::operator*=
   if( factor == 1 )
     return *this;
 
-  // divide monomial partial orders by factor
+  // multiply monomial partial orders by factor
   tord = 0;
   for( auto& varpow : expr ){
     varpow.second *= factor;

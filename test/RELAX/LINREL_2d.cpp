@@ -1,9 +1,9 @@
-#define TEST_MAX	    // <-- select test function here
-const int NX = 40;	    // <-- select discretization here
+#define TEST_POLY	    // <-- select test function here
+const int NX = 20;	    // <-- select discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
-#define ADD_BREAKPOINT  // <-- specify whether to add breakpoints to the variables
+#undef  ADD_BREAKPOINT  // <-- specify whether to add breakpoints to the variables
 const int NDIV = 5;     // <-- select number of breakpoints
-#define USE_MIP         // <-- specify whether to use piecewise-linear cuts
+#undef  USE_MIP         // <-- specify whether to use piecewise-linear cuts
 
 ////////////////////////////////////////////////////////////////////////
 
@@ -298,7 +298,7 @@ int main()
 #else
     PolEnv.options.RELAX_DISC = 2;
 #endif
-    PolEnv.options.SANDWICH_MAXCUT = 6;
+    PolEnv.options.SANDWICH_MAXCUT = 2;//6;
     mc::PolVar<I> X_Pol[2], F_Pol;
     X_Pol[0].set( &PolEnv, X[0], IX[0] );
     X_Pol[1].set( &PolEnv, X[1], IX[1] );

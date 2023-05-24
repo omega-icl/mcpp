@@ -1,7 +1,7 @@
 ////////////////////////////////////////////////////////////////////////
 #undef  MC__FFUNC_CPU_EVAL
 #undef  MC__SCMODEL_TRACE
-#define MC__CMODEL_TRACE
+#undef  MC__CMODEL_TRACE
 ////////////////////////////////////////////////////////////////////////
 
 #include <fstream>
@@ -61,7 +61,7 @@ int test_eval1()
   o_F.close();
 
   double cputime;
-  const unsigned NREP=100000;
+  const unsigned NREP=1000;
 
   // Evaluate with doubles, no parameter pack
   auto F_op  = DAG.subgraph( NF, F );
@@ -253,7 +253,7 @@ int test_reval1()
   o_F.close();
 
   double cputime;
-  const unsigned NREP=10000;
+  const unsigned NREP=1000;
 
   // Evaluate in interval arithmetic, both forward and backward
   std::vector<I> IWKF;
@@ -667,10 +667,10 @@ int main()
     test_eval1();
     test_eval2();
     test_eval3();
-    //test_reval1();
-    //test_reval2();
-    //test_reval3();
-    //test_reval4();
+    test_reval1();
+    test_reval2();
+    test_reval3();
+    test_reval4();
   }
   catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()

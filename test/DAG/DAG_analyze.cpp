@@ -1,3 +1,5 @@
+#undef MC__SELIM_DEBUG_PROCESS
+
 #include <fstream>
 #include <sstream>
 #include <iomanip>
@@ -228,7 +230,7 @@ int test_rltred2()
   RRLT.options.METHOD        = mc::RLTRed::Options::ILP;
   RRLT.options.LEVEL         = mc::RLTRed::Options::FULLSIM;
   RRLT.options.NODIV         = false;
-  RRLT.options.DISPLEVEL     = 2;
+  RRLT.options.DISPLEVEL     = 1;
   RRLT.options.MIPDISPLEVEL  = 1;
   RRLT.options.MIPOUTPUTFILE = "rltred2.lp";
 
@@ -268,7 +270,7 @@ int test_rltred3()
   RRLT.options.METHOD        = mc::RLTRed::Options::ILP;
   RRLT.options.LEVEL         = mc::RLTRed::Options::FULLSIM;
   RRLT.options.NODIV         = false;
-  RRLT.options.DISPLEVEL     = 2;
+  RRLT.options.DISPLEVEL     = 1;
   RRLT.options.MIPDISPLEVEL  = 1;
   RRLT.options.MIPOUTPUTFILE = "rltred3.lp";
 
@@ -743,6 +745,44 @@ int test_spoly1()
 
 ///////////////////////////////////////////////////////////////////////////////
 
+int test_slift0()
+{
+  std::cout << "\n==============================================\ntest_slift0:\n";
+
+  mc::FFGraph DAG;
+  const unsigned NX = 2, NF = 2;
+  mc::FFVar X[NX];
+  for( unsigned i(0); i<NX; i++ ) X[i].set( &DAG );
+  mc::FFVar F[NF];
+  F[0] = pow( X[0] + 1 / sqr( X[1] ), 3 );
+  F[1] = exp( 2 * sqr( X[1] ) - 1 );
+  std::cout << DAG;
+
+  //mc::SLiftVar<mc::FFGraph<>>::t_poly::options.BASIS = mc::SLiftVar<mc::FFGraph<>>::t_poly::Options::MONOM;
+  mc::SLiftEnv<mc::FFGraph<>> SPE( &DAG );
+  //SPE.options.LIFTDIV = true;//false;//
+  //SPE.options.LIFTIPOW = false;//
+  SPE.process( NF, F );
+  //std::cout << SPE;
+
+  std::cout << std::endl << SPE.Var().size() << " participating variables: ";
+  for( auto&& var : SPE.Var() ) std::cout << var << " ";
+  std::cout << std::endl;
+  std::cout << std::endl << SPE.Aux().size() << " auxiliary variables: ";
+  for( auto&& aux : SPE.Aux() ) std::cout << *aux.first << "->" << *aux.second << " ";
+  std::cout << std::endl;
+  std::cout << std::endl << SPE.Dep().size() << " dependent expressions: " << std::endl;;
+  for( auto&& expr : SPE.Dep() ) DAG.output( DAG.subgraph( 1, &expr ) );
+  std::cout << std::endl << SPE.Poly().size() << " polynomial constraints: " << std::endl;
+  for( auto&& expr : SPE.Poly() ) DAG.output( DAG.subgraph( 1, &expr ) );
+  std::cout << std::endl << SPE.Trans().size() << " transcendental constraints: " << std::endl;
+  for( auto&& expr : SPE.Trans() ) DAG.output( DAG.subgraph( 1, &expr ) );
+  
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 int test_slift1()
 {
   std::cout << "\n==============================================\ntest_slift1:\n";
@@ -753,19 +793,19 @@ int test_slift1()
   for( unsigned i(0); i<NX; i++ ) X[i].set( &DAG );
   mc::FFVar F[NF];
   //F[0] = pow( X[0] + X[1], 3 );
-  F[0] = 1/X[0] + 1/X[1] - 1;
+  //F[0] = 1/X[0] + 1/X[1] - 1;
   //F[0] = pow( X[0] + 1 / sqr( X[1] ), 3 );
   //F[0] = 4*sqr(X[0]) - 2.1*pow(X[0],4) + pow(X[0],6)/3 + X[0]*X[1] - 4*sqr(X[1]) + 4*pow(X[1],4);
   //F[0] = 250*exp(X[2])*X[0] + 250*pow(X[3],0.6)*X[1];
-  //F[1] = exp( 2 * sqr( X[1] ) - 1 );
+  F[0] = exp( 2 * sqr( X[1] ) - 1 );
   std::cout << DAG;
 
   mc::SLiftVar<mc::FFGraph<>>::t_poly::options.BASIS = mc::SLiftVar<mc::FFGraph<>>::t_poly::Options::MONOM;
   mc::SLiftEnv<mc::FFGraph<>> SPL( &DAG );
   SPL.options.LIFTDIV = true;//false;//
-  SPL.options.LIFTIPOW = true; //false;//
+  SPL.options.LIFTIPOW = false;//
 
-  SPL.process( NF, F, false );
+  SPL.process( NF, F, true );//false );
   std::cout << SPL;
   
   return 0;
@@ -782,14 +822,14 @@ int test_selim0()
   mc::FFVar X[NX];
   for( unsigned i(0); i<NX; i++ ) X[i].set( &DAG );
   mc::FFVar F[NF];
-  F[0] = ( 3. * X[0] * sqr( X[2] ) ) / X[1] - 2. * X[0] * X[1] - 1;
+  F[0] = ( 3. * X[0] * sqr( X[2] ) ) / X[1] - 2. * X[0] * X[1] - X[0] - 1;
   F[1] = 2./X[1] + 3./X[2] - 1.;
   std::cout << DAG;
 
   mc::SElimEnv<mc::FFGraph<>> SPE( &DAG );
-  SPE.options.ELIMMLIN      = true;
-  SPE.options.MIPDISPLEVEL  = 1;
-  SPE.options.MIPOUTPUTFILE = "test_selim0.lp";
+  //SPE.options.ELIMMLIN      = true;
+  //SPE.options.MIPDISPLEVEL  = 1;
+  //SPE.options.MIPOUTPUTFILE = "test_selim0.lp";
 
   SPE.process( NF, F );
   std::cout << SPE;
@@ -836,7 +876,6 @@ int test_selim2()
   mc::FFVar X[NX];
   for( unsigned i(0); i<NX; i++ ) X[i].set( &DAG );
   mc::FFVar F[NF];
-  //F[0] = 1 / X[0] + 1 / X[1] - 1;
   F[0] = pow( X[0] + 1 / sqr( X[1] ), 3 );
   std::cout << DAG;
 
@@ -853,8 +892,8 @@ int test_selim2()
 
   mc::SElimEnv<mc::FFGraph<>> SPE( &DAG );
   SPE.options.ELIMMLIN      = true;
-  SPE.options.MIPDISPLEVEL  = 0;
-  SPE.options.MIPOUTPUTFILE = "test_selim1.lp";
+  SPE.options.MIPDISPLEVEL  = 1;
+  SPE.options.MIPOUTPUTFILE = "test_selim2.lp";
 
   SPE.process( Flift.size(), Flift.data() );
   std::cout << SPE;
@@ -868,17 +907,18 @@ int main()
 {
   try{
     test_expr1();
-//    test_dep1();
-//    test_inv1();
-//    test_dep2();
-//    test_inv2();
+    test_dep1();
+    test_inv1();
+    test_dep2();
+    test_inv2();
     test_rltred1();
-//    test_rltred2();
-//    test_rltred3();
-//    test_rltred4();
-//    test_rltred5();
-//    test_rltred6();
-//    test_spoly1();
+    test_rltred2();
+    test_rltred3();
+    test_rltred4();
+    test_rltred5();
+    test_rltred6();
+    test_spoly1();
+    test_slift0();
     test_slift1();
     test_selim0();
     test_selim1();

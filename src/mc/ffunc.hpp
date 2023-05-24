@@ -5163,7 +5163,7 @@ const
   typedef std::tuple<NextOps...> t_NextOps;
   typedef typename remove_first_type< t_NextOps >::type t_NextNextOps;
   typedef typename first_type_of< NextOps... >::type FirstNextOps;
-  return tighten_forward_external( dumU, FirstNextOps(), t_NextNextOps() );
+  return tighten_backward_external( dumU, FirstNextOps(), t_NextNextOps() );
 }   
 
 template <typename U>
@@ -7443,8 +7443,12 @@ FFGraph<ExtOps...>::wkextract
   // Copy value fields to output operands
   auto itoo = opOut.begin();
   auto itwo = wkOut.begin();
-  for( ; itoo != opOut.end(); ++itoo, ++itwo )
+  for( ; itoo != opOut.end(); ++itoo, ++itwo ){
     *itwo = *static_cast<U*>( itoo->first->pres->val() );
+#ifdef MC__WKEXTRACT_DEBUG
+    std::cout << "Extracting: " << *itoo->first->pres << " = " << *itwo << std::endl;
+#endif
+  }
 }
 
 #ifdef MC__USE_HSL

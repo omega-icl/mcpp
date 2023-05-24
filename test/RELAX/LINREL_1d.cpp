@@ -44,7 +44,7 @@ const int NDIV = 2;     // <-- select number of breakpoints
   typedef mc::TVar<I> PV;
 #endif
 
-#include "polimage.hpp"
+#include "polimage_new.hpp"
 #if defined( MC__USE_GUROBI )
  #include "gurobi_c++.h"
  extern "C"{

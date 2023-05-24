@@ -221,7 +221,7 @@ public:
 
   //! @brief Get coefficient of monomial mon
   double coefmon
-    ( t_mon const& mon )
+    ( t_mon const& mon = t_mon() )
     const
     { auto it = _mapmon.find( mon ); 
       return( it != _mapmon.end()? it->second: 0e0 ); }
