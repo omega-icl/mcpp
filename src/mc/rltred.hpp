@@ -359,7 +359,7 @@ public:
   typedef SPoly< FFVar const*, lt_FFVar > t_SPoly;
   typedef std::set< const FFVar*, lt_FFVar > t_Vars;
   typedef std::pair< const FFOp*, unsigned int > pt_Op;
-  typedef std::list< std::pair< const FFOp*, bool > > l_Ops;
+  typedef std::list< const FFOp* > l_Ops;
   typedef std::set< const FFOp*,  lt_FFOp > t_Ops;
   typedef std::multimap< const FFVar*, const FFOp*, lt_FFVar > t_Edges;
   typedef std::pair< const FFVar*, typename FFOp::TYPE > t_RLTVar;
@@ -784,7 +784,7 @@ RLTRed::_add_to_dag
        default:
         throw std::runtime_error( "Internal error" );
       }
-      std::cout << ">  " << *(*it).second->pres << " := " << *(*it).second << std::endl;
+      std::cout << ">  " << *(*it).second->varout[0] << " := " << *(*it).second << std::endl;
     }
   }
 
@@ -842,10 +842,10 @@ RLTRed::_add_to_dag
       assert(_rhsRed[jp]);
       if( _rhsRed[jp]->cst() )
         ctr += _rhsRed[jp]->num().val() * Q(jp,ip);
-      else if( _rhsRed[jp]->ops().first->type != FFOp::NEG )
+      else if( _rhsRed[jp]->opdef().first->type != FFOp::NEG )
         ctr += t_SPoly().var( _rhsRed[jp] ) * Q(jp,ip);
       else
-        ctr -= t_SPoly().var( _rhsRed[jp]->ops().first->pops[0] ) * Q(jp,ip);
+        ctr -= t_SPoly().var( _rhsRed[jp]->opdef().first->varin[0] ) * Q(jp,ip);
     }
     if( options.DISPLEVEL >= 2 )
       std::cout << "New constraint #" << ip << ":" << ctr;
@@ -901,10 +901,10 @@ RLTRed::_add_to_dag
       t_SPoly ctr = 0;
       if( _rhsRed[ip]->cst() )
         ctr += _rhsRed[ip]->num().val();
-      else if( _rhsRed[ip]->ops().first->type != FFOp::NEG )
+      else if( _rhsRed[ip]->opdef().first->type != FFOp::NEG )
         ctr += t_SPoly().var( _rhsRed[ip] );
       else
-        ctr -= t_SPoly().var( _rhsRed[ip]->ops().first->pops[0] );
+        ctr -= t_SPoly().var( _rhsRed[ip]->opdef().first->varin[0] );
       for( unsigned j=0; j<k; j++ )
         if( !isequal( L(k,j), 0 ) ) ctr += (-L(k,j)) * vSCtr[j];
       ctr /= L(k,k);
@@ -1009,32 +1009,32 @@ RLTRed::_process_constraint
   switch( linOp->type ){
    case FFOp::SHIFT:
    case FFOp::PLUS:
-    _process_term( iRow, RLTVar.second, *RLTVar.first, *linOp->pops[0], 1. );
-    _process_term( iRow, RLTVar.second, *RLTVar.first, *linOp->pops[1], 1. );
+    _process_term( iRow, RLTVar.second, *RLTVar.first, *linOp->varin[0], 1. );
+    _process_term( iRow, RLTVar.second, *RLTVar.first, *linOp->varin[1], 1. );
     break;
 
   case FFOp::NEG:
-    _process_term( iRow, RLTVar.second, *RLTVar.first, *linOp->pops[0], -1. );
+    _process_term( iRow, RLTVar.second, *RLTVar.first, *linOp->varin[0], -1. );
     break;
 
    case FFOp::MINUS:
-    _process_term( iRow, RLTVar.second, *RLTVar.first, *linOp->pops[0], 1. );
-    _process_term( iRow, RLTVar.second, *RLTVar.first, *linOp->pops[1], -1. );
+    _process_term( iRow, RLTVar.second, *RLTVar.first, *linOp->varin[0], 1. );
+    _process_term( iRow, RLTVar.second, *RLTVar.first, *linOp->varin[1], -1. );
     break;
 
    case FFOp::SCALE:
-    if( linOp->pops[1]->cst() )
-      _process_term( iRow, RLTVar.second, *RLTVar.first, *linOp->pops[0], linOp->pops[1]->num().val() );
+    if( linOp->varin[1]->cst() )
+      _process_term( iRow, RLTVar.second, *RLTVar.first, *linOp->varin[0], linOp->varin[1]->num().val() );
     else
-      _process_term( iRow, RLTVar.second, *RLTVar.first, *linOp->pops[1], linOp->pops[0]->num().val() );
+      _process_term( iRow, RLTVar.second, *RLTVar.first, *linOp->varin[1], linOp->varin[0]->num().val() );
     break;
 
    default:
      throw std::runtime_error( "Internal error" );
   }
 
-  if( !_is_rhs( vlhs, *linOp->pres ) )
-    _process_term( iRow, RLTVar.second, *RLTVar.first, *linOp->pres, -1. );
+  if( !_is_rhs( vlhs, *linOp->varout[0] ) )
+    _process_term( iRow, RLTVar.second, *RLTVar.first, *linOp->varout[0], -1. );
 }
 
 inline void
@@ -1053,40 +1053,40 @@ RLTRed::_process_term
     }
     // In a bilinear term
     for( auto itt=_bilTerms.begin(); !foundTerm && itt!=_bilTerms.end(); ++itt ){
-      if( ( *(*itt)->pops[0] == linVar && *(*itt)->pops[1] == RLTVar )
-       || ( *(*itt)->pops[1] == linVar && *(*itt)->pops[0] == RLTVar ) ){
-        *_rhsRed[iRow] += coef * *(*itt)->pres;
+      if( ( *(*itt)->varin[0] == linVar && *(*itt)->varin[1] == RLTVar )
+       || ( *(*itt)->varin[1] == linVar && *(*itt)->varin[0] == RLTVar ) ){
+        *_rhsRed[iRow] += coef * *(*itt)->varout[0];
         foundTerm = true;
       }
     }
     // In a fractional term
     for( auto itt=_divTerms.begin(); !foundTerm && itt!=_divTerms.end(); ++itt ){
-      if( ( *(*itt)->pres == linVar && *(*itt)->pops[1] == RLTVar )
-       || ( *(*itt)->pops[1] == linVar && *(*itt)->pres == RLTVar ) ){
-        *_rhsRed[iRow] += coef * *(*itt)->pops[0];
+      if( ( *(*itt)->varout[0] == linVar && *(*itt)->varin[1] == RLTVar )
+       || ( *(*itt)->varin[1] == linVar && *(*itt)->varout[0] == RLTVar ) ){
+        *_rhsRed[iRow] += coef * *(*itt)->varin[0];
         foundTerm = true;
       }
     }
     // In an inverse term
     for( auto itt=_invTerms.begin(); !foundTerm && itt!=_invTerms.end(); ++itt ){
-      if( ( *(*itt)->pres == linVar && *(*itt)->pops[1] == RLTVar )
-       || ( *(*itt)->pops[1] == linVar && *(*itt)->pres == RLTVar ) ){
-        *_rhsRed[iRow] += coef * (*itt)->pops[0]->num().val();
+      if( ( *(*itt)->varout[0] == linVar && *(*itt)->varin[1] == RLTVar )
+       || ( *(*itt)->varin[1] == linVar && *(*itt)->varout[0] == RLTVar ) ){
+        *_rhsRed[iRow] += coef * (*itt)->varin[0]->num().val();
         foundTerm = true;
       }
     }
     // In a square term
     for( auto itt=_sqrTerms.begin(); !foundTerm && itt!=_sqrTerms.end(); ++itt ){
-      if( *(*itt)->pops[0] == linVar && *(*itt)->pops[0] == RLTVar ){
-        *_rhsRed[iRow] += coef * *(*itt)->pres;
+      if( *(*itt)->varin[0] == linVar && *(*itt)->varin[0] == RLTVar ){
+        *_rhsRed[iRow] += coef * *(*itt)->varout[0];
         foundTerm = true;
       }
     }
     // In a square-root term
     for( auto itt=_sqrtTerms.begin(); !foundTerm && itt!=_sqrtTerms.end(); ++itt ){
-      if( *(*itt)->pres == linVar && *(*itt)->pres == RLTVar ){
+      if( *(*itt)->varout[0] == linVar && *(*itt)->varout[0] == RLTVar ){
         // Add term to rhs
-        *_rhsRed[iRow] += coef * *(*itt)->pops[0];
+        *_rhsRed[iRow] += coef * *(*itt)->varin[0];
         foundTerm = true;
       }
     }
@@ -1102,56 +1102,56 @@ RLTRed::_process_term
     // Dividing a constant
     if( linVar.cst() ){
       for( auto itt=_invTerms.begin(); !foundTerm && itt!=_invTerms.end(); ++itt ){
-        if( *(*itt)->pops[1] == RLTVar ){
-          *_rhsRed[iRow] += coef * linVar.num().val() * *(*itt)->pres / (*itt)->pops[0]->num().val();;
+        if( *(*itt)->varin[1] == RLTVar ){
+          *_rhsRed[iRow] += coef * linVar.num().val() * *(*itt)->varout[0] / (*itt)->varin[0]->num().val();;
           foundTerm = true;
         }
       }
     }
     // In a bilinear term
     for( auto itt=_bilTerms.begin(); !foundTerm && itt!=_bilTerms.end(); ++itt ){
-      if( *(*itt)->pres == linVar && *(*itt)->pops[0] == RLTVar ){
-        *_rhsRed[iRow] += coef * *(*itt)->pops[1];
+      if( *(*itt)->varout[0] == linVar && *(*itt)->varin[0] == RLTVar ){
+        *_rhsRed[iRow] += coef * *(*itt)->varin[1];
         foundTerm = true;
       }
-      else if( *(*itt)->pres == linVar && *(*itt)->pops[1] == RLTVar ){
-        *_rhsRed[iRow] += coef * *(*itt)->pops[0];
+      else if( *(*itt)->varout[0] == linVar && *(*itt)->varin[1] == RLTVar ){
+        *_rhsRed[iRow] += coef * *(*itt)->varin[0];
         foundTerm = true;
       }
     }
     // In a fractional term
     for( auto itt=_divTerms.begin(); !foundTerm && itt!=_divTerms.end(); ++itt ){
-      if( *(*itt)->pops[0] == linVar && *(*itt)->pops[1] == RLTVar ){
-        *_rhsRed[iRow] += coef * *(*itt)->pres;
+      if( *(*itt)->varin[0] == linVar && *(*itt)->varin[1] == RLTVar ){
+        *_rhsRed[iRow] += coef * *(*itt)->varout[0];
         foundTerm = true;
       }
-      else if( *(*itt)->pops[0] == linVar && *(*itt)->pres == RLTVar ){
-        *_rhsRed[iRow] += coef * *(*itt)->pops[1];
+      else if( *(*itt)->varin[0] == linVar && *(*itt)->varout[0] == RLTVar ){
+        *_rhsRed[iRow] += coef * *(*itt)->varin[1];
         foundTerm = true;
       }
     }
     // In an inverse term
     for( auto itt=_invTerms.begin(); !foundTerm && itt!=_invTerms.end(); ++itt ){
-      if( *(*itt)->pops[0] == linVar && *(*itt)->pops[1] == RLTVar ){
-        *_rhsRed[iRow] += coef * *(*itt)->pres;
+      if( *(*itt)->varin[0] == linVar && *(*itt)->varin[1] == RLTVar ){
+        *_rhsRed[iRow] += coef * *(*itt)->varout[0];
         foundTerm = true;
       }
-      else if( *(*itt)->pops[0] == linVar && *(*itt)->pres == RLTVar ){
-        *_rhsRed[iRow] += coef * *(*itt)->pres;
+      else if( *(*itt)->varin[0] == linVar && *(*itt)->varout[0] == RLTVar ){
+        *_rhsRed[iRow] += coef * *(*itt)->varout[0];
         foundTerm = true;
       }
     }
     // In a square term
     for( auto itt=_sqrTerms.begin(); !foundTerm && itt!=_sqrTerms.end(); ++itt ){
-      if( *(*itt)->pres == linVar && *(*itt)->pops[0] == RLTVar ){
-        *_rhsRed[iRow] += coef * *(*itt)->pops[0];
+      if( *(*itt)->varout[0] == linVar && *(*itt)->varin[0] == RLTVar ){
+        *_rhsRed[iRow] += coef * *(*itt)->varin[0];
         foundTerm = true;
       }
     }
     // In a square-root term
     for( auto itt=_sqrtTerms.begin(); !foundTerm && itt!=_sqrtTerms.end(); ++itt ){
-      if( *(*itt)->pops[0] == linVar && *(*itt)->pres == RLTVar ){
-        *_rhsRed[iRow] += coef * *(*itt)->pres;
+      if( *(*itt)->varin[0] == linVar && *(*itt)->varout[0] == RLTVar ){
+        *_rhsRed[iRow] += coef * *(*itt)->varout[0];
         foundTerm = true;
       }
     }
@@ -1227,12 +1227,12 @@ RLTRed::_search_sequential
 ( const typename RLTRed::l_Ops& Ops )
 {
   // MAIN LOOP: Valid RRLT cut for each candidate multiplier/divider variables
-  for( auto const& [op,mov] : Ops ){
-    assert( op->pres );
-    const pt_idVar& idVar = op->pres->id();
+  for( auto const& op : Ops ){
+    assert( op->varout[0] );
+    const pt_idVar& idVar = op->varout[0]->id();
 
     // Multiplying/dividing constraints by a constant is pointless
-    if( idVar.first == FFVar::CINT || idVar.first == FFVar::CREAL || op->pres->cst() ) continue;
+    if( idVar.first == FFVar::CINT || idVar.first == FFVar::CREAL || op->varout[0]->cst() ) continue;
 
     // Multiplier/divider variables limited to primary variables (no auxiliary)
     if( options.LEVEL == Options::PRIMSEQ && idVar.first == FFVar::AUX ) continue;
@@ -1245,7 +1245,7 @@ RLTRed::_search_sequential
     if( is_lin ) continue;
 
     // Drop any linear variable participating in a nonlinear terms multiplied by variable <a>idVar</a> and the corresponding edges
-    auto VarMult = std::make_pair( op->pres, FFOp::TIMES );
+    auto VarMult = std::make_pair( op->varout[0], FFOp::TIMES );
     stats.tGRAPH -= cpuclock();
     _RLTVars = _linVars;
     _RLTEdges = _linEdges;
@@ -1277,7 +1277,7 @@ RLTRed::_search_sequential
      if( options.NODIV ) continue;
  
    // Drop any linear variable participating in a nonlinear terms divided by variable <a>idVar</a> and the corresponding edges
-    auto VarDiv = std::make_pair( op->pres, FFOp::DIV );
+    auto VarDiv = std::make_pair( op->varout[0], FFOp::DIV );
     _RLTVars = _linVars;
     _RLTEdges = _linEdges;
     _bigraph_RLT( VarDiv, _RLTVars, _RLTEdges );
@@ -1320,12 +1320,12 @@ RLTRed::_search_simultaneous
   stats.tILPSET += cpuclock();
 
   // MAIN LOOP: Valid RRLT cut for all candidate multiplier/divider variables
-  for( auto const& [op,mov] : Ops ){
-    assert( op->pres );
-    const pt_idVar& idVar = op->pres->id();
+  for( auto const& op : Ops ){
+    assert( op->varout[0] );
+    const pt_idVar& idVar = op->varout[0]->id();
 
     // Multiplying/dividing constraints by a constant is pointless
-    if( idVar.first == FFVar::CINT || idVar.first == FFVar::CREAL || op->pres->cst() ) continue;
+    if( idVar.first == FFVar::CINT || idVar.first == FFVar::CREAL || op->varout[0]->cst() ) continue;
 
     // Multiplier/divider variables limited to primary variables (no auxiliary)
     if( options.LEVEL == Options::PRIMSIM && idVar.first == FFVar::AUX ) continue;
@@ -1338,7 +1338,7 @@ RLTRed::_search_simultaneous
     if( is_lin ) continue;
 
     // Drop any linear variable participating in a nonlinear terms multiplied by variable <a>idVar</a> and the corresponding edges
-    auto VarMult = std::make_pair( op->pres, FFOp::TIMES );
+    auto VarMult = std::make_pair( op->varout[0], FFOp::TIMES );
     stats.tGRAPH -= cpuclock();
     _RLTVars = _linVars;
     _RLTEdges = _linEdges;
@@ -1353,7 +1353,7 @@ RLTRed::_search_simultaneous
      if( options.NODIV ) continue;
  
    // Drop any linear variable participating in a nonlinear terms divided by variable <a>idVar</a> and the corresponding edges
-    auto VarDiv = std::make_pair( op->pres, FFOp::DIV );
+    auto VarDiv = std::make_pair( op->varout[0], FFOp::DIV );
     stats.tGRAPH -= cpuclock();
     _RLTVars = _linVars;
     _RLTEdges = _linEdges;
@@ -1407,61 +1407,61 @@ const
 
   // Erase those variables participating with <a>idMult</a> in bilinear terms
   for( auto&& term : _bilTerms ){
-    if( *term->pops[0] == *VarMult ){
-      linVars.erase( term->pops[1] ); linEdges.erase( term->pops[1] );
+    if( *term->varin[0] == *VarMult ){
+      linVars.erase( term->varin[1] ); linEdges.erase( term->varin[1] );
     }
-    else if( *term->pops[1] == *VarMult ){
-      linVars.erase( term->pops[0] ); linEdges.erase( term->pops[0] );
+    else if( *term->varin[1] == *VarMult ){
+      linVars.erase( term->varin[0] ); linEdges.erase( term->varin[0] );
     }
   }
 
   // Erase those variables participating with <a>idMult</a> in square terms
   for( auto&& term : _sqrTerms ){
-    if( *term->pops[0] == *VarMult ){
-      linVars.erase( term->pops[0] ); linEdges.erase( term->pops[0] );
+    if( *term->varin[0] == *VarMult ){
+      linVars.erase( term->varin[0] ); linEdges.erase( term->varin[0] );
     }
   }
 
   // Erase those variables participating with <a>idMult</a> in square root terms
   for( auto it = _sqrtTerms.begin(); it != _sqrtTerms.end(); ++it ){
-    if( *(*it)->pres == *VarMult ){
-      linVars.erase( (*it)->pres ); linEdges.erase( (*it)->pres );
+    if( *(*it)->varout[0] == *VarMult ){
+      linVars.erase( (*it)->varout[0] ); linEdges.erase( (*it)->varout[0] );
     }
   }
 
 //  // Erase those variables participating with <a>idMult</a> in power terms
 //  for( auto&& term : _ipowTerms ){
-//    if( *term->pops[1] > 2 ){ // positive exponent
-//      if( *term->pops[0] == *VarMult )
+//    if( *term->varin[1] > 2 ){ // positive exponent
+//      if( *term->varin[0] == *VarMult )
 //       
 
 
-//    if( *term->pops[0] == *VarMult ){
+//    if( *term->varin[0] == *VarMult ){
 //      // search for 
-//      linVars.erase( term->pops[1] ); linEdges.erase( term->pops[1] );
+//      linVars.erase( term->varin[1] ); linEdges.erase( term->varin[1] );
 //    }
-//    else if( *term->pops[1] == *VarMult ){
-//      linVars.erase( term->pops[0] ); linEdges.erase( term->pops[0] );
+//    else if( *term->varin[1] == *VarMult ){
+//      linVars.erase( term->varin[0] ); linEdges.erase( term->varin[0] );
 //    }
 //  }
 
   // Erase those variables participating with <a>idMult</a> in fractional terms
   for( auto it = _divTerms.begin(); it != _divTerms.end(); ++it ){
-    if( *(*it)->pres == *VarMult ){
-      linVars.erase( (*it)->pops[1] ); linEdges.erase( (*it)->pops[1] );
+    if( *(*it)->varout[0] == *VarMult ){
+      linVars.erase( (*it)->varin[1] ); linEdges.erase( (*it)->varin[1] );
     }
-    else if( *(*it)->pops[1] == *VarMult ){
-      linVars.erase( (*it)->pres ); linEdges.erase( (*it)->pres );
+    else if( *(*it)->varin[1] == *VarMult ){
+      linVars.erase( (*it)->varout[0] ); linEdges.erase( (*it)->varout[0] );
     }
   }
 
   // Erase those variables participating with <a>idMult</a> in inverse terms
   for( auto it = _invTerms.begin(); it != _invTerms.end(); ++it ){
-    if( *(*it)->pres == *VarMult ){
-      linVars.erase( (*it)->pops[1] ); linEdges.erase( (*it)->pops[1] );
+    if( *(*it)->varout[0] == *VarMult ){
+      linVars.erase( (*it)->varin[1] ); linEdges.erase( (*it)->varin[1] );
     }
-    else if( *(*it)->pops[1] == *VarMult ){
-      linVars.erase( (*it)->pres ); linEdges.erase( (*it)->pres );
+    else if( *(*it)->varin[1] == *VarMult ){
+      linVars.erase( (*it)->varout[0] ); linEdges.erase( (*it)->varout[0] );
     }
   }
 
@@ -1491,42 +1491,42 @@ const
 
   // Erase those variables participating with <a>idDiv</a> in bilinear terms
   for( auto it = _bilTerms.begin(); it != _bilTerms.end(); ++it ){
-    if( *(*it)->pops[0] == *VarDiv ){
-      linVars.erase( (*it)->pres ); linEdges.erase( (*it)->pres );
+    if( *(*it)->varin[0] == *VarDiv ){
+      linVars.erase( (*it)->varout[0] ); linEdges.erase( (*it)->varout[0] );
     }
-    else if( *(*it)->pops[1] == *VarDiv ){
-      linVars.erase( (*it)->pres ); linEdges.erase( (*it)->pres );
+    else if( *(*it)->varin[1] == *VarDiv ){
+      linVars.erase( (*it)->varout[0] ); linEdges.erase( (*it)->varout[0] );
     }
   }
 
   // Erase those variables participating with <a>idDiv</a> in fractional terms
   for( auto it = _divTerms.begin(); it != _divTerms.end(); ++it ){
-    if( *(*it)->pres == *VarDiv ){
-      linVars.erase( (*it)->pops[0] ); linEdges.erase( (*it)->pops[0] );
+    if( *(*it)->varout[0] == *VarDiv ){
+      linVars.erase( (*it)->varin[0] ); linEdges.erase( (*it)->varin[0] );
     }
-    else if( *(*it)->pops[1] == *VarDiv ){
-      linVars.erase( (*it)->pops[0] ); linEdges.erase( (*it)->pops[0] );
+    else if( *(*it)->varin[1] == *VarDiv ){
+      linVars.erase( (*it)->varin[0] ); linEdges.erase( (*it)->varin[0] );
     }
   }
 
   // Erase those variables participating with <a>idDiv</a> in inverse terms
   for( auto it = _invTerms.begin(); it != _invTerms.end(); ++it ){
-    if( *(*it)->pops[1] == *VarDiv ){
-      linVars.erase( (*it)->pres ); linEdges.erase( (*it)->pres );
+    if( *(*it)->varin[1] == *VarDiv ){
+      linVars.erase( (*it)->varout[0] ); linEdges.erase( (*it)->varout[0] );
     }
   }
 
   // Erase those variables participating with <a>idDiv</a> in square terms
   for( auto it = _sqrTerms.begin(); it != _sqrTerms.end(); ++it ){
-    if( *(*it)->pops[0] == *VarDiv ){
-      linVars.erase( (*it)->pres ); linEdges.erase( (*it)->pres );
+    if( *(*it)->varin[0] == *VarDiv ){
+      linVars.erase( (*it)->varout[0] ); linEdges.erase( (*it)->varout[0] );
     }
   }
 
   // Erase those variables participating with <a>idDiv</a> in square root terms
   for( auto it = _sqrtTerms.begin(); it != _sqrtTerms.end(); ++it ){
-    if( *(*it)->pres == *VarDiv ){
-      linVars.erase( (*it)->pops[0] ); linEdges.erase( (*it)->pops[0] );
+    if( *(*it)->varout[0] == *VarDiv ){
+      linVars.erase( (*it)->varin[0] ); linEdges.erase( (*it)->varin[0] );
     }
   }
 
@@ -1805,7 +1805,7 @@ const
   // Create subset of operations of given type
   t_Ops subOps;
   for( unsigned i=0; i<nOp; i++ ){
-    for( auto const& [op,mov] : Ops ){
+    for( auto const& op : Ops ){
       if( op->type != typeOp[i] ) continue;
       subOps.insert( op );
     }
@@ -1821,7 +1821,7 @@ const
 {
   // Create subset of operations of given type
   t_Ops subOps;
-  for( auto const& [op,mov] : Ops ){
+  for( auto const& op : Ops ){
     if( op->type != typeOp ) continue;
     subOps.insert( op );
   }
@@ -1840,11 +1840,11 @@ const
 
   // Create subset of variables participating in a set of operations Ops
   for( auto const& operation : Ops ){
-    for( auto const& operand : operation->pops ){
+    for( auto const& operand : operation->varin ){
       Vars.insert( operand ); // Keep constants in variable list for division
       Edges.insert( std::make_pair( operand, operation ) );
     }
-    auto result = operation->pres;
+    auto result = operation->varout[0];
     if( !result || _is_rhs( vlhs, *result ) ) continue;
     Vars.insert( result ); // Keep constants in variable list for division
     Edges.insert( std::make_pair( result, operation ) );

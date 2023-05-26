@@ -1,6 +1,6 @@
 # THIRD-PARTY LIBRARIES <<-- CHANGE AS APPROPRIATE -->>
 
-PATH_3RD_PARTY = $(HOME)/Programs/mcpp/src/3rdparty
+PATH_3RD_PARTY = $(HOME)/Programs/bitbucket/mcpp22/src/3rdparty
 
 PATH_LAPACK = $(PATH_3RD_PARTY)/cpplapack-2015.05.11-1
 LIB_LAPACK  = -llapack -lblas
@@ -37,12 +37,12 @@ LIB_CPPUNIT = -lcppunit
 # COMPILATION <<-- CHANGE AS APPROPRIATE -->>
 
 # PROF = -pg
-# OPTIM = -Ofast
+#OPTIM = -O2
 DEBUG = -g
 WARN  = -Wall -Wno-misleading-indentation -Wno-unknown-pragmas -Wno-parentheses
 CPP17 = -std=c++17
-CC    = gcc-10
-CPP   = g++-10
+CC    = gcc-11
+CPP   = g++-11
 # CPP   = icpc
 
 # <<-- NO CHANGE BEYOND THIS POINT -->>

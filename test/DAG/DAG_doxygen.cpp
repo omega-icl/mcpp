@@ -237,32 +237,31 @@ public:
       auto dep = FFDep();
       for( unsigned i=0; i<nVar; ++i ) dep += pVar[i].dep();
       dep.update( FFDep::TYPE::N );
-      return insert_external_operation( *this, dep, nVar, pVar );
+      return **insert_external_operation( *this, 1, dep, nVar, pVar );
     }
 
   // Evaluation overloads
-  template< typename T > void eval
-    ( T& vRes, unsigned const nVar, T const* vVar, bool const* mVar )
+  template< typename T >
+  void eval
+    ( unsigned const nRes, T* vRes, unsigned const nVar, T const* vVar, unsigned const* mVar )
     const
     {
+      assert( nRes == 1 );
       switch( nVar ){
-        case 0:  vRes = T( 0. );
-                 break;
-        case 1:  if( mVar && mVar[0] ) vRes = std::move( vVar[0] );
-                 else                  vRes = vVar[0];
-                 break;
-        default: if( mVar && mVar[0] ) vRes = Op<T>::sqr( std::move( vVar[0] ) );
-                 else                  vRes = Op<T>::sqr( vVar[0] );
-                 std::cout << "Moveable Var[" << 0 << "]: " << mVar[0] << std::endl;
-                 vRes = Op<T>::sqr( vVar[0] );
-                 for( unsigned i=1; i<nVar; ++i ){
-                   if( mVar && mVar[i] ) vRes += Op<T>::sqr( std::move( vVar[i] ) );
-                   else                  vRes += Op<T>::sqr( vVar[i] );
-                   std::cout << "Moveable Var[" << i << "]: " << mVar[i] << std::endl;
-                 }
-                 vRes = Op<T>::sqrt( std::move( vRes ) );
-                 break;
+        case 0: vRes[0] = T( 0. ); break;
+        case 1: vRes[0] = vVar[0]; break;
+        default: vRes[0] = Op<T>::sqr( vVar[0] );
+                 for( unsigned i=1; i<nVar; ++i ) vRes[0] += Op<T>::sqr( vVar[i] );
+                 vRes[0] = Op<T>::sqrt( vRes[0] ); break;
       }
+    }
+  // Overload for DAG manipulationz
+  void eval
+    ( unsigned const nRes, FFVar* vRes, unsigned const nVar, FFVar const* vVar, unsigned const* mVar )
+    const
+    {
+      assert( nRes == 1 );
+      vRes[0] = operator()( nVar, vVar );
     }
 
   // Properties

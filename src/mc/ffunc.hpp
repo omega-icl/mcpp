@@ -858,18 +858,15 @@ public:
   template <typename V> FFVar& operator*= ( const V& );
   template <typename V> FFVar& operator/= ( const V& );
 
-  typedef std::list< FFOp* > t_Ops;
-  typedef typename std::pair< FFOp*, t_Ops > pt_Ops;
-
   /** @defgroup FFunc Construction, Manipulation and Evaluation of DAGs for Factorable Functions
    *  @{
    */
   //! @brief Index for unreferenced variables in DAG
-  static const long NOREF = -33;
+  static const long          NOREF = -33;
   //! @brief Default name for independent variables in DAG
-  static const std::string VARNAME;
+  static const std::string   VARNAME;
   //! @brief Default name for auxiliary variables in DAG
-  static const std::string AUXNAME;
+  static const std::string   AUXNAME;
   //! @brief Enumeration type for variables in DAG
   enum TYPE{
     VAR=0,	//!< Original variable
@@ -883,23 +880,25 @@ public:
 
 private:
   //! @brief Pointer to underlying factorable function DAG - _dag := NULL for variable identifier NOREF
-  mutable FFBase *_dag;
+  mutable FFBase*            _dag;
   //! @brief Identifier (type and index)
-  pt_idVar _id;
+  pt_idVar                   _id;
   //! @brief Numeric field (integer or real)
-  mutable FFNum _num;
+  mutable FFNum              _num;
   //! @brief Dependence and linearity
-  FFDep _dep;
+  FFDep                      _dep;
   //! @brief Pointer to value field - has to be const_cast'ed in order to retreive original pointer type
-  mutable void *_val;
-  //! @brief Movability attribute
-  mutable bool _mov;
+  mutable void*              _val;
+  //! @brief Movability attribute - 0: not movable; 1: movable; 2: unused
+  mutable unsigned           _mov;
   //! @brief Constness attribute
-  mutable bool _cst;
-  //! @brief Pointer to parent (_ops.first) and children (_ops.second) operations - _ops.first := NULL for unreferenced constants
-  pt_Ops _ops;
+  mutable bool               _cst;
+  //! @brief Defining operation and corresponding index in vector operation; _opdef.first=nullptr for unreferenced constants
+  std::pair<FFOp*,unsigned>  _opdef;
+  //! @brief User operations in DAG
+  std::list<FFOp*>           _opuse;
   //! @brief Non-default name
-  std::string _nam;
+  std::string                _nam;
 
 public:
 
@@ -940,23 +939,23 @@ public:
   FFVar
     ( int const i=0 )
     : _dag( nullptr ), _id( CINT, NOREF ), _num( i ), _dep( i ), _val( nullptr ),
-      _mov( false ), _cst( true ), _nam( "" )
-    { _ops.first = nullptr; }
+      _mov( 0 ), _cst( true ), _nam( "" )
+    { _opdef.first = nullptr; }
 
   //! @brief Constructor for real parameter
   FFVar
     ( double const& d )
     : _dag( nullptr ), _id( CREAL, NOREF ), _num( d ), _dep( d ), _val( nullptr ),
-      _mov( false ), _cst( true ), _nam( "" )
-    { _ops.first = nullptr;
+      _mov( 0 ), _cst( true ), _nam( "" )
+    { _opdef.first = nullptr;
       if( _num.t == FFNum::INT ) _id.first = CINT; }
 
   //! @brief Copy constructor
   FFVar
     ( FFVar const& Var )
     : _dag( Var._dag ), _id( Var._id ), _num( Var._num ), _dep( Var._dep ),
-      _val( Var._val ), _mov( Var._mov ), _cst( Var._cst ), _ops( Var._ops ),
-      _nam( Var._nam )
+      _val( Var._val ), _mov( Var._mov ), _cst( Var._cst ), _opdef( Var._opdef ),
+      _opuse( Var._opuse ), _nam( Var._nam )
     {}
   /** @} */
 
@@ -964,7 +963,7 @@ private:
 
   //! @brief Constructor for auxiliary variable in factorable function <a>*dag</a> defined from operation <a>*Op</a>
   FFVar
-    ( FFBase* dag, FFDep const& dep, FFOp* op=nullptr );
+    ( FFBase* dag, FFDep const& dep, FFOp* op, unsigned const ndxdep );
 
   //! @brief Constructor for a variable with identifier <a>id</a> in factorable function <a>*dag</a>
   FFVar
@@ -987,15 +986,15 @@ public:
     { return _id; }
 
   //! @brief Get const reference to variable numeric field
-  const FFNum& num
-    ()
-    const
-    { return _num; }
-
-  //! @brief Get/set const reference to variable numeric field
   FFNum& num
     ()
+    const // since mutable _num
     { return _num; }
+
+//  //! @brief Get/set const reference to variable numeric field
+//  FFNum& num
+//    ()
+//    { return _num; }
 
   //! @brief Get const reference to variable dependencies
   FFDep const& dep
@@ -1009,30 +1008,31 @@ public:
     { return _dep; }
 
   //! @brief Get const pointer to defining operation
-  pt_Ops const ops
+  std::pair<FFOp*,unsigned> const& opdef
     ()
     const
-    { return _ops; }
+    { return _opdef; }
 
   //! @brief Get/set pointer to defining operation
-  pt_Ops& ops
+  std::pair<FFOp*,unsigned>& opdef
     ()
-    { return _ops; }
+    { return _opdef; }
 
-  //! @brief Get const pointer to factorable function dag
-  FFBase* dag
-    ()
-    const
-    { return _dag; }
-
-  //! @brief Get/set pointer to factorable function dag
+  //! @brief Get/set const pointer to factorable function dag
   FFBase*& dag
     ()
+    const // since mutable _dag
     { return _dag; }
+
+//  //! @brief Get/set pointer to factorable function dag
+//  FFBase*& dag
+//    ()
+//    { return _dag; }
 
   //! @brief Get/set pointer to value field
   void*& val
     ()
+    const // since mutable _val
     { return _val; }
 
   //! @brief Get pointer to value field
@@ -1042,8 +1042,9 @@ public:
     { if( !_val ) return; delete static_cast<U*>( _val ); _val = 0; }
 
   //! @brief Get/set movability attribute
-  bool& mov
+  unsigned& mov
     ()
+    const // since mutable _mov
     { return _mov; }
 
   //! @brief Get variable name
@@ -1052,16 +1053,16 @@ public:
     const
     { return ( user || !_nam.empty() ) ? _nam : _name(_id); }
 
-  //! @brief Get constness
-  const bool cst
-    ()
-    const
-    { return _cst; }
-
   //! @brief Get/set constness
   bool& cst
     ()
+    const // since mutable _cst
     { return _cst; }
+
+//  //! @brief Get/set constness
+//  bool& cst
+//    ()
+//    { return _cst; }
 
   //! @brief Set variable at a constant value
   void set
@@ -1155,17 +1156,17 @@ public:
     ERF, FABS, FSTEP, MINF, MAXF, INTER, EXTERN
   };
 
-  //! @brief Constructor for unary (or default) operation
+  //! @brief Constructor for unary scalar operation (default)
   FFOp
     ( int const top=CNST, FFVar* plop=nullptr, FFVar* pres=nullptr );
 
-  //! @brief Constructor for binary operation
+  //! @brief Constructor for binary scalar operation
   FFOp
     ( int const top, FFVar* plop, FFVar* prop, FFVar* pres );
 
-  //! @brief Constructor for n-ary operation
+  //! @brief Constructor for n-ary scalar operation
   FFOp
-    ( int const top, unsigned const nops, FFVar** pops, FFVar* pres );
+    ( int const top, unsigned const nin, FFVar** varin, FFVar* pres );
 
   //! @brief Destructor
   virtual ~FFOp
@@ -1174,27 +1175,27 @@ public:
 
   //! @brief Type of operation
   int type;
-  //! @brief Pointer to operation result
-  FFVar* pres;
+  //! @brief Pointer to results
+  mutable std::vector<FFVar*> varout;
   //! @brief Vector of operands
-  std::vector<FFVar*> pops;
+  mutable std::vector<FFVar*> varin;
   //! @brief Flag for current operation (during a DAG traversal)
   mutable int iflag;
 
 
-  //! @brief Set unary operand and result
+  //! @brief Set unary operand and scalar result
   FFOp& set
     ( FFVar* lop, FFVar* res );
-  //! @brief Set binary operands and result
+  //! @brief Set binary operands and scalar result
   FFOp& set
     ( FFVar* lop, FFVar* rop, FFVar* res );
-  //! @brief Set n-ary operands and result
+  //! @brief Set n-ary operands and scalar result
   FFOp& set
     ( unsigned const nop, FFVar** ops, FFVar* res );
 
   //! @brief Propagate subset of operations participating in subgraph
   void propagate_subgraph
-    ( std::list< std::pair< FFOp const*, bool > >& Ops )
+    ( unsigned const ndxDep, std::list< FFOp const* >& ops )
     const;
   //! @brief Reset mc::FFVar::_val field in subgraph
   template <typename U>
@@ -1203,25 +1204,25 @@ public:
     const;
   //! @brief Propagate script for DAG using DOT and display to <a>os</a>
   void generate_dot_script
-    ( std::ostream&os )
+    ( unsigned const ndxDep, std::ostream&os )
     const;
   //! @brief Append script for current operation using DOT to <a>os</a>
   void append_dot_script
-    ( std::ostream&os )
+    ( unsigned const ndxDep, std::ostream&os )
     const;
   //! @brief Append script for factor <a>fname</a> using DOT to <a>os</a>
   void append_dot_script_factor
-    ( std::ostream&os, const unsigned int fontsize )
+    ( unsigned const ndxDep, unsigned const fontsize, std::ostream& os )
     const;
   //! @brief Append script for variable/contant using DOT to <a>os</a>
   void append_dot_script_variable
-    ( std::ostream&os, const unsigned int fontsize )
+    ( unsigned const ndxDep, unsigned const fontsize, std::ostream& os )
     const;
 
   //! @brief Evaluate operation in U arithmetic, putting the result at <a>resU</a>
   template <typename U>
   void evaluate
-    ( U* resU, bool const movU, U* wkU, bool* wkmov )
+    ( U* resU, unsigned const movU, U* wkU, unsigned* wkmov )
     const;
   //! @brief Forward operation propagation in U arithmetic
   template <typename U>
@@ -1237,7 +1238,7 @@ public:
   //! @brief Evaluate external operation in U arithmetic, putting the result at <a>resU</a>
   template <typename U, typename ExtOp, typename... NextOps>
   void evaluate_external
-    ( U* resU, bool const movU, U* wkU, bool* wkmov,
+    ( U* resU, unsigned const* movU, U* wkU, unsigned* wkmov,
       ExtOp op, std::tuple<NextOps...> ops )
     const;
   //! @brief Forward external operation propagation in U arithmetic
@@ -1251,37 +1252,48 @@ public:
     ( U const* dumU, ExtOp op, std::tuple<NextOps...> ops )
     const;
 
-  //! @brief Insert Unary operation <a>Op</a> with operand <a>Var</a> in DAG
+  //! @brief Insert unary external vector operation <a>Op</a> with operand <a>Var</a> in DAG
   template <typename ExtOp>
-  static FFVar& insert_external_operation
-    ( ExtOp const& Op, FFDep const& dep, FFVar const& Var );
-  //! @brief Insert n-ary operation <a>Op</a> with operands <a>Var1</a> and <a>Var2</a> in DAG
+  FFVar** insert_external_operation
+    ( ExtOp const& Op, unsigned const nDep, FFDep const& Dep, FFVar const& Var )
+    const;
+  //! @brief Insert binary external vector operation <a>Op</a> with operands <a>Var1</a> and <a>Var2</a> in DAG
   template <typename ExtOp>
-  static FFVar& insert_external_operation
-    ( ExtOp const& Op, FFDep const& dep, FFVar const& Var1, FFVar const& Var2 );
-  //! @brief Insert n-ary operation <a>Op</a> with operand array <a>pVar</a> of size <a>nVar</a> in DAG
+  FFVar** insert_external_operation
+    ( ExtOp const& Op, unsigned const nDep, FFDep const& Dep, FFVar const& Var1, FFVar const& Var2 )
+    const;
+  //! @brief Insert n-ary external vector operation <a>Op</a> with operand array <a>pVar</a> of size <a>nVar</a> in DAG
   template <typename ExtOp>
-  static FFVar& insert_external_operation
-    ( ExtOp const& Op, FFDep const& dep, unsigned const nVar, FFVar const* pVar );
+  FFVar** insert_external_operation
+    ( ExtOp const& Op, unsigned const nDep, FFDep const& Dep, unsigned const nVar, FFVar const* pVar )
+    const;
 
-  //! @brief Default external eval function for FFVar variables
-  virtual void eval
-    ( FFVar& vRes, unsigned const nVar, FFVar const* vVar, bool const* mVar=nullptr )
-    const;
-  //! @brief Default external function definition
-  virtual FFVar& operator()
-    ( unsigned const nVar, FFVar const* pVar )
-    const;
+//  //! @brief Insert Unary external scalar operation <a>Op</a> with operand <a>Var</a> in DAG
+//  template <typename ExtOp>
+//  FFVar& insert_external_operation
+//    ( ExtOp const& Op, FFDep const& Dep, FFVar const& Var )
+//    const;
+//  //! @brief Insert binary external scalar operation <a>Op</a> with operands <a>Var1</a> and <a>Var2</a> in DAG
+//  template <typename ExtOp>
+//  FFVar& insert_external_operation
+//    ( ExtOp const& Op, FFDep const& Dep, FFVar const& Var1, FFVar const& Var2 )
+//    const;
+//  //! @brief Insert n-ary external scalar operation <a>Op</a> with operand array <a>pVar</a> of size <a>nVar</a> in DAG
+//  template <typename ExtOp>
+//  FFVar& insert_external_operation
+//    ( ExtOp const& Op, FFDep const& Dep, unsigned const nVar, FFVar const* pVar )
+//    const;
 
   //! @brief Emulate virtual templated eval function
   template< typename U >
   void eval
-    ( U& vRes, unsigned const nVar, U const* vVar, bool const* mVar=nullptr )
+    ( unsigned const nRes, U* vRes, unsigned const nVar, U const* vVar, unsigned const* mVar=nullptr )
     const;
+
   //! @brief Emulate virtual templated reval function
   template< typename U >
   bool reval
-    ( U const& vRes, unsigned const nVar, U* vVar )
+    ( unsigned const nRes, U const* vRes, unsigned const nVar, U* vVar )
     const;
 
   //! @brief Return whether or not operation is commutative
@@ -1296,6 +1308,12 @@ public:
   virtual bool sameid
     ( std::type_info const& id )
     const;
+    
+private:
+
+  //! @brief dependents
+  mutable std::vector<FFVar> _vdep;
+
   /** @} */
 };
 
@@ -1317,18 +1335,19 @@ struct lt_FFOp
       if( Op1->type > Op2->type ) return false;
 
       // Sort by number of operands next
-      if( Op1->pops.size() < Op2->pops.size() ) return true;
-      if( Op1->pops.size() > Op2->pops.size() ) return false;
+      if( Op1->varin.size() < Op2->varin.size() ) return true;
+      if( Op1->varin.size() > Op2->varin.size() ) return false;
 
-      // Sort by variable type next
+      // Sort by operands next
       // Different variable ordering is accounted for CAVEAT: This ignores variable ordering; e.g. X1+X2 different from X2+X1
       lt_FFVar ltVar;
-      if( Op1->pops.empty() ) return ltVar( Op1->pres, Op2->pres );
-      for( auto it1=Op1->pops.begin(), it2=Op2->pops.begin(); 
-           it1!=Op1->pops.end() && it2!=Op2->pops.end(); ++it1, ++it2 ){
+      if( Op1->varin.empty() ) return ltVar( Op1->varout.front(), Op2->varout.front() );
+      for( auto it1=Op1->varin.begin(), it2=Op2->varin.begin(); 
+           it1!=Op1->varin.end() && it2!=Op2->varin.end(); ++it1, ++it2 ){
         if( ltVar( *it1, *it2 ) ) return true;
         if( ltVar( *it2, *it1 ) ) return false;
       }
+      
       return false;
     }
 };
@@ -1356,83 +1375,81 @@ struct range_FFOp
 struct FFSubgraph
 ////////////////////////////////////////////////////////////////////////
 {
-  //! @brief Pointers to operations and movability in DAG
-  std::list< std::pair< FFOp const*, bool > > l_op;
+  //! @brief Pointers to operations in subgraph
+  std::list< FFOp const* > l_op;
 
-  //! @brief Pointers to operations defining dependent variables in DAG and whether they may be treated as r-values
-  std::vector< FFOp const* > op_dep;
+  //! @brief Pointers to dependent variables in subgraph
+  std::vector< FFVar const* > v_dep;
 
-  //! @brief Size of work array for DAG evaluation
-  std::size_t len_wk;
+  //! @brief Movability attribute for intermediates in subgraph
+  std::vector< unsigned > v_mov;
+
+  //! @brief Size of work array for subgraph evaluation
+  std::size_t len_tap;
 
   //! @brief Size of work array for moving n-ary operations
-  std::size_t len_mov;
-
-  //! @brief Work array for moving n-ary operations
-  bool* op_mov;
+  std::size_t len_wrk;
 
   //! @brief Default constructor
   FFSubgraph
     ()
-    : len_wk( 0 ),
-      len_mov( 0 ),
-      op_mov( nullptr )
+    : len_tap( 0 ),
+      len_wrk( 0 )
     {}
 
   //! @brief Copy constructor
   FFSubgraph
     ( FFSubgraph const& sg )
     : l_op( sg.l_op ),
-      op_dep( sg.op_dep ),
-      len_wk( sg.len_wk ),
-      len_mov( sg.len_mov )
-    { op_mov = new bool[len_mov];
-      for( std::size_t i=0; i<len_mov; ++i )
-        op_mov[i] = sg.op_mov[i]; }
+      v_dep( sg.v_dep ),
+      v_mov( sg.v_mov ),
+      len_tap( sg.len_tap ),
+      len_wrk( sg.len_wrk )
+    {}
 
   //! @brief Default constructor
   ~FFSubgraph
     ()
-    { delete[] op_mov; }
+    {}
 
   //! @brief Clear subgraph
   void clear
     ()
-    { l_op.clear(); op_dep.clear();
-      len_wk = len_mov = 0;
-      delete[] op_mov; op_mov = nullptr; }
+    { 
+      l_op.clear(); v_dep.clear(); v_mov.clear();
+      len_tap = len_wrk = 0;
+    }
 
   //! @brief Set dependent
   void set_dep
-    ( unsigned const& iflag )
-    { assert( iflag );
+    ( unsigned const& ipos, unsigned const& idep )
+    {
+      assert( ipos );
       auto it = l_op.begin();
-      std::advance( it, iflag-1 );
-      op_dep.push_back( it->first ); }
-
-  //! @brief Set move attributes
-  void set_move
-    ()
-    { for( auto& [op,mov] : l_op )
-        mov = op->pres->mov(); }
+      std::advance( it, ipos-1 );
+      v_dep.push_back( (*it)->varout[idep] );
+    }
 
   //! @brief Set work tape attributes
-  void set_eval
+  void set_wk
     ()
-    { std::size_t pos = 0, mov = 0;
-      for( auto& [op,movop] : l_op ){
+    {
+      std::size_t wk = 0, mov = 0;
+      for( auto const& op : l_op ){
         if( op->type == FFOp::PROD || op->type >= FFOp::EXTERN ){
-          std::size_t nops = op->pops.size();
-          if( nops > 1 && nops > mov ) mov = nops;
+          std::size_t nin = op->varin.size();
+          if( nin > 1 && nin > mov ) mov = nin;
         }
-        ++pos;
+        wk += op->varout.size();
       }
-      if( mov > len_mov ){
-        delete[] op_mov;
-        len_mov = mov;
-        op_mov = ( len_mov? new bool[len_mov]: nullptr );
-      }
-      len_wk =  l_op.size() + len_mov; }
+      len_tap = wk + mov;
+      v_mov.resize( len_tap );
+      len_wrk = mov;
+      unsigned iwk = 0;
+      for( auto const& op : l_op )
+        for( auto const& var : op->varout )
+          v_mov[iwk++] = var->mov();
+    }
 };
 
 //! @brief C++ class representing the DAG of factorable functions
@@ -1556,11 +1573,12 @@ public:
     //! @brief Enumeration type for exception handling
     enum TYPE{
       INIT = 1,		//!< Invalid DAG in variable initialization
-      DAG,		    //!< Operation between variables linked to different DAGs
+      DAG,		//!< Operation between variables linked to different DAGs
       INTER, 		//!< Empty intersection between constant variables
       MISSVAR,		//!< Missing independent variable during subgraph evaluation
-      EVAL,		    //!< Error during subgraph evaluation
+      EVAL,		//!< Error during subgraph evaluation
       CONSTVAL,		//!< Error due to overriding a constant variable during subgraph evaluation
+      MISSHSL,		//!< Error due to calling the HSL library which is disabled
       INTERN = -1, 	//!< Internal error
       EXTERN = -2, 	//!< Error in external operation
       UNDEF = -33 	//!< Feature not yet implemented
@@ -1638,11 +1656,17 @@ public:
     ()
     { return _curOp; }
 
-  //! @brief Reference to set of (all) variables in factorable function
+  //! @brief Reference to set of (all) variables in DAG
   t_Vars const& Vars
     ()
     const
     { return _Vars; }
+
+  //! @brief Reference to set of (all) variables in DAG
+  t_Ops const& Ops
+    ()
+    const
+    { return _Ops; }
 
   //! @brief Clear DAG (all variables and operations)
   void clear
@@ -1746,7 +1770,7 @@ public:
 protected:
   //! @brief Erase operation <a>op</a> in set <a>_Ops</a>
   bool _remove_operation
-    ( FFOp*op );
+    ( FFOp* op );
 
   //! @brief Erase all operations in set <a>_Ops</a>
   void _clear_operations
@@ -1760,58 +1784,42 @@ protected:
     const
     { for( auto&& op : _Ops ) op->iflag = 0; }
 
-  //! @brief Looks for the operation of type <a>top</a> with operand <a>op</a> in set <a>_Ops</a> and adds it if not found
-  FFOp* _insert_operation
-    ( int const top, FFVar* op );
-
-  //! @brief Looks for the operation of type <a>top</a> with left and right operands <a>lop</a>, <a>rop</a> in set <a>_Ops</a> and adds it if not found
-  FFOp* _insert_operation
-    ( int const top, FFVar* lop, FFVar* rop );
-
-  //! @brief Looks for the operation of type <a>top</a> with <a>nop</a> operands <a>ops</a> in set <a>_Ops</a> and adds it if not found
-  FFOp* _insert_operation
-    ( int const top, unsigned const nop, FFVar** ops );
-
-  //! @brief Looks for the n-ary operation of type <a>top</a> with operand array <a>pVar</a> of size <a>nVar</a> in set <a>_Ops</a> and adds it if not found; also adds new auxiliary variable in set <a>_Vars</a> and update list of dependencies in all operands in <a>_Vars</a>
+  //! @brief Looks for the n-ary operation of type <a>tOp</a> with operand array <a>pVar</a> of size <a>nVar</a> in set <a>_Ops</a> and adds it if not found; also adds new auxiliary variable in set <a>_Vars</a> and update list of dependencies in all operands in <a>_Vars</a>
   static FFVar& _insert_nary_operation
-    ( int const top, FFDep const& dep, unsigned const nVar, FFVar const* pVar );
+    ( int const tOp, FFDep const& Dep, unsigned const nVar, FFVar const* pVar );
 
-  //! @brief Looks for the binary operation of type <a>top</a> with left and right operands <a>Var1</a>, <a>Var2</a> in set <a>_Ops</a> and adds it if not found; also adds new auxiliary variable in set <a>_Vars</a> and update list of dependencies in both operands in <a>_Vars</a>
+  //! @brief Looks for the binary operation of type <a>tOp</a> with left and right operands <a>Var1</a>, <a>Var2</a> in set <a>_Ops</a> and adds it if not found; also adds new auxiliary variable in set <a>_Vars</a> and update list of dependencies in both operands in <a>_Vars</a>
   static FFVar& _insert_binary_operation
-    ( int const top, FFDep const& dep, FFVar const& Var1, FFVar const& Var2 );
+    ( int const tOp, FFDep const& Dep, FFVar const& Var1, FFVar const& Var2 );
 
-  //! @brief Looks for the binary operation of type <a>top</a> with left and right operands <a>Cst1</a>, <a>Var2</a> in set <a>_Ops</a> and adds it if not found; also adds new auxiliary variable as well as constant <a>Cst1</a> in set <a>_Vars</a> and update list of dependencies in both operands in <a>_Vars</a>
+  //! @brief Looks for the binary operation of type <a>tOp</a> with left and right operands <a>Cst1</a>, <a>Var2</a> in set <a>_Ops</a> and adds it if not found; also adds new auxiliary variable as well as constant <a>Cst1</a> in set <a>_Vars</a> and update list of dependencies in both operands in <a>_Vars</a>
   template <typename U> static FFVar&
   _insert_binary_operation
-    ( int const top, FFDep const& dep, U const& Cst1, FFVar const& Var2 );
+    ( int const tOp, FFDep const& Dep, U const& Cst1, FFVar const& Var2 );
 
-  //! @brief Looks for the binary operation of type <a>top</a> with left and right operands <a>Var1</a>, <a>Cst2</a> in set <a>_Ops</a> and adds it if not found; also adds new auxiliary variable as well as constant <a>Cst2</a> in set <a>_Vars</a> and update list of dependencies in both operands in <a>_Vars</a>
+  //! @brief Looks for the binary operation of type <a>tOp</a> with left and right operands <a>Var1</a>, <a>Cst2</a> in set <a>_Ops</a> and adds it if not found; also adds new auxiliary variable as well as constant <a>Cst2</a> in set <a>_Vars</a> and update list of dependencies in both operands in <a>_Vars</a>
   template <typename U> static FFVar&
   _insert_binary_operation
-    ( int const top, FFDep const& dep, FFVar const& Var1, U const& Cst2 );
+    ( int const tOp, FFDep const& Dep, FFVar const& Var1, U const& Cst2 );
 
-  //! @brief Looks for the unary operation of type <a>top</a> with operand <a>Var</a> in set <a>_Ops</a> and adds it if not found; also adds new auxiliary variable in set <a>_Vars</a> and update list of dependencies in operand in <a>_Vars</a>
+  //! @brief Looks for the unary operation of type <a>tOp</a> with operand <a>Var</a> in set <a>_Ops</a> and adds it if not found; also adds new auxiliary variable in set <a>_Vars</a> and update list of dependencies in operand in <a>_Vars</a>
   static FFVar& _insert_unary_operation
-    ( int const top, FFDep const& dep, FFVar const& Var );
+    ( int const tOp, FFDep const& Dep, FFVar const& Var );
 
   //! @brief Inserts the external n-ary operation <a>Op</a> with operand array <a>pVar</a> of size <a>nVar</a> in set <a>_Ops</a>, if not alrady present, adds new auxiliary variable in set <a>_Vars</a> and update list of dependencies in all operands in <a>_Vars</a>
   template <typename ExtOp>
-  static FFVar& _insert_nary_external_operation
-    ( ExtOp const& Op, FFDep const& dep, unsigned const nVar, FFVar const* pVar );
+  static FFVar** _insert_nary_external_operation
+    ( ExtOp const& Op, unsigned const nDep, FFDep const& Dep, unsigned const nVar, FFVar const* pVar );
 
   //! @brief Inserts the external binary operation <a>Op</a> with operands <a>Var1</a> and <a>Var2</a> in set <a>_Ops</a>, if not alrady present, adds new auxiliary variable in set <a>_Vars</a> and update list of dependencies in all operands in <a>_Vars</a>
   template <typename ExtOp>
-  static FFVar& _insert_binary_external_operation
-    ( ExtOp const& Op, FFDep const& dep, FFVar const& Var1, FFVar const& Var2 );
+  static FFVar** _insert_binary_external_operation
+    ( ExtOp const& Op, unsigned const nDep, FFDep const& Dep, FFVar const& Var1, FFVar const& Var2 );
 
   //! @brief Inserts the external unary operation <a>Op</a> with operand <a>Var</a> in set <a>_Ops</a>, if not alrady present, adds new auxiliary variable in set <a>_Vars</a> and update list of dependencies in all operands in <a>_Vars</a>
   template <typename ExtOp>
-  static FFVar& _insert_unary_external_operation
-    ( ExtOp const& Op, FFDep const& dep, FFVar const& Var1 );
-
-  //! @brief Adds the auxiliary variable with dependency <a>dep</a> from operation <a>op</a>
-  FFVar* _add_auxiliary
-    ( FFDep const& dep, FFOp* pOp );
+  static FFVar** _insert_unary_external_operation
+    ( ExtOp const& Op, unsigned const nDep, FFDep const& Dep, FFVar const& Var1 );
 
   //! @brief Looks for the real constant <a>x</a> and adds it if not found
   FFVar* _add_constant
@@ -1836,17 +1844,9 @@ protected:
       for( ; itv != _Vars.end(); ++itv ) delete *itv;
       _Vars.clear(); }
 
-  //! @brief Appends the auxiliary variable <a>pAux</a> and define it in _Ops with type <a>tOp</a>
-  void _append_aux
-    ( FFVar* pAux, int const tOp );
-
-  //! @brief Appends new auxiliary variable
-  virtual void _append_aux
+  //! @brief Appends the auxiliary constant <a>pAux</a>
+  void _append_cst
     ( FFVar* pAux );
-
-  //! @brief Appends new original variable
-  virtual void _append_var
-    ( FFVar* pVar );
 
   //! @brief Search for the variable with identify <a>id</a> in <a>_Vars</a>
   FFVar* _find_var
@@ -2200,7 +2200,6 @@ public:
   void wkextract
     ( const FFSubgraph&sgOut, std::vector<U>&wkOut, const FFSubgraph&sgIn, std::vector<U>&wkIn );
 
-#ifdef MC__USE_HSL
   //! @brief Perform lower triangular block reaarangement of a square system - the output arguments are the same as in the <a href="http://www.hsl.rl.ac.uk/catalogue/mc13.html">documentation of MC13</a>
   bool MC13
     ( const unsigned nDep, const FFVar*pDep, const FFVar*pIndep,
@@ -2211,7 +2210,6 @@ public:
     ( const unsigned nDep, const FFVar*pDep, const unsigned nIndep,
       const FFVar*pIndep, int*IP, int*IQ, int*IPROF, int*IFLAG, const bool disp=false,
       std::ostream&os=std::cout );
-#endif
   /** @} */
 
 private:
@@ -2333,7 +2331,7 @@ inline FFVar::FFVar
 ( FFBase* dag, std::string const& name )
 : _dag( dag? dag: throw typename FFBase::Exceptions( FFBase::Exceptions::INIT )),
   _id( VAR, _dag->_nvar++ ), _num( 0./0. ), _dep(), _val( nullptr ),
-  _mov( false ), _cst( false ), _nam( name )
+  _mov( 0 ), _cst( false ), _nam( name )
 {
   // Initialize dependence
   _dep.indep(_id.second);
@@ -2343,15 +2341,15 @@ inline FFVar::FFVar
   //std::cout << "name of inserted DAG variable: " << pVar->name() << std::endl;
   FFOp* pOp = new FFOp( FFOp::VAR, nullptr, pVar );
   _dag->_Ops.insert( pOp );
-  pVar->_ops.first = _ops.first = pOp;
-  _dag->_append_var( pVar );
+  pVar->_opdef = _opdef = std::make_pair( pOp, 0 ); // Set index to 0 for scalar operation
+  _dag->_Vars.insert( pVar );
 }
 
 inline FFVar::FFVar
 ( FFBase* dag, double const d )
 : _dag( dag? dag: throw typename FFBase::Exceptions( FFBase::Exceptions::INIT )),
   _id( VAR, _dag->_nvar++ ), _num( d ), _dep(), _val( nullptr ),
-  _mov( false ), _cst( true ), _nam( "" )
+  _mov( 0 ), _cst( true ), _nam( "" )
 { 
   // Initialize dependence
   _dep.indep(_id.second);
@@ -2360,15 +2358,15 @@ inline FFVar::FFVar
   FFVar* pVar = new FFVar( *this );
   FFOp* pOp = new FFOp( FFOp::VAR, nullptr, pVar );
   _dag->_Ops.insert( pOp );
-  pVar->_ops.first = _ops.first = pOp;
-  _dag->_append_var( pVar );
+  pVar->_opdef = _opdef = std::make_pair( pOp, 0 ); // Set index to 0 for scalar operation
+  _dag->_Vars.insert( pVar );
 }
 
 inline FFVar::FFVar
 ( FFBase* dag, int const i )
 : _dag( dag? dag: throw typename FFBase::Exceptions( FFBase::Exceptions::INIT )),
   _id( VAR, _dag->_nvar++ ), _num( i ), _dep(), _val( nullptr ),
-  _mov( false ), _cst( true ), _nam( "" )
+  _mov( 0 ), _cst( true ), _nam( "" )
 { 
   // Initialize dependence
   _dep.indep(_id.second);
@@ -2377,20 +2375,21 @@ inline FFVar::FFVar
   FFVar* pVar = new FFVar( *this );
   FFOp* pOp = new FFOp( FFOp::VAR, nullptr, pVar );
   _dag->_Ops.insert( pOp );
-  pVar->_ops.first = _ops.first = pOp;
-  _dag->_append_var( pVar );
+  pVar->_opdef = _opdef = std::make_pair( pOp, 0 ); // Set index to 0 for scalar operation
+  _dag->_Vars.insert( pVar );
 }
 
 inline FFVar::FFVar
-( FFBase* dag, FFDep const& dep, FFOp* op )
+( FFBase* dag, FFDep const& dep, FFOp* op, unsigned ndxdep )
 : _dag( dag ), _id( AUX, dag->_naux++ ), _num( 0./0. ), _dep( dep ),
-  _val ( nullptr ), _mov( false ), _cst( false ), _nam( "" )
-{ _ops.first = op; }
+  _val ( nullptr ), _mov( 0 ), _cst( false ), _opdef( op, ndxdep ),
+  _nam( "" )
+{}
 
 inline FFVar::FFVar
 ( FFBase* dag, pt_idVar const& id, std::string const& name )
 : _dag( dag? dag: throw typename FFBase::Exceptions( FFBase::Exceptions::INIT )),
-  _id( id ), _num( 0./0. ), _dep(), _val( nullptr ), _mov( false ), _cst( false ),
+  _id( id ), _num( 0./0. ), _dep(), _val( nullptr ), _mov( 0 ), _cst( false ),
   _nam( name )
 {
   // Initialize dependence
@@ -2400,14 +2399,14 @@ inline FFVar::FFVar
   FFVar* pVar = new FFVar( *this );
   FFOp* pOp = new FFOp( FFOp::VAR, nullptr, pVar );
   _dag->_Ops.insert( pOp );
-  pVar->_ops.first = _ops.first = pOp;
-  _dag->_append_var( pVar );
+  pVar->_opdef = _opdef = std::make_pair( pOp, 0 ); // Set index to 0 for scalar operation
+  _dag->_Vars.insert( pVar );
 }
 
 inline void FFVar::set
 ( int const i )
 const
-{ _num = i; _cst = true; _mov = false;
+{ _num = i; _cst = true; _mov = 0;
   if( !_dag ) return;
   _dag->_set_constant( this, _num );
   return;
@@ -2416,7 +2415,7 @@ const
 inline void FFVar::set
 ( double const d )
 const
-{ _num = d; _cst = true; _mov = false;
+{ _num = d; _cst = true; _mov = 0;
   if( !_dag ) return;
   _dag->_set_constant( this, _num );
   return;
@@ -2425,7 +2424,7 @@ const
 inline void FFVar::unset
 ()
 const
-{ _cst = false; _mov = false;
+{ _cst = false; _mov = 0;
   if( !_dag ) return;
   _dag->_unset_constant( this );
   return;
@@ -2454,15 +2453,16 @@ FFVar::operator=
 ( FFVar const& Var )
 {
   if( this == &Var ) return *this;
-  _id   = Var._id;
-  _num  = Var._num;
-  _dep  = Var._dep;
-  _dag  = Var._dag;
-  _val  = Var._val;
-  _mov  = Var._mov;
-  _cst  = Var._cst;
-  _ops  = Var._ops;
-  _nam  = Var._nam;
+  _id    = Var._id;
+  _num   = Var._num;
+  _dep   = Var._dep;
+  _dag   = Var._dag;
+  _val   = Var._val;
+  _mov   = Var._mov;
+  _cst   = Var._cst;
+  _opdef = Var._opdef;
+  _opuse = Var._opuse;
+  _nam   = Var._nam;
   return *this;
 }
 
@@ -2470,16 +2470,16 @@ inline FFVar&
 FFVar::operator=
 ( int const i )
 {
-  _num  = i;
-  _id   = std::make_pair(CINT,NOREF);
-  _dep  = i;
-  _dag  = nullptr;
-  _val  = nullptr;
-  _mov  = false;
-  _cst  = true;
-  _nam  = "";
-  _ops.first = nullptr;
-  _ops.second.clear();
+  _num   = i;
+  _id    = std::make_pair(CINT,NOREF);
+  _dep   = i;
+  _dag   = nullptr;
+  _val   = nullptr;
+  _mov   = 0;
+  _cst   = true;
+  _nam   = "";
+  _opdef = std::make_pair( nullptr, 0 );
+  _opuse.clear();
   return *this;
 }
 
@@ -2487,16 +2487,16 @@ inline FFVar&
 FFVar::operator=
 ( double const x )
 {
-  _num  = x;
-  _id   = std::make_pair((_num.t==FFNum::INT?CINT:CREAL),NOREF);
-  _dep  = x;
-  _dag  = nullptr;
-  _val  = nullptr;
-  _mov  = false;
-  _cst  = true;
-  _nam  = "";
-  _ops.first = nullptr;
-  _ops.second.clear();
+  _num   = x;
+  _id    = std::make_pair((_num.t==FFNum::INT?CINT:CREAL),NOREF);
+  _dep   = x;
+  _dag   = nullptr;
+  _val   = nullptr;
+  _mov   = 0;
+  _cst   = true;
+  _nam   = "";
+  _opdef = std::make_pair( nullptr, 0 );
+  _opuse.clear();
   return *this;
 }
 
@@ -2585,8 +2585,8 @@ operator-
 ( FFVar const& Var )
 {
   // Check if expression of type -(-X)
-  if( Var._ops.first && Var._ops.first->type == FFOp::NEG )
-    return *Var._ops.first->pops[0];
+  if( Var._opdef.first && Var._opdef.first->type == FFOp::NEG )
+    return *Var._opdef.first->varin[0];
 
   switch( Var._id.first ){
   case FFVar::CREAL:
@@ -2997,12 +2997,12 @@ exp
 
   // Case exponent is negative: compute 1./(Var^dExp)
   if( Var._dag->options.DETECTSIGNOM
-   && Var._ops.first
-   && Var._ops.first->type == FFOp::SCALE
-   && Var._ops.first->pops[0]->_ops.first
-   && Var._ops.first->pops[0]->_ops.first->type == FFOp::LOG ){
-    auto const* Aux = Var._ops.first->pops[0]->_ops.first->pops[0];
-    auto const* Cst = Var._ops.first->pops[1];
+   && Var._opdef.first
+   && Var._opdef.first->type == FFOp::SCALE
+   && Var._opdef.first->varin[0]->_opdef.first
+   && Var._opdef.first->varin[0]->_opdef.first->type == FFOp::LOG ){
+    auto const* Aux = Var._opdef.first->varin[0]->_opdef.first->varin[0];
+    auto const* Cst = Var._opdef.first->varin[1];
 #ifdef MC__FFUNC_DEBUG_SIGNOM
     std::cout << "Signomial term detected: exp(" << Cst->name() << ".log(" << Aux->name() << ")" << std::endl;
 #endif
@@ -3560,11 +3560,11 @@ operator <<
 ( std::ostream& out, FFOp const& Op)
 {
   switch( Op.type ){
-    case FFOp::CNST:  out << Op.pres->num() << "\t";
+    case FFOp::CNST:  out << Op.varout[0]->num() << "\t";
                       break;
-    case FFOp::VAR:   if( Op.pres->cst() ) out << Op.pres->num(); else out << "VARIABLE";
+    case FFOp::VAR:   if( Op.varout[0]->cst() ) out << Op.varout[0]->num(); else out << "VARIABLE";
                       break;
-    case FFOp::NEG:   out << "- " << Op.pops[0]->name() << "\t" ;
+    case FFOp::NEG:   out << "- " << Op.varin[0]->name() << "\t" ;
                       break;
     case FFOp::PLUS:
     case FFOp::SHIFT: 
@@ -3572,15 +3572,15 @@ operator <<
     case FFOp::TIMES:
     case FFOp::SCALE: 
     case FFOp::DIV:
-    case FFOp::INV:   out << Op.pops[0]->name() << Op.name() << Op.pops[1]->name() << "\t";
+    case FFOp::INV:   out << Op.varin[0]->name() << Op.name() << Op.varin[1]->name() << "\t";
                       break;
     case FFOp::IPOW:
     case FFOp::DPOW:
     case FFOp::CHEB:
     case FFOp::MINF:
     case FFOp::MAXF:
-    case FFOp::INTER: out << Op.name() << "( " << Op.pops[0]->name() << ", "
-                                               << Op.pops[1]->name() << " )";
+    case FFOp::INTER: out << Op.name() << "( " << Op.varin[0]->name() << ", "
+                                               << Op.varin[1]->name() << " )";
                       break;
     case FFOp::SQR:
     case FFOp::SQRT:
@@ -3598,17 +3598,17 @@ operator <<
     case FFOp::TANH:
     case FFOp::ERF:
     case FFOp::FABS:
-    case FFOp::FSTEP: out << Op.name() << "( " << Op.pops[0]->name() << " )\t";
+    case FFOp::FSTEP: out << Op.name() << "( " << Op.varin[0]->name() << " )\t";
                       break;
     case FFOp::PROD:  out << Op.name() << "( ";
-                      for( unsigned i=0; i<Op.pops.size()-1; i++ ) out << Op.pops[i]->name() << ", ";
-                      out << Op.pops[Op.pops.size()-1]->name() << " )\t";
+                      for( unsigned i=0; i<Op.varin.size()-1; i++ ) out << Op.varin[i]->name() << ", ";
+                      out << Op.varin[Op.varin.size()-1]->name() << " )\t";
                       break;
     default: 
       if( Op.type >= FFOp::EXTERN ){
                       out << Op.name() << "( ";
-                      for( unsigned i=0; i<Op.pops.size()-1; i++ ) out << Op.pops[i]->name() << ", ";
-                      out << Op.pops[Op.pops.size()-1]->name() << " )\t";
+                      for( unsigned i=0; i<Op.varin.size()-1; i++ ) out << Op.varin[i]->name() << ", ";
+                      out << Op.varin[Op.varin.size()-1]->name() << " )\t";
                       break;
       }
       // Should not reach this point
@@ -3620,38 +3620,47 @@ operator <<
 inline
 FFOp::FFOp
 ( int const top, FFVar* lop, FFVar* res ):
-  type( top ), pres( res ), pops(), iflag(0)
+  type( top ), iflag( 0 )
 {
-  if( lop ) pops.push_back( lop );
+  if( res ) varout.push_back( res );
+  if( lop ) varin.push_back( lop );
 }
 
 inline
 FFOp::FFOp
 ( int const top, FFVar* lop, FFVar* rop, FFVar* res ):
-  type( top ), pres( res ), pops(), iflag(0)
+  type( top ), iflag( 0 )
 {
+  if( res ) varout.push_back( res );
+
   // Reorder operands in commutative operations
   if( lop && commutative() && lt_FFVar()( rop, lop ) )
-    { pops.push_back( rop ); pops.push_back( lop ); }
+    { varin.push_back( rop ); varin.push_back( lop ); }
   else
-    { pops.push_back( lop ); pops.push_back( rop ); }
+    { varin.push_back( lop ); varin.push_back( rop ); }
 }
 
 inline
 FFOp::FFOp
 ( int const top, unsigned const nop, FFVar** ops, FFVar* res ):
-  type( top ), pres( res ), pops( ops, ops+nop ), iflag(0)
+  type( top ), varin( ops, ops+nop ), iflag( 0 )
 {
-  if( nop < 2 || !commutative() ) return;
-  std::sort( pops.begin(), pops.end(), lt_FFVar() );
+  if( res ) varout.push_back( res );
+
+  if( nop > 1 && commutative() )
+    std::sort( varin.begin(), varin.end(), lt_FFVar() );
 }
 
 inline FFOp&
 FFOp::set
 ( FFVar* lop, FFVar* res )
 {
-  pres = res;
-  pops.assign( { lop } );
+  varout.clear();
+  if( res ) varout.push_back( res );
+
+  varin.clear();
+  if( lop ) varin.push_back( lop );
+
   return *this;
 }
 
@@ -3659,12 +3668,15 @@ inline FFOp&
 FFOp::set
 ( FFVar* lop, FFVar* rop, FFVar* res )
 {
-  pres = res;
-  // Reorder operands in commutative operations
+  varout.clear();
+  if( res ) varout.push_back( res );
+
+  assert( lop && rop );
   if( commutative() && lt_FFVar()( rop, lop ) )
-    pops.assign( { rop, lop } );
+    varin.assign( { rop, lop } );
   else
-    pops.assign( { lop, rop } );
+    varin.assign( { lop, rop } );
+
   return *this;
 }
 
@@ -3672,59 +3684,112 @@ inline FFOp&
 FFOp::set
 ( unsigned const nop, FFVar** ops, FFVar* res )
 {
-  pres = res;
-  pops.assign( ops, ops+nop );
-  if( nop < 2 || !commutative() ) return *this;
-  std::sort( pops.begin(), pops.end(), lt_FFVar() );
+  varout.clear();
+  if( res ) varout.push_back( res );
+
+  varin.assign( ops, ops+nop );
+  if( nop > 1 && commutative() )
+    std::sort( varin.begin(), varin.end(), lt_FFVar() );
+
   return *this;
 }
 
 template <typename ExtOp>
-inline FFVar&
+inline FFVar**
 FFOp::insert_external_operation
-( ExtOp const& Op, FFDep const& dep, unsigned const nVar, FFVar const* pVar )
+( ExtOp const& Op, unsigned const nDep, FFDep const& Dep, unsigned const nVar, FFVar const* pVar )
+const
 {
-  return FFBase::_insert_nary_external_operation( Op, dep, nVar, pVar );
+  return FFBase::_insert_nary_external_operation( Op, nDep, Dep, nVar, pVar );
+//  _vdep.clear(); _vdep.reserve( nDep );
+//  for( auto const& pp : FFBase::_insert_unary_external_operation( Op, nDep, Dep, nVar, pVar ) )
+//    _vdep.push_back( *pp );
+//  return _vdep.data();
 }
 
 template <typename ExtOp>
-inline FFVar&
+inline FFVar**
 FFOp::insert_external_operation
-( ExtOp const& Op, FFDep const& dep, FFVar const& Var1, FFVar const& Var2 )
+( ExtOp const& Op, unsigned const nDep, FFDep const& Dep, FFVar const& Var1, FFVar const& Var2 )
+const
 {
-  return FFBase::_insert_binary_external_operation( Op, dep, Var1, Var2 );
+  return FFBase::_insert_unary_external_operation( Op, nDep, Dep, Var1, Var2 );
+//  _vdep.clear(); _vdep.reserve( nDep );
+//  for( auto const& pp : FFBase::_insert_unary_external_operation( Op, nDep, Dep, Var1, Var2 ) )
+//    _vdep.push_back( *pp );
+//  return _vdep.data();
 }
 
 template <typename ExtOp>
-inline FFVar&
+inline FFVar**
 FFOp::insert_external_operation
-( ExtOp const& Op, FFDep const& dep, FFVar const& Var )
+( ExtOp const& Op, unsigned const nDep, FFDep const& Dep, FFVar const& Var )
+const
 {
-  return FFBase::_insert_unary_external_operation( Op, dep, Var );
+  return FFBase::_insert_unary_external_operation( Op, nDep, Dep, Var );
+//  _vdep.clear(); _vdep.reserve( nDep );
+//  for( auto const& pp : FFBase::_insert_unary_external_operation( Op, nDep, Dep, Var ) )
+//    _vdep.push_back( *pp );
+//  return _vdep.data();  
 }
+
+//template <typename ExtOp>
+//inline FFVar&
+//FFOp::insert_external_operation
+//( ExtOp const& Op, FFDep const& Dep, unsigned const nVar, FFVar const* pVar )
+//const
+//{
+//  return **FFBase::_insert_nary_external_operation( Op, 1, Dep, nVar, pVar );
+//}
+
+//template <typename ExtOp>
+//inline FFVar&
+//FFOp::insert_external_operation
+//( ExtOp const& Op, FFDep const& Dep, FFVar const& Var1, FFVar const& Var2 )
+//const
+//{
+//  return **FFBase::_insert_binary_external_operation( Op, 1, Dep, Var1, Var2 );
+//}
+
+//template <typename ExtOp>
+//inline FFVar&
+//FFOp::insert_external_operation
+//( ExtOp const& Op, FFDep const& Dep, FFVar const& Var )
+//const
+//{
+//  return **FFBase::_insert_unary_external_operation( Op, 1, Dep, Var );
+//}
 
 inline void
 FFOp::propagate_subgraph
-( std::list< std::pair< FFOp const*, bool > >& Ops )
+( unsigned const ndxDep, std::list< FFOp const* >& l_ops )
 const
 {
   if( iflag ){
-    // indicate non-movability of current operation result 
-    pres->mov() = false;
+    // indicate non-movability of current operation result if already visited
+    switch( varout[ndxDep]->mov() ){
+     case 0:
+     case 1:  varout[ndxDep]->mov() = 0; return;
+     case 2:  varout[ndxDep]->mov() = 1; return;
+     default: throw typename FFBase::Exceptions( FFBase::Exceptions::INTERN );
+    }
     return;
   }
 
-  for( auto it=pops.begin(); it!=pops.end(); ++it ){
-    if( !(*it) || !(*it)->ops().first ) continue;
-    (*it)->ops().first->propagate_subgraph( Ops );
+  for( auto const& pvar : varin ){
+    if( !pvar ) continue;
+    auto const& [ pOp, ndxDep ] = pvar->opdef();
+    if( !pOp ) continue;
+    pOp->propagate_subgraph( ndxDep, l_ops );
   }
 
-  Ops.push_back( std::make_pair( this, false ) );
-  pres->mov() = true;
-  iflag = Ops.size();
+  l_ops.push_back( this );
+  for( unsigned j=0; j<varout.size(); j++ ) varout[j]->mov() = (j==ndxDep?1:2);
+  iflag = l_ops.size(); // record operation position on tape
 }
 
-template <typename U> inline void
+template <typename U>
+inline void
 FFOp::reset_val_subgraph
 ( U const&  U_dum )
 const
@@ -3732,20 +3797,26 @@ const
   if( iflag ) return;
   iflag = 1;
 
-  for( auto it=pops.begin(); it!=pops.end(); ++it ){
-    if( !(*it) || !(*it)->ops().first ) continue;
-    (*it)->ops().first->reset_val_subgraph( U_dum );
+  for( auto const& pvar : varin ){
+    if( !pvar ) continue;
+    auto const& [ pOp, ndxDep ] = pvar->opdef();
+    if( !pOp ) continue;
+    pOp->reset_val_subgraph( U_dum );
   }
-  if( !pres ) return;
-  if( pres->val() ) pres->reset_val( U_dum );
-  pres->mov() = false;
+  for( auto const& pvar : varout ){
+    if( pvar->val() ) pvar->reset_val( U_dum );
+    pvar->mov() = 0;
+  }
 }
 
-template <typename U> inline void
+template <typename U>
+inline void
 FFOp::evaluate
-( U* resU, bool const resmov, U* wkU, bool* wkmov )
+( U* resU, unsigned const resmov, U* wkU, unsigned* wkmov )
 const
 {
+  assert( varout.size() == 1 );
+  FFVar const* pres = varout.front();
   pres->val() = resU;
   pres->mov() = resmov;
 
@@ -3761,558 +3832,558 @@ const
     break;
 
    case FFOp::SHIFT:
-    if( pops[0]->mov() ){
+    if( varin[0]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling SHIFT w/ move for " << *pops[0] << std::endl;
+      std::cout << "calling SHIFT w/ move for " << *varin[0] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[0]->val() );
-      *resU = std::move( val += pops[1]->num().val() );
+      U& val = *static_cast<U*>( varin[0]->val() );
+      *resU = std::move( val += varin[1]->num().val() );
     }
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling SHIFT w/o move for " << *pops[0] << std::endl;
+      std::cout << "calling SHIFT w/o move for " << *varin[0] << std::endl;
 #endif
-      *resU = *static_cast<U*>( pops[0]->val() ) + pops[1]->num().val();
+      *resU = *static_cast<U*>( varin[0]->val() ) + varin[1]->num().val();
     }
     break;
 
    case FFOp::PLUS:
-    if( &pops[0] == &pops[1] && pops[0]->mov() ){
+    if( &varin[0] == &varin[1] && varin[0]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling SCALE w/ move for " << *pops[0] << std::endl;
+      std::cout << "calling SCALE w/ move for " << *varin[0] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[0]->val() );
+      U& val = *static_cast<U*>( varin[0]->val() );
       *resU = std::move( val *= 2. );
     }
-    else if( &pops[0] == &pops[1] ){
+    else if( &varin[0] == &varin[1] ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling SCALE w/o move for " << *pops[0] << std::endl;
+      std::cout << "calling SCALE w/o move for " << *varin[0] << std::endl;
 #endif
-      *resU = *static_cast<U*>( pops[0]->val() ) * 2.;
+      *resU = *static_cast<U*>( varin[0]->val() ) * 2.;
     }
-    else if( pops[0]->mov() ){
+    else if( varin[0]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling PLUS w/ move for " << *pops[0] << std::endl;
+      std::cout << "calling PLUS w/ move for " << *varin[0] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[0]->val() );
-      *resU = std::move( val += *static_cast<U*>( pops[1]->val() ) );
+      U& val = *static_cast<U*>( varin[0]->val() );
+      *resU = std::move( val += *static_cast<U*>( varin[1]->val() ) );
     }
-    else if( pops[1]->mov() ){
+    else if( varin[1]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling PLUS w/ move for " << *pops[1] << std::endl;
+      std::cout << "calling PLUS w/ move for " << *varin[1] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[1]->val() );
-      *resU = std::move( val += *static_cast<U*>( pops[0]->val() ) );
+      U& val = *static_cast<U*>( varin[1]->val() );
+      *resU = std::move( val += *static_cast<U*>( varin[0]->val() ) );
     }
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling PLUS w/o move for " << *pops[0] << "," << *pops[1] << std::endl;
+      std::cout << "calling PLUS w/o move for " << *varin[0] << "," << *varin[1] << std::endl;
 #endif
-      *resU = *static_cast<U*>( pops[0]->val() ) + *static_cast<U*>( pops[1]->val() );
+      *resU = *static_cast<U*>( varin[0]->val() ) + *static_cast<U*>( varin[1]->val() );
     }
     break;
 
    case FFOp::NEG:
-    if( pops[0]->mov() ){
+    if( varin[0]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling NEG w/ move for " << *pops[0] << std::endl;
+      std::cout << "calling NEG w/ move for " << *varin[0] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[0]->val() );
+      U& val = *static_cast<U*>( varin[0]->val() );
       *resU = - std::move( val );
     }
     else{
-      *resU = - *static_cast<U*>( pops[0]->val() );
+      *resU = - *static_cast<U*>( varin[0]->val() );
     }
     break;
 
    case FFOp::MINUS:
-    if( &pops[0] == &pops[1] )
+    if( &varin[0] == &varin[1] )
       *resU = 0.;
-    else if( pops[0]->mov() ){
+    else if( varin[0]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling MINUS w/ move for " << *pops[0] << std::endl;
+      std::cout << "calling MINUS w/ move for " << *varin[0] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[0]->val() );
-      *resU = std::move( val -= *static_cast<U*>( pops[1]->val() ) );
+      U& val = *static_cast<U*>( varin[0]->val() );
+      *resU = std::move( val -= *static_cast<U*>( varin[1]->val() ) );
     }
-    //else if( pops[1]->mov() ){
-    //  std::cout << "calling MINUS w/ move for " << *pops[1] << std::endl;
-    //  U& val  = *static_cast<U*>( pops[1]->val() );
+    //else if( varin[1]->mov() ){
+    //  std::cout << "calling MINUS w/ move for " << *varin[1] << std::endl;
+    //  U& val  = *static_cast<U*>( varin[1]->val() );
     //  U&& neg = operator-( std::move( val ) );
-    //  *resU = std::move( neg += *static_cast<U*>( pops[0]->val() ) );
+    //  *resU = std::move( neg += *static_cast<U*>( varin[0]->val() ) );
     //}
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling MINUS w/ move for " << *pops[0] << "," << *pops[1] << std::endl;
+      std::cout << "calling MINUS w/ move for " << *varin[0] << "," << *varin[1] << std::endl;
 #endif
-      *resU = *static_cast<U*>( pops[0]->val() ) - *static_cast<U*>( pops[1]->val() );
+      *resU = *static_cast<U*>( varin[0]->val() ) - *static_cast<U*>( varin[1]->val() );
     }
     break;
 
    case FFOp::SCALE:
-    if( pops[0]->mov() ){
+    if( varin[0]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling SCALE w/ move for " << *pops[0] << std::endl;
+      std::cout << "calling SCALE w/ move for " << *varin[0] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[0]->val() );
-      *resU = std::move( val *= pops[1]->num().val() );
+      U& val = *static_cast<U*>( varin[0]->val() );
+      *resU = std::move( val *= varin[1]->num().val() );
     }
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling SCALE w/o move for " << *pops[0] << std::endl;
+      std::cout << "calling SCALE w/o move for " << *varin[0] << std::endl;
 #endif
-      *resU = *static_cast<U*>( pops[0]->val() ) * pops[1]->num().val();
+      *resU = *static_cast<U*>( varin[0]->val() ) * varin[1]->num().val();
     }
     break;
 
    case FFOp::TIMES:
-    if( &pops[0] == &pops[1] && pops[0]->mov() ){
+    if( &varin[0] == &varin[1] && varin[0]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling SQR w/ move for " << *pops[0] << std::endl;
+      std::cout << "calling SQR w/ move for " << *varin[0] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[0]->val() );
+      U& val = *static_cast<U*>( varin[0]->val() );
       *resU = Op<U>::sqr( std::move( val ) );
     }
-    else if( &pops[0] == &pops[1] ){
+    else if( &varin[0] == &varin[1] ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling SQR w/o move for " << *pops[0] << std::endl;
+      std::cout << "calling SQR w/o move for " << *varin[0] << std::endl;
 #endif
-      *resU = Op<U>::sqr( *static_cast<U*>( pops[0]->val() ) );
+      *resU = Op<U>::sqr( *static_cast<U*>( varin[0]->val() ) );
     }
-    else if( pops[0]->mov() ){
+    else if( varin[0]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling TIMES w/ move for " << *pops[0] << std::endl;
+      std::cout << "calling TIMES w/ move for " << *varin[0] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[0]->val() );
-      *resU = std::move( val *= *static_cast<U*>( pops[1]->val() ) );
+      U& val = *static_cast<U*>( varin[0]->val() );
+      *resU = std::move( val *= *static_cast<U*>( varin[1]->val() ) );
     }
-    else if( pops[1]->mov() ){
+    else if( varin[1]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling TIMES w/ move for " << *pops[1] << std::endl;
+      std::cout << "calling TIMES w/ move for " << *varin[1] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[1]->val() );
-      *resU = std::move( val *= *static_cast<U*>( pops[0]->val() ) );
+      U& val = *static_cast<U*>( varin[1]->val() );
+      *resU = std::move( val *= *static_cast<U*>( varin[0]->val() ) );
     }
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling TIMES w/o move for " << *pops[0] << "," << *pops[1] << std::endl;
+      std::cout << "calling TIMES w/o move for " << *varin[0] << "," << *varin[1] << std::endl;
 #endif
-      *resU = *static_cast<U*>( pops[0]->val() ) * *static_cast<U*>( pops[1]->val() );
+      *resU = *static_cast<U*>( varin[0]->val() ) * *static_cast<U*>( varin[1]->val() );
     }
     break;
 
    case FFOp::INV:
-    if( pops[0]->mov() ){
+    if( varin[0]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling INV w/ move for " << *pops[1] << std::endl;
+      std::cout << "calling INV w/ move for " << *varin[1] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[1]->val() );
-      *resU = pops[0]->num().val() / std::move( val );
+      U& val = *static_cast<U*>( varin[1]->val() );
+      *resU = varin[0]->num().val() / std::move( val );
     }
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling INV w/o move for " << *pops[1] << std::endl;
+      std::cout << "calling INV w/o move for " << *varin[1] << std::endl;
 #endif
-      *resU = pops[0]->num().val() / *static_cast<U*>( pops[1]->val() );
+      *resU = varin[0]->num().val() / *static_cast<U*>( varin[1]->val() );
     }
     break;
 
    case FFOp::DIV:  
-    if( &pops[0] == &pops[1] )
+    if( &varin[0] == &varin[1] )
       *resU = 1.;
-    else if( pops[0]->mov() ){
+    else if( varin[0]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling DIV w/ move for " << *pops[0] << std::endl;
+      std::cout << "calling DIV w/ move for " << *varin[0] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[0]->val() );
-      *resU = std::move( val /= *static_cast<U*>( pops[1]->val() ) );
+      U& val = *static_cast<U*>( varin[0]->val() );
+      *resU = std::move( val /= *static_cast<U*>( varin[1]->val() ) );
     }
-    //else if( pops[1]->mov() ){
-    //  std::cout << "calling DIV w/ move for " << *pops[1] << std::endl;
-    //  U& val  = *static_cast<U*>( pops[1]->val() );
+    //else if( varin[1]->mov() ){
+    //  std::cout << "calling DIV w/ move for " << *varin[1] << std::endl;
+    //  U& val  = *static_cast<U*>( varin[1]->val() );
     //  U&& inv = Op<U>::inv( std::move( val ) );
-    //  *resU = std::move( inv *= *static_cast<U*>( pops[0]->val() ) );
+    //  *resU = std::move( inv *= *static_cast<U*>( varin[0]->val() ) );
     //}
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling DIV w/o move for " << *pops[0] << "," << *pops[1] << std::endl;
+      std::cout << "calling DIV w/o move for " << *varin[0] << "," << *varin[1] << std::endl;
 #endif
-      *resU = *static_cast<U*>( pops[0]->val() ) / *static_cast<U*>( pops[1]->val() );
+      *resU = *static_cast<U*>( varin[0]->val() ) / *static_cast<U*>( varin[1]->val() );
     }
     break;
 
    case FFOp::IPOW:
-    if( pops[0]->mov() ){
+    if( varin[0]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling IPOW w/ move for " << *pops[0] << std::endl;
+      std::cout << "calling IPOW w/ move for " << *varin[0] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[0]->val() );
-      *resU = Op<U>::pow( std::move( val ), pops[1]->num().n );
+      U& val = *static_cast<U*>( varin[0]->val() );
+      *resU = Op<U>::pow( std::move( val ), varin[1]->num().n );
     }
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling IPOW w/o move for " << *pops[0] << std::endl;
+      std::cout << "calling IPOW w/o move for " << *varin[0] << std::endl;
 #endif
-      *resU = Op<U>::pow( *static_cast<U*>( pops[0]->val() ), pops[1]->num().n );
+      *resU = Op<U>::pow( *static_cast<U*>( varin[0]->val() ), varin[1]->num().n );
     }
     break;
 
    case FFOp::DPOW:
-    if( pops[0]->mov() ){
+    if( varin[0]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling DPOW w/ move for " << *pops[0] << std::endl;
+      std::cout << "calling DPOW w/ move for " << *varin[0] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[0]->val() );
-      *resU = Op<U>::pow( std::move( val ), pops[1]->num().x );
+      U& val = *static_cast<U*>( varin[0]->val() );
+      *resU = Op<U>::pow( std::move( val ), varin[1]->num().x );
     }
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling DPOW w/o move for " << *pops[0] << std::endl;
+      std::cout << "calling DPOW w/o move for " << *varin[0] << std::endl;
 #endif
-      *resU = Op<U>::pow( *static_cast<U*>( pops[0]->val() ), pops[1]->num().x );
+      *resU = Op<U>::pow( *static_cast<U*>( varin[0]->val() ), varin[1]->num().x );
     }
     break;
 
    case FFOp::CHEB:
-    if( pops[0]->mov() ){
+    if( varin[0]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling CHEB w/ move for " << *pops[0] << std::endl;
+      std::cout << "calling CHEB w/ move for " << *varin[0] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[0]->val() );
-      *resU = Op<U>::cheb( std::move( val ), pops[1]->num().n );
+      U& val = *static_cast<U*>( varin[0]->val() );
+      *resU = Op<U>::cheb( std::move( val ), varin[1]->num().n );
     }
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling CHEB w/o move for " << *pops[0] << std::endl;
+      std::cout << "calling CHEB w/o move for " << *varin[0] << std::endl;
 #endif
-      *resU = Op<U>::cheb( *static_cast<U*>( pops[0]->val() ), pops[1]->num().n );
+      *resU = Op<U>::cheb( *static_cast<U*>( varin[0]->val() ), varin[1]->num().n );
     }
     break;
 
    case FFOp::SQR:  
-    if( pops[0]->mov() ){
+    if( varin[0]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling SQR w/ move for " << *pops[0] << std::endl;
+      std::cout << "calling SQR w/ move for " << *varin[0] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[0]->val() );
+      U& val = *static_cast<U*>( varin[0]->val() );
       *resU = Op<U>::sqr( std::move( val ) );
     }
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling SQR w/o move for " << *pops[0] << std::endl;
+      std::cout << "calling SQR w/o move for " << *varin[0] << std::endl;
 #endif
-      *resU = Op<U>::sqr( *static_cast<U*>( pops[0]->val() ) );
+      *resU = Op<U>::sqr( *static_cast<U*>( varin[0]->val() ) );
     }
     break;
 
    case FFOp::SQRT: 
-    if( pops[0]->mov() ){
+    if( varin[0]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling SQRT w/ move for " << *pops[0] << std::endl;
+      std::cout << "calling SQRT w/ move for " << *varin[0] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[0]->val() );
+      U& val = *static_cast<U*>( varin[0]->val() );
       *resU = Op<U>::sqrt( std::move( val ) );
     }
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling SQRT w/o move for " << *pops[0] << std::endl;
+      std::cout << "calling SQRT w/o move for " << *varin[0] << std::endl;
 #endif
-      *resU = Op<U>::sqrt( *static_cast<U*>( pops[0]->val() ) );
+      *resU = Op<U>::sqrt( *static_cast<U*>( varin[0]->val() ) );
     }
     break;
 
    case FFOp::EXP:  
-    if( pops[0]->mov() ){
+    if( varin[0]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling EXP w/ move for " << *pops[0] << std::endl;
+      std::cout << "calling EXP w/ move for " << *varin[0] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[0]->val() );
+      U& val = *static_cast<U*>( varin[0]->val() );
       *resU = Op<U>::exp( std::move( val ) );
     }
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling EXP w/o move for " << *pops[0] << std::endl;
+      std::cout << "calling EXP w/o move for " << *varin[0] << std::endl;
 #endif
-      *resU = Op<U>::exp( *static_cast<U*>( pops[0]->val() ) );
+      *resU = Op<U>::exp( *static_cast<U*>( varin[0]->val() ) );
     }
     break;
 
    case FFOp::LOG:  
-    if( pops[0]->mov() ){
+    if( varin[0]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling LOG w/ move for " << *pops[0] << std::endl;
+      std::cout << "calling LOG w/ move for " << *varin[0] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[0]->val() );
+      U& val = *static_cast<U*>( varin[0]->val() );
       *resU = Op<U>::log( std::move( val ) );
     }
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling LOG w/o move for " << *pops[0] << std::endl;
+      std::cout << "calling LOG w/o move for " << *varin[0] << std::endl;
 #endif
-      *resU = Op<U>::log( *static_cast<U*>( pops[0]->val() ) );
+      *resU = Op<U>::log( *static_cast<U*>( varin[0]->val() ) );
     }
     break;
 
    case FFOp::XLOG:  
-    if( pops[0]->mov() ){
+    if( varin[0]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling XLOG w/ move for " << *pops[0] << std::endl;
+      std::cout << "calling XLOG w/ move for " << *varin[0] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[0]->val() );
+      U& val = *static_cast<U*>( varin[0]->val() );
       *resU = Op<U>::xlog( std::move( val ) );
     }
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling XLOG w/o move for " << *pops[0] << std::endl;
+      std::cout << "calling XLOG w/o move for " << *varin[0] << std::endl;
 #endif
-      *resU = Op<U>::xlog( *static_cast<U*>( pops[0]->val() ) );
+      *resU = Op<U>::xlog( *static_cast<U*>( varin[0]->val() ) );
     }
     break; 
 
    case FFOp::COS:  
-    if( pops[0]->mov() ){
+    if( varin[0]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling COS w/ move for " << *pops[0] << std::endl;
+      std::cout << "calling COS w/ move for " << *varin[0] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[0]->val() );
+      U& val = *static_cast<U*>( varin[0]->val() );
       *resU = Op<U>::cos( std::move( val ) );
     }
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling COS w/o move for " << *pops[0] << std::endl;
+      std::cout << "calling COS w/o move for " << *varin[0] << std::endl;
 #endif
-      *resU = Op<U>::cos( *static_cast<U*>( pops[0]->val() ) );
+      *resU = Op<U>::cos( *static_cast<U*>( varin[0]->val() ) );
     }
     break;
 
    case FFOp::SIN:  
-    if( pops[0]->mov() ){
+    if( varin[0]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling SIN w/ move for " << *pops[0] << std::endl;
+      std::cout << "calling SIN w/ move for " << *varin[0] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[0]->val() );
+      U& val = *static_cast<U*>( varin[0]->val() );
       *resU = Op<U>::sin( std::move( val ) );
     }
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling SIN w/o move for " << *pops[0] << std::endl;
+      std::cout << "calling SIN w/o move for " << *varin[0] << std::endl;
 #endif
-      *resU = Op<U>::sin( *static_cast<U*>( pops[0]->val() ) );
+      *resU = Op<U>::sin( *static_cast<U*>( varin[0]->val() ) );
     }
     break;
 
    case FFOp::TAN:  
-    if( pops[0]->mov() ){
+    if( varin[0]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling TAN w/ move for " << *pops[0] << std::endl;
+      std::cout << "calling TAN w/ move for " << *varin[0] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[0]->val() );
+      U& val = *static_cast<U*>( varin[0]->val() );
       *resU = Op<U>::tan( std::move( val ) );
     }
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling TAN w/o move for " << *pops[0] << std::endl;
+      std::cout << "calling TAN w/o move for " << *varin[0] << std::endl;
 #endif
-      *resU = Op<U>::tan( *static_cast<U*>( pops[0]->val() ) );
+      *resU = Op<U>::tan( *static_cast<U*>( varin[0]->val() ) );
     }
     break;
 
    case FFOp::ACOS:  
-    if( pops[0]->mov() ){
+    if( varin[0]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling ACOS w/ move for " << *pops[0] << std::endl;
+      std::cout << "calling ACOS w/ move for " << *varin[0] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[0]->val() );
+      U& val = *static_cast<U*>( varin[0]->val() );
       *resU = Op<U>::acos( std::move( val ) );
     }
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling ACOS w/o move for " << *pops[0] << std::endl;
+      std::cout << "calling ACOS w/o move for " << *varin[0] << std::endl;
 #endif
-      *resU = Op<U>::acos( *static_cast<U*>( pops[0]->val() ) );
+      *resU = Op<U>::acos( *static_cast<U*>( varin[0]->val() ) );
     }
     break;
 
    case FFOp::ASIN:  
-    if( pops[0]->mov() ){
+    if( varin[0]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling ASIN w/ move for " << *pops[0] << std::endl;
+      std::cout << "calling ASIN w/ move for " << *varin[0] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[0]->val() );
+      U& val = *static_cast<U*>( varin[0]->val() );
       *resU = Op<U>::asin( std::move( val ) );
     }
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling ASIN w/o move for " << *pops[0] << std::endl;
+      std::cout << "calling ASIN w/o move for " << *varin[0] << std::endl;
 #endif
-      *resU = Op<U>::asin( *static_cast<U*>( pops[0]->val() ) );
+      *resU = Op<U>::asin( *static_cast<U*>( varin[0]->val() ) );
     }
     break;
 
    case FFOp::ATAN:  
-    if( pops[0]->mov() ){
+    if( varin[0]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling ATAN w/ move for " << *pops[0] << std::endl;
+      std::cout << "calling ATAN w/ move for " << *varin[0] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[0]->val() );
+      U& val = *static_cast<U*>( varin[0]->val() );
       *resU = Op<U>::atan( std::move( val ) );
     }
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling ATAN w/o move for " << *pops[0] << std::endl;
+      std::cout << "calling ATAN w/o move for " << *varin[0] << std::endl;
 #endif
-      *resU = Op<U>::atan( *static_cast<U*>( pops[0]->val() ) );
+      *resU = Op<U>::atan( *static_cast<U*>( varin[0]->val() ) );
     }
     break;
 
    case FFOp::COSH:  
-    if( pops[0]->mov() ){
+    if( varin[0]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling COSH w/ move for " << *pops[0] << std::endl;
+      std::cout << "calling COSH w/ move for " << *varin[0] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[0]->val() );
+      U& val = *static_cast<U*>( varin[0]->val() );
       *resU = Op<U>::cosh( std::move( val ) );
     }
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling COSH w/o move for " << *pops[0] << std::endl;
+      std::cout << "calling COSH w/o move for " << *varin[0] << std::endl;
 #endif
-      *resU = Op<U>::cosh( *static_cast<U*>( pops[0]->val() ) );
+      *resU = Op<U>::cosh( *static_cast<U*>( varin[0]->val() ) );
     }
     break;
 
    case FFOp::SINH:  
-    if( pops[0]->mov() ){
+    if( varin[0]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling SINH w/ move for " << *pops[0] << std::endl;
+      std::cout << "calling SINH w/ move for " << *varin[0] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[0]->val() );
+      U& val = *static_cast<U*>( varin[0]->val() );
       *resU = Op<U>::sinh( std::move( val ) );
     }
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling SINH w/o move for " << *pops[0] << std::endl;
+      std::cout << "calling SINH w/o move for " << *varin[0] << std::endl;
 #endif
-      *resU = Op<U>::sinh( *static_cast<U*>( pops[0]->val() ) );
+      *resU = Op<U>::sinh( *static_cast<U*>( varin[0]->val() ) );
     }
     break;
 
    case FFOp::TANH:  
-    if( pops[0]->mov() ){
+    if( varin[0]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling TANH w/ move for " << *pops[0] << std::endl;
+      std::cout << "calling TANH w/ move for " << *varin[0] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[0]->val() );
+      U& val = *static_cast<U*>( varin[0]->val() );
       *resU = Op<U>::tanh( std::move( val ) );
     }
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling TANH w/o move for " << *pops[0] << std::endl;
+      std::cout << "calling TANH w/o move for " << *varin[0] << std::endl;
 #endif
-      *resU = Op<U>::tanh( *static_cast<U*>( pops[0]->val() ) );
+      *resU = Op<U>::tanh( *static_cast<U*>( varin[0]->val() ) );
     }
     break;
 
    case FFOp::ERF:  
-    if( pops[0]->mov() ){
+    if( varin[0]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling ERF w/ move for " << *pops[0] << std::endl;
+      std::cout << "calling ERF w/ move for " << *varin[0] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[0]->val() );
+      U& val = *static_cast<U*>( varin[0]->val() );
       *resU = Op<U>::erf( std::move( val ) );
     }
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling ERF w/o move for " << *pops[0] << std::endl;
+      std::cout << "calling ERF w/o move for " << *varin[0] << std::endl;
 #endif
-      *resU = Op<U>::erf( *static_cast<U*>( pops[0]->val() ) );
+      *resU = Op<U>::erf( *static_cast<U*>( varin[0]->val() ) );
     }
     break;
 
    case FFOp::FABS:  
-    if( pops[0]->mov() ){
+    if( varin[0]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling FABS w/ move for " << *pops[0] << std::endl;
+      std::cout << "calling FABS w/ move for " << *varin[0] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[0]->val() );
+      U& val = *static_cast<U*>( varin[0]->val() );
       *resU = Op<U>::fabs( std::move( val ) );
     }
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling FABS w/o move for " << *pops[0] << std::endl;
+      std::cout << "calling FABS w/o move for " << *varin[0] << std::endl;
 #endif
-      *resU = Op<U>::fabs( *static_cast<U*>( pops[0]->val() ) );
+      *resU = Op<U>::fabs( *static_cast<U*>( varin[0]->val() ) );
     }
     break;
 
    case FFOp::FSTEP:  
-    if( pops[0]->mov() ){
+    if( varin[0]->mov() ){
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling FSTEP w/ move for " << *pops[0] << std::endl;
+      std::cout << "calling FSTEP w/ move for " << *varin[0] << std::endl;
 #endif
-      U& val = *static_cast<U*>( pops[0]->val() );
+      U& val = *static_cast<U*>( varin[0]->val() );
       *resU = Op<U>::fstep( std::move( val ) );
     }
     else{
 #ifdef MC__FFUNC_EVAL_MOVE
-      std::cout << "calling FSTEP w/o move for " << *pops[0] << std::endl;
+      std::cout << "calling FSTEP w/o move for " << *varin[0] << std::endl;
 #endif
-      *resU = Op<U>::fstep( *static_cast<U*>( pops[0]->val() ) );
+      *resU = Op<U>::fstep( *static_cast<U*>( varin[0]->val() ) );
     }
     break;
 
    case FFOp::MINF: 
-    if( &pops[0] == &pops[1] && pops[0]->mov() )
-      *resU = std::move( *static_cast<U*>( pops[0]->val() ) );
-    else if( &pops[0] == &pops[1] )
-      *resU = *static_cast<U*>( pops[0]->val() );
-    else if( pops[0]->mov() )
-      *resU = Op<U>::min( std::move( *static_cast<U*>( pops[0]->val() ) ),
-                         *static_cast<U*>( pops[1]->val() ) );
-    else if( pops[1]->mov() )
-      *resU = Op<U>::min( std::move( *static_cast<U*>( pops[1]->val() ) ),
-                         *static_cast<U*>( pops[0]->val() ) );
+    if( &varin[0] == &varin[1] && varin[0]->mov() )
+      *resU = std::move( *static_cast<U*>( varin[0]->val() ) );
+    else if( &varin[0] == &varin[1] )
+      *resU = *static_cast<U*>( varin[0]->val() );
+    else if( varin[0]->mov() )
+      *resU = Op<U>::min( std::move( *static_cast<U*>( varin[0]->val() ) ),
+                         *static_cast<U*>( varin[1]->val() ) );
+    else if( varin[1]->mov() )
+      *resU = Op<U>::min( std::move( *static_cast<U*>( varin[1]->val() ) ),
+                         *static_cast<U*>( varin[0]->val() ) );
     else
-      *resU = Op<U>::min( *static_cast<U*>( pops[0]->val() ),
-                         *static_cast<U*>( pops[1]->val() ) );
+      *resU = Op<U>::min( *static_cast<U*>( varin[0]->val() ),
+                         *static_cast<U*>( varin[1]->val() ) );
     break;
 
    case FFOp::MAXF: 
-    if( &pops[0] == &pops[1] && pops[0]->mov() )
-      *resU = std::move( *static_cast<U*>( pops[0]->val() ) );
-    else if( &pops[0] == &pops[1] )
-      *resU = *static_cast<U*>( pops[0]->val() );
-    else if( pops[0]->mov() )
-      *resU = Op<U>::max( std::move( *static_cast<U*>( pops[0]->val() ) ),
-                         *static_cast<U*>( pops[1]->val() ) );
-    else if( pops[1]->mov() )
-      *resU = Op<U>::max( std::move( *static_cast<U*>( pops[1]->val() ) ),
-                         *static_cast<U*>( pops[0]->val() ) );
+    if( &varin[0] == &varin[1] && varin[0]->mov() )
+      *resU = std::move( *static_cast<U*>( varin[0]->val() ) );
+    else if( &varin[0] == &varin[1] )
+      *resU = *static_cast<U*>( varin[0]->val() );
+    else if( varin[0]->mov() )
+      *resU = Op<U>::max( std::move( *static_cast<U*>( varin[0]->val() ) ),
+                         *static_cast<U*>( varin[1]->val() ) );
+    else if( varin[1]->mov() )
+      *resU = Op<U>::max( std::move( *static_cast<U*>( varin[1]->val() ) ),
+                         *static_cast<U*>( varin[0]->val() ) );
     else
-      *resU = Op<U>::max( *static_cast<U*>( pops[0]->val() ),
-                         *static_cast<U*>( pops[1]->val() ) );
+      *resU = Op<U>::max( *static_cast<U*>( varin[0]->val() ),
+                         *static_cast<U*>( varin[1]->val() ) );
     break;
 
    case FFOp::INTER: 
-    if( &pops[0] == &pops[1] && pops[0]->mov() )
-      *resU = std::move( *static_cast<U*>( pops[0]->val() ) );
-    else if( &pops[0] == &pops[1] )
-      *resU = *static_cast<U*>( pops[0]->val() );
-    else if( !Op<U>::inter( *resU, *static_cast<U*>( pops[0]->val() ),
-                                  *static_cast<U*>( pops[1]->val() ) ) )
+    if( &varin[0] == &varin[1] && varin[0]->mov() )
+      *resU = std::move( *static_cast<U*>( varin[0]->val() ) );
+    else if( &varin[0] == &varin[1] )
+      *resU = *static_cast<U*>( varin[0]->val() );
+    else if( !Op<U>::inter( *resU, *static_cast<U*>( varin[0]->val() ),
+                                  *static_cast<U*>( varin[1]->val() ) ) )
       throw typename FFBase::Exceptions( FFBase::Exceptions::INTER );
     break;
 
    case FFOp::PROD:{
     if( !wkU ) throw typename FFBase::Exceptions( FFBase::Exceptions::INTERN );
-    for( unsigned i=0; i<pops.size(); ++i ){
-      wkU[i]   = std::move( *static_cast<U*>( pops[i]->val() ) );
-      wkmov[i] = pops[i]->mov();
+    for( unsigned i=0; i<varin.size(); ++i ){
+      wkU[i]   = std::move( *static_cast<U*>( varin[i]->val() ) );
+      wkmov[i] = varin[i]->mov();
     }
-    *resU = Op<U>::prod( pops.size(), wkU );
+    *resU = Op<U>::prod( varin.size(), wkU );
     // Move back variable values for non-movable ones
-    for( unsigned i=0; i<pops.size(); ++i )
-      if( !wkmov[i] ) *static_cast<U*>( pops[i]->val() ) = std::move( wkU[i] );
+    for( unsigned i=0; i<varin.size(); ++i )
+      if( !wkmov[i] ) *static_cast<U*>( varin[i]->val() ) = std::move( wkU[i] );
     break;
    }
 
@@ -4326,7 +4397,7 @@ const
 template <typename U, typename ExtOp, typename... NextOps>
 inline void
 FFOp::evaluate_external
-( U* resU, bool const resmov, U* wkU, bool* wkmov,
+( U* resU, unsigned const* resmov, U* wkU, unsigned* wkmov,
   ExtOp op, std::tuple<NextOps...> ops )
 const
 {
@@ -4335,24 +4406,29 @@ const
 
   // Current operation matches ExtOp type
   if( sameid( typeid(op) ) ){
-    pres->val() = resU;
-    pres->mov() = resmov;
-    if( pops.empty() )
-      throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
-    else if( pops.size() == 1 ){
-      op.eval( *resU, 1, static_cast<U*>( pops[0]->val() ), &pops[0]->mov() );
+    for( unsigned j=0; j<varout.size(); ++j ){
+      varout[j]->val() = &resU[j];
+      varout[j]->mov() = (resmov? resmov[j]: 0);
     }
+    
+    if( varin.empty() )
+      throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
+
+    else if( varin.size() == 1 )
+      op.eval( varout.size(), resU, 1, static_cast<U*>( varin[0]->val() ), &varin[0]->mov() );
+
     else{
       if( !wkU ) throw typename FFBase::Exceptions( FFBase::Exceptions::INTERN );
-      for( unsigned i=0; i<pops.size(); ++i ){
-        wkU[i]   = std::move( *static_cast<U*>( pops[i]->val() ) );
-        wkmov[i] = pops[i]->mov();
+      for( unsigned i=0; i<varin.size(); ++i ){
+        wkU[i]   = std::move( *static_cast<U*>( varin[i]->val() ) );
+        wkmov[i] = varin[i]->mov();
       }
-      op.eval( *resU, pops.size(), wkU, wkmov );
+      op.eval( varout.size(), resU, varin.size(), wkU, wkmov );
       // Move back variable values for non-movable ones
-      for( unsigned i=0; i<pops.size(); ++i )
-        if( !wkmov[i] ) *static_cast<U*>( pops[i]->val() ) = std::move( wkU[i] );
+      for( unsigned i=0; i<varin.size(); ++i )
+        if( !wkmov[i] ) *static_cast<U*>( varin[i]->val() ) = std::move( wkU[i] );
     }
+
     return;
   }
   
@@ -4365,32 +4441,15 @@ const
   typedef typename remove_first_type< t_NextOps >::type t_NextNextOps;
   typedef typename first_type_of< NextOps... >::type FirstNextOps;
   evaluate_external( resU, resmov, wkU, wkmov, FirstNextOps(), t_NextNextOps() );
-  return;
 }
 
 template <typename U>
 inline void
 FFOp::eval
-( U& vRes, unsigned const nVar, U const* vVar, bool const* mVar )
+( unsigned const nRes, U* vRes, unsigned const nVar, U const* vVar, unsigned const* mVar )
 const
 {
   throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
-}
-
-inline FFVar&
-FFOp::operator()
-( unsigned const nVar, FFVar const* pVar )
-const
-{
-  throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
-}
-
-inline void
-FFOp::eval
-( FFVar& vRes, unsigned const nVar, FFVar const* pVar, bool const* mVar )
-const
-{
-  vRes = operator()( nVar, pVar );
 }
 
 template <typename U> inline bool
@@ -4398,291 +4457,294 @@ FFOp::tighten_forward
 ( U const* dumU )
 const
 {
+  assert( varout.size() == 1 );
+  FFVar const* pres = varout.front();
+
   switch( type ){
    case FFOp::VAR:
    case FFOp::CNST:
     break;
 
    case FFOp::SHIFT:
-    //*itU = *static_cast<U*>( pops[0]->val() ) + pops[1]->num().val();
+    //*itU = *static_cast<U*>( varin[0]->val() ) + varin[1]->num().val();
     if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                       *static_cast<U*>( pops[0]->val() ) + pops[1]->num().val(),
+                       *static_cast<U*>( varin[0]->val() ) + varin[1]->num().val(),
                        *static_cast<U*>( pres->val() ) ) ) return false;
     break;
 
    case FFOp::PLUS:
-    if( &pops[0] == &pops[1] ){
-      //*itU = *static_cast<U*>( pops[0]->val() ) * 2.;
+    if( &varin[0] == &varin[1] ){
+      //*itU = *static_cast<U*>( varin[0]->val() ) * 2.;
       if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                         *static_cast<U*>( pops[0]->val() ) * 2.,
+                         *static_cast<U*>( varin[0]->val() ) * 2.,
                          *static_cast<U*>( pres->val() ) ) ) return false;
     }
     else{
-      //*itU = *static_cast<U*>( pops[0]->val() ) + *static_cast<U*>( pops[1]->val() );
+      //*itU = *static_cast<U*>( varin[0]->val() ) + *static_cast<U*>( varin[1]->val() );
       if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                         *static_cast<U*>( pops[0]->val() ) + *static_cast<U*>( pops[1]->val() ),
+                         *static_cast<U*>( varin[0]->val() ) + *static_cast<U*>( varin[1]->val() ),
                          *static_cast<U*>( pres->val() ) ) ) return false;
     }
     break;
 
    case FFOp::NEG:
-    //*itU = - *static_cast<U*>( pops[0]->val() );
+    //*itU = - *static_cast<U*>( varin[0]->val() );
     if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                       - *static_cast<U*>( pops[0]->val() ),
+                       - *static_cast<U*>( varin[0]->val() ),
                        *static_cast<U*>( pres->val() ) ) ) return false;
     break;
 
    case FFOp::MINUS:
-    if( &pops[0] == &pops[1] ){
+    if( &varin[0] == &varin[1] ){
       //*itU = 0.;
       if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
                          0.,
                          *static_cast<U*>( pres->val() ) ) ) return false;
     }
     else{
-      //*itU = *static_cast<U*>( pops[0]->val() ) - *static_cast<U*>( pops[1]->val() );
+      //*itU = *static_cast<U*>( varin[0]->val() ) - *static_cast<U*>( varin[1]->val() );
       if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                         *static_cast<U*>( pops[0]->val() ) - *static_cast<U*>( pops[1]->val() ),
+                         *static_cast<U*>( varin[0]->val() ) - *static_cast<U*>( varin[1]->val() ),
                          *static_cast<U*>( pres->val() ) ) ) return false;
     }
     break;
 
    case FFOp::SCALE:
-    //*itU = *static_cast<U*>( pops[0]->val() ) * pops[1]->num().val();
+    //*itU = *static_cast<U*>( varin[0]->val() ) * varin[1]->num().val();
     if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                       *static_cast<U*>( pops[0]->val() ) * pops[1]->num().val(),
+                       *static_cast<U*>( varin[0]->val() ) * varin[1]->num().val(),
                        *static_cast<U*>( pres->val() ) ) ) return false;
     break;
 
    case FFOp::TIMES:
-    if( &pops[0] == &pops[1] ){
-      //*itU = Op<U>::sqr( *static_cast<U*>( pops[0]->val() ) );
+    if( &varin[0] == &varin[1] ){
+      //*itU = Op<U>::sqr( *static_cast<U*>( varin[0]->val() ) );
       if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                         Op<U>::sqr( *static_cast<U*>( pops[0]->val() ) ),
+                         Op<U>::sqr( *static_cast<U*>( varin[0]->val() ) ),
                          *static_cast<U*>( pres->val() ) ) ) return false;
     }
     else{
-      //*itU = *static_cast<U*>( pops[0]->val() ) * *static_cast<U*>( pops[1]->val() );
+      //*itU = *static_cast<U*>( varin[0]->val() ) * *static_cast<U*>( varin[1]->val() );
       if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                         *static_cast<U*>( pops[0]->val() ) * *static_cast<U*>( pops[1]->val() ),
+                         *static_cast<U*>( varin[0]->val() ) * *static_cast<U*>( varin[1]->val() ),
                          *static_cast<U*>( pres->val() ) ) ) return false;
     }
     break;
 
    case FFOp::INV:
-    //*itU = pops[0]->num().val() / *static_cast<U*>( pops[1]->val() );
+    //*itU = varin[0]->num().val() / *static_cast<U*>( varin[1]->val() );
     if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                       pops[0]->num().val() / *static_cast<U*>( pops[1]->val() ),
+                       varin[0]->num().val() / *static_cast<U*>( varin[1]->val() ),
                        *static_cast<U*>( pres->val() ) ) ) return false;
     break;
 
    case FFOp::DIV:  
-    if( &pops[0] == &pops[1] ){
+    if( &varin[0] == &varin[1] ){
       //*itU = 1.;
       if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
                          1.,
                          *static_cast<U*>( pres->val() ) ) ) return false;
     }
     else{
-      //*itU = *static_cast<U*>( pops[0]->val() ) / *static_cast<U*>( pops[1]->val() );
+      //*itU = *static_cast<U*>( varin[0]->val() ) / *static_cast<U*>( varin[1]->val() );
       if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                         *static_cast<U*>( pops[0]->val() ) / *static_cast<U*>( pops[1]->val() ),
+                         *static_cast<U*>( varin[0]->val() ) / *static_cast<U*>( varin[1]->val() ),
                          *static_cast<U*>( pres->val() ) ) ) return false;
     }
     break;
 
    case FFOp::IPOW:
-    //*itU = Op<U>::pow( *static_cast<U*>( pops[0]->val() ), pops[1]->num().n );
+    //*itU = Op<U>::pow( *static_cast<U*>( varin[0]->val() ), varin[1]->num().n );
     if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                       Op<U>::pow( *static_cast<U*>( pops[0]->val() ), pops[1]->num().n ),
+                       Op<U>::pow( *static_cast<U*>( varin[0]->val() ), varin[1]->num().n ),
                        *static_cast<U*>( pres->val() ) ) ) return false;
     break;
 
    case FFOp::DPOW:
-    //*itU = Op<U>::pow( *static_cast<U*>( pops[0]->val() ), pops[1]->num().x );
+    //*itU = Op<U>::pow( *static_cast<U*>( varin[0]->val() ), varin[1]->num().x );
     if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                       Op<U>::pow( *static_cast<U*>( pops[0]->val() ), pops[1]->num().x ),
+                       Op<U>::pow( *static_cast<U*>( varin[0]->val() ), varin[1]->num().x ),
                        *static_cast<U*>( pres->val() ) ) ) return false;
     break;
 
    case FFOp::CHEB:
-    //*itU = Op<U>::cheb( *static_cast<U*>( pops[0]->val() ), pops[1]->num().n );
+    //*itU = Op<U>::cheb( *static_cast<U*>( varin[0]->val() ), varin[1]->num().n );
     if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                       Op<U>::cheb( *static_cast<U*>( pops[0]->val() ), pops[1]->num().n ),
+                       Op<U>::cheb( *static_cast<U*>( varin[0]->val() ), varin[1]->num().n ),
                        *static_cast<U*>( pres->val() ) ) ) return false;
     break;
 
    case FFOp::SQR:  
-    //*itU = Op<U>::sqr( *static_cast<U*>( pops[0]->val() ) );
+    //*itU = Op<U>::sqr( *static_cast<U*>( varin[0]->val() ) );
     if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                       Op<U>::sqr( *static_cast<U*>( pops[0]->val() ) ),
+                       Op<U>::sqr( *static_cast<U*>( varin[0]->val() ) ),
                        *static_cast<U*>( pres->val() ) ) ) return false;
     break;
 
    case FFOp::SQRT: 
-    //*itU = Op<U>::sqrt( *static_cast<U*>( pops[0]->val() ) );
+    //*itU = Op<U>::sqrt( *static_cast<U*>( varin[0]->val() ) );
     if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                       Op<U>::sqrt( *static_cast<U*>( pops[0]->val() ) ),
+                       Op<U>::sqrt( *static_cast<U*>( varin[0]->val() ) ),
                        *static_cast<U*>( pres->val() ) ) ) return false;
     break;
 
    case FFOp::EXP:  
-    //*itU = Op<U>::exp( *static_cast<U*>( pops[0]->val() ) );
+    //*itU = Op<U>::exp( *static_cast<U*>( varin[0]->val() ) );
     if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                       Op<U>::exp( *static_cast<U*>( pops[0]->val() ) ),
+                       Op<U>::exp( *static_cast<U*>( varin[0]->val() ) ),
                        *static_cast<U*>( pres->val() ) ) ) return false;
     break;
 
    case FFOp::LOG:  
-    //*itU = Op<U>::log( *static_cast<U*>( pops[0]->val() ) );
+    //*itU = Op<U>::log( *static_cast<U*>( varin[0]->val() ) );
     if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                       Op<U>::log( *static_cast<U*>( pops[0]->val() ) ),
+                       Op<U>::log( *static_cast<U*>( varin[0]->val() ) ),
                        *static_cast<U*>( pres->val() ) ) ) return false;
     break;
 
    case FFOp::XLOG:  
-    //*itU = Op<U>::xlog( *static_cast<U*>( pops[0]->val() ) );
+    //*itU = Op<U>::xlog( *static_cast<U*>( varin[0]->val() ) );
     if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                       Op<U>::xlog( *static_cast<U*>( pops[0]->val() ) ),
+                       Op<U>::xlog( *static_cast<U*>( varin[0]->val() ) ),
                        *static_cast<U*>( pres->val() ) ) ) return false;
     break; 
 
    case FFOp::COS:  
-    //*itU = Op<U>::cos( *static_cast<U*>( pops[0]->val() ) );
+    //*itU = Op<U>::cos( *static_cast<U*>( varin[0]->val() ) );
     if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                       Op<U>::cos( *static_cast<U*>( pops[0]->val() ) ),
+                       Op<U>::cos( *static_cast<U*>( varin[0]->val() ) ),
                        *static_cast<U*>( pres->val() ) ) ) return false;
     break;
 
    case FFOp::SIN:  
-    //*itU = Op<U>::sin( *static_cast<U*>( pops[0]->val() ) );
+    //*itU = Op<U>::sin( *static_cast<U*>( varin[0]->val() ) );
     if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                       Op<U>::sin( *static_cast<U*>( pops[0]->val() ) ),
+                       Op<U>::sin( *static_cast<U*>( varin[0]->val() ) ),
                        *static_cast<U*>( pres->val() ) ) ) return false;
     break;
 
    case FFOp::TAN:  
-    //*itU = Op<U>::tan( *static_cast<U*>( pops[0]->val() ) );
+    //*itU = Op<U>::tan( *static_cast<U*>( varin[0]->val() ) );
     if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                       Op<U>::tan( *static_cast<U*>( pops[0]->val() ) ),
+                       Op<U>::tan( *static_cast<U*>( varin[0]->val() ) ),
                        *static_cast<U*>( pres->val() ) ) ) return false;
     break;
 
    case FFOp::ACOS: 
-    //*itU = Op<U>::acos( *static_cast<U*>( pops[0]->val() ) );
+    //*itU = Op<U>::acos( *static_cast<U*>( varin[0]->val() ) );
     if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                       Op<U>::acos( *static_cast<U*>( pops[0]->val() ) ),
+                       Op<U>::acos( *static_cast<U*>( varin[0]->val() ) ),
                        *static_cast<U*>( pres->val() ) ) ) return false;
     break;
 
    case FFOp::ASIN: 
-    //*itU = Op<U>::asin( *static_cast<U*>( pops[0]->val() ) );
+    //*itU = Op<U>::asin( *static_cast<U*>( varin[0]->val() ) );
     if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                       Op<U>::asin( *static_cast<U*>( pops[0]->val() ) ),
+                       Op<U>::asin( *static_cast<U*>( varin[0]->val() ) ),
                        *static_cast<U*>( pres->val() ) ) ) return false;
     break;
 
    case FFOp::ATAN: 
-    //*itU = Op<U>::atan( *static_cast<U*>( pops[0]->val() ) );
+    //*itU = Op<U>::atan( *static_cast<U*>( varin[0]->val() ) );
     if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                       Op<U>::atan( *static_cast<U*>( pops[0]->val() ) ),
+                       Op<U>::atan( *static_cast<U*>( varin[0]->val() ) ),
                        *static_cast<U*>( pres->val() ) ) ) return false;
     break;
 
    case FFOp::COSH: 
-    //*itU = Op<U>::cosh( *static_cast<U*>( pops[0]->val() ) );
+    //*itU = Op<U>::cosh( *static_cast<U*>( varin[0]->val() ) );
     if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                       Op<U>::cosh( *static_cast<U*>( pops[0]->val() ) ),
+                       Op<U>::cosh( *static_cast<U*>( varin[0]->val() ) ),
                        *static_cast<U*>( pres->val() ) ) ) return false;
     break;
 
    case FFOp::SINH: 
-    //*itU = Op<U>::sinh( *static_cast<U*>( pops[0]->val() ) );
+    //*itU = Op<U>::sinh( *static_cast<U*>( varin[0]->val() ) );
     if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                       Op<U>::sinh( *static_cast<U*>( pops[0]->val() ) ),
+                       Op<U>::sinh( *static_cast<U*>( varin[0]->val() ) ),
                        *static_cast<U*>( pres->val() ) ) ) return false;
     break;
 
    case FFOp::TANH: 
-    //*itU = Op<U>::tanh( *static_cast<U*>( pops[0]->val() ) );
+    //*itU = Op<U>::tanh( *static_cast<U*>( varin[0]->val() ) );
     if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                       Op<U>::tanh( *static_cast<U*>( pops[0]->val() ) ),
+                       Op<U>::tanh( *static_cast<U*>( varin[0]->val() ) ),
                        *static_cast<U*>( pres->val() ) ) ) return false;
     break;
 
    case FFOp::ERF:  
-    //*itU = Op<U>::erf( *static_cast<U*>( pops[0]->val() ) );
+    //*itU = Op<U>::erf( *static_cast<U*>( varin[0]->val() ) );
     if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                       Op<U>::erf( *static_cast<U*>( pops[0]->val() ) ),
+                       Op<U>::erf( *static_cast<U*>( varin[0]->val() ) ),
                        *static_cast<U*>( pres->val() ) ) ) return false;
     break;
 
    case FFOp::FABS: 
-    //*itU = Op<U>::fabs( *static_cast<U*>( pops[0]->val() ) );
+    //*itU = Op<U>::fabs( *static_cast<U*>( varin[0]->val() ) );
     if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                       Op<U>::fabs( *static_cast<U*>( pops[0]->val() ) ),
+                       Op<U>::fabs( *static_cast<U*>( varin[0]->val() ) ),
                        *static_cast<U*>( pres->val() ) ) ) return false;
     break;
 
    case FFOp::FSTEP:
-    //*itU = Op<U>::fstep( *static_cast<U*>( pops[0]->val() ) );
+    //*itU = Op<U>::fstep( *static_cast<U*>( varin[0]->val() ) );
     if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                       Op<U>::fstep( *static_cast<U*>( pops[0]->val() ) ),
+                       Op<U>::fstep( *static_cast<U*>( varin[0]->val() ) ),
                        *static_cast<U*>( pres->val() ) ) ) return false;
     break;
 
    case FFOp::MINF: 
-    if( &pops[0] == &pops[1] ){
-      //*itU = *static_cast<U*>( pops[0]->val() );
+    if( &varin[0] == &varin[1] ){
+      //*itU = *static_cast<U*>( varin[0]->val() );
       if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                         *static_cast<U*>( pops[0]->val() ),
+                         *static_cast<U*>( varin[0]->val() ),
                          *static_cast<U*>( pres->val() ) ) ) return false;
     }
     else{
-      //*itU = Op<U>::min( *static_cast<U*>( pops[0]->val() ), *static_cast<U*>( pops[1]->val() ) );
+      //*itU = Op<U>::min( *static_cast<U*>( varin[0]->val() ), *static_cast<U*>( varin[1]->val() ) );
       if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                         Op<U>::min( *static_cast<U*>( pops[0]->val() ),
-                                     *static_cast<U*>( pops[1]->val() ) ),
+                         Op<U>::min( *static_cast<U*>( varin[0]->val() ),
+                                     *static_cast<U*>( varin[1]->val() ) ),
                          *static_cast<U*>( pres->val() ) ) ) return false;
     }
     break;
 
    case FFOp::MAXF: 
-    if( &pops[0] == &pops[1] ){
-      //*itU = *static_cast<U*>( pops[0]->val() );
+    if( &varin[0] == &varin[1] ){
+      //*itU = *static_cast<U*>( varin[0]->val() );
       if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                         *static_cast<U*>( pops[0]->val() ),
+                         *static_cast<U*>( varin[0]->val() ),
                          *static_cast<U*>( pres->val() ) ) ) return false;
     }
     else{
-      //*itU = Op<U>::max( *static_cast<U*>( pops[0]->val() ), *static_cast<U*>( pops[1]->val() ) );
+      //*itU = Op<U>::max( *static_cast<U*>( varin[0]->val() ), *static_cast<U*>( varin[1]->val() ) );
       if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                         Op<U>::max( *static_cast<U*>( pops[0]->val() ),
-                                     *static_cast<U*>( pops[1]->val() ) ),
+                         Op<U>::max( *static_cast<U*>( varin[0]->val() ),
+                                     *static_cast<U*>( varin[1]->val() ) ),
                          *static_cast<U*>( pres->val() ) ) ) return false;
     }
     break;
 
    case FFOp::INTER: 
-    if( &pops[0] == &pops[1] ){
-      //*itU = *static_cast<U*>( pops[0]->val() );
+    if( &varin[0] == &varin[1] ){
+      //*itU = *static_cast<U*>( varin[0]->val() );
       if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                         *static_cast<U*>( pops[0]->val() ),
+                         *static_cast<U*>( varin[0]->val() ),
                          *static_cast<U*>( pres->val() ) ) ) return false;
     }
     else{
       if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                         *static_cast<U*>( pops[0]->val() ),
+                         *static_cast<U*>( varin[0]->val() ),
                          *static_cast<U*>( pres->val() ) ) ) return false;
       if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
-                         *static_cast<U*>( pops[1]->val() ),
+                         *static_cast<U*>( varin[1]->val() ),
                          *static_cast<U*>( pres->val() ) ) ) return false;
     }
     break;
 
    case FFOp::PROD:{
-    std::vector<U> ops_val; ops_val.reserve( pops.size() );
-    for( auto it=pops.begin(); it!=pops.end(); ++it )
+    std::vector<U> ops_val; ops_val.reserve( varin.size() );
+    for( auto it=varin.begin(); it!=varin.end(); ++it )
       ops_val.push_back( *static_cast<U*>( (*it)->val() ) );
     //*itU = Op<U>::prod( ops_val.size(), ops_val.data() );
     if( !Op<U>::inter( *static_cast<U*>( pres->val() ),
@@ -4711,21 +4773,23 @@ const
 
   // Current operation matches ExtOp type
   if( sameid( typeid(op) ) ){
-    U vres;
-    if( pops.empty() )
+    std::vector<U> vres( varout.size() );
+    if( varin.empty() )
       throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
-    else if( pops.size() == 1 )
-      op.eval( vres, 1, static_cast<U*>( pops[0]->val() ) );
-     //else if( pops.size() == 2 )
-    //  op.eval( vres, static_cast<U*>( pops[0]->val() ), static_cast<U*>( pops[1]->val() ), false );
+
+    else if( varin.size() == 1 )
+      op.eval( vres.size(), vres.data(), 1, static_cast<U*>( varin[0]->val() ) );
+    
     else{
-      std::vector<U> ops_val; ops_val.reserve( pops.size() );
-      for( auto it=pops.begin(); it!=pops.end(); ++it )
+      std::vector<U> ops_val; ops_val.reserve( varin.size() );
+      for( auto it=varin.begin(); it!=varin.end(); ++it )
         ops_val.push_back( *static_cast<U*>( (*it)->val() ) );
-      op.eval( vres, ops_val.size(), ops_val.data() );
+      op.eval( vres.size(), vres.data(), ops_val.size(), ops_val.data() );
     }
-    if( !Op<U>::inter( *static_cast<U*>( pres->val() ), vres,
-                       *static_cast<U*>( pres->val() ) ) ) return false;
+    
+    for( unsigned j=0; j<varout.size(); ++j )
+      if( !Op<U>::inter( *static_cast<U*>( varout[j]->val() ), vres[j],
+                         *static_cast<U*>( varout[j]->val() ) ) ) return false;
     return true;
   }
   
@@ -4738,135 +4802,138 @@ const
   typedef typename remove_first_type< t_NextOps >::type t_NextNextOps;
   typedef typename first_type_of< NextOps... >::type FirstNextOps;
   return tighten_forward_external( dumU, FirstNextOps(), t_NextNextOps() );
-}   
+}
 
 template <typename U> inline bool
 FFOp::tighten_backward
 ( U const* dumU )
 const
 {
+  assert( varout.size() == 1 );
+  FFVar const* pres = varout.front();
+
   switch( type ){
    case FFOp::VAR:
    case FFOp::CNST:
     break;
 
    case FFOp::SHIFT:
-    //*itU = *static_cast<U*>( pops[0]->val() ) + pops[1]->num().val();
-    if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
-                       *static_cast<U*>( pres->val() ) - pops[1]->num().val(),
-                       *static_cast<U*>( pops[0]->val() ) ) ) return false;
+    //*itU = *static_cast<U*>( varin[0]->val() ) + varin[1]->num().val();
+    if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
+                       *static_cast<U*>( pres->val() ) - varin[1]->num().val(),
+                       *static_cast<U*>( varin[0]->val() ) ) ) return false;
     break;
 
    case FFOp::PLUS:
-    if( &pops[0] == &pops[1] ){
-      //*itU = *static_cast<U*>( pops[0]->val() ) * 2.;
-      if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
+    if( &varin[0] == &varin[1] ){
+      //*itU = *static_cast<U*>( varin[0]->val() ) * 2.;
+      if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
                          *static_cast<U*>( pres->val() ) / 2.,
-                         *static_cast<U*>( pops[0]->val() ) ) ) return false;
+                         *static_cast<U*>( varin[0]->val() ) ) ) return false;
     }
     else{
-      //*itU = *static_cast<U*>( pops[0]->val() ) + *static_cast<U*>( pops[1]->val() );
-      if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
-                         *static_cast<U*>( pres->val() ) - *static_cast<U*>( pops[1]->val() ),
-                         *static_cast<U*>( pops[0]->val() ) ) ) return false;
-      if( !Op<U>::inter( *static_cast<U*>( pops[1]->val() ),
-                         *static_cast<U*>( pres->val() ) - *static_cast<U*>( pops[0]->val() ),
-                         *static_cast<U*>( pops[1]->val() ) ) ) return false;
+      //*itU = *static_cast<U*>( varin[0]->val() ) + *static_cast<U*>( varin[1]->val() );
+      if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
+                         *static_cast<U*>( pres->val() ) - *static_cast<U*>( varin[1]->val() ),
+                         *static_cast<U*>( varin[0]->val() ) ) ) return false;
+      if( !Op<U>::inter( *static_cast<U*>( varin[1]->val() ),
+                         *static_cast<U*>( pres->val() ) - *static_cast<U*>( varin[0]->val() ),
+                         *static_cast<U*>( varin[1]->val() ) ) ) return false;
     }
     break;
 
    case FFOp::NEG:
-    //*itU = - *static_cast<U*>( pops[0]->val() );
-    if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
+    //*itU = - *static_cast<U*>( varin[0]->val() );
+    if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
                        - *static_cast<U*>( pres->val() ),
-                       *static_cast<U*>( pops[0]->val() ) ) ) return false;
+                       *static_cast<U*>( varin[0]->val() ) ) ) return false;
     return true;
 
    case FFOp::MINUS:
-    if( &pops[0] == &pops[1] ) break; // nothing to tighten
-    //*itU = *static_cast<U*>( pops[0]->val() ) - *static_cast<U*>( pops[1]->val() );
-    if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
-                       *static_cast<U*>( pres->val() ) + *static_cast<U*>( pops[1]->val() ),
-                       *static_cast<U*>( pops[0]->val() ) ) ) return false;
-    if( !Op<U>::inter( *static_cast<U*>( pops[1]->val() ),
-                       *static_cast<U*>( pops[0]->val() ) - *static_cast<U*>( pres->val() ),
-                       *static_cast<U*>( pops[1]->val() ) ) ) return false;
+    if( &varin[0] == &varin[1] ) break; // nothing to tighten
+    //*itU = *static_cast<U*>( varin[0]->val() ) - *static_cast<U*>( varin[1]->val() );
+    if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
+                       *static_cast<U*>( pres->val() ) + *static_cast<U*>( varin[1]->val() ),
+                       *static_cast<U*>( varin[0]->val() ) ) ) return false;
+    if( !Op<U>::inter( *static_cast<U*>( varin[1]->val() ),
+                       *static_cast<U*>( varin[0]->val() ) - *static_cast<U*>( pres->val() ),
+                       *static_cast<U*>( varin[1]->val() ) ) ) return false;
     break;
 
    case FFOp::SCALE:
-    //*itU = *static_cast<U*>( pops[0]->val() ) * pops[1]->num().val();
-    if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
-                       *static_cast<U*>( pres->val() ) / pops[1]->num().val(),
-                       *static_cast<U*>( pops[0]->val() ) ) ) return false;
+    //*itU = *static_cast<U*>( varin[0]->val() ) * varin[1]->num().val();
+    if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
+                       *static_cast<U*>( pres->val() ) / varin[1]->num().val(),
+                       *static_cast<U*>( varin[0]->val() ) ) ) return false;
     break;
 
    case FFOp::TIMES:
-    if( &pops[0] == &pops[1] ){
-      //*itU = Op<U>::sqr( *static_cast<U*>( pops[0]->val() ) );
-      if( Op<U>::l( *static_cast<U*>( pops[0]->val() ) ) >= 0. ){
-        if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
+    if( &varin[0] == &varin[1] ){
+      //*itU = Op<U>::sqr( *static_cast<U*>( varin[0]->val() ) );
+      if( Op<U>::l( *static_cast<U*>( varin[0]->val() ) ) >= 0. ){
+        if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
                            Op<U>::sqrt( *static_cast<U*>( pres->val() ) ),
-                           *static_cast<U*>( pops[0]->val() ) ) ) return false;
+                           *static_cast<U*>( varin[0]->val() ) ) ) return false;
       }
-      else if( Op<U>::u( *static_cast<U*>( pops[0]->val() ) ) <= 0. ){
-        if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
+      else if( Op<U>::u( *static_cast<U*>( varin[0]->val() ) ) <= 0. ){
+        if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
                            - Op<U>::sqrt( *static_cast<U*>( pres->val() ) ),
-                           *static_cast<U*>( pops[0]->val() ) ) ) return false;
+                           *static_cast<U*>( varin[0]->val() ) ) ) return false;
       }
       else{
-        if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
+        if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
                            Op<U>::hull( - Op<U>::sqrt( *static_cast<U*>( pres->val() ) ),
                                           Op<U>::sqrt( *static_cast<U*>( pres->val() ) ) ),
-                           *static_cast<U*>( pops[0]->val() ) ) ) return false;
+                           *static_cast<U*>( varin[0]->val() ) ) ) return false;
       }
     }
     else{
-      if( *static_cast<U*>( pops[0]->val() ) == U(0)
-       || *static_cast<U*>( pops[1]->val() ) == U(0) ) break;
-      //*itU = *static_cast<U*>( pops[0]->val() ) * *static_cast<U*>( pops[1]->val() );
-      if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
-                         *static_cast<U*>( pres->val() ) / *static_cast<U*>( pops[1]->val() ),
-                         *static_cast<U*>( pops[0]->val() ) ) ) return false;
-      if( !Op<U>::inter( *static_cast<U*>( pops[1]->val() ),
-                         *static_cast<U*>( pres->val() ) / *static_cast<U*>( pops[0]->val() ),
-                         *static_cast<U*>( pops[1]->val() ) ) ) return false;
+      if( *static_cast<U*>( varin[0]->val() ) == U(0)
+       || *static_cast<U*>( varin[1]->val() ) == U(0) ) break;
+      //*itU = *static_cast<U*>( varin[0]->val() ) * *static_cast<U*>( varin[1]->val() );
+      if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
+                         *static_cast<U*>( pres->val() ) / *static_cast<U*>( varin[1]->val() ),
+                         *static_cast<U*>( varin[0]->val() ) ) ) return false;
+      if( !Op<U>::inter( *static_cast<U*>( varin[1]->val() ),
+                         *static_cast<U*>( pres->val() ) / *static_cast<U*>( varin[0]->val() ),
+                         *static_cast<U*>( varin[1]->val() ) ) ) return false;
     }
     break;
 
    case FFOp::INV:
-    //*itU = pops[0]->num().val() / *static_cast<U*>( pops[1]->val() );
+    //*itU = varin[0]->num().val() / *static_cast<U*>( varin[1]->val() );
     // should not reach this point since forward propagation would have normally thrown an exception earlier
-    if( Op<U>::l( *static_cast<U*>( pops[0]->val() ) ) < 0. 
-     && Op<U>::u( *static_cast<U*>( pops[0]->val() ) ) > 0. )
+    if( Op<U>::l( *static_cast<U*>( varin[0]->val() ) ) < 0. 
+     && Op<U>::u( *static_cast<U*>( varin[0]->val() ) ) > 0. )
       throw typename FFBase::Exceptions( FFBase::Exceptions::EVAL );
-    if( !Op<U>::inter( *static_cast<U*>( pops[1]->val() ),
-                       pops[0]->num().val() / *static_cast<U*>( pres->val() ),
-                       *static_cast<U*>( pops[1]->val() ) ) ) return false;
+    if( !Op<U>::inter( *static_cast<U*>( varin[1]->val() ),
+                       varin[0]->num().val() / *static_cast<U*>( pres->val() ),
+                       *static_cast<U*>( varin[1]->val() ) ) ) return false;
     break;
 
    case FFOp::DIV:  
-    if( &pops[0] == &pops[1] ) break; // nothing to tighten
-    //*itU = *static_cast<U*>( pops[0]->val() ) / *static_cast<U*>( pops[1]->val() );
-    if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
-                       *static_cast<U*>( pres->val() ) * *static_cast<U*>( pops[1]->val() ),
-                       *static_cast<U*>( pops[0]->val() ) ) ) return false;
-    if( !Op<U>::inter( *static_cast<U*>( pops[1]->val() ),
-                       *static_cast<U*>( pops[0]->val() ) / *static_cast<U*>( pres->val() ),
-                       *static_cast<U*>( pops[1]->val() ) ) ) return false;
+    if( &varin[0] == &varin[1] ) break; // nothing to tighten
+    //*itU = *static_cast<U*>( varin[0]->val() ) / *static_cast<U*>( varin[1]->val() );
+    if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
+                       *static_cast<U*>( pres->val() ) * *static_cast<U*>( varin[1]->val() ),
+                       *static_cast<U*>( varin[0]->val() ) ) ) return false;
+    if( !Op<U>::inter( *static_cast<U*>( varin[1]->val() ),
+                       *static_cast<U*>( varin[0]->val() ) / *static_cast<U*>( pres->val() ),
+                       *static_cast<U*>( varin[1]->val() ) ) ) return false;
     break;
 
    case FFOp::IPOW:
-    //*itU = Op<U>::pow( *static_cast<U*>( pops[0]->val() ), pops[1]->num().n );
-    if( pops[1]->num().n > 0 && pops[1]->num().n % 2 ){ // positive odd exponent
+    //*itU = Op<U>::pow( *static_cast<U*>( varin[0]->val() ), varin[1]->num().n );
+    if( varin[1]->num().n > 0 && varin[1]->num().n % 2 ){ // positive odd exponent
       if( Op<U>::l( *static_cast<U*>( pres->val() ) ) >= 0. ){
-        if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
-                           Op<U>::pow( *static_cast<U*>( pres->val() ), 1./pops[1]->num().n ),
-                           *static_cast<U*>( pops[0]->val() ) ) ) return false;
+        if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
+                           Op<U>::pow( *static_cast<U*>( pres->val() ), 1./varin[1]->num().n ),
+                           *static_cast<U*>( varin[0]->val() ) ) ) return false;
       }
       else if( Op<U>::u( *static_cast<U*>( pres->val() ) ) <= 0. ){
-        if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
-                           - Op<U>::pow( - *static_cast<U*>( pres->val() ), 1./pops[1]->num().n ),
-                           *static_cast<U*>( pops[0]->val() ) ) ) return false;
+        if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
+                           - Op<U>::pow( - *static_cast<U*>( pres->val() ), 1./varin[1]->num().n ),
+                           *static_cast<U*>( varin[0]->val() ) ) ) return false;
       }
       else{
         U bndL = Op<U>::zeroone() * Op<U>::l( *static_cast<U*>( pres->val() ) ),
@@ -4874,54 +4941,54 @@ const
         if( !Op<U>::inter( bndL, *static_cast<U*>( pres->val() ), bndL )
          || !Op<U>::inter( bndU, *static_cast<U*>( pres->val() ), bndU ) )
           throw typename FFBase::Exceptions( FFBase::Exceptions::EVAL );
-        if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
-                           Op<U>::hull( - Op<U>::pow( - bndL, 1./pops[1]->num().n ),
-                                          Op<U>::pow(   bndU, 1./pops[1]->num().n ) ),
-                           *static_cast<U*>( pops[0]->val() ) ) ) return false;
+        if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
+                           Op<U>::hull( - Op<U>::pow( - bndL, 1./varin[1]->num().n ),
+                                          Op<U>::pow(   bndU, 1./varin[1]->num().n ) ),
+                           *static_cast<U*>( varin[0]->val() ) ) ) return false;
       }
     }
-    else if( pops[1]->num().n > 0 ){ // positive even exponent
-      if( Op<U>::l( *static_cast<U*>( pops[0]->val() ) ) >= 0. ){
-        if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
-                           Op<U>::pow( *static_cast<U*>( pres->val() ), 1./pops[1]->num().n ),
-                           *static_cast<U*>( pops[0]->val() ) ) ) return false;
+    else if( varin[1]->num().n > 0 ){ // positive even exponent
+      if( Op<U>::l( *static_cast<U*>( varin[0]->val() ) ) >= 0. ){
+        if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
+                           Op<U>::pow( *static_cast<U*>( pres->val() ), 1./varin[1]->num().n ),
+                           *static_cast<U*>( varin[0]->val() ) ) ) return false;
       }
-      else if( Op<U>::u( *static_cast<U*>( pops[0]->val() ) ) <= 0. ){
-        if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
-                           - Op<U>::pow( *static_cast<U*>( pres->val() ), 1./pops[1]->num().n ),
-                           *static_cast<U*>( pops[0]->val() ) ) ) return false;
+      else if( Op<U>::u( *static_cast<U*>( varin[0]->val() ) ) <= 0. ){
+        if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
+                           - Op<U>::pow( *static_cast<U*>( pres->val() ), 1./varin[1]->num().n ),
+                           *static_cast<U*>( varin[0]->val() ) ) ) return false;
       }
       else{
-        if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
-                           Op<U>::hull( - Op<U>::pow( *static_cast<U*>( pres->val() ), 1./pops[1]->num().n ),
-                                          Op<U>::pow( *static_cast<U*>( pres->val() ), 1./pops[1]->num().n ) ),
-                           *static_cast<U*>( pops[0]->val() ) ) ) return false;
+        if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
+                           Op<U>::hull( - Op<U>::pow( *static_cast<U*>( pres->val() ), 1./varin[1]->num().n ),
+                                          Op<U>::pow( *static_cast<U*>( pres->val() ), 1./varin[1]->num().n ) ),
+                           *static_cast<U*>( varin[0]->val() ) ) ) return false;
       }
     }
-    else if( pops[1]->num().n % 2 ){ // negative odd exponent
-      if( Op<U>::l( *static_cast<U*>( pops[0]->val() ) ) > 0. ){
-        if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
-                           Op<U>::pow( *static_cast<U*>( pres->val() ), 1./pops[1]->num().n ),
-                           *static_cast<U*>( pops[0]->val() ) ) ) return false;
+    else if( varin[1]->num().n % 2 ){ // negative odd exponent
+      if( Op<U>::l( *static_cast<U*>( varin[0]->val() ) ) > 0. ){
+        if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
+                           Op<U>::pow( *static_cast<U*>( pres->val() ), 1./varin[1]->num().n ),
+                           *static_cast<U*>( varin[0]->val() ) ) ) return false;
       }
-      else if( Op<U>::u( *static_cast<U*>( pops[0]->val() ) ) < 0. ){
-        if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
-                           - Op<U>::pow( - *static_cast<U*>( pres->val() ), 1./pops[1]->num().n ),
-                           *static_cast<U*>( pops[0]->val() ) ) ) return false;
+      else if( Op<U>::u( *static_cast<U*>( varin[0]->val() ) ) < 0. ){
+        if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
+                           - Op<U>::pow( - *static_cast<U*>( pres->val() ), 1./varin[1]->num().n ),
+                           *static_cast<U*>( varin[0]->val() ) ) ) return false;
       }
       // should not reach this point since forward propagation would have normally thrown an exception earlier
       throw typename FFBase::Exceptions( FFBase::Exceptions::EVAL );
     }
     else{ // negative even exponent
-      if( Op<U>::l( *static_cast<U*>( pops[0]->val() ) ) > 0. ){
-        if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
-                           Op<U>::pow( *static_cast<U*>( pres->val() ), 1./pops[1]->num().n ),
-                           *static_cast<U*>( pops[0]->val() ) ) ) return false;
+      if( Op<U>::l( *static_cast<U*>( varin[0]->val() ) ) > 0. ){
+        if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
+                           Op<U>::pow( *static_cast<U*>( pres->val() ), 1./varin[1]->num().n ),
+                           *static_cast<U*>( varin[0]->val() ) ) ) return false;
       }
-      else if( Op<U>::u( *static_cast<U*>( pops[0]->val() ) ) < 0. ){
-        if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
-                           - Op<U>::pow( *static_cast<U*>( pres->val() ), 1./pops[1]->num().n ),
-                           *static_cast<U*>( pops[0]->val() ) ) ) return false;
+      else if( Op<U>::u( *static_cast<U*>( varin[0]->val() ) ) < 0. ){
+        if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
+                           - Op<U>::pow( *static_cast<U*>( pres->val() ), 1./varin[1]->num().n ),
+                           *static_cast<U*>( varin[0]->val() ) ) ) return false;
       }
       // should not reach this point since forward propagation would have normally thrown an exception earlier
       throw typename FFBase::Exceptions( FFBase::Exceptions::EVAL );
@@ -4929,187 +4996,187 @@ const
     break;
 
    case FFOp::DPOW:
-    //*itU = Op<U>::pow( *static_cast<U*>( pops[0]->val() ), pops[1]->num().x );
-    if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
-                       Op<U>::pow( *static_cast<U*>( pres->val() ), 1./pops[1]->num().x ),
-                       *static_cast<U*>( pops[0]->val() ) ) ) return false;
+    //*itU = Op<U>::pow( *static_cast<U*>( varin[0]->val() ), varin[1]->num().x );
+    if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
+                       Op<U>::pow( *static_cast<U*>( pres->val() ), 1./varin[1]->num().x ),
+                       *static_cast<U*>( varin[0]->val() ) ) ) return false;
     break;
 
    case FFOp::CHEB:
-    //*itU = Op<U>::cheb( *static_cast<U*>( pops[0]->val() ), pops[1]->num().n );
+    //*itU = Op<U>::cheb( *static_cast<U*>( varin[0]->val() ), varin[1]->num().n );
     // TBC
     break;
 
    case FFOp::SQR:
-    //*itU = Op<U>::sqr( *static_cast<U*>( pops[0]->val() ) );
-    if( Op<U>::l( *static_cast<U*>( pops[0]->val() ) ) >= 0. ){
-      if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
+    //*itU = Op<U>::sqr( *static_cast<U*>( varin[0]->val() ) );
+    if( Op<U>::l( *static_cast<U*>( varin[0]->val() ) ) >= 0. ){
+      if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
                          Op<U>::sqrt( *static_cast<U*>( pres->val() ) ),
-                         *static_cast<U*>( pops[0]->val() ) ) ) return false;
+                         *static_cast<U*>( varin[0]->val() ) ) ) return false;
     }
-    else if( Op<U>::u( *static_cast<U*>( pops[0]->val() ) ) <= 0. ){
-      if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
+    else if( Op<U>::u( *static_cast<U*>( varin[0]->val() ) ) <= 0. ){
+      if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
                          - Op<U>::sqrt( *static_cast<U*>( pres->val() ) ),
-                         *static_cast<U*>( pops[0]->val() ) ) ) return false;
+                         *static_cast<U*>( varin[0]->val() ) ) ) return false;
     }
     else{
-      if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
+      if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
                          Op<U>::hull( - Op<U>::sqrt( *static_cast<U*>( pres->val() ) ),
                                         Op<U>::sqrt( *static_cast<U*>( pres->val() ) ) ),
-                         *static_cast<U*>( pops[0]->val() ) ) ) return false;
+                         *static_cast<U*>( varin[0]->val() ) ) ) return false;
     }
     break;
 
    case FFOp::SQRT: 
-    //*itU = Op<U>::sqrt( *static_cast<U*>( pops[0]->val() ) );
-    if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
+    //*itU = Op<U>::sqrt( *static_cast<U*>( varin[0]->val() ) );
+    if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
                        Op<U>::sqr( *static_cast<U*>( pres->val() ) ),
-                       *static_cast<U*>( pops[0]->val() ) ) ) return false;
+                       *static_cast<U*>( varin[0]->val() ) ) ) return false;
     break;
 
    case FFOp::EXP:  
-    //*itU = Op<U>::exp( *static_cast<U*>( pops[0]->val() ) );
-    if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
+    //*itU = Op<U>::exp( *static_cast<U*>( varin[0]->val() ) );
+    if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
                        Op<U>::log( *static_cast<U*>( pres->val() ) ),
-                       *static_cast<U*>( pops[0]->val() ) ) ) return false;
+                       *static_cast<U*>( varin[0]->val() ) ) ) return false;
     break;
 
    case FFOp::LOG:  
-    //*itU = Op<U>::log( *static_cast<U*>( pops[0]->val() ) );
-    if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
+    //*itU = Op<U>::log( *static_cast<U*>( varin[0]->val() ) );
+    if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
                        Op<U>::exp( *static_cast<U*>( pres->val() ) ),
-                       *static_cast<U*>( pops[0]->val() ) ) ) return false;
+                       *static_cast<U*>( varin[0]->val() ) ) ) return false;
     break;
 
    case FFOp::XLOG:  
-    //*itU = Op<U>::xlog( *static_cast<U*>( pops[0]->val() ) );
+    //*itU = Op<U>::xlog( *static_cast<U*>( varin[0]->val() ) );
     // TBC
     break; 
 
    case FFOp::COS:  
-    //*itU = Op<U>::cos( *static_cast<U*>( pops[0]->val() ) );
-    if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
+    //*itU = Op<U>::cos( *static_cast<U*>( varin[0]->val() ) );
+    if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
                        Op<U>::acos( *static_cast<U*>( pres->val() ) ),
-                       *static_cast<U*>( pops[0]->val() ) ) ) return false;
+                       *static_cast<U*>( varin[0]->val() ) ) ) return false;
     break;
 
    case FFOp::SIN:  
-    //*itU = Op<U>::sin( *static_cast<U*>( pops[0]->val() ) );
-    if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
+    //*itU = Op<U>::sin( *static_cast<U*>( varin[0]->val() ) );
+    if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
                        Op<U>::asin( *static_cast<U*>( pres->val() ) ),
-                       *static_cast<U*>( pops[0]->val() ) ) ) return false;
+                       *static_cast<U*>( varin[0]->val() ) ) ) return false;
     break;
 
    case FFOp::TAN:  
-    //*itU = Op<U>::tan( *static_cast<U*>( pops[0]->val() ) );
-    if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
+    //*itU = Op<U>::tan( *static_cast<U*>( varin[0]->val() ) );
+    if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
                        Op<U>::atan( *static_cast<U*>( pres->val() ) ),
-                       *static_cast<U*>( pops[0]->val() ) ) ) return false;
+                       *static_cast<U*>( varin[0]->val() ) ) ) return false;
     break;
 
    case FFOp::ACOS: 
-    //*itU = Op<U>::acos( *static_cast<U*>( pops[0]->val() ) );
-    if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
+    //*itU = Op<U>::acos( *static_cast<U*>( varin[0]->val() ) );
+    if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
                        Op<U>::cos( *static_cast<U*>( pres->val() ) ),
-                       *static_cast<U*>( pops[0]->val() ) ) ) return false;
+                       *static_cast<U*>( varin[0]->val() ) ) ) return false;
     break;
 
    case FFOp::ASIN: 
-    //*itU = Op<U>::asin( *static_cast<U*>( pops[0]->val() ) );
-    if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
+    //*itU = Op<U>::asin( *static_cast<U*>( varin[0]->val() ) );
+    if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
                        Op<U>::sin( *static_cast<U*>( pres->val() ) ),
-                       *static_cast<U*>( pops[0]->val() ) ) ) return false;
+                       *static_cast<U*>( varin[0]->val() ) ) ) return false;
     break;
 
    case FFOp::ATAN: 
-    //*itU = Op<U>::atan( *static_cast<U*>( pops[0]->val() ) );
-    if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
+    //*itU = Op<U>::atan( *static_cast<U*>( varin[0]->val() ) );
+    if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
                        Op<U>::tan( *static_cast<U*>( pres->val() ) ),
-                       *static_cast<U*>( pops[0]->val() ) ) ) return false;
+                       *static_cast<U*>( varin[0]->val() ) ) ) return false;
 
     break;
 
    case FFOp::COSH: 
-    //*itU = Op<U>::cosh( *static_cast<U*>( pops[0]->val() ) );
+    //*itU = Op<U>::cosh( *static_cast<U*>( varin[0]->val() ) );
     // TBC
     break;
 
    case FFOp::SINH: 
-    //*itU = Op<U>::sinh( *static_cast<U*>( pops[0]->val() ) );
+    //*itU = Op<U>::sinh( *static_cast<U*>( varin[0]->val() ) );
     // TBC
     break;
 
    case FFOp::TANH: 
-    //*itU = Op<U>::tanh( *static_cast<U*>( pops[0]->val() ) );
+    //*itU = Op<U>::tanh( *static_cast<U*>( varin[0]->val() ) );
     // TBC
     break;
 
    case FFOp::ERF:  
-    //*itU = Op<U>::erf( *static_cast<U*>( pops[0]->val() ) );
+    //*itU = Op<U>::erf( *static_cast<U*>( varin[0]->val() ) );
     // TBC
     break;
 
    case FFOp::FABS: 
-    //*itU = Op<U>::fabs( *static_cast<U*>( pops[0]->val() ) );
-    if( Op<U>::l( *static_cast<U*>( pops[0]->val() ) ) >= 0. ){
-      if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
+    //*itU = Op<U>::fabs( *static_cast<U*>( varin[0]->val() ) );
+    if( Op<U>::l( *static_cast<U*>( varin[0]->val() ) ) >= 0. ){
+      if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
                          *static_cast<U*>( pres->val() ),
-                         *static_cast<U*>( pops[0]->val() ) ) ) return false;
+                         *static_cast<U*>( varin[0]->val() ) ) ) return false;
     }
-    else if( Op<U>::u( *static_cast<U*>( pops[0]->val() ) ) <= 0. ){
-      if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
+    else if( Op<U>::u( *static_cast<U*>( varin[0]->val() ) ) <= 0. ){
+      if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
                          - *static_cast<U*>( pres->val() ),
-                         *static_cast<U*>( pops[0]->val() ) ) ) return false;
+                         *static_cast<U*>( varin[0]->val() ) ) ) return false;
     }
     else{
-      if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
+      if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
                          Op<U>::hull( - *static_cast<U*>( pres->val() ),
                                         *static_cast<U*>( pres->val() ) ),
-                         *static_cast<U*>( pops[0]->val() ) ) ) return false;
+                         *static_cast<U*>( varin[0]->val() ) ) ) return false;
     }
     break;
 
    case FFOp::FSTEP:
-    //*itU = Op<U>::fstep( *static_cast<U*>( pops[0]->val() ) );
-    if( Op<U>::l( *static_cast<U*>( pops[0]->val() ) ) >= 0. ){
-      if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
+    //*itU = Op<U>::fstep( *static_cast<U*>( varin[0]->val() ) );
+    if( Op<U>::l( *static_cast<U*>( varin[0]->val() ) ) >= 0. ){
+      if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
                          1.,
-                         *static_cast<U*>( pops[0]->val() ) ) ) return false;
+                         *static_cast<U*>( varin[0]->val() ) ) ) return false;
     }
-    else if( Op<U>::u( *static_cast<U*>( pops[0]->val() ) ) <= 0. ){
-      if( !Op<U>::inter( *static_cast<U*>( pops[0]->val() ),
+    else if( Op<U>::u( *static_cast<U*>( varin[0]->val() ) ) <= 0. ){
+      if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
                          0.,
-                         *static_cast<U*>( pops[0]->val() ) ) ) return false;
+                         *static_cast<U*>( varin[0]->val() ) ) ) return false;
     }
     break;
 
    case FFOp::MINF: 
-    //if( &pops[0] == &pops[1] )
-    //  *itU = *static_cast<U*>( pops[0]->val() );
+    //if( &varin[0] == &varin[1] )
+    //  *itU = *static_cast<U*>( varin[0]->val() );
     //else
-    //  *itU = Op<U>::min( *static_cast<U*>( pops[0]->val() ), *static_cast<U*>( pops[1]->val() ) );
+    //  *itU = Op<U>::min( *static_cast<U*>( varin[0]->val() ), *static_cast<U*>( varin[1]->val() ) );
     // TBC
     break;
 
    case FFOp::MAXF: 
-    //if( &pops[0] == &pops[1] )
-    //  *itU = *static_cast<U*>( pops[0]->val() );
+    //if( &varin[0] == &varin[1] )
+    //  *itU = *static_cast<U*>( varin[0]->val() );
     //else
-    //  *itU = Op<U>::max( *static_cast<U*>( pops[0]->val() ), *static_cast<U*>( pops[1]->val() ) );
+    //  *itU = Op<U>::max( *static_cast<U*>( varin[0]->val() ), *static_cast<U*>( varin[1]->val() ) );
     // TBC
     break;
 
    case FFOp::INTER: 
-    //if( &pops[0] == &pops[1] )
-    //  *itU = *static_cast<U*>( pops[0]->val() );
-    //else if( !Op<U>::inter( *itU, *static_cast<U*>( pops[0]->val() ), *static_cast<U*>( pops[1]->val() ) ) )
+    //if( &varin[0] == &varin[1] )
+    //  *itU = *static_cast<U*>( varin[0]->val() );
+    //else if( !Op<U>::inter( *itU, *static_cast<U*>( varin[0]->val() ), *static_cast<U*>( varin[1]->val() ) ) )
     //  throw typename FFBase::Exceptions( FFBase::Exceptions::INTER );
     // TBC
     break;
 
    case FFOp::PROD:{
-    //std::vector<U> ops_val; ops_val.reserve( pops.size() );
-    //for( auto it=pops.begin(); it!=pops.end(); ++it ) ops_val.push_back( *static_cast<U*>( (*it)->val() ) );
+    //std::vector<U> ops_val; ops_val.reserve( varin.size() );
+    //for( auto it=varin.begin(); it!=varin.end(); ++it ) ops_val.push_back( *static_cast<U*>( (*it)->val() ) );
     //*itU = Op<U>::prod( ops_val.size(), ops_val.data() );
     // TBC
     break;
@@ -5135,23 +5202,23 @@ const
 
   // Current operation matches ExtOp type
   if( sameid( typeid(op) ) ){
-    U vres;
-    if( pops.empty() )
+    std::vector<U> vres( varout.size() );
+    if( varin.empty() )
       throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
-    else if( pops.size() == 1 ){
-      //op.eval( vres, 1, static_cast<U*>( pops[0]->val() ) );
-      if( !op.reval( vres, 1, static_cast<U*>( pops[0]->val() ) ) ) return false;
+
+    else if( varin.size() == 1 ){
+      // op.eval( vres.size(), vres.data(), 1, static_cast<U*>( varin[0]->val() ) );
+      if( !op.reval( vres.size(), vres.data(), 1, static_cast<U*>( varin[0]->val() ) ) ) return false;
     }
-    //else if( pops.size() == 2 )
-    //  op.eval( *itU, *static_cast<U*>( pops[0]->val() ), *static_cast<U*>( pops[1]->val() ) );
-    //  if( !op.reval( vres, static_cast<U*>( pops[0]->val() ),
-    //                       static_cast<U*>( pops[1]->val() ) ) ) return false;
+
     else{
-      std::vector<U> ops_val; ops_val.reserve( pops.size() );
-      for( auto it=pops.begin(); it!=pops.end(); ++it ) ops_val.push_back( *static_cast<U*>( (*it)->val() ) );
-      //op.eval( vres, ops_val.size(), ops_val.data() );
-      if( !op.reval( vres, ops_val.size(), ops_val.data() ) ) return false;
+      std::vector<U> ops_val; ops_val.reserve( varin.size() );
+      for( auto it=varin.begin(); it!=varin.end(); ++it )
+        ops_val.push_back( *static_cast<U*>( (*it)->val() ) );
+      //op.eval( vres.size(), vres.data(), ops_val.size(), ops_val.data() );
+      if( !op.reval( vres.size(), vres.data(), ops_val.size(), ops_val.data() ) ) return false;
     }
+
     return true;
   }
   
@@ -5169,7 +5236,7 @@ const
 template <typename U>
 inline bool
 FFOp::reval
-( U const& vRes, unsigned const nVar, U* vVar )
+( unsigned const nRes, U const* vRes, unsigned const nVar, U* vVar )
 const
 {
   return true;
@@ -5178,25 +5245,31 @@ const
 
 inline void
 FFOp::generate_dot_script
-( std::ostream&os ) const
+( unsigned const ndxDep, std::ostream& os )
+const
 {
   if( iflag ) return;
   iflag = 1;
 
-  for( auto it=pops.begin(); it!=pops.end(); ++it ){
-    if( !(*it) || !(*it)->ops().first ) continue;
-    (*it)->ops().first->generate_dot_script( os );
+  for( auto pvar : varin ){
+    assert( pvar );
+    //if( !pvar || !pvar->opdef().first ) continue;
+    auto const& [ pOp, ndxDep ] = pvar->opdef();
+    if( !pOp ) continue;
+    pOp->generate_dot_script( ndxDep, os );
   }
-  append_dot_script( os );
+  for( unsigned idep = 0; idep<varout.size(); idep++ )
+    append_dot_script( idep, os );//ndxDep, os );
 }
 
 inline void
 FFOp::append_dot_script
-( std::ostream&os ) const
+( unsigned const ndxDep, std::ostream& os )
+const
 {
   switch( type ){
    case FFOp::VAR:   
-   case FFOp::CNST:   return append_dot_script_variable( os, 14 );
+   case FFOp::CNST:   return append_dot_script_variable( ndxDep, 14, os );
 
    case FFOp::SHIFT:
    case FFOp::PLUS:  
@@ -5229,9 +5302,9 @@ FFOp::append_dot_script
    case FFOp::FABS:
    case FFOp::FSTEP:
    case FFOp::MINF:
-   case FFOp::MAXF:  return append_dot_script_factor( os, 14 );
+   case FFOp::MAXF:  return append_dot_script_factor( ndxDep, 14, os );
 
-   default: if( type >= FFOp::EXTERN ) return append_dot_script_factor( os, 14 );
+   default: if( type >= FFOp::EXTERN ) return append_dot_script_factor( ndxDep, 14, os );
             // Should not reach this point
             throw typename FFBase::Exceptions( FFBase::Exceptions::INTERN );
             os << "/* a factor was not displayed */\n";
@@ -5240,36 +5313,42 @@ FFOp::append_dot_script
 
 inline void
 FFOp::append_dot_script_factor
-( std::ostream&os, const unsigned int fontsize )
+( unsigned const ndxDep, unsigned const fontsize, std::ostream& os )
 const
 {
-  std::ostringstream op_color; op_color  << "black";
+  std::ostringstream op_color; op_color << "black";
+  std::ostringstream op_name; op_name << name(); 
+  if( varout.size() > 1 ) op_name << " [" << ndxDep << "]";
+  FFVar* pres = varout[ndxDep];
 
-  os << "  " << pres->name() << " [shape=Mrecord,fontname=\"Arial\",color=" << op_color.str().c_str()
-     << ",fontsize=" << fontsize << ",label=\"{<f0> " << name().c_str() << "|<f1> " << pres->name() << "}\"];\n";
+  os << "  " << pres->name() << " [shape=Mrecord,fontname=\"Arial\",color=" << op_color.str()
+     << ",fontsize=" << fontsize << ",label=\"{<f0> " << op_name.str() << "|<f1> "
+     << pres->name() << "}\"];\n";
   unsigned int i=1;
-  for( auto it=pops.begin(); it!=pops.end(); ++it, ++i ){
+  for( auto it=varin.begin(); it!=varin.end(); ++it, ++i ){
     //std::ostringstream label; label  << ",labeldistance=0.8,labelangle=0,taillabel=<<table bgcolor=\"white\" border=\"0\"><tr><td>" << i << "</td></tr></table>>,fontname=\"Arial\",fontsize=10";
     std::ostringstream label; label  << ",label=\"" << i << "\",fontname=\"Arial\",fontsize=10";
     os << "  " << (*it)->name() << " -> " << pres->name() << " [arrowsize=0.7"
-       << ((pops.size()>1 && !commutative())? label.str().c_str(): "") << "];\n";
-       //<< (!commutative() && (it!=pops.begin())? ",style=dashed];\n": "];\n");
+       << ((varin.size()>1 && !commutative())? label.str(): "") << "];\n";
+       //<< (!commutative() && (it!=varin.begin())? ",style=dashed];\n": "];\n");
   }
 }
 
 inline void
 FFOp::append_dot_script_variable
-( std::ostream&os, const unsigned int fontsize ) const
+( unsigned const ndxDep, unsigned const fontsize, std::ostream& os )
+const
 {
   std::ostringstream var_color; var_color << "red";
   std::ostringstream cst_color; cst_color << "blue";
-
+  FFVar* pres = varout[ndxDep];
+  
   if( type == FFOp::CNST || pres->cst() )
-    os << "  " << pres->name() << " [shape=Mrecord,fontname=\"Arial\",color=" << cst_color.str().c_str()
+    os << "  " << pres->name() << " [shape=Mrecord,fontname=\"Arial\",color=" << cst_color.str()
        << ",fontsize=" << fontsize << ",label=\"{<f0> " << pres->num() << "|<f1> " << pres->name() << "}\"];\n"; 
   else
-    os << "  " << pres->name() << " [shape=Mrecord,fontname=\"Arial\",color=" << (var_color.str().c_str()) << "];\n";
-    //   << (var_color.str().c_str()) << ",label=\"<f0> " << pres->name() << "\"];\n";
+    os << "  " << pres->name() << " [shape=Mrecord,fontname=\"Arial\",color=" << var_color.str() << "];\n";
+    //   << var_color.str() << ",label=\"<f0> " << pres->name() << "\"];\n";
 }
 
 inline bool
@@ -5357,9 +5436,8 @@ operator <<
     //out << "  " << **itv << "  (" << *itv << ")";
     out << "  " << **itv;
     out << "\t => {";
-    typename FFVar::t_Ops Ops = (*itv)->_ops.second;
-    typename FFVar::t_Ops::iterator ito = Ops.begin();
-    for( ; ito!=Ops.end(); ++ito ) out << " " << *(*ito)->pres;
+    for( auto const& pop : (*itv)->_opuse )
+      for( auto pvar : pop->varout ) out << " " << *pvar;
     out << " }" << std::endl;
   }
 
@@ -5367,11 +5445,15 @@ operator <<
   for( ; itv!=Vars.end(); ++itv ){
     //out << "  " << **itv << "  (" << *itv << ")";
     out << "  " << **itv;
-    if( (*itv)->_ops.first ) out << "\t" << "<=  " << *((*itv)->_ops.first);
+    auto const& [pOp, ndxDep ] = (*itv)->_opdef;
+    if( pOp ){
+      out << "\t" << "<=  " << *pOp;
+      if( pOp->varout.size() > 1 )
+        out << "[" << ndxDep << "]";
+    }
     out << "\t => {";
-    typename FFVar::t_Ops Ops = (*itv)->_ops.second;
-    typename FFVar::t_Ops::iterator ito = Ops.begin();
-    for( ; ito!=Ops.end(); ++ito ) out << " " << *(*ito)->pres;
+    for( auto const& pop : (*itv)->_opuse )
+      for( auto pvar : pop->varout ) out << " " << *pvar;
     out << " }" << std::endl;
   }
 
@@ -5379,25 +5461,31 @@ operator <<
 }
 
 template <typename ExtOp>
-inline FFVar&
+inline FFVar**
 FFBase::_insert_nary_external_operation
-( ExtOp const& Op, FFDep const& dep, unsigned const nVar, FFVar const* pVar )
+( ExtOp const& Op, unsigned const nDep, FFDep const& Dep, unsigned const nVar, FFVar const* pVar )
 {
+  // Get DAG pointer from participating variables
   auto dag = pVar[0]._dag;
-  for( unsigned i=1; i<nVar && dag==nullptr; i++ )
-    if( pVar[i]._dag != nullptr ) dag = pVar[i]._dag;
-  if( dag == nullptr ) throw Exceptions( Exceptions::DAG );
+  for( unsigned i=1; !dag && i<nVar; i++ )
+    if( pVar[i]._dag ) dag = pVar[i]._dag;
+  if( !dag ) throw Exceptions( Exceptions::DAG );
 
+  // Retreive pointers to participating variables in DAG
   std::vector<FFVar*> vVar; vVar.reserve( nVar );
   for( unsigned i=0; i<nVar; i++ ){
-    if( pVar[i]._dag == nullptr && pVar[i]._cst ){
+    if( !pVar[i]._dag && pVar[i]._cst ){
       FFVar* pCst = dag->_add_constant( pVar[i]._num.val() );
-      vVar.push_back( pCst->_ops.first->pres );
+      auto& [pOp,j] = pCst->_opdef;
+      vVar.push_back( pOp->varout[j] );
     }
-    else
-      vVar.push_back( pVar[i]._ops.first->pres );
+    else{
+      auto const& [pOp,j] = pVar[i]._opdef;
+      vVar.push_back( pOp->varout[j] );
+    }
   }
-  
+
+  // Check if operation is already in DAG, else insert it
   FFOp* pOp = new ExtOp();
   pOp->set( nVar, vVar.data(), nullptr );
   auto itOp = dag->_Ops.find( pOp );
@@ -5405,38 +5493,54 @@ FFBase::_insert_nary_external_operation
     delete pOp;
     pOp = *itOp;
   }
-  dag->_Ops.insert( pOp );
-
-  if( pOp->pres != nullptr ) return *pOp->pres;
-  for( unsigned i=0; i<nVar; i++ ) vVar[i]->_ops.second.push_back( pOp );
-  pOp->pres = dag->_add_auxiliary( dep, pOp );
-  return *(pOp->pres);
+  else{
+    dag->_Ops.insert( pOp );
+    for( unsigned i=0; i<nVar; i++ )
+      vVar[i]->_opuse.push_back( pOp );
+    pOp->varout.reserve( nDep );
+    for( unsigned j=0; j<nDep; j++ ){
+      FFVar* pAux = new FFVar( dag, Dep, pOp, j );
+      dag->_Vars.insert( pAux );
+      pOp->varout.push_back( pAux );
+    }
+  }
+  
+  return pOp->varout.data();
 }
 
 template <typename ExtOp>
-inline FFVar&
+inline FFVar**
 FFBase::_insert_binary_external_operation
-( ExtOp const& Op, FFDep const& dep, FFVar const& Var1, FFVar const& Var2 )
+( ExtOp const& Op, unsigned const nDep, FFDep const& Dep, FFVar const& Var1, FFVar const& Var2 )
 {
-  if( Var1._dag == nullptr && Var1._dag == nullptr ) throw Exceptions( Exceptions::DAG );
-  auto dag = ( Var1._dag == nullptr? Var2._dag: Var1._dag );
+  // Get DAG pointer from participating variables
+  if( !Var1._dag && !Var2._dag ) throw Exceptions( Exceptions::DAG );
+  auto dag = ( Var1._dag? Var1._dag: Var2._dag );
 
+  // Retreive pointers to participating variables in DAG
   FFVar *pVar1 = nullptr;
-  if( Var1._dag == nullptr && Var1._cst ){
+  if( !Var1._dag && Var1._cst ){
     FFVar* pCst1 = dag->_add_constant( Var1._num.val() );
-    pVar1 = pCst1->_ops.first->pres;
+    auto& [pOp,j] = pCst1->_opdef;
+    pVar1 = pOp->varout[j];
   }
-  else
-    pVar1 = Var1._ops.first->pres;  
+  else{
+    auto const& [pOp,j] = Var1._opdef;
+    pVar1 = pOp->varout[j];
+  }
 
   FFVar *pVar2 = nullptr;  
-  if( Var2._dag == nullptr && Var2._cst ){
+  if( !Var2._dag && Var2._cst ){
     FFVar* pCst2 = dag->_add_constant( Var2._num.val() );
-    pVar2 = pCst2->_ops.first->pres;
+    auto& [pOp,j] = pCst2->_opdef;
+    pVar2 = pOp->varout[j];
   }
-  else
-    pVar2 = Var2._ops.first->pres;  
+  else{
+    auto const& [pOp,j] = Var2._opdef;
+    pVar2 = pOp->varout[j];
+  }
 
+  // Check if operation is already in DAG, else insert it
   FFOp* pOp = new ExtOp();
   pOp->set( pVar1, pVar2, nullptr );
   auto itOp = dag->_Ops.find( pOp );
@@ -5444,149 +5548,230 @@ FFBase::_insert_binary_external_operation
     delete pOp;
     pOp = *itOp;
   }
-  dag->_Ops.insert( pOp );
-
-  if( pOp->pres ) return *pOp->pres;
-  pVar1->_ops.second.push_back( pOp );
-  pVar2->_ops.second.push_back( pOp );
-  pOp->pres = dag->_add_auxiliary( dep, pOp );
-  return *(pOp->pres);
+  else{
+    dag->_Ops.insert( pOp );
+    pVar1->_opuse.push_back( pOp );
+    pVar2->_opuse.push_back( pOp );
+    pOp->varout.reserve( nDep );
+    for( unsigned j=0; j<nDep; j++ ){
+      FFVar* pAux = new FFVar( dag, Dep, pOp, j );
+      dag->_Vars.insert( pAux );
+      pOp->varout.push_back( pAux );
+    }
+  }
+  
+  return pOp->varout.data();
 }
 
 template <typename ExtOp>
-inline FFVar&
+inline FFVar**
 FFBase::_insert_unary_external_operation
-( ExtOp const& Op, FFDep const& dep, FFVar const& Var )
+( ExtOp const& Op, unsigned const nDep, FFDep const& Dep, FFVar const& Var )
 {
-  if( Var._dag == nullptr ) throw Exceptions( Exceptions::DAG );
-  FFVar *pVar = Var._ops.first->pres;
+  // Get DAG pointer from participating variable
+  if( !Var._dag ) throw Exceptions( Exceptions::DAG );
+  auto dag = Var._dag;
+  
+  // Retreive pointers to participating variable in DAG
+  FFVar *pVar = nullptr;
+  if( !Var._dag && Var._cst ){
+    FFVar* pCst = dag->_add_constant( Var._num.val() );
+    auto& [pOp,j] = pCst->_opdef;
+    pVar = pOp->varout[j];
+  }
+  else{
+    auto const& [pOp,j] = Var._opdef;
+    pVar = pOp->varout[j];
+  }
 
+  // Check if operation is already in DAG, else insert it
   FFOp* pOp = new ExtOp();
   pOp->set( pVar, nullptr );
-  auto itOp = Var._dag->_Ops.find( pOp );
-  if( itOp != Var._dag->_Ops.end() ){
+  auto itOp = dag->_Ops.find( pOp );
+  if( itOp != dag->_Ops.end() ){
     delete pOp;
     pOp = *itOp;
   }
-  Var._dag->_Ops.insert( pOp );
+  else{
+    dag->_Ops.insert( pOp );
+    pVar->_opuse.push_back( pOp );
+    pOp->varout.reserve( nDep );
+    for( unsigned j=0; j<nDep; j++ ){
+      FFVar* pAux = new FFVar( dag, Dep, pOp, j );
+      dag->_Vars.insert( pAux );
+      pOp->varout.push_back( pAux );
+    }
+  }
 
-  if( pOp->pres ) return *pOp->pres;
-  pVar->_ops.second.push_back( pOp );
-  pOp->pres = Var._dag->_add_auxiliary( dep, pOp );
-  return *(pOp->pres);
+  return pOp->varout.data();
 }
 
 inline FFVar&
 FFBase::_insert_nary_operation
-( int const top, FFDep const& dep, unsigned const nVar, FFVar const* pVar )
+( int const tOp, FFDep const& Dep, unsigned const nVar, FFVar const* pVar )
 {
-  for( unsigned i=1; i<nVar; i++ ) if( pVar[0]._dag != pVar[i]._dag ) throw Exceptions( Exceptions::DAG );
-  FFBase *pdag = pVar[0]._dag;
-  std::vector<FFVar*> vVar;
-  for( unsigned i=0; i<nVar; i++ ) vVar.push_back( pVar[i]._ops.first->pres );
+  // Get DAG pointer from participating variables
+  for( unsigned i=1; i<nVar; i++ )
+    if( pVar[0]._dag != pVar[i]._dag ) throw Exceptions( Exceptions::DAG );
+  FFBase* dag = pVar[0]._dag;
 
-  FFOp *pOp = pdag->_insert_operation( top, nVar, vVar.data() );
-  if( pOp->pres ) return *pOp->pres;
-  for( unsigned i=0; i<nVar; i++ ) vVar[i]->_ops.second.push_back( pOp );
-  pOp->pres = pdag->_add_auxiliary( dep, pOp );
-  return *pOp->pres;
+  // Retreive pointers to participating variables in DAG
+  std::vector<FFVar*> vVar; vVar.reserve( nVar );
+  for( unsigned i=0; i<nVar; i++ ){
+    auto const& [pOp,j] = pVar[i]._opdef;
+    vVar.push_back( pOp->varout[j] );
+  }
+
+  // Check if operation is already in DAG, else insert it
+  FFOp* pOp = new FFOp( tOp, nVar, vVar.data(), nullptr );
+  auto itOp = dag->_Ops.find( pOp );
+  if( itOp != dag->_Ops.end() ){
+    delete pOp;
+    pOp = *itOp;
+  }
+  else{
+    dag->_Ops.insert( pOp );
+    for( unsigned i=0; i<nVar; i++ )
+      vVar[i]->_opuse.push_back( pOp );
+    FFVar* pAux = new FFVar( dag, Dep, pOp, 0 );
+    dag->_Vars.insert( pAux );
+    pOp->varout.push_back( pAux );
+  }
+  
+  assert( pOp->varout.size() == 1 );
+  return *pOp->varout.front();  
 }
 
 inline FFVar&
 FFBase::_insert_binary_operation
-( int const top, FFDep const& dep, FFVar const& Var1, FFVar const& Var2 )
+( int const tOp, FFDep const& Dep, FFVar const& Var1, FFVar const& Var2 )
 {
+  // Get DAG pointer from participating variables
   if( Var1._dag != Var2._dag ) throw Exceptions( Exceptions::DAG );
-  FFBase *pdag = Var1._dag;
-  FFVar *pVar1 = Var1._ops.first->pres, *pVar2 = Var2._ops.first->pres;
+  FFBase* dag = Var1._dag;
 
-  FFOp *pOp = pdag->_insert_operation( top, pVar1, pVar2 );
-  if( pOp->pres ) return *pOp->pres;
-  pVar1->_ops.second.push_back( pOp );
-  pVar2->_ops.second.push_back( pOp );
-  pOp->pres = pdag->_add_auxiliary( dep, pOp );
-  return *pOp->pres;
+  // Retreive pointers to participating variables in DAG
+  auto const& [pOp1,j1] = Var1._opdef;
+  FFVar* pVar1 = pOp1->varout[j1];
+  auto const& [pOp2,j2] = Var2._opdef;
+  FFVar* pVar2 = pOp2->varout[j2];
+
+  // Check if operation is already in DAG, else insert it
+  FFOp* pOp = new FFOp( tOp, pVar1, pVar2, nullptr );
+  auto itOp = dag->_Ops.find( pOp );
+  if( itOp != dag->_Ops.end() ){
+    delete pOp;
+    pOp = *itOp;
+  }
+  else{
+    dag->_Ops.insert( pOp );
+    pVar1->_opuse.push_back( pOp );
+    pVar2->_opuse.push_back( pOp );
+    FFVar* pAux = new FFVar( dag, Dep, pOp, 0 );
+    dag->_Vars.insert( pAux );
+    pOp->varout.push_back( pAux );
+  }
+  
+  assert( pOp->varout.size() == 1 );
+  return *pOp->varout.front();  
 }
 
 template <typename U> inline FFVar&
 FFBase::_insert_binary_operation
-( int const top, FFDep const& dep, U const& Cst1, FFVar const& Var2 )
+( int const tOp, FFDep const& Dep, U const& Cst1, FFVar const& Var2 )
 {
-  FFBase *pdag = Var2._dag;
-  FFVar *pVar2 = Var2._ops.first->pres;
-  FFVar* pCst1 = pdag->_add_constant( Cst1 );
-  FFVar *pVar1 = pCst1->_ops.first->pres;
+  // Get DAG pointer from participating variables
+  FFBase* dag = Var2._dag;
 
-  FFOp *pOp = pdag->_insert_operation( top, pVar1, pVar2 );
-  if( pOp->pres ) return *pOp->pres;
-  pVar1->_ops.second.push_back( pOp );
-  pVar2->_ops.second.push_back( pOp );
-  pOp->pres = pdag->_add_auxiliary( dep, pOp );
-  return *pOp->pres;
+  // Retreive pointers to participating variables in DAG
+  FFVar* pCst1 = dag->_add_constant( Cst1 );
+  auto const& [pOp1,j1] = pCst1->_opdef;
+  FFVar* pVar1 = pOp1->varout[j1];
+  auto const& [pOp2,j2] = Var2._opdef;
+  FFVar* pVar2 = pOp2->varout[j2];
+
+  // Check if operation is already in DAG, else insert it
+  FFOp* pOp = new FFOp( tOp, pVar1, pVar2, nullptr );
+  auto itOp = dag->_Ops.find( pOp );
+  if( itOp != dag->_Ops.end() ){
+    delete pOp;
+    pOp = *itOp;
+  }
+  else{
+    dag->_Ops.insert( pOp );
+    pVar1->_opuse.push_back( pOp );
+    pVar2->_opuse.push_back( pOp );
+    FFVar* pAux = new FFVar( dag, Dep, pOp, 0 );
+    dag->_Vars.insert( pAux );
+    pOp->varout.push_back( pAux );
+  }
+  
+  assert( pOp->varout.size() == 1 );
+  return *pOp->varout.front();  
 }
 
 template <typename U> inline FFVar&
 FFBase::_insert_binary_operation
-( int const top, FFDep const& dep, FFVar const& Var1, U const& Cst2 )
+( int const tOp, FFDep const& Dep, FFVar const& Var1, U const& Cst2 )
 {
-  FFBase *pdag = Var1._dag;
-  FFVar *pVar1 = Var1._ops.first->pres;
-  FFVar* pCst2 = pdag->_add_constant( Cst2 );
-  FFVar *pVar2 = pCst2->_ops.first->pres;
+  // Get DAG pointer from participating variables
+  FFBase* dag = Var1._dag;
 
-  FFOp *pOp = pdag->_insert_operation( top, pVar1, pVar2 );
-  if( pOp->pres ) return *pOp->pres;
-  pVar1->_ops.second.push_back( pOp );
-  pVar2->_ops.second.push_back( pOp );
-  pOp->pres = pdag->_add_auxiliary( dep, pOp );
-  return *pOp->pres;
+  // Retreive pointers to participating variables in DAG
+  auto const& [pOp1,j1] = Var1._opdef;
+  FFVar* pVar1 = pOp1->varout[j1];
+  FFVar* pCst2 = dag->_add_constant( Cst2 );
+  auto const& [pOp2,j2] = pCst2->_opdef;
+  FFVar* pVar2 = pOp2->varout[j2];
+
+  // Check if operation is already in DAG, else insert it
+  FFOp* pOp = new FFOp( tOp, pVar1, pVar2, nullptr );
+  auto itOp = dag->_Ops.find( pOp );
+  if( itOp != dag->_Ops.end() ){
+    delete pOp;
+    pOp = *itOp;
+  }
+  else{
+    dag->_Ops.insert( pOp );
+    pVar1->_opuse.push_back( pOp );
+    pVar2->_opuse.push_back( pOp );
+    FFVar* pAux = new FFVar( dag, Dep, pOp, 0 );
+    dag->_Vars.insert( pAux );
+    pOp->varout.push_back( pAux );
+  }
+  
+  assert( pOp->varout.size() == 1 );
+  return *pOp->varout.front();  
 }
 
 inline FFVar&
 FFBase::_insert_unary_operation
-( int const top, FFDep const& dep, FFVar const& Var )
+( int const tOp, FFDep const& Dep, FFVar const& Var )
 {
-  FFBase* pdag = Var._dag;
-  FFVar *pVar = Var._ops.first->pres;
+  // Get DAG pointer from participating variable
+  FFBase* dag = Var._dag;
 
-  FFOp* pOp = pdag->_insert_operation( top, pVar );
-  if( pOp->pres ) return *pOp->pres;
-  pVar->_ops.second.push_back( pOp );
-  pOp->pres = pdag->_add_auxiliary( dep, pOp );
-  return *pOp->pres;
-}
+  // Retreive pointers to participating variables in DAG
+  auto const& [pOp0,j] = Var._opdef;
+  FFVar* pVar = pOp0->varout[j];
 
-inline FFOp*
-FFBase::_insert_operation
-( int const top, FFVar* lop )
-{
-  FFOp* op = new FFOp( top, lop, 0 );
-  typename FFBase::it_Ops itop = _Ops.find( op );
-  if( itop!=_Ops.end() ){ delete op; return *itop; }
-  _Ops.insert( op );
-  return op;
-}
-
-inline FFOp*
-FFBase::_insert_operation
-( int const top, FFVar* lop, FFVar* rop )
-{
-  FFOp* op = new FFOp( top, lop, rop, 0 );
-  typename FFBase::it_Ops itop = _Ops.find( op );
-  if( itop!=_Ops.end() ){ delete op; return *itop; }
-  _Ops.insert( op );
-  return op;
-}
-
-inline FFOp*
-FFBase::_insert_operation
-( int const top, unsigned const nop, FFVar** ops )
-{
-  FFOp* op = new FFOp( top, nop, ops, 0 );
-  typename FFBase::it_Ops itop = _Ops.find( op );
-  if( itop!=_Ops.end() ){ delete op; return *itop; }
-  _Ops.insert( op );
-  return op;
+  // Check if operation is already in DAG, else insert it
+  FFOp* pOp = new FFOp( tOp, pVar, nullptr );
+  auto itOp = dag->_Ops.find( pOp );
+  if( itOp != dag->_Ops.end() ){
+    delete pOp;
+    pOp = *itOp;
+  }
+  else{
+    dag->_Ops.insert( pOp );
+    pVar->_opuse.push_back( pOp );
+    FFVar* pAux = new FFVar( dag, Dep, pOp, 0 );
+    dag->_Vars.insert( pAux );
+    pOp->varout.push_back( pAux );
+  }
+  
+  assert( pOp->varout.size() == 1 );
+  return *pOp->varout.front();  
 }
 
 inline bool
@@ -5599,15 +5784,6 @@ FFBase::_remove_operation
   _Ops.erase( itop );
   return true;
 }
- 
-inline FFVar*
-FFBase::_add_auxiliary
-( FFDep const& dep, FFOp* pOp )
-{
-  pOp->pres = new FFVar( this, dep, pOp );
-  _append_aux( pOp->pres );
-  return pOp->pres;
-}
 
 inline FFVar*
 FFBase::_set_constant
@@ -5617,7 +5793,7 @@ FFBase::_set_constant
   if( itVar!=_Vars.end() ){
     (*itVar)->_num = num;
     (*itVar)->_cst = true;
-    (*itVar)->_ops.first->type = FFOp::CNST;
+    (*itVar)->_opdef.first->type = FFOp::CNST;
   }
   return *itVar;
 }
@@ -5628,8 +5804,8 @@ FFBase::_unset_constant
 {
   it_Vars itVar = _Vars.find( const_cast<FFVar*>(pVar) );
   if( itVar!=_Vars.end() ){
-    (*itVar)->_cst=false;
-    (*itVar)->_ops.first->type = FFOp::VAR;
+    (*itVar)->_cst = false;
+    (*itVar)->_opdef.first->type = FFOp::VAR;
   }
   return *itVar;
 }
@@ -5641,10 +5817,13 @@ FFBase::_add_constant
   // Check if real constant x already defined in _Vars
   FFVar* pAux = new FFVar( x );
   it_Vars iAux = _Vars.find( pAux );
-  if( iAux!=_Vars.end() ){ delete pAux; return *iAux; }
+  if( iAux != _Vars.end() ){
+    delete pAux;
+    return *iAux;
+  }
 
   // Otherwise, append constant x
-  _append_aux( pAux, FFOp::CNST );
+  _append_cst( pAux );
   return pAux;
 }
 
@@ -5655,38 +5834,27 @@ FFBase::_add_constant
   // Check if integer constant n already defined in _Vars
   FFVar* pAux = new FFVar( n );
   it_Vars iAux = _Vars.find( pAux );
-  if( iAux!=_Vars.end() ){ delete pAux; return *iAux; }
+  if( iAux != _Vars.end() ){
+    delete pAux;
+    return *iAux;
+  }
 
   // Otherwise, append constant n
-  _append_aux( pAux, FFOp::CNST );
+  _append_cst( pAux );
   return pAux;
 }
 
 inline void
-FFBase::_append_aux
-( FFVar* pAux, int const tOp )
-{
-  FFOp*pOp = new FFOp( tOp, 0, pAux );
-  _Ops.insert( pOp );
-  pAux->dag() = this;
-  pAux->ops().first = pOp;
-  pAux->id().second = _naux++;
-  _append_aux( pAux );
-}
-
-inline void
-FFBase::_append_aux
+FFBase::_append_cst
 ( FFVar* pAux )
 {
+  FFOp* pOp = new FFOp( FFOp::CNST, nullptr, pAux );
+  _Ops.insert( pOp );
+  pAux->dag() = this;
+  pAux->opdef() = std::make_pair( pOp, 0 );
+  pAux->id().second = _naux++;
   _Vars.insert( pAux );
 }
-
-inline void
-FFBase::_append_var
-( FFVar* pVar )
-{
-  _Vars.insert( pVar );
-}   
 
 inline FFVar*
 FFBase::_find_var
@@ -5726,12 +5894,12 @@ FFBase::subgraph
   FFSubgraph sgDep;
   for( auto const& dep : vDep ){
     FFVar const* pVar = dep;
-    if( !pVar->ops().first ) assert( _get_constant( pVar ) );
-    pVar->ops().first->propagate_subgraph( sgDep.l_op );
-    sgDep.set_dep( pVar->ops().first->iflag );
+    auto const& [ pOp, ndxDep ] = pVar->opdef();
+    if( !pOp ) assert( _get_constant( pVar ) );
+    pOp->propagate_subgraph( ndxDep, sgDep.l_op );
+    sgDep.set_dep( pOp->iflag, ndxDep );
   }
-  sgDep.set_move();
-  sgDep.set_eval();
+  sgDep.set_wk();
   return sgDep;
 }
 
@@ -5743,12 +5911,12 @@ FFBase::subgraph
   FFSubgraph sgDep;
   for( unsigned int i=0; i<nDep; i++ ){
     FFVar const* pVar = &pDep[i];
-    if( !pVar->ops().first ) assert( _get_constant( pVar ) );
-    pVar->ops().first->propagate_subgraph( sgDep.l_op );
-    sgDep.set_dep( pVar->ops().first->iflag );
+    auto const& [ pOp, ndxDep ] = pVar->opdef();
+    if( !pOp ) assert( _get_constant( pVar ) );
+    pOp->propagate_subgraph( ndxDep, sgDep.l_op );
+    sgDep.set_dep( pOp->iflag, ndxDep );
   }
-  sgDep.set_move();
-  sgDep.set_eval();
+  sgDep.set_wk();
   return sgDep;
 }
 
@@ -5760,12 +5928,12 @@ FFBase::subgraph
   FFSubgraph sgDep;
   for( unsigned const& i : ndxDep ){
     FFVar const* pVar = &pDep[i];
-    if( !pVar->ops().first ) assert( _get_constant( pVar ) );
-    pVar->ops().first->propagate_subgraph( sgDep.l_op );
-    sgDep.set_dep( pVar->ops().first->iflag );
+    auto const& [ pOp, ndxDep ] = pVar->opdef();
+    if( !pOp ) assert( _get_constant( pVar ) );
+    pOp->propagate_subgraph( ndxDep, sgDep.l_op );
+    sgDep.set_dep( pOp->iflag, ndxDep );
   }
-  sgDep.set_move();
-  sgDep.set_eval();
+  sgDep.set_wk();
   return sgDep;
 }
 
@@ -5778,59 +5946,68 @@ FFBase::subgraph
   FFSubgraph sgDep;
   for( auto const& iDep : mDep ){
     FFVar const* pVar = &iDep.second;
-    if( !pVar->ops().first ) assert( _get_constant( pVar ) );
-    pVar->ops().first->propagate_subgraph( sgDep.l_op );
-    sgDep.set_dep( pVar->ops().first->iflag );
+    auto const& [ pOp, ndxDep ] = pVar->opdef();
+    if( !pOp ) assert( _get_constant( pVar ) );
+    pOp->propagate_subgraph( ndxDep, sgDep.l_op );
+    sgDep.set_dep( pOp->iflag, ndxDep );
   }
-  sgDep.set_move();
-  sgDep.set_eval();
+  sgDep.set_wk();
   return sgDep;
 }
 
 inline void
 FFBase::output
-( FFSubgraph const& sgDep, std::string const& header,
-  std::ostream&os )
+( FFSubgraph const& sgDep, std::string const& header, std::ostream&os )
 {
   if( sgDep.l_op.empty() ){
-    os << "\nEMPTY SUBGRAPH" << header.c_str() << "\n";
+    os << "\nEMPTY SUBGRAPH" << header << "\n";
     return;
   }
-  os << "\nOPERATIONS IN SUBGRAPH" << header.c_str() << ":\n";
-  for( auto const& [op,mov] : sgDep.l_op )
-    os << "  " << *op->pres << "\t" << (mov?"<<  ":"<-  ") << *op << std::endl;
-  os << "DEPENDENTS IN SUBGRAPH" << header.c_str() << ":\n";
+  os << "\nOPERATIONS IN SUBGRAPH" << header << ":\n";
+  unsigned iwk = 0;
+  for( auto const& op : sgDep.l_op ){
+    unsigned iout = 0;
+    for( auto const& var : op->varout ){
+      os << "  " << *var << "\t" << (sgDep.v_mov[iwk++]?"<<  ":"<-  ") << *op;
+      if( op->varout.size() > 1 ) os << "[" << iout++ << "]";
+      os << std::endl;
+    }
+  }
+  os << "DEPENDENTS IN SUBGRAPH" << header << ":\n";
   unsigned idep = 0;
-  for( auto const& op: sgDep.op_dep )
-    os << "  " << idep++ << ":  " << *(op->pres) << std::endl;
-  os << "WORK ARRAY SIZE: " << sgDep.len_wk << std::endl;
-  if( sgDep.len_mov )
-    os << "MOVE ARRAY SIZE: " << sgDep.len_mov << std::endl;
+  for( auto const& pdep : sgDep.v_dep )
+    os << "  " << idep++ << ":  " << *pdep << std::endl;
+  os << "WORK ARRAY SIZE: " << sgDep.len_tap << std::endl;
+  if( sgDep.len_wrk )
+    os << "MOVE ARRAY SIZE: " << sgDep.len_wrk << std::endl;
 }
 
 inline void
 FFBase::dot_script
-( const unsigned int nDep, const FFVar*pDep, std::ostream&os ) const
+( const unsigned int nDep, const FFVar*pDep, std::ostream&os )
+const
 {
   _reset_operations();
   os << "\ndigraph G {\n";
-  for( unsigned int i=0; i<nDep; i++ ){
-    if( !pDep[i].ops().first ) continue;
-    pDep[i].ops().first->generate_dot_script( os );
+  for( unsigned i=0; i<nDep; ++i ){
+    auto const& [ pOp, ndxDep ] = pDep[i].opdef();
+    if( !pOp ) continue;
+    pOp->generate_dot_script( ndxDep, os );
   }
   os << "}\n";
 }
 
 inline void
 FFBase::dot_script
-( const std::vector<const FFVar*>&vDep, std::ostream&os ) const
+( const std::vector<const FFVar*>&vDep, std::ostream&os )
+const
 {
   _reset_operations();
   os << "\ndigraph G {\nnode [shape=record];\n";
-  typename std::vector<const FFVar*>::const_iterator it = vDep.begin();
-  for( ; it!=vDep.end(); ++it ){
-    if( !(*it)->ops().first ) continue;
-    (*it)->ops().first->generate_dot_script( os );
+  for( auto const& dep: vDep ){
+    auto const& [ pOp, ndxDep ] = dep->opdef();
+    if( !pOp ) continue;
+    pOp->generate_dot_script( ndxDep, os );
   }
   os << "}\n";
 }
@@ -6247,13 +6424,14 @@ FFGraph<ExtOps...>::SFAD
     output( sgDep );
 #endif
     _wkSFAD.clear();
-    _wkSFAD.resize( sgDep.len_wk );
-    auto pwk = ( sgDep.len_mov? _wkSFAD.data()+sgDep.l_op.size(): nullptr );
+    _wkSFAD.resize( sgDep.len_tap );
+    auto pwkSFAD = ( sgDep.len_wrk? &_wkSFAD[sgDep.len_tap-sgDep.len_wrk]: nullptr );
+    unsigned* pwkmov = ( sgDep.len_wrk? &sgDep.v_mov[sgDep.len_tap-sgDep.len_wrk]: nullptr );
     std::map< unsigned, unsigned > mapIndep;
 
     // Count dependencies
     unsigned nIndep = 0;
-    for( auto const& [op,mov] : sgDep.l_op ){
+    for( auto const& op : sgDep.l_op ){
       if( op->type != FFOp::VAR ) continue;
       ++nIndep;
     }
@@ -6267,44 +6445,47 @@ FFGraph<ExtOps...>::SFAD
     std::cerr << "#operations " << sgDep.l_op.size() << std::endl;
 #endif
     auto ito = sgDep.l_op.begin();
-    auto itw = _wkSFAD.begin();
-    for( unsigned int j=0; ito!=sgDep.l_op.end(); ++ito, ++itw ){
-      _curOp = ito->first;
+    unsigned iwk = 0;
+    for( unsigned int idiff=0; ito!=sgDep.l_op.end(); ++ito ){
+      _curOp = *ito;
 
       // Initialize variable using values in l_vVar
       if( _curOp->type == FFOp::VAR ){
-        *itw = *_curOp->pres;
+        auto pvar = _curOp->varout[0];
+        _wkSFAD[iwk] = *pvar;
         auto iti = vIndep.begin();
         auto itd = vDir.begin();
         for( unsigned int ii=0; iti!=vIndep.end(); ++iti, ++itd, ++ii ){
-          if( _curOp->pres->id() != (*iti)->id() ) continue;
+          if( pvar->id() != (*iti)->id() ) continue;
 #ifdef MC__FFUNC_SFAD_DEBUG
-          std::cerr << "independent " << j << ": " << itw->val() << std::endl;
+          std::cerr << "independent " << idiff << ": " << _wkSFAD[iwk].val() << std::endl;
 #endif
           if( vDir.size() ){
-            mapIndep[j] = 0;
-            (*itw).diff( 0, 1 ) = **itd;
+            mapIndep[idiff] = 0;
+            _wkSFAD[iwk].diff( 0, 1 ) = **itd;
           }
           else{
-            mapIndep[j] = ii;
-            (*itw).diff( j++, nIndep );
+            mapIndep[idiff] = ii;
+            _wkSFAD[iwk].diff( idiff++, nIndep );
           }
         }
       }
 
       // Evaluate current operation
       if( _curOp->type < FFOp::EXTERN )
-        _curOp->evaluate( &*itw, false, pwk, sgDep.op_mov );
+        _curOp->evaluate( &_wkSFAD[iwk], 0, pwkSFAD, pwkmov );
       else if( !sizeof...(ExtOps) )
         throw Exceptions( Exceptions::EXTERN );
       else
-        _curOp->evaluate_external( &*itw, false, pwk, sgDep.op_mov, FirstExtOps(), t_NextExtOps() );
+        _curOp->evaluate_external( &_wkSFAD[iwk], nullptr, pwkSFAD, pwkmov, FirstExtOps(), t_NextExtOps() );
+      // Increment tape
+      iwk += _curOp->varout.size();
     }
 
     // Copy dependent values in vDep 
-    auto const& op = *sgDep.op_dep.begin();
+    auto const& pdep = *sgDep.v_dep.begin();
     for( unsigned j=0; j<nIndep; j++ ){
-      auto pF_F = static_cast<fadbad::F<FFVar>*>( op->pres->val() );
+      auto pF_F = static_cast<fadbad::F<FFVar>*>( pdep->val() );
       auto pdFdX = _find_var( pF_F->deriv(j).id() );
       if( pdFdX == nullptr ){
         auto const& num = pF_F->deriv(j).num();
@@ -6457,12 +6638,13 @@ FFGraph<ExtOps...>::SBAD
     auto sgDep = subgraph( 1, vDep[i] );
 #ifdef MC__FFUNC_SBAD_DEBUG
     output( sgDep );
-    std::cout << "l_op.size() = " << sgDep.l_op.size() << "  len_wk = " << sgDep.len_wk << std::endl;
+    std::cout << "l_op.size() = " << sgDep.l_op.size() << "  len_tap = " << sgDep.len_tap << std::endl;
 #endif
     _wkSBAD.clear();
-    _wkSBAD.resize( sgDep.len_wk );
-    auto pwk = ( sgDep.len_mov? _wkSBAD.data()+sgDep.l_op.size(): nullptr );
-    std::map< unsigned, std::pair< unsigned,typename std::vector< fadbad::B<FFVar> >::iterator > > mapIndep;
+    _wkSBAD.resize( sgDep.len_tap );
+    auto pwkSBAD = ( sgDep.len_wrk? &_wkSBAD[sgDep.len_tap-sgDep.len_wrk]: nullptr );
+    unsigned* pwkmov = ( sgDep.len_wrk? &sgDep.v_mov[sgDep.len_tap-sgDep.len_wrk]: nullptr );
+    std::map< unsigned, std::pair< unsigned, fadbad::B<FFVar>* > > mapIndep;
 
     // Propagate values in fadbad::F arithmetic through subgraph
 #ifdef MC__FFUNC_CPU_EVAL
@@ -6470,34 +6652,36 @@ FFGraph<ExtOps...>::SBAD
     std::cerr << "#operations " << sgDep.l_op.size() << std::endl;
 #endif
     auto ito = sgDep.l_op.begin();
-    auto itw = _wkSBAD.begin();
+    unsigned iwk = 0;
     unsigned nIndep = 0; // count dependencies
-    for( ; ito!=sgDep.l_op.end(); ++ito, ++itw ){
-      _curOp = ito->first;
+    for( ; ito!=sgDep.l_op.end(); ++ito ){
+      _curOp = *ito;
 
       // Initialize variable using values in l_vVar
       if( _curOp->type == FFOp::VAR ){
-        *itw = *_curOp->pres;
+        auto pvar = _curOp->varout[0];
+        _wkSBAD[iwk] = *pvar;
         auto iti = vIndep.begin();
         for( unsigned int ii=0; iti!=vIndep.end(); ++iti, ++ii ){
-          if( _curOp->pres->id() != (*iti)->id() ) continue;
+          if( pvar->id() != (*iti)->id() ) continue;
 #ifdef MC__FFUNC_SBAD_DEBUG
-          std::cerr << "independent " << nIndep << ": " << itw->val() << std::endl;
+          std::cerr << "independent " << nIndep << ": " << _wkSBAD[iwk].val() << std::endl;
 #endif
-          mapIndep[nIndep++] = std::make_pair( ii, itw );
+          mapIndep[nIndep++] = std::make_pair( ii, &_wkSBAD[iwk] );
 #ifdef MC__FFUNC_SBAD_DEBUG
-          std::cerr << "mapIndep[" << nIndep-1 << "] = (" << ii << "," << &*itw <<")" << std::endl;
+          std::cerr << "mapIndep[" << nIndep-1 << "] = (" << ii << "," << &_wkSBAD[iwk] <<")" << std::endl;
 #endif
         }
       }
       
       // Evaluate current operation
       if( _curOp->type < FFOp::EXTERN )
-        _curOp->evaluate( &*itw, false, pwk, sgDep.op_mov );
+        _curOp->evaluate( &_wkSBAD[iwk], 0, pwkSBAD, pwkmov );
       else if( !sizeof...(ExtOps) )
         throw Exceptions( Exceptions::EXTERN );
       else
-        _curOp->evaluate_external( &*itw, false, pwk, sgDep.op_mov, FirstExtOps(), t_NextExtOps() );
+        _curOp->evaluate_external( &_wkSBAD[iwk], nullptr, pwkSBAD, pwkmov, FirstExtOps(), t_NextExtOps() );
+      iwk += _curOp->varout.size();
     }
 
     // Copy values in DepB, IndepB
@@ -6505,6 +6689,7 @@ FFGraph<ExtOps...>::SBAD
     std::vector<fadbad::B<FFVar>> IndepB( nIndep );
     for( unsigned j=0; j<nIndep; j++ )
       IndepB[j] = *mapIndep[j].second;
+    // Increment tape
     _wkSBAD.clear();
   
     DepB.diff( 0, 1 );
@@ -6570,9 +6755,10 @@ FFGraph<ExtOps...>::TAD
   // Obtain subgraph
   auto sgDep = subgraph( vDep );
   _wkTAD.clear();
-  _wkTAD.resize( sgDep.len_wk );
-  auto pwk = ( sgDep.len_mov? _wkTAD.data()+sgDep.l_op.size(): nullptr );
-    
+  _wkTAD.resize( sgDep.len_tap );
+  auto pwkTAD = ( sgDep.len_wrk? &_wkTAD[sgDep.len_tap-sgDep.len_wrk]: nullptr );
+  unsigned* pwkmov = ( sgDep.len_wrk? &sgDep.v_mov[sgDep.len_tap-sgDep.len_wrk]: nullptr );
+
   // Vector holding the results
   std::vector<FFVar const*> vDep_T; // <- vector holding the results
   fadbad::T<FFVar>** pX_T = new fadbad::T<FFVar>*[ vVar.size() ];
@@ -6584,22 +6770,22 @@ FFGraph<ExtOps...>::TAD
   std::cerr << "#operations " << sgDep.l_op.size() << std::endl;
 #endif
   auto ito = sgDep.l_op.begin();
-  auto itw = _wkTAD.begin();
-  for( ; ito!=sgDep.l_op.end(); ++ito, ++itw ){
-    _curOp = ito->first;
+  unsigned iwk = 0;
+  for( ; ito!=sgDep.l_op.end(); ++ito ){
+    _curOp = *ito;
 
     // Initialize variable
     if( _curOp->type == FFOp::VAR ){
-      FFVar* pXi = _curOp->pres;
-      *itw = *pXi;
+      FFVar* pXi = _curOp->varout[0];
+      _wkTAD[iwk] = *pXi;
       // Independent variable
       if( pIndep && pXi->id() == pIndep->id() )
-        (*itw)[1] = 1.;
+        _wkTAD[iwk][1] = 1.;
       // Dependent variables
       auto itv = vVar.begin();
       for( unsigned int i=0; itv!=vVar.end(); ++itv, i++ ){
         if( pXi->id() != (*itv)->id() ) continue;
-        pX_T[i] = &(*itw);
+        pX_T[i] = &_wkTAD[iwk];
         // Append 0th-order Taylor coefficient of ith-dependent to result vector
         vDep_T.push_back( pXi );
 #ifdef MC__FFUNC_DEBUG_TAD
@@ -6608,16 +6794,18 @@ FFGraph<ExtOps...>::TAD
 #endif
       }
       // Attach fadbad::T<FFVar>* variable to corresponding variable
-      pXi->val() = &(*itw);
+      pXi->val() = &_wkTAD[iwk];
     }
     
     // Evaluate current operation
     if( _curOp->type < FFOp::EXTERN )
-      _curOp->evaluate( &*itw, false, pwk, sgDep.op_mov );
+      _curOp->evaluate( &_wkTAD[iwk], 0, pwkTAD, pwkmov );
     else if( !sizeof...(ExtOps) )
       throw Exceptions( Exceptions::EXTERN );
     else
-      _curOp->evaluate_external( &*itw, false, pwk, sgDep.op_mov, FirstExtOps(), t_NextExtOps() );
+      _curOp->evaluate_external( &_wkTAD[iwk], nullptr, pwkTAD, pwkmov, FirstExtOps(), t_NextExtOps() );
+    // Increment tape
+    iwk += _curOp->varout.size();    
   }
 
   // Set pointers to the dependents
@@ -6685,20 +6873,21 @@ FFGraph<ExtOps...>::insert
   // Populate variable arrays
   auto sg = dag->subgraph( nDep, pDepIn );
   std::vector<FFVar> vVarIn, vVarOut;
-  for( auto const& [op,mov] : sg.l_op ){
+  for( auto const& op : sg.l_op ){
     if( op->type != FFOp::VAR ) continue;
-    vVarIn.push_back( *op->pres );
-    auto iVar = _Vars.find( op->pres );
+    FFVar* pvar = op->varout[0];
+    vVarIn.push_back( *pvar );
+    auto iVar = _Vars.find( pvar );
     if( iVar == _Vars.end() ){
-      vVarOut.push_back( _create_var( op->pres->id(), op->pres->name(true) ) );
-      if( (long int)_nvar <= op->pres->id().second ) _nvar = op->pres->id().second+1;
+      vVarOut.push_back( _create_var( pvar->id(), pvar->name(true) ) );
+      if( (long int)_nvar <= pvar->id().second ) _nvar = pvar->id().second+1;
     }
     else
       vVarOut.push_back( **iVar );
   }
 
   // Evaluate dependents in current DAG
-  std::vector<FFVar> wk( sg.len_wk );
+  std::vector<FFVar> wk( sg.len_tap );
   dag->eval( sg, wk, nDep, pDepIn, pDepOut, vVarIn.size(), vVarIn.data(), vVarOut.data() );
 }
 
@@ -6770,52 +6959,64 @@ FFGraph<ExtOps...>::compose
   // Propagate composition through subgraph
   auto sgDep = subgraph( vDepOut );                     // <- subgraph of current dependents
   std::vector<const FFVar*> vDepComp( vDepOut.size() ); // <- vector to hold new dependents
-  std::vector<FFVar> wkDep( sgDep.len_wk );             // <- vector to hold intermediates
-  FFVar* pwk = ( sgDep.len_mov? wkDep.data()+sgDep.l_op.size(): nullptr );
-
-  auto itWork = wkDep.begin();
-  for( auto const& [op,mov] : sgDep.l_op ){
+  std::vector<FFVar> wkDep( sgDep.len_tap );             // <- vector to hold intermediates
+  FFVar* pwkDep = ( sgDep.len_wrk? &wkDep[sgDep.len_tap-sgDep.len_wrk]: nullptr );
+  unsigned* pwkmov = ( sgDep.len_wrk? &sgDep.v_mov[sgDep.len_tap-sgDep.len_wrk]: nullptr );
+  
+  unsigned iwk = 0;
+  for( auto const& op : sgDep.l_op ){
     _curOp = op;
 
     // Check if _curOp is to be substituted
     bool is_set = false;
-    for( auto const& sub : vDepIn ){
-      if( sub.first->id() == _curOp->pres->id() ){
-        *itWork = *sub.second;
-        is_set = true; break;
+    FFVar* pvar = nullptr;
+    for( auto const& [varout,depin] : vDepIn ){
+      for( unsigned iout=0; iout<_curOp->varout.size(); ++iout ){
+        pvar = _curOp->varout[iout];
+        if( varout->id() == pvar->id() ){
+          wkDep[iwk] = *depin;
+          is_set = true;
+          break;
+        }
       }
     }
-    if( !is_set && _curOp->type == FFOp::VAR && !_curOp->pres->cst() ){
-      *itWork = *_curOp->pres;
-      is_set = true;
+    if( !is_set && _curOp->type == FFOp::VAR ){
+      pvar = _curOp->varout[0];
+      if( !pvar->cst() ){
+        wkDep[iwk] = *pvar;
+        is_set = true;
+      }
     }
 
     // (Re)evaluate current operation
     if( is_set )
-      _curOp->pres->val() = &(*itWork);
+      pvar->val() = &wkDep[iwk];
     else if( _curOp->type < FFOp::EXTERN )
-      _curOp->evaluate( &*itWork, false, pwk, sgDep.op_mov );
+      _curOp->evaluate( &wkDep[iwk], 0, pwkDep, pwkmov );
     else if( !sizeof...(ExtOps) )
       throw Exceptions( Exceptions::EXTERN );
     else
-      _curOp->evaluate_external( &*itWork, false, pwk, sgDep.op_mov, FirstExtOps(), t_NextExtOps() );
+      _curOp->evaluate_external( &wkDep[iwk], nullptr, pwkDep, pwkmov, FirstExtOps(), t_NextExtOps() );
+    // Increment tape
+    iwk += _curOp->varout.size();    
 
     // Check for a corresponding dependent
     auto itNew = vDepComp.begin();
     for( auto const& dep : vDepOut ){
-      if( dep->id() == _curOp->pres->id() ){
-        auto pNew = static_cast<const FFVar*>( _curOp->pres->val() );
-        *itNew = _find_var( pNew->id() );
-        if( !*itNew ){
-          assert( pNew->cst() );
-          *itNew = _add_constant( pNew->num().val() );
+      for( unsigned iout=0; iout<_curOp->varout.size(); ++iout ){
+        pvar = _curOp->varout[iout];
+        if( dep->id() == pvar->id() ){
+          auto pNew = static_cast<const FFVar*>( pvar->val() );
+          *itNew = _find_var( pNew->id() );
+          if( !*itNew ){
+            assert( pNew->cst() );
+            *itNew = _add_constant( pNew->num().val() );
+          }
+          break;
         }
-        break;
       }
       ++itNew;
     }
-    // Increment iterator in working array wkDep
-    ++itWork;
   }
 
   return vDepComp;
@@ -7038,28 +7239,30 @@ FFGraph<ExtOps...>::eval
 
   // Populate subgraph if empty
   if( sgDep.l_op.empty() ) sgDep = subgraph( nDep, pDep );
-  wkDep.resize( sgDep.len_wk );
-  U* pwk = ( sgDep.len_mov? wkDep.data()+sgDep.l_op.size(): nullptr );
-  
+  wkDep.resize( sgDep.len_tap );
+  U* pwkDep = ( sgDep.len_wrk? &wkDep[sgDep.len_tap-sgDep.len_wrk]: nullptr );
+  unsigned* pwkmov = ( sgDep.len_wrk? &sgDep.v_mov[sgDep.len_tap-sgDep.len_wrk]: nullptr );
+
   // Propagate values in U arithmetic through subgraph
 #ifdef MC__FFUNC_CPU_EVAL
   double cputime = -cpuclock();
   std::cerr << "#operations " << sgDep.l_op.size() << std::endl;
 #endif
   auto ito = sgDep.l_op.begin();
-  typename std::vector<U>::iterator itU = wkDep.begin();
-  for( ; ito!=sgDep.l_op.end(); ++ito, ++itU ){
-    _curOp = ito->first;
+  unsigned iwk = 0;
+  for( ; ito!=sgDep.l_op.end(); ++ito ){
+    _curOp = *ito;
 
     // Initialize variable using values in l_vVar
     if( _curOp->type == FFOp::VAR ){
+      FFVar* pvar = _curOp->varout[0];
       FFVar* pX = nullptr;
       auto itnVar = l_nVar.begin(); auto itpVar = l_pVar.begin(); auto itvVar = l_vVar.begin();
       for( ; !pX && itnVar != l_nVar.end(); ++itnVar, ++itpVar, ++itvVar ){
         for( unsigned i=0; i<(*itnVar); i++ ){
-          if( _curOp->pres->id() != (*itpVar)[i].id() ) continue;
-          pX = _curOp->pres;
-          *itU = (*itvVar)[i];
+          if( pvar->id() != (*itpVar)[i].id() ) continue;
+          pX = pvar;
+          wkDep[iwk] = (*itvVar)[i];
           break;
         }
       }
@@ -7068,24 +7271,26 @@ FFGraph<ExtOps...>::eval
 
     // Evaluate current operation
     if( _curOp->type < FFOp::EXTERN )
-      _curOp->evaluate( &*itU, (this->options.USEMOVE? ito->second: false), pwk, sgDep.op_mov );
+      _curOp->evaluate( &wkDep[iwk], (this->options.USEMOVE? sgDep.v_mov[iwk]: 0), pwkDep, pwkmov );
     else if( !sizeof...(ExtOps) )
       throw Exceptions( Exceptions::EXTERN );
     else
-      _curOp->evaluate_external( &*itU, (this->options.USEMOVE? ito->second: false), pwk, sgDep.op_mov,
-                                 FirstExtOps(), t_NextExtOps() );
+      _curOp->evaluate_external( &wkDep[iwk], (this->options.USEMOVE? &sgDep.v_mov[iwk]: nullptr),
+                                 pwkDep, pwkmov, FirstExtOps(), t_NextExtOps() );
+    // Increment tape
+    iwk += _curOp->varout.size();    
   }
 
   // Copy dependent values in vDep 
   unsigned int i=0;
-  for( auto const& op : sgDep.op_dep ){
-    if( !this->options.USEMOVE || !op->pres->mov() ){
-      if( !add ) vDep[i++]  = *static_cast<U*>( op->pres->val() );
-      else       vDep[i++] += *static_cast<U*>( op->pres->val() );
+  for( auto const& pdep : sgDep.v_dep ){
+    if( !this->options.USEMOVE || !pdep->mov() ){
+      if( !add ) vDep[i++]  = *static_cast<U*>( pdep->val() );
+      else       vDep[i++] += *static_cast<U*>( pdep->val() );
     }
     else{
-      if( !add ) vDep[i++]  = std::move( *static_cast<U*>( op->pres->val() ) );
-      else       vDep[i++] += std::move( *static_cast<U*>( op->pres->val() ) );    
+      if( !add ) vDep[i++]  = std::move( *static_cast<U*>( pdep->val() ) );
+      else       vDep[i++] += std::move( *static_cast<U*>( pdep->val() ) );    
     }
   }
   
@@ -7250,8 +7455,9 @@ FFGraph<ExtOps...>::reval
   // Populate subgraph if empty
   if( sgDep.l_op.empty() ) sgDep = subgraph( nDep, pDep );
   auto& opDep = sgDep.l_op;
-  wkDep.assign( sgDep.len_wk, InfVal ); // forward results first; backward results second
-  U* pwk = ( sgDep.len_mov? wkDep.data()+sgDep.l_op.size(): nullptr );
+  wkDep.assign( sgDep.len_tap, InfVal );
+  U* pwkDep = ( sgDep.len_wrk? &wkDep[sgDep.len_tap-sgDep.len_wrk]: nullptr );
+  unsigned* pwkmov = ( sgDep.len_wrk? &sgDep.v_mov[sgDep.len_tap-sgDep.len_wrk]: nullptr );
   
 #ifdef MC__FFUNC_CPU_REVAL
   double cputime = -cpuclock();
@@ -7261,18 +7467,19 @@ FFGraph<ExtOps...>::reval
   // Initialization of independent variables with values in l_vVar
   std::map<U*,U*> mapVar;// 1st: pointer to wkDep; 2nd: pointer to l_vVar
   auto ito = opDep.begin();
-  typename std::vector<U>::iterator itU = wkDep.begin();
-  for( ; ito!=opDep.end(); ++ito, ++itU ){
-    _curOp = ito->first;
+  unsigned iwk = 0;
+  for( ; ito!=opDep.end(); ++ito ){
+    _curOp = *ito;
     if( _curOp->type == FFOp::VAR ){
+      FFVar* pvar = _curOp->varout[0];
       FFVar* pX = nullptr;
       auto itnVar = l_nVar.begin(); auto itpVar = l_pVar.begin(); auto itvVar = l_vVar.begin();
       for( ; !pX && itnVar != l_nVar.end(); ++itnVar, ++itpVar, ++itvVar ){
         for( unsigned i=0; i<(*itnVar); i++ ){
-          if( _curOp->pres->id() != (*itpVar)[i].id() ) continue;
-          pX = _curOp->pres;
-          *itU = (*itvVar)[i];
-          if( MAXPASS ) mapVar[&*itU] = &(*itvVar)[i];
+          if( pvar->id() != (*itpVar)[i].id() ) continue;
+          pX = pvar;
+          wkDep[iwk] = (*itvVar)[i];
+          if( MAXPASS ) mapVar[&wkDep[iwk]] = &(*itvVar)[i];
 #ifdef MC__REVAL_DEBUG
           std::cout << "Independent " << *pX << ": " << *itU << std::endl;
 #endif
@@ -7281,6 +7488,8 @@ FFGraph<ExtOps...>::reval
       }
       if( !pX ) throw Exceptions( Exceptions::MISSVAR );
     }
+    // Increment tape
+    iwk += _curOp->varout.size();    
   }
 
   // Repeat forward/backward pass
@@ -7293,22 +7502,23 @@ FFGraph<ExtOps...>::reval
 
     // Forward propagation in U arithmetic through subgraph
     ito = opDep.begin();
-    itU = wkDep.begin();
+    iwk = 0;
     bool is_feasible = true;
-    for( ; ito != opDep.end(); ++ito, ++itU ){
-      assert( itU != wkDep.end() );
+    for( ; ito != opDep.end(); ++ito ){
       // Evaluate current operation
-      _curOp = ito->first;
+      _curOp = *ito;
 #ifdef MC__REVAL_DEBUG
-      std::cout << *_curOp->pres << " " << " : " << _curOp->name() << " ";
-      for( auto const& op : _curOp->pops )        
-        std::cout << *op << " @" << *static_cast<U*>(op->val()) << " ";
+      for( auto const& var : _curOp->varout )        
+        std::cout << *var << " ";
+      std::cout << " : " << _curOp->name();
+      for( auto const& var : _curOp->varin )        
+        std::cout << *var << " @" << *static_cast<U*>(var->val()) << " ";
       std::cout << std::endl;
 #endif
       if( _curOp->type < FFOp::EXTERN ){
         try{
-          if( !ipass ) _curOp->evaluate( &*itU, false, pwk, sgDep.op_mov ); // move disabled for value fields
-          else if( !_curOp->tighten_forward( pwk ) ) is_feasible = false;
+          if( !ipass ) _curOp->evaluate( &wkDep[iwk], 0, pwkDep, pwkmov );
+          else if( !_curOp->tighten_forward( pwkDep ) ) is_feasible = false;
         }
         catch(...){ continue; }
       }
@@ -7316,25 +7526,27 @@ FFGraph<ExtOps...>::reval
         throw Exceptions( Exceptions::EXTERN );
       else{
         try{
-          if( !ipass ) _curOp->evaluate_external( &*itU, false, pwk, sgDep.op_mov, FirstExtOps(), t_NextExtOps() );
-          else if( !_curOp->tighten_forward_external( pwk, FirstExtOps(), t_NextExtOps() ) ) is_feasible = false;
+          if( !ipass ) _curOp->evaluate_external( &wkDep[iwk], 0, pwkDep, pwkmov, FirstExtOps(), t_NextExtOps() );
+          else if( !_curOp->tighten_forward_external( pwkDep, FirstExtOps(), t_NextExtOps() ) ) is_feasible = false;
         }
         catch(...){ continue; }
       }
       if( !is_feasible ) return -ipass-1;
+      // Increment tape
+      iwk += _curOp->varout.size();    
     }
 
     // Intersection of propagated dependents with vDep 
     for( unsigned i=0; i<nDep; i++ ){
-      auto op = sgDep.op_dep[i];
+      auto pdep = sgDep.v_dep[i];
 #ifdef MC__REVAL_DEBUG
-      std::cout << "Dependent " << *(op->pres) << ": " << *static_cast<U*>( op->pres->val() ) << " ^ " << vDep[i] << std::endl;
+      std::cout << "Dependent " << *pdep << ": " << *static_cast<U*>( pdep->val() ) << " ^ " << vDep[i] << std::endl;
 #endif
-      if( !Op<U>::inter( vDep[i], *static_cast<U*>( op->pres->val() ), vDep[i] ) ){
-        output( subgraph( 1, op->pres ) );
+      if( !Op<U>::inter( vDep[i], *static_cast<U*>( pdep->val() ), vDep[i] ) ){
+        output( subgraph( 1, pdep ) );
         return -ipass-1;
       }
-      *static_cast<U*>( op->pres->val() ) = vDep[i];
+      *static_cast<U*>( pdep->val() ) = vDep[i];
     }
 #ifdef MC__REVAL_DEBUG
     { int dum; std::cout << "PAUSED"; std::cin >> dum; }
@@ -7343,23 +7555,24 @@ FFGraph<ExtOps...>::reval
     // Backward propagation in U arithmetic through subgraph
     bool is_tighter = false;
     for( auto rito = opDep.rbegin(); rito!=opDep.rend(); ++rito ){
-      _curOp = rito->first;
+      _curOp = *rito;
 #ifdef MC__REVAL_DEBUG
-      std::cout << *_curOp->pres << " @" << *static_cast<U*>(_curOp->pres->val())
-                << " " << " : " << _curOp->name() << " ";
-      for( auto const& op : _curOp->pops )        
-        std::cout << *op << " @" << *static_cast<U*>(op->val()) << " ";
+      for( auto const& var : _curOp->varout )        
+        std::cout << *var << " ";
+      std::cout << " : " << _curOp->name();
+      for( auto const& var : _curOp->varin )        
+        std::cout << *var << " @" << *static_cast<U*>(var->val()) << " ";
       std::cout << std::endl;
 #endif
       // Store current operand variables
-      curVar.resize( _curOp->pops.size() );
+      curVar.resize( _curOp->varin.size() );
       unsigned iop = 0;
-      for( auto const& op : _curOp->pops )
+      for( auto const& op : _curOp->varin )
         curVar[iop++] = *static_cast<U*>( op->val() );
       // Tighten current operation
       if( _curOp->type < FFOp::EXTERN ){
         try{
-          if( !_curOp->tighten_backward( pwk ) ) is_feasible = false;
+          if( !_curOp->tighten_backward( pwkDep ) ) is_feasible = false;
         }
         catch(...){ continue; }
       }
@@ -7367,14 +7580,16 @@ FFGraph<ExtOps...>::reval
         throw Exceptions( Exceptions::EXTERN );
       else{
         try{
-          if( !_curOp->tighten_backward_external( pwk, FirstExtOps(), t_NextExtOps() ) ) is_feasible = false;
+          if( !_curOp->tighten_backward_external( pwkDep, FirstExtOps(), t_NextExtOps() ) ) is_feasible = false;
         }
         catch(...){ continue; }
       }
 #ifdef MC__REVAL_DEBUG
-      std::cout << *_curOp->pres << " " << *static_cast<U*>(_curOp->pres->val()) << " = ";
-      for( auto const& op : _curOp->pops )        
-        std::cout << *op << " " << *static_cast<U*>(op->val()) << " @ ";
+      for( auto const& var : _curOp->varout )        
+        std::cout << *var << " " << *static_cast<U*>(var->val()) << " & ";
+      std::cout << " = " << _curOp->name();
+      for( auto const& var : _curOp->varin )        
+        std::cout << *var << " " << *static_cast<U*>(var->val()) << " @ ";
       std::cout << std::endl;
 #endif
       if( !is_feasible ){
@@ -7383,7 +7598,7 @@ FFGraph<ExtOps...>::reval
       }
       // Test improvement of operand variables
       iop = 0;
-      for( auto const& op : _curOp->pops ){
+      for( auto const& op : _curOp->varin ){
         is_tighter = is_tighter
                   || Op<U>::l(*static_cast<U*>( op->val() )) > Op<U>::l(curVar[iop])
                      + THRESPASS*Op<U>::diam(curVar[iop])
@@ -7431,27 +7646,26 @@ FFGraph<ExtOps...>::wkextract
   // Anything to do?
   auto const& opOut = sgOut.l_op;
   auto const& opIn  = sgIn.l_op;
-  if( opOut.empty() || opIn.empty() || wkIn.size() < opIn.size() ) return;
-  wkOut.resize( opOut.size() );
+  if( opOut.empty() || opIn.empty() || wkIn.size() != sgIn.len_tap ) return;
+  wkOut.resize( sgOut.len_tap );
 
   // Update value fields of input operands
-  auto itoi = opIn.begin();
-  auto itwi = wkIn.begin();
-  for( ; itoi != opIn.end(); ++itoi, ++itwi )
-    itoi->first->pres->val() = &(*itwi);
+  unsigned iwi = 0;
+  for( auto const& op : opIn )
+    for( auto const& var : op->varout )
+      var->val() = &wkIn[iwi++];
 
   // Copy value fields to output operands
-  auto itoo = opOut.begin();
-  auto itwo = wkOut.begin();
-  for( ; itoo != opOut.end(); ++itoo, ++itwo ){
-    *itwo = *static_cast<U*>( itoo->first->pres->val() );
+  unsigned iwo = 0;
+  for( auto const& op : opOut ){
+    for( auto const& var : op->varout ){
+      wkOut[iwo++] = *static_cast<U*>( var->val() );
 #ifdef MC__WKEXTRACT_DEBUG
-    std::cout << "Extracting: " << *itoo->first->pres << " = " << *itwo << std::endl;
+      std::cout << "Extracting: " << *var << " = " << wkOut[iwo-1] << std::endl;
 #endif
+    }
   }
 }
-
-#ifdef MC__USE_HSL
 
 template <typename... ExtOps>
 inline bool
@@ -7459,25 +7673,29 @@ FFGraph<ExtOps...>::MC13
 ( unsigned const nDep, FFVar const* pDep, FFVar const* pIndep,
   int* IPERM, int* IOR, int* IB, int& NB, bool const disp, std::ostream& os )
 {
+#ifndef MC__USE_HSL
+  throw Exceptions( Exceptions::MISSHSL );
+#else
   // Get list of operations
   std::vector<FFVar> pVar( pIndep, pIndep+nDep );
   std::vector<FFDep> vVar( nDep );
   for( unsigned i=0; i<nDep; i++ ) vVar[i].indep(i);
   auto sgDep = subgraph( nDep, pDep );
-  for( auto const& [op,mov] : sgDep.l_op ){
+  for( auto const& op : sgDep.l_op ){
     // Operation not a variable
     if( op->type != FFOp::VAR ) continue;
+    FFVar var = *op->varout.front();
     bool isParam = true;
     // Operation is a current independent
     for( unsigned i=0; isParam && i<nDep; i++ )
-      if( op->pres->id() == pIndep[i].id() ) isParam = false;
+      if( var.id() == pIndep[i].id() ) isParam = false;
     if( !isParam ) continue;
     // Add dummy variable for parameter
-    pVar.push_back( *op->pres );
+    pVar.push_back( var );
     vVar.push_back( FFDep() );
   }
   const unsigned nVar = pVar.size();
-  std::vector<FFDep> wkDep( sgDep.len_wk );
+  std::vector<FFDep> wkDep( sgDep.len_tap );
   std::vector<FFDep> vDep( nDep );
   //for( unsigned i=0; i<nVar; i++ )
   //  std::cout << pVar[i] << " = " << vVar[i] << std::endl;
@@ -7555,6 +7773,7 @@ FFGraph<ExtOps...>::MC13
     os << std::endl;
   }
   return true;
+#endif
 }
 
 template <typename... ExtOps>
@@ -7564,25 +7783,29 @@ FFGraph<ExtOps...>::MC33
   FFVar const* pIndep, int* IP, int* IQ, int* IPROF, int* IFLAG, bool const disp,
   std::ostream& os )
 {
+#ifndef MC__USE_HSL
+  throw Exceptions( Exceptions::MISSHSL );
+#else
   // Get list of operations
   std::vector<FFVar> pVar( pIndep, pIndep+nIndep );
   std::vector<FFDep> vVar( nIndep );
   for( unsigned i=0; i<nIndep; i++ ) vVar[i].indep(i);
   auto sgDep = subgraph( nDep, pDep );
-  for( auto const& [op,mov] : sgDep.l_op ){
+  for( auto const& op : sgDep.l_op ){
     // Operation not a variable
     if( op->type != FFOp::VAR ) continue;
+    FFVar var = *op->varout.front();
     bool isParam = true;
     // Operation is a current independent
     for( unsigned i=0; isParam && i<nIndep; i++ )
-      if( op->pres->id() == pIndep[i].id() ) isParam = false;
+      if( var.id() == pIndep[i].id() ) isParam = false;
     if( !isParam ) continue;
     // Add dummy variable for parameter
-    pVar.push_back( *op->pres );
+    pVar.push_back( var );
     vVar.push_back( FFDep() );
   }
   const unsigned nVar = pVar.size();
-  std::vector<FFDep> wkDep( sgDep.len_wk );
+  std::vector<FFDep> wkDep( sgDep.len_tap );
   std::vector<FFDep> vDep( nDep );
   //for( unsigned i=0; i<nVar; i++ )
   //  std::cout << pVar[i] << " = " << vVar[i] << std::endl;
@@ -7637,8 +7860,8 @@ FFGraph<ExtOps...>::MC33
   }
 
   return true;
-}
 #endif
+}
 
 } // namespace mc
 

@@ -812,11 +812,11 @@ PolVar<T>::generate_cuts
   if( has_cuts() ) return;
   set_cuts();
 #ifdef MC__POLIMG_DEBUG_CUTS
-  std::cout << "CUTS FOR " << _var << ": " << *_var.ops().first << std::endl;
+  std::cout << "CUTS FOR " << _var << ": " << *_var.opdef().first << std::endl;
 #endif
   
   // Nothing to do if underlying dag variable is constant
-  if( !_var.ops().first ){
+  if( !_var.opdef().first ){
     if( !_var.cst() )
       throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::INTERN );
     //assert( _var->cst() );
@@ -825,7 +825,7 @@ PolVar<T>::generate_cuts
 
   PolLQExpr<T>*pLQ = 0;
   if( _img->options.AGGREG_LQ && generate_cuts_aggreg( pLQ ) ){
-    auto itCut = _img->_add_cut( _var.ops().first, PolCut<T>::EQ, -pLQ->cst(), *this, -1. );
+    auto itCut = _img->_add_cut( _var.opdef().first, PolCut<T>::EQ, -pLQ->cst(), *this, -1. );
     (*itCut)->append( pLQ->size(),  pLQ->var(),   pLQ->coef() ); 
     (*itCut)->append( pLQ->qsize(), pLQ->qvar1(), pLQ->qvar2(), pLQ->qcoef() );
 
@@ -847,7 +847,7 @@ PolVar<T>::generate_cuts
 
   else{
     generate_cuts_default();
-    for( auto && op : _var.ops().first->pops ){ 
+    for( auto && op : _var.opdef().first->varin ){ 
       auto itVar = _img->_Vars.find( op );
       if( itVar != _img->_Vars.end() ) itVar->second->generate_cuts();
     }
@@ -864,144 +864,144 @@ PolVar<T>::generate_cuts_default
   // SIN, COS, TAN, ASIN, ACOS, ATAN, COSH, SINH, TANH,
   // FABS, ERF, FSTEP, MINF, MAXF, INTER, LMTD, RLMTD
   
-  switch( _var.ops().first->type ){
+  switch( _var.opdef().first->type ){
    case FFOp::CNST:
    case FFOp::VAR:
     break;
 
    case FFOp::SHIFT:
    case FFOp::PLUS:
-    _img->_add_cuts_PLUS( this, _var.ops().first->pops[0], _var.ops().first->pops[1] );
+    _img->_add_cuts_PLUS( this, _var.opdef().first->varin[0], _var.opdef().first->varin[1] );
     break;
 
    case FFOp::MINUS:
-    _img->_add_cuts_MINUS( this, _var.ops().first->pops[0], _var.ops().first->pops[1] );
+    _img->_add_cuts_MINUS( this, _var.opdef().first->varin[0], _var.opdef().first->varin[1] );
     break;
 
    case FFOp::NEG:
-    _img->_add_cuts_NEG( this, _var.ops().first->pops[0] );
+    _img->_add_cuts_NEG( this, _var.opdef().first->varin[0] );
     break;
 
    case FFOp::SCALE:
    case FFOp::TIMES:
-    _img->_add_cuts_TIMES( this, _var.ops().first->pops[0], _var.ops().first->pops[1] );
+    _img->_add_cuts_TIMES( this, _var.opdef().first->varin[0], _var.opdef().first->varin[1] );
     break;
 
    case FFOp::INV:
    case FFOp::DIV:
-    _img->_add_cuts_DIV( this, _var.ops().first->pops[0], _var.ops().first->pops[1] );
+    _img->_add_cuts_DIV( this, _var.opdef().first->varin[0], _var.opdef().first->varin[1] );
     break;
 
    case FFOp::IPOW:
-    _img->_add_cuts_IPOW( this, _var.ops().first->pops[0], _var.ops().first->pops[1]->num().n );
+    _img->_add_cuts_IPOW( this, _var.opdef().first->varin[0], _var.opdef().first->varin[1]->num().n );
     break;
 
    case FFOp::DPOW:
-    _img->_add_cuts_DPOW( this, _var.ops().first->pops[0], _var.ops().first->pops[1]->num().x );
+    _img->_add_cuts_DPOW( this, _var.opdef().first->varin[0], _var.opdef().first->varin[1]->num().x );
     break;
 
    case FFOp::CHEB:
-    _img->_add_cuts_CHEB( this, _var.ops().first->pops[0], _var.ops().first->pops[1]->num().n );
+    _img->_add_cuts_CHEB( this, _var.opdef().first->varin[0], _var.opdef().first->varin[1]->num().n );
     break;
 
    case FFOp::PROD:
-    _img->_add_cuts_PROD( this, _var.ops().first->pops );
+    _img->_add_cuts_PROD( this, _var.opdef().first->varin );
     break;
 
    case FFOp::SQR:
-    _img->_add_cuts_SQR( this, _var.ops().first->pops[0] );
+    _img->_add_cuts_SQR( this, _var.opdef().first->varin[0] );
     break;
 
    case FFOp::SQRT:
-    _img->_add_cuts_SQRT( this, _var.ops().first->pops[0] );
+    _img->_add_cuts_SQRT( this, _var.opdef().first->varin[0] );
     break;
 
    case FFOp::EXP:
-    _img->_add_cuts_EXP( this, _var.ops().first->pops[0] );
+    _img->_add_cuts_EXP( this, _var.opdef().first->varin[0] );
     break;
 
    case FFOp::LOG:
-    _img->_add_cuts_LOG( this, _var.ops().first->pops[0] );
+    _img->_add_cuts_LOG( this, _var.opdef().first->varin[0] );
     break;
 
    case FFOp::XLOG:
-    _img->_add_cuts_XLOG( this, _var.ops().first->pops[0] );
+    _img->_add_cuts_XLOG( this, _var.opdef().first->varin[0] );
     break;
 
    case FFOp::FABS:
-    _img->_add_cuts_FABS( this, _var.ops().first->pops[0] );
+    _img->_add_cuts_FABS( this, _var.opdef().first->varin[0] );
     break;
 
    case FFOp::ERF:
-    _img->_add_cuts_ERF( this, _var.ops().first->pops[0] );
+    _img->_add_cuts_ERF( this, _var.opdef().first->varin[0] );
     break;
 
    case FFOp::FSTEP:
-    _img->_add_cuts_FSTEP( this, _var.ops().first->pops[0] );
+    _img->_add_cuts_FSTEP( this, _var.opdef().first->varin[0] );
     break;
 
    case FFOp::COS:
-    _img->_add_cuts_COS( this, _var.ops().first->pops[0] );
+    _img->_add_cuts_COS( this, _var.opdef().first->varin[0] );
     break;
 
    case FFOp::SIN:
-    _img->_add_cuts_SIN( this, _var.ops().first->pops[0] );
+    _img->_add_cuts_SIN( this, _var.opdef().first->varin[0] );
     break;
 
    case FFOp::TAN:
-    _img->_add_cuts_TAN( this, _var.ops().first->pops[0] );
+    _img->_add_cuts_TAN( this, _var.opdef().first->varin[0] );
     break;
 
    case FFOp::ACOS:
-    _img->_add_cuts_ACOS( this, _var.ops().first->pops[0] );
+    _img->_add_cuts_ACOS( this, _var.opdef().first->varin[0] );
     break;
 
    case FFOp::ASIN:
-    _img->_add_cuts_ASIN( this, _var.ops().first->pops[0] );
+    _img->_add_cuts_ASIN( this, _var.opdef().first->varin[0] );
     break;
 
    case FFOp::ATAN:
-    _img->_add_cuts_ATAN( this, _var.ops().first->pops[0] );
+    _img->_add_cuts_ATAN( this, _var.opdef().first->varin[0] );
     break;
 
    case FFOp::COSH:
-    _img->_add_cuts_COSH( this, _var.ops().first->pops[0] );
+    _img->_add_cuts_COSH( this, _var.opdef().first->varin[0] );
     break;
 
    case FFOp::SINH:
-    _img->_add_cuts_SINH( this, _var.ops().first->pops[0] );
+    _img->_add_cuts_SINH( this, _var.opdef().first->varin[0] );
     break;
 
    case FFOp::TANH:
-    _img->_add_cuts_TANH( this, _var.ops().first->pops[0] );
+    _img->_add_cuts_TANH( this, _var.opdef().first->varin[0] );
     break;
 
    case FFOp::INTER:
-    _img->_add_cuts_INTER( this, _var.ops().first->pops[0], _var.ops().first->pops[1] );
+    _img->_add_cuts_INTER( this, _var.opdef().first->varin[0], _var.opdef().first->varin[1] );
     break;
 
    case FFOp::MINF:
-    _img->_add_cuts_MINF( this, _var.ops().first->pops[0], _var.ops().first->pops[1] );
+    _img->_add_cuts_MINF( this, _var.opdef().first->varin[0], _var.opdef().first->varin[1] );
     break;
 
    case FFOp::MAXF:
-    _img->_add_cuts_MAXF( this, _var.ops().first->pops[0], _var.ops().first->pops[1] );
+    _img->_add_cuts_MAXF( this, _var.opdef().first->varin[0], _var.opdef().first->varin[1] );
     break;
 
 //   case FFOp::LMTD:
-//    _img->_add_cuts_LMTD( this, _var.ops().first->pops[0], _var.ops().first->pops[1] );
+//    _img->_add_cuts_LMTD( this, _var.opdef().first->varin[0], _var.opdef().first->varin[1] );
 //    break;
 
 //   case FFOp::RLMTD:
-//    _img->_add_cuts_RLMTD( this, _var.ops().first->pops[0], _var.ops().first->pops[1] );
+//    _img->_add_cuts_RLMTD( this, _var.opdef().first->varin[0], _var.opdef().first->varin[1] );
 //    break;
 
    default:
-    std::cout << "  -> EXCEPTION FOR " << _var << ": " << *_var.ops().first << std::endl;
+    std::cout << "  -> EXCEPTION FOR " << _var << ": " << *_var.opdef().first << std::endl;
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::INTERN );
   }
 
-  for( auto itOp=_var.ops().first->pops.begin(); itOp!=_var.ops().first->pops.end(); ++itOp ){ 
+  for( auto itOp=_var.opdef().first->varin.begin(); itOp!=_var.opdef().first->varin.end(); ++itOp ){ 
     auto itVar = _img->_Vars.find( *itOp );
     if( itVar != _img->_Vars.end() ) itVar->second->generate_cuts();
   }
@@ -1014,60 +1014,60 @@ PolVar<T>::generate_cuts_aggreg
 ( PolLQExpr<T>*&pLQ ) const
 {
 #ifdef MC__POLIMG_DEBUG_CUTS
-  std::cout << "  -> LINEAR CUTS FOR " << _var << ": " << *_var.ops().first << std::endl;
+  std::cout << "  -> LINEAR CUTS FOR " << _var << ": " << *_var.opdef().first << std::endl;
 #endif
 
-  switch( _var.ops().first->type ){
+  switch( _var.opdef().first->type ){
    case FFOp::SHIFT:
    case FFOp::PLUS:
-    if( !_img->_add_LQ_PLUS( pLQ, this, _var.ops().first->pops[0], _var.ops().first->pops[1] ) )
+    if( !_img->_add_LQ_PLUS( pLQ, this, _var.opdef().first->varin[0], _var.opdef().first->varin[1] ) )
       return false;
     break;
 
    case FFOp::MINUS:
-    if( !_img->_add_LQ_MINUS( pLQ, this, _var.ops().first->pops[0], _var.ops().first->pops[1] ) )
+    if( !_img->_add_LQ_MINUS( pLQ, this, _var.opdef().first->varin[0], _var.opdef().first->varin[1] ) )
       return false;
     break;
 
    case FFOp::NEG:
-    if( !_img->_add_LQ_NEG( pLQ, this, _var.ops().first->pops[0] ) ) 
+    if( !_img->_add_LQ_NEG( pLQ, this, _var.opdef().first->varin[0] ) ) 
       return false;
     break;
 
    case FFOp::SCALE:
    case FFOp::TIMES:
-    if( !_img->_add_LQ_TIMES( pLQ, this, _var.ops().first->pops[0], _var.ops().first->pops[1] ) )
+    if( !_img->_add_LQ_TIMES( pLQ, this, _var.opdef().first->varin[0], _var.opdef().first->varin[1] ) )
       return false;
     break;
 
    case FFOp::INV:
    case FFOp::DIV:
-    if( !_img->_add_LQ_DIV( pLQ, this, _var.ops().first->pops[0], _var.ops().first->pops[1] ) )
+    if( !_img->_add_LQ_DIV( pLQ, this, _var.opdef().first->varin[0], _var.opdef().first->varin[1] ) )
       return false;
     break;
 
    case FFOp::SQR:
-    if( !_img->_add_LQ_SQR( pLQ, this, _var.ops().first->pops[0] ) )
+    if( !_img->_add_LQ_SQR( pLQ, this, _var.opdef().first->varin[0] ) )
       return false;
     break;
 
    case FFOp::FABS:
-    if( !_img->_add_LQ_FABS( pLQ, this, _var.ops().first->pops[0] ) )
+    if( !_img->_add_LQ_FABS( pLQ, this, _var.opdef().first->varin[0] ) )
       return false;
     break;
 
    case FFOp::FSTEP:
-    if( !_img->_add_LQ_FSTEP( pLQ, this, _var.ops().first->pops[0] ) )
+    if( !_img->_add_LQ_FSTEP( pLQ, this, _var.opdef().first->varin[0] ) )
       return false;
     break;
 
    case FFOp::MINF:
-    if( !_img->_add_LQ_MINF( pLQ, this, _var.ops().first->pops[0], _var.ops().first->pops[1] ) )
+    if( !_img->_add_LQ_MINF( pLQ, this, _var.opdef().first->varin[0], _var.opdef().first->varin[1] ) )
       return false;
     break;
 
    case FFOp::MAXF:
-    if( !_img->_add_LQ_MAXF( pLQ, this, _var.ops().first->pops[0], _var.ops().first->pops[1] ) )
+    if( !_img->_add_LQ_MAXF( pLQ, this, _var.opdef().first->varin[0], _var.opdef().first->varin[1] ) )
       return false;
     break;
 
@@ -1077,7 +1077,7 @@ PolVar<T>::generate_cuts_aggreg
    // INTER?
   }
 
-  for( auto&& op : _var.ops().first->pops ){ 
+  for( auto&& op : _var.opdef().first->varin ){ 
     auto itVar = _img->_Vars.find( op );
     if( itVar != _img->_Vars.end() ) itVar->second->generate_cuts_aggreg( pLQ );
   }
@@ -1675,10 +1675,10 @@ operator <<
         case FFOp::CHEB:
         case FFOp::IPOW:
           out << cut._var[0].name() << " = " << cut._op->name() << "(" << cut._var[1].name()
-              << ", " << cut._op->pops[1]->num().n << ")"; break;
+              << ", " << cut._op->varin[1]->num().n << ")"; break;
         case FFOp::DPOW:
           out << cut._var[0].name() << " = " << cut._op->name() << "(" << cut._var[1].name()
-              << ", " << cut._op->pops[1]->num().x << ")"; break;
+              << ", " << cut._op->varin[1]->num().x << ")"; break;
         case FFOp::SQR:
         case FFOp::SQRT:
         case FFOp::EXP:
@@ -1706,8 +1706,8 @@ operator <<
         default:
           if( cut._op->type >= FFOp::EXTERN ){
             out << cut._var[0].name() << " = " << cut._op->name() << "(";
-            for( unsigned i=0; i<cut._op->pops.size()-1; i++ ) out << cut._var[i].name() << ", ";
-            out << cut._var[cut._op->pops.size()-1].name() << " )"; break;
+            for( unsigned i=0; i<cut._op->varin.size()-1; i++ ) out << cut._var[i].name() << ", ";
+            out << cut._var[cut._op->varin.size()-1].name() << " )"; break;
           }
           // Should not reach this point
           throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::BADCUT );
@@ -2824,7 +2824,7 @@ operator^
   FFBase* dag = Var1._var.cst()? Var2._var.dag(): Var1._var.dag();
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   T IVarR;
   if( !Op<T>::inter( IVarR, Var1._range, Var2._range ) )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::INTER );
@@ -2837,16 +2837,16 @@ PolImg<T>::_add_cuts_INTER
 ( const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
 {
   if( pVar1->cst() )
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, pVar1->num().val(), *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, pVar1->num().val(), *VarR, 1. );
   else{
     auto itVar1 = _Vars.find( pVar1 );
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar1->second, -1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar1->second, -1. );
   }
   if( pVar2->cst() )
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, pVar2->num().val(), *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, pVar2->num().val(), *VarR, 1. );
   else{
     auto itVar2 = _Vars.find( pVar2 );
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar2->second, -1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar2->second, -1. );
   }
 }
 
@@ -2859,7 +2859,7 @@ operator+
   FFBase* dag = Var1._var.dag();
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = img->_append_var( pFFVarR, Var1.range() + Cst2, true );
   return *pVarR;
 }
@@ -2875,7 +2875,7 @@ operator+
   FFBase* dag = Var1._var.cst()? Var2._var.dag(): Var1._var.dag();
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = img->_append_var( pFFVarR, Var1.range() + Var2.range(), true );
   return *pVarR;
 }
@@ -2885,19 +2885,19 @@ PolImg<T>::_add_cuts_PLUS
 ( const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
 {
   if( pVar1->cst() && pVar2->cst() )
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, pVar1->num().val()+pVar2->num().val(), *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, pVar1->num().val()+pVar2->num().val(), *VarR, 1. );
   else if( pVar2->cst() ){
     auto itVar1 = _Vars.find( pVar1 );
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, pVar2->num().val(), *VarR, 1., *itVar1->second, -1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, pVar2->num().val(), *VarR, 1., *itVar1->second, -1. );
   }
   else if( pVar1->cst() ){
     auto itVar2 = _Vars.find( pVar2 );
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, pVar1->num().val(), *VarR, 1., *itVar2->second, -1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, pVar1->num().val(), *VarR, 1., *itVar2->second, -1. );
   }
   else{
     auto itVar1 = _Vars.find( pVar1 );
     auto itVar2 = _Vars.find( pVar2 );
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar1->second, -1., *itVar2->second, -1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar1->second, -1., *itVar2->second, -1. );
   }
 }
 
@@ -2933,7 +2933,7 @@ operator-
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
   PolImg<T>* img = Var1._img;
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = img->_append_var( pFFVarR, -Var1.range(), true );
   return *pVarR;
 }
@@ -2943,10 +2943,10 @@ PolImg<T>::_add_cuts_NEG
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() )
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, -pVar1->num().val(), *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, -pVar1->num().val(), *VarR, 1. );
   else{
     auto itVar1 = _Vars.find( pVar1 );
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar1->second, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar1->second, 1. );
   }
 }
 
@@ -2975,7 +2975,7 @@ operator-
   FFBase* dag = Var1._var.cst()? Var2._var.dag(): Var1._var.dag();
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = img->_append_var( pFFVarR, Var1.range() - Var2.range(), true );
   return *pVarR;
 }
@@ -2985,19 +2985,19 @@ PolImg<T>::_add_cuts_MINUS
 ( const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
 {
   if( pVar1->cst() && pVar2->cst() )
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, pVar1->num().val()-pVar2->num().val(), *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, pVar1->num().val()-pVar2->num().val(), *VarR, 1. );
   else if( pVar2->cst() ){
     auto itVar1 = _Vars.find( pVar1 );
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, -pVar2->num().val(), *VarR, 1., *itVar1->second, -1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, -pVar2->num().val(), *VarR, 1., *itVar1->second, -1. );
   }
   else if( pVar1->cst() ){
     auto itVar2 = _Vars.find( pVar2 );
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, pVar1->num().val(), *VarR, 1., *itVar2->second, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, pVar1->num().val(), *VarR, 1., *itVar2->second, 1. );
   }
   else{
     auto itVar1 = _Vars.find( pVar1 );
     auto itVar2 = _Vars.find( pVar2 );
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar1->second, -1., *itVar2->second, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar1->second, -1., *itVar2->second, 1. );
   }
 }
 
@@ -3033,7 +3033,7 @@ operator*
   FFBase* dag = Var1._var.dag();
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = img->_append_var( pFFVarR, Var1.range() * Cst2, true );
   return *pVarR;
 }
@@ -3049,7 +3049,7 @@ operator*
   FFBase* dag = Var1._var.cst()? Var2._var.dag(): Var1._var.dag();
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = img->_append_var( pFFVarR, Var1.range() * Var2.range(), Var1.discr() && Var2.discr()? false: true );
   return *pVarR;
 }
@@ -3134,7 +3134,7 @@ template <typename T> inline void
 PolImg<T>::_add_cuts_TIMES
 ( const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
 {
-  return _add_cuts_TIMES( VarR, pVar1, pVar2, VarR->_var.ops().first );
+  return _add_cuts_TIMES( VarR, pVar1, pVar2, VarR->_var.opdef().first );
 }
 
 template <typename T> inline void
@@ -3178,7 +3178,7 @@ operator/
   FFBase* dag = Var2._var.dag();
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = img->_append_var( pFFVarR, Cst1 / Var2.range(), true );
   return *pVarR;
 }
@@ -3194,7 +3194,7 @@ operator/
   FFBase* dag = Var1._var.cst()? Var2._var.dag(): Var1._var.dag();
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = img->_append_var( pFFVarR, Var1.range() / Var2.range(), true );
   return *pVarR;
 }
@@ -3204,11 +3204,11 @@ PolImg<T>::_add_cuts_DIV
 ( const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
 {
   if( pVar1->cst() && pVar2->cst() )
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, pVar1->num().val(), *VarR, pVar2->num().val() );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, pVar1->num().val(), *VarR, pVar2->num().val() );
 
   else if( pVar2->cst() ){
     auto itVar1 = _Vars.find( pVar1 );
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, pVar2->num().val(), *itVar1->second, -1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, 0., *VarR, pVar2->num().val(), *itVar1->second, -1. );
   }
 
   else if( pVar1->cst() ){
@@ -3222,23 +3222,23 @@ PolImg<T>::_add_cuts_DIV
     // -- No relax Case
     if( !options.RELAX_QUAD ){
       assert( itVar2 != _Vars.end() );
-      auto itCut = _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, Cst1 );
+      auto itCut = _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, Cst1 );
       (*itCut)->append( *VarR, *itVar2->second, 1. );
     }
     // -- Convex Case
     else if( (pVar1->num().val() >= 0. && Op<T>::l(itVar2->second->_range) > 0.)
      || (pVar1->num().val() <= 0. && Op<T>::u(itVar2->second->_range) < 0.) ){
-      _semilinear_cuts( VarR->_var.ops().first, *itVar2->second, Op<T>::l(itVar2->second->_range),
+      _semilinear_cuts( VarR->_var.opdef().first, *itVar2->second, Op<T>::l(itVar2->second->_range),
         Op<T>::u(itVar2->second->_range), *VarR, PolCut<T>::LE, loc::scalinv, &Cst1, 0 );
-      _sandwich_cuts( VarR->_var.ops().first, *itVar2->second, Op<T>::l(itVar2->second->_range),
+      _sandwich_cuts( VarR->_var.opdef().first, *itVar2->second, Op<T>::l(itVar2->second->_range),
         Op<T>::u(itVar2->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
         PolCut<T>::GE, loc::scalinv, &Cst1, 0 );
     }
     // -- Concave Case
     else{
-      _semilinear_cuts( VarR->_var.ops().first, *itVar2->second, Op<T>::l(itVar2->second->_range),
+      _semilinear_cuts( VarR->_var.opdef().first, *itVar2->second, Op<T>::l(itVar2->second->_range),
         Op<T>::u(itVar2->second->_range), *VarR, PolCut<T>::GE, loc::scalinv, &Cst1, 0 );
-      _sandwich_cuts( VarR->_var.ops().first, *itVar2->second, Op<T>::l(itVar2->second->_range),
+      _sandwich_cuts( VarR->_var.opdef().first, *itVar2->second, Op<T>::l(itVar2->second->_range),
         Op<T>::u(itVar2->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
         PolCut<T>::LE, loc::scalinv, &Cst1, 0 );
     }
@@ -3248,7 +3248,7 @@ PolImg<T>::_add_cuts_DIV
     auto itVar1 = _Vars.find( pVar1 );
     auto itVar2 = _Vars.find( pVar2 );
     assert( itVar1 != _Vars.end() && itVar2 != _Vars.end() );
-    auto itCut = _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *itVar1->second, -1. );
+    auto itCut = _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, 0., *itVar1->second, -1. );
     (*itCut)->append( *VarR, *itVar2->second, 1. );
   }
 
@@ -3257,16 +3257,16 @@ PolImg<T>::_add_cuts_DIV
     auto itVar2 = _Vars.find( pVar2 );
 #ifndef MC__POLIMG_PWMCCORMICK_1D
     if( options.BREAKPOINT_TYPE == Options::NONE 
-     || !_pwmccormick_cuts( VarR->_var.ops().first, *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
+     || !_pwmccormick_cuts( VarR->_var.opdef().first, *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
                             *itVar2->second, Op<T>::l(itVar2->second->_range), Op<T>::u(itVar2->second->_range),
 			    *itVar1->second ) ){
-      _add_cut( VarR->_var.ops().first, PolCut<T>::GE, -Op<T>::u(VarR->_range)*Op<T>::u(itVar2->second->_range),
+      _add_cut( VarR->_var.opdef().first, PolCut<T>::GE, -Op<T>::u(VarR->_range)*Op<T>::u(itVar2->second->_range),
         *itVar1->second, 1., *VarR, -Op<T>::u(itVar2->second->_range), *itVar2->second, -Op<T>::u(VarR->_range) );
-      _add_cut( VarR->_var.ops().first, PolCut<T>::GE, -Op<T>::l(VarR->_range)*Op<T>::l(itVar2->second->_range),
+      _add_cut( VarR->_var.opdef().first, PolCut<T>::GE, -Op<T>::l(VarR->_range)*Op<T>::l(itVar2->second->_range),
         *itVar1->second, 1., *VarR, -Op<T>::l(itVar2->second->_range), *itVar2->second, -Op<T>::l(VarR->_range) );
-      _add_cut( VarR->_var.ops().first, PolCut<T>::LE, -Op<T>::u(VarR->_range)*Op<T>::l(itVar2->second->_range),
+      _add_cut( VarR->_var.opdef().first, PolCut<T>::LE, -Op<T>::u(VarR->_range)*Op<T>::l(itVar2->second->_range),
         *itVar1->second, 1., *VarR, -Op<T>::l(itVar2->second->_range), *itVar2->second, -Op<T>::u(VarR->_range) );
-      _add_cut( VarR->_var.ops().first, PolCut<T>::LE, -Op<T>::l(VarR->_range)*Op<T>::u(itVar2->second->_range),
+      _add_cut( VarR->_var.opdef().first, PolCut<T>::LE, -Op<T>::l(VarR->_range)*Op<T>::u(itVar2->second->_range),
         *itVar1->second, 1., *VarR, -Op<T>::u(itVar2->second->_range), *itVar2->second, -Op<T>::l(VarR->_range) );
     }
 #else
@@ -3275,22 +3275,22 @@ PolImg<T>::_add_cuts_DIV
       case PolImg<T>::Options::SOS2:{
         const unsigned NKNOTSR = VarR->create_subdiv( Op<T>::l(VarR->_range), Op<T>::u(VarR->_range) ).size();
         if( NKNOTSR > 2 )
-          _pwmccormick_cuts( VarR->_var.ops().first, *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
+          _pwmccormick_cuts( VarR->_var.opdef().first, *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
             *itVar2->second, Op<T>::l(itVar2->second->_range), Op<T>::u(itVar2->second->_range), *itVar1->second );
         const unsigned NKNOTS2 = itVar2->second->create_subdiv( Op<T>::l(itVar2->second->_range), Op<T>::u(itVar2->second->_range) ).size();
         if( NKNOTS2 > 2 )
-          _pwmccormick_cuts( VarR->_var.ops().first, *itVar2->second, Op<T>::l(itVar2->second->_range),
+          _pwmccormick_cuts( VarR->_var.opdef().first, *itVar2->second, Op<T>::l(itVar2->second->_range),
             Op<T>::u(itVar2->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), *itVar1->second );
         if( NKNOTSR > 2 || NKNOTS2 > 2 ) break; // The standard McCormick cuts are implied
       }
       case PolImg<T>::Options::NONE: default:
-        _add_cut( VarR->_var.ops().first, PolCut<T>::GE, -Op<T>::u(VarR->_range)*Op<T>::u(itVar2->second->_range),
+        _add_cut( VarR->_var.opdef().first, PolCut<T>::GE, -Op<T>::u(VarR->_range)*Op<T>::u(itVar2->second->_range),
           *itVar1->second, 1., *VarR, -Op<T>::u(itVar2->second->_range), *itVar2->second, -Op<T>::u(VarR->_range) );
-        _add_cut( VarR->_var.ops().first, PolCut<T>::GE, -Op<T>::l(VarR->_range)*Op<T>::l(itVar2->second->_range),
+        _add_cut( VarR->_var.opdef().first, PolCut<T>::GE, -Op<T>::l(VarR->_range)*Op<T>::l(itVar2->second->_range),
           *itVar1->second, 1., *VarR, -Op<T>::l(itVar2->second->_range), *itVar2->second, -Op<T>::l(VarR->_range) );
-        _add_cut( VarR->_var.ops().first, PolCut<T>::LE, -Op<T>::u(VarR->_range)*Op<T>::l(itVar2->second->_range),
+        _add_cut( VarR->_var.opdef().first, PolCut<T>::LE, -Op<T>::u(VarR->_range)*Op<T>::l(itVar2->second->_range),
           *itVar1->second, 1., *VarR, -Op<T>::l(itVar2->second->_range), *itVar2->second, -Op<T>::u(VarR->_range) );
-        _add_cut( VarR->_var.ops().first, PolCut<T>::LE, -Op<T>::l(VarR->_range)*Op<T>::u(itVar2->second->_range),
+        _add_cut( VarR->_var.opdef().first, PolCut<T>::LE, -Op<T>::l(VarR->_range)*Op<T>::u(itVar2->second->_range),
           *itVar1->second, 1., *VarR, -Op<T>::u(itVar2->second->_range), *itVar2->second, -Op<T>::l(VarR->_range) );
     }
 #endif
@@ -3703,7 +3703,7 @@ sqr
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::sqr( Var1._range ), true );
   return *pVarR;
 }
@@ -3748,7 +3748,7 @@ template <typename T> inline void
 PolImg<T>::_add_cuts_SQR
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
-  return _add_cuts_SQR( VarR, pVar1, VarR->_var.ops().first );
+  return _add_cuts_SQR( VarR, pVar1, VarR->_var.opdef().first );
 }
 
 template <typename T> inline void
@@ -3801,7 +3801,7 @@ sqrt
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::sqrt( Var1._range ), true );
   return *pVarR;
 }
@@ -3811,13 +3811,13 @@ PolImg<T>::_add_cuts_SQRT
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::sqrt( pVar1->num().val() ), *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, std::sqrt( pVar1->num().val() ), *VarR, 1. );
     return;
   }
 
   else if( !options.RELAX_NLIN ){
     auto itVar1 = _Vars.find( pVar1 );
-    _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
+    _add_cut( VarR->_var.opdef().first, *VarR, *itVar1->second );
   }
 
   else{
@@ -3830,9 +3830,9 @@ PolImg<T>::_add_cuts_SQRT
         ( const double x, const double*rusr, const int*iusr )
         { return std::make_pair( std::sqrt(x), 1/(2*std::sqrt(x)) ); }
     };
-    _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::GE, loc::sqrt );
-    _sandwich_cuts( VarR->_var.ops().first, *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
+    _sandwich_cuts( VarR->_var.opdef().first, *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
       *itVar1->second, Op<T>::l(itVar1->second->_range), Op<T>::u(itVar1->second->_range), PolCut<T>::GE, loc::sqr );
   }
 }
@@ -3848,7 +3848,7 @@ pow
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::pow( Var1._range, dExp ), true );
   return *pVarR;
 }
@@ -3858,13 +3858,13 @@ PolImg<T>::_add_cuts_DPOW
 ( const PolVar<T>*VarR, FFVar*pVar1, const double dExp )
 {
   if( pVar1->cst() ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::pow( pVar1->num().val(), dExp ), *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, std::pow( pVar1->num().val(), dExp ), *VarR, 1. );
     return;
   }
 
   if( !options.RELAX_NLIN ){
     auto itVar1 = _Vars.find( pVar1 );
-    _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
+    _add_cut( VarR->_var.opdef().first, *VarR, *itVar1->second );
     return;
   }
 
@@ -3876,18 +3876,18 @@ PolImg<T>::_add_cuts_DPOW
 
   // Convex case
   if( dExp >= 1 || dExp <= 0 ){
-    _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::dpow, &dExp );
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
       PolCut<T>::GE, loc::dpow, &dExp );
   }
   
   // Concave case
   else{
-    _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::GE, loc::dpow, &dExp );
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
       PolCut<T>::LE, loc::dpow, &dExp );
   }
@@ -3908,7 +3908,7 @@ pow
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::pow( Var1._range, iExp ), true );
   return *pVarR;
 }
@@ -3919,14 +3919,14 @@ PolImg<T>::_add_cuts_IPOW
 {
   assert( iExp > 2 || iExp < 0 );
   if( pVar1->cst() ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::pow( pVar1->num().val(), iExp ), *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, std::pow( pVar1->num().val(), iExp ), *VarR, 1. );
     return;
   }
   
   // No linearization
   if( options.RELAX_MONOM == 0 ){ //|| options.RELAX_MONOM == 1 ){
     auto itVar1 = _Vars.find( pVar1 );
-    _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
+    _add_cut( VarR->_var.opdef().first, *VarR, *itVar1->second );
     return;
   }
 
@@ -3941,9 +3941,9 @@ PolImg<T>::_add_cuts_IPOW
   };
   // Positive even exponent term
   if( iExp > 0 && !(iExp%2) ){
-    _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::pow, 0, &iExp );
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
       PolCut<T>::GE, loc::pow, 0, &iExp );
   }
@@ -3952,17 +3952,17 @@ PolImg<T>::_add_cuts_IPOW
   else if( iExp > 0 && options.ROOT_USE ){
     // -- Convex Portion
     if( Op<T>::l(itVar1->second->_range) >= 0. ){
-      _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+      _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
         Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::pow, 0, &iExp );
-      _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+      _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
         Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
         PolCut<T>::GE, loc::pow, 0, &iExp );
     }
     // -- Concave Portion
     else if( Op<T>::u(itVar1->second->_range) <= 0. ){
-      _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+      _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
         Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::GE, loc::pow, 0, &iExp );
-      _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+      _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
         Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
         PolCut<T>::LE, loc::pow, 0, &iExp );
     }
@@ -3984,15 +3984,15 @@ PolImg<T>::_add_cuts_IPOW
             };
             PolVar<T>* Var3 = _append_aux( Op<T>::pow( itVar1->second->_range, iExp ), true );
             PolVar<T>* Var4 = _append_aux( Op<T>::pow( itVar1->second->_range, iExp ), true );
-            _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+            _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
               Op<T>::u(itVar1->second->_range), *Var3, PolCut<T>::GE, dc::pow1, 0, &iExp );
-            _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+            _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
               Op<T>::u(itVar1->second->_range), *Var3, Op<T>::l(VarR->_range), 0., PolCut<T>::LE, dc::pow1, 0, &iExp );
-            _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+            _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
               Op<T>::u(itVar1->second->_range), *Var4, PolCut<T>::LE, dc::pow2, 0, &iExp );
-            _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+            _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
               Op<T>::u(itVar1->second->_range), *Var4, 0., Op<T>::u(VarR->_range), PolCut<T>::GE, dc::pow2, 0, &iExp );
-            _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *Var3, -1., *Var4, -1. );
+            _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, 0., *VarR, 1., *Var3, -1., *Var4, -1. );
             break;
           }
           // No break in order to append other "normal" cuts if no breakpoints
@@ -4008,20 +4008,20 @@ PolImg<T>::_add_cuts_IPOW
           xJcc = _newton( Op<T>::l(itVar1->second->_range), Op<T>::l(itVar1->second->_range), 0.,
             fct::powoddfunc, options.ROOT_TOL, options.ROOT_MAXIT, &xJcc, &iExp );
           if( mc::isequal( xJcc, Op<T>::l(itVar1->second->_range) ) )
-            _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+            _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
               Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::pow, 0, &iExp );
           else
-            _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range), xJcc,
+            _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range), xJcc,
               *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::LE, loc::pow, 0, &iExp );
 
           double xJcv = Op<T>::l(itVar1->second->_range);
           xJcv = _newton( Op<T>::u(itVar1->second->_range), 0., Op<T>::u(itVar1->second->_range),
             fct::powoddfunc, options.ROOT_TOL, options.ROOT_MAXIT, &xJcv, &iExp );
           if( mc::isequal( xJcv, Op<T>::u(itVar1->second->_range) ) )
-            _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+            _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
               Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::GE, loc::pow, 0, &iExp );
           else
-            _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, xJcv, Op<T>::u(itVar1->second->_range),
+            _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, xJcv, Op<T>::u(itVar1->second->_range),
               *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::pow, 0, &iExp );
           break;
         }
@@ -4033,17 +4033,17 @@ PolImg<T>::_add_cuts_IPOW
   else if( iExp < 0 ){
     // -- Convex Case
     if( !(iExp%2) || Op<T>::l(itVar1->second->_range) > 0. ){
-      _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+      _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
         Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::pow, 0, &iExp );
-      _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+      _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
         Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
         PolCut<T>::GE, loc::pow, 0, &iExp );
     }
     // -- Concave Case
     else{
-      _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+      _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
         Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::GE, loc::pow, 0, &iExp );
-      _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+      _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
         Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
         PolCut<T>::LE, loc::pow, 0, &iExp );
     }
@@ -4065,7 +4065,7 @@ cheb
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
 #ifdef MC__POLIMG_DEBUG_CHEB
   std::cout << "X = " << Var1._range << std::endl;
   std::cout << "Cheb(" << Var1._range << "," << iOrd << ") = " << Op<T>::cheb( Var1._range, iOrd ) << std::endl;
@@ -4079,12 +4079,12 @@ PolImg<T>::_add_cuts_CHEB
 ( const PolVar<T>*VarR, FFVar*pVar1, const unsigned iOrd )
 {
   if( pVar1->cst() )
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, mc::cheb( pVar1->num().val(), iOrd ), *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, mc::cheb( pVar1->num().val(), iOrd ), *VarR, 1. );
   
   // No linearization
   else if( options.RELAX_MONOM == 0 ){ //|| options.RELAX_MONOM == 1 ){
     auto itVar1 = _Vars.find( pVar1 );
-    _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
+    _add_cut( VarR->_var.opdef().first, *VarR, *itVar1->second );
     return;
   }
 
@@ -4098,23 +4098,23 @@ PolImg<T>::_add_cuts_CHEB
 
   // Positive even order
   if( iOrd > 0 && !(iOrd%2) ){
-    _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::cheb, 0, &iusr );
     double xJL = std::cos(mc::PI*(1.+1./(double)iOrd));
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range), xJL,
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range), xJL,
       *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::cheb, 0, &iusr );
     double xJU = std::cos(mc::PI/(double)iOrd);
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, xJU, Op<T>::u(itVar1->second->_range),
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, xJU, Op<T>::u(itVar1->second->_range),
       *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::cheb, 0, &iusr );
   }
 
   // Positive odd order
   else{
     double xJL = std::cos(mc::PI*(1.+1./(double)iOrd));
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range), xJL,
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range), xJL,
       *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::LE, loc::cheb, 0, &iusr );
     double xJU = std::cos(mc::PI/(double)iOrd);
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, xJU, Op<T>::u(itVar1->second->_range),
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, xJU, Op<T>::u(itVar1->second->_range),
       *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::cheb, 0, &iusr );
   }
 }
@@ -4134,7 +4134,7 @@ prod
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   std::vector<T> IVar; IVar.reserve( nVar );
   for( unsigned i=0; i<nVar; i++ ) IVar.push_back( pVar[i]._range );
   PolVar<T>* pVarR = pVar->_img->_append_var( pFFVarR, Op<T>::prod( IVar.size(), IVar.data() ), true );
@@ -4186,7 +4186,7 @@ PolImg<T>::_add_cuts_PROD
   
   // Case: Zero scaling factor in multilinear term
   if( isequal( scalR, 0. ) ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, 0., *VarR, 1. );
     return;
   }
 
@@ -4216,9 +4216,9 @@ PolImg<T>::_add_cuts_PROD
         else
           cPolVar[i] = -1. / Op<T>::u( vPolVar[i]._range );
       }
-      _add_cut( VarR->_var.ops().first, PolCut<T>::LE, vPolVar.size()-1.,
+      _add_cut( VarR->_var.opdef().first, PolCut<T>::LE, vPolVar.size()-1.,
         vPolVar.size(), vPolVar.data(), cPolVar.data(), *VarR, 1./(scalR*radR) );
-      _add_cut( VarR->_var.ops().first, PolCut<T>::GE, 1.-vPolVar.size(),
+      _add_cut( VarR->_var.opdef().first, PolCut<T>::GE, 1.-vPolVar.size(),
         vPolVar.size(), vPolVar.data(), cPolVar.data(), *VarR, 1./(scalR*radR) );
     }
     // Subscase: Even-sized multilinear term
@@ -4231,9 +4231,9 @@ PolImg<T>::_add_cuts_PROD
         else
           cPolVar[i] = -1. / Op<T>::u( vPolVar[i]._range );
       }
-      _add_cut( VarR->_var.ops().first, PolCut<T>::GE, 1.-vPolVar.size(),
+      _add_cut( VarR->_var.opdef().first, PolCut<T>::GE, 1.-vPolVar.size(),
         vPolVar.size(), vPolVar.data(), cPolVar.data(), *VarR, -1./(scalR*radR) );
-      _add_cut( VarR->_var.ops().first, PolCut<T>::GE, 1.-vPolVar.size(),
+      _add_cut( VarR->_var.opdef().first, PolCut<T>::GE, 1.-vPolVar.size(),
         vPolVar.size(), vPolVar.data(), cPolVar.data(), *VarR, 1./(scalR*radR) );
     }
     // Generate next index set
@@ -4255,7 +4255,7 @@ exp
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::exp( Var1._range ), true );
   return *pVarR;
 }
@@ -4265,13 +4265,13 @@ PolImg<T>::_add_cuts_EXP
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::exp( pVar1->num().val() ), *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, std::exp( pVar1->num().val() ), *VarR, 1. );
     return;
   }
   
   if( !options.RELAX_NLIN ){
     auto itVar1 = _Vars.find( pVar1 );
-    _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
+    _add_cut( VarR->_var.opdef().first, *VarR, *itVar1->second );
     return;
   }
 
@@ -4280,9 +4280,9 @@ PolImg<T>::_add_cuts_EXP
     ( const double x, const double*rusr, const int*iusr )
     { return std::make_pair( std::exp(x), std::exp(x) ); }
   };
-  _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+  _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
     Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::exp );
-  _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+  _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
     Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
     PolCut<T>::GE, loc::exp );
 }
@@ -4298,7 +4298,7 @@ log
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::log( Var1._range ), true );
   return *pVarR;
 }
@@ -4308,13 +4308,13 @@ PolImg<T>::_add_cuts_LOG
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::log( pVar1->num().val() ), *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, std::log( pVar1->num().val() ), *VarR, 1. );
     return;
   }
 
   if( !options.RELAX_NLIN ){
     auto itVar1 = _Vars.find( pVar1 );
-    _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
+    _add_cut( VarR->_var.opdef().first, *VarR, *itVar1->second );
     return;
   }
 
@@ -4327,9 +4327,9 @@ PolImg<T>::_add_cuts_LOG
       ( const double x, const double*rusr, const int*iusr )
       { return std::make_pair( std::log(x), 1/x ); }
   };
-  _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+  _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
     Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::GE, loc::log );
-  _sandwich_cuts( VarR->_var.ops().first, *VarR, Op<T>::l(VarR->_range),
+  _sandwich_cuts( VarR->_var.opdef().first, *VarR, Op<T>::l(VarR->_range),
     Op<T>::u(VarR->_range), *itVar1->second, Op<T>::l(itVar1->second->_range), Op<T>::u(itVar1->second->_range),
     PolCut<T>::GE, loc::exp );
 }
@@ -4345,7 +4345,7 @@ xlog
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::xlog( Var1._range ), true );
   return *pVarR;
 }
@@ -4355,7 +4355,7 @@ PolImg<T>::_add_cuts_XLOG
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, mc::xlog( pVar1->num().val() ), *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, mc::xlog( pVar1->num().val() ), *VarR, 1. );
     return;
   }
   
@@ -4364,9 +4364,9 @@ PolImg<T>::_add_cuts_XLOG
     ( const double x, const double*rusr, const int*iusr )
     { return std::make_pair( mc::xlog(x), std::log(x)+1. ); }
   };
-  _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+  _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
     Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::xlog );
-  _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+  _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
     Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
     PolCut<T>::GE, loc::xlog );
 }
@@ -4382,7 +4382,7 @@ cos
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::cos( Var1._range ), true );
   return *pVarR;
 }
@@ -4392,13 +4392,13 @@ PolImg<T>::_add_cuts_COS
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::cos( pVar1->num().val() ), *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, std::cos( pVar1->num().val() ), *VarR, 1. );
     return;
   }
 
   if( !options.RELAX_NLIN ){
     auto itVar1 = _Vars.find( pVar1 );
-    _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
+    _add_cut( VarR->_var.opdef().first, *VarR, *itVar1->second );
     return;
   }
 
@@ -4434,19 +4434,19 @@ PolImg<T>::_add_cuts_COS
     double xJcv2 = Op<T>::u(IVar1);
     if( xU2 >= -PI/2. ) xJcv2 = _newton( -PI-dxU, -PI-dxU, Op<T>::u(IVar1), fct::cosfunc,
       options.ROOT_TOL, options.ROOT_MAXIT, &xJcv2, 0 );
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, xJcv1, PI-dxL,
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, xJcv1, PI-dxL,
       *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::cos );
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, -PI-dxU, xJcv2,
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, -PI-dxU, xJcv2,
       *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::cos );
   }
   
   else if( xL1 >= PI/2. ){
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
       *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::cos );
   }
   
   else if( xL1 >= -PI/2. && xU1 <= PI/2. ){
-    _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
+    _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
       *VarR, PolCut<T>::GE, loc::cos );
   }
 
@@ -4455,11 +4455,11 @@ PolImg<T>::_add_cuts_COS
     xJcv1 = _newton( Op<T>::u(IVar1), Op<T>::l(IVar1), Op<T>::u(IVar1), fct::cosfunc,
       options.ROOT_TOL, options.ROOT_MAXIT, &xJcv1, 0 );
     if( mc::isequal( xJcv1, Op<T>::u(IVar1) ) ){
-      _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
+      _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
         *VarR, PolCut<T>::GE, loc::cos );
     }
     else{
-      _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, xJcv1, Op<T>::u(IVar1), 
+      _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, xJcv1, Op<T>::u(IVar1), 
         *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::cos );
     }
   }
@@ -4469,11 +4469,11 @@ PolImg<T>::_add_cuts_COS
     xJcv1 = _newton( Op<T>::l(IVar1), Op<T>::l(IVar1), Op<T>::u(IVar1), fct::cosfunc,
       options.ROOT_TOL, options.ROOT_MAXIT, &xJcv1, 0 );
     if( mc::isequal( xJcv1, Op<T>::l(IVar1) ) ){
-      _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
+      _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
         *VarR, PolCut<T>::GE, loc::cos );
     }
     else{
-      _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(IVar1), xJcv1,
+      _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(IVar1), xJcv1,
         *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::cos );
     }
   }
@@ -4496,19 +4496,19 @@ PolImg<T>::_add_cuts_COS
     double xJcc2 = Op<T>::u(IVar1);
     if( xU2 >= -3.*PI/2. ) xJcc2 = _newton( -2.*PI-dxU, -2.*PI-dxU, Op<T>::u(IVar1),
       fct::cosfunc, options.ROOT_TOL, options.ROOT_MAXIT, &xJcc2, 0 );
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, xJcc1, -dxL,
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, xJcc1, -dxL,
       *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::LE, loc::cos );
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, -2.*PI-dxU, xJcc2,
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, -2.*PI-dxU, xJcc2,
       *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::LE, loc::cos );
   }
 
   else if( xL1 >= -PI/2. ){
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
       *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::LE, loc::cos );
   }
   
   else if( xL1 >= -3.*PI/2. && xU1 <= -PI/2. ){
-    _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
+    _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
       *VarR, PolCut<T>::LE, loc::cos );
   }
 
@@ -4517,11 +4517,11 @@ PolImg<T>::_add_cuts_COS
     xJcc1 = _newton( Op<T>::u(IVar1), Op<T>::l(IVar1), Op<T>::u(IVar1), fct::cosfunc,
       options.ROOT_TOL, options.ROOT_MAXIT, &xJcc1, 0 );
     if( mc::isequal( xJcc1, Op<T>::u(IVar1) ) ){
-      _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
+      _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
         *VarR, PolCut<T>::LE, loc::cos );
     }
     else{
-      _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, xJcc1, Op<T>::u(IVar1), 
+      _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, xJcc1, Op<T>::u(IVar1), 
         *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::LE, loc::cos );
     }
   }
@@ -4531,11 +4531,11 @@ PolImg<T>::_add_cuts_COS
     xJcc1 = _newton( Op<T>::l(IVar1), Op<T>::l(IVar1), Op<T>::u(IVar1), fct::cosfunc,
       options.ROOT_TOL, options.ROOT_MAXIT, &xJcc1, 0 );
     if( mc::isequal( xJcc1, Op<T>::l(IVar1) ) ){
-      _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
+      _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
         *VarR, PolCut<T>::LE, loc::cos );
     }
     else{
-      _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(IVar1), xJcc1,
+      _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(IVar1), xJcc1,
         *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::LE, loc::cos );
     }
   }
@@ -4552,7 +4552,7 @@ sin
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::sin( Var1._range ), true );
   return *pVarR;
 }
@@ -4562,13 +4562,13 @@ PolImg<T>::_add_cuts_SIN
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::sin( pVar1->num().val() ), *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, std::sin( pVar1->num().val() ), *VarR, 1. );
     return;
   }
 
   if( !options.RELAX_NLIN ){
     auto itVar1 = _Vars.find( pVar1 );
-    _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
+    _add_cut( VarR->_var.opdef().first, *VarR, *itVar1->second );
     return;
   }
 
@@ -4604,19 +4604,19 @@ PolImg<T>::_add_cuts_SIN
     double xJcv2 = Op<T>::u(IVar1);
     if( xU2 >= 0. ) xJcv2 = _newton( -PI/2.-dxU, -PI/2.-dxU, Op<T>::u(IVar1), fct::sinfunc,
       options.ROOT_TOL, options.ROOT_MAXIT, &xJcv2, 0 );
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, xJcv1, 3.*PI/2.-dxL,
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, xJcv1, 3.*PI/2.-dxL,
       *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::sin );
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, -PI/2.-dxU, xJcv2,
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, -PI/2.-dxU, xJcv2,
       *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::sin );
   }
  
   else if( xL1 >= PI ){
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
       *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::sin );
   }
   
   else if( xL1 >= 0. && xU1 <= PI ){
-    _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
+    _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
       *VarR, PolCut<T>::GE, loc::sin );
   }
 
@@ -4625,11 +4625,11 @@ PolImg<T>::_add_cuts_SIN
     xJcv1 = _newton( Op<T>::u(IVar1), Op<T>::l(IVar1), Op<T>::u(IVar1), fct::sinfunc,
       options.ROOT_TOL, options.ROOT_MAXIT, &xJcv1, 0 );
     if( mc::isequal( xJcv1, Op<T>::u(IVar1) ) ){
-      _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
+      _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
         *VarR, PolCut<T>::GE, loc::sin );
     }
     else{
-      _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, xJcv1, Op<T>::u(IVar1), 
+      _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, xJcv1, Op<T>::u(IVar1), 
         *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::sin );
     }
   }
@@ -4639,11 +4639,11 @@ PolImg<T>::_add_cuts_SIN
     xJcv1 = _newton( Op<T>::l(IVar1), Op<T>::l(IVar1), Op<T>::u(IVar1), fct::sinfunc,
       options.ROOT_TOL, options.ROOT_MAXIT, &xJcv1, 0 );
     if( mc::isequal( xJcv1, Op<T>::l(IVar1) ) ){
-      _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
+      _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
         *VarR, PolCut<T>::GE, loc::sin );
     }
     else{
-      _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(IVar1), xJcv1,
+      _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(IVar1), xJcv1,
         *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::sin );
     }
   }
@@ -4666,19 +4666,19 @@ PolImg<T>::_add_cuts_SIN
     double xJcc2 = Op<T>::u(IVar1);
     if( xU2 >= -PI ) xJcc2 = _newton( -3.*PI/2.-dxU, -3.*PI/2.-dxU, Op<T>::u(IVar1),
       fct::sinfunc, options.ROOT_TOL, options.ROOT_MAXIT, &xJcc2, 0 );
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, xJcc1, PI/2.-dxL,
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, xJcc1, PI/2.-dxL,
       *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::LE, loc::sin );
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, -3.*PI/2.-dxU, xJcc2,
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, -3.*PI/2.-dxU, xJcc2,
       *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::LE, loc::sin );
   }
 
   else if( xL1 >= 0. ){
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
       *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::LE, loc::sin );
   }
   
   else if( xL1 >= -PI && xU1 <= 0. ){
-    _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
+    _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
       *VarR, PolCut<T>::LE, loc::sin );
   }
 
@@ -4687,11 +4687,11 @@ PolImg<T>::_add_cuts_SIN
     xJcc1 = _newton( Op<T>::u(IVar1), Op<T>::l(IVar1), Op<T>::u(IVar1), fct::sinfunc,
       options.ROOT_TOL, options.ROOT_MAXIT, &xJcc1, 0 );
     if( mc::isequal( xJcc1, Op<T>::u(IVar1) ) ){
-      _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
+      _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
         *VarR, PolCut<T>::LE, loc::sin );
     }
     else{
-      _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, xJcc1, Op<T>::u(IVar1), 
+      _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, xJcc1, Op<T>::u(IVar1), 
         *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::LE, loc::sin );
     }
   }
@@ -4701,11 +4701,11 @@ PolImg<T>::_add_cuts_SIN
     xJcc1 = _newton( Op<T>::l(IVar1), Op<T>::l(IVar1), Op<T>::u(IVar1), fct::sinfunc,
       options.ROOT_TOL, options.ROOT_MAXIT, &xJcc1, 0 );
     if( mc::isequal( xJcc1, Op<T>::l(IVar1) ) ){
-      _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
+      _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(IVar1), Op<T>::u(IVar1),
         *VarR, PolCut<T>::LE, loc::sin );
     }
     else{
-      _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(IVar1), xJcc1,
+      _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(IVar1), xJcc1,
         *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::LE, loc::sin );
     }
   }
@@ -4722,7 +4722,7 @@ tan
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::tan( Var1._range ), true );
   return *pVarR;
 }
@@ -4732,13 +4732,13 @@ PolImg<T>::_add_cuts_TAN
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::tan( pVar1->num().val() ), *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, std::tan( pVar1->num().val() ), *VarR, 1. );
     return;
   }  
 
   if( !options.RELAX_NLIN ){
     auto itVar1 = _Vars.find( pVar1 );
-    _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
+    _add_cut( VarR->_var.opdef().first, *VarR, *itVar1->second );
     return;
   }
 
@@ -4753,17 +4753,17 @@ PolImg<T>::_add_cuts_TAN
 
   // -- Convex Portion
   if( Op<T>::l(itVar1->second->_range) >= 0. ){
-    _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::tan, 0, 0 );
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
       PolCut<T>::GE, loc::tan, 0, 0 );
   }
   // -- Concave Portion
   else if( Op<T>::u(itVar1->second->_range) <= 0. ){
-    _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::GE, loc::tan, 0, 0 );
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
       PolCut<T>::LE, loc::tan, 0, 0 );
   }
@@ -4785,15 +4785,15 @@ PolImg<T>::_add_cuts_TAN
           };
           PolVar<T>* Var3 = _append_aux( Op<T>::tan( itVar1->second->_range )-itVar1->second->_range, true );
           PolVar<T>* Var4 = _append_aux( Op<T>::tan( itVar1->second->_range )-itVar1->second->_range, true );
-          _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *Var3, PolCut<T>::GE, dc::tan1, 0, 0 );
-          _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *Var3, Op<T>::l(VarR->_range), 0., PolCut<T>::LE, dc::tan1, 0, 0 );
-          _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *Var4, PolCut<T>::LE, dc::tan2, 0, 0 );
-          _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *Var4, 0., Op<T>::u(VarR->_range), PolCut<T>::GE, dc::tan2, 0, 0 );
-          _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *Var3, -1., *Var4, -1.,
+          _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, 0., *VarR, 1., *Var3, -1., *Var4, -1.,
               *itVar1->second, -1. );
           break;
         }
@@ -4813,20 +4813,20 @@ PolImg<T>::_add_cuts_TAN
         xJcc = _newton( Op<T>::l(itVar1->second->_range), Op<T>::l(itVar1->second->_range), 0.,
           fct::tanfunc, options.ROOT_TOL, options.ROOT_MAXIT, &xJcc, 0 );
         if( mc::isequal( xJcc, Op<T>::l(itVar1->second->_range) ) )
-          _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::tan, 0, 0 );
         else
-          _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range), xJcc,
+          _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range), xJcc,
             *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::LE, loc::tan, 0, 0 );
         // Cuts from below
         double xJcv = Op<T>::l(itVar1->second->_range);
         xJcv = _newton( Op<T>::u(itVar1->second->_range), 0., Op<T>::u(itVar1->second->_range),
           fct::tanfunc, options.ROOT_TOL, options.ROOT_MAXIT, &xJcv, 0 );
         if( mc::isequal( xJcv, Op<T>::u(itVar1->second->_range) ) )
-          _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::GE, loc::tan, 0, 0 );
         else
-          _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, xJcv, Op<T>::u(itVar1->second->_range),
+          _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, xJcv, Op<T>::u(itVar1->second->_range),
             *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::tan, 0, 0 );
         break;
       }
@@ -4845,7 +4845,7 @@ acos
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::acos( Var1._range ), true );
   return *pVarR;
 }
@@ -4855,13 +4855,13 @@ PolImg<T>::_add_cuts_ACOS
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::acos( pVar1->num().val() ), *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, std::acos( pVar1->num().val() ), *VarR, 1. );
     return;
   }
     
   if( !options.RELAX_NLIN ){
     auto itVar1 = _Vars.find( pVar1 );
-    _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
+    _add_cut( VarR->_var.opdef().first, *VarR, *itVar1->second );
     return;
   }
 
@@ -4876,17 +4876,17 @@ PolImg<T>::_add_cuts_ACOS
 
   // -- Convex Portion
   if( Op<T>::u(itVar1->second->_range) <= 0. ){
-    _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::acos, 0, 0 );
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
       PolCut<T>::GE, loc::acos, 0, 0 );
   }
   // -- Concave Portion
   else if( Op<T>::l(itVar1->second->_range) >= 0. ){
-    _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::GE, loc::acos, 0, 0 );
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
       PolCut<T>::LE, loc::acos, 0, 0 );
   }
@@ -4908,17 +4908,17 @@ PolImg<T>::_add_cuts_ACOS
           };
           PolVar<T>* Var3 = _append_aux( Op<T>::acos(itVar1->second->_range)+itVar1->second->_range-PI/4., true );
           PolVar<T>* Var4 = _append_aux( Op<T>::acos(itVar1->second->_range)+itVar1->second->_range-PI/4., true );
-          _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *Var3, PolCut<T>::LE, dc::acos1, 0, 0 );
-          _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *Var3, PI/4., Op<T>::u(Var3->_range), PolCut<T>::GE,
             dc::acos1, 0, 0 );
-          _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *Var4, PolCut<T>::GE, dc::acos2, 0, 0 );
-          _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *Var4, Op<T>::l(Var4->_range), PI/4., PolCut<T>::LE,
             dc::acos2, 0, 0 );
-          _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *Var3, -1., *Var4, -1.,
+          _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, 0., *VarR, 1., *Var3, -1., *Var4, -1.,
               *itVar1->second, 1. );
           break;
         }
@@ -4941,10 +4941,10 @@ PolImg<T>::_add_cuts_ACOS
             options.ROOT_MAXIT, &xJcv, 0 );
         }
         if( mc::isequal( xJcv, Op<T>::l(itVar1->second->_range) ) )
-          _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::GE, loc::acos, 0, 0 );
         else
-          _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range), xJcv,
+          _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range), xJcv,
             *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::acos, 0, 0 );
         // Cuts from above
         double xJcc = Op<T>::l(itVar1->second->_range);
@@ -4957,10 +4957,10 @@ PolImg<T>::_add_cuts_ACOS
             options.ROOT_MAXIT, &xJcc, 0 );
         }
         if( mc::isequal( xJcc, Op<T>::u(itVar1->second->_range) ) )
-          _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::acos, 0, 0 );
         else
-          _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, xJcc, Op<T>::u(itVar1->second->_range),
+          _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, xJcc, Op<T>::u(itVar1->second->_range),
             *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::LE, loc::acos, 0, 0 );
         break;
       }
@@ -4979,7 +4979,7 @@ asin
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::asin( Var1._range ), true );
   return *pVarR;
 }
@@ -4989,13 +4989,13 @@ PolImg<T>::_add_cuts_ASIN
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::asin( pVar1->num().val() ), *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, std::asin( pVar1->num().val() ), *VarR, 1. );
     return;
   }
   
   if( !options.RELAX_NLIN ){
     auto itVar1 = _Vars.find( pVar1 );
-    _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
+    _add_cut( VarR->_var.opdef().first, *VarR, *itVar1->second );
     return;
   }
 
@@ -5010,17 +5010,17 @@ PolImg<T>::_add_cuts_ASIN
 
   // -- Convex Portion
   if( Op<T>::l(itVar1->second->_range) >= 0. ){
-    _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::asin, 0, 0 );
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
       PolCut<T>::GE, loc::asin, 0, 0 );
   }
   // -- Concave Portion
   else if( Op<T>::u(itVar1->second->_range) <= 0. ){
-    _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::GE, loc::asin, 0, 0 );
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
       PolCut<T>::LE, loc::asin, 0, 0 );
   }
@@ -5042,17 +5042,17 @@ PolImg<T>::_add_cuts_ASIN
           };
           PolVar<T>* Var3 = _append_aux( Op<T>::asin(itVar1->second->_range)-itVar1->second->_range, true );
           PolVar<T>* Var4 = _append_aux( Op<T>::asin(itVar1->second->_range)-itVar1->second->_range, true );
-          _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *Var3, PolCut<T>::GE, dc::asin1, 0, 0 );
-          _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *Var3, Op<T>::l(Var3->_range), 0., PolCut<T>::LE,
             dc::asin1, 0, 0 );
-          _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *Var4, PolCut<T>::LE, dc::asin2, 0, 0 );
-          _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *Var4, 0., Op<T>::u(Var4->_range), PolCut<T>::GE,
             dc::asin2, 0, 0 );
-          _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *Var3, -1., *Var4, -1.,
+          _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, 0., *VarR, 1., *Var3, -1., *Var4, -1.,
               *itVar1->second, -1. );
           break;
         }
@@ -5075,10 +5075,10 @@ PolImg<T>::_add_cuts_ASIN
             options.ROOT_MAXIT, &xJcc, 0 );
         }
         if( mc::isequal( xJcc, Op<T>::l(itVar1->second->_range) ) )
-          _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::asin, 0, 0 );
         else
-          _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range), xJcc,
+          _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range), xJcc,
             *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::LE, loc::asin, 0, 0 );
         // Cuts from below
         double xJcv = Op<T>::l(itVar1->second->_range);
@@ -5091,10 +5091,10 @@ PolImg<T>::_add_cuts_ASIN
             options.ROOT_MAXIT, &xJcv, 0 );
         }
         if( mc::isequal( xJcv, Op<T>::u(itVar1->second->_range) ) )
-          _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::GE, loc::asin, 0, 0 );
         else
-          _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, xJcv, Op<T>::u(itVar1->second->_range),
+          _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, xJcv, Op<T>::u(itVar1->second->_range),
             *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::asin, 0, 0 );
         break;
       }
@@ -5113,7 +5113,7 @@ atan
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::atan( Var1._range ), true );
   return *pVarR;
 }
@@ -5123,13 +5123,13 @@ PolImg<T>::_add_cuts_ATAN
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::atan( pVar1->num().val() ), *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, std::atan( pVar1->num().val() ), *VarR, 1. );
     return;
   }
 
   if( !options.RELAX_NLIN ){
     auto itVar1 = _Vars.find( pVar1 );
-    _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
+    _add_cut( VarR->_var.opdef().first, *VarR, *itVar1->second );
     return;
   }
 
@@ -5144,17 +5144,17 @@ PolImg<T>::_add_cuts_ATAN
 
   // -- Convex Portion
   if( Op<T>::u(itVar1->second->_range) <= 0. ){
-    _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::atan, 0, 0 );
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
       PolCut<T>::GE, loc::atan, 0, 0 );
   }
   // -- Concave Portion
   else if( Op<T>::l(itVar1->second->_range) >= 0. ){
-    _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::GE, loc::atan, 0, 0 );
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
       PolCut<T>::LE, loc::atan, 0, 0 );
   }
@@ -5176,17 +5176,17 @@ PolImg<T>::_add_cuts_ATAN
           };
           PolVar<T>* Var3 = _append_aux( Op<T>::atan(itVar1->second->_range)-itVar1->second->_range, true );
           PolVar<T>* Var4 = _append_aux( Op<T>::atan(itVar1->second->_range)-itVar1->second->_range, true );
-          _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *Var3, PolCut<T>::LE, dc::atan1, 0, 0 );
-          _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *Var3, 0., Op<T>::u(Var3->_range), PolCut<T>::GE,
             dc::atan1, 0, 0 );
-          _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *Var4, PolCut<T>::GE, dc::atan2, 0, 0 );
-          _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *Var4, Op<T>::l(Var4->_range), 0., PolCut<T>::LE,
             dc::atan2, 0, 0 );
-          _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *Var3, -1., *Var4, -1.,
+          _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, 0., *VarR, 1., *Var3, -1., *Var4, -1.,
               *itVar1->second, -1. );
           break;
         }
@@ -5209,10 +5209,10 @@ PolImg<T>::_add_cuts_ATAN
             options.ROOT_MAXIT, &xJcv, 0 );
         }
         if( mc::isequal( xJcv, Op<T>::l(itVar1->second->_range) ) )
-          _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::GE, loc::atan, 0, 0 );
         else
-          _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range), xJcv,
+          _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range), xJcv,
             *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::atan, 0, 0 );
         // Cuts from above
         double xJcc = Op<T>::l(itVar1->second->_range);
@@ -5225,10 +5225,10 @@ PolImg<T>::_add_cuts_ATAN
             options.ROOT_MAXIT, &xJcc, 0 );
         }
         if( mc::isequal( xJcc, Op<T>::u(itVar1->second->_range) ) )
-          _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::atan, 0, 0 );
         else
-          _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, xJcc, Op<T>::u(itVar1->second->_range),
+          _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, xJcc, Op<T>::u(itVar1->second->_range),
             *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::LE, loc::atan, 0, 0 );
         break;
       }
@@ -5247,7 +5247,7 @@ cosh
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::cosh( Var1._range ), true );
   return *pVarR;
 }
@@ -5257,7 +5257,7 @@ PolImg<T>::_add_cuts_COSH
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::cosh( pVar1->num().val() ), *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, std::cosh( pVar1->num().val() ), *VarR, 1. );
     return;
   }
 
@@ -5266,9 +5266,9 @@ PolImg<T>::_add_cuts_COSH
     ( const double x, const double*rusr, const int*iusr )
     { return std::make_pair( std::cosh(x), std::sinh(x) ); }
   };
-  _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+  _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
     Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::cosh );
-  _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+  _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
     Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
     PolCut<T>::GE, loc::cosh );
 }
@@ -5284,7 +5284,7 @@ sinh
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::sinh( Var1._range ), true );
   return *pVarR;
 }
@@ -5294,7 +5294,7 @@ PolImg<T>::_add_cuts_SINH
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::sinh( pVar1->num().val() ), *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, std::sinh( pVar1->num().val() ), *VarR, 1. );
     return;
   }
 
@@ -5309,17 +5309,17 @@ PolImg<T>::_add_cuts_SINH
 
   // -- Convex Portion
   if( Op<T>::l(itVar1->second->_range) >= 0. ){
-    _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::sinh, 0, 0 );
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
       PolCut<T>::GE, loc::sinh, 0, 0 );
   }
   // -- Concave Portion
   else if( Op<T>::u(itVar1->second->_range) <= 0. ){
-    _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::GE, loc::sinh, 0, 0 );
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
       PolCut<T>::LE, loc::sinh, 0, 0 );
   }
@@ -5341,15 +5341,15 @@ PolImg<T>::_add_cuts_SINH
           };
           PolVar<T>* Var3 = _append_aux( Op<T>::sinh( itVar1->second->_range ), true );
           PolVar<T>* Var4 = _append_aux( Op<T>::sinh( itVar1->second->_range ), true );
-          _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *Var3, PolCut<T>::GE, dc::sinh1, 0, 0 );
-          _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *Var3, Op<T>::l(VarR->_range), 0., PolCut<T>::LE, dc::sinh1, 0, 0 );
-          _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *Var4, PolCut<T>::LE, dc::sinh2, 0, 0 );
-          _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *Var4, 0., Op<T>::u(VarR->_range), PolCut<T>::GE, dc::sinh2, 0, 0 );
-          _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *Var3, -1., *Var4, -1.,
+          _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, 0., *VarR, 1., *Var3, -1., *Var4, -1.,
               *itVar1->second, -1. );
           break;
         }
@@ -5369,20 +5369,20 @@ PolImg<T>::_add_cuts_SINH
         xJcc = _newton( Op<T>::l(itVar1->second->_range), Op<T>::l(itVar1->second->_range), 0.,
           fct::sinhfunc, options.ROOT_TOL, options.ROOT_MAXIT, &xJcc, 0 );
         if( mc::isequal( xJcc, Op<T>::l(itVar1->second->_range) ) )
-          _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::sinh, 0, 0 );
         else
-          _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range), xJcc,
+          _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range), xJcc,
             *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::LE, loc::sinh, 0, 0 );
         // Cuts from below
         double xJcv = Op<T>::l(itVar1->second->_range);
         xJcv = _newton( Op<T>::u(itVar1->second->_range), 0., Op<T>::u(itVar1->second->_range),
           fct::sinhfunc, options.ROOT_TOL, options.ROOT_MAXIT, &xJcv, 0 );
         if( mc::isequal( xJcv, Op<T>::u(itVar1->second->_range) ) )
-          _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::GE, loc::sinh, 0, 0 );
         else
-          _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, xJcv, Op<T>::u(itVar1->second->_range),
+          _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, xJcv, Op<T>::u(itVar1->second->_range),
             *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::sinh, 0, 0 );
         break;
       }
@@ -5401,7 +5401,7 @@ tanh
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::tanh( Var1._range ), true );
   return *pVarR;
 }
@@ -5411,13 +5411,13 @@ PolImg<T>::_add_cuts_TANH
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::tanh( pVar1->num().val() ), *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, std::tanh( pVar1->num().val() ), *VarR, 1. );
     return;
   }
 
   if( !options.RELAX_NLIN ){
     auto itVar1 = _Vars.find( pVar1 );
-    _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
+    _add_cut( VarR->_var.opdef().first, *VarR, *itVar1->second );
     return;
   }
  
@@ -5432,17 +5432,17 @@ PolImg<T>::_add_cuts_TANH
 
   // -- Convex Portion
   if( Op<T>::u(itVar1->second->_range) <= 0. ){
-    _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::tanh, 0, 0 );
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
       PolCut<T>::GE, loc::tanh, 0, 0 );
   }
   // -- Concave Portion
   else if( Op<T>::l(itVar1->second->_range) >= 0. ){
-    _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::GE, loc::tanh, 0, 0 );
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
       PolCut<T>::LE, loc::tanh, 0, 0 );
   }
@@ -5464,17 +5464,17 @@ PolImg<T>::_add_cuts_TANH
           };
           PolVar<T>* Var3 = _append_aux( Op<T>::tanh(itVar1->second->_range)-itVar1->second->_range, true );
           PolVar<T>* Var4 = _append_aux( Op<T>::tanh(itVar1->second->_range)-itVar1->second->_range, true );
-          _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *Var3, PolCut<T>::LE, dc::tanh1, 0, 0 );
-          _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *Var3, 0., Op<T>::u(Var3->_range), PolCut<T>::GE,
             dc::tanh1, 0, 0 );
-          _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *Var4, PolCut<T>::GE, dc::tanh2, 0, 0 );
-          _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *Var4, Op<T>::l(Var4->_range), 0., PolCut<T>::LE,
             dc::tanh2, 0, 0 );
-          _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *Var3, -1., *Var4, -1.,
+          _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, 0., *VarR, 1., *Var3, -1., *Var4, -1.,
               *itVar1->second, -1. );
           break;
         }
@@ -5497,10 +5497,10 @@ PolImg<T>::_add_cuts_TANH
             options.ROOT_MAXIT, &xJcv, 0 );
         }
         if( mc::isequal( xJcv, Op<T>::l(itVar1->second->_range) ) )
-          _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::GE, loc::tanh, 0, 0 );
         else
-          _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range), xJcv,
+          _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range), xJcv,
             *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::tanh, 0, 0 );
         // Cuts from above
         double xJcc = Op<T>::l(itVar1->second->_range);
@@ -5513,10 +5513,10 @@ PolImg<T>::_add_cuts_TANH
             options.ROOT_MAXIT, &xJcc, 0 );
         }
         if( mc::isequal( xJcc, Op<T>::u(itVar1->second->_range) ) )
-          _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::tanh, 0, 0 );
         else
-          _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, xJcc, Op<T>::u(itVar1->second->_range),
+          _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, xJcc, Op<T>::u(itVar1->second->_range),
             *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::LE, loc::tanh, 0, 0 );
         break;
       }
@@ -5535,7 +5535,7 @@ erf
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::erf( Var1._range ), true );
   return *pVarR;
 }
@@ -5545,7 +5545,7 @@ PolImg<T>::_add_cuts_ERF
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::erf( pVar1->num().val() ), *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, std::erf( pVar1->num().val() ), *VarR, 1. );
     return;
   }
   
@@ -5560,17 +5560,17 @@ PolImg<T>::_add_cuts_ERF
 
   // -- Convex Portion
   if( Op<T>::u(itVar1->second->_range) <= 0. ){
-    _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::erf, 0, 0 );
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
       PolCut<T>::GE, loc::erf, 0, 0 );
   }
   // -- Concave Portion
   else if( Op<T>::l(itVar1->second->_range) >= 0. ){
-    _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::GE, loc::erf, 0, 0 );
-    _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+    _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
       Op<T>::u(itVar1->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
       PolCut<T>::LE, loc::erf, 0, 0 );
   }
@@ -5592,17 +5592,17 @@ PolImg<T>::_add_cuts_ERF
           };
           PolVar<T>* Var3 = _append_aux( Op<T>::erf(itVar1->second->_range)-2./std::sqrt(PI)*itVar1->second->_range, true );
           PolVar<T>* Var4 = _append_aux( Op<T>::erf(itVar1->second->_range)-2./std::sqrt(PI)*itVar1->second->_range, true );
-          _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *Var3, PolCut<T>::LE, dc::erf1, 0, 0 );
-          _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *Var3, 0., Op<T>::u(Var3->_range), PolCut<T>::GE,
             dc::erf1, 0, 0 );
-          _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *Var4, PolCut<T>::GE, dc::erf2, 0, 0 );
-          _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *Var4, Op<T>::l(Var4->_range), 0., PolCut<T>::LE,
             dc::erf2, 0, 0 );
-          _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *Var3, -1., *Var4, -1.,
+          _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, 0., *VarR, 1., *Var3, -1., *Var4, -1.,
               *itVar1->second, -2./std::sqrt(PI) );
           break;
         }
@@ -5625,10 +5625,10 @@ PolImg<T>::_add_cuts_ERF
             options.ROOT_MAXIT, &xJcv, 0 );
         }
         if( mc::isequal( xJcv, Op<T>::l(itVar1->second->_range) ) )
-          _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::GE, loc::erf, 0, 0 );
         else
-          _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range), xJcv,
+          _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range), xJcv,
             *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::GE, loc::erf, 0, 0 );
         // Cuts from above
         double xJcc = Op<T>::l(itVar1->second->_range);
@@ -5641,10 +5641,10 @@ PolImg<T>::_add_cuts_ERF
             options.ROOT_MAXIT, &xJcc, 0 );
         }
         if( mc::isequal( xJcc, Op<T>::u(itVar1->second->_range) ) )
-          _semilinear_cuts( VarR->_var.ops().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
+          _semilinear_cuts( VarR->_var.opdef().first, *itVar1->second, Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE, loc::erf, 0, 0 );
         else
-          _sandwich_cuts( VarR->_var.ops().first, *itVar1->second, xJcc, Op<T>::u(itVar1->second->_range),
+          _sandwich_cuts( VarR->_var.opdef().first, *itVar1->second, xJcc, Op<T>::u(itVar1->second->_range),
             *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), PolCut<T>::LE, loc::erf, 0, 0 );
         break;
       }
@@ -5663,7 +5663,7 @@ fabs
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::fabs( Var1._range ), true );
   return *pVarR;
 }
@@ -5674,14 +5674,14 @@ PolImg<T>::_add_cuts_FABS
 {
   // Constant operand
   if( pVar1->cst() ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::fabs( pVar1->num().val() ), *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, std::fabs( pVar1->num().val() ), *VarR, 1. );
     return;
   }
 
   // No relaxation
   if( !options.RELAX_DISC ){
     auto itVar1 = _Vars.find( pVar1 );
-    _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
+    _add_cut( VarR->_var.opdef().first, *VarR, *itVar1->second );
     return;
   }
 
@@ -5689,13 +5689,13 @@ PolImg<T>::_add_cuts_FABS
 
   // Positive branch only
   if( Op<T>::l(itVar1->second->_range) >= 0. ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar1->second, -1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar1->second, -1. );
     return;
   }
 
   // Negative branch only
   if( Op<T>::u(itVar1->second->_range) <= 0. ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar1->second,  1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar1->second,  1. );
     return;
   }
 
@@ -5703,7 +5703,7 @@ PolImg<T>::_add_cuts_FABS
   if( options.RELAX_DISC == 1 ){
     double XL = Op<T>::l(itVar1->second->_range),  dX = Op<T>::diam(itVar1->second->_range),
            YL = std::fabs(Op<T>::l(itVar1->second->_range)), dY = std::fabs(Op<T>::u(itVar1->second->_range))-YL;
-    _add_cut( VarR->_var.ops().first, PolCut<T>::GE, dY*XL-dX*YL, *VarR, -dX, *itVar1->second, dY );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::GE, dY*XL-dX*YL, *VarR, -dX, *itVar1->second, dY );
   }
 
   // Piecewise-linear overestimator
@@ -5711,13 +5711,13 @@ PolImg<T>::_add_cuts_FABS
     const double M1 =  2*Op<T>::u(itVar1->second->_range);
     const double M2 = -2*Op<T>::l(itVar1->second->_range);
     PolVar<T>* VarB = _append_aux( Op<T>::zeroone(), false );
-    _add_cut( VarR->_var.ops().first, PolCut<T>::LE, M2, *VarR, 1., *itVar1->second, -1., *VarB,  M2 );
-    _add_cut( VarR->_var.ops().first, PolCut<T>::LE, 0., *VarR, 1., *itVar1->second,  1., *VarB, -M1 );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::LE, M2, *VarR, 1., *itVar1->second, -1., *VarB,  M2 );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::LE, 0., *VarR, 1., *itVar1->second,  1., *VarB, -M1 );
   }
   
   // Linear underestimators
-  _add_cut( VarR->_var.ops().first, PolCut<T>::GE, 0., *VarR, 1., *itVar1->second,  -1. );
-  _add_cut( VarR->_var.ops().first, PolCut<T>::GE, 0., *VarR, 1., *itVar1->second,   1. );
+  _add_cut( VarR->_var.opdef().first, PolCut<T>::GE, 0., *VarR, 1., *itVar1->second,  -1. );
+  _add_cut( VarR->_var.opdef().first, PolCut<T>::GE, 0., *VarR, 1., *itVar1->second,   1. );
 }
 
 template <typename T> inline bool
@@ -5749,7 +5749,7 @@ fstep
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = Var1._img->_append_var( pFFVarR, Op<T>::fstep( Var1._range ), true );
   return *pVarR;
 }
@@ -5760,14 +5760,14 @@ PolImg<T>::_add_cuts_FSTEP
 {
   // Constant operand
   if( pVar1->cst() ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, mc::fstep( pVar1->num().val() ), *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, mc::fstep( pVar1->num().val() ), *VarR, 1. );
     return;
   }
 
   // No relaxation
   if( !options.RELAX_DISC ){
     auto itVar1 = _Vars.find( pVar1 );
-    _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second );
+    _add_cut( VarR->_var.opdef().first, *VarR, *itVar1->second );
     return;
   }
 
@@ -5775,29 +5775,29 @@ PolImg<T>::_add_cuts_FSTEP
   
   // Positive branch only
   if( Op<T>::l(itVar1->second->_range) >= 0. ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, mc::fstep( Op<T>::l(itVar1->second->_range) ), *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, mc::fstep( Op<T>::l(itVar1->second->_range) ), *VarR, 1. );
   }
 
   // Negative branch only
   else if( Op<T>::u(itVar1->second->_range) < 0. ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, mc::fstep( Op<T>::u(itVar1->second->_range) ), *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, mc::fstep( Op<T>::u(itVar1->second->_range) ), *VarR, 1. );
   }
   
   // Linear overestimator
   else if( options.RELAX_DISC == 1 ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::GE, 0., *VarR, Op<T>::u(itVar1->second->_range),
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::GE, 0., *VarR, Op<T>::u(itVar1->second->_range),
                  *itVar1->second,  -1. );
-    _add_cut( VarR->_var.ops().first, PolCut<T>::GE, Op<T>::l(itVar1->second->_range),
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::GE, Op<T>::l(itVar1->second->_range),
                  *VarR, Op<T>::l(itVar1->second->_range), *itVar1->second,  1. );
   }
 
   // Piecewise-linear overestimator
   else{
     PolVar<T>* VarB = _append_aux( Op<T>::zeroone(), false );
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *VarB, -1. );
-    _add_cut( VarR->_var.ops().first, PolCut<T>::GE, 0., *VarR, Op<T>::u(itVar1->second->_range),
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, 0., *VarR, 1., *VarB, -1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::GE, 0., *VarR, Op<T>::u(itVar1->second->_range),
                  *itVar1->second,  -1., *VarB, Op<T>::u(itVar1->second->_range) );
-    _add_cut( VarR->_var.ops().first, PolCut<T>::GE, Op<T>::l(itVar1->second->_range), 
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::GE, Op<T>::l(itVar1->second->_range), 
                  *itVar1->second,  1., *VarB, Op<T>::l(itVar1->second->_range) );
   }
 }
@@ -5827,7 +5827,7 @@ min
   FFBase* dag = Var1._var.cst()? Var2._var.dag(): Var1._var.dag();
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = img->_append_var( pFFVarR, Op<T>::min( Var1.range(), Var2.range() ), true );
   return *pVarR;
 }
@@ -5838,7 +5838,7 @@ PolImg<T>::_add_cuts_MINF
 {
   // Both operands constant
   if( pVar1->cst() && pVar2->cst() ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::min( pVar1->num().val(), pVar2->num().val() ), *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, std::min( pVar1->num().val(), pVar2->num().val() ), *VarR, 1. );
     return;
   }
 
@@ -5847,16 +5847,16 @@ PolImg<T>::_add_cuts_MINF
   if( !options.RELAX_DISC ){
     if( pVar1->cst() ){
       itVar2 = _Vars.find( pVar2 );
-      _add_cut( VarR->_var.ops().first, *VarR, *itVar2->second, pVar1->num().val() );
+      _add_cut( VarR->_var.opdef().first, *VarR, *itVar2->second, pVar1->num().val() );
     }
     else if( pVar2->cst() ){
       itVar1 = _Vars.find( pVar1 );
-      _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second, pVar2->num().val() );
+      _add_cut( VarR->_var.opdef().first, *VarR, *itVar1->second, pVar2->num().val() );
     }
     else{
       itVar1 = _Vars.find( pVar1 );
       itVar2 = _Vars.find( pVar2 );
-      _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second, *itVar2->second );
+      _add_cut( VarR->_var.opdef().first, *VarR, *itVar1->second, *itVar2->second );
     }
     return;
   }
@@ -5883,36 +5883,36 @@ PolImg<T>::_add_cuts_MINF
   // Special cases
   if( M1 <= 0 ){
     if( pVar1->cst() )
-      _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, pVar1->num().val(), *VarR, 1. );    
+      _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, pVar1->num().val(), *VarR, 1. );    
     else
-      _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar1->second, -1. );
+      _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar1->second, -1. );
     return;
   }
   if( M2 <= 0 ){
     if( pVar2->cst() )
-      _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, pVar2->num().val(), *VarR, 1. );    
+      _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, pVar2->num().val(), *VarR, 1. );    
     else
-      _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar2->second, -1. );
+      _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar2->second, -1. );
     return;
   }
 
   // Linear underestimator and piecewise-linear overestimator
   PolVar<T>* VarB = _append_aux( Op<T>::zeroone(), false );
   if( pVar1->cst() ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::LE, pVar1->num().val(),    *VarR, 1. );
-    _add_cut( VarR->_var.ops().first, PolCut<T>::GE, pVar1->num().val()-M1, *VarR, 1., *VarB, -M1 );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::LE, pVar1->num().val(),    *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::GE, pVar1->num().val()-M1, *VarR, 1., *VarB, -M1 );
   }
   else{
-    _add_cut( VarR->_var.ops().first, PolCut<T>::LE, 0.,  *VarR, 1., *itVar1->second, -1. );
-    _add_cut( VarR->_var.ops().first, PolCut<T>::GE, -M1, *VarR, 1., *itVar1->second, -1., *VarB, -M1 );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::LE, 0.,  *VarR, 1., *itVar1->second, -1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::GE, -M1, *VarR, 1., *itVar1->second, -1., *VarB, -M1 );
   }
   if( pVar2->cst() ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::LE, pVar2->num().val(), *VarR, 1. );
-    _add_cut( VarR->_var.ops().first, PolCut<T>::GE, pVar2->num().val(), *VarR, 1., *VarB, M2 );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::LE, pVar2->num().val(), *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::GE, pVar2->num().val(), *VarR, 1., *VarB, M2 );
   }
   else{
-    _add_cut( VarR->_var.ops().first, PolCut<T>::LE, 0., *VarR, 1., *itVar2->second, -1. );
-    _add_cut( VarR->_var.ops().first, PolCut<T>::GE, 0., *VarR, 1., *itVar2->second, -1., *VarB,  M2 );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::LE, 0., *VarR, 1., *itVar2->second, -1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::GE, 0., *VarR, 1., *itVar2->second, -1., *VarB,  M2 );
   }
 }
 
@@ -5975,7 +5975,7 @@ max
   FFBase* dag = Var1._var.cst()? Var2._var.dag(): Var1._var.dag();
   if( !dag || !dag->curOp() )
     throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
-  FFVar* pFFVarR = dag->curOp()->pres;
+  FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = img->_append_var( pFFVarR, Op<T>::max( Var1.range(), Var2.range() ), true );
   return *pVarR;
 }
@@ -5986,7 +5986,7 @@ PolImg<T>::_add_cuts_MAXF
 {
   // Both operands constant
   if( pVar1->cst() && pVar2->cst() ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, std::max( pVar1->num().val(), pVar2->num().val() ), *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, std::max( pVar1->num().val(), pVar2->num().val() ), *VarR, 1. );
     return;
   }
 
@@ -5995,16 +5995,16 @@ PolImg<T>::_add_cuts_MAXF
   if( !options.RELAX_DISC ){
     if( pVar1->cst() ){
       itVar2 = _Vars.find( pVar2 );
-      _add_cut( VarR->_var.ops().first, *VarR, *itVar2->second, pVar1->num().val() );
+      _add_cut( VarR->_var.opdef().first, *VarR, *itVar2->second, pVar1->num().val() );
     }
     else if( pVar2->cst() ){
       itVar1 = _Vars.find( pVar1 );
-      _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second, pVar2->num().val() );
+      _add_cut( VarR->_var.opdef().first, *VarR, *itVar1->second, pVar2->num().val() );
     }
     else{
       itVar1 = _Vars.find( pVar1 );
       itVar2 = _Vars.find( pVar2 );
-      _add_cut( VarR->_var.ops().first, *VarR, *itVar1->second, *itVar2->second );
+      _add_cut( VarR->_var.opdef().first, *VarR, *itVar1->second, *itVar2->second );
     }
     return;
   }
@@ -6031,36 +6031,36 @@ PolImg<T>::_add_cuts_MAXF
   // Special cases
   if( M1 <= 0 ){
     if( pVar2->cst() )
-      _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, pVar2->num().val(), *VarR, 1. );    
+      _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, pVar2->num().val(), *VarR, 1. );    
     else
-      _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar2->second, -1. );
+      _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar2->second, -1. );
     return;
   }
   if( M2 <= 0 ){
     if( pVar1->cst() )
-      _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, pVar1->num().val(), *VarR, 1. );    
+      _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, pVar1->num().val(), *VarR, 1. );    
     else
-      _add_cut( VarR->_var.ops().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar1->second, -1. );
+      _add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, 0., *VarR, 1., *itVar1->second, -1. );
     return;
   }
 
   // Linear underestimator and piecewise-linear overestimator
   PolVar<T>* VarB = _append_aux( Op<T>::zeroone(), false );
   if( pVar1->cst() ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::GE, pVar1->num().val(),    *VarR, 1. );
-    _add_cut( VarR->_var.ops().first, PolCut<T>::LE, pVar1->num().val()-M2, *VarR, 1., *VarB, M2 );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::GE, pVar1->num().val(),    *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::LE, pVar1->num().val()-M2, *VarR, 1., *VarB, M2 );
   }
   else{
-    _add_cut( VarR->_var.ops().first, PolCut<T>::GE, 0.,  *VarR, 1., *itVar1->second, -1. );
-    _add_cut( VarR->_var.ops().first, PolCut<T>::LE, M2, *VarR, 1., *itVar1->second, -1., *VarB, M2 );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::GE, 0.,  *VarR, 1., *itVar1->second, -1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::LE, M2, *VarR, 1., *itVar1->second, -1., *VarB, M2 );
   }
   if( pVar2->cst() ){
-    _add_cut( VarR->_var.ops().first, PolCut<T>::GE, pVar2->num().val(), *VarR, 1. );
-    _add_cut( VarR->_var.ops().first, PolCut<T>::LE, pVar2->num().val(), *VarR, 1., *VarB, -M1 );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::GE, pVar2->num().val(), *VarR, 1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::LE, pVar2->num().val(), *VarR, 1., *VarB, -M1 );
   }
   else{
-    _add_cut( VarR->_var.ops().first, PolCut<T>::GE, 0., *VarR, 1., *itVar2->second, -1. );
-    _add_cut( VarR->_var.ops().first, PolCut<T>::LE, 0., *VarR, 1., *itVar2->second, -1., *VarB,  -M1 );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::GE, 0., *VarR, 1., *itVar2->second, -1. );
+    _add_cut( VarR->_var.opdef().first, PolCut<T>::LE, 0., *VarR, 1., *itVar2->second, -1., *VarB,  -M1 );
   }
 }
 

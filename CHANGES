@@ -1,3 +1,10 @@
+Change in MC++ 2.3 [from MC++ 2.2]
+- Move semantic enabled in DAG and several set arithmetics
+- Support of external operations in DAG
+- Expression lifting and elimination in DAG
+- Expression creator from DAG, e.g. for expert to GAMS models
+- Improved interval superposition arithmetic
+
 Change in MC++ 2.2 [from MC++ 2.1]
 - Support of Boost interval library (in addition to PROFIL/BIAIS and Filib++)
 - Processing of sparse expressions in DAG

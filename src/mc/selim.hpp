@@ -10,22 +10,20 @@
 
 The classes mc::SElimEnv and mc::SElimVar defined in <tt>selim.hpp</tt> enable the elimination of a subset of variables from factorable expressions through expoiting solvable (invertible) equality constraints. 
 
-Given a set of equality constraints \f${\bf f}({\bf x}) = {\bf 0}\f$ with \f${\bf f}:\mathbb{R}^n\to\mathbb{R}^m\f$ and \f$n\geq m\f$, we seek to partition the variable set into \f${\bf x} =: [{\bf x}_{\rm indep},{\bf x}_{\rm dep}]\f$, where \f${\bf x}_{\rm indep}\in\mathbb{R}^{n_{\rm indep}}\f$ and \f${\bf x}_{\rm dep}\in\mathbb{R}^{n_{\rm dep}}\f$ are the independent and dependent decisions, respectively; and to construct an explicit mapping \f${\bf g}:\mathbb{R}^n\to\mathbb{R}^m\f$ such that \f${\bf x}_{\rm dep} = {\bf g}({\bf x}_{\rm indep})\f$.
+Given a set of equality constraints \f${\bf f}({\bf x}) = {\bf 0}\f$, we week a partition of the variable set \f${\bf x} =: [{\bf x},  = {\bf 0}\f$
+The elimination proceeds in 3 steps:
+-# Identify which equality constraints can be inverted analytically for which variables.
 
-This elimination proceeds in 3 steps:
--# Identify which equality constraints can be inverted analytically in terms of which variables.
-
--# Determine which variables to eliminate using which equality constraints, e.g. to maximize the number of eliminated variables, based on: (i) a mixed-integer programming (MIP) formulation; or (ii) a greedy heuristic inspired by the method of <A href="https://doi.org/10.1016/0098-1354(79)80057-5">Hernandez & Sargent (1979)</A> to reorder the equations then select the variables through reordering the incidence matrix to bordered lower-triangular form.
+-# Determine which variables to eliminate using which equality constraints in order to maximize the number of eliminated variables, based on: (i) a mixed-integer programming (MIP) formulation; or (ii) a greedy heuristic inspired by the method of Hernandez & Sargent (1979) to reorder the equations then select the variables through reordering the incidence matrix to bordered lower-triangular form.
 
 -# Construct expressions for the eliminated variables, so they can be eliminated through composition.
 .
 
 \section sec_SElim_process How do I eliminate variables using factorable equality constraints?
 
-For illustration, consider the following pair of nonlinear equality constraints in three variables \f$x_0,x_1,x_2\f$:
+For illustration, consider the factorable function \f${\bf f}:\mathbb{R}^2\to\mathbb{R}^2\f$ defined by
 \f{align*}
-  0 &= \frac{3x_0(x_2)^2}{x_1} - 2x_0x_1 - x_0 - 1\\
-  0 &= \frac{2}{x_1} + \frac{3}{x_2} - 1
+  {\bf f}(x_0,x_1) = \left(\begin{array}{c} \left(x_0+\frac{1}{x_1^2}\right)^3\\ \exp\left(2\cdot x_1^2-1\right)\end{array}\right)
 \f}
 
 The lifting requires the header file <tt>selim.hpp</tt> to be included:
@@ -34,16 +32,16 @@ The lifting requires the header file <tt>selim.hpp</tt> to be included:
       #include "selim.hpp"
 \endcode
 
-A DAG of the factorable function defining the equality constraints is first created:
+A DAG of the factorable function is first created:
 
 \code
       mc::FFGraph DAG;
-      const unsigned NX = 3, NF = 2;
+      const unsigned NX = 2, NF = 2;
       mc::FFVar X[NX];
       for( unsigned i(0); i<NX; i++ ) X[i].set( &DAG );
       mc::FFVar F[NF];
-      F[0] = ( 3. * X[0] * sqr( X[2] ) ) / X[1] - 2. * X[0] * X[1] - X[0] - 1;
-      F[1] = 2./X[1] + 3./X[2] - 1.;
+      F[0] = pow( X[0] + 1 / sqr( X[1] ), 3 );
+      F[1] = exp( 2 * sqr( X[1] ) - 1 );
       std::cout << DAG;
 \endcode
 
@@ -51,27 +49,21 @@ The last line displays the following information about the DAG:
 
 \verbatim
     DAG VARIABLES:
-      V0	 => { Z1 Z5 Z9 }
-      V1	 => { Z2 Z7 Z13 }
-      V2	 => { Z3 Z12 }
+      X0     => { Z3 }
+      X1     => { Z0 }
 
     DAG INTERMEDIATES:
-      Z1	<=  V0 x Z0		 => { Z2 }
-      Z2	<=  V1 x Z1		 => { Z8 }
-      Z3	<=  SQR( V2 )		 => { Z6 }
-      Z5	<=  V0 x Z4		 => { Z6 }
-      Z6	<=  Z3 x Z5		 => { Z7 }
-      Z7	<=  Z6 / V1		 => { Z8 }
-      Z8	<=  Z7 - Z2		 => { Z9 }
-      Z9	<=  Z8 - V0		 => { Z11 }
-      Z11	<=  Z9 + Z10		 => { }
-      Z12	<=  Z4 / V2		 => { Z14 }
-      Z13	<=  Z0 / V1		 => { Z14 }
-      Z14	<=  Z12 + Z13		 => { Z15 }
-      Z15	<=  Z14 + Z10		 => { }
-      Z10	<=  -1(I)		 => { Z11 Z15 }
-      Z0	<=  2(I)		 => { Z1 Z13 }
-      Z4	<=  3(I)		 => { Z5 Z12 }
+      Z0    <=  SQR( X1 )       => { Z2 Z7 }
+      Z2    <=  Z1 / Z0         => { Z3 }
+      Z3    <=  X0 + Z2         => { Z5 }
+      Z5    <=  POW( Z3, Z4 )   => { }
+      Z7    <=  Z0 x Z6         => { Z9 }
+      Z9    <=  Z7 + Z8         => { Z10 }
+      Z10   <=  EXP( Z9 )       => { }
+      Z4    <=  3(I)            => { Z5 }
+      Z8    <=  -1(D)           => { Z9 }
+      Z1    <=  1(D)            => { Z2 }
+      Z6    <=  2(D)            => { Z7 }
 \endverbatim
 
 Next, an environment <a>mc::SElimEnv</a> is defined for lifting the factorable expressions in <a>DAG</a>. The method <a>mc::SElimEnv::process</a> decomposes the factorable expressions recursively into sparse polynomial and transcendental subexpressions:
@@ -79,63 +71,90 @@ Next, an environment <a>mc::SElimEnv</a> is defined for lifting the factorable e
 \code
       mc::SElimEnv<mc::FFGraph<>> SPE( &DAG );
       SPE.process( NF, F );
-      std::cout << SPE;
+\endcode
+
+The resulting participating variables in the processed expressions, the lifted variables, and the resulting subexpressions can be retreived and displayed as follows:
+
+\code
+      std::cout << std::endl << SPE.Var().size() << " participating variables: ";
+      for( auto&& var : SPE.Var() ) std::cout << var << " ";
+      std::cout << std::endl;
+      std::cout << std::endl << SPE.Aux().size() << " auxiliary variables: ";
+      for( auto&& aux : SPE.Aux() ) std::cout << *aux.first << "->" << *aux.second << " ";
+      std::cout << std::endl;
+      std::cout << std::endl << SPE.Poly().size() << " polynomial constraints: " << std::endl;
+      for( auto&& expr : SPE.Poly() ) DAG.output( DAG.subgraph( 1, &expr ) );
+      std::cout << std::endl;
+      std::cout << std::endl << SPE.Trans().size() << " transcendental constraints: " << std::endl;
+      for( auto&& expr : SPE.Trans() ) DAG.output( DAG.subgraph( 1, &expr ) );
 \endcode
 
 The following information is displayed in this instance:
 
 \verbatim
-    2 VARIABLES MAY BE ELIMINATED
+    7 participating variables: X0 X1 X2 X3 X4 X5 X6
 
-    OPERATIONS IN SUBGRAPH OF V2 USING Z15=0:
-      Z4	<<  3(I)	
-      Z0	<<  2(I)	
-      V1	<<  VARIABLE
-      Z13	<<  Z0 / V1	
-      Z16	<<  - Z13	
-      Z17	<<  1(I)	
-      Z18	<<  Z16 + Z17	
-      Z19	<<  Z4 / Z18	
-    DEPENDENTS IN SUBGRAPH OF V2 USING Z15=0:
-      0:  Z19
-    WORK ARRAY SIZE: 8
+    5 auxiliary variables: Z0->X2 Z2->X3 Z5->X6 Z9->X4 Z10->X5
 
-    OPERATIONS IN SUBGRAPH OF V0 USING Z11=0:
-      Z17	<<  1(I)	
-      V2	<<  VARIABLE
-      Z3	<<  SQR( V2 )	
-      Z4	<<  3(I)	
-      Z20	<<  Z3 x Z4	
-      V1	<-  VARIABLE
-      Z21	<<  Z20 / V1	
-      Z10	<<  -1(I)	
-      Z22	<<  Z21 + Z10	
-      Z23	<<  -2(I)	
-      Z24	<<  V1 x Z23	
-      Z25	<<  Z22 + Z24	
-      Z26	<<  Z17 / Z25	
-    DEPENDENTS IN SUBGRAPH OF V0 USING Z11=0:
-      0:  Z26
-    WORK ARRAY SIZE: 13
+    4 polynomial constraints: 
+
+    FACTORS IN SUBGRAPH:
+      X2    <=  VARIABLE
+      X1    <=  VARIABLE
+      Z0    <=  SQR( X1 )	
+      Z11   <=  X2 - Z0	
+
+    FACTORS IN SUBGRAPH:
+      X2    <=  VARIABLE
+      X3    <=  VARIABLE
+      Z12   <=  X2 x X3	
+      Z8    <=  -1(D)	
+      Z13   <=  Z12 + Z8	
+
+    FACTORS IN SUBGRAPH:
+      X4    <=  VARIABLE
+      X1    <=  VARIABLE
+      Z0    <=  SQR( X1 )	
+      Z6    <=  2(D)	
+      Z7    <=  Z0 x Z6	
+      Z8    <=  -1(D)	
+      Z9    <=  Z7 + Z8	
+      Z14   <=  X4 - Z9	
+
+    FACTORS IN SUBGRAPH:
+      X6    <=  VARIABLE
+      X0    <=  VARIABLE
+      Z17   <=  3(D)	
+      Z18   <=  X0 x Z17	
+      X3    <=  VARIABLE
+      Z19   <=  SQR( X3 )	
+      Z20   <=  Z18 x Z19	
+      Z21   <=  SQR( X0 )	
+      Z22   <=  Z21 x Z17	
+      Z23   <=  X3 x Z22	
+      Z24   <=  Z20 + Z23	
+      Z4    <=  3(I)	
+      Z25   <=  POW( X0, Z4 )
+      Z26   <=  Z24 + Z25	
+      Z27   <=  POW( X3, Z4 )
+      Z28   <=  Z26 + Z27	
+      Z29   <=  X6 - Z28	
+
+    1 transcendental constraints: 
+
+    FACTORS IN SUBGRAPH:
+      X5	<=  VARIABLE
+      X4	<=  VARIABLE
+      Z15	<=  EXP( X4 )	
+      Z16	<=  X5 - Z15	
+
 \endverbatim
 
-These results show that both variables \f$x_0\f$ and \f$x_2\f$ can be eliminated through inverting both equality constraints.
-- The expression of variable \f$x_2\f$ in terms of \f$x_1\f$ is given by:
+These results show that 5 auxiliary variables have been added to the DAG, \f$x_2,\ldots,x_6\f$. These variables can be determined from the following implicit equations in terms of the original variables \f$x_0,x_1\f$:
 \f{align*}
-  x_2 &= \frac{3}{\displaystyle 1-\frac{2}{x_1}}
+  \left\{\begin{array}{rcl} 0 & = & x_2 - x_1^2\\ 0 & = & x_2\cdot x_3 - 1\\ 0 & = & 2\cdot x_1^2 - x_4 - 1\\ 0 & = & \exp(x_4) - x_5 \\ 0 & = & x_0^3 + 3\cdot x_0^2\cdot x_3 + 3\cdot x_0\cdot x_3^2 + x_3^3 - x_6  \end{array}\right.
 \f}
-- The expression of variable \f$x_0\f$ in terms of \f$x_1\f$ and \f$x_2\f$---where \f$x_2\f$ could be eliminated recursively in terms of \f$x_1\f$ using the previous expression---is given by:
-\f{align*}
-  x_0 &= \frac{1}{\displaystyle 3\frac{(x_2)^2}{x_1} - 2x_1 - 1}
-\f}
-.
-
-The method mc::SElimEnv::VarElim allows retreiving a 3-tuple of vectors of (i) the eliminated variables, (ii) the original constraint used for the elimination, and (iii) the inverted constraint expression, with entries in a feasible order of elimination (lower-triangular form). 
-
-
-\section sec_SELIM_refs References
-
-- Hernandez, R., Sargent, R. W. H., <A href="https://doi.org/10.1016/0098-1354(79)80057-5">A new algorithm for process flowsheeting</A>, <I>Computers & Chemical Engineering</I>, <b>3</b>(1-4):363-371, 2015
+Finally, the original vector-valued function \f${\bf f}(x_0,x_1)\f$ is equal to \f$(x_6,x_5)^{\sf T}\f$.
 */
 
 // TO DO:
@@ -169,32 +188,32 @@ namespace mc
 //! elimination from factorable expressions through expoiting solvable
 //! equality constraints
 ////////////////////////////////////////////////////////////////////////
-template < typename DAG >
+template <typename... ExtOps>
 class SElimEnv:
-  protected virtual SLiftEnv<DAG>
+  protected virtual SLiftEnv<ExtOps...>
 ////////////////////////////////////////////////////////////////////////
 {
-  using SLiftEnv<DAG>::_dag;
-  using SLiftEnv<DAG>::_Interm;
-  using SLiftEnv<DAG>::_SPDep;
+  using SLiftEnv<ExtOps...>::_dag;
+  using SLiftEnv<ExtOps...>::_Interm;
+  using SLiftEnv<ExtOps...>::_SPDep;
 
-  using SLiftEnv<DAG>::dag;
-  using SLiftEnv<DAG>::insert_dag;
+  using SLiftEnv<ExtOps...>::dag;
+  using SLiftEnv<ExtOps...>::insert_dag;
 
-  template <typename D> friend std::ostream& operator<<
-    ( std::ostream&, const SElimEnv<D>& );
+  template <typename... Ops> friend std::ostream& operator<<
+    ( std::ostream&, const SElimEnv<Ops...>& );
 
 public:
 
   typedef std::tuple< std::vector<FFVar>, std::vector<FFVar>, std::vector<FFVar> > t_VarElim;
-  typedef SLiftEnv<DAG> t_lift;
-  typedef typename SLiftVar<DAG>::t_poly t_poly;
+  typedef SLiftEnv<ExtOps...> t_lift;
+  typedef typename SLiftVar::t_poly t_poly;
   typedef typename t_poly::t_mon t_mon;
 
   //! @brief Default Constructor
   SElimEnv
-    ( DAG* dag=nullptr )
-    : SLiftEnv<DAG>(dag)
+    ( FFGraph<ExtOps...>* dag=nullptr )
+    : SLiftEnv<ExtOps...>(dag)
     {
 #if defined(MC__USE_GUROBI)
       _GRBenv   = new GRBEnv();
@@ -220,14 +239,14 @@ public:
 
   //! @brief Set DAG environment
   void set
-    (  DAG* dag )
-    { SLiftEnv<DAG>::set( dag );
+    (  FFGraph<ExtOps...>* dag )
+    { SLiftEnv<ExtOps...>::set( dag );
       _reset(); }
 
   //! @brief Reset intermediate expressions
   void reset
     ()
-    { SLiftEnv<DAG>::_reset();
+    { SLiftEnv<ExtOps...>::_reset();
       _reset(); }
 
   //! @brief Process the <a>ndxCtr</a> equality constraints in array <a>pDep</a> 
@@ -281,14 +300,14 @@ public:
       LPFEASTOL(1e-7), LPOPTIMTOL(1e-7),
       MIPRELGAP(1e-3), MIPABSGAP(1e-3), MIPTHREADS(0),
       MIPCONCURRENT(1), MIPFOCUS(0), MIPHEURISTICS(0.2),
-      MIPNUMFOCUS(0), MIPDISPLEVEL(0), MIPOUTPUTFILE(""),
+      MIPNUMFOCUS(0), MIPDISPLEVEL(1), MIPOUTPUTFILE(""),
       MIPTIMELIMIT(600),
 #endif
       MULTMAX(0), ELIMLIN(true), ELIMMLIN(true),
       ELIMNLIN( {FFInv::Options::INV,FFInv::Options::SQRT,FFInv::Options::EXP,
                   FFInv::Options::LOG,FFInv::Options::RPOW} )
       {}
-    //! @brief Assignment of mc::SElimEnv<DAG>::Options
+    //! @brief Assignment of mc::SElimEnv<ExtOps...>::Options
     Options& operator=
       ( Options& opt ){
 #if defined(MC__USE_GUROBI)
@@ -453,8 +472,8 @@ protected:
       int const order );
 
   //! @brief Insert an auxiliary variable corresponding to inverse operation into DAG
-  std::pair< FFVar const*, SLiftVar<DAG> const* > _insert_expr
-    ( long const ndxVarEl, FFVar& var, std::vector<SLiftVar<DAG> const*> const& SPVar,
+  std::pair< FFVar const*, SLiftVar const* > _insert_expr
+    ( long const ndxVarEl, FFVar& var, std::vector<SLiftVar const*> const& SPVar,
       FFOp const* pOp, t_poly const& polyindep, t_poly const& polydep, bool const useprod,
       int const order );
 
@@ -471,18 +490,18 @@ protected:
     ();
 };
 
-template <typename DAG>
-inline typename SElimEnv<DAG>::Options SElimEnv<DAG>::options;
+template <typename... ExtOps>
+inline typename SElimEnv<ExtOps...>::Options SElimEnv<ExtOps...>::options;
 
 #if defined(MC__USE_GUROBI)
-template <typename DAG>
-inline int const SElimEnv<DAG>::Options::LPALGO_DEFAULT;
+template <typename... ExtOps>
+inline int const SElimEnv<ExtOps...>::Options::LPALGO_DEFAULT;
 #endif
 
-template < typename DAG >
+template <typename... ExtOps>
 inline std::ostream&
 operator<<
-( std::ostream& out, SElimEnv<DAG> const& env)
+( std::ostream& out, SElimEnv<ExtOps...> const& env)
 {
   auto const& [vvar,vctr,vaux] = env._VarElim;
   std::cout << std::endl
@@ -504,9 +523,9 @@ operator<<
   return out;
 }
 
-template < typename DAG >
+template <typename... ExtOps>
 inline void
-SElimEnv<DAG>::_reset
+SElimEnv<ExtOps...>::_reset
 ()
 {
   _Var.clear();
@@ -528,9 +547,9 @@ SElimEnv<DAG>::_reset
   std::get<2>( _VarElim ).clear();
 }
 
-template < typename DAG >
+template <typename... ExtOps>
 inline void
-SElimEnv<DAG>::process
+SElimEnv<ExtOps...>::process
 ( std::set<unsigned> const& ndxCtr, FFVar const* pCtr,
   std::map<FFVar const*,double,lt_FFVar> const& wVar,
   bool const add2dag )
@@ -542,9 +561,9 @@ SElimEnv<DAG>::process
   process( ndxCtr.size(), vCtr.data(), wVar, add2dag );
 }
 
-template < typename DAG >
+template <typename... ExtOps>
 inline void
-SElimEnv<DAG>::process
+SElimEnv<ExtOps...>::process
 ( unsigned const nCtr, FFVar const* pCtr,
   std::map<FFVar const*,double,lt_FFVar> const& wVar,
   bool const add2dag )
@@ -555,11 +574,11 @@ SElimEnv<DAG>::process
   // Update participating variables in _Var
   auto sgCtr = _dag->subgraph( nCtr, pCtr );
   unsigned v=0;
-  for( auto const& [Op,mov] : sgCtr.l_op ){
+  for( auto const& Op : sgCtr.l_op ){
     if( Op->type != FFOp::VAR ) continue;
-    _Var.push_back( *Op->pres );
+    _Var.push_back( *Op->varout[0] );
     _IVar.push_back( FFInv().indep( v ) );
-    auto itv = wVar.find( Op->pres ); 
+    auto itv = wVar.find( Op->varout[0] ); 
     _VarWeight[v] = ( itv != wVar.end() ? itv->second : 1. );
     ++v;
   }
@@ -753,12 +772,12 @@ SElimEnv<DAG>::process
 	    if( monvarel.subseteq( mon ) )
               funcdep += insert_dag( mon - monvarel, false, true ) * coef;
 
-	    // Eliminated variable indirectly partipates in monomial
+	    // Eliminated variable indirectly participates in monomial
             else{
               bool found_Op = false;
               for( auto const& [pOp,SPVar] : _Interm ){
-                if( pOp->pres->id().first  != FFVar::AUX ) throw Exceptions( Exceptions::INVERT );
-                if( pOp->pres->id().second != (*itdep)->id().second ) continue;
+                if( pOp->varout[0]->id().first  != FFVar::AUX ) throw Exceptions( Exceptions::INVERT );
+                if( pOp->varout[0]->id().second != (*itdep)->id().second ) continue;
 		//std::cout << "OPERATION: " << *pOp << std::endl;
 		if( pOp->type != FFOp::DIV ) throw Exceptions( Exceptions::INVERT );
                 assert( SPVar.size() == 2 ); // exactly two operands
@@ -777,10 +796,6 @@ SElimEnv<DAG>::process
                   else
                     polyindep -= std::make_pair( mon, coef );
                 }
-#ifdef MC__SELIM_DEBUG_PROCESS
-                std::cout << "Dependent part:" << polydep;
-                std::cout << "Independent part:" << polyindep;
-#endif
                 // Append dependent and independent parts
 		FFVar vardenom = insert_dag( SPVar.at(1)->numer(), false, true );
                 if( !polydep.mapmon().empty() )
@@ -790,6 +805,7 @@ SElimEnv<DAG>::process
 		break;
 	      }
               if( !found_Op ) throw Exceptions( Exceptions::INVERT );
+
 	    }
 	    break;
 	  }
@@ -840,8 +856,8 @@ SElimEnv<DAG>::process
       // Case dependent is not a DAG variable, identify intermediate operation
       bool found_Op = false;
       for( auto const& [pOp,SPVar] : _Interm ){
-        if( pOp->pres->id().first  != FFVar::AUX ) throw Exceptions( Exceptions::INVERT );
-        if( pOp->pres->id().second != pdep->id().second ) continue;
+        if( pOp->varout[0]->id().first  != FFVar::AUX ) throw Exceptions( Exceptions::INVERT );
+        if( pOp->varout[0]->id().second != pdep->id().second ) continue;
         found_Op = true;
         // Create new DAG expression and update inverted expression
         auto pexpr = _insert_expr( ndxVarEl, VarEl, SPVar, pOp, polyindep, polydep, false, orddep );
@@ -857,9 +873,9 @@ SElimEnv<DAG>::process
   }
 }
 
-template < typename DAG >
+template <typename... ExtOps>
 inline std::set< FFVar const*, lt_FFVar >
-SElimEnv<DAG>::_dep_expr
+SElimEnv<ExtOps...>::_dep_expr
 ( long const ndxVarEl, t_poly const& numer, t_poly const& denom )
 {
   // Check denominator is 1
@@ -885,10 +901,10 @@ SElimEnv<DAG>::_dep_expr
   return sdep;
 }
 
-template < typename DAG >
-inline std::pair< FFVar const*, SLiftVar<DAG> const* >
-SElimEnv<DAG>::_insert_expr
-( long const ndxVarEl, FFVar& var, std::vector<SLiftVar<DAG> const*> const& SPVar,
+template <typename... ExtOps>
+inline std::pair< FFVar const*, SLiftVar const* >
+SElimEnv<ExtOps...>::_insert_expr
+( long const ndxVarEl, FFVar& var, std::vector<SLiftVar const*> const& SPVar,
   FFOp const* pOp, t_poly const& polyindep, t_poly const& polydep, bool const useprod,
   int const order )
 {
@@ -898,9 +914,9 @@ SElimEnv<DAG>::_insert_expr
   // Insert inverse operation in DAG
   switch( pOp->type ){
    case FFOp::IPOW:  _insert_expr( var, polyindep, polydep, useprod, order );
-                     var = pow( var, 1./(double)pOp->pops.at(1)->num().n ); break;
+                     var = pow( var, 1./(double)pOp->varin.at(1)->num().n ); break;
    case FFOp::DPOW:  _insert_expr( var, polyindep, polydep, useprod, order );
-                     var = pow( var, 1./pOp->pops.at(1)->num().val() );     break;
+                     var = pow( var, 1./pOp->varin.at(1)->num().val() );     break;
 
    case FFOp::SQR:   _insert_expr( var, polyindep, polydep, useprod, order );
                      var = sqrt( var ); break;
@@ -923,8 +939,8 @@ SElimEnv<DAG>::_insert_expr
    case FFOp::ATAN:  _insert_expr( var, polyindep, polydep, useprod, order );
                      var = tan( var );  break;
 
-   case FFOp::INV:   assert( pOp->pops.at(0)->cst() );
-                     _insert_expr( var, polyindep, polydep*pOp->pops.at(0)->num().val(), useprod, -order );
+   case FFOp::INV:   assert( pOp->varin.at(0)->cst() );
+                     _insert_expr( var, polyindep, polydep*pOp->varin.at(0)->num().val(), useprod, -order );
                      ndxsp = 1;
                      break;
 		     
@@ -935,13 +951,13 @@ SElimEnv<DAG>::_insert_expr
                      // numerator depends on variable ndxVarEl
                      if( ndep1 ){
                        _insert_expr( var, polyindep, polydep, useprod, order );
-		       var *= *pOp->pops.at(1);
+		       var *= *pOp->varin.at(1);
                        ndxsp = 0;
 		     }
                      // denominator depends on variable ndxVarEl
                      else{
                        _insert_expr( var, polyindep, polydep, useprod, -order );
-		       var *= *pOp->pops.at(0);
+		       var *= *pOp->varin.at(0);
                        ndxsp = 1;
 		     }
                      break;
@@ -974,9 +990,9 @@ SElimEnv<DAG>::_insert_expr
   return std::make_pair( _ptr_expr( var ), SPVar.at( ndxsp ) );
 }
 
-template < typename DAG >
+template <typename... ExtOps>
 inline FFVar const*
-SElimEnv<DAG>::_insert_expr
+SElimEnv<ExtOps...>::_insert_expr
 ( FFVar& var, t_poly const& polyindep, t_poly const& polydep, bool const useprod,
   int const order )
 {
@@ -1050,9 +1066,9 @@ SElimEnv<DAG>::_insert_expr
   return _ptr_expr( var );
 }
 
-template < typename DAG >
+template <typename... ExtOps>
 inline FFVar const*
-SElimEnv<DAG>::_ptr_expr
+SElimEnv<ExtOps...>::_ptr_expr
 ( FFVar& var )
 {
   // Return pointer to internal DAG variable
@@ -1072,9 +1088,9 @@ SElimEnv<DAG>::_ptr_expr
 }
 
 #if defined(MC__USE_GUROBI)
-template <typename DAG>
+template <typename... ExtOps>
 inline void
-SElimEnv<DAG>::_MIP_optimize
+SElimEnv<ExtOps...>::_MIP_optimize
 ()
 {
   _MIPexcpt = false;
@@ -1097,9 +1113,9 @@ SElimEnv<DAG>::_MIP_optimize
   }
 }
 
-template <typename DAG>
+template <typename... ExtOps>
 inline void
-SElimEnv<DAG>::_MIP_solve
+SElimEnv<ExtOps...>::_MIP_solve
 ()
 {
   _GRBmodel->update();
@@ -1110,9 +1126,9 @@ SElimEnv<DAG>::_MIP_solve
   _GRBmodel->optimize();
 }
 
-template <typename DAG>
+template <typename... ExtOps>
 inline void
-SElimEnv<DAG>::_MIP_encode
+SElimEnv<ExtOps...>::_MIP_encode
 ()
 {
   // Define Gurobi continuous and binary variables  
@@ -1186,9 +1202,9 @@ SElimEnv<DAG>::_MIP_encode
   }
 }
 
-template <typename DAG>
+template <typename... ExtOps>
 inline void
-SElimEnv<DAG>::_MIP_decode
+SElimEnv<ExtOps...>::_MIP_decode
 ()
 {
   // Get order of variable elimination
@@ -1237,9 +1253,9 @@ SElimEnv<DAG>::_MIP_decode
   }
 }
 
-template < typename DAG >
+template <typename... ExtOps>
 inline void
-SElimEnv<DAG>::_MIP_options
+SElimEnv<ExtOps...>::_MIP_options
 ()
 {
   _GRBmodel->getEnv().set( GRB_IntParam_OutputFlag,        options.MIPDISPLEVEL );
@@ -1257,9 +1273,9 @@ SElimEnv<DAG>::_MIP_options
   _GRBmodel->getEnv().set( GRB_DoubleParam_TimeLimit,      options.MIPTIMELIMIT );
 }
 
-template < typename DAG >
+template <typename... ExtOps>
 inline void
-SElimEnv<DAG>::_MIP_reset
+SElimEnv<ExtOps...>::_MIP_reset
 ()
 {
   _MIP_var.clear();
