@@ -41,6 +41,11 @@ typedef mc::CVar<I> CV;
 typedef mc::SCModel<I> SCM;
 typedef mc::SCVar<I> SCV;
 
+#include "polimage.hpp"
+typedef mc::PolVar<I> POLV;
+
+
+
 ///////////////////////////////////////////////////////////////////////////////
 namespace mc
 {
@@ -217,7 +222,7 @@ public:
     }
 
   // Evaluation overloads
-  template< typename T >
+  template <typename T>
   void eval
     ( unsigned const nRes, T* vRes, unsigned const nVar, T const* vVar, unsigned const* mVar )
     const
@@ -226,7 +231,7 @@ public:
       std::cout << "xlog generic instantiation\n"; 
       vRes[0] = vVar[0] * Op<T>::log( vVar[0] );
     }
-  template< typename T >
+  template <typename T>
   void eval
     ( unsigned const nRes, McCormick<T>* vRes, unsigned const nVar, McCormick<T> const* vVar,
       unsigned const* mVar )
@@ -256,6 +261,42 @@ public:
     {
       assert( nVar == 1 && nRes == 1 );
       vRes[0] = operator()( vVar[0] );
+    }
+  template <typename T>
+  void eval
+    ( unsigned const nRes, PolVar<T>* vRes, unsigned const nVar, PolVar<T> const* vVar,
+      unsigned const* mVar )
+    const
+    {
+      assert( nVar == 1 && nRes == 1 );
+      std::cout << "xlog Polyhedral image instantiation\n"; 
+      PolBase<T>* img = vVar[0].image();
+      FFBase* dag = vVar[0].var().dag();
+      assert( img && dag );
+      FFVar* pRes = dag->curOp()->varout[0];
+      T TRes = Op<I>::xlog( vVar[0].range() );
+      vRes[0].set( img, *pRes, TRes );
+      // vRes[0] = xlog( vVar[0] );
+    }
+  template <typename T>
+  void reval
+    ( unsigned const nRes, PolVar<T> const* vRes, unsigned const nVar, PolVar<T>* vVar )
+    const
+    {
+      assert( nVar == 1 && nRes == 1 );
+      std::cout << "xlog Polyhedral image generation\n"; 
+      PolBase<T>* img = vVar[0].image();
+      FFBase* dag = vVar[0].var().dag();
+      FFOp* pop = vVar[0].var().opdef().first;
+      assert( img && dag && pop );
+      struct loc{ static std::pair<double,double> xlog
+        ( const double x, const double*rusr, const int*iusr )
+        { return std::make_pair( mc::xlog(x), std::log(x)+1. ); }
+      };
+      img->add_semilinear_cuts( pop, vVar[0], Op<T>::l(vVar[0].range()), Op<T>::u(vVar[0].range()),
+        vRes[0], PolCut<T>::LE, loc::xlog );
+      img->add_sandwich_cuts( pop, vVar[0], Op<T>::l(vVar[0].range()), Op<T>::u(vVar[0].range()),
+        vRes[0], Op<T>::l(vRes[0].range()), Op<T>::u(vRes[0].range()), PolCut<T>::GE, loc::xlog );
     }
 
   // Properties
@@ -300,8 +341,7 @@ public:
       std::cout << "Det generic instantiation\n"; 
       const unsigned nDim = std::sqrt(nVar);
       switch( nDim ){
-        case 0:  vRes[0] = T( 0. ); break;
-        case 1:  vRes[0] = vVar[0]; break;
+        case 0:  vRes[0] = T( 0. ); break;        case 1:  vRes[0] = vVar[0]; break;
         default: vRes[0] = FFBase::det( nDim, vVar ); break;
       }
     }
@@ -524,7 +564,8 @@ int test_external4()
 
   mc::FFVar F = myxlog(X);
   std::cout << DAG;
-  DAG.output( DAG.subgraph( 1, &F ), " F" );
+  auto F_op  = DAG.subgraph( 1, &F );
+  DAG.output( F_op, " F" );
 
   // Forward AD
   const mc::FFVar* dFdX = DAG.FAD( 1, &F, 1, &X );
@@ -532,6 +573,34 @@ int test_external4()
   DAG.output( DAG.subgraph( 1, dFdX ), " dFdX" );
 
   delete[] dFdX;
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+int test_external5()
+{
+  std::cout << "\n==============================================\ntest_external4:\n";
+
+  mc::FFGraph< mc::FFxlog > DAG;
+  mc::FFVar X;
+  X.set( &DAG );
+  mc::FFxlog myxlog;
+
+  mc::FFVar F = myxlog(X);
+  std::cout << DAG;
+  auto F_op  = DAG.subgraph( 1, &F );
+  DAG.output( F_op, " F" );
+
+  // Polyhedral relaxation
+  mc::PolImg< I, mc::FFxlog > IMG;
+  I IX = { I(1,5) };
+  POLV PX( &IMG, X, IX ), PF;
+  std::vector<POLV> polwk;
+  DAG.eval( F_op, polwk, 1, &F, &PF, 1, &X, &PX );
+  IMG.generate_cuts( 1, &PF );
+  std::cout << "F =" << IMG << std::endl;
+
   return 0;
 }
 
@@ -569,6 +638,7 @@ int main()
     test_external2();
     test_external3();
     test_external4();
+    test_external5();
     test_slift_external0();
   }
   catch( mc::FFBase::Exceptions &eObj ){
@@ -604,6 +674,13 @@ int main()
   catch( CM::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
               << " in dense Chebyshev model arithmetic:" << std::endl
+              << eObj.what() << std::endl
+              << "Aborts." << std::endl;
+    return eObj.ierr();
+  }
+  catch( mc::PolBase<I>::Exceptions &eObj ){
+    std::cerr << "Error " << eObj.ierr()
+              << " in polyhedral image arithmetic:" << std::endl
               << eObj.what() << std::endl
               << "Aborts." << std::endl;
     return eObj.ierr();

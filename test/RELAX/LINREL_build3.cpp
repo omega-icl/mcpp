@@ -1,13 +1,9 @@
-#undef USE_SCMODEL
 #include <iomanip>
+
 #include "polimage.hpp"
 #include "interval.hpp"
+
 typedef mc::Interval I;
-#ifdef USE_SCMODEL
-  #include "scmodel.hpp"
-  typedef mc::SCModel<I> SCM;
-  typedef mc::SCVar<I> SCV;
-#endif
 
 int main()
 {
@@ -26,8 +22,8 @@ int main()
   mc::PolVar<I> POLF[NF]; 
   std::vector<mc::PolVar<I>> POLWKF1;
 
-  Env.options.AGGREG_LQ = true;
-  Env.options.RELAX_QUAD = true;
+  Env.options.AGGREG_LQ       = 1;
+  Env.options.ALLOW_QUAD      = 0;
   Env.options.SANDWICH_MAXCUT = 5;
 
   DAG.eval( SGF1, POLWKF1, 1, F+1, POLF+1, NX, X, POLX );

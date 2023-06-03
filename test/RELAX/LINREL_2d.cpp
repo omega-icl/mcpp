@@ -1,7 +1,7 @@
-#define TEST_POLY	    // <-- select test function here
-const int NX = 20;	    // <-- select discretization here
+#define TEST_DISJ	    // <-- select test function here
+const int NX = 40;	    // <-- select discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
-#undef  ADD_BREAKPOINT  // <-- specify whether to add breakpoints to the variables
+#define  ADD_BREAKPOINT  // <-- specify whether to add breakpoints to the variables
 const int NDIV = 5;     // <-- select number of breakpoints
 #undef  USE_MIP         // <-- specify whether to use piecewise-linear cuts
 
@@ -220,6 +220,18 @@ T myfunc
   return max( (unsigned)3, f );
 }
 
+#elif defined( TEST_DISJ )
+const double X0L   = -2.; // <-- range lower bound
+const double X0U   =  1.; // <-- range upper bound
+const double X1L   = -1.; // <-- range lower bound
+const double X1U   =  2.; // <-- range upper bound
+template< class T >
+T myfunc
+( const T*x )
+{
+  return mc::Op<T>::max( x[0], x[1] ) + mc::Op<T>::min( 2*x[0], x[1] ) + fstep( x[0] - x[1] );
+}
+
 #endif
 
 ////////////////////////////////////////////////////////////////////////
@@ -283,43 +295,43 @@ int main()
   res << std::scientific << std::setprecision(5) << std::right;
 #endif
 
-    I IX[2] = { I(X0L,X0U), I(X1L,X1U) };
+  I IX[2] = { I(X0L,X0U), I(X1L,X1U) };
 
-    mc::FFGraph DAG;
-    mc::FFVar X[2]; X[0].set( &DAG ); X[1].set( &DAG );
+  mc::FFGraph DAG;
+  mc::FFVar X[2]; X[0].set( &DAG ); X[1].set( &DAG );
 
-    mc::FFVar F = myfunc( X );
-    std::cout << DAG;
+  mc::FFVar F = myfunc( X );
+  std::cout << DAG;
 
-    mc::PolImg<I> PolEnv;
-    PolEnv.options.AGGREG_LQ = true;
-#ifndef USE_MIP
-    PolEnv.options.RELAX_DISC = 1;
+  mc::PolImg<I> PolEnv;
+  PolEnv.options.AGGREG_LQ  = 1;
+#ifdef USE_MIP
+  PolEnv.options.ALLOW_DISJ = { mc::FFOp::FSTEP, mc::FFOp::MAXF, mc::FFOp::MINF, mc::FFOp::FABS };
 #else
-    PolEnv.options.RELAX_DISC = 2;
+  PolEnv.options.ALLOW_DISJ = {};
 #endif
-    PolEnv.options.SANDWICH_MAXCUT = 2;//6;
-    mc::PolVar<I> X_Pol[2], F_Pol;
-    X_Pol[0].set( &PolEnv, X[0], IX[0] );
-    X_Pol[1].set( &PolEnv, X[1], IX[1] );
+  PolEnv.options.SANDWICH_MAXCUT = 6;
+  mc::PolVar<I> X_Pol[2], F_Pol;
+  X_Pol[0].set( &PolEnv, X[0], IX[0] );
+  X_Pol[1].set( &PolEnv, X[1], IX[1] );
 
 #ifndef ADD_BREAKPOINT
-    DAG.eval( 1, &F, &F_Pol, 2, X, X_Pol );
+  DAG.eval( 1, &F, &F_Pol, 2, X, X_Pol );
 #else
-    PolEnv.options.BREAKPOINT_TYPE = mc::PolImg<I>::Options::BIN;
-    DAG.eval( 1, &F, &F_Pol, 2, X, X_Pol );
-    // Add breakpoints to all variables in DAG
-    for( auto&& var : PolEnv.Vars() ){
-      for( unsigned i=0; i<NDIV; i++ ){
-        double pt = mc::Op<I>::l(var.second->range())
-                  + mc::Op<I>::diam(var.second->range())*(i+1.)/(NDIV+1.);
-        var.second->add_breakpt( pt );
-      }
+  PolEnv.options.BREAKPOINT_TYPE = mc::PolImg<I>::Options::BIN;
+  DAG.eval( 1, &F, &F_Pol, 2, X, X_Pol );
+  // Add breakpoints to all variables in DAG
+  for( auto&& var : PolEnv.Vars() ){
+    for( unsigned i=0; i<NDIV; i++ ){
+      double pt = mc::Op<I>::l(var.second->range())
+                + mc::Op<I>::diam(var.second->range())*(i+1.)/(NDIV+1.);
+      var.second->add_breakpt( pt );
     }
+  }
 #endif
 
-    PolEnv.generate_cuts( 1, &F_Pol, true );
-    std::cout << PolEnv;
+  PolEnv.generate_cuts( 1, &F_Pol, true );
+  std::cout << PolEnv;
 
 #if defined( MC__USE_GUROBI )
   try{ 

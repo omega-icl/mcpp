@@ -383,10 +383,10 @@ int main()
 
   mc::PolImg<I> PolEnv;
   PolEnv.options.AGGREG_LQ = true;
-#ifndef USE_MIPRELAX
-  PolEnv.options.RELAX_DISC = 1;
+#ifdef USE_MIP
+  PolEnv.options.ALLOW_DISJ = { mc::FFOp::FSTEP, mc::FFOp::MAXF, mc::FFOp::MINF, mc::FFOp::FABS };
 #else
-  PolEnv.options.RELAX_DISC = 2;
+  PolEnv.options.ALLOW_DISJ = {};
 #endif
   PolEnv.options.SANDWICH_MAXCUT = 6;
   mc::PolVar<I> X_Pol( &PolEnv, X, IX ), F_Pol;

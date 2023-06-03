@@ -1607,7 +1607,6 @@ public:
       case EXTERN:
         return "Error in external operation";
       case UNDEF:
-        return "Feature not yet implemented";
       default:
         return "Undocumented error";
       }
