@@ -10,20 +10,22 @@
 
 The classes mc::SElimEnv and mc::SElimVar defined in <tt>selim.hpp</tt> enable the elimination of a subset of variables from factorable expressions through expoiting solvable (invertible) equality constraints. 
 
-Given a set of equality constraints \f${\bf f}({\bf x}) = {\bf 0}\f$, we week a partition of the variable set \f${\bf x} =: [{\bf x},  = {\bf 0}\f$
-The elimination proceeds in 3 steps:
--# Identify which equality constraints can be inverted analytically for which variables.
+Given a set of equality constraints \f${\bf f}({\bf x}) = {\bf 0}\f$ with \f${\bf f}:\mathbb{R}^n\to\mathbb{R}^m\f$ and \f$n\geq m\f$, we seek to partition the variable set into \f${\bf x} =: [{\bf x}_{\rm indep},{\bf x}_{\rm dep}]\f$, where \f${\bf x}_{\rm indep}\in\mathbb{R}^{n_{\rm indep}}\f$ and \f${\bf x}_{\rm dep}\in\mathbb{R}^{n_{\rm dep}}\f$ are the independent and dependent decisions, respectively; and to construct an explicit mapping \f${\bf g}:\mathbb{R}^n\to\mathbb{R}^m\f$ such that \f${\bf x}_{\rm dep} = {\bf g}({\bf x}_{\rm indep})\f$.
 
--# Determine which variables to eliminate using which equality constraints in order to maximize the number of eliminated variables, based on: (i) a mixed-integer programming (MIP) formulation; or (ii) a greedy heuristic inspired by the method of Hernandez & Sargent (1979) to reorder the equations then select the variables through reordering the incidence matrix to bordered lower-triangular form.
+This elimination proceeds in 3 steps:
+-# Identify which equality constraints can be inverted analytically in terms of which variables.
+
+-# Determine which variables to eliminate using which equality constraints, e.g. to maximize the number of eliminated variables, based on: (i) a mixed-integer programming (MIP) formulation; or (ii) a greedy heuristic inspired by the method of <A href="https://doi.org/10.1016/0098-1354(79)80057-5">Hernandez & Sargent (1979)</A> to reorder the equations then select the variables through reordering the incidence matrix to bordered lower-triangular form.
 
 -# Construct expressions for the eliminated variables, so they can be eliminated through composition.
 .
 
 \section sec_SElim_process How do I eliminate variables using factorable equality constraints?
 
-For illustration, consider the factorable function \f${\bf f}:\mathbb{R}^2\to\mathbb{R}^2\f$ defined by
+For illustration, consider the following pair of nonlinear equality constraints in three variables \f$x_0,x_1,x_2\f$:
 \f{align*}
-  {\bf f}(x_0,x_1) = \left(\begin{array}{c} \left(x_0+\frac{1}{x_1^2}\right)^3\\ \exp\left(2\cdot x_1^2-1\right)\end{array}\right)
+  0 &= \frac{3x_0(x_2)^2}{x_1} - 2x_0x_1 - x_0 - 1\\
+  0 &= \frac{2}{x_1} + \frac{3}{x_2} - 1
 \f}
 
 The lifting requires the header file <tt>selim.hpp</tt> to be included:
@@ -32,16 +34,16 @@ The lifting requires the header file <tt>selim.hpp</tt> to be included:
       #include "selim.hpp"
 \endcode
 
-A DAG of the factorable function is first created:
+A DAG of the factorable function defining the equality constraints is first created:
 
 \code
       mc::FFGraph DAG;
-      const unsigned NX = 2, NF = 2;
+      const unsigned NX = 3, NF = 2;
       mc::FFVar X[NX];
       for( unsigned i(0); i<NX; i++ ) X[i].set( &DAG );
       mc::FFVar F[NF];
-      F[0] = pow( X[0] + 1 / sqr( X[1] ), 3 );
-      F[1] = exp( 2 * sqr( X[1] ) - 1 );
+      F[0] = ( 3. * X[0] * sqr( X[2] ) ) / X[1] - 2. * X[0] * X[1] - X[0] - 1;
+      F[1] = 2./X[1] + 3./X[2] - 1.;
       std::cout << DAG;
 \endcode
 
@@ -49,21 +51,27 @@ The last line displays the following information about the DAG:
 
 \verbatim
     DAG VARIABLES:
-      X0     => { Z3 }
-      X1     => { Z0 }
+      V0	 => { Z1 Z5 Z9 }
+      V1	 => { Z2 Z7 Z13 }
+      V2	 => { Z3 Z12 }
 
     DAG INTERMEDIATES:
-      Z0    <=  SQR( X1 )       => { Z2 Z7 }
-      Z2    <=  Z1 / Z0         => { Z3 }
-      Z3    <=  X0 + Z2         => { Z5 }
-      Z5    <=  POW( Z3, Z4 )   => { }
-      Z7    <=  Z0 x Z6         => { Z9 }
-      Z9    <=  Z7 + Z8         => { Z10 }
-      Z10   <=  EXP( Z9 )       => { }
-      Z4    <=  3(I)            => { Z5 }
-      Z8    <=  -1(D)           => { Z9 }
-      Z1    <=  1(D)            => { Z2 }
-      Z6    <=  2(D)            => { Z7 }
+      Z1	<=  V0 x Z0		 => { Z2 }
+      Z2	<=  V1 x Z1		 => { Z8 }
+      Z3	<=  SQR( V2 )		 => { Z6 }
+      Z5	<=  V0 x Z4		 => { Z6 }
+      Z6	<=  Z3 x Z5		 => { Z7 }
+      Z7	<=  Z6 / V1		 => { Z8 }
+      Z8	<=  Z7 - Z2		 => { Z9 }
+      Z9	<=  Z8 - V0		 => { Z11 }
+      Z11	<=  Z9 + Z10		 => { }
+      Z12	<=  Z4 / V2		 => { Z14 }
+      Z13	<=  Z0 / V1		 => { Z14 }
+      Z14	<=  Z12 + Z13		 => { Z15 }
+      Z15	<=  Z14 + Z10		 => { }
+      Z10	<=  -1(I)		 => { Z11 Z15 }
+      Z0	<=  2(I)		 => { Z1 Z13 }
+      Z4	<=  3(I)		 => { Z5 Z12 }
 \endverbatim
 
 Next, an environment <a>mc::SElimEnv</a> is defined for lifting the factorable expressions in <a>DAG</a>. The method <a>mc::SElimEnv::process</a> decomposes the factorable expressions recursively into sparse polynomial and transcendental subexpressions:
@@ -71,90 +79,63 @@ Next, an environment <a>mc::SElimEnv</a> is defined for lifting the factorable e
 \code
       mc::SElimEnv<mc::FFGraph<>> SPE( &DAG );
       SPE.process( NF, F );
-\endcode
-
-The resulting participating variables in the processed expressions, the lifted variables, and the resulting subexpressions can be retreived and displayed as follows:
-
-\code
-      std::cout << std::endl << SPE.Var().size() << " participating variables: ";
-      for( auto&& var : SPE.Var() ) std::cout << var << " ";
-      std::cout << std::endl;
-      std::cout << std::endl << SPE.Aux().size() << " auxiliary variables: ";
-      for( auto&& aux : SPE.Aux() ) std::cout << *aux.first << "->" << *aux.second << " ";
-      std::cout << std::endl;
-      std::cout << std::endl << SPE.Poly().size() << " polynomial constraints: " << std::endl;
-      for( auto&& expr : SPE.Poly() ) DAG.output( DAG.subgraph( 1, &expr ) );
-      std::cout << std::endl;
-      std::cout << std::endl << SPE.Trans().size() << " transcendental constraints: " << std::endl;
-      for( auto&& expr : SPE.Trans() ) DAG.output( DAG.subgraph( 1, &expr ) );
+      std::cout << SPE;
 \endcode
 
 The following information is displayed in this instance:
 
 \verbatim
-    7 participating variables: X0 X1 X2 X3 X4 X5 X6
+    2 VARIABLES MAY BE ELIMINATED
 
-    5 auxiliary variables: Z0->X2 Z2->X3 Z5->X6 Z9->X4 Z10->X5
+    OPERATIONS IN SUBGRAPH OF V2 USING Z15=0:
+      Z4	<<  3(I)	
+      Z0	<<  2(I)	
+      V1	<<  VARIABLE
+      Z13	<<  Z0 / V1	
+      Z16	<<  - Z13	
+      Z17	<<  1(I)	
+      Z18	<<  Z16 + Z17	
+      Z19	<<  Z4 / Z18	
+    DEPENDENTS IN SUBGRAPH OF V2 USING Z15=0:
+      0:  Z19
+    WORK ARRAY SIZE: 8
 
-    4 polynomial constraints: 
-
-    FACTORS IN SUBGRAPH:
-      X2    <=  VARIABLE
-      X1    <=  VARIABLE
-      Z0    <=  SQR( X1 )	
-      Z11   <=  X2 - Z0	
-
-    FACTORS IN SUBGRAPH:
-      X2    <=  VARIABLE
-      X3    <=  VARIABLE
-      Z12   <=  X2 x X3	
-      Z8    <=  -1(D)	
-      Z13   <=  Z12 + Z8	
-
-    FACTORS IN SUBGRAPH:
-      X4    <=  VARIABLE
-      X1    <=  VARIABLE
-      Z0    <=  SQR( X1 )	
-      Z6    <=  2(D)	
-      Z7    <=  Z0 x Z6	
-      Z8    <=  -1(D)	
-      Z9    <=  Z7 + Z8	
-      Z14   <=  X4 - Z9	
-
-    FACTORS IN SUBGRAPH:
-      X6    <=  VARIABLE
-      X0    <=  VARIABLE
-      Z17   <=  3(D)	
-      Z18   <=  X0 x Z17	
-      X3    <=  VARIABLE
-      Z19   <=  SQR( X3 )	
-      Z20   <=  Z18 x Z19	
-      Z21   <=  SQR( X0 )	
-      Z22   <=  Z21 x Z17	
-      Z23   <=  X3 x Z22	
-      Z24   <=  Z20 + Z23	
-      Z4    <=  3(I)	
-      Z25   <=  POW( X0, Z4 )
-      Z26   <=  Z24 + Z25	
-      Z27   <=  POW( X3, Z4 )
-      Z28   <=  Z26 + Z27	
-      Z29   <=  X6 - Z28	
-
-    1 transcendental constraints: 
-
-    FACTORS IN SUBGRAPH:
-      X5	<=  VARIABLE
-      X4	<=  VARIABLE
-      Z15	<=  EXP( X4 )	
-      Z16	<=  X5 - Z15	
-
+    OPERATIONS IN SUBGRAPH OF V0 USING Z11=0:
+      Z17	<<  1(I)	
+      V2	<<  VARIABLE
+      Z3	<<  SQR( V2 )	
+      Z4	<<  3(I)	
+      Z20	<<  Z3 x Z4	
+      V1	<-  VARIABLE
+      Z21	<<  Z20 / V1	
+      Z10	<<  -1(I)	
+      Z22	<<  Z21 + Z10	
+      Z23	<<  -2(I)	
+      Z24	<<  V1 x Z23	
+      Z25	<<  Z22 + Z24	
+      Z26	<<  Z17 / Z25	
+    DEPENDENTS IN SUBGRAPH OF V0 USING Z11=0:
+      0:  Z26
+    WORK ARRAY SIZE: 13
 \endverbatim
 
-These results show that 5 auxiliary variables have been added to the DAG, \f$x_2,\ldots,x_6\f$. These variables can be determined from the following implicit equations in terms of the original variables \f$x_0,x_1\f$:
+These results show that both variables \f$x_0\f$ and \f$x_2\f$ can be eliminated through inverting both equality constraints.
+- The expression of variable \f$x_2\f$ in terms of \f$x_1\f$ is given by:
 \f{align*}
-  \left\{\begin{array}{rcl} 0 & = & x_2 - x_1^2\\ 0 & = & x_2\cdot x_3 - 1\\ 0 & = & 2\cdot x_1^2 - x_4 - 1\\ 0 & = & \exp(x_4) - x_5 \\ 0 & = & x_0^3 + 3\cdot x_0^2\cdot x_3 + 3\cdot x_0\cdot x_3^2 + x_3^3 - x_6  \end{array}\right.
+  x_2 &= \frac{3}{\displaystyle 1-\frac{2}{x_1}}
 \f}
-Finally, the original vector-valued function \f${\bf f}(x_0,x_1)\f$ is equal to \f$(x_6,x_5)^{\sf T}\f$.
+- The expression of variable \f$x_0\f$ in terms of \f$x_1\f$ and \f$x_2\f$---where \f$x_2\f$ could be eliminated recursively in terms of \f$x_1\f$ using the previous expression---is given by:
+\f{align*}
+  x_0 &= \frac{1}{\displaystyle 3\frac{(x_2)^2}{x_1} - 2x_1 - 1}
+\f}
+.
+
+The method mc::SElimEnv::VarElim allows retreiving a 3-tuple of vectors of (i) the eliminated variables, (ii) the original constraint used for the elimination, and (iii) the inverted constraint expression, with entries in a feasible order of elimination (lower-triangular form). 
+
+
+\section sec_SELIM_refs References
+
+- Hernandez, R., Sargent, R. W. H., <A href="https://doi.org/10.1016/0098-1354(79)80057-5">A new algorithm for process flowsheeting</A>, <I>Computers & Chemical Engineering</I>, <b>3</b>(1-4):363-371, 2015
 */
 
 // TO DO:
