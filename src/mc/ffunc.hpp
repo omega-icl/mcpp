@@ -6810,7 +6810,6 @@ FFGraph<ExtOps...>::compose
           assert( pNew->cst() );
           *itNew = _add_constant( pNew->num().val() );
         }
-        //break;
       }
       ++itNew;
     }
