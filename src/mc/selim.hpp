@@ -20,6 +20,32 @@ This elimination proceeds in 3 steps:
 -# Construct expressions for the eliminated variables, so they can be eliminated through composition.
 .
 
+The MIP formulation solves the following problem using Gurobi:
+\f{align*}
+\displaystyle\min_{\boldsymbol{v},\boldsymbol{c},\boldsymbol{d},\boldsymbol{e},\boldsymbol{z}}\ & \sum_{i=1}^{\bar{V}} \omega_i v_i\\
+\displaystyle\text{s.t.}\ \ \ 
+& \sum_{k\in E_i} e_{i,k} = v_i,\ \ i=1\ldots\bar{V}\\
+& \sum_{i\in C_k} e_{i,k} = c_k,\ \ k=1\ldots\bar{C}\\
+& d_{i,j} \leq v_i,\ \ i=1\ldots\bar{V},\ j\in D_i\\
+& d_{i,j} \geq e_{i,k},\ \ k=1\ldots\bar{C},\ i\in C_k,\ j\in D_i \cap V_k\\
+& d_{i,j} + e_{i,k} \leq 1,\ \ k=1\ldots\bar{C},\ i\in C_k,\ j\notin D_i \cap V_k\\
+& z_i - z_j \leq (1-d_{i,j})\bar{V}-1,\ \ i=1\ldots\bar{V},\ j\in D_i\\
+& v_i, d_{i,j}, c_k, e_{i,k}\in\{0,1\},\ \ z_i\in [0,\bar{V}-1]
+\f}
+with the following sets, parameters and variables:
+- \f$E_i\subset\{1,\ldots,\bar{C}\}\f$ subset of candidate constraints for variable \f$i\f$ elimination
+- \f$D_i\subset\{1,\ldots,\bar{V}\}\f$ subset of candidate variables for variable \f$i\f$ elimination
+- \f$V_k\subset\{1,\ldots,\bar{V}\}\f$ subset of variables participating in constraint \f$k\f$
+- \f$C_k\subset\{1,\ldots,\bar{V}\}\f$ subset of candidate variables for elimination participating in constraint \f$k\f$
+- \f$\omega_i\in\{0,1\}\f$ weight coefficient for variable \f$i=1\ldots \bar{V}\f$
+- \f$v_i\in\{0,1\}\f$ encoding whether variable \f$i=1\ldots \bar{V}\f$ is selected for elimination
+- \f$c_k\in\{0,1\}\f$ encoding whether constraint \f$k=1\ldots \bar{C}\f$ is selected for elimination
+- \f$d_{i,j}\in\{0,1\}\f$ encoding whether variable \f$j\in D_i\f$ is used to eliminate variable \f$i=1\ldots \bar{V}\f$
+- \f$e_{i,k}\in\{0,1\}\f$ encoding whether constraint \f$k\in E_i\f$ is selected to eliminate variable \f$i=1\ldots \bar{V}\f$
+- \f$z_i\in[0,\bar{V}-1]\f$ encoding precedence in MTZ subtour elimination
+.
+
+
 \section sec_SElim_process How do I eliminate variables using factorable equality constraints?
 
 For illustration, consider the following pair of nonlinear equality constraints in three variables \f$x_0,x_1,x_2\f$:
