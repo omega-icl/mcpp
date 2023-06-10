@@ -5479,16 +5479,6 @@ FFGraph::SBAD
     _wkSBAD.resize( sgDep.l_op.size() );//, fadbad::B<FFVar>() );
     std::map< unsigned, std::pair< unsigned,typename std::vector< fadbad::B<FFVar> >::iterator > > mapIndep;
 
-    // Count dependencies
-    unsigned nIndep = 0;
-    for( auto const& op : sgDep.l_op ){
-      if( op->type != FFOp::VAR ) continue;
-      ++nIndep;
-    }
-#ifdef MC__FFUNC_SBAD_DEBUG
-    std::cerr << "#independents " << nIndep << std::endl;
-#endif
-
     // Propagate values in fadbad::F arithmetic through subgraph
 #ifdef MC__FFUNC_CPU_EVAL
     double cputime = -cpuclock();
@@ -5496,7 +5486,8 @@ FFGraph::SBAD
 #endif
     auto ito = sgDep.l_op.begin();
     auto itw = _wkSBAD.begin();
-    for( unsigned int j=0; ito!=sgDep.l_op.end(); ++ito, ++itw ){
+    unsigned nIndep = 0;
+    for( ; ito!=sgDep.l_op.end(); ++ito, ++itw ){
     
       // Initialize variable using values in l_vVar
       if( (*ito)->type == FFOp::VAR ){
@@ -5505,10 +5496,9 @@ FFGraph::SBAD
         for( unsigned int ii=0; iti!=vIndep.end(); ++iti, ++ii ){
           if( (*ito)->pres->id() != (*iti)->id() ) continue;
 #ifdef MC__FFUNC_SBAD_DEBUG
-          std::cerr << "independent " << j << ": " << itw->val() << std::endl;
+          std::cerr << "independent " << nIndep << ": " << itw->val() << std::endl;
 #endif
-          //(*itw).diff( j++, nIndep );
-          mapIndep[j++] = std::make_pair( ii, itw );
+          mapIndep[nIndep++] = std::make_pair( ii, itw );
         }
       }
       
@@ -5783,7 +5773,6 @@ FFGraph::compose
           assert( pNew->cst() );
           *itNew = _add_constant( pNew->num().val() );
         }
-        break;
       }
       ++itNew;
     }
