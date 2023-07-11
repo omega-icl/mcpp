@@ -3172,7 +3172,7 @@ const
         NewUnderEstmt_shadow_slope[i][j] = slope0shadow_to_be_multiplied * NewUnderEstmt_shadow_slope[i][j];
         NewUnderEstmt[i][j] = NewUnderEstmt[i][j] + El;  
         
-        if(NewUnderEstmt_slope[i][j] < 0 != slope0_to_be_set < 0 ){
+        if((NewUnderEstmt_slope[i][j] < 0) != (slope0_to_be_set < 0) ){
           long double tightener = std::min(std::fabs(NewUnderEstmt_slope[i][j]),std::fabs(slope0_to_be_set))*(partitionSize[i]);
           NewUnderEstmt[i][j] += tightener;
         }
@@ -3274,7 +3274,7 @@ const
       long double tmp_underEstimator_at_ij    = NewUnderEstmt[i][0];
       long double tmp_underEstimatorSlp_at_ij = NewUnderEstmt_slope[i][0];
       long double adms_range_row = 0.;    
-      if (tmp_overEstimatorSlp_at_ij < 0 != tmp_underEstimatorSlp_at_ij < 0)       
+      if ((tmp_overEstimatorSlp_at_ij < 0) != (tmp_underEstimatorSlp_at_ij < 0))       
         adms_range_row = tmp_overEstimator_at_ij - tmp_underEstimator_at_ij - partitionSize[i]*(std::fabs(tmp_overEstimatorSlp_at_ij) - std::fabs(tmp_underEstimatorSlp_at_ij)*partitionSize[i]);
       else 
         adms_range_row = std::min(tmp_overEstimator_at_ij-std::fabs(tmp_overEstimatorSlp_at_ij)*partitionSize[i]-tmp_underEstimator_at_ij,
@@ -3286,7 +3286,7 @@ const
         long double tmp_overEstimatorSlp_at_ij  = NewOverEstmt_slope[i][j];
         long double tmp_underEstimator_at_ij    = NewUnderEstmt[i][j];
         long double tmp_underEstimatorSlp_at_ij = NewUnderEstmt_slope[i][j];
-        if (tmp_overEstimatorSlp_at_ij < 0 != tmp_underEstimatorSlp_at_ij < 0)       
+        if ((tmp_overEstimatorSlp_at_ij < 0) != (tmp_underEstimatorSlp_at_ij < 0))       
           adms_range_row = std::min(adms_range_row, tmp_overEstimator_at_ij - tmp_underEstimator_at_ij - partitionSize[i]*(std::fabs(tmp_overEstimatorSlp_at_ij) + std::fabs(tmp_underEstimatorSlp_at_ij)));
         else
           adms_range_row = std::min(adms_range_row,std::min(tmp_overEstimator_at_ij-std::fabs(tmp_overEstimatorSlp_at_ij)*partitionSize[i]-tmp_underEstimator_at_ij,
@@ -3610,7 +3610,7 @@ const
       long double tmp_underEstimator_at_ij    = shadow[0][i][0];
       long double tmp_underEstimatorSlp_at_ij = shadow_slope[0][i][0];
       long double adms_range_row = 0.;
-      if (tmp_overEstimatorSlp_at_ij < 0 != tmp_underEstimatorSlp_at_ij < 0)       
+      if ((tmp_overEstimatorSlp_at_ij < 0) != (tmp_underEstimatorSlp_at_ij < 0))       
         adms_range_row = tmp_overEstimator_at_ij - tmp_underEstimator_at_ij - partitionSize[i]*(std::fabs(tmp_overEstimatorSlp_at_ij) + std::fabs(tmp_underEstimatorSlp_at_ij));
       else 
         adms_range_row = std::min(tmp_overEstimator_at_ij-std::fabs(tmp_overEstimatorSlp_at_ij)*partitionSize[i]-tmp_underEstimator_at_ij,
@@ -3621,7 +3621,7 @@ const
         long double tmp_overEstimatorSlp_at_ij  = overEstmtUpdated?shadow_slope[1][i][j]:slope[i][j][1];
         long double tmp_underEstimator_at_ij    = shadow[0][i][j];
         long double tmp_underEstimatorSlp_at_ij = shadow_slope[0][i][j];        
-        if (tmp_overEstimatorSlp_at_ij < 0 != tmp_underEstimatorSlp_at_ij < 0)       
+        if ((tmp_overEstimatorSlp_at_ij < 0) != (tmp_underEstimatorSlp_at_ij < 0))
           adms_range_row = std::min(adms_range_row, tmp_overEstimator_at_ij - tmp_underEstimator_at_ij - partitionSize[i]*(std::fabs(tmp_overEstimatorSlp_at_ij) + std::fabs(tmp_underEstimatorSlp_at_ij)));
         else
           adms_range_row = std::min(adms_range_row,std::min(tmp_overEstimator_at_ij-std::fabs(tmp_overEstimatorSlp_at_ij)*partitionSize[i]-tmp_underEstimator_at_ij,
@@ -3726,7 +3726,7 @@ const
       long double tmp_underEstimator_at_ij    = underEstmtUpdated?shadow[0][i][0]:Op<T>::l(mat[i][0]);
       long double tmp_underEstimatorSlp_at_ij = underEstmtUpdated?shadow_slope[0][i][0]:slope[i][0][0];
       long double adms_range_row = 0.;
-      if (tmp_overEstimatorSlp_at_ij < 0 != tmp_underEstimatorSlp_at_ij < 0)       
+      if ((tmp_overEstimatorSlp_at_ij < 0) != (tmp_underEstimatorSlp_at_ij < 0))       
         adms_range_row = tmp_overEstimator_at_ij - tmp_underEstimator_at_ij - partitionSize[i]*(std::fabs(tmp_overEstimatorSlp_at_ij) + std::fabs(tmp_underEstimatorSlp_at_ij));
       else 
         adms_range_row = std::min(tmp_overEstimator_at_ij-std::fabs(tmp_overEstimatorSlp_at_ij)*partitionSize[i]-tmp_underEstimator_at_ij,
@@ -3737,7 +3737,7 @@ const
         long double tmp_overEstimatorSlp_at_ij  = overEstmtUpdated?shadow_slope[1][i][j]:slope[i][j][1];
         long double tmp_underEstimator_at_ij    = underEstmtUpdated?shadow[0][i][j]:Op<T>::l(mat[i][j]);
         long double tmp_underEstimatorSlp_at_ij = underEstmtUpdated?shadow_slope[0][i][j]:slope[i][j][0];        
-        if (tmp_overEstimatorSlp_at_ij < 0 != tmp_underEstimatorSlp_at_ij < 0)       
+        if ((tmp_overEstimatorSlp_at_ij < 0) != (tmp_underEstimatorSlp_at_ij < 0))       
           adms_range_row = std::min(adms_range_row, tmp_overEstimator_at_ij - tmp_underEstimator_at_ij - partitionSize[i]*(std::fabs(tmp_overEstimatorSlp_at_ij) + std::fabs(tmp_underEstimatorSlp_at_ij)));
         else
           adms_range_row = std::min(adms_range_row,std::min(tmp_overEstimator_at_ij-std::fabs(tmp_overEstimatorSlp_at_ij)*partitionSize[i]-tmp_underEstimator_at_ij,
@@ -7498,7 +7498,7 @@ ISVar<T> inv
 ( ISVar<T> const& var )
 {
   if( !var._mod )
-    return 1./var._cst;
+    return Op<T>::inv( var._cst );
 
   ISVar<T> var2( var );
   if (var2._mod->options.SLOPE_USE ){
@@ -7517,7 +7517,7 @@ ISVar<T> inv
 ( ISVar<T> && varIn )
 {
   if( !varIn._mod ){
-    varIn._cst = 1./varIn._cst;
+    varIn._cst = Op<T>::inv( varIn._cst );
     return varIn;  
   }
 
@@ -7540,7 +7540,7 @@ ISVar<T> sqr
 ( ISVar<T> const& var )
 {
   if( !var._mod )
-    return sqr(var._cst);
+    return Op<T>::sqr( var._cst );
 
   ISVar<T> var2( var );
   if (var2._mod->options.SLOPE_USE ){
@@ -7559,7 +7559,7 @@ ISVar<T> sqr
 ( ISVar<T> && varIn )
 {
   if( !varIn._mod ){
-    varIn._cst = sqr(varIn._cst);
+    varIn._cst = Op<T>::sqr( varIn._cst );
     return varIn;  
   }  
 
@@ -7581,17 +7581,8 @@ inline
 ISVar<T> fabs
 ( ISVar<T> const& var )
 {
-  if( !var._mod ){
-    double cstl = Op<T>::l( var._cst );
-    double cstu = Op<T>::u( var._cst );
-    if (cstl < 0){
-      if (cstu > 0.){
-        return T(0.,std::max(-cstl,cstu));
-      }
-      return -var._cst;
-    }
-    return var._cst;
-  }
+  if( !var._mod )
+    return Op<T>::fabs( var._cst );
 
   ISVar<T> var2( var );
   auto const& f = [=]( const double& x ){ return std::fabs( x ); };
@@ -7619,26 +7610,12 @@ inline
 ISVar<T> fabs
 ( ISVar<T> && varIn )
 {
-
   ISVar<T> var(std::move(varIn));
 
-  if( !var._mod ){
-    double cstl = Op<T>::l( var._cst );
-    double cstu = Op<T>::u( var._cst );
-    if (cstl < 0){
-      if (cstu > 0.){
-        return T(0.,std::max(-cstl,cstu));
-      }
-      return -var;
-    }
-    return var;
+  if( !varIn._mod ){
+    varIn._cst = Op<T>::fabs( varIn._cst );
+    return varIn;
   }
-
-  // if( !varIn._mod ){
-  //   varIn._cst = std::fabs(varIn._cst);
-  //   return varIn;
-  // }
-
 
   auto const& f = [=]( const double& x ){ return std::fabs( x ); };
   if (var._mod->options.SLOPE_USE ){
@@ -7665,30 +7642,19 @@ inline
 ISVar<T> relu
 ( ISVar<T> const& var )
 {
-  // if( !var._mod )
-  //   //return relu(var._cst);
-  //   return std::max(var._cst,0.);
-
-  if( !var._mod ){
-    double cstl = Op<T>::l( var._cst );
-    double cstu = Op<T>::u( var._cst );
-    return T(std::max(cstl,0.),std::max(cstu,0.));
-  }
-
+   if( !var._mod )
+     return Op<T>::max( var._cst, 0. );
 
   T lazyBnd = var.bound();
-  
   if(Op<T>::l(lazyBnd) > -MC__ISM_COMPUTATION_TOL){
     ISVar<T> var2( var );
     var2._bnd.second = false;
     return var2;
   } 
-  
   if(Op<T>::u(lazyBnd) < MC__ISM_COMPUTATION_TOL){
     ISVar<T> var2( 0. );
     return var2;
   }  
-
 
   ISVar<T> var2( var );
   //auto const& f = [=]( const double& x ){ return std::max( x, 0. ); };
@@ -7722,31 +7688,18 @@ inline
 ISVar<T> relu
 ( ISVar<T> && varIn )
 {
+  ISVar<T> var( std::move( varIn ) );
 
-  ISVar<T> var(std::move(varIn));
-
-  if( !var._mod ){
-    double cstl = Op<T>::l( var._cst );
-    double cstu = Op<T>::u( var._cst );
-    var._cst = std::move(T(std::max(cstl,0.),std::max(cstu,0.)));
-    return var;
+  if( !varIn._mod ){
+    varIn._cst = Op<T>::max( varIn._cst, 0. );
+    return varIn;
   }
 
-
-  // if( !varIn._mod ){
-  //   //return relu(var._cst);
-  //   varIn._cst = std::max(varIn._cst,0.);
-  //   return varIn;
-  // }
-
-
   T lazyBnd = var.bound();
-  
   if(Op<T>::l(lazyBnd)> -MC__ISM_COMPUTATION_TOL){
     var._bnd.second = false;
     return var;
   } 
-  
   if(Op<T>::u(lazyBnd) < MC__ISM_COMPUTATION_TOL){
     var = 0.;
     return var;
@@ -7785,7 +7738,7 @@ ISVar<T> sqrt
 ( ISVar<T> const& var )
 {
   if( !var._mod )
-    return sqrt(var._cst);
+    return Op<T>::sqrt( var._cst );
 
   ISVar<T> var2( var );
   if (var2._mod->options.SLOPE_USE ){
@@ -7804,7 +7757,7 @@ ISVar<T> sqrt
 ( ISVar<T> && varIn )
 {
   if( !varIn._mod ){
-    varIn._cst = sqrt(varIn._cst);
+    varIn._cst = Op<T>::sqrt( varIn._cst );
     return varIn;
   }
 
@@ -7875,7 +7828,7 @@ ISVar<T> log
 ( ISVar<T> const& var )
 {
   if( !var._mod )
-    return log(var._cst);
+    return Op<T>::log( var._cst );
 
   ISVar<T> var2( var );
   if (var2._mod->options.SLOPE_USE ){
@@ -7894,7 +7847,7 @@ ISVar<T> log
 ( ISVar<T> && varIn )
 {
   if( !varIn._mod ){
-    varIn._cst = log(varIn._cst);
+    varIn._cst = Op<T>::log( varIn._cst );
     return varIn;
   }
 
@@ -7916,22 +7869,8 @@ inline
 ISVar<T> xlog
 ( ISVar<T> const& var )
 {
-  if( !var._mod ){
-    double cstl = Op<T>::l( var._cst );
-    double cstu = Op<T>::u( var._cst );
-    if(cstl <= 0.)
-      typename mc::ISModel<T>::Exceptions( mc::ISModel<T>::Exceptions::LOG ); 
-    else{
-      if (cstl < std::exp(-1.)){
-        if (cstu > std::exp(-1.))
-          return T(-std::exp(-1.),std::max(xlog(cstl),xlog(cstl)));
-        else
-          return T(xlog(cstu),xlog(cstl));
-      }
-      else 
-        return T(xlog(cstl),xlog(cstu));
-    }
-  }
+  if( !var._mod )
+    return Op<T>::xlog( var._cst );
 
   ISVar<T> var2( var );
 
@@ -7951,28 +7890,12 @@ inline
 ISVar<T> xlog
 ( ISVar<T> && varIn )
 {
- 
   if( !varIn._mod ){
-    double cstl = Op<T>::l( varIn._cst );
-    double cstu = Op<T>::u( varIn._cst );
-    if(cstl <= 0.)
-      throw typename mc::ISModel<T>::Exceptions( mc::ISModel<T>::Exceptions::LOG ); 
-    else{
-      if (cstl < std::exp(-1.)){
-        if (cstu > std::exp(-1.))
-          varIn._cst = T(-std::exp(-1.),std::max(xlog(cstl),xlog(cstl)));
-        else
-          varIn._cst = T(xlog(cstu),xlog(cstl));
-      }
-      else 
-        varIn._cst = T(xlog(cstl),xlog(cstu));
-    }
+    varIn._cst = Op<T>::xlog( varIn._cst );
     return varIn;
   }
 
-
-
-  ISVar<T> var(std::move(varIn));
+  ISVar<T> var( std::move( varIn ) );
 
   if (var._mod->options.SLOPE_USE ){
     var._mod->_xlog( var._mat, var._slope, var._mod->_psize, var._ndep );
@@ -7991,7 +7914,7 @@ ISVar<T> sin
 ( ISVar<T> const& var )
 {
   if( !var._mod )
-    return sin(var._cst);
+    return Op<T>::sin(var._cst);
 
   if (var._mod->options.SLOPE_USE && var._ndep == 1){
     return cos(var - PI/2.);
@@ -8009,7 +7932,7 @@ ISVar<T> sin
 ( ISVar<T> && varIn )
 {
   if( !varIn._mod ){
-    varIn._cst = sin(varIn._cst);
+    varIn._cst = Op<T>::sin(varIn._cst);
     return varIn;
   }
 
@@ -8030,7 +7953,7 @@ ISVar<T> cos
 ( ISVar<T> const& var )
 {
   if( !var._mod )
-    return cos(var._cst);
+    return Op<T>::cos(var._cst);
 
   ISVar<T> var2( var );
   if (var2._mod->options.SLOPE_USE && var2._ndep == 1){
@@ -8050,7 +7973,7 @@ ISVar<T> cos
 ( ISVar<T> && varIn )
 {
   if( !varIn._mod ){
-    varIn._cst = cos(varIn._cst);
+    varIn._cst = Op<T>::cos(varIn._cst);
     return varIn;
   }
 
@@ -8073,7 +7996,7 @@ ISVar<T> tanh
 ( ISVar<T> const& var )
 {
   if( !var._mod )
-    return tanh(var._cst);
+    return Op<T>::tanh(var._cst);
 #ifdef TEST_MOVE
 std::cout << "Tanh Copy" << std::endl;
 #endif

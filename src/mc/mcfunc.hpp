@@ -18,6 +18,20 @@ enum{ ICUT = 0, ICONV, ICONC };
 //const double PI = 4.0*std::atan(1.0);
 const double PI = 3.14159265358979323846264338328;
 
+inline unsigned max
+( const unsigned x, const unsigned y )
+{
+  // Compute and return max value
+  return( x>=y? x: y );
+}
+
+inline unsigned min
+( const unsigned x, const unsigned y )
+{
+  // Compute and return max value
+  return( x>=y? y: x );
+}
+
 inline double sign
 ( const double x )
 {

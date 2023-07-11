@@ -883,7 +883,7 @@ INPUT                  = MC++.txt \
                          ../src/mc/ffunc.hpp \
                          ../src/mc/slift.hpp \
                          ../src/mc/selim.hpp \
-                         ../src/mc/rltred.hpp
+                         ../src/mc/sred.hpp
 
 # This tag can be used to specify the character encoding of the source files
 # that doxygen parses. Internally doxygen uses the UTF-8 encoding. Doxygen uses

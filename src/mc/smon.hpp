@@ -60,6 +60,25 @@ struct SMon
     : tord( tord_ )
     { for( auto const& [key,ord] : expr_ ) expr[match[key]] = ord; }
 
+  //! @brief Overloaded operator '=' for monomial assigment
+  SMon<KEY,COMP>& operator=
+    ( SMon<KEY,COMP> const& mon )
+    {
+      tord = mon.tord;
+      expr.clear();
+      for( auto const& [key,ord] : mon.expr )
+        expr[key] = ord;
+    }
+
+  //! @brief Overloaded operator '=' for monomial assigment
+  SMon<KEY,COMP>& operator=
+    ( KEY const& var )
+    {
+      tord = 1;
+      expr.clear();
+      expr[var] = 1;
+    }
+
   //! @brief Append monomial to output stream <a>out</a>
   std::string display
     ( int const& basis )
@@ -103,7 +122,7 @@ struct SMon
   bool subseteq
     ( SMon<KEY,COMP> const& Mon )
     const;
-    
+
   //! @brief Overloaded operator '+=' for monomial
   SMon<KEY,COMP>& operator+=
     ( SMon<KEY,COMP> const& mon );
@@ -123,6 +142,11 @@ struct SMon
   //! @brief Overloaded operator '[]' for extracting from monomial
   SMon<KEY,COMP> operator[]
     ( KEY const& var )
+    const;
+
+  //! @brief Overloaded operator '==' for comparing monomials
+  bool operator==
+    ( SMon<KEY,COMP> const& Mon )
     const;
 
   //! @brief Exceptions of mc::SMon
@@ -198,7 +222,34 @@ const
 {
   auto itvar = expr.find( ivar );
   if( itvar == expr.end() ) return SMon<KEY,COMP>();
-  return SMon<KEY,COMP>( itvar->second, {*itvar} );
+  return SMon<KEY,COMP>( itvar->first, itvar->second );
+}
+
+template <typename KEY, typename COMP>
+inline bool
+SMon<KEY,COMP>::operator==
+( SMon<KEY,COMP> const& Mon )
+const
+{
+  // Order monomials based on their total order first
+  if( tord < Mon.tord
+   || tord > Mon.tord ) return false;
+  // Account for the case of an empty list
+  if( !tord ) return true;
+  // Order in graded lexicographic order next
+  for( auto it1=expr.begin(), it2=Mon.expr.begin(); it1!=expr.end(); ++it1, ++it2 )
+    if( COMP()( it1->first, it2->first )
+     || COMP()( it2->first, it1->first )
+     || it1->second != it2->second ) return false;
+  return true;
+}
+
+template <typename KEY, typename COMP>
+inline void
+operator==
+( SMon<KEY,COMP> const& Mon1, SMon<KEY,COMP> const& Mon2 )
+{
+  return Mon1.operator==( Mon2 );
 }
 
 template <typename KEY, typename COMP>
@@ -470,6 +521,208 @@ struct lt_pSMon
     {
       assert( Mon1 && Mon2 );
       return lt_SMon<COMP>()( *Mon1, *Mon2 );
+    }
+};
+
+//! @brief C++ class for sparse extended monomial storage and manipulation
+////////////////////////////////////////////////////////////////////////
+//! mc::SMon is a C++ class for sparse extended monomial storage and
+//! manipulation.
+////////////////////////////////////////////////////////////////////////
+template <typename KEY=unsigned, typename COMP=std::less<unsigned>>
+struct SMonExt
+////////////////////////////////////////////////////////////////////////
+{
+  typedef std::map<KEY,int,COMP> t_expr;
+
+  //! @brief Monomial variables and partial orders 
+  std::map<KEY,int,COMP> expr;
+
+  //! @brief Constructor of constant monomial
+  SMonExt
+    ()
+    {}
+
+  //! @brief Constructor of monomial for variable with index <a>i</a>
+  SMonExt
+    ( KEY const& var, const int ord=1 )
+    { if( ord ) expr.insert( std::make_pair( var, ord ) ); }
+
+  //! @brief Copy constructor of extended monomial
+  SMonExt
+    ( SMonExt<KEY,COMP> const& mon_ )
+    : expr( mon_.expr )
+    {}
+
+  //! @brief Copy constructor of monomial
+  SMonExt
+    ( SMon<KEY,COMP> const& mon_ )
+    { for( auto const& [key,ord] : mon_.expr ) expr[key] = (int)ord; }
+
+  //! @brief Copy constructor of monomial with conversion
+  template <typename OTHERKEY, typename OTHERCOMP>
+  SMonExt
+    ( std::map<OTHERKEY,unsigned,OTHERCOMP> const& expr_,
+      std::map<OTHERKEY,KEY,OTHERCOMP>& match )
+    { for( auto const& [key,ord] : expr_ ) expr[match[key]] = ord; }
+
+  //! @brief Append monomial to output stream <a>out</a>
+  std::string display
+    ( int const& basis )
+    const;
+
+  //! @brief Overloaded operator '+=' for monomial
+  SMonExt<KEY,COMP>& operator+=
+    ( SMonExt<KEY,COMP> const& mon );
+
+  //! @brief Overloaded operator '-=' for monomial
+  SMonExt<KEY,COMP>& operator-=
+    ( SMonExt<KEY,COMP> const& mon );
+
+  //! @brief Overloaded operator '[]' for extracting from monomial
+  SMonExt<KEY,COMP> operator[]
+    ( KEY const& var )
+    const;
+
+  //! @brief Overloads turning either a reference or a pointer into a pointer
+  template<typename T>
+  static T* ptr
+   ( T& obj )
+   { return &obj; }
+  template<typename T>
+  static T* ptr
+   ( T* obj )
+   { return obj; }
+};
+
+template <typename KEY, typename COMP>
+inline std::string
+SMonExt<KEY,COMP>::display
+( int const& basis )
+const
+{
+  std::ostringstream out;
+  // Sparse monomial
+  if( expr.empty() )  out << "1";
+  for( auto ie=expr.begin(); ie!=expr.end(); ++ie ){
+    if( ie != expr.begin() ) out << "·";
+    switch( basis ){
+     case 0:
+      out << "[" << *ptr(ie->first) << "]";
+      if( ie->second > 1 ) out << "^" << ie->second;
+      break;
+     default:
+      out << "T" << ie->second << "[" << *ptr(ie->first) << "]";
+      break;
+    }
+  }
+  return out.str();
+}
+
+template <typename KEY, typename COMP>
+inline SMonExt<KEY,COMP>
+SMonExt<KEY,COMP>::operator[]
+( KEY const& ivar )
+const
+{
+  auto itvar = expr.find( ivar );
+  if( itvar == expr.end() ) return SMonExt<KEY,COMP>();
+  return SMonExt<KEY,COMP>( itvar->first, itvar->second );
+}
+
+template <typename KEY, typename COMP>
+inline SMonExt<KEY,COMP>&
+SMonExt<KEY,COMP>::operator+=
+( SMonExt<KEY,COMP> const& mon )
+{
+  // Add the common terms with mon
+  for( auto& [key,ord] : mon.expr ){
+    auto it = expr.find( key );
+    if( it == expr.end() )
+      expr.insert( std::make_pair( key, ord ) );
+    else if( it->second + ord == 0 )
+      expr.erase( it );
+    else
+      it->second += ord;
+  }
+  return *this;
+}
+
+template <typename KEY, typename COMP>
+inline SMonExt<KEY,COMP>
+operator+
+( SMonExt<KEY,COMP> const& Mon1, SMonExt<KEY,COMP> const& Mon2 )
+{
+  // Create a copy of Mon1 and add terms with Mon2 
+  SMonExt<KEY,COMP> Mon3( Mon1 );
+  return( Mon3 += Mon2 );
+}
+
+template <typename KEY, typename COMP>
+inline SMonExt<KEY,COMP>&
+SMonExt<KEY,COMP>::operator-=
+( SMonExt<KEY,COMP> const& mon )
+{
+  // Substract the common terms with mon
+  for( auto& [key,ord] : mon.expr ){
+    auto it = expr.find( key );
+    if( it == expr.end() )
+      expr.insert( std::make_pair( key, -ord ) );
+    else if( it->second == ord )
+      expr.erase( it );
+    else
+      it->second -= ord;
+  }
+  return *this;
+}
+
+template <typename KEY, typename COMP>
+inline SMonExt<KEY,COMP>
+operator-
+( SMonExt<KEY,COMP> const& Mon1, SMonExt<KEY,COMP> const& Mon2 )
+{
+  // Create a copy of Mon1 and add terms with Mon2 
+  SMonExt<KEY,COMP> Mon3( Mon1 );
+  return( Mon3 -= Mon2 );
+}
+
+//! @brief C++ structure for ordering of extended monomials
+template <typename COMP=std::less<unsigned>>
+struct lt_SMonExt
+{
+  template <typename KEY>
+  bool operator()
+    ( SMonExt<KEY,COMP> const& Mon1, SMonExt<KEY,COMP> const& Mon2 )
+    const
+    {
+      // Order extended monomials based on number of terms first
+      if( Mon1.expr.size() < Mon2.expr.size() ) return true;
+      if( Mon1.expr.size() > Mon2.expr.size() ) return false;
+      // Account for the case of an empty list
+      if( Mon2.expr.empty() ) return false;
+      if( Mon1.expr.empty() ) return true;
+      // Order in graded lexicographic order next
+      for( auto it1=Mon1.expr.begin(), it2=Mon2.expr.begin(); it1!=Mon1.expr.end(); ++it1, ++it2 ){
+        if( COMP()( it1->first, it2->first ) ) return true;
+        if( COMP()( it2->first, it1->first ) ) return false;
+        if( it1->second > it2->second ) return true;
+        if( it1->second < it2->second ) return false;
+      }
+      return false;
+    }
+};
+
+//! @brief C++ structure for ordering of extended monomials
+template <typename COMP=std::less<unsigned>>
+struct lt_pSMonExt
+{
+  template <typename KEY>
+  bool operator()
+    ( SMonExt<KEY,COMP> const* Mon1, SMonExt<KEY,COMP> const* Mon2 )
+    const
+    {
+      assert( Mon1 && Mon2 );
+      return lt_SMonExt<COMP>()( *Mon1, *Mon2 );
     }
 };
 

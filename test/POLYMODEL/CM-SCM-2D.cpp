@@ -249,7 +249,7 @@ int main()
     for( int iY=0; iY<NY; iY++ ){ 
       double DXY[2] = { XL+iX*(XU-XL)/(NX-1.), YL+iY*(YU-YL)/(NY-1.) };
       double DF = myfunc( DXY[0], DXY[1] );
-      double PF = F.P( DXY );
+      double PF = F.P( std::map<unsigned,double>({std::make_pair(0,DXY[0]),std::make_pair(1,DXY[1])}) );
       I IF = PF + F.R();
       res << std::setw(14) << DXY[0] << std::setw(14) << DXY[1]
           << std::setw(14) << DF << std::setw(14) << PF
@@ -312,8 +312,8 @@ int main()
     for( int iY=0; iY<NY; iY++ ){ 
       double DXY[2] = { XL+iX*(XU-XL)/(NX-1.), YL+iY*(YU-YL)/(NY-1.) };
       double DF = myfunc( DXY[0], DXY[1] );
-      double PF = F.P( DXY );
-      I IF = F.IP( DXY );
+      double PF = F.P( std::map<unsigned,double>({std::make_pair(0,DXY[0]),std::make_pair(1,DXY[1])}) );
+      I IF = F.IP( std::map<unsigned,double>({std::make_pair(0,DXY[0]),std::make_pair(1,DXY[1])}) );
       res << std::setw(14) << DXY[0] << std::setw(14) << DXY[1]
           << std::setw(14) << DF << std::setw(14) << PF
           << std::setw(14) << Op<I>::l(IF) << std::setw(14) << Op<I>::u(IF)

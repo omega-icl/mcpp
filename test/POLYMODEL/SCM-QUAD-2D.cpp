@@ -13,18 +13,28 @@ const int NTE = 6;      // <-- select Taylor expansion order here
 #include <iomanip>
 
 #include "mctime.hpp"
-#ifdef USE_PROFIL
-  #include "mcprofil.hpp"
-  typedef INTERVAL I;
+
+#ifdef MC__USE_PROFIL
+ #include "mcprofil.hpp"
+ typedef INTERVAL I;
 #else
-  #ifdef USE_FILIB
-    #include "mcfilib.hpp"
-    typedef filib::interval<double> I;
+ #ifdef MC__USE_FILIB
+  #include "mcfilib.hpp"
+  typedef filib::interval<double,filib::native_switched,filib::i_mode_extended> I;
+ #else
+  #ifdef MC__USE_BOOST
+   #include "mcboost.hpp"
+   typedef boost::numeric::interval_lib::save_state<boost::numeric::interval_lib::rounded_transc_opp<double>> T_boost_round;
+   typedef boost::numeric::interval_lib::checking_base<double> T_boost_check;
+   typedef boost::numeric::interval_lib::policies<T_boost_round,T_boost_check> T_boost_policy;
+   typedef boost::numeric::interval<double,T_boost_policy> I;
   #else
-    #include "interval.hpp"
-    typedef mc::Interval I;
+   #include "interval.hpp"
+   typedef mc::Interval I;
   #endif
+ #endif
 #endif
+
 #include "scmodel.hpp"
 typedef mc::SCModel<I> SCM;
 typedef mc::SCVar<I> SCV;
@@ -77,16 +87,16 @@ int main()
 
   SQuad quad;
   quad.options.REDUC = true;
-  quad.options.ORDER = SQuad::Options::DEC;//INC;// 
-  quad.options.BASIS = SQuad::Options::MONOM;//CHEB;//
+  quad.options.ORDER = SQuad<>::Options::DEC;//INC;// 
+  quad.options.BASIS = SQuad<>::Options::MONOM;//CHEB;//
   tStart = mc::userclock();
   for( unsigned i=0; i<NF; i++ ){
     //auto coefmon = F[i].coefmon();
-    //std::cout << F[i].display( coefmon, SQuad::Options::CHEB );
-    //double viol = quad.process( coefmon, SQuad::Options::CHEB, true );
+    //std::cout << F[i].display( coefmon, SQuad<>::Options::CHEB );
+    //double viol = quad.process( F[i], &SCV::coefmon, SQuad<>::Options::CHEB, true );
     auto coefmon = F[i].to_monomial( true );//false );//true );
-    std::cout << F[i].display( coefmon, SQuad::Options::MONOM );
-    double viol = quad.process( coefmon, SQuad::Options::MONOM, true );
+    std::cout << F[i].display( coefmon, SQuad<>::Options::MONOM );
+    double viol = quad.process( F[i], &SCV::coefmon, SQuad<>::Options::MONOM, true );
     std::cout << "\nSparse quadratic form: " << mc::userclock()-tStart << " CPU-sec\n"
               << "(violation: " << viol << ")\n"
               << quad;

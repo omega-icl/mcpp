@@ -34,5 +34,6 @@ SCM-QUAD-2D : SCM-QUAD-2D.o
 #####
 
 clean :
-	rm -f QUAD-TEST SPARSEEXPR-TEST *.o *.out *.eps *.dot *.svg *~
+	rm -f TM-1D TM-2D CM-1D CM-2D CM-SCM-2D SCM-SICM-2D SCM-QUAD-2D
+	rm -f *.o *.out *.eps *.dot *.svg *~
 

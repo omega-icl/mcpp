@@ -14,9 +14,9 @@ Factorable functions can be represented using <b>directed acyclic graphs (DAGs)<
 
 The classes mc::FFGraph, mc::FFBase, mc::FFVar and mc::FFOp defined in <tt>ffunc.hpp</tt> provide an implementation of DAGs for factorable functions in MC++. They enable their evaluation using any of the arithmetics supported by MC++, including interval ranges (mc::Interval), McCormick relaxations (mc::McCormick), Taylor and Chebyshev models (mc::TVar, mc::CVar, mc::SCVar), spectral bounds (mc::Specbnd), polyhedral relaxations (mc::PolVar), and interval superposition models (mc::ISVar). They also enable their symbolic manipulation, including automatic differentiation, sparse factorization, and quadratization; see:
 - \subpage page_SQUAD
+- \subpage page_SRED
 - \subpage page_SLIFT
 - \subpage page_SELIM
-- \subpage page_RLTRED
 .
 
 \section sec_FFUNC_dag How do I construct the DAG of a factorable function?
@@ -1774,14 +1774,14 @@ protected:
   //! @brief Erase all operations in set <a>_Ops</a>
   void _clear_operations
     ()
-    { for( auto&& op : _Ops ) delete op;
+    { for( auto& op : _Ops ) delete op;
       _Ops.clear(); }
 
   //! @brief Reset all operations in set <a>_Ops</a>
   void _reset_operations
     ()
     const
-    { for( auto&& op : _Ops ) op->iflag = 0; }
+    { for( auto& op : _Ops ) op->iflag = 0; }
 
   //! @brief Looks for the n-ary operation of type <a>tOp</a> with operand array <a>pVar</a> of size <a>nVar</a> in set <a>_Ops</a> and adds it if not found; also adds new auxiliary variable in set <a>_Vars</a> and update list of dependencies in all operands in <a>_Vars</a>
   static FFVar& _insert_nary_operation
@@ -3765,7 +3765,6 @@ FFOp::propagate_subgraph
 const
 {
   if( iflag ){
-    // indicate non-movability of current operation result if already visited
     switch( varout[ndxDep]->mov() ){
      case 0:
      case 1:  varout[ndxDep]->mov() = 0; return;
@@ -5893,8 +5892,8 @@ FFBase::subgraph
   FFSubgraph sgDep;
   for( auto const& dep : vDep ){
     FFVar const* pVar = dep;
+    if( !pVar->opdef().first ) assert( _get_constant( pVar ) );
     auto const& [ pOp, ndxDep ] = pVar->opdef();
-    if( !pOp ) assert( _get_constant( pVar ) );
     pOp->propagate_subgraph( ndxDep, sgDep.l_op );
     sgDep.set_dep( pOp->iflag, ndxDep );
   }
@@ -5910,8 +5909,8 @@ FFBase::subgraph
   FFSubgraph sgDep;
   for( unsigned int i=0; i<nDep; i++ ){
     FFVar const* pVar = &pDep[i];
+    if( !pVar->opdef().first ) assert( _get_constant( pVar ) );
     auto const& [ pOp, ndxDep ] = pVar->opdef();
-    if( !pOp ) assert( _get_constant( pVar ) );
     pOp->propagate_subgraph( ndxDep, sgDep.l_op );
     sgDep.set_dep( pOp->iflag, ndxDep );
   }
@@ -5927,8 +5926,8 @@ FFBase::subgraph
   FFSubgraph sgDep;
   for( unsigned const& i : ndxDep ){
     FFVar const* pVar = &pDep[i];
+    if( !pVar->opdef().first ) assert( _get_constant( pVar ) );
     auto const& [ pOp, ndxDep ] = pVar->opdef();
-    if( !pOp ) assert( _get_constant( pVar ) );
     pOp->propagate_subgraph( ndxDep, sgDep.l_op );
     sgDep.set_dep( pOp->iflag, ndxDep );
   }
@@ -5945,8 +5944,8 @@ FFBase::subgraph
   FFSubgraph sgDep;
   for( auto const& iDep : mDep ){
     FFVar const* pVar = &iDep.second;
+    if( !pVar->opdef().first ) assert( _get_constant( pVar ) );
     auto const& [ pOp, ndxDep ] = pVar->opdef();
-    if( !pOp ) assert( _get_constant( pVar ) );
     pOp->propagate_subgraph( ndxDep, sgDep.l_op );
     sgDep.set_dep( pOp->iflag, ndxDep );
   }
@@ -7252,8 +7251,8 @@ FFGraph<ExtOps...>::eval
   for( ; ito!=sgDep.l_op.end(); ++ito ){
     _curOp = *ito;
 
-    // Initialize variable using values in l_vVar
-    if( _curOp->type == FFOp::VAR ){
+    // Initialize non-constant variable using values in l_vVar
+    if( _curOp->type == FFOp::VAR && !_curOp->varout[0]->cst() ){
       FFVar* pvar = _curOp->varout[0];
       FFVar* pX = nullptr;
       auto itnVar = l_nVar.begin(); auto itpVar = l_pVar.begin(); auto itvVar = l_vVar.begin();
@@ -7469,7 +7468,7 @@ FFGraph<ExtOps...>::reval
   unsigned iwk = 0;
   for( ; ito!=opDep.end(); ++ito ){
     _curOp = *ito;
-    if( _curOp->type == FFOp::VAR ){
+    if( _curOp->type == FFOp::VAR && !_curOp->varout[0]->cst() ){
       FFVar* pvar = _curOp->varout[0];
       FFVar* pX = nullptr;
       auto itnVar = l_nVar.begin(); auto itpVar = l_pVar.begin(); auto itvVar = l_vVar.begin();

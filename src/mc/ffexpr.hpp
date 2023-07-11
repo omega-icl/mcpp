@@ -61,7 +61,6 @@ namespace mc
 //! mc::FFExpr is a C++ class for string expression of factorable
 //! functions
 ////////////////////////////////////////////////////////////////////////
-template < typename DAG >
 class FFExpr
 ////////////////////////////////////////////////////////////////////////
 {
@@ -166,7 +165,7 @@ public:
 
   //! @brief Copy constructor
   FFExpr
-    ( FFExpr<DAG> const& E )
+    ( FFExpr const& E )
     : _prec( E._prec )
     { _ostr << E._ostr.str(); }
     
@@ -182,6 +181,7 @@ public:
       _ostr.swap(otmp);
       switch( options.LANG ){
        case Options::GAMS:
+         //std::cout << "FFExpr::set: " << X.name() << std::endl;
          _ostr << X.name();
 	 break;
        default:
@@ -195,7 +195,7 @@ public:
     { _prec = 0;
       std::ostringstream otmp;
       _ostr.swap(otmp);
-      if( c > 0 )
+      if( c >= 0 )
         _ostr << _d2s(c);
       else if( c < 0 )
         _ostr << "(" << _d2s(c) << ")";
@@ -213,16 +213,16 @@ public:
     { return _ostr; }
 
   //! @brief Compose string expression
-  static FFExpr<DAG> compose
-    ( std::string const& UNIV, FFExpr<DAG> const& E );
-  static FFExpr<DAG> compose
-    ( std::string const& UNIV, FFExpr<DAG> const& E1, FFExpr<DAG> const& E2 );
-  static FFExpr<DAG> compose
-    ( std::string const& UNIV, unsigned const n, FFExpr<DAG> const* E );
-  static FFExpr<DAG> compose
-    ( std::string const& UNIV, FFExpr<DAG> const& E, int const n );
-  static FFExpr<DAG> compose
-    ( std::string const& UNIV, FFExpr<DAG> const& E, double const& d );
+  static FFExpr compose
+    ( std::string const& UNIV, FFExpr const& E );
+  static FFExpr compose
+    ( std::string const& UNIV, FFExpr const& E1, FFExpr const& E2 );
+  static FFExpr compose
+    ( std::string const& UNIV, unsigned const n, FFExpr const* E );
+  static FFExpr compose
+    ( std::string const& UNIV, FFExpr const& E, int const n );
+  static FFExpr compose
+    ( std::string const& UNIV, FFExpr const& E, double const& d );
   /** @} */
 
   // other operator overloadings (inlined)
@@ -235,7 +235,7 @@ public:
     { return set( X ); }
       
   FFExpr& operator=
-    ( FFExpr<DAG> const& E )
+    ( FFExpr const& E )
     { if( this != &E ){
         _prec = E._prec;
         std::ostringstream otmp;
@@ -245,7 +245,7 @@ public:
       return *this; }
 
   FFExpr& operator=
-    ( FFExpr<DAG>&& E )
+    ( FFExpr&& E )
     { if( this != &E ){
         _prec = E._prec;
         _ostr.swap( E._ostr );
@@ -363,68 +363,59 @@ public:
 
 ////////////////////////////////////////////////////////////////////////
 
-template <typename DAG>
-inline
-typename FFExpr<DAG>::Options FFExpr<DAG>::options;
+inline FFExpr::Options FFExpr::options;
 
-template <typename DAG>
 inline
 std::ostream&
 operator<<
-( std::ostream& out, FFExpr<DAG> const& E )
+( std::ostream& out, FFExpr const& E )
 {
   return out << E.ostr().str();
 }
 
-template <typename DAG>
 inline
-FFExpr<DAG>
+FFExpr
 operator+
-( FFExpr<DAG> const& E )
+( FFExpr const& E )
 {
   return E;
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 operator-
-( FFExpr<DAG> const& E )
+( FFExpr const& E )
 {
-  FFExpr<DAG> _E;
+  FFExpr _E;
   return _E -= E;
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 operator+
-( double const& c, FFExpr<DAG> const& E )
+( double const& c, FFExpr const& E )
 {
-  FFExpr<DAG> _E( E );
+  FFExpr _E( E );
   return _E += c;
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 operator+
-( FFExpr<DAG> const& E, double const& c )
+( FFExpr const& E, double const& c )
 {
-  FFExpr<DAG> _E( E );
+  FFExpr _E( E );
   return _E += c;
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 operator+
-( FFExpr<DAG> const& E1, FFExpr<DAG> const& E2 )
+( FFExpr const& E1, FFExpr const& E2 )
 {
-  FFExpr<DAG> _E( E1 );
+  FFExpr _E( E1 );
   return _E += E2;
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 sum
-( unsigned const n, FFExpr<DAG> const* E )
+( unsigned const n, FFExpr const* E )
 {
   switch( n ){
    case 0:  return 0.;
@@ -434,95 +425,93 @@ sum
   }
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 operator-
-( double const& c, FFExpr<DAG> const& E )
+( double const& c, FFExpr const& E )
 {
-  FFExpr<DAG> _E( c );
+  FFExpr _E( c );
   return _E -= E;
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 operator-
-( FFExpr<DAG> const& E, double const& c )
+( FFExpr const& E, double const& c )
 {
-  FFExpr<DAG> _E( E );
+  FFExpr _E( E );
   return _E -= c;
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 operator-
-( FFExpr<DAG> const& E1, FFExpr<DAG> const& E2 )
+( FFExpr const& E1, FFExpr const& E2 )
 {
-  FFExpr<DAG> _E( E1 );
+  FFExpr _E( E1 );
   return _E -= E2;
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 operator*
-( double const& c, FFExpr<DAG> const& E )
+( double const& c, FFExpr const& E )
 {
-  FFExpr<DAG> _E( E );
+  FFExpr _E( E );
   return _E *= c;
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 operator*
-( FFExpr<DAG> const& E, double const& c )
+( FFExpr const& E, double const& c )
 {
-  FFExpr<DAG> _E( E );
+  FFExpr _E( E );
   return _E *= c;
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
+sqr
+( FFExpr const& E )
+{
+  return FFExpr::compose( "POWER", E, 2 );
+}
+
+inline FFExpr
 operator*
-( FFExpr<DAG> const& E1, FFExpr<DAG> const& E2 )
+( FFExpr const& E1, FFExpr const& E2 )
 {
   if( &E1 == &E2 )
     return sqr( E1 );
 
-  FFExpr<DAG> _E( E1 );
+  FFExpr _E( E1 );
   return _E *= E2;
 }
 
-template <typename DAG>
 inline
-FFExpr<DAG>
-FFExpr<DAG>::compose
-( std::string const& UNIV, FFExpr<DAG> const& E )
+FFExpr
+FFExpr::compose
+( std::string const& UNIV, FFExpr const& E )
 {
   assert( E._ostr.tellp() );
-  FFExpr<DAG> _E; // sets _E._prec = 0 by default
+  FFExpr _E; // sets _E._prec = 0 by default
   _E.ostr() << UNIV << "( " << E.ostr().str() << " )";
   return _E;
 }
 
-template <typename DAG>
 inline
-FFExpr<DAG>
-FFExpr<DAG>::compose
-( std::string const& UNIV, FFExpr<DAG> const& E1, FFExpr<DAG> const& E2 )
+FFExpr
+FFExpr::compose
+( std::string const& UNIV, FFExpr const& E1, FFExpr const& E2 )
 {
   assert( E1._ostr.tellp() );
   assert( E2._ostr.tellp() );
-  FFExpr<DAG> _E; // sets _E._prec = 0 by default
+  FFExpr _E; // sets _E._prec = 0 by default
   _E.ostr() << UNIV << "( " << E1.ostr().str() << ", " << E2.ostr().str() << " )";
   return _E;
 }
 
-template <typename DAG>
 inline
-FFExpr<DAG>
-FFExpr<DAG>::compose
-( std::string const& UNIV, unsigned const n, FFExpr<DAG> const* E )
+FFExpr
+FFExpr::compose
+( std::string const& UNIV, unsigned const n, FFExpr const* E )
 {
-  FFExpr<DAG> _E; // sets _E._prec = 0 by default
+  FFExpr _E; // sets _E._prec = 0 by default
   _E.ostr() << UNIV << "( ";
   for( unsigned i=0; i<n; ++i ){
     assert( E[i]._ostr.tellp() );
@@ -533,42 +522,31 @@ FFExpr<DAG>::compose
   return _E;
 }
 
-template <typename DAG>
 inline
-FFExpr<DAG>
-FFExpr<DAG>::compose
-( std::string const& UNIV, FFExpr<DAG> const& E, int const n )
+FFExpr
+FFExpr::compose
+( std::string const& UNIV, FFExpr const& E, int const n )
 {
   assert( E._ostr.tellp() );
-  FFExpr<DAG> _E; // sets _E._prec = 0 by default
+  FFExpr _E; // sets _E._prec = 0 by default
   _E.ostr() << UNIV << "( " << E.ostr().str() << ", " << n << " )";
   return _E;
 }
 
-template <typename DAG>
 inline
-FFExpr<DAG>
-FFExpr<DAG>::compose
-( std::string const& UNIV, FFExpr<DAG> const& E, double const& d )
+FFExpr
+FFExpr::compose
+( std::string const& UNIV, FFExpr const& E, double const& d )
 {
   assert( E._ostr.tellp() );
-  FFExpr<DAG> _E; // sets _E._prec = 0 by default
+  FFExpr _E; // sets _E._prec = 0 by default
   _E.ostr() << UNIV << "( " << E.ostr().str() << ", " << _d2s(d) << " )";
   return _E;
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
-sqr
-( FFExpr<DAG> const& E )
-{
-  return FFExpr<DAG>::compose( "POWER", E, 2 );
-}
-
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 prod
-( unsigned const n, FFExpr<DAG> const* E )
+( unsigned const n, FFExpr const* E )
 {
   switch( n ){
    case 0:  return 0.;
@@ -578,10 +556,36 @@ prod
   }
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
+operator/
+( double const& c, FFExpr const& E )
+{
+  FFExpr _E( c );
+  return _E /= E;
+}
+
+inline FFExpr
+inv
+( FFExpr const& E )
+{
+  return( 1. / E );
+}
+
+inline FFExpr
+pow
+( FFExpr const& E, const int n )
+{
+  if( n == 0  ) return FFExpr();
+  if( n == 1  ) return E;
+  if( n == 2  ) return sqr( E );
+  if( n == -1 ) return inv( E );
+  if( n <  -1 ) return inv( pow( E, -n ) );
+  return FFExpr::compose( "POWER", E, n );
+}
+
+inline FFExpr
 monom
-( unsigned const n, FFExpr<DAG> const* E, unsigned const* k )
+( unsigned const n, FFExpr const* E, unsigned const* k )
 {
   switch( n ){
    case 0:  return 0.;
@@ -590,255 +594,199 @@ monom
   }
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
-inv
-( FFExpr<DAG> const& E )
-{
-  return( 1. / E );
-}
-
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 operator/
-( double const& c, FFExpr<DAG> const& E )
+( FFExpr const& E, double const& c )
 {
-  FFExpr<DAG> _E( c );
-  return _E /= E;
-}
-
-template <typename DAG>
-inline FFExpr<DAG>
-operator/
-( FFExpr<DAG> const& E, double const& c )
-{
-  FFExpr<DAG> _E( E );
+  FFExpr _E( E );
   return _E /= c;
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 operator/
-( FFExpr<DAG> const& E1, FFExpr<DAG> const& E2 )
+( FFExpr const& E1, FFExpr const& E2 )
 {
   if( &E1 == &E2 )
     return( 1 );
 
-  FFExpr<DAG> _E( E1 );
+  FFExpr _E( E1 );
   return _E /= E2;
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 sqrt
-( FFExpr<DAG> const& E )
+( FFExpr const& E )
 {
-  return FFExpr<DAG>::compose( "SQRT", E );
+  return FFExpr::compose( "SQRT", E );
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 exp
-( FFExpr<DAG> const& E )
+( FFExpr const& E )
 {
-  return FFExpr<DAG>::compose( "EXP", E );
+  return FFExpr::compose( "EXP", E );
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 log
-( FFExpr<DAG> const& E )
+( FFExpr const& E )
 {
-  return FFExpr<DAG>::compose( "LOG", E );
+  return FFExpr::compose( "LOG", E );
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 xlog
-( FFExpr<DAG> const& E )
+( FFExpr const& E )
 {
-  return( - FFExpr<DAG>::compose( "ENTROPY", E ) );
+  return( - FFExpr::compose( "ENTROPY", E ) );
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 lmtd
-( FFExpr<DAG> const& E1, FFExpr<DAG> const& E2 )
+( FFExpr const& E1, FFExpr const& E2 )
 {
   if( &E1 == &E2 )
     return( E1 );
   return( ( log( E1 ) - log( E2 ) ) / ( E1 - E2 ) );
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 rlmtd
-( FFExpr<DAG> const& E1, FFExpr<DAG> const& E2 )
+( FFExpr const& E1, FFExpr const& E2 )
 {
   if( &E1 == &E2 )
     return( 1 / E1 );
   return( ( E1 - E2 ) / ( log( E1 ) - log( E2 ) ) );
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 erf
-( FFExpr<DAG> const& E )
+( FFExpr const& E )
 {
-  return FFExpr<DAG>::compose( "ERRORF", E );
+  return FFExpr::compose( "ERRORF", E );
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 erfc
-( FFExpr<DAG> const& E )
+( FFExpr const& E )
 {
   return( 1 - erf( E ) );
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 fabs
-( FFExpr<DAG> const& E )
+( FFExpr const& E )
 {
-  return FFExpr<DAG>::compose( "ABS", E );
+  return FFExpr::compose( "ABS", E );
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 pow
-( FFExpr<DAG> const& E, const int n )
+( FFExpr const& E, double const& r )
 {
-  if( n == 0  ) return FFExpr<DAG>();
-  if( n == 1  ) return E;
-  if( n == 2  ) return sqr( E );
-  if( n == -1 ) return inv( E );
-  if( n <  -1 ) return inv( pow( E, -n ) );
-  return FFExpr<DAG>::compose( "POWER", E, n );
-}
-
-template <typename DAG>
-inline FFExpr<DAG>
-pow
-( FFExpr<DAG> const& E, double const& r )
-{
-  if( r == 0.  ) return FFExpr<DAG>();
+  if( r == 0.  ) return FFExpr();
   if( r == 1.  ) return E;
   if( r == 2.  ) return sqr( E );
   if( r == -1. ) return inv( E );
-  return FFExpr<DAG>::compose( "RPOWER", E, r );
+  return FFExpr::compose( "RPOWER", E, r );
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 pow
-( FFExpr<DAG> const& E1, FFExpr<DAG> const& E2 )
+( FFExpr const& E1, FFExpr const& E2 )
 {
   return( exp( E2 * log( E1 ) ) );
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 min
-( FFExpr<DAG> const& E1, FFExpr<DAG> const& E2 )
+( FFExpr const& E1, FFExpr const& E2 )
 {
-  return FFExpr<DAG>::compose( "MIN", E1, E2 );
+  return FFExpr::compose( "MIN", E1, E2 );
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 max
-( FFExpr<DAG> const& E1, FFExpr<DAG> const& E2 )
+( FFExpr const& E1, FFExpr const& E2 )
 {
-  return FFExpr<DAG>::compose( "MAX", E1, E2 );
+  return FFExpr::compose( "MAX", E1, E2 );
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 min
-( const unsigned n, FFExpr<DAG> const* E )
+( const unsigned n, FFExpr const* E )
 {
-  return FFExpr<DAG>::compose( "MIN", n, E );
+  return FFExpr::compose( "MIN", n, E );
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 max
-( const unsigned n, FFExpr<DAG> const* E )
+( const unsigned n, FFExpr const* E )
 {
-  return FFExpr<DAG>::compose( "MAX", n, E );
+  return FFExpr::compose( "MAX", n, E );
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 cos
-( FFExpr<DAG> const& E )
+( FFExpr const& E )
 {
-  return FFExpr<DAG>::compose( "COS", E );
+  return FFExpr::compose( "COS", E );
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 sin
-( FFExpr<DAG> const& E )
+( FFExpr const& E )
 {
-  return FFExpr<DAG>::compose( "SIN", E );
+  return FFExpr::compose( "SIN", E );
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 tan
-( FFExpr<DAG> const& E )
+( FFExpr const& E )
 {
-  return FFExpr<DAG>::compose( "TAN", E );
+  return FFExpr::compose( "TAN", E );
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 acos
-( FFExpr<DAG> const& E )
+( FFExpr const& E )
 {
-  return FFExpr<DAG>::compose( "ARCCOS", E );
+  return FFExpr::compose( "ARCCOS", E );
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 asin
-( FFExpr<DAG> const& E )
+( FFExpr const& E )
 {
-  return FFExpr<DAG>::compose( "ARCSIN", E );
+  return FFExpr::compose( "ARCSIN", E );
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 atan
-( FFExpr<DAG> const& E )
+( FFExpr const& E )
 {
-  return FFExpr<DAG>::compose( "ARCTAN", E );
+  return FFExpr::compose( "ARCTAN", E );
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 cosh
-( FFExpr<DAG> const& E )
+( FFExpr const& E )
 {
-  return FFExpr<DAG>::compose( "COSH", E );
+  return FFExpr::compose( "COSH", E );
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 sinh
-( FFExpr<DAG> const& E )
+( FFExpr const& E )
 {
-  return FFExpr<DAG>::compose( "SINH", E );
+  return FFExpr::compose( "SINH", E );
 }
 
-template <typename DAG>
-inline FFExpr<DAG>
+inline FFExpr
 tanh
-( FFExpr<DAG> const& E )
+( FFExpr const& E )
 {
-  return FFExpr<DAG>::compose( "TANH", E );
+  return FFExpr::compose( "TANH", E );
 }
 
 } // namespace mc
@@ -847,17 +795,17 @@ namespace mc
 {
 
 //! @brief C++ structure for specialization of the mc::Op templated structure for use of mc::FFEpr in DAG evaluation or as template parameter in other MC++ types
-template< typename DAG > struct Op< mc::FFExpr<DAG> >
+template <> struct Op< mc::FFExpr >
 {
-  typedef mc::FFExpr<DAG> FFE;
+  typedef mc::FFExpr FFE;
   static FFE point( const double c ) { return FFE(c); }
-  static FFE zeroone() { throw typename FFExpr<DAG>::Exceptions( FFExpr<DAG>::Exceptions::UNDEF ); }
+  static FFE zeroone() { throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF ); }
   static void I(FFE& x, const FFE&y) { x = y; }
-  static double l(const FFE& x) { throw typename FFExpr<DAG>::Exceptions( FFExpr<DAG>::Exceptions::UNDEF ); }
-  static double u(const FFE& x) { throw typename FFExpr<DAG>::Exceptions( FFExpr<DAG>::Exceptions::UNDEF ); }
-  static double abs (const FFE& x) { throw typename FFExpr<DAG>::Exceptions( FFExpr<DAG>::Exceptions::UNDEF ); }
-  static double mid (const FFE& x) { throw typename FFExpr<DAG>::Exceptions( FFExpr<DAG>::Exceptions::UNDEF ); }
-  static double diam(const FFE& x) { throw typename FFExpr<DAG>::Exceptions( FFExpr<DAG>::Exceptions::UNDEF ); }
+  static double l(const FFE& x) { throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF ); }
+  static double u(const FFE& x) { throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF ); }
+  static double abs (const FFE& x) { throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF ); }
+  static double mid (const FFE& x) { throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF ); }
+  static double diam(const FFE& x) { throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF ); }
   static FFE inv (const FFE& x) { return mc::inv(x);  }
   static FFE sqr (const FFE& x) { return mc::sqr(x);  }
   static FFE sqrt(const FFE& x) { return mc::sqrt(x); }
@@ -878,23 +826,23 @@ template< typename DAG > struct Op< mc::FFExpr<DAG> >
   static FFE tanh (const FFE& x) { return mc::tanh(x);  }
   static FFE erf (const FFE& x) { return mc::erf(x);  }
   static FFE erfc (const FFE& x) { return mc::erfc(x);  }
-  static FFE fstep(const FFE& x) { throw typename FFExpr<DAG>::Exceptions( FFExpr<DAG>::Exceptions::UNDEF ); }
-  static FFE bstep(const FFE& x) { throw typename FFExpr<DAG>::Exceptions( FFExpr<DAG>::Exceptions::UNDEF ); }
-  static FFE hull(const FFE& x, const FFE& y) { throw typename FFExpr<DAG>::Exceptions( FFExpr<DAG>::Exceptions::UNDEF ); }
+  static FFE fstep(const FFE& x) { throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF ); }
+  static FFE bstep(const FFE& x) { throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF ); }
+  static FFE hull(const FFE& x, const FFE& y) { throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF ); }
   static FFE min (const FFE& x, const FFE& y) { return mc::min(x,y); }
   static FFE max (const FFE& x, const FFE& y) { return mc::max(x,y); }
-  static FFE arh (const FFE& x, const double k) { throw typename FFExpr<DAG>::Exceptions( FFExpr<DAG>::Exceptions::UNDEF ); }
+  static FFE arh (const FFE& x, const double k) { throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF ); }
   template <typename X, typename Y> static FFE pow(const X& x, const Y& y) { return mc::pow(x,y); }
-  static FFE cheb(const FFE& x, const unsigned n) { throw typename FFExpr<DAG>::Exceptions( FFExpr<DAG>::Exceptions::UNDEF ); }
+  static FFE cheb(const FFE& x, const unsigned n) { throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF ); }
   static FFE prod (const unsigned n, const FFE* x) { return mc::prod(n,x); }
   static FFE monom (const unsigned n, const FFE* x, const unsigned* k) { return mc::monom(n,x,k); }
-  static bool inter(FFE& xIy, const FFE& x, const FFE& y) { throw typename FFExpr<DAG>::Exceptions( FFExpr<DAG>::Exceptions::UNDEF ); }
-  static bool eq(const FFE& x, const FFE& y) { throw typename FFExpr<DAG>::Exceptions( FFExpr<DAG>::Exceptions::UNDEF ); }
-  static bool ne(const FFE& x, const FFE& y) { throw typename FFExpr<DAG>::Exceptions( FFExpr<DAG>::Exceptions::UNDEF ); }
-  static bool lt(const FFE& x, const FFE& y) { throw typename FFExpr<DAG>::Exceptions( FFExpr<DAG>::Exceptions::UNDEF ); }
-  static bool le(const FFE& x, const FFE& y) { throw typename FFExpr<DAG>::Exceptions( FFExpr<DAG>::Exceptions::UNDEF ); }
-  static bool gt(const FFE& x, const FFE& y) { throw typename FFExpr<DAG>::Exceptions( FFExpr<DAG>::Exceptions::UNDEF ); }
-  static bool ge(const FFE& x, const FFE& y) { throw typename FFExpr<DAG>::Exceptions( FFExpr<DAG>::Exceptions::UNDEF ); }
+  static bool inter(FFE& xIy, const FFE& x, const FFE& y) { throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF ); }
+  static bool eq(const FFE& x, const FFE& y) { throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF ); }
+  static bool ne(const FFE& x, const FFE& y) { throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF ); }
+  static bool lt(const FFE& x, const FFE& y) { throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF ); }
+  static bool le(const FFE& x, const FFE& y) { throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF ); }
+  static bool gt(const FFE& x, const FFE& y) { throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF ); }
+  static bool ge(const FFE& x, const FFE& y) { throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF ); }
 };
 
 } // namespace mc

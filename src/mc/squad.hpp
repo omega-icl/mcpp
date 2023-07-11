@@ -604,7 +604,7 @@ public:
       {}
     //! @brief Assignment of mc::SQuad::Options
     Options& operator=
-      ( Options& opt ){
+      ( Options const& opt ){
         BASIS           = opt.BASIS;
         ORDER           = opt.ORDER;
         REDUC           = opt.REDUC;
@@ -844,6 +844,10 @@ public:
     ()
     const
     { return _SetMon; }
+
+  t_SPoly poly
+    ( map_SQuad const& quad )
+    const;
 
   //! @brief Reset quadratic form expressions
   void reset
@@ -1231,6 +1235,22 @@ const
   }
 #endif
   return eigdec;
+}
+
+template <typename KEY, typename COMP>
+inline typename SQuad<KEY,COMP>::t_SPoly
+SQuad<KEY,COMP>::poly
+( map_SQuad const& quad )
+const
+{
+  t_SPoly::options.BASIS = options.BASIS;
+  t_SPoly pol;
+  for( auto const& [ijmon,coef] : quad )
+    pol += t_SPoly( std::make_pair(*ijmon.first,coef) ) * t_SPoly( std::make_pair(*ijmon.second,1e0) );
+#ifdef MC__SQUAD_DEBUG_CHECK
+    std::cout << "\n  Converted polynomial:" << pol;
+#endif
+  return pol;
 }
 
 template <typename KEY, typename COMP>

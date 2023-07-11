@@ -117,7 +117,7 @@ The available options are the following:
          <TD>Extra terms in Chebyshev interpolation of univariates: 0-Chebyshev interpolation of order NORD; extra terms allow approximation of Chebyshev truncated series.
      <TR><TH><tt>INTERP_THRES</tt> <TD><tt>double</tt> <TD>1e2*machprec()
          <TD>Threshold for coefficient values in Chebyshev expansion for bounding of transcendental univariates.
-     <TR><TH><tt>BOUNDER_TYPE</tt> <TD><tt>mc::SCModel::Options::BOUNDER</tt> <TD>mc::SCModel::Options::LSB
+     <TR><TH><tt>BOUNDER_TYPE</tt> <TD><tt>mc::SICModel::Options::BOUNDER</tt> <TD>mc::SICModel::Options::LSB
          <TD>Chebyshev model range bounder.
      <TR><TH><tt>MIXED_IA</tt> <TD><tt>bool</tt> <TD>false
          <TD>Whether to intersect internal bounds with underlying bounds in the templated arithmetics.
@@ -358,7 +358,7 @@ public:
 
   //! @brief Copy constructor of Sparse Chebyshev model environment
   SICModel
-    ( SCModel<T> const& mod )
+    ( SCModel<T,KEY,COMP> const& mod )
     : _maxord( mod.maxord() ), _setvar( mod.setvar() ),
       _bndvar( mod.bndvar() ), _refvar( mod.refvar() ), _scalvar( mod.scalvar() )
     { _coefuniv.reserve( _maxord + options.INTERP_EXTRA + 1 ); }
@@ -2824,7 +2824,7 @@ const
 
   // Compose with rescaled inner variable
   SICVar<T,KEY,COMP> cvvar( _CM ); cvvar._set( *itvar, bndvar, false );
-#ifdef MC__SCMODEL_DEBUG_SCALE
+#ifdef MC__SICMODEL_DEBUG_SCALE
   std::cout << "cvvar[" << *itvar << "]:" << cvvar;
 #endif
   if( !isequal(_scalvar(*itvar),0.) ){
@@ -2832,11 +2832,11 @@ const
     cvvar *= Op<T>::diam(bndvar) / (2.*_scalvar(*itvar) );
     cvvar += Op<T>::mid(bndvar);
   }
-#ifdef MC__SCMODEL_DEBUG_SCALE
+#ifdef MC__SICMODEL_DEBUG_SCALE
   std::cout << "cvvar[" << *itvar << "]:" << cvvar;
 #endif
   cvvar = cvvar._rescale( _scalvar(*itvar), _refvar(*itvar) );
-#ifdef MC__SCMODEL_DEBUG_SCALE
+#ifdef MC__SICMODEL_DEBUG_SCALE
   std::cout << "cvvar[" << *itvar << "]:" << cvvar;
 #endif
   coefmon = _CM->_composition( veccoef, nord(), cvvar )._coefmon;
@@ -2894,12 +2894,12 @@ SICVar<T,KEY,COMP>::lift
   // Need for lifting?
   double remrad = 0.;
   for( auto const& [mon,coef] : _coefmon ) remrad += 0.5*Op<T>::diam( coef );
-//#ifdef MC__SCMODEL_DEBUG_LIFT
+#ifdef MC__SICMODEL_DEBUG_LIFT
   if( Op<T>::abs(_polybound()) < 1e-10 )
     std::cout << "polybound magnitude is: " << _polybound() << std::endl;
   std::cout << remrad << " < " << 0.5*RTOL*Op<T>::diam(_polybound()) + ATOL + machprec() << " : "
             << ( remrad < 0.5*RTOL*Op<T>::diam(_polybound()) + ATOL + machprec() ) << std::endl;
-//#endif
+#endif
   if( !_CM->_maxord || ( remrad < 0.5*RTOL*Op<T>::diam(_polybound()) + ATOL + machprec() ) ) return *this;
 
   // Allocate range to constant coefficient
@@ -3088,7 +3088,7 @@ template <typename T, typename KEY, typename COMP>
 inline
 void
 SICVar<T,KEY,COMP>::_simplify
-( typename SICVar<T,KEY,COMP>::t_poly& coefmon )
+( t_poly& coefmon )
 const
 {
   if( coefmon.empty() ) return;
@@ -3963,7 +3963,7 @@ pow
 
 template <typename T, typename KEY, typename COMP> inline SICVar<T,KEY,COMP>
 pow
-( const SICVar<T,KEY,COMP> &CV, double const a )
+( const SICVar<T,KEY,COMP> &CV, double const& a )
 {
 #if 0
   return exp( a * log( CV ) );

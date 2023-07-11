@@ -1,6 +1,6 @@
 # THIRD-PARTY LIBRARIES <<-- CHANGE AS APPROPRIATE -->>
 
-PATH_3RD_PARTY = $(HOME)/Programs/bitbucket/mcpp22/src/3rdparty
+PATH_3RD_PARTY = $(HOME)/Programs/bitbucket/mcpp23/src/3rdparty
 
 PATH_LAPACK = $(PATH_3RD_PARTY)/cpplapack-2015.05.11-1
 LIB_LAPACK  = -llapack -lblas

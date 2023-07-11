@@ -1,3 +1,5 @@
+#undef MC__SELIM_DEBUG_PROCESS
+
 #include <fstream>
 #include <sstream>
 #include <iomanip>
@@ -96,7 +98,7 @@ int test_expr1()
 
   // Evaluate with dependents
   auto Fop  = DAG.subgraph( NF, F );
-  mc::FFExpr<mc::FFGraph<>> EX[NX], EF[NF];
+  mc::FFExpr EX[NX], EF[NF];
   for( unsigned int i=0; i<NX; i++ ) EX[i].set( X[i] );
   DAG.eval( Fop, NF, F, EF, NX, X, EX );
 
@@ -901,26 +903,53 @@ int test_selim2()
 
 ///////////////////////////////////////////////////////////////////////////////
 
+int test_selim3()
+{
+  std::cout << "\n==============================================\ntest_selim3:\n";
+
+  mc::FFGraph DAG;
+  const unsigned NX = 4, NF = 1;
+  mc::FFVar X[NX];
+  for( unsigned i(0); i<NX; i++ ) X[i].set( &DAG );
+  mc::FFVar F[NF];
+  F[0] = (X[1]+1)*X[3] - 1;
+  //F[0] = (X[1]*X[2] + 1e3*X[0])*X[3] - 1;
+  std::cout << DAG;
+
+  mc::SElimEnv SPE( &DAG );
+  SPE.options.ELIMMLIN      = true;
+  SPE.options.MIPDISPLEVEL  = 0;
+  SPE.options.MIPOUTPUTFILE = "test_selim3.lp";
+
+  SPE.process( NF, F );
+  std::cout << SPE;
+  
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 int main()
 {
   try{
-//    test_expr1();
-//    test_dep1();
-//    test_inv1();
-//    test_dep2();
-//    test_inv2();
-//    test_rltred1();
-//    test_rltred2();
-//    test_rltred3();
-//    test_rltred4();
-//    test_rltred5();
-//    test_rltred6();
-//    test_spoly1();
-//    test_slift0();
-//    test_slift1();
-//    test_selim0();
-//    test_selim1();
+    test_expr1();
+    test_dep1();
+    test_inv1();
+    test_dep2();
+    test_inv2();
+    test_rltred1();
+    test_rltred2();
+    test_rltred3();
+    test_rltred4();
+    test_rltred5();
+    test_rltred6();
+    test_spoly1();
+    test_slift0();
+    test_slift1();
+    test_selim0();
+    test_selim1();
     test_selim2();
+    test_selim3();
   }
   catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()

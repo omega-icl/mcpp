@@ -79,7 +79,7 @@ protected:
     
   //! @brief Clean sparse polynomial by removing zero entries
   void _clean
-    ( t_poly & spoly )
+    ( t_poly& spoly )
     const;
 
   //! @brief Recursive product of univariate sparse polynomials
@@ -183,8 +183,13 @@ public:
 
   //! @brief Display sparse coefficient map
   std::string display
-    ( t_poly spoly, int const& BASIS=options.BASIS, int const& DISPLEN=options.DISPLEN )
+    ( t_poly spoly, int const& BASIS=options.BASIS, int const& DISPLEN=options.DISPLEN,
+      bool const ONELINE=false )
     const;
+    
+  //! @brief Clean sparse polynomial by removing entries below threshold tol
+  void clean
+    ( double const& tol );
 
   //! @brief Convert coefficient map to desired BASIS
   SPoly<KEY,COMP>& convert
@@ -477,6 +482,19 @@ const
 
 template <typename KEY, typename COMP>
 inline void
+SPoly<KEY,COMP>::clean
+( double const& tol )
+{
+  for( auto itmon = _mapmon.begin(); itmon!=_mapmon.end(); )
+    if( std::fabs( itmon->second ) <= tol )
+      itmon = _mapmon.erase( itmon );
+    else
+      ++itmon;
+  return;
+}
+
+template <typename KEY, typename COMP>
+inline void
 SPoly<KEY,COMP>::_pow2cheb
 ( std::map<unsigned,t_poly>& spmap )
 {
@@ -695,14 +713,30 @@ template <typename KEY, typename COMP>
 inline
 std::string
 SPoly<KEY,COMP>::display
-( t_poly mapmon, int const& BASIS, int const& DISPLEN )
+( t_poly mapmon, int const& BASIS, int const& DISPLEN, bool const ONELINE )
 const
 {
   std::ostringstream out;
-  out << std::endl << std::scientific << std::setprecision(DISPLEN);
-  for( auto const& [mon,coef] : mapmon )
-    out << std::right << std::setw(DISPLEN+7) << coef << "  " << std::setw(2) << mon.tord << "  "
-        << mon.display( BASIS ) << std::endl;
+  if( !ONELINE ) out << std::endl; 
+  out << std::scientific << std::setprecision(DISPLEN);
+  bool first = true;
+  for( auto const& [mon,coef] : mapmon ){
+    if( ONELINE ){
+      if( first ){
+        first = false;
+        out << coef;
+      }
+      else if( coef < 0. )
+        out << " - " << -coef;
+      else if( coef > 0. )
+        out << " + " << coef;  
+      if( mon.tord )
+        out << " " << mon.display( BASIS );
+    }
+    else
+      out << std::right << std::setw(DISPLEN+7) << coef << "  " << std::setw(2) << mon.tord << "  "
+          << mon.display( BASIS ) << std::endl;
+  }
   return out.str();
 }
 

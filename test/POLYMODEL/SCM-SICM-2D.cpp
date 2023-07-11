@@ -15,6 +15,7 @@ const unsigned NREP = 1;  // <-- select repetition for acurate timing
 
 #include <fstream>
 #include <iomanip>
+
 #include "mctime.hpp"
 
 #ifdef MC__USE_PROFIL
@@ -37,7 +38,6 @@ const unsigned NREP = 1;  // <-- select repetition for acurate timing
   #endif
  #endif
 #endif
-
 
 #include "cmodel.hpp"
 typedef mc::CModel<I> CM;

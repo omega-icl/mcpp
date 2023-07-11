@@ -14,17 +14,25 @@ const int NX = 100;	    // <-- select X discretization here
 #include <fstream>
 #include <iomanip>
 
-#ifdef USE_PROFIL
-  #include "mcprofil.hpp"
-  typedef INTERVAL I;
+#ifdef MC__USE_PROFIL
+ #include "mcprofil.hpp"
+ typedef INTERVAL I;
 #else
-  #ifdef USE_FILIB
-    #include "mcfilib.hpp"
-    typedef filib::interval<double> I;
+ #ifdef MC__USE_FILIB
+  #include "mcfilib.hpp"
+  typedef filib::interval<double,filib::native_switched,filib::i_mode_extended> I;
+ #else
+  #ifdef MC__USE_BOOST
+   #include "mcboost.hpp"
+   typedef boost::numeric::interval_lib::save_state<boost::numeric::interval_lib::rounded_transc_opp<double>> T_boost_round;
+   typedef boost::numeric::interval_lib::checking_base<double> T_boost_check;
+   typedef boost::numeric::interval_lib::policies<T_boost_round,T_boost_check> T_boost_policy;
+   typedef boost::numeric::interval<double,T_boost_policy> I;
   #else
-    #include "interval.hpp"
-    typedef mc::Interval I;
+   #include "interval.hpp"
+   typedef mc::Interval I;
   #endif
+ #endif
 #endif
 
 #include "mccormick.hpp"
@@ -290,7 +298,11 @@ int main()
       CVMCX.set( &modCMMC, 0, MC(I(XL,XU),DX) );
       CVMCF = myfunc( CVMCX );
       MC MCBF = CVMCF.B();
+#ifdef USE_SPARSE
+      double PF = CVMCF.P( std::map<unsigned,double>({std::make_pair(0,DX)}) );
+#else
       double PF = CVMCF.P( &DX );
+#endif
       MC MCF = PF + CVMCF.R();
       //std::cout << "CVMCF: " << CVMCF << std::endl;
 
@@ -335,8 +347,7 @@ int main()
 
   }
   
-#ifndef USE_PROFIL
-#ifndef USE_FILIB
+#if !defined(MC__USE_PROFIL) && !defined(MC__USE_FILIB) && !defined(MC__USE_BOOST)
   catch( I::Exceptions &eObj ){
     cerr << "Error " << eObj.ierr()
          << " in natural interval extension:" << endl
@@ -344,7 +355,6 @@ int main()
          << "Aborts." << endl;
     return eObj.ierr();
   }
-#endif
 #endif
   catch( MC::Exceptions &eObj ){
     cerr << "Error " << eObj.ierr()

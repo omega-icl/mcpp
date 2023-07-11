@@ -10,6 +10,9 @@
 
 The classes mc::SElimEnv and mc::SElimVar defined in <tt>selim.hpp</tt> enable the elimination of a subset of variables from factorable expressions through expoiting solvable (invertible) equality constraints. 
 
+
+\section sec_SELIM_algo What is the algorithm used for the elimination?
+
 Given a set of equality constraints \f${\bf f}({\bf x}) = {\bf 0}\f$ with \f${\bf f}:\mathbb{R}^n\to\mathbb{R}^m\f$ and \f$n\geq m\f$, we seek to partition the variable set into \f${\bf x} =: [{\bf x}_{\rm indep},{\bf x}_{\rm dep}]\f$, where \f${\bf x}_{\rm indep}\in\mathbb{R}^{n_{\rm indep}}\f$ and \f${\bf x}_{\rm dep}\in\mathbb{R}^{n_{\rm dep}}\f$ are the independent and dependent decisions, respectively; and to construct an explicit mapping \f${\bf g}:\mathbb{R}^n\to\mathbb{R}^m\f$ such that \f${\bf x}_{\rm dep} = {\bf g}({\bf x}_{\rm indep})\f$.
 
 This elimination proceeds in 3 steps:
@@ -54,7 +57,7 @@ For illustration, consider the following pair of nonlinear equality constraints 
   0 &= \frac{2}{x_1} + \frac{3}{x_2} - 1
 \f}
 
-The lifting requires the header file <tt>selim.hpp</tt> to be included:
+The elimination requires the header file <tt>selim.hpp</tt> to be included:
 
 \code
       #include "selim.hpp"
@@ -100,10 +103,10 @@ The last line displays the following information about the DAG:
       Z4	<=  3(I)		 => { Z5 Z12 }
 \endverbatim
 
-Next, an environment <a>mc::SElimEnv</a> is defined for lifting the factorable expressions in <a>DAG</a>. The method <a>mc::SElimEnv::process</a> decomposes the factorable expressions recursively into sparse polynomial and transcendental subexpressions:
+Next, an environment <a>mc::SElimEnv</a> is defined and the method <a>mc::SElimEnv::process</a> is invoked to perform the elimination:
 
 \code
-      mc::SElimEnv<mc::FFGraph<>> SPE( &DAG );
+      mc::SElimEnv SPE( &DAG );
       SPE.process( NF, F );
       std::cout << SPE;
 \endcode
@@ -189,38 +192,20 @@ The method mc::SElimEnv::VarElim allows retreiving a 3-tuple of vectors of (i) t
 namespace mc
 {
 
-//! @brief Environment for variable elimination in factorable equality constraints
+//! @brief Base class for variable elimination in factorable equality constraints
 ////////////////////////////////////////////////////////////////////////
-//! mc::SElimEnv is a C++ class defining the environment for variable
-//! elimination from factorable expressions through expoiting solvable
-//! equality constraints
+//! mc::SElimBase is a C++ base class defining the environment for
+//! variable elimination from factorable expressions through expoiting
+//! solvable equality constraints
 ////////////////////////////////////////////////////////////////////////
-template <typename... ExtOps>
-class SElimEnv:
-  protected virtual SLiftEnv<ExtOps...>
+class SElimBase
 ////////////////////////////////////////////////////////////////////////
 {
-  using SLiftEnv<ExtOps...>::_dag;
-  using SLiftEnv<ExtOps...>::_Interm;
-  using SLiftEnv<ExtOps...>::_SPDep;
-
-  using SLiftEnv<ExtOps...>::dag;
-  using SLiftEnv<ExtOps...>::insert_dag;
-
-  template <typename... Ops> friend std::ostream& operator<<
-    ( std::ostream&, const SElimEnv<Ops...>& );
-
 public:
 
-  typedef std::tuple< std::vector<FFVar>, std::vector<FFVar>, std::vector<FFVar> > t_VarElim;
-  typedef SLiftEnv<ExtOps...> t_lift;
-  typedef typename SLiftVar::t_poly t_poly;
-  typedef typename t_poly::t_mon t_mon;
-
   //! @brief Default Constructor
-  SElimEnv
-    ( FFGraph<ExtOps...>* dag=nullptr )
-    : SLiftEnv<ExtOps...>(dag)
+  SElimBase
+    ()
     {
 #if defined(MC__USE_GUROBI)
       _GRBenv   = new GRBEnv();
@@ -229,76 +214,17 @@ public:
     }
     
   //! @brief Destructor
-  virtual ~SElimEnv
+  virtual ~SElimBase
     ()
     {
-      _reset();
 #if defined(MC__USE_GUROBI)
       delete _GRBmodel;
       delete _GRBenv;
 #endif
     }
 
-  //! @brief Retreive tuple of vectors <ELIMINATED VARIABLE, INVERTED CONSTRAINT, INVERTED EXPRESSION> with entries in a feasible order of elimination
-  t_VarElim& VarElim
-    ()
-    { return _VarElim; }
-
-  //! @brief Set DAG environment
-  void set
-    (  FFGraph<ExtOps...>* dag )
-    { SLiftEnv<ExtOps...>::set( dag );
-      _reset(); }
-
-  //! @brief Reset intermediate expressions
-  void reset
-    ()
-    { SLiftEnv<ExtOps...>::_reset();
-      _reset(); }
-
-  //! @brief Process the <a>ndxCtr</a> equality constraints in array <a>pDep</a> 
-  void process
-    ( std::set<unsigned> const& ndxCtr, FFVar const* pCtr, 
-      std::map<FFVar const*,double,lt_FFVar> const& wVar=std::map<FFVar const*,double,lt_FFVar>(),
-      bool const add2dag=true );
-
-  //! @brief Process the <a>nCtr</a> equality constraints in array <a>pDep</a>
-  void process
-    ( unsigned const nCtr, FFVar const* pCtr, 
-      std::map<FFVar const*,double,lt_FFVar> const& wVar=std::map<FFVar const*,double,lt_FFVar>(),
-      const bool add2dag=true );
-
-  //! @brief Exceptions of mc::SElimVar
-  class Exceptions
-  {
-   public:
-    //! @brief Enumeration type for SElimVar exception handling
-    enum TYPE{
-      MIPERR=0,       //!< Call to MIP solver disabled
-      INVERT,         //!< Elimnation process failed
-      INTERNAL=-33    //!< Internal error
-    };
-    //! @brief Constructor for error <a>ierr</a>
-    Exceptions( TYPE ierr ) : _ierr( ierr ){}
-    //! @brief Error flag
-    int ierr(){ return _ierr; }
-    //! @brief Error description
-    std::string what(){
-      switch( _ierr ){
-      case MIPERR:
-        return "mc::SElimEnv\t Mixed-integer programming solver is disabled";
-      case INVERT:
-        return "mc::SElimEnv\t Internal error during elimination process";
-      default:
-        return "mc::SElimEnv\t Internal error";
-      }
-    }
-   private:
-    TYPE _ierr;
-  };
-
-  //! @brief Options of mc::SElimEnv
-  static struct Options
+  //! @brief Options of mc::SElimBase
+  struct Options
   {
     //! @brief Constructor
     Options():
@@ -308,15 +234,12 @@ public:
       MIPRELGAP(1e-3), MIPABSGAP(1e-3), MIPTHREADS(0),
       MIPCONCURRENT(1), MIPFOCUS(0), MIPHEURISTICS(0.2),
       MIPNUMFOCUS(0), MIPDISPLEVEL(1), MIPOUTPUTFILE(""),
-      MIPTIMELIMIT(600),
+      MIPTIMELIMIT(600)
 #endif
-      MULTMAX(0), ELIMLIN(true), ELIMMLIN(true),
-      ELIMNLIN( {FFInv::Options::INV,FFInv::Options::SQRT,FFInv::Options::EXP,
-                  FFInv::Options::LOG,FFInv::Options::RPOW} )
       {}
     //! @brief Assignment of mc::SElimEnv<ExtOps...>::Options
     Options& operator=
-      ( Options& opt ){
+      ( Options const& opt ){
 #if defined(MC__USE_GUROBI)
         LPALGO          = opt.LPALGO;
         LPPRESOLVE      = opt.LPPRESOLVE;
@@ -333,10 +256,6 @@ public:
         MIPOUTPUTFILE   = opt.MIPOUTPUTFILE;
         MIPTIMELIMIT    = opt.MIPTIMELIMIT;
 #endif
-        MULTMAX  = opt.MULTMAX;
-        ELIMLIN  = opt.ELIMLIN;
-        ELIMMLIN = opt.ELIMMLIN;
-        ELIMNLIN = opt.ELIMNLIN;
         return *this;
       }
 #if defined(MC__USE_GUROBI)
@@ -371,42 +290,22 @@ public:
   //! @brief Default option for LP solver
     static const int LPALGO_DEFAULT = -1;
 #endif
-    //! @brief Maximal multiplicity of eliminated variables
-    unsigned MULTMAX;
-    //! @brief Whether to invert linear operations
-    bool ELIMLIN;
-    //! @brief Whether to invert multilinear operations
-    bool ELIMMLIN;
-    //! @brief Set of invertible nonlinear operations
-    std::set<FFInv::Options::NLINV> ELIMNLIN;
   } options;
 
 
 protected:
 
-  //! @brief Map between eliminated DAG variables and coresponding equality constraint
-  t_VarElim _VarElim;
-
-  //! @brief Independent DAG variables participating in equality constraints
-  std::vector<FFVar> _Var;
+  //! @brief Candidate variables
+  std::set<unsigned> _ndxVar;
 
   //! @brief Independent DAG variables with associated weights/priorities
   std::map<unsigned,double> _VarWeight;
-
-  //! @brief Candidate variables
-  std::set<unsigned> _ndxVar;
-  
-  //! @brief Variable multiplicity
-  std::map<unsigned,unsigned> _mapVarMult;
 
   //! @brief Candidate constraints from which to eliminate a given variable
   std::map<unsigned,std::set<unsigned>> _mapVarCtrCand;
 
   //! @brief Candidate variables to eliminate a given variable
   std::map<unsigned,std::set<unsigned>> _mapVarElVar;
-
-  //! @brief Equality constraints
-  std::vector<FFVar> _Ctr;
 
   //! @brief Candidate constraints
   std::set<unsigned> _ndxCtr;
@@ -417,12 +316,6 @@ protected:
   //! @brief Candidate variables to eliminate from a given constraint
   std::map<unsigned,std::set<unsigned>> _mapCtrVarCand;
 
-  //! @brief Invertibility information for DAG variables
-  std::vector<FFInv> _IVar;
-
-  //! @brief Invertibility information for equality constraints
-  std::vector<FFInv> _ICtr;
-  
 #if defined(MC__USE_GUROBI)
   //! @brief whether the MIP solver has sent an exception
   bool _MIPexcpt;
@@ -450,7 +343,7 @@ protected:
 
   //! @brief Optimize the quadratic expressions for minimum number of auxiliaries 
   void _MIP_optimize
-    ();
+    ( Options const& opt );
 
   //! @brief Solve MIP optimization model
   void _MIP_solve
@@ -460,16 +353,330 @@ protected:
   void _MIP_encode
     ();
 
-  //! @brief Decode MIP optimal solution for maximal elimination
-  void _MIP_decode
-    ();
-
   //! @brief Reset variable vectors in MIP optimization model
   void _MIP_reset
     ();
 
   //! @brief Set options in MIP optimization model
   void _MIP_options
+    ();
+#endif
+};
+
+#if defined(MC__USE_GUROBI)
+inline int const SElimBase::Options::LPALGO_DEFAULT;
+//inline SElimBase::Options SElimBase::options;
+
+inline
+void
+SElimBase::_MIP_optimize
+( Options const& opt )
+{
+  _MIPexcpt = false;
+  options   = opt;
+
+  try{
+    // Run MIP optimization for a minimal representation
+    _MIP_reset();
+    _MIP_encode();
+    _MIP_options();
+    _MIP_solve();
+  }
+  
+  catch(GRBException& e){
+    if( options.MIPDISPLEVEL )
+      std::cout << "Error code = " << e.getErrorCode() << std::endl
+                << e.getMessage() << std::endl;
+    _MIPexcpt = true;
+  }
+}
+
+inline
+void
+SElimBase::_MIP_solve
+()
+{
+  _GRBmodel->update();
+  if( options.MIPOUTPUTFILE != "" )
+    _GRBmodel->write( options.MIPOUTPUTFILE );
+  fedisableexcept(FE_ALL_EXCEPT);
+  _GRBmodel->set( GRB_IntAttr_ModelSense, -1 );
+  _GRBmodel->optimize();
+}
+
+inline
+void
+SElimBase::_MIP_encode
+()
+{
+  // Define Gurobi continuous and binary variables  
+  for( auto const& [v,vset] : _mapVarElVar ){
+    // This also defines the objective function
+    _MIP_var[v]    = _GRBmodel->addVar( 0., 1., _VarWeight[v], GRB_BINARY );
+    _MIP_varMTZ[v] = _GRBmodel->addVar( 0., _ndxVar.size()-1., 0., GRB_CONTINUOUS );
+    for( auto const& vv : vset )
+      _MIP_varvar[v][vv] = _GRBmodel->addVar( 0., 1., 0., GRB_BINARY );
+  }
+
+  for( auto const& [e,vset] : _mapCtrVarCand ){
+    _MIP_ctr[e] = _GRBmodel->addVar( 0., 1., 0., GRB_BINARY );
+#ifdef MC__SELIM_CHECK
+    assert( !_mapCtrVarCand[e].empty() );
+#endif
+    for( auto const& v : vset ){
+#ifdef MC__SELIM_DEBUG_MIP
+      std::cout << "Define: _MIP_ctrvar[" << e << "][" << v << "]\n";
+#endif
+      _MIP_ctrvar[e][v] = _GRBmodel->addVar( 0., 1., 0., GRB_BINARY );
+    }
+  }
+
+  for( auto const& [v,eset] : _mapVarCtrCand ){
+    GRBLinExpr sumctrvar;
+    for( auto const& e : eset ){
+      sumctrvar += _MIP_ctrvar[e][v];
+#ifdef MC__SELIM_DEBUG_MIP
+      std::cout << "Use: _MIP_ctrvar[" << e << "][" << v << "]\n";
+#endif
+    }
+    _GRBmodel->addConstr( sumctrvar, GRB_EQUAL, _MIP_var[v] );
+  }
+
+  for( auto const& [v,vset] : _mapVarElVar ){
+    for( auto const& vv : vset )
+      _GRBmodel->addConstr( _MIP_varvar[v][vv], GRB_LESS_EQUAL, _MIP_var[v] );
+  }
+
+  for( auto const& [e,vset] : _mapCtrVarCand ){
+    GRBLinExpr sumctrvar;
+    for( auto const& v : vset ){
+#ifdef MC__SELIM_DEBUG_MIP
+      std::cout << "Use: _MIP_ctrvar[" << e << "][" << v << "]\n";
+#endif
+      sumctrvar += _MIP_ctrvar[e][v];
+    }
+    _GRBmodel->addConstr( sumctrvar, GRB_EQUAL, _MIP_ctr[e] );
+  }
+
+  for( auto const& [e,vset] : _mapCtrVarCand ){
+    for( auto const& v : vset ){
+#ifdef MC__SELIM_DEBUG_MIP
+      std::cout << "Use: _MIP_ctrvar[" << e << "][" << v << "]\n";
+#endif
+      for( auto const& vv : _mapVarElVar[v] ){
+        if( _mapCtrVar[e].find( vv ) == _mapCtrVar[e].end() )
+	  _GRBmodel->addConstr( 1. - _MIP_varvar[v][vv], GRB_GREATER_EQUAL, _MIP_ctrvar[e][v] );
+        else
+	  _GRBmodel->addConstr( _MIP_varvar[v][vv], GRB_GREATER_EQUAL, _MIP_ctrvar[e][v] );
+      }
+    }
+  }
+  
+  // MTZ subtour elimination
+  for( auto const& [v,vset] : _mapVarElVar ){
+    for( auto const& vv : vset )
+      _GRBmodel->addConstr( _MIP_varMTZ[v] - _MIP_varMTZ[vv], GRB_LESS_EQUAL,
+                            _ndxVar.size() * (1.-_MIP_varvar[v][vv]) - 1. );
+  }
+}
+
+inline
+void
+SElimBase::_MIP_options
+()
+{
+  _GRBmodel->getEnv().set( GRB_IntParam_OutputFlag,        options.MIPDISPLEVEL );
+  _GRBmodel->getEnv().set( GRB_IntParam_Method,            options.LPALGO );
+  _GRBmodel->getEnv().set( GRB_IntParam_Presolve,          options.LPPRESOLVE );
+  _GRBmodel->getEnv().set( GRB_IntParam_Threads,           options.MIPTHREADS );
+  _GRBmodel->getEnv().set( GRB_IntParam_ConcurrentMIP,     options.MIPCONCURRENT );
+  _GRBmodel->getEnv().set( GRB_IntParam_MIPFocus,          options.MIPFOCUS );
+  _GRBmodel->getEnv().set( GRB_IntParam_NumericFocus,      options.MIPNUMFOCUS );
+  _GRBmodel->getEnv().set( GRB_DoubleParam_Heuristics,     options.MIPHEURISTICS );
+  _GRBmodel->getEnv().set( GRB_DoubleParam_FeasibilityTol, options.LPFEASTOL );
+  _GRBmodel->getEnv().set( GRB_DoubleParam_OptimalityTol,  options.LPOPTIMTOL );
+  _GRBmodel->getEnv().set( GRB_DoubleParam_MIPGap,         options.MIPRELGAP );
+  _GRBmodel->getEnv().set( GRB_DoubleParam_MIPGapAbs,      options.MIPABSGAP );
+  _GRBmodel->getEnv().set( GRB_DoubleParam_TimeLimit,      options.MIPTIMELIMIT );
+}
+
+inline
+void
+SElimBase::_MIP_reset
+()
+{
+  _MIP_var.clear();
+  _MIP_varMTZ.clear();
+  _MIP_ctr.clear();
+  _MIP_ctrvar.clear();
+  _MIP_varvar.clear();
+  
+  delete _GRBmodel;
+  _GRBmodel = new GRBModel( *_GRBenv );
+}
+#endif // #if defined(MC__USE_GUROBI)
+
+//! @brief Environment for variable elimination in factorable equality constraints
+////////////////////////////////////////////////////////////////////////
+//! mc::SElimEnv is a C++ class defining the environment for variable
+//! elimination from factorable expressions through expoiting solvable
+//! equality constraints
+////////////////////////////////////////////////////////////////////////
+template <typename... ExtOps>
+class SElimEnv
+: public SElimBase,
+  protected virtual SLiftEnv<ExtOps...>
+////////////////////////////////////////////////////////////////////////
+{
+  using SLiftEnv<ExtOps...>::_dag;
+  using SLiftEnv<ExtOps...>::_Interm;
+  using SLiftEnv<ExtOps...>::_SPDep;
+
+  using SLiftEnv<ExtOps...>::dag;
+  using SLiftEnv<ExtOps...>::insert_dag;
+
+  template <typename... Ops> friend std::ostream& operator<<
+    ( std::ostream&, const SElimEnv<Ops...>& );
+
+public:
+
+  typedef std::tuple< std::vector<FFVar>, std::vector<FFVar>, std::vector<FFVar> > t_VarElim;
+  typedef SLiftEnv<ExtOps...> t_lift;
+  typedef typename SLiftVar::t_poly t_poly;
+  typedef typename t_poly::t_mon t_mon;
+
+  //! @brief Default Constructor
+  SElimEnv
+    ( FFGraph<ExtOps...>* dag=nullptr )
+    : SLiftEnv<ExtOps...>( dag ),
+      SElimBase()
+    {}
+    
+  //! @brief Destructor
+  virtual ~SElimEnv
+    ()
+    {
+      _reset();
+    }
+
+  //! @brief Retreive tuple of vectors <ELIMINATED VARIABLE, INVERTED CONSTRAINT, INVERTED EXPRESSION> with entries in a feasible order of elimination
+  t_VarElim& VarElim
+    ()
+    { return _VarElim; }
+
+  //! @brief Set DAG environment
+  void set
+    (  FFGraph<ExtOps...>* dag )
+    {
+      SLiftEnv<ExtOps...>::set( dag );
+      _reset();
+    }
+
+  //! @brief Reset intermediate expressions
+  void reset
+    ()
+    {
+      SLiftEnv<ExtOps...>::_reset();
+      _reset();
+    }
+
+  //! @brief Process the <a>ndxCtr</a> equality constraints in array <a>pDep</a> 
+  void process
+    ( std::set<unsigned> const& ndxCtr, FFVar const* pCtr, 
+      std::map<FFVar const*,double,lt_FFVar> const& wVar=std::map<FFVar const*,double,lt_FFVar>(),
+      bool const add2dag=true );
+
+  //! @brief Process the <a>nCtr</a> equality constraints in array <a>pDep</a>
+  void process
+    ( unsigned const nCtr, FFVar const* pCtr, 
+      std::map<FFVar const*,double,lt_FFVar> const& wVar=std::map<FFVar const*,double,lt_FFVar>(),
+      const bool add2dag=true );
+
+  //! @brief Exceptions of mc::SElimVar
+  class Exceptions
+  {
+   public:
+    //! @brief Enumeration type for SElimVar exception handling
+    enum TYPE{
+      MIPERR=0,       //!< Call to MIP solver disabled
+      INVERT,         //!< Elimination process failed
+      INTERNAL=-33    //!< Internal error
+    };
+    //! @brief Constructor for error <a>ierr</a>
+    Exceptions( TYPE ierr ) : _ierr( ierr ){}
+    //! @brief Error flag
+    int ierr(){ return _ierr; }
+    //! @brief Error description
+    std::string what(){
+      switch( _ierr ){
+      case MIPERR:
+        return "mc::SElimEnv\t Mixed-integer programming solver is disabled";
+      case INVERT:
+        return "mc::SElimEnv\t Internal error during elimination process";
+      default:
+        return "mc::SElimEnv\t Internal error";
+      }
+    }
+   private:
+    TYPE _ierr;
+  };
+
+  //! @brief Options of mc::SElimEnv
+  struct Options
+  : public SElimBase::Options
+  {
+    //! @brief Constructor
+    Options
+    ()
+    : SElimBase::Options(),
+      MULTMAX(0), ELIMLIN(true), ELIMMLIN(true),
+      ELIMNLIN( {FFInv::Options::INV,FFInv::Options::SQRT,FFInv::Options::EXP,
+                  FFInv::Options::LOG,FFInv::Options::RPOW} )
+      {}
+    //! @brief Assignment of mc::SElimEnv<ExtOps...>::Options
+    Options& operator=
+      ( Options const& opt ){
+        SElimBase::Options::operator=( opt );
+        MULTMAX  = opt.MULTMAX;
+        ELIMLIN  = opt.ELIMLIN;
+        ELIMMLIN = opt.ELIMMLIN;
+        ELIMNLIN = opt.ELIMNLIN;
+        return *this;
+      }
+    //! @brief Maximal multiplicity of eliminated variables
+    unsigned MULTMAX;
+    //! @brief Whether to invert linear operations
+    bool ELIMLIN;
+    //! @brief Whether to invert multilinear operations
+    bool ELIMMLIN;
+    //! @brief Set of invertible nonlinear operations
+    std::set<FFInv::Options::NLINV> ELIMNLIN;
+  } options;
+
+
+protected:
+
+  //! @brief Independent DAG variables participating in equality constraints
+  std::vector<FFVar> _Var;
+
+  //! @brief Equality constraints
+  std::vector<FFVar> _Ctr;
+
+  //! @brief Invertibility information for DAG variables
+  std::vector<FFInv> _IVar;
+
+  //! @brief Invertibility information for equality constraints
+  std::vector<FFInv> _ICtr;
+  
+  //! @brief Variable multiplicity
+  std::map<unsigned,unsigned> _mapVarMult;
+
+  //! @brief Tuple of eliminated DAG variables and corresponding equality constraint and auxiliary variable
+  t_VarElim _VarElim;
+
+#if defined(MC__USE_GUROBI)
+  //! @brief Decode MIP optimal solution for maximal elimination
+  void _MIP_decode
     ();
 #endif
 
@@ -497,16 +704,12 @@ protected:
     ();
 };
 
-template <typename... ExtOps>
-inline typename SElimEnv<ExtOps...>::Options SElimEnv<ExtOps...>::options;
-
-#if defined(MC__USE_GUROBI)
-template <typename... ExtOps>
-inline int const SElimEnv<ExtOps...>::Options::LPALGO_DEFAULT;
-#endif
+//template <typename... ExtOps>
+//inline typename SElimEnv<ExtOps...>::Options SElimEnv<ExtOps...>::options;
 
 template <typename... ExtOps>
-inline std::ostream&
+inline
+std::ostream&
 operator<<
 ( std::ostream& out, SElimEnv<ExtOps...> const& env)
 {
@@ -531,7 +734,8 @@ operator<<
 }
 
 template <typename... ExtOps>
-inline void
+inline
+void
 SElimEnv<ExtOps...>::_reset
 ()
 {
@@ -555,7 +759,8 @@ SElimEnv<ExtOps...>::_reset
 }
 
 template <typename... ExtOps>
-inline void
+inline
+void
 SElimEnv<ExtOps...>::process
 ( std::set<unsigned> const& ndxCtr, FFVar const* pCtr,
   std::map<FFVar const*,double,lt_FFVar> const& wVar,
@@ -569,7 +774,8 @@ SElimEnv<ExtOps...>::process
 }
 
 template <typename... ExtOps>
-inline void
+inline
+void
 SElimEnv<ExtOps...>::process
 ( unsigned const nCtr, FFVar const* pCtr,
   std::map<FFVar const*,double,lt_FFVar> const& wVar,
@@ -577,6 +783,9 @@ SElimEnv<ExtOps...>::process
 {
   // Reset internal variables
   _reset();
+
+  // Pass options to base class
+  SElimBase::options = options;
 
   // Update participating variables in _Var
   auto sgCtr = _dag->subgraph( nCtr, pCtr );
@@ -709,11 +918,14 @@ SElimEnv<ExtOps...>::process
 
   // Determine an optimal elimination set
 #if defined(MC__USE_GUROBI)
-  _MIP_optimize();
+  _MIP_optimize( options );
+  if( _MIPexcpt ) throw Exceptions( Exceptions::MIPERR );
+  _MIP_decode();
 #else
   throw Exceptions( Exceptions::MIPERR );
 #endif
 
+  // Decode optimization results
   auto& [vvar,vctr,vaux] = _VarElim;
 #ifdef MC__SELIM_DEBUG_PROCESS
   std::cout << std::endl << "Eliminated variables and corresponding constraints:" << std::endl;
@@ -835,7 +1047,11 @@ SElimEnv<ExtOps...>::process
       for( auto const& [mon,coef] : numer.mapmon() ){
         // Detect if variable has order >1 in monomial
         t_mon mondepord;
-        for( ; (mondepord+mondep).subseteq( mon ); orddep++ ) mondepord += mondep;
+        for( unsigned q=0; (mondepord+mondep).subseteq( mon ); ++q )
+          mondepord += mondep;
+        // Make sure order is consistent throughout expression
+        if( orddep && mondepord.tord && orddep != mondepord.tord ) throw Exceptions( Exceptions::INVERT );
+        if( orddep < mondepord.tord ) orddep = mondepord.tord; 
         if( mondepord.tord )
           polydep   += std::make_pair( mon - mondepord, coef );
         else
@@ -881,7 +1097,8 @@ SElimEnv<ExtOps...>::process
 }
 
 template <typename... ExtOps>
-inline std::set< FFVar const*, lt_FFVar >
+inline
+std::set< FFVar const*, lt_FFVar >
 SElimEnv<ExtOps...>::_dep_expr
 ( long const ndxVarEl, t_poly const& numer, t_poly const& denom )
 {
@@ -909,7 +1126,8 @@ SElimEnv<ExtOps...>::_dep_expr
 }
 
 template <typename... ExtOps>
-inline std::pair< FFVar const*, SLiftVar const* >
+inline
+std::pair< FFVar const*, SLiftVar const* >
 SElimEnv<ExtOps...>::_insert_expr
 ( long const ndxVarEl, FFVar& var, std::vector<SLiftVar const*> const& SPVar,
   FFOp const* pOp, t_poly const& polyindep, t_poly const& polydep, bool const useprod,
@@ -998,7 +1216,8 @@ SElimEnv<ExtOps...>::_insert_expr
 }
 
 template <typename... ExtOps>
-inline FFVar const*
+inline
+FFVar const*
 SElimEnv<ExtOps...>::_insert_expr
 ( FFVar& var, t_poly const& polyindep, t_poly const& polydep, bool const useprod,
   int const order )
@@ -1074,7 +1293,8 @@ SElimEnv<ExtOps...>::_insert_expr
 }
 
 template <typename... ExtOps>
-inline FFVar const*
+inline
+FFVar const*
 SElimEnv<ExtOps...>::_ptr_expr
 ( FFVar& var )
 {
@@ -1096,121 +1316,8 @@ SElimEnv<ExtOps...>::_ptr_expr
 
 #if defined(MC__USE_GUROBI)
 template <typename... ExtOps>
-inline void
-SElimEnv<ExtOps...>::_MIP_optimize
-()
-{
-  _MIPexcpt = false;
-
-  try{
-    // Run MIP optimization for a minimal representation
-    _MIP_reset();
-    _MIP_encode();
-    //_MIP_initialize();
-    _MIP_options();
-    _MIP_solve();
-    _MIP_decode();
-  }
-  
-  catch(GRBException& e){
-    if( options.MIPDISPLEVEL )
-      std::cout << "Error code = " << e.getErrorCode() << std::endl
-                << e.getMessage() << std::endl;
-    _MIPexcpt = true;
-  }
-}
-
-template <typename... ExtOps>
-inline void
-SElimEnv<ExtOps...>::_MIP_solve
-()
-{
-  _GRBmodel->update();
-  if( options.MIPOUTPUTFILE != "" )
-    _GRBmodel->write( options.MIPOUTPUTFILE );
-  fedisableexcept(FE_ALL_EXCEPT);
-  _GRBmodel->set( GRB_IntAttr_ModelSense, -1 );
-  _GRBmodel->optimize();
-}
-
-template <typename... ExtOps>
-inline void
-SElimEnv<ExtOps...>::_MIP_encode
-()
-{
-  // Define Gurobi continuous and binary variables  
-  for( auto const& [v,vset] : _mapVarElVar ){
-    // This also defines the objective function
-    _MIP_var[v]    = _GRBmodel->addVar( 0., 1., _VarWeight[v], GRB_BINARY );
-    _MIP_varMTZ[v] = _GRBmodel->addVar( 0., _ndxVar.size()-1., 0., GRB_CONTINUOUS );
-    for( auto const& vv : vset )
-      _MIP_varvar[v][vv] = _GRBmodel->addVar( 0., 1., 0., GRB_BINARY );
-  }
-
-  for( auto const& [e,vset] : _mapCtrVarCand ){
-    _MIP_ctr[e] = _GRBmodel->addVar( 0., 1., 0., GRB_BINARY );
-#ifdef MC__SELIM_CHECK
-    assert( !_mapCtrVarCand[e].empty() );
-#endif
-    for( auto const& v : vset ){
-#ifdef MC__SELIM_DEBUG_MIP
-      std::cout << "Define: _MIP_ctrvar[" << e << "][" << v << "]\n";
-#endif
-      _MIP_ctrvar[e][v] = _GRBmodel->addVar( 0., 1., 0., GRB_BINARY );
-    }
-  }
-
-  for( auto const& [v,eset] : _mapVarCtrCand ){
-    GRBLinExpr sumctrvar;
-    for( auto const& e : eset ){
-      sumctrvar += _MIP_ctrvar[e][v];
-#ifdef MC__SELIM_DEBUG_MIP
-      std::cout << "Use: _MIP_ctrvar[" << e << "][" << v << "]\n";
-#endif
-    }
-    _GRBmodel->addConstr( sumctrvar, GRB_EQUAL, _MIP_var[v] );
-  }
-
-  for( auto const& [v,vset] : _mapVarElVar ){
-    for( auto const& vv : vset )
-      _GRBmodel->addConstr( _MIP_varvar[v][vv], GRB_LESS_EQUAL, _MIP_var[v] );
-  }
-
-  for( auto const& [e,vset] : _mapCtrVarCand ){
-    GRBLinExpr sumctrvar;
-    for( auto const& v : vset ){
-#ifdef MC__SELIM_DEBUG_MIP
-      std::cout << "Use: _MIP_ctrvar[" << e << "][" << v << "]\n";
-#endif
-      sumctrvar += _MIP_ctrvar[e][v];
-    }
-    _GRBmodel->addConstr( sumctrvar, GRB_EQUAL, _MIP_ctr[e] );
-  }
-
-  for( auto const& [e,vset] : _mapCtrVarCand ){
-    for( auto const& v : vset ){
-#ifdef MC__SELIM_DEBUG_MIP
-      std::cout << "Use: _MIP_ctrvar[" << e << "][" << v << "]\n";
-#endif
-      for( auto const& vv : _mapVarElVar[v] ){
-        if( _mapCtrVar[e].find( vv ) == _mapCtrVar[e].end() )
-	  _GRBmodel->addConstr( 1. - _MIP_varvar[v][vv], GRB_GREATER_EQUAL, _MIP_ctrvar[e][v] );
-        else
-	  _GRBmodel->addConstr( _MIP_varvar[v][vv], GRB_GREATER_EQUAL, _MIP_ctrvar[e][v] );
-      }
-    }
-  }
-  
-  // MTZ subtour elimination
-  for( auto const& [v,vset] : _mapVarElVar ){
-    for( auto const& vv : vset )
-      _GRBmodel->addConstr( _MIP_varMTZ[v] - _MIP_varMTZ[vv], GRB_LESS_EQUAL,
-                            _ndxVar.size() * (1.-_MIP_varvar[v][vv]) - 1. );
-  }
-}
-
-template <typename... ExtOps>
-inline void
+inline
+void
 SElimEnv<ExtOps...>::_MIP_decode
 ()
 {
@@ -1258,40 +1365,6 @@ SElimEnv<ExtOps...>::_MIP_decode
       //_VarElim[OrdElim[v]] = std::make_tuple( *itdagvar, *itdagctr, nullptr );
     }
   }
-}
-
-template <typename... ExtOps>
-inline void
-SElimEnv<ExtOps...>::_MIP_options
-()
-{
-  _GRBmodel->getEnv().set( GRB_IntParam_OutputFlag,        options.MIPDISPLEVEL );
-  _GRBmodel->getEnv().set( GRB_IntParam_Method,            options.LPALGO );
-  _GRBmodel->getEnv().set( GRB_IntParam_Presolve,          options.LPPRESOLVE );
-  _GRBmodel->getEnv().set( GRB_IntParam_Threads,           options.MIPTHREADS );
-  _GRBmodel->getEnv().set( GRB_IntParam_ConcurrentMIP,     options.MIPCONCURRENT );
-  _GRBmodel->getEnv().set( GRB_IntParam_MIPFocus,          options.MIPFOCUS );
-  _GRBmodel->getEnv().set( GRB_IntParam_NumericFocus,      options.MIPNUMFOCUS );
-  _GRBmodel->getEnv().set( GRB_DoubleParam_Heuristics,     options.MIPHEURISTICS );
-  _GRBmodel->getEnv().set( GRB_DoubleParam_FeasibilityTol, options.LPFEASTOL );
-  _GRBmodel->getEnv().set( GRB_DoubleParam_OptimalityTol,  options.LPOPTIMTOL );
-  _GRBmodel->getEnv().set( GRB_DoubleParam_MIPGap,         options.MIPRELGAP );
-  _GRBmodel->getEnv().set( GRB_DoubleParam_MIPGapAbs,      options.MIPABSGAP );
-  _GRBmodel->getEnv().set( GRB_DoubleParam_TimeLimit,      options.MIPTIMELIMIT );
-}
-
-template <typename... ExtOps>
-inline void
-SElimEnv<ExtOps...>::_MIP_reset
-()
-{
-  _MIP_var.clear();
-  _MIP_varMTZ.clear();
-  _MIP_ctr.clear();
-  _MIP_ctrvar.clear();
-  _MIP_varvar.clear();
-  delete _GRBmodel;
-  _GRBmodel = new GRBModel( *_GRBenv );
 }
 #endif // #if defined(MC__USE_GUROBI)
 

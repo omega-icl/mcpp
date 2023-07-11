@@ -174,7 +174,6 @@ Finally, the original vector-valued function \f${\bf f}\f$ is now given by:
 
 // TO DO:
 // - Complete documentation
-// - Split subsets of polynomial and transcendental expressions
 // - Enforce reusing of intermediate variables in polynomial expressions - as a follow-up reduction step?
 
 #ifndef MC__SLIFT_H
@@ -466,7 +465,7 @@ public:
       {}
     //! @brief Assignment of mc::SLiftBase::Options
     Options& operator=
-      ( Options& opt ){
+      ( Options const& opt ){
         LIFTDIV  = opt.LIFTDIV;
         LIFTIPOW = opt.LIFTIPOW;
         //LIFTUPOL = opt.LIFTUPOL;
@@ -582,6 +581,11 @@ public:
   //! @brief Process the <a>nDep</a> dependents in array <a>pDep</a>
   void process
     ( unsigned const nDep, FFVar const* pDep, const bool add2dag=true );
+
+  //! @brief Set DAG environment
+  void set
+    ( FFGraph<ExtOps...>* dag )
+    { SLiftBase::set( dag ); _dag = dag; }
 
 protected:
 

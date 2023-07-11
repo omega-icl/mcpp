@@ -2988,7 +2988,7 @@ template <typename T, typename KEY, typename COMP>
 inline
 void
 SCVar<T,KEY,COMP>::_simplify
-( typename SCVar<T,KEY,COMP>::t_poly& coefmon )
+( t_poly& coefmon )
 const
 {
   if( coefmon.empty() ) return;

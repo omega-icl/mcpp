@@ -6251,7 +6251,7 @@ PolImg<T,ExtOps...>::generate_cuts
 
   // Propagate cuts through all dependent subtrees
   for( auto const& [dum,dep] : mdep ){
-    auto itDep = _Vars.find( const_cast<FFVar*>( &dep->var() ) );
+    auto itDep = _Vars.find( const_cast<FFVar*>( &dep.var() ) );
     if( itDep == _Vars.end() ) continue;
     _propagate_cuts( itDep->first->opdef().first, itDep->second );
   }
