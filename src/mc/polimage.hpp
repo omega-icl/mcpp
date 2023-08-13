@@ -1348,7 +1348,7 @@ private:
 
 template <class T> 
 inline std::ostream&
-operator <<
+operator<<
 ( std::ostream&out, const PolCut<T>&cut )
 {
   const int iprec = 5;
@@ -2397,7 +2397,7 @@ PolBase<T>::add_cut
 
 template <typename T>
 inline std::ostream&
-operator <<
+operator<<
 ( std::ostream&out, const PolBase<T>&P )
 {
   out << ( P._Vars.empty()? "\nNO VARIABLE\n": "\nVARIABLES:\n" );
