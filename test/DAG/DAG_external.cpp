@@ -45,10 +45,12 @@ typedef mc::SCVar<I> SCV;
 typedef mc::PolVar<I> POLV;
 
 
-
-///////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////
+// EXTERNAL OPERATIONS
+////////////////////////////////////////////////////////////////////////
 namespace mc
 {
+
 class FFnorm2
 : public FFOp
 {
@@ -379,6 +381,233 @@ public:
     { return false; }
 };
 
+struct FFDOptBase
+{
+  // Vector of atom matrices
+  static std::vector< CPPL::dsymatrix > _A;
+
+  // Read atom matrices from file
+  static unsigned read
+    ( unsigned const dim, std::string filename, bool const disp=false )
+    {
+      CPPL::dsymatrix Ai( dim );
+      _A.clear();
+      std::ifstream file( filename );
+      if( !file ) throw std::runtime_error("Error: Could not open input file\n");
+      std::string line;
+      unsigned i = 0;
+      bool empty = false;
+      while( std::getline( file, line ) ){
+        std::istringstream iss( line );
+        for( unsigned j=0; j<dim; j++ ){
+          if( !(iss >> Ai(i,j) ) ){
+            if( j ) throw std::runtime_error("Error: Could not read input file\n");
+            empty = true;
+            break;
+          }
+          std::cout << "reading (" << i << "," << j << "): " << Ai(i,j) << std::endl;
+        }
+        i++;
+        if( empty ){
+          if( disp ) std::cout << "Atomic matrix #" << _A.size() << ":" << std::endl << Ai;
+          _A.push_back( Ai );
+          i = 0;
+          empty = false;
+        }
+        if( i > dim ) throw std::runtime_error("Error: Could not read input file\n");
+      }
+      if( i ) _A.push_back( Ai );
+      return _A.size();
+    }
+};
+
+inline std::vector< CPPL::dsymatrix > FFDOptBase::_A;
+
+class FFDOpt
+: public FFOp,
+  public FFDOptBase
+{
+public:
+  // Constructors
+  FFDOpt
+    ()
+    : FFOp( (int)EXTERN+4 )
+    {}
+
+  // Functor
+  FFVar& operator()
+    ( unsigned const nVar, FFVar const* pVar )
+    const
+    {
+      auto dep = FFDep();
+      for( unsigned i=0; i<nVar; ++i ) dep += pVar[i].dep();
+      dep.update( FFDep::TYPE::N );
+      return **insert_external_operation( *this, 1, dep, nVar, pVar );
+    }
+
+  // Evaluation overloads
+  template< typename T >
+  void eval
+    ( unsigned const nRes, T* vRes, unsigned const nVar, T const* vVar, unsigned const* mVar )
+    const
+    {
+      throw std::runtime_error("Error: No generic implementation for DOpt\n");
+    }
+
+  void eval
+    ( unsigned const nRes, double* vRes, unsigned const nVar, double const* vVar, unsigned const* mVar )
+    const
+    {
+      std::cout << "FFDOpt::eval: double\n"; 
+      assert( nRes == 1 && nVar == _A.size() && _A.begin() != _A.end() );
+      CPPL::dsymatrix Amat( _A[0].n );
+      Amat.zero();
+      for( unsigned i=0; i<nVar; ++i )
+        if( !i ) Amat  = vVar[0] * _A[0];
+        else     Amat += vVar[i] * _A[i];
+      //std::cout << Amat;
+      if( dgeqrf( Amat.to_dgematrix(), vRes[0] ) )
+        throw FFBase::Exceptions( FFBase::Exceptions::EXTERN );
+      vRes[0] = std::log( vRes[0] );
+    }
+/*
+  void eval
+    ( unsigned const nRes, FFVar* vRes, unsigned const nVar, FFVar const* vVar, unsigned const* mVar )
+    const
+    {
+      assert( nRes == 1 );
+      std::cout << "FFDOpt::eval: FFVar\n"; 
+      vRes[0] = operator()( nVar, vVar );
+    }
+*/
+  void eval
+    ( unsigned const nRes, fadbad::F<FFVar>* vRes, unsigned const nVar, fadbad::F<FFVar> const* vVar,
+      unsigned const* mVar )
+    const;
+
+  // Properties
+  std::string name
+    ()
+    const
+    { return "DOPT"; }
+  //! @brief Return whether or not operation is commutative
+  bool commutative
+    ()
+    const
+    { return false; }
+};
+
+class FFDOptGrad
+: public FFOp,
+  public FFDOptBase
+{
+public:
+  // Constructors
+  FFDOptGrad
+    ()
+    : FFOp( (int)EXTERN+5 )
+    {}
+
+  // Functor
+  FFVar& operator()
+    ( unsigned const idep, unsigned const nVar, FFVar const* pVar )
+    const
+    {
+      auto dep = FFDep();
+      for( unsigned i=0; i<nVar; ++i ) dep += pVar[i].dep();
+      dep.update( FFDep::TYPE::N );
+      return *(insert_external_operation( *this, nVar, dep, nVar, pVar )[idep]);
+    }
+  FFVar** operator()
+    ( unsigned const nVar, FFVar const* pVar )
+    const
+    {
+      auto dep = FFDep();
+      for( unsigned i=0; i<nVar; ++i ) dep += pVar[i].dep();
+      dep.update( FFDep::TYPE::N );
+      return insert_external_operation( *this, nVar, dep, nVar, pVar );
+    }
+
+  // Evaluation overloads
+  template< typename T >
+  void eval
+    ( unsigned const nRes, T* vRes, unsigned const nVar, T const* vVar, unsigned const* mVar )
+    const
+    {
+      throw std::runtime_error("Error: No generic implementation for DOptGrad\n");
+    }
+
+  void eval
+    ( unsigned const nRes, double* vRes, unsigned const nVar, double const* vVar, unsigned const* mVar )
+    const
+    {
+      std::cout << "FFDOptGrad::eval: double\n"; 
+      assert( nRes == nVar && nVar == _A.size() && _A.begin() != _A.end() );
+      CPPL::dsymatrix Amat( _A[0].n );
+      Amat.zero();
+      for( unsigned i=0; i<nVar; ++i )
+        if( !i ) Amat  = vVar[0] * _A[0];
+        else     Amat += vVar[i] * _A[i];
+      //std::cout << Amat;
+      // Perform LDL' decomposition
+      CPPL::dgematrix Lmat;
+      std::vector<int> IPIV;
+      if( dsytrf( Amat, Lmat, IPIV ) )
+        throw FFBase::Exceptions( FFBase::Exceptions::EXTERN );
+      CPPL::dgematrix Xmat;
+      for( unsigned i=0; i<nVar; ++i ){
+        if( dsytrs( Lmat, IPIV, _A[i].to_dgematrix(), Xmat ) )
+          throw FFBase::Exceptions( FFBase::Exceptions::EXTERN );
+        //std::cout << Xmat;
+        for( int j=0; j<Xmat.n; ++j )
+          if( !j ) vRes[i]  = Xmat(0,0);
+          else     vRes[i] += Xmat(j,j);
+      }
+    }
+/*
+  void eval
+    ( unsigned const nRes, FFVar* vRes, unsigned const nVar, FFVar const* vVar, unsigned const* mVar )
+    const
+    {
+      assert( nRes == nVar );
+      std::cout << "FFDOptGrad::eval: FFVar\n"; 
+      FFVar** ppRes = operator()( nVar, vVar );
+      for( unsigned j=0; j<nRes; ++j ) vRes[j] = *(ppRes[j]);
+    }
+*/
+  // Properties
+  std::string name
+    ()
+    const
+    { return "DOPTGRAD"; }
+  //! @brief Return whether or not operation is commutative
+  bool commutative
+    ()
+    const
+    { return false; }
+};
+
+inline void
+FFDOpt::eval
+( unsigned const nRes, fadbad::F<FFVar>* vRes, unsigned const nVar, fadbad::F<FFVar> const* vVar,
+  unsigned const* mVar )
+const
+{
+  assert( nRes == 1 && nVar == _A.size() && _A.begin() != _A.end() );
+  std::cout << "FFDOpt::eval: fadbad::F<FFVar>\n";
+  std::vector<FFVar> vVarVal( nVar );
+  for( unsigned i=0; i<nVar; ++i )
+    vVarVal[i] = vVar[i].val();
+  vRes[0] = operator()( nVar, vVarVal.data() );
+  FFDOptGrad DOptGrad;
+  for( unsigned i=0; i<nVar; ++i )
+    vRes[0].setDepend( vVar[i] );
+  for( unsigned j=0; j<vRes[0].size(); ++j )
+    for( unsigned i=0; i<nVar; ++i )
+      if( !i ) vRes[0][j]  = DOptGrad( 0, nVar, vVarVal.data() ) * vVar[0][j];
+      else     vRes[0][j] += DOptGrad( i, nVar, vVarVal.data() ) * vVar[i][j];
+}
+
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -606,6 +835,46 @@ int test_external5()
 
 ///////////////////////////////////////////////////////////////////////////////
 
+int test_external6()
+{
+  std::cout << "\n==============================================\ntest_external6:\n";
+
+  mc::FFGraph< mc::FFDOpt, mc::FFDOptGrad > DAG;
+  const unsigned NP = 4;
+  const unsigned NS = mc::FFDOptBase::read( NP, "fims.txt", true ); 
+  mc::FFVar S[NS];
+  for( unsigned int i=0; i<NS; i++ ) S[i].set( &DAG );
+  mc::FFDOpt DOpt;
+  mc::FFVar F = DOpt( NS, S );
+  //std::cout << DAG;
+
+  // Forward AD
+  const mc::FFVar* dFdS = DAG.FAD( 1, &F, NS, S );
+  std::cout << DAG;
+  auto dFdS_op = DAG.subgraph( NS, dFdS );
+  DAG.output( dFdS_op, " dFdS" );
+
+  // Evaluation in real arithmetic
+  std::vector<double> dwk;
+  double dS[NS];
+  for( unsigned i=0; i<NS; ++i ) dS[i] = 1./NS;
+
+  auto F_op = DAG.subgraph( 1, &F );
+  //DAG.output( F_op, " dFdS" );
+  double dF;
+  DAG.eval( F_op, dwk, 1, &F, &dF, NS, S, dS );
+  std::cout << "F = " << dF << std::endl;
+
+  double ddFdS[NS];
+  DAG.eval( dFdS_op, dwk, NS, dFdS, ddFdS, NS, S, dS );
+  for( unsigned i=0; i<NS; ++i ) std::cout << "dFdS[" << i << "] = " << ddFdS[i] << std::endl;
+
+  delete[] dFdS;
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 int test_slift_external0()
 {
   std::cout << "\n==============================================\ntest_slift_external0:\n";
@@ -633,13 +902,14 @@ int test_slift_external0()
 int main()
 {
   try{
-    test_external0();
-    test_external1();
-    test_external2();
-    test_external3();
-    test_external4();
-    test_external5();
-    test_slift_external0();
+//    test_external0();
+//    test_external1();
+//    test_external2();
+//    test_external3();
+//    test_external4();
+//    test_external5();
+    test_external6();
+//    test_slift_external0();
   }
   catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()

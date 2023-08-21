@@ -1,4 +1,4 @@
-// Copyright (C) 2009-2017 Benoit Chachuat, Imperial College London.
+// Copyright (C) Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
@@ -27,6 +27,9 @@ extern "C" {
   void dgeqrf_( const int*, const int*, double*, const int*, double*, double*,
                 const int*, int* );
   void dgetrf_( const int*, const int*, double*, const int*, int*, int* );
+  void dsytrf_( const char*, const int*, double*, const int*, int*, double*, const int*, int* );
+  void dsytrs_( const char*, const int*, const int*, const double*, const int*, const int*,
+                double*, const int*, int* );
 }
 
 namespace mc
@@ -100,7 +103,10 @@ namespace CPPL{ //!< namespace for CPPLapack
   All of the arguments need not to be initialized.
   mat is not overwritten. 
 */
-inline int dsysv( const dsymatrix& mat, dsymatrix& mat_inv )
+inline
+int
+dsysv
+( const dsymatrix& mat, dsymatrix& mat_inv )
 { 
   VERBOSE_REPORT;
   dsymatrix mat_cp(mat);
@@ -119,6 +125,74 @@ inline int dsysv( const dsymatrix& mat, dsymatrix& mat_inv )
   if(INFO!=0){
     WARNING_REPORT;
     std::cerr << "DSYSV: Serious trouble happend. INFO = " << INFO << "." << std::endl;
+  } 
+  return INFO;
+}
+
+//=============================================================================
+/*! calculate LDL decomposition.\n
+  All of the arguments need not to be initialized.
+  mat is not overwritten. 
+*/
+inline
+int
+dsytrf
+( const dsymatrix& Amat, dgematrix& Lmat, std::vector<int>& IPIV )
+{ 
+  VERBOSE_REPORT;
+  Lmat = Amat.to_dgematrix();
+  char UPLO('l');
+  int N(Amat.n), LDA(Amat.n), LWORK(-1), INFO(1);
+  IPIV.resize(N);
+  double *WORK( new double[1] );
+  dsytrf_(&UPLO, &N, Lmat.array, &LDA, IPIV.data(), WORK, &LWORK, &INFO);
+
+  LWORK = int(WORK[0]);
+  delete [] WORK;  WORK = new double[LWORK];
+  dsytrf_(&UPLO, &N, Lmat.array, &LDA, IPIV.data(), WORK, &LWORK, &INFO);
+  delete [] WORK;
+
+#ifdef MC__DEBUG_DSYTRF
+  // display LDLT decomposition results
+  std::cout << "INFO: " << INFO << std::endl << std::endl;
+  std::cout << "IPIV:";
+  for( int i=0; i<N; i++ ) std::cout << " " << IPIV[i];
+  std::cout << std::endl << std::endl;
+  std::cout << "Matrix L:\n" << Lmat << std::endl;
+#endif
+
+  if(INFO!=0){
+    WARNING_REPORT;
+    std::cerr << "DSYTRF: Serious trouble happend. INFO = " << INFO << "." << std::endl;
+  } 
+  return INFO;
+}
+
+//=============================================================================
+/*! solve linear system using LDL decomposition.\n
+  All of the arguments need not to be initialized.
+  mat is not overwritten. 
+*/
+inline
+int
+dsytrs
+( dgematrix const& Lmat, std::vector<int> const& IPIV, dgematrix const& Bmat, dgematrix& Xmat )
+{ 
+  VERBOSE_REPORT;
+  Xmat = Bmat;
+  char UPLO('l');
+  int N(Lmat.n), NRHS(Bmat.n), LDA(Lmat.m), LDB(Bmat.m), INFO(1);
+  dsytrs_(&UPLO, &N, &NRHS, Lmat.array, &LDA, IPIV.data(), Xmat.array, &LDB, &INFO);
+
+#ifdef MC__DEBUG_DSYTRF
+  // display results
+  std::cout << "INFO: " << INFO << std::endl << std::endl;
+  std::cout << "Matrix X:\n" << Xmat << std::endl;
+#endif
+
+  if(INFO!=0){
+    WARNING_REPORT;
+    std::cerr << "DSYTRS: Serious trouble happend. INFO = " << INFO << "." << std::endl;
   } 
   return INFO;
 }
@@ -165,7 +239,7 @@ inline int dgetrf( const dgematrix& Amat, dgematrix& Umat, dgematrix& Lmat, std:
     return INFO;
   }
 
-  // Post-process QR decomposition results for R
+  // Post-process LU decomposition results
 #ifdef MC__DEBUG_DGETRF
   std::cout << "INFO: " << INFO << std::endl << std::endl;
   std::cout << "IPIV:";

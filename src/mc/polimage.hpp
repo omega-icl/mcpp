@@ -1930,11 +1930,11 @@ public:
     double BREAKPOINT_ATOL;
     //! @brief Relative tolerance in adding breakpoints in piecewise linear cuts - Default: 1e-5
     double BREAKPOINT_RTOL;
-    //! @brief Whether or not to ignore quadratic terms (i.e. square, bilinear) in polyhedral relaxation - Default: false
+    //! @brief Whether or not to retain quadratic terms (i.e. square, bilinear) in polyhedral relaxation - Default: false
     bool ALLOW_QUAD;
-    //! @brief Whether or not to ignore nonlinear terms in polyhedral relaxation - Default: {}
+    //! @brief Whether or not to retain nonlinear terms in polyhedral relaxation - Default: {}
     std::set<FFOp::TYPE> ALLOW_NLIN;
-    //! @brief Whether or not to ignore disjunctive terms (i.e. min, max, abs, fstep) in polyhedral relaxation - Default: {}
+    //! @brief Whether or not to retain disjunctive terms (i.e. min, max, abs, fstep) in polyhedral relaxation - Default: {}
     std::set<FFOp::TYPE> ALLOW_DISJ;
   };
 

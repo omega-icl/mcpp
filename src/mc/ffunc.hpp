@@ -4776,13 +4776,13 @@ const
       throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
 
     else if( varin.size() == 1 )
-      op.eval( vres.size(), vres.data(), 1, static_cast<U*>( varin[0]->val() ) );
+      op.eval( vres.size(), vres.data(), 1, static_cast<U*>( varin[0]->val() ), nullptr );
     
     else{
       std::vector<U> ops_val; ops_val.reserve( varin.size() );
       for( auto it=varin.begin(); it!=varin.end(); ++it )
         ops_val.push_back( *static_cast<U*>( (*it)->val() ) );
-      op.eval( vres.size(), vres.data(), ops_val.size(), ops_val.data() );
+      op.eval( vres.size(), vres.data(), ops_val.size(), ops_val.data(), nullptr );
     }
     
     for( unsigned j=0; j<varout.size(); ++j )
