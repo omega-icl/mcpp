@@ -281,7 +281,7 @@ public:
       // vRes[0] = xlog( vVar[0] );
     }
   template <typename T>
-  void reval
+  bool reval
     ( unsigned const nRes, PolVar<T> const* vRes, unsigned const nVar, PolVar<T>* vVar )
     const
     {

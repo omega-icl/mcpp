@@ -6015,7 +6015,7 @@ inline U
 FFBase::sum
 ( unsigned const n, U const* V, double const* a )
 {
-  if( !n || !V ) return 0;
+  if( !n || !V ) return U(0.);
   if( !a ){
     U sumV = V[0];
     for( unsigned i=1; i<n; i++ ) sumV += V[i];
@@ -6031,7 +6031,7 @@ inline U
 FFBase::prod
 ( unsigned const n, U const* V )
 {
-  if( !n || !V ) return 0;
+  if( !n || !V ) return U(0.);
   U prodV = V[0];
   for( unsigned i=1; i<n; i++ ) prodV *= V[i];
   return prodV;
@@ -6042,7 +6042,7 @@ inline U
 FFBase::trace
 ( unsigned const n, U const* A )
 {
-  if( !n || !A ) return 0;
+  if( !n || !A ) return U(0.);
   U trA = A[0];
   for( unsigned i=1; i<n; i++ ) trA += A[i*n+i];
   return trA;
@@ -6054,7 +6054,7 @@ FFBase::sum
 ( unsigned const m, unsigned const n,
   U const *A, U const* B )
 {
-  if( !n || !m || !A || !B ) return 0;
+  if( !n || !m || !A || !B ) return nullptr;
   U* AB = new U[m*n];
   FFBase::sum( m, n, A, B, AB );
   return AB;
@@ -6079,7 +6079,7 @@ FFBase::sub
 ( unsigned const m, unsigned const n,
   U const* A, U const* B )
 {
-  if( !n || !m || !A || !B ) return 0;
+  if( !n || !m || !A || !B ) return nullptr;
   U* AB = new U[m*n];
   FFBase::sub( m, n, A, B, AB );
   return AB;
@@ -6104,7 +6104,7 @@ FFBase::prod
 ( unsigned const m, unsigned const n, unsigned const p,
   U const* A, U const* B )
 {
-  if( !m || !n || !p || !A || !B ) return 0;
+  if( !m || !n || !p || !A || !B ) return nullptr;
   U* AB = new U[m*p];
   FFBase::prod( m, n, p, A, B, AB );
   return AB;
@@ -6132,7 +6132,7 @@ inline U*
 FFBase::inv
 ( unsigned const n, U const* A )
 {
-  if( !n || !A ) return 0;
+  if( !n || !A ) return nullptr;
 
   // Initialization
   U* Bkm1 = new U[n*n];
@@ -6163,7 +6163,7 @@ inline U*
 FFBase::polchar
 ( unsigned const n, U const* A )
 {
-  if( !n || !A ) return 0;
+  if( !n || !A ) return nullptr;
 
   // Initialization
   std::vector<U> Bkm1( A, A+n*n ), Bk( n*n );
@@ -6187,7 +6187,7 @@ inline U
 FFBase::det
 ( unsigned const n, U const* A )
 {
-  if( !n || !A ) return 0.;
+  if( !n || !A ) return U(0.);
   U* c = FFBase::polchar( n, A );
   U d = ( n%2? c[n-1]: -c[n-1] );
   delete[] c;
@@ -7541,7 +7541,9 @@ FFGraph<ExtOps...>::reval
       std::cout << "Dependent " << *pdep << ": " << *static_cast<U*>( pdep->val() ) << " ^ " << vDep[i] << std::endl;
 #endif
       if( !Op<U>::inter( vDep[i], *static_cast<U*>( pdep->val() ), vDep[i] ) ){
+#ifdef MC__REVAL_DEBUG
         output( subgraph( 1, pdep ) );
+#endif
         return -ipass-1;
       }
       *static_cast<U*>( pdep->val() ) = vDep[i];
@@ -7591,7 +7593,9 @@ FFGraph<ExtOps...>::reval
       std::cout << std::endl;
 #endif
       if( !is_feasible ){
+#ifdef MC__REVAL_DEBUG
         std::cout << "Infeasible\n";
+#endif
         return -ipass-1;
       }
       // Test improvement of operand variables
