@@ -5153,7 +5153,38 @@ const
     //  *itU = *static_cast<U*>( varin[0]->val() );
     //else
     //  *itU = Op<U>::min( *static_cast<U*>( varin[0]->val() ), *static_cast<U*>( varin[1]->val() ) );
-    // TBC
+    if( varin[0]->cst() ){
+      if( Op<U>::u( *static_cast<U*>( varin[1]->val() ) ) <= varin[0]->num().val() ){
+        if( !Op<U>::inter( *static_cast<U*>( varin[1]->val() ),
+                           *static_cast<U*>( pres->val() ),
+                           *static_cast<U*>( varin[1]->val() ) ) ) return false;
+      }
+      else{
+        if( !Op<U>::inter( *static_cast<U*>( varin[1]->val() ),
+                           Op<U>::max( *static_cast<U*>( varin[1]->val() ), *static_cast<U*>( pres->val() ) ),
+                           *static_cast<U*>( varin[1]->val() ) ) ) return false;
+      }
+    }
+    else if( varin[1]->cst() ){
+      if( Op<U>::u( *static_cast<U*>( varin[0]->val() ) ) <= varin[1]->num().val() ){
+        if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
+                           *static_cast<U*>( pres->val() ),
+                           *static_cast<U*>( varin[0]->val() ) ) ) return false;
+      }
+      else{
+        if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
+                           Op<U>::max( *static_cast<U*>( varin[0]->val() ), *static_cast<U*>( pres->val() ) ),
+                           *static_cast<U*>( varin[0]->val() ) ) ) return false;
+      }
+    }
+    else{
+      if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
+                         Op<U>::max( *static_cast<U*>( varin[0]->val() ), *static_cast<U*>( pres->val() ) ),
+                         *static_cast<U*>( varin[0]->val() ) ) ) return false;
+      if( !Op<U>::inter( *static_cast<U*>( varin[1]->val() ),
+                         Op<U>::max( *static_cast<U*>( varin[1]->val() ), *static_cast<U*>( pres->val() ) ),
+                         *static_cast<U*>( varin[1]->val() ) ) ) return false;
+    }
     break;
 
    case FFOp::MAXF: 
@@ -5161,7 +5192,38 @@ const
     //  *itU = *static_cast<U*>( varin[0]->val() );
     //else
     //  *itU = Op<U>::max( *static_cast<U*>( varin[0]->val() ), *static_cast<U*>( varin[1]->val() ) );
-    // TBC
+    if( varin[0]->cst() ){
+      if( Op<U>::l( *static_cast<U*>( varin[1]->val() ) ) >= varin[0]->num().val() ){
+        if( !Op<U>::inter( *static_cast<U*>( varin[1]->val() ),
+                           *static_cast<U*>( pres->val() ),
+                           *static_cast<U*>( varin[1]->val() ) ) ) return false;
+      }
+      else{
+        if( !Op<U>::inter( *static_cast<U*>( varin[1]->val() ),
+                           Op<U>::min( *static_cast<U*>( varin[1]->val() ), *static_cast<U*>( pres->val() ) ),
+                           *static_cast<U*>( varin[1]->val() ) ) ) return false;
+      }
+    }
+    else if( varin[1]->cst() ){
+      if( Op<U>::l( *static_cast<U*>( varin[0]->val() ) ) >= varin[1]->num().val() ){
+        if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
+                           *static_cast<U*>( pres->val() ),
+                           *static_cast<U*>( varin[0]->val() ) ) ) return false;
+      }
+      else{
+        if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
+                           Op<U>::min( *static_cast<U*>( varin[0]->val() ), *static_cast<U*>( pres->val() ) ),
+                           *static_cast<U*>( varin[0]->val() ) ) ) return false;
+      }
+    }
+    else{
+      if( !Op<U>::inter( *static_cast<U*>( varin[0]->val() ),
+                         Op<U>::min( *static_cast<U*>( varin[0]->val() ), *static_cast<U*>( pres->val() ) ),
+                         *static_cast<U*>( varin[0]->val() ) ) ) return false;
+      if( !Op<U>::inter( *static_cast<U*>( varin[1]->val() ),
+                         Op<U>::min( *static_cast<U*>( varin[1]->val() ), *static_cast<U*>( pres->val() ) ),
+                         *static_cast<U*>( varin[1]->val() ) ) ) return false;
+    }
     break;
 
    case FFOp::INTER: 
