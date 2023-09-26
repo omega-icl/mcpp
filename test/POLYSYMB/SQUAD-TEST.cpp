@@ -240,9 +240,9 @@ int main()
 
 #if defined( USE_REDUC )
     t_SRed SRF;
-    t_SRed::options.ORDER = 1;
-    t_SRed::options.NODIV = 1;
-    t_SRed::options.MIPOUTPUTFILE = "reduc.lp";
+    SRF.options.ORDER = 1;
+    SRF.options.NODIV = 1;
+    SRF.options.MIPOUTPUTFILE = "reduc.lp";
 
     std::vector< t_SPoly > QuadFct;
     QuadFct.reserve( SQF.MatFct().size() );
