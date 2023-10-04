@@ -6561,7 +6561,11 @@ FFGraph<ExtOps...>::SFAD
       if( vDir.size() ) break; // interrupt if directional derivatives requested
     }
   }
-
+  
+#ifdef MC__FFUNC_SFAD_CLEAR
+  std::cout << "Clearing work array _wkSFAD" << std::endl;
+  _wkSFAD.clear();
+#endif
 #ifdef MC__FFUNC_CPU_EVAL
   cputime += cpuclock();
   std::cout << "\nEvaluation time: " << std::fixed << cputime << std::endl;
