@@ -435,6 +435,7 @@ inline int dgeqrf( const dgematrix& Amat, double& Adet )
   for( int ir=0; ir<NM; ir++ )
     Adet *= -A(ir,ir);
 #ifdef MC__DEBUG_DGEQRF
+  std::cout << "A = " << Amat << std::endl;
   std::cout << "det(A) = " << Adet << std::endl;
 #endif
   return INFO;

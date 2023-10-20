@@ -848,8 +848,8 @@ class PolLQExpr
 
  public:
   //! @brief Constructor for linear-quadratic expression
-  PolLQExpr<T>
-    ( const PolVar<T>*Var )
+  PolLQExpr
+    ( PolVar<T> const* Var )
     : _const(0.)
     { _terms.insert( std::make_pair( Var, 1. ) ); }
   //! @brief Add constant term <a>cst</a>
