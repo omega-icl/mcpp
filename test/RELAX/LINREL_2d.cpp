@@ -1,4 +1,4 @@
-#define TEST_DISJ	    // <-- select test function here
+#define TEST_POLY	    // <-- select test function here
 const int NX = 40;	    // <-- select discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
 #define  ADD_BREAKPOINT  // <-- specify whether to add breakpoints to the variables
@@ -106,7 +106,7 @@ template <class T>
 T myfunc
 ( const T*x )
 {
-  return x[0] * ( x[1] + sqr(x[0]) );
+  return x[0] * ( x[1] + sqr(x[0]) + 1 );
 }
 
 #elif defined( TEST_FABS )

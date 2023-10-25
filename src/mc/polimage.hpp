@@ -864,10 +864,12 @@ class PolLQExpr
         itVar->second += coef;
       else
         _terms.insert( std::make_pair( Var, coef ) ); }
-  //! @brief Add quadratic term <a>coef * Var</a>
+  //! @brief Add quadratic term <a>coef * Var1 * Var2</a>
   void add
     ( const double coef, const PolVar<T>*Var1, const PolVar<T>*Var2 )
-    { auto itVar = _qterms.find( std::make_pair( Var1, Var2 ) );
+    { if( lt_PolVar<T>()( Var2, Var1 ) )
+        return add( coef, Var2, Var1 ); // enforce ordering in quadratic terms
+        auto itVar = _qterms.find( std::make_pair( Var1, Var2 ) );
       if( itVar != _qterms.end() )
         itVar->second += coef;
       else
@@ -1948,8 +1950,8 @@ public:
   //! @brief Retreive const reference to set of DAG variables in polytopic image
   const t_Vars& Vars() const
     { return _Vars; }
-  
-  //! @brief Retreive reference to set of auxiliary variables in polytopic image
+
+  //! @brief Retreive reference to list of auxiliary variables in polytopic image
   t_Aux& Aux()
     { return _Aux; }
 
@@ -2908,8 +2910,8 @@ template <typename T> inline bool
 PolBase<T>::_add_LQ_DIV
 ( PolLQExpr<T>*&pLQ, const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
 {
-  if( !options.ALLOW_QUAD && !pVar2->cst() ) return false;
   if( !pVar2->cst() ) return false;
+  if( !pLQ ) pLQ = _append_LQ( VarR );
   if( pVar1->cst() )
     pLQ->substitute( VarR, pVar1->num().val()/pVar2->num().val() );
   else{
@@ -3364,29 +3366,13 @@ PolBase<T>::append_cuts_SQR
 {
   assert( &Var1._var );
   return _add_cuts_SQR( &VarR, const_cast<FFVar*>(&Var1._var), pOp );
-
-//  if( options.ALLOW_QUAD ){
-//    auto itCut = add_cut( pOp, PolCut<T>::EQ, 0., VarR, -1. );
-//    (*itCut)->append( Var1, Var1, 1. );
-//  }
-
-//  else{
-//    struct loc{ static std::pair<double,double> sqr
-//      ( const double x, const double*rusr, const int*iusr )
-//      { return std::make_pair( x*x, 2.*x ); }
-//    };
-//    add_semilinear_cuts( pOp, Var1, Op<T>::l(Var1._range), Op<T>::u(Var1._range), VarR,
-//      PolCut<T>::LE, loc::sqr );
-//    add_sandwich_cuts( pOp, Var1, Op<T>::l(Var1._range), Op<T>::u(Var1._range), VarR,
-//      Op<T>::l(VarR._range), Op<T>::u(VarR._range), PolCut<T>::GE, loc::sqr );
-//  }
 }
 
 template <typename T> inline bool
 PolBase<T>::_add_LQ_SQR
 ( PolLQExpr<T>*&pLQ, const PolVar<T>*VarR, FFVar*pVar1 )
 {
-  if( options.ALLOW_NLIN.count( FFOp::SQR ) || !options.ALLOW_QUAD ) return false;
+  if( !pVar1->cst() && !options.ALLOW_NLIN.count( FFOp::SQR ) && !options.ALLOW_QUAD ) return false;
   if( !pLQ ) pLQ = _append_LQ( VarR );
   if( pVar1->cst() )
     pLQ->substitute( VarR, sqr( pVar1->num().val() ) );
@@ -5356,16 +5342,14 @@ PolBase<T>::_add_LQ_FABS
 ( PolLQExpr<T>*&pLQ, const PolVar<T>*VarR, FFVar*pVar1 )
 {
   auto itVar1 = _Vars.find( pVar1 );
-  if( !pVar1->cst() || Op<T>::l(itVar1->second->_range)*Op<T>::u(itVar1->second->_range) < 0. ) return false;
+  if( !pVar1->cst() && Op<T>::l(itVar1->second->_range)*Op<T>::u(itVar1->second->_range) < 0. ) return false;
   if( !pLQ ) pLQ = _append_LQ( VarR );
   if( pVar1->cst() )
     pLQ->substitute( VarR, std::fabs(pVar1->num().val()) );
-  else{
-    if( Op<T>::l(itVar1->second->_range) >= 0 )
+  else if( Op<T>::l(itVar1->second->_range) >= 0 )
       pLQ->substitute( VarR, 1., itVar1->second );
-    else
+  else
       pLQ->substitute( VarR, -1., itVar1->second );
-  }
   return true;
 }
 
@@ -5445,7 +5429,7 @@ PolBase<T>::_add_LQ_FSTEP
 ( PolLQExpr<T>*&pLQ, const PolVar<T>*VarR, FFVar*pVar1 )
 {
   auto itVar1 = _Vars.find( pVar1 );
-  if( !pVar1->cst() || (Op<T>::l(itVar1->second->_range) < 0. && Op<T>::u(itVar1->second->_range) >= 0.) ) return false;
+  if( !pVar1->cst() && Op<T>::l(itVar1->second->_range)*Op<T>::u(itVar1->second->_range) < 0. ) return false;
   if( !pLQ ) pLQ = _append_LQ( VarR );
   if( pVar1->cst() )
     pLQ->substitute( VarR, mc::fstep(pVar1->num().val()) );
@@ -5581,7 +5565,8 @@ template <typename T> inline bool
 PolBase<T>::_add_LQ_MINF
 ( PolLQExpr<T>*&pLQ, const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
 {
-    if( pVar1->cst() && pVar2->cst() ){
+  if( pVar1->cst() && pVar2->cst() ){
+    if( !pLQ ) pLQ = _append_LQ( VarR );
     pLQ->substitute( VarR, std::min( pVar1->num().val(), pVar2->num().val() ) );    
     return true;
   }
@@ -5589,10 +5574,12 @@ PolBase<T>::_add_LQ_MINF
   if( pVar1->cst() ){
     auto itVar2 = _Vars.find( pVar2 );
     if( pVar1->num().val() < Op<T>::l(itVar2->second->_range) ){
+      if( !pLQ ) pLQ = _append_LQ( VarR );
       pLQ->substitute( VarR, pVar1->num().val() );
       return true;
     }
     else if( pVar1->num().val() > Op<T>::u(itVar2->second->_range) ){
+      if( !pLQ ) pLQ = _append_LQ( VarR );
       pLQ->substitute( VarR, 1., itVar2->second );
       return true;
     }
@@ -5602,10 +5589,12 @@ PolBase<T>::_add_LQ_MINF
   if( pVar2->cst() ){
     auto itVar1 = _Vars.find( pVar1 );
     if( pVar2->num().val() < Op<T>::l(itVar1->second->_range) ){
+      if( !pLQ ) pLQ = _append_LQ( VarR );
       pLQ->substitute( VarR, pVar2->num().val() );
       return true;
     }
     else if( pVar2->num().val() > Op<T>::u(itVar1->second->_range) ){
+      if( !pLQ ) pLQ = _append_LQ( VarR );
       pLQ->substitute( VarR, 1., itVar1->second );
       return true;
     }
@@ -5615,10 +5604,12 @@ PolBase<T>::_add_LQ_MINF
   auto itVar1 = _Vars.find( pVar1 );
   auto itVar2 = _Vars.find( pVar2 );
   if( Op<T>::u(itVar1->second->_range) < Op<T>::l(itVar2->second->_range) ){
+    if( !pLQ ) pLQ = _append_LQ( VarR );
     pLQ->substitute( VarR, 1., itVar1->second );
     return true;
   }
   else if( Op<T>::l(itVar1->second->_range) > Op<T>::u(itVar2->second->_range) ){
+    if( !pLQ ) pLQ = _append_LQ( VarR );
     pLQ->substitute( VarR, 1., itVar2->second );
     return true;
   }
@@ -5753,6 +5744,7 @@ PolBase<T>::_add_LQ_MAXF
 ( PolLQExpr<T>*&pLQ, const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
 {
   if( pVar1->cst() && pVar2->cst() ){
+    if( !pLQ ) pLQ = _append_LQ( VarR );
     pLQ->substitute( VarR, std::max( pVar1->num().val(), pVar2->num().val() ) );    
     return true;
   }
@@ -5760,10 +5752,12 @@ PolBase<T>::_add_LQ_MAXF
   if( pVar1->cst() ){
     auto itVar2 = _Vars.find( pVar2 );
     if( pVar1->num().val() > Op<T>::u(itVar2->second->_range) ){
+      if( !pLQ ) pLQ = _append_LQ( VarR );
       pLQ->substitute( VarR, pVar1->num().val() );
       return true;
     }
     else if( pVar1->num().val() < Op<T>::l(itVar2->second->_range) ){
+      if( !pLQ ) pLQ = _append_LQ( VarR );
       pLQ->substitute( VarR, 1., itVar2->second );
       return true;
     }
@@ -5773,10 +5767,12 @@ PolBase<T>::_add_LQ_MAXF
   if( pVar2->cst() ){
     auto itVar1 = _Vars.find( pVar1 );
     if( pVar2->num().val() > Op<T>::u(itVar1->second->_range) ){
+      if( !pLQ ) pLQ = _append_LQ( VarR );
       pLQ->substitute( VarR, pVar2->num().val() );
       return true;
     }
     else if( pVar2->num().val() < Op<T>::l(itVar1->second->_range) ){
+      if( !pLQ ) pLQ = _append_LQ( VarR );
       pLQ->substitute( VarR, 1., itVar1->second );
       return true;
     }
@@ -5786,10 +5782,12 @@ PolBase<T>::_add_LQ_MAXF
   auto itVar1 = _Vars.find( pVar1 );
   auto itVar2 = _Vars.find( pVar2 );
   if( Op<T>::l(itVar1->second->_range) > Op<T>::u(itVar2->second->_range) ){
+    if( !pLQ ) pLQ = _append_LQ( VarR );
     pLQ->substitute( VarR, 1., itVar1->second );
     return true;
   }
   else if( Op<T>::u(itVar1->second->_range) < Op<T>::l(itVar2->second->_range) ){
+    if( !pLQ ) pLQ = _append_LQ( VarR );
     pLQ->substitute( VarR, 1., itVar2->second );
     return true;
   }  
@@ -6089,6 +6087,8 @@ protected:
   using PolBase<T>::_append_cuts_default;
   using PolBase<T>::_append_cuts_external;
   using PolBase<T>::_Vars;
+  using PolBase<T>::_erase_LQ;
+  using PolBase<T>::_LQExpr;
 
   //! @brief propagate cuts backwards through polyhedral image
   void _propagate_cuts
@@ -6213,7 +6213,8 @@ PolImg<T,ExtOps...>::generate_cuts
 {
   // Reset cuts in polyhedral image?
   if( reset ) reset_cuts();
-
+  _erase_LQ();
+  
   // Propagate cuts through all dependent subtrees
   for( unsigned i=0; i<ndep; i++ ){
     auto itDep = _Vars.find( const_cast<FFVar*>( &pdep[i].var() ) );
@@ -6230,6 +6231,7 @@ PolImg<T,ExtOps...>::generate_cuts
 {
   // Reset cuts in polyhedral image?
   if( reset ) reset_cuts();
+  _erase_LQ();
 
   // Propagate cuts through all dependent subtrees
   for( auto const& i: ndxdep ){
@@ -6248,6 +6250,7 @@ PolImg<T,ExtOps...>::generate_cuts
 {
   // Reset cuts in polyhedral image?
   if( reset ) reset_cuts();
+  _erase_LQ();
 
   // Propagate cuts through all dependent subtrees
   for( auto const& [dum,dep] : mdep ){

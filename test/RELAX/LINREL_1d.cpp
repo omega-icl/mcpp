@@ -129,7 +129,7 @@ template <class T>
 T myfunc
 ( const T&x )
 {
-  return exp(x);
+  return exp(x-1);
   //return x*exp(-pow(x,2));
 }
 
@@ -437,6 +437,10 @@ int main()
 
   PolEnv.generate_cuts( 1, &F_Pol, true );
   std::cout << PolEnv;
+//  std::cout << "Substituted variables: {";
+//  for( auto const& var : PolEnv.Subs() )
+//    std::cout << " " << *var;
+//  std::cout << " }" << std::endl;
 
 #if defined( MC__USE_GUROBI )
   try{
