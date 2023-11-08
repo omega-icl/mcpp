@@ -912,499 +912,6 @@ const
 
 
 
-// template <typename T>
-// template <typename PUNIV, typename BNUIA>
-// inline
-// void
-// ASModel<T>::_asym_slope
-// ( std::vector<std::vector<T>>& mat,std::vector<std::vector<std::vector<double>>>& slope, const std::vector<double>& partitionSize,
-//     unsigned const& ndep, PUNIV const& f, BNUIA const& fDerv, double const& zopt, bool const cvx  )
-// const
-// {
-//   assert( !mat.empty() );
-//   T bnd = _B( mat, 1 );
-//   return _asym_slope( mat, slope, partitionSize, ndep, f, fDerv, zopt, cvx, bnd );
-// }
-
-
-
-// template <typename T>
-// template <typename PUNIV>
-// inline
-// void
-// ASModel<T>::_asym
-// ( std::vector<std::vector<T>>& mat, unsigned const& ndep, PUNIV const& f,
-//   double const& zopt, bool const cvx )
-// const
-// {
-//   assert( !mat.empty() );
-//   T bnd = _B( mat, 1 );
-//   return _asym( mat, ndep, f, zopt, cvx, bnd );
-// }
-
-// template <typename T>
-// template <typename PUNIV>
-// inline
-// void
-// ASModel<T>::_asym
-// ( std::vector<std::vector<T>>& mat, unsigned const& ndep, PUNIV const& f,
-//   double const& zopt, bool const cvx, T const& bnd )
-// const
-// {
-//   // anchor points
-//   int imid( -1 );
-//   mid( Op<T>::l(bnd), Op<T>::u(bnd), zopt, imid );
-//   double sum_r1( 0. );
-//   double C1( 0. ), C2(0.);
-//   for( unsigned int i=0; i<_nvar; i++ ){
-//     if( mat[i].empty() ) continue;
-//     switch( imid ){
-//       case ICONV: _c1[i] = _L1[i], C1 += _c1[i]; break;
-//       case ICONC: _c1[i] = _U1[i], C1 += _c1[i]; break;
-//       case ICUT:  _c1[i] = _L1[i]; C1 += _c1[i];
-//                   _c2[i] = _U1[i]; C2 += _c2[i]; break;
-//     }
-//     _r1[i] = ( _U1[i] - _L1[i] );
-//     sum_r1 += _r1[i];
-//   }
-
-//   double fopt = f( imid == ICUT? zopt: C1 );
-//   double fopt_over_ndep = fopt / ndep;
-
-//   for( unsigned int i=0; i<_nvar; i++ ){
-//     if( mat[i].empty() ) continue;   
-//     if( isequal( _r1[i], 0. ) ){
-//       for( unsigned int j=0; j<_ndiv; j++ )
-//         mat[i][j] = fopt_over_ndep;
-//       continue;
-//     }
-//     else{
-//       double scal_r1 = _r1[i] / sum_r1; 
-//       for( unsigned int j=0; j<_ndiv; j++ ){
-//         if( cvx ){
-//           T Zu = ( mat[i][j] - _c1[i] ) / _r1[i] * sum_r1 + C1;
-//           double Du = scal_r1 * ( std::max( f( Op<T>::l(Zu) ), f( Op<T>::u(Zu) ) ) - fopt ) + fopt_over_ndep;
-//           if( imid != ICUT ){
-//             T Zl = mat[i][j] - _c1[i] + C1;
-//             double El =  f( mid( Op<T>::l(Zl), Op<T>::u(Zl), zopt ) ) - fopt_over_ndep * (ndep-1.);//std::min( f( Op<T>::l(Zl) ), f( Op<T>::u(Zl) ) ) - fopt_over_ndep * (ndep-1.);
-//             mat[i][j] = T( El, Du );
-//             if(mat[i][j].isEmpty()){
-//                 if(std::fabs(El-Du) <= MC__ASM_COMPUTATION_TOL)
-//                     mat[i][j] = T( El );}
-// #ifdef FILIB__COMPUTATION_DEBUG   
-//             if(mat[i][j].isEmpty())
-//               std::cout<<"Case 1: " <<std::setprecision(18)<<El<<" > "<<Du<<std::endl;
-// #endif                            
-//           }
-//           else if( !options.DCDEC_USE ){
-//             mat[i][j] = T( fopt_over_ndep, Du );
-//             if(mat[i][j].isEmpty()){
-//                 if(std::fabs(fopt_over_ndep - Du) <= MC__ASM_COMPUTATION_TOL)
-//                     mat[i][j] = T( fopt_over_ndep );}
-// #ifdef FILIB__COMPUTATION_DEBUG   
-//             if(mat[i][j].isEmpty())
-//               std::cout<<"Case 2: " <<std::setprecision(18)<<fopt_over_ndep<<" > "<<Du<<std::endl;             
-// #endif 
-//           }
-//           else{
-//             auto const& flinc = [=]( const T& x ){ return Op<T>::l(x) < zopt? 0.: f( Op<T>::l(x) ) - fopt; };
-//             auto const& fldec = [=]( const T& x ){ return Op<T>::u(x) > zopt? 0.: f( Op<T>::u(x) ) - fopt; };
-//             double El = flinc( mat[i][j] - _c1[i] + C1 ) + fldec( mat[i][j] - _c2[i] + C2 ) + fopt_over_ndep;
-//             mat[i][j] = T( El, Du );
-//             if(mat[i][j].isEmpty()){
-//                 if(std::fabs(El - Du) <= MC__ASM_COMPUTATION_TOL)
-//                     mat[i][j] = T( El );}
-// #ifdef FILIB__COMPUTATION_DEBUG   
-//             if(mat[i][j].isEmpty())
-//               std::cout<<"Case 3: " <<std::setprecision(18)<<El<<" > "<<Du<<std::endl;             
-// #endif   
-//           }
-//         }
-//         else{
-//           T Zl = ( mat[i][j] - _c1[i] ) / _r1[i] * sum_r1 + C1;
-//           double Dl = scal_r1 * ( std::min( f( Op<T>::l(Zl) ), f( Op<T>::u(Zl) ) ) - fopt ) + fopt_over_ndep;
-//           if( imid != ICUT ){
-//             T Zu = mat[i][j] - _c1[i] + C1;
-//             double Eu = f( mid( Op<T>::l(Zu), Op<T>::u(Zu), zopt ) ) - fopt_over_ndep * (ndep-1.);
-//             mat[i][j] = T( Dl, Eu );
-//             if(mat[i][j].isEmpty()){
-//                 if(std::fabs(Dl - Eu) <= MC__ASM_COMPUTATION_TOL)
-//                     mat[i][j] = T( Eu );}
-// #ifdef FILIB__COMPUTATION_DEBUG   
-//             if(mat[i][j].isEmpty())
-//               std::cout<<"Case 4: " <<std::setprecision(18)<<Dl<<" > "<<Eu<<std::endl;              
-// #endif   
-//           }
-//           else if( !options.DCDEC_USE ){
-//             mat[i][j] = T( Dl, fopt_over_ndep );
-//             if(mat[i][j].isEmpty()){
-//                 if(std::fabs(Dl - fopt_over_ndep) <= MC__ASM_COMPUTATION_TOL)
-//                     mat[i][j] = T( Dl );}
-// #ifdef FILIB__COMPUTATION_DEBUG   
-//             if(mat[i][j].isEmpty())
-//               std::cout<<"Case 5: " <<std::setprecision(18)<<Dl<<" > "<<fopt_over_ndep<<std::endl;              
-// #endif   
-//           }
-//           else{
-//             auto const& fuinc = [=]( const T& x ){ return Op<T>::u(x) > zopt? 0.: f( Op<T>::u(x) ) - fopt; };
-//             auto const& fudec = [=]( const T& x ){ return Op<T>::l(x) < zopt? 0.: f( Op<T>::l(x) ) - fopt; };
-//             double Eu = fuinc( mat[i][j] - _c2[i] + C2 ) + fudec( mat[i][j] - _c1[i] + C1 ) + fopt_over_ndep;
-//             mat[i][j] = T( Dl, Eu );
-//             if(mat[i][j].isEmpty()){
-//                 if(std::fabs(Dl - Eu) <= MC__ASM_COMPUTATION_TOL)
-//                     mat[i][j] = T( Eu );}
-// #ifdef FILIB__COMPUTATION_DEBUG   
-//             if(mat[i][j].isEmpty())
-//               std::cout<<"Case 6: " <<std::setprecision(18)<<Dl<<" > "<<Eu<<std::endl;  
-// #endif                
-//           }
-//         }
-// #ifdef FILIB__COMPUTATION_DEBUG        
-//         if(mat[i][j].isEmpty())
-//           std::cout<<"_asym:" <<i<<" , "<<j<<std::endl;  
-// #endif   
-//       }
-//     }
-//   }
-// }
-
-// template <typename T>
-// template <typename PUNIV, typename BNUIA>
-// inline
-// void
-// ASModel<T>::_asym_slope
-// ( std::vector<std::vector<T>>& mat, std::vector<std::vector<std::vector<double>>>& slope, const std::vector<double>& partitionSize,
-//     unsigned const& ndep, PUNIV const& f, BNUIA const& fDerv, double const& zopt, bool const cvx, T const& bnd )
-// const
-// {
-//   // anchor points
-//   int imid( -1 );
-//   mid( Op<T>::l(bnd), Op<T>::u(bnd), zopt, imid );
-//   double sum_r1( Op<T>::u(bnd) - Op<T>::l(bnd) );
-//   double C1( 0. ), C2(0.);
-//   for( unsigned int i=0; i<_nvar; i++ ){
-//     if( mat[i].empty() ) continue;
-//     switch( imid ){
-//       case ICONV: _c1[i] = _L1[i], C1 += _c1[i]; break;
-//       case ICONC: _c1[i] = _U1[i], C1 += _c1[i]; break;
-//       case ICUT:  _c1[i] = _L1[i]; C1 += _c1[i];
-//                   _c2[i] = _U1[i]; C2 += _c2[i]; break;
-//     }
-//     _r1[i] = ( _U1[i] - _L1[i] );
-//   }
-//   // std::cout << imid << std::endl;
-
-//   // std::cout << f(zopt) << ", " << f(Op<T>::l(bnd)) << std::endl;
-//   // std::cout << f(zopt) << ", " << f(Op<T>::u(bnd)) << std::endl;
-//   if(f(zopt) == f(Op<T>::l(bnd))){
-//     //std::cout << f(zopt) << ", " << f(Op<T>::l(bnd)) << std::endl;
-//     if(cvx)
-//       imid = ICONC;
-//     else
-//       imid = ICONV;
-//   }
-//   else if(f(zopt) == f(Op<T>::u(bnd))){
-//     //std::cout << f(zopt) << ", " << f(Op<T>::u(bnd)) << std::endl;
-//     if(cvx)
-//       imid = ICONV;
-//     else
-//       imid = ICONC;
-//   }
-
-//   double fopt = f( imid == ICUT? zopt: C1 );
-//   double fopt_over_ndep = fopt / ndep;
-
-//   for( unsigned int i=0; i<_nvar; i++ ){
-//     if( mat[i].empty() ) continue;   
-//     if( isequal( _r1[i], 0. ) ){
-//       for( unsigned int j=0; j<_ndiv; j++ ){
-//         mat[i][j] = T(fopt_over_ndep);
-//         slope[i][j][0] = 0.;
-//         slope[i][j][1] = 0.;
-//       }
-//       continue;
-//     }
-//     else{
-//       double scal_r1 = _r1[i] / sum_r1; 
-//       for( unsigned int j=0; j<_ndiv; j++ ){
-//         if( cvx ){
-//           switch( imid ){
-//             case ICONV: {
-//               double zU = Op<T>::u(mat[i][j]);
-//               double delta_u = std::fabs(slope[i][j][1]*partitionSize[i]);
-//               double Du = f(( zU - _c1[i] ) / _r1[i] * sum_r1 + C1);
-//               double slope1_to_be_multiplied = fDerv(( zU - delta_u - _c1[i] ) / _r1[i] * sum_r1 + C1);
-//               if (delta_u > 1e2 * MC__ASM_COMPUTATION_TOL)
-//                 slope1_to_be_multiplied = (Du - f(( zU - delta_u - _c1[i] ) / _r1[i] * sum_r1 + C1))*(scal_r1/delta_u);
-//               slope[i][j][1] = slope1_to_be_multiplied*slope[i][j][1];
-//               Du = scal_r1 * (Du  - fopt ) + fopt_over_ndep;
-
-//               double zL = Op<T>::l(mat[i][j]);
-//               double El = f( zL - _c1[i] + C1 ) - fopt_over_ndep * (ndep-1.);
-//               double slope0_to_be_multiplied = fDerv( zL- _c1[i] + C1 );
-//               slope[i][j][0] = slope0_to_be_multiplied*slope[i][j][0];
-
-//               if(Du - El <= MC__ASM_COMPUTATION_TOL){
-//                 mat[i][j] = T(std::min(Du,El),std::max(Du,El)); 
-//                 slope[i][j][0] = 0.;
-//                 slope[i][j][1] = 0.;                
-//               }      
-//               else
-//                 mat[i][j] = T( El, Du );
-
-//             }
-//             break;
-//             case ICONC: {
-//               double zL = Op<T>::l(mat[i][j]);
-//               double delta_l = std::fabs(slope[i][j][0]*partitionSize[i]);
-//               double Du = f(( zL - _c1[i] ) / _r1[i] * sum_r1 + C1);
-//               double slope1_to_be_set = fDerv(( zL + delta_l - _c1[i] ) / _r1[i] * sum_r1 + C1);
-//               if (delta_l > 1e2 * MC__ASM_COMPUTATION_TOL)
-//                 slope1_to_be_set = (f(( zL + delta_l - _c1[i] ) / _r1[i] * sum_r1 + C1) - Du)*(scal_r1/delta_l);
-//               slope1_to_be_set  = slope1_to_be_set*slope[i][j][0];
-//               Du = scal_r1 * (Du  - fopt ) + fopt_over_ndep;
-
-//               double zU = Op<T>::u(mat[i][j]);
-//               double El = f( zU - _c1[i] + C1 ) - fopt_over_ndep * (ndep-1.);
-//               double slope0_to_be_multiplied = fDerv( zU - _c1[i] + C1 );
-//               slope[i][j][0] = slope0_to_be_multiplied*slope[i][j][1];
-//               slope[i][j][1] = slope1_to_be_set;
-
-//               if(Du - El <= MC__ASM_COMPUTATION_TOL){
-//                 slope[i][j][0] = 0.;
-//                 slope[i][j][1] = 0.; 
-//                 mat[i][j] = T(std::min(Du,El),std::max(Du,El));     
-//               }
-//               else
-//                 mat[i][j] = T( El, Du );
-
-//             }
-//             break;
-//             case ICUT: {
-//               // f(x) = fInc(x) + fDec(x) + fopt = fInc(x) + fDec(x)  - sum scal_r1 * fopt + fopt_over_ndep
-//               auto const& fInc     = [=]( const double& x ){ return x < zopt? 0.: f( x ) - fopt; };
-//               auto const& fDec     = [=]( const double& x ){ return x > zopt? 0.: f( x ) - fopt; };      
-//               auto const& fIncDerv = [=]( const double& x ){ return x < zopt? 0.: fDerv( x ); };
-//               auto const& fDecDerv = [=]( const double& x ){ return x > zopt? 0.: fDerv( x ); };  
-
-//               double zU = Op<T>::u(mat[i][j]);
-//               double delta_u = std::fabs(slope[i][j][1]*partitionSize[i]);
-//               double DuInc = fInc(( zU - _c2[i] ) / _r1[i] * sum_r1 + C2);
-//               double slope1Inc_to_be_set = fIncDerv(( zU - delta_u - _c2[i] ) / _r1[i] * sum_r1 + C2);
-//               if (delta_u > 1e2 * MC__ASM_COMPUTATION_TOL)
-//                 slope1Inc_to_be_set = (DuInc - fInc(( zU - delta_u - _c2[i] ) / _r1[i] * sum_r1 + C2))*(scal_r1/delta_u);
-//               slope1Inc_to_be_set = slope1Inc_to_be_set*slope[i][j][1];
-//               DuInc = scal_r1 * DuInc;    // For sum_i DuInc > fInc(x), its fIncOpt = 0;
-
-//               double zL = Op<T>::l(mat[i][j]);
-//               double delta_l = std::fabs(slope[i][j][0]*partitionSize[i]);
-//               double DuDec = fDec(( zL - _c1[i] ) / _r1[i] * sum_r1 + C1);
-//               double slope1Dec_to_be_set = fDecDerv(( zL + delta_l - _c1[i] ) / _r1[i] * sum_r1 + C1);
-//               if (delta_l > 1e2 * MC__ASM_COMPUTATION_TOL)
-//                 slope1Dec_to_be_set = (fDec(( zL + delta_l - _c1[i] ) / _r1[i] * sum_r1 + C1) - DuDec)*(scal_r1/delta_l);
-//               slope1Dec_to_be_set  = slope1Dec_to_be_set*slope[i][j][0];
-//               DuDec = scal_r1 * DuDec;  // For sum_i DuDec > fDec(x), its fDecOpt = 0;
-                            
-//               // The original one is: 
-//               // T Zu = ( mat[i][j] - _c1[i] ) / _r1[i] * sum_r1 + C1; 
-//               // double Du = scal_r1 * ( std::max( f( Op<T>::l(Zu) ), f( Op<T>::u(Zu) ) ) - fopt ) + fopt_over_ndep;
-//               // which is the same as Du = std::max(DuInc, DuDec) - scal_r1 * fopt + fopt_over_ndep
-//               double slope1_to_be_set = slope1Inc_to_be_set + slope1Dec_to_be_set;    // Note that we should not directly assign values to slope[i][j][1] = 0. as we will use them later
-//               double upperbound_to_be_set = DuDec + DuInc;
-//               if((slope1Inc_to_be_set < 0.) != (slope1Dec_to_be_set < 0.)){   
-//                 upperbound_to_be_set = upperbound_to_be_set - std::min(std::fabs(slope1Inc_to_be_set),std::fabs(slope1Dec_to_be_set))*partitionSize[i];
-//               }
-
-//               double upperboundCandidate = std::max(DuInc, DuDec);
-//               if ( upperbound_to_be_set > upperboundCandidate + MC__ASM_COMPUTATION_TOL){
-//                   upperbound_to_be_set = upperboundCandidate;
-//                   slope1_to_be_set = 0.;
-//               }
-                     
-//               // if (upperbound_to_be_set > Du){
-//               //   upperbound_to_be_set = Du;
-//               //   slope[i][j][1] = 0.;
-//               // }
-              
-//               // The original one is 
-//               // double El = flinc( mat[i][j] - _c1[i] + C1 ) + fldec( mat[i][j] - _c2[i] + C2 ) + fopt_over_ndep;          
-//               double ElInc = fInc( zL - _c1[i] + C1 ); // For sum_i ElInc < fInc(x), its fIncOpt = 0;
-//               double slope0Inc_to_be_set = fIncDerv( zL- _c1[i] + C1 );
-//               slope0Inc_to_be_set = slope0Inc_to_be_set*slope[i][j][0];
-
-//               double ElDec = fDec( zU - _c2[i] + C2 ); // For sum_i ElDec < fDec(x), its fDecOpt = 0;
-//               double slope0Dec_to_be_set = fDecDerv( zU - _c2[i] + C2 );
-//               slope0Dec_to_be_set = slope0Dec_to_be_set*slope[i][j][1];
-
-//               double slope0_to_be_set = slope0Inc_to_be_set + slope0Dec_to_be_set;
-              
-//               double lowerbound_to_be_set = ElDec + ElInc;
-//               if((slope0Inc_to_be_set < 0.) != (slope0Dec_to_be_set < 0.)){            
-//                lowerbound_to_be_set = lowerbound_to_be_set + std::min(std::fabs(slope0Inc_to_be_set),std::fabs(slope0Dec_to_be_set))*partitionSize[i];
-//               }
-
-//               if ( lowerbound_to_be_set <  MC__ASM_COMPUTATION_TOL){
-//                   lowerbound_to_be_set = 0.;
-//                   slope0_to_be_set = 0.;                   
-//               }
-
-               
-//               // if (lowerbound_to_be_set < El){
-//               //   lowerbound_to_be_set = Eul;
-//               //   slope[i][j][0] = 0.;
-//               // }
-
-
-//               if(upperbound_to_be_set - lowerbound_to_be_set <= MC__ASM_COMPUTATION_TOL){
-//                 mat[i][j] = T(std::min(lowerbound_to_be_set,upperbound_to_be_set),std::max(lowerbound_to_be_set,upperbound_to_be_set))  + fopt_over_ndep;                               
-//                 slope[i][j][0] = 0.;
-//                 slope[i][j][1] = 0.;
-//               }
-//               else
-//                 mat[i][j] = T(lowerbound_to_be_set , upperbound_to_be_set ) + fopt_over_ndep;     
-//                 slope[i][j][0] = slope0_to_be_set;
-//                 slope[i][j][1] = slope1_to_be_set;                           
-//             }
-//             break;
-//           }          
-
-//         }
-//         else{
-//           switch( imid ){
-//             case ICONV: {   // decreasing concave function
-//             //std::cout << "ICONV" << std::endl;
-//               double zU = Op<T>::u(mat[i][j]);
-//               double delta_u = std::fabs(slope[i][j][1]*partitionSize[i]);
-//               double Dl = f(( zU - _c1[i] ) / _r1[i] * sum_r1 + C1);
-//               double slope0_to_be_set = fDerv(( zU - delta_u - _c1[i] ) / _r1[i] * sum_r1 + C1);
-//               if (delta_u > 1e2 * MC__ASM_COMPUTATION_TOL)
-//                 slope0_to_be_set = (Dl - f(( zU - delta_u - _c1[i] ) / _r1[i] * sum_r1 + C1))*(scal_r1/delta_u);
-//               slope0_to_be_set = slope0_to_be_set*slope[i][j][1];
-//               Dl = scal_r1 * (Dl  - fopt ) + fopt_over_ndep;
-
-//               double zL = Op<T>::l(mat[i][j]);
-//               double Eu = f( zL - _c1[i] + C1 ) - fopt_over_ndep * (ndep-1.);
-//               double slope1_to_be_set = fDerv( zL- _c1[i] + C1 );
-//               slope1_to_be_set = slope1_to_be_set*slope[i][j][0];
-
-//               if(Dl - Eu <= MC__ASM_COMPUTATION_TOL){
-//                 mat[i][j] = T(std::min(Dl,Eu),std::max(Dl,Eu)); 
-//                 slope[i][j][0] = 0.;
-//                 slope[i][j][1] = 0.;                
-//               }      
-//               else
-//                 mat[i][j] = T( Dl, Eu );
-//                 slope[i][j][0] = slope0_to_be_set;
-//                 slope[i][j][1] = slope1_to_be_set;    
-//             }
-//             break;
-//             case ICONC: {   // increasing concave function
-//              //std::cout << "ICNONC" << std::endl;
-//               double zL = Op<T>::l(mat[i][j]);
-//               double delta_l = std::fabs(slope[i][j][0]*partitionSize[i]);
-//               double Dl = f(( zL - _c1[i] ) / _r1[i] * sum_r1 + C1);
-//               double slope0_to_be_set = fDerv(( zL + delta_l - _c1[i] ) / _r1[i] * sum_r1 + C1);
-//               if (delta_l > 1e2 * MC__ASM_COMPUTATION_TOL)
-//                 slope0_to_be_set = (f(( zL + delta_l - _c1[i] ) / _r1[i] * sum_r1 + C1) - Dl)*(scal_r1/delta_l);
-//               slope0_to_be_set  = slope0_to_be_set*slope[i][j][0];
-//               Dl = scal_r1 * (Dl  - fopt ) + fopt_over_ndep;
-
-//               double zU = Op<T>::u(mat[i][j]);
-//               double Eu = f( zU - _c1[i] + C1 ) - fopt_over_ndep * (ndep-1.);
-//               double slope1_to_be_set = fDerv( zU - _c1[i] + C1 );
-//               slope1_to_be_set = slope1_to_be_set*slope[i][j][1];
-
-//               if(Dl - Eu <= MC__ASM_COMPUTATION_TOL){
-//                 slope[i][j][0] = 0.;
-//                 slope[i][j][1] = 0.; 
-//                 mat[i][j] = T(std::min(Dl,Eu),std::max(Dl,Eu));     
-//               }
-//               else
-//                 mat[i][j] = T( Dl, Eu );
-//                 slope[i][j][0] = slope0_to_be_set;
-//                 slope[i][j][1] = slope1_to_be_set;    
-//             }
-//             break;
-//             case ICUT: {
-//               std::cout << "   ERROR: slope enhancer for the scenario: concave-cut has not yet implemented " << std::endl;
-//               throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); 
-//               // // f(x) = fInc(x) + fDec(x) + fopt = fInc(x) + fDec(x)  - sum scal_r1 * fopt + fopt_over_ndep
-//               // auto const& fInc     = [=]( const double& x ){ return x < zopt? 0.: f( x ) - fopt; };
-//               // auto const& fDec     = [=]( const double& x ){ return x > zopt? 0.: f( x ) - fopt; };      
-//               // auto const& fIncDerv = [=]( const double& x ){ return x < zopt? 0.: fDerv( x ); };
-//               // auto const& fDecDerv = [=]( const double& x ){ return x > zopt? 0.: fDerv( x ); };  
-
-//               // double zU = Op<T>::u(mat[i][j]);
-//               // double delta_u = std::fabs(slope[i][j][1]*partitionSize[i]);
-//               // double DuInc = fInc(( zU - _c1[i] ) / _r1[i] * sum_r1 + C1);
-//               // double slope1Inc_to_be_set = fIncDerv(( zU - delta_u - _c1[i] ) / _r1[i] * sum_r1 + C1);
-//               // if (delta_u > 1e2 * MC__ASM_COMPUTATION_TOL)
-//               //   slope1Inc_to_be_set = (DuInc - fInc(( zU - delta_u - _c1[i] ) / _r1[i] * sum_r1 + C1))*(scal_r1/delta_u);
-//               // slope1Inc_to_be_set = slope1Inc_to_be_set*slope[i][j][1];
-//               // DuInc = scal_r1 * DuInc;    // For sum_i DuInc > fInc(x), its fIncOpt = 0;
-
-//               // double zL = Op<T>::l(mat[i][j]);
-//               // double delta_l = std::fabs(slope[i][j][0]*partitionSize[i]);
-//               // double DuDec = fDec(( zL - _c1[i] ) / _r1[i] * sum_r1 + C1);
-//               // double slope1Dec_to_be_set = fDecDerv(( zL + delta_l - _c1[i] ) / _r1[i] * sum_r1 + C1);
-//               // if (delta_l > 1e2 * MC__ASM_COMPUTATION_TOL)
-//               //   slope1Dec_to_be_set = (fDec(( zL + delta_l - _c1[i] ) / _r1[i] * sum_r1 + C1) - DuDec)*(scal_r1/delta_l);
-//               // slope1Dec_to_be_set  = slope1Dec_to_be_set*slope[i][j][0];
-//               // DuDec = scal_r1 * DuDec;  // For sum_i DuDec > fDec(x), its fDecOpt = 0;
-                            
-//               // // The original one is: 
-//               // // T Zu = ( mat[i][j] - _c1[i] ) / _r1[i] * sum_r1 + C1; 
-//               // // double Du = scal_r1 * ( std::max( f( Op<T>::l(Zu) ), f( Op<T>::u(Zu) ) ) - fopt ) + fopt_over_ndep;
-//               // // which is the same as Du = std::max(DuInc, DuDec) - scal_r1 * fopt + fopt_over_ndep
-
-//               // slope[i][j][1] = slope1Inc_to_be_set + slope1Dec_to_be_set;
-//               // double upperbound_to_be_set = DuDec + DuInc - std::min(std::fabs(slope1Inc_to_be_set),std::fabs(slope1Dec_to_be_set))*partitionSize[i];
-//               // // if (upperbound_to_be_set > Du){
-//               // //   upperbound_to_be_set = Du;
-//               // //   slope[i][j][1] = 0.;
-//               // // }
-              
-//               // // The original one is 
-//               // // double El = flinc( mat[i][j] - _c1[i] + C1 ) + fldec( mat[i][j] - _c2[i] + C2 ) + fopt_over_ndep;
-
-              
-//               // double ElInc = fInc( zL - _c1[i] + C1 ); // For sum_i ElInc < fInc(x), its fIncOpt = 0;
-//               // double slope0Inc_to_be_set = fIncDerv( zL- _c1[i] + C1 );
-//               // slope0Inc_to_be_set = slope0Inc_to_be_set*slope[i][j][0];
-
-//               // double ElDec = fDec( zU - _c1[i] + C1 ); // For sum_i ElDec < fDec(x), its fDecOpt = 0;
-//               // double slope0Dec_to_be_set = fDecDerv( zU - _c1[i] + C1 );
-//               // slope0Dec_to_be_set = slope0Dec_to_be_set*slope[i][j][1];
-
-//               // slope[i][j][0] = slope0Inc_to_be_set + slope0Dec_to_be_set;
-//               // double lowerbound_to_be_set = ElDec + ElInc + std::min(std::fabs(slope0Inc_to_be_set),std::fabs(slope0Dec_to_be_set))*partitionSize[i];
-//               // // if (lowerbound_to_be_set < El){
-//               // //   lowerbound_to_be_set = Eul;
-//               // //   slope[i][j][0] = 0.;
-//               // // }
-
-//               // if(upperbound_to_be_set - lowerbound_to_be_set <= MC__ASM_COMPUTATION_TOL){
-//               //   mat[i][j] = T(std::min(lowerbound_to_be_set,upperbound_to_be_set),std::max(lowerbound_to_be_set,upperbound_to_be_set))  + fopt_over_ndep;                
-//               //   slope[i][j][0] = 0.;
-//               //   slope[i][j][1] = 0.;
-//               // }
-//               // else
-//               //   mat[i][j] = T(lowerbound_to_be_set , upperbound_to_be_set ) + fopt_over_ndep;                
-//             }
-//             break;
-//           }          
-//           //throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); 
-          
-//         }
-//       }
-//     }
-//   }
-// }
-
-
-
-
-
 
 template <typename T>
 inline
@@ -1432,16 +939,19 @@ const
 
       
   //UnivarPWL<T> _tmp(0.);
+  double theta_i_times_mu = mu/ndep;
   for( unsigned int i=0; i<_nvar; i++ ){
     if( lst[i].empty() ) continue;   
     const double rowOffsetUnder = - _L1[i] + lambda;
     lst[i].undEst = relu( lst[i].undEst + rowOffsetUnder );
-    
-    const double theta_i = _r1[i] / sum_r1;//(_c2[i] - _U2[i])/(C2 - sigma_u);
-    const double theta_i_times_mu = theta_i*mu;
+
+    if(sum_r1 != 0.){
+      const double theta_i = _r1[i] / sum_r1;//(_c2[i] - _U2[i])/(C2 - sigma_u);
+      theta_i_times_mu = theta_i*mu;
+    }
     const double rowOffsetOver =  - _U1[i] + theta_i_times_mu;
     //std::cout << "i " << i << " rowOffsetOver " << rowOffsetOver <<std::endl;
-    lst[i].oveEst = relu( lst[i].oveEst + rowOffsetOver );     
+    lst[i].oveEst = relu( lst[i].oveEst + rowOffsetOver );
   }
 }
 
@@ -1772,15 +1282,17 @@ const
        _r2[i] = ( _U1[i] - _U2[i] );
     }        
     double sum_r2( mu - sigma_u );       
+    double theta_i_times_mu = mu/ndep;
     for( unsigned int i=0; i<_nvar; i++ ){
       if( lst[i].empty() ) continue;   
       // if( isequal( _r1[i], 0. ) ){     
       //   lst[i] = _tmp;
       //   continue;
       // } // since the overestimator and the underestimator are not aligned, we cannot do this.
-
-      const double theta_i = _r2[i] / sum_r2;//(_c2[i] - _U2[i])/(C2 - sigma_u);
-      const double theta_i_times_mu = theta_i*mu;
+      if(sum_r2 != 0.){
+        const double theta_i = _r2[i] / sum_r2;//(_c2[i] - _U2[i])/(C2 - sigma_u);
+        theta_i_times_mu = theta_i*mu;
+      }
       const double rowOffsetOver =  - _U1[i] + theta_i_times_mu;  // -Ui + theta_i * mu
       lst[i].oveEst = relu( lst[i].oveEst + rowOffsetOver );      // it should be note that we leave to relu(PWL) the determination of directly passing, 
                                                                   // instead of checking whether sigma_u > 0 here
@@ -1803,11 +1315,13 @@ const
         _r2[i] = ( _U1[i] - _U2[i] );
       }        
       double sum_r2( mu - sigma_u ); 
-
+      double theta_i_times_mu = mu/ndep;
       for( unsigned int i=0; i<_nvar; i++ ){
         if( lst[i].empty() ) continue;   
-        const double theta_i = _r2[i] / sum_r2;//(_c2[i] - _U2[i])/(C2 - sigma_u);
-        const double theta_i_times_mu = theta_i*mu;
+        if(sum_r2 != 0.){
+          const double theta_i = _r2[i] / sum_r2;//(_c2[i] - _U2[i])/(C2 - sigma_u);
+          theta_i_times_mu = theta_i*mu;
+        }
         const double rowOffsetOver =  - _U1[i] + theta_i_times_mu;  // -Ui + theta_i * mu
         //std::cout << "            I OVE \n" << shadow[i].oveEst << std::endl;
         shadow[i].oveEst = relu( shadow[i].oveEst + rowOffsetOver );      // it should be note that we leave to relu(PWL) the determination of directly passing, 
@@ -2045,11 +1559,13 @@ const
       _r2[i] = ( _U1[i] - _U2[i] );
     }        
     double sum_r2( mu - sigma_u ); 
-
+    double theta_i_times_mu = sum_r2/ndep;
     for( unsigned int i=0; i<_nvar; i++ ){
       if( lst[i].empty() ) continue;   
-      const double theta_i = _r2[i] / sum_r2;//(_c2[i] - _U2[i])/(C2 - sigma_u);
-      const double theta_i_times_mu = theta_i*mu;
+      if(sum_r2 != 0.){
+        const double theta_i = _r2[i] / sum_r2;//(_c2[i] - _U2[i])/(C2 - sigma_u);
+        theta_i_times_mu = theta_i*mu;
+      }
       const double rowOffsetOver =  - _U1[i] + theta_i_times_mu;  // -Ui + theta_i * mu
       lst[i].oveEst = relu( lst[i].oveEst + rowOffsetOver );      // it should be note that we leave to relu(PWL) the determination of directly passing, 
     }
@@ -2071,11 +1587,13 @@ const
         _r2[i] = ( _U1[i] - _U2[i] );
       }        
       double sum_r2( mu - sigma_u ); 
-
+      double theta_i_times_mu = sum_r2/ndep;
       for( unsigned int i=0; i<_nvar; i++ ){
         if( lst[i].empty() ) continue;   
-        const double theta_i = _r2[i] / sum_r2;//(_c2[i] - _U2[i])/(C2 - sigma_u);
-        const double theta_i_times_mu = theta_i*mu;
+        if(sum_r2 != 0.){
+          const double theta_i = _r2[i] / sum_r2;//(_c2[i] - _U2[i])/(C2 - sigma_u);
+          theta_i_times_mu = theta_i*mu;
+        }
         const double rowOffsetOver =  - _U1[i] + theta_i_times_mu;  // -Ui + theta_i * mu
         shadow[i].oveEst = relu( shadow[i].oveEst + rowOffsetOver );      // it should be note that we leave to relu(PWL) the determination of directly passing, 
       }
@@ -3366,11 +2884,19 @@ class ASVar
     return _mod->_CUnd; 
   }
 
+  void get_C() 
+  const
+  { 
+    _mod->_compute_C(_lst,_ndep);
+    return ;
+  }
+
+
 
   std::vector<std::vector<T>> const& C() 
   const
   { 
-    _mod->_compute_C(_lst,_ndep);
+//    _mod->_compute_C(_lst,_ndep);
     return _mod->_COut; 
   }
 
