@@ -3815,7 +3815,7 @@ class UnivarPWL
   }
 
   void flag_nonEmpty() {
-    _isEmpty = true;
+    _isEmpty = false;
     return ;
   }
 

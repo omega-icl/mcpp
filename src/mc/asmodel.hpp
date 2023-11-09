@@ -238,7 +238,7 @@ class ASModel
   {
     //! @brief Constructor
     Options():
-      ASYREM_USE(true), DCDEC_USE(true), SCALING_TYPE(FULL), INTERSECTION_USE(true), ENVEL_USE(true), ROOT_MAXIT(100), ROOT_TOL(1e-10), SLOPE_USE(false),SHADOW_USE(false),NSUB(8)
+      ASYREM_USE(true), DCDEC_USE(true), SCALING_TYPE(FULL), INTERSECTION_USE(true), ENVEL_USE(true), ROOT_MAXIT(100), ROOT_TOL(1e-10), SLOPE_USE(false),SHADOW_USE(false),NSUB(16)
       {}
 
     //! @brief FASModel re-scaling option in binary product
@@ -1170,7 +1170,7 @@ const
     // Get the lb of the shadow underestimator
     double lbShadowUnd = 0.;       
     for( unsigned int i=0; i<_nvar; i++ ){
-      if( shadow[i].empty() ) continue;
+      if( lst[i].empty() ) continue;
        lbShadowUnd += shadow[i].undEst.get_lb();
     }      
     if (lbShadowUnd > -MC__ASM_COMPUTATION_TOL){
@@ -1189,15 +1189,15 @@ const
       // This is to construct the shadow underestimator resulted from the shadow underestimator
       double sigma_o = 0.;       // <- the maximum of the shadow underestimator
       for( unsigned int i=0; i<_nvar; i++ ){
-        if( shadow[i].empty() ) continue;
+        if( lst[i].empty() ) continue;
          _L2[i]= shadow[i].undEst.get_ub();
          sigma_o += _L2[i];   
       }
 
       if (sigma_o < MC__ASM_COMPUTATION_TOL){  // if the shadow underestimator is useless
         for( unsigned int i=0; i<_nvar; i++ ){
-          if( shadow[i].empty() ) continue;
-           shadow[i].undEst.set_zero();  // note that the label _under is flagged as true by default 
+          if( lst[i].empty() ) continue;
+          shadow[i].undEst.set_zero();  // note that the label _under is flagged as true by default 
         }       
         shadow_info[0] = 0;
         return;
@@ -1205,11 +1205,12 @@ const
 
       const double shadow_global_offset = (1.0 - 1.0/((double) ndep))*sigma_o;
       for( unsigned int i=0; i<_nvar; i++ ){
-        if( shadow[i].empty() ) continue;   
+        if( lst[i].empty() ) continue;   
         else{
           const double rowOffsetShadow = - _L2[i] + sigma_o;  // -sigma_i + sigma_o
           // Note that the function max(zi - zi^U + mu) - max(zi - zi^L + lambda) is no longer convex but still nondecreasing
           shadow[i].undEst = relu( lst[i].undEst + rowOffsetShadow ) - shadow_global_offset;
+          shadow[i].flag_nonEmpty();
         }
       }
       return ;
@@ -1262,9 +1263,12 @@ const
         const double rowOffsetUnder  = - _L1[i] + lambda;    // - Li + lambda
         const double rowOffsetShadow = - _L2[i] + sigma_o;  // -sigma_i + sigma_o
         // Note that the function max(zi - zi^U + mu) - max(zi - zi^L + lambda) is no longer convex but still nondecreasing
+//        std::cout << lst[i].undEst + rowOffsetShadow  << std::endl;
         shadow[i].undEst = relu( lst[i].undEst + rowOffsetShadow ) - std::max(shadow_global_offset,0.);
            lst[i].undEst = relu( lst[i].undEst + rowOffsetUnder );
+        shadow[i].flag_nonEmpty();
         //shadow[i].undEst -= lst[i].undEst;
+//        std::cout << shadow[i].undEst  << std::endl;
       }
       shadow_info[0] = 1;
     }
@@ -1326,6 +1330,7 @@ const
         //std::cout << "            I OVE \n" << shadow[i].oveEst << std::endl;
         shadow[i].oveEst = relu( shadow[i].oveEst + rowOffsetOver );      // it should be note that we leave to relu(PWL) the determination of directly passing, 
         //std::cout << "            I OVE \n" << shadow[i].oveEst << std::endl;
+        shadow[i].flag_nonEmpty();
       }
     }   
     return ;    
@@ -1371,6 +1376,7 @@ const
           const double rowOffsetShadow = - _L2[i] + sigma_o;  // -sigma_i + sigma_o
           // Note that the function max(zi - zi^U + mu) - max(zi - zi^L + lambda) is no longer convex but still nondecreasing
           shadow[i].undEst = relu( shadow[i].undEst + rowOffsetShadow ) - shadow_global_offset;
+          shadow[i].flag_nonEmpty();
         }
       }
     }
@@ -1418,6 +1424,7 @@ const
           // Note that the function max(zi - zi^U + mu) - max(zi - zi^L + lambda) is no longer convex but still nondecreasing
           shadow[i].undEst = relu( lst[i].undEst + rowOffsetShadow) - std::max(shadow_global_offset,0.);
              lst[i].undEst = relu( lst[i].undEst + rowOffsetUnder );
+          shadow[i].flag_nonEmpty();   
         }  
       }
       else{ // in this case, we have either lbACT > lbSHA or lbACT = lbSHA. 
@@ -1466,6 +1473,7 @@ const
               // Note that the function max(zi - zi^U + mu) - max(zi - zi^L + lambda) is no longer convex but still nondecreasing
               shadow[i].undEst = relu( lst[i].undEst + rowOffsetShadow) - std::max(shadow_global_offset,0.);
                  lst[i].undEst = relu( lst[i].undEst + rowOffsetUnder );
+              shadow[i].flag_nonEmpty();   
             }  
           }          
         }
@@ -1509,8 +1517,7 @@ const
               const double rowOffsetShadow = - L2[i] + sigma_oSHA;   // -sigma_i + sigma_o
               // Note that the function max(zi - zi^U + mu) - max(zi - zi^L + lambda) is no longer convex but still nondecreasing
                  lst[i].undEst = relu( shadow[i].undEst + rowOffsetUnder );
-              shadow[i].undEst = relu( shadow[i].undEst + rowOffsetShadow) - std::max(shadow_global_offset,0.);
-                 
+              shadow[i].undEst = relu( shadow[i].undEst + rowOffsetShadow) - std::max(shadow_global_offset,0.);  
             }  
           }
           else if(ubACTACT >= ubSHAACT){
@@ -1523,6 +1530,7 @@ const
               // Note that the function max(zi - zi^U + mu) - max(zi - zi^L + lambda) is no longer convex but still nondecreasing
               shadow[i].undEst = relu( lst[i].undEst + rowOffsetShadow) - std::max(shadow_global_offset,0.);
                  lst[i].undEst = relu( lst[i].undEst + rowOffsetUnder );
+              shadow[i].flag_nonEmpty();   
             }  
           }
           else{
@@ -1535,7 +1543,7 @@ const
               // Note that the function max(zi - zi^U + mu) - max(zi - zi^L + lambda) is no longer convex but still nondecreasing              
                  lst[i].undEst = relu(    lst[i].undEst + rowOffsetShadow) - std::max(shadow_global_offset,0.);
               shadow[i].undEst = relu( shadow[i].undEst + rowOffsetUnder );
-              std::swap(shadow[i].undEst,lst[i].undEst);   
+              std::swap(shadow[i].undEst,lst[i].undEst);
             }  
           }          
 
@@ -1596,6 +1604,7 @@ const
         }
         const double rowOffsetOver =  - _U1[i] + theta_i_times_mu;  // -Ui + theta_i * mu
         shadow[i].oveEst = relu( shadow[i].oveEst + rowOffsetOver );      // it should be note that we leave to relu(PWL) the determination of directly passing, 
+        shadow[i].flag_nonEmpty();
       }
     }       
     return ;
@@ -2025,6 +2034,7 @@ const
       std::swap(Ashadow[i].oveEst,sha2Bset[i].oveEst);
       if(shouldSwapActSha) std::swap(Alst[i].oveEst,Ashadow[i].oveEst);
       else if(setAct) std::swap(Alst[i].oveEst,act2Bset[i].oveEst);
+      Ashadow[i].flag_nonEmpty();
     }
 
     // for( unsigned int i=0; i<_nvar; i++ ){
@@ -2122,7 +2132,8 @@ const
       if(Alst[i].empty()) continue;
       std::swap(Ashadow[i].undEst,sha2Bset[i].undEst);
       if(shouldSwapActSha) std::swap(Alst[i].undEst,Ashadow[i].undEst);
-      else if(setAct) std::swap(Alst[i].undEst,act2Bset[i].undEst);      
+      else if(setAct) std::swap(Alst[i].undEst,act2Bset[i].undEst);
+      Ashadow[i].flag_nonEmpty();     
     }
 
 
@@ -2269,6 +2280,7 @@ const
       std::swap(Ashadow[i].oveEst,sha2Bset[i].oveEst);
       if(shouldSwapActSha) std::swap(Alst[i].oveEst,Ashadow[i].oveEst);
       else if(setAct) std::swap(Alst[i].oveEst,act2Bset[i].oveEst);
+      Ashadow[i].flag_nonEmpty();
     }
 
 
@@ -2366,7 +2378,8 @@ const
 #endif
 
   }
-  
+  // std::cout << "i " << 0 <<" " << Ashadow[0].empty() << std::endl; 
+  // std::cout << "i " << 1 <<" " << Ashadow[1].empty() << std::endl;
   
 #ifndef MC__ASMODEL_NOT_DEBUG_SHADOW  
   std::cout << "    ADD AGGR FINISHED" << std::endl;
@@ -2855,9 +2868,9 @@ class ASVar
 
   std::vector<UnivarPWL<T>> const& get_shadow
   ()
-  const
+  const  
   { return _shadow; }
-
+  
 
 
   std::vector<double> const& get_shadow_info
