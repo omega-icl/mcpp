@@ -2426,9 +2426,8 @@ void UnivarPWLE<T>::_relu()
             //xOut[bptsAdded - 1] = first[i] - (second[i] - negMid)/(second[i] - yLast2BItplt)*(first[i] - xLast2BItplt);
             xOut[bptsAdded] = first[i] - (second[i] - negMid)/(second[i] - yLast2BItplt)*(first[i] - xLast2BItplt);
             if( std::fabs(xOut[bptsAdded] - xOut[bptsAdded-1]) < T(MC__UPWLE_COMPUTATION_TOL)){              
-
               xOut[bptsAdded-1] = (bptsAdded==2)?first[1]:std::max(xOut[bptsAdded],xOut[bptsAdded-1]);
-              yOut[bptsAdded-1] = std::min(negMid,yOut[bptsAdded-1]);
+//              yOut[bptsAdded-1] = negMid;
             }
             else{
               yOut[bptsAdded] = negMid;
