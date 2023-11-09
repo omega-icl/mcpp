@@ -2417,9 +2417,11 @@ void UnivarPWLE<T>::_relu()
         }
         else if( negMid - yLast2BItplt < T(MC__UPWLE_COMPUTATION_TOL)){
           if(!_isUnder){
-            yOut[bptsAdded] = negMid; // this is fine for over estimator             
-            xOut[bptsAdded] = xLast2BItplt;  // since yLast2BItplt < 0, the last point is not yet added
-            bptsAdded ++;
+            if(xLast2BItplt > xOut[bptsAdded-1]){
+              yOut[bptsAdded] = negMid; // this is fine for over estimator             
+              xOut[bptsAdded] = xLast2BItplt;  // since yLast2BItplt < 0, the last point is not yet added
+              bptsAdded ++;
+            }
           }
           else{
           // Note that for under estimator there introduces numerical errors
