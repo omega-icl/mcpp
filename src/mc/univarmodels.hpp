@@ -1004,26 +1004,28 @@ class UnivarPWLE
     long double right = first[1] + h; 
     std::vector<T> output(N);
     unsigned int cnt = 1;    
-    double minOrMax;
+    T minOrMax = second[cnt];
+    T ptValLast = second[cnt];
     for (unsigned int i = 0; i < N; i++){
       //std::cout << "in loop" << std::endl; 
-      minOrMax = second[cnt];
       while ( first[cnt] < right ){
         minOrMax = _isUnder? std::min(second[cnt],minOrMax):std::max(second[cnt],minOrMax); 
         cnt ++;
       }
 //      std::cout << "out while" << std::endl; 
-
       if(first[cnt] == right){
-        minOrMax = _isUnder? std::min(second[cnt],minOrMax):std::max(second[cnt],minOrMax);
+        ptValLast = second[cnt];
       }
       else{
-        minOrMax = _isUnder? std::min(second[cnt],minOrMax):std::max(second[cnt],minOrMax);
-        cnt --;
-      }      
+        ptValLast = second[cnt-1];
+        _iterative_interpolate(first[cnt] - right, first[cnt] - first[cnt-1], ptValLast, second[cnt]);
+        
+      }  
+      minOrMax = _isUnder? std::min(ptValLast,minOrMax):std::max(ptValLast,minOrMax);    
 //      std::cout << "out" << std::endl; 
       output[i] = second[0] + minOrMax;
       right += h;
+      minOrMax = ptValLast;
     }
     return output;
 
@@ -2336,6 +2338,7 @@ void UnivarPWLE<T>::_relu()
 
   //unsigned int allZeroCnt = 1;
   bool existsZero = false;
+  bool startPositive = true;
   std::vector<T> xOut(2*nBptPwl-1);
   std::vector<T> yOut(2*nBptPwl-1);
   xOut[0] =  first[0];               // <- load the mean of x
@@ -2344,6 +2347,7 @@ void UnivarPWLE<T>::_relu()
   if (negMid >= second[1]){
     yOut[1] = negMid;
     existsZero = true;
+    startSign = false;
     //allZeroCnt ++;
   }
   else{
@@ -2375,9 +2379,30 @@ void UnivarPWLE<T>::_relu()
         bptsAdded ++;
         break;
       case 1:
-        //_iterative_smoothening_yFilter();
+        //_iterative_smoothening_yFilter();                
+        if(yLast2BItplt == negMid){
+        // in this case when last point is 0, there are two possible cases: (1) it has been added, and (2) it hasn't
+        // if it is added, then we add the current point then break
+          if(xLast2BItplt == xOut[bptsAdded-1]){
+            yOut[bptsAdded] = second[i];
+            xOut[bptsAdded] =  first[i];
+            bptsAdded ++;
+            break;    
+          }      
+          // otherwise, we add the previous point
+          xOut[bptsAdded] = xLast2BItplt;
+        }
+        else{
+          xOut[bptsAdded] = first[i] - (second[i] - negMid)/(second[i] - yLast2BItplt)*(first[i] - xLast2BItplt);
+
+          // if(std::fabs(xOut[bptsAdded] - xOut[bptsAdded-1] > T(5e-15))){
+          // }
+          // else(
+          //   xOut[bptsAdded-1] = _isUnder?std::max(xOut[bptsAdded],xOut[bptsAdded-1]):min(xOut[bptsAdded],xOut[bptsAdded-1])
+          // )
+        
+        }
         yOut[bptsAdded] = negMid;
-        xOut[bptsAdded] = first[i] - (second[i] - negMid)/(second[i] - yLast2BItplt)*(first[i] - xLast2BItplt);
         bptsAdded ++;
       case 3:
         //_iterative_smoothening_yFilter();
@@ -2394,10 +2419,30 @@ void UnivarPWLE<T>::_relu()
   } 
 
   if (yLast2BItplt <= negMid){
-    existsZero = true;
     xOut[bptsAdded] = xLast2BItplt;
-    yOut[bptsAdded] = negMid;
-    bptsAdded ++ ;
+    if((!startPositive) && bptsAdded == 2){
+      yOut[0] = T(0.);
+      xOut.resize(3);
+      first.swap(xOut);
+      yOut.resize(1);
+      second.swap(yOut);
+  
+      _bnd.first.first.second = true;
+      _bnd.first.first.first = T(0.);
+      _bnd.first.second.second = true;
+      _bnd.first.second.first = T(0.);
+      _bnd.second = true;
+      _xFwdDiff.second = false;  // it should be noted that the difference can be updated in the main loop
+      _xFwdDiff.first.resize(0);
+      _yFwdDiff.second = false;   
+      _yFwdDiff.first.resize(0);     
+      return ;
+    }
+    else{
+      existsZero = true;
+      yOut[bptsAdded] = negMid;
+      bptsAdded ++ ;
+    }
   }
   // if(allZeroCnt == nBptPwl){
   //   second[0] = 0;
