@@ -2347,7 +2347,7 @@ void UnivarPWLE<T>::_relu()
   if (negMid >= second[1]){
     yOut[1] = negMid;
     existsZero = true;
-    startSign = false;
+    startPositive = false;
     //allZeroCnt ++;
   }
   else{
