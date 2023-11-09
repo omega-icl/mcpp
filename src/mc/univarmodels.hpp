@@ -2374,13 +2374,34 @@ void UnivarPWLE<T>::_relu()
       case 2:
         //_iterative_smoothening_yFilter();
         existsZero = true;
-        yOut[bptsAdded] = negMid;
-        xOut[bptsAdded] = first[i] - (second[i] - negMid)/(second[i] - yLast2BItplt)*(first[i] - xLast2BItplt);
-        bptsAdded ++;
+
+        // xOut[bptsAdded] = first[i] - (second[i] - negMid)/(second[i] - yLast2BItplt)*(first[i] - xLast2BItplt);
+        // if(std::fabs(xOut[bptsAdded] - xOut[bptsAdded-1]) < T(MC__UPWLE_COMPUTATION_TOL)){
+        //   xOut[bptsAdded-1] = _isUnder?std::max(xOut[bptsAdded],xOut[bptsAdded-1]):std::min(xOut[bptsAdded],xOut[bptsAdded-1]);
+        //   yOut[bptsAdded-1] = _isUnder?std::min(negMid,yOut[bptsAdded-1]):std::max(negMid,yOut[bptsAdded-1]);
+        // }
+        // else{
+        //   yOut[bptsAdded] = negMid;
+        //   bptsAdded ++;
+        // }
+
+        if(yLast2BItplt - negMid < T(MC__UPWLE_COMPUTATION_TOL)){
+          if(_isUnder){
+            yOut[bptsAdded - 1] = negMid; // this is fine for under estimator             
+          }
+          // Note that for over estimator there should not be a numerical error breaking the validity
+          // this is because the state is recogised as a zero vertex has been added (but it is not)
+        }
+        else{
+          xOut[bptsAdded] = first[i] - (second[i] - negMid)/(second[i] - yLast2BItplt)*(first[i] - xLast2BItplt);
+          yOut[bptsAdded] = negMid;
+          bptsAdded ++;
+        }
+
         break;
       case 1:
         //_iterative_smoothening_yFilter();                
-        if(yLast2BItplt == negMid){
+        if(yLast2BItplt - negMid == T(0.)){
         // in this case when last point is 0, there are two possible cases: (1) it has been added, and (2) it hasn't
         // if it is added, then we add the current point then break
           if(xLast2BItplt == xOut[bptsAdded-1]){
@@ -2388,22 +2409,39 @@ void UnivarPWLE<T>::_relu()
             xOut[bptsAdded] =  first[i];
             bptsAdded ++;
             break;    
-          }      
+          }        
           // otherwise, we add the previous point
           xOut[bptsAdded] = xLast2BItplt;
+          yOut[bptsAdded] = negMid;
+          bptsAdded ++;
+        }
+        else if( negMid - yLast2BItplt < T(MC__UPWLE_COMPUTATION_TOL)){
+          if(!_isUnder){
+            yOut[bptsAdded] = negMid; // this is fine for over estimator             
+            xOut[bptsAdded] = xLast2BItplt;  // since yLast2BItplt < 0, the last point is not yet added
+            bptsAdded ++;
+          }
+          else{
+          // Note that for under estimator there introduces numerical errors
+            //xOut[bptsAdded - 1] = first[i] - (second[i] - negMid)/(second[i] - yLast2BItplt)*(first[i] - xLast2BItplt);
+            xOut[bptsAdded] = first[i] - (second[i] - negMid)/(second[i] - yLast2BItplt)*(first[i] - xLast2BItplt);
+            if( std::fabs(xOut[bptsAdded] - xOut[bptsAdded-1]) < T(MC__UPWLE_COMPUTATION_TOL)){
+              xOut[bptsAdded-1] = std::max(xOut[bptsAdded],xOut[bptsAdded-1]);
+              yOut[bptsAdded-1] = std::min(negMid,yOut[bptsAdded-1]);
+            }
+            else{
+              yOut[bptsAdded] = negMid;
+              bptsAdded ++;
+            }
+
+          }  
         }
         else{
-          xOut[bptsAdded] = first[i] - (second[i] - negMid)/(second[i] - yLast2BItplt)*(first[i] - xLast2BItplt);
-
-          // if(std::fabs(xOut[bptsAdded] - xOut[bptsAdded-1] > T(5e-15))){
-          // }
-          // else(
-          //   xOut[bptsAdded-1] = _isUnder?std::max(xOut[bptsAdded],xOut[bptsAdded-1]):min(xOut[bptsAdded],xOut[bptsAdded-1])
-          // )
+            xOut[bptsAdded] = first[i] - (second[i] - negMid)/(second[i] - yLast2BItplt)*(first[i] - xLast2BItplt);
+            yOut[bptsAdded] = negMid;
+            bptsAdded ++;
+        }        
         
-        }
-        yOut[bptsAdded] = negMid;
-        bptsAdded ++;
       case 3:
         //_iterative_smoothening_yFilter();
         yOut[bptsAdded] = second[i];
@@ -2444,6 +2482,8 @@ void UnivarPWLE<T>::_relu()
       bptsAdded ++ ;
     }
   }
+ 
+
   // if(allZeroCnt == nBptPwl){
   //   second[0] = 0;
   //   second.resize(1);
@@ -2463,6 +2503,14 @@ void UnivarPWLE<T>::_relu()
     _xFwdDiff.first.resize(0);
     _yFwdDiff.second = false;   
     _yFwdDiff.first.resize(0);     
+
+    if(std::fabs(xOut[bptsAdded-1] - xOut[bptsAdded-2]) < T(MC__UPWLE_COMPUTATION_TOL)){
+      xOut[bptsAdded-2] = first.back();
+      yOut[bptsAdded-2] = _isUnder?std::min(yOut[bptsAdded-2],yOut[bptsAdded-1]):std::max(yOut[bptsAdded-2],yOut[bptsAdded-1]);
+      bptsAdded --;
+    }
+
+
   }
   else{
     return ;  // it is usally not possible as we have already handled this case outside
