@@ -556,6 +556,9 @@ class PolVar
     //! @brief set linear binary variable subdivision
     const std::vector< PolVar<T> >& BIN_subdiv
       ( FFOp*pOp=nullptr, const bool reset=false ) const;
+    //! @brief set linear continuous variable (relaxed) subdivision
+    const std::vector< PolVar<T> >& CONT_subdiv
+      ( FFOp*pOp=nullptr, const bool reset=false ) const;
 
     //! @brief get cuts flag 
     bool has_cuts
@@ -747,6 +750,29 @@ PolVar<T>::create_subdiv
   }
   _push_subdiv( XU ); 
   return _subdiv.first;
+}
+
+template <typename T>
+inline const std::vector< PolVar<T> >&
+PolVar<T>::CONT_subdiv
+( FFOp*pOp, const bool reset ) const
+{
+  if( !reset && !_subdiv.second.empty() ) return _subdiv.second;
+  if(  reset && !_subdiv.second.empty() ) _subdiv.second.clear();
+  if( !_img ) return _subdiv.second;
+
+  const unsigned NINTS = _subdiv.first.size()-1;
+  double coef[NINTS];
+  for( unsigned isub=0; isub<NINTS; isub++ ){
+    coef[isub] = _subdiv.first[isub] - _subdiv.first[isub+1];
+    _push_subdiv( PolVar<T>( _img, Op<T>::zeroone(), true ) ); 
+  }
+  _img->add_cut( pOp, PolCut<T>::EQ, _subdiv.first[0], NINTS, _subdiv.second.data(), coef, *this, 1. );
+
+  for( unsigned isub=0; isub<NINTS-1; isub++ )
+    _img->add_cut( pOp, PolCut<T>::LE, 0., _subdiv.second[isub+1], 1., _subdiv.second[isub], -1. );
+
+  return _subdiv.second;
 }
 
 template <typename T>
@@ -1927,6 +1953,7 @@ public:
     //! @brief Enumeration type for bilinear term relaxation strategy
     enum REFINE{
       NONE=0,	//!< No semi-linear cuts (use secant approximation)
+      CONT,	//!< Semilinear cuts with linear relaxed (continuous) reformulation
       BIN,	//!< Semilinear cuts with linear binary reformulation
       SOS2	//!< Semilinear cuts with SOS2 reformulation
     };
@@ -2788,7 +2815,9 @@ PolBase<T>::_add_cuts_TIMES
             Op<T>::u(itVar1->second->_range), *VarR );
         if( NKNOTS1 > 2 || NKNOTS2 > 2 ) break; // The standard McCormick cuts are implied
       }
-      case PolBase<T>::Options::NONE: default:
+      case PolBase<T>::Options::CONT:
+      case PolBase<T>::Options::NONE:
+      default:
         add_cut( pOp, PolCut<T>::GE, -Op<T>::u(itVar1->second->_range)*Op<T>::u(itVar2->second->_range),
           *VarR, 1., *itVar1->second, -Op<T>::u(itVar2->second->_range), *itVar2->second, -Op<T>::u(itVar1->second->_range) );
         add_cut( pOp, PolCut<T>::GE, -Op<T>::l(itVar1->second->_range)*Op<T>::l(itVar2->second->_range),
@@ -2955,7 +2984,9 @@ PolBase<T>::_add_cuts_DIV
             Op<T>::u(itVar2->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), *itVar1->second );
         if( NKNOTSR > 2 || NKNOTS2 > 2 ) break; // The standard McCormick cuts are implied
       }
-      case PolBase<T>::Options::NONE: default:
+      case PolBase<T>::Options::NONE:
+      case PolBase<T>::Options::CONT:
+      default:
         add_cut( VarR->_var.opdef().first, PolCut<T>::GE, -Op<T>::u(VarR->_range)*Op<T>::u(itVar2->second->_range),
           *itVar1->second, 1., *VarR, -Op<T>::u(itVar2->second->_range), *itVar2->second, -Op<T>::u(VarR->_range) );
         add_cut( VarR->_var.opdef().first, PolCut<T>::GE, -Op<T>::l(VarR->_range)*Op<T>::l(itVar2->second->_range),
@@ -3019,6 +3050,7 @@ PolBase<T>::add_sandwich_cuts
 
   switch( options.BREAKPOINT_TYPE ){
     // OA cuts @xL,xU + @breakpoints
+    case Options::CONT:
     case Options::BIN:
     case Options::SOS2:{
       const std::vector<double>& XKNOT = X.create_subdiv( XL, XU );
@@ -3038,7 +3070,8 @@ PolBase<T>::add_sandwich_cuts
     }
 
     // OA cuts @xL,xU only
-    case Options::NONE: default:{
+    case Options::NONE:
+    default:{
       add_linearization_cut( pOp, XL, X, XL, XU, Y, YL, YU, sense, f, rpar, ipar );
       if( mc::isequal( XL, XU ) ) return;
       add_linearization_cut( pOp, XU, X, XL, XU, Y, YL, YU, sense, f, rpar, ipar );
@@ -3188,6 +3221,23 @@ PolBase<T>::add_semilinear_cuts
   const typename PolCut<T>::TYPE sense, p_dUniv f, const double*rpar, const int*ipar )
 {
   switch( options.BREAKPOINT_TYPE ){
+   case Options::CONT:{
+    const std::vector<double>& XKNOT = X.create_subdiv( XL, XU );
+    const unsigned NKNOTS = XKNOT.size()-1;
+    if( NKNOTS > 1 ){
+      // Represent variable range using linear binary transformation
+      const std::vector< PolVar<T> >& subvar = X.CONT_subdiv( pOp );
+      // Append semilinear cuts
+      double coef[NKNOTS];
+      double rhs = f( XKNOT[0], rpar, ipar ).first;
+      for( unsigned isub=0; isub<NKNOTS; isub++ )
+        coef[isub] = f( XKNOT[isub], rpar, ipar ).first - f( XKNOT[isub+1], rpar, ipar ).first;
+      add_cut( pOp, sense, rhs, NKNOTS, subvar.data(), coef, Y, 1. );
+      return;
+    }
+    break;
+   }
+
    case Options::BIN:{
     const std::vector<double>& XKNOT = X.create_subdiv( XL, XU );
     const unsigned NKNOTS = XKNOT.size()-1;
@@ -3252,6 +3302,19 @@ PolBase<T>::add_semilinear_cuts
     X.add_breakpt( Xk[i] );
 
   switch( options.BREAKPOINT_TYPE ){
+   case Options::CONT:{
+    const std::vector<double>& XKNOT = X.create_subdiv( Xk[0], Xk[Nk-1] );
+    assert( Nk == XKNOT.size() );
+    // Represent variable range using linear binary transformation
+    std::vector< PolVar<T> > const& subvar = X.CONT_subdiv( pOp );
+    // Append piecewise-linear cuts
+    double coef[Nk-1];
+    for( unsigned k=0; k<Nk-1; ++k )
+      coef[k] = Yk[k] - Yk[k+1];
+    add_cut( pOp, sense, Yk[0], Nk-1, subvar.data(), coef, Y, 1. );
+    break;
+   }
+
    case Options::BIN:{
     const std::vector<double>& XKNOT = X.create_subdiv( Xk[0], Xk[Nk-1] );
     assert( Nk == XKNOT.size() );
@@ -3267,6 +3330,15 @@ PolBase<T>::add_semilinear_cuts
 
    case Options::SOS2:{
     const std::vector<double>& XKNOT = X.create_subdiv( Xk[0], Xk[Nk-1] );
+    if( Nk != XKNOT.size() ){
+      std::cerr << "Size mismatch: Nk = " << Nk << ", XKNOT = " << XKNOT.size() << std::endl;
+      std::cerr << "Xk = [ ";
+      for( unsigned i=0; i<Nk; ++i ) std::cerr << Xk[i] << " ";
+      std::cerr << "]" << std::endl;
+      std::cerr << "XKNOT = [ ";
+      for( auto const& XKNOTk : XKNOT ) std::cerr << XKNOTk << " ";
+      std::cerr << "]" << std::endl;
+    }
     assert( Nk == XKNOT.size() );
     // Represent variable range using linear binary transformation
     std::vector< PolVar<T> > const& subvar = X.SOS2_subdiv( pOp );
@@ -3280,6 +3352,9 @@ PolBase<T>::add_semilinear_cuts
    default:
     break;
   }
+
+  // Restore any preexisting breakpoints
+  X.breakpts() = Xbkpts;
 }
 
 #ifdef MC__POLIMG_PWMCCORMICK_1D
@@ -3683,6 +3758,7 @@ PolBase<T>::_add_cuts_IPOW
     // -- Nonconvex/Nonconcave Portion
     else{
       switch( options.BREAKPOINT_TYPE ){
+        case PolBase<T>::Options::CONT:
         case PolBase<T>::Options::BIN:
         case PolBase<T>::Options::SOS2:{
           const unsigned NKNOTS = itVar1->second->create_subdiv( Op<T>::l(itVar1->second->_range),
@@ -4484,6 +4560,7 @@ PolBase<T>::_add_cuts_TAN
   // -- Nonconvex/Nonconcave Portion
   else{
     switch( options.BREAKPOINT_TYPE ){
+      case PolBase<T>::Options::CONT:
       case PolBase<T>::Options::BIN:
       case PolBase<T>::Options::SOS2:{
         const unsigned NKNOTS = itVar1->second->create_subdiv( Op<T>::l(itVar1->second->_range),
@@ -4607,6 +4684,7 @@ PolBase<T>::_add_cuts_ACOS
   // -- Nonconvex/Nonconcave Portion
   else{
     switch( options.BREAKPOINT_TYPE ){
+      case PolBase<T>::Options::CONT:
       case PolBase<T>::Options::BIN:
       case PolBase<T>::Options::SOS2:{
         const unsigned NKNOTS = itVar1->second->create_subdiv( Op<T>::l(itVar1->second->_range),
@@ -4741,6 +4819,7 @@ PolBase<T>::_add_cuts_ASIN
   // -- Nonconvex/Nonconcave Portion
   else{
     switch( options.BREAKPOINT_TYPE ){
+      case PolBase<T>::Options::CONT:
       case PolBase<T>::Options::BIN:
       case PolBase<T>::Options::SOS2:{
         const unsigned NKNOTS = itVar1->second->create_subdiv( Op<T>::l(itVar1->second->_range),
@@ -4875,6 +4954,7 @@ PolBase<T>::_add_cuts_ATAN
   // -- Nonconvex/Nonconcave Portion
   else{
     switch( options.BREAKPOINT_TYPE ){
+      case PolBase<T>::Options::CONT:
       case PolBase<T>::Options::BIN:
       case PolBase<T>::Options::SOS2:{
         const unsigned NKNOTS = itVar1->second->create_subdiv( Op<T>::l(itVar1->second->_range),
@@ -5052,6 +5132,7 @@ PolBase<T>::_add_cuts_SINH
   // -- Nonconvex/Nonconcave Portion
   else{
     switch( options.BREAKPOINT_TYPE ){
+      case PolBase<T>::Options::CONT:
       case PolBase<T>::Options::BIN:
       case PolBase<T>::Options::SOS2:{
         const unsigned NKNOTS = itVar1->second->create_subdiv( Op<T>::l(itVar1->second->_range),
@@ -5175,6 +5256,7 @@ PolBase<T>::_add_cuts_TANH
   // -- Nonconvex/Nonconcave Portion
   else{
     switch( options.BREAKPOINT_TYPE ){
+      case PolBase<T>::Options::CONT:
       case PolBase<T>::Options::BIN:
       case PolBase<T>::Options::SOS2:{
         const unsigned NKNOTS = itVar1->second->create_subdiv( Op<T>::l(itVar1->second->_range),
@@ -5309,6 +5391,7 @@ PolBase<T>::_add_cuts_ERF
   // -- Nonconvex/Nonconcave Portion
   else{
     switch( options.BREAKPOINT_TYPE ){
+      case PolBase<T>::Options::CONT:
       case PolBase<T>::Options::BIN:
       case PolBase<T>::Options::SOS2:{
         const unsigned NKNOTS = itVar1->second->create_subdiv( Op<T>::l(itVar1->second->_range),

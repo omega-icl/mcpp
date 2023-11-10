@@ -46,6 +46,7 @@ Further exceptions may be thrown by the template class itself.
 #include <cassert>
 #include "mcop.hpp"
 #include "mcfunc.hpp"
+#include "univarmodels.hpp" 
 
 //#define MC__ASMODEL_TRACE
 #undef  MC__ASMODEL_DEBUG_PROD
@@ -3055,12 +3056,25 @@ template <typename T>
 std::ostream& operator<<
 ( std::ostream& out, ASVar<T> const& var )
 {
-  auto&& lst = var._lst;
+  auto const& lst = var._lst;
   for( unsigned int i=0; !lst.empty() && i<var._nvar; i++ ){
     if( lst[i].empty() ) continue;
     out << std::right << std::setw(5) << "Var No." << i <<": " << std::endl;
     out << lst[i].undEst << std::endl;
     out << lst[i].oveEst;
+    // for( unsigned int j=0; j<var._ndiv; j++ ){
+    //   if( j && !(j%3) ) out << std::endl << "       ";
+    //   out << std::setw(0) << mat[i][j];
+    // }
+    out << std::endl;
+  }
+
+  auto const& sha = var._shadow;
+  for( unsigned int i=0; !sha.empty() && i<var._nvar; i++ ){
+    if( sha[i].empty() ) continue;
+    out << std::right << std::setw(5) << "Var No." << i <<": " << std::endl;
+    out << sha[i].undEst << std::endl;
+    out << sha[i].oveEst;
     // for( unsigned int j=0; j<var._ndiv; j++ ){
     //   if( j && !(j%3) ) out << std::endl << "       ";
     //   out << std::setw(0) << mat[i][j];

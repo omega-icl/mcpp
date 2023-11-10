@@ -6140,7 +6140,8 @@ ISVar<T>& operator=
       _shadow[i].resize(_nvar);
       _shadow_slope[i].resize(_nvar);
     }
-    _shadow_info[0] = 1.;
+    _shadow_info.assign( 1, 1. );
+    //_shadow_info[0] = 1.;
 
     return *this;
   }
@@ -6189,7 +6190,8 @@ ISVar<T>& operator=
         _shadow[i].resize(_nvar);
         _shadow_slope[i].resize(_nvar);
       }
-      _shadow_info[0] = 1.;        
+      _shadow_info.assign( 1, 1. );
+      //_shadow_info[0] = 1.;        
         ;//initialize containers and info
       //}
     }

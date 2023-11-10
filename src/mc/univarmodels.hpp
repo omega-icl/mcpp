@@ -687,6 +687,12 @@ class UnivarPWLE
     else return false;
   }   
 
+  std::pair<T,bool> get_cst () const {
+    if (empty()) return std::make_pair( _cst, true );
+    else if (second.size() <= 1) return std::make_pair( second.front(), true ); 
+    else return std::make_pair( 0., false );
+  } 
+
   T lbVar () const {
     if (empty()) {std::cout << "lb of var is unknown in the constant function"<<std::endl; return 0.;}
     else return first[0] + first[1];
@@ -1281,6 +1287,7 @@ std::ostream& operator<<
 ( std::ostream& out, UnivarPWLE<T> const& var )
 {
 
+  out << std::scientific << std::setprecision(14);
   out << " the PWL" << (var._isUnder? " under-": " over-") << "estimator";
   if(var.first.empty()){
     out << " is the constant " << var._cst << std::endl; 
