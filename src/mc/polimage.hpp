@@ -1922,7 +1922,7 @@ public:
       SANDWICH_ATOL(1e-10), SANDWICH_RTOL(1e-3), SANDWICH_MAXCUT(5),
       SANDWICH_RULE(MAXERR), FRACTIONAL_ATOL(machprec()),
       FRACTIONAL_RTOL(machprec()), BREAKPOINT_TYPE(NONE),
-      BREAKPOINT_ATOL(1e-5), BREAKPOINT_RTOL(1e-3),
+      BREAKPOINT_ATOL(1e-5), BREAKPOINT_RTOL(1e-5),
       ALLOW_QUAD(0), ALLOW_NLIN({}), ALLOW_DISJ({})
       {}
     //! @brief Assignment operator
@@ -3304,49 +3304,87 @@ PolBase<T>::add_semilinear_cuts
   switch( options.BREAKPOINT_TYPE ){
    case Options::CONT:{
     const std::vector<double>& XKNOT = X.create_subdiv( Xk[0], Xk[Nk-1] );
-    assert( Nk == XKNOT.size() );
+    //assert( Nk == XKNOT.size() );
     // Represent variable range using linear binary transformation
     std::vector< PolVar<T> > const& subvar = X.CONT_subdiv( pOp );
     // Append piecewise-linear cuts
-    double coef[Nk-1];
-    for( unsigned k=0; k<Nk-1; ++k )
-      coef[k] = Yk[k] - Yk[k+1];
-    add_cut( pOp, sense, Yk[0], Nk-1, subvar.data(), coef, Y, 1. );
+    double coef[ XKNOT.size()-1 ];
+    for( unsigned i=0, k=0; k<Nk; ++k ){
+      if( Xk[k] != XKNOT[i] ) continue;
+      if( k < Nk-1 ) coef[i]    = Yk[k];
+      if( i > 0    ) coef[i-1] -= Yk[k];
+      ++i;
+    }
+    //double coef[Nk-1];
+    //for( unsigned k=0; k<Nk-1; ++k )
+    //  coef[k] = Yk[k] - Yk[k+1];
+    add_cut( pOp, sense, Yk[0], XKNOT.size()-1, subvar.data(), coef, Y, 1. );
     break;
    }
 
    case Options::BIN:{
-    const std::vector<double>& XKNOT = X.create_subdiv( Xk[0], Xk[Nk-1] );
-    assert( Nk == XKNOT.size() );
+    const std::vector<double>& XKNOT = X.create_subdiv( Xk[0], Xk[Nk-1] );    
+    //if( Nk != XKNOT.size() ){
+    //  std::cerr << "Size mismatch: Nk = " << Nk << ", XKNOT = " << XKNOT.size() << std::endl;
+    //  std::cerr << "Xk = [ ";
+    //  for( unsigned i=0; i<Nk; ++i ) std::cerr << Xk[i] << " ";
+    //  std::cerr << "]" << std::endl;
+    //  std::cerr << "XKNOT = [ ";
+    //  for( auto const& XKNOTk : XKNOT ) std::cerr << XKNOTk << " ";
+    //  std::cerr << "]" << std::endl;
+    //}
+    //assert( Nk == XKNOT.size() );
     // Represent variable range using linear binary transformation
     std::vector< PolVar<T> > const& subvar = X.BIN_subdiv( pOp );
     // Append piecewise-linear cuts
-    double coef[Nk-1];
-    for( unsigned k=0; k<Nk-1; ++k )
-      coef[k] = Yk[k] - Yk[k+1];
-    add_cut( pOp, sense, Yk[0], Nk-1, subvar.data(), coef, Y, 1. );
+    double coef[ XKNOT.size()-1 ];
+    for( unsigned i=0, k=0; k<Nk; ++k ){
+      if( Xk[k] != XKNOT[i] ) continue;
+      if( k < Nk-1 ) coef[i]    = Yk[k];
+      if( i > 0    ) coef[i-1] -= Yk[k];
+      ++i;
+    }
+    //if( Nk != XKNOT.size() ){
+    //  std::cerr << "Yk = [ ";
+    //  for( unsigned i=0; i<Nk; ++i ) std::cerr << Yk[i] << " ";
+    //  std::cerr << "]" << std::endl;
+    //  std::cerr << "coef = [ ";
+    //  for( unsigned i=0; i<XKNOT.size()-1; ++i ) std::cerr << coef[i] << " ";
+    //  std::cerr << "]" << std::endl;
+    //  int dum; std::cout << "PAuSED"; std::cin >> dum;
+    //}
+    //double coef[Nk-1];
+    //for( unsigned k=0; k<Nk-1; ++k )
+    //  coef[k] = Yk[k] - Yk[k+1];
+    add_cut( pOp, sense, Yk[0], XKNOT.size()-1, subvar.data(), coef, Y, 1. );
     break;
    }
 
    case Options::SOS2:{
     const std::vector<double>& XKNOT = X.create_subdiv( Xk[0], Xk[Nk-1] );
-    if( Nk != XKNOT.size() ){
-      std::cerr << "Size mismatch: Nk = " << Nk << ", XKNOT = " << XKNOT.size() << std::endl;
-      std::cerr << "Xk = [ ";
-      for( unsigned i=0; i<Nk; ++i ) std::cerr << Xk[i] << " ";
-      std::cerr << "]" << std::endl;
-      std::cerr << "XKNOT = [ ";
-      for( auto const& XKNOTk : XKNOT ) std::cerr << XKNOTk << " ";
-      std::cerr << "]" << std::endl;
-    }
-    assert( Nk == XKNOT.size() );
+    //if( Nk != XKNOT.size() ){
+    //  std::cerr << "Size mismatch: Nk = " << Nk << ", XKNOT = " << XKNOT.size() << std::endl;
+    //  std::cerr << "Xk = [ ";
+    //  for( unsigned i=0; i<Nk; ++i ) std::cerr << Xk[i] << " ";
+    //  std::cerr << "]" << std::endl;
+    //  std::cerr << "XKNOT = [ ";
+    //  for( auto const& XKNOTk : XKNOT ) std::cerr << XKNOTk << " ";
+    //  std::cerr << "]" << std::endl;
+    //}
+    //assert( Nk == XKNOT.size() );
     // Represent variable range using linear binary transformation
     std::vector< PolVar<T> > const& subvar = X.SOS2_subdiv( pOp );
     // Append piecewise-linear cuts
-    double coef[Nk];
-    for( unsigned k=0; k<Nk; ++k )
-      coef[k] = - Yk[k];
-    add_cut( pOp, sense, 0., Nk, subvar.data(), coef, Y, 1. );
+    double coef[ XKNOT.size() ];
+    for( unsigned i=0, k=0; k<Nk; ++k ){
+      if( Xk[k] != XKNOT[i] ) continue;
+      coef[i] = - Yk[k];
+      ++i;
+    }
+    //double coef[Nk];
+    //for( unsigned k=0; k<Nk; ++k )
+    //  coef[k] = - Yk[k];
+    add_cut( pOp, sense, 0., XKNOT.size(), subvar.data(), coef, Y, 1. );
     break;
    }
    default:
