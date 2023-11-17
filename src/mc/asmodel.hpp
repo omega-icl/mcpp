@@ -1701,10 +1701,10 @@ const
   }
 
 
-  double ubMaxAllUnd; 
-  unsigned int indMaxUbAllUnd;  
-  double lbMaxAllUnd; 
-  unsigned int indMaxLbAllUnd;    
+  double ubMaxAllUnd = -DBL_MAX; 
+  unsigned int indMaxUbAllUnd = -1;  
+  double lbMaxAllUnd = -DBL_MAX; 
+  unsigned int indMaxLbAllUnd = 0;    
   std::vector<std::vector<UnivarPWL<T>>> AactBshaUnd(BundSHA);
   std::vector<std::vector<UnivarPWL<T>>> AshaBactUnd(AundSHA); 
   std::vector<std::vector<std::vector<UnivarPWL<T>>>> AshaBshaUnd(AundSHA);
@@ -1804,23 +1804,27 @@ const
     }
 
     lbMaxAllUnd  = minimaUnd[0]; 
-    indMaxLbAllUnd = 0;      
+    //indMaxLbAllUnd = 0; 
+    //std::cout << "         minimaUnd[0] : maximaUnd[0] " << std::scientific << std::setprecision(12) << minimaUnd[0] << " : " << maximaUnd[0] << std::endl;     
     for(unsigned int i = 1; i < minimaUnd.size(); i++){
     // Note that this is a heuristic for choosing the resultant ACT and SHA
-      if (lbMaxAllUnd < minimaUnd[i]){
+      //std::cout << "         minimaUnd[i] : maximaUnd[i] " << std::scientific << std::setprecision(12) << minimaUnd[i] << " : " << maximaUnd[i] << std::endl;
+      if (lbMaxAllUnd < minimaUnd[i] - 5e-14){
         lbMaxAllUnd  = minimaUnd[i];
         indMaxLbAllUnd = i;
       }
-      else if(lbMaxAllUnd == minimaUnd[i] && maximaUnd[indMaxLbAllUnd] < maximaUnd[i]){
+      //else if(lbMaxAllUnd == minimaUnd[i] && maximaUnd[indMaxLbAllUnd] < maximaUnd[i]){
+      else if(std::fabs(lbMaxAllUnd-minimaUnd[i]) < 5e-14 && maximaUnd[indMaxLbAllUnd] + 5e-14 < maximaUnd[i]){ // else if(isequal(lbMaxAllUnd,minimaUnd[i]) && maximaUnd[indMaxLbAllUnd] + 5e-14 < maximaUnd[i]){  
         indMaxLbAllUnd = i;
       }           
     }
 
-    ubMaxAllUnd  = -DBL_MAX ;  
+    //ubMaxAllUnd  = -DBL_MAX ;  
     for(unsigned int i = 0; i < maximaUnd.size(); i++){
     // Note that this is a heuristic for choosing the resultant ACT and SHA
+      //std::cout << "maximaUnd "  << i << "  " << std::scientific << std::setprecision(18) << maximaUnd[i] << std::endl;
       if(i == indMaxLbAllUnd) continue;
-      if (ubMaxAllUnd <= maximaUnd[i]){
+      if (ubMaxAllUnd <= maximaUnd[i] - 5e-14){
         ubMaxAllUnd  = maximaUnd[i];
         indMaxUbAllUnd = i;
       }   
@@ -1835,10 +1839,10 @@ const
 
   // Step 4: process the overestimators
 
-  double ubMinAllOve; 
-  unsigned int indMinUbAllOve;  
-  double lbMinAllOve; 
-  unsigned int indMinLbAllOve;  
+  double ubMinAllOve = DBL_MAX; 
+  unsigned int indMinUbAllOve = 0;  
+  double lbMinAllOve = DBL_MAX; 
+  unsigned int indMinLbAllOve = -1;  
   std::vector<std::vector<UnivarPWL<T>>> AactBshaOve(BoveSHA);
   std::vector<std::vector<UnivarPWL<T>>> AshaBactOve(AoveSHA);
   std::vector<std::vector<std::vector<UnivarPWL<T>>>> AshaBshaOve(AoveSHA);
@@ -1928,33 +1932,49 @@ const
     }
     
     ubMinAllOve  = maximaOve[0]; 
-    indMinUbAllOve = 0;       
+    //indMinUbAllOve = 0;       
+    //std::cout << "maximaOve "  << 0 << "  " << std::scientific << std::setprecision(12) << maximaOve[0] << std::endl;        
     for(unsigned int i = 1; i < maximaOve.size(); i++){
     // Note that this is a heuristic for choosing the resultant ACT and SHA
-      if (ubMinAllOve > maximaOve[i]){
+ //     std::cout << "maximaOve "  << i << "  " << std::scientific << std::setprecision(12) << maximaOve[i] << " ubMinAllOve - maximaOve[i] " << ubMinAllOve - maximaOve[i] << std::endl;      
+ //     std::cout << isequal(ubMinAllOve,maximaOve[i]) << std::endl;  
+      if (ubMinAllOve > maximaOve[i] + 5e-14){
         ubMinAllOve = maximaOve[i];
         indMinUbAllOve = i;
+//        std::cout << "indMinUbAllOve set at "  << i << "  " << std::scientific << std::setprecision(12) << maximaOve[i] << " ubMinAllOve - maximaOve[i] " << ubMinAllOve - maximaOve[i] << std::endl;      
       }   
-      else if(ubMinAllOve == maximaOve[i] && minimaOve[indMinUbAllOve] > minimaOve[i]){
+     else if(std::fabs(ubMinAllOve-maximaOve[i]) < 5e-14 && minimaOve[indMinUbAllOve] - 5e-14 > minimaOve[i]){ //  else if(isequal(ubMinAllOve,maximaOve[i]) && minimaOve[indMinUbAllOve] - 5e-14 > minimaOve[i]){         //else if(ubMinAllOve == maximaOve[i] && minimaOve[indMinUbAllOve] > minimaOve[i]){
         indMinUbAllOve = i;
+//        std::cout << "minimaOve "  << i << "  " << std::scientific << std::setprecision(12) << minimaOve[i] << " minimaOve[indMinUbAllOve]- " << minimaOve[indMinUbAllOve] - minimaOve[i] << std::endl;    
       }     
     }
-
-    lbMinAllOve  = DBL_MAX ; 
+  
+    //lbMinAllOve  = DBL_MAX ; 
     for(unsigned int i = 0; i < minimaOve.size(); i++){
     // Note that this is a heuristic for choosing the resultant ACT and SHA
+      //std::cout << "minimaOve "  << i << "  " << std::scientific << std::setprecision(12) << minimaOve[i] << std::endl;
       if(i == indMinUbAllOve) continue;
-      if (lbMinAllOve >= minimaOve[i]){
+      //std::cout << "        lbMinAllOve - minimaOve[i] "  << std::scientific << std::setprecision(12) << lbMinAllOve - minimaOve[i] << std::endl; 
+      if (lbMinAllOve >= minimaOve[i]  + 5e-14){
         lbMinAllOve = minimaOve[i];
         indMinLbAllOve = i;
+        //std::cout << "        set indMinLbAllOve "  << i << std::endl;
       }
     }
-
+    //std::cout << "       minimaOve 1 "  << std::scientific << std::setprecision(12) << minimaOve[1] << std::endl;
+    //std::cout << "       minimaOve 3 "  << std::scientific << std::setprecision(12) << minimaOve[1] << std::endl;  
   }
 
 #ifndef MC__ASMODEL_NOT_DEBUG_SHADOW  
   std::cout << "    OVE has been processed" << std::endl;
+  std::cout << "    indMinLbAllOve : indMinUbAllOve " << indMinLbAllOve << " : " << indMinUbAllOve << std::endl;
+  std::cout << "       lbMinAllOve : ubMinAllOve "    << lbMinAllOve    << " : " << ubMinAllOve << std::endl;
+  std::cout << "    indMaxLbAllUnd : indMaxUbAllUnd " << indMaxLbAllUnd << " : " << indMaxUbAllUnd << std::endl;  
+  std::cout << "       lbMaxAllUnd : ubMaxAllUnd "    << lbMaxAllUnd    << " : " << ubMaxAllUnd << std::endl;
+
 #endif
+
+
 
 
   // Step 5: assembly the output
