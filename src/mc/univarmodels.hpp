@@ -900,7 +900,7 @@ class UnivarPWLE
 
 
   T eval (T x) const {
-    if(first.empty() || (x < first[0] + first[1]) || (x > first[0] + first[first.size()-1])){
+    if(first.empty() || (x + 4e-15 < first[0] + first[1]) || (x - 4e-15  > first[0] + first[first.size()-1])){
       //std::cout << "x is out of the range" << std::endl;
       return first.empty()?_cst:second[0];
     }
@@ -1518,7 +1518,7 @@ void UnivarPWLE<T>::_condense_by_relax
     // std::cout << "areaLoss len" << areaLoss.size() << std::endl;
     // std::cout << "aMin1 " << areaLoss[1].first << " at " << areaLoss[1].second << std::endl;
     if (_isUnder){
-      while (vtx2addY[aMin.second] < yMinOrMax){
+      while (vtx2addY[aMin.second] + 5e-14 < yMinOrMax){
         areaLoss[0].first = DBL_MAX;
         _modify_heap(areaLoss,0,hind);
       
@@ -1531,7 +1531,7 @@ void UnivarPWLE<T>::_condense_by_relax
       }
     }
     else{
-      while (vtx2addY[aMin.second] > yMinOrMax){
+      while (vtx2addY[aMin.second] - 5e-14 > yMinOrMax){
         areaLoss[0].first = DBL_MAX;
         _modify_heap(areaLoss,0,hind);
         //aMin = areaLoss[0]; // as the reference binds to that, we do not need assignment
