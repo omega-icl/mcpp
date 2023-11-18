@@ -1940,14 +1940,14 @@ void UnivarPWLE<T>::_condense_by_relax
       // aMin = areaLoss[0]; // as the reference binds to that, we do not need assignment, heappop(areaLoss,hind) in python
 
       if (_isUnder){
-        while (vtx2addY[aMin.second] < yMinOrMax){
+        while (vtx2addY[aMin.second] + 5e-14 < yMinOrMax){
             areaLoss[0].first = DBL_MAX;
             _modify_heap(areaLoss,0,hind);
             //aMin = areaLoss[0];  // as the reference binds to that, we do not need assignment
         }
       }
       else{
-        while (vtx2addY[aMin.second] > yMinOrMax){
+        while (vtx2addY[aMin.second] - 5e-14> yMinOrMax){
             areaLoss[0].first = DBL_MAX;
             _modify_heap(areaLoss,0,hind);
             //aMin = areaLoss[0];  // as the reference binds to that, we do not need assignment
