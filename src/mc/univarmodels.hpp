@@ -7,7 +7,7 @@
 //#define MC__UPWLE_SMOOTH_TOL 1e-10  
 #define MC__UPWLE_COMPUTATION_TOL  1e-13
 #define MC__UPWLE_SMOOTH_TOL 1e-10
-
+//#define MC__UPWLE_DEBUG
 /*!
 \page page_UModels Univariate Estimator Model Arithmetic for Univariate Factorable Functions
 \author Yanlin Zha, Beno&icirc;t Chachuat
@@ -341,7 +341,9 @@ class UnivarPWLE
   //! @brief val vector, the vector of the coordinates in y-axis for breakpoints 
   std::vector<T> second;
   //! @brief bounds: (((lb,isComputed),(ub,isComputed)),isBoundComputed) 
-  mutable std::pair<std::pair<std::pair<T,bool>,std::pair<T,bool>>,bool> _bnd;
+  // mutable std::pair<std::pair<std::pair<T,bool>,std::pair<T,bool>>,bool> _bnd;
+  mutable std::pair<T,bool> _lbnd;
+  mutable std::pair<T,bool> _ubnd;
 
  private:
   //! @brief constant value if the variable is constant
@@ -367,48 +369,73 @@ class UnivarPWLE
   */
   //! @brief Constructor of UnivarPWLE for a variable x_i on [a,b]
   UnivarPWLE
-  ( T a, T b, bool isUnder = true)
-  : first(3, a), second(3, a), _bnd(std::make_pair(std::make_pair( std::min(a,b), true ),std::make_pair( std::max(a,b), true )),true),_cst(0.),_isUnder(isUnder),
-  _xFwdDiff(0,false),_yFwdDiff(0,false)
+  ( T a, T b, bool isUnder)
+  : first(2, a), second(2, b),_isUnder(isUnder)
   {
+  // : first(3, a), second(3, a), _bnd(std::make_pair(std::make_pair( std::min(a,b), true ),std::make_pair( std::max(a,b), true )),true),_cst(0.),_isUnder(isUnder),
+  // _xFwdDiff(0,false),_yFwdDiff(0,false)
+    // first[0] = 0.5*(a + b); 
+    // first[1] = std::min(a,b) - first[0];
+    // first[2] = std::max(a,b) - first[0];
+    // second[0] = first[0];
+    // second[1] = first[1];
+    // second[2] = first[2];
 
-    first[0] = 0.5*(a + b); 
-    first[1] = std::min(a,b) - first[0];
-    first[2] = std::max(a,b) - first[0];
-    second[0] = first[0];
-    second[1] = first[1];
-    second[2] = first[2];
+    first[1]  = b;
+    second[0] = a;
+#ifdef MC__UPWLE_DEBUG
+    if(b - a <= T(0.)) std::cout << "b " << b << " a " << a << std::endl;   
+    assert(b - a > T(0.));
+#endif
   }
 
   //! @brief Constructor of UnivarPWLE for a unknown variable x_i on [a,b] with the constant bound c
   UnivarPWLE
-  ( T a, T b, T cst, bool isUnder = true)
-  : first(3, a), second(1, cst), _bnd(std::make_pair(std::make_pair( cst, true ),std::make_pair( cst, true )),true),_cst(T(0.)),_isUnder(isUnder),
-  _xFwdDiff(0,false),_yFwdDiff(0,false)
+   ( T a, T b, T cst, bool isUnder)
+  : first(2, a), second(1, cst),_isUnder(isUnder)
   {
-    first[0] = 0.5*(a + b); 
-    first[1] = std::min(a,b) - first[0];
-    first[2] = std::max(a,b) - first[0];
+  // : first(3, a), second(1, cst), _bnd(std::make_pair(std::make_pair( cst, true ),std::make_pair( cst, true )),true),_cst(T(0.)),_isUnder(isUnder),
+  // _xFwdDiff(0,false),_yFwdDiff(0,false)    
+    // first[0] = 0.5*(a + b); 
+    // first[1] = std::min(a,b) - first[0];
+    // first[2] = std::max(a,b) - first[0];
+     first[1] = b;
+#ifdef MC__UPWLE_DEBUG    
+    if(b - a <= T(0.)) std::cout << "b " << b << " a " << a << std::endl;   
+    assert(b - a > T(0.));
+#endif  
   }
 
   // //! @brief Constructor of UnivarPWLE for a constant c
   UnivarPWLE
-  ( T cst)
-  : first(0), second(0), _bnd(std::make_pair(std::make_pair( cst, true ),std::make_pair( cst, true )),true),_cst(cst),
-    _isUnder(true),_xFwdDiff(0,false),_yFwdDiff(0,false)
+  ( T cst = T(0.))
+  : first(0), _cst(cst)
   {}
 
-  UnivarPWLE
-  (const std::vector<T> & firstIn, bool isUnder)
-  : first(firstIn), second(1,T(0.)), _bnd(std::make_pair(std::make_pair( T(0.), true ),std::make_pair( T(0.), true )),true),_cst(T(0.)),
-    _isUnder(isUnder),_xFwdDiff(0,false),_yFwdDiff(0,false)
-  {}
+  // : first(0), second(0), _bnd(std::make_pair(std::make_pair( cst, true ),std::make_pair( cst, true )),true),_cst(cst),
+  //   _isUnder(true),_xFwdDiff(0,false),_yFwdDiff(0,false)
 
-  UnivarPWLE
-  (std::vector<T> && firstIn, bool isUnder)
-  : first(std::move(firstIn)), second(1,T(0.)), _bnd(std::make_pair(std::make_pair( T(0.), true ),std::make_pair( T(0.), true )),true),_cst(T(0.)),
-    _isUnder(isUnder),_xFwdDiff(0,false),_yFwdDiff(0,false)
-  {}
+  // UnivarPWLE
+  // (const std::vector<T> & firstIn, bool isUnder)
+  // : first(firstIn), second(1,T(0.)),_isUnder(isUnder)
+  // {
+  // // : first(firstIn), second(1,T(0.)), _lbnd(T(0.), true ),_ubnd(T(0.), true ),
+  // //   _isUnder(isUnder),_xFwdDiff(0,false),_yFwdDiff(0,false)    
+  //   // if(firstIn.empty){
+  //   //   _cst = 0.;
+  //   // }
+  // }
+
+  // UnivarPWLE
+  // (std::vector<T> && firstIn, bool isUnder)
+  // : first(std::move(firstIn)), second(1,T(0.)),_isUnder(isUnder)
+  // {
+  // // : first(std::move(firstIn)), second(1,T(0.)), _lbnd(T(0.), true ),_ubnd(T(0.), true ),
+  // //   _isUnder(isUnder),_xFwdDiff(0,false),_yFwdDiff(0,false)    
+  //   // if(firstIn.empty){
+  //   //   _cst = 0.;
+  //   // }    
+  // }
 
 
 
@@ -416,7 +443,6 @@ class UnivarPWLE
   //! @brief Copy constructor of UnivarPWLE for a var (lvalue)
   UnivarPWLE
   ( UnivarPWLE<T> const& var )
-  : _cst(var._cst),_isUnder(var._isUnder)
   {
 #ifdef MC__ASModel_TRACE
     std::cerr << "-- UnivarPWLE( UnivarPWLE<T> const& )\n";
@@ -426,11 +452,22 @@ class UnivarPWLE
 #endif
     if( this == &var ) return;
     first  = var.first;
+    if(first.empty()){
+      _cst = var._cst;
+      return;
+    }    
     second = var.second;
-    _bnd = var._bnd;
+    _isUnder = var._isUnder;
+    if(second.size() > 2){
+      _lbnd = var._lbnd;
+      _ubnd = var._ubnd;
+      _xFwdDiff = std::make_pair(std::vector<T>(0),false);
+      _yFwdDiff = std::make_pair(std::vector<T>(0),false);   
+    //if(var._xFwdDiff.second) _xFwdDiff = var._xFwdDiff;
+    //if(var._yFwdDiff.second) _yFwdDiff = var._yFwdDiff;        
+    }
+    
 
-    if(var._xFwdDiff.second) _xFwdDiff = var._xFwdDiff;
-    if(var._yFwdDiff.second) _yFwdDiff = var._yFwdDiff;
 
 
   }
@@ -439,7 +476,6 @@ class UnivarPWLE
   //! @brief Copy constructor of UnivarPWLE for a var (rvalue)
   UnivarPWLE
   ( UnivarPWLE<T> && var )
-  : _cst(var._cst),_isUnder(var._isUnder)
   {
 #ifdef MC__ASModel_TRACE
     std::cerr << "-- UnivarPWLE( UnivarPWLE<T> && var )\n";
@@ -448,80 +484,89 @@ class UnivarPWLE
     std::cout << "Move Constructor" << std::endl;
 #endif
     if( this == &var ) return;
-    first  = std::move(var.first);
+    first  = std::move(var.first);    
+    if(first.empty()){
+      _cst = var._cst;
+      return;
+    }        
     second = std::move(var.second);
-    _bnd = std::move(var._bnd);
-
-    if(var._xFwdDiff.second) _xFwdDiff = std::move(var._xFwdDiff);
-    if(var._yFwdDiff.second) _yFwdDiff = std::move(var._yFwdDiff);
-
-  }
-
-
-  //! @brief Copy constructor (with scaling) of UnivarPWLE for a var (lvalue)
-  UnivarPWLE
-  ( UnivarPWLE<T> const& var, const double mtpr ) // multiplier
-  : _cst(var._cst),_isUnder(var._isUnder)
-  {
-#ifdef MC__ASModel_TRACE
-    std::cerr << "-- ASVar( ASVar<T> const&, const double )\n";
-#endif
-#ifdef TEST_MOVE
-    std::cout << "Copy and Scale Constructor" << std::endl;
-#endif
-    if( var.first.size() == 0 ) {_cst *= mtpr; return;}
-
-    if( mtpr == 0. ) {_cst = 0.; 
-    first.resize(0); second.resize(0);
-    _xFwdDiff = std::make_pair(std::vector<T>(0),false);
-    _yFwdDiff = std::make_pair(std::vector<T>(0),false);
-    _bnd = std::make_pair(std::make_pair(std::make_pair( 0., false ),std::make_pair( 0., false )),false); 
-    return;
+    _isUnder = var._isUnder;
+    if(second.size() > 2){
+      _lbnd = std::move(var._lbnd);
+      _ubnd = std::move(var._ubnd);
+      //_xFwdDiff = std::make_pair(std::vector<T>(0),false);
+      //_yFwdDiff = std::make_pair(std::vector<T>(0),false);   
+      _xFwdDiff = var._xFwdDiff.second?std::move(var._xFwdDiff):std::make_pair(std::vector<T>(0),false);
+      _yFwdDiff = var._yFwdDiff.second?std::move(var._yFwdDiff):std::make_pair(std::vector<T>(0),false);        
     }
 
-            // if( !_ndep )
-            //   throw typename ASModel<T>::Exceptions(  ASModel<T>::Exceptions::DEPINDEX  );
+  }
+  
+
+//   //! @brief Copy constructor (with scaling) of UnivarPWLE for a var (lvalue)
+//   UnivarPWLE
+//   ( UnivarPWLE<T> const& var, const double mtpr ) // multiplier
+//   : _cst(var._cst),_isUnder(var._isUnder)
+//   {
+// #ifdef MC__ASModel_TRACE
+//     std::cerr << "-- ASVar( ASVar<T> const&, const double )\n";
+// #endif
+// #ifdef TEST_MOVE
+//     std::cout << "Copy and Scale Constructor" << std::endl;
+// #endif
+//     if( var.first.empty() ) {_cst *= mtpr; return;}
+
+//     if( mtpr == 0. ) {_cst = 0.; 
+//     first.resize(0); second.resize(0);
+//     _xFwdDiff = std::make_pair(std::vector<T>(0),false);
+//     _yFwdDiff = std::make_pair(std::vector<T>(0),false);
+//     _bnd = std::make_pair(std::make_pair(std::make_pair( 0., false ),std::make_pair( 0., false )),false); 
+//     return;
+//     }
+
+//             // if( !_ndep )
+//             //   throw typename ASModel<T>::Exceptions(  ASModel<T>::Exceptions::DEPINDEX  );
     
-    first = var.first;
-    const unsigned int nbps = var.second.size();
-    second.resize(nbps); 
+//     first = var.first;
+//     const unsigned int nbps = var.second.size();
+//     second.resize(nbps); 
 
-    for (unsigned int i = 0; i < nbps; i++){
-        second[i] = var.second[i] * mtpr;
-    }
+//     for (unsigned int i = 0; i < nbps; i++){
+//         second[i] = var.second[i] * mtpr;
+//     }
 
-    if(var._bnd.second){
-      _bnd = var._bnd;
-      if (mtpr > 0){
-        //if(_bnd.first.first.second)  
-        _bnd.first.first.first *= mtpr;
-        //if(_bnd.first.second.second) 
-        _bnd.first.second.first *= mtpr;        
-      }
-      else{
-        //if(_bnd.first.first.second)  
-        _bnd.first.first.first *= mtpr;
-        //if(_bnd.first.second.second) 
-        _bnd.first.second.first *= mtpr;
-        std::swap(_bnd.first.first,_bnd.first.second);   
-      }      
-    }
-    else 
-      _bnd = std::make_pair(std::make_pair(std::make_pair( 0., false ),std::make_pair( 0., false )),false); 
+//     if(var._bnd.second){
+//       _bnd = var._bnd;
+//       if (mtpr > 0){
+//         //if(_bnd.first.first.second)  
+//         _bnd.first.first.first *= mtpr;
+//         //if(_bnd.first.second.second) 
+//         _bnd.first.second.first *= mtpr;        
+//       }
+//       else{
+//         //if(_bnd.first.first.second)  
+//         _bnd.first.first.first *= mtpr;
+//         //if(_bnd.first.second.second) 
+//         _bnd.first.second.first *= mtpr;
+//         std::swap(_bnd.first.first,_bnd.first.second);   
+//       }      
+//     }
+//     else 
+//       _bnd = std::make_pair(std::make_pair(std::make_pair( 0., false ),std::make_pair( 0., false )),false); 
 
-    if(var._yFwdDiff.second){ 
-      _yFwdDiff = std::make_pair(std::vector<T>(nbps - 2),true);  
-      for (unsigned int i = 0; i < nbps - 2; i++){
-          _yFwdDiff.first[i] = mtpr * var._yFwdDiff.first[i];
-      }          
-    }
-    else{
-      _yFwdDiff = std::make_pair(std::vector<T>(0),false);  
-    }      
+//     if(var._yFwdDiff.second){ 
+//       _yFwdDiff = std::make_pair(std::vector<T>(nbps - 2),true);  
+//       for (unsigned int i = 0; i < nbps - 2; i++){
+//           _yFwdDiff.first[i] = mtpr * var._yFwdDiff.first[i];
+//       }          
+//     }
+//     else{
+//       _yFwdDiff = std::make_pair(std::vector<T>(0),false);  
+//     }      
 
-    _xFwdDiff = var._xFwdDiff.second? var._xFwdDiff:std::make_pair(std::vector<T>(0),false);  
+//     _xFwdDiff = var._xFwdDiff.second? var._xFwdDiff:std::make_pair(std::vector<T>(0),false);  
 
-  }
+//   }
 
 
 #ifdef ASM_LIFITIME_DEBUG     
@@ -575,19 +620,26 @@ class UnivarPWLE
       _cst = cst;
     }
     else{
-      _bnd.first.first.first = cst;
-      _bnd.first.second.first = cst;    
-      _bnd.first.first.second = true;
-      _bnd.first.second.second = true;
-      _bnd.second = true;
+      _cst = cst;
+      first.resize(0);
+      second.resize(0);
+      //_bnd = std::make_pair(std::make_pair(std::make_pair( cst, true ),std::make_pair( cst, true )),true);
+      _xFwdDiff = std::make_pair(std::vector<T>(0),false);
+      _yFwdDiff = std::make_pair(std::vector<T>(0),false);    
+
+      // _bnd.first.first.first = cst;
+      // _bnd.first.second.first = cst;    
+      // _bnd.first.first.second = true;
+      // _bnd.first.second.second = true;
+      // _bnd.second = true;
   
-      _yFwdDiff.second = false;
-      _xFwdDiff.second = false;
+      // _yFwdDiff.second = false;
+      // _xFwdDiff.second = false;
         
-      first[2] = first.back(); 
-      first.resize(3);
-      second[0] = cst;
-      second.resize(1); 
+      // first[2] = first.back(); 
+      // first.resize(3);
+      // second[0] = cst;
+      // second.resize(1); 
     }    
         
     return *this;
@@ -605,15 +657,35 @@ class UnivarPWLE
 #endif
     if( this == &var )
       return *this;
+    first = var.first;
+    if(first.empty()){
+      _cst = var._cst;
+      return *this;
+    }
+    second = var.second;
+    _isUnder = var._isUnder;
+    if (second.size() > 2){
+      _lbnd = var._lbnd;
+      _ubnd = var._ubnd;
 
-    first  = var.first;
-    second = var.second;   
-    _cst = var._cst;
-    _bnd = var._bnd;
-    _isUnder = var._isUnder;  
+      _xFwdDiff = std::make_pair(std::vector<T>(0),false);
+      _yFwdDiff = std::make_pair(std::vector<T>(0),false);
 
-    _xFwdDiff = var._xFwdDiff.second? var._xFwdDiff:std::make_pair(std::vector<T>(0),false);  
-    _yFwdDiff = var._yFwdDiff.second? var._yFwdDiff:std::make_pair(std::vector<T>(0),false); 
+      // if(var._xFwdDiff.second) _xFwdDiff = var._xFwdDiff;
+      // if(var._yFwdDiff.second) _yFwdDiff = var._yFwdDiff; 
+        
+    }    
+
+    // first  = var.first;
+    // second = var.second;   
+    // _cst = var._cst;
+    // _bnd = var._bnd;
+    // _isUnder = var._isUnder;  
+
+    // _xFwdDiff = std::make_pair(std::vector<T>(0),false);
+    // _yFwdDiff = std::make_pair(std::vector<T>(0),false);
+    //_xFwdDiff = var._xFwdDiff.second? var._xFwdDiff:std::make_pair(std::vector<T>(0),false);  
+    //_yFwdDiff = var._yFwdDiff.second? var._yFwdDiff:std::make_pair(std::vector<T>(0),false); 
 
     return *this;
   } 
@@ -629,30 +701,37 @@ class UnivarPWLE
 #endif
     if( this == &var )
       return *this;
-
     first  = std::move(var.first);
-    second = std::move(var.second);   
-    _cst = var._cst;
-    _bnd = std::move(var._bnd);  
-    _isUnder = var._isUnder;      
-    _xFwdDiff = var._xFwdDiff.second? std::move(var._xFwdDiff):std::make_pair(std::vector<T>(0),false);  
-    _yFwdDiff = var._yFwdDiff.second? std::move(var._yFwdDiff):std::make_pair(std::vector<T>(0),false); 
+    if(first.empty()){
+      _cst = var._cst;
+      return *this;
+    }
+    second = std::move(var.second);  
+    _isUnder = var._isUnder;
+    if (second.size() > 2){
+      _lbnd = std::move(var._lbnd);
+      _ubnd = std::move(var._ubnd);
+
+      _xFwdDiff = var._xFwdDiff.second? std::move(var._xFwdDiff):std::make_pair(std::vector<T>(0),false);  
+      _yFwdDiff = var._yFwdDiff.second? std::move(var._yFwdDiff):std::make_pair(std::vector<T>(0),false); 
+
+      // if(var._xFwdDiff.second) _xFwdDiff = var._xFwdDiff;
+      // if(var._yFwdDiff.second) _yFwdDiff = var._yFwdDiff; 
+      
+    }    
+
     return *this;
   }
 
 
-          // ASVar<T>& set
-          // ( ASModel<T>* const mod )
-          // {
-        
-        
-          //   return *this;
-          // }
- 
   UnivarPWLE<T>& operator+=
     ( UnivarPWLE<T> const& );
   UnivarPWLE<T>& operator+=
+    ( UnivarPWLE<T> && );       
+  UnivarPWLE<T>& operator+=
     ( double const& );
+   UnivarPWLE<T>& operator+=
+    ( std::pair<T,T> const&  );     
   // UnivarPWLE<T>& operator+=
   //   ( T const& );
 
@@ -682,125 +761,224 @@ class UnivarPWLE
   } 
 
   bool isCst () const {
-    if (empty()) return true;
+    if (first.empty()) return true;
     else if (second.size() <= 1) return true; 
+    else return false;
+  } 
+  
+  bool isLinear () const {
+    if (first.empty()) return false;
+    else if (second.size() == 2) return true; 
     else return false;
   }   
 
   std::pair<T,bool> get_cst () const {
-    if (empty()) return std::make_pair( _cst, true );
+    if (first.empty()) return std::make_pair( _cst, true );
     else if (second.size() <= 1) return std::make_pair( second.front(), true ); 
     else return std::make_pair( 0., false );
   } 
 
   T lbVar () const {
-    if (empty()) {std::cout << "lb of var is unknown in the constant function"<<std::endl; return 0.;}
-    else return first[0] + first[1];
+    if (first.empty()) {std::cout << "lb of var is unknown in the constant function"<<std::endl; return 0.;}
+    else if(first.size() == 2){
+      return first[0];
+    }
+    else 
+      return first[0] + first[1];
   }   
 
   T ubVar () const {
-    if (empty()) {std::cout << "ub of var is unknown in the constant function"<<std::endl; return 0.;}
-    else return first[0] + first.back();
+    if (first.empty()) {std::cout << "ub of var is unknown in the constant function"<<std::endl; return 0.;}
+    else if(first.size() == 2){
+      return first[1];
+    }
+    else 
+      return first[0] + first.back();
   }   
 
   std::ostream& display
   ( std::ostream& out=std::cout )
   const
   {
-    const unsigned int sizeTmp = second.size();
-    if(sizeTmp == 0){
+    
+    if(first.empty()){
       std::cout << " cannot display a constant function without knowing the range of the var" << std::endl;
     }
-    else if (sizeTmp == 1){
-      if (_isUnder){
-        out << std::setw(14) << first[1] + first[0]  << std::setw(14) << second[0]  << std::endl;
-        out << std::setw(14) << first[2] + first[0]  << std::setw(14) << second[0]  << std::endl;
+    else{
+      const unsigned int sizeTmp = second.size();
+      if (sizeTmp == 1){
+        if (_isUnder){
+          out << std::setw(14) << first[1] + first[0]  << std::setw(14) << second[0]  << std::endl;
+          out << std::setw(14) << first[2] + first[0]  << std::setw(14) << second[0]  << std::endl;
+        }
+        else{
+          out << std::setw(14) << first[2] + first[0]  << std::setw(14) << second[0]  << std::endl;
+          out << std::setw(14) << first[1] + first[0]  << std::setw(14) << second[0]  << std::endl;        
+        }  
+      }
+      else if(isLinear()){
+        if (_isUnder){
+          out << std::setw(14) << first[0]  << std::setw(14) << second[0]  << std::endl;
+          out << std::setw(14) << first[1]  << std::setw(14) << second[1]  << std::endl;
+        }
+        else{
+          out << std::setw(14) << first[1]   << std::setw(14) << second[1]  << std::endl;
+          out << std::setw(14) << first[0]   << std::setw(14) << second[0]  << std::endl;        
+        }          
       }
       else{
-        out << std::setw(14) << first[2] + first[0]  << std::setw(14) << second[0]  << std::endl;
-        out << std::setw(14) << first[1] + first[0]  << std::setw(14) << second[0]  << std::endl;        
-      }  
-    }
-    else{
-      if (_isUnder){
-        for( unsigned int j=1; j < sizeTmp; j++){
-          out << std::setw(14) << first[j] + first[0]  << std::setw(14) << second[j] + second[0]  << std::endl;
+        if (_isUnder){
+          for( unsigned int j=1; j < sizeTmp; j++){
+            out << std::setw(14) << first[j] + first[0]  << std::setw(14) << second[j] + second[0]  << std::endl;
+          }     
+        }
+        else{
+          for( unsigned int j=1; j < sizeTmp; j++){
+            out << std::setw(14) << first[sizeTmp-j] + first[0]  << std::setw(14) << second[sizeTmp-j] + second[0]  << std::endl;
+          }          
         }     
       }
-      else{
-        for( unsigned int j=1; j < sizeTmp; j++){
-          out << std::setw(14) << first[sizeTmp-j] + first[0]  << std::setw(14) << second[sizeTmp-j] + second[0]  << std::endl;
-        }          
-      }     
     }
     return out;
   }
 
 
   std::ostream& display
-  ( std::ostream& out, const UnivarPWLE<T> & BEstmr )
+  ( std::ostream& out, UnivarPWLE<T> const & BEstmrIn )
   const
   {
+    UnivarPWLE<T> BEstmr(BEstmrIn);
+    std::vector<T> Afirst(first);
+    std::vector<T> Asecond(second);    
+    if(first.empty() || BEstmr.empty()){
+      std::cout << " cannot display a constant function without knowing the range of one of the two vars" << std::endl;
+      return out;
+    }
+    if(isLinear() && BEstmr.isLinear()){
+      out << std::setw(14) <<  Afirst[0] << std::setw(14) << BEstmr.first[0]
+          << std::setw(14) << Asecond[0] + BEstmr.second[0] << std::endl; 
+      out << std::setw(14) << Afirst[1] << std::setw(14) << BEstmr.first[0] 
+          << std::setw(14) << Asecond[1] + BEstmr.second[0] << std::endl;                 
+      out << std::setw(14) << Afirst[1]  << std::setw(14) << BEstmr.first[1]  
+          << std::setw(14) << Asecond[1] + BEstmr.second[1] << std::endl; 
+      out << std::setw(14) <<  Afirst[0]  << std::setw(14) << BEstmr.first[1]
+          << std::setw(14) << Asecond[0] + BEstmr.second[1] << std::endl; 
+      out << std::setw(14) <<  Afirst[0]   << std::setw(14) << BEstmr.first[0]
+          << std::setw(14) << Asecond[0] + BEstmr.second[0] << std::endl;
+      out << std::endl << std::endl;         
+      return out;
+      
+    }
+    else if(!isLinear() && BEstmr.isLinear()){
+      BEstmr.first.push_back(BEstmr.first[0]+BEstmr.first[1]);
+      BEstmr.first[2] *= 0.5;
+      BEstmr.first[0] -= BEstmr.first[2];
+      BEstmr.first[1] -= BEstmr.first[2];
+      std::swap(BEstmr.first[2],BEstmr.first[0]);
+      std::swap(BEstmr.first[1],BEstmr.first[2]);
+
+      BEstmr.second.push_back(BEstmr.second[0]+BEstmr.second[1]);
+      BEstmr.second[2] *= 0.5;
+      BEstmr.second[0] -= BEstmr.second[2];
+      BEstmr.second[1] -= BEstmr.second[2];
+      std::swap(BEstmr.second[2],BEstmr.second[0]);
+      std::swap(BEstmr.second[1],BEstmr.second[2]);                
+    }
+    else if(isLinear() && !BEstmr.isLinear()){
+      Afirst.push_back(Afirst[0]+Afirst[1]);
+      Afirst[2] *= 0.5;
+      Afirst[0] -= Afirst[2];
+      Afirst[1] -= Afirst[2];
+      std::swap(Afirst[2],Afirst[0]);
+      std::swap(Afirst[1],Afirst[2]);
+      
+      Asecond.push_back(Asecond[0]+Asecond[1]);
+      Asecond[2] *= 0.5;
+      Asecond[0] -= Asecond[2];
+      Asecond[1] -= Asecond[2];
+      std::swap(Asecond[2],Asecond[0]);
+      std::swap(Asecond[1],Asecond[2]);  
+    }
+
+    if(first.size() == 2){
+      Afirst.push_back(Afirst[0]+Afirst[1]);
+      Afirst[2] *= 0.5;
+      Afirst[0] -= Afirst[2];
+      Afirst[1] -= Afirst[2];
+      std::swap(Afirst[2],Afirst[0]);
+      std::swap(Afirst[1],Afirst[2]);      
+    }   
+
+    if(BEstmr.first.size() == 2){
+      BEstmr.first.push_back(BEstmr.first[0]+BEstmr.first[1]);
+      BEstmr.first[2] *= 0.5;
+      BEstmr.first[0] -= BEstmr.first[2];
+      BEstmr.first[1] -= BEstmr.first[2];
+      std::swap(BEstmr.first[2],BEstmr.first[0]);
+      std::swap(BEstmr.first[1],BEstmr.first[2]);      
+    }   
+
     const unsigned int AsizeTmp = second.size();
     const unsigned int BsizeTmp = BEstmr.second.size();
-    if(AsizeTmp == 0 || BsizeTmp == 0){
-      std::cout << " cannot display a constant function without knowing the range of one of the two vars" << std::endl;
-    }
-    else if(AsizeTmp == 1 && BsizeTmp == 1){
-      out << std::setw(14) << first[1] + first[0] << std::setw(14) << BEstmr.first[1] + BEstmr.first[0]
-          << std::setw(14) << second[0] + BEstmr.second[0] << std::endl; 
-      out << std::setw(14) << first[2] + first[0] << std::setw(14) << BEstmr.first[1] + BEstmr.first[0]
-          << std::setw(14) << second[0] + BEstmr.second[0] << std::endl;                 
-      out << std::setw(14) << first[2] + first[0] << std::setw(14) << BEstmr.first[2] + BEstmr.first[0]
-          << std::setw(14) << second[0] + BEstmr.second[0] << std::endl; 
-      out << std::setw(14) << first[1] + first[0] << std::setw(14) << BEstmr.first[2] + BEstmr.first[0]
-          << std::setw(14) << second[0] + BEstmr.second[0] << std::endl; 
-      out << std::setw(14) << first[1] + first[0] << std::setw(14) << BEstmr.first[1] + BEstmr.first[0]
-          << std::setw(14) << second[0] + BEstmr.second[0] << std::endl;
+    // if(AsizeTmp == 0 || BsizeTmp == 0){
+    //   std::cout << " cannot display a constant function without knowing the range of one of the two vars" << std::endl;
+    // }
+    if(AsizeTmp == 1 && BsizeTmp == 1){
+
+      out << std::setw(14) << Afirst[1] + Afirst[0] << std::setw(14) << BEstmr.first[1] + BEstmr.first[0]
+          << std::setw(14) << Asecond[0] + BEstmr.second[0] << std::endl; 
+      out << std::setw(14) << Afirst[2] + Afirst[0] << std::setw(14) << BEstmr.first[1] + BEstmr.first[0]
+          << std::setw(14) << Asecond[0] + BEstmr.second[0] << std::endl;                 
+      out << std::setw(14) << Afirst[2] + Afirst[0] << std::setw(14) << BEstmr.first[2] + BEstmr.first[0]
+          << std::setw(14) << Asecond[0] + BEstmr.second[0] << std::endl; 
+      out << std::setw(14) << Afirst[1] + Afirst[0] << std::setw(14) << BEstmr.first[2] + BEstmr.first[0]
+          << std::setw(14) << Asecond[0] + BEstmr.second[0] << std::endl; 
+      out << std::setw(14) << Afirst[1] + Afirst[0] << std::setw(14) << BEstmr.first[1] + BEstmr.first[0]
+          << std::setw(14) << Asecond[0] + BEstmr.second[0] << std::endl;
       out << std::endl << std::endl;                                 
     }
     else if(AsizeTmp == 1){
       for( unsigned int j2=2; j2< BsizeTmp; j2++){  
-        out << std::setw(14) << first[1] + first[0] << std::setw(14) << BEstmr.first[j2-1] + BEstmr.first[0]
-            << std::setw(14) << second[0] + BEstmr.second[0] + BEstmr.second[j2-1] << std::endl; 
-        out << std::setw(14) << first[2] + first[0] << std::setw(14) << BEstmr.first[j2-1] + BEstmr.first[0]
-            << std::setw(14) << second[0] + BEstmr.second[0] + BEstmr.second[j2-1]  << std::endl;                 
-        out << std::setw(14) << first[2] + first[0] << std::setw(14) << BEstmr.first[j2] + BEstmr.first[0]
-            << std::setw(14) << second[0] + BEstmr.second[0] + BEstmr.second[j2]  << std::endl; 
-        out << std::setw(14) << first[1] + first[0] << std::setw(14) << BEstmr.first[j2] + BEstmr.first[0]
-            << std::setw(14) << second[0] + BEstmr.second[0] + BEstmr.second[j2]  << std::endl; 
-        out << std::setw(14) << first[1] + first[0] << std::setw(14) << BEstmr.first[j2-1] + BEstmr.first[0]
-            << std::setw(14) << second[0] + BEstmr.second[0] + BEstmr.second[j2-1]  << std::endl;
+        out << std::setw(14) << Afirst[1] + Afirst[0] << std::setw(14) << BEstmr.first[j2-1] + BEstmr.first[0]
+            << std::setw(14) << Asecond[0] + BEstmr.second[0] + BEstmr.second[j2-1] << std::endl; 
+        out << std::setw(14) << Afirst[2] + Afirst[0] << std::setw(14) << BEstmr.first[j2-1] + BEstmr.first[0]
+            << std::setw(14) << Asecond[0] + BEstmr.second[0] + BEstmr.second[j2-1]  << std::endl;                 
+        out << std::setw(14) << Afirst[2] + Afirst[0] << std::setw(14) << BEstmr.first[j2] + BEstmr.first[0]
+            << std::setw(14) << Asecond[0] + BEstmr.second[0] + BEstmr.second[j2]  << std::endl; 
+        out << std::setw(14) << Afirst[1] + Afirst[0] << std::setw(14) << BEstmr.first[j2] + BEstmr.first[0]
+            << std::setw(14) << Asecond[0] + BEstmr.second[0] + BEstmr.second[j2]  << std::endl; 
+        out << std::setw(14) << Afirst[1] + Afirst[0] << std::setw(14) << BEstmr.first[j2-1] + BEstmr.first[0]
+            << std::setw(14) << Asecond[0] + BEstmr.second[0] + BEstmr.second[j2-1]  << std::endl;
         out << std::endl << std::endl;      
       }
 
     }
     else if(BsizeTmp == 1){
       for( unsigned int j1=2; j1< AsizeTmp; j1++){  
-        out << std::setw(14) << first[j1-1] + first[0] << std::setw(14) << BEstmr.first[1] + BEstmr.first[0]
-            << std::setw(14) << second[0] + BEstmr.second[0] + second[j1-1] << std::endl; 
-        out << std::setw(14) << first[j1] + first[0] << std::setw(14) << BEstmr.first[1] + BEstmr.first[0]
-            << std::setw(14) << second[0] + BEstmr.second[0] + second[j1]  << std::endl;                 
-        out << std::setw(14) << first[j1] + first[0] << std::setw(14) << BEstmr.first[2] + BEstmr.first[0]
-            << std::setw(14) << second[0] + BEstmr.second[0] + second[j1]  << std::endl; 
-        out << std::setw(14) << first[j1-1] + first[0] << std::setw(14) << BEstmr.first[2] + BEstmr.first[0]
-            << std::setw(14) << second[0] + BEstmr.second[0] + second[j1-1]  << std::endl; 
-        out << std::setw(14) << first[j1-1] + first[0] << std::setw(14) << BEstmr.first[1] + BEstmr.first[0]
-            << std::setw(14) << second[0] + BEstmr.second[0] + second[j1-1]  << std::endl;  
+        out << std::setw(14) << Afirst[j1-1] + Afirst[0] << std::setw(14) << BEstmr.first[1] + BEstmr.first[0]
+            << std::setw(14) << Asecond[0] + BEstmr.second[0] + Asecond[j1-1] << std::endl; 
+        out << std::setw(14) << Afirst[j1] + Afirst[0] << std::setw(14) << BEstmr.first[1] + BEstmr.first[0]
+            << std::setw(14) << Asecond[0] + BEstmr.second[0] + Asecond[j1]  << std::endl;                 
+        out << std::setw(14) << Afirst[j1] + Afirst[0] << std::setw(14) << BEstmr.first[2] + BEstmr.first[0]
+            << std::setw(14) << Asecond[0] + BEstmr.second[0] + Asecond[j1]  << std::endl; 
+        out << std::setw(14) << Afirst[j1-1] + Afirst[0] << std::setw(14) << BEstmr.first[2] + BEstmr.first[0]
+            << std::setw(14) << Asecond[0] + BEstmr.second[0] + Asecond[j1-1]  << std::endl; 
+        out << std::setw(14) << Afirst[j1-1] + Afirst[0] << std::setw(14) << BEstmr.first[1] + BEstmr.first[0]
+            << std::setw(14) << Asecond[0] + BEstmr.second[0] + Asecond[j1-1]  << std::endl;  
         out << std::endl << std::endl;    
       }
     }  
     else{
       for( unsigned int j1=2; j1< AsizeTmp; j1++){
         for( unsigned int j2=2; j2< BsizeTmp; j2++){        
-          double l1 = first[j1-1] + first[0];
-          double u1 = first[j1]   + first[0];          
+          double l1 = Afirst[j1-1] + Afirst[0];
+          double u1 = Afirst[j1]   + Afirst[0];          
           double l2 = BEstmr.first[j2-1] + BEstmr.first[0];
           double u2 = BEstmr.first[j2]   + BEstmr.first[0];
-          double u11 = second[0] + second[j1-1] + BEstmr.second[0] + BEstmr.second[j2-1];
-          double u21 = second[0] + second[j1] + BEstmr.second[0] + BEstmr.second[j2-1];
-          double u12 = second[0] + second[j1-1] + BEstmr.second[0] + BEstmr.second[j2];
-          double u22 = second[0] + second[j1] + BEstmr.second[0] + BEstmr.second[j2];                    
+          double u11 = Asecond[0] + Asecond[j1-1] + BEstmr.second[0] + BEstmr.second[j2-1];
+          double u21 = Asecond[0] + Asecond[j1] + BEstmr.second[0] + BEstmr.second[j2-1];
+          double u12 = Asecond[0] + Asecond[j1-1] + BEstmr.second[0] + BEstmr.second[j2];
+          double u22 = Asecond[0] + Asecond[j1] + BEstmr.second[0] + BEstmr.second[j2];                    
           out << std::setw(14) << l1 << std::setw(14) << l2 << std::setw(14) << u11 << std::endl;
           out << std::setw(14) << u1 << std::setw(14) << l2 << std::setw(14) << u21 << std::endl;
           out << std::setw(14) << u1 << std::setw(14) << u2 << std::setw(14) << u22 << std::endl;
@@ -816,6 +994,7 @@ class UnivarPWLE
 
 
   void flip (){
+    if(!first.empty())
     _isUnder = !_isUnder;
   }
 
@@ -826,19 +1005,18 @@ class UnivarPWLE
       _cst = T(0.);
     }
     else{
-      _bnd.first.first.first = T(0.);
-      _bnd.first.second.first = T(0.);    
-      _bnd.first.first.second = true;
-      _bnd.first.second.second = true;
-      _bnd.second = true;
-  
-      _yFwdDiff.second = false;
-      _xFwdDiff.second = false;
-        
-      first[2] = first.back(); 
-      first.resize(3);
       second[0] = T(0.);
-      second.resize(1); 
+      second.resize(1);       
+      if(first.size() > 2){
+        first[1] += first[0];  
+        first[0] += first.back();
+        std::swap(first[1],first[0]); 
+        first.resize(2);
+        //_yFwdDiff.second = false;
+        _yFwdDiff.first.resize(0);
+        //_xFwdDiff.second = false;
+        _xFwdDiff.first.resize(0);        
+      }    
     }
   }
 
@@ -846,11 +1024,13 @@ class UnivarPWLE
     _condense_by_relax(k);
   }
 
-  void recal_B()const
+  void recal_B()const // for debug, note that we do not check the size of first and second
   {
-    _bnd.first.first.second = false;
-    _bnd.first.second.second = false;
-    _bnd.second = false;
+    // _bnd.first.first.second = false;
+    // _bnd.first.second.second = false;
+    // _bnd.second = false;
+    _lbnd.second = false;
+    _ubnd.second = false;    
     _yFwdDiff.second = false;
     _xFwdDiff.second = false;
     _B(true,true);
@@ -858,28 +1038,54 @@ class UnivarPWLE
   }
 
 
-  void B(bool isUnder, bool isOver)const
+  void B(bool isUnder, bool isOver) const
   {
+    // note that this function should be called when second.size > 2
     _B(isUnder,isOver);
   }
 
   T get_ub()const
   {
-    if(_bnd.second && _bnd.first.second.second)
-      return _bnd.first.second.first;
+    if(first.empty())
+      return _cst;
+    switch (second.size()){
+      case 1:
+      {
+        return second[0];
+      }
+      case 2:
+      {
+        return std::max(second[0],second[1]);
+      }
+      //default:
+    }
+    if(_ubnd.second)
+      return _ubnd.first;
     else{
-      _B(false,true); return _bnd.first.second.first;
+      _B(false,true); return _ubnd.first;
     }
   }
 
   T get_lb()const
   {
-    if(_bnd.second && _bnd.first.first.second)
-      return _bnd.first.first.first;
-    else{
-      _B(true,false); return _bnd.first.first.first;
+    if(first.empty())
+      return _cst;
+    switch (second.size()){
+      case 1:
+      {
+        return second[0];
+      }
+      case 2:
+      {
+        return std::min(second[0],second[1]);
+      }
+      //default:
     }
-
+    if(_lbnd.second)
+      return _lbnd.first;
+    else{
+      _B(true,false); return _lbnd.first;
+    }
   }
 
 
@@ -889,22 +1095,41 @@ class UnivarPWLE
   }
 
 
-  void check_fwdDiff(){
-    for(unsigned int i = 0; i < _xFwdDiff.first.size(); i++){
+  void check_fwdDiff(){ // this function is for debug.
+    if(!isLinear()){
+      for(unsigned int i = 0; i < _xFwdDiff.first.size(); i++){
       if(std::fabs(first[i+2] - first[i+1] - _xFwdDiff.first[i]) > 1e-12)
         std::cout << i << " valx " << first[i+2] - first[i+1] << " valx " << _xFwdDiff.first[i] << std::endl;
       if(std::fabs(second[i+2] - second[i+1] - _yFwdDiff.first[i]) > 1e-12)
         std::cout << i << " valy " << second[i+2] - second[i+1] << " valy " << _yFwdDiff.first[i] << std::endl;        
     }
   }
+  else{
+      std::cout << "this PWLE is linear" << std::endl;
+    }
+  }
 
 
   T eval (T x) const {
-    if(first.empty() || (x + 4e-15 < first[0] + first[1]) || (x - 4e-15  > first[0] + first[first.size()-1])){
+    if(first.empty()){
       //std::cout << "x is out of the range" << std::endl;
-      return first.empty()?_cst:second[0];
+      return _cst;
     }
     if(second.size()==1) return second[0];
+    if(second.size()==2){
+      if(x + 4e-15 < first[0] || x - 4e-15 > first[1]){
+        std::cout << "x is out of the range" << std::endl;
+        return T(first[0]);
+      }
+      return (x - first[0])*((second[1] - second[0]) / (first[1] - first[0]) ) + second[0];
+    }
+    if(x + 4e-15 < first[0] + first[1] || (x - 4e-15 > first[0] + first[first.size()-1])){
+      std::cout << "x is out of the range"  << std::endl;
+      std::cout << "x - (first[0] + first[1]) "  << std::scientific << std::setprecision(14) << x - (first[0] + first[1]) << std::endl;
+      std::cout << "x - (first[0] + first[first.size()-1]) "  << std::scientific << std::setprecision(14) << x - (first[0] + first[first.size()-1]) << std::endl;      
+      return T(first[0] + first[1]);
+    }
+
     const T xOffset = x - first[0];
     unsigned int lbInd = 1;
     unsigned int ubInd = first.size() - 1;
@@ -942,6 +1167,16 @@ class UnivarPWLE
       vals.resize(N,second[0]);
       return;
     }
+    if(second.size()==2){
+      vals.resize(N);
+      const T h = (second[1] - second[0])/(T) N;
+      T lb = second[0];
+      for (unsigned int i = 0; i < N ; i++){
+        vals[i] = lb;
+        lb += h; 
+      }
+      return;
+    }    
     unsigned int lbInd = 1;
     unsigned int ubInd = first.size() - 1;    
     //const int N = std::ceil((first[ubInd]-first[lbInd])/stepsize);
@@ -978,18 +1213,18 @@ class UnivarPWLE
 //   PtValLast = PtVal - offset;   
 // }
 
-  std::vector<std::vector<T>> align_then_relax_to_PWC
-  ( const std::vector<T> & xIn, const std::vector<T> & yIn)
-  const 
-  {
-    std::vector<std::vector<T>> out(3);
-    out[0].resize(10);
-    out[1].resize(10);
-    out[2].resize(10);
+  // std::vector<std::vector<T>> align_then_relax_to_PWC
+  // ( const std::vector<T> & xIn, const std::vector<T> & yIn)
+  // const 
+  // {
+  //   std::vector<std::vector<T>> out(3);
+  //   out[0].resize(10);
+  //   out[1].resize(10);
+  //   out[2].resize(10);
 
 
-    return out;      
-  }
+  //   return out;      
+  // }
 
   std::vector<T> get_PWC
   ( unsigned int N)
@@ -1004,35 +1239,83 @@ class UnivarPWLE
       std::vector<T> output(N,second[0]);
       return  output;
     }
+
+    std::vector<T> output(N);
     
+    if (second.size() == 2){
+      const T h = (second[1] - second[0])/ (T) N;
+      if(_isUnder){
+        if (h > T(0)){
+          T lb = second[0];
+          for (unsigned int i = 0; i < N ; i++){
+            output[i] = lb;
+            lb += h; 
+          }
+        }
+        else{
+          T lb = second[0] + h;
+          for (unsigned int i = 0; i < N-1; i++){
+            output[i] = lb;
+            lb += h; 
+          }
+          output[N-1] = second[1];
+        }
+      }
+      else{
+        if (h < T(0)){
+          T lb = second[0];
+          for (unsigned int i = 0; i < N ; i++){
+            output[i] = lb;
+            lb += h; 
+          }
+        }
+        else{
+          T lb = second[0] + h;
+          for (unsigned int i = 0; i < N-1; i++){
+            output[i] = lb;
+            lb += h; 
+          }
+          output[N-1] = second[1];
+        }        
+      }
+
+      return output;    
+    }    
+
     const long double h = (first.back() - first[1])/N;
 
     long double right = first[1] + h; 
-    std::vector<T> output(N);
     unsigned int cnt = 1;    
     T minOrMax = second[cnt];
     T ptValLast = second[cnt];
-    for (unsigned int i = 0; i < N; i++){
+    for (unsigned int i = 0; i < N-1; i++){
       //std::cout << "in loop" << std::endl; 
       while ( first[cnt] < right ){
         minOrMax = _isUnder? std::min(second[cnt],minOrMax):std::max(second[cnt],minOrMax); 
         cnt ++;
       }
-//      std::cout << "out while" << std::endl; 
+      // std::cout << "out while" << std::endl; 
       if(first[cnt] == right){
         ptValLast = second[cnt];
+        // std::cout << "cnt " << cnt << " at " << i << std::endl; 
       }
       else{
         ptValLast = second[cnt-1];
         _iterative_interpolate(first[cnt] - right, first[cnt] - first[cnt-1], ptValLast, second[cnt]);
-        
+        // std::cout << "cnt " << cnt << " at " << i << std::endl;         
       }  
       minOrMax = _isUnder? std::min(ptValLast,minOrMax):std::max(ptValLast,minOrMax);    
-//      std::cout << "out" << std::endl; 
+      // std::cout << "out" << std::endl; 
       output[i] = second[0] + minOrMax;
+      // std::cout << "output[i] " << output[i] << std::endl;
       right += h;
       minOrMax = ptValLast;
     }
+    for (unsigned int i = cnt; i < first.size(); i++){
+        minOrMax = _isUnder? std::min(second[i],minOrMax):std::max(second[i],minOrMax); 
+    }   
+    // std::cout << "out" << std::endl; 
+    output[N-1] = second[0] + minOrMax;    
     return output;
 
   }
@@ -1052,9 +1335,11 @@ class UnivarPWLE
   const
   {
     // note that this functions should only be called when var is not constant
-    // assert( !first.empty() );
-
-    const T _temp_mid = (first.empty())?_cst:second[0];
+#ifdef MC__UPWLE_DEBUG  
+    assert( !first.empty() );
+    assert( second.size() > 2 );
+#endif
+    const T _temp_mid = second[0];
     const unsigned int offset = 1; 
     const int nEstmtrPts = second.size() - offset;    // excluding the average
     T ub(0.),lb(0.);
@@ -1067,15 +1352,13 @@ class UnivarPWLE
     } 
   
     if(isMin){
-      _bnd.second = true;
-      _bnd.first.first.second = true;           
-      _bnd.first.first.first = _temp_mid + lb;      
+      _lbnd.second = true;       
+      _lbnd.first  = _temp_mid + lb;      
     }
 
     if(isMax){
-      _bnd.second = true;
-      _bnd.first.second.second = true;           
-      _bnd.first.second.first = _temp_mid + ub;      
+      _ubnd.second = true;       
+      _ubnd.first  = _temp_mid + ub;        
     }
   }
 
@@ -1089,6 +1372,7 @@ class UnivarPWLE
   {
     // note that this functions should only be called when var is not constant
     assert( !first.empty() );
+    assert( second.size() > 2 );    
 
     const unsigned int offset = 1; 
     const unsigned int nEstmtrPts = second.size() - offset;    // excluding the average
@@ -1295,8 +1579,15 @@ std::ostream& operator<<
   }
   if(var.second.size() == 1){
     out << " is the constant " << var.second[0] << " on [" 
-        << var.first[0] + var.first[1] << ", " 
-        << var.first[0] + var.first[2] << "]" << std::endl;   
+        << var.first[0] << ", " 
+        << var.first[1] << "]" << std::endl;   
+    return out;
+  }
+
+   if(var.second.size() == 2){
+    out << " is linear [ " << var.second[0] << ", " << var.second[1]  << " ] on [" 
+        << var.first[0] << ", " 
+        << var.first[1] << "]" << std::endl;  
     return out;
   }
 
@@ -1327,10 +1618,10 @@ std::ostream& operator<<
   }
   out << std::endl;
 
-  var._B(true,true);
+//  var._B(true,true);
   out << std::endl;
   out << std::right << std::setw(5) << "[LB, UB]: " << "[" <<
-  var._bnd.first.first.first << ", " << var._bnd.first.second.first << "]" << std::endl;    
+  var.get_lb() << ", " << var.get_ub() << "]" << std::endl;    
   return out;
 }
 
@@ -1470,8 +1761,8 @@ void UnivarPWLE<T>::_condense_by_relax
     }
 
     if(_isUnder){
-      if(!_bnd.first.first.second) _B(true,false);
-      _bnd.first.second.second = false;
+      if(!_lbnd.second) _B(true,false);
+      _ubnd.second = false;
       // else {std::cout << "not recomputed" << std::endl;
       // auto temp = _bnd.first.first.first;
       // _B(true,false);
@@ -1482,8 +1773,8 @@ void UnivarPWLE<T>::_condense_by_relax
       // }
     }
     else{
-      if(!_bnd.first.second.second) _B(false,true);
-      _bnd.first.first.second = false;
+      if(!_ubnd.second) _B(false,true);
+      _lbnd.second = false;
       // else {std::cout << "not recomputed" << std::endl;
       // auto temp = _bnd.first.second.first;
       // _B(false,true);
@@ -1494,7 +1785,7 @@ void UnivarPWLE<T>::_condense_by_relax
       // }
     }
     
-    const T yMinOrMax = (_isUnder?(_bnd.first.first.first):(_bnd.first.second.first))-yori[0];
+    const T yMinOrMax = (_isUnder?(_lbnd.first):(_ubnd.first))-yori[0];
 
     std::make_heap(areaLoss.begin(), areaLoss.end(), _cmp_indexed_areaLoss);
 
@@ -2327,14 +2618,13 @@ inline
 void UnivarPWLE<T>::_relu()
 {
   //std::cout << "in _relu" << std::endl;
-  
+#ifdef MC__UPWLE_DEBUG  
   assert( !first.empty() );  // it shouldn't be a constant
+  assert(  second.size() > 2 );  // it shouldn't be linear
+#endif
 
   const unsigned int nBptPwl = second.size();
-
-
   const T negMid = (-second[0]);
-
 
   // _bnd.second = true;
   // _bnd.first.first.second = false;
@@ -2472,22 +2762,22 @@ void UnivarPWLE<T>::_relu()
 
   if (yLast2BItplt <= negMid){
     xOut[bptsAdded] = xLast2BItplt;
-    if((!startPositive) && bptsAdded == 2){
-      yOut[0] = T(0.);
-      xOut.resize(3);
-      first.swap(xOut);
-      yOut.resize(1);
-      second.swap(yOut);
-  
-      _bnd.first.first.second = true;
-      _bnd.first.first.first = T(0.);
-      _bnd.first.second.second = true;
-      _bnd.first.second.first = T(0.);
-      _bnd.second = true;
-      _xFwdDiff.second = false;  // it should be noted that the difference can be updated in the main loop
-      _xFwdDiff.first.resize(0);
-      _yFwdDiff.second = false;   
-      _yFwdDiff.first.resize(0);     
+    if((!startPositive) && bptsAdded <= 2){
+      second[0] = T(0.);
+      second.resize(1);
+      first.back() += first[0];
+      first[0] += first[1];
+      first[1] = first.back();
+      first.resize(2);
+      // _lbnd.second = true;
+      // _lbnd.first = T(0.);
+      // _ubnd.second = true;
+      // _ubnd.first = T(0.);
+
+      // _xFwdDiff.second = false;  // it should be noted that the difference can be updated in the main loop
+      // _xFwdDiff.first.resize(0);
+      // _yFwdDiff.second = false;   
+      // _yFwdDiff.first.resize(0);     
       return ;
     }
     else{
@@ -2511,8 +2801,8 @@ void UnivarPWLE<T>::_relu()
   if(existsZero){
     //std::cout << "existsZero" << std::endl;
 //    _bnd.second = false;
-    _bnd.first.first.second = true;
-    _bnd.first.first.first = T(0.);
+    _lbnd.second = true;
+    _lbnd.first = T(0.);
     _xFwdDiff.second = false;  // it should be noted that the difference can be updated in the main loop
     _xFwdDiff.first.resize(0);
     _yFwdDiff.second = false;   
@@ -2525,6 +2815,26 @@ void UnivarPWLE<T>::_relu()
     }
 
 
+    if(bptsAdded == 3){
+      first[0] = xOut[0] + xOut[1];
+      first[1] = xOut[0] + xOut[2];
+      first.resize(2);
+      second[0] = yOut[0] + yOut[1];
+      second[1] = yOut[0] + yOut[2];
+      second.resize(2);
+
+    }
+    else{
+      xOut.resize(bptsAdded);
+      first.swap(xOut);
+      yOut.resize(bptsAdded);
+      second.swap(yOut);
+
+    }
+    return ;
+
+
+
   }
   else{
     return ;  // it is usally not possible as we have already handled this case outside
@@ -2532,10 +2842,8 @@ void UnivarPWLE<T>::_relu()
   }
   
   //std::cout << "in _relu assign:" << bptsAdded << std::endl;
-  xOut.resize(bptsAdded);
-  first.swap(xOut);
-  yOut.resize(bptsAdded);
-  second.swap(yOut);
+
+
   // if(bptsAdded > nbpsMax){
   //   _condense_by_relax(nbpsMax);
   // }
@@ -2567,6 +2875,10 @@ inline
 UnivarPWLE<T>& UnivarPWLE<T>::operator+=
 ( double const& cst )
 {
+
+#ifdef MC__UPWLE_DEBUG_TRACE  
+  std::cout << "UPWLE operator += cst " << std::endl;
+#endif
   if( cst == 0. ){
     return *this;
   }
@@ -2574,13 +2886,35 @@ UnivarPWLE<T>& UnivarPWLE<T>::operator+=
     _cst += cst;
     return *this;
   }
+  
+#ifdef MC__UPWLE_DEBUG_TRACE  
+  if(first.size() == 2){
+      std::cout << "first " << first[0] << " : " << first[1]<<  std::endl;
+  }
+  else if(first.size() > 2){
+    std::cout << "first " << std::endl;
+    for(unsigned int jj = 1; jj < first.size(); jj++ ){
+      std::cout << first[0] + first[jj] << "    ";
+    }
+    std::cout << std::endl;
+  }
+#endif
 
   second[0] += cst;
-  if( _bnd.second ){
-    _bnd.first.first.first += cst;
-    _bnd.first.second.first += cst;
+  // std::cout << "second[0] += cst " << second[0] << std::endl;
+  if( second.size() == 2){
+    second[1] += cst;
+    // std::cout << "second[1] += cst " << second[1] << std::endl;
+    return *this;
+  }  
+
+  if( _lbnd.second ){
+    _lbnd.first += cst;
   }
 
+  if( _ubnd.second ){
+    _ubnd.first += cst;
+  }
   return *this;
 }
 
@@ -2610,150 +2944,471 @@ UnivarPWLE<T>& UnivarPWLE<T>::operator+=
        //   return *this;
        // }
 
+template <typename T>
+inline
+UnivarPWLE<T>& UnivarPWLE<T>::operator+=
+( std::pair<T,T> const& endpoints )
+{
+
+#ifdef MC__UPWLE_DEBUG_TRACE 
+//std::cout << "operator+= endpoints " << std::endl;
+#endif
+
+  const unsigned int nBptPwl = second.size();
+  if( nBptPwl == 1){
+    second.resize(2);
+    second[1] = second[0] + endpoints.second;
+    second[0] += endpoints.first;
+    return *this;
+    //std::cout << "nBptPwl == 2 " << std::endl;  
+  }
+  else if(nBptPwl == 2){
+    second[0] += endpoints.first;
+    second[1] += endpoints.second;
+    if(std::fabs(second[1] - second[2]) < T(MC__UPWLE_COMPUTATION_TOL) ){
+      _cst = _isUnder? std::min(second[1],second[2]):std::max(second[1],second[2]); 
+      first.resize(0);
+      second.resize(0);
+    }   
+    return *this;
+  } 
+#ifdef MC__UPWLE_DEBUG_TRACE     
+  //std::cout << "nBptPwl > 2 " << std::endl;             
+
+    // std::cout << "first "  << std::endl;    
+    // for(unsigned int jj = 1; jj < first.size(); jj++){
+    //   std::cout << first[jj] + first[0]<< "  ";     
+    // }
+    // std::cout << std::endl;
+    // std::cout << "second "  << std::endl;    
+    // for(unsigned int jj = 1; jj < second.size(); jj++){
+    //   std::cout << second[jj] + second[0]<< "  ";     
+    // }
+    // std::cout << std::endl; 
+#endif
+
+#ifdef MC__UPWLE_DEBUG
+    for(unsigned int j = 0; j < second.size(); j++){
+      assert(second[j]< 1e7);;
+    }     
+#endif
+
+  const T mid2 = 0.5*(endpoints.first + endpoints.second);
+  second[0] += mid2;    
+  const T varLftVal = endpoints.first - mid2;
+  second[1] += varLftVal;
+  second.back() += (endpoints.second - mid2);    
+  const T ratio = (endpoints.second - endpoints.first)/(first.back() - first[1]);
+  for(unsigned int j = 2; j < nBptPwl - 1; j++){
+    second[j] += (varLftVal + (first[j]-first[1])*ratio);//_interpolate_at_ind(first, width, diff, j);
+  }
+
+#ifdef MC__UPWLE_DEBUG_TRACE     
+    // std::cout << "output first "  << std::endl;    
+    // for(unsigned int jj = 1; jj < first.size(); jj++){
+    //   std::cout << first[jj] + first[0]<< "  ";     
+    // }
+    // std::cout << std::endl;
+    // std::cout << "output second "  << std::endl;    
+    // for(unsigned int jj = 1; jj < second.size(); jj++){
+    //   std::cout << second[jj] + second[0]<< "  ";     
+    // }
+    // std::cout << std::endl;
+#endif
+
+#ifdef MC__UPWLE_DEBUG
+    for(unsigned int j = 0; j < second.size(); j++){
+      if(second[j]> 1e7){ 
+        std::cout << endpoints.first << "  " << endpoints.second << std::endl;
+        std::cout <<  first[1] << "  " << first.back() << std::endl;
+      }
+      assert(second[j]< 1e7);
+    } 
+#endif
+
+  _lbnd.second = false;
+  _ubnd.second = false; 
+
+  //if(_xFwdDiff.second) {_xFwdDiff.first.resize(0); _xFwdDiff.second = false};
+  if(_yFwdDiff.second) {_yFwdDiff.first.resize(0); _yFwdDiff.second = false;}  
+    
+
+  return *this;
+}
+
 
 template <typename T>
 inline
 UnivarPWLE<T>& UnivarPWLE<T>::operator+=
 ( UnivarPWLE<T> const& var )
 {
+  #ifdef MC__UPWLE_DEBUG_TRACE  
+  //std::cout << "***********************" << std::endl;
+  //std::cout << "under? " << _isUnder  << std::endl;
+  //std::cout << "***********************" << std::endl; 
+#endif
+
+  // process the constant case
   if( first.empty() && var.first.empty() ){
     _cst += var._cst;
     return *this;
   }
-  if( first.empty() ){
+  else if( first.empty() ){
     T copy_cst = _cst;
     *this = var;
     *this += copy_cst;
     return *this;
   }
-  if( var.first.empty() ){
+  else if( var.first.empty() ){
     *this += var._cst;
     return *this;
   }
 
+  // if both !first.empty() and !var.first.empty(), then _isUnder should be initialized
   if( _isUnder != var._isUnder ){
      std::cout << "Addition cannot be performed between an over- and an under-estimator" << std::endl;
      throw typename UnivarPWLE<T>::Exceptions( UnivarPWLE<T>::Exceptions::ESTMATCH );
   }
-  const unsigned int nBptPwl1 = second.size();
-  const unsigned int nBptPwl2 = var.second.size();
-  if( nBptPwl2 == 1 ){
-    second[0] += var.second[0];
-    if(_bnd.second){
-      _bnd.first.first.first += var.second[0]; 
-      _bnd.first.second.first += var.second[0];    
+
+#ifdef MC__UPWLE_DEBUG_TRACE     
+  if(var.first.size()>2){    
+    std::cout << "var first "  << var.first.size() << std::endl;    
+    for(unsigned int jj = 1; jj < var.first.size(); jj++){
+      std::cout << "jj = " << jj << "  "<< var.first[jj] + var.first[0]<< "  ";     
     }
-    return *this;
-  } 
-
-  if( nBptPwl1 == 1){
-    first = var.first;
-    auto const tmpMid = second[0];
-    second = var.second; 
-    second[0] += tmpMid;     
-    if(var._bnd.second){
-      _bnd = var._bnd;
-      _bnd.first.first.first += tmpMid; 
-      _bnd.first.second.first += tmpMid;    
+    std::cout << std::endl;
+#ifdef MC__UPWLE_DEBUG
+    assert(var.first.back() - var.first[1] >=T(0.));
+#endif
+  }
+  else if(var.first.size()==2){
+    std::cout << "var first "  << var.first.size() << std::endl;    
+    for(unsigned int jj = 0; jj < var.first.size(); jj++){
+      std::cout << "jj = " << jj << "  "<< var.first[jj] << "  ";     
     }
-    return *this;
-  } 
-//  std::cout << "both nBptPwls != 1 " << std::endl;
+    std::cout << std::endl;    
 
-  
-  if( nBptPwl1 == 3 && nBptPwl2 == 3 ){
-    second[0] += var.second[0];
-    second[1] += var.second[1];
-    second[2] += var.second[2];
-    if(std::fabs(second[1] - second[2]) < T(MC__UPWLE_COMPUTATION_TOL) ){
-      _cst = _isUnder? second[0] + std::min(second[1],second[2]):second[0] + std::max(second[1],second[2]); 
-      first.resize(0);
-      second.resize(0);
+     std::cout << "first "  << first.size() << std::endl;    
+    for(unsigned int jj = 0; jj < first.size(); jj++){
+      std::cout << "jj = " << jj << "  "<< first[jj] << "  ";     
     }
-    _bnd.second = false;
-    _bnd.first.first.second = false; 
-    _bnd.first.second.second = false;  
+    std::cout << std::endl;    
+#ifdef MC__UPWLE_DEBUG
+    assert(var.first.back() - var.first.front() >=T(0.));
+#endif
+  }
+  else{
 
-    _yFwdDiff.second = false;
-    _yFwdDiff.first.resize(0);
+    std::cout << var.first[0] << std::endl;
+#ifdef MC__UPWLE_DEBUG
+    assert(false);
+#endif
+  }
 
+  if(first.size()>2){    
+    
+    // std::cout << "first "  << first.size() << std::endl;    
+    // for(unsigned int jj = 1; jj < first.size(); jj++){
+    //   std::cout << "jj = " << jj << "  "<< first[jj] + first[0]<< "  ";     
+    // }
+    // std::cout << std::endl;
+#ifdef MC__UPWLE_DEBUG
+    assert(first.back() - first[1] >=T(0.));
+#endif
+  }
+  else if(first.size()==2){
+
+    // std::cout << "first "  << first.size() << std::endl;    
+    // for(unsigned int jj = 0; jj < first.size(); jj++){
+    //   std::cout << "jj = " << jj << "  "<< first[jj] << "  ";     
+    // }
+    // std::cout << std::endl;    
+
+    //  std::cout << "var first "  << var.first.size() << std::endl;    
+    // for(unsigned int jj = 0; jj < var.first.size(); jj++){
+    //   std::cout << "jj = " << jj << "  "<< var.first[jj] << "  ";     
+    // }
+    // std::cout << std::endl;    
+#ifdef MC__UPWLE_DEBUG
+    assert(first.back() - first.front() >=T(0.));
+#endif
+  }
+  else{
+    std::cout << first[0] << std::endl;
+#ifdef MC__UPWLE_DEBUG
+    assert(false);
+#endif
+  }
+#endif
+
+  if(var.second.size() == 1){
+    *this += std::make_pair(var.second[0],var.second[0]);
+    return *this;
+  }
+  else if(var.second.size() == 2){
+    *this += std::make_pair(var.second[0],var.second[1]);
+    return *this;
+  }
+
+  if( second.size() <= 2  ){
+    if(second.size() == 1){
+      auto copy_cst = second[0];
+      *this = var;
+      *this += copy_cst;
+      return *this;
+    }    
+    auto copy_cst = std::make_pair(second[0],second[1]);
+    *this = var;
+    *this += copy_cst;
     return *this;
   } 
-//  std::cout << "nBptPwl2 = 3 " << std::endl;
-  if( nBptPwl2 == 3){
-    second[0] += var.second[0];    
-    second[1] += var.second[1];
-    second[nBptPwl1 - 1] += var.second[2];    
-    const T width = var.first[2]  - var.first[1];
-    const T diff  = var.second[2] - var.second[1];
-    for(unsigned int j = 2; j < nBptPwl1 - 1; j++){
-      second[j] += var.second[1] + _interpolate_at_ind(first, width, diff, j);
-    }
-    _bnd.second = false;
-    _bnd.first.first.second = false; 
-    _bnd.first.second.second = false;   
 
-    _yFwdDiff.second = false;
-    _yFwdDiff.first.resize(0);
-    return *this;
-  } 
+#ifdef MC__UPWLE_DEBUG
+  assert(second.size() != 3);
+  assert(var.second.size() != 3);
+#endif
 
-//  std::cout << "nBptPwl1 = 3 " << std::endl;  
-  if( nBptPwl1 == 3){
-    std::vector<T> yOut(nBptPwl2);
-    yOut[0] = second[0] + var.second[0];
-    yOut[1] = second[1] + var.second[1];
-    yOut[nBptPwl2 - 1] = second[2] + var.second[nBptPwl2 - 1];    
-    const T width = first[2]  - first[1];
-    const T diff  = second[2] - second[1];
-    first = var.first;
-    for(unsigned int j = 2; j < nBptPwl2 - 1; j++){
-      yOut[j] = second[1] + _interpolate_at_ind(var.first, width, diff, j) + var.second[j];
-    }        
-    second.swap(yOut);
-    _bnd.second = false;
-    _bnd.first.first.second = false; 
-    _bnd.first.second.second = false;    
-
-    _yFwdDiff.second = false;
-    _yFwdDiff.first.resize(0);
-    return *this;
-  } 
-
-//  std::cout << "both nBptPwls > 3  " << std::endl;  
   _add_and_altMerge(var.first,var.second,var._xFwdDiff,var._yFwdDiff);
 
-
+#ifdef MC__UPWLE_DEBUG_TRACE
+  std::cout <<"first.size() " << first.size() << std::endl;
+  std::cout <<"second.size() " << second.size() << std::endl;  
   //  std::cout << "after _add_and_altMerge" << std::endl;
-  //  auto temp = _bnd.first.first.first;
-  //  _B(true,false);
-  //   if(temp != _bnd.first.first.first) {
-  //     std::cout << "und bound mismatch" << std::endl;
-  //     throw typename UnivarPWLE<T>::Exceptions( UnivarPWLE<T>::Exceptions::UNDEF );
-  //   }
+
+#endif
       
-  _bnd.second = false;
-  _bnd.first.first.second = false; 
-  _bnd.first.second.second = false;  
-    
-
-
-
+  _lbnd.second = false;
+  _ubnd.second = false; 
+  
   if(second.size() > nbpsMax){
     _condense_by_relax(nbpsMax);
   }
-  
+  else if(second.size() == 3){
+    second[1] += second[0];
+    second[0] += second[2];
+    std::swap(second[0],second[1]);
+    second.resize(2);
+
+    first[1] += first[0];
+    first[0] += first[2];
+    std::swap(first[0],first[1]);
+    first.resize(2);
+
+  }  
+
   if(!_xFwdDiff.second) _xFwdDiff.first.resize(0);
   if(!_yFwdDiff.second) _yFwdDiff.first.resize(0);  
 
-  // _bnd.second = false;
-  // _bnd.first.first.second = false; 
-  // _bnd.first.second.second = false;  
-
-
+  
   return *this;
 
-}        
+}
+
+
+
+// template <typename T>
+// inline
+// UnivarPWLE<T>& UnivarPWLE<T>::operator+=
+// ( UnivarPWLE<T> && var )
+// {
+//   //std::cout << "under?2 " << _isUnder  << std::endl;
+//   if( first.empty() && var.first.empty() ){
+//     _cst += var._cst;
+//     return *this;
+//   }
+//   else if( first.empty() ){
+//     T copy_cst = _cst;
+//     *this = var;
+//     *this += copy_cst;
+//     return *this;
+//   }
+//   else if( var.first.empty() ){
+//     *this += var._cst;
+//     return *this;
+//   }
+
+
+//   if( _isUnder != var._isUnder ){
+//      std::cout << "Addition cannot be performed between an over- and an under-estimator" << std::endl;
+//      throw typename UnivarPWLE<T>::Exceptions( UnivarPWLE<T>::Exceptions::ESTMATCH );
+//   }
+
+//   const unsigned int nBptPwl1 = second.size();
+//   const unsigned int nBptPwl2 = var.second.size();
+//   if( nBptPwl2 == 1 ){
+     
+//     second[0] += var.second[0];
+//     if(nBptPwl1 == 2) second[1] += var.second[0];
+//     else if(nBptPwl1 > 2){
+//       if(_lbnd.second) _lbnd.first += var.second[0];
+//       if(_ubnd.second) _ubnd.first += var.second[0];       
+//     }
+//     return *this;
+//   } 
+
+//   if( nBptPwl1 == 1){
+//     auto const tmpMid = second[0];
+//     second = std::move(var.second); 
+//     second[0] += tmpMid; 
+//     if(nBptPwl2 == 2){
+//       second[1] += tmpMid;
+//     }
+//     else{ // note that nBptPwl2 != 1
+//       first = std::move(var.first);
+//       if(var._lbnd.second){ _lbnd = std::make_pair(tmpMid + _lbnd.first,true); }
+//       else { _lbnd = std::make_pair(0.,false); }
+//       if(var._ubnd.second){ _ubnd = std::make_pair(tmpMid + _ubnd.first,true); }
+//       else { _ubnd = std::make_pair(0.,false); }
+//       _xFwdDiff = var._xFwdDiff.second? std::move(var._xFwdDiff):std::make_pair(std::vector<T>(0),false);
+//       _yFwdDiff = var._yFwdDiff.second? std::move(var._yFwdDiff):std::make_pair(std::vector<T>(0),false);        
+//     }  
+//     return *this;
+//   } 
+// //  std::cout << "both nBptPwls != 1 " << std::endl;
+
+  
+//   if( nBptPwl1 == 2 && nBptPwl2 == 2 ){
+//     //std::cout << "both nBptPwls == 2 " << std::endl;
+//     second[0] += var.second[0];
+//     second[1] += var.second[1];
+//     if(std::fabs(second[1] - second[2]) < T(MC__UPWLE_COMPUTATION_TOL) ){
+//       _cst = _isUnder? std::min(second[1],second[2]):std::max(second[1],second[2]); 
+//       first.resize(0);
+//       second.resize(0);
+//     }
+    
+//     // _lbnd.second = false;
+//     // _ubnd.second = false; 
+
+//     // _yFwdDiff.second = false;
+//     // _yFwdDiff.first.resize(0);
+//     // _xFwdDiff.second = false;
+//     // _xFwdDiff.first.resize(0);
+
+//     for(unsigned int j = 0; j < second.size(); j++){
+//       assert(second[j]< 1e7);;
+//     } 
+
+//     return *this;
+//   } 
+// //  std::cout << "nBptPwl2 = 3 " << std::endl;
+//   if( nBptPwl2 == 2){
+//     //std::cout << "nBptPwl2 == 2 " << std::endl;       
+//     const T mid2 = 0.5*(var.second[0] + var.second[1]);
+//     second[0] += mid2;    
+//     const T varLftVal = var.second[0] - mid2;
+//     second[1] += varLftVal;
+//     //second[nBptPwl1 - 1] += var.second[1] - mid2;
+//     second.back() += (var.second[1] - mid2);    
+//     const T width = var.first[1]  - var.first[0];
+//     const T diff  = var.second[1] - var.second[0];
+//     for(unsigned int j = 2; j < nBptPwl1 - 1; j++){
+//       second[j] += varLftVal + _interpolate_at_ind(first, width, diff, j);
+//     }
+
+//     // _bnd.second = false;
+//     // _bnd.first.first.second = false; 
+//     // _bnd.first.second.second = false;   
+
+
+//     for(unsigned int j = 0; j < second.size(); j++){
+//       assert(second[j]< 1e7);;
+//     } 
+
+
+//     _lbnd.second = false;
+//     _ubnd.second = false; 
+
+//     //if(_xFwdDiff.second) {_xFwdDiff.first.resize(0); _xFwdDiff.second = false};
+//     if(_yFwdDiff.second) {_yFwdDiff.first.resize(0); _yFwdDiff.second = false;}  
+    
+
+//     return *this;
+//   } 
+
+// //  std::cout << "nBptPwl1 = 3 " << std::endl;  
+//   if( nBptPwl1 == 2){
+//     //std::cout << "nBptPwl1 == 2 " << std::endl;       
+//     second.resize(nBptPwl2);
+//     const T mid1  = 0.5*(second[0] + second[1]);
+//     const T diff  = second[1] - second[0];    
+//     second.back() = second[1] - mid1 + var.second.back();  
+//     second[1] = second[0] - mid1;// + var.second[1];
+//     second[0] = mid1 + var.second[0];
+       
+
+//     // yOut[0] = second[0] + var.second[0];
+//     // yOut[1] = second[1] + var.second[1];
+//     // yOut[nBptPwl2 - 1] = second[2] + var.second[nBptPwl2 - 1];    
+//     const T width = first[1]  - first[0];
+
+//     first = std::move(var.first);
+
+//     for(unsigned int j = 2; j < nBptPwl2 - 1; j++){
+//       second[j] = second[1] + _interpolate_at_ind(first, width, diff, j) + var.second[j];
+//     }      
+//     second[1] += + var.second[1];//     
+//     // second.swap(yOut);
+//     // _bnd.second = false;
+//     // _bnd.first.first.second = false; 
+//     // _bnd.first.second.second = false;    
+
+//     // _yFwdDiff.second = false;
+//     // _yFwdDiff.first.resize(0);
+
+//       _lbnd = std::make_pair(0.,false); 
+//       _ubnd = std::make_pair(0.,false);
+//       _yFwdDiff = std::make_pair(std::vector<T>(0),false);  
+//       _xFwdDiff = var._xFwdDiff.second? std::move(var._xFwdDiff):std::make_pair(std::vector<T>(0),false);        
+      
+//     //if(_xFwdDiff.second) {_xFwdDiff.first.resize(0); _xFwdDiff.second = false};
+//     //if(_yFwdDiff.second) {_yFwdDiff.first.resize(0); _yFwdDiff.second = false;}  
+
+//     return *this;
+//   } 
+
+
+// //  std::cout << "both nBptPwls > 3  " << std::endl;  
+//   _add_and_altMerge(var.first,var.second,var._xFwdDiff,var._yFwdDiff);
+
+
+//   //  std::cout << "after _add_and_altMerge" << std::endl;
+//   //  auto temp = _bnd.first.first.first;
+//   //  _B(true,false);
+//   //   if(temp != _bnd.first.first.first) {
+//   //     std::cout << "und bound mismatch" << std::endl;
+//   //     throw typename UnivarPWLE<T>::Exceptions( UnivarPWLE<T>::Exceptions::UNDEF );
+//   //   }
+      
+//   _lbnd.second = false;
+//   _ubnd.second = false; 
+  
+
+//   if(second.size() > nbpsMax){
+//     _condense_by_relax(nbpsMax);
+//   }
+//   else if(second.size() == 3){
+//     second[1] += second[0];
+//     second[0] += second[2];
+//     std::swap(second[0],second[1]);
+//     second.resize(2);
+
+//     first[1] += first[0];
+//     first[0] += first[2];
+//     std::swap(first[0],first[1]);
+//     first.resize(2);
+
+//   }   
+//   if(!_xFwdDiff.second) _xFwdDiff.first.resize(0);
+//   if(!_yFwdDiff.second) _yFwdDiff.first.resize(0);  
+
+//   // _bnd.second = false;
+//   // _bnd.first.first.second = false; 
+//   // _bnd.first.second.second = false;  
+
+//   return *this;
+
+// }                
 
 
 template <typename T>
@@ -2902,18 +3557,20 @@ UnivarPWLE<T> operator-
     
   var2._isUnder = !(var2._isUnder);
 
-  if(var2._yFwdDiff.second){
-    for(auto & yBkp:var2._yFwdDiff.first){
-      yBkp *= -1;
-    }
+  if(var2.second.size() > 2){
+    // if(var2._yFwdDiff.second){
+    //   // for(auto & yBkp:var2._yFwdDiff.first){
+    //   //   yBkp *= -1;
+    //   // }
+    //   var2._yFwdDiff.second = false;
+    //   var2._yFwdDiff.first.resize(0);
+    // }
+    std::swap(var2._lbnd,var2._ubnd);
+    if(var2._lbnd.second) var2._lbnd.first *= -1;
+    if(var2._ubnd.second) var2._ubnd.first *= -1;
+    
   }
 
-  if(var2._bnd.second){
-    std::swap(var2._bnd.first.first.second,var2._bnd.first.second.second);    
-    std::swap(var2._bnd.first.first.first,var2._bnd.first.second.first);
-    var2._bnd.first.first.first *= -1;
-    var2._bnd.first.second.first *= -1;    
-  }
   //
   //auto&& bnd = var2._bnd;
   //if( bnd.second ) bnd.first *= -1;
@@ -2942,21 +3599,18 @@ UnivarPWLE<T> operator-
     
   var2._isUnder = !(var2._isUnder);
 
-  if(var2._yFwdDiff.second){
-    for(auto & yBkp:var2._yFwdDiff.first){
-      yBkp *= -1;
-    }
-  }
 
-  if(var2._bnd.second){
-    std::swap(var2._bnd.first.first.second,var2._bnd.first.second.second);    
-    std::swap(var2._bnd.first.first.first,var2._bnd.first.second.first);
-    var2._bnd.first.first.first *= -1;
-    var2._bnd.first.second.first *= -1;    
+  if(var2.second.size() > 2){
+    if(var2._yFwdDiff.second){
+      for(auto & yBkp:var2._yFwdDiff.first){
+        yBkp *= -1;
+      }
+    }
+    std::swap(var2._lbnd,var2._ubnd);
+    if(var2._lbnd.second) var2._lbnd.first *= -1;
+    if(var2._ubnd.second) var2._ubnd.first *= -1;
+
   }
-  //
-  //auto&& bnd = var2._bnd;
-  //if( bnd.second ) bnd.first *= -1;
 
   return var2;
 }
@@ -3153,20 +3807,25 @@ UnivarPWLE<T>& UnivarPWLE<T>::operator*=
     yBkp *= cst;
   }
 
-  if(_yFwdDiff.second){
-    for(auto & yBkp:_yFwdDiff.first){
-        yBkp *= cst;
+  if(second.size()<=2){
+    if(cst < 0.){
+      _isUnder = !(_isUnder);
     }
+    return *this;
   }
 
-  _bnd.first.first.first  *= cst;
-  _bnd.first.second.first *= cst;
+
+  if(_lbnd.second) _lbnd.first *= cst;
+  if(_ubnd.second) _ubnd.first *= cst;
   if(cst < 0.){
     _isUnder = !(_isUnder);
-    if(_bnd.second){
-      std::swap(_bnd.first.first.second,_bnd.first.second.second);    
-      std::swap(_bnd.first.first.first,_bnd.first.second.first); 
-    }
+    std::swap(_lbnd,_ubnd);
+  }
+
+  if(_yFwdDiff.second){ _yFwdDiff.second = false; _yFwdDiff.first.resize(0);
+    // for(auto & yBkp:_yFwdDiff.first){
+    //     yBkp *= cst;
+    // }
   }
 
   return *this;
@@ -3302,45 +3961,125 @@ inline
 UnivarPWLE<T> relu
 ( UnivarPWLE<T> const& var )
 {
+#ifdef MC__UPWLE_DEBUG_TRACE   
+  std::cout << "in PWLE relu &" << std::endl;
+#endif   
   if( var.first.empty() )
     return std::max(var._cst,T(0.));
-
 
   if( var.second.size() == 1 ){
     UnivarPWLE<T> var2( var );
     var2.second[0] = std::max(var2.second[0],T(0.));
-    var2._bnd.second = true;
-    var2._bnd.first.first = std::make_pair(var2.second[0],true);
-    var2._bnd.first.second = std::make_pair(var2.second[0],true);
+#ifdef MC__UPWLE_DEBUG_TRACE  
+    //std::cout << "out PWLE relu" << std::endl;
+#endif
     return var2;
   } 
-  
-  T ub = var.get_ub();
-  if(ub <= T(0.)){ // T(MC__UPWLE_COMPUTATION_TOL)
-    UnivarPWLE<T> var2( var.first,var._isUnder );
-    return var2;
-  }
 
-  if(var._bnd.first.first.second){   
-  // here we do not always check whether lb > 0 and that will be processed in _relu() anyway
-    if(var._bnd.first.first.first >= T(0.)){
+#ifdef MC__UPWLE_DEBUG 
+  assert(var.second.size() == var.first.size());
+#endif
+
+  if(var.second.size() == 2){
+
+    T lb = std::min(var.second[0],var.second[1]);
+    if(lb >= -T(MC__UPWLE_COMPUTATION_TOL)){
       UnivarPWLE<T> var2( var );
+#ifdef MC__UPWLE_DEBUG_TRACE  
+      //std::cout << "out PWLE relu" << std::endl;
+#endif
       return var2;
     }
+         
+    T ub = std::max(var.second[0],var.second[1]);
+    if(ub <= T(MC__UPWLE_COMPUTATION_TOL)){
+      //const T lb = var.first[0] + var.first[1];
+      //const T ub = var.first[0] + var.first.back();      
+      //UnivarPWLE<T> var2(lb,ub,T(0.),var._isUnder);  
+      UnivarPWLE<T> var2(var.first[0],var.first[1],T(0.),var._isUnder);    
+      //UnivarPWLE<T> var2( var.first,var._isUnder );
+#ifdef MC__UPWLE_DEBUG_TRACE  
+      //std::cout << "out PWLE relu" << std::endl;
+#endif
+      return var2;
+    }
+
+  
+    //std::cout << "in PWLE relu" << std::endl;
+    UnivarPWLE<T> var2(T(0.));
+    var2.first.resize(4);
+    var2.second.resize(4);
+    var2._isUnder = var._isUnder;    
+    var2._lbnd = std::make_pair(T(0.),true);
+    var2._ubnd = std::make_pair(ub,true);    
+
+    //std::cout << "Test Relu" << std::endl;
+    var2.first[0] = 0.5*(var.first[0] + var.first[1]);
+    var2.first[1] = var.first[0] - var2.first[0];
+    var2.first[3] = var.first[1] - var2.first[0];
+
+    var2.second[0] = 0.5*(var.second[0] + var.second[1]);
+    if(var.second[1] > var.second[0]){
+      var2.second[3] = var.second[1] - var2.second[0];   
+      var2.second[1] = - var2.second[0];
+    }
+    else{
+      var2.second[3] = - var2.second[0];   
+      var2.second[1] = var.second[0] - var2.second[0];
+    }
+    var2.second[2] = - var2.second[0];
+    
+
+    var2.first[2]  = var2.first[3] - var.second[1] * ((var.first[1] - var.first[0])/ (var.second[1] - var.second[0]));
+
+#ifdef MC__UPWLE_DEBUG    
+    assert(var2.second[0]< 1e7);
+    assert(var2.second[1]< 1e7);
+    assert(var2.second[2]< 1e7);
+    assert(var2.second[3]< 1e7);
+#endif              
+    var2._xFwdDiff = std::make_pair(std::vector<T>(0),false);
+    var2._yFwdDiff = std::make_pair(std::vector<T>(0),false);   
+#ifdef MC__UPWLE_DEBUG_TRACE  
+    //std::cout << "out PWLE relu" << std::endl;
+#endif
+    return var2; 
+  
+  }
+  else{
+    if(var.get_ub() <= T(0.)){ // T(MC__UPWLE_COMPUTATION_TOL)
+      const T lb = var.first[0] + var.first[1];
+      const T ub = var.first[0] + var.first.back();      
+      UnivarPWLE<T> var2(lb,ub,T(0.),var._isUnder);
+#ifdef MC__UPWLE_DEBUG_TRACE  
+      //std::cout << "out PWLE relu" << std::endl;
+#endif
+      return var2;
+    }
+    if(var._lbnd.second){   
+    // here we do not always check whether lb > 0 and that will be processed in _relu() anyway
+      if(var._lbnd.first >= T(0.)){
+        UnivarPWLE<T> var2( var );
+#ifdef MC__UPWLE_DEBUG_TRACE  
+        //std::cout << "out PWLE relu" << std::endl;
+#endif
+        return var2;
+      }
+    }    
   }
 
 
   UnivarPWLE<T> var2( var );
-  //std::cout << "Test Relu" << std::endl;
   var2._relu();    
+  //std::cout << var2 << std::endl;
   //  var2._bnd.second = false; // processed in relu
   //  var2._bnd.first.first.second = false; 
   //  var2._bnd.first.second.second = false;    
   //var2._xFwdDiff;
   //var2._yFwdDiff;
-
-
-
+#ifdef MC__UPWLE_DEBUG_TRACE  
+  //std::cout << "out PWLE relu" << std::endl;
+#endif
   return var2;
 }
 
@@ -3349,37 +4088,168 @@ inline
 UnivarPWLE<T> relu
 ( UnivarPWLE<T> && var )
 {
+#ifdef MC__UPWLE_DEBUG_TRACE  
+  std::cout << "in PWLE relu &&" << std::endl;
+  //std::cout << var << std::endl;
+#endif
   if( var.first.empty() )
     return std::max(var._cst,T(0.));
 
+
   if( var.second.size() == 1 ){
-    var.second[0] = std::max(var.second[0],T(0.));
-    var._bnd.second = true;
-    var._bnd.first.first = std::make_pair(var.second[0],true);
-    var._bnd.first.second = std::make_pair(var.second[0],true);   
-    return var;
+    //std::cout << "in PWLE relu" << std::endl;
+    UnivarPWLE<T> var2( std::move(var) );
+    var2.second[0] = std::max(var2.second[0],T(0.));
+    // var2._bnd.second = true;
+    // var2._bnd.first.first = std::make_pair(var2.second[0],true);
+    // var2._bnd.first.second = std::make_pair(var2.second[0],true);
+    //std::cout << "out PWLE relu" << std::endl;
+    return var2;
   } 
+#ifdef MC__UPWLE_DEBUG   
+  assert(var.second.size() == var.first.size());
+#endif
+  if(var.second.size() == 2){
+    //std::cout << "in PWLE relu" << std::endl;
+    UnivarPWLE<T> var2( std::move(var) );
+    T lb = std::min(var2.second[0],var2.second[1]);
+    if(lb >= -T(MC__UPWLE_COMPUTATION_TOL)){
+#ifdef MC__UPWLE_DEBUG_TRACE        
+      std::cout << "out PWLE relu 2-X" << std::endl;
+#endif
+      return var2;
+    }
+         
+    T ub = std::max(var2.second[0],var2.second[1]);
+    if(ub <= T(MC__UPWLE_COMPUTATION_TOL)){
+      var2.second[0] = T(0.);
+      var2.second.resize(1);
+      // var2.first[1] += var2.first[0];
+      // var2.first[0] += var2.first.back(); 
+      //var2.first.resize(2);          
+      //var2.set_zero();
+#ifdef MC__UPWLE_DEBUG_TRACE  
+      std::cout << "out PWLE relu 2-0" << std::endl;
+#endif
+      return var2;
+    }
 
+    //std::cout << "in PWLE relu ???" << std::endl;
+    var2._lbnd = std::make_pair(T(0.),true);
+    var2._ubnd = std::make_pair(ub,true);    
 
-  T ub = var.get_ub();
-  if(ub <= T(0.)){
-    var.set_zero();
-    return var;
+    //std::cout << "Test Relu" << std::endl;
+
+    //std::cout << var2.first[0] << std::endl;
+    //std::cout << var2.first[1] << std::endl;
+    //std::cout << var2.second[0] << std::endl;
+    //std::cout << var2.second[1] << std::endl; 
+    //std::cout << std::endl; 
+    var2.first.resize(4);
+    var2.second.resize(4);
+
+    var2.first[2] = 0.5*(var2.first[0] + var2.first[1]);
+    var2.first[3] = var2.first[1] - var2.first[2];
+    var2.first[1] = var2.first[0] - var2.first[2];
+    
+
+    var2.first[0] = var2.first[3] - var2.second[1] * ((var2.first[3] - var2.first[1])/ (var2.second[1] - var2.second[0]));
+#ifdef MC__UPWLE_DEBUG_TRACE  
+    std::cout << "first " << std::endl;
+    for(unsigned int jj = 0; jj < var2.first.size(); jj++ ){
+      std::cout << var2.first[jj] << "    ";
+    }
+    std::cout << std::endl;
+#endif
+    std::swap(var2.first[0],var2.first[2]);
+#ifdef MC__UPWLE_DEBUG_TRACE      
+    std::cout << "first " << std::endl;
+    for(unsigned int jj =1; jj < var2.first.size(); jj++ ){
+      std::cout << var2.first[0] + var2.first[jj] << "    ";
+    }
+    std::cout << std::endl;
+#endif
+    var2.second[2] = 0.5*(var2.second[0] + var2.second[1]);
+    if(var2.second[1] > var2.second[0]){
+      var2.second[3] = var2.second[1] - var2.second[2];   
+      var2.second[1] = - var2.second[2];
+    }
+    else{
+      var2.second[3] = - var2.second[2];   
+      var2.second[1] = var2.second[0] - var2.second[2];
+    } 
+    var2.second[0] = - var2.second[2];
+    std::swap(var2.second[0],var2.second[2]);
+#ifdef MC__UPWLE_DEBUG_TRACE  
+    // std::cout << var2.first[0] << std::endl;
+    // std::cout << var2.first[1] << std::endl;
+    // std::cout << var2.first[2] << std::endl;
+    // std::cout << var2.first[3] << std::endl;    
+    // std::cout << std::endl; 
+    // std::cout << var2.second[0] << std::endl;
+    // std::cout << var2.second[1] << std::endl;
+    // std::cout << var2.second[2] << std::endl;
+    // std::cout << var2.second[3] << std::endl;    
+    // std::cout << std::endl; 
+#endif
+#ifdef MC__UPWLE_DEBUG
+    assert(var2.second[0]< 1e7);
+    assert(var2.second[1]< 1e7);
+    assert(var2.second[2]< 1e7);
+    assert(var2.second[3]< 1e7);
+#endif
+
+    var2._xFwdDiff = std::make_pair(std::vector<T>(0),false);
+    var2._yFwdDiff = std::make_pair(std::vector<T>(0),false);   
+#ifdef MC__UPWLE_DEBUG_TRACE  
+    std::cout << "out PWLE relu 2 - T" << std::endl;
+#endif
+    return var2; 
+  
   }
- 
-  if(var._bnd.first.first.second){   
-  // here we do not always check whether lb > 0 and that will be processed in _relu() anyway
-    if(var._bnd.first.first.first >= T(0.)){
+  else{
+    if(var.get_ub() <= T(0.)){ // T(MC__UPWLE_COMPUTATION_TOL)
+//      const T lb = var.first[0] + var.first[1];
+//      const T ub = var.first[0] + var.first.back();      
+//      UnivarPWLE<T> var2(lb,ub,T(0.),var._isUnder);
+      //UnivarPWLE<T> var2( std::move(var.first),var._isUnder );
+      var.second[0] = T(0.);
+      var.second.resize(1);
+      var.first[1] += var.first[0];
+      var.first[0] += var.first.back(); 
+      std::swap(var.first[0],var.first[1]);
+      var.first.resize(2);
+      var._xFwdDiff.first.resize(0);
+      var._yFwdDiff.first.resize(0);        
+//      var.set_zero();
+#ifdef MC__UPWLE_DEBUG_TRACE  
+      //std::cout << "out PWLE relu" << std::endl;
+#endif
       return var;
     }
-  }  
+    if(var._lbnd.second){   
+    // here we do not always check whether lb > 0 and that will be processed in _relu() anyway
+      if(var._lbnd.first >= T(0.)){
+#ifdef MC__UPWLE_DEBUG_TRACE  
+        //std::cout << "out PWLE relu" << std::endl;
+#endif
+        return var;
+      }
+    }    
+  }
+
+
   //_relu( var2);
   //std::cout << "Test Relu" << std::endl;
+  //std::cout << "in PWLE relu" << std::endl;
   var._relu();        
+  //std::cout << var << std::endl;  
   //  var._bnd.second = false;  // processed in relu
   //  var._bnd.first.first.second = false; 
   //  var._bnd.first.second.second = false;    
-
+#ifdef MC__UPWLE_DEBUG_TRACE  
+  //std::cout << "out PWLE relu" << std::endl;
+#endif
   return var;
 }
 
@@ -3594,10 +4464,16 @@ class UnivarPWL
 
  public:
 
+  // UnivarPWL
+  // ()
+  // : _isEmpty(true)
+  // {
+
+  // }
+
   UnivarPWL
   ()
-  : undEst(0.,true),oveEst(0.,false),
-  _bnd(std::make_pair(0.,0.),false),_isEmpty(true)
+  : undEst(0),oveEst(0), _bnd(std::make_pair(0.,0.),false),_isEmpty(true)
   {}
 
   //! @brief Constructor of UnivarPWL for a variable x_i on [a,b]
@@ -3605,24 +4481,48 @@ class UnivarPWL
   (T const& bnd)
   : undEst(Op<T>::l(bnd),Op<T>::u(bnd),true),oveEst(Op<T>::l(bnd),Op<T>::u(bnd),false),
   _bnd(std::make_pair(Op<T>::l(bnd),Op<T>::u(bnd)),true),_isEmpty(false)
+{  
+#ifdef MC__UPWL_DEBUG_TRACE  
+    std::cout << "bnd: " << bnd << std::endl;
+#endif
+}
+
+  //! @brief Scaling Constructor of UnivarPWL for a variable x_i on [a,b]
+  UnivarPWL
+  (T const& bnd, double mtpr)
+  : undEst(Op<T>::l(bnd),Op<T>::u(bnd),true),oveEst(Op<T>::l(bnd),Op<T>::u(bnd),false),
+  _bnd(std::make_pair(Op<T>::l(bnd)*mtpr,Op<T>::u(bnd)*mtpr),true),_isEmpty(false)
   {
-    //std::cout << "ove flag: " << oveEst.get_flag() << std::endl;
+    undEst *= mtpr;
+    oveEst *= mtpr;
+    if(mtpr < 0.){
+      std::swap(undEst,oveEst);
+      std::swap(_bnd.first.first,_bnd.first.second);
+    }
+#ifdef MC__UPWL_DEBUG_TRACE  
+    std::cout << "bnd: " << bnd << std::endl;
+    std::cout << "mtpr: " << mtpr << std::endl;
+#endif
   }
+
+
+
+
 
 
   //! @brief Constructor of UnivarPWL for a constant c
   UnivarPWL
   ( const double & cst)
-  : undEst(cst,true),oveEst(cst,false),_bnd(std::make_pair(cst,cst),true),_isEmpty(false)
+  : undEst(cst),oveEst(cst),_bnd(std::make_pair(cst,cst),true),_isEmpty(false)
   {  }
 
 
   //! @brief Copy constructor of UnivarPWL for a var (lvalue)
   UnivarPWL
   ( UnivarPWL<T> const& var )
-  : undEst(0,true),oveEst(0,false),_bnd(std::make_pair(0.,0.),true),_isEmpty(false)
+  : undEst(0),oveEst(0),_bnd(std::make_pair(0.,0.),true),_isEmpty(false)
   {
-#ifdef MC__UnivarPWL_TRACE
+#ifdef MC__UPWL_DEBUG_TRACE
     std::cerr << "-- UnivarPWL( UnivarPWL<T> const& )\n";
 #endif
 #ifdef TEST_MOVE
@@ -3639,9 +4539,9 @@ class UnivarPWL
   //! @brief Copy constructor of UnivarPWL for a var (rvalue)
   UnivarPWL
   ( UnivarPWL<T> && var )
-  : undEst(0,true),oveEst(0,false),_bnd(std::make_pair(0.,0.),false),_isEmpty(false)  
+  : undEst(0),oveEst(0),_bnd(std::make_pair(0.,0.),false),_isEmpty(false)  
   {
-#ifdef MC__UnivarPWL_TRACE
+#ifdef MC__UPWL_DEBUG_TRACE
     std::cerr << "-- UnivarPWL( UnivarPWL<T> && var )\n";
 #endif
 #ifdef TEST_MOVE
@@ -3666,13 +4566,12 @@ class UnivarPWL
     // }
   }
 
-
   //! @brief Copy constructor (with scaling) of UnivarPWL for a var (lvalue)
   UnivarPWL
   ( UnivarPWL<T> const& var, const double mtpr ) // multiplier
   : undEst(var.undEst,mtpr),oveEst(var.oveEst,mtpr),_isEmpty(false)
   {
-#ifdef MC__UnivarPWL_TRACE
+#ifdef MC__UPWL_DEBUG_TRACE
     std::cerr << "-- UnivarPWL( UnivarPWL<T> const&, const double )\n";
 #endif
 #ifdef TEST_MOVE
@@ -3686,6 +4585,7 @@ class UnivarPWL
       std::swap(_bnd.first.first,_bnd.first.second);
     }
   }
+
 
 
 #ifdef UnivarPWL_LIFITIME_DEBUG     
@@ -3745,7 +4645,7 @@ class UnivarPWL
   UnivarPWL<T>& operator=
   ( UnivarPWL<T> const& var )
   {
-#ifdef MC__UnivarPWL_TRACE
+#ifdef MC__UPWL_DEBUG_TRACE
     std::cerr << "-- UnivarPWL<T>& operator= ( UnivarPWL<T> const& )\n";
 #endif
 #ifdef TEST_MOVE
@@ -3764,7 +4664,7 @@ class UnivarPWL
   UnivarPWL<T>& operator=
   ( UnivarPWL<T> && var )
   {
-#ifdef MC__UnivarPWL_TRACE
+#ifdef MC__UPWL_DEBUG_TRACE
     std::cerr << "-- UnivarPWL<T>& operator= ( UnivarPWL<T> && )\n";
 #endif
 #ifdef TEST_MOVE
@@ -3869,11 +4769,12 @@ class UnivarPWL
   ()
   const
   {
-    undEst.B(true,false);
-    oveEst.B(false,true);
+    // undEst.B(true,false);
+    // oveEst.B(false,true);
     // std::cout << "lb" << undEst._bnd.first.first.first << std::endl;
     // std::cout << "ub" << oveEst._bnd.first.second.first << std::endl;
-    _bnd = std::make_pair(std::make_pair(undEst._bnd.first.first.first,oveEst._bnd.first.second.first),true);
+//    _bnd = std::make_pair(std::make_pair(undEst._bnd.first.first.first,oveEst._bnd.first.second.first),true);
+     _bnd = std::make_pair(std::make_pair(undEst.get_lb(),oveEst.get_ub()),true);
   }
 
 };
@@ -3909,9 +4810,13 @@ UnivarPWL<T>& UnivarPWL<T>::operator+=
   if( cst == 0. ){
     return *this;
   }
+#ifdef MC__UPWL_DEBUG_TRACE  
+  std::cout << "UPWL += cst" << std::endl;
+#endif
   undEst += cst;
   oveEst += cst;  
   _bnd.second = false;
+  
   // if( _bnd.second ){
   //   _bnd.first.first += cst;
   //   _bnd.first.second += cst;

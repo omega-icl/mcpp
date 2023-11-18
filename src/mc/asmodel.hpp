@@ -49,7 +49,7 @@ Further exceptions may be thrown by the template class itself.
 #include "univarmodels.hpp" 
 
 //#define MC__ASMODEL_TRACE
-#undef  MC__ASMODEL_DEBUG_PROD
+//#undef  MC__ASMODEL_DEBUG_PROD
 
 namespace mc
 {
@@ -72,12 +72,12 @@ class ASModel
 
   template <typename U> friend class ASVar;
 
-  // template <typename U> friend ASVar<U> max
-  //   ( ASVar<U> const&, ASVar<U> const& );
-  // template <typename U> friend ASVar<U> max
-  //   ( ASVar<U> const&, double const& );
-  // template <typename U> friend ASVar<U> max
-  //   ( ASVar<U> &&, double const& );
+  template <typename U> friend ASVar<U> max
+    ( ASVar<U> const&, ASVar<U> const& );
+  template <typename U> friend ASVar<U> max
+    ( ASVar<U> const&, double const& );
+  template <typename U> friend ASVar<U> max
+    ( ASVar<U> &&, double const& );
   // template <typename U> friend ASVar<U> min
   //   ( ASVar<U> const&, ASVar<U> const& );
   // template <typename U> friend ASVar<U> min
@@ -234,6 +234,12 @@ class ASModel
   const
   { return _psize; };
 
+  std::vector<T> const & bndvar
+  ()
+  const
+  { return _bndvar; };
+
+
  //! @brief Options of mc::ASModel
   static struct Options
   {
@@ -386,16 +392,13 @@ class ASModel
     _COve.resize(_nvar); 
     //std::cout << "reized" << std::endl; 
     for (unsigned int i = 0; i < _nvar; i++){
-      if (lst[i].empty()){
+      if (lst[i].empty()) continue;
         //std::cout << "to resize 0" << std::endl; 
-        _COve[i].resize(options.NSUB,0.);
+        // _COve[i].resize(options.NSUB,0.);
         //std::cout << "resized" << std::endl; 
-      }
-      else{
         //std::cout << "to set" << std::endl; 
         _COve[i] = lst[i].oveEst.get_PWC(options.NSUB);
-        //std::cout << "set" << std::endl; 
-      }
+
     } 
 
   }  
@@ -407,16 +410,13 @@ class ASModel
     _CUnd.resize(_nvar); 
     //std::cout << "reized" << std::endl; 
     for (unsigned int i = 0; i < _nvar; i++){
-      if (lst[i].empty()){
+      if (lst[i].empty()) continue;
         //std::cout << "to resize 0" << std::endl; 
-        _CUnd[i].resize(options.NSUB,0.);
+        // _CUnd[i].resize(options.NSUB,0.);
         //std::cout << "resized" << std::endl; 
-      }
-      else{
         //std::cout << "to set" << std::endl; 
         _CUnd[i] = lst[i].undEst.get_PWC(options.NSUB);
-        //std::cout << "set" << std::endl; 
-      }  
+        //std::cout << "set" << std::endl;  
     } 
   }
   
@@ -436,28 +436,129 @@ class ASModel
         _r1[i] = std::min(_r1[i],_COve[i][j] - _CUnd[i][j]);
       }
       sum_r1 += _r1[i];
+      //std::cout << i << std::endl;
     }
+
     if(sum_r1 < 0){
       std::cout << "Error in Display! sum_r1 = " << sum_r1 << std::endl;
+            std::cout << "The domain is " << std::endl;
+      for(unsigned int i; i< _nvar; i++ ){
+        if (lst[i].empty()) continue;
+        std::cout << _bndvar[i] <<std::endl;
+        std::cout << std::defaultfloat << std::setprecision(2)  << "i: " << i << std::endl;
+        std::cout << std::scientific << std::setprecision(12) << mc::Op<T>::l(_bndvar[i]) << " : " << mc::Op<T>::u(_bndvar[i]) << std::endl;
+      }
+
+      for( unsigned int i=0; i<_nvar; i++ ){
+        std::cout << std::right << std::setw(5) << "row i = " << i << std::endl;
+        for (unsigned int j = 0; j < options.NSUB; j++){
+          std::cout << _COve[i][j] <<"    " << _CUnd[i][j] << "    ";
+        }
+        std::cout << std::endl;;   
+      }
+      for( unsigned int i=0; i<_nvar; i++ ){
+        if (lst[i].empty()) continue;
+        std::cout << std::right << std::setw(5) << "und " << i << std::endl;
+        std::cout << lst[i].undEst <<std::endl;
+        std::cout << std::right << std::setw(5) << "ove " << i << std::endl;
+        std::cout << lst[i].oveEst <<std::endl; 
+      }
+
+      throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF );  
+
+	  
     } 
     sum_r1 = sum_r1/ndep;
     
     
     _COut.resize(_nvar);
-    for (unsigned int i = 0; i < _nvar; i++){
+    for (unsigned int i = 0; i < _nvar; i++){      
+      if (lst[i].empty())  continue;
       _COut[i].resize(options.NSUB);
-      if (lst[i].empty()){
-      for (unsigned int j = 1; j < options.NSUB; j++)
-        _COut[i][j] = T(0.);
-      } 
-      else{
-        for (unsigned int j = 0; j < options.NSUB; j++){
-          _COut[i][j] = T(_CUnd[i][j] - _r1[i] + sum_r1, _COve[i][j]);
-        }
+      // for (unsigned int j = 0; j < options.NSUB; j++)
+      //   _COut[i][j] = T(0.);
+      for (unsigned int j = 0; j < options.NSUB; j++){
+        _COut[i][j] = T(_CUnd[i][j], _COve[i][j] - _r1[i] + sum_r1);
+        
       }
     } 
   }
 
+  
+  void _compute_C(std::vector<double> const& lnr, double const & cst)
+  const
+  { 
+    _COut.resize(_nvar);
+    unsigned ndep = 0;
+
+	// std::cout << std::right << std::setw(5) << "This ASVar is affine : " << std::endl;
+    // std::cout << std::right << std::setw(5) << "cst" << std::setw(8);
+    // for( unsigned int i=0; i<(lnr.size()); i++ ){
+    //   if( lnr[i] == 0. ) continue;
+    //   std::cout << "   " << _bndvar[i] << "  " << std::setw(8);   
+    // }
+    // std::cout << std::endl;
+    // std::cout << std::right << std::setw(5) << cst << std::setw(8);
+    // for( unsigned int i=0; i<(lnr.size()); i++ ){
+    //   if( lnr[i] == 0. ) continue;
+    //   std::cout << " + " << lnr[i] << " * x_" << i  << std::setw(8);   
+    // }
+    // std::cout << std::endl;
+
+  
+    for (unsigned int i = 0; i < _nvar; i++){
+      if (lnr[i] == 0.){
+        //_COut[i].resize(options.NSUB);
+        //for (unsigned int j = 0; j < options.NSUB; j++)
+        //  _COut[i][j] = T(0.);
+        continue;
+      } 
+      ndep ++;
+    }
+    double tmp_cst = cst/ndep;
+    for (unsigned int i = 0; i < _nvar; i++){
+      if (lnr[i] == 0.) continue;
+      else{
+        _COut[i].resize(options.NSUB);
+        double lb = mc::Op<T>::l(_bndvar[i]);
+        double ub = mc::Op<T>::u(_bndvar[i]);
+        double h = (ub - lb)/(double) options.NSUB;
+        for (unsigned int j = 0; j < options.NSUB - 1; j++){
+          ub = lb+h;
+          _COut[i][j] = T(lb, ub)*lnr[i] + tmp_cst;
+          lb = ub;
+        }
+        ub = mc::Op<T>::u(_bndvar[i]);
+        _COut[i][options.NSUB-1] = T(lb, ub)*lnr[i] + tmp_cst;
+      }
+    } 
+
+    // for( unsigned int i=0; i<(lnr.size()); i++ ){
+    //   std::cout << std::right << std::setw(5) << "row i = " << i << std::setw(8);
+    //   for (unsigned int j = 0; j < options.NSUB; j++){
+    //     std::cout << _COut[i][j] << std::setw(8);
+    //   }
+    //   std::cout << std::endl;;   
+    // }
+    
+    
+  }
+
+  void _compute_C(double const & cst)
+  const
+  { 
+    _COut.resize(_nvar);
+    _COut[0].resize(options.NSUB);
+    for (unsigned int j = 0; j < options.NSUB; j++){
+      _COut[0][j] = T(cst);
+    }      
+    // double tmp_cst = cst/(double) _nvar;
+    // for (unsigned int i = 0; i < _nvar; i++){
+    //   _COut[i].resize(options.NSUB);
+    //   for (unsigned int j = 0; j < options.NSUB; j++)
+    //     _COut[i][j] = T(tmp_cst);
+    // } 
+  }
 
   void _shadowInfo_init(std::vector<double> & shadow_info)
   const
@@ -1650,6 +1751,11 @@ const
   bool cmplmtyFlag = true;
   for( unsigned int i=0; i<_nvar; i++ ){
     if( !Alst[i].empty() && !Blst[i].empty() ){
+      // std::cout << "    SHADOW A+B " << i << std::endl;
+      // std::cout << "      SHADOW A ove " << Alst[i].oveEst << std::endl; 
+      // std::cout << "      SHADOW B ove " << Blst[i].oveEst << std::endl; 
+      // std::cout << "      SHADOW A und " << Alst[i].undEst << std::endl; 
+      // std::cout << "      SHADOW b und " << Blst[i].undEst << std::endl; 
       ABlst[i] = Alst[i] + Blst[i];
       cmplmtyFlag = false;
     }
@@ -1663,8 +1769,34 @@ const
     }
     
   }
-
-
+#ifdef MC__ASM_DEBUG  
+  for( unsigned int i=0; i<_nvar; i++ ){
+    if( ABlst[i].empty()) continue;
+    if(ABlst[i].oveEst.get_lb()> 1e7){
+      std::cout << ABlst[i].oveEst.get_lb() << std::endl;
+      std::cout << ABlst[i].oveEst << std::endl;
+    }  
+    if(ABlst[i].oveEst.get_ub()> 1e7){
+      std::cout << ABlst[i].oveEst.get_ub() << std::endl;
+      std::cout << ABlst[i].oveEst << std::endl;
+    } 
+    if(ABlst[i].undEst.get_lb()> 1e7){
+      std::cout << ABlst[i].undEst.get_lb() << std::endl;
+      std::cout << ABlst[i].undEst << std::endl;    
+    }  
+    if(ABlst[i].undEst.get_ub()> 1e7){
+      std::cout << ABlst[i].undEst.get_ub() << std::endl;
+      std::cout << ABlst[i].undEst << std::endl;    
+    }       
+  }
+    for( unsigned int i=0; i<_nvar; i++ ){
+    if( ABlst[i].empty()) continue;
+    assert(ABlst[i].oveEst.get_lb()< 1e7);
+    assert(ABlst[i].oveEst.get_ub()< 1e7);    
+    assert(ABlst[i].undEst.get_lb()< 1e7);    
+    assert(ABlst[i].undEst.get_ub()< 1e7);  
+  }
+#endif
 
 #ifndef MC__ASMODEL_NOT_DEBUG_SHADOW  
   std::cout << "    ACT added" << std::endl;
@@ -1705,9 +1837,9 @@ const
   unsigned int indMaxUbAllUnd = -1;  
   double lbMaxAllUnd = -DBL_MAX; 
   unsigned int indMaxLbAllUnd = 0;    
-  std::vector<std::vector<UnivarPWL<T>>> AactBshaUnd(BundSHA);
-  std::vector<std::vector<UnivarPWL<T>>> AshaBactUnd(AundSHA); 
-  std::vector<std::vector<std::vector<UnivarPWL<T>>>> AshaBshaUnd(AundSHA);
+  std::vector<std::vector<UnivarPWLE<double>>> AactBshaUnd(BundSHA);
+  std::vector<std::vector<UnivarPWLE<double>>> AshaBactUnd(AundSHA); 
+  std::vector<std::vector<std::vector<UnivarPWLE<double>>>> AshaBshaUnd(AundSHA);
 
 #ifndef MC__ASMODEL_NOT_DEBUG_SHADOW  
   std::cout << "    preparison has been done for cross addition" << std::endl;
@@ -1728,12 +1860,12 @@ const
       AactBshaUnd[iB].resize(_nvar);      
       for( unsigned int i=0; i<_nvar; i++ ){
         if( !Alst[i].empty() && !Blst[i].empty() )
-          AactBshaUnd[iB][i].undEst = Alst[i].undEst + Bshadow[i].undEst;
+          AactBshaUnd[iB][i] = Alst[i].undEst + Bshadow[i].undEst;
         else if( !Alst[i].empty() ){
-          AactBshaUnd[iB][i].undEst = Alst[i].undEst;
+          AactBshaUnd[iB][i] = Alst[i].undEst;
         }          
         else if( !Blst[i].empty() ){
-          AactBshaUnd[iB][i].undEst = Bshadow[i].undEst;    // copy entire row
+          AactBshaUnd[iB][i] = Bshadow[i].undEst;    // copy entire row
         }
       }
     }
@@ -1744,12 +1876,12 @@ const
       AshaBactUnd[iA].resize(_nvar);      
       for( unsigned int i=0; i<_nvar; i++ ){
         if( !Alst[i].empty() && !Blst[i].empty() )
-          AshaBactUnd[iA][i].undEst = Blst[i].undEst + Ashadow[i].undEst;
+          AshaBactUnd[iA][i] = Blst[i].undEst + Ashadow[i].undEst;
         else if( !Alst[i].empty() ){
-          AshaBactUnd[iA][i].undEst = Ashadow[i].undEst;    // copy entire row
+          AshaBactUnd[iA][i] = Ashadow[i].undEst;    // copy entire row
         }
         else if( !Blst[i].empty() ){
-          AshaBactUnd[iA][i].undEst = Blst[i].undEst;
+          AshaBactUnd[iA][i] = Blst[i].undEst;
         }        
       }      
     }
@@ -1764,12 +1896,12 @@ const
         AshaBshaUnd[iA][iB].resize(_nvar);  
         for(unsigned int i = 0; i < _nvar; i++){
           if( !Alst[i].empty() && !Blst[i].empty() )
-            AshaBshaUnd[iA][iB][i].undEst = Ashadow[i].undEst + Bshadow[i].undEst;
+            AshaBshaUnd[iA][iB][i] = Ashadow[i].undEst + Bshadow[i].undEst;
           else if( !Alst[i].empty() ){
-            AshaBshaUnd[iA][iB][i].undEst = Ashadow[i].undEst;    // copy entire row
+            AshaBshaUnd[iA][iB][i] = Ashadow[i].undEst;    // copy entire row
           }                  
           else if( !Blst[i].empty() ){
-            AshaBshaUnd[iA][iB][i].undEst = Bshadow[i].undEst;    // copy entire row
+            AshaBshaUnd[iA][iB][i] = Bshadow[i].undEst;    // copy entire row
           }
         }
       }        
@@ -1786,18 +1918,18 @@ const
       minimaUnd[0] += ABlst[i].undEst.get_lb();
       maximaUnd[0] += ABlst[i].undEst.get_ub();
       for(unsigned int iA = 0; iA < AundSHA; iA++){
-        minimaUnd[iA+1] += AshaBactUnd[iA][i].undEst.get_lb();
-        maximaUnd[iA+1] += AshaBactUnd[iA][i].undEst.get_ub();
+        minimaUnd[iA+1] += AshaBactUnd[iA][i].get_lb();
+        maximaUnd[iA+1] += AshaBactUnd[iA][i].get_ub();
       }
       for(unsigned int iB = 0; iB < BundSHA; iB++){
-        minimaUnd[iB+AundSHA+1] += AactBshaUnd[iB][i].undEst.get_lb();
-        maximaUnd[iB+AundSHA+1] += AactBshaUnd[iB][i].undEst.get_ub();
+        minimaUnd[iB+AundSHA+1] += AactBshaUnd[iB][i].get_lb();
+        maximaUnd[iB+AundSHA+1] += AactBshaUnd[iB][i].get_ub();
       }
       cnt = 0;
       for(unsigned int iA = 0; iA < AundSHA; iA++){
         for(unsigned int iB = 0; iB < BundSHA; iB++){
-          minimaUnd[cnt+BundSHA+AundSHA+1] += AshaBshaUnd[iA][iB][i].undEst.get_lb();
-          maximaUnd[cnt+BundSHA+AundSHA+1] += AshaBshaUnd[iA][iB][i].undEst.get_ub();
+          minimaUnd[cnt+BundSHA+AundSHA+1] += AshaBshaUnd[iA][iB][i].get_lb();
+          maximaUnd[cnt+BundSHA+AundSHA+1] += AshaBshaUnd[iA][iB][i].get_ub();
           cnt ++;
         }
       }          
@@ -1814,7 +1946,7 @@ const
         indMaxLbAllUnd = i;
       }
       //else if(lbMaxAllUnd == minimaUnd[i] && maximaUnd[indMaxLbAllUnd] < maximaUnd[i]){
-      else if(std::fabs(lbMaxAllUnd-minimaUnd[i]) < 5e-14 && maximaUnd[indMaxLbAllUnd] + 5e-14 < maximaUnd[i]){ // else if(isequal(lbMaxAllUnd,minimaUnd[i]) && maximaUnd[indMaxLbAllUnd] + 5e-14 < maximaUnd[i]){  
+      else if(std::fabs(lbMaxAllUnd-minimaUnd[i]) < 5e-14 && maximaUnd[indMaxLbAllUnd] + 5e-14 < maximaUnd[i]){ //else if(isequal(lbMaxAllUnd,minimaUnd[i]) && maximaUnd[indMaxLbAllUnd] + 5e-14 < maximaUnd[i]){          
         indMaxLbAllUnd = i;
       }           
     }
@@ -1829,7 +1961,9 @@ const
         indMaxUbAllUnd = i;
       }   
     }    
-
+#ifdef MC__ASM_DEBUG  
+    assert(indMaxUbAllUnd < maximaUnd.size());    
+#endif
   }
 
 #ifndef MC__ASMODEL_NOT_DEBUG_SHADOW  
@@ -1843,9 +1977,9 @@ const
   unsigned int indMinUbAllOve = 0;  
   double lbMinAllOve = DBL_MAX; 
   unsigned int indMinLbAllOve = -1;  
-  std::vector<std::vector<UnivarPWL<T>>> AactBshaOve(BoveSHA);
-  std::vector<std::vector<UnivarPWL<T>>> AshaBactOve(AoveSHA);
-  std::vector<std::vector<std::vector<UnivarPWL<T>>>> AshaBshaOve(AoveSHA);
+  std::vector<std::vector<UnivarPWLE<double>>> AactBshaOve(BoveSHA);
+  std::vector<std::vector<UnivarPWLE<double>>> AshaBactOve(AoveSHA);
+  std::vector<std::vector<std::vector<UnivarPWLE<double>>>> AshaBshaOve(AoveSHA);
   if (oveEst2BUpdated){
 #ifndef MC__ASMODEL_NOT_DEBUG_SHADOW  
     std::cout << "        oveEst2BUpdated" << std::endl;
@@ -1858,12 +1992,12 @@ const
       AactBshaOve[iB].resize(_nvar);      
       for( unsigned int i=0; i<_nvar; i++ ){
         if( !Alst[i].empty() && !Blst[i].empty() )
-          AactBshaOve[iB][i].oveEst = Alst[i].oveEst + Bshadow[i].oveEst;
+          AactBshaOve[iB][i] = Alst[i].oveEst + Bshadow[i].oveEst;
         else if( !Alst[i].empty() ){
-          AactBshaOve[iB][i].oveEst = Alst[i].oveEst;
+          AactBshaOve[iB][i] = Alst[i].oveEst;
         }          
         else if( !Blst[i].empty() ){
-          AactBshaOve[iB][i].oveEst = Bshadow[i].oveEst;    // copy entire row
+          AactBshaOve[iB][i] = Bshadow[i].oveEst;    // copy entire row
         }
       }
     }
@@ -1873,12 +2007,12 @@ const
       AshaBactOve[iA].resize(_nvar);      
       for( unsigned int i=0; i<_nvar; i++ ){
         if( !Alst[i].empty() && !Blst[i].empty() )
-          AshaBactOve[iA][i].oveEst = Blst[i].oveEst + Ashadow[i].oveEst;
+          AshaBactOve[iA][i] = Blst[i].oveEst + Ashadow[i].oveEst;
         else if( !Alst[i].empty() ){
-          AshaBactOve[iA][i].oveEst = Ashadow[i].oveEst;    // copy entire row
+          AshaBactOve[iA][i] = Ashadow[i].oveEst;    // copy entire row
         }
         else if( !Blst[i].empty() ){
-          AshaBactOve[iA][i].undEst = Blst[i].oveEst;
+          AshaBactOve[iA][i] = Blst[i].oveEst;
         }        
       }      
     }
@@ -1892,12 +2026,12 @@ const
         AshaBshaOve[iA][iB].resize(_nvar);  
         for(unsigned int i = 0; i < _nvar; i++){
           if( !Alst[i].empty() && !Blst[i].empty() )
-            AshaBshaOve[iA][iB][i].oveEst = Ashadow[i].oveEst + Bshadow[i].oveEst;
+            AshaBshaOve[iA][iB][i] = Ashadow[i].oveEst + Bshadow[i].oveEst;
           else if( !Alst[i].empty() ){
-            AshaBshaOve[iA][iB][i].oveEst = Ashadow[i].oveEst;    // copy entire row
+            AshaBshaOve[iA][iB][i] = Ashadow[i].oveEst;    // copy entire row
           }                  
           else if( !Blst[i].empty() ){
-            AshaBshaOve[iA][iB][i].oveEst = Bshadow[i].oveEst;    // copy entire row
+            AshaBshaOve[iA][iB][i] = Bshadow[i].oveEst;    // copy entire row
           }
         }
       }        
@@ -1914,18 +2048,18 @@ const
       minimaOve[0] += ABlst[i].oveEst.get_lb();
       maximaOve[0] += ABlst[i].oveEst.get_ub();
       for(unsigned int iA = 0; iA < AoveSHA; iA++){
-        minimaOve[iA+1] += AshaBactOve[iA][i].oveEst.get_lb();
-        maximaOve[iA+1] += AshaBactOve[iA][i].oveEst.get_ub();
+        minimaOve[iA+1] += AshaBactOve[iA][i].get_lb();
+        maximaOve[iA+1] += AshaBactOve[iA][i].get_ub();
       }
       for(unsigned int iB = 0; iB < BoveSHA; iB++){
-        minimaOve[iB+AoveSHA+1] += AactBshaOve[iB][i].oveEst.get_lb();
-        maximaOve[iB+AoveSHA+1] += AactBshaOve[iB][i].oveEst.get_ub();
+        minimaOve[iB+AoveSHA+1] += AactBshaOve[iB][i].get_lb();
+        maximaOve[iB+AoveSHA+1] += AactBshaOve[iB][i].get_ub();
       }
       cnt = 0;
       for(unsigned int iA = 0; iA < AoveSHA; iA++){
         for(unsigned int iB = 0; iB < BoveSHA; iB++){
-          minimaOve[cnt+BoveSHA+AoveSHA+1] += AshaBshaOve[iA][iB][i].oveEst.get_lb();
-          maximaOve[cnt+BoveSHA+AoveSHA+1] += AshaBshaOve[iA][iB][i].oveEst.get_ub();
+          minimaOve[cnt+BoveSHA+AoveSHA+1] += AshaBshaOve[iA][iB][i].get_lb();
+          maximaOve[cnt+BoveSHA+AoveSHA+1] += AshaBshaOve[iA][iB][i].get_ub();
           cnt ++;
         }
       }          
@@ -1943,19 +2077,19 @@ const
         indMinUbAllOve = i;
 //        std::cout << "indMinUbAllOve set at "  << i << "  " << std::scientific << std::setprecision(12) << maximaOve[i] << " ubMinAllOve - maximaOve[i] " << ubMinAllOve - maximaOve[i] << std::endl;      
       }   
-     else if(std::fabs(ubMinAllOve-maximaOve[i]) < 5e-14 && minimaOve[indMinUbAllOve] - 5e-14 > minimaOve[i]){ //  else if(isequal(ubMinAllOve,maximaOve[i]) && minimaOve[indMinUbAllOve] - 5e-14 > minimaOve[i]){         //else if(ubMinAllOve == maximaOve[i] && minimaOve[indMinUbAllOve] > minimaOve[i]){
+      else if(std::fabs(ubMinAllOve-maximaOve[i]) < 5e-14 && minimaOve[indMinUbAllOve] - 5e-14 > minimaOve[i]){ // else if(isequal(ubMinAllOve,maximaOve[i]) && minimaOve[indMinUbAllOve] - 5e-14 > minimaOve[i]){    //      //else if(ubMinAllOve == maximaOve[i] && minimaOve[indMinUbAllOve] > minimaOve[i]){
         indMinUbAllOve = i;
 //        std::cout << "minimaOve "  << i << "  " << std::scientific << std::setprecision(12) << minimaOve[i] << " minimaOve[indMinUbAllOve]- " << minimaOve[indMinUbAllOve] - minimaOve[i] << std::endl;    
       }     
     }
   
-    //lbMinAllOve  = DBL_MAX ; 
+    //lbMinAllOve  = DBL_MAX; 
     for(unsigned int i = 0; i < minimaOve.size(); i++){
     // Note that this is a heuristic for choosing the resultant ACT and SHA
       //std::cout << "minimaOve "  << i << "  " << std::scientific << std::setprecision(12) << minimaOve[i] << std::endl;
       if(i == indMinUbAllOve) continue;
-      //std::cout << "        lbMinAllOve - minimaOve[i] "  << std::scientific << std::setprecision(12) << lbMinAllOve - minimaOve[i] << std::endl; 
-      if (lbMinAllOve >= minimaOve[i]  + 5e-14){
+      //std::cout << "        lbMinAllOve - minimaOve[i] "   << std::scientific << std::setprecision(12) << lbMinAllOve - minimaOve[i] << std::endl; 
+      if (lbMinAllOve >= minimaOve[i] + 5e-14){
         lbMinAllOve = minimaOve[i];
         indMinLbAllOve = i;
         //std::cout << "        set indMinLbAllOve "  << i << std::endl;
@@ -1963,6 +2097,10 @@ const
     }
     //std::cout << "       minimaOve 1 "  << std::scientific << std::setprecision(12) << minimaOve[1] << std::endl;
     //std::cout << "       minimaOve 3 "  << std::scientific << std::setprecision(12) << minimaOve[1] << std::endl;  
+    //std::cout << "    indMinLbAllOve " << indMinLbAllOve << std::endl;
+#ifdef MC__ASM_DEBUG      
+    assert(indMinLbAllOve < minimaOve.size());   
+#endif
   }
 
 #ifndef MC__ASMODEL_NOT_DEBUG_SHADOW  
@@ -1973,7 +2111,6 @@ const
   std::cout << "       lbMaxAllUnd : ubMaxAllUnd "    << lbMaxAllUnd    << " : " << ubMaxAllUnd << std::endl;
 
 #endif
-
 
 
 
@@ -2007,8 +2144,8 @@ const
     // process the indices indMinUbAllOve and indMinLbAllOve to get to pointer
     // Note that we have known that AoveSHA == 0 and BoveSHA == 0 do not hold together
     // Also note that ABlst has been swapped to Alst
-    std::vector<UnivarPWL<T>> sha2Bset(0);
-    std::vector<UnivarPWL<T>> act2Bset(0);  
+    std::vector<UnivarPWLE<double>> sha2Bset(0);
+    std::vector<UnivarPWLE<double>> act2Bset(0);  
     bool setAct = false;  
     bool shouldSwapActSha = false;     
     if(AoveSHA > 0 && BoveSHA == 0){
@@ -2052,9 +2189,9 @@ const
 
     for( unsigned int i=0; i<_nvar; i++ ){
       if(Alst[i].empty()) continue;
-      std::swap(Ashadow[i].oveEst,sha2Bset[i].oveEst);
+      std::swap(Ashadow[i].oveEst,sha2Bset[i]);
       if(shouldSwapActSha) std::swap(Alst[i].oveEst,Ashadow[i].oveEst);
-      else if(setAct) std::swap(Alst[i].oveEst,act2Bset[i].oveEst);
+      else if(setAct) std::swap(Alst[i].oveEst,act2Bset[i]);
       Ashadow[i].flag_nonEmpty();
     }
 
@@ -2107,8 +2244,8 @@ const
     // process the indices indMinUbAllUnd and indMinLbAllUnd to get to pointer
     // Note that we have known that AundSHA == 0 and BundSHA == 0 do not hold together
     // Also note that ABlst has been swapped to Alst
-    std::vector<UnivarPWL<T>> sha2Bset(0);
-    std::vector<UnivarPWL<T>> act2Bset(0);      
+    std::vector<UnivarPWLE<double>> sha2Bset(0);
+    std::vector<UnivarPWLE<double>> act2Bset(0);      
     bool shouldSwapActSha = false;
     bool setAct = false;     
     if(AundSHA > 0 && BundSHA == 0){
@@ -2151,9 +2288,9 @@ const
 
     for( unsigned int i=0; i<_nvar; i++ ){
       if(Alst[i].empty()) continue;
-      std::swap(Ashadow[i].undEst,sha2Bset[i].undEst);
+      std::swap(Ashadow[i].undEst,sha2Bset[i]);
       if(shouldSwapActSha) std::swap(Alst[i].undEst,Ashadow[i].undEst);
-      else if(setAct) std::swap(Alst[i].undEst,act2Bset[i].undEst);
+      else if(setAct) std::swap(Alst[i].undEst,act2Bset[i]);
       Ashadow[i].flag_nonEmpty();     
     }
 
@@ -2253,8 +2390,8 @@ const
     // process the indices indMinUbAllOve and indMinLbAllOve to get to pointer
     // Note that we have known that AoveSHA == 0 and BoveSHA == 0 do not hold together
     // Also note that ABlst has been swapped to Alst
-    std::vector<UnivarPWL<T>> sha2Bset(0);
-    std::vector<UnivarPWL<T>> act2Bset(0);  
+    std::vector<UnivarPWLE<double>> sha2Bset(0);
+    std::vector<UnivarPWLE<double>> act2Bset(0);   
     bool setAct = false;  
     bool shouldSwapActSha = false;     
     if(AoveSHA > 0 && BoveSHA == 0){
@@ -2265,7 +2402,7 @@ const
       }
     }
     else if(AoveSHA == 0){
-      // in this case AactBshaOve[0] is chosen when indMinUbAllOve or indMinLbAllOve == 1
+      // i n this case AactBshaOve[0] is chosen when indMinUbAllOve or indMinLbAllOve == 1
       std::swap(sha2Bset,AactBshaOve[0]);
       if (indMinLbAllOve == 0){
         shouldSwapActSha = true;
@@ -2273,6 +2410,7 @@ const
     }
     else{
       if (indMinLbAllOve == 0){
+//        std::cout << "          indMinUbAllOve " << indMinUbAllOve << std::endl;      
         switch( indMinUbAllOve ){
           case 1: std::swap(sha2Bset,AshaBactOve[0]); break;
           case 2: std::swap(sha2Bset,AactBshaOve[0]); break;
@@ -2281,6 +2419,7 @@ const
         shouldSwapActSha = true;
       }
       else{
+//        std::cout << "          indMinLbAllOve " << indMinLbAllOve << std::endl;
         switch( indMinLbAllOve ){
           case 1: std::swap(sha2Bset,AshaBactOve[0]); break;
           case 2: std::swap(sha2Bset,AactBshaOve[0]); break;
@@ -2296,12 +2435,20 @@ const
       }
     } 
 
+#ifndef MC__ASMODEL_NOT_DEBUG_SHADOW  
+  std::cout << "          before swap" << std::endl;
+#endif
+//  std::cout << "          sha2Bset.size() " << sha2Bset.size() << std::endl;
     for( unsigned int i=0; i<_nvar; i++ ){
       if(Alst[i].empty()) continue;
-      std::swap(Ashadow[i].oveEst,sha2Bset[i].oveEst);
-      if(shouldSwapActSha) std::swap(Alst[i].oveEst,Ashadow[i].oveEst);
-      else if(setAct) std::swap(Alst[i].oveEst,act2Bset[i].oveEst);
+//      std::cout << "          before swap 1" << std::endl;
+      std::swap(Ashadow[i].oveEst,sha2Bset[i]);
+//      std::cout << "          before swap 2" << std::endl;
+      if(shouldSwapActSha){std::swap(Alst[i].oveEst,Ashadow[i].oveEst);}
+      else if(setAct){ std::swap(Alst[i].oveEst,act2Bset[i]);}
+//      std::cout << "          before swap 7" << std::endl;
       Ashadow[i].flag_nonEmpty();
+//      std::cout << "          before swap 8" << std::endl;
     }
 
 
@@ -2313,8 +2460,8 @@ const
     // Note that we have known that AundSHA == 0 and BundSHA == 0 do not hold together
     // Also note that ABlst has been swapped to Alst
 
-    std::vector<UnivarPWL<T>> sha2BsetUnd(0);
-    std::vector<UnivarPWL<T>> act2BsetUnd(0);      
+    std::vector<UnivarPWLE<double>> sha2BsetUnd(0);
+    std::vector<UnivarPWLE<double>> act2BsetUnd(0);  
     bool shouldSwapActShaUnd = false;
     bool setActUnd = false;     
     if(AundSHA > 0 && BundSHA == 0){
@@ -2333,6 +2480,7 @@ const
     }
     else{     
       if (indMaxUbAllUnd == 0){
+  // std::cout << "          indMaxLbAllUnd " << indMaxLbAllUnd << std::endl;      
         switch( indMaxLbAllUnd ){
           case 1: std::swap(sha2BsetUnd,AshaBactUnd[0]); break;
           case 2: std::swap(sha2BsetUnd,AactBshaUnd[0]); break;
@@ -2341,6 +2489,7 @@ const
         shouldSwapActShaUnd = true;
       }
       else{
+  // std::cout << "          indMaxUbAllUnd " << indMaxUbAllUnd << std::endl;
         switch( indMaxUbAllUnd ){
           case 1: std::swap(sha2BsetUnd,AshaBactUnd[0]); break;
           case 2: std::swap(sha2BsetUnd,AactBshaUnd[0]); break;
@@ -2355,11 +2504,16 @@ const
       }
     } 
 
+#ifndef MC__ASMODEL_NOT_DEBUG_SHADOW  
+  std::cout << "          before swap" << std::endl;
+#endif
+  //std::cout << "          sha2BsetUnd.size() " << sha2BsetUnd.size() << std::endl;
+
     for( unsigned int i=0; i<_nvar; i++ ){
       if(Alst[i].empty()) continue;
-      std::swap(Ashadow[i].undEst,sha2BsetUnd[i].undEst);
+      std::swap(Ashadow[i].undEst,sha2BsetUnd[i]);
       if(shouldSwapActShaUnd) std::swap(Alst[i].undEst,Ashadow[i].undEst);
-      else if(setActUnd) std::swap(Alst[i].undEst,act2BsetUnd[i].undEst);      
+      else if(setActUnd) std::swap(Alst[i].undEst,act2BsetUnd[i]);      
     }
 
 
@@ -2487,19 +2641,19 @@ class ASVar
     ( ASVar<U> &&, double const& );
 
 
-  // template <typename U> friend ASVar<U> operator/
-  //   ( ASVar<U> const&, ASVar<U> const& );
-  // template <typename U> friend ASVar<U> operator/
-  //   ( double const&, ASVar<U> const& );
+  template <typename U> friend ASVar<U> operator/
+    ( ASVar<U> const&, ASVar<U> const& );
+  template <typename U> friend ASVar<U> operator/
+    ( double const&, ASVar<U> const& );
   template <typename U> friend ASVar<U> operator/
     ( ASVar<U> const&, double const& );
 
-  // template <typename U> friend ASVar<U> max
-  //   ( ASVar<U> const&, ASVar<U> const& );
-  // template <typename U> friend ASVar<U> max
-  //   ( ASVar<U> const&, double const& );
-  // template <typename U> friend ASVar<U> max
-  //   ( ASVar<U> &&, double const& );
+  template <typename U> friend ASVar<U> max
+    ( ASVar<U> const&, ASVar<U> const& );
+  template <typename U> friend ASVar<U> max
+    ( ASVar<U> const&, double const& );
+  template <typename U> friend ASVar<U> max
+    ( ASVar<U> &&, double const& );
   // template <typename U> friend ASVar<U> min
   //   ( ASVar<U> const&, ASVar<U> const& );
   // template <typename U> friend ASVar<U> min
@@ -2593,21 +2747,30 @@ class ASVar
   unsigned int _ndep;
   //! @brief estimator list
   std::vector<UnivarPWL<T>> _lst;
-  //! @brief Constant value (in case _lst is empty)
+
+  //! @brief Constant value (in case _mod is nullptr)
   double _cst;
+  //! @brief Constant value (in case _lst is empty)
+  std::pair<std::vector<double>,bool> _lnr;
+ 
   //! @brief Variable bound
   mutable std::pair<T,bool> _bnd;
 
   //! @brief shadow estimator list
   std::vector<UnivarPWL<T>> _shadow;  
-
+  //! @brief shadow estimator information
   mutable std::vector<double> _shadow_info;
-
   //! @brief upper bound/constant overestimator
   double _oveCut;
-
   //! @brief lower bound/constant underestimator
   double _undCut;
+
+
+  // The hierarchical priority is as follows:
+  // if(!mod), then only _cst is valid; 
+  // else if(_lnr.second), then only _cst and _lnr are valid; 
+  // else if(!_mod->options.SHADOW_USE), then only _lst and _bnd are valid
+  
 
  public:
  
@@ -2626,29 +2789,40 @@ class ASVar
   ASVar<T>& operator*=
     ( double const& );
  
-  // ASVar<T>& operator/=
-  //   ( ASVar<T> const& );
+  ASVar<T>& operator/=
+    ( ASVar<T> const& );
   ASVar<T>& operator/=
     ( double const& );
 
   ASVar<T>& operator=
   ( double const& cst )
   {
+
+  // The hierarchical priority:
+  // if(!mod), then only _cst is valid; 
+  // else if(_lnr.second), then only _cst and _lnr are valid; 
+  // else if(!_mod->options.SHADOW_USE), then only _lst and _bnd are valid
+
     _mod = nullptr;
-    _nvar = 0;
-    _ndiv = 0;
-    _ndep = 0;
-    _lst.clear(); // may not resize _lst
     _cst = cst;
-    _bnd = std::make_pair( 0., false );
-    if (_mod->options.SHADOW_USE){
-        _shadow.clear(); // added for allowing shadow enhancement
-        _shadow.resize(0);    
-        _shadow_info.clear();    
-        _shadow_info.resize(3,0);
-        _oveCut = cst;
-        _undCut = cst;
-    }        
+ 
+    // Privious implementation
+    /*******************************/    
+    // _mod = nullptr;
+    // _nvar = 0;
+    // _ndiv = 0;
+    // _ndep = 0;
+    // _lst.clear(); // may not resize _lst
+    // _cst = cst;
+    // _bnd = std::make_pair( 0., false );
+    // if (_mod->options.SHADOW_USE){
+    //     _shadow.clear(); // added for allowing shadow enhancement
+    //     _shadow.resize(0);    
+    //     _shadow_info.clear();    
+    //     _shadow_info.resize(3,0);
+    //     _oveCut = cst;
+    //     _undCut = cst;
+    // }        
 
     return *this;
   }
@@ -2659,22 +2833,60 @@ class ASVar
 #ifdef MC__ASMODEL_TRACE
     std::cerr << "-- ASVar<T>& operator= ( ASVar<T> const& )\n";
 #endif
+
+  // The hierarchical priority:
+  // if(!mod), then only _cst is valid; 
+  // else if(_lnr.second), then only _cst and _lnr are valid; 
+  // else if(!_mod->options.SHADOW_USE), then only _lst and _bnd are valid
+
     if( this == &var )
       return *this;
+
     _mod = var._mod;
-    if( !_mod ) _cst = var._cst;
-    _nvar = var._nvar;
-    _ndiv = var._ndiv;
-    _ndep = var._ndep;
+    if( !_mod ){
+      _cst = var._cst;
+    }
+    else if(var._lnr.second){
+      _cst = var._cst;
+      _lnr = var._lnr;
+    }
+    else{
+      _lnr = std::make_pair(std::vector<double>(0),false);
+      _nvar = var._nvar;
+      _ndiv = var._ndiv;
+      _ndep = var._ndep;
+      _lst = var._lst;
+      _bnd = var._bnd;     
+
+      if(_mod->options.SHADOW_USE){
+        _shadow = var._shadow;
+        _shadow_info = var._shadow_info;
+        _oveCut = var._oveCut;
+        _undCut = var._undCut;  
+      } 
+
+    }
+    
+
+
+    // Privious implementation
+    /*******************************/    
+    // if( this == &var )
+    //   return *this;
+    // _mod = var._mod;
+    // if( !_mod ) _cst = var._cst;
+    // _nvar = var._nvar;
+    // _ndiv = var._ndiv;
+    // _ndep = var._ndep;
 #ifdef TEST_MOVE    
     std::cout << "  Copy Assignment" << std::endl;
 #endif
-    _lst = var._lst;
-    _bnd = var._bnd;
-    _shadow = var._shadow;
-    _shadow_info = var._shadow_info;
-    _oveCut = var._oveCut;
-    _undCut = var._undCut;    
+    // _lst = var._lst;
+    // _bnd = var._bnd;
+    // _shadow = var._shadow;
+    // _shadow_info = var._shadow_info;
+    // _oveCut = var._oveCut;
+    // _undCut = var._undCut;    
     return *this;
   }
 
@@ -2684,29 +2896,67 @@ class ASVar
 #ifdef MC__ASMODEL_TRACE
     std::cerr << "-- ASVar<T>& operator= ( ASVar<T> && )\n";
 #endif
+
+  // The hierarchical priority:
+  // if(!mod), then only _cst is valid; 
+  // else if(_lnr.second), then only _cst and _lnr are valid; 
+  // else if(!_mod->options.SHADOW_USE), then only _lst and _bnd are valid
+
     if( this == &var )
       return *this;
+
     _mod = var._mod;
-    if( !_mod ) _cst = var._cst;
-    _nvar = var._nvar;
-    _ndiv = var._ndiv;
-    _ndep = var._ndep;
+    if( !_mod ){
+      _cst = var._cst;
+    }
+    else if(var._lnr.second){
+      _cst = var._cst;
+      _lnr = std::move(var._lnr);
+    }
+    else{
+      _lnr = std::make_pair(std::vector<double>(0),false);
+      _nvar = var._nvar;
+      _ndiv = var._ndiv;
+      _ndep = var._ndep;
+      _lst = std::move(var._lst);
+      _bnd = std::move(var._bnd);     
+
+      if(_mod->options.SHADOW_USE){
+        _shadow_info = std::move(var._shadow_info);        
+        _shadow = std::move(var._shadow);
+        _oveCut = var._oveCut;
+        _undCut = var._undCut;  
+      } 
+      
+    }
+    
+
+
+    // Privious implementation
+    /*******************************/  
+    // if( this == &var )
+    //   return *this;
+    // _mod = var._mod;
+    // if( !_mod ) _cst = var._cst;
+
+    // _nvar = var._nvar;
+    // _ndiv = var._ndiv;
+    // _ndep = var._ndep;
 #ifdef TEST_MOVE
     std::cout << "  Move Assignment" << std::endl;
 #endif
-
-    _lst = std::move(var._lst);
-    _bnd = std::move(var._bnd);
-    _shadow = std::move(var._shadow);  
-    _shadow_info = std::move(var._shadow_info);
-    _oveCut = var._oveCut;
-    _undCut = var._undCut;      
+    // _lst = std::move(var._lst);
+    // _bnd = std::move(var._bnd);
+    // _shadow = std::move(var._shadow);  
+    // _shadow_info = std::move(var._shadow_info);
+    // _oveCut = var._oveCut;
+    // _undCut = var._undCut;      
     return *this;
   }
 
   ASVar
   ( ASModel<T>* const mod )
-  : _mod(mod), _ndiv(mod->_ndiv), _nvar(mod->_nvar), _ndep(0), _lst(_nvar), _bnd(0.,false),
+  : _mod(mod), _ndiv(mod->_ndiv), _nvar(mod->_nvar), _ndep(0), _lst(_nvar),_cst(0.),_lnr(0,false),_bnd(0.,false),
     _shadow(0),_shadow_info(3,0),_oveCut(DBL_MAX),_undCut(-DBL_MAX)
   {
  
@@ -2717,53 +2967,186 @@ class ASVar
 
   ASVar
   ( ASModel<T>* const mod, unsigned int ndx, T const& bnd )
-  : _mod(mod), _ndiv(mod->_ndiv), _nvar(mod->_nvar), _ndep(1), _lst(_nvar), _bnd(bnd,true),
-    _shadow(0),_shadow_info(3,0),_oveCut(Op<T>::u(bnd)),_undCut(Op<T>::l(bnd))
+  : _mod(mod), _cst(0),_lnr(std::vector<double>(mod->_nvar,0.),true)
   {
-    if( ndx >= _nvar )
+    if( ndx >= mod->_nvar )
       throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::INDEX );
    
-    _lst[ndx] = UnivarPWL(bnd);
+  //_cst(0.5*(Op<T>::u(bnd) + Op<T>::l(bnd)))
+
+    _lnr.first[ndx] = 1.0;
     //_lst[ndx].debug_check_overNunder_flags();
     _mod->_defvar[ndx] = true;
     _mod->_bndvar[ndx] = bnd;
-
-
-    if (_mod->options.SHADOW_USE){
-        _shadow.resize(_nvar);    
-    }    
   
   } 
+  
+
+
+  // ASVar
+  // ( ASModel<T>* const mod, unsigned int ndx, T const& bnd )
+  // : _mod(mod), _ndiv(mod->_ndiv), _nvar(mod->_nvar), _ndep(1), _lst(_nvar), _bnd(bnd,true),
+  //   _shadow(0),_shadow_info(3,0),_oveCut(Op<T>::u(bnd)),_undCut(Op<T>::l(bnd))
+  // {
+  //   if( ndx >= _nvar )
+  //     throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::INDEX );
+   
+  //   _lst[ndx] = UnivarPWL(bnd);
+  //   //_lst[ndx].debug_check_overNunder_flags();
+  //   _mod->_defvar[ndx] = true;
+  //   _mod->_bndvar[ndx] = bnd;
+
+
+  //   if (_mod->options.SHADOW_USE){
+  //       _shadow.resize(_nvar);    
+  //   }    
+  
+  // } 
+
 
   ASVar
   ( double const& cst=0. )
-  : _mod(nullptr), _ndiv(0), _nvar(0), _ndep(0), _cst(cst), _bnd(0.,false),
-    _shadow(_nvar),_shadow_info(3,0),_oveCut(cst),_undCut(cst)
+  : _mod(nullptr), _cst(cst)
   {}
+ 
+  // ASVar
+  // ( double const& cst=0. )
+  // : _mod(nullptr), _ndiv(0), _nvar(0), _ndep(0), _cst(cst), _lnr(0,false), _bnd(0.,false),
+  //   _shadow(_nvar),_shadow_info(3,0),_oveCut(cst),_undCut(cst)
+  // {}
 
   ASVar
   ( ASVar<T> const& var )
-  : _mod(var._mod), _ndiv(var._ndiv), _nvar(var._nvar), _ndep(var._ndep),
-    _oveCut(var._oveCut),_undCut(var._undCut)
+  : _mod(var._mod)
   {
 #ifdef MC__ASMODEL_TRACE
     std::cerr << "-- ASVar( ASVar<T> const& )\n";
 #endif
-    if( this == &var ) return;
-    if( !_mod ) _cst = var._cst;
-#ifdef TEST_MOVE
-    std::cout << "  Copy Constructor" << std::endl;
-#endif
-    _lst = var._lst;
-    _bnd = var._bnd;
-    _shadow = var._shadow;
-    _shadow_info = var._shadow_info;
+
+  // The hierarchical priority:
+  // if(!mod), then only _cst is valid; 
+  // else if(_lnr.second), then only _cst and _lnr are valid; 
+  // else if(!_mod->options.SHADOW_USE), then only _lst and _bnd are valid
+
+    if( this == &var )
+      return;
+    else if( !_mod ){
+      _cst = var._cst;
+    }
+    else if(var._lnr.second){
+      _cst = var._cst;
+      _lnr = var._lnr;
+    }
+    else{
+      _lnr = std::make_pair(std::vector<double>(0),false);
+      _nvar = var._nvar;
+      _ndiv = var._ndiv;
+      _ndep = var._ndep;
+      _lst = var._lst;
+      _bnd = var._bnd;     
+
+      if(_mod->options.SHADOW_USE){
+        _shadow_info = var._shadow_info;        
+        _shadow = var._shadow;
+        _oveCut = var._oveCut;
+        _undCut = var._undCut;  
+      } 
+      
+    }
+    
   }
+
+
+//   ASVar
+//   ( ASVar<T> const& var )
+//   : _mod(var._mod), _ndiv(var._ndiv), _nvar(var._nvar), _ndep(var._ndep),
+//     _oveCut(var._oveCut),_undCut(var._undCut)
+//   {
+// #ifdef MC__ASMODEL_TRACE
+//     std::cerr << "-- ASVar( ASVar<T> const& )\n";
+// #endif
+//     if( this == &var ) return;
+//     if( !_mod ) _cst = var._cst;
+// #ifdef TEST_MOVE
+//     std::cout << "  Copy Constructor" << std::endl;
+// #endif
+//     _lst = var._lst;
+//     _bnd = var._bnd;
+//     _shadow = var._shadow;
+//     _shadow_info = var._shadow_info;
+//   }
+
+
+  ASVar
+  ( ASVar<T> && var )
+  : _mod(var._mod)
+  {
+  // The hierarchical priority:
+  // if(!mod), then only _cst is valid; 
+  // else if(_lnr.second), then only _cst and _lnr are valid; 
+  // else if(!_mod->options.SHADOW_USE), then only _lst and _bnd are valid    
+#ifdef MC__ASMODEL_TRACE
+    std::cerr << "-- ASVar( ASVar<T> && var )\n";
+#endif
+    if( this == &var ) return;
+#ifdef TEST_MOVE    
+    std::cout << "  Move Constructor" << std::endl;
+#endif
+    else if( !_mod ){
+      _cst = var._cst;
+    }
+    else if(var._lnr.second){
+      _cst = var._cst;
+      _lnr = std::move(var._lnr);
+    }
+    else{
+      _lnr = std::make_pair(std::vector<double>(0),false);
+      _nvar = var._nvar;
+      _ndiv = var._ndiv;
+      _ndep = var._ndep;
+      _lst = std::move(var._lst);
+      _bnd = std::move(var._bnd);     
+
+      if(_mod->options.SHADOW_USE){
+        _shadow_info = std::move(var._shadow_info);        
+        _shadow = std::move(var._shadow);
+        _oveCut = var._oveCut;
+        _undCut = var._undCut;  
+      } 
+     
+    }
+     
+  }
+
+
+
+
+
+//   ASVar
+//   ( ASVar<T> && var )
+//   : _mod(var._mod), _ndiv(var._ndiv), _nvar(var._nvar), _ndep(var._ndep),
+//     _oveCut(var._oveCut),_undCut(var._undCut)
+//   {
+// #ifdef MC__ASMODEL_TRACE
+//     std::cerr << "-- ASVar( ASVar<T> && var )\n";
+// #endif
+//     if( this == &var ) return;
+//     if( !_mod ) _cst = var._cst;
+// #ifdef TEST_MOVE    
+//     std::cout << "  Move Constructor" << std::endl;
+// #endif
+
+//     _lst = std::move(var._lst);
+//     _bnd = std::move(var._bnd);
+//     _shadow = std::move(var._shadow); 
+//     _shadow_info = std::move(var._shadow_info);       
+//   }
+
 
 
   ASVar
   ( ASVar<T> const& var, const double mtpr ) // multiplier
-  : _mod(var._mod), _ndiv(var._ndiv), _nvar(var._nvar), _ndep(var._ndep), _lst(var._nvar), _bnd(0.,true),
+  : _mod(var._mod), _ndiv(var._ndiv), _nvar(var._nvar), _ndep(var._ndep), _lst(var._nvar),_lnr(0,false), _bnd(0.,true),
     _shadow(_nvar),_shadow_info(3,0),_oveCut(DBL_MAX),_undCut(-DBL_MAX)
   {
 #ifdef MC__ASMODEL_TRACE
@@ -2775,8 +3158,13 @@ class ASVar
 
     if( this == &var ) return;
     if( !_mod ) {_cst = var._cst*mtpr; return;}
-    if( !_ndep )
+    else if(var._lnr.second){
+      std::cout << "ASVar constructor for mtpr*var has not yet been defined " << std::endl;
       throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::INTERN );
+    }
+
+    // if( !_ndep )
+    //   throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::INTERN );
 
 
     for( unsigned int i=0; i<_nvar; i++ ){
@@ -2812,25 +3200,6 @@ class ASVar
   }
 
 
-  ASVar
-  ( ASVar<T> && var )
-  : _mod(var._mod), _ndiv(var._ndiv), _nvar(var._nvar), _ndep(var._ndep),
-    _oveCut(var._oveCut),_undCut(var._undCut)
-  {
-#ifdef MC__ASMODEL_TRACE
-    std::cerr << "-- ASVar( ASVar<T> && var )\n";
-#endif
-    if( this == &var ) return;
-    if( !_mod ) _cst = var._cst;
-#ifdef TEST_MOVE    
-    std::cout << "  Move Constructor" << std::endl;
-#endif
-
-    _lst = std::move(var._lst);
-    _bnd = std::move(var._bnd);
-    _shadow = std::move(var._shadow); 
-    _shadow_info = std::move(var._shadow_info);       
-  }
 
   ~ASVar
   () 
@@ -2839,6 +3208,7 @@ class ASVar
     std::cout<< "ASV delated, nvar = " <<_nvar <<std::endl;
 #endif
   }
+
 
   ASVar<T>& set
   ( ASModel<T>* const mod )
@@ -2849,16 +3219,42 @@ class ASVar
     _ndep = 0;
     _lst.clear();
     _lst.resize( _nvar );
+    _lnr = std::make_pair(std::vector<double>(0), false );
     _bnd = std::make_pair( 0., false );
     if (_mod->options.SHADOW_USE){
       _shadow.clear();
       _shadow.resize(_nvar);
+      _shadow_info.resize(3,0);
       _oveCut =  DBL_MAX;
       _undCut = -DBL_MAX;
     }    
 
     return *this;
   }
+  
+
+  // ASVar<T>& set
+  // ( ASModel<T>* const mod )
+  // {
+  //   _mod = mod;
+  //   _nvar = mod->_nvar;
+  //   _ndiv = mod->_ndiv;
+  //   _ndep = 0;
+  //   _lst.clear();
+  //   _lst.resize( _nvar );
+  //   _bnd = std::make_pair( 0., false );
+  //   if (_mod->options.SHADOW_USE){
+  //     _shadow.clear();
+  //     _shadow.resize(_nvar);
+  //     _oveCut =  DBL_MAX;
+  //     _undCut = -DBL_MAX;
+  //   }    
+
+  //   return *this;
+  // }
+
+
+
 
   ASVar<T>& set
   ( ASModel<T>* const mod, unsigned int ndx, T const& bnd )
@@ -2868,23 +3264,98 @@ class ASVar
     if( ndx >= _nvar )
       throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::INDEX );
 
-    _ndiv = mod->_ndiv;
-    _ndep = 1;
-    _lst.clear();
-    _lst.resize( _nvar );
-    _lst[ndx] = UnivarPWL(bnd);
+    _cst = 0.; // 0.5*(Op<T>::u(bnd) + Op<T>::l(bnd))
+    _lnr = std::make_pair(std::vector<double>(_nvar,0.), true );
+    _lnr.first[ndx] = 1.0;
     _mod->_defvar[ndx] = true;
     _mod->_bndvar[ndx] = bnd;
-    _bnd = std::make_pair( bnd, true );
 
-    if (_mod->options.SHADOW_USE){
-      _shadow.clear();
-      _shadow.resize(_nvar);
-      _oveCut = Op<T>::u(bnd);
-      _undCut = Op<T>::l(bnd);     
-    }
+    // _ndiv = mod->_ndiv;
+    // _ndep = 1;
+    // _lst.clear();
+    // _lst.resize( _nvar );
+
+    // _bnd = std::make_pair( bnd, true );
+
+    // if (_mod->options.SHADOW_USE){
+    //   _shadow_info.resize(3,0);
+    //   _shadow.clear();
+    //   _shadow.resize(_nvar);
+    //   _oveCut = Op<T>::u(bnd);
+    //   _undCut = Op<T>::l(bnd);     
+    // }
     return *this;
   }
+
+
+  // ASVar<T>& set
+  // ( ASModel<T>* const mod, unsigned int ndx, T const& bnd )
+  // {
+  //   _mod = mod;
+  //   _nvar = mod->_nvar;
+  //   if( ndx >= _nvar )
+  //     throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::INDEX );
+
+  //   _ndiv = mod->_ndiv;
+  //   _ndep = 1;
+  //   _lst.clear();
+  //   _lst.resize( _nvar );
+  //   _lst[ndx] = UnivarPWL(bnd);
+  //   _mod->_defvar[ndx] = true;
+  //   _mod->_bndvar[ndx] = bnd;
+  //   _bnd = std::make_pair( bnd, true );
+
+  //   if (_mod->options.SHADOW_USE){
+  //     _shadow.clear();
+  //     _shadow.resize(_nvar);
+  //     _oveCut = Op<T>::u(bnd);
+  //     _undCut = Op<T>::l(bnd);     
+  //   }
+  //   return *this;
+  // }
+
+  unsigned int get_ASVar
+  ()
+  const
+  { 
+  // The hierarchical priority:
+  // if(!mod), then only _cst is valid; 
+  // else if(_lnr.second), then only _cst and _lnr are valid; 
+  // else if(!_mod->options.SHADOW_USE), then only _lst and _bnd are valid    
+    if(!_mod) return 1;
+    else if(_lnr.second) return 2;
+    else{
+      if(!_mod->options.SHADOW_USE)
+        return 3;
+      else if(_shadow_info[0] + _shadow_info[1] == 0 )
+        return 3;
+      else
+        return 4;
+    }
+  }
+
+
+  double const& get_cst
+  ()
+  const
+  { return _cst; }
+
+  std::pair<std::vector<double>,bool> const & get_lnr_debug
+  ()
+  const  
+  { return _lnr; }
+
+
+  std::vector<double> const & get_lnr
+  ()
+  const  
+  { return _lnr.first; }
+
+
+  std::vector<UnivarPWL<T>> const& get_lst
+  ()
+  const
+  { return _lst; }
 
 
   std::vector<UnivarPWL<T>> const& get_shadow
@@ -2893,16 +3364,12 @@ class ASVar
   { return _shadow; }
   
 
-
   std::vector<double> const& get_shadow_info
   ()
   const
   { return _shadow_info; }
 
-  std::vector<UnivarPWL<T>> const& get_lst
-  ()
-  const
-  { return _lst; }
+
 
 
   std::vector<std::vector<double>> const& COve()   
@@ -2921,7 +3388,13 @@ class ASVar
   void get_C() 
   const
   { 
-    _mod->_compute_C(_lst,_ndep);
+    if(!_mod) 
+      _mod->_compute_C(_cst);
+    else if(_lnr.second){
+      _mod->_compute_C(_lnr.first,_cst);
+    }
+    else
+      _mod->_compute_C(_lst,_ndep);
     return ;
   }
 
@@ -2968,31 +3441,61 @@ class ASVar
   ()
   const
   {
-    if( _bnd.second ) return _bnd.first;
-    _bnd.first = ( _mod? _mod->_B( _lst ): _cst );
-    _bnd.second = true;
-    return _bnd.first;
+  // The hierarchical priority:
+  // if(!mod), then only _cst is valid; 
+  // else if(_lnr.second), then only _cst and _lnr are valid; 
+  // else if(!_mod->options.SHADOW_USE), then only _lst and _bnd are valid    
+    //std::cout << "in bound " << _cst << std::endl;
+    if(!_mod) return T(_cst);
+    else if(_lnr.second){
+      T bnd(_cst);
+      //std::cout << "cst " << _cst << std::endl;
+      for(unsigned int i = 0; i <(_mod->_nvar); i++){
+        if( _lnr.first[i] == 0. ) continue;
+        bnd += (_mod->_bndvar[i]) * _lnr.first[i];
+        //std::cout << "coef "<< i << " " <<_lnr.first[i] << std::endl;
+      }
+      _bnd = std::make_pair(bnd,true);
+      return bnd;
+    } 
+    else{
+      if( _bnd.second ) return _bnd.first;
+      _bnd.first = ( _mod? _mod->_B( _lst ): _cst );
+      _bnd.second = true;
+      return _bnd.first;
+    }
+
   }
 
-  T eval
+   T eval
   ( double const* const point )
-  const
+  const  
   {
     assert( point );
     if( !_mod ) return _cst;
-    std::pair<double,double> val( 0.,0. );
-    std::pair<double,double> valSha( 0.,0. );    
-    for( unsigned int i=0; i<_nvar; i++ ){
-      if( _lst[i].empty() ) continue;
-
-      double lb = _lst[i].undEst.eval(point[i]); 
-      double ub = _lst[i].oveEst.eval(point[i]);
-      if(_mod->options.SHADOW_USE){
-        if(_shadow_info[0] > 0)
-          valSha.first  += _shadow[i].undEst.eval(point[i]); 
-        if(_shadow_info[1] > 0)
-          valSha.second += _shadow[i].oveEst.eval(point[i]); 
+    else if(_lnr.second){
+      //std::cout << "This ASVar is linear on its domain" << std::endl;
+      double val = _cst; 
+      for( unsigned int i=0; i<(_mod->_nvar); i++ ){
+        if( _lnr.first[i] == 0. ) continue;
+        val += point[i]*_lnr.first[i]; 
       }
+      return T(val);
+    } 
+    else{    
+      std::pair<double,double> val( 0.,0. );
+      std::pair<double,double> valSha( 0.,0. );    
+      for( unsigned int i=0; i<_nvar; i++ ){
+        if( _lst[i].empty() ) continue;
+  
+        double lb = _lst[i].undEst.eval(point[i]); 
+        double ub = _lst[i].oveEst.eval(point[i]);
+        if(_mod->options.SHADOW_USE){
+          if(_shadow_info[0] > 0)
+            valSha.first  += _shadow[i].undEst.eval(point[i]); 
+          if(_shadow_info[1] > 0)
+            valSha.second += _shadow[i].oveEst.eval(point[i]); 
+        }
       // double l = _lst[i].undEst.lbVar();
       // double u = _lst[i].oveEst.ubVar();
       // if(point[i] < l || point[i] > u){
@@ -3001,27 +3504,27 @@ class ASVar
       //   if (point[i] - u >= _eps || point[i] - l <= -_eps)
       //     assert( point[i] >= l && point[i] <= u );
       // }
-      val.first += lb;
-      val.second += ub;      
-    }  
-    if(!(_mod->options.SHADOW_USE)){
-      _shadow_info[0] = 0;
-      _shadow_info[1] = 0;
-    }
-    double lb = _shadow_info[0] > 0? std::max(val.first, valSha.first): val.first;
-    double ub = _shadow_info[1] > 0? std::min(val.second,valSha.second):val.second;
-    if (ub - lb > 0.)      
-      return T(lb,ub);    
-    else if (lb - ub < 1e2*MC__ASM_COMPUTATION_TOL)
-      return T(ub,lb);
-    else{ 
-      std::cout <<std::setprecision(18)<< "Eval ERROR! ub - lb = " << ub - lb <<  " at ";
-      for( unsigned int i=0; i<_nvar; i++ ){
-        if( _lst[i].empty() ) continue;
-        std::cout << " i: " << point[i];
+        val.first += lb;
+        val.second += ub;      
+      }  
+      if(!(_mod->options.SHADOW_USE)){
+          _shadow_info.resize(3,0);
       }
-      std::cout << std::endl;  
-      throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF );
+      double lb = _shadow_info[0] > 0? std::max(val.first, valSha.first): val.first;
+      double ub = _shadow_info[1] > 0? std::min(val.second,valSha.second):val.second;
+      if (ub - lb > 0.)      
+        return T(lb,ub);    
+      else if (lb - ub < 1e2*MC__ASM_COMPUTATION_TOL)
+        return T(ub,lb);
+      else{ 
+        std::cout <<std::setprecision(18)<< "Eval ERROR! ub - lb = " << ub - lb <<  " at ";
+        for( unsigned int i=0; i<_nvar; i++ ){
+          if( _lst[i].empty() ) continue;
+          std::cout << " i: " << point[i];
+        }
+        std::cout << std::endl;  
+        throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF );
+      }
     }
   }
 
@@ -3029,12 +3532,12 @@ class ASVar
   ( bool toDisplayBoxes = false, const int& opt=0, std::ostream& out=std::cout )
   const
   {
-    if( _mod ){
+    if( _mod && (!_lnr.second) ){
       if (toDisplayBoxes){
         //std::vector<std::vector<T>> mat;
-        if(_mod->options.SHADOW_USE)
-          _mod->_compute_C(_shadow,_ndep);
-        else 
+        //if(_mod->options.SHADOW_USE)
+        //  _mod->_compute_C(_shadow,_ndep);
+        //else 
           _mod->_compute_C(_lst,_ndep);
         _mod->_dispvar( _mod->_COut, _ndep, opt, out );
       }
@@ -3050,6 +3553,14 @@ class ASVar
   void debug_check_overNunder_flags()
   const
   {
+    if(!_mod){ 
+      std::cout << "this ASVar is constant" << std::endl;
+      return ;
+    }
+    else if(_lnr.second){
+      std::cout << "this ASVar is affine" << std::endl;      
+      return ;
+    }
     for( unsigned int i=0; i<_nvar; i++ ){
       if( _lst[i].empty() ) continue;
       std::cout << "active " << i <<std::endl;
@@ -3076,34 +3587,66 @@ template <typename T>
 std::ostream& operator<<
 ( std::ostream& out, ASVar<T> const& var )
 {
-  auto const& lst = var._lst;
-  for( unsigned int i=0; !lst.empty() && i<var._nvar; i++ ){
-    if( lst[i].empty() ) continue;
-    out << std::right << std::setw(5) << "Var No." << i <<": " << std::endl;
-    out << lst[i].undEst << std::endl;
-    out << lst[i].oveEst;
-    // for( unsigned int j=0; j<var._ndiv; j++ ){
-    //   if( j && !(j%3) ) out << std::endl << "       ";
-    //   out << std::setw(0) << mat[i][j];
-    // }
+  
+  // The hierarchical priority:
+  // if(!mod), then only _cst is valid; 
+  // else if(_lnr.second), then only _cst and _lnr are valid; 
+  // else if(!_mod->options.SHADOW_USE), then only _lst and _bnd are valid    
+  if(!var._mod){
+    out << std::right << std::setw(5) << "This ASVar is constant " << var._cst << std::endl;
+  }
+  else if(var._lnr.second){
+    out << std::right << std::setw(5) << "This ASVar is affine : " << std::endl;
+    out << std::right << std::setw(5) << "cst" << std::setw(8);
+    for( unsigned int i=0; i<(var._lnr.first.size()); i++ ){
+      if( var._lnr.first[i] == 0. ) continue;
+      out << "   " << var._mod->bndvar()[i] << "  " << std::setw(8);   
+    }
+    out << std::endl;
+    out << std::right << std::setw(5) << var._cst << std::setw(8);
+    for( unsigned int i=0; i<(var._lnr.first.size()); i++ ){
+      if( var._lnr.first[i] == 0. ) continue;
+      out << " + " << var._lnr.first[i] << " * x_" << i  << std::setw(8);   
+    }
     out << std::endl;
   }
+  else{
+    auto const& lst = var._lst;
+    for( unsigned int i=0; !lst.empty() && i<var._nvar; i++ ){
+      if( lst[i].empty() ) continue;
+      out << std::right << std::setw(5) << "Var No." << i <<": " << std::endl;
+      out << lst[i].undEst << std::endl;
+      out << lst[i].oveEst;
+      // for( unsigned int j=0; j<var._ndiv; j++ ){
+      //   if( j && !(j%3) ) out << std::endl << "       ";
+      //   out << std::setw(0) << mat[i][j];
+      // }
+      out << std::endl;
+    }
 
-  auto const& sha = var._shadow;
-  for( unsigned int i=0; !sha.empty() && i<var._nvar; i++ ){
-    if( sha[i].empty() ) continue;
-    out << std::right << std::setw(5) << "Var No." << i <<": " << std::endl;
-    out << sha[i].undEst << std::endl;
-    out << sha[i].oveEst;
-    // for( unsigned int j=0; j<var._ndiv; j++ ){
-    //   if( j && !(j%3) ) out << std::endl << "       ";
-    //   out << std::setw(0) << mat[i][j];
-    // }
-    out << std::endl;
+    if(var._mod->options.SHADOW_USE){
+      auto const& sha = var._shadow;
+      out << std::right << std::setw(5) << "The shadow estimators: (" << var._shadow_info[0] << ",    " << var._shadow_info[1] << ")" << std::endl;
+      for( unsigned int i=0; !sha.empty() && i<var._nvar; i++ ){
+        if( sha[i].empty() ) continue;
+        out << std::right << std::setw(5) << "Var No." << i <<": " << std::endl;
+        if( var._shadow_info[0] > 0)
+          out << sha[i].undEst << std::endl;
+        if( var._shadow_info[1] > 0)
+          out << sha[i].oveEst;
+        // for( unsigned int j=0; j<var._ndiv; j++ ){
+        //   if( j && !(j%3) ) out << std::endl << "       ";
+        //   out << std::setw(0) << mat[i][j];
+        // }
+        out << std::endl;
+      }
+    }
+    //std::cout << "to compute the bound" << std::endl;
+    out << std::right << std::setw(7) << "B: " << var.B() << std::endl;    
+
   }
   
-  out << std::right << std::setw(7) << "B: " << var.B() << std::endl;    
-  
+
   return out;
 }
 
@@ -3137,27 +3680,32 @@ ASVar<T>& ASVar<T>::operator+=
     _cst += cst;
     return *this;
   }
-  if( !_ndep )
-    throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::INTERN );
-
-  for( unsigned int i=0; i<_nvar; i++ ){
-    if( _lst[i].empty() ) continue;
-    
-    _lst[i] += cst / (double)_ndep;
-    if (_mod->options.SHADOW_USE){
-#ifndef MC__ASMODEL_NOT_DEBUG_SHADOW    
-      std::cout << "SHADOW ADDITION cst" << std::endl;
-#endif
-      if (_shadow_info[0] > 0 ){
-        _shadow[i].undEst += cst / (double)_ndep;
-
-      }
-      if (_shadow_info[1] > 0){
-        _shadow[i].oveEst += cst / (double)_ndep;
-      }
-    }      
+  else if (_lnr.second){
+    _cst += cst;
+    return *this;
   }
-  if( _bnd.second ) _bnd.first += cst;
+  else if( !_ndep )
+    throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::INTERN );
+  else{
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( _lst[i].empty() ) continue;
+      
+      _lst[i] += cst / (double)_ndep;
+      if (_mod->options.SHADOW_USE){
+#ifndef MC__ASMODEL_NOT_DEBUG_SHADOW    
+        std::cout << "SHADOW ADDITION cst" << std::endl;
+#endif
+        if (_shadow_info[0] > 0 ){
+          _shadow[i].undEst += cst / (double)_ndep;
+  
+        }
+        if (_shadow_info[1] > 0){
+          _shadow[i].oveEst += cst / (double)_ndep;
+        }
+      }      
+    }
+    if( _bnd.second ) _bnd.first += cst;
+  }
 
   return *this;
 }
@@ -3171,18 +3719,118 @@ ASVar<T>& ASVar<T>::operator+=
     _cst += var._cst;
     return *this;
   }
-  if( !_mod ){
+  else if( !_mod ){
     const double copy_cst = _cst;
     *this = var;
     *this += copy_cst;
     return *this;
   }
-  if( !var._mod ){
+  else if( !var._mod ){
     *this += var._cst;
     return *this;
   }
-  if( _mod != var._mod )
+  else if( _mod != var._mod )
     throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::MODEL );
+
+  else if (_lnr.second && var._lnr.second){
+    _cst += var._cst;
+    for(unsigned int i = 0; i < (_mod->_nvar); i++)  // _lnr.first.size()  == _mod->_nvar
+      _lnr.first[i] += var._lnr.first[i];
+    return *this;
+  }
+  else if(var._lnr.second){
+    for(unsigned int i = 0; i < _nvar; i++){
+      if(var._lnr.first[i] ==0.) continue; 
+      if (_lst[i].empty()){
+        _lst[i] = UnivarPWL((_mod->_bndvar[i]),var._lnr.first[i]);
+        _ndep ++;
+        if(_mod->options.SHADOW_USE){
+          if (_shadow_info[0] > 0)
+            _shadow[i].undEst = _lst[i].undEst;
+          if (_shadow_info[1] > 0)
+            _shadow[i].oveEst = _lst[i].oveEst;
+        }
+      }
+      else{
+        if(_mod->options.SHADOW_USE){
+          UnivarPWL _temp((_mod->_bndvar[i]),var._lnr.first[i]);
+          _lst[i] += _temp; 
+          if (_shadow_info[0] > 0)
+            _shadow[i].undEst = _temp.undEst;
+          if (_shadow_info[1] > 0)
+            _shadow[i].oveEst = _temp.oveEst;
+        }
+        else{
+          _lst[i] += UnivarPWL((_mod->_bndvar[i]),var._lnr.first[i]);           
+        }
+      }
+    }    
+    if(var._cst != 0){
+      _cst = var._cst/ (double) _ndep;    
+      for(unsigned int i = 0; i < _nvar; i++){
+        if(_lst[i].empty()) continue;
+        _lst[i] += _cst; 
+        if(_mod->options.SHADOW_USE){
+           if (_shadow_info[0] > 0)
+            _shadow[i].undEst += _cst;
+          if (_shadow_info[1] > 0)
+            _shadow[i].oveEst += _cst;         
+        }
+      }    
+    }
+    _bnd.second = false;
+    return *this;
+  }
+  else if(_lnr.second){
+    _ndiv = _mod->_ndiv;
+    _nvar = _mod->_nvar;
+    _lst.resize(_nvar);
+    _ndep = 0;
+    _bnd = std::make_pair(T(_cst),true);
+    for(unsigned int i = 0; i < _nvar; i++){
+      if(_lnr.first[i] ==0.) continue; 
+      _bnd.first += (_mod->_bndvar[i])*_lnr.first[i];   
+      _lst[i] = UnivarPWL((_mod->_bndvar[i]),_lnr.first[i]);  
+      _ndep ++; 
+    }
+    if(_cst != 0){
+      _cst = _cst/ (double) _ndep;    
+      for(unsigned int i = 0; i < _nvar; i++){
+        if(_lnr.first[i] == 0.) continue; 
+        _lst[i] += _cst; 
+      }    
+    }
+    _lnr.second = false;
+    _lnr.first.resize(0);
+    
+    if(_mod->options.SHADOW_USE){
+      _shadow_info.resize(3,0.);
+      _shadow.resize(_nvar);
+      _oveCut = 0;
+      _undCut = 0;
+    }
+  }
+
+
+  // ASVar
+  // ( ASModel<T>* const mod, unsigned int ndx, T const& bnd )
+  // : _mod(mod), _ndiv(mod->_ndiv), _nvar(mod->_nvar), _ndep(1), _lst(_nvar), _bnd(bnd,true),
+  //   _shadow(0),_shadow_info(3,0),_oveCut(Op<T>::u(bnd)),_undCut(Op<T>::l(bnd))
+  // {
+  //   if( ndx >= _nvar )
+  //     throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::INDEX );
+   
+  //   _lst[ndx] = UnivarPWL(bnd);
+  //   //_lst[ndx].debug_check_overNunder_flags();
+  //   _mod->_defvar[ndx] = true;
+  //   _mod->_bndvar[ndx] = bnd;
+
+
+  //   if (_mod->options.SHADOW_USE){
+  //       _shadow.resize(_nvar);    
+  //   }    
+  
+  // } 
 
 
   if (_mod->options.SHADOW_USE){
@@ -3360,6 +4008,13 @@ ASVar<T> operator-
   if( !var2._mod ){
     var2._cst *= -1;
   }
+  else if (var2._lnr.second){
+    var2._cst = -var2._cst;
+    for(unsigned int i = 0; i < (var2._lnr.first.size()); i++)  // _lnr.first.size()  == _mod->_nvar
+      var2._lnr.first[i] = -var2._lnr.first[i];
+  }
+  else if( !var2._ndep )
+    throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::INTERN );
   else{ 
     auto&& lst2 = var2._lst;
     for( unsigned int i=0; i<var2._nvar; i++ ){
@@ -3384,9 +4039,9 @@ ASVar<T> operator-
     if(var2._mod->options.SHADOW_USE){
       std::swap(var2._shadow_info[0],var2._shadow_info[1]);  
     }
-  }  
-  auto&& bnd = var2._bnd;
-  if( bnd.second ) bnd.first *= -1;
+    auto&& bnd = var2._bnd;
+    if( bnd.second ) bnd.first *= -1;
+  }
   
   return var2;
 }
@@ -3404,6 +4059,13 @@ ASVar<T> operator-
   if( !var2._mod ){
     var2._cst *= -1;
   }
+  else if (var2._lnr.second){
+    var2._cst = -var._cst;
+    for(unsigned int i = 0; i < (var2._lnr.first.size()); i++)  // _lnr.first.size()  == _mod->_nvar
+      var2._lnr.first[i] = -var2._lnr.first[i];
+  }
+  else if( !var2._ndep )
+    throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::INTERN );
   else{ 
     auto&& lst2 = var2._lst;
     for( unsigned int i=0; i<var2._nvar; i++ ){
@@ -3427,10 +4089,10 @@ ASVar<T> operator-
     if(var2._mod->options.SHADOW_USE){
       std::swap(var2._shadow_info[0],var2._shadow_info[1]);   
     }  
-  }
+
   auto&& bnd = var2._bnd;
   if( bnd.second ) bnd.first *= -1;
-
+  }
   return var2;
 }
 
@@ -3457,18 +4119,100 @@ ASVar<T>& ASVar<T>::operator-=
     _cst -= var._cst;
     return *this;
   }
-  if( !_mod ){
+  else if( !_mod ){
     const double copy_cst = _cst;
     *this = -var;
     *this += copy_cst;
     return *this;
   }
-  if( !var._mod ){
+  else if( !var._mod ){
     *this -= var._cst;
     return *this;
   }
-  if( _mod != var._mod )
+  else if( _mod != var._mod )
     throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::MODEL );
+  else if (_lnr.second && var._lnr.second){
+    _cst -= var._cst;
+    for(unsigned int i = 0; i < (_mod->_nvar); i++)  // _lnr.first.size()  == _mod->_nvar
+      _lnr.first[i] -= var._lnr.first[i];
+    return *this;
+  }
+  else if(var._lnr.second){
+    for(unsigned int i = 0; i < _nvar; i++){
+      if(var._lnr.first[i] ==0. ) continue;
+      if (_lst[i].empty()){
+        _lst[i] = UnivarPWL((_mod->_bndvar[i]),(-var._lnr.first[i]));
+        _ndep ++;
+        if(_mod->options.SHADOW_USE){
+          if (_shadow_info[0] > 0)
+            _shadow[i].undEst = _lst[i].undEst;
+          if (_shadow_info[1] > 0)
+            _shadow[i].oveEst = _lst[i].oveEst;
+        }
+      }
+      else{
+        if(_mod->options.SHADOW_USE){
+          UnivarPWL _temp((_mod->_bndvar[i]),(-var._lnr.first[i]));
+          _lst[i] += _temp; 
+          if (_shadow_info[0] > 0)
+            _shadow[i].undEst = _temp[i].undEst;
+          if (_shadow_info[1] > 0)
+            _shadow[i].oveEst = _temp[i].oveEst;
+        }
+        else{
+          _lst[i] += UnivarPWL((_mod->_bndvar[i]),(-var._lnr.first[i]));           
+        }
+      }
+    }    
+    if(var._cst != 0){
+      _cst = -var._cst/ (double) _ndep;    
+      for(unsigned int i = 0; i < _nvar; i++){
+        if(_lst[i].empty()) continue;
+        _lst[i] += _cst; 
+        if(_mod->options.SHADOW_USE){
+           if (_shadow_info[0] > 0)
+            _shadow[i].undEst += _cst;
+          if (_shadow_info[1] > 0)
+            _shadow[i].oveEst += _cst;         
+        }
+      }    
+    }
+    _bnd.second = false;
+    return *this;
+  }
+  else if(_lnr.second){
+    _ndiv = _mod->_ndiv;
+    _nvar = _mod->_nvar;
+    _lst.resize(_nvar);
+    _ndep = 0;
+    _bnd = std::make_pair(T(_cst),true);
+    for(unsigned int i = 0; i < _nvar; i++){
+       if(_lnr.first[i] ==0.) continue;
+      _bnd.first += (_mod->_bndvar[i])*_lnr.first[i];   
+      _lst[i] = UnivarPWL((_mod->_bndvar[i]),_lnr.first[i]);
+      _ndep ++; 
+    }
+    if(_cst != 0){
+      _cst = _cst/ (double) _ndep;    
+      for(unsigned int i = 0; i < _nvar ; i++){
+        if(_lnr.first[i] ==0.) continue;
+        _lst[i] += _cst; 
+      }    
+    }
+    _lnr.second = false;
+    _lnr.first.resize(0);
+    
+    if(_mod->options.SHADOW_USE){
+      _shadow_info.resize(3,0.);
+      _shadow.resize(_nvar);
+      _oveCut = 0;
+      _undCut = 0;
+    }
+  }
+  else if( !_ndep )
+    throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::INTERN );
+
+
 
   if(_mod->options.SHADOW_USE){
     std::cout << "operator -= error" << std::endl;
@@ -3627,35 +4371,47 @@ ASVar<T>& ASVar<T>::operator*=
     _cst *= cst;
     return *this;
   }
-  if( !_ndep )
-    throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::INTERN );
-
-  for( unsigned int i=0; i<_nvar; i++ ){
-    if( _lst[i].empty() ) continue;
-    _lst[i] *= cst;
-
-    if (_mod->options.SHADOW_USE){
-#ifndef MC__ASMODEL_NOT_DEBUG_SHADOW    
-      std::cout << "SHADOW MULTIPLY" << std::endl;
-#endif
-      if (_shadow_info[0] > 0 ){
-        _shadow[i].undEst *= cst;
-      }
-      if (_shadow_info[1] > 0){
-        _shadow[i].oveEst *= cst;
-      }
-      if(cst < 0.){
-        std::swap(_shadow[i].undEst,_shadow[i].oveEst);
-      }
-    }  
+  else if (_lnr.second){
+    _cst *= cst;
+    for(unsigned int i = 0; i < (_mod->_nvar); i++)  // _lnr.first.size()  == _mod->_nvar
+      _lnr.first[i] *= cst;
+    return *this;
   }
+  else if( !_ndep )
+    throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::INTERN );
+  else{
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( _lst[i].empty() ) continue;
+//      std::cout << "  before ACT und " << i << _lst[i].undEst << std::endl;
+//      std::cout << "  before ACT ove " << i << _lst[i].oveEst << std::endl;        
+      _lst[i] *= cst;
+      //std::cout << "  after ACT und " << i << _lst[i].undEst << std::endl;
+      //std::cout << "  after ACT ove " << i << _lst[i].oveEst << std::endl;      
+      if (_mod->options.SHADOW_USE){
+#ifndef MC__ASMODEL_NOT_DEBUG_SHADOW    
+        std::cout << "SHADOW MULTIPLY" << std::endl;
+#endif
+        if (_shadow_info[0] > 0 ){
+          _shadow[i].undEst *= cst;
+            //std::cout << "  SHA und " << i << _shadow[i].undEst << std::endl;
+        }
+        if (_shadow_info[1] > 0){
+          _shadow[i].oveEst *= cst;
+//std::cout << "  SHA ove " << i << _shadow[i].oveEst << std::endl;
+        }
+        if(cst < 0.){
+          std::swap(_shadow[i].undEst,_shadow[i].oveEst);
+        }
+      }  
+    }
   
-  if(_mod->options.SHADOW_USE){
-    if(cst < 0.) std::swap(_shadow_info[0],_shadow_info[1]);
-  }  
-
-  if( _bnd.second ) _bnd.first *= cst;
-  return *this;
+    if(_mod->options.SHADOW_USE){
+      if(cst < 0.) std::swap(_shadow_info[0],_shadow_info[1]);
+    }  
+  
+    if( _bnd.second ) _bnd.first *= cst;
+    return *this;
+  }
 }
 
 template <typename T>
@@ -3773,6 +4529,16 @@ ASVar<T>& ASVar<T>::operator/=
 
 template <typename T>
 inline
+ASVar<T>& ASVar<T>::operator/=
+( ASVar<T> const& var )
+{
+   throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF );
+  return *this;
+}
+
+
+template <typename T>
+inline
 ASVar<T> operator/
 ( ASVar<T> const& var1, double const& cst2 )
 {
@@ -3784,18 +4550,44 @@ ASVar<T> operator/
 
 template <typename T>
 inline
+ASVar<T> operator/
+( ASVar<T> const& var1, ASVar<T> const& var2 )
+{
+  throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF );
+  return var1;
+}
+
+
+template <typename T>
+inline
+ASVar<T> operator/
+( double const& cst1, ASVar<T> const& var2 )
+{
+  throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF );
+  return var2;
+}
+
+
+
+template <typename T>
+inline
 ASVar<T> relu
 ( ASVar<T> const& var )
 {
+#ifdef MC__ASM_DEBUG_TRACE  
+  std::cout << " SD relu &" << std::endl;	
+#endif
   if( !var._mod )
     return std::max(var._cst,0.);
   //std::cout << "  relu" << std::endl;
   if(var._mod->options.SHADOW_USE)
   {
+    //std::cout << "in relu" << std::endl;     
     var._mod->_IntmdtCntnrSeted = false;
     T lazyBnd = var.bound();
     if(Op<T>::u(lazyBnd) < MC__ASM_COMPUTATION_TOL){
       ASVar<T> var2( 0. );  // note that the _bnd will be set to (0,false) in the constructor
+      //std::cout << "end relu" << std::endl; 
       return var2;
     }  
 
@@ -3807,6 +4599,34 @@ ASVar<T> relu
   // } 
 
     ASVar<T> var2( var ); 
+    if(var2._lnr.second){
+      var2._ndiv = var2._mod->_ndiv;
+      var2._nvar = var2._mod->_nvar;
+      var2._lst.resize(var2._nvar);
+      var2._ndep = 0;
+      for(unsigned int i = 0; i < var2._nvar; i++){
+        if(var2._lnr.first[i] == 0.) continue;
+        var2._lst[i] = UnivarPWL((var2._mod->_bndvar[i]),var2._lnr.first[i]); 
+        var2._ndep ++; 
+      }
+      if(var2._cst != 0){
+        double __cst = var2._cst/ (double) var2._ndep;    
+        for(unsigned int i = 0; i < var2._nvar; i++){
+          if(var2._lnr.first[i] == 0.) continue;
+          var2._lst[i] += __cst; 
+        }    
+      }
+      var2._lnr.second = false;
+      var2._lnr.first.resize(0);
+    
+      var2._shadow_info.resize(3,0.);
+      var2._shadow.resize(var2._nvar);
+      var2._oveCut = DBL_MAX;
+      var2._undCut = -DBL_MAX;
+    }
+
+
+
 #ifndef MC__ASMODEL_NOT_DEBUG_SHADOW  
     std::cout << " in values " << std::endl;
     // for( unsigned int i=0; i<var._nvar; i++ ){
@@ -3831,6 +4651,10 @@ ASVar<T> relu
     // }  
 #endif
     var2._bnd.second = false;
+//    var2.get_C();
+#ifdef MC__ASM_DEBUG_TRACE 
+   //std::cout << "end relu" << std::endl;
+#endif    
     return var2;
   } 
 
@@ -3845,12 +4669,33 @@ ASVar<T> relu
   
   if(Op<T>::u(lazyBnd) < MC__ASM_COMPUTATION_TOL){
     ASVar<T> var2( 0. );  // note that the _bnd will be set to (0,false) in the constructor
-    var._bnd.second = false;
+    var2._bnd.second = false;
     return var2;
   }  
 
   //std::cout << "  _relu input" << std::endl;
   ASVar<T> var2( var ); 
+    if(var2._lnr.second){
+    var2._ndiv = var2._mod->_ndiv;
+    var2._nvar = var2._mod->_nvar;
+    var2._lst.resize(var2._nvar);
+    var2._ndep = 0;
+    for(unsigned int i = 0; (i < var2._nvar); i++){
+      if(var2._lnr.first[i] == 0. ) continue;
+      var2._lst[i] = UnivarPWL((var2._mod->_bndvar[i]),var2._lnr.first[i]); 
+      var2._ndep ++; 
+    }
+    if(var2._cst != 0){
+      double __cst = var2._cst/ (double) var2._ndep;    
+      for(unsigned int i = 0; i < var2._nvar; i++){
+        if(var2._lnr.first[i] == 0. ) continue;
+        var2._lst[i] += __cst; 
+      }    
+    }
+    var2._lnr.second = false;
+    var2._lnr.first.resize(0);
+  }
+
   var2._mod->_asym_relu( var2._lst,var2._ndep);
   var2._bnd.second = false;
   return var2;
@@ -3863,15 +4708,20 @@ inline
 ASVar<T> relu
 ( ASVar<T> && var )
 {
+#ifdef MC__ASM_DEBUG_TRACE  
+  std::cout << "  SD relu &&" << std::endl;	
+#endif
   if( !var._mod )
     return std::max(var._cst,0.);
-  //std::cout << "  relu" << std::endl;
+
   if (var._mod->options.SHADOW_USE)
   {
+    //std::cout << "in relu" << std::endl;     
     var._mod->_IntmdtCntnrSeted = false;
     T lazyBnd = var.bound();
     if(Op<T>::u(lazyBnd) < MC__ASM_COMPUTATION_TOL){
       ASVar<T> var2( 0. );  // note that the _bnd will be set to (0,false) in the constructor
+      //std::cout << "end relu" << std::endl; 
       return var2;
     }  
 
@@ -3880,6 +4730,32 @@ ASVar<T> relu
     //   var._mod->_IntmdtCntnrSeted = false;
     //   return var;
     // } 
+    
+    if(var._lnr.second){
+      var._ndiv = var._mod->_ndiv;
+      var._nvar = var._mod->_nvar;
+      var._lst.resize(var._nvar);
+      var._ndep = 0;
+      for(unsigned int i = 0; (i < var._nvar && var._lnr.first[i] !=0. ); i++){
+        var._lst[i] = UnivarPWL((var._mod->_bndvar[i]),var._lnr.first[i]); 
+        var._ndep ++; 
+      }
+      if(var._cst != 0){
+        double __cst = var._cst/ (double) var._ndep;    
+        for(unsigned int i = 0; (i < var._nvar && var._lnr.first[i] !=0. ); i++){
+          var._lst[i] += __cst; 
+        }    
+      }
+      var._lnr.second = false;
+      var._lnr.first.resize(0);
+    
+      var._shadow_info.resize(3,0.);
+      var._shadow.resize(var._nvar);
+      var._oveCut = DBL_MAX;
+      var._undCut = -DBL_MAX;
+    }
+
+
 #ifndef MC__ASMODEL_NOT_DEBUG_SHADOW  
     std::cout << " in values " << std::endl;
     // for( unsigned int i=0; i<var._nvar; i++ ){
@@ -3902,9 +4778,12 @@ ASVar<T> relu
     //   if(var._shadow_info[0]>0) std::cout << "shadowU " << i << ": "<< var._shadow[i].undEst << std::endl;
     //   std::cout << "lstU " << i << ": "<< var._lst[i].undEst << std::endl;         
     //}  
-
 #endif
     var._bnd.second = false;
+#ifdef MC__ASM_DEBUG_TRACE 
+   //std::cout << "end relu" << std::endl;
+#endif
+   //var.get_C();    
     return var;
   }
   //var._mod->_IntmdtCntnrSeted = false;
@@ -3922,6 +4801,26 @@ ASVar<T> relu
     return var;
   }  
 
+    if(var._lnr.second){
+    var._ndiv = var._mod->_ndiv;
+    var._nvar = var._mod->_nvar;
+    var._lst.resize(var._nvar);
+    var._ndep = 0;
+    for(unsigned int i = 0; (i < var._nvar && var._lnr.first[i] !=0. ); i++){
+      var._lst[i] = UnivarPWL((var._mod->_bndvar[i]),var._lnr.first[i]); 
+      var._ndep ++; 
+    }
+    if(var._cst != 0){
+      double __cst = var._cst/ (double) var._ndep;    
+      for(unsigned int i = 0; (i < var._nvar && var._lnr.first[i] !=0. ); i++){
+        var._lst[i] += __cst; 
+      }    
+    }
+    var._lnr.second = false;
+    var._lnr.first.resize(0);
+  }
+
+
   //std::cout << "  _relu input" << std::endl;
   var._mod->_asym_relu( var._lst,var._ndep);
   var._bnd.second = false;
@@ -3929,57 +4828,176 @@ ASVar<T> relu
 
 }
 
+template <typename T>
+inline
+ASVar<T>
+max
+( ASVar<T> const& var1, ASVar<T> const& var2 )
+{
+  if( !var1._mod && !var2._mod ) 
+    return std::max( var1._cst, var2._cst );
+  if( !var2._mod ) 
+    return max( var1, var2._cst );
+  if( !var1._mod ) 
+    return max( var2, var1._cst );
+  return max( var1 - var2, 0. ) + var2;
+}
+
+template <typename T>
+inline
+ASVar<T>
+max
+( ASVar<T> const& var1, double const& cst2 )
+{
+  //std::cout<< "max" << std::endl;
+  if(isequal(cst2,0.)){
+    return relu(var1);
+  }  
+
+  if( !var1._mod ) 
+    return std::max( var1._cst, cst2 );
+  //std::cout << "exec max:" << cst2 <<std::endl;
+
+
+/*  T lazyBnd = var1.bound();
+  
+  if(Op<T>::l(lazyBnd)> cst2){
+    ASVar<T> var2( var1 );
+    var2._bnd.second = false;
+    return var2;
+  } 
+  
+  if(Op<T>::u(lazyBnd) < cst2){
+    ASVar<T> var2( cst2 );
+    return var2;
+  }  
+
+
+  ASVar<T> var2( var1 );
+  auto const& f = [=]( const double& x ){return std::max( x, cst2 ); };//Op<T>::max( x, cst2 ); }; // why not  return std::max( x, cst2 ); };
+  if (var2._mod->options.SLOPE_USE ){ 
+    auto const& fDerv = [=]( const double& x ){ return x > cst2? 1.: 0.; };  
+    var2._mod->_asym_slope( var2._mat, var2._slope, var2._mod->_psize, var2._ndep, f,fDerv, -DBL_MAX, true );
+    var2._bnd.second = false;
+    return var2;
+  }           
+  var2._mod->_asym( var2._mat, var2._ndep, f, cst2, true ); // convex term, min cst2
+  var2._bnd.second = false;
+  return var2;
+*/
+  throw typename mc::ASModel<T>::Exceptions( mc::ASModel<T>::Exceptions::UNDEF );
+  return var1;
+}
+
+template <typename T>
+inline
+ASVar<T>
+max
+( ASVar<T> && var1, double const& cst2 )
+{
+  //std::cout<< "max" << std::endl;
+
+  if(isequal(cst2,0.)){
+    return relu(std::move(var1));
+  }
+
+  if( !var1._mod ) 
+    return std::max( var1._cst, cst2 );
+
+/*  T lazyBnd = var1.bound();
+  
+  if(Op<T>::l(lazyBnd)> cst2){
+    var1._bnd.second = false;
+    return var1;
+  } 
+  
+  if(Op<T>::u(lazyBnd) < cst2){
+    var1 = cst2;
+    return var1;
+  }  
+
+  auto const& f = [=]( const double& x ){ return std::max( x, cst2 ); };
+  if (var1._mod->options.SLOPE_USE){
+    auto const& fDerv = [=]( const double& x ){ return x > cst2? 1.: 0.; }; 
+    var1._mod->_asym_slope( var1._mat, var1._slope, var1._mod->_psize, var1._ndep, f,fDerv, -DBL_MAX, true );
+    var1._bnd.second = false;
+    return var1;
+  }  
+  var1._mod->_asym( var1._mat, var1._ndep, f, cst2, true ); // convex term, min cst2
+  var1._bnd.second = false;
+  return var1;
+*/
+  throw typename mc::ASModel<T>::Exceptions( mc::ASModel<T>::Exceptions::UNDEF );
+  return var1;
+}
+
+template <typename T>
+inline
+ASVar<T>
+max
+( double const& cst1, ASVar<T> const& var2 )
+{
+  return max( var2, cst1 );
+}
+
+template <typename T>
+inline
+ASVar<T>
+max
+( double const& cst1, ASVar<T> && var2 )
+{
+  return max( var2, cst1 );
+}
 
 
 
 }//namespace mc
+#include "mcfadbad.hpp"
 
-// #include "mcfadbad.hpp"
+namespace fadbad
+{
 
-// namespace fadbad
-// {
+//! @brief Specialization of the structure fadbad::Op for use of the type mc::ASVar of MC++ as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
+template< typename T > struct Op< mc::ASVar<T> >
+{ 
+  typedef mc::ASVar<T> ASV;
+  typedef double Base;
+  static Base myInteger( const int i ) { return Base(i); }
+  static Base myZero() { return myInteger(0); }
+  static Base myOne() { return myInteger(1);}
+  static Base myTwo() { return myInteger(2); }
+  static double myPI() { return mc::PI; }
+  static ASV myPos( const ASV& x ) { return  x; }
+  static ASV myNeg( const ASV& x ) { return -x; }
+  template <typename U> static ASV& myCadd( ASV& x, const U& y ) { return x+=y; }
+  template <typename U> static ASV& myCsub( ASV& x, const U& y ) { return x-=y; }
+  template <typename U> static ASV& myCmul( ASV& x, const U& y ) { return x*=y; }
+  template <typename U> static ASV& myCdiv( ASV& x, const U& y ) { return x/=y; }
+  static ASV myInv( const ASV& x ) { return mc::inv( x ); }
+  static ASV mySqr( const ASV& x ) { return mc::sqr( x ); }
+  template <typename X, typename Y> static ASV myPow( const X& x, const Y& y ) { return mc::pow( x, y ); }
+  //static ASV myCheb( const ASV& x, const unsigned n ) { return mc::cheb( x, n ); }
+  static ASV mySqrt( const ASV& x ) { return mc::sqrt(x); }
+  static ASV myLog( const ASV& x ) { return mc::log( x ); }
+  static ASV myExp( const ASV& x ) { return mc::exp( x ); }
+  static ASV mySin( const ASV& x ) { return mc::sin( x ); }
+  static ASV myCos( const ASV& x ) { return mc::cos( x ); }
+  static ASV myTan( const ASV& x ) { throw typename mc::ASModel<T>::Exceptions( mc::ASModel<T>::Exceptions::UNDEF ); } //{ return mc::tan( x ); }
+  static ASV myAsin( const ASV& x ) { throw typename mc::ASModel<T>::Exceptions( mc::ASModel<T>::Exceptions::UNDEF ); }
+  static ASV myAcos( const ASV& x ) { throw typename mc::ASModel<T>::Exceptions( mc::ASModel<T>::Exceptions::UNDEF ); }
+  static ASV myAtan( const ASV& x ) { throw typename mc::ASModel<T>::Exceptions( mc::ASModel<T>::Exceptions::UNDEF ); }
+  static ASV mySinh( const ASV& x ) { throw typename mc::ASModel<T>::Exceptions( mc::ASModel<T>::Exceptions::UNDEF ); }
+  static ASV myCosh( const ASV& x ) { throw typename mc::ASModel<T>::Exceptions( mc::ASModel<T>::Exceptions::UNDEF ); }
+  static ASV myTanh( const ASV& x ) { throw typename mc::ASModel<T>::Exceptions( mc::ASModel<T>::Exceptions::UNDEF ); }
+  static bool myEq( const ASV& x, const ASV& y ) { return mc::Op<T>::eq(const_cast<ASV*>(&x)->bound(),const_cast<ASV*>(&y)->bound()); } 
+  static bool myNe( const ASV& x, const ASV& y ) { return mc::Op<T>::ne(const_cast<ASV*>(&x)->bound(),const_cast<ASV*>(&y)->bound()); }
+  static bool myLt( const ASV& x, const ASV& y ) { return mc::Op<T>::lt(const_cast<ASV*>(&x)->bound(),const_cast<ASV*>(&y)->bound()); }
+  static bool myLe( const ASV& x, const ASV& y ) { return mc::Op<T>::le(const_cast<ASV*>(&x)->bound(),const_cast<ASV*>(&y)->bound()); }
+  static bool myGt( const ASV& x, const ASV& y ) { return mc::Op<T>::gt(const_cast<ASV*>(&x)->bound(),const_cast<ASV*>(&y)->bound()); }
+  static bool myGe( const ASV& x, const ASV& y ) { return mc::Op<T>::ge(const_cast<ASV*>(&x)->bound(),const_cast<ASV*>(&y)->bound()); }
+};
 
-// //! @brief Specialization of the structure fadbad::Op for use of the type mc::ASVar of MC++ as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
-// template< typename T > struct Op< mc::ASVar<T> >
-// { 
-//   typedef mc::ASVar<T> ASV;
-//   typedef double Base;
-//   static Base myInteger( const int i ) { return Base(i); }
-//   static Base myZero() { return myInteger(0); }
-//   static Base myOne() { return myInteger(1);}
-//   static Base myTwo() { return myInteger(2); }
-//   static double myPI() { return mc::PI; }
-//   static ASV myPos( const ASV& x ) { return  x; }
-//   static ASV myNeg( const ASV& x ) { return -x; }
-//   template <typename U> static ASV& myCadd( ASV& x, const U& y ) { return x+=y; }
-//   template <typename U> static ASV& myCsub( ASV& x, const U& y ) { return x-=y; }
-//   template <typename U> static ASV& myCmul( ASV& x, const U& y ) { return x*=y; }
-//   template <typename U> static ASV& myCdiv( ASV& x, const U& y ) { return x/=y; }
-//   static ASV myInv( const ASV& x ) { return mc::inv( x ); }
-//   static ASV mySqr( const ASV& x ) { return mc::sqr( x ); }
-//   template <typename X, typename Y> static ASV myPow( const X& x, const Y& y ) { return mc::pow( x, y ); }
-//   //static ASV myCheb( const ASV& x, const unsigned n ) { return mc::cheb( x, n ); }
-//   static ASV mySqrt( const ASV& x ) { return mc::sqrt(x); }
-//   static ASV myLog( const ASV& x ) { return mc::log( x ); }
-//   static ASV myExp( const ASV& x ) { return mc::exp( x ); }
-//   static ASV mySin( const ASV& x ) { return mc::sin( x ); }
-//   static ASV myCos( const ASV& x ) { return mc::cos( x ); }
-//   static ASV myTan( const ASV& x ) { throw typename mc::ASModel<T>::Exceptions( mc::ASModel<T>::Exceptions::UNDEF ); } //{ return mc::tan( x ); }
-//   static ASV myAsin( const ASV& x ) { throw typename mc::ASModel<T>::Exceptions( mc::ASModel<T>::Exceptions::UNDEF ); }
-//   static ASV myAcos( const ASV& x ) { throw typename mc::ASModel<T>::Exceptions( mc::ASModel<T>::Exceptions::UNDEF ); }
-//   static ASV myAtan( const ASV& x ) { throw typename mc::ASModel<T>::Exceptions( mc::ASModel<T>::Exceptions::UNDEF ); }
-//   static ASV mySinh( const ASV& x ) { throw typename mc::ASModel<T>::Exceptions( mc::ASModel<T>::Exceptions::UNDEF ); }
-//   static ASV myCosh( const ASV& x ) { throw typename mc::ASModel<T>::Exceptions( mc::ASModel<T>::Exceptions::UNDEF ); }
-//   static ASV myTanh( const ASV& x ) { throw typename mc::ASModel<T>::Exceptions( mc::ASModel<T>::Exceptions::UNDEF ); }
-//   static bool myEq( const ASV& x, const ASV& y ) { return mc::Op<T>::eq(const_cast<ASV*>(&x)->bound(),const_cast<ASV*>(&y)->bound()); } 
-//   static bool myNe( const ASV& x, const ASV& y ) { return mc::Op<T>::ne(const_cast<ASV*>(&x)->bound(),const_cast<ASV*>(&y)->bound()); }
-//   static bool myLt( const ASV& x, const ASV& y ) { return mc::Op<T>::lt(const_cast<ASV*>(&x)->bound(),const_cast<ASV*>(&y)->bound()); }
-//   static bool myLe( const ASV& x, const ASV& y ) { return mc::Op<T>::le(const_cast<ASV*>(&x)->bound(),const_cast<ASV*>(&y)->bound()); }
-//   static bool myGt( const ASV& x, const ASV& y ) { return mc::Op<T>::gt(const_cast<ASV*>(&x)->bound(),const_cast<ASV*>(&y)->bound()); }
-//   static bool myGe( const ASV& x, const ASV& y ) { return mc::Op<T>::ge(const_cast<ASV*>(&x)->bound(),const_cast<ASV*>(&y)->bound()); }
-// };
-
-// } // end namespace fadbad
+} // end namespace fadbad
 
 namespace mc
 {
@@ -3989,46 +5007,48 @@ template< typename T > struct Op< mc::ASVar<T> >
 {
   typedef mc::ASVar<T> ASV;
   static ASV point( const double c ) { return ASV(c); }
-  //static ASV zeroone() { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); } //{ return ASV( mc::Op<T>::zeroone() ); }
-  //static void I(ASV& x, const ASV&y) { x = y; }
+  static ASV zeroone() { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); } //{ return ASV( mc::Op<T>::zeroone() ); }
+  static void I(ASV& x, const ASV&y) { x = y; }
   static double l(const ASV& x) { return mc::Op<T>::l(x.B()); }
   static double u(const ASV& x) { return mc::Op<T>::u(x.B()); }
   static double abs (const ASV& x) { return mc::Op<T>::abs(x.B());  }
   static double mid (const ASV& x) { return mc::Op<T>::mid(x.B());  }
   static double diam(const ASV& x) { return mc::Op<T>::diam(x.B()); }
   //static ASV intsct(const ASV& x, double l, double u) {return mc::intersect(x,T(l,u));}
-  //static ASV inv (const ASV& x) { return mc::inv(x);  }
-  //static ASV sqr (const ASV& x) { return mc::sqr(x);  }
-  //static ASV sqrt(const ASV& x) { return mc::sqrt(x); }
-  //static ASV exp (const ASV& x) { return mc::exp(x);  }
-  //static ASV log (const ASV& x) { return mc::log(x);  }
-  //static ASV xlog(const ASV& x) { return mc::xlog(x); }
-  //static ASV lmtd(const ASV& x, const ASV& y) { return (x-y)/(mc::log(x)-mc::log(y)); }
-  //static ASV rlmtd(const ASV& x, const ASV& y) { return (mc::log(x)-mc::log(y))/(x-y); }
-  //static ASV fabs(const ASV& x) { return mc::fabs(x); }
-  //static ASV sin (const ASV& x) { return mc::sin(x);  }
-  //static ASV cos (const ASV& x) { return mc::cos(x);  }
-  //static ASV tan (const ASV& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); } //{ return mc::tan(x);  }
-  //static ASV asin(const ASV& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); }
-  //static ASV acos(const ASV& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); }
-  //static ASV atan(const ASV& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); }
-  //static ASV sinh(const ASV& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); }
-  //static ASV cosh(const ASV& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); }
-  //static ASV tanh(const ASV& x) { return mc::tanh(x); } //{ ASV y(std::move(x)); return mc::tanh(std::move(y));} //{ ASV y(std::move(x)); return mc::tanh(std::move(y));} // { return mc::tanh(x); } //
-  //static ASV tanh(ASV&& x) { return mc::tanh(std::forward<ASV>(x)); } //{ ASV y(std::move(x)); return mc::tanh(std::move(y));} //{ ASV y(std::move(x)); return mc::tanh(std::move(y));} // { return mc::tanh(x); } //
-  //static ASV erf (const ASV& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); }
-  //static ASV erfc(const ASV& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); }
-  //static ASV fstep(const ASV& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); }
-  //static ASV bstep(const ASV& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); }
-  //static ASV hull(const ASV& x, const ASV& y) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); } //{ return mc::hull(x,y); }
+  static ASV inv (const ASV& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF );  }
+  static ASV sqr (const ASV& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF );  }
+  static ASV sqrt(const ASV& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF );}
+  static ASV exp (const ASV& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF );  }
+  static ASV log (const ASV& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF );  }
+  static ASV xlog(const ASV& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); }
+  static ASV lmtd(const ASV& x, const ASV& y) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); }
+  static ASV rlmtd(const ASV& x, const ASV& y) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); }
+  static ASV fabs(const ASV& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); }
+  static ASV sin (const ASV& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF );  }
+  static ASV cos (const ASV& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF );  }
+  static ASV tan (const ASV& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); } //{ return mc::tan(x);  }
+  static ASV asin(const ASV& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); }
+  static ASV acos(const ASV& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); }
+  static ASV atan(const ASV& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); }
+  static ASV sinh(const ASV& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); }
+  static ASV cosh(const ASV& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); }
+  static ASV tanh(const ASV& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); } //{ ASV y(std::move(x)); return mc::tanh(std::move(y));} //{ ASV y(std::move(x)); return mc::tanh(std::move(y));} // { return mc::tanh(x); } //
+  static ASV tanh(ASV&& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); } //{ ASV y(std::move(x)); return mc::tanh(std::move(y));} //{ ASV y(std::move(x)); return mc::tanh(std::move(y));} // { return mc::tanh(x); } //
+  static ASV erf (const ASV& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); }
+  static ASV erfc(const ASV& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); }
+  static ASV fstep(const ASV& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); }
+  static ASV bstep(const ASV& x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); }
+  static ASV hull(const ASV& x, const ASV& y) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); } //{ return mc::hull(x,y); }
 
-  //static ASV min (const ASV& x, const ASV& y) { return mc::min(x,y); }
-  //static ASV max (const ASV& x, const ASV& y) { return mc::max(x,y); }
-  //static ASV arh (const ASV& x, const double k) { return mc::exp(-k/x); }
-  //template <typename X, typename Y> static ASV pow(const X& x, const Y& y) { return mc::pow(x,y); }
-  //static ASV cheb(const ASV& x, const unsigned n) { return mc::cheb(x,n); }
-  //static ASV prod (const unsigned n, const ASV* x) { return mc::prod(n,x); }
-  //static ASV monom (const unsigned n, const ASV* x, const unsigned* k) { return mc::monom(n,x,k); }
+  static ASV min (const ASV& x, const ASV& y) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); }
+  //static ASV max (const ASV& x, const double & y) { std::cout << "in a func" << std::endl;y == 0.?mc::relu(x):throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); }  
+  //static ASV max (const ASV& x, const ASV& y) {  std::cout << "in b func" << std::endl; throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); }
+  static ASV max (const ASV& x, const ASV& y) {  return mc::max(x,y); }
+  static ASV arh (const ASV& x, const double k) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); }
+  template <typename X, typename Y> static ASV pow(const X& x, const Y& y) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); }
+  static ASV cheb(const ASV& x, const unsigned n) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); }
+  static ASV prod (const unsigned n, const ASV* x) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); }
+  static ASV monom (const unsigned n, const ASV* x, const unsigned* k) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); }
   static bool inter(ASV& xIy, const ASV& x, const ASV& y) { throw typename ASModel<T>::Exceptions( ASModel<T>::Exceptions::UNDEF ); } //{ return mc::inter(xIy,x,y); }
   static bool eq(const ASV& x, const ASV& y) { return mc::Op<T>::eq(x.B(),y.B()); }
   static bool ne(const ASV& x, const ASV& y) { return mc::Op<T>::ne(x.B(),y.B()); }
