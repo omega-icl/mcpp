@@ -5,9 +5,10 @@
 // To test the numerical-issue fixer
 //#define MC__UPWLE_COMPUTATION_TOL  1e-3
 //#define MC__UPWLE_SMOOTH_TOL 1e-10  
-#define MC__UPWLE_COMPUTATION_TOL  1e-13
-#define MC__UPWLE_SMOOTH_TOL 1e-10
+#define MC__UPWLE_COMPUTATION_TOL  1e-14
+#define MC__UPWLE_SMOOTH_TOL 1e-13
 //#define MC__UPWLE_DEBUG
+//#define MC__UPWLE_DEBUG_TRACE
 /*!
 \page page_UModels Univariate Estimator Model Arithmetic for Univariate Factorable Functions
 \author Yanlin Zha, Beno&icirc;t Chachuat
@@ -120,7 +121,7 @@ Further exceptions may be thrown by the template class itself.
 
 #ifndef MC__UNIVARODELS_HPP
 #define MC__UNIVARODELS_HPP
-
+#include <fstream>
 #include <iostream>
 #include <iomanip> 
 #include <vector>
@@ -134,7 +135,7 @@ Further exceptions may be thrown by the template class itself.
 #include "mcop.hpp"
 #include "mcfunc.hpp"
 
-//#define MC__UNIVARODELS_TRACE
+//#define MC__UPWLE_DEBUG_TRACE
 #undef  MC__UNIVARODELS_DEBUG_PROD
 
 namespace mc
@@ -145,6 +146,24 @@ namespace mc
 //! estimators (UPWLE) through (univariate) factorable functions. The template  
 //! parameter corresponds to the type used to propagate the breakpoints of UPWLEs.
 ////////////////////////////////////////////////////////////////////////
+
+#ifdef MC__ASM_DEBUG_LOGGING
+std::ofstream MC__ASM_DEBUG_LOGGER;
+bool asm_write_log(const std::string& log_str) {
+  MC__ASM_DEBUG_LOGGER.open("MC__ASM_DEBUG_LOGGER.txt", std::ios::app); 
+  if (!MC__ASM_DEBUG_LOGGER.is_open()){
+    std::cerr << "Open log file failed! in writing " << log_str << std::endl;
+    return false;
+  }
+  MC__ASM_DEBUG_LOGGER << log_str;
+  MC__ASM_DEBUG_LOGGER.close();
+  return true;
+}
+#ifdef MC__ASM_DEBUG_EVAL_LOGGING
+  std::ofstream MC__ASM_EVAL_LOGGER_N;  
+#endif
+#endif
+
 template <typename T> 
 class UnivarPWLE 
 { //typedef std::pair<std::vector<double>,std::vector<double>> PWL;
@@ -1095,6 +1114,61 @@ class UnivarPWLE
   }
 
 
+#ifdef MC__ASM_DEBUG_EVAL_LOGGING
+  void write2log
+  ( std::ostream& out)
+  const 
+  {
+  
+    out << std::scientific << std::setprecision(14);
+    if(first.empty()){
+      // out << std::setw(24) << _cst << std::endl; 
+      // out << std::setw(24) << _cst << std::endl; 
+      out << _cst << std::endl; 
+      out << _cst << std::endl;           
+      return ;
+    }
+    if(second.size() == 1){
+      // out << std::setw(24) << first[0]  << std::setw(24) << first[1] << std::endl;   
+      // out << std::setw(24) << second[0] << std::endl; 
+      out << first[0]  << "," << first[1] << std::endl;   
+      out << second[0] << std::endl; 
+      return ;
+    }
+    if(second.size() == 2){
+      // out << std::setw(24) << first[0]  << std::setw(24) << first[1] << std::endl;   
+      // out << std::setw(24) << second[0] << std::setw(24) << second[1]<< std::endl;   
+      out << first[0]  << "," << first[1] << std::endl;      
+      out << second[0]  << "," << second[1] << std::endl;      
+      return ;
+    }  
+
+    auto&& x = first;
+    auto&& y = second;
+  
+  
+    out << std::right;
+    for( unsigned int i=1; i< first.size()-1; i++ ){
+      // out << std::setw(24) << x[0] + x[i];
+      out << x[0] + x[i] << ",";
+    }
+    out << x[0] + x.back() <<std::endl;
+
+    out << std::right;
+    for( unsigned int i=1; i< second.size()-1; i++ ){
+      // out << std::setw(24) << y[0] + y[i];
+      out << y[0] + y[i] << ",";
+    }
+    out << y[0] + y.back() <<std::endl; 
+  
+  // //  var._B(true,true);
+  //   out << std::endl;
+  //   out << std::right << std::setw(5) << "[LB, UB]: " << "[" <<
+  //   var.get_lb() << ", " << var.get_ub() << "]" << std::endl;    
+    return ;
+  }
+#endif
+
   void check_fwdDiff(){ // this function is for debug.
     if(!isLinear()){
       for(unsigned int i = 0; i < _xFwdDiff.first.size(); i++){
@@ -1614,7 +1688,8 @@ std::ostream& operator<<
   out << std::right << std::setw(5) <<"y: ";
   for( unsigned int i=1; !var.first.empty() && i<var.second.size(); i++ ){
     if( (i-1) && !((i-1)%10)) out << std::endl << "      ";
-    out << std::setw(6) << std::setprecision(4) << y[0] + y[i]<< ",  ";
+//    out << std::setw(6) << std::setprecision(4) << y[0] + y[i]<< ",  ";
+    out << std::setw(6) << y[0] + y[i]<< ",  ";
   }
   out << std::endl;
 
@@ -1731,7 +1806,7 @@ void UnivarPWLE<T>::_condense_by_relax
 (const unsigned int k)
 {
 
-//  std::cout <<  "in condense" << std::endl;
+  //std::cout <<  "        in condense" << std::endl;
   // k is nbpsMax 
   std::vector<T> & xori = first;
   std::vector<T> & yori = second;
@@ -1809,7 +1884,7 @@ void UnivarPWLE<T>::_condense_by_relax
     // std::cout << "areaLoss len" << areaLoss.size() << std::endl;
     // std::cout << "aMin1 " << areaLoss[1].first << " at " << areaLoss[1].second << std::endl;
     if (_isUnder){
-      while (vtx2addY[aMin.second] + 5e-14 < yMinOrMax){
+      while (vtx2addY[aMin.second] + 1e-14 < yMinOrMax){
         areaLoss[0].first = DBL_MAX;
         _modify_heap(areaLoss,0,hind);
       
@@ -1822,13 +1897,13 @@ void UnivarPWLE<T>::_condense_by_relax
       }
     }
     else{
-      while (vtx2addY[aMin.second] - 5e-14 > yMinOrMax){
+      while (vtx2addY[aMin.second] - 1e-14 > yMinOrMax){
         areaLoss[0].first = DBL_MAX;
         _modify_heap(areaLoss,0,hind);
         //aMin = areaLoss[0]; // as the reference binds to that, we do not need assignment
       }       
     }    
-
+    //std::cout <<  "            aMin.second " << aMin.second << " with " << std::scientific << std::setprecision(14) << aMin.first << std::endl;    
     // updating the indexes so that we can skip the second element in the window, and 
     //   update the third one with the computed one
     // std::cout << "update the third one with the computed one" << std::endl;
@@ -1940,20 +2015,20 @@ void UnivarPWLE<T>::_condense_by_relax
       // aMin = areaLoss[0]; // as the reference binds to that, we do not need assignment, heappop(areaLoss,hind) in python
 
       if (_isUnder){
-        while (vtx2addY[aMin.second] + 5e-14 < yMinOrMax){
+        while (vtx2addY[aMin.second] + 1e-14 < yMinOrMax){
             areaLoss[0].first = DBL_MAX;
             _modify_heap(areaLoss,0,hind);
             //aMin = areaLoss[0];  // as the reference binds to that, we do not need assignment
         }
       }
       else{
-        while (vtx2addY[aMin.second] - 5e-14> yMinOrMax){
+        while (vtx2addY[aMin.second] - 1e-14 > yMinOrMax){
             areaLoss[0].first = DBL_MAX;
             _modify_heap(areaLoss,0,hind);
             //aMin = areaLoss[0];  // as the reference binds to that, we do not need assignment
         }           
       }
-
+      //std::cout <<  "              aMin.second " << aMin.second << " with " << std::scientific << std::setprecision(14) << aMin.first << std::endl;
       pos = aMin.second;
       id_1 = nxtInd[aMin.second];
       id   = nxtInd[id_1];
@@ -2326,6 +2401,10 @@ void UnivarPWLE<T>::_add_and_altMerge
 ( const std::vector<T> & xIn, const std::vector<T> & yIn, 
   std::pair<std::vector<T>,bool> xInFwdDiff, std::pair<std::vector<T>,bool> yInFwdDiff)
 {
+
+#ifdef MC__UPWLE_DEBUG_TRACE
+  std::cout <<"      in altMerge " << std::endl;
+#endif  
   const unsigned int nBptPwl1 = second.size();
   const unsigned int nBptPwl2 = yIn.size();
 //  const unsigned int offset = 1;      // the number of reserved elements, and the index of the first breakpoint
@@ -2577,10 +2656,25 @@ void UnivarPWLE<T>::_add_and_altMerge
                       // nbpsAdded == 1 if and only if the resultant estimator is constant whose
                       // inner points are filtered in _iterative_smoothening_yFilter
     //std::cout << "nbpsAdded: " << nbpsAdded << std::endl;
+#ifdef MC__UPWLE_DEBUG_TRACE
+  std::cout <<"        nbpsAdded = " << nbpsAdded << " >= 1" << std::endl;
+  std::cout <<"        xOut.size() " << xOut.size() << std::endl;  
+  std::cout <<"        yOut.size() " << yOut.size() << std::endl;    
+#endif         
     yOut[0] += yOut[1];
     yOut.resize(1);
-    first.swap(xOut);
-    second.swap(yOut);    
+    second.swap(yOut);      
+    // xOut[1] += xOut[0];    
+    // xOut[0] += xOut[2];
+    // std::swap(xOut)
+    // xOut.resize(2);
+    // first.swap(xOut); 
+    first[0] =  xOut[0] + xOut[1];
+    first[1] =  xOut[0] + xOut[2];   
+    first.resize(2); 
+#ifdef MC__UPWLE_DEBUG_TRACE
+  std::cout <<"      out altMerge 1" << std::endl;
+#endif     
     return ;   
   }
   //else if( nbpsAdded <= _nbps + 1){    // _nbps is the number of inner points inside the interval-bnd of the var, nbpsAdded includes the right endpoint
@@ -2594,7 +2688,9 @@ void UnivarPWLE<T>::_add_and_altMerge
   _xFwdDiff.first.resize(0);
   _xFwdDiff.second = false;   
 
-  
+#ifdef MC__UPWLE_DEBUG_TRACE
+  std::cout <<"      out altMerge 2" << std::endl;
+#endif    
   // if(second.size() > nbpsMax){
   //   _yFwdDiff.swap(yFwdDiff);
   //   for(unsigned j = 1; j < xOut.size() - 1 ; j++){
@@ -3042,10 +3138,11 @@ inline
 UnivarPWLE<T>& UnivarPWLE<T>::operator+=
 ( UnivarPWLE<T> const& var )
 {
-  #ifdef MC__UPWLE_DEBUG_TRACE  
-  //std::cout << "***********************" << std::endl;
-  //std::cout << "under? " << _isUnder  << std::endl;
-  //std::cout << "***********************" << std::endl; 
+#ifdef MC__UPWLE_DEBUG_TRACE  
+  std::cout << "***********************" << std::endl;
+  std::cout << "in PWLE += var "  << std::endl;
+  std::cout << (_isUnder?"    under ":"    over ") << std::endl;
+  std::cout << "***********************" << std::endl; 
 #endif
 
   // process the constant case
@@ -3066,15 +3163,18 @@ UnivarPWLE<T>& UnivarPWLE<T>::operator+=
 
   // if both !first.empty() and !var.first.empty(), then _isUnder should be initialized
   if( _isUnder != var._isUnder ){
-     std::cout << "Addition cannot be performed between an over- and an under-estimator" << std::endl;
+     std::cout << " Addition cannot be performed between an over- and an under-estimator" << std::endl;
      throw typename UnivarPWLE<T>::Exceptions( UnivarPWLE<T>::Exceptions::ESTMATCH );
   }
 
-#ifdef MC__UPWLE_DEBUG_TRACE     
+
+
+#ifdef MC__UPWLE_DEBUG_TRACE  
+  std::cout << "    non-constant case "  << std::endl;
   if(var.first.size()>2){    
-    std::cout << "var first "  << var.first.size() << std::endl;    
+    std::cout << "    var first size "  << var.first.size() << std::endl;    
     for(unsigned int jj = 1; jj < var.first.size(); jj++){
-      std::cout << "jj = " << jj << "  "<< var.first[jj] + var.first[0]<< "  ";     
+      std::cout << "    jj = " << jj << "  "<< var.first[jj] + var.first[0]<< "  ";     
     }
     std::cout << std::endl;
 #ifdef MC__UPWLE_DEBUG
@@ -3082,15 +3182,15 @@ UnivarPWLE<T>& UnivarPWLE<T>::operator+=
 #endif
   }
   else if(var.first.size()==2){
-    std::cout << "var first "  << var.first.size() << std::endl;    
+    std::cout << "    var first size "  << var.first.size() << std::endl;    
     for(unsigned int jj = 0; jj < var.first.size(); jj++){
-      std::cout << "jj = " << jj << "  "<< var.first[jj] << "  ";     
+      std::cout << "    jj = " << jj << "  "<< var.first[jj] << "  ";     
     }
     std::cout << std::endl;    
 
-     std::cout << "first "  << first.size() << std::endl;    
+    std::cout << "    first size"  << first.size() << std::endl;    
     for(unsigned int jj = 0; jj < first.size(); jj++){
-      std::cout << "jj = " << jj << "  "<< first[jj] << "  ";     
+      std::cout << "    jj = " << jj << "  "<< first[jj] << "  ";     
     }
     std::cout << std::endl;    
 #ifdef MC__UPWLE_DEBUG
@@ -3098,9 +3198,8 @@ UnivarPWLE<T>& UnivarPWLE<T>::operator+=
 #endif
   }
   else{
-
-    std::cout << var.first[0] << std::endl;
 #ifdef MC__UPWLE_DEBUG
+    std::cout << var.first[0] << std::endl;
     assert(false);
 #endif
   }
@@ -3134,12 +3233,15 @@ UnivarPWLE<T>& UnivarPWLE<T>::operator+=
 #endif
   }
   else{
-    std::cout << first[0] << std::endl;
+    
 #ifdef MC__UPWLE_DEBUG
+    std::cout << first[0] << std::endl;
     assert(false);
 #endif
   }
 #endif
+
+
 
   if(var.second.size() == 1){
     *this += std::make_pair(var.second[0],var.second[0]);
@@ -3168,13 +3270,20 @@ UnivarPWLE<T>& UnivarPWLE<T>::operator+=
   assert(var.second.size() != 3);
 #endif
 
+#ifdef MC__UPWLE_DEBUG_TRACE
+  std::cout <<"    before altMerge " << std::endl;
+  std::cout <<"    first.size() " << first.size() << std::endl;
+  std::cout <<"    second.size() " << second.size() << std::endl;  
+  std::cout <<"    var first.size() " << var.first.size() << std::endl;
+  std::cout <<"    var second.size() " << var.second.size() << std::endl;  
+#endif
+
   _add_and_altMerge(var.first,var.second,var._xFwdDiff,var._yFwdDiff);
 
 #ifdef MC__UPWLE_DEBUG_TRACE
-  std::cout <<"first.size() " << first.size() << std::endl;
-  std::cout <<"second.size() " << second.size() << std::endl;  
-  //  std::cout << "after _add_and_altMerge" << std::endl;
-
+  std::cout <<"    after altMerge " << std::endl;
+  std::cout <<"    first.size() " << first.size() << std::endl;
+  std::cout <<"    second.size() " << second.size() << std::endl;  
 #endif
       
   _lbnd.second = false;
@@ -3184,16 +3293,23 @@ UnivarPWLE<T>& UnivarPWLE<T>::operator+=
     _condense_by_relax(nbpsMax);
   }
   else if(second.size() == 3){
+
+#ifdef MC__UPWLE_DEBUG_TRACE
+  std::cout <<"    merge > 3 " << std::endl;
+#endif
+
     second[1] += second[0];
     second[0] += second[2];
     std::swap(second[0],second[1]);
     second.resize(2);
 
-    first[1] += first[0];
+    first[1] += first[0]; 
     first[0] += first[2];
     std::swap(first[0],first[1]);
     first.resize(2);
-
+#ifdef MC__UPWLE_DEBUG    
+    assert(first[1] - first[0] > -1e-13);
+#endif
   }  
 
   if(!_xFwdDiff.second) _xFwdDiff.first.resize(0);
@@ -3986,7 +4102,8 @@ UnivarPWLE<T> relu
     if(lb >= -T(MC__UPWLE_COMPUTATION_TOL)){
       UnivarPWLE<T> var2( var );
 #ifdef MC__UPWLE_DEBUG_TRACE  
-      //std::cout << "out PWLE relu" << std::endl;
+      std::cout << "out PWLE relu" << std::endl;
+      assert(var2.first.back() - var2.first[0] > -1e-13);
 #endif
       return var2;
     }
@@ -3999,7 +4116,8 @@ UnivarPWLE<T> relu
       UnivarPWLE<T> var2(var.first[0],var.first[1],T(0.),var._isUnder);    
       //UnivarPWLE<T> var2( var.first,var._isUnder );
 #ifdef MC__UPWLE_DEBUG_TRACE  
-      //std::cout << "out PWLE relu" << std::endl;
+      std::cout << "out PWLE relu" << std::endl;
+      assert(var2.first.back() - var2.first[0] > -1e-13);
 #endif
       return var2;
     }
@@ -4041,7 +4159,8 @@ UnivarPWLE<T> relu
     var2._xFwdDiff = std::make_pair(std::vector<T>(0),false);
     var2._yFwdDiff = std::make_pair(std::vector<T>(0),false);   
 #ifdef MC__UPWLE_DEBUG_TRACE  
-    //std::cout << "out PWLE relu" << std::endl;
+    std::cout << "out PWLE relu" << std::endl;
+    assert(var2.first.back() - var2.first[1] > -1e-13);
 #endif
     return var2; 
   
@@ -4052,6 +4171,7 @@ UnivarPWLE<T> relu
       const T ub = var.first[0] + var.first.back();      
       UnivarPWLE<T> var2(lb,ub,T(0.),var._isUnder);
 #ifdef MC__UPWLE_DEBUG_TRACE  
+      assert(ub - lb > -1e-13);
       //std::cout << "out PWLE relu" << std::endl;
 #endif
       return var2;
@@ -4061,7 +4181,8 @@ UnivarPWLE<T> relu
       if(var._lbnd.first >= T(0.)){
         UnivarPWLE<T> var2( var );
 #ifdef MC__UPWLE_DEBUG_TRACE  
-        //std::cout << "out PWLE relu" << std::endl;
+        std::cout << "out PWLE relu" << std::endl;
+        assert(var2.first.back() - var2.first[1] > -1e-13);
 #endif
         return var2;
       }
@@ -4078,7 +4199,8 @@ UnivarPWLE<T> relu
   //var2._xFwdDiff;
   //var2._yFwdDiff;
 #ifdef MC__UPWLE_DEBUG_TRACE  
-  //std::cout << "out PWLE relu" << std::endl;
+  std::cout << "out PWLE relu" << std::endl;
+  assert(var2.first.back() - var2.first[1] > -1e-13);
 #endif
   return var2;
 }
@@ -4116,6 +4238,7 @@ UnivarPWLE<T> relu
     if(lb >= -T(MC__UPWLE_COMPUTATION_TOL)){
 #ifdef MC__UPWLE_DEBUG_TRACE        
       std::cout << "out PWLE relu 2-X" << std::endl;
+      assert(var2.first.back() - var2.first[0] > -1e-13);
 #endif
       return var2;
     }
@@ -4155,7 +4278,7 @@ UnivarPWLE<T> relu
 
     var2.first[0] = var2.first[3] - var2.second[1] * ((var2.first[3] - var2.first[1])/ (var2.second[1] - var2.second[0]));
 #ifdef MC__UPWLE_DEBUG_TRACE  
-    std::cout << "first " << std::endl;
+    std::cout << "first before swap" << std::endl;
     for(unsigned int jj = 0; jj < var2.first.size(); jj++ ){
       std::cout << var2.first[jj] << "    ";
     }
@@ -4163,7 +4286,7 @@ UnivarPWLE<T> relu
 #endif
     std::swap(var2.first[0],var2.first[2]);
 #ifdef MC__UPWLE_DEBUG_TRACE      
-    std::cout << "first " << std::endl;
+    std::cout << "first after swap" << std::endl;
     for(unsigned int jj =1; jj < var2.first.size(); jj++ ){
       std::cout << var2.first[0] + var2.first[jj] << "    ";
     }
@@ -4203,6 +4326,7 @@ UnivarPWLE<T> relu
     var2._yFwdDiff = std::make_pair(std::vector<T>(0),false);   
 #ifdef MC__UPWLE_DEBUG_TRACE  
     std::cout << "out PWLE relu 2 - T" << std::endl;
+    assert(var2.first.back() - var2.first[1] > -1e-13);
 #endif
     return var2; 
   
@@ -4223,7 +4347,8 @@ UnivarPWLE<T> relu
       var._yFwdDiff.first.resize(0);        
 //      var.set_zero();
 #ifdef MC__UPWLE_DEBUG_TRACE  
-      //std::cout << "out PWLE relu" << std::endl;
+      std::cout << "out PWLE relu" << std::endl;
+      assert(var.first.back() - var.first[0] > -1e-13);
 #endif
       return var;
     }
@@ -4231,7 +4356,8 @@ UnivarPWLE<T> relu
     // here we do not always check whether lb > 0 and that will be processed in _relu() anyway
       if(var._lbnd.first >= T(0.)){
 #ifdef MC__UPWLE_DEBUG_TRACE  
-        //std::cout << "out PWLE relu" << std::endl;
+        std::cout << "out PWLE relu" << std::endl;
+        assert(var.first.back() - var.first[1] > -1e-13);
 #endif
         return var;
       }

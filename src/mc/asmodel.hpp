@@ -53,6 +53,7 @@ Further exceptions may be thrown by the template class itself.
 
 namespace mc
 {
+
 const double MC__ASM_COMPUTATION_TOL(1e-15);
 template <typename T> class ASVar;
 
@@ -187,8 +188,11 @@ class ASModel
   mutable std::vector<std::vector<double>> _CUnd;
   // temporary matrix 
   mutable std::vector<std::vector<T>> _COut;
+  
  public:
-
+#ifdef MC__ASM_DEBUG_EVAL_LOGGING 
+  static std::size_t debugging_ctr;
+#endif
   //! @brief Constructor of ASM with <a>nvar</a> variables and <a>ndiv</a> partitions
   ASModel
   ( const unsigned int& nvar, const unsigned int& ndiv )
@@ -769,6 +773,12 @@ class ASModel
 template <typename T> inline
 typename ASModel<T>::Options ASModel<T>::options;
 
+
+#ifdef MC__ASM_DEBUG_EVAL_LOGGING
+template <typename T> inline
+std::size_t ASModel<T>::debugging_ctr;
+#endif
+
 template <typename T>
 std::ostream& operator<<
 ( std::ostream& out, const ASModel<T>& mod)
@@ -1212,7 +1222,7 @@ const
 
   // Step 1: make sure if the input var is greater than 0
   //         To this end, we need to get the lb of the var and the lb of the shadow underestimators (if any)
-  double lambda,mu;
+  double lambda(-DBL_MAX),mu(DBL_MAX);
   if(_IntmdtCntnrSeted){
     for( unsigned int i=0; i<_nvar; i++ ){
       if( lst[i].empty() ) continue;
@@ -1388,7 +1398,7 @@ const
        _r2[i] = ( _U1[i] - _U2[i] );
     }        
     double sum_r2( mu - sigma_u );       
-    double theta_i_times_mu = mu/ndep;
+    double theta_i_times_mu = mu/((double)ndep);
     for( unsigned int i=0; i<_nvar; i++ ){
       if( lst[i].empty() ) continue;   
       // if( isequal( _r1[i], 0. ) ){     
@@ -1421,7 +1431,7 @@ const
         _r2[i] = ( _U1[i] - _U2[i] );
       }        
       double sum_r2( mu - sigma_u ); 
-      double theta_i_times_mu = mu/ndep;
+      double theta_i_times_mu = mu/((double)ndep);
       for( unsigned int i=0; i<_nvar; i++ ){
         if( lst[i].empty() ) continue;   
         if(sum_r2 != 0.){
@@ -1443,7 +1453,7 @@ const
   std::cout << "            Step 2: with SHA " << std::endl;
 #endif     
     // Step 2.2.1: 
-    if(sigma_o <= 0.){ // eliminate the active underestimator as it is truncated
+    if(sigma_o <= MC__ASM_COMPUTATION_TOL){ // eliminate the active underestimator as it is truncated
 #ifndef MC__ASMODEL_NOT_DEBUG_SHADOW
   std::cout << "                Step 2: ACT ubUND <=0 " << std::endl;
 #endif   
@@ -1490,13 +1500,16 @@ const
   std::cout << "                Step 2: ACT ubUND > 0 " << std::endl;
 #endif 
       double sigma_oSHA = 0.;       // <- the maximum of the SHA UNDerestimator
-      std::vector<double> L2(_nvar);
+      std::vector<double> L2(_nvar,0.);
       for( unsigned int i=0; i<_nvar; i++ ){
         if( lst[i].empty() ) continue;
         L2[i]= shadow[i].undEst.get_ub();
         sigma_oSHA += L2[i];
       }      
-    
+
+      // std::cout << "                Step 2: ACT ubUND > 0 sigma_oSHA = " << std::scientific << std::setprecision(14) << sigma_oSHA << std::endl;    
+      // std::cout << "                Step 2: ACT ubUND > 0 sigma_o = " << std::scientific << std::setprecision(14) << sigma_o << std::endl;    
+
       if(sigma_oSHA > sigma_o + MC__ASM_COMPUTATION_TOL ){ // in this case, ACT-ACT with SHA-SHA, (at this time the lbSHA < lbACT) 
 #ifndef MC__ASMODEL_NOT_DEBUG_SHADOW
   std::cout << "                    Step 2: sigma_oSHA > sigma_o" << std::endl;
@@ -1537,23 +1550,39 @@ const
         // We choose the NEW SHA with GREATER lb (by using the monotonicity of relu)
 
         double lambda_SHA = 0.;       // <- the minimum of the SHA UNDerestimator
-        std::vector<double> L1(_nvar);
+        std::vector<double> L1(_nvar,0.);
 
         for( unsigned int i=0; i<_nvar; i++ ){
           if( lst[i].empty() ) continue;
           L1[i]= shadow[i].undEst.get_lb();
           lambda_SHA += L1[i];
         }     
+        
+        // std::cout << "                    Step 2: sigma_o approx sigma_oSHA lambda_SHA = " << std::scientific << std::setprecision(14) << lambda_SHA << std::endl;    
+        // std::cout << "                    Step 2: sigma_o approx sigma_oSHA lambda = " << std::scientific << std::setprecision(14) << lambda << std::endl;    
 
-        if(lambda > lambda_SHA){          
-          double lbSHASHA = -(ndep-1)*sigma_oSHA;
-          double lbACTSHA = -(ndep-1)*sigma_o;
+        if(lambda > lambda_SHA - 5e-14){          
+#ifndef MC__ASMODEL_NOT_DEBUG_SHADOW
+  std::cout << "                    Step 2: and lambda > lambda_SHA" << std::endl;
+#endif                         
+          double lbSHASHA = -((double ) ndep-1.)*sigma_oSHA;
+          double lbACTSHA = -((double ) ndep-1.)*sigma_o;
+
+          // std::cout << "                        lbSHASHA " << std::scientific << std::setprecision(14) << lbSHASHA << std::endl;  
+          // std::cout << "                        lbACTSHA " << std::scientific << std::setprecision(14) << lbACTSHA << std::endl;  
+
+
           for( unsigned int i=0; i<_nvar; i++ ){
             if( lst[i].empty() ) continue;
-            lbACTSHA = lbACTSHA + std::max(0., _L1[i] - _L2[i] + sigma_o);
-            lbSHASHA = lbSHASHA + std::max(0.,  L1[i] -  L2[i] + sigma_oSHA);
+            lbACTSHA += std::max(0., _L1[i] - _L2[i] + sigma_o);
+            lbSHASHA += std::max(0.,  L1[i] -  L2[i] + sigma_oSHA);
           }     
-          if(lbSHASHA >= lbACTSHA){
+          if(lbSHASHA >= lbACTSHA - 5e-14){
+#ifndef MC__ASMODEL_NOT_DEBUG_SHADOW
+  std::cout << "                    Step 2: and and lbSHASHA >= lbACTSHA " << std::scientific << std::setprecision(14) << lbSHASHA - lbACTSHA << std::endl;
+  std::cout << "                        lbSHASHA " << std::scientific << std::setprecision(14) << lbSHASHA << std::endl;  
+  std::cout << "                        lbACTSHA " << std::scientific << std::setprecision(14) << lbACTSHA << std::endl;  
+#endif          
             const double shadow_global_offset = (1.0 - 1.0/((double) ndep))*sigma_oSHA;
     
             for( unsigned int i=0; i<_nvar; i++ ){
@@ -1566,6 +1595,11 @@ const
             }  
           }
           else{
+#ifndef MC__ASMODEL_NOT_DEBUG_SHADOW
+  std::cout << "                    Step 2: and and lbSHASHA < lbACTSHA" << std::scientific << std::setprecision(14) << lbSHASHA - lbACTSHA << std::endl;
+  std::cout << "                        lbSHASHA " << std::scientific << std::setprecision(14) << lbSHASHA << std::endl;  
+  std::cout << "                        lbACTSHA " << std::scientific << std::setprecision(14) << lbACTSHA << std::endl;  
+#endif                      
             const double shadow_global_offset = (1.0 - 1.0/((double) ndep))*sigma_o;
     
             for( unsigned int i=0; i<_nvar; i++ ){
@@ -1580,11 +1614,13 @@ const
           }          
         }
         else{ // If lbACT = lbSHA, then ACT-ACT or SHA-ACT and ACT-SHA or SHA-SHA
-
+#ifndef MC__ASMODEL_NOT_DEBUG_SHADOW
+  std::cout << "                    Step 2: and lambda < lambda_SHA" << std::endl;
+#endif  
           double ubACTACT(0.);
           double ubSHAACT(0.);    
-          double lbSHASHA = -(ndep-1)*sigma_oSHA;
-          double lbACTSHA = -(ndep-1)*sigma_o;
+          double lbSHASHA = -((double ) ndep-1.)*sigma_oSHA;
+          double lbACTSHA = -((double ) ndep-1.)*sigma_o;
           for( unsigned int i=0; i<_nvar; i++ ){
             if( lst[i].empty() ) continue;
             lbACTSHA = lbACTSHA + std::max(0., _L1[i] - _L2[i] + sigma_o);
@@ -1598,7 +1634,10 @@ const
 
          
 
-          if(lbSHASHA >= lbACTSHA && ubACTACT >= ubSHAACT){
+          if(lbSHASHA >= lbACTSHA - 5e-14 && ubACTACT >= ubSHAACT - 5e-14 ){
+#ifndef MC__ASMODEL_NOT_DEBUG_SHADOW
+  std::cout << "                    Step 2: and and lbSHASHA >= lbACTSHA && ubACTACT >= ubSHAACT" << std::endl;
+#endif 
             const double shadow_global_offset = (1.0 - 1.0/((double) ndep))*sigma_oSHA;
     
             for( unsigned int i=0; i<_nvar; i++ ){
@@ -1610,7 +1649,10 @@ const
                  lst[i].undEst = relu(    lst[i].undEst + rowOffsetUnder );
             }  
           }
-          else if(lbSHASHA >= lbACTSHA){
+          else if(lbSHASHA >= lbACTSHA - 5e-14){
+#ifndef MC__ASMODEL_NOT_DEBUG_SHADOW
+  std::cout << "                    Step 2: and and lbSHASHA >= lbACTSHA && ubACTACT < ubSHAACT" << std::endl;
+#endif             
             const double shadow_global_offset = (1.0 - 1.0/((double) ndep))*sigma_oSHA;
     
             for( unsigned int i=0; i<_nvar; i++ ){
@@ -1622,7 +1664,10 @@ const
               shadow[i].undEst = relu( shadow[i].undEst + rowOffsetShadow) - std::max(shadow_global_offset,0.);  
             }  
           }
-          else if(ubACTACT >= ubSHAACT){
+          else if(ubACTACT >= ubSHAACT - 5e-14){
+#ifndef MC__ASMODEL_NOT_DEBUG_SHADOW
+  std::cout << "                    Step 2: and and lbSHASHA < lbACTSHA && ubACTACT >= ubSHAACT" << std::endl;
+#endif             
             const double shadow_global_offset = (1.0 - 1.0/((double) ndep))*sigma_o;
     
             for( unsigned int i=0; i<_nvar; i++ ){
@@ -1636,6 +1681,9 @@ const
             }  
           }
           else{
+#ifndef MC__ASMODEL_NOT_DEBUG_SHADOW
+  std::cout << "                    Step 2: and and lbSHASHA < lbACTSHA && ubACTACT < ubSHAACT" << std::endl;
+#endif            
             const double shadow_global_offset = (1.0 - 1.0/((double) ndep))*sigma_o;
     
             for( unsigned int i=0; i<_nvar; i++ ){
@@ -1669,7 +1717,7 @@ const
       _r2[i] = ( _U1[i] - _U2[i] );
     }        
     double sum_r2( mu - sigma_u ); 
-    double theta_i_times_mu = sum_r2/ndep;
+    double theta_i_times_mu = sum_r2/((double) ndep);
     for( unsigned int i=0; i<_nvar; i++ ){
       if( lst[i].empty() ) continue;   
       if(sum_r2 != 0.){
@@ -1697,7 +1745,7 @@ const
         _r2[i] = ( _U1[i] - _U2[i] );
       }        
       double sum_r2( mu - sigma_u ); 
-      double theta_i_times_mu = sum_r2/ndep;
+      double theta_i_times_mu = sum_r2/((double) ndep);
       for( unsigned int i=0; i<_nvar; i++ ){
         if( lst[i].empty() ) continue;   
         if(sum_r2 != 0.){
@@ -1823,8 +1871,71 @@ const
   std::cout << "        AundSHA: " << AundSHA << std::endl;
   std::cout << "        BundSHA: " << BundSHA << std::endl;
   std::cout << "        AoveSHA: " << AoveSHA << std::endl;
-  std::cout << "        BoveSHA: " << BoveSHA << std::endl;
-      
+  std::cout << "        BoveSHA: " << BoveSHA << std::endl;      
+#endif
+
+#ifdef MC__ASM_DEBUG_LOGGING
+  MC__ASM_DEBUG_LOGGER.open("MC__ASM_DEBUG_LOGGER.txt", std::ios::app); // append
+  if (!MC__ASM_DEBUG_LOGGER.is_open()) throw std::runtime_error("Could not open file: 'MC__ASM_DEBUG_LOGGER.txt'" );
+//  if (!MC__ASM_DEBUG_LOGGER.is_open()) std::cerr << "Open log file failed! in shadow aggr addition " << std::endl;
+  else{
+    MC__ASM_DEBUG_LOGGER << "    SHADOW AGGR" << std::endl;
+    MC__ASM_DEBUG_LOGGER << "        AundSHA: " << AundSHA << std::endl;
+    MC__ASM_DEBUG_LOGGER << "        BundSHA: " << BundSHA << std::endl;
+    MC__ASM_DEBUG_LOGGER << "        AoveSHA: " << AoveSHA << std::endl;
+    MC__ASM_DEBUG_LOGGER << "        BoveSHA: " << BoveSHA << std::endl;   
+    MC__ASM_DEBUG_LOGGER << "        A:" << std::endl;
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( Alst[i].empty()) continue;
+      MC__ASM_DEBUG_LOGGER << "            " << Alst[i].oveEst;
+      MC__ASM_DEBUG_LOGGER << "            " << Alst[i].undEst; 
+      if(AoveSHA)  MC__ASM_DEBUG_LOGGER << "            shadow ove " << Ashadow[i].oveEst;  
+      if(AundSHA)  MC__ASM_DEBUG_LOGGER << "            shadow und " << Ashadow[i].undEst;
+    }
+    MC__ASM_DEBUG_LOGGER << "        B:" << std::endl;
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( Blst[i].empty()) continue;
+      MC__ASM_DEBUG_LOGGER << "            " << Blst[i].oveEst;
+      MC__ASM_DEBUG_LOGGER << "            " << Blst[i].undEst;    
+      if(BoveSHA)  MC__ASM_DEBUG_LOGGER << "            shadow ove " << Bshadow[i].oveEst;  
+      if(BundSHA)  MC__ASM_DEBUG_LOGGER << "            shadow und " << Bshadow[i].undEst;          
+    }
+  }  
+  MC__ASM_DEBUG_LOGGER.close();
+
+#ifdef MC__ASM_DEBUG_EVAL_LOGGING  
+  MC__ASM_EVAL_LOGGER_N.open("MC__ASM_EVAL_LOGGER_N.txt", std::ios::app); // append
+  if (!MC__ASM_EVAL_LOGGER_N.is_open()) throw std::runtime_error("Could not open file: 'MC__ASM_EVAL_LOGGER_N.txt'" );
+//  if (!MC__ASM_EVAL_LOGGER_N.is_open()) std::cerr << "Open log file failed! in shadow aggr addition " << std::endl;
+  else{
+    // MC__ASM_EVAL_LOGGER_N << std::setw(24) << debugging_ctr
+    //                       << std::setw(24) << AoveSHA 
+    //                       << std::setw(24) << AundSHA
+    //                       << std::setw(24) << BoveSHA 
+    //                       << std::setw(24) << BundSHA << std::endl;      
+    MC__ASM_EVAL_LOGGER_N << debugging_ctr << ","
+                          << AoveSHA << ","
+                          << AundSHA << ","
+                          << BoveSHA << ","
+                          << BundSHA << "," << std::endl;                                                                           
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( Alst[i].empty()) continue;
+      Alst[i].oveEst.write2log(MC__ASM_EVAL_LOGGER_N);
+      Alst[i].undEst.write2log(MC__ASM_EVAL_LOGGER_N);
+      if(AoveSHA)  Ashadow[i].oveEst.write2log(MC__ASM_EVAL_LOGGER_N);
+      if(AundSHA)  Ashadow[i].undEst.write2log(MC__ASM_EVAL_LOGGER_N);
+    }
+    for( unsigned int i=0; i<_nvar; i++ ){
+      if( Blst[i].empty()) continue;       
+      Blst[i].oveEst.write2log(MC__ASM_EVAL_LOGGER_N);
+      Blst[i].undEst.write2log(MC__ASM_EVAL_LOGGER_N);
+      if(BoveSHA)  Bshadow[i].oveEst.write2log(MC__ASM_EVAL_LOGGER_N);
+      if(BundSHA)  Bshadow[i].undEst.write2log(MC__ASM_EVAL_LOGGER_N);
+    }
+  }  
+  MC__ASM_EVAL_LOGGER_N.close();
+  debugging_ctr ++;
+#endif
 #endif
 
   // Shortcut for early return if cmplmtyFlag == true
@@ -2109,11 +2220,20 @@ const
   std::cout << "       lbMinAllOve : ubMinAllOve "    << lbMinAllOve    << " : " << ubMinAllOve << std::endl;
   std::cout << "    indMaxLbAllUnd : indMaxUbAllUnd " << indMaxLbAllUnd << " : " << indMaxUbAllUnd << std::endl;  
   std::cout << "       lbMaxAllUnd : ubMaxAllUnd "    << lbMaxAllUnd    << " : " << ubMaxAllUnd << std::endl;
-
 #endif
 
-
-
+#ifdef MC__ASM_DEBUG_LOGGING
+  MC__ASM_DEBUG_LOGGER.open("MC__ASM_DEBUG_LOGGER.txt", std::ios::app); // append 模式
+  if (!MC__ASM_DEBUG_LOGGER.is_open()){
+    std::cerr << "Open log file failed! in shadow aggr addition " << std::endl;
+  }
+  MC__ASM_DEBUG_LOGGER << "    SHADOW AGGR" << std::endl;
+  MC__ASM_DEBUG_LOGGER << "    indMinLbAllOve : indMinUbAllOve " << indMinLbAllOve << " : " << indMinUbAllOve << std::endl;
+  MC__ASM_DEBUG_LOGGER << "       lbMinAllOve : ubMinAllOve "    << lbMinAllOve    << " : " << ubMinAllOve << std::endl;
+  MC__ASM_DEBUG_LOGGER << "    indMaxLbAllUnd : indMaxUbAllUnd " << indMaxLbAllUnd << " : " << indMaxUbAllUnd << std::endl;  
+  MC__ASM_DEBUG_LOGGER << "       lbMaxAllUnd : ubMaxAllUnd "    << lbMaxAllUnd    << " : " << ubMaxAllUnd << std::endl;
+  MC__ASM_DEBUG_LOGGER.close();
+#endif
   // Step 5: assembly the output
   Andep = ndep;
   if(!undEst2BUpdated && !oveEst2BUpdated){
@@ -2764,7 +2884,6 @@ class ASVar
   double _oveCut;
   //! @brief lower bound/constant underestimator
   double _undCut;
-
 
   // The hierarchical priority is as follows:
   // if(!mod), then only _cst is valid; 
@@ -3583,6 +3702,8 @@ class ASVar
 
 };
 
+
+
 template <typename T>  
 std::ostream& operator<<
 ( std::ostream& out, ASVar<T> const& var )
@@ -4360,10 +4481,14 @@ inline
 ASVar<T>& ASVar<T>::operator*=
 ( double const& cst )
 {
-  if( cst == 0. ){
+  // if( cst == 0. ){
+  //   *this = 0.;
+  //   return *this;
+  // }
+  if( isequal(cst,0.) ){
     *this = 0.;
     return *this;
-  }
+  }  
   if( cst == 1. ){
     return *this;
   }
@@ -4680,7 +4805,7 @@ ASVar<T> relu
     var2._nvar = var2._mod->_nvar;
     var2._lst.resize(var2._nvar);
     var2._ndep = 0;
-    for(unsigned int i = 0; (i < var2._nvar); i++){
+    for(unsigned int i = 0; i < var2._nvar; i++){
       if(var2._lnr.first[i] == 0. ) continue;
       var2._lst[i] = UnivarPWL((var2._mod->_bndvar[i]),var2._lnr.first[i]); 
       var2._ndep ++; 
@@ -4736,13 +4861,15 @@ ASVar<T> relu
       var._nvar = var._mod->_nvar;
       var._lst.resize(var._nvar);
       var._ndep = 0;
-      for(unsigned int i = 0; (i < var._nvar && var._lnr.first[i] !=0. ); i++){
+      for(unsigned int i = 0; i < var._nvar; i++){
+        if(var._lnr.first[i] == 0.) continue;
         var._lst[i] = UnivarPWL((var._mod->_bndvar[i]),var._lnr.first[i]); 
         var._ndep ++; 
       }
       if(var._cst != 0){
         double __cst = var._cst/ (double) var._ndep;    
-        for(unsigned int i = 0; (i < var._nvar && var._lnr.first[i] !=0. ); i++){
+        for(unsigned int i = 0; i < var._nvar; i++){
+          if(var._lnr.first[i] == 0.) continue;
           var._lst[i] += __cst; 
         }    
       }
@@ -4806,13 +4933,15 @@ ASVar<T> relu
     var._nvar = var._mod->_nvar;
     var._lst.resize(var._nvar);
     var._ndep = 0;
-    for(unsigned int i = 0; (i < var._nvar && var._lnr.first[i] !=0. ); i++){
+    for(unsigned int i = 0; i < var._nvar; i++){
+      if(var._lnr.first[i] == 0.) continue;
       var._lst[i] = UnivarPWL((var._mod->_bndvar[i]),var._lnr.first[i]); 
       var._ndep ++; 
     }
     if(var._cst != 0){
       double __cst = var._cst/ (double) var._ndep;    
-      for(unsigned int i = 0; (i < var._nvar && var._lnr.first[i] !=0. ); i++){
+      for(unsigned int i = 0; i < var._nvar ; i++){
+        if(var._lnr.first[i] == 0.) continue;
         var._lst[i] += __cst; 
       }    
     }
