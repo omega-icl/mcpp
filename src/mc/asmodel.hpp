@@ -1309,7 +1309,7 @@ const
       if (sigma_o < MC__ASM_COMPUTATION_TOL){  // if the shadow underestimator is useless
         for( unsigned int i=0; i<_nvar; i++ ){
           if( lst[i].empty() ) continue;
-          shadow[i].undEst.set_zero();  // note that the label _under is flagged as true by default 
+          shadow[i].undEst.clear();  // note that the label _under is flagged as true by default 
         }       
         shadow_info[0] = 0;
         return;
@@ -1477,7 +1477,7 @@ const
       if(sigma_o <= 0.){ // eliminate the shadow underestimator as it is useless
         for( unsigned int i=0; i<_nvar; i++ ){
           if( lst[i].empty() ) continue;
-          shadow[i].undEst.set_zero();
+          shadow[i].undEst.clear();
         }
         shadow_info[0] = 0;          
       }

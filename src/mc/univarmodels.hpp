@@ -5,8 +5,8 @@
 // To test the numerical-issue fixer
 //#define MC__UPWLE_COMPUTATION_TOL  1e-3
 //#define MC__UPWLE_SMOOTH_TOL 1e-10  
-#define MC__UPWLE_COMPUTATION_TOL  1e-14
-#define MC__UPWLE_SMOOTH_TOL 1e-13
+#define MC__UPWLE_COMPUTATION_TOL  1e-13
+#define MC__UPWLE_SMOOTH_TOL 1e-11
 //#define MC__UPWLE_DEBUG
 //#define MC__UPWLE_DEBUG_TRACE
 /*!
@@ -1039,6 +1039,14 @@ class UnivarPWLE
     }
   }
 
+  void clear (){
+    _cst = T(0.);
+    second.resize(0); 
+    first.resize(0);       
+    _xFwdDiff = std::make_pair(std::vector<T>(0),false);
+    _yFwdDiff = std::make_pair(std::vector<T>(0),false);             
+  }  
+
   void condense_by_relax (const unsigned int k){
     _condense_by_relax(k);
   }
@@ -1883,11 +1891,13 @@ void UnivarPWLE<T>::_condense_by_relax
     // std::cout << "aMin " << aMin.first << " at " << aMin.second << std::endl;
     // std::cout << "areaLoss len" << areaLoss.size() << std::endl;
     // std::cout << "aMin1 " << areaLoss[1].first << " at " << areaLoss[1].second << std::endl;
+    unsigned int ctr = areaLoss.size();
     if (_isUnder){
       while (vtx2addY[aMin.second] + 1e-14 < yMinOrMax){
         areaLoss[0].first = DBL_MAX;
         _modify_heap(areaLoss,0,hind);
-      
+        ctr --;
+        if(ctr == 0 ) {_lbnd.first = vtx2addY[aMin.second]; break;}      
         // std::cout << "aMin " << aMin.first << " at " << aMin.second << std::endl;
         // if(areaLoss.size() <= 2) {
         //   std::cout << " here we only have 1-2 choices" << std::endl;
@@ -1900,6 +1910,8 @@ void UnivarPWLE<T>::_condense_by_relax
       while (vtx2addY[aMin.second] - 1e-14 > yMinOrMax){
         areaLoss[0].first = DBL_MAX;
         _modify_heap(areaLoss,0,hind);
+        ctr --;
+        if(ctr == 0 ){_ubnd.first = vtx2addY[aMin.second]; break;};
         //aMin = areaLoss[0]; // as the reference binds to that, we do not need assignment
       }       
     }    
@@ -2013,11 +2025,13 @@ void UnivarPWLE<T>::_condense_by_relax
 
       // if(aMin.first != areaLoss[0].first) std::cout << "error" << std::endl; // test to make sure the reference binds to the heap top
       // aMin = areaLoss[0]; // as the reference binds to that, we do not need assignment, heappop(areaLoss,hind) in python
-
+      unsigned int ctr = areaLoss.size();
       if (_isUnder){
         while (vtx2addY[aMin.second] + 1e-14 < yMinOrMax){
             areaLoss[0].first = DBL_MAX;
             _modify_heap(areaLoss,0,hind);
+            ctr --;
+            if(ctr == 0 ) {_lbnd.first = vtx2addY[aMin.second]; break;}   
             //aMin = areaLoss[0];  // as the reference binds to that, we do not need assignment
         }
       }
@@ -2025,6 +2039,8 @@ void UnivarPWLE<T>::_condense_by_relax
         while (vtx2addY[aMin.second] - 1e-14 > yMinOrMax){
             areaLoss[0].first = DBL_MAX;
             _modify_heap(areaLoss,0,hind);
+            ctr --;
+            if(ctr == 0 ) {_ubnd.first = vtx2addY[aMin.second]; break;}   
             //aMin = areaLoss[0];  // as the reference binds to that, we do not need assignment
         }           
       }
