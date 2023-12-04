@@ -3077,8 +3077,8 @@ UnivarPWLE<T>& UnivarPWLE<T>::operator+=
   else if(nBptPwl == 2){
     second[0] += endpoints.first;
     second[1] += endpoints.second;
-    if(std::fabs(second[1] - second[2]) < T(MC__UPWLE_COMPUTATION_TOL) ){
-      _cst = _isUnder? std::min(second[1],second[2]):std::max(second[1],second[2]); 
+    if(std::fabs(second[0] - second[1]) < T(MC__UPWLE_COMPUTATION_TOL) ){
+      _cst = _isUnder? std::min(second[0],second[1]):std::max(second[0],second[1]); 
       first.resize(0);
       second.resize(0);
     }   

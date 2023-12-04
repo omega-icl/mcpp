@@ -5106,11 +5106,11 @@ template< typename T > struct Op< mc::ASVar<T> >
   static ASV mySqr( const ASV& x ) { return mc::sqr( x ); }
   template <typename X, typename Y> static ASV myPow( const X& x, const Y& y ) { return mc::pow( x, y ); }
   //static ASV myCheb( const ASV& x, const unsigned n ) { return mc::cheb( x, n ); }
-  static ASV mySqrt( const ASV& x ) { return mc::sqrt(x); }
-  static ASV myLog( const ASV& x ) { return mc::log( x ); }
-  static ASV myExp( const ASV& x ) { return mc::exp( x ); }
-  static ASV mySin( const ASV& x ) { return mc::sin( x ); }
-  static ASV myCos( const ASV& x ) { return mc::cos( x ); }
+  static ASV mySqrt( const ASV& x ) { throw typename mc::ASModel<T>::Exceptions( mc::ASModel<T>::Exceptions::UNDEF );  }//{ return mc::sqrt(x); }
+  static ASV myLog( const ASV& x ) { throw typename mc::ASModel<T>::Exceptions( mc::ASModel<T>::Exceptions::UNDEF );  }//{ return mc::log( x ); }
+  static ASV myExp( const ASV& x ) { throw typename mc::ASModel<T>::Exceptions( mc::ASModel<T>::Exceptions::UNDEF );  }//{ return mc::exp( x ); }
+  static ASV mySin( const ASV& x ) { throw typename mc::ASModel<T>::Exceptions( mc::ASModel<T>::Exceptions::UNDEF );  }//{ return mc::sin( x ); }
+  static ASV myCos( const ASV& x ) { throw typename mc::ASModel<T>::Exceptions( mc::ASModel<T>::Exceptions::UNDEF ); }//{ return mc::cos( x ); }
   static ASV myTan( const ASV& x ) { throw typename mc::ASModel<T>::Exceptions( mc::ASModel<T>::Exceptions::UNDEF ); } //{ return mc::tan( x ); }
   static ASV myAsin( const ASV& x ) { throw typename mc::ASModel<T>::Exceptions( mc::ASModel<T>::Exceptions::UNDEF ); }
   static ASV myAcos( const ASV& x ) { throw typename mc::ASModel<T>::Exceptions( mc::ASModel<T>::Exceptions::UNDEF ); }
