@@ -138,10 +138,10 @@ template <typename U> inline U bilin
   return x*y;
 }
 
-inline double arh
+inline double arrh
 ( const double x, const double a )
 {
-  // Return arrehenius-like term
+  // Return arrhenius-like term
   return std::exp( - a / x );
 }
 

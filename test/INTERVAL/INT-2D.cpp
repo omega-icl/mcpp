@@ -1,4 +1,4 @@
-#define TEST_TRIG	// <-- select test function here
+#define TEST_DISC	// <-- select test function here
 #define USE_DAG        // <-- specify whether to use a DAG or operator overloading
 #define SAVE_RESULTS   // <-- specify whether to save results to file
 const int NX = 50;	// <-- select X discretization here
@@ -98,7 +98,7 @@ template <class T>
 T myfunc
 ( const T&x, const T&y )
 {
-  return fstep(1-x*y)*(2*(x+y)-exp(x*y+1)-0.5*sin(6*y-1)*sqr(x))+0.5*sin(6*y-1)*sqr(x);
+  return fstep(1.-x*y)*(2.*(x+y)-exp(x*y+1.)-0.5*sin(6.*y-1.)*sqr(x))+0.5*sin(6.*y-1.)*sqr(x);
 }
 
 #elif defined( TEST_GTCOND )
@@ -210,7 +210,7 @@ int main()
     I IF;
     DAG.eval( GF, 1, &F, &IF, 1, &X, &IX, 1, &Y, &IY );
 #else
-    IF = myfunc( IX, IY );
+    I IF = myfunc( IX, IY );
 #endif
     cout << endl
          << "DOMAIN: " << IX << " x " << IY << endl
@@ -249,6 +249,7 @@ int main()
     return eObj.ierr();
   }
 #endif
+#if defined(USE_DAG)
   catch( FFBase::Exceptions &eObj ){
     cerr << "Error " << eObj.ierr()
          << " in DAG evaluation:" << endl
@@ -256,6 +257,8 @@ int main()
          << "Aborts." << endl;
     return eObj.ierr();
   }
+#endif
+  catch(...){;}
 #ifdef SAVE_RESULTS
   res.close();
 #endif

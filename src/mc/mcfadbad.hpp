@@ -157,6 +157,52 @@ INLINE2 FTypeName<T,0> rlmtd (const FTypeName<T,0>& a, const FTypeName<T,0>& b)
     FTypeName<T,0> c((log(a)-log(b))/(a-b));
     return c;
 }
+//@ICL: 04.01.2024
+template <typename T, unsigned int N>
+INLINE2 FTypeName<T,N> fabs(const FTypeName<T,N>& a)
+{
+	FTypeName<T,N> c(mc::Op<T>::fabs(a.val()));
+	if (!a.depend()) return c;
+	T tmp(mc::Op<T>::fstep(a.val())*Op<T>::myInteger(2)-Op<T>::myInteger(1));
+	c.setDepend(a);
+	for(unsigned int i=0;i<N;++i) c[i]=tmp*a[i];
+	return c;
+}
+
+template <typename T >
+INLINE2 FTypeName<T,0> fabs(const FTypeName<T,0>& a)
+{
+	FTypeName<T,0> c(mc::Op<T>::fabs(a.val()));
+	if (!a.depend()) return c;
+	T tmp(mc::Op<T>::fstep(a.val())*Op<T>::myInteger(2)-Op<T>::myInteger(1));
+	c.setDepend(a);
+	for(unsigned int i=0;i<c.size();++i) c[i]=tmp*a[i];
+	return c;
+}
+template <typename T, unsigned int N>
+INLINE2 FTypeName<T,N> min (const FTypeName<T,N>& a, const FTypeName<T,N>& b)
+{
+    FTypeName<T,N> c(0.5*(a+b-fabs(a-b)));
+    return c;
+}
+template <typename T>
+INLINE2 FTypeName<T,0> min (const FTypeName<T,0>& a, const FTypeName<T,0>& b)
+{
+    FTypeName<T,0> c(0.5*(a+b-fabs(a-b)));
+    return c;
+}
+template <typename T, unsigned int N>
+INLINE2 FTypeName<T,N> max (const FTypeName<T,N>& a, const FTypeName<T,N>& b)
+{
+    FTypeName<T,N> c(0.5*(a+b+fabs(a-b)));
+    return c;
+}
+template <typename T>
+INLINE2 FTypeName<T,0> max (const FTypeName<T,0>& a, const FTypeName<T,0>& b)
+{
+    FTypeName<T,0> c(0.5*(a+b+fabs(a-b)));
+    return c;
+}
 
 } // end namespace fadbad
 
@@ -267,7 +313,7 @@ template< typename U > struct Op< fadbad::F<U> >
   static TU xlog(const TU& x) { return x*fadbad::log(x); }
   static TU lmtd(const TU& x, const TU& y) { return fadbad::lmtd(x,y); }
   static TU rlmtd(const TU& x, const TU& y) { return fadbad::rlmtd(x,y); }
-  static TU fabs(const TU& x) { throw std::runtime_error("mc::Op<fadbad::F<U>>::fabs -- operation not permitted"); }
+  static TU fabs(const TU& x) { return fadbad::fabs(x); }
   static TU sin (const TU& x) { return fadbad::sin(x);  }
   static TU cos (const TU& x) { return fadbad::cos(x);  }
   static TU tan (const TU& x) { return fadbad::tan(x);  }
@@ -282,8 +328,8 @@ template< typename U > struct Op< fadbad::F<U> >
   static TU fstep(const TU& x) { throw std::runtime_error("mc::Op<fadbad::F<U>>::fstep -- operation not permitted"); }
   static TU bstep(const TU& x) { throw std::runtime_error("mc::Op<fadbad::F<U>>::bstep -- operation not permitted"); }
   static TU hull(const TU& x, const TU& y) { throw std::runtime_error("mc::Op<fadbad::F<U>>::hull -- operation not permitted"); }
-  static TU min (const TU& x, const TU& y) { throw std::runtime_error("mc::Op<fadbad::F<U>>::min -- operation not permitted"); }
-  static TU max (const TU& x, const TU& y) { throw std::runtime_error("mc::Op<fadbad::F<U>>::max -- operation not permitted"); }
+  static TU min (const TU& x, const TU& y) { return 0.5*(x+y-fadbad::fabs(x-y)); }
+  static TU max (const TU& x, const TU& y) { return 0.5*(x+y-fadbad::fabs(x-y)); }
   static TU arh (const TU& x, const double k) { return fadbad::exp(-k/x); }
   template <typename X, typename Y> static TU pow(const X& x, const Y& y) { return fadbad::pow(x,y); }
   static TU cheb(const TU& x, const unsigned n) { return fadbad::cheb(x,n); }

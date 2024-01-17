@@ -1,6 +1,7 @@
 # THIRD-PARTY LIBRARIES <<-- CHANGE AS APPROPRIATE -->>
 
 PATH_3RD_PARTY = $(HOME)/Programs/bitbucket/mcpp23/src/3rdparty
+PATH_EXTERN = $(HOME)/Programs/bitbucket/mcpp23/extern
 
 PATH_LAPACK = $(PATH_3RD_PARTY)/cpplapack-2015.05.11-1
 LIB_LAPACK  = -llapack -lblas
@@ -23,8 +24,8 @@ INC_FILIB   = -I$(PATH_FILIB)/include -I$(PATH_FILIB)/include/interval
 FLAG_FILIB = -frounding-math #-DMC__USE_FILIB
 
 PATH_BOOST = $(PATH_3RD_PARTY)/boost
-LIB_BOOST  =
-INC_BOOST  = -I$(PATH_BOOST) 
+LIB_BOOST  = 
+INC_BOOST  = -I/usr/include -I$(PATH_BOOST) 
 FLAG_BOOST = -DBOOST_UBLAS_NO_STD_CERR -DMC__USE_BOOST
 
 PATH_HSL = 
@@ -32,17 +33,23 @@ LIB_HSL  = -lmc13 -lmc21 -lmc33 -lgfortran
 INC_HSL  = 
 FLAG_HSL = -DMC__USE_HSL
 
+PATH_BOOSTPYTHON = /opt/boost_1_83_0
+INC_BOOSTPYTHON = -I/usr/include/python3.10 -I$(PATH_BOOSTPYTHON)/include
+LIB_BOOSTPYTHON = -lpython3.10 -L$(PATH_BOOSTPYTHON)/lib -lboost_python310
+
+INC_PYBIND11 = -I/usr/include/python3.10 -I$(PATH_EXTERN)/pybind11/include
+
 LIB_CPPUNIT = -lcppunit
 
 # COMPILATION <<-- CHANGE AS APPROPRIATE -->>
 
 # PROF = -pg
-#OPTIM = -O2
+OPTIM = #-O2
 DEBUG = -g
 WARN  = -Wall -Wno-misleading-indentation -Wno-unknown-pragmas -Wno-parentheses
 CPP17 = -std=c++17
-CC    = gcc-11
-CPP   = g++-11
+CC    = gcc-12
+CPP   = g++-12
 # CPP   = icpc
 
 # <<-- NO CHANGE BEYOND THIS POINT -->>
@@ -53,7 +60,7 @@ FLAG_LINK = $(PROF)
 
 FLAG_MC  = $(FLAG_FADBAD) $(FLAG_LAPACK) $(FLAG_BOOST)
 LIB_MC   = $(LIB_FADBAD) $(LIB_LAPACK) $(LIB_BOOST)
-INC_MC   = -I$(PATH_MC)/src/mc $(INC_FADBAD) $(INC_LAPACK) $(INC_BOOST)
+INC_MC   = -I$(HOME)/Programs/bitbucket/mcpp23/src/mc $(INC_FADBAD) $(INC_LAPACK) $(INC_BOOST)
 
 ifneq (,$(findstring -DMC__USE_HSL, $(FLAG_HSL)))
  FLAG_MC += $(FLAG_HSL)

@@ -633,7 +633,7 @@ public:
       ELIMNLIN( {FFInv::Options::INV,FFInv::Options::SQRT,FFInv::Options::EXP,
                   FFInv::Options::LOG,FFInv::Options::RPOW} )
       {}
-    //! @brief Assignment of mc::SElimEnv<ExtOps...>::Options
+    //! @brief Assignment of mc::SElimEnv::Options
     Options& operator=
       ( Options const& opt ){
         SElimBase::Options::operator=( opt );
@@ -703,9 +703,6 @@ protected:
   void _reset
     ();
 };
-
-//template <typename... ExtOps>
-//inline typename SElimEnv<ExtOps...>::Options SElimEnv<ExtOps...>::options;
 
 template <typename... ExtOps>
 inline

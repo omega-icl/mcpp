@@ -454,7 +454,7 @@ class McCormick
     ( const McCormick<U>&, const McCormick<U>& );
   template <typename U> friend McCormick<U> rlmtd
     ( const McCormick<U>&, const McCormick<U>& );
-  template <typename U> friend McCormick<U> arh
+  template <typename U> friend McCormick<U> arrh
     ( const McCormick<U>&, const double );
   template <typename U> friend McCormick<U> erf
     ( const McCormick<U>& );
@@ -3197,7 +3197,7 @@ exp
 }
 
 template <typename T> inline McCormick<T>
-arh
+arrh
 ( const McCormick<T>&MC, const double k )
 {
   if( Op<T>::l(MC._I) <= 0. || k < 0. || ( Op<T>::u(MC._I) > 0.5*k && Op<T>::l(MC._I) >= 0.5*k ) ){
@@ -3206,7 +3206,7 @@ arh
 
   McCormick<T> MC2;
   MC2._sub( MC._nsub, MC._const );
-  MC2._I = Op<T>::arh( MC._I, k );
+  MC2._I = Op<T>::exp( -k / MC._I );//  Op<T>::arrh( MC._I, k );
 
   if ( Op<T>::u(MC._I) <= 0.5*k ){
     { int imid = -1;
@@ -3219,9 +3219,9 @@ arh
     { int imid = -1;
       double r = 0.;
       if( !isequal( Op<T>::l(MC._I), Op<T>::u(MC._I) ))
-        r = ( mc::arh( Op<T>::u(MC._I) ) - mc::arh( Op<T>::l(MC._I) ) )
+        r = ( mc::arrh( Op<T>::u(MC._I), k ) - mc::arrh( Op<T>::l(MC._I), k ) )
           / ( Op<T>::u(MC._I) - Op<T>::l(MC._I) );
-      MC2._cc = mc::arh( Op<T>::l(MC._I) ) + r * ( mid( MC._cv, MC._cc, Op<T>::u(MC._I), imid )
+      MC2._cc = mc::arrh( Op<T>::l(MC._I), k ) + r * ( mid( MC._cv, MC._cc, Op<T>::u(MC._I), imid )
         - Op<T>::l(MC._I) );
       for( unsigned int i=0; i<MC2._nsub; i++ )
         MC2._ccsub[i] = mid( MC._cvsub, MC._ccsub, i, imid ) * r;
@@ -3233,9 +3233,9 @@ arh
     { int imid = -1;
       double r = 0.;
       if( !isequal( Op<T>::l(MC._I), Op<T>::u(MC._I) ))
-        r = ( mc::arh( Op<T>::u(MC._I) ) - mc::arh( Op<T>::l(MC._I) ) )
+        r = ( mc::arrh( Op<T>::u(MC._I), k ) - mc::arrh( Op<T>::l(MC._I), k ) )
           / ( Op<T>::u(MC._I) - Op<T>::l(MC._I) );
-      MC2._cv = mc::arh( Op<T>::l(MC._I) ) + r * ( mid( MC._cv, MC._cc, Op<T>::l(MC._I), imid )
+      MC2._cv = mc::arrh( Op<T>::l(MC._I), k ) + r * ( mid( MC._cv, MC._cc, Op<T>::l(MC._I), imid )
         - Op<T>::l(MC._I) );
       for( unsigned int i=0; i<MC2._nsub; i++ )
         MC2._cvsub[i] = mid( MC._cvsub, MC._ccsub, i, imid ) * r;
@@ -3249,6 +3249,8 @@ arh
     }
     return MC2.cut();
   }
+  
+  return exp( (-k) * inv( MC ) );
 }
 
 template <typename T> inline McCormick<T>

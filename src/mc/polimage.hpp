@@ -762,12 +762,12 @@ PolVar<T>::CONT_subdiv
   if( !_img ) return _subdiv.second;
 
   const unsigned NINTS = _subdiv.first.size()-1;
-  double coef[NINTS];
+  std::vector<double> coef( NINTS );
   for( unsigned isub=0; isub<NINTS; isub++ ){
     coef[isub] = _subdiv.first[isub] - _subdiv.first[isub+1];
     _push_subdiv( PolVar<T>( _img, Op<T>::zeroone(), true ) ); 
   }
-  _img->add_cut( pOp, PolCut<T>::EQ, _subdiv.first[0], NINTS, _subdiv.second.data(), coef, *this, 1. );
+  _img->add_cut( pOp, PolCut<T>::EQ, _subdiv.first[0], NINTS, _subdiv.second.data(), coef.data(), *this, 1. );
 
   for( unsigned isub=0; isub<NINTS-1; isub++ )
     _img->add_cut( pOp, PolCut<T>::LE, 0., _subdiv.second[isub+1], 1., _subdiv.second[isub], -1. );
@@ -785,12 +785,12 @@ PolVar<T>::BIN_subdiv
   if( !_img ) return _subdiv.second;
 
   const unsigned NINTS = _subdiv.first.size()-1;
-  double coef[NINTS];
+  std::vector<double> coef( NINTS );
   for( unsigned isub=0; isub<NINTS; isub++ ){
     coef[isub] = _subdiv.first[isub] - _subdiv.first[isub+1];
     _push_subdiv( PolVar<T>( _img, Op<T>::zeroone(), true ) ); 
   }
-  _img->add_cut( pOp, PolCut<T>::EQ, _subdiv.first[0], NINTS, _subdiv.second.data(), coef, *this, 1. );
+  _img->add_cut( pOp, PolCut<T>::EQ, _subdiv.first[0], NINTS, _subdiv.second.data(), coef.data(), *this, 1. );
 
   for( unsigned isub=0; isub<NINTS-1; isub++ ){
     _push_subdiv( PolVar<T>( _img, Op<T>::zeroone(), false ) );
@@ -811,14 +811,14 @@ PolVar<T>::SOS2_subdiv
   if( !_img ) return _subdiv.second;
 
   const unsigned NINTS = _subdiv.first.size();
-  double weight[NINTS];
+  std::vector<double> weight( NINTS );
   for( unsigned isub=0; isub<NINTS; isub++ ){
     weight[isub] = (double)isub;
     _push_subdiv( PolVar<T>( _img, Op<T>::zeroone(), true ) ); // continuous auxiliaries
   }
   _img->add_cut( pOp, PolCut<T>::EQ, 1., NINTS, _subdiv.second.data(), 1. );
   _img->add_cut( pOp, PolCut<T>::EQ, 0., NINTS, _subdiv.second.data(), _subdiv.first.data(), *this, -1. );
-  _img->add_cut( pOp, PolCut<T>::SOS2, 0., NINTS, _subdiv.second.data(), weight );
+  _img->add_cut( pOp, PolCut<T>::SOS2, 0., NINTS, _subdiv.second.data(), weight.data() );
 
   return _subdiv.second;
 }
@@ -1060,7 +1060,7 @@ public:
     const
     { return _type; }
   //! @brief Retreive right-hand side
-  double rhs
+  double const& rhs
     ()
     const
     { return _rhs; }
@@ -1069,7 +1069,7 @@ public:
     ()
     { return _rhs; }
   //! @brief Retreive number of linear terms
- unsigned nvar
+ size_t nvar
     ()
     const
     { return _var.size(); }
@@ -1084,7 +1084,7 @@ public:
     const 
     { return _var.data(); }
   //! @brief Retreive number of quadratic terms
- unsigned nqvar
+ size_t nqvar
     ()
     const
     { return _qvar1.size(); }
@@ -1104,10 +1104,6 @@ public:
     const 
     { return _qvar2.data(); }
   //! @brief Retreive pointer to corresponding operation in DAG
-  //FFOp*& op
-  //  ()
-  //  { return _op; }
-  //! @brief Retreive pointer to corresponding operation in DAG
   FFOp const* op
     ()
     const
@@ -1115,7 +1111,7 @@ public:
 
   //! @brief Constructor for nonlinear cut w/ 1 variable
   PolCut
-    ( FFOp const* op, const PolVar<T>&X1, const PolVar<T>&X2 )
+    ( FFOp const* op, PolVar<T> const& X1, PolVar<T> const& X2 )
     : _op(op), _type(NLIN), _rhs(0.), _var(2)
     {
       _var[0] = X1;
@@ -1123,7 +1119,7 @@ public:
     }
   //! @brief Constructor for nonlinear cut w/ 2 variables
   PolCut
-    ( FFOp const* op, const PolVar<T>&X1, const PolVar<T>&X2, const PolVar<T>&X3 )
+    ( FFOp const* op, PolVar<T> const& X1, PolVar<T> const& X2, PolVar<T> const& X3 )
     : _op(op), _type(NLIN), _rhs(0.), _var(3)
     {
       _var[0] = X1;
@@ -1132,20 +1128,20 @@ public:
     }
   //! @brief Constructor for nonlinear cut w/ 1 variable + 1 constant
   PolCut
-    ( FFOp const* op, const PolVar<T>&X1, const PolVar<T>&X2, const double X3 )
-    : _op(op), _type(NLIN), _rhs(X3), _var(2)
+    ( FFOp const* op, PolVar<T> const& X1, PolVar<T> const& X2, double const& b )
+    : _op(op), _type(NLIN), _rhs(b), _var(2)
     {
       _var[0] = X1;
       _var[1] = X2;
     }
   //! @brief Constructor for cut w/o participating variable
   PolCut
-    ( FFOp const* op, TYPE type, const double b )
+    ( FFOp const* op, TYPE type, const double& b )
     : _op(op), _type(type), _rhs(b)
     {}
   //! @brief Constructor for cut w/ 1 linear variable
   PolCut
-    ( FFOp const* op, TYPE type, const double b, const PolVar<T>&X1, const double a1 )
+    ( FFOp const* op, TYPE type, const double& b, PolVar<T> const& X1, double const& a1 )
     : _op(op), _type(type), _rhs(b), _var(1), _coef(1)
     {
       _coef[0] = a1;
@@ -1153,8 +1149,8 @@ public:
     }
   //! @brief Constructor for cut w/ 2 linear variables
   PolCut
-    ( FFOp const* op, TYPE type, const double b, const PolVar<T>&X1, const double a1,
-      const PolVar<T>&X2, const double a2 )
+    ( FFOp const* op, TYPE type, const double& b, PolVar<T> const& X1, double const& a1,
+      PolVar<T> const& X2, double const& a2 )
     : _op(op), _type(type), _rhs(b), _var(2), _coef(2)
     {
       _coef[0] = a1;
@@ -1164,8 +1160,8 @@ public:
     }
   //! @brief Constructor for cut w/ 3 linear variables
   PolCut
-    ( FFOp const* op, TYPE type, const double b, const PolVar<T>&X1, const double a1,
-      const PolVar<T>&X2, const double a2, const PolVar<T>&X3, const double a3 )
+    ( FFOp const* op, TYPE type, double const& b, PolVar<T> const& X1, double const& a1,
+      PolVar<T> const& X2, double const& a2, PolVar<T> const& X3, double const& a3 )
     : _op(op), _type(type), _rhs(b), _var(3), _coef(3)
     {
       _coef[0] = a1;
@@ -1177,9 +1173,9 @@ public:
     }
   //! @brief Constructor for cut w/ 4 linear variables
   PolCut
-    ( FFOp const* op, TYPE type, const double b, const PolVar<T>&X1, const double a1,
-      const PolVar<T>&X2, const double a2, const PolVar<T>&X3, const double a3,
-      const PolVar<T>&X4, const double a4 )
+    ( FFOp const* op, TYPE type, double const& b, PolVar<T> const& X1, double const& a1,
+      PolVar<T> const& X2, double const& a2, PolVar<T> const& X3, double const& a3,
+      PolVar<T> const& X4, double const& a4 )
     : _op(op), _type(type), _rhs(b), _var(4), _coef(4)
     {
       _coef[0] = a1;
@@ -1193,8 +1189,8 @@ public:
     }
   //! @brief Constructor for cut w/ <a>n</a> linear variables
   PolCut
-    ( FFOp const* op, TYPE type, const double b, const unsigned n, const PolVar<T>*X,
-      const double*a )
+    ( FFOp const* op, TYPE type, double const& b, size_t const& n, PolVar<T> const* X,
+      double const* a )
     : _op(op), _type(type), _rhs(b), _var(n), _coef(n)
     {
       for( unsigned ivar=0; ivar<n; ivar++ ){
@@ -1204,19 +1200,19 @@ public:
     }
   //! @brief Constructor for cut w/ <a>n</a> linear variables
   PolCut
-    ( FFOp const* op, TYPE type, const double b, const unsigned n, const PolVar<T>*X,
-      const double a )
+    ( FFOp const* op, TYPE type, double const& b, size_t const& n, PolVar<T> const* X,
+      double const& a0 )
     : _op(op), _type(type), _rhs(b), _var(n), _coef(n)
     {
       for( unsigned ivar=0; ivar<n; ivar++ ){
-        _coef[ivar] = a;
+        _coef[ivar] = a0;
         _var[ivar]  = X[ivar];
       }
     }
   //! @brief Constructor for cut w/ selection among <a>n</a> linear variables
   PolCut
-    ( FFOp const* op, TYPE type, const double b, const std::set<unsigned>&ndx,
-      const PolVar<T>*X, const double*a )
+    ( FFOp const* op, TYPE type, double const& b, std::set<unsigned> const& ndx,
+      PolVar<T> const* X, double const* a )
     : _op(op), _type(type), _rhs(b), _var(ndx.size()), _coef(ndx.size())
     {
       std::set<unsigned>::const_iterator it = ndx.begin();
@@ -1227,8 +1223,8 @@ public:
     }
   //! @brief Constructor for cut w/ variable and coefficient maps
   template <typename KEY, typename COMP> PolCut
-    ( FFOp const* op, TYPE type, const double b, const std::map<KEY,PolVar<T>,COMP>&X,
-      const std::map<KEY,double,COMP>&a )
+    ( FFOp const* op, TYPE type, double const& b, std::map<KEY,PolVar<T>,COMP> const& X,
+      std::map<KEY,double,COMP> const& a )
     : _op(op), _type(type), _rhs(b), _var(a.size()), _coef(a.size())
     {
       auto ita = a.cbegin();
@@ -1242,8 +1238,8 @@ public:
     }
   //! @brief Constructor for cut w/ <a>n+1</a> linear variables
   PolCut
-    ( FFOp const* op, TYPE type, const double b, const unsigned n, const PolVar<T>*X,
-      const double*a, const PolVar<T>&X1, const double a1 )
+    ( FFOp const* op, TYPE type, double const& b, size_t const& n, PolVar<T> const* X,
+      double const* a, PolVar<T> const& X1, double const& a1 )
     : _op(op), _type(type), _rhs(b), _var(n+1), _coef(n+1)
     {
       for( unsigned ivar=0; ivar<n; ivar++ ){
@@ -1255,12 +1251,12 @@ public:
     }
   //! @brief Constructor for cut w/ <a>n+1</a> linear variables
   PolCut
-    ( FFOp const* op, TYPE type, const double b, const unsigned n, const PolVar<T>*X,
-      const double a, const PolVar<T>&X1, const double a1 )
+    ( FFOp const* op, TYPE type, double const& b, size_t const& n, PolVar<T> const* X,
+      double const& a0, PolVar<T> const& X1, double const& a1 )
     : _op(op), _type(type), _rhs(b), _var(n+1), _coef(n+1)
     {
       for( unsigned ivar=0; ivar<n; ivar++ ){
-        _coef[ivar] = a;
+        _coef[ivar] = a0;
         _var[ivar] = X[ivar];
       }
       _coef[n] = a1;
@@ -1268,9 +1264,9 @@ public:
     }
   //! @brief Constructor for cut w/ <a>n+2</a> linear variables
   PolCut
-    ( FFOp const* op, TYPE type, const double b, const unsigned n, const PolVar<T>*X,
-      const double*a, const PolVar<T>&X1, const double a1, const PolVar<T>&X2,
-      const double a2 )
+    ( FFOp const* op, TYPE type, double const& b, size_t const& n, PolVar<T> const* X,
+      double const* a, PolVar<T> const& X1, double const& a1, PolVar<T> const& X2,
+      double const& a2 )
     : _op(op), _type(type), _rhs(b), _var(n+2), _coef(n+2)
     {
       for( unsigned ivar=0; ivar<n; ivar++ ){
@@ -1284,9 +1280,9 @@ public:
     }
   //! @brief Constructor for cut w/ <a>n+3</a> linear variables
   PolCut
-    ( FFOp const* op, TYPE type, const double b, const unsigned n, const PolVar<T>*X,
-      const double*a, const PolVar<T>&X1, const double a1, const PolVar<T>&X2,
-      const double a2, const PolVar<T>&X3, const double a3 )
+    ( FFOp const* op, TYPE type, double const& b, size_t const& n, PolVar<T> const* X,
+      double const* a, PolVar<T> const& X1, double const& a1, PolVar<T> const& X2,
+      double const& a2, PolVar<T> const& X3, double const& a3 )
     : _op(op), _type(type), _rhs(b), _var(n+3), _coef(n+3)
     {
       for( unsigned ivar=0; ivar<n; ivar++ ){
@@ -1302,8 +1298,8 @@ public:
     }
   //! @brief Constructor for cut w/ selection among <a>n</a> linear variables plus 1 linear variable
   PolCut
-    ( FFOp const* op, TYPE type, const double b, const std::set<unsigned>&ndx,
-      const PolVar<T>*X, const double*a, const PolVar<T>&X1, const double a1 )
+    ( FFOp const* op, TYPE type, double const& b, std::set<unsigned> const& ndx,
+      PolVar<T> const* X, double const* a, PolVar<T> const& X1, double const& a1 )
     : _op(op), _type(type), _rhs(b), _var(ndx.size()+1), _coef(ndx.size()+1)
     {
       std::set<unsigned>::const_iterator it = ndx.begin();
@@ -1316,8 +1312,8 @@ public:
     }
   //! @brief Constructor for cut w/ variable and coefficient maps plus 1 linear variable
   template <typename KEY, typename COMP> PolCut
-    ( FFOp const* op, TYPE type, const double b, const std::map<KEY,PolVar<T>,COMP>&X,
-      const std::map<KEY,double,COMP>&a, const PolVar<T>&X1, const double a1 )
+    ( FFOp const* op, TYPE type, double const& b, std::map<KEY,PolVar<T>,COMP> const& X,
+      std::map<KEY,double,COMP> const& a, PolVar<T> const& X1, double const& a1 )
     : _op(op), _type(type), _rhs(b), _var(a.size()+1), _coef(a.size()+1)
     {
       auto ita = a.cbegin();
@@ -1333,9 +1329,9 @@ public:
     }
   //! @brief Constructor for cut w/ variable and coefficient maps plus 2 linear variables
   template <typename KEY, typename COMP> PolCut
-    ( FFOp const* op, TYPE type, const double b, const std::map<KEY,PolVar<T>,COMP>&X,
-      const std::map<KEY,double,COMP>&a, const PolVar<T>&X1, const double a1,
-      const PolVar<T>&X2, const double a2 )
+    ( FFOp const* op, TYPE type, double const& b, std::map<KEY,PolVar<T>,COMP> const& X,
+      std::map<KEY,double,COMP> const& a, PolVar<T> const& X1, double const& a1,
+      PolVar<T> const& X2, double const& a2 )
     : _op(op), _type(type), _rhs(b), _var(a.size()+2), _coef(a.size()+2)
     {
       auto ita = a.cbegin();
@@ -1358,7 +1354,7 @@ public:
 
   //! @brief Append linear term to cut
   PolCut<T>& append
-    ( const PolVar<T>&X, const double a )
+    ( PolVar<T> const& X, double const& a )
     {
       _coef.push_back( a );
       _var.push_back( X );
@@ -1366,7 +1362,7 @@ public:
     }
   //! @brief Append n linear terms to cut
   PolCut<T>& append
-    ( const unsigned n, const PolVar<T>*X, const double*a )
+    ( size_t const& n, PolVar<T> const* X, double const* a )
     {
       _coef.insert( _coef.end(), a, a+n );
       _var.insert( _var.end(), X, X+n );
@@ -1374,7 +1370,7 @@ public:
     }
   //! @brief Append quadratic term to cut
   PolCut<T>& append
-    ( const PolVar<T>&X1, const PolVar<T>&X2, const double a )
+    ( PolVar<T> const& X1, PolVar<T> const& X2, double const& a )
     {
       _qcoef.push_back( a );
       _qvar1.push_back( X1 );
@@ -1383,7 +1379,7 @@ public:
     }
   //! @brief Append n quadratic terms to cut
   PolCut<T>& append
-    ( const unsigned n, const PolVar<T>*X1, const PolVar<T>*X2, const double*a )
+    ( size_t const& n, PolVar<T> const* X1, PolVar<T> const* X2, double const* a )
     {
       _qcoef.insert( _qcoef.end(), a, a+n );
       _qvar1.insert( _qvar1.end(), X1, X1+n );
@@ -1401,7 +1397,7 @@ private:
 template <class T> 
 inline std::ostream&
 operator<<
-( std::ostream&out, const PolCut<T>&cut )
+( std::ostream& out, PolCut<T> const& cut )
 {
   const int iprec = 5;
   out << std::right << std::scientific << std::setprecision(iprec);
@@ -1502,7 +1498,8 @@ struct lt_PolCut
 {
 
   bool operator()
-    ( const PolCut<T>*Cut1, const PolCut<T>*Cut2 ) const
+    ( PolCut<T> const* Cut1, PolCut<T> const* Cut2 )
+    const
     {
       // Order cuts w.r.t. their types first
       if( Cut1->type() < Cut2->type() ) return true;
@@ -6191,6 +6188,8 @@ PolBase<T>::_append_cuts_external
 
   // Current operation matches ExtOp type
   if( typeid(*pOp) == typeid(op) ){
+    op.info = pOp->info; // passing info field to recast data
+    op.data = pOp->data; // passing data structure
 
     std::vector<PolVar<T>> vPolVar, vPolRes;
     vPolVar.reserve( pOp->varin.size() ); 
@@ -6551,7 +6550,6 @@ template< typename T > struct Op< mc::PolVar<T> >
     { return mc::min(x,y);  }
   static PV max (const PV& x, const PV& y)
     { return mc::max(x,y);  }
-  static PV arh (const PV& x, const double k){ return mc::exp(-k/x); }
   template <typename EXP> static PV pow(const PV& x, const EXP& y) { return mc::pow(x,y); }
   static PV cheb (const PV& x, const unsigned n) { return mc::cheb(x,n); }
   static PV prod (const unsigned int n, const PV* x) { return mc::prod(n,x); }

@@ -461,7 +461,9 @@ public:
   {
     //! @brief Constructor
     Options():
-      LIFTDIV( true ), LIFTIPOW( false )//, LIFTUPOL( false )
+      LIFTDIV( true ), LIFTIPOW( false ), //LIFTUPOL( false ),
+      LOG2EXP( true ), SQRT2SQR( true ), ACOS2COS( true ), ASIN2SIN( true ),
+      ATAN2TAN( false ), TAN2ATAN( true )
       {}
     //! @brief Assignment of mc::SLiftBase::Options
     Options& operator=
@@ -469,6 +471,12 @@ public:
         LIFTDIV  = opt.LIFTDIV;
         LIFTIPOW = opt.LIFTIPOW;
         //LIFTUPOL = opt.LIFTUPOL;
+        LOG2EXP  = opt.LOG2EXP;
+        SQRT2SQR = opt.SQRT2SQR;
+        ACOS2COS = opt.ACOS2COS;
+        ASIN2SIN = opt.ASIN2SIN;
+        ATAN2TAN = opt.ATAN2TAN;
+        TAN2ATAN = opt.TAN2ATAN;
         return *this;
       }
     //! @brief Whether to lift division terms using auxiliary variables (default: true)
@@ -477,6 +485,18 @@ public:
     bool LIFTIPOW;
     //! @brief Whether to lift univariate polynomials using auxiliary variables (default: true)
     //bool LIFTUPOL;
+    //! @brief Whether to convert log univariate to exp univariate in DAG (default: true)
+    bool LOG2EXP;
+    //! @brief Whether to convert sqrt univariate to sqr univariate in DAG (default: true)
+    bool SQRT2SQR;
+    //! @brief Whether to convert acos univariate to cos univariate in DAG (default: true)
+    bool ACOS2COS;
+    //! @brief Whether to convert asin univariate to sin univariate in DAG (default: true)
+    bool ASIN2SIN;
+    //! @brief Whether to convert atan univariate to tan univariate in DAG (default: true)
+    bool ATAN2TAN;
+    //! @brief Whether to convert tan univariate to atan univariate in DAG (default: true)
+    bool TAN2ATAN;
   } options;
 
 private:
@@ -843,22 +863,25 @@ SLiftBase::_insert_expr
    case FFOp::SQR:   return _Poly.push_back( _Var.back() - sqr( *vAux.at(0) ) );
    case FFOp::IPOW:  return _Poly.push_back( _Var.back() - pow( *vAux.at(0), vAux.at(1)->num().n ) );
    case FFOp::CHEB:  return _Poly.push_back( _Var.back() - cheb( *vAux.at(0), vAux.at(1)->num().n ) );
-   case FFOp::SQRT:  return _Poly.push_back( sqr( _Var.back() ) - *vAux.at(0) );
+   case FFOp::SQRT:  return options.SQRT2SQR? _Trans.push_back( sqr( _Var.back() ) - *vAux.at(0) )
+                                            : _Trans.push_back( _Var.back() - sqrt( *vAux.at(0) ) );
    case FFOp::INV:   return _Poly.push_back( _Var.back() * *vAux.at(1) - vAux.at(0)->num().val() );
    case FFOp::DIV:   return _Poly.push_back( _Var.back() * *vAux.at(1) - *vAux.at(0) );
    case FFOp::EXP:   return _Trans.push_back( _Var.back() - exp( *vAux.at(0) ) );
-   //case FFOp::LOG:   return _Trans.push_back( _Var.back() - log( *vAux.at(0) ) );
-   case FFOp::LOG:   return _Trans.push_back( exp( _Var.back() ) - *vAux.at(0) );
+   case FFOp::LOG:   return options.LOG2EXP? _Trans.push_back( exp( _Var.back() ) - *vAux.at(0) )
+                                           : _Trans.push_back( _Var.back() - log( *vAux.at(0) ) );
    case FFOp::XLOG:  return _Trans.push_back( _Var.back() - xlog( *vAux.at(0) ) );
    case FFOp::DPOW:  return _Trans.push_back( _Var.back() - pow( *vAux.at(0), vAux.at(1)->num().val() ) );
    case FFOp::COS:   return _Trans.push_back( _Var.back() - cos( *vAux.at(0) ) );
    case FFOp::SIN:   return _Trans.push_back( _Var.back() - sin( *vAux.at(0) ) );
-   //case FFOp::TAN:   return _Trans.push_back( _Var.back() - tan( *vAux.at(0) ) );
-   case FFOp::TAN:   return _Trans.push_back( atan( _Var.back() ) - *vAux.at(0) );
-   case FFOp::ACOS:  return _Trans.push_back( cos( _Var.back() ) - *vAux.at(0) );
-   case FFOp::ASIN:  return _Trans.push_back( sin( _Var.back() ) - *vAux.at(0) );
-   //case FFOp::ATAN:  return _Trans.push_back( tan( _Var.back() ) - *vAux.at(0) );
-   case FFOp::ATAN:  return _Trans.push_back( _Var.back() - atan( *vAux.at(0) ) );
+   case FFOp::TAN:   return options.TAN2ATAN? _Trans.push_back( atan( _Var.back() ) - *vAux.at(0) )
+                                            : _Trans.push_back( _Var.back() - tan( *vAux.at(0) ) );
+   case FFOp::ACOS:  return options.ACOS2COS? _Trans.push_back( cos( _Var.back() ) - *vAux.at(0) )
+                                            : _Trans.push_back( _Var.back() - acos( *vAux.at(0) ) );
+   case FFOp::ASIN:  return options.ASIN2SIN? _Trans.push_back( sin( _Var.back() ) - *vAux.at(0) )
+                                            : _Trans.push_back( _Var.back() - asin( *vAux.at(0) ) );
+   case FFOp::ATAN:  return options.ATAN2TAN? _Trans.push_back( tan( _Var.back() ) - *vAux.at(0) )
+                                            : _Trans.push_back( _Var.back() - atan( *vAux.at(0) ) );
    case FFOp::COSH:  return _Trans.push_back( _Var.back() - cosh( *vAux.at(0) ) );
    case FFOp::SINH:  return _Trans.push_back( _Var.back() - sinh( *vAux.at(0) ) );
    case FFOp::TANH:  return _Trans.push_back( _Var.back() - tanh( *vAux.at(0) ) );
@@ -893,6 +916,8 @@ SLiftBase::_insert_expr_external
 
   // Current operation matches ExtOp type
   if( typeid(*pOp) == typeid(op) ){
+    op.info = pOp->info; // passing info field to recast data
+    op.data = pOp->data; // passing data structure
 
     for( auto const& pres : pOp->varout ){
 #ifdef MC__SLIFT_CHECK

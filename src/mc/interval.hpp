@@ -246,7 +246,7 @@ class Interval
     ( Interval const& );
   friend Interval bstep
     ( Interval const& );
-  friend Interval arh
+  friend Interval arrh
     ( Interval const&, double const& );
   friend Interval pow
     ( Interval const&, const int );
@@ -376,6 +376,17 @@ public:
     Options():
       DISPLAY_DIGITS(5)
       {}
+    //! @brief Copy of mc::Interval::Options
+    Options
+      ( Options const& opt ){
+        DISPLAY_DIGITS = opt.DISPLAY_DIGITS;
+      }
+    //! @brief Assignment of mc::Interval::Options
+    Options& operator=
+      ( Options const& opt ){
+        DISPLAY_DIGITS = opt.DISPLAY_DIGITS;
+        return *this;
+      }
     //! @brief Number of digits displayed with << operator (default=5)
     unsigned int DISPLAY_DIGITS;
   } options;
@@ -462,12 +473,12 @@ public:
     {}
 
   //! @brief Return lower bound
-  double const& l() const
+  double l() const
     {
       return _l;
     }
   //! @brief Return upper bound
-  double const& u() const
+  double u() const
     {
       return _u;
     }
@@ -477,7 +488,7 @@ public:
     {
       return _l;
     }
-  //! @brief Set upper bound to <a>ub</a>
+  //! @brief Return/set upper bound to <a>ub</a>
   double& u()
     {
       return _u;
@@ -739,10 +750,10 @@ exp
 }
 
 inline Interval
-arh
+arrh
 ( Interval const& I, double const& a )
 {
-  return exp(-a/I);
+  return exp( -a / I );
 }
 
 inline Interval
@@ -1183,7 +1194,6 @@ template <> struct Op<mc::Interval>
   static T inv (const T& x) { return mc::inv(x);  }
   static T sqr (const T& x) { return mc::sqr(x);  }
   static T sqrt(const T& x) { return mc::sqrt(x); }
-  static T&& exp (T&& x) { return mc::exp(std::move(x));  }
   static T exp (const T& x) { return mc::exp(x);  }
   static T log (const T& x) { return mc::log(x);  }
   static T xlog(const T& x) { return mc::xlog(x); }

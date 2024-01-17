@@ -354,9 +354,16 @@ public:
     Options():
       BASIS(MONOM), REMZERO(true), DISPLEN(5)
       {}
+    //! @brief Copy of mc::SPoly::Options
+    Options
+      ( Options const& opt ){
+        BASIS   = opt.BASIS;
+        REMZERO = opt.REMZERO;
+        DISPLEN = opt.DISPLEN;
+      }
     //! @brief Assignment of mc::SPoly::Options
     Options& operator=
-      ( Options& opt ){
+      ( Options const& opt ){
         BASIS   = opt.BASIS;
         REMZERO = opt.REMZERO;
         DISPLEN = opt.DISPLEN;
