@@ -1347,6 +1347,20 @@ public:
       _coef[a.size()+1] = a2;
       _var[a.size()+1]  = X2;
     }
+  //! @brief Constructor for <a>cut</a> defined in another image into <a>img</a>
+  PolCut
+    ( PolBase<T>* img, PolCut const* cut, std::map<PolVar<T> const*,PolVar<T>,lt_PolVar<T>>& mapvar )
+    : _op(cut->_op), _type(cut->_type), _rhs(cut->_rhs), _var(cut->_var), _coef(cut->_coef),
+      _qvar1(cut->_qvar1), _qvar2(cut->_qvar2), _qcoef(cut->_qcoef)
+    {
+      // Replace undefined variables with new auxiliary variables
+      for( unsigned i=0; i<_var.size(); ++i )
+        _substitute( img, cut->_var[i], _var[i], mapvar );
+      for( unsigned i=0; i<_qvar1.size(); ++i )
+        _substitute( img, cut->_qvar1[i], _qvar1[i], mapvar );
+      for( unsigned i=0; i<_qvar2.size(); ++i )
+        _substitute( img, cut->_qvar2[i], _qvar2[i], mapvar );
+    }
   //! @brief Destructor
   ~PolCut
     ()
@@ -1392,6 +1406,30 @@ private:
   //! @brief Private methods to block default compiler methods
   PolCut
     ();
+
+  //! @brief Substitute variable from another image as new auxliary into <a>img</a>
+  void _substitute
+    ( PolBase<T>* img, PolVar<T> const& refvar, PolVar<T>& newvar,
+      std::map<PolVar<T> const*,PolVar<T>,lt_PolVar<T>>& mapvar )
+    {
+      // Nothing to do if newvar already mapped
+      auto itv = mapvar.find( &refvar );
+      if( itv != mapvar.end() ){
+        newvar = itv->second;
+        return;
+      }
+      // Otherwise append new auxiliary
+      switch( refvar.id().first ){
+        case PolVar<T>::VARCONT:
+        case PolVar<T>::AUXCONT: newvar.set( img, refvar.range(), true );  break;
+        case PolVar<T>::VARINT:
+        case PolVar<T>::AUXINT:  newvar.set( img, refvar.range(), false ); break;
+        case PolVar<T>::AUXCST:
+        default:      throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::BADCUT );
+      }
+      // Update map
+      mapvar[&refvar] = newvar;
+    }
 };
 
 template <class T> 
@@ -1923,7 +1961,7 @@ public:
       ALLOW_QUAD(0), ALLOW_NLIN({}), ALLOW_DISJ({})
       {}
     //! @brief Assignment operator
-    Options& operator= ( const Options&options ){
+    Options& operator= ( Options const& options ){
         AGGREG_LQ      = options.AGGREG_LQ;
         ROOT_USE        = options.ROOT_USE;
         ROOT_MAXIT      = options.ROOT_MAXIT;
@@ -2140,6 +2178,10 @@ public:
   void erase_cuts
     ()
     { _erase_cuts(); }
+
+  //! @brief Insert cuts from other polyhedral image <a>img</a>
+  void insert_cuts
+    ( PolBase<T> const* img, std::map<PolVar<T> const*,PolVar<T>,lt_PolVar<T>>& POLMap );
 };
 
 template <typename T>
@@ -2263,6 +2305,18 @@ PolBase<T>::_erase_cuts
     auto itp = itc; ++itc;
     if( (*itp)->op() == op ){ delete *itp; _Cuts.erase( itp ); }
   } 
+}
+
+template <typename T>
+inline
+void
+PolBase<T>::insert_cuts
+( PolBase<T> const* img, std::map<PolVar<T> const*,PolVar<T>,lt_PolVar<T>>& POLMap )
+{
+  for( auto const& pCutRef : img->_Cuts ){
+    PolCut<T>* pCut = new PolCut<T>( this, pCutRef, POLMap );
+    _Cuts.insert( pCut );
+  }
 }
 
 template <typename T>

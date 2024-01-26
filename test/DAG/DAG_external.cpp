@@ -8,6 +8,7 @@
 #include "mclapack.hpp"
 #include "ffunc.hpp"
 #include "slift.hpp"
+#include "mcml.hpp"
 
 #ifdef MC__USE_PROFIL
  #include "mcprofil.hpp"
@@ -995,7 +996,88 @@ int test_external7()
   std::cout << "F[0] = " << mcF[0] << std::endl;
   std::cout << "F[1] = " << mcF[1] << std::endl;
 
-  DAG.clear();
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+int test_external8()
+{
+  std::cout << "\n==============================================\ntest_external8:\n";
+
+  // Create ANN
+  #include "ReLUANN_30L1.hpp"
+  //#include "ReLUANN_40L4.hpp"
+  mc::ANN<I> f;
+  f.options.ACTIV     = mc::ANN<I>::Options::SIGMOID;
+  f.options.RELAX     = mc::ANN<I>::Options::POL;//MCISM;
+  f.options.ISMDIV    = 16;
+  f.options.ASMBPS    = 8;
+  f.options.ISMCONT   = true;
+  f.options.ISMSLOPE  = true;
+  f.options.ISMSHADOW = false;//true;
+  f.options.CUTSHADOW = false;
+  f.set( MLPCOEF );
+
+  // Create DAG
+  mc::FFGraph< mc::FFANN<I,0> > DAG;
+  size_t NX = 2;
+  mc::FFVar X[NX];
+  for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
+  mc::FFANN<I,0> MLP;
+  mc::FFVar F = MLP( 0, NX, X, &f );
+  std::cout << DAG;
+
+  std::ofstream o_F( "external8_F.dot", std::ios_base::out );
+  DAG.dot_script( 1, &F, o_F );
+  o_F.close();
+
+  auto F_op  = DAG.subgraph( 1, &F );
+  DAG.output( F_op );
+  std::cout << DAG;
+
+  // Evaluation in real arithmetic
+  double dX[NX] = { 2., 2. }, dF;
+  DAG.eval( F_op, 1, &F, &dF, NX, X, dX );
+  std::cout << "F = " << dF << std::endl;
+
+  // Evaluation in McCormick arithmetic
+  MC mcX[NX] = { MC(I(-3.,3.),2.), MC(I(-3.,3.),2.) }, mcF;
+  DAG.eval( F_op, 1, &F, &mcF, NX, X, mcX );
+  std::cout << "F = " << mcF << std::endl;
+
+  // Polyhedral relaxation
+  mc::PolImg< I, mc::FFANN<I,0> > IMG;
+  IMG.options.BREAKPOINT_TYPE = mc::PolBase<I>::Options::CONT;//BIN;//SOS2;
+  IMG.options.AGGREG_LQ       = true;
+  IMG.options.BREAKPOINT_RTOL =
+  IMG.options.BREAKPOINT_ATOL = 0e0;
+  IMG.options.ALLOW_DISJ      = { mc::FFOp::FABS, mc::FFOp::MAXF };
+  IMG.options.ALLOW_NLIN      = { mc::FFOp::TANH, mc::FFOp::EXP  };
+  I IX[NX] = { I(-3.,3.), I(-3.,3.) };
+  POLV polX[NX] = { POLV( &IMG, X[0], IX[0] ), POLV( &IMG, X[1], IX[1] ) }, polF;
+  DAG.eval( F_op, 1, &F, &polF, NX, X, polX );
+  IMG.generate_cuts( 1, &polF );
+  std::cout << "F =" << IMG << std::endl;
+
+  // Evaluation of forward derivatives in real arithmetic
+  fadbad::F<double> fdX[NX], fdF;
+  for( unsigned i=0; i<NX; ++i ){
+    fdX[i] = dX[i];
+    fdX[i].diff(i,NX);
+  }
+  DAG.eval( F_op, 1, &F, &fdF, NX, X, fdX );
+  for( unsigned i=0; i<NX; ++i )
+    std::cout << "dFdX[" << i << "] = " << fdF.d(i) << std::endl;
+
+  // Evaluation of backward derivatives in real arithmetic
+  fadbad::B<double> bdX[NX], bdF;
+  for( unsigned i=0; i<NX; ++i )
+    bdX[i] = dX[i];
+  DAG.eval( F_op, 1, &F, &bdF, NX, X, bdX );
+  bdF.diff(0,1);
+  for( unsigned i=0; i<NX; ++i )
+    std::cout << "dFdX[" << i << "] = " << bdX[i].d(0) << std::endl;
 
   return 0;
 }
@@ -1058,9 +1140,10 @@ int main()
 //    test_external4();
 //    test_external5();
 //    test_external6();
-    test_external7();
+//    test_external7();
+    test_external8();
 //    test_slift_external0();
-    test_slift_external1();
+//    test_slift_external1();
   }
   catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()

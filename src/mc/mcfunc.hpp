@@ -130,14 +130,14 @@ inline double inv
   // Return inverse value
   return 1./x;
 }
-
+/*
 template <typename U> inline U bilin
 ( const U&x, const U&y, const unsigned int N=0 )
 {
   // Return bilinear product
   return x*y;
 }
-
+*/
 inline double arrh
 ( const double x, const double a )
 {

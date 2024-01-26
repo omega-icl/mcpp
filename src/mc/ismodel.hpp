@@ -7184,7 +7184,8 @@ ISVar<T>& ISVar<T>::operator*=
 #ifndef NOTTOTRACKSHADOW
       std::cout << "    shadow info swaped" << std::endl;    
 #endif      
-      for ( unsigned int i=0; i<_nvar+1; i++ ){
+      //for ( unsigned int i=0; i<_nvar+1; i++ ){
+      for ( unsigned int i=0; i<_nvar; i++ ){
         if( _mat[i].empty() ) continue;
         _shadow_info[2*i+3] *= cst;
         _shadow_info[2*i+4] *= cst; 
