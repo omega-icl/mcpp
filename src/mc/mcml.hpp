@@ -84,7 +84,7 @@ public:
 
     //! @brief Relaxation type
     enum RELAXTYPE{
-      POL=0, //!< Polyhedral relaxation with auxiliary variables
+      AUX=0, //!< Auxiliary variable polyhedral relaxation
       INT,   //!< Interval bounds
       MC,    //!< McCormick relaxation with interval bounds
       ISM,   //!< Interval superposition model
@@ -94,7 +94,7 @@ public:
 
     //! @brief Default constructor
     Options():
-      ACTIV(RELU), RELAX(POL), ISMDIV(64), ASMBPS(8), ISMCONT(true), ISMSLOPE(true), ISMSHADOW(true), CUTSHADOW(false), 
+      ACTIV(RELU), RELAX(MC), ISMDIV(64), ASMBPS(8), ISMCONT(true), ISMSLOPE(true), ISMSHADOW(true), CUTSHADOW(false), 
       ZEROTOL(machprec()), RELU2ABS(false), SIG2EXP(false)
       {}
 
@@ -366,7 +366,7 @@ ANN<T>::resize
 {
   // Set relaxation environment and containers
   switch( options.RELAX ){
-    case Options::POL:
+    case Options::AUX:
     default:
       if( !DAG.first || DAG.second != &data ){
         delete DAG.first;
@@ -440,7 +440,7 @@ ANN<T>::propagate
 {
   switch( options.RELAX ){
     // Polyhedral relaxation with auxiliary variables
-    case Options::POL:
+    case Options::AUX:
     default:
       POLEnv->options = img->options;
       POLEnv->reset();
@@ -540,7 +540,7 @@ ANN<T>::back_propagate
 {
   switch( options.RELAX ){
     // Polyhedral relaxation with auxiliary variables
-    case Options::POL:
+    case Options::AUX:
     default:
       POLEnv->generate_cuts( nout, POLRes.data() );
 #ifdef MC__MCANN_DEBUG
@@ -881,6 +881,10 @@ public:
     const;
 
   void eval
+    ( unsigned const nRes, fadbad::F<FFVar>* vRes, unsigned const nVar, fadbad::F<FFVar> const* vVar, unsigned const* mVar )
+    const;
+
+  void eval
     ( unsigned const nRes, SLiftVar* vRes, unsigned const nVar, SLiftVar const* vVar, unsigned const* mVar )
     const;
 
@@ -893,9 +897,7 @@ public:
   bool reval
     ( unsigned const nRes, U const* vRes, unsigned const nVar, U* vVar )
     const
-    {
-      throw std::runtime_error("FFANN::reval: **ERROR** no generic implementation\n");
-    }
+    { throw std::runtime_error("FFANN::reval: **ERROR** no generic implementation\n"); }
 
   bool reval
     ( unsigned const nRes, PolVar<T> const* vRes, unsigned const nVar, PolVar<T>* vVar )
@@ -906,6 +908,94 @@ public:
     ()
     const
     { std::ostringstream oss; oss << data; return "ANN[" + oss.str() + "]"; }
+
+  //! @brief Return whether or not operation is commutative
+  bool commutative
+    ()
+    const
+    { return false; }
+};
+
+//! @brief C++ class defining gradient of neural networks as external DAG operations in MC++.
+////////////////////////////////////////////////////////////////////////
+//! mc::FFANN is a C++ class for defining gradient of neural networks
+//! as external DAG operations in MC++.
+////////////////////////////////////////////////////////////////////////
+template<typename T, unsigned int ID>
+class FFGRADANN
+////////////////////////////////////////////////////////////////////////
+: public FFOp
+{
+public:
+
+  //! @brief Constructors
+  FFGRADANN
+    ()
+    : FFOp( (int)EXTERN+ID )
+    {}
+
+  // Functor
+  FFVar& operator()
+    ( unsigned const idep, unsigned const nVar, FFVar const* pVar, ANN<T>* pANN )
+    const
+    {
+      data = pANN;
+      info = ID+1;
+#ifdef MC__MCANN_CHECK
+      assert( nVar == pANN->nin && idep < pANN->nout );
+#endif
+      auto dep = FFDep();
+      for( unsigned i=0; i<nVar; ++i ) dep += pVar[i].dep();
+      dep.update( FFDep::TYPE::N );
+      return *(insert_external_operation( *this, nVar*pANN->nout, dep, nVar, pVar )[idep]);
+    }
+
+  FFVar** operator()
+    ( unsigned const nVar, FFVar const* pVar, ANN<T>* pANN )
+    const
+    {
+      data = pANN;
+      info = ID+1;
+#ifdef MC__MCANN_CHECK
+      assert( nVar == pANN->nin );
+#endif
+      auto dep = FFDep();
+      for( unsigned i=0; i<nVar; ++i ) dep += pVar[i].dep();
+      dep.update( FFDep::TYPE::N );
+      return insert_external_operation( *this, nVar*pANN->nout, dep, nVar, pVar );
+    }
+
+  // Forward evaluation overloads
+  template<typename U>
+  void eval
+    ( unsigned const nRes, U* vRes, unsigned const nVar, U const* vVar, unsigned const* mVar )
+    const
+    { throw std::runtime_error("FFGRADANN::eval: **ERROR** no generic implementation\n"); }
+
+  void eval
+    ( unsigned const nRes, double* vRes, unsigned const nVar, double const* vVar, unsigned const* mVar )
+    const;
+
+  void eval
+    ( unsigned const nRes, FFVar* vRes, unsigned const nVar, FFVar const* vVar, unsigned const* mVar )
+    const;
+
+  void eval
+    ( unsigned const nRes, SLiftVar* vRes, unsigned const nVar, SLiftVar const* vVar, unsigned const* mVar )
+    const;
+
+  // Backward evaluation overloads
+  template<typename U>
+  bool reval
+    ( unsigned const nRes, U const* vRes, unsigned const nVar, U* vVar )
+    const
+    { throw std::runtime_error("FFGRADANN::reval: **ERROR** no generic implementation\n"); }
+
+  // Properties
+  std::string name
+    ()
+    const
+    { std::ostringstream oss; oss << data; return "GRADANN[" + oss.str() + "]"; }
 
   //! @brief Return whether or not operation is commutative
   bool commutative
@@ -928,7 +1018,7 @@ const
 #endif
   ANN<T>* pANN = static_cast<ANN<T>*>( data );
 #ifdef MC__MCANN_CHECK
-  assert( pANN && nRes == pANN->nout && nVar == pANN->nin );
+  assert( pANN && nVar == pANN->nin && nRes == pANN->nout );
 #endif
 
   pANN->evaluate( vRes, vVar );
@@ -946,11 +1036,47 @@ const
 #endif
   ANN<T>* pANN = static_cast<ANN<T>*>( data );
 #ifdef MC__MCANN_CHECK
-  assert( pANN && nRes == pANN->nout && nVar == pANN->nin );
+  assert( pANN && nVar == pANN->nin && nRes == pANN->nout );
 #endif
 
   FFVar** pRes = operator()( nVar, vVar, pANN );
   for( unsigned j=0; j<nRes; ++j ) vRes[j] = *(pRes[j]);
+}
+
+template<typename T, unsigned int ID>
+inline void
+FFANN<T,ID>::eval
+( unsigned const nRes, fadbad::F<FFVar>* vRes, unsigned const nVar, fadbad::F<FFVar> const* vVar,
+  unsigned const* mVar )
+const
+{
+#ifdef MC__FFANN_TRACE
+  std::cout << "FFANN::eval: fadbad::F<FFVar>\n";
+#endif
+  ANN<T>* pANN = static_cast<ANN<T>*>( data );
+#ifdef MC__MCANN_CHECK
+  assert( pANN && nVar == pANN->nin && nRes == pANN->nout );
+#endif
+
+  std::vector<FFVar> vVarVal( nVar );
+  for( unsigned i=0; i<nVar; ++i )
+    vVarVal[i] = vVar[i].val();
+  FFVar const*const* vResVal = operator()( nVar, vVarVal.data(), pANN );
+  FFGRADANN<T,ID> ResDer;
+  FFVar const*const* vResDer = ResDer( nVar, vVarVal.data(), pANN );
+
+  for( unsigned k=0; k<nRes; ++k ){
+    vRes[k] = *vResVal[k];
+    for( unsigned i=0; i<nVar; ++i )
+      vRes[k].setDepend( vVar[i] );
+    for( unsigned j=0; j<vRes[k].size(); ++j ){
+      vRes[k][j] = 0.;
+      for( unsigned i=0; i<nVar; ++i ){
+        if( vVar[i][j].cst() && vVar[i][j].num().val() == 0. ) continue;
+        vRes[k][j] += *vResDer[k+nRes*i] * vVar[i][j];
+      }
+    }
+  }
 }
 
 template<typename T, unsigned int ID>
@@ -965,7 +1091,7 @@ const
 #endif
   ANN<T>* pANN = static_cast<ANN<T>*>( data );
 #ifdef MC__MCANN_CHECK
-  assert( pANN && nRes == pANN->nout && nVar == pANN->nin );
+  assert( pANN && nVar == pANN->nin && nRes == pANN->nout );
 #endif
 
   vVar->env()->lift( nRes, vRes, nVar, vVar );
@@ -1022,6 +1148,70 @@ const
 
   pANN->back_propagate( img, pop, vRes, vVar );
   return true;
+}
+
+template<typename T, unsigned int ID>
+inline void
+FFGRADANN<T,ID>::eval
+( unsigned const nRes, double* vRes, unsigned const nVar, double const* vVar,
+  unsigned const* mVar )
+const
+{
+#ifdef MC__FFODE_TRACE
+  std::cout << "FFGRADANN::eval: double\n";
+#endif
+  ANN<T>* pANN = static_cast<ANN<T>*>( data );
+#ifdef MC__MCANN_CHECK
+  assert( pANN && nVar == pANN->nin && nRes == pANN->nin * pANN->nout );
+#endif
+
+  std::vector<fadbad::F<double>> vFVar( pANN->nin );
+  for( unsigned i=0; i<pANN->nin; ++i ){
+    vFVar[i] = vVar[i];
+    vFVar[i].diff(i,pANN->nin);
+  }
+  std::vector<fadbad::F<double>> vFRes( pANN->nout ); 
+  pANN->evaluate( vFRes.data(), vFVar.data() );
+  for( unsigned k=0; k<pANN->nout; ++k )
+    for( unsigned i=0; i<pANN->nin; ++i )
+      vRes[k*pANN->nin+i] = vFRes[k].d(i);
+}
+
+template<typename T, unsigned int ID>
+inline void
+FFGRADANN<T,ID>::eval
+( unsigned const nRes, FFVar* vRes, unsigned const nVar, FFVar const* vVar,
+  unsigned const* mVar )
+const
+{
+#ifdef MC__FFODE_TRACE
+  std::cout << "FFGRADANN::eval: FFVar\n";
+#endif
+  ANN<T>* pANN = static_cast<ANN<T>*>( data );
+#ifdef MC__MCANN_CHECK
+  assert( pANN && nVar == pANN->nin && nRes == pANN->nin * pANN->nout );
+#endif
+
+  FFVar** pRes = operator()( nVar, vVar, pANN );
+  for( unsigned j=0; j<nRes; ++j ) vRes[j] = *(pRes[j]);
+}
+
+template<typename T, unsigned int ID>
+inline void
+FFGRADANN<T,ID>::eval
+( unsigned const nRes, SLiftVar* vRes, unsigned const nVar, SLiftVar const* vVar,
+  unsigned const* mVar )
+const
+{
+#ifdef MC__FFODE_TRACE
+  std::cout << "FFGRADANN::eval: SLiftFVar\n";
+#endif
+  ANN<T>* pANN = static_cast<ANN<T>*>( data );
+#ifdef MC__MCANN_CHECK
+  assert( pANN && nVar == pANN->nin && nRes == pANN->nin * pANN->nout );
+#endif
+
+  vVar->env()->lift( nRes, vRes, nVar, vVar );
 }
 
 } // end namespace mc

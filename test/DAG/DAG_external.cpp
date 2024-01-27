@@ -1009,8 +1009,8 @@ int test_external8()
   #include "ReLUANN_30L1.hpp"
   //#include "ReLUANN_40L4.hpp"
   mc::ANN<I> f;
-  f.options.ACTIV     = mc::ANN<I>::Options::SIGMOID;
-  f.options.RELAX     = mc::ANN<I>::Options::POL;//MCISM;
+  f.options.ACTIV     = mc::ANN<I>::Options::RELU;
+  f.options.RELAX     = mc::ANN<I>::Options::AUX;//MCISM;
   f.options.ISMDIV    = 16;
   f.options.ASMBPS    = 8;
   f.options.ISMCONT   = true;
@@ -1020,7 +1020,7 @@ int test_external8()
   f.set( MLPCOEF );
 
   // Create DAG
-  mc::FFGraph< mc::FFANN<I,0> > DAG;
+  mc::FFGraph< mc::FFANN<I,0>, mc::FFGRADANN<I,0> > DAG;
   size_t NX = 2;
   mc::FFVar X[NX];
   for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
@@ -1047,7 +1047,7 @@ int test_external8()
   std::cout << "F = " << mcF << std::endl;
 
   // Polyhedral relaxation
-  mc::PolImg< I, mc::FFANN<I,0> > IMG;
+  mc::PolImg< I, mc::FFANN<I,0>, mc::FFGRADANN<I,0> > IMG;
   IMG.options.BREAKPOINT_TYPE = mc::PolBase<I>::Options::CONT;//BIN;//SOS2;
   IMG.options.AGGREG_LQ       = true;
   IMG.options.BREAKPOINT_RTOL =
@@ -1060,7 +1060,23 @@ int test_external8()
   IMG.generate_cuts( 1, &polF );
   std::cout << "F =" << IMG << std::endl;
 
-  // Evaluation of forward derivatives in real arithmetic
+  // Evaluation of forward symbolic derivatives in real arithmetic
+  const mc::FFVar* dFdX = DAG.FAD( 1, &F, NX, X );
+  std::ofstream o_dFdX( "external8_dFdX.dot", std::ios_base::out );
+  DAG.dot_script( NX, dFdX, o_dFdX );
+  o_F.close();
+
+  auto dFdX_op  = DAG.subgraph( NX, dFdX );
+  DAG.output( dFdX_op );
+  std::cout << DAG;
+
+  double ddFdX[NX];
+  DAG.eval( dFdX_op, NX, dFdX, ddFdX, NX, X, dX );
+  for( unsigned i=0; i<NX; ++i )
+    std::cout << "dFdX[" << i << "] = " << ddFdX[i] << std::endl;
+  delete[] dFdX;
+
+  // Evaluation of forward automatic derivatives in real arithmetic
   fadbad::F<double> fdX[NX], fdF;
   for( unsigned i=0; i<NX; ++i ){
     fdX[i] = dX[i];
@@ -1069,8 +1085,8 @@ int test_external8()
   DAG.eval( F_op, 1, &F, &fdF, NX, X, fdX );
   for( unsigned i=0; i<NX; ++i )
     std::cout << "dFdX[" << i << "] = " << fdF.d(i) << std::endl;
-
-  // Evaluation of backward derivatives in real arithmetic
+/*
+  // Evaluation of backward automatic derivatives in real arithmetic
   fadbad::B<double> bdX[NX], bdF;
   for( unsigned i=0; i<NX; ++i )
     bdX[i] = dX[i];
@@ -1078,7 +1094,7 @@ int test_external8()
   bdF.diff(0,1);
   for( unsigned i=0; i<NX; ++i )
     std::cout << "dFdX[" << i << "] = " << bdX[i].d(0) << std::endl;
-
+*/
   return 0;
 }
 
