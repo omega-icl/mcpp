@@ -1,6 +1,6 @@
 /*!
 
-@mainpage MC++ (version 2.3): Toolkit for Construction, Manipulation and Bounding of Factorable Functions
+@mainpage MC++ (version 3.0): Toolkit for Construction, Manipulation and Bounding of Factorable Functions
 
 @author Benoit C. Chachuat <tt>(b.chachuat@imperial.ac.uk)</tt> and OMEGA Research Group (http://www3.imperial.ac.uk/environmentenergyoptimisation)
 @date 2023
