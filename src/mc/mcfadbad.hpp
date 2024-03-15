@@ -1,10 +1,11 @@
-// Copyright (C) 2009-2017 Benoit Chachuat, Imperial College London.
+// Copyright (C) Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
 #ifndef MC__MCFADBAD_HPP
 #define MC__MCFADBAD_HPP
 
+#include "mcop.hpp"
 #include "fadiff.h"
 
 namespace fadbad
@@ -31,7 +32,7 @@ INLINE2 FTypeName<T,0> pow2(const FTypeName<T,0>& a, const int b)
 	for(unsigned int i=0;i<c.size();++i) c[i]=tmp*a[i];
 	return c;
 }
-
+/*
 template <typename T>
 INLINE2 T cheb(const T& a, const unsigned b)
 {
@@ -40,25 +41,22 @@ INLINE2 T cheb(const T& a, const unsigned b)
     case 1: return a;
     default: return Op<T>::myTwo() * a * cheb(a,b-1) - cheb(a,b-2); }
 }
-
+*/
 template <typename T, unsigned int N>
 INLINE2 FTypeName<T,N> cheb(const FTypeName<T,N>& a, const unsigned b)
 {
-	FTypeName<T,N> c(cheb(a.val(),b));
-	//FTypeName<T,N> c(Op<T>::myCheb(a.val(),b));
+	FTypeName<T,N> c(mc::Op<T>::cheb(a.val(),b));
 	if (!a.depend()) return c;
         // dTn/dx = n*Un-1(x)
         // Un-1(x) = 2*(T1(x)+T3(x)+...+Tn-1(x)) if n even
         //           2*(T0(x)+T2(x)+...+Tn-1(x))-1 if n odd
 	T tmp(0.);
         if( b%2 ){ // odd case
-          for( unsigned k=0; k<b; k+=2 ) tmp += cheb(a.val(),k);
-          //for( unsigned k=0; k<b; k+=2 ) tmp += Op<T>::myCheb(a.val(),k);
+          for( unsigned k=0; k<b; k+=2 ) tmp += mc::Op<T>::cheb(a.val(),k);
           tmp *= 2.; tmp -= 1.;
         }
         else{ // even case
-          for( unsigned k=1; k<b; k+=2 ) tmp += cheb(a.val(),k);
-          //for( unsigned k=1; k<b; k+=2 ) tmp += Op<T>::myCheb(a.val(),k);
+          for( unsigned k=1; k<b; k+=2 ) tmp += mc::Op<T>::cheb(a.val(),k);
           tmp *= 2.;
         }
 	c.setDepend(a);
@@ -69,21 +67,18 @@ INLINE2 FTypeName<T,N> cheb(const FTypeName<T,N>& a, const unsigned b)
 template <typename T>
 INLINE2 FTypeName<T,0> cheb(const FTypeName<T,0>& a, const unsigned b)
 {
-	FTypeName<T,0> c(cheb(a.val(),b));
-	//FTypeName<T,0> c(Op<T>::myCheb(a.val(),b));
+	FTypeName<T,0> c(mc::Op<T>::cheb(a.val(),b));
 	if (!a.depend()) return c;
         // dTn/dx = n*Un-1(x)
         // Un-1(x) = 2*(T1(x)+T3(x)+...+Tn-1(x)) if n even
         //           2*(T0(x)+T2(x)+...+Tn-1(x))-1 if n odd
 	T tmp(0.);
         if( b%2 ){ // odd case
-          for( unsigned k=0; k<b; k+=2 ) tmp += cheb(a.val(),k);
-          //for( unsigned k=0; k<b; k+=2 ) tmp += Op<T>::myCheb(a.val(),k);
+          for( unsigned k=0; k<b; k+=2 ) tmp += mc::Op<T>::cheb(a.val(),k);
           tmp *= 2.; tmp -= 1.;
         }
         else{ // even case
-          for( unsigned k=1; k<b; k+=2 ) tmp += cheb(a.val(),k);
-          //for( unsigned k=1; k<b; k+=2 ) tmp += Op<T>::myCheb(a.val(),k);
+          for( unsigned k=1; k<b; k+=2 ) tmp += mc::Op<T>::cheb(a.val(),k);
           tmp *= 2.;
         }
 	c.setDepend(a);
@@ -115,7 +110,7 @@ INLINE2 FTypeName<T,N> lmtd (const FTypeName<T,N>& a, const FTypeName<T,N>& b)
       for(unsigned int i=0;i<N;++i) c[i]=0.5*a[i]+0.5*b[i];
       return c;
     }
-    FTypeName<T,N> c((a-b)/(log(a)-log(b)));
+    FTypeName<T,N> c((a-b)/(mc::Op<T>::log(a)-mc::Op<T>::log(b)));
     return c;
 }
 template <typename T>
@@ -127,7 +122,7 @@ INLINE2 FTypeName<T,0> lmtd (const FTypeName<T,0>& a, const FTypeName<T,0>& b)
       for(unsigned int i=0;i<c.size();++i) c[i]=0.5*a[i]+0.5*b[i];
       return c;
     }
-    FTypeName<T,0> c((a-b)/(log(a)-log(b)));
+    FTypeName<T,0> c((a-b)/(mc::Op<T>::log(a)-mc::Op<T>::log(b)));
     return c;
 }
 //@AVT.SVT: 08.06.2017
@@ -138,10 +133,10 @@ INLINE2 FTypeName<T,N> rlmtd (const FTypeName<T,N>& a, const FTypeName<T,N>& b)
       FTypeName<T,N> c(1./a.val());
       if (!a.depend()) return c;
       c.setDepend(a,b);
-      for(unsigned int i=0;i<N;++i) c[i]=-a[i]/(2.*pow(a.val(),2))-b[i]/(2.*pow(b.val(),2));
+      for(unsigned int i=0;i<N;++i) c[i]=-a[i]/(2.*mc::Op<T>::sqr(a.val()))-b[i]/(2.*mc::Op<T>::sqr(b.val()));
       return c;
     }
-    FTypeName<T,N> c((log(a)-log(b))/(a-b));
+    FTypeName<T,N> c((mc::Op<T>::log(a)-mc::Op<T>::log(b))/(a-b));
     return c;
 }
 template <typename T>
@@ -151,10 +146,10 @@ INLINE2 FTypeName<T,0> rlmtd (const FTypeName<T,0>& a, const FTypeName<T,0>& b)
       FTypeName<T,0> c(1./a.val());
       if (!a.depend()) return c;
       c.setDepend(a,b);
-      for(unsigned int i=0;i<c.size();++i) c[i]=-a[i]/(2.*pow(a.val(),2))-b[i]/(2.*pow(b.val(),2));
+      for(unsigned int i=0;i<c.size();++i) c[i]=-a[i]/(2.*mc::Op<T>::sqr(a.val()))-b[i]/(2.*mc::Op<T>::sqr(b.val()));
       return c;
     }
-    FTypeName<T,0> c((log(a)-log(b))/(a-b));
+    FTypeName<T,0> c((mc::Op<T>::log(a)-mc::Op<T>::log(b))/(a-b));
     return c;
 }
 //@ICL: 04.01.2024
@@ -182,25 +177,25 @@ INLINE2 FTypeName<T,0> fabs(const FTypeName<T,0>& a)
 template <typename T, unsigned int N>
 INLINE2 FTypeName<T,N> min (const FTypeName<T,N>& a, const FTypeName<T,N>& b)
 {
-    FTypeName<T,N> c(0.5*(a+b-fabs(a-b)));
+    FTypeName<T,N> c(0.5*(a+b-mc::Op<T>::fabs(a-b)));
     return c;
 }
 template <typename T>
 INLINE2 FTypeName<T,0> min (const FTypeName<T,0>& a, const FTypeName<T,0>& b)
 {
-    FTypeName<T,0> c(0.5*(a+b-fabs(a-b)));
+    FTypeName<T,0> c(0.5*(a+b-mc::Op<T>::fabs(a-b)));
     return c;
 }
 template <typename T, unsigned int N>
 INLINE2 FTypeName<T,N> max (const FTypeName<T,N>& a, const FTypeName<T,N>& b)
 {
-    FTypeName<T,N> c(0.5*(a+b+fabs(a-b)));
+    FTypeName<T,N> c(0.5*(a+b+mc::Op<T>::fabs(a-b)));
     return c;
 }
 template <typename T>
 INLINE2 FTypeName<T,0> max (const FTypeName<T,0>& a, const FTypeName<T,0>& b)
 {
-    FTypeName<T,0> c(0.5*(a+b+fabs(a-b)));
+    FTypeName<T,0> c(0.5*(a+b+mc::Op<T>::fabs(a-b)));
     return c;
 }
 
@@ -287,8 +282,6 @@ TTypeName<U,N> pow(const TTypeName<U,N>& val, const int b)
 } // end namespace fadbad
 
 #include "badiff.h"
-
-#include "mcop.hpp"
 
 namespace mc
 {

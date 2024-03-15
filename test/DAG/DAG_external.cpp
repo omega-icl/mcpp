@@ -68,10 +68,8 @@ public:
     ( unsigned const nVar, FFVar const* pVar )
     const
     {
-      auto dep = FFDep();
-      for( unsigned i=0; i<nVar; ++i ) dep += pVar[i].dep();
-      dep.update( FFDep::TYPE::N );
-      return **insert_external_operation( *this, 1, dep, nVar, pVar );
+//      dep.update( FFDep::TYPE::N );
+      return **insert_external_operation( *this, 1, nVar, pVar );
     }
 
   // Evaluation overloads
@@ -109,6 +107,23 @@ public:
       vVar->env()->lift( nRes, vRes, nVar, vVar );
     }
 
+  void deriv
+    ( unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar, FFVar** vDer )
+    const
+    {
+      assert( nRes == 1 );
+      std::cout << "NORM2 FFVar differentiation\n";
+      fadbad::F<FFVar> vFVar[nVar], vFRes[nRes];
+      for( unsigned i=0; i<nVar; ++i ){
+        vFVar[i] = vVar[i];
+        vFVar[i].diff( i, nVar );
+      }
+      eval( nRes, vFRes, nVar, vFVar, nullptr );
+      for( unsigned j=0; j<nRes; ++j )
+        for( unsigned i=0; i<nVar; ++i )
+          vDer[j][i] = vFRes[j].d(i);
+    }
+
   // Properties
   std::string name
     ()
@@ -137,19 +152,13 @@ public:
     ( unsigned const idep, unsigned const nVar, FFVar const* pVar )
     const
     {
-      auto dep = FFDep();
-      for( unsigned i=0; i<nVar; ++i ) dep += pVar[i].dep();
-      dep.update( FFDep::TYPE::N );
-      return *(insert_external_operation( *this, 2, dep, nVar, pVar )[idep]);
+      return *(insert_external_operation( *this, 2, nVar, pVar )[idep]);
     }
   FFVar** operator()
     ( unsigned const nVar, FFVar const* pVar )
     const
     {
-      auto dep = FFDep();
-      for( unsigned i=0; i<nVar; ++i ) dep += pVar[i].dep();
-      dep.update( FFDep::TYPE::N );
-      return insert_external_operation( *this, 2, dep, nVar, pVar );
+      return insert_external_operation( *this, 2, nVar, pVar );
     }
 
   // Evaluation overloads
@@ -194,6 +203,23 @@ public:
       vVar->env()->lift( nRes, vRes, nVar, vVar );
     }
 
+  void deriv
+    ( unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar, FFVar** vDer )
+    const
+    {
+      assert( nRes == 2 );
+      std::cout << "NORM12 FFVar differentiation\n";
+      fadbad::F<FFVar> vFVar[nVar], vFRes[nRes];
+      for( unsigned i=0; i<nVar; ++i ){
+        vFVar[i] = vVar[i];
+        vFVar[i].diff( i, nVar );
+      }
+      eval( nRes, vFRes, nVar, vFVar, nullptr );
+      for( unsigned j=0; j<nRes; ++j )
+        for( unsigned i=0; i<nVar; ++i )
+          vDer[j][i] = vFRes[j].d(i);
+    }
+
   // Properties
   std::string name
     ()
@@ -222,9 +248,7 @@ public:
     ( FFVar const& Var )
     const
     {
-      auto dep = Var.dep();
-      dep.update( FFDep::TYPE::N );
-      return *(insert_external_operation( *this, 1, dep, Var )[0]);
+      return *(insert_external_operation( *this, 1, Var )[0]);
     }
 
   // Evaluation overloads
@@ -237,6 +261,7 @@ public:
       std::cout << "xlog generic instantiation\n"; 
       vRes[0] = vVar[0] * Op<T>::log( vVar[0] );
     }
+
   template <typename T>
   void eval
     ( unsigned const nRes, McCormick<T>* vRes, unsigned const nVar, McCormick<T> const* vVar,
@@ -247,6 +272,7 @@ public:
       std::cout << "xlog McCormick instantiation\n"; 
       vRes[0] = xlog( vVar[0] );
     }
+
   void eval
     ( unsigned const nRes, fadbad::F<FFVar>* vRes, unsigned const nVar, fadbad::F<FFVar> const* vVar,
       unsigned const* mVar )
@@ -261,6 +287,7 @@ public:
       for( unsigned int i=0; i<vRes[0].size(); ++i )
         vRes[0][i] = dxlog * vVar[0][i];
     }
+
   void eval
     ( unsigned const nRes, FFVar* vRes, unsigned const nVar, FFVar const* vVar, unsigned const* mVar )
     const
@@ -268,6 +295,7 @@ public:
       assert( nVar == 1 && nRes == 1 );
       vRes[0] = operator()( vVar[0] );
     }
+
   template <typename T>
   void eval
     ( unsigned const nRes, PolVar<T>* vRes, unsigned const nVar, PolVar<T> const* vVar,
@@ -284,6 +312,7 @@ public:
       vRes[0].set( img, *pRes, TRes );
       // vRes[0] = xlog( vVar[0] );
     }
+
   template <typename T>
   bool reval
     ( unsigned const nRes, PolVar<T> const* vRes, unsigned const nVar, PolVar<T>* vVar )
@@ -304,6 +333,15 @@ public:
       img->add_sandwich_cuts( pop, vVar[0], Op<T>::l(vVar[0].range()), Op<T>::u(vVar[0].range()),
         vRes[0], Op<T>::l(vRes[0].range()), Op<T>::u(vRes[0].range()), PolCut<T>::GE, loc::xlog );
       return true;
+    }
+
+  void deriv
+    ( unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar, FFVar** vDer )
+    const
+    {
+      assert( nVar == 1 && nRes == 1 );
+      std::cout << "xlog FFVar differentiation\n";
+      vDer[0][0] = log( vVar[0] ) + 1;
     }
 
   // Properties
@@ -329,15 +367,7 @@ public:
     ( unsigned const nVar, FFVar const* pVar )
     const
     {
-      auto dep = FFDep();
-      for( unsigned i=0; i<nVar; ++i ) dep += pVar[i].dep();
-      switch( nVar ){
-        case 0:
-        case 1:  dep.update( FFDep::TYPE::L ); break;
-        case 2:  dep.update( FFDep::TYPE::Q ); break;
-        default: dep.update( FFDep::TYPE::P ); break;
-      }
-      return **insert_external_operation( *this, 1, dep, nVar, pVar );
+      return **insert_external_operation( *this, 1, nVar, pVar );
     }
 
   // Evaluation overloads
@@ -373,6 +403,20 @@ public:
     {
       assert( nRes == 1 );
       vRes[0] = operator()( nVar, vVar );
+    }
+  void eval
+    ( unsigned const nRes, FFDep* vRes, unsigned const nVar, FFDep const* vVar, unsigned const* mVar )
+    const
+    {
+      assert( nRes == 1 );
+      vRes[0] = 0;
+      for( unsigned i=0; i<nVar; ++i ) vRes[0] += vVar[i];
+      switch( nVar ){
+        case 0:
+        case 1:  vRes[0].update( FFDep::TYPE::L ); break;
+        case 2:  vRes[0].update( FFDep::TYPE::Q ); break;
+        default: vRes[0].update( FFDep::TYPE::P ); break;
+      }
     }
 
   // Properties
@@ -447,10 +491,7 @@ public:
     const
     {
       info = ID;
-      auto dep = FFDep();
-      for( unsigned i=0; i<nVar; ++i ) dep += pVar[i].dep();
-      dep.update( FFDep::TYPE::N );
-      return **insert_external_operation( *this, 1, dep, nVar, pVar );
+      return **insert_external_operation( *this, 1, nVar, pVar );
     }
 
   // Evaluation overloads
@@ -478,7 +519,7 @@ public:
         throw FFBase::Exceptions( FFBase::Exceptions::EXTERN );
       vRes[0] = std::log( vRes[0] );
     }
-/*
+
   void eval
     ( unsigned const nRes, FFVar* vRes, unsigned const nVar, FFVar const* vVar, unsigned const* mVar )
     const
@@ -487,10 +528,25 @@ public:
       std::cout << "FFDOpt::eval: FFVar\n"; 
       vRes[0] = operator()( nVar, vVar );
     }
-*/
+
+  void eval
+    ( unsigned const nRes, FFDep* vRes, unsigned const nVar, FFDep const* vVar, unsigned const* mVar )
+    const
+    {
+      assert( nRes == 1 );
+      std::cout << "FFDOpt::eval: FFDep\n"; 
+      vRes[0] = 0;
+      for( unsigned i=0; i<nVar; ++i ) vRes[0] += vVar[i];
+      vRes[0].update( FFDep::TYPE::N );
+    }
+
   void eval
     ( unsigned const nRes, fadbad::F<FFVar>* vRes, unsigned const nVar, fadbad::F<FFVar> const* vVar,
       unsigned const* mVar )
+    const;
+
+  void deriv
+    ( unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar, FFVar** vDer )
     const;
 
   // Properties
@@ -523,20 +579,14 @@ public:
     const
     {
       info = ID+1;
-      auto dep = FFDep();
-      for( unsigned i=0; i<nVar; ++i ) dep += pVar[i].dep();
-      dep.update( FFDep::TYPE::N );
-      return *(insert_external_operation( *this, nVar, dep, nVar, pVar )[idep]);
+      return *(insert_external_operation( *this, nVar, nVar, pVar )[idep]);
     }
   FFVar** operator()
     ( unsigned const nVar, FFVar const* pVar )
     const
     {
       info = ID+1;
-      auto dep = FFDep();
-      for( unsigned i=0; i<nVar; ++i ) dep += pVar[i].dep();
-      dep.update( FFDep::TYPE::N );
-      return insert_external_operation( *this, nVar, dep, nVar, pVar );
+      return insert_external_operation( *this, nVar, nVar, pVar );
     }
 
   // Evaluation overloads
@@ -575,7 +625,7 @@ public:
           else     vRes[i] += Xmat(j,j);
       }
     }
-/*
+
   void eval
     ( unsigned const nRes, FFVar* vRes, unsigned const nVar, FFVar const* vVar, unsigned const* mVar )
     const
@@ -585,7 +635,19 @@ public:
       FFVar** ppRes = operator()( nVar, vVar );
       for( unsigned j=0; j<nRes; ++j ) vRes[j] = *(ppRes[j]);
     }
-*/
+
+  void eval
+    ( unsigned const nRes, FFDep* vRes, unsigned const nVar, FFDep const* vVar, unsigned const* mVar )
+    const
+    {
+      assert( nRes == nVar );
+      std::cout << "FFDOpt::eval: FFDep\n"; 
+      vRes[0] = 0;
+      for( unsigned i=0; i<nVar; ++i ) vRes[0] += vVar[i];
+      vRes[0].update( FFDep::TYPE::N );
+      for( unsigned j=1; j<nRes; ++j ) vRes[j] = vRes[0];
+    }
+
   // Properties
   std::string name
     ()
@@ -620,6 +682,20 @@ const
       else     vRes[0][j] += DOptGrad( i, nVar, vVarVal.data() ) * vVar[i][j];
 }
 
+
+template<unsigned int ID>
+inline void
+FFDOpt<ID>::deriv
+( unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar, FFVar** vDer )
+const
+{
+  assert( nRes == 1 && nVar == _A.size() && _A.begin() != _A.end() );
+  std::cout << "FFDOpt::deriv: FFVar\n";
+  FFDOptGrad<ID> DOptGrad;
+  for( unsigned i=0; i<nVar; ++i )
+    vDer[0][i] = DOptGrad( i, nVar, vVar );
+}
+
 template<unsigned int ID>
 class FFArrh
 : public FFOp
@@ -639,9 +715,7 @@ public:
       data = &r; // this is assuming r isn't going out of scope
       info = ID;
       //std::cout << "data: " << data << std::endl;
-      auto dep = Var.dep();
-      dep.update( FFDep::TYPE::N );
-      return *(insert_external_operation( *this, 1, dep, Var )[0]);
+      return *(insert_external_operation( *this, 1, Var )[0]);
     }
 
   // Evaluation overloads
@@ -654,6 +728,7 @@ public:
       std::cout << "FFArrh: generic instantiation\n"; 
       vRes[0] = Op<T>::exp( - *static_cast<double*>( data ) / vVar[0] );
     }
+
   template <typename T>
   void eval
     ( unsigned const nRes, McCormick<T>* vRes, unsigned const nVar, McCormick<T> const* vVar,
@@ -664,6 +739,7 @@ public:
       std::cout << "FFArrh: McCormick instantiation\n"; 
       vRes[0] = arrh( vVar[0], *static_cast<double*>( data ) );
     }
+
   void eval
     ( unsigned const nRes, FFVar* vRes, unsigned const nVar, FFVar const* vVar, unsigned const* mVar )
     const
@@ -672,6 +748,17 @@ public:
       std::cout << "FFArrh: FFVar instantiation\n"; 
       vRes[0] = operator()( vVar[0], *static_cast<double*>( data ) );
     }
+
+  void eval
+    ( unsigned const nRes, FFDep* vRes, unsigned const nVar, FFDep const* vVar, unsigned const* mVar )
+    const
+    {
+      assert( nVar == 1 && nRes == 1 && data );
+      std::cout << "FFArrh: FFDep instantiation\n";
+      vRes[0] = vVar[0];
+      vRes[0].update( FFDep::TYPE::N );
+    }
+
   void eval
     ( unsigned const nRes, SLiftVar* vRes, unsigned const nVar, SLiftVar const* vVar, unsigned const* mVar )
     const
@@ -734,14 +821,18 @@ int test_external0()
   for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << mcF[i] << std::endl;
 
   // Forward AD
-  const mc::FFVar* dF0dX = DAG.FAD( 1, F, NX, X, true );
-  std::ofstream o_dF0dX( "external0_dF0dX.dot", std::ios_base::out );
-  DAG.dot_script( NX, dF0dX, o_dF0dX );
-  o_dF0dX.close();
+  const mc::FFVar* dFdX = DAG.FAD( NF, F, NX, X, true );
+  std::ofstream o_dFdX( "external0_dFdX.dot", std::ios_base::out );
+  DAG.dot_script( NX*NF, dFdX, o_dFdX );
+  o_dFdX.close();
 
-  auto dF0dX_op  = DAG.subgraph( NX, dF0dX );
-  DAG.output( dF0dX_op );
-  delete[] dF0dX;
+  auto dFdX_op  = DAG.subgraph( NX*NF, dFdX );
+  DAG.output( dFdX_op );
+  delete[] dFdX;
+
+
+  auto F2_op  = DAG.subgraph( 1, F+1 );
+  DAG.output( F2_op );
 
   return 0;
 }
@@ -1005,26 +1096,29 @@ int test_external8()
 {
   std::cout << "\n==============================================\ntest_external8:\n";
 
-  // Create ANN
-  #include "ReLUANN_30L1.hpp"
-  //#include "ReLUANN_40L4.hpp"
-  mc::ANN<I> f;
-  f.options.ACTIV     = mc::ANN<I>::Options::RELU;
-  f.options.RELAX     = mc::ANN<I>::Options::AUX;//MCISM;
+  // Create MLP
+  mc::MLP<I> f;
+  f.options.RELAX     = mc::MLP<I>::Options::AUX;//MCISM;
   f.options.ISMDIV    = 16;
   f.options.ASMBPS    = 8;
   f.options.ISMCONT   = true;
   f.options.ISMSLOPE  = true;
   f.options.ISMSHADOW = false;//true;
   f.options.CUTSHADOW = false;
-  f.set( MLPCOEF );
+
+  //#include "ReLUANN_30L1.hpp"
+  #include "ReLUANN_40L4.hpp"
+  unsigned l=0;
+  for( auto const& layer : MLPCOEF )
+    f.append_data( layer, (++l)<MLPCOEF.size()? mc::MLP<I>::Options::RELU:
+                                                mc::MLP<I>::Options::LINEAR );
 
   // Create DAG
-  mc::FFGraph< mc::FFANN<I,0>, mc::FFGRADANN<I,0> > DAG;
+  mc::FFGraph< mc::FFMLP<I,0>, mc::FFGRADMLP<I,0> > DAG;
   size_t NX = 2;
   mc::FFVar X[NX];
   for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
-  mc::FFANN<I,0> MLP;
+  mc::FFMLP<I,0> MLP;
   mc::FFVar F = MLP( 0, NX, X, &f );
   std::cout << DAG;
 
@@ -1047,7 +1141,7 @@ int test_external8()
   std::cout << "F = " << mcF << std::endl;
 
   // Polyhedral relaxation
-  mc::PolImg< I, mc::FFANN<I,0>, mc::FFGRADANN<I,0> > IMG;
+  mc::PolImg< I, mc::FFMLP<I,0>, mc::FFGRADMLP<I,0> > IMG;
   IMG.options.BREAKPOINT_TYPE = mc::PolBase<I>::Options::CONT;//BIN;//SOS2;
   IMG.options.AGGREG_LQ       = true;
   IMG.options.BREAKPOINT_RTOL =
@@ -1061,20 +1155,20 @@ int test_external8()
   std::cout << "F =" << IMG << std::endl;
 
   // Evaluation of forward symbolic derivatives in real arithmetic
-  const mc::FFVar* dFdX = DAG.FAD( 1, &F, NX, X );
-  std::ofstream o_dFdX( "external8_dFdX.dot", std::ios_base::out );
-  DAG.dot_script( NX, dFdX, o_dFdX );
-  o_F.close();
+  const mc::FFVar* dFdX_F = DAG.FAD( 1, &F, NX, X );
+  std::ofstream o_dFdX_F( "external8_dFdX_F.dot", std::ios_base::out );
+  DAG.dot_script( NX, dFdX_F, o_dFdX_F );
+  o_dFdX_F.close();
 
-  auto dFdX_op  = DAG.subgraph( NX, dFdX );
-  DAG.output( dFdX_op );
-  std::cout << DAG;
+  auto op_dFdX_F = DAG.subgraph( NX, dFdX_F );
+  DAG.output( op_dFdX_F );
+  //std::cout << DAG;
 
-  double ddFdX[NX];
-  DAG.eval( dFdX_op, NX, dFdX, ddFdX, NX, X, dX );
+  double ddFdX_F[NX];
+  DAG.eval( op_dFdX_F, NX, dFdX_F, ddFdX_F, NX, X, dX );
   for( unsigned i=0; i<NX; ++i )
-    std::cout << "dFdX[" << i << "] = " << ddFdX[i] << std::endl;
-  delete[] dFdX;
+    std::cout << "dFdX_F[" << i << "] = " << ddFdX_F[i] << std::endl;
+  delete[] dFdX_F;
 
   // Evaluation of forward automatic derivatives in real arithmetic
   fadbad::F<double> fdX[NX], fdF;
@@ -1085,6 +1179,22 @@ int test_external8()
   DAG.eval( F_op, 1, &F, &fdF, NX, X, fdX );
   for( unsigned i=0; i<NX; ++i )
     std::cout << "dFdX[" << i << "] = " << fdF.d(i) << std::endl;
+
+  // Evaluation of forward symbolic derivatives in real arithmetic
+  const mc::FFVar* dFdX_B = DAG.BAD( 1, &F, NX, X );
+  std::ofstream o_dFdX_B( "external8_dFdX_B.dot", std::ios_base::out );
+  DAG.dot_script( NX, dFdX_B, o_dFdX_B );
+  o_dFdX_B.close();
+
+  auto op_dFdX_B = DAG.subgraph( NX, dFdX_B );
+  DAG.output( op_dFdX_B );
+  //std::cout << DAG;
+
+  double ddFdX_B[NX];
+  DAG.eval( op_dFdX_B, NX, dFdX_B, ddFdX_B, NX, X, dX );
+  for( unsigned i=0; i<NX; ++i )
+    std::cout << "dFdX_B[" << i << "] = " << ddFdX_B[i] << std::endl;
+  delete[] dFdX_B;
 /*
   // Evaluation of backward automatic derivatives in real arithmetic
   fadbad::B<double> bdX[NX], bdF;

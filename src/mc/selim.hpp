@@ -662,6 +662,9 @@ protected:
   //! @brief Equality constraints
   std::vector<FFVar> _Ctr;
 
+  //! @brief Dependency information for DAG variables
+  std::vector<FFDep> _DVar;
+
   //! @brief Invertibility information for DAG variables
   std::vector<FFInv> _IVar;
 
@@ -737,6 +740,7 @@ SElimEnv<ExtOps...>::_reset
 ()
 {
   _Var.clear();
+  _DVar.clear();
   _IVar.clear();
   _VarWeight.clear();
   _ndxVar.clear();
@@ -790,6 +794,7 @@ SElimEnv<ExtOps...>::process
   for( auto const& Op : sgCtr.l_op ){
     if( Op->type != FFOp::VAR ) continue;
     _Var.push_back( *Op->varout[0] );
+    _DVar.push_back( FFDep().indep( Op->varout[0]->id().second ) );
     _IVar.push_back( FFInv().indep( v ) );
     auto itv = wVar.find( Op->varout[0] ); 
     _VarWeight[v] = ( itv != wVar.end() ? itv->second : 1. );
@@ -1106,10 +1111,12 @@ SElimEnv<ExtOps...>::_dep_expr
   // Check numerator active dependence in ndxVarEl
   std::set< FFVar const*, lt_FFVar > sdep;
 #ifdef MC__SELIM_DEBUG_PROCESS
-  std::cout << "DEPENDENTS:";
+  std::cout << "DEPENDENTS (" << ndxVarEl << "):";
 #endif
+  FFDep dvar;
   for( auto const& pvar : numer.setvar() ){
-    if( pvar->dep().dep( ndxVarEl ).first ){
+    _dag->eval( 1, pvar, &dvar, _Var.size(), _Var.data(), _DVar.data() );
+    if( dvar.dep( ndxVarEl ).first ){
       sdep.insert( pvar );
 #ifdef MC__SELIM_DEBUG_PROCESS
       std::cout << " " << *pvar;

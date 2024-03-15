@@ -2014,7 +2014,7 @@ public:
     double FRACTIONAL_RTOL;
     //! @brief Rule for piecewise linear cuts of nonlinear convex/concave terms - Default: NONE
     REFINE BREAKPOINT_TYPE;
-    //! @brief Absolute tolerance in adding breakpoints in piecewise linear cuts - Default: 1e-8
+    //! @brief Absolute tolerance in adding breakpoints in piecewise linear cuts - Default: 1e-5
     double BREAKPOINT_ATOL;
     //! @brief Relative tolerance in adding breakpoints in piecewise linear cuts - Default: 1e-5
     double BREAKPOINT_RTOL;

@@ -1,8 +1,8 @@
 #ifndef MC__MCML_HPP
 #define MC__MCML_HPP
 
-//#define MC__MCANN_DEBUG
-#define MC__MCANN_CHECK
+//#define MC__MCMLP_DEBUG
+#define MC__MCMLP_CHECK
 
 #include "mccormick.hpp"
 #include "ismodel.hpp"
@@ -15,14 +15,14 @@
 namespace mc
 {
 
-//! @brief C++ class for evaluation and relaxation of neural networks
+//! @brief C++ class for evaluation and relaxation of multilayer perceptrons
 ////////////////////////////////////////////////////////////////////////
-//! mc::ANN is a C++ class for evaluation and relaxation of neural
-//! networks leveraging expression trees and arithmetics available
-//! through MC++
+//! mc::MLP is a C++ class for evaluation and relaxation of multilayer
+//! perceptrons (MLP) that leverages expression trees and arithmetics
+//! available through MC++
 ////////////////////////////////////////////////////////////////////////
 template <typename T> 
-class ANN
+class MLP
 ////////////////////////////////////////////////////////////////////////
 {
 public:
@@ -31,8 +31,10 @@ public:
   size_t                               nin;
   //! @brief Number of outputs
   size_t                               nout;
-  //! @brief ANN data
-  std::vector<std::vector<std::vector<double>>> data;
+  //! @brief Number of hidden layers
+  size_t                               nhid;
+  //! @brief MLP data
+  std::vector<std::pair<std::vector<std::vector<double>>,int>> data;
 
   //! @brief Storage for Polhedral relaxation
   std::pair<FFGraph<>*,void*>          DAG;
@@ -71,7 +73,7 @@ public:
   std::vector<double>                  DXASMAux;
   std::vector<double>                  DYASMAux;
 
-  //! @brief ReLUANNOp options
+  //! @brief MLP options
   struct Options
   {
     //! @brief Activation type
@@ -94,14 +96,13 @@ public:
 
     //! @brief Default constructor
     Options():
-      ACTIV(RELU), RELAX(MC), ISMDIV(64), ASMBPS(8), ISMCONT(true), ISMSLOPE(true), ISMSHADOW(true), CUTSHADOW(false), 
-      ZEROTOL(machprec()), RELU2ABS(false), SIG2EXP(false)
+      RELAX(MC), ISMDIV(64), ASMBPS(8), ISMCONT(true), ISMSLOPE(true), ISMSHADOW(true), CUTSHADOW(false), 
+      ZEROTOL(machprec()), RELU2ABS(false), SIG2EXP(false), AUTODIFF(F)
       {}
 
     //! @brief Assignment operator
     Options& operator=
       ( Options const& opt ){
-        ACTIV     = opt.ACTIV;
         RELAX     = opt.RELAX;
         ISMDIV    = opt.ISMDIV;
         ASMBPS    = opt.ASMBPS;
@@ -115,8 +116,12 @@ public:
         return *this;
       }
 
-    //! @brief Type of activation function
-    ACTIVTYPE ACTIV;
+    //! @brief Enumeration type for AD strategy
+    enum AD{
+      F=0,	//!< Forward differentiation
+      B		//!< Backward differentiation
+    };
+
     //! @brief Type of relaxation
     RELAXTYPE RELAX;
     //! @brief Number of subdivisions in superposition model
@@ -137,15 +142,17 @@ public:
     bool     RELU2ABS;
     //! @brief Whether to convert sigmoid to exp (true) or tanh (false)
     bool     SIG2EXP;
+    //! @brief Whether to apply forward or reverse automatic differentiation
+    int      AUTODIFF;
   } options;
 
   //! @brief Default constructor
-  ANN
+  MLP
   ()
   : nin(0), nout(0), DAG(nullptr,nullptr), POLEnv(nullptr), ISMEnv(nullptr), ASMEnv(nullptr)
   {}
 
-  ~ANN() 
+  ~MLP() 
   {
     delete POLEnv;
     delete DAG.first;
@@ -153,12 +160,24 @@ public:
     delete ASMEnv;
   }
 
-  //! @brief Set neural network
-  void set
-    ( std::vector<std::vector<std::vector<double>>> const& data );
+  //! @brief Clear MLP data
+  void clear_data
+    ();
+
+  //! @brief Set MLP data
+  bool set_data
+    ( std::vector<std::pair<std::vector<std::vector<double>>,int>> const& data );
+
+  //! @brief Append multi-neuron layer to MLP data
+  bool append_data
+    ( std::vector<std::vector<double>> const& data, int const activ=Options::LINEAR, bool const reset=false );
+
+  //! @brief Append single-neuron layer to MLP data
+  bool append_data
+    ( std::vector<double> const& data, int const activ=Options::LINEAR, bool const reset=false );
 
   //! @brief Resize relaxation containers
-  void resize
+  void resize_relax
     ();
 
   //! @brief Evaluate neural network
@@ -194,11 +213,11 @@ public:
     { evaluate( y, x, POLhid ); }
 
   //! @brief Propagate polyhedral image through neural network
-  void propagate
+  void propagate_relax
     ( PolBase<T>* img, FFVar** pRes, PolVar<T>* vRes, PolVar<T> const* vVar );
 
   //! @brief Append polyhedral image cuts for neural network
-  void back_propagate
+  void backpropagate_relax
     ( PolBase<T>* img, FFOp* pOp, PolVar<T> const* vRes, PolVar<T>* vVar );
 
 private:
@@ -265,103 +284,148 @@ private:
   static thread_local std::vector<std::vector<PolVar<T>>>           POLhid;
 };
 
-template <typename T> inline thread_local std::vector<std::vector<double>>              ANN<T>::Dhid     = std::vector<std::vector<double>>();
-template <typename T> inline thread_local std::vector<std::vector<fadbad::F<double>>>   ANN<T>::FDhid    = std::vector<std::vector<fadbad::F<double>>>();
-template <typename T> inline thread_local std::vector<std::vector<T>>                   ANN<T>::Ihid     = std::vector<std::vector<T>>();
-template <typename T> inline thread_local std::vector<std::vector<McCormick<T>>>        ANN<T>::MCIhid   = std::vector<std::vector<McCormick<T>>>();
-template <typename T> inline thread_local std::vector<std::vector<ISVar<T>>>            ANN<T>::ISMhid   = std::vector<std::vector<ISVar<T>>>();
-template <typename T> inline thread_local std::vector<std::vector<McCormick<ISVar<T>>>> ANN<T>::MCISMhid = std::vector<std::vector<McCormick<ISVar<T>>>>();
-template <typename T> inline thread_local std::vector<std::vector<ASVar<T>>>            ANN<T>::ASMhid   = std::vector<std::vector<ASVar<T>>>();
-template <typename T> inline thread_local std::vector<std::vector<PolVar<T>>>           ANN<T>::POLhid   = std::vector<std::vector<PolVar<T>>>();
+template <typename T> inline thread_local std::vector<std::vector<double>>              MLP<T>::Dhid     = std::vector<std::vector<double>>();
+template <typename T> inline thread_local std::vector<std::vector<fadbad::F<double>>>   MLP<T>::FDhid    = std::vector<std::vector<fadbad::F<double>>>();
+template <typename T> inline thread_local std::vector<std::vector<T>>                   MLP<T>::Ihid     = std::vector<std::vector<T>>();
+template <typename T> inline thread_local std::vector<std::vector<McCormick<T>>>        MLP<T>::MCIhid   = std::vector<std::vector<McCormick<T>>>();
+template <typename T> inline thread_local std::vector<std::vector<ISVar<T>>>            MLP<T>::ISMhid   = std::vector<std::vector<ISVar<T>>>();
+template <typename T> inline thread_local std::vector<std::vector<McCormick<ISVar<T>>>> MLP<T>::MCISMhid = std::vector<std::vector<McCormick<ISVar<T>>>>();
+template <typename T> inline thread_local std::vector<std::vector<ASVar<T>>>            MLP<T>::ASMhid   = std::vector<std::vector<ASVar<T>>>();
+template <typename T> inline thread_local std::vector<std::vector<PolVar<T>>>           MLP<T>::POLhid   = std::vector<std::vector<PolVar<T>>>();
+
+template<typename T>
+inline bool
+MLP<T>::set_data
+( std::vector<std::pair<std::vector<std::vector<double>>,int>> const& mlp )
+{
+  if( !mlp.size()
+   || !mlp[0].first.size()
+   || (mlp[0].first)[0].size() <= 1 )
+    return false;
+
+  // Set data
+  data = mlp;
+  nin  = data.front().first.front().size() - 1;
+  nout = data.back().first.size();
+  nhid = data.size() - 1;
+  return true;
+}
 
 template<typename T>
 inline void
-ANN<T>::set
-( std::vector<std::vector<std::vector<double>>> const& data )
+MLP<T>::clear_data
+()
 {
+  // Reset data
+  nin  = nout = nhid = 0;
+  data.clear();
+}
+
+template<typename T>
+inline bool
+MLP<T>::append_data
+( std::vector<std::vector<double>> const& layer, int const activ, bool const reset )
+{
+  if( reset ) clear_data();
+  if( !layer.size()
+   || layer[0].size() <= 1
+   || ( !data.empty() && data.back().first.size() != layer[0].size() - 1 ) )
+    return false;
+
   // Set data
-#ifdef MC__MCANN_CHECK
-  assert( data.size() && data[0].size() && data[0][0].size() > 1 );
-#endif
-  nin  = data.front().front().size() - 1;
-  nout = data.back().size();
-  this->data = data;
+  data.push_back( std::make_pair( layer, activ ) );
+  nin  = data.front().first.front().size() - 1;
+  nout = data.back().first.size();
+  nhid = data.size() - 1;
+  return true;
+}
+
+template<typename T>
+inline bool
+MLP<T>::append_data
+( std::vector<double> const& layer, int const activ, bool const reset )
+{
+  return append_data( std::vector<std::vector<double>>({layer}), activ, reset );
 }
 
 template<typename T>
 template<typename U>
 inline void
-ANN<T>::evaluate
+MLP<T>::evaluate
 ( U* y, U const* x, std::vector<std::vector<U>>& vhid )
 const
 {
   // Propagate through hidden layers
-  //std::vector<std::vector<U>> vhid;
-  //static std::vector<std::vector<U>> vhid;
-  //static thread_local std::vector<std::vector<U>> vhid;
-  size_t const nhid = data.size()-1;
   vhid.resize( nhid );
-#ifdef MC__MCANN_DEBUG
+#ifdef MC__MCMLP_DEBUG
   std::cerr << "No hidden layers: " << nhid << std::endl;
 #endif
   for( unsigned l=0; l<nhid; ++l ){
-#ifdef MC__MCANN_CHECK
-    assert( data[l].size() ); // number of neurons in layer l+1
+#ifdef MC__MCMLP_CHECK
+    assert( data[l].first.size() ); // number of neurons in layer l+1
 #endif
-    size_t const nneu = data[l].size();
+    size_t const nneu = data[l].first.size();
     vhid[l].resize( nneu );
-#ifdef MC__MCANN_DEBUG
+#ifdef MC__MCMLP_DEBUG
     std::cerr << "No neurons in layer " << l << ": " << nneu << std::endl;
 #endif
     for( unsigned i=0; i<nneu; ++i ){
-      vhid[l][i] = data[l][i][0]; // bias term
-#ifdef MC__MCANN_DEBUG
+      vhid[l][i] = (data[l].first)[i][0]; // bias term
+#ifdef MC__MCMLP_DEBUG
       std::cerr << "No inputs to neuron " << i << " in layer " << l << ": " << data[l][i].size()-1 << std::endl;
 #endif
-      for( unsigned j=0; j<data[l][i].size()-1; ++j ){
-#ifdef MC__MCANN_DEBUG
+      for( unsigned j=0; j<(data[l].first)[i].size()-1; ++j ){
+#ifdef MC__MCMLP_DEBUG
         std::cout << "layer:" << l << " neuron:" << i << " input:" << j << std::endl;
 #endif
-        if( std::fabs(data[l][i][1+j]) < options.ZEROTOL ) continue;
-        vhid[l][i] += (l? vhid[l-1][j]: x[j]) * data[l][i][1+j];
+        if( std::fabs((data[l].first)[i][1+j]) < options.ZEROTOL ) continue;
+        vhid[l][i] += (l? vhid[l-1][j]: x[j]) * (data[l].first)[i][1+j];
       }
-      switch( options.ACTIV ){
-        case Options::LINEAR:  default:                                                break;
-        case Options::RELU:    vhid[l][i] = ReLU( vhid[l][i] );                        break;
-        case Options::TANH:    vhid[l][i] = Op<U>::tanh( vhid[l][i] );                 break;
-        case Options::SIGMOID: vhid[l][i] = options.SIG2EXP?
-                                            1. / ( Op<U>::exp( -vhid[l][i] ) + 1. ):
-                                            Op<U>::tanh( vhid[l][i]*0.5 ) * 0.5 + 0.5; break;
+      switch( data[l].second ){//options.ACTIV ){
+        case Options::LINEAR:  default:                                                  break;
+        case Options::RELU:    vhid[l][i] = ReLU( vhid[l][i] );                          break;
+        case Options::TANH:    vhid[l][i] = Op<U>::tanh( vhid[l][i] );                   break;
+        case Options::SIGMOID: vhid[l][i] = (options.SIG2EXP?
+                                             1. / ( Op<U>::exp( -vhid[l][i] ) + 1. ):
+                                             Op<U>::tanh( vhid[l][i]*0.5 ) * 0.5 + 0.5); break;
       }
     }
   }
 
   // Propagate through output layers
-#ifdef MC__MCANN_CHECK
-  assert( data.back().size() ); // number of neurons in layer l+1
+#ifdef MC__MCMLP_CHECK
+  assert( data.back().first.size() ); // number of neurons in layer l+1
 #endif
-  size_t const nneu = data.back().size();
-#ifdef MC__MCANN_DEBUG
+  size_t const nneu = data.back().first.size();
+#ifdef MC__MCMLP_DEBUG
   std::cerr << "No neurons in layer " << nhid << ": " << nneu << std::endl;
 #endif
   for( unsigned i=0; i<nneu; ++i ){
-    y[i] = data.back()[i][0]; // bias term
-#ifdef MC__MCANN_DEBUG
-    std::cerr << "No inputs to neuron " << i << " in layer " << nhid << ": " << data.back()[i].size()-1 << std::endl;
+    y[i] = (data.back().first)[i][0]; // bias term
+#ifdef MC__MCMLP_DEBUG
+    std::cerr << "No inputs to neuron " << i << " in layer " << nhid << ": " << (data.back().first)[i].size()-1 << std::endl;
 #endif
-    for( unsigned j=0; j<data.back()[i].size()-1; ++j ){
-#ifdef MC__MCANN_DEBUG
+    for( unsigned j=0; j<(data.back().first)[i].size()-1; ++j ){
+#ifdef MC__MCMLP_DEBUG
       std::cout << "layer:" << nhid << " neuron:" << i << " input:" << j << std::endl;
 #endif
-      if( std::fabs(data.back()[i][1+j]) < options.ZEROTOL ) continue;
-      y[i] += (nhid? vhid[nhid-1][j]: x[j]) * data.back()[i][1+j];
+      if( std::fabs((data.back().first)[i][1+j]) < options.ZEROTOL ) continue;
+      y[i] += (nhid? vhid[nhid-1][j]: x[j]) * (data.back().first)[i][1+j];
+    }
+    switch( data.back().second ){
+      case Options::LINEAR:  default:                                      break;
+      case Options::RELU:    y[i] = ReLU( y[i] );                          break;
+      case Options::TANH:    y[i] = Op<U>::tanh( y[i] );                   break;
+      case Options::SIGMOID: y[i] = (options.SIG2EXP?
+                                     Op<U>::inv( Op<U>::exp( -y[i] ) + 1. ):
+                                     Op<U>::tanh( y[i]*0.5 ) * 0.5 + 0.5); break;
     }
   }
 }
 
 template<typename T>
 inline void
-ANN<T>::resize
+MLP<T>::resize_relax
 ()
 {
   // Set relaxation environment and containers
@@ -377,9 +441,9 @@ ANN<T>::resize
           DAGVar[i].set( DAG.first );
         evaluate( DAGRes.data(), DAGVar.data() );
         DAGOps = DAG.first->subgraph( nout, DAGRes.data() );
-#ifdef MC__MCANN_DEBUG
-        DAG.first->output( DAGOps, " ANN", std::cerr );
-        std::ofstream oFile( "ANN.dot", std::ios_base::out );
+#ifdef MC__MCMLP_DEBUG
+        DAG.first->output( DAGOps, " MLP", std::cerr );
+        std::ofstream oFile( "MLP.dot", std::ios_base::out );
         DAG.first->dot_script( nout, DAGRes.data(), oFile );
         oFile.close();
 #endif
@@ -435,7 +499,7 @@ ANN<T>::resize
 
 template<typename T>
 inline void
-ANN<T>::propagate
+MLP<T>::propagate_relax
 ( PolBase<T>* img, FFVar ** pRes, PolVar<T>* vRes, PolVar<T> const* vVar )
 {
   switch( options.RELAX ){
@@ -449,11 +513,17 @@ ANN<T>::propagate
         POLVar[i].set( POLEnv, DAGVar[i], vVar[i].range() );
         POLMap[&POLVar[i]] = vVar[i];
       }
-      DAG.first->eval( DAGOps, nout, DAGRes.data(), POLRes.data(), nin, DAGVar.data(), POLVar.data() );   
+#ifdef MC__MCMLP_DEBUG
+      std::vector<PolVar<T>> POLwk;
+      DAG.first->eval( DAGOps, POLwk, nout, DAGRes.data(), POLRes.data(), nin, DAGVar.data(), POLVar.data() );
+      for( auto polv : POLwk ) std::cout << polv.name() << ": " << polv.range() << std::endl;
+#else
+      DAG.first->eval( DAGOps, nout, DAGRes.data(), POLRes.data(), nin, DAGVar.data(), POLVar.data() );
+#endif
       // COULD DO CONSTRAINT PROPAGATION BASED ON vRes.range()
       for( unsigned j=0; j<nout; ++j ){
         vRes[j].set( img, *pRes[j], POLRes[j].range() );
-#ifdef MC__MCANN_DEBUG
+#ifdef MC__MCMLP_DEBUG
         std::cerr << "vRes[" << j << "] in " << vRes[j] << std::endl;
 #endif
         POLMap[&POLRes[j]] = vRes[j];
@@ -461,70 +531,70 @@ ANN<T>::propagate
       break;
 
     // Interval bounds
-    case ANN<T>::Options::RELAXTYPE::INT:
+    case MLP<T>::Options::RELAXTYPE::INT:
       for( unsigned i=0; i<nin; ++i )
         IVar[i] = vVar[i].range();
       evaluate( IRes.data(), IVar.data() );
       for( unsigned j=0; j<nout; ++j ){
         vRes[j].set( img, *pRes[j], IRes[j] );
-#ifdef MC__MCANN_DEBUG
+#ifdef MC__MCMLP_DEBUG
         std::cerr << "vRes[" << j << "] in " << vRes[j] << std::endl;
 #endif
       }
       return;
       
     // McCormick relaxations at mid-point with subgradient in each direction
-    case ANN<T>::Options::RELAXTYPE::MC:
+    case MLP<T>::Options::RELAXTYPE::MC:
       for( unsigned i=0; i<nin; ++i )
       MCVar[i] = McCormick<T>( vVar[i].range(), Op<T>::mid( vVar[i].range() ) ).sub( nin, i );
       evaluate( MCRes.data(), MCVar.data() );
       for( unsigned j=0; j<nout; ++j ){
         vRes[j].set( img, *pRes[j], MCRes[j].I() );
-#ifdef MC__MCANN_DEBUG
+#ifdef MC__MCMLP_DEBUG
         std::cerr << "vRes[" << j << "] in " << vRes[j].range() << std::endl;
 #endif
       }
       return;
 
     // Interval superposition models
-    case ANN<T>::Options::RELAXTYPE::ISM:
+    case MLP<T>::Options::RELAXTYPE::ISM:
       for( unsigned i=0; i<nin; ++i )
         ISMVar[i].set( ISMEnv, i, vVar[i].range() );
       evaluate( ISMRes.data(), ISMVar.data() );
       for( unsigned j=0; j<nout; ++j ){
         vRes[j].set( img, *pRes[j], ISMRes[j].B() );
-//#ifdef MC__MCANN_DEBUG
+#ifdef MC__MCMLP_DEBUG
         std::cerr << "ISMRes[" << j << "] in " << ISMRes[j] << std::endl;
         std::cerr << "vRes[" << j << "] in " << vRes[j].range() << std::endl;
-//#endif
+#endif
       }
       return;
 
  
     // McCormick relaxation with ISM bounds at mid-point with subgradient in each direction
-    case ANN<T>::Options::RELAXTYPE::MCISM:
+    case MLP<T>::Options::RELAXTYPE::MCISM:
       for( unsigned i=0; i<nin; ++i )
         MCISMVar[i] = McCormick<ISVar<T>>( ISVar<T>( ISMEnv, i, vVar[i].range() ), Op<T>::mid( vVar[i].range() ) ).sub( nin, i );
       evaluate( MCISMRes.data(), MCISMVar.data() );
       for( unsigned j=0; j<nout; ++j ){
         vRes[j].set( img, *pRes[j], MCISMRes[j].I().B() );
-//#ifdef MC__MCANN_DEBUG
+#ifdef MC__MCMLP_DEBUG
         std::cerr << "ISMRes[" << j << "] in " << MCISMRes[j].I() << std::endl;
         std::cerr << "MCISMRes[" << j << "] in " << MCISMRes[j] << std::endl;
         std::cerr << "vRes[" << j << "] in " << vRes[j].range() << std::endl;
-//#endif
+#endif
       }
       return;
 
     // Affine superposition models
-    case ANN<T>::Options::RELAXTYPE::ASM:
+    case MLP<T>::Options::RELAXTYPE::ASM:
       UnivarPWLE<double>::nbpsMax = options.ASMBPS;       
       for( unsigned i=0; i<nin; ++i )
         ASMVar[i].set( ASMEnv, i, vVar[i].range() );
       evaluate( ASMRes.data(), ASMVar.data() );
       for( unsigned j=0; j<nout; ++j ){
         vRes[j].set( img, *pRes[j], ASMRes[j].B() );
-#ifdef MC__MCANN_DEBUG
+#ifdef MC__MCMLP_DEBUG
         std::cerr << "ASMRes[" << j << "] in " << ASMRes[j] << std::endl;
         std::cerr << "vRes[" << j << "] in " << vRes[j].range() << std::endl;
 #endif
@@ -535,7 +605,7 @@ ANN<T>::propagate
 
 template<typename T>
 inline void
-ANN<T>::back_propagate
+MLP<T>::backpropagate_relax
 ( PolBase<T>* img, FFOp* pOp, PolVar<T> const* vRes, PolVar<T>* vVar )
 {
   switch( options.RELAX ){
@@ -543,21 +613,21 @@ ANN<T>::back_propagate
     case Options::AUX:
     default:
       POLEnv->generate_cuts( nout, POLRes.data() );
-#ifdef MC__MCANN_DEBUG
+#ifdef MC__MCMLP_DEBUG
       std::cerr << "POLEnv:" << *POLEnv << std::endl;
 #endif
       img->insert_cuts( POLEnv, POLMap );
       break;
 
     // Interval bounds
-    case ANN<T>::Options::RELAXTYPE::INT:
+    case MLP<T>::Options::RELAXTYPE::INT:
       return;
       
     // McCormick relaxations at mid-point with subgradient in each direction
-    case ANN<T>::Options::RELAXTYPE::MC:
+    case MLP<T>::Options::RELAXTYPE::MC:
       // polyhedral cut generation
       for( unsigned j=0; j<nout; ++j ){
-#ifdef MC__MCANN_DEBUG
+#ifdef MC__MCMLP_DEBUG
         std::cerr << "MCRes[" << j << "] in " << MCRes[j] << std::endl;
 #endif
         double rhs1 = -MCRes[j].cv(),
@@ -572,8 +642,8 @@ ANN<T>::back_propagate
       return;
 
     // Interval superposition models
-    case ANN<T>::Options::RELAXTYPE::ISM:
-#ifdef MC__MCANN_CHECK
+    case MLP<T>::Options::RELAXTYPE::ISM:
+#ifdef MC__MCMLP_CHECK
       assert( ISMEnv->ndiv() == options.ISMDIV );
 #endif
       // define auxiliary variables 
@@ -585,7 +655,7 @@ ANN<T>::back_propagate
 
       // polyhedral cut generation
       for( unsigned j=0; j<nout; ++j ){
-#ifdef MC__MCANN_DEBUG
+#ifdef MC__MCMLP_DEBUG
         std::cerr << "MCRes[" << j << "] in " << MCRes[j] << std::endl;
 #endif
         auto cutF1 = *img->add_cut( pOp, PolCut<T>::LE, 0., vRes[j], -1. );
@@ -622,8 +692,8 @@ ANN<T>::back_propagate
       return;
 
     // McCormick relaxation with ISM bounds at mid-point with subgradient in each direction    
-    case ANN<T>::Options::RELAXTYPE::MCISM:
-#ifdef MC__MCANN_CHECK
+    case MLP<T>::Options::RELAXTYPE::MCISM:
+#ifdef MC__MCMLP_CHECK
       assert( ISMEnv->ndiv() == options.ISMDIV );
 #endif
       // define auxiliary variables 
@@ -635,7 +705,7 @@ ANN<T>::back_propagate
   
       // polyhedral cut generation
       for( unsigned j=0; j<nout; ++j ){
-#ifdef MC__MCANN_DEBUG
+#ifdef MC__MCMLP_DEBUG
         std::cerr << "MCISMRes[" << j << "] in " << MCISMRes[j] << std::endl;
 #endif
         auto cutF1 = *img->add_cut( pOp, PolCut<T>::LE, 0., vRes[j], -1. );
@@ -682,13 +752,13 @@ ANN<T>::back_propagate
       return;
       
     // Affine superposition models
-    case ANN<T>::Options::RELAXTYPE::ASM:
-#ifdef MC__MCANN_CHECK
+    case MLP<T>::Options::RELAXTYPE::ASM:
+#ifdef MC__MCMLP_CHECK
       assert( ASMEnv->ndiv() == options.ISMDIV );
 #endif
       // polyhedral cut generation
       for( unsigned j=0; j<nout; ++j ){
-#ifdef MC__MCANN_DEBUG
+#ifdef MC__MCMLP_DEBUG
         std::cerr << "ASMRes[" << j << "] in " << ASMRes[j] << std::endl;
 #endif
         switch(ASMRes[j].get_ASVar()){
@@ -711,13 +781,13 @@ ANN<T>::back_propagate
             break;
 
           default:
-           throw std::runtime_error("ANN::relax: **ERROR** invalid flag from get_ASVar()\n");
+           throw std::runtime_error("MLP::relax: **ERROR** invalid flag from get_ASVar()\n");
         }
       }
       return;
   }
 
-#ifdef MC__MCANN_DEBUG
+#ifdef MC__MCMLP_DEBUG
   std::cerr << *img;
   {int dum; std::cout << "PAUSED, ENTER 1"; std::cin >> dum;}
 #endif
@@ -725,7 +795,7 @@ ANN<T>::back_propagate
 
 template<typename T>
 inline void
-ANN<T>::append_ASMcuts
+MLP<T>::append_ASMcuts
 ( PolBase<T>* img, FFOp* pOp, PolVar<T> const& vRes, PolVar<T>* vVar,
   double const& rhsEst, std::vector<double> const& lnrEst )
 {
@@ -744,7 +814,7 @@ ANN<T>::append_ASMcuts
 
 template<typename T>
 inline void
-ANN<T>::append_ASMcuts
+MLP<T>::append_ASMcuts
 ( PolBase<T>* img, FFOp* pOp, PolVar<T> const& vRes, PolVar<T>* vVar,
   std::vector<UnivarPWL<T>> const& pwlEst )
 {
@@ -759,7 +829,7 @@ ANN<T>::append_ASMcuts
         img->add_cut( pOp, PolCut<T>::EQ, ucst, POLLASMAux[i], 1. );
       else{
         unsigned NK = uest.first.size()-1;
-#ifdef MC__MCANN_CHECK
+#ifdef MC__MCMLP_CHECK
         assert( uest.second.size() == uest.first.size() );
 #endif
         if(NK==1){
@@ -793,7 +863,7 @@ ANN<T>::append_ASMcuts
         img->add_cut( pOp, PolCut<T>::EQ, ocst, POLUASMAux[i], 1. );
       else{
         unsigned NK = oest.first.size()-1;
-#ifdef MC__MCANN_CHECK
+#ifdef MC__MCMLP_CHECK
         assert( oest.second.size() == oest.first.size() );
 #endif
         if(NK == 1){
@@ -823,57 +893,55 @@ ANN<T>::append_ASMcuts
 
 //! @brief C++ class defining neural networks as external DAG operations in MC++.
 ////////////////////////////////////////////////////////////////////////
-//! mc::FFANN is a C++ class for defining neural networks as external
+//! mc::FFMLP is a C++ class for defining neural networks as external
 //! DAG operations in MC++.
 ////////////////////////////////////////////////////////////////////////
 template<typename T, unsigned int ID>
-class FFANN
+class FFMLP
 ////////////////////////////////////////////////////////////////////////
 : public FFOp
 {
 public:
 
   //! @brief Constructors
-  FFANN
+  FFMLP
     ()
-    : FFOp( (int)EXTERN+ID )
+    : FFOp( (int)EXTERN )
     {}
 
   // Functor
   FFVar& operator()
-    ( unsigned const idep, unsigned const nVar, FFVar const* pVar, ANN<T>* pANN )
+    ( unsigned const idep, unsigned const nVar, FFVar const* pVar, MLP<T>* pMLP )
     const
     {
-      data = pANN;
+      data = pMLP;
       info = ID;
-#ifdef MC__MCANN_CHECK
-      assert( nVar == pANN->nin && idep < pANN->nout );
+#ifdef MC__MCMLP_CHECK
+      assert( nVar == pMLP->nin && idep < pMLP->nout );
 #endif
-      auto dep = FFDep();
-      for( unsigned i=0; i<nVar; ++i ) dep += pVar[i].dep();
-      dep.update( FFDep::TYPE::N );
-      return *(insert_external_operation( *this, pANN->nout, dep, nVar, pVar )[idep]);
+      return *(insert_external_operation( *this, pMLP->nout, nVar, pVar )[idep]);
     }
 
   FFVar** operator()
-    ( unsigned const nVar, FFVar const* pVar, ANN<T>* pANN )
+    ( unsigned const nVar, FFVar const* pVar, MLP<T>* pMLP )
     const
     {
-      data = pANN;
+      data = pMLP;
       info = ID;
-#ifdef MC__MCANN_CHECK
-      assert( nVar == pANN->nin );
+#ifdef MC__MCMLP_CHECK
+      assert( nVar == pMLP->nin );
 #endif
-      auto dep = FFDep();
-      for( unsigned i=0; i<nVar; ++i ) dep += pVar[i].dep();
-      dep.update( FFDep::TYPE::N );
-      return insert_external_operation( *this, pANN->nout, dep, nVar, pVar );
+      return insert_external_operation( *this, pMLP->nout, nVar, pVar );
     }
 
   // Forward evaluation overloads
   template<typename U>
   void eval
     ( unsigned const nRes, U* vRes, unsigned const nVar, U const* vVar, unsigned const* mVar )
+    const;
+
+  void eval
+    ( unsigned const nRes, FFDep* vRes, unsigned const nVar, FFDep const* vVar, unsigned const* mVar )
     const;
 
   void eval
@@ -897,17 +965,22 @@ public:
   bool reval
     ( unsigned const nRes, U const* vRes, unsigned const nVar, U* vVar )
     const
-    { throw std::runtime_error("FFANN::reval: **ERROR** no generic implementation\n"); }
+    { throw std::runtime_error("FFMLP::reval: **ERROR** no generic implementation\n"); }
 
   bool reval
     ( unsigned const nRes, PolVar<T> const* vRes, unsigned const nVar, PolVar<T>* vVar )
     const;
 
+  // Derivatives
+  void deriv
+    ( unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar, FFVar** vDer )
+    const;
+    
   // Properties
   std::string name
     ()
     const
-    { std::ostringstream oss; oss << data; return "ANN[" + oss.str() + "]"; }
+    { std::ostringstream oss; oss << data; return "MLP[" + oss.str() + "]"; }
 
   //! @brief Return whether or not operation is commutative
   bool commutative
@@ -918,51 +991,45 @@ public:
 
 //! @brief C++ class defining gradient of neural networks as external DAG operations in MC++.
 ////////////////////////////////////////////////////////////////////////
-//! mc::FFANN is a C++ class for defining gradient of neural networks
+//! mc::FFMLP is a C++ class for defining gradient of neural networks
 //! as external DAG operations in MC++.
 ////////////////////////////////////////////////////////////////////////
 template<typename T, unsigned int ID>
-class FFGRADANN
+class FFGRADMLP
 ////////////////////////////////////////////////////////////////////////
 : public FFOp
 {
 public:
 
   //! @brief Constructors
-  FFGRADANN
+  FFGRADMLP
     ()
-    : FFOp( (int)EXTERN+ID )
+    : FFOp( (int)EXTERN )
     {}
 
   // Functor
   FFVar& operator()
-    ( unsigned const idep, unsigned const nVar, FFVar const* pVar, ANN<T>* pANN )
+    ( unsigned const idep, unsigned const nVar, FFVar const* pVar, MLP<T>* pMLP )
     const
     {
-      data = pANN;
+      data = pMLP;
       info = ID+1;
-#ifdef MC__MCANN_CHECK
-      assert( nVar == pANN->nin && idep < pANN->nout );
+#ifdef MC__MCMLP_CHECK
+      assert( nVar == pMLP->nin && idep < pMLP->nout );
 #endif
-      auto dep = FFDep();
-      for( unsigned i=0; i<nVar; ++i ) dep += pVar[i].dep();
-      dep.update( FFDep::TYPE::N );
-      return *(insert_external_operation( *this, nVar*pANN->nout, dep, nVar, pVar )[idep]);
+      return *(insert_external_operation( *this, nVar*pMLP->nout, nVar, pVar )[idep]);
     }
 
   FFVar** operator()
-    ( unsigned const nVar, FFVar const* pVar, ANN<T>* pANN )
+    ( unsigned const nVar, FFVar const* pVar, MLP<T>* pMLP )
     const
     {
-      data = pANN;
+      data = pMLP;
       info = ID+1;
-#ifdef MC__MCANN_CHECK
-      assert( nVar == pANN->nin );
+#ifdef MC__MCMLP_CHECK
+      assert( nVar == pMLP->nin );
 #endif
-      auto dep = FFDep();
-      for( unsigned i=0; i<nVar; ++i ) dep += pVar[i].dep();
-      dep.update( FFDep::TYPE::N );
-      return insert_external_operation( *this, nVar*pANN->nout, dep, nVar, pVar );
+      return insert_external_operation( *this, nVar*pMLP->nout, nVar, pVar );
     }
 
   // Forward evaluation overloads
@@ -970,10 +1037,14 @@ public:
   void eval
     ( unsigned const nRes, U* vRes, unsigned const nVar, U const* vVar, unsigned const* mVar )
     const
-    { throw std::runtime_error("FFGRADANN::eval: **ERROR** no generic implementation\n"); }
+    { throw std::runtime_error("FFGRADMLP::eval: **ERROR** no generic implementation\n"); }
 
   void eval
     ( unsigned const nRes, double* vRes, unsigned const nVar, double const* vVar, unsigned const* mVar )
+    const;
+
+  void eval
+    ( unsigned const nRes, FFDep* vRes, unsigned const nVar, FFDep const* vVar, unsigned const* mVar )
     const;
 
   void eval
@@ -989,13 +1060,13 @@ public:
   bool reval
     ( unsigned const nRes, U const* vRes, unsigned const nVar, U* vVar )
     const
-    { throw std::runtime_error("FFGRADANN::reval: **ERROR** no generic implementation\n"); }
+    { throw std::runtime_error("FFGRADMLP::reval: **ERROR** no generic implementation\n"); }
 
   // Properties
   std::string name
     ()
     const
-    { std::ostringstream oss; oss << data; return "GRADANN[" + oss.str() + "]"; }
+    { std::ostringstream oss; oss << data; return "GRADMLP[" + oss.str() + "]"; }
 
   //! @brief Return whether or not operation is commutative
   bool commutative
@@ -1008,62 +1079,83 @@ public:
 template<typename T, unsigned int ID>
 template<typename U>
 inline void
-FFANN<T,ID>::eval
+FFMLP<T,ID>::eval
 ( unsigned const nRes, U* vRes, unsigned const nVar, U const* vVar,
   unsigned const* mVar )
 const
 {
-#ifdef MC__ANNOP_TRACE
-  std::cout << "FFANN::eval: " << typeid( vRes[0] ).name() << " (generic)\n";
+#ifdef MC__MLPOP_TRACE
+  std::cout << "FFMLP::eval: " << typeid( vRes[0] ).name() << " (generic)\n";
 #endif
-  ANN<T>* pANN = static_cast<ANN<T>*>( data );
-#ifdef MC__MCANN_CHECK
-  assert( pANN && nVar == pANN->nin && nRes == pANN->nout );
+  MLP<T>* pMLP = static_cast<MLP<T>*>( data );
+#ifdef MC__MCMLP_CHECK
+  assert( pMLP && nVar == pMLP->nin && nRes == pMLP->nout );
 #endif
 
-  pANN->evaluate( vRes, vVar );
+  pMLP->evaluate( vRes, vVar );
 }
 
 template<typename T, unsigned int ID>
 inline void
-FFANN<T,ID>::eval
+FFMLP<T,ID>::eval
+( unsigned const nRes, FFDep* vRes, unsigned const nVar, FFDep const* vVar,
+  unsigned const* mVar )
+const
+{
+#ifdef MC__FFMLP_TRACE
+  std::cout << "FFMLP::eval: FFDep\n";
+#endif
+  MLP<T>* pMLP = static_cast<MLP<T>*>( data );
+#ifdef MC__MCMLP_CHECK
+  assert( pMLP && nVar == pMLP->nin && nRes == pMLP->nout );
+#endif
+
+  vRes[0] = 0;
+  for( unsigned i=0; i<nVar; ++i ) vRes[0] += vVar[i];
+  vRes[0].update( FFDep::TYPE::N );
+  for( unsigned j=1; j<nRes; ++j ) vRes[j] = vRes[0];
+}
+
+template<typename T, unsigned int ID>
+inline void
+FFMLP<T,ID>::eval
 ( unsigned const nRes, FFVar* vRes, unsigned const nVar, FFVar const* vVar,
   unsigned const* mVar )
 const
 {
-#ifdef MC__FFANN_TRACE
-  std::cout << "FFANN::eval: FFVar\n";
+#ifdef MC__FFMLP_TRACE
+  std::cout << "FFMLP::eval: FFVar\n";
 #endif
-  ANN<T>* pANN = static_cast<ANN<T>*>( data );
-#ifdef MC__MCANN_CHECK
-  assert( pANN && nVar == pANN->nin && nRes == pANN->nout );
+  MLP<T>* pMLP = static_cast<MLP<T>*>( data );
+#ifdef MC__MCMLP_CHECK
+  assert( pMLP && nVar == pMLP->nin && nRes == pMLP->nout );
 #endif
 
-  FFVar** pRes = operator()( nVar, vVar, pANN );
+  FFVar** pRes = operator()( nVar, vVar, pMLP );
   for( unsigned j=0; j<nRes; ++j ) vRes[j] = *(pRes[j]);
 }
 
 template<typename T, unsigned int ID>
 inline void
-FFANN<T,ID>::eval
+FFMLP<T,ID>::eval
 ( unsigned const nRes, fadbad::F<FFVar>* vRes, unsigned const nVar, fadbad::F<FFVar> const* vVar,
   unsigned const* mVar )
 const
 {
-#ifdef MC__FFANN_TRACE
-  std::cout << "FFANN::eval: fadbad::F<FFVar>\n";
+#ifdef MC__FFMLP_TRACE
+  std::cout << "FFMLP::eval: fadbad::F<FFVar>\n";
 #endif
-  ANN<T>* pANN = static_cast<ANN<T>*>( data );
-#ifdef MC__MCANN_CHECK
-  assert( pANN && nVar == pANN->nin && nRes == pANN->nout );
+  MLP<T>* pMLP = static_cast<MLP<T>*>( data );
+#ifdef MC__MCMLP_CHECK
+  assert( pMLP && nVar == pMLP->nin && nRes == pMLP->nout );
 #endif
 
   std::vector<FFVar> vVarVal( nVar );
   for( unsigned i=0; i<nVar; ++i )
     vVarVal[i] = vVar[i].val();
-  FFVar const*const* vResVal = operator()( nVar, vVarVal.data(), pANN );
-  FFGRADANN<T,ID> ResDer;
-  FFVar const*const* vResDer = ResDer( nVar, vVarVal.data(), pANN );
+  FFVar const*const* vResVal = operator()( nVar, vVarVal.data(), pMLP );
+  FFGRADMLP<T,ID> ResDer;
+  FFVar const*const* vResDer = ResDer( nVar, vVarVal.data(), pMLP );
 
   for( unsigned k=0; k<nRes; ++k ){
     vRes[k] = *vResVal[k];
@@ -1081,17 +1173,38 @@ const
 
 template<typename T, unsigned int ID>
 inline void
-FFANN<T,ID>::eval
+FFMLP<T,ID>::deriv
+( unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar, FFVar** vDer )
+const
+{
+#ifdef MC__FFMLP_TRACE
+  std::cout << "FFMLP::deriv: FFVar\n";
+#endif
+  MLP<T>* pMLP = static_cast<MLP<T>*>( data );
+#ifdef MC__MCMLP_CHECK
+  assert( pMLP && nVar == pMLP->nin && nRes == pMLP->nout );
+#endif
+
+  FFGRADMLP<T,ID> ResDer;
+  FFVar const*const* vResDer = ResDer( nVar, vVar, pMLP );
+  for( unsigned k=0; k<nRes; ++k )
+    for( unsigned i=0; i<nVar; ++i )
+      vDer[k][i] = *vResDer[k+nRes*i];
+}
+
+template<typename T, unsigned int ID>
+inline void
+FFMLP<T,ID>::eval
 ( unsigned const nRes, SLiftVar* vRes, unsigned const nVar, SLiftVar const* vVar,
   unsigned const* mVar )
 const
 {
-#ifdef MC__FFANN_TRACE
-  std::cout << "FFANN::eval: SLiftVar\n";
+#ifdef MC__FFMLP_TRACE
+  std::cout << "FFMLP::eval: SLiftVar\n";
 #endif
-  ANN<T>* pANN = static_cast<ANN<T>*>( data );
-#ifdef MC__MCANN_CHECK
-  assert( pANN && nVar == pANN->nin && nRes == pANN->nout );
+  MLP<T>* pMLP = static_cast<MLP<T>*>( data );
+#ifdef MC__MCMLP_CHECK
+  assert( pMLP && nVar == pMLP->nin && nRes == pMLP->nout );
 #endif
 
   vVar->env()->lift( nRes, vRes, nVar, vVar );
@@ -1099,116 +1212,157 @@ const
 
 template<typename T, unsigned int ID>
 inline void
-FFANN<T,ID>::eval
+FFMLP<T,ID>::eval
 ( unsigned const nRes, PolVar<T>* vRes, unsigned const nVar, PolVar<T> const* vVar,
   unsigned const* mVar )
 const
 {
-#ifdef MC__FFANN_TRACE
-  std::cout << "FFANN::eval: PolVar\n";
+#ifdef MC__FFMLP_TRACE
+  std::cout << "FFMLP::eval: PolVar\n";
 #endif
-  ANN<T>* pANN = static_cast<ANN<T>*>( data );
-#ifdef MC__MCANN_CHECK
-  assert( pANN && nVar == pANN->nin && nRes == pANN->nout );
+  MLP<T>* pMLP = static_cast<MLP<T>*>( data );
+#ifdef MC__MCMLP_CHECK
+  assert( pMLP && nVar == pMLP->nin && nRes == pMLP->nout );
 #endif
 
   PolBase<T>* img = vVar[0].image();
   FFBase* dag = vVar[0].var().dag();
-#ifdef MC__MCANN_CHECK
+#ifdef MC__MCMLP_CHECK
   assert( img && dag );
 #endif
   FFVar** pRes = dag->curOp()->varout.data(); // ACCOUNT FOR MULTIPLE OUTPUTS
-#ifdef MC__MCANN_CHECK
+#ifdef MC__MCMLP_CHECK
   assert( nRes == dag->curOp()->varout.size() );
 #endif
 
-  pANN->resize();
-  pANN->propagate( img, pRes, vRes, vVar );
+  pMLP->resize_relax();
+  pMLP->propagate_relax( img, pRes, vRes, vVar );
 }
 
 template<typename T, unsigned int ID>
 inline bool
-FFANN<T,ID>::reval
+FFMLP<T,ID>::reval
 ( unsigned const nRes, PolVar<T> const* vRes, unsigned const nVar, PolVar<T>* vVar )
 const
 {
-#ifdef MC__FFANN_TRACE
-  std::cout << "FFANN::reval: PolVar\n";
+#ifdef MC__FFMLP_TRACE
+  std::cout << "FFMLP::reval: PolVar\n";
 #endif
-  ANN<T>* pANN = static_cast<ANN<T>*>( data );
-#ifdef MC__MCANN_CHECK
-  assert( pANN && nVar == pANN->nin && nRes == pANN->nout );
+  MLP<T>* pMLP = static_cast<MLP<T>*>( data );
+#ifdef MC__MCMLP_CHECK
+  assert( pMLP && nVar == pMLP->nin && nRes == pMLP->nout );
 #endif
 
   PolBase<T>* img = vVar[0].image();
   FFOp* pop = vVar[0].var().opdef().first;
-#ifdef MC__MCANN_CHECK
+#ifdef MC__MCMLP_CHECK
   assert( img && pop );
 #endif
 
-  pANN->back_propagate( img, pop, vRes, vVar );
+  pMLP->backpropagate_relax( img, pop, vRes, vVar );
   return true;
 }
 
 template<typename T, unsigned int ID>
 inline void
-FFGRADANN<T,ID>::eval
+FFGRADMLP<T,ID>::eval
 ( unsigned const nRes, double* vRes, unsigned const nVar, double const* vVar,
   unsigned const* mVar )
 const
 {
 #ifdef MC__FFODE_TRACE
-  std::cout << "FFGRADANN::eval: double\n";
+  std::cout << "FFGRADMLP::eval: double\n";
 #endif
-  ANN<T>* pANN = static_cast<ANN<T>*>( data );
-#ifdef MC__MCANN_CHECK
-  assert( pANN && nVar == pANN->nin && nRes == pANN->nin * pANN->nout );
+  MLP<T>* pMLP = static_cast<MLP<T>*>( data );
+#ifdef MC__MCMLP_CHECK
+  assert( pMLP && nVar == pMLP->nin && nRes == pMLP->nin * pMLP->nout );
 #endif
 
-  std::vector<fadbad::F<double>> vFVar( pANN->nin );
-  for( unsigned i=0; i<pANN->nin; ++i ){
-    vFVar[i] = vVar[i];
-    vFVar[i].diff(i,pANN->nin);
+  switch( pMLP->options.AUTODIFF ){
+   default:
+   case MLP<T>::Options::AD::F:{
+    std::vector<fadbad::F<double>> vFVar( pMLP->nin );
+    for( unsigned i=0; i<pMLP->nin; ++i ){
+      vFVar[i] = vVar[i];
+      vFVar[i].diff(i,pMLP->nin);
+    }
+    std::vector<fadbad::F<double>> vFRes( pMLP->nout ); 
+    pMLP->evaluate( vFRes.data(), vFVar.data() );
+    for( unsigned k=0; k<pMLP->nout; ++k )
+      for( unsigned i=0; i<pMLP->nin; ++i )
+        vRes[k*pMLP->nin+i] = vFRes[k].d(i);
+    break;
+   }
+   
+   case MLP<T>::Options::AD::B:{
+    std::vector<fadbad::B<double>> vBVar( pMLP->nin );
+    for( unsigned i=0; i<pMLP->nin; ++i )
+      vBVar[i] = vVar[i];
+    std::vector<fadbad::B<double>> vBRes( pMLP->nout ); 
+    pMLP->evaluate( vBRes.data(), vBVar.data() );
+    for( unsigned k=0; k<pMLP->nout; ++k )
+      vBRes[k].diff( k, pMLP->nout );
+    for( unsigned k=0; k<pMLP->nout; ++k )
+      for( unsigned i=0; i<pMLP->nin; ++i )
+        vRes[k*pMLP->nin+i] = vBVar[i].d(k);
+    break;
+   }
   }
-  std::vector<fadbad::F<double>> vFRes( pANN->nout ); 
-  pANN->evaluate( vFRes.data(), vFVar.data() );
-  for( unsigned k=0; k<pANN->nout; ++k )
-    for( unsigned i=0; i<pANN->nin; ++i )
-      vRes[k*pANN->nin+i] = vFRes[k].d(i);
 }
 
 template<typename T, unsigned int ID>
 inline void
-FFGRADANN<T,ID>::eval
+FFGRADMLP<T,ID>::eval
+( unsigned const nRes, FFDep* vRes, unsigned const nVar, FFDep const* vVar,
+  unsigned const* mVar )
+const
+{
+#ifdef MC__FFMLP_TRACE
+  std::cout << "FFGRADMLP::eval: FFDep\n";
+#endif
+  MLP<T>* pMLP = static_cast<MLP<T>*>( data );
+#ifdef MC__MCMLP_CHECK
+  assert( pMLP && nVar == pMLP->nin && nRes == pMLP->nin * pMLP->nout );
+#endif
+
+  vRes[0] = 0;
+  for( unsigned i=0; i<nVar; ++i ) vRes[0] += vVar[i];
+  vRes[0].update( FFDep::TYPE::N );
+  for( unsigned j=1; j<nRes; ++j ) vRes[j] = vRes[0];
+}
+
+template<typename T, unsigned int ID>
+inline void
+FFGRADMLP<T,ID>::eval
 ( unsigned const nRes, FFVar* vRes, unsigned const nVar, FFVar const* vVar,
   unsigned const* mVar )
 const
 {
 #ifdef MC__FFODE_TRACE
-  std::cout << "FFGRADANN::eval: FFVar\n";
+  std::cout << "FFGRADMLP::eval: FFVar\n";
 #endif
-  ANN<T>* pANN = static_cast<ANN<T>*>( data );
-#ifdef MC__MCANN_CHECK
-  assert( pANN && nVar == pANN->nin && nRes == pANN->nin * pANN->nout );
+  MLP<T>* pMLP = static_cast<MLP<T>*>( data );
+#ifdef MC__MCMLP_CHECK
+  assert( pMLP && nVar == pMLP->nin && nRes == pMLP->nin * pMLP->nout );
 #endif
 
-  FFVar** pRes = operator()( nVar, vVar, pANN );
+  FFVar** pRes = operator()( nVar, vVar, pMLP );
   for( unsigned j=0; j<nRes; ++j ) vRes[j] = *(pRes[j]);
 }
 
 template<typename T, unsigned int ID>
 inline void
-FFGRADANN<T,ID>::eval
+FFGRADMLP<T,ID>::eval
 ( unsigned const nRes, SLiftVar* vRes, unsigned const nVar, SLiftVar const* vVar,
   unsigned const* mVar )
 const
 {
 #ifdef MC__FFODE_TRACE
-  std::cout << "FFGRADANN::eval: SLiftFVar\n";
+  std::cout << "FFGRADMLP::eval: SLiftFVar\n";
 #endif
-  ANN<T>* pANN = static_cast<ANN<T>*>( data );
-#ifdef MC__MCANN_CHECK
-  assert( pANN && nVar == pANN->nin && nRes == pANN->nin * pANN->nout );
+  MLP<T>* pMLP = static_cast<MLP<T>*>( data );
+#ifdef MC__MCMLP_CHECK
+  assert( pMLP && nVar == pMLP->nin && nRes == pMLP->nin * pMLP->nout );
 #endif
 
   vVar->env()->lift( nRes, vRes, nVar, vVar );

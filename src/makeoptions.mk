@@ -1,7 +1,7 @@
 # THIRD-PARTY LIBRARIES <<-- CHANGE AS APPROPRIATE -->>
 
-PATH_3RD_PARTY = $(HOME)/Programs/bitbucket/mcpp23/src/3rdparty
-PATH_EXTERN = $(HOME)/Programs/bitbucket/mcpp23/extern
+PATH_3RD_PARTY = $(HOME)/Programs/bitbucket/mcpp30/src/3rdparty
+PATH_EXTERN = $(HOME)/Programs/bitbucket/mcpp30/extern
 
 PATH_LAPACK = $(PATH_3RD_PARTY)/cpplapack-2015.05.11-1
 LIB_LAPACK  = -llapack -lblas
@@ -11,7 +11,7 @@ FLAG_LAPACK =
 PATH_FADBAD = $(PATH_3RD_PARTY)/fadbad++
 LIB_FADBAD  = 
 INC_FADBAD  = -I$(PATH_FADBAD)
-FLAG_FADBAD =
+FLAG_FADBAD = -DMC__USE_TADIFF
 
 PATH_PROFIL = /opt/Profil-2.0.8
 LIB_PROFIL  = -L$(PATH_PROFIL)/lib -lProfilPackages -lProfil -lBias -llr
@@ -60,7 +60,7 @@ FLAG_LINK = $(PROF)
 
 FLAG_MC  = $(FLAG_FADBAD) $(FLAG_LAPACK) $(FLAG_BOOST)
 LIB_MC   = $(LIB_FADBAD) $(LIB_LAPACK) $(LIB_BOOST)
-INC_MC   = -I$(HOME)/Programs/bitbucket/mcpp23/src/mc $(INC_FADBAD) $(INC_LAPACK) $(INC_BOOST)
+INC_MC   = -I$(HOME)/Programs/bitbucket/mcpp30/src/mc $(INC_FADBAD) $(INC_LAPACK) $(INC_BOOST)
 
 ifneq (,$(findstring -DMC__USE_HSL, $(FLAG_HSL)))
  FLAG_MC += $(FLAG_HSL)

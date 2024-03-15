@@ -234,10 +234,7 @@ public:
     ( unsigned const nVar, FFVar const* pVar )
     const
     {
-      auto dep = FFDep();
-      for( unsigned i=0; i<nVar; ++i ) dep += pVar[i].dep();
-      dep.update( FFDep::TYPE::N );
-      return **insert_external_operation( *this, 1, dep, nVar, pVar );
+      return **insert_external_operation( *this, 1, nVar, pVar );
     }
 
   // Evaluation overloads
@@ -262,6 +259,23 @@ public:
     {
       assert( nRes == 1 );
       vRes[0] = operator()( nVar, vVar );
+    }
+
+  void deriv
+    ( unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar, FFVar** vDer )
+    const
+    {
+      assert( nRes == 1 );
+      std::cout << "NORM2 FFVar differentiation\n";
+      fadbad::F<FFVar> vFVar[nVar], vFRes[nRes];
+      for( unsigned i=0; i<nVar; ++i ){
+        vFVar[i] = vVar[i];
+        vFVar[i].diff( i, nVar );
+      }
+      eval( nRes, vFRes, nVar, vFVar, nullptr );
+      for( unsigned j=0; j<nRes; ++j )
+        for( unsigned i=0; i<nVar; ++i )
+          vDer[j][i] = vFRes[j].d(i);
     }
 
   // Properties

@@ -1,3 +1,8 @@
+Change in MC++ 3.0 [from MC++ 2.3]
+- Support of forward and backward automatic differentiation in DAG, no longer relying on FADBAD++
+- Removed depency propagation in DAG, now needing evaluation in mc::FFDep type
+- Support of MC++ types in Python using pybind11
+
 Change in MC++ 2.3 [from MC++ 2.2]
 - Move semantic enabled in DAG and several set arithmetics
 - Support of external operations in DAG

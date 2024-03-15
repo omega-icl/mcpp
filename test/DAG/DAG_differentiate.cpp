@@ -8,6 +8,86 @@
 
 ///////////////////////////////////////////////////////////////////////////////
 
+int test_fadiff0()
+{
+  std::cout << "\n==============================================\ntest_fadiff0:\n";
+
+  // Create DAG
+  const unsigned NX = 2, NF = 2;
+  mc::FFGraph DAG;
+  mc::FFVar X[NX];
+  for( unsigned int i=0; i<NX; i++ )
+    X[i].set( &DAG );
+  mc::FFVar F[NF] = { exp( sqr( X[0] ) ), sqr( X[1] ) + 1 };
+  std::cout << DAG;
+
+  mc::FFSubgraph opF;
+  opF = DAG.subgraph( NF, F );
+  DAG.output( opF, " F" );
+
+  std::ofstream o_F( "fadiff0_F.dot", std::ios_base::out );
+  DAG.dot_script( NF, F, o_F );
+  o_F.close();
+
+  // Evaluate in double arithmetic
+  std::vector<double> dX(NX,0.), dF(NF);
+  DAG.eval( NF, F, dF.data(), NX, X, dX.data() );
+  std::cout << "dF = [ ";
+  for( unsigned i=0; i<NF; i++ ) std::cout << dF[i] << " ";
+  std::cout << "]" << std::endl;
+  //return 0;
+
+  // Forward AD
+  const mc::FFVar* dFdX_FAD = DAG.FAD( NF, F, NX, X );
+  std::cout << DAG;
+
+  DAG.output( DAG.subgraph( NX*NF, dFdX_FAD ), " dFdX_FAD" );
+  std::ofstream o_dFdX_FAD( "fadiff0_dFdX_FAD.dot", std::ios_base::out );
+  DAG.dot_script( NX*NF, dFdX_FAD, o_dFdX_FAD );
+  o_dFdX_FAD.close();
+
+  delete[] dFdX_FAD;
+
+  // Forward directional AD
+  mc::FFVar DX[NX] = { X[0], X[1] };
+  const mc::FFVar* dFdX_DFAD = DAG.DFAD( NF, F, NX, X, DX );
+  std::cout << DAG;
+
+  DAG.output( DAG.subgraph( NF, dFdX_DFAD ), " dFdX_DFAD" );
+  std::ofstream o_dFdX_DFAD( "fadiff0_dFdX_DFAD.dot", std::ios_base::out );
+  DAG.dot_script( NF, dFdX_DFAD, o_dFdX_DFAD );
+  o_dFdX_DFAD.close();
+
+  delete[] dFdX_DFAD;
+
+  // Backward AD
+  const mc::FFVar* dFdX_BAD = DAG.BAD( NF, F, NX, X );
+  std::cout << DAG;
+
+  DAG.output( DAG.subgraph( NX*NF, dFdX_BAD ), " dFdX_BAD" );
+  std::ofstream o_dFdX_BAD( "fadiff0_dFdX_BAD.dot", std::ios_base::out );
+  DAG.dot_script( NX*NF, dFdX_BAD, o_dFdX_BAD );
+  o_dFdX_BAD.close();
+
+  delete[] dFdX_BAD;
+
+  // Backward directional AD
+  mc::FFVar DF[NF] = { X[0], X[1] };
+  const mc::FFVar* dFdX_DBAD = DAG.DBAD( NF, F, DF, NX, X );
+  std::cout << DAG;
+
+  DAG.output( DAG.subgraph( NX, dFdX_DBAD ), " dFdX_DBAD" );
+  std::ofstream o_dFdX_DBAD( "fadiff0_dFdX_DBAD.dot", std::ios_base::out );
+  DAG.dot_script( NX, dFdX_DBAD, o_dFdX_DBAD );
+  o_dFdX_DBAD.close();
+
+  delete[] dFdX_DBAD;
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 int test_fadiff1()
 {
   std::cout << "\n==============================================\ntest_fadiff1:\n";
@@ -17,23 +97,21 @@ int test_fadiff1()
   mc::FFGraph DAG;
   mc::FFVar X[NX];
   for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
-  //mc::FFVar F[NF] = { X[0]+1.1,
-  //                    1.2 };
   mc::FFVar F[NF] = { X[2]*X[3]-2./(X[1]+X[2]),
-                      X[0]*pow(exp(X[2]*X[1])+3.,4)+tanh(X[3]) };
-  std::cout << DAG;
+                      X[0]*pow(exp(X[2]*X[1])-3.,4)+tanh(X[3]) };
+  //std::cout << DAG;
+
+  mc::FFSubgraph opF;
+  opF = DAG.subgraph( NF, F );
+  DAG.output( opF, " F" );
 
   std::ofstream o_F( "fadiff1_F.dot", std::ios_base::out );
   DAG.dot_script( NF, F, o_F );
   o_F.close();
 
   // Evaluate in double arithmetic
-  mc::FFSubgraph opF;
-  opF = DAG.subgraph( NF, F );
-  DAG.output( opF, " F" );
-  std::vector<double> WRK, dX(NX,0.), dF(NF);
+  std::vector<double> dX(NX,1.), dF(NX*NF);
   DAG.eval( NF, F, dF.data(), NX, X, dX.data() );
-  //DAG.eval( opF, WRK, NF, F, dF.data(), NX, X, dX.data() );
   std::cout << "dF = [ ";
   for( unsigned i=0; i<NF; i++ ) std::cout << dF[i] << " ";
   std::cout << "]" << std::endl;
@@ -52,6 +130,13 @@ int test_fadiff1()
   std::ofstream o_dF1dX3_FAD( "fadiff1_dF1dX3_FAD.dot", std::ios_base::out );
   DAG.dot_script( 1, &dFdX_FAD[NX+3], o_dF1dX3_FAD );
   o_dF1dX3_FAD.close();
+  
+  // Evaluate forward derivatives in double arithmetic
+  DAG.eval( NX*NF, dFdX_FAD, dF.data(), NX, X, dX.data() );
+  std::cout << "dF = [ ";
+  for( unsigned ij=0; ij<NF*NX; ++ij ) std::cout << dF[ij] << " ";
+  std::cout << "]" << std::endl;
+  //return 0;
 
   delete[] dFdX_FAD;
 
@@ -68,6 +153,12 @@ int test_fadiff1()
   std::ofstream o_dF1dX3_BAD( "fadiff1_dF1dX3_BAD.dot", std::ios_base::out );
   DAG.dot_script( 1, &dFdX_BAD[NX+3], o_dF1dX3_BAD );
   o_dF1dX3_BAD.close();
+
+  // Evaluate forward derivatives in double arithmetic
+  DAG.eval( NX*NF, dFdX_BAD, dF.data(), NX, X, dX.data() );
+  std::cout << "dF = [ ";
+  for( unsigned ij=0; ij<NF*NX; ++ij ) std::cout << dF[ij] << " ";
+  std::cout << "]" << std::endl;
 
   delete[] dFdX_BAD;
 
@@ -455,6 +546,7 @@ int test_tadiff3()
 int main()
 {
   try{
+    test_fadiff0();
     test_fadiff1();
     test_fadiff2();
     test_fadiff3();
