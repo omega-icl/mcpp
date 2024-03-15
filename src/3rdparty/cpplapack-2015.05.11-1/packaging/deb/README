@@ -1,0 +1,3 @@
+Now we use "alien" converter to make deb packpage.
+
+alien -dk cpplapack-YYYY.MM.DD-X.noarch.rpm

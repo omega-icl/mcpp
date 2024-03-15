@@ -1,29 +1,36 @@
 Main author:
 
-- Benoit Chachuat, project leader (Imperial College London)
+- Benoit Chachuat, project lead (Imperial College London)
 
 Contributors:
 
 - Ali Sahlodin (McMaster University, MIT)
 
-  Coding, testing, debugging of Taylor model module
-  
-- Jai Rajyaguru, Mario Eduardo Villanueva, Nikola Peric, Akshay Shah (Imperial College London)
+  Coding, testing, debugging of Taylor model
 
-  Coding, testing, debugging of spectral bound, ellipsoidal bound and Chebyshev model modules
+- Jai Rajyaguru, Nikola Peric, Akshay Shah (Imperial College London)
+  Mario Eduardo Villanueva (Imperial College London, ShanghaiTech, IMT Lucca)
+
+  Coding, testing, debugging of spectral bound, ellipsoidal bound, Chebyshev model
+
+- Tanuj Karia (Imperial College London)
+
+  Testing, debugging of quadratization, lifting and elimination in DAG
+
+- Yanlin Zha (Imperial College London)
+
+  Coding, testing, debugging of interval superposition arithmetic
   
 - Alexander Mitsos (MIT, RWTH Aachen)
   Joe Scott (MIT, Clemson University)
   Paul Barton (MIT)
   Angelos Tsoukalas (MIT, American University of Beirut)
-  Jaromil Najmana, Dominik Bongartza (RWTH Aachen)
+  Jaromil Najman, Dominik Bongartz (RWTH Aachen)
+  Dominik Bongartz (RWTH Aachen, KU Leuven)
 
-  Testing, debugging of McCormick relaxation module
-  
-- Ruth Misener (Imperial College London)
+  Testing, installation
 
-  Installing, testing
+- Mario Eduardo Villanueva (ShanghaiTech, IMT Lucca)
 
-- Mario Eduardo Villanueva 
+  Releasing MC++ in GitHub and mantaining the GitHub site
 
-  Releasing MC++ (version 2.0.0) in GitHub and mantaining the GitHub site

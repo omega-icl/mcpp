@@ -1,4 +1,5 @@
 // Copyright (C) 1996-2007 Ole Stauning & Claus Bendtsen (fadbad@uning.dk)
+// Modifications copyright (C) 2015 Samuel Leweke (s.leweke@fz-juelich.de)
 // All rights reserved.
 
 // This code is provided "as is", without any warranty of any kind,
@@ -26,6 +27,13 @@
 // ANY USE OF THIS CODE CONSTITUTES ACCEPTANCE OF THE TERMS OF THE
 //                         COPYRIGHT NOTICE
 // ***************************************************************
+
+// ***************************************************************
+// Changes by Samuel Leweke 
+// Forschungszentrum Jülich GmbH, IBG-1, Juelich, Germany
+// ***************************************************************
+// 
+// * Add support for cot, sinh, cosh, tanh, and coth functions
 
 #ifndef _BADIFF_H
 #define _BADIFF_H
@@ -1021,6 +1029,26 @@ BTypeName<U> tan(const BTypeName<U>& val)
 	return BTypeName<U>(static_cast<BTypeNameHV<U>*>(new BTypeNameTAN<U>(Op<U>::myTan(val.val()), val.getBTypeNameHV())));
 }
 
+// COT
+
+template <typename U>
+struct BTypeNameCOT : public UnBTypeNameHV<U>
+{
+	BTypeNameCOT(const U& val, BTypeNameHV<U>* pOp):UnBTypeNameHV<U>(val,pOp){}
+	virtual void propagate(typename Derivatives<U>::RecycleBin& bin)
+	{
+		U tmp(Op<U>::mySqr(this->val())+Op<U>::myOne());
+		this->op()->sub(bin,tmp,this->m_derivatives);
+	}
+private:
+	void operator=(const BTypeNameCOT<U>&){} // not allowed
+};
+template <typename U>
+BTypeName<U> cot(const BTypeName<U>& val)
+{ 
+	return BTypeName<U>(static_cast<BTypeNameHV<U>*>(new BTypeNameCOT<U>(Op<U>::myCot(val.val()), val.getBTypeNameHV())));
+}
+
 // ASIN
 
 template <typename U>
@@ -1081,6 +1109,86 @@ BTypeName<U> atan(const BTypeName<U>& val)
 	return BTypeName<U>(static_cast<BTypeNameHV<U>*>(new BTypeNameATAN<U>(Op<U>::myAtan(val.val()), val.getBTypeNameHV())));
 }
 
+// SINH
+
+template <typename U>
+struct BTypeNameSINH : public UnBTypeNameHV<U>
+{
+	BTypeNameSINH(const U& val, BTypeNameHV<U>* pOp):UnBTypeNameHV<U>(val,pOp){}
+	virtual void propagate(typename Derivatives<U>::RecycleBin& bin)
+	{
+		U tmp(Op<U>::myCosh(this->op()->val()));
+		this->op()->add(bin,tmp,this->m_derivatives);
+	}
+private:
+	void operator=(const BTypeNameSINH<U>&){} // not allowed
+};
+template <typename U>
+BTypeName<U> sinh(const BTypeName<U>& val)
+{ 
+	return BTypeName<U>(static_cast<BTypeNameHV<U>*>(new BTypeNameSINH<U>(Op<U>::mySinh(val.val()), val.getBTypeNameHV())));
+}
+
+// COSH
+
+template <typename U>
+struct BTypeNameCOSH : public UnBTypeNameHV<U>
+{
+	BTypeNameCOSH(const U& val, BTypeNameHV<U>* pOp):UnBTypeNameHV<U>(val,pOp){}
+	virtual void propagate(typename Derivatives<U>::RecycleBin& bin)
+	{
+		U tmp(Op<U>::mySinh(this->op()->val()));
+		this->op()->add(bin,tmp,this->m_derivatives);
+	}
+private:
+	void operator=(const BTypeNameCOSH<U>&){} // not allowed
+};
+template <typename U>
+BTypeName<U> cosh(const BTypeName<U>& val)
+{ 
+	return BTypeName<U>(static_cast<BTypeNameHV<U>*>(new BTypeNameCOSH<U>(Op<U>::myCosh(val.val()), val.getBTypeNameHV())));
+}
+
+// TANH
+
+template <typename U>
+struct BTypeNameTANH : public UnBTypeNameHV<U>
+{
+	BTypeNameTANH(const U& val, BTypeNameHV<U>* pOp):UnBTypeNameHV<U>(val,pOp){}
+	virtual void propagate(typename Derivatives<U>::RecycleBin& bin)
+	{
+		U tmp(Op<U>::myOne() - Op<U>::mySqr(this->val()));
+		this->op()->add(bin,tmp,this->m_derivatives);
+	}
+private:
+	void operator=(const BTypeNameTANH<U>&){} // not allowed
+};
+template <typename U>
+BTypeName<U> tanh(const BTypeName<U>& val)
+{ 
+	return BTypeName<U>(static_cast<BTypeNameHV<U>*>(new BTypeNameTANH<U>(Op<U>::myTanh(val.val()), val.getBTypeNameHV())));
+}
+
+// COTH
+
+template <typename U>
+struct BTypeNameCOTH : public UnBTypeNameHV<U>
+{
+	BTypeNameCOTH(const U& val, BTypeNameHV<U>* pOp):UnBTypeNameHV<U>(val,pOp){}
+	virtual void propagate(typename Derivatives<U>::RecycleBin& bin)
+	{
+		U tmp(Op<U>::myOne() - Op<U>::mySqr(this->val()));
+		this->op()->add(bin,tmp,this->m_derivatives);
+	}
+private:
+	void operator=(const BTypeNameCOTH<U>&){} // not allowed
+};
+template <typename U>
+BTypeName<U> coth(const BTypeName<U>& val)
+{ 
+	return BTypeName<U>(static_cast<BTypeNameHV<U>*>(new BTypeNameCOTH<U>(Op<U>::myCoth(val.val()), val.getBTypeNameHV())));
+}
+
 template <typename U> struct Op< BTypeName<U> >
 {
 	typedef BTypeName<U> T;
@@ -1107,9 +1215,14 @@ template <typename U> struct Op< BTypeName<U> >
 	static T mySin(const T& x) { return fadbad::sin(x); }
 	static T myCos(const T& x) { return fadbad::cos(x); }
 	static T myTan(const T& x) { return fadbad::tan(x); }
+	static T myCot(const T& x) { return fadbad::cot(x); }
 	static T myAsin(const T& x) { return fadbad::asin(x); }
 	static T myAcos(const T& x) { return fadbad::acos(x); }
 	static T myAtan(const T& x) { return fadbad::atan(x); }
+	static T mySinh(const T& x) { return fadbad::sinh(x); }
+	static T myCosh(const T& x) { return fadbad::cosh(x); }
+	static T myTanh(const T& x) { return fadbad::tanh(x); }
+	static T myCoth(const T& x) { return fadbad::coth(x); }
 	static bool myEq(const T& x, const T& y) { return x==y; }
 	static bool myNe(const T& x, const T& y) { return x!=y; }
 	static bool myLt(const T& x, const T& y) { return x<y; }

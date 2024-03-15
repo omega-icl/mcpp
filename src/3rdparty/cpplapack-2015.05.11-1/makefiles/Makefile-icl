@@ -1,0 +1,41 @@
+###############################################################################
+##                             Makefile for icl                              ##
+###############################################################################
+
+TARGET = a.exe
+
+###############################################################################
+
+CXX = icl
+FLAGS += /DRELEASE
+####/DMKL_ILP64
+FLAGS += /QaxSSE4.2,AVX,CORE-AVX2,CORE-AVX-I /O3 /Qprec-div- /fp:fast=2 # without ipo
+####FLAGS += /Qipo
+FLAGS += /Qopenmp /Qmkl:parallel
+CFLAGS += /Qstd=c++11 /W0 /nologo
+LFLAGS += 
+INCLUDE_DIRS += /I.
+INCLUDE_DIRS += /I../../cpplapack/include
+
+###############################################################################
+
+HEADERS:= $(wildcard */*.hpp *.hpp)
+SOURCES:= $(wildcard */*.cpp *.cpp)
+SOURCES:= $(sort $(SOURCES))
+#SOURCES:= $(filter-out main.cpp, $(SOURCES)) main.cpp
+OBJECTS:= $(SOURCES:%.cpp=%.obj)
+OBJECTS_TO_DEL := $(subst /,\,$(OBJECTS))
+
+###############################################################################
+###############################################################################
+###############################################################################
+
+all: $(OBJECTS)
+	$(CXX) $(OBJECTS) $(FLAGS) $(LFLAGS) $(LIB_DIRS) $(LIBS) /Fe$(TARGET)
+
+.SUFFIXES: .cpp .obj
+.cpp.obj:
+	$(CXX) /c $< $(FLAGS) $(CFLAGS) $(INCLUDE_DIRS) $(MACROS) /Fo$@
+  
+clean:
+	del $(OBJECTS_TO_DEL)

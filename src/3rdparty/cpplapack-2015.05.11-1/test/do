@@ -1,0 +1,30 @@
+#!/bin/sh
+
+MAKEFILE=$HOME/local/cpplapack/makefiles/Makefile
+rootdir=`pwd`
+logfile="$rootdir/do.log"
+rm -f $logfile
+echo "writing in $logfile"
+
+for i in `find * -type d | grep -v .svn`; do
+  if [ -d $i ]; then
+    echo "################ Enter into $i/ ################" >> $logfile 2>&1 || exit 1
+    cd $i || exit 1
+    if [ -f SUCCEEDED ]; then
+      echo "======== Skipping cause already succeeded ========" >> $logfile 2>&1 || exit 1
+    elif [ -f main.cpp ]; then
+      echo "======== Making ========" >> $logfile 2>&1 || exit 1
+      make -f $MAKEFILE fullclean >> $logfile 2>&1 || exit 1
+      make -f $MAKEFILE debug  >> $logfile 2>&1 || exit 1
+      echo "======== Executing ./A.OUT ========" >> $logfile 2>&1 || exit 1
+      valgrind ./A.OUT >> $logfile 2>&1 || exit 1
+      make -f $MAKEFILE fullclean >> $logfile 2>&1 || exit 1
+      echo "======== Succeeded ========" >> $logfile 2>&1 || exit 1
+      touch SUCCEEDED
+    else
+      echo "======== No main.cpp ========" >> $logfile 2>&1 || exit 1
+    fi
+    cd $rootdir
+    echo "################ Exit  from $i/ ################" >> $logfile 2>&1 || exit 1
+  fi
+done

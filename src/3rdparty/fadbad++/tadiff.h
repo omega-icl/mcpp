@@ -1,4 +1,5 @@
 // Copyright (C) 1996-2007 Ole Stauning & Claus Bendtsen (fadbad@uning.dk)
+// Modifications copyright (C) 2015 Samuel Leweke (s.leweke@fz-juelich.de)
 // All rights reserved.
 
 // This code is provided "as is", without any warranty of any kind,
@@ -26,6 +27,13 @@
 // ANY USE OF THIS CODE CONSTITUTES ACCEPTANCE OF THE TERMS OF THE
 // COPYRIGHT NOTICE
 // ***************************************************************
+
+// ***************************************************************
+// Changes by Samuel Leweke 
+// Forschungszentrum Jülich GmbH, IBG-1, Juelich, Germany
+// ***************************************************************
+// 
+// * Add support for cot, sinh, cosh, tanh, and coth functions
 
 #ifndef _TADIFF_H
 #define _TADIFF_H
@@ -746,6 +754,34 @@ struct TTypeNamePOW : public UnTTypeNameHV<U,N>
 private:
 	void operator=(const TTypeNamePOW<U,N>&){} // not allowed
 };
+template <typename U, int N, typename V>
+struct TTypeNamePOW1 : public UnTTypeNameHV<U,N>
+{
+	TTypeNamePOW1(const U& val, TTypeNameHV<U,N>* pOp2):UnTTypeNameHV<U,N>(val,pOp2){}
+	TTypeNamePOW1(TTypeNameHV<U,N>* pOp2):UnTTypeNameHV<U,N>(pOp2){}
+	unsigned int eval(const unsigned int k)
+	{
+		unsigned int l=this->opEval(k);
+		for(unsigned int i=this->length();i<l;++i) this->val(i)=this->opVal(i);
+		return this->length()=l;
+	}
+private:
+	void operator=(const TTypeNamePOW1<U,N,V>&){} // not allowed
+};
+template <typename U, int N, typename V>
+struct TTypeNamePOW2 : public UnTTypeNameHV<U,N>
+{
+	TTypeNamePOW2(const U& val, TTypeNameHV<U,N>* pOp1):UnTTypeNameHV<U,N>(val,pOp1){}
+	TTypeNamePOW2(TTypeNameHV<U,N>* pOp1):UnTTypeNameHV<U,N>(pOp1){}
+	unsigned int eval(const unsigned int k)
+	{
+		unsigned int l=this->opEval(k);
+		for(unsigned int i=this->length();i<l;++i) this->val(i)=this->opVal(i);
+		return this->length()=l;
+	}
+private:
+	void operator=(const TTypeNamePOW2<U,N,V>&){} // not allowed
+};
 template <typename U, int N>
 TTypeName<U,N> pow(const TTypeName<U,N>& val1, const TTypeName<U,N>& val2)
 {
@@ -793,21 +829,6 @@ TTypeName<U,N> pow(const TTypeName<U,N>& val1, const typename Op<U>::Base& b)
 	return TTypeName<U,N>(pHV);
 }
 */
-
-template <typename U, int N, typename V>
-struct TTypeNamePOW1 : public UnTTypeNameHV<U,N>
-{
-	TTypeNamePOW1(const U& val, TTypeNameHV<U,N>* pOp2):UnTTypeNameHV<U,N>(val,pOp2){}
-	TTypeNamePOW1(TTypeNameHV<U,N>* pOp2):UnTTypeNameHV<U,N>(pOp2){}
-	unsigned int eval(const unsigned int k)
-	{
-		unsigned int l=this->opEval(k);
-		for(unsigned int i=this->length();i<l;++i) this->val(i)=this->opVal(i);
-		return this->length()=l;
-	}
-private:
-	void operator=(const TTypeNamePOW1<U,N,V>&){} // not allowed
-};
 template <typename U, int N, typename V>
 TTypeName<U,N> pow(const V& a, const TTypeName<U,N>& val2)
 {
@@ -817,21 +838,6 @@ TTypeName<U,N> pow(const V& a, const TTypeName<U,N>& val2)
 		new TTypeNamePOW1<U,N,V>(tmp.getTTypeNameHV());
 	return TTypeName<U,N>(pHV);
 }
-
-template <typename U, int N, typename V>
-struct TTypeNamePOW2 : public UnTTypeNameHV<U,N>
-{
-	TTypeNamePOW2(const U& val, TTypeNameHV<U,N>* pOp1):UnTTypeNameHV<U,N>(val,pOp1){}
-	TTypeNamePOW2(TTypeNameHV<U,N>* pOp1):UnTTypeNameHV<U,N>(pOp1){}
-	unsigned int eval(const unsigned int k)
-	{
-		unsigned int l=this->opEval(k);
-		for(unsigned int i=this->length();i<l;++i) this->val(i)=this->opVal(i);
-		return this->length()=l;
-	}
-private:
-	void operator=(const TTypeNamePOW2<U,N,V>&){} // not allowed
-};
 template <typename U, int N, typename V>
 TTypeName<U,N> pow(const TTypeName<U,N>& val1, const V& b)
 {
@@ -841,79 +847,6 @@ TTypeName<U,N> pow(const TTypeName<U,N>& val1, const V& b)
 		new TTypeNamePOW2<U,N,V>(tmp.getTTypeNameHV());
 	return TTypeName<U,N>(pHV);
 }
-/*
-template <typename U, int N>
-struct TTypeNamePOW3 : public UnTTypeNameHV<U,N>
-{
-	int m_b;
-	TTypeNamePOW3(const U& val, TTypeNameHV<U,N>* pOp, const int b):UnTTypeNameHV<U,N>(val,pOp),m_b(b){}
-	TTypeNamePOW3(TTypeNameHV<U,N>* pOp, const int b):UnTTypeNameHV<U,N>(pOp),m_b(b){}
-	unsigned int eval(const unsigned int k)
-	{
-		unsigned int l=this->opEval(k);
-                if( m_b==0 ){
- 			if (0==this->length()) { this->val(0)=Op<U>::myOne(); this->length()=1; }
-			for(unsigned int i=this->length();i<l;++i) { this->val(i)=Op<U>::myZero(); }
-                }
-                else if( m_b==1 ){
-			for(unsigned int i=this->length();i<l;++i) { this->val(i)=this->opVal(i); }
-		}
-                else if( m_b==2 ){
-			if (0==this->length()) { this->val(0)=Op<U>::mySqr(this->opVal(0)); this->length()=1; }
-			for(unsigned int i=this->length();i<l;++i)
-			{
-				this->val(i)=Op<U>::myZero();
-				unsigned int m=(i+1)/2;
-				for(unsigned int j=0;j<m;++j) Op<U>::myCadd(this->val(i), this->opVal(i-j)*this->opVal(j));
-				Op<U>::myCmul(this->val(i), Op<U>::myTwo());
-				if (0==i%2) Op<U>::myCadd(this->val(i), Op<U>::mySqr(this->opVal(m)));
-			}
-		}
-		else if( m_b==3 ){
-			if (0==this->length()) { this->val(0)=Op<U>::myPow(this->opVal(0),m_b); this->length()=1; }
-			if (1<l && 1==this->length() ) { this->val(1)=Op<U>::myPow(this->opVal(0),m_b-1)
-				*this->opVal(1)*Op<U>::myInteger(m_b); this->length()=2; }
-			if (2<l && 2==this->length() ) { this->val(2)=Op<U>::myPow(this->opVal(0),m_b-2)
-				*( this->opVal(0)*this->opVal(2) + Op<U>::myInteger(m_b-1)*Op<U>::mySqr(this->opVal(1)) )
-				*Op<U>::myInteger(m_b); this->length()=3; }
-			for(unsigned int i=this->length();i<l;++i)
-                        {
-                                this->val(i)=Op<U>::myZero();
-				unsigned int m=(i+1)/2;
-				for(unsigned int j=0;j<m;++j) Op<U>::myCadd(this->val(i), this->opVal(i-j)*this->opVal(j));
-				Op<U>::myCmul(this->val(i), Op<U>::myTwo());
-				if (0==i%2) Op<U>::myCadd(this->val(i), Op<U>::mySqr(this->opVal(m)));                        
-                        }
-			for(unsigned int i=l-1; i>=this->length();--i)
-			{
-				Op<U>::myCmul(this->val(i), this->opVal(0));
-				for(unsigned int j=1;j<=i;++j) Op<U>::myCadd(this->val(i), this->val(i-j)*this->opVal(j));
-			}
-		}
-                else{                       
-			if (0==this->length()) { this->val(0)=Op<U>::myPow(this->opVal(0),m_b); this->length()=1; }
-			for(unsigned int i=this->length();i<l;++i)
-			{
-				this->val(i)=Op<U>::myZero();
-				for(unsigned int j=0;j<i;++j)
-					Op<U>::myCadd(this->val(i), ( m_b - (m_b+Op<U>::myOne()) * Op<U>::myInteger(j) /
-						Op<U>::myInteger(i) )*this->opVal(i-j)*this->val(j));
-			}
-                }
-		return this->length()=l;
-	}
-private:
-	void operator=(const TTypeNamePOW3<U,N>&){} // not allowed
-};
-template <typename U, int N>
-TTypeName<U,N> pow(const TTypeName<U,N>& val, const int b)
-{
-	TTypeNameHV<U,N>* pHV=val.length()>0 ?
-		new TTypeNamePOW3<U,N>(Op<U>::myPow(val.val(),b), val.getTTypeNameHV(), b):
-		new TTypeNamePOW3<U,N>(val.getTTypeNameHV(), b);
-	return TTypeName<U,N>(pHV);
-}
-*/
 
 // SQR
 
@@ -1164,6 +1097,39 @@ TTypeName<U,N> tan(const TTypeName<U,N>& val)
 	return TTypeName<U,N>(pHV);
 }
 
+// COT
+
+template <typename U, int N>
+struct TTypeNameCOT : public BinTTypeNameHV<U,N>
+{
+	TTypeNameCOT(const U& val, TTypeNameHV<U,N>* pOp, TTypeNameHV<U,N>* pSqrSin):BinTTypeNameHV<U,N>(val,pOp,pSqrSin){}
+	TTypeNameCOT(TTypeNameHV<U,N>* pOp, TTypeNameHV<U,N>* pSqrSin):BinTTypeNameHV<U,N>(pOp,pSqrSin){}
+	unsigned int eval(const unsigned int k)
+	{
+		unsigned int l=std::min(this->op1Eval(k),this->op2Eval(k));
+		if (0==this->length()) { this->val(0)=Op<U>::myCot(this->op1Val(0)); this->length()=1; }
+		for(unsigned int i=this->length();i<l;++i)
+		{
+			this->val(i)=Op<U>::myZero();
+			for(unsigned int j=1;j<i;++j)
+				Op<U>::myCadd(this->val(i), Op<U>::myInteger(j)*this->val(j)*this->op2Val(i-j));
+			this->val(i)= -(this->op1Val(i)+this->val(i)/Op<U>::myInteger(i))/this->op2Val(0);
+		}
+		return this->length()=l;
+	}
+private:
+	void operator=(const TTypeNameCOT<U,N>&){} // not allowed
+};
+template <typename U, int N>
+TTypeName<U,N> cot(const TTypeName<U,N>& val)
+{ 
+	TTypeName<U,N> tmp(sqr(sin(val)));
+	TTypeNameHV<U,N>* pHV=val.length()>0 ?
+		new TTypeNameCOT<U,N>(Op<U>::myCot(val.val()), val.getTTypeNameHV(), tmp.getTTypeNameHV()):
+		new TTypeNameCOT<U,N>(val.getTTypeNameHV(), tmp.getTTypeNameHV());
+	return TTypeName<U,N>(pHV);
+}
+
 // ASIN
 
 template <typename U, int N>
@@ -1263,6 +1229,156 @@ TTypeName<U,N> atan(const TTypeName<U,N>& val)
 	return TTypeName<U,N>(pHV);
 }
 
+// SINH
+
+template <typename U, int N>
+struct TTypeNameSINH : public UnTTypeNameHV<U,N>
+{
+	U m_COSH[N];
+	TTypeNameSINH(const U& val, TTypeNameHV<U,N>* pOp):UnTTypeNameHV<U,N>(val,pOp){m_COSH[0]=Op<U>::myCosh(this->opVal(0));}
+	TTypeNameSINH(TTypeNameHV<U,N>* pOp):UnTTypeNameHV<U,N>(pOp){}
+	unsigned int eval(const unsigned int k)
+	{
+		unsigned int l=this->opEval(k);
+		if (0==this->length()) 
+		{ 
+			this->val(0)=Op<U>::mySinh(this->opVal(0));
+			m_COSH[0]=Op<U>::myCosh(this->opVal(0));
+			this->length()=1; 
+		}
+		for(unsigned int i=this->length();i<l;++i)
+		{
+			this->val(i)=Op<U>::myZero();
+			for(unsigned int j=0;j<i;++j)
+				Op<U>::myCadd(this->val(i), Op<U>::myInteger(j+1)*m_COSH[i-1-j]*this->opVal(j+1));
+			Op<U>::myCdiv(this->val(i), Op<U>::myInteger(i));
+			m_COSH[i]=Op<U>::myZero();
+			for(unsigned int j=0;j<i;++j)
+				Op<U>::myCadd(m_COSH[i], Op<U>::myInteger(j+1)*this->val(i-1-j)*this->opVal(j+1));
+			Op<U>::myCdiv(m_COSH[i], Op<U>::myInteger(i));
+		}
+		return this->length()=l;
+	}
+private:
+	void operator=(const TTypeNameSINH<U,N>&){} // not allowed
+};
+template <typename U, int N>
+TTypeName<U,N> sinh(const TTypeName<U,N>& val)
+{
+	TTypeNameHV<U,N>* pHV=val.length()>0 ?
+		new TTypeNameSINH<U,N>(Op<U>::mySinh(val.val()), val.getTTypeNameHV()):
+		new TTypeNameSINH<U,N>(val.getTTypeNameHV());
+	return TTypeName<U,N>(pHV);
+}
+
+// COSH
+
+template <typename U, int N>
+struct TTypeNameCOSH : public UnTTypeNameHV<U,N>
+{
+	U m_SINH[N];
+	TTypeNameCOSH(const U& val, TTypeNameHV<U,N>* pOp):UnTTypeNameHV<U,N>(val,pOp){m_SINH[0]=Op<U>::mySinh(this->opVal(0));}
+	TTypeNameCOSH(TTypeNameHV<U,N>* pOp):UnTTypeNameHV<U,N>(pOp){}
+	unsigned int eval(const unsigned int k)
+	{
+		unsigned int l=this->opEval(k);
+		if (0==this->length()) 
+		{ 
+			this->val(0)=Op<U>::myCosh(this->opVal(0));
+			m_SINH[0]=Op<U>::mySinh(this->opVal(0));
+			this->length()=1; 
+		}
+		for(unsigned int i=this->length();i<l;++i)
+		{
+			this->val(i)=Op<U>::myZero();
+			for(unsigned int j=0;j<i;++j)
+				Op<U>::myCadd(this->val(i), Op<U>::myInteger(j+1)*m_SINH[i-1-j]*this->opVal(j+1));
+			Op<U>::myCdiv(this->val(i), Op<U>::myInteger(i));
+			m_SINH[i]=Op<U>::myZero();
+			for(unsigned int j=0;j<i;++j)
+				Op<U>::myCadd(m_SINH[i], Op<U>::myInteger(j+1)*this->val(i-1-j)*this->opVal(j+1));
+			Op<U>::myCdiv(m_SINH[i], Op<U>::myInteger(i));
+		}
+		return this->length()=l;
+	}
+private:
+	void operator=(const TTypeNameCOSH<U,N>&){} // not allowed
+};
+template <typename U, int N>
+TTypeName<U,N> cosh(const TTypeName<U,N>& val)
+{
+	TTypeNameHV<U,N>* pHV=val.length()>0 ?
+		new TTypeNameCOSH<U,N>(Op<U>::myCosh(val.val()), val.getTTypeNameHV()):
+		new TTypeNameCOSH<U,N>(val.getTTypeNameHV());
+	return TTypeName<U,N>(pHV);
+}
+
+// TANH
+
+template <typename U, int N>
+struct TTypeNameTANH : public BinTTypeNameHV<U,N>
+{
+	TTypeNameTANH(const U& val, TTypeNameHV<U,N>* pOp, TTypeNameHV<U,N>* pSqrCosh):BinTTypeNameHV<U,N>(val,pOp,pSqrCosh){}
+	TTypeNameTANH(TTypeNameHV<U,N>* pOp, TTypeNameHV<U,N>* pSqrCosh):BinTTypeNameHV<U,N>(pOp,pSqrCosh){}
+	unsigned int eval(const unsigned int k)
+	{
+		unsigned int l=std::min(this->op1Eval(k),this->op2Eval(k));
+		if (0==this->length()) { this->val(0)=Op<U>::myTanh(this->op1Val(0)); this->length()=1; }
+		for(unsigned int i=this->length();i<l;++i)
+		{
+			this->val(i)=Op<U>::myZero();
+			for(unsigned int j=1;j<i;++j)
+				Op<U>::myCadd(this->val(i), Op<U>::myInteger(j)*this->val(j)*this->op2Val(i-j));
+			this->val(i)=(this->op1Val(i)-this->val(i)/Op<U>::myInteger(i))/this->op2Val(0);
+		}
+		return this->length()=l;
+	}
+private:
+	void operator=(const TTypeNameTANH<U,N>&){} // not allowed
+};
+template <typename U, int N>
+TTypeName<U,N> tanh(const TTypeName<U,N>& val)
+{ 
+	TTypeName<U,N> tmp(sqr(cosh(val)));
+	TTypeNameHV<U,N>* pHV=val.length()>0 ?
+		new TTypeNameTANH<U,N>(Op<U>::myTanh(val.val()), val.getTTypeNameHV(), tmp.getTTypeNameHV()):
+		new TTypeNameTANH<U,N>(val.getTTypeNameHV(), tmp.getTTypeNameHV());
+	return TTypeName<U,N>(pHV);
+}
+
+// COTH
+
+template <typename U, int N>
+struct TTypeNameCOTH : public BinTTypeNameHV<U,N>
+{
+	TTypeNameCOTH(const U& val, TTypeNameHV<U,N>* pOp, TTypeNameHV<U,N>* pSqrSinh):BinTTypeNameHV<U,N>(val,pOp,pSqrSinh){}
+	TTypeNameCOTH(TTypeNameHV<U,N>* pOp, TTypeNameHV<U,N>* pSqrSinh):BinTTypeNameHV<U,N>(pOp,pSqrSinh){}
+	unsigned int eval(const unsigned int k)
+	{
+		unsigned int l=std::min(this->op1Eval(k),this->op2Eval(k));
+		if (0==this->length()) { this->val(0)=Op<U>::myCoth(this->op1Val(0)); this->length()=1; }
+		for(unsigned int i=this->length();i<l;++i)
+		{
+			this->val(i)=Op<U>::myZero();
+			for(unsigned int j=1;j<i;++j)
+				Op<U>::myCadd(this->val(i), Op<U>::myInteger(j)*this->val(j)*this->op2Val(i-j));
+			this->val(i)= -(this->op1Val(i)+this->val(i)/Op<U>::myInteger(i))/this->op2Val(0);
+		}
+		return this->length()=l;
+	}
+private:
+	void operator=(const TTypeNameCOTH<U,N>&){} // not allowed
+};
+template <typename U, int N>
+TTypeName<U,N> coth(const TTypeName<U,N>& val)
+{ 
+	TTypeName<U,N> tmp(sqr(sinh(val)));
+	TTypeNameHV<U,N>* pHV=val.length()>0 ?
+		new TTypeNameCOTH<U,N>(Op<U>::myCoth(val.val()), val.getTTypeNameHV(), tmp.getTTypeNameHV()):
+		new TTypeNameCOTH<U,N>(val.getTTypeNameHV(), tmp.getTTypeNameHV());
+	return TTypeName<U,N>(pHV);
+}
+
 // Ned's diff operator
 
 template <typename U, int N>
@@ -1342,9 +1458,14 @@ template <typename U, int N> struct Op< TTypeName<U,N> >
 	static V mySin(const V& x) { return fadbad::sin(x); }
 	static V myCos(const V& x) { return fadbad::cos(x); }
 	static V myTan(const V& x) { return fadbad::tan(x); }
+	static V myCot(const V& x) { return fadbad::cot(x); }
 	static V myAsin(const V& x) { return fadbad::asin(x); }
 	static V myAcos(const V& x) { return fadbad::acos(x); }
 	static V myAtan(const V& x) { return fadbad::atan(x); }
+	static V mySinh(const V& x) { return fadbad::sinh(x); }
+	static V myCosh(const V& x) { return fadbad::cosh(x); }
+	static V myTanh(const V& x) { return fadbad::tanh(x); }
+	static V myCoth(const V& x) { return fadbad::coth(x); }
 	static bool myEq(const V& x, const V& y) { return x==y; }
 	static bool myNe(const V& x, const V& y) { return x!=y; }
 	static bool myLt(const V& x, const V& y) { return x<y; }
