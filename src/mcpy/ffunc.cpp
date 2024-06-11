@@ -23,6 +23,7 @@
  #endif
 #endif
 
+#include <fstream>
 #include "ffunc.hpp" 
 
 namespace py = pybind11;
