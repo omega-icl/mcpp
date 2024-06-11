@@ -379,7 +379,8 @@ public:
       std::cout << "Det generic instantiation\n"; 
       const unsigned nDim = std::sqrt(nVar);
       switch( nDim ){
-        case 0:  vRes[0] = T( 0. ); break;        case 1:  vRes[0] = vVar[0]; break;
+        case 0:  vRes[0] = T( 0. ); break;
+	case 1:  vRes[0] = vVar[0]; break;
         default: vRes[0] = FFBase::det( nDim, vVar ); break;
       }
     }
@@ -1244,7 +1245,7 @@ int test_slift_external1()
   mc::FFArrh<0> Arrh;
   double C1(2.), C2(3.);
   //std::cout << "C1: " << &C1 << "  C2: " << &C2 << std::endl;
-  mc::FFVar F = Arrh( X, C1 ) - Arrh( X, C2 );
+  mc::FFVar F = 1 - Arrh( X, C1 ) / Arrh( X, C2 );
   std::cout << DAG;
 
   mc::SLiftEnv< mc::FFArrh<0> > SPE( &DAG );
@@ -1267,9 +1268,9 @@ int main()
 //    test_external5();
 //    test_external6();
 //    test_external7();
-    test_external8();
+//    test_external8();
 //    test_slift_external0();
-//    test_slift_external1();
+    test_slift_external1();
   }
   catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()

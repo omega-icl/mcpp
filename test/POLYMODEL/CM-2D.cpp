@@ -4,7 +4,7 @@ const int NX = 20;	// <-- select X discretization here
 const int NY = 20;	// <-- select Y discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
 #define USE_PROFIL	// <-- specify to use PROFIL for interval arithmetic
-#define USE_SPARSE	// <-- specify to use sparse models
+#undef USE_SPARSE	// <-- specify to use sparse models
 #define USE_INTCOEF	// <-- specify to use interval coefficients
 ////////////////////////////////////////////////////////////////////////
 
@@ -134,9 +134,9 @@ template <class T>
 T myfunc
 ( const T&x, const T&y )
 {
-  using mc::inv;
-  return inv(y);
-  //return x*y*(x*(exp(x)-exp(-x))-y*(exp(y)-exp(-y)));
+  //using mc::inv;
+  //return inv(y);
+  return x*y*(x*(exp(x)-exp(-x))-y*(exp(y)-exp(-y)));
 }
 
 #elif defined( TEST_INV )
@@ -333,22 +333,24 @@ int main()
     // Define Chebyshev model environment
 #ifndef USE_SPARSE
     CM mod( 2, NTE );
+    mod.options.BOUNDER_TYPE = CM::Options::EIGEN;//LSB;//NAIVE;
 #else
   #ifndef USE_INTCOEF
     CM mod( NTE );
     mod.options.BASIS        = 1; //0;//1;
     mod.options.REMEZ_USE    = true;//false;
+    mod.options.BOUNDER_TYPE = CM::Options::LSB;//NAIVE;
   #else
     CM mod( NTE );
     mod.options.BASIS        = 1; //0;//1;
     mod.options.REMEZ_USE    = true;//false;
     mod.options.HOT_SPLIT    = CM::Options::FULL;//NONE;
     mod.options.REMEZ_USE    = true;//false; 
+    mod.options.BOUNDER_TYPE = CM::Options::LSB;//NAIVE;
   #endif
 #endif
 
     // <-- set options here -->
-    mod.options.BOUNDER_TYPE = CM::Options::LSB;//NAIVE;
     mod.options.MIXED_IA     = true;//false;
     
     // Define variables X and Y, and evaluate Chebyshev model

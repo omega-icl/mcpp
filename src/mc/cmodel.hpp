@@ -221,6 +221,12 @@ Further exceptions may be thrown by the template parameter class itself.
 #ifndef MC__CMODEL_H
 #define MC__CMODEL_H
 
+#ifdef MC__USE_ARMADILLO
+ #include <armadillo>
+#else
+ #include "mclapack.hpp"
+#endif
+
 #include "polymodel.hpp"
 #include "mcop.hpp"
 
@@ -1682,6 +1688,52 @@ CModel<T>::_polybound_eigen
   if( _nord == 1 ) bndpol += bndord[1];
 
   else if( _nord > 1 ){
+#ifdef MC__USE_ARMADILLO
+    arma::mat Amat( _nvar, _nvar, arma::fill::none );
+    for( unsigned i=_posord[2]; i<_posord[3]; i++ ){
+      unsigned i1=0, i2=_nvar;
+      C Ci = (ndxmon.empty() || ndxmon.find(i)!=ndxmon.end())? coefmon[i]: 0.;
+      const unsigned*iexp=_expmon+i*_nvar;
+      for( ; i1<_nvar; i1++ ) if( iexp[i1] ) break;
+      if( iexp[i1] == 2 ){
+        Amat(i1,i1) = 2.*Ci;
+        bndpol -= Ci;
+        continue;
+      }
+      for( i2=i1+1; i2<_nvar; i2++ )
+        if( iexp[i2] ) break;
+      Amat(i1,i2) = Amat(i2,i1) = Ci/2.;
+    }
+#ifdef MC__CMODEL_DEBUG_POLYBOUND
+    std::cout << "Matrix A:" << Amat;
+#endif
+    arma::vec Dvec( _nvar, arma::fill::none );
+    arma::mat Umat( _nvar, _nvar, arma::fill::none );
+    if( !eig_sym( Dvec, Umat, Amat ) )
+      return _polybound_LSB( coefmon, bndord, bndbasis );
+
+    for( unsigned i=0; i<_nvar; i++ ){
+      double linaux = 0.;
+      U bndaux(0.);
+      for( unsigned k=0; k<_nvar; k++ ){
+        C Ck = (ndxmon.empty() || ndxmon.find(_nvar-k)!=ndxmon.end())? coefmon[_nvar-k]: 0.;
+        linaux += Umat(k,i) * Ck;
+        bndaux += Umat(k,i) * bndbasis[k][1];
+      }
+#ifdef MC__CMODEL_DEBUG_POLYBOUND
+      std::cout << i << ": LINAUX = " << linaux
+                     << "  BNDAUX = " << bndaux << std::endl;
+#endif
+      if( std::fabs(Dvec(i)) > TOL )
+        bndpol += Dvec(i) * Op<U>::sqr( linaux/Dvec(i)/2. + bndaux ) - linaux*linaux/Dvec(i)/4.;
+      else     
+        bndpol += linaux * bndaux + Dvec(i) * Op<U>::sqr( bndaux );
+#ifdef MC__CMODEL_DEBUG_POLYBOUND
+        std::cout << "BNDPOL: " << bndpol << std::endl;
+#endif
+    }
+
+#else
     double*Umat = new double[_nvar*_nvar];
     for( unsigned i=_posord[2]; i<_posord[3]; i++ ){
       unsigned i1=0, i2=_nvar;
@@ -1693,11 +1745,12 @@ CModel<T>::_polybound_eigen
         bndpol -= Ci;
         continue;
       }
-      for( i2=i1+1; i2<_nvar; i2++ ) if( iexp[i2] ) break;
+      for( i2=i1+1; i2<_nvar; i2++ )
+        if( iexp[i2] ) break;
       Umat[_nvar*i1+i2] = 0.;
       Umat[_nvar*i2+i1] = Ci/2.;
     }
-#ifdef MC__POLYMODEL_DEBUG_POLYBOUND
+#ifdef MC__CMODEL_DEBUG_POLYBOUND
     display( _nvar, _nvar, Umat, _nvar, "Matrix U", std::cout );
 #endif
     double*Dmat = mc::dsyev_wrapper( _nvar, Umat, true );
@@ -1714,21 +1767,21 @@ CModel<T>::_polybound_eigen
         linaux += Umat[i*_nvar+k] * Ck;
         bndaux += Umat[i*_nvar+k] * bndbasis[k][1];
       }
-#ifdef MC__POLYMODEL_DEBUG_POLYBOUND
+#ifdef MC__CMODEL_DEBUG_POLYBOUND
       std::cout << i << ": LINAUX = " << linaux
-                << "  BNDAUX = " << bndaux << std::endl;
+                     << "  BNDAUX = " << bndaux << std::endl;
 #endif
       if( std::fabs(Dmat[i]) > TOL )
-        bndpol += Dmat[i] * Op<U>::sqr( linaux/Dmat[i]/2. + bndaux )
-                - linaux*linaux/Dmat[i]/4.;
+        bndpol += Dmat[i] * Op<U>::sqr( linaux/Dmat[i]/2. + bndaux ) - linaux*linaux/Dmat[i]/4.;
       else     
         bndpol += linaux * bndaux + Dmat[i] * Op<U>::sqr( bndaux );
-#ifdef MC__POLYMODEL_DEBUG_POLYBOUND
+#ifdef MC__CMODEL_DEBUG_POLYBOUND
         std::cout << "BNDPOL: " << bndpol << std::endl;
 #endif
     }
     delete[] Umat;
     delete[] Dmat;
+#endif
   }
 #ifdef MC__POLYMODEL_DEBUG_POLYBOUND
   int tmp; std::cin >> tmp;

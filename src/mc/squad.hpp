@@ -519,7 +519,11 @@ Possible errors encountered during quadratization of a multivariate polynomial a
 #include <list>
 #include <tuple>
 #include "spoly.hpp"
-#include "mclapack.hpp"
+#ifdef MC__USE_ARMADILLO
+ #include <armadillo>
+#else
+ #include "mclapack.hpp"
+#endif
 
 //#define MC__USE_GUROBI
 #if defined(MC__USE_GUROBI)
@@ -1180,10 +1184,53 @@ SQuad<KEY,COMP>::factorize
 ( map_SQuad const& mat )
 const
 {
+  std::multimap<double,map_SPoly> eigdec;
+
   // Populate sparse symmetric coefficient matrix
-  CPPL::dssmatrix coefmat;
   std::map< t_SMon, unsigned, lt_SMon<COMP> > indexmap;
   unsigned index = 0;
+  
+#ifdef MC__USE_ARMADILLO
+  for( auto const& [ijmon,coef] : mat ){
+    auto itimon = indexmap.find( *ijmon.first );
+    if( itimon == indexmap.end() ){
+      itimon = indexmap.insert( std::make_pair( *ijmon.first, index++ ) ).first;
+    }
+    if( ijmon.first != ijmon.second ){
+      auto itjmon = indexmap.find( *ijmon.second );
+      if( itjmon == indexmap.end() )
+        itjmon = indexmap.insert( std::make_pair( *ijmon.second, index++ ) ).first;
+    }
+  }
+
+  arma::mat coefmat( indexmap.size(), indexmap.size(), arma::fill::zeros );
+  for( auto const& [ijmon,coef] : mat ){
+    auto itimon = indexmap.find( *ijmon.first );
+    auto itjmon = indexmap.find( *ijmon.second );
+#ifdef MC__SQUAD_CHECK
+    assert( itimon != indexmap.end() && itjmon != indexmap.end() );
+#endif
+    if( itimon->second == itjmon->second )
+      coefmat( itimon->second, itjmon->second ) = coef;
+    else
+      coefmat( itimon->second, itjmon->second ) = coefmat( itjmon->second, itimon->second ) = 0.5 * coef;
+  }
+
+  // Perform eigenvalue decomposition
+  arma::vec eigval;
+  arma::mat eigvec;
+  if( !eig_sym( eigval, eigvec, coefmat ) ) return eigdec;
+
+  // Populate decomposition map
+  for( unsigned i=0; i<eigval.n_elem; ++i ){
+    map_SPoly eigterm;
+    for( auto const& [mon,index] : indexmap )
+      eigterm[mon] = eigvec( index, i );
+    eigdec.insert( std::make_pair( eigval( i ), eigterm ) );
+  }
+  
+#else
+  CPPL::dssmatrix coefmat;
   for( auto const& [ijmon,coef] : mat ){
     auto itimon = indexmap.find( *ijmon.first );
     if( itimon == indexmap.end() ){
@@ -1204,9 +1251,8 @@ const
       coefmat.put( itimon->second, itjmon->second, coef/2e0 );
     }
   }
-  
+
   // Perform eigenvalue decomposition
-  std::multimap<double,map_SPoly> eigdec;
   std::vector<double> eigval;
   std::vector<CPPL::dcovector> eigvec;
   CPPL::dsymatrix dcoefmat = coefmat.to_dsymatrix();
@@ -1217,14 +1263,13 @@ const
   auto itvec = eigvec.begin();
   for( ; itval != eigval.end(); ++itval, ++itvec ){
     map_SPoly eigterm;
-    for( auto const& [mon,index] : indexmap ){
-      //if( isequal( itvec->array[index], 0. ) ) continue;
+    for( auto const& [mon,index] : indexmap )
       eigterm[mon] = itvec->array[index];
-    }
     eigdec.insert( std::make_pair( *itval, eigterm ) );
   }
+#endif
 
-#ifdef MC__SQUAD_DEBUG_SEPARATE
+//#ifdef MC__SQUAD_DEBUG_SEPARATE
   unsigned i = 0;
   for( auto const& [eigval,eigterm] : eigdec ){
     std::cout << std::endl << "  Eigen-direction #" << ++i << ": " << std::scientific 
@@ -1233,7 +1278,8 @@ const
       std::cout << "  " << mon.display(options.BASIS) << ": "
                 << std::right << std::setw(options.DISPLEN+7) << coord << std::endl;
   }
-#endif
+//#endif
+
   return eigdec;
 }
 

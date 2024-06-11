@@ -180,6 +180,10 @@ public:
   //std::map< KEY, SPoly<KEY,COMP>, COMP > extract_univariate
   //  ( unsigned const ordmin=3 )
   //  const;
+  
+  //! @brief Exchanges the contents of current sparse polynomial with those of <a>spoly</a>
+  void swap
+    ( SPoly<KEY,COMP>& spoly );
 
   //! @brief Display sparse coefficient map
   std::string display
@@ -187,13 +191,18 @@ public:
       bool const ONELINE=false )
     const;
     
-  //! @brief Clean sparse polynomial by removing entries below threshold tol
+  //! @brief Clean sparse polynomial by removing entries below threshold <a>tol</a>
   void clean
     ( double const& tol );
 
-  //! @brief Convert coefficient map to desired BASIS
+  //! @brief Convert coefficient map to desired <a>BASIS</a>
   SPoly<KEY,COMP>& convert
     ( int const BASIS );
+
+  //! @brief Check if polynomial is multiple of other polynomial <a>spoly</a>
+  std::pair<bool,double> ismultiple
+    ( SPoly<KEY,COMP> const& spoly )
+    const;
 
   //! @brief Maximal degree of monomial terms in polynomial variable
   unsigned maxord
@@ -387,6 +396,16 @@ template <typename KEY, typename COMP>
 inline typename SPoly<KEY,COMP>::Options SPoly<KEY,COMP>::options;
 
 //////////////////////////////// SPoly ////////////////////////////////////
+
+template <typename KEY, typename COMP>
+inline void
+SPoly<KEY,COMP>::swap
+( SPoly<KEY,COMP>& spoly )
+{
+  _mapmon.swap( spoly._mapmon );
+  _setvar.swap( spoly._setvar );
+}
+
 
 template <typename KEY, typename COMP>
 inline void
@@ -915,7 +934,8 @@ inline SPoly<KEY,COMP>&
 SPoly<KEY,COMP>::operator/=
 ( double const& d )
 {
-  if( isequal( d, 0. ) ) throw typename SPoly<KEY,COMP>::Exceptions( SPoly<KEY,COMP>::Exceptions::DIVZERO );
+  if( isequal( d, 0. ) )
+    throw typename SPoly<KEY,COMP>::Exceptions( SPoly<KEY,COMP>::Exceptions::DIVZERO );
   if( isequal( d, 1. ) ) return *this;
   for( auto&& [mon,coef] : _mapmon ) coef /= d;
   return *this;
@@ -926,8 +946,10 @@ inline SPoly<KEY,COMP>&
 SPoly<KEY,COMP>::operator/=
 ( SPoly<KEY,COMP> const& spoly )
 {
-  if( !spoly._mapmon.size() ) throw typename SPoly<KEY,COMP>::Exceptions( SPoly<KEY,COMP>::Exceptions::DIVZERO );
-  if( spoly._mapmon.size() == 1 && !spoly._mapmon.cbegin()->first.tord ) return operator/=( spoly._mapmon.cbegin()->second );
+  if( !spoly._mapmon.size() )
+    throw typename SPoly<KEY,COMP>::Exceptions( SPoly<KEY,COMP>::Exceptions::DIVZERO );
+  if( spoly._mapmon.size() == 1 && !spoly._mapmon.cbegin()->first.tord )
+    return operator/=( spoly._mapmon.cbegin()->second );
   throw typename SPoly<KEY,COMP>::Exceptions( SPoly<KEY,COMP>::Exceptions::DIVPOLY );
 }
 
@@ -938,6 +960,15 @@ operator/
 {
   SPoly<KEY,COMP> spoly2( d );
   return spoly2 /= spoly1;
+}
+
+template <typename KEY, typename COMP>
+inline SPoly<KEY,COMP>
+operator/
+( SPoly<KEY,COMP> const& spoly1, double const& d )
+{
+  SPoly<KEY,COMP> spoly3( spoly1 );
+  return spoly3 /= d;
 }
 
 template <typename KEY, typename COMP>
@@ -1247,6 +1278,62 @@ cheb
    case 2:  return 2 * sqr( spoly ) - 1;
    default: return 2 * spoly * cheb( spoly, n-1 ) - cheb( spoly, n-2 );
   }
+}
+
+template <typename KEY, typename COMP>
+inline std::pair<bool,double>
+SPoly<KEY,COMP>::ismultiple
+( SPoly<KEY,COMP> const& spoly )
+const
+{
+  if( nmon() != spoly.nmon() || maxord() != spoly.maxord() )
+    return std::make_pair( false, 0. );
+
+  auto it1 = _mapmon.cbegin();
+  if( it1 == _mapmon.cend() )
+    return std::make_pair( true, 1. );
+
+  auto it2 = spoly._mapmon.cbegin();
+  auto const& [mon1,coef1] = *it1;
+  auto const& [mon2,coef2] = *it2;
+  if( mon1 != mon2 )
+    return std::make_pair( false, 0. );
+
+  double mult = coef1 / coef2;
+  for( ++it1, ++it2; it1 != _mapmon.cend(); ++it1, ++it2 ){
+    auto const& [mon1,coef1] = *it1;
+    auto const& [mon2,coef2] = *it2;
+    if( !isequal( coef1, coef2 * mult ) || mon1 != mon2 )
+      return std::make_pair( false, 0. );
+  }
+  return std::make_pair( true, mult );
+}
+
+template <typename KEY, typename COMP>
+inline bool
+operator==
+( SPoly<KEY,COMP> const& spoly1, SPoly<KEY,COMP> const& spoly2 )
+{
+  if( spoly1.nmon() != spoly2.nmon() || spoly1.maxord() != spoly2.maxord() )
+    return false;
+  
+  auto it1 = spoly1.mapmon().cbegin();
+  auto it2 = spoly2.mapmon().cbegin();
+  for( ; it1 != spoly1.mapmon().cend(); ++it1, ++it2 ){
+    auto const& [mon1,coef1] = *it1;
+    auto const& [mon2,coef2] = *it2;
+    if( !isequal( coef1, coef2 ) || mon1 != mon2 )
+      return false;
+  }
+  return true;
+}
+
+template <typename KEY, typename COMP>
+inline bool
+operator!=
+( SPoly<KEY,COMP> const& spoly1, SPoly<KEY,COMP> const& spoly2 )
+{
+  return( !operator==<KEY,COMP>( spoly1, spoly2 ) );
 }
 
 template <typename KEY, typename COMP>

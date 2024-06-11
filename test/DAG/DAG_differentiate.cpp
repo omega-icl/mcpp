@@ -330,6 +330,51 @@ int test_fadiff_directional()
 
 ///////////////////////////////////////////////////////////////////////////////
 
+int test_fadiff_directional2()
+{
+  std::cout << "\n==============================================\ntest_fadiff_directional2:\n";
+  
+  mc::FFGraph DAG;  // DAG describing the problem
+  
+  const unsigned NP = 6;  // Number of model parameters
+  const unsigned NX = 3;  // Number of states
+
+  mc::FFVar P[NP];  // Parameters
+  for( unsigned int i=0; i<NP; i++ ) P[i].set( &DAG );
+
+  mc::FFVar& Qin   = P[0]; // [L/min]
+  mc::FFVar& T     = P[1];
+  mc::FFVar& nu    = P[2];
+  mc::FFVar& alpha = P[3];
+  mc::FFVar& K0    = P[4];
+  mc::FFVar& K1    = P[5];
+  double CAin = 10;     // [mol/L]
+  double Tref = 273.15; // [K]
+  mc::FFVar One = 1.;
+
+  mc::FFVar X[NX];  // States & state sensitivities
+  for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
+  mc::FFVar& CA  = X[0];
+  mc::FFVar& CB  = X[1];
+  mc::FFVar& V   = X[2];
+
+  mc::FFVar RHS[NX];  // Right-hand side function
+  mc::FFVar R = exp( K0 + K1 * ( 1 - T / Tref ) );
+  RHS[0] = Qin / V * ( CAin - CA ) - R * pow( CA, alpha );
+  RHS[1] = - Qin / V * CB + nu * R * pow( CA, alpha );
+  RHS[2] = Qin;
+
+  mc::FFVar XQin[NX];  // State sensitivities
+  for( unsigned int i=0; i<NX; i++ ) XQin[i].set( &DAG );
+  mc::FFVar* dRHSdQin = DAG.DFAD( NX, RHS, NX, X, XQin, 1, P, &One );
+  DAG.output( DAG.subgraph( NX, dRHSdQin ), " dRHSdX·XQin + dRHSdQin" );
+  delete[] dRHSdQin;
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 int test_gradient_sparse()
 {
   std::cout << "\n==============================================\ntest_gradient_sparse:\n";
@@ -552,6 +597,7 @@ int main()
     test_fadiff3();
     test_fadiff4();
     test_fadiff_directional();
+    test_fadiff_directional2();
     test_gradient_sparse();
     test_hessian_sparse();
     test_tadiff1();

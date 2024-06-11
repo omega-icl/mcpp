@@ -629,6 +629,7 @@ Differentiation</A></I>, SIAM, 2009
 #define MC__FFUNC_HPP
 
 #include <iostream>
+#include <iomanip>
 #include <string>
 #include <sstream>
 #include <stdarg.h>
@@ -647,7 +648,6 @@ Differentiation</A></I>, SIAM, 2009
 #include "mcop.hpp"
 #include "mcfadbad.hpp"
 #include "mcfunc.hpp"
-#include "mclapack.hpp"
 #include "ffdep.hpp"
 
 //#undef  MC__FFUNC_DEBUG
@@ -1147,6 +1147,10 @@ public:
   FFOp
     ( int const top, unsigned const nin, FFVar** varin, FFVar* pres );
 
+  //! @brief Copy constructor
+  FFOp
+    ( FFOp const& Op );
+
   //! @brief Destructor
   virtual ~FFOp
     ()
@@ -1167,6 +1171,9 @@ public:
   //! @brief Flag for data ownership - data pointer deletion will be attempted when erasing operation
   mutable bool                 owndata;
 
+  //! @brief Set operand copy
+  FFOp& set
+    ( FFOp const& other );
   //! @brief Set unary operand and scalar result
   FFOp& set
     ( FFVar* lop, FFVar* res );
@@ -1243,6 +1250,12 @@ public:
   bool tighten_backward_external
     ( U const* dumU, ExtOp const& op, std::tuple<NextOps...> const& ops )
     const;
+
+  //! @brief Update data field and data ownership in operation
+  template <typename ExtOp>
+  std::pair< FFOp*, bool > update_data
+    ( ExtOp const& Op, FFOp* pOp, void* data, bool const own )
+    const;
   //! @brief Cleanup data in external operation
   template <typename ExtOp, typename... NextOps>
   bool cleanup_data_external
@@ -1274,6 +1287,7 @@ public:
   virtual void deriv
     ( unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar, FFVar** vDer )
     const;
+
   //! @brief Emulate virtual templated eval function
   template< typename U >
   void eval
@@ -1337,7 +1351,14 @@ struct lt_FFOp
 
       // Final sort by data structure pointer
       //if( Op1->type < FFOp::TYPE::EXTERN ) return false;
-      return( Op1->info < Op2->info || Op1->data < Op2->data );
+      if( Op1->type == FFOp::TYPE::EXTERN )
+#ifdef MC__FFUNC_DEBUG_DATA
+        std::cout << Op1->info << " <? " << Op2->info << ": " << (Op1->info < Op2->info)
+	<< " || " << Op1->data << " <? " << Op2->data << ": " << (Op1->data < Op2->data) << std::endl;
+#endif
+      if( Op1->info < Op2->info ) return true;
+      if( Op1->info > Op2->info ) return false;
+      return( Op1->data < Op2->data );
     }
 };
 
@@ -1370,6 +1391,9 @@ struct FFSubgraph
   //! @brief Pointers to dependent variables in subgraph
   std::vector< FFVar const* > v_dep;
 
+  //! @brief Pointers to independent variables in subgraph
+  std::vector< FFVar const* > v_indep;
+
   //! @brief Movability attribute for intermediates in subgraph
   std::vector< unsigned > v_mov;
 
@@ -1391,6 +1415,7 @@ struct FFSubgraph
     ( FFSubgraph const& sg )
     : l_op( sg.l_op ),
       v_dep( sg.v_dep ),
+      v_indep( sg.v_indep ),
       v_mov( sg.v_mov ),
       len_tap( sg.len_tap ),
       len_wrk( sg.len_wrk )
@@ -1405,7 +1430,7 @@ struct FFSubgraph
   void clear
     ()
     { 
-      l_op.clear(); v_dep.clear(); v_mov.clear();
+      l_op.clear(); v_dep.clear(); v_indep.clear(); v_mov.clear();
       len_tap = len_wrk = 0;
     }
 
@@ -1419,12 +1444,15 @@ struct FFSubgraph
       v_dep.push_back( (*it)->varout[idep] );
     }
 
-  //! @brief Set work tape attributes
+  //! @brief Set work tape attributes and independents
   void set_wk
     ()
     {
       std::size_t wk = 0, mov = 0;
       for( auto const& op : l_op ){
+        if( op->type == FFOp::VAR ){
+          v_indep.push_back( op->varout[0] );
+        }
         if( op->type == FFOp::PROD || op->type >= FFOp::EXTERN ){
           std::size_t nin = op->varin.size();
           if( nin > 1 && nin > mov ) mov = nin;
@@ -1439,6 +1467,11 @@ struct FFSubgraph
         for( auto const& var : op->varout )
           v_mov[iwk++] = var->mov();
     }
+
+  //! @brief Display subgraph
+  void output
+    ( std::string const& header, std::ostream& os )
+    const;
 };
 
 //! @brief C++ class representing the DAG of factorable functions
@@ -1568,6 +1601,7 @@ public:
       EVAL,		//!< Error during subgraph evaluation
       CONSTVAL,		//!< Error due to overriding a constant variable during subgraph evaluation
       MISSHSL,		//!< Error due to calling the HSL library which is disabled
+      MISSTADIFF,	//!< Error due to calling the TADIFF component of FADBAD library which is disabled
       INTERN = -1, 	//!< Internal error
       EXTERN = -2, 	//!< Error in external operation
       UNDEF = -33 	//!< Feature not yet implemented
@@ -1591,6 +1625,10 @@ public:
         return "Error during subgraph evaluation";
       case CONSTVAL:
         return "Error due to overriding a constant variable during subgraph evaluation";
+      case MISSHSL:
+        return "Error due to calling the HSL library which is disabled";
+      case MISSTADIFF:
+        return "Error due to calling the TADIFF component of FADBAD library which is disabled";
       case INTERN:
         return "Internal error";
       case EXTERN:
@@ -1810,20 +1848,25 @@ protected:
   static FFVar** _insert_nary_external_operation
     ( ExtOp const& Op, unsigned const nDep, unsigned const nVar, FFVar const* pVar );
 
-  //! @brief Inserts the external n-ary operation <a>Op</a> with operand array <a>pVar</a> of size <a>nVar</a> in set <a>_Ops</a>, if not alrady present, adds new auxiliary variable in set <a>_Vars</a> and update list of dependencies in all operands in <a>_Vars</a>
+  //! @brief Inserts the external n-ary operation <a>Op</a> with operand array <a>pVar</a> of size <a>nVar</a> in set <a>_Ops</a>, if not already present, adds new auxiliary variable in set <a>_Vars</a> and update list of dependencies in all operands in <a>_Vars</a>
   template <typename ExtOp>
   static FFVar** _insert_nary_external_operation
     ( ExtOp const& Op, unsigned const nDep, unsigned const nVar, FFVar const*const* pVar );
 
-  //! @brief Inserts the external binary operation <a>Op</a> with operands <a>Var1</a> and <a>Var2</a> in set <a>_Ops</a>, if not alrady present, adds new auxiliary variable in set <a>_Vars</a> and update list of dependencies in all operands in <a>_Vars</a>
+  //! @brief Inserts the external binary operation <a>Op</a> with operands <a>Var1</a> and <a>Var2</a> in set <a>_Ops</a>, if not already present, adds new auxiliary variable in set <a>_Vars</a> and update list of dependencies in all operands in <a>_Vars</a>
   template <typename ExtOp>
   static FFVar** _insert_binary_external_operation
     ( ExtOp const& Op, unsigned const nDep, FFVar const& Var1, FFVar const& Var2 );
 
-  //! @brief Inserts the external unary operation <a>Op</a> with operand <a>Var</a> in set <a>_Ops</a>, if not alrady present, adds new auxiliary variable in set <a>_Vars</a> and update list of dependencies in all operands in <a>_Vars</a>
+  //! @brief Inserts the external unary operation <a>Op</a> with operand <a>Var</a> in set <a>_Ops</a>, if not already present, adds new auxiliary variable in set <a>_Vars</a> and update list of dependencies in all operands in <a>_Vars</a>
   template <typename ExtOp>
   static FFVar** _insert_unary_external_operation
     ( ExtOp const& Op, unsigned const nDep, FFVar const& Var1 );
+
+  //! @brief Update the data field and data ownership in an operation, making sure that the ordering in set _Ops remains valid
+  template <typename ExtOp>
+  static std::pair< FFOp*, bool > _update_data
+    ( ExtOp const& Op, FFOp* pOp, void* data, bool const own );
 
   //! @brief Looks for the real constant <a>x</a> and adds it if not found
   FFVar* _add_constant
@@ -2051,7 +2094,6 @@ public:
     ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vIndep,
       std::vector<FFVar const*> const& vDir=std::vector<FFVar const*>() );
 
-#ifdef MC__USE_TADIFF
   //! @brief Expand DAG with Taylor coefficients of dependents <a>vDep</a> with respect to independents <a>vIndep</a> using fadbad::T -- Same number of dependents and independent is required, e.g. for expansion of ODE solutions -- Return a vector with the 0th, 1st, ..., ordermax'th order Taylor coefficients ordered sequentially
   std::vector<const FFVar*> TAD
     ( const unsigned int ordermax, const std::vector<const FFVar*>&vDep,
@@ -2061,7 +2103,6 @@ public:
   const FFVar* TAD
     ( const unsigned int ordermax, const unsigned nDep, const FFVar* const pDep,
       const unsigned nVar, const FFVar* const pVar, const FFVar* const pIndep=nullptr );
-#endif
 
   //! @brief Insert the dependents <a>pDepIn</a> from the DAG <a>dag</a> into the current DAG with the resulting dependents <a>pDepOut</a>. Participating variables share the same indices in both DAGs
   template <typename DAG>
@@ -2813,7 +2854,8 @@ operator/
 {
   if( &Var1 == &Var2 || Var1 == Var2 ) return 1.;
   // UNSURE WHAT THIS IS DOING???
-  if( Var2._id.first == FFVar::CREAL || Var2._id.first == FFVar::CINT )
+  if(( Var2._id.first == FFVar::CREAL && Var2._num.x == 0. )
+  || ( Var2._id.first == FFVar::CINT  && Var2._num.n == 0  ))
     return std::numeric_limits<double>::quiet_NaN();
 
   switch( Var1._id.first ){
@@ -2854,6 +2896,9 @@ operator/
 ( FFVar const& Var, U const& Cst )
 {
   if( Cst == U(0) ) return std::numeric_limits<double>::quiet_NaN();
+  //FFVar Z = ( 1. / Cst ) * Var;
+  //std::cout << Z << " = " << Z._opdef.first->name() << std::endl;
+  //return Z;
   return( ( 1. / Cst ) * Var );
 }
 
@@ -3607,7 +3652,8 @@ monom
 
 ////////////////////////////////// FFOp ////////////////////////////////////////
 
-inline std::ostream&
+inline
+std::ostream&
 operator <<
 ( std::ostream& out, FFOp const& Op)
 {
@@ -3703,7 +3749,29 @@ FFOp::FFOp
     std::sort( varin.begin(), varin.end(), lt_FFVar() );
 }
 
-inline FFOp&
+inline
+FFOp::FFOp
+( FFOp const& other ):
+  type( other.type ), varout( other.varout ), varin( other.varin ), iflag( 0 ),
+  info( other.info ), data( other.data ), owndata( false )
+{}
+
+inline
+FFOp&
+FFOp::set
+( FFOp const& other )
+{
+  type    = other.type;
+  varout  = other.varout;
+  varin   = other.varin;
+  info    = other.info;
+  data    = other.data;
+  owndata = false;
+  return *this;
+}
+
+inline
+FFOp&
 FFOp::set
 ( FFVar* lop, FFVar* res )
 {
@@ -3719,7 +3787,8 @@ FFOp::set
   return *this;
 }
 
-inline FFOp&
+inline
+FFOp&
 FFOp::set
 ( FFVar* lop, FFVar* rop, FFVar* res )
 {
@@ -3738,7 +3807,8 @@ FFOp::set
   return *this;
 }
 
-inline FFOp&
+inline
+FFOp&
 FFOp::set
 ( unsigned const nop, FFVar** ops, FFVar* res )
 {
@@ -3756,7 +3826,20 @@ FFOp::set
 }
 
 template <typename ExtOp>
-inline FFVar**
+inline
+std::pair< FFOp*, bool >
+FFOp::update_data
+( ExtOp const& Op, FFOp* pOp, void* data, bool const own )
+const
+{
+  return FFBase::_update_data( Op, pOp, data, own );
+  //if( varout.empty() || !varout[0]->dag() ) return std::make_pair( this, false );
+  //return varout[0]->dag()->_update_data( this, data, own );
+}
+
+template <typename ExtOp>
+inline
+FFVar**
 FFOp::insert_external_operation
 ( ExtOp const& Op, unsigned const nDep, unsigned const nVar, FFVar const* pVar )
 const
@@ -3765,7 +3848,8 @@ const
 }
 
 template <typename ExtOp>
-inline FFVar**
+inline
+FFVar**
 FFOp::insert_external_operation
 ( ExtOp const& Op, unsigned const nDep, unsigned const nVar, FFVar const*const* pVar )
 const
@@ -3774,7 +3858,8 @@ const
 }
 
 template <typename ExtOp>
-inline FFVar**
+inline
+FFVar**
 FFOp::insert_external_operation
 ( ExtOp const& Op, unsigned const nDep, FFVar const& Var1, FFVar const& Var2 )
 const
@@ -3783,7 +3868,8 @@ const
 }
 
 template <typename ExtOp>
-inline FFVar**
+inline
+FFVar**
 FFOp::insert_external_operation
 ( ExtOp const& Op, unsigned const nDep, FFVar const& Var )
 const
@@ -3791,7 +3877,8 @@ const
   return FFBase::_insert_unary_external_operation( Op, nDep, Var );
 }
 
-inline void
+inline
+void
 FFOp::propagate_subgraph
 ( unsigned const ndxDep, std::list< FFOp const* >& l_ops )
 const
@@ -3819,7 +3906,8 @@ const
 }
 
 template <typename U>
-inline void
+inline
+void
 FFOp::reset_val_subgraph
 ( U const&  U_dum )
 const
@@ -5771,6 +5859,36 @@ const
   return( typeid(*this) == id );
 }
 
+/////////////////////////////// FFSubgraph ////////////////////////////////////
+
+inline void
+FFSubgraph::output
+( std::string const& header, std::ostream& os )
+const
+{
+  if( l_op.empty() ){
+    os << "\nEMPTY SUBGRAPH" << header << "\n";
+    return;
+  }
+  os << "\nOPERATIONS IN SUBGRAPH" << header << ":\n";
+  unsigned iwk = 0;
+  for( auto const& op : l_op ){
+    unsigned iout = 0;
+    for( auto const& var : op->varout ){
+      os << "  " << *var << "\t" << (v_mov[iwk++]?"<<  ":"<-  ") << *op;
+      if( op->varout.size() > 1 ) os << "[" << iout++ << "]";
+      os << std::endl;
+    }
+  }
+  os << "DEPENDENTS IN SUBGRAPH" << header << ":\n";
+  unsigned idep = 0;
+  for( auto const& pdep : v_dep )
+    os << "  " << idep++ << ":  " << *pdep << std::endl;
+  os << "WORK ARRAY SIZE: " << len_tap << std::endl;
+  if( len_wrk )
+    os << "MOVE ARRAY SIZE: " << len_wrk << std::endl;
+}
+
 ///////////////////////////////// FFBase //////////////////////////////////////
 
 inline std::ostream&
@@ -5810,6 +5928,44 @@ operator <<
 }
 
 template <typename ExtOp>
+inline
+std::pair< FFOp*, bool >
+FFBase::_update_data
+( ExtOp const& Op, FFOp* pOp, void* data, bool const own )
+{
+  // Get DAG pointer from participating variables
+  if( pOp->varout.empty() || !pOp->varout[0]->_dag ) throw Exceptions( Exceptions::DAG );
+  auto dag = pOp->varout[0]->_dag;
+
+  auto itOp = dag->_Ops.find( const_cast<FFOp*>( pOp ) );
+  if( itOp == dag->_Ops.end() )
+    return std::make_pair( pOp, false );
+
+  if( pOp->owndata ){
+    ExtOp op;
+    op.data = pOp->data;   
+    op.cleanup();
+  }
+  dag->_Ops.erase( itOp );
+  pOp->data = data;
+  pOp->owndata = own;
+  auto [itOpUpdt,ins] = dag->_Ops.insert( pOp );
+
+/*
+  FFOp* pOpUpdt = new ExtOp();
+  pOpUpdt->set( *pOp );
+  pOpUpdt->data = data;
+  pOpUpdt->owndata = true;
+  delete *itOp;
+  dag->_Ops.erase( itOp );
+  auto [itOpUpdt,ins] = dag->_Ops.insert( pOpUpdt );
+  for( auto pRes : (*itOpUpdt)->varout )
+    pRes->_opdef.first = pOpUpdt;
+*/
+  return std::make_pair( *itOpUpdt, ins );
+}
+
+template <typename ExtOp>
 inline FFVar**
 FFBase::_insert_nary_external_operation
 ( ExtOp const& Op, unsigned const nDep, unsigned const nVar, FFVar const* pVar )
@@ -5840,11 +5996,26 @@ FFBase::_insert_nary_external_operation
   pOp->info = Op.info; // passing info field to recast data
   pOp->data = Op.data; // passing data structure
   auto itOp = dag->_Ops.find( pOp );
+#ifdef MC__FFUNC_DEBUG_DATA
+  std::cout << "Data: " << pOp->data << "  Info: " << pOp->info;
+#endif
   if( itOp != dag->_Ops.end() ){
+#ifdef MC__FFUNC_DEBUG_DATA
+    std::cout << " Existing" << std::endl;
+#endif
     delete pOp;
     pOp = *itOp;
   }
   else{
+#ifdef MC__FFUNC_DEBUG_DATA
+    std::cout << " Inserted: " << pOp << std::endl;
+#endif
+    for( auto Op : dag->_Ops ){
+      if( Op->type < FFOp::EXTERN ) continue;
+#ifdef MC__FFUNC_DEBUG_DATA
+      std::cout << *Op << std::endl;
+#endif
+    }
     dag->_Ops.insert( pOp );
     for( unsigned i=0; i<nVar; i++ )
       vVar[i]->_opuse.push_back( pOp );
@@ -6208,7 +6379,7 @@ FFBase::_set_constant
   if( itVar == _Vars.end() ) return nullptr;
   (*itVar)->_num = num;
   (*itVar)->_cst = true;
-  (*itVar)->_opdef.first->type = FFOp::CNST;
+  //(*itVar)->_opdef.first->type = FFOp::CNST;
   return *itVar;
 }
 
@@ -6219,7 +6390,7 @@ FFBase::_unset_constant
   it_Vars itVar = _Vars.find( const_cast<FFVar*>(pVar) );
   if( itVar == _Vars.end() ) return nullptr;
   (*itVar)->_cst = false;
-  (*itVar)->_opdef.first->type = FFOp::VAR;
+  //(*itVar)->_opdef.first->type = FFOp::VAR;
   return *itVar;
 }
 
@@ -6380,29 +6551,9 @@ FFBase::subgraph
 
 inline void
 FFBase::output
-( FFSubgraph const& sgDep, std::string const& header, std::ostream&os )
+( FFSubgraph const& sgDep, std::string const& header, std::ostream& os )
 {
-  if( sgDep.l_op.empty() ){
-    os << "\nEMPTY SUBGRAPH" << header << "\n";
-    return;
-  }
-  os << "\nOPERATIONS IN SUBGRAPH" << header << ":\n";
-  unsigned iwk = 0;
-  for( auto const& op : sgDep.l_op ){
-    unsigned iout = 0;
-    for( auto const& var : op->varout ){
-      os << "  " << *var << "\t" << (sgDep.v_mov[iwk++]?"<<  ":"<-  ") << *op;
-      if( op->varout.size() > 1 ) os << "[" << iout++ << "]";
-      os << std::endl;
-    }
-  }
-  os << "DEPENDENTS IN SUBGRAPH" << header << ":\n";
-  unsigned idep = 0;
-  for( auto const& pdep : sgDep.v_dep )
-    os << "  " << idep++ << ":  " << *pdep << std::endl;
-  os << "WORK ARRAY SIZE: " << sgDep.len_tap << std::endl;
-  if( sgDep.len_wrk )
-    os << "MOVE ARRAY SIZE: " << sgDep.len_wrk << std::endl;
+  sgDep.output( header, os );
 }
 
 inline void
@@ -6909,13 +7060,14 @@ FFGraph<ExtOps...>::SFAD
       
         // Initialize variable
         case FFOp::VAR:
-          if( vDir.size() )
+          if( vDir.size() ){
+            _curOp->varout[0]->val() = &FFZero;
             for( unsigned int j=0; j<vIndep.size(); ++j ){
               if( _curOp->varout[0]->id() != vIndep[j]->id() ) continue;
-              //_curOp->varout[0]->val() = vDir[j];
               _curOp->varout[0]->val() = const_cast<FFVar*>( vDir[j] );
               break;
             }
+          }
           else if( _curOp->varout[0]->id() == vIndep[ivar]->id() )
             _curOp->varout[0]->val() = &FFOne;
           else
@@ -7050,7 +7202,7 @@ FFGraph<ExtOps...>::SFAD
 
       // Evaluate current operation
       if( _curOp->type < FFOp::EXTERN )
-        _curOp->evaluate( &_wkSFAD[iwk], nullptr, pwkSFAD, pwkmov );
+        _curOp->evaluate( &_wkSFAD[iwk], 0, pwkSFAD, pwkmov );
       else if( !sizeof...(ExtOps) )
         throw Exceptions( Exceptions::EXTERN );
       else
@@ -7579,7 +7731,6 @@ FFGraph<ExtOps...>::SBAD
 }
 #endif
 
-#ifdef MC__USE_TADIFF
 template <typename... ExtOps>
 inline const FFVar*
 FFGraph<ExtOps...>::TAD
@@ -7607,6 +7758,10 @@ FFGraph<ExtOps...>::TAD
 ( unsigned int const ordermax, std::vector<FFVar const*> const& vDep,
   std::vector<FFVar const*> const& vVar, FFVar const* const pIndep )
 {
+#ifndef MC__USE_TADIFF
+  throw Exceptions( Exceptions::MISSTADIFF );
+
+#else
   // Check dependent and independent vector sizes
   if( !vVar.size() || !vDep.size() ) return std::vector<FFVar const*>();
   assert( vVar.size() == vDep.size() );
@@ -7718,8 +7873,9 @@ FFGraph<ExtOps...>::TAD
 #endif
 
   return vDep_T;
-}
 #endif
+}
+
 
 template <typename... ExtOps>
 template <typename DAG>
@@ -7744,6 +7900,7 @@ FFGraph<ExtOps...>::insert
     }
     else
       vVarOut.push_back( **iVar );
+    //std::cout << "Inserting variable: " << vVarOut.back() << std::endl;
   }
 
   // Evaluate dependents in current DAG

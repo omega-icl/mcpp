@@ -182,7 +182,7 @@ Further exceptions may be thrown by the template parameter class itself.
 #include <numeric>
 
 #include "mcfunc.hpp"
-#include "mclapack.hpp"
+//#include "mclapack.hpp"
 #include "mcop.hpp"
 #include "smon.hpp"
 #include "remez.hpp"
@@ -3480,7 +3480,8 @@ inline SCVar<T,KEY,COMP>
 operator-
 ( SCVar<T,KEY,COMP> const& CV1, SCVar<T,KEY,COMP> && CV2 )
 {
-    SCVar<T,KEY,COMP> CV3( std::move( -CV2 ) );
+    SCVar<T,KEY,COMP> CV3( -CV2 );
+    //SCVar<T,KEY,COMP> CV3( std::move( -CV2 ) );
     CV3 += CV1;
     return CV3;
 }
@@ -3496,7 +3497,8 @@ operator-
     return CV3;
   }
   
-  SCVar<T,KEY,COMP> CV3( std::move( -CV2 ) );
+  SCVar<T,KEY,COMP> CV3( -CV2 );
+  //SCVar<T,KEY,COMP> CV3( std::move( -CV2 ) );
   CV3 += CV1;
   return CV3;
 }
@@ -3560,7 +3562,8 @@ SCVar<T,KEY,COMP>
 operator-
 ( double const& c, SCVar<T,KEY,COMP> && CV2 )
 {
-  SCVar<T,KEY,COMP> CV3( std::move( -CV2 ) );
+  SCVar<T,KEY,COMP> CV3( -CV2 );
+  //SCVar<T,KEY,COMP> CV3( std::move( -CV2 ) );
   CV3 += c;
   return CV3;
 }
@@ -3620,7 +3623,8 @@ SCVar<T,KEY,COMP>
 operator-
 ( T const& B, SCVar<T,KEY,COMP> && CV2 )
 {
-  SCVar<T,KEY,COMP> CV3( std::move( -CV2 ) );
+  SCVar<T,KEY,COMP> CV3( -CV2 );
+  //SCVar<T,KEY,COMP> CV3( std::move( -CV2 ) );
   CV3 += B;
   return CV3;
 }

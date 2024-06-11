@@ -1,4 +1,4 @@
-// Copyright (C) 2009-2016 Benoit Chachuat, Imperial College London.
+// Copyright (C) Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
@@ -375,13 +375,18 @@ Moreover, exceptions may be thrown by the template parameter class itself.
 #ifndef MC__TMODEL_H
 #define MC__TMODEL_H
 
+#ifdef MC__USE_ARMADILLO
+ #include <armadillo>
+#else
+ #include "mclapack.hpp"
+#endif
+
 #include "polymodel.hpp"
 #include "mcop.hpp"
-#include "mclapack.hpp"
 
 #undef  MC__TMODEL_DEBUG
 #undef  MC__TMODEL_DEBUG_SCALE
-#define MC__TMODEL_DEBUG_POLYBOUND
+#undef  MC__TMODEL_DEBUG_POLYBOUND
 #define MC__TMODEL_CHECK
 #undef  MC__TMODEL_CHECK_PMODEL
 #undef  MC__TVAR_DISPLAY_EXT
@@ -1281,6 +1286,49 @@ TModel<T>::_polybound_eigen
   if( _nord == 1 ) bndpol += bndord[1];
 
   else if( _nord > 1 ){
+#ifdef MC__USE_ARMADILLO
+    arma::mat Amat( _nvar, _nvar, arma::fill::none );
+    for( unsigned i=_posord[2]; i<_posord[3]; i++ ){
+      unsigned i1=0, i2=_nvar;
+      const unsigned*iexp=_expmon+i*_nvar;
+      for( ; i1<_nvar; i1++ ) if( iexp[i1] ) break;
+      if( iexp[i1] == 2 ){
+        Amat(i1,i1) = coefmon[i];
+        continue;
+      }
+      for( i2=i1+1; i2<_nvar; i2++ )
+        if( iexp[i2] ) break;
+      Amat(i1,i2) = Amat(i2,i1) = 0.5 * coefmon[i];
+    }
+#ifdef MC__TMODEL_DEBUG_POLYBOUND
+    std::cout << "Matrix A:" << Amat;
+#endif
+    arma::vec Dvec( _nvar, arma::fill::none );
+    arma::mat Umat( _nvar, _nvar, arma::fill::none );
+    if( !eig_sym( Dvec, Umat, Amat ) )
+      return _polybound_LSB( coefmon, bndord, bndbasis );
+
+    for( unsigned i=0; i<_nvar; i++ ){
+      double linaux = 0.;
+      U bndaux(0.);
+      for( unsigned k=0; k<_nvar; k++ ){
+        linaux += Umat(k,i) * coefmon[_nvar-k];
+        bndaux += Umat(k,i) * bndbasis[k][1];
+      }
+#ifdef MC__TMODEL_DEBUG_POLYBOUND
+      std::cout << i << ": LINAUX = " << linaux
+                     << "  BNDAUX = " << bndaux << std::endl;
+#endif
+      if( std::fabs( Dvec(i) ) > TOL )
+        bndpol += Dvec(i) * Op<U>::sqr( linaux/Dvec(i)/2. + bndaux ) - linaux*linaux/Dvec(i)/4.;
+      else     
+        bndpol += linaux * bndaux + Dvec(i) * Op<U>::sqr( bndaux );
+#ifdef MC__TMODEL_DEBUG_POLYBOUND
+        std::cout << "BNDPOL: " << bndpol << std::endl;
+#endif
+    }
+
+#else
     double*Umat = new double[_nvar*_nvar];
     for( unsigned i=_posord[2]; i<_posord[3]; i++ ){
       unsigned i1=0, i2=_nvar;
@@ -1290,7 +1338,8 @@ TModel<T>::_polybound_eigen
         Umat[_nvar*i1+i1] = coefmon[i];
         continue;
       }
-      for( i2=i1+1; i2<_nvar; i2++ ) if( iexp[i2] ) break;
+      for( i2=i1+1; i2<_nvar; i2++ )
+        if( iexp[i2] ) break;
       Umat[_nvar*i1+i2] = 0.;
       Umat[_nvar*i2+i1] = coefmon[i]/2.;
     }
@@ -1312,11 +1361,10 @@ TModel<T>::_polybound_eigen
       }
 #ifdef MC__TMODEL_DEBUG_POLYBOUND
       std::cout << i << ": LINAUX = " << linaux
-                << "  BNDAUX = " << bndaux << std::endl;
+                     << "  BNDAUX = " << bndaux << std::endl;
 #endif
       if( std::fabs(Dmat[i]) > TOL )
-        bndpol += Dmat[i] * Op<U>::sqr( linaux/Dmat[i]/2. + bndaux )
-                - linaux*linaux/Dmat[i]/4.;
+        bndpol += Dmat[i] * Op<U>::sqr( linaux/Dmat[i]/2. + bndaux ) - linaux*linaux/Dmat[i]/4.;
       else     
         bndpol += linaux * bndaux + Dmat[i] * Op<U>::sqr( bndaux );
 #ifdef MC__TMODEL_DEBUG_POLYBOUND
@@ -1325,6 +1373,7 @@ TModel<T>::_polybound_eigen
     }
     delete[] Umat;
     delete[] Dmat;
+#endif
   }
 #ifdef MC__TMODEL_DEBUG_POLYBOUND
   int tmp; std::cin >> tmp;

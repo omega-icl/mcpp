@@ -234,8 +234,9 @@ public:
       MIPRELGAP(1e-3), MIPABSGAP(1e-3), MIPTHREADS(0),
       MIPCONCURRENT(1), MIPFOCUS(0), MIPHEURISTICS(0.2),
       MIPNUMFOCUS(0), MIPDISPLEVEL(1), MIPOUTPUTFILE(""),
-      MIPTIMELIMIT(600)
+      MIPTIMELIMIT(600),
 #endif
+      DISPFULL(false)
       {}
     //! @brief Assignment of mc::SElimEnv<ExtOps...>::Options
     Options& operator=
@@ -255,6 +256,7 @@ public:
         MIPDISPLEVEL    = opt.MIPDISPLEVEL;
         MIPOUTPUTFILE   = opt.MIPOUTPUTFILE;
         MIPTIMELIMIT    = opt.MIPTIMELIMIT;
+        DISPFULL        = opt.DISPFULL;
 #endif
         return *this;
       }
@@ -290,6 +292,8 @@ public:
   //! @brief Default option for LP solver
     static const int LPALGO_DEFAULT = -1;
 #endif
+    //! @brief Whether to display a full subgraph of the lifted expressions (default: false)
+    bool DISPFULL;
   } options;
 
 
@@ -529,7 +533,7 @@ class SElimEnv
 ////////////////////////////////////////////////////////////////////////
 {
   using SLiftEnv<ExtOps...>::_dag;
-  using SLiftEnv<ExtOps...>::_Interm;
+  using SLiftEnv<ExtOps...>::_OpLift;
   using SLiftEnv<ExtOps...>::_SPDep;
 
   using SLiftEnv<ExtOps...>::dag;
@@ -559,9 +563,17 @@ public:
       _reset();
     }
 
-  //! @brief Retreive tuple of vectors <ELIMINATED VARIABLE, INVERTED CONSTRAINT, INVERTED EXPRESSION> with entries in a feasible order of elimination
-  t_VarElim& VarElim
+  //! @brief Retreive vector of partipating variables in equality constraints
+  std::vector<FFVar> const& Var
     ()
+    const
+    { return _Var; }
+
+
+  //! @brief Retreive tuple of vectors <ELIMINATED VARIABLE, INVERTED CONSTRAINT, INVERTED EXPRESSION> with entries in a feasible order of elimination
+  t_VarElim const& VarElim
+    ()
+    const
     { return _VarElim; }
 
   //! @brief Set DAG environment
@@ -630,9 +642,13 @@ public:
     ()
     : SElimBase::Options(),
       MULTMAX(0), ELIMLIN(true), ELIMMLIN(true),
-      ELIMNLIN( {FFInv::Options::INV,FFInv::Options::SQRT,FFInv::Options::EXP,
-                  FFInv::Options::LOG,FFInv::Options::RPOW} )
-      {}
+      ELIMNLIN( { FFInv::Options::INV, FFInv::Options::SQRT, FFInv::Options::EXP,
+                  FFInv::Options::LOG, FFInv::Options::RPOW } )
+      {
+        SLIFT.KEEPFACT = true;
+        SLIFT.LIFTDIV  = false;
+        SLIFT.LIFTIPOW = false;
+      }
     //! @brief Assignment of mc::SElimEnv::Options
     Options& operator=
       ( Options const& opt ){
@@ -641,6 +657,7 @@ public:
         ELIMLIN  = opt.ELIMLIN;
         ELIMMLIN = opt.ELIMMLIN;
         ELIMNLIN = opt.ELIMNLIN;
+        SLIFT    = opt.SLIFT;
         return *this;
       }
     //! @brief Maximal multiplicity of eliminated variables
@@ -651,6 +668,8 @@ public:
     bool ELIMMLIN;
     //! @brief Set of invertible nonlinear operations
     std::set<FFInv::Options::NLINV> ELIMNLIN;
+    //! @brief Options for factorable function decomposition using mc::SLiftEnv
+    typename SLiftBase::Options SLIFT;
   } options;
 
 
@@ -702,7 +721,7 @@ protected:
   FFVar const* _ptr_expr
     ( FFVar& var );
 
-  //! @brief Erase all entries in _Interm
+  //! @brief Erase private storage data
   void _reset
     ();
 };
@@ -715,21 +734,34 @@ operator<<
 {
   auto const& [vvar,vctr,vaux] = env._VarElim;
   std::cout << std::endl
-            << vvar.size() << " VARIABLES MAY BE ELIMINATED" << std::endl;
+            << vvar.size() << " VARIABLES CAN BE ELIMINATED" << std::endl;
 
   if( vaux.empty() ){
     for( auto itvar = vvar.begin(), itctr = vctr.begin();
          itvar != vvar.end(); ++itvar, ++itctr )
-      out << "VARIABLE " << *itvar << " USING CONSTRAINT" << *itctr << "=0";
+      out << "VARIABLE " << *itvar << " USING CONSTRAINT " << *itctr << "=0" << std::endl;
     return out;
   }
 
-  for( auto itvar = vvar.begin(), itctr = vctr.begin(), itaux = vaux.begin();
-       itvar != vvar.end(); ++itvar, ++itctr, ++itaux ){
-    std::ostringstream ext; 
-    ext << " OF " << *itvar << " USING " << *itctr << "=0";
-    env._dag->output( env._dag->subgraph( 1, &*itaux ), ext.str(), out );
+  else if( !env.options.DISPFULL ){
+    FFExpr::options.LANG = FFExpr::Options::DAG;
+    auto sgExpr = env._dag->subgraph( vaux.size(), vaux.data() );
+    auto vExpr  = FFExpr::subgraph( env._dag, sgExpr );
+    unsigned iaux = 0;
+    for( auto itvar = vvar.begin(), itctr = vctr.begin();
+         itvar != vvar.end(); ++itvar, ++itctr, ++iaux )
+      out << "  0 = " << std::left << std::setw(6) <<  *itctr << "-> " << *itvar << " = " << vExpr[iaux] << std::endl;
   }
+
+  else{
+    for( auto itvar = vvar.begin(), itctr = vctr.begin(), itaux = vaux.begin();
+         itvar != vvar.end(); ++itvar, ++itctr, ++itaux ){
+      std::ostringstream ext; 
+      ext << " OF " << *itvar << " USING " << *itctr << "=0";
+      env._dag->output( env._dag->subgraph( 1, &*itaux ), ext.str(), out );
+    }
+  }
+  
   return out;
 }
 
@@ -930,19 +962,22 @@ SElimEnv<ExtOps...>::process
   // Decode optimization results
   auto& [vvar,vctr,vaux] = _VarElim;
 #ifdef MC__SELIM_DEBUG_PROCESS
-  std::cout << std::endl << "Eliminated variables and corresponding constraints:" << std::endl;
+  std::cout << std::endl << vvar.size() << " eliminated variables and corresponding constraints:" << std::endl;
   for( auto itvar = vvar.cbegin(), itctr = vctr.cbegin();
-       itvar != vvar.cend(); ++itvar, ++itctr )
-    std::cout << *itvar << " <- " << *itctr << std::endl;
+       itvar != vvar.cend(); ++itvar, ++itctr ){
+    std::cout << *itvar << " <- " << *itctr;
+    auto sgAux = _dag->subgraph( 1, &*itctr );
+    auto vAux  = FFExpr::subgraph( _dag, sgAux );
+    std::cout << " = " << vAux[0] << std::endl;
+  }
+  { std::cout << "PAUSED, ENTER <1> TO CONTINUE "; int dum; std::cin >> dum; }
 #endif
   
   // No transcription in DAG if <a>add2dag</a> is false
   if( !add2dag ) return;
 
   t_poly::options.BASIS = t_poly::Options::MONOM;
-  t_lift::options.LIFTDIV  = true;
-  t_lift::options.LIFTIPOW = false;
-
+  t_lift::options = options.SLIFT;
 
 #ifdef MC__SELIM_CHECK
   assert( vvar.size() == vctr.size() );
@@ -996,7 +1031,7 @@ SElimEnv<ExtOps...>::process
 	    // Eliminated variable indirectly participates in monomial
             else{
               bool found_Op = false;
-              for( auto const& [pOp,SPVar] : _Interm ){
+              for( auto const& [pOp,SPVar] : _OpLift ){
                 if( pOp->varout[0]->id().first  != FFVar::AUX ) throw Exceptions( Exceptions::INVERT );
                 if( pOp->varout[0]->id().second != (*itdep)->id().second ) continue;
 		//std::cout << "OPERATION: " << *pOp << std::endl;
@@ -1080,7 +1115,7 @@ SElimEnv<ExtOps...>::process
 
       // Case dependent is not a DAG variable, identify intermediate operation
       bool found_Op = false;
-      for( auto const& [pOp,SPVar] : _Interm ){
+      for( auto const& [pOp,SPVar] : _OpLift ){
         if( pOp->varout[0]->id().first  != FFVar::AUX ) throw Exceptions( Exceptions::INVERT );
         if( pOp->varout[0]->id().second != pdep->id().second ) continue;
         found_Op = true;

@@ -167,7 +167,7 @@ int main()
 
     // <-- set options here -->
     MC::options.MVCOMP_USE = true;
-    mod.options.BOUNDER_TYPE = TMMC::Options::BERNSTEIN;
+    mod.options.BOUNDER_TYPE = TMMC::Options::BERNSTEIN;//LSB;//EIGEN;
     mod.options.BOUNDER_ORDER = 0;
     mod.options.BERNSTEIN_USE = true;
 

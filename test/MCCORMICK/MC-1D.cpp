@@ -1,4 +1,4 @@
-#define TEST_DISC       // <-- select test function here
+#define TEST_EXP       // <-- select test function here
 #define USE_DAG         // <-- specify to evaluate via a DAG of the function
 #define SAVE_RESULTS    // <-- specify whether to save results to file
 const int NX = 500;	 // <-- select discretization here
@@ -70,7 +70,7 @@ template <class T>
 T myfunc
 ( const T&x )
 {
-  return x*exp(-pow(x,2));
+  return x*exp(-pow(x,2)+1);
 }
 
 #elif defined( TEST_EXP2 )

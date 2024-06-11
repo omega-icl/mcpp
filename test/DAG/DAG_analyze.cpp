@@ -1,4 +1,6 @@
 #undef MC__SELIM_DEBUG_PROCESS
+#undef MC__SLIFT_CHECK
+#undef MC__SLIFT_DEBUG_PROCESS
 
 #include <fstream>
 #include <sstream>
@@ -204,24 +206,12 @@ int test_slift0()
   std::cout << DAG;
 
   //mc::SLiftVar::t_poly::options.BASIS = mc::SLiftVar::t_poly::Options::MONOM;
-  mc::SLiftEnv SPE( &DAG );
-  //SPE.options.LIFTDIV = true;//false;//
-  //SPE.options.LIFTIPOW = false;//
-  SPE.process( NF, F );
-  //std::cout << SPE;
-
-  std::cout << std::endl << SPE.Var().size() << " participating variables: ";
-  for( auto&& var : SPE.Var() ) std::cout << var << " ";
-  std::cout << std::endl;
-  std::cout << std::endl << SPE.Dep().size() << " dependent expressions: " << std::endl;;
-  for( auto&& expr : SPE.Dep() ) DAG.output( DAG.subgraph( 1, &expr ) );
-  std::cout << std::endl << SPE.Poly().size() << " polynomial constraints: " << std::endl;
-  for( auto&& expr : SPE.Poly() ) DAG.output( DAG.subgraph( 1, &expr ) );
-  std::cout << std::endl << SPE.Trans().size() << " transcendental constraints: " << std::endl;
-  for( auto&& expr : SPE.Trans() ) DAG.output( DAG.subgraph( 1, &expr ) );
-  std::cout << std::endl << SPE.Aux().size() << " auxiliary variables: ";
-  for( auto&& aux : SPE.Aux() ) std::cout << *aux.first << "->" << *aux.second << " ";
-  std::cout << std::endl;
+  mc::SLiftEnv SPL( &DAG );
+  SPL.options.KEEPFACT = true;
+  SPL.options.LIFTDIV  = false;
+  SPL.options.LIFTIPOW = false;
+  SPL.process( NF, F );
+  std::cout << SPL;
   
   return 0;
 }
@@ -237,22 +227,23 @@ int test_slift1()
   mc::FFVar X[NX];
   for( unsigned i(0); i<NX; i++ ) X[i].set( &DAG );
   mc::FFVar F[NF];
-  //F[0] = pow( X[0] + X[1], 3 );
-  //F[0] = 1/X[0] + 1/X[1] - 1;
-  //F[0] = pow( X[0] + 1 / sqr( X[1] ), 3 );
-  //F[0] = 4*sqr(X[0]) - 2.1*pow(X[0],4) + pow(X[0],6)/3 + X[0]*X[1] - 4*sqr(X[1]) + 4*pow(X[1],4);
+  //F[0] = X[0] * ( 1 + X[1] );
+  F[0] = 1 / ( exp( X[0] ) + 1 );
+  //F[0] = 1/exp(X[1]) - 1/exp(X[2]);
+  //F[0] = pow( 1/X[0] + 1/X[1] - 1/exp(X[2]) - 1, 3 );
+  //F[0] = 1/(3*X[0]) + 1/X[0] - 1;
   //F[0] = 250*exp(X[2])*X[0] + 250*pow(X[3],0.6)*X[1];
-  F[0] = exp( 2 * sqr( X[1] ) - 1 );
+  //F[0] = exp( 2 * sqr( X[1] ) - 1 );
   std::cout << DAG;
 
   mc::SLiftVar::t_poly::options.BASIS = mc::SLiftVar::t_poly::Options::MONOM;
   mc::SLiftEnv SPL( &DAG );
-  SPL.options.LIFTDIV = true;//false;//
-  SPL.options.LIFTIPOW = false;//
-
+  SPL.options.KEEPFACT = true;
+  SPL.options.LIFTDIV  = false;
+  SPL.options.LIFTIPOW = false;
   SPL.process( NF, F, true );//false );
   std::cout << SPL;
-  
+
   return 0;
 }
 
@@ -269,16 +260,19 @@ int test_selim0()
   mc::FFVar F[NF];
   F[0] = ( 3. * X[0] * sqr( X[2] ) ) / X[1] - 2. * X[0] * X[1] - X[0] - 1;
   F[1] = 2./X[1] + 3./X[2] - 1.;
-  std::cout << DAG;
+  //std::cout << DAG;
+  for( unsigned i=0; i<NF; ++i )
+    DAG.output( DAG.subgraph( 1, F+i ) );
 
   mc::SElimEnv SPE( &DAG );
   SPE.options.ELIMMLIN      = true;
-  SPE.options.MIPDISPLEVEL  = 1;
+  SPE.options.MIPDISPLEVEL  = 0;
   SPE.options.MIPOUTPUTFILE = "test_selim0.lp";
 
-  SPE.process( NF, F );
+  std::map<mc::FFVar const*,double,mc::lt_FFVar> W = { { &X[2], 0. } };
+  SPE.process( NF, F, W, true );
   std::cout << SPE;
-  
+
   return 0;
 }
 
@@ -294,7 +288,7 @@ int test_selim1()
   for( unsigned i(0); i<NX; i++ ) X[i].set( &DAG );
   mc::FFVar F[NF];
   F[0] = X[0] + X[1] * sqr( X[3] ) + X[1] * exp( X[2] );
-  F[1] = exp( 2 * sqrt( X[3] - X[1] ) ) - 2;
+  F[1] = exp( 2 * sqrt( X[3] - X[1] ) ) - 1;
   F[2] = sqr( X[0] ) + sqrt( X[1] ) - 1;
   F[3] = sum( NX, X ) - 1;
   std::cout << DAG;
@@ -303,6 +297,7 @@ int test_selim1()
   SPE.options.ELIMMLIN      = true;
   SPE.options.MIPDISPLEVEL  = 0;
   SPE.options.MIPOUTPUTFILE = "test_selim1.lp";
+  SPE.options.DISPFULL      = false;
 
   SPE.process( NF, F );
   std::cout << SPE;
@@ -326,8 +321,9 @@ int test_selim2()
 
   mc::SLiftVar::t_poly::options.BASIS = mc::SLiftVar::t_poly::Options::MONOM;
   mc::SLiftEnv SPL( &DAG );
-  SPL.options.LIFTDIV = true;//false;//
-  SPL.options.LIFTIPOW = true; //false;//
+  SPL.options.KEEPFACT = true;
+  SPL.options.LIFTDIV  = false;
+  SPL.options.LIFTIPOW = false;
 
   SPL.process( NF, F );
   std::cout << SPL;
@@ -337,7 +333,7 @@ int test_selim2()
 
   mc::SElimEnv SPE( &DAG );
   SPE.options.ELIMMLIN      = true;
-  SPE.options.MIPDISPLEVEL  = 1;
+  SPE.options.MIPDISPLEVEL  = 0;
   SPE.options.MIPOUTPUTFILE = "test_selim2.lp";
 
   SPE.process( Flift.size(), Flift.data() );
@@ -357,14 +353,17 @@ int test_selim3()
   mc::FFVar X[NX];
   for( unsigned i(0); i<NX; i++ ) X[i].set( &DAG );
   mc::FFVar F[NF];
-  F[0] = (X[1]+1)*X[3] - 1;
+  //F[0] = (X[1]+1)*X[3] - 1;
   //F[0] = (X[1]*X[2] + 1e3*X[0])*X[3] - 1;
+  F[0] = (sqr(X[1])*sqr(X[2]+X[0]))*X[3] - 1;
   std::cout << DAG;
 
   mc::SElimEnv SPE( &DAG );
-  SPE.options.ELIMMLIN      = true;
-  SPE.options.MIPDISPLEVEL  = 0;
-  SPE.options.MIPOUTPUTFILE = "test_selim3.lp";
+  SPE.options.ELIMMLIN       = true;
+  //SPE.options.SLIFT.KEEPFACT = false;
+  //SPE.options.SLIFT.LIFTDIV  = true;
+  SPE.options.MIPDISPLEVEL   = 1;
+  SPE.options.MIPOUTPUTFILE  = "test_selim3.lp";
 
   SPE.process( NF, F );
   std::cout << SPE;
@@ -377,17 +376,17 @@ int test_selim3()
 int main()
 {
   try{
-    test_expr1();
-    test_dep1();
-    test_inv1();
-    test_dep2();
-    test_inv2();
-    test_spoly1();
-    test_slift0();
-    test_slift1();
-    test_selim0();
-    test_selim1();
-    test_selim2();
+    //test_expr1();
+    //test_dep1();
+    //test_inv1();
+    //test_dep2();
+    //test_inv2();
+    //test_spoly1();
+    //test_slift0();
+    //test_slift1();
+    //test_selim0();
+    //test_selim1();
+    //test_selim2();
     test_selim3();
   }
   catch( mc::FFBase::Exceptions &eObj ){
@@ -397,14 +396,14 @@ int main()
               << "Aborts." << std::endl;
     return eObj.ierr();
   }
-  catch( mc::SLiftEnv<mc::FFGraph<>>::Exceptions &eObj ){
+  catch( mc::SLiftEnv<>::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
               << " in variable lifting manipulation:" << std::endl
               << eObj.what() << std::endl
               << "Aborts." << std::endl;
     return eObj.ierr();
   }
-  catch( mc::SElimEnv<mc::FFGraph<>>::Exceptions &eObj ){
+  catch( mc::SElimEnv<>::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
               << " in variable elimination manipulation:" << std::endl
               << eObj.what() << std::endl

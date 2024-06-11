@@ -5,8 +5,8 @@
 /*!
 \page page_FFEXPR String Expression of Factorable Functions
 \author Benoit C. Chachuat
-\version 1.0
-\date 2023
+\version 2.0
+\date 2024
 \bug No known bugs.
 
 mc::FFExpr is a C++ class that constructs strings representing mathematical expressions in factorable functions. It relies on the operator overloading and function overloading mechanisms of C++. The overloaded operators are: `+', `-', `*', and `/'; the overloaded functions include: `exp', `log', `sqr', `pow', `cheb', `sqrt', `fabs', `xlog', `min', `max', `cos', `sin', `tan', `acos', `asin', `atan', `cosh', `sinh', `tanh'.
@@ -27,7 +27,7 @@ The available options are the following:
 <CAPTION><EM>Options in mc::FFExpr::Options: name, type and description</EM></CAPTION>
      <TR><TH><b>Name</b>  <TD><b>Type</b><TD><b>Default</b>
          <TD><b>Description</b>
-     <TR><TH><tt>LANG</tt> <TD><tt>std::set<NLINV></tt> <TD> FFExpr::Options::GAMS <TD>Defines the language for the string expressions
+     <TR><TH><tt>LANG</tt> <TD><tt>FFExpr::Options::TYPE</tt> <TD> FFExpr::Options::DAG <TD>Defines the language for the string expressions
 </TABLE>
 
 
@@ -116,11 +116,12 @@ public:
   {
     //! @brief String expression language type
     enum TYPE{
-      GAMS=0 //!< GAMS language
+      DAG=0,  //!< DAG expressions
+      GAMS    //!< GAMS language
     };
     //! @brief Constructor
     Options():
-      LANG( GAMS ), DISPLEN(14)
+      LANG( DAG ), DISPLEN(14)
       {}
     //! @brief Set of allowed invertible operations
     TYPE LANG;
@@ -142,6 +143,7 @@ public:
     ( FFVar const& X )
     : _prec( 0 )
     { switch( options.LANG ){
+       case Options::DAG:
        case Options::GAMS:
          _ostr << X.name();
 	 break;
@@ -155,6 +157,7 @@ public:
     ( std::string const& X )
     : _prec( 0 )
     { switch( options.LANG ){
+       case Options::DAG:
        case Options::GAMS:
          _ostr << X;
 	 break;
@@ -180,6 +183,7 @@ public:
       std::ostringstream otmp;
       _ostr.swap(otmp);
       switch( options.LANG ){
+       case Options::DAG:
        case Options::GAMS:
          //std::cout << "FFExpr::set: " << X.name() << std::endl;
          _ostr << X.name();
@@ -223,6 +227,11 @@ public:
     ( std::string const& UNIV, FFExpr const& E, int const n );
   static FFExpr compose
     ( std::string const& UNIV, FFExpr const& E, double const& d );
+
+  //! @brief Retrieve string expression for subgraph
+  template <typename... ExtOps>
+  static std::vector<FFExpr> subgraph
+    ( FFGraph<ExtOps...>* dag, FFSubgraph& sg );
   /** @} */
 
   // other operator overloadings (inlined)
@@ -469,7 +478,14 @@ inline FFExpr
 sqr
 ( FFExpr const& E )
 {
-  return FFExpr::compose( "POWER", E, 2 );
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::SQR).name(), E );
+   case FFExpr::Options::GAMS:
+    return FFExpr::compose( "POWER", E, 2 );
+   default:
+    throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
 }
 
 inline FFExpr
@@ -481,6 +497,32 @@ operator*
 
   FFExpr _E( E1 );
   return _E *= E2;
+}
+
+template <typename... ExtOps>
+inline
+std::vector<FFExpr>
+FFExpr::subgraph
+( FFGraph<ExtOps...>* dag, FFSubgraph& sg )
+{
+  std::vector<FFVar> Var;
+  Var.reserve( sg.v_indep.size() );
+  std::vector<FFExpr> EVar;
+  EVar.reserve( sg.v_indep.size() );
+  for( auto const& v : sg.v_indep ){
+    Var.push_back( *v );
+    EVar.push_back( FFExpr( *v ) );
+  }
+
+  std::vector<FFVar> Dep;
+  Dep.reserve( sg.v_dep.size() );
+  std::vector<FFExpr> EDep( sg.v_dep.size() );
+  for( auto const& v : sg.v_dep ){
+    Dep.push_back( *v );
+  }
+
+  dag->eval( sg, Dep.size(), Dep.data(), EDep.data(), Var.size(), Var.data(), EVar.data() );
+  return EDep;
 }
 
 inline
@@ -545,18 +587,6 @@ FFExpr::compose
 }
 
 inline FFExpr
-prod
-( unsigned const n, FFExpr const* E )
-{
-  switch( n ){
-   case 0:  return 0.;
-   case 1:  return E[0];
-   case 2:  return E[0] * E[1];
-   default: return E[0] + prod( n-1, E+1 );
-  }
-}
-
-inline FFExpr
 operator/
 ( double const& c, FFExpr const& E )
 {
@@ -568,19 +598,70 @@ inline FFExpr
 inv
 ( FFExpr const& E )
 {
-  return( 1. / E );
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::INV).name(), E );
+   case FFExpr::Options::GAMS:
+    return( 1. / E );
+   default:
+    throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
+}
+
+inline FFExpr
+prod
+( unsigned const n, FFExpr const* E )
+{
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::PROD).name(), n, E );
+   case FFExpr::Options::GAMS:
+    switch( n ){
+     case 0:  return 0.;
+     case 1:  return E[0];
+     case 2:  return E[0] * E[1];
+     default: return E[0] + prod( n-1, E+1 );
+    }
+   default:
+    throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
 }
 
 inline FFExpr
 pow
 ( FFExpr const& E, const int n )
 {
-  if( n == 0  ) return FFExpr();
-  if( n == 1  ) return E;
-  if( n == 2  ) return sqr( E );
-  if( n == -1 ) return inv( E );
-  if( n <  -1 ) return inv( pow( E, -n ) );
-  return FFExpr::compose( "POWER", E, n );
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::IPOW).name(), E, n );
+   case FFExpr::Options::GAMS:
+    if( n == 0  ) return FFExpr( 1 );
+    if( n == 1  ) return E;
+    if( n == 2  ) return sqr( E );
+    if( n == -1 ) return inv( E );
+    if( n <  -1 ) return inv( pow( E, -n ) );
+    return FFExpr::compose( "POWER", E, n );
+   default:
+    throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
+}
+
+inline FFExpr
+cheb
+( FFExpr const& E, const unsigned n )
+{
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::CHEB).name(), E, (int)n );
+   case FFExpr::Options::GAMS:
+    if( n == 0  ) return FFExpr( 1 );
+    if( n == 1  ) return E;
+    if( n == 2  ) return 2*sqr( E )-1;
+    if( n == 3  ) return (4*sqr( E )-3.)*E;
+    return 2.*E*cheb(E,n-1)-cheb(E,n-2);
+   default:
+    throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
 }
 
 inline FFExpr
@@ -617,28 +698,56 @@ inline FFExpr
 sqrt
 ( FFExpr const& E )
 {
-  return FFExpr::compose( "SQRT", E );
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::SQRT).name(), E );
+   case FFExpr::Options::GAMS:
+    return FFExpr::compose( "SQRT", E );
+   default:
+    throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
 }
 
 inline FFExpr
 exp
 ( FFExpr const& E )
 {
-  return FFExpr::compose( "EXP", E );
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::EXP).name(), E );
+   case FFExpr::Options::GAMS:
+    return FFExpr::compose( "EXP", E );
+   default:
+    throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
 }
 
 inline FFExpr
 log
 ( FFExpr const& E )
 {
-  return FFExpr::compose( "LOG", E );
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::LOG).name(), E );
+   case FFExpr::Options::GAMS:
+    return FFExpr::compose( "LOG", E );
+   default:
+    throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
 }
 
 inline FFExpr
 xlog
 ( FFExpr const& E )
 {
-  return( - FFExpr::compose( "ENTROPY", E ) );
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::XLOG).name(), E );
+   case FFExpr::Options::GAMS:
+    return( - FFExpr::compose( "ENTROPY", E ) );
+   default:
+    throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
 }
 
 inline FFExpr
@@ -663,7 +772,14 @@ inline FFExpr
 erf
 ( FFExpr const& E )
 {
-  return FFExpr::compose( "ERRORF", E );
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::ERF).name(), E );
+   case FFExpr::Options::GAMS:
+    return FFExpr::compose( "ERRORF", E );
+   default:
+    throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
 }
 
 inline FFExpr
@@ -677,116 +793,248 @@ inline FFExpr
 fabs
 ( FFExpr const& E )
 {
-  return FFExpr::compose( "ABS", E );
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::FABS).name(), E );
+   case FFExpr::Options::GAMS:
+    return FFExpr::compose( "ABS", E );
+   default:
+    throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
 }
 
 inline FFExpr
 pow
 ( FFExpr const& E, double const& r )
 {
-  if( r == 0.  ) return FFExpr();
-  if( r == 1.  ) return E;
-  if( r == 2.  ) return sqr( E );
-  if( r == -1. ) return inv( E );
-  return FFExpr::compose( "RPOWER", E, r );
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::DPOW).name(), E, r );
+   case FFExpr::Options::GAMS:
+    if( r == 0.  ) return FFExpr( 1 );
+    if( r == 1.  ) return E;
+    if( r == 2.  ) return sqr( E );
+    if( r == -1. ) return inv( E );
+    return FFExpr::compose( "RPOWER", E, r );
+   default:
+    throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
 }
 
 inline FFExpr
 pow
 ( FFExpr const& E1, FFExpr const& E2 )
 {
-  return( exp( E2 * log( E1 ) ) );
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::DPOW).name(), E1, E2 );
+   case FFExpr::Options::GAMS:
+    return( exp( E2 * log( E1 ) ) );
+   default:
+    throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
 }
 
 inline FFExpr
 min
 ( FFExpr const& E1, FFExpr const& E2 )
 {
-  return FFExpr::compose( "MIN", E1, E2 );
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::MINF).name(), E1, E2 );
+   case FFExpr::Options::GAMS:
+    return FFExpr::compose( "MIN", E1, E2 );
+   default:
+    throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
 }
 
 inline FFExpr
 max
 ( FFExpr const& E1, FFExpr const& E2 )
 {
-  return FFExpr::compose( "MAX", E1, E2 );
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::MAXF).name(), E1, E2 );
+   case FFExpr::Options::GAMS:
+    return FFExpr::compose( "MAX", E1, E2 );
+   default:
+    throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
 }
 
 inline FFExpr
 min
 ( const unsigned n, FFExpr const* E )
 {
-  return FFExpr::compose( "MIN", n, E );
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::MINF).name(), n, E );
+   case FFExpr::Options::GAMS:
+    return FFExpr::compose( "MIN", n, E );
+   default:
+    throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
 }
 
 inline FFExpr
 max
 ( const unsigned n, FFExpr const* E )
 {
-  return FFExpr::compose( "MAX", n, E );
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::MAXF).name(), n, E );
+   case FFExpr::Options::GAMS:
+    return FFExpr::compose( "MAX", n, E );
+   default:
+    throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
 }
 
 inline FFExpr
 cos
 ( FFExpr const& E )
 {
-  return FFExpr::compose( "COS", E );
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::COS).name(), E );
+   case FFExpr::Options::GAMS:
+    return FFExpr::compose( "COS", E );
+   default:
+    throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
 }
 
 inline FFExpr
 sin
 ( FFExpr const& E )
 {
-  return FFExpr::compose( "SIN", E );
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::SIN).name(), E );
+   case FFExpr::Options::GAMS:
+    return FFExpr::compose( "SIN", E );
+   default:
+    throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
 }
 
 inline FFExpr
 tan
 ( FFExpr const& E )
 {
-  return FFExpr::compose( "TAN", E );
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::TAN).name(), E );
+   case FFExpr::Options::GAMS:
+    return FFExpr::compose( "TAN", E );
+   default:
+    throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
 }
 
 inline FFExpr
 acos
 ( FFExpr const& E )
 {
-  return FFExpr::compose( "ARCCOS", E );
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::ACOS).name(), E );
+   case FFExpr::Options::GAMS:
+    return FFExpr::compose( "ARCCOS", E );
+   default:
+    throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
 }
 
 inline FFExpr
 asin
 ( FFExpr const& E )
 {
-  return FFExpr::compose( "ARCSIN", E );
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::ASIN).name(), E );
+   case FFExpr::Options::GAMS:
+    return FFExpr::compose( "ARCSIN", E );
+   default:
+    throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
 }
 
 inline FFExpr
 atan
 ( FFExpr const& E )
 {
-  return FFExpr::compose( "ARCTAN", E );
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::ATAN).name(), E );
+   case FFExpr::Options::GAMS:
+    return FFExpr::compose( "ARCTAN", E );
+   default:
+    throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
 }
 
 inline FFExpr
 cosh
 ( FFExpr const& E )
 {
-  return FFExpr::compose( "COSH", E );
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::COSH).name(), E );
+   case FFExpr::Options::GAMS:
+    return FFExpr::compose( "COSH", E );
+   default:
+    throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
 }
 
 inline FFExpr
 sinh
 ( FFExpr const& E )
 {
-  return FFExpr::compose( "SINH", E );
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::SINH).name(), E );
+   case FFExpr::Options::GAMS:
+    return FFExpr::compose( "SINH", E );
+   default:
+    throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
 }
 
 inline FFExpr
 tanh
 ( FFExpr const& E )
 {
-  return FFExpr::compose( "TANH", E );
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::TANH).name(), E );
+   case FFExpr::Options::GAMS:
+    return FFExpr::compose( "TANH", E );
+   default:
+     throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
+}
+
+inline FFExpr
+fstep
+( FFExpr const& E )
+{
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::FSTEP).name(), E );
+   case FFExpr::Options::GAMS:
+   default:
+     throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
+}
+
+inline FFExpr
+bstep
+( FFExpr const& E )
+{
+  return( fstep( -E ) );
 }
 
 } // namespace mc
@@ -826,14 +1074,14 @@ template <> struct Op< mc::FFExpr >
   static FFE tanh (const FFE& x) { return mc::tanh(x);  }
   static FFE erf (const FFE& x) { return mc::erf(x);  }
   static FFE erfc (const FFE& x) { return mc::erfc(x);  }
-  static FFE fstep(const FFE& x) { throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF ); }
-  static FFE bstep(const FFE& x) { throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF ); }
+  static FFE fstep(const FFE& x) { return mc::fstep(x); }
+  static FFE bstep(const FFE& x) { return mc::bstep(x); }
   static FFE hull(const FFE& x, const FFE& y) { throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF ); }
   static FFE min (const FFE& x, const FFE& y) { return mc::min(x,y); }
   static FFE max (const FFE& x, const FFE& y) { return mc::max(x,y); }
   static FFE arh (const FFE& x, const double k) { throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF ); }
   template <typename X, typename Y> static FFE pow(const X& x, const Y& y) { return mc::pow(x,y); }
-  static FFE cheb(const FFE& x, const unsigned n) { throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF ); }
+  static FFE cheb(const FFE& x, const unsigned n) { return mc::cheb(x,n); }
   static FFE prod (const unsigned n, const FFE* x) { return mc::prod(n,x); }
   static FFE monom (const unsigned n, const FFE* x, const unsigned* k) { return mc::monom(n,x,k); }
   static bool inter(FFE& xIy, const FFE& x, const FFE& y) { throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF ); }

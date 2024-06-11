@@ -205,7 +205,7 @@ bilinear programming problems</A>, <i>Journal of Global Optimization</i>, <b>2</
 #include <tuple>
 #include <climits>
 #include "spoly.hpp"
-#include "selim.hpp"
+//#include "selim.hpp"
 #include "mclapack.hpp"
 
 #if defined(MC__USE_GUROBI)

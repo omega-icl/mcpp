@@ -181,6 +181,7 @@ Finally, the original vector-valued function \f${\bf f}\f$ is now given by:
 
 #include <list>
 #include "ffunc.hpp"
+#include "ffexpr.hpp"
 #include "spoly.hpp"
 
 #define MC__SLIFT_CHECK
@@ -199,6 +200,9 @@ class SLiftBase;
 class SLiftVar
 ////////////////////////////////////////////////////////////////////////
 {
+
+  friend SLiftVar && inv( SLiftVar && );
+
 public:
 
   typedef SPoly<FFVar const*, lt_FFVar> t_poly;
@@ -316,7 +320,6 @@ class SLiftBase
 ////////////////////////////////////////////////////////////////////////
 {
   friend class SLiftVar;
-  friend  std::ostream& operator<< ( std::ostream&, SLiftBase const& );
   friend  SLiftVar inv ( SLiftVar const& );
   friend  SLiftVar exp ( SLiftVar const& );
   friend  SLiftVar log ( SLiftVar const& );
@@ -346,7 +349,8 @@ class SLiftBase
 
 public:
 
-  typedef std::list< std::pair< FFOp const*, std::vector<SLiftVar const*> > > t_Interm;
+  typedef std::list< std::pair< FFOp const*, std::vector<SLiftVar const*> > > t_OpLift;
+  typedef std::list< std::pair< FFVar const*, SLiftVar const* > > t_AuxLift;
   typedef std::map< FFVar const*, FFVar const*, lt_FFVar > t_Aux;
   typedef std::vector< FFVar const* > t_Expr;
   
@@ -395,10 +399,15 @@ public:
     ()
     { return _Aux; }
 
-  //! @brief Retreive reference to intermediate expressions
-  t_Interm& Interm
+  //! @brief Retreive reference to intermediate expressions for lifted operations
+  t_OpLift& OpLift
     ()
-    { return _Interm; }
+    { return _OpLift; }
+
+  //! @brief Retreive reference to intermediate expressions for lifted variables
+  t_AuxLift& AuxLift
+    ()
+    { return _AuxLift; }
 
   //! @brief Set DAG environment
   void set
@@ -461,78 +470,86 @@ public:
   {
     //! @brief Constructor
     Options():
-      LIFTDIV( true ), LIFTIPOW( false ), //LIFTUPOL( false ),
+      KEEPFACT( true ), LIFTDIV( false ), LIFTIPOW( false ), //LIFTUPOL( true )
       LOG2EXP( true ), SQRT2SQR( true ), ACOS2COS( true ), ASIN2SIN( true ),
-      ATAN2TAN( false ), TAN2ATAN( true )
+      ATAN2TAN( false ), TAN2ATAN( true ), DISPFULL( false )
       {}
     //! @brief Assignment of mc::SLiftBase::Options
     Options& operator=
       ( Options const& opt ){
+        KEEPFACT = opt.KEEPFACT;
         LIFTDIV  = opt.LIFTDIV;
         LIFTIPOW = opt.LIFTIPOW;
-        //LIFTUPOL = opt.LIFTUPOL;
-        LOG2EXP  = opt.LOG2EXP;
+	LOG2EXP  = opt.LOG2EXP;
         SQRT2SQR = opt.SQRT2SQR;
         ACOS2COS = opt.ACOS2COS;
         ASIN2SIN = opt.ASIN2SIN;
         ATAN2TAN = opt.ATAN2TAN;
         TAN2ATAN = opt.TAN2ATAN;
+        DISPFULL = opt.DISPFULL;
         return *this;
       }
+    //! @brief Whether to keep existing factorisations, e.g. the product between polynomial subexpressions; otherwise, the polynomials are expanded (default: true)
+    bool KEEPFACT;
     //! @brief Whether to lift division terms using auxiliary variables (default: true)
     bool LIFTDIV;
-    //! @brief Whether to lift integral power terms using auxiliary variables (default: true)
+    //! @brief Whether to lift integral power terms using auxiliary variables (default: false)
     bool LIFTIPOW;
     //! @brief Whether to lift univariate polynomials using auxiliary variables (default: true)
     //bool LIFTUPOL;
-    //! @brief Whether to convert log univariate to exp univariate in DAG (default: true)
+    //! @brief Whether to convert log univariate to exp univariate (default: true)
     bool LOG2EXP;
-    //! @brief Whether to convert sqrt univariate to sqr univariate in DAG (default: true)
+    //! @brief Whether to convert sqrt univariate to sqr univariate (default: true)
     bool SQRT2SQR;
-    //! @brief Whether to convert acos univariate to cos univariate in DAG (default: true)
+    //! @brief Whether to convert acos univariate to cos univariate (default: true)
     bool ACOS2COS;
-    //! @brief Whether to convert asin univariate to sin univariate in DAG (default: true)
+    //! @brief Whether to convert asin univariate to sin univariate (default: true)
     bool ASIN2SIN;
-    //! @brief Whether to convert atan univariate to tan univariate in DAG (default: true)
+    //! @brief Whether to convert atan univariate to tan univariate (default: false)
     bool ATAN2TAN;
-    //! @brief Whether to convert tan univariate to atan univariate in DAG (default: true)
+    //! @brief Whether to convert tan univariate to atan univariate (default: true)
     bool TAN2ATAN;
+    //! @brief Whether to display a full subgraph of the lifted expressions (default: false)
+    bool DISPFULL;
   } options;
 
 private:
 
   //! @brief pointer to underlying dag
-  FFBase* _dag;
+  FFBase*                _dag;
 
 protected:
 
-  //! @brief Map of DAG variables and sparse expressions
-  t_Interm _Interm;
+  //! @brief Map of lifted DAG operations and sparse expressions
+  t_OpLift               _OpLift;
+
+  //! @brief Map of lifted DAG variables and sparse expressions
+  t_AuxLift              _AuxLift;
 
   //! @brief Map of existing DAG auxiliaries to new DAG variables
-  t_Aux _Aux;
+  t_Aux                  _Aux;
 
   //! @brief Vector of dependent DAG subexpressions
-  std::vector<FFVar> _Dep;
+  std::vector<FFVar>     _Dep;
 
   //! @brief Vector of auxiliary DAG polynomial/rational constraints
-  std::vector<FFVar> _Poly;
+  std::vector<FFVar>     _Poly;
 
   //! @brief Vector of auxiliary DAG transcendental constraints
-  std::vector<FFVar> _Trans;
+  std::vector<FFVar>     _Trans;
 
   //! @brief Vector of independent DAG variables participating in expressions
-  std::vector<FFVar> _Var;
+  std::vector<FFVar>     _Var;
 
   //! @brief Vector of independent sparse variables
-  std::vector<SLiftVar> _SPVar;
+  std::vector<SLiftVar>  _SPVar;
 
   //! @brief Vector of dependent sparse expressions
-  std::vector<SLiftVar> _SPDep;
+  std::vector<SLiftVar>  _SPDep;
 
-  //! @brief Add new intermediate uni- or bi-variate expression in _Interm
+  //! @brief Add new intermediate uni- or bi-variate operation in _OpLift
   void _append_interm
-    ( SLiftVar const* var1, SLiftVar const* var2=nullptr );
+    ( FFOp const* pOp, SLiftVar const* var1, SLiftVar const* var2=nullptr );
 
   //! @brief Insert an auxiliary variable corresponding to a rational/polynomial expression into DAG
   FFVar const* _insert_expr
@@ -548,19 +565,23 @@ protected:
     ( FFOp const* pOp, std::vector<FFVar const*>& vAux,
       ExtOp op, std::tuple<NextOps...> ops );
 
-  //! @brief Find auxiliary variable in DAG and return corresponding new DAG variable (or NULL if undefined)
-  FFVar const* _find_aux
-    ( FFVar const* aux );
+  //! @brief Find/insert auxiliary variable in DAG and return corresponding new DAG variable (or NULL if undefined)
+  FFVar const* _insert_aux
+    ( FFVar const* aux, bool const ins );
 
-  //! @brief Lift current univariate operation
+  //! @brief Lift intermediate term
+  SLiftVar _lift_intermediate_term
+    ( FFVar const* pVar, SLiftVar const& var );
+
+  //! @brief Lift univariate operation
   SLiftVar _lift_univariate_term
-    ( SLiftVar const& var );
+    ( FFOp const* pOp, SLiftVar const& var );
 
-  //! @brief Lift current bivariate operation
+  //! @brief Lift bivariate operation
   SLiftVar _lift_bivariate_term
-    ( SLiftVar const& var1, SLiftVar const& var2 );
+    ( FFOp const* pOp, SLiftVar const& var1, SLiftVar const& var2 );
 
-  //! @brief Erase all entries in _Interm
+  //! @brief Erase all entries in _OpLift and _AuxLift
   void _reset
     ();
 };
@@ -579,6 +600,8 @@ class SLiftEnv
   typedef typename remove_first_type< t_ExtOps >::type t_NextExtOps;
   typedef typename first_type_of< ExtOps... >::type FirstExtOps;
 
+  template <typename... Ops> friend  std::ostream& operator<< ( std::ostream&, SLiftEnv<Ops...> const& );
+  
 public:
 
   //! @brief Default Constructor
@@ -625,20 +648,24 @@ operator<<
   return out;
 }
 
+template <typename... ExtOps>
 inline std::ostream&
 operator<<
-( std::ostream& out, SLiftBase const& env)
+( std::ostream& out, SLiftEnv<ExtOps...> const& env )
 {
-  unsigned count = 0;
-
   if( env._Dep.empty() ){
-    for( auto const& expr : env._Interm ){
-      out << std::endl << "INTERMEDIATE #" << ++count << ": ";
+    unsigned count = 0;
+    for( auto const& expr : env._AuxLift )
+      out << std::endl << "INTERMEDIATE EXPRESSION #" << ++count << ": " << *(expr.first);
+    
+    count = 0;
+    for( auto const& expr : env._OpLift ){
+      out << std::endl << "INTERMEDIATE OPERATION #" << ++count << ": ";
       for( auto const& var : expr.first->varout )
         out << *var << " ";
       out << " = " << *(expr.first) << std::endl;
       unsigned pos = 0;
-      for( auto&& oper : expr.second )
+      for( auto const& oper : expr.second )
         out << "Operand " << *expr.first->varin[pos++] << ": " << *oper;
     }
     
@@ -648,35 +675,61 @@ operator<<
     return out;
   }
 
-  std::cout << std::endl
-            << env._Aux.size() << " AUXILIARY VARIABLE";
-  if( env._Aux.size() > 1 ) std::cout << "S";
-  std::cout << ":";
-  for( auto&& aux : env._Aux )
-    std::cout << " " << *aux.first << "->" << *aux.second;
-  std::cout << std::endl;
-
-  count = 0;
-  for( auto const& expr : env._Dep ){
-    std::ostringstream ext; 
-    ext << " OF DEPENDENT EXPRESSION #" << ++count;
-    env._dag->output( env._dag->subgraph( 1, &expr ), ext.str(), out );
+  FFExpr::options.LANG = FFExpr::Options::DAG;
+  out << std::endl << env._Aux.size() << " AUXILIARY VARIABLE" << (env._Aux.size()>1?"S:":":") << std::endl;
+  for( auto const& aux : env._Aux ){
+    out << " " << std::left << std::setw(6) <<  *aux.second << "<- " << std::setw(6) << *aux.first;
+    if( !env.options.DISPFULL ){
+      auto sgAux = env._dag->subgraph( 1, aux.first );
+      auto vAux  = FFExpr::subgraph( env._dag, sgAux );
+      out << " = " << vAux[0];
+    }
+    out << std::endl;
   }
 
-  count = 0;
-  for( auto const& expr : env._Poly ){
-    std::ostringstream ext; 
-    ext << " OF AUXILIARY POLYNOMIAL CONSTRAINT #" << ++count;
-    env._dag->output( env._dag->subgraph( 1, &expr ), ext.str(), out );
-  }
+  if( !env.options.DISPFULL ){
+    out << std::endl << env._Dep.size() << " DEPENDENT EXPRESSION" << (env._Dep.size()>1?"S:":":") << std::endl;
+    auto sgExpr = env._dag->subgraph( env._Dep.size(), env._Dep.data() );
+    auto vExpr = FFExpr::subgraph( env._dag, sgExpr );
+    for( auto const& expr : vExpr )
+      out << "  " << expr << std::endl;
 
-  count = 0;
-  for( auto const& expr : env._Trans ){
-    std::ostringstream ext; 
-    ext << " OF AUXILIARY NON-POLYNOMIAL CONSTRAINT #" << ++count;
-    env._dag->output( env._dag->subgraph( 1, &expr ), ext.str(), out );
+    out << std::endl << env._Poly.size() << " AUXILIARY POLYNOMIAL CONSTRAINT" << (env._Poly.size()>1?"S:":":") << std::endl;
+    sgExpr = env._dag->subgraph( env._Poly.size(), env._Poly.data() );
+    vExpr = FFExpr::subgraph( env._dag, sgExpr );
+    for( auto const& expr : vExpr )
+      out << "  0 = " << expr << std::endl;
+
+    out << std::endl << env._Trans.size() << " AUXILIARY NON-POLYNOMIAL CONSTRAINT" << (env._Trans.size()>1?"S:":":") << std::endl;
+    sgExpr = env._dag->subgraph( env._Trans.size(), env._Trans.data() );
+    vExpr = FFExpr::subgraph( env._dag, sgExpr );
+    for( auto const& expr : vExpr )
+      out << "  0 = " << expr << std::endl;
+  }
   
+  else{
+    unsigned count = 0;
+    for( auto const& expr : env._Dep ){
+      std::ostringstream ext; 
+      ext << " OF DEPENDENT EXPRESSION #" << ++count;
+      env._dag->subgraph( 1, &expr ).output( ext.str(), out );
+    }
+
+    count = 0;
+    for( auto const& expr : env._Poly ){
+      std::ostringstream ext; 
+      ext << " OF AUXILIARY POLYNOMIAL CONSTRAINT #" << ++count;
+      env._dag->subgraph( 1, &expr ).output( ext.str(), out );
+    }
+
+    count = 0;
+    for( auto const& expr : env._Trans ){
+      std::ostringstream ext; 
+      ext << " OF AUXILIARY NON-POLYNOMIAL CONSTRAINT #" << ++count;
+      env._dag->subgraph( 1, &expr ).output( ext.str(), out );
+    }
   }
+
   return out;
 }
 
@@ -727,21 +780,24 @@ SLiftEnv<ExtOps...>::process
   // No transcription in DAG if <a>add2dag</a> is false
   if( !add2dag ) return;
 
-  // Insert auxiliary expressions into DAG
-  for( auto const& expr : _Interm ){
+  // Insert lifted variables into DAG
+  for( auto const& [pVar,pSVar] : _AuxLift ){
+    // Insert defining expression
+    _insert_expr( pVar, pSVar, false );
+  }
+
+  // Insert lifted operations into DAG
+  for( auto const& [pOp,vSVar] : _OpLift ){
     // Insert all operands and their defining expressions
     std::vector<FFVar const*> vAux;
-    auto itSV = expr.second.begin();
-    for( auto const& operand : expr.first->varin ){
-#ifdef MC__SLIFT_CHECK
-      if( itSV == expr.second.end() )
+    auto itSV = vSVar.begin();
+    for( auto const& operand : pOp->varin ){
+      if( itSV == vSVar.end() )
         throw Exceptions( Exceptions::INTERNAL );
-#endif
       vAux.push_back( _insert_expr( operand, *itSV, false ) );
       ++itSV;
     }
     // Insert operation result and their defining expressions
-    FFOp const* pOp = expr.first;
     if( pOp->type < FFOp::EXTERN )
       _insert_expr( pOp, vAux );
     else if( !sizeof...(ExtOps) )
@@ -800,25 +856,12 @@ SLiftBase::_insert_expr
     return *itdagaux;
 #else
     return _dag->Vars().find( &polyexpr );
-#endif  
+#endif
   }
 
   // Otherwise rational subexpression, append new DAG variable in _Aux and define new polynomial constraint in _Poly 
-#ifdef MC__SLIFT_DEBUG_PROCESS
-  std::cout <<std::endl << "operand: " << **itdagvar << std::endl;
-#endif
-  FFVar newvar( _dag );
-  auto itnewvar = _dag->Vars().find( &newvar );
-#ifdef MC__SLIFT_CHECK
-  assert( itnewvar != _dag->Vars().end() );
-#endif
-#ifdef MC__SLIFT_DEBUG_PROCESS
-  std::cout << "paired with new DAG variable: " << **itnewvar << std::endl;
-#endif
-  _Aux.insert( std::make_pair( *itdagvar, *itnewvar ) );
-  _Var.push_back( **itnewvar );
-
-  FFVar polyctr = **itnewvar * insert_dag( expr->denom() ) - insert_dag( expr->numer() );
+  FFVar const* newvar = _insert_aux( *itdagvar, true );
+  FFVar polyctr = *newvar * insert_dag( expr->denom() ) - insert_dag( expr->numer() );
   auto itpolyctr = _dag->Vars().find( &polyctr );
 #ifdef MC__SLIFT_CHECK
   assert( itpolyctr != _dag->Vars().end() );
@@ -828,69 +871,51 @@ SLiftBase::_insert_expr
   _dag->output( _dag->subgraph( 1, *itpolyctr ) );
 #endif
   _Poly.push_back( **itpolyctr );
-  return *itnewvar;
+  return newvar;
 }
 
 inline void
 SLiftBase::_insert_expr
 ( FFOp const* pOp, std::vector<FFVar const*>& vAux )
 {
+  // Append new DAG variable in _Aux for unique operand
   assert( pOp->varout.size() == 1 );
   FFVar const* pres = pOp->varout[0];
-#ifdef MC__SLIFT_CHECK
-  // Throw exception if DAG auxiliary was already made a DAG variable
-  if( _Aux.find( pres ) != _Aux.end() )
-    throw Exceptions( Exceptions::INTERNAL );
-#endif
-#ifdef MC__SLIFT_DEBUG_PROCESS
-  std::cout << std::endl << "operand: " << *pres << std::endl;
-#endif
-
-  // Append new DAG variable in _Aux
-  FFVar newvar( _dag );
-  auto itnewvar = _dag->Vars().find( &newvar );
-#ifdef MC__SLIFT_CHECK
-  assert( itnewvar != _dag->Vars().end() );
-#endif
-#ifdef MC__SLIFT_DEBUG_PROCESS
-  std::cout << "paired with new DAG variable: " << **itnewvar << std::endl;
-#endif
-  _Aux.insert( std::make_pair( pres, *itnewvar ) );
-  _Var.push_back( **itnewvar );
+  FFVar const* pvarres = _insert_aux( pres, true );
 
   // Append defining expression in _Poly or _Transc 
   switch( pOp->type ){
-   case FFOp::SQR:   return _Poly.push_back( _Var.back() - sqr( *vAux.at(0) ) );
-   case FFOp::IPOW:  return _Poly.push_back( _Var.back() - pow( *vAux.at(0), vAux.at(1)->num().n ) );
-   case FFOp::CHEB:  return _Poly.push_back( _Var.back() - cheb( *vAux.at(0), vAux.at(1)->num().n ) );
-   case FFOp::SQRT:  return options.SQRT2SQR? _Trans.push_back( sqr( _Var.back() ) - *vAux.at(0) )
-                                            : _Trans.push_back( _Var.back() - sqrt( *vAux.at(0) ) );
-   case FFOp::INV:   return _Poly.push_back( _Var.back() * *vAux.at(1) - vAux.at(0)->num().val() );
-   case FFOp::DIV:   return _Poly.push_back( _Var.back() * *vAux.at(1) - *vAux.at(0) );
-   case FFOp::EXP:   return _Trans.push_back( _Var.back() - exp( *vAux.at(0) ) );
-   case FFOp::LOG:   return options.LOG2EXP? _Trans.push_back( exp( _Var.back() ) - *vAux.at(0) )
-                                           : _Trans.push_back( _Var.back() - log( *vAux.at(0) ) );
-   case FFOp::XLOG:  return _Trans.push_back( _Var.back() - xlog( *vAux.at(0) ) );
-   case FFOp::DPOW:  return _Trans.push_back( _Var.back() - pow( *vAux.at(0), vAux.at(1)->num().val() ) );
-   case FFOp::COS:   return _Trans.push_back( _Var.back() - cos( *vAux.at(0) ) );
-   case FFOp::SIN:   return _Trans.push_back( _Var.back() - sin( *vAux.at(0) ) );
-   case FFOp::TAN:   return options.TAN2ATAN? _Trans.push_back( atan( _Var.back() ) - *vAux.at(0) )
-                                            : _Trans.push_back( _Var.back() - tan( *vAux.at(0) ) );
-   case FFOp::ACOS:  return options.ACOS2COS? _Trans.push_back( cos( _Var.back() ) - *vAux.at(0) )
-                                            : _Trans.push_back( _Var.back() - acos( *vAux.at(0) ) );
-   case FFOp::ASIN:  return options.ASIN2SIN? _Trans.push_back( sin( _Var.back() ) - *vAux.at(0) )
-                                            : _Trans.push_back( _Var.back() - asin( *vAux.at(0) ) );
-   case FFOp::ATAN:  return options.ATAN2TAN? _Trans.push_back( tan( _Var.back() ) - *vAux.at(0) )
-                                            : _Trans.push_back( _Var.back() - atan( *vAux.at(0) ) );
-   case FFOp::COSH:  return _Trans.push_back( _Var.back() - cosh( *vAux.at(0) ) );
-   case FFOp::SINH:  return _Trans.push_back( _Var.back() - sinh( *vAux.at(0) ) );
-   case FFOp::TANH:  return _Trans.push_back( _Var.back() - tanh( *vAux.at(0) ) );
-   case FFOp::ERF:   return _Trans.push_back( _Var.back() - erf( *vAux.at(0) ) );
-   case FFOp::FABS:  return _Trans.push_back( _Var.back() - fabs( *vAux.at(0) ) );
-   case FFOp::FSTEP: return _Trans.push_back( _Var.back() - fstep( *vAux.at(0) ) );
-   case FFOp::MINF:  return _Trans.push_back( _Var.back() - min( *vAux.at(0), *vAux.at(1) ) );
-   case FFOp::MAXF:  return _Trans.push_back( _Var.back() - max( *vAux.at(0), *vAux.at(1) ) );
-   case FFOp::INTER: return _Trans.push_back( _Var.back() - inter( *vAux.at(0), *vAux.at(1) ) );
+   case FFOp::SQR:   return _Poly.push_back( *pvarres - sqr( *vAux.at(0) ) );
+   case FFOp::IPOW:  return _Poly.push_back( *pvarres - pow( *vAux.at(0), vAux.at(1)->num().n ) );
+   case FFOp::CHEB:  return _Poly.push_back( *pvarres - cheb( *vAux.at(0), vAux.at(1)->num().n ) );
+   case FFOp::SQRT:  return options.SQRT2SQR? _Trans.push_back( sqr( *pvarres ) - *vAux.at(0) )
+                                            : _Trans.push_back( *pvarres - sqrt( *vAux.at(0) ) );
+   case FFOp::INV:   return _Poly.push_back( *pvarres * *vAux.at(1) - vAux.at(0)->num().val() );
+   case FFOp::DIV:   return _Poly.push_back( *pvarres * *vAux.at(1) - *vAux.at(0) );
+   case FFOp::EXP:   return _Trans.push_back( *pvarres - exp( *vAux.at(0) ) );
+   case FFOp::LOG:   return options.LOG2EXP? _Trans.push_back( exp( *pvarres ) - *vAux.at(0) )
+                                           : _Trans.push_back( *pvarres - log( *vAux.at(0) ) );
+   case FFOp::XLOG:  return _Trans.push_back( *pvarres - xlog( *vAux.at(0) ) );
+   case FFOp::DPOW:  return _Trans.push_back( *pvarres - pow( *vAux.at(0), vAux.at(1)->num().val() ) );
+   case FFOp::COS:   return _Trans.push_back( *pvarres - cos( *vAux.at(0) ) );
+   case FFOp::SIN:   return _Trans.push_back( *pvarres - sin( *vAux.at(0) ) );
+   case FFOp::TAN:   return options.TAN2ATAN? _Trans.push_back( atan( *pvarres ) - *vAux.at(0) )
+                                            : _Trans.push_back( *pvarres - tan( *vAux.at(0) ) );
+   case FFOp::ACOS:  return options.ACOS2COS? _Trans.push_back( cos( *pvarres ) - *vAux.at(0) )
+                                            : _Trans.push_back( *pvarres - acos( *vAux.at(0) ) );
+   case FFOp::ASIN:  return options.ASIN2SIN? _Trans.push_back( sin( *pvarres ) - *vAux.at(0) )
+                                            : _Trans.push_back( *pvarres - asin( *vAux.at(0) ) );
+   case FFOp::ATAN:  return options.ATAN2TAN? _Trans.push_back( tan( *pvarres ) - *vAux.at(0) )
+                                            : _Trans.push_back( *pvarres - atan( *vAux.at(0) ) );
+   case FFOp::COSH:  return _Trans.push_back( *pvarres - cosh( *vAux.at(0) ) );
+   case FFOp::SINH:  return _Trans.push_back( *pvarres - sinh( *vAux.at(0) ) );
+   case FFOp::TANH:  return _Trans.push_back( *pvarres - tanh( *vAux.at(0) ) );
+   case FFOp::ERF:   return _Trans.push_back( *pvarres - erf( *vAux.at(0) ) );
+   case FFOp::FABS:  return _Trans.push_back( *pvarres - fabs( *vAux.at(0) ) );
+   case FFOp::FSTEP: return _Trans.push_back( *pvarres - fstep( *vAux.at(0) ) );
+   case FFOp::MINF:  return _Trans.push_back( *pvarres - min( *vAux.at(0), *vAux.at(1) ) );
+   case FFOp::MAXF:  return _Trans.push_back( *pvarres - max( *vAux.at(0), *vAux.at(1) ) );
+   case FFOp::INTER: return _Trans.push_back( *pvarres - inter( *vAux.at(0), *vAux.at(1) ) );
    case FFOp::VAR:
    case FFOp::CNST:
    case FFOp::SHIFT:
@@ -919,27 +944,16 @@ SLiftBase::_insert_expr_external
     op.info = pOp->info; // passing info field to recast data
     op.data = pOp->data; // passing data structure
 
+    // Append new DAG variables in _Aux for all operands
+    FFVar const* pVarOut = nullptr;
+    bool first = true;
     for( auto const& pres : pOp->varout ){
-#ifdef MC__SLIFT_CHECK
-      // Throw exception if DAG auxiliary was already made a DAG variable
-      if( _Aux.find( pres ) != _Aux.end() )
-        throw Exceptions( Exceptions::INTERNAL );
-#endif
-#ifdef MC__SLIFT_DEBUG_PROCESS
-      std::cout << std::endl << "operand: " << *pres << std::endl;
-#endif
-
-      // Append new DAG variable in _Aux
-      FFVar newvar( _dag );
-      auto itnewvar = _dag->Vars().find( &newvar );
-#ifdef MC__SLIFT_CHECK
-      assert( itnewvar != _dag->Vars().end() );
-#endif
-#ifdef MC__SLIFT_DEBUG_PROCESS
-      std::cout << "paired with new DAG variable: " << **itnewvar << std::endl;
-#endif
-      _Aux.insert( std::make_pair( pres, *itnewvar ) );
-      _Var.push_back( **itnewvar );
+      if( first ){
+        pVarOut = _insert_aux( pres, true );
+	first = false;
+      }
+      else
+        _insert_aux( pres, true );
     }
 
     std::vector<FFVar> vVar( vAux.size() ), vRes(pOp->varout.size());
@@ -947,9 +961,8 @@ SLiftBase::_insert_expr_external
     for( unsigned i=0; i<vAux.size(); ++i )
       vVar[i] = *vAux.at(i);
     op.eval( vRes.size(), vRes.data(), vVar.size(), vVar.data(), mVar.data() );
-    FFVar* pRes = _Var.data() + _Var.size() - pOp->varout.size();
     for( unsigned j=0; j<vRes.size(); ++j )
-      _Trans.push_back( pRes[j] - vRes[j] );
+      _Trans.push_back( pVarOut[j] - vRes[j] );
     return;
   }
   
@@ -965,13 +978,30 @@ SLiftBase::_insert_expr_external
 }
 
 inline FFVar const*
-SLiftBase::_find_aux
-( FFVar const* aux )
+SLiftBase::_insert_aux
+( FFVar const* aux, bool const ins )
 {
+  // First check if auxiliary already exists
+#ifdef MC__SLIFT_DEBUG_PROCESS
+  std::cout << std::endl << "operand: " << *aux << std::endl;
+#endif
   if( aux->opdef().first->type == FFOp::VAR ) return aux;
-  auto it = _Aux.find( aux );
-  if( it != _Aux.end() ) return it->second;
-  return (FFVar*)0;
+  auto itaux = _Aux.find( aux );
+  if( itaux != _Aux.end() ) return itaux->second;
+  if( !ins ) return (FFVar*)nullptr;
+
+  // Otherwise, insert it
+  FFVar newvar( _dag );
+  auto itnewvar = _dag->Vars().find( &newvar );
+#ifdef MC__SLIFT_CHECK
+  assert( itnewvar != _dag->Vars().end() );
+#endif
+#ifdef MC__SLIFT_DEBUG_PROCESS
+  std::cout << "paired with new DAG variable: " << **itnewvar << std::endl;
+#endif
+  _Aux.insert( std::make_pair( aux, *itnewvar ) );
+  _Var.push_back( **itnewvar );
+  return *itnewvar;
 }
 
 inline FFVar
@@ -1005,8 +1035,7 @@ SLiftBase::insert_dag
   for( auto const& [var,ord] : mon.expr ){
       FFVar const* oper = nullptr;
       if( dagaux ) oper = *_dag->Vars().find( const_cast<FFVar*>(var) );
-      else         oper = _find_aux( var );
-      //FFVar const* oper = _find_aux( var );
+      else         oper = _insert_aux( var, true );
       if( oper == nullptr )
         throw Exceptions( Exceptions::INTERNAL );
       switch( t_poly::options.BASIS ){
@@ -1026,8 +1055,7 @@ SLiftBase::insert_dag
     //std::cout << "[var,ord] = " << *var << "^" << ord << std::endl;
     FFVar const* oper = nullptr;
     if( dagaux ) oper = *_dag->Vars().find( const_cast<FFVar*>(var) );
-    else         oper = _find_aux( var );
-    //FFVar const* oper = _find_aux( var );
+    else         oper = _insert_aux( var, true );
     if( oper == nullptr )
       throw Exceptions( Exceptions::INTERNAL );
     switch( t_poly::options.BASIS ){
@@ -1046,10 +1074,14 @@ inline void
 SLiftBase::_reset
 ()
 {
-  for( auto&& expr : _Interm )
-    for( auto&& oper : expr.second )
-      delete oper;
-  _Interm.clear();
+  for( auto& [pvar,psvar] : _AuxLift )
+    delete psvar;
+  _AuxLift.clear();
+
+  for( auto& [pop,vsvar] : _OpLift )
+    for( auto& psvar : vsvar )
+      delete psvar;
+  _OpLift.clear();
 
   _Aux.clear();
   _Poly.clear();
@@ -1074,52 +1106,56 @@ SLiftBase::lift
   vops.reserve( nvar );
   for( unsigned i=0; i<nvar; ++i )
     vops.push_back( new SLiftVar( pvar[i] ) );
-  _Interm.push_back( std::make_pair( pOp, vops ) );
+  _OpLift.push_back( std::make_pair( pOp, vops ) );
   for( unsigned j=0; j<nres; ++j )
     pres[j] = SLiftVar( this, *(pOp->varout[j]) );
 }
 
+inline SLiftVar
+SLiftBase::_lift_intermediate_term
+( FFVar const* pVar, SLiftVar const& var )
+{
+  if( !pVar )
+    throw Exceptions( Exceptions::INTERNAL );
+
+  // Append new intermediate expression and assert that same operation was not previously appended
+  _AuxLift.push_back( std::make_pair( pVar, new SLiftVar( var ) ) );
+  return SLiftVar( this, *pVar );
+}
+
 inline void
 SLiftBase::_append_interm
-( SLiftVar const* var1, SLiftVar const* var2 )
+( FFOp const* pOp, SLiftVar const* var1, SLiftVar const* var2 )
 {
-#ifdef MC__SLIFT_CHECK
   if( !var1 ) throw Exceptions( Exceptions::INTERNAL );
-#endif
-  FFOp const* pOp = _dag->curOp();
+
   std::vector<SLiftVar const*> vops;
   vops.push_back( new SLiftVar( *var1 ) );
   if( var2 ) vops.push_back( new SLiftVar( *var2 ) );
-  _Interm.push_back( std::make_pair( pOp, vops ) );
+  _OpLift.push_back( std::make_pair( pOp, vops ) );
 }
 
 inline SLiftVar
 SLiftBase::_lift_univariate_term
-( SLiftVar const& var )
+( FFOp const* pOp, SLiftVar const& var )
 {
-  FFOp const* pOp = _dag->curOp();
-#ifdef MC__SLIFT_CHECK
-  if( !pOp ) throw Exceptions( Exceptions::INTERNAL );
-#endif
+  if( !pOp || pOp->varout.size() != 1 )
+    throw Exceptions( Exceptions::INTERNAL );
 
   // Append new intermediate expression and assert that same operation was not previously appended
-  assert( pOp->varout.size() == 1 );
-  _append_interm( &var );
+  _append_interm( pOp, &var );
   return SLiftVar( this, *(pOp->varout[0]) );
 }
 
 inline SLiftVar
 SLiftBase::_lift_bivariate_term
-( SLiftVar const& var1, SLiftVar const& var2 )
+( FFOp const* pOp, SLiftVar const& var1, SLiftVar const& var2 )
 {
-  FFOp const* pOp = _dag->curOp();
-#ifdef MC__SLIFT_CHECK
-  if( !pOp ) throw Exceptions( Exceptions::INTERNAL );
-#endif
+  if( !pOp || pOp->varout.size() != 1 )
+    throw Exceptions( Exceptions::INTERNAL );
 
   // Append new intermediate expression and assert that same operation was not previously appended
-  assert( pOp->varout.size() == 1 );
-  _append_interm( &var1, &var2 );
+  _append_interm( pOp, &var1, &var2 );
   return SLiftVar( this, *(pOp->varout[0]) );
 }
 
@@ -1202,9 +1238,33 @@ SLiftVar::operator+=
   else if( var._env && _env != var._env )
     throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
 
-  _numer *= var._denom;
-  _numer += var._numer * _denom;
-  _denom *= var._denom;
+  // Check for common denominator first, including a constant denominator
+  auto const& [ismult,factor] = _denom.ismultiple( var._denom );
+  if( ismult ){
+#ifdef MC__SLIFT_DEBUG_PROCESS
+    std::cout << "common denominator: " << factor << std::endl;
+#endif
+    _numer += ( var._numer * (double)factor );
+  }
+  // With KEEPFACT enabled, lift operands with non-constant denominator
+  else if( _env->options.KEEPFACT ){
+    FFOp const* pOp = _env->dag()->curOp();
+    if( !pOp || pOp->varin.size() != 2 )
+      throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::INTERNAL );
+    if( _denom.maxord() )
+      *this = _env->_lift_intermediate_term( pOp->varin[0], *this );
+    if( var._denom.maxord() )
+      _numer += _env->_lift_intermediate_term( pOp->varin[1], var )._numer * _denom; // _denom is constant
+    else
+      _numer += var._numer * ( _denom / var._denom ); // _denom and var._denom both constant
+  }
+  // Otheriwse, multiply rational terms
+  else{
+    _numer *= var._denom;
+    _numer += var._numer * _denom;
+    _denom *= var._denom;
+  }
+
   return *this;
 }
 
@@ -1242,9 +1302,33 @@ SLiftVar::operator-=
   else if( var._env && _env != var._env )
     throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
 
-  _numer *= var._denom;
-  _numer -= var._numer * _denom;
-  _denom *= var._denom;
+  // Check for common denominator first, including a constant denominator
+  auto const& [ismult,factor] = _denom.ismultiple( var._denom );
+  if( ismult ){
+#ifdef MC__SLIFT_DEBUG_PROCESS
+    std::cout << "common denominator: " << factor << std::endl;
+#endif
+    _numer -= ( var._numer * (double)factor );
+  }
+  // With KEEPFACT enabled, lift operands with non-constant denominator
+  else if( _env->options.KEEPFACT ){
+    FFOp const* pOp = _env->dag()->curOp();
+    if( !pOp || pOp->varin.size() != 2 )
+      throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::INTERNAL );
+    if( _denom.maxord() )
+      *this = _env->_lift_intermediate_term( pOp->varin[0], *this );
+    if( var._denom.maxord() )
+      _numer -= _env->_lift_intermediate_term( pOp->varin[1], var )._numer * _denom; // _denom is constant
+    else
+      _numer -= var._numer * ( _denom / var._denom ); // _denom and var._denom both constant
+  }
+  // Otheriwse, multiply rational terms
+  else{
+    _numer *= var._denom;
+    _numer -= var._numer * _denom;
+    _denom *= var._denom;
+  }
+
   return *this;
 }
 
@@ -1275,8 +1359,27 @@ SLiftVar::operator*=
   else if( var._env && _env != var._env )
     throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
 
-  _numer *= var._numer;
-  _denom *= var._denom;
+  // With KEEPFACT enabled, lift operands with non-constant denominator
+  if( _env->options.KEEPFACT ){
+    FFOp const* pOp = _env->dag()->curOp();
+    if( !pOp || pOp->varin.size() != 2 )
+      throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::INTERNAL );
+    // ACCOUNT FOR EITHER COMMON NUMERATOR OR COMMON DENOMINATOR??
+    if( _numer.nmon() > 1 || _denom.nmon() > 1 )
+      *this = _env->_lift_intermediate_term( pOp->varin[0], *this );
+    if( var._numer.nmon() > 1 || var._denom.nmon() > 1 )
+      _numer *= _env->_lift_intermediate_term( pOp->varin[1], var )._numer;
+    else{
+      _numer *= var._numer;
+      _denom *= var._denom;
+    }
+  }
+  // Otheriwse, multiply rational terms
+  else{
+    _numer *= var._numer;
+    _denom *= var._denom;
+  }
+
   return *this;
 }
 
@@ -1298,6 +1401,16 @@ operator*
   return var3;
 }
 
+inline SLiftVar
+inv
+( SLiftVar const& var )
+{
+  if( !var.env() )
+   throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
+
+  return SLiftVar( var.env(), var.denom(), var.numer() );
+}
+
 inline SLiftVar&
 SLiftVar::operator/=
 ( SLiftVar const& var )
@@ -1307,13 +1420,49 @@ SLiftVar::operator/=
   else if( var._env && _env != var._env )
     throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
 
-  if( _env->options.LIFTDIV )
-    *this = _env->_lift_bivariate_term( *this, var );
+  // With LIFTDIV enabled, lift all operands and fractional term
+  if( _env->options.LIFTDIV ){
+    *this = _env->_lift_bivariate_term( _env->dag()->curOp(), *this, var );
+    return *this;
+  }
+
+  // With KEEPFACT enabled, lift operands with non-constant denominator
+  else if( _env->options.KEEPFACT ){
+    FFOp const* pOp = _env->dag()->curOp();
+    if( !pOp || pOp->varin.size() != 2 )
+      throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::INTERNAL );
+    // ACCOUNT FOR EITHER COMMON NUMERATOR OR COMMON DENOMINATOR??
+    if( _numer.nmon() > 1 || _denom.nmon() > 1 )
+      *this = _env->_lift_intermediate_term( pOp->varin[0], *this );
+    if( var._numer.nmon() > 1 || var._denom.nmon() > 1 )
+      _denom *= _env->_lift_intermediate_term( pOp->varin[1], var )._numer;
+    else{
+      _numer *= var._denom;
+      _denom *= var._numer;
+    }
+  }
+  
+  // Otheriwse, multiply rational terms
   else{
     _numer *= var._denom;
     _denom *= var._numer;
   }
+
   return *this;
+/*
+
+  if( !_env )
+    _env = var._env;
+  else if( var._env && _env != var._env )
+    throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
+
+  if( _env->options.LIFTDIV ){
+    *this = _env->_lift_bivariate_term( _env->dag()->curOp(), *this, var );
+    return *this;
+  }
+
+  return operator*=( inv( var ) );
+*/
 }
 
 inline SLiftVar
@@ -1334,55 +1483,57 @@ operator/
   return var3;
 }
 
+inline SLiftVar &&
+inv
+( SLiftVar && var )
+{
+  var._denom.swap( var._numer );
+  return std::move( var );
+}
+
 inline SLiftVar
 sqr
 ( SLiftVar const& var )
 {
-#ifdef MC__SLIFT_CHECK
   if( !var.env() )
     throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
-#endif
-  if( var.env()->options.LIFTIPOW )
-    return var.env()->_lift_univariate_term( var );
-  return SLiftVar( var.env(), sqr( var.numer() ), sqr( var.denom() ) );
-}
 
-inline SLiftVar
-inv
-( SLiftVar const& var )
-{
-#ifdef MC__SLIFT_CHECK
-  if( !var.env() )
-    throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
-#endif
-  if( var.env()->options.LIFTDIV )
-    return var.env()->_lift_bivariate_term( 1, var );
-  return SLiftVar( var.env(), var.denom(), var.numer() );
+  if( var.env()->options.LIFTIPOW 
+    || ( var.env()->options.KEEPFACT && ( var.numer().nmon() > 1 || var.denom().nmon() > 1 ) ) )
+    return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
+
+  return SLiftVar( var.env(), sqr( var.numer() ), sqr( var.denom() ) );
 }
 
 inline SLiftVar
 pow
 ( SLiftVar const& var, double const& a )
 {
-#ifdef MC__SLIFT_CHECK
   if( !var.env() )
     throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
-#endif
-  return var.env()->_lift_bivariate_term( var, a );
+
+  return var.env()->_lift_bivariate_term( var.env()->dag()->curOp(), var, a );
 }
 
 inline SLiftVar
 pow
 ( SLiftVar const& var, int const n )
 {
-  if( n < 0 ) return pow( inv( var ), -n );
+  if( n < 0 )
+    return pow( inv( var ), -n );
+  
   switch( n ){
    case 0:  return 1.;
    case 1:  return var;
    case 2:  return sqr( var );
-   default: if( var.env()->options.LIFTIPOW ) return var.env()->_lift_bivariate_term( var, n );
-            return SLiftVar( var.env(), pow( var.numer(), (unsigned)n ), pow( var.denom(), (unsigned)n ) );
+   default: break;
   }
+  
+  if( var.env()->options.LIFTIPOW 
+    || ( var.env()->options.KEEPFACT && ( var.numer().nmon() > 1 || var.denom().nmon() > 1 ) ) )
+    return var.env()->_lift_bivariate_term( var.env()->dag()->curOp(), var, n );
+
+  return SLiftVar( var.env(), pow( var.numer(), (unsigned)n ), pow( var.denom(), (unsigned)n ) );
 }
 
 inline SLiftVar
@@ -1393,9 +1544,14 @@ cheb
    case 0:  return 1.;
    case 1:  return var;
    case 2:  return sqr( var ) * 2. - 1.;
-   default: if( var.env()->options.LIFTIPOW ) return var.env()->_lift_bivariate_term( var, n );
-            return var * cheb( var, n-1 ) * 2. - cheb( var, n-2 );
+   default: break;
   }
+
+  if( var.env()->options.LIFTIPOW 
+    || ( var.env()->options.KEEPFACT && ( var.numer().nmon() > 1 || var.denom().nmon() > 1 ) ) )
+    return var.env()->_lift_bivariate_term( var.env()->dag()->curOp(), var, n );
+
+  return var * cheb( var, n-1 ) * 2. - cheb( var, n-2 );  
 }
 
 inline SLiftVar
@@ -1424,216 +1580,200 @@ inline SLiftVar
 exp
 ( SLiftVar const& var )
 {
-#ifdef MC__SLIFT_CHECK
   if( !var.env() )
     throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
-#endif
-  return var.env()->_lift_univariate_term( var );
+
+  return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
 
 inline SLiftVar
 log
 ( SLiftVar const& var )
 {
-#ifdef MC__SLIFT_CHECK
   if( !var.env() )
     throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
-#endif
-  return var.env()->_lift_univariate_term( var );
+
+  return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
 
 inline SLiftVar
 xlog
 ( SLiftVar const& var )
 {
-#ifdef MC__SLIFT_CHECK
   if( !var.env() )
     throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
-#endif
-  return var.env()->_lift_univariate_term( var );
+
+  return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
 
 inline SLiftVar
 sqrt
 ( SLiftVar const& var )
 {
-#ifdef MC__SLIFT_CHECK
   if( !var.env() )
     throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
-#endif
-  return var.env()->_lift_univariate_term( var );
+
+  return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
 
 inline SLiftVar
 cos
 ( SLiftVar const& var )
 {
-#ifdef MC__SLIFT_CHECK
   if( !var.env() )
     throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
-#endif
-  return var.env()->_lift_univariate_term( var );
+
+  return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
 
 inline SLiftVar
 sin
 ( SLiftVar const& var )
 {
-#ifdef MC__SLIFT_CHECK
   if( !var.env() )
     throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
-#endif
-  return var.env()->_lift_univariate_term( var );
+
+  return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
 
 inline SLiftVar
 tan
 ( SLiftVar const& var )
 {
-#ifdef MC__SLIFT_CHECK
   if( !var.env() )
     throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
-#endif
-  return var.env()->_lift_univariate_term( var );
+
+  return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
 
 inline SLiftVar
 acos
 ( SLiftVar const& var )
 {
-#ifdef MC__SLIFT_CHECK
   if( !var.env() )
     throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
-#endif
-  return var.env()->_lift_univariate_term( var );
+
+  return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
 
 inline SLiftVar
 asin
 ( SLiftVar const& var )
 {
-#ifdef MC__SLIFT_CHECK
   if( !var.env() )
     throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
-#endif
-  return var.env()->_lift_univariate_term( var );
+
+  return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
 
 inline SLiftVar
 atan
 ( SLiftVar const& var )
 {
-#ifdef MC__SLIFT_CHECK
   if( !var.env() )
     throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
-#endif
-  return var.env()->_lift_univariate_term( var );
+
+  return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
 
 inline SLiftVar
 cosh
 ( SLiftVar const& var )
 {
-#ifdef MC__SLIFT_CHECK
   if( !var.env() )
     throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
-#endif
-  return var.env()->_lift_univariate_term( var );
+
+  return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
 
 inline SLiftVar
 sinh
 ( SLiftVar const& var )
 {
-#ifdef MC__SLIFT_CHECK
   if( !var.env() )
     throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
-#endif
-  return var.env()->_lift_univariate_term( var );
+
+  return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
 
 inline SLiftVar
 tanh
 ( SLiftVar const& var )
 {
-#ifdef MC__SLIFT_CHECK
   if( !var.env() )
     throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
-#endif
-  return var.env()->_lift_univariate_term( var );
+
+  return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
 
 inline SLiftVar
 fabs
 ( SLiftVar const& var )
 {
-#ifdef MC__SLIFT_CHECK
   if( !var.env() )
     throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
-#endif
-  return var.env()->_lift_univariate_term( var );
+
+  return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
 
 inline SLiftVar
 erf
 ( SLiftVar const& var )
 {
-#ifdef MC__SLIFT_CHECK
   if( !var.env() )
     throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
-#endif
-  return var.env()->_lift_univariate_term( var );
+
+  return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
 
 inline SLiftVar
 fstep
 ( SLiftVar const& var )
 {
-#ifdef MC__SLIFT_CHECK
   if( !var.env() )
     throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
-#endif
-  return var.env()->_lift_univariate_term( var );
+
+  return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
 
 inline SLiftVar
 max
 ( SLiftVar const& var1, SLiftVar const& var2 )
 {
-  if( var1.env() && var2.env() && var1.env() != var2.env() )
+  if( !var1.env() || ( var2.env() && var1.env() != var2.env() ) )
     throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
 
-  return var1.env()->_lift_bivariate_term( var1, var2 );
+  return var1.env()->_lift_bivariate_term( var1.env()->dag()->curOp(), var1, var2 );
 }
 
 inline SLiftVar
 min
 ( SLiftVar const& var1, SLiftVar const& var2 )
 {
-  if( var1.env() && var2.env() && var1.env() != var2.env() )
+  if( !var1.env() || ( var2.env() && var1.env() != var2.env() ) )
     throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
 
-  return var1.env()->_lift_bivariate_term( var1, var2 );
+  return var1.env()->_lift_bivariate_term( var1.env()->dag()->curOp(), var1, var2 );
 }
 
 inline SLiftVar
 lmtd
 ( SLiftVar const& var1, SLiftVar const& var2 )
 {
-  if( var1.env() && var2.env() && var1.env() != var2.env() )
+  if( !var1.env() || ( var2.env() && var1.env() != var2.env() ) )
     throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
 
-  return var1.env()->_lift_bivariate_term( var1, var2 );
+  return var1.env()->_lift_bivariate_term( var1.env()->dag()->curOp(), var1, var2 );
 }
 
 inline SLiftVar
 rlmtd
 ( SLiftVar const& var1, SLiftVar const& var2 )
 {
-  if( var1.env() && var2.env() && var1.env() != var2.env() )
+  if( !var1.env() || ( var2.env() && var1.env() != var2.env() ) )
     throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
 
-  return var1.env()->_lift_bivariate_term( var1, var2 );
+  return var1.env()->_lift_bivariate_term( var1.env()->dag()->curOp(), var1, var2 );
 }
 
 } // namespace mc

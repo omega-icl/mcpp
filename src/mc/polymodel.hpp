@@ -1,4 +1,4 @@
-// Copyright (C) 2009-2016 Benoit Chachuat, Imperial College London.
+// Copyright (C) Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
@@ -21,7 +21,6 @@
 #include <complex>
 
 #include "mcfunc.hpp"
-#include "mclapack.hpp"
 #include "mcop.hpp"
 
 #undef  MC__POLYMODEL_DEBUG

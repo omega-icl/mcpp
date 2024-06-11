@@ -484,6 +484,22 @@ operator-
   return( Mon3 -= Mon2 );
 }
 
+template <typename KEY, typename COMP>
+inline bool
+operator==
+( SMon<KEY,COMP> const& Mon1, SMon<KEY,COMP> const& Mon2 )
+{
+  return( Mon1.subseteq( Mon2 ) && Mon2.subseteq( Mon1 ) );
+}
+
+template <typename KEY, typename COMP>
+inline bool
+operator!=
+( SMon<KEY,COMP> const& Mon1, SMon<KEY,COMP> const& Mon2 )
+{
+  return( !Mon1.subseteq( Mon2 ) || !Mon2.subseteq( Mon1 ) );
+}
+
 //! @brief C++ structure for ordering of monomials in graded lexicographic order (grlex)
 template <typename COMP=std::less<unsigned>>
 struct lt_SMon
