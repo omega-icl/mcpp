@@ -5,7 +5,7 @@ namespace py = pybind11;
 void mc_interval( py::module_ & );
 void mc_ffunc( py::module_ & );
 
-PYBIND11_MODULE( mcpy, m )
+PYBIND11_MODULE( pymc, m )
 {
 
   m.doc() = "Python interface of library MC++";

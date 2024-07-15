@@ -6,14 +6,14 @@ include $(srcpath)/makeoptions.mk
 #####
 
 libobjs = interval.o ffunc.o main.o
-libname = mcpy.so
+libname = pymc.so
 
 #####
 
 install: dispBuild $(libname) dispInstall
 	@if test ! -e $(libpath)/$(libname); then \
 		echo creating symolic link to shared library $(libname); \
-		cd $(libpath) ; ln -s $(mcpypath)/$(libname) $(libname); \
+		cd $(libpath) ; ln -s $(pymcpath)/$(libname) $(libname); \
 	fi
 	@echo
 
@@ -25,12 +25,12 @@ $(libname): $(libobjs)
 
 dispBuild:
 	@echo
-	@(echo '***Compiling MCPY library (ver.' $(version)')***')
+	@(echo '***Compiling PYMC library (ver.' $(version)')***')
 	@echo
 
 dispInstall:
 	@echo
-	@(echo '***Installing MCPY library (ver.' $(version)')***')
+	@(echo '***Installing PYMC library (ver.' $(version)')***')
 	@echo
 
 #####
@@ -40,7 +40,7 @@ clean: dispClean
 
 dispClean:
 	@echo
-	@(echo '***Cleaning MCPY directory (ver.' $(version)')***')
+	@(echo '***Cleaning PYMC directory (ver.' $(version)')***')
 	@echo
 
 #####
@@ -51,6 +51,6 @@ cleandist: dispCleanInstall
 
 dispCleanInstall:
 	@echo
-	@(echo '***Uninstalling MCPY library (ver.' $(version)')***')
+	@(echo '***Uninstalling PYMC library (ver.' $(version)')***')
 	@echo
 

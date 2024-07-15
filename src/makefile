@@ -12,21 +12,21 @@ export srcpath  = $(rootpath)/src
 export incpath  = $(rootpath)/include
 export libpath  = $(rootpath)/lib
 export mcpath   = $(srcpath)/mc
-export mcpypath = $(srcpath)/mcpy
+export pymcpath = $(srcpath)/pymc
 
 #####
 
-all: mc_all mcpy_all
+all: mc_all pymc_all
 
 mc_all:
 	-(cd $(mcpath); make -f mc.mk all)
 
-mcpy_all:
-	-(cd $(mcpypath); make -f mcpy.mk all)
+pymc_all:
+	-(cd $(pymcpath); make -f pymc.mk all)
 
 #####
 
-install: dirs mc_install mcpy_install
+install: dirs mc_install pymc_install
 
 dirs :
 	@if test ! -e $(incpath)/; then \
@@ -41,26 +41,26 @@ dirs :
 mc_install:
 	-(cd $(mcpath); make -f mc.mk install)
 
-mcpy_install:
-	-(cd $(mcpypath); make -f mcpy.mk install)
+pymc_install:
+	-(cd $(pymcpath); make -f pymc.mk install)
 
 #####
 
-clean: mc_clean mcpy_clean
+clean: mc_clean pymc_clean
 
 mc_clean:
 	-(cd $(mcpath);   make -f mc.mk clean)
 
-mcpy_clean:
-	-(cd $(mcpypath); make -f mcpy.mk clean)
+pymc_clean:
+	-(cd $(pymcpath); make -f pymc.mk clean)
 
 #####
 
-cleaninstall: clean mc_cleaninstall mcpy_cleaninstall
+cleaninstall: clean mc_cleaninstall pymc_cleaninstall
 
 mc_cleaninstall:
 	-(cd $(mcpath);   make -f mc.mk cleaninstall)
 	
-mcpy_cleaninstall:
-	-(cd $(mcpypath); make -f mcpy.mk cleaninstall)
+pymc_cleaninstall:
+	-(cd $(pymcpath); make -f pymc.mk cleaninstall)
 

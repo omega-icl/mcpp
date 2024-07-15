@@ -1,15 +1,15 @@
-import mcpy
+import pymc
 
 def dag_test():
 
   # Define DAG environment
-  DAG = mcpy.FFGraph()
+  DAG = pymc.FFGraph()
 
   # Define variables and dependents
-  X = mcpy.FFVar(DAG,"X")
-  Y = mcpy.FFVar(DAG,"Y")
-  C = mcpy.FFVar(3)
-  F = mcpy.exp(X*Y)-2*X**2+C
+  X = pymc.FFVar(DAG,"X")
+  Y = pymc.FFVar(DAG,"Y")
+  C = pymc.FFVar(3)
+  F = pymc.exp(X*Y)-2*X**2+C
   F.set( "F" )
   
   # Subgraph and dot script
@@ -31,12 +31,12 @@ def dag_test():
 
   # Dependent evaluation in various arithmetics
   print( "grad F @(1,1): ", DAG.eval( SGDFDXY, DFDXY[2], [X,Y], [1.,1.] ) )
-  print( "grad F @([0,1],[1,2]): ", DAG.eval( SGDFDXY, DFDXY[2], [X,Y], [mcpy.Interval(0.,1.),mcpy.Interval(1.,2.)] ) )
+  print( "grad F @([0,1],[1,2]): ", DAG.eval( SGDFDXY, DFDXY[2], [X,Y], [pymc.Interval(0.,1.),pymc.Interval(1.,2.)] ) )
 
   # Setting certain variables
   Y.set(2.);
   print( "grad F @(1,2): ", DAG.eval( DFDXY[2], [X], [1.] ) )
-  print( "grad F @([0,1],2): ", DAG.eval( DFDXY[2], [X], [mcpy.Interval(0.,1.)] ) )
+  print( "grad F @([0,1],2): ", DAG.eval( DFDXY[2], [X], [pymc.Interval(0.,1.)] ) )
   Y.unset()
   
 dag_test()

@@ -1,17 +1,18 @@
 # THIRD-PARTY LIBRARIES <<-- CHANGE AS APPROPRIATE -->>
 
-PATH_3RD_PARTY = $(HOME)/Programs/bitbucket/mcpp30/src/3rdparty
-PATH_EXTERN = $(HOME)/Programs/bitbucket/mcpp30/extern
+PATH_MC        = $(HOME)/Programs/bitbucket/mcpp30
+PATH_3RD_PARTY = $(PATH_MC)/src/3rdparty
+PATH_EXTERN    = $(PATH_MC)/extern
 
 PATH_LAPACK = $(PATH_3RD_PARTY)/cpplapack-2015.05.11-1
-LIB_LAPACK  = -llapack -lblas
+LIB_LAPACK  = -larmadillo -llapack -lblas
 INC_LAPACK  = -I$(PATH_LAPACK)/include
-FLAG_LAPACK =
+FLAG_LAPACK = -DMC__USE_ARMADILLO
 
 PATH_FADBAD = $(PATH_3RD_PARTY)/fadbad++
 LIB_FADBAD  = 
 INC_FADBAD  = -I$(PATH_FADBAD)
-FLAG_FADBAD = -DMC__USE_TADIFF
+FLAG_FADBAD = -DMC__USE_TADIFF #-DMC__USE_FADIFF
 
 PATH_PROFIL = /opt/Profil-2.0.8
 LIB_PROFIL  = -L$(PATH_PROFIL)/lib -lProfilPackages -lProfil -lBias -llr
@@ -33,23 +34,19 @@ LIB_HSL  = -lmc13 -lmc21 -lmc33 -lgfortran
 INC_HSL  = 
 FLAG_HSL = -DMC__USE_HSL
 
-PATH_BOOSTPYTHON = /opt/boost_1_83_0
-INC_BOOSTPYTHON = -I/usr/include/python3.10 -I$(PATH_BOOSTPYTHON)/include
-LIB_BOOSTPYTHON = -lpython3.10 -L$(PATH_BOOSTPYTHON)/lib -lboost_python310
-
 INC_PYBIND11 = -I/usr/include/python3.10 -I$(PATH_EXTERN)/pybind11/include
 
 LIB_CPPUNIT = -lcppunit
 
 # COMPILATION <<-- CHANGE AS APPROPRIATE -->>
 
-# PROF = -pg
-OPTIM = #-O2
-DEBUG = -g
+PROF = #-pg
+OPTIM = -O2
+DEBUG = #-g
 WARN  = -Wall -Wno-misleading-indentation -Wno-unknown-pragmas -Wno-parentheses
 CPP17 = -std=c++17
-CC    = gcc-12
-CPP   = g++-12
+CC    = gcc-13
+CPP   = g++-13
 # CPP   = icpc
 
 # <<-- NO CHANGE BEYOND THIS POINT -->>
@@ -60,7 +57,7 @@ FLAG_LINK = $(PROF)
 
 FLAG_MC  = $(FLAG_FADBAD) $(FLAG_LAPACK) $(FLAG_BOOST)
 LIB_MC   = $(LIB_FADBAD) $(LIB_LAPACK) $(LIB_BOOST)
-INC_MC   = -I$(HOME)/Programs/bitbucket/mcpp30/src/mc $(INC_FADBAD) $(INC_LAPACK) $(INC_BOOST)
+INC_MC   = -I$(PATH_MC)/src/mc $(INC_FADBAD) $(INC_LAPACK) $(INC_BOOST)
 
 ifneq (,$(findstring -DMC__USE_HSL, $(FLAG_HSL)))
  FLAG_MC += $(FLAG_HSL)
