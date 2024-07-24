@@ -1,6 +1,6 @@
 import pymc
 
-def dag_test():
+def dag_test1():
 
   # Define DAG environment
   DAG = pymc.FFGraph()
@@ -38,6 +38,36 @@ def dag_test():
   print( "grad F @(1,2): ", DAG.eval( DFDXY[2], [X], [1.] ) )
   print( "grad F @([0,1],2): ", DAG.eval( DFDXY[2], [X], [pymc.Interval(0.,1.)] ) )
   Y.unset()
+
+
+def dag_test2():
+
+  # Define DAG environment
+  DAG = pymc.FFGraph()
+
+  # Define variables and dependents
+  X = pymc.FFVar(DAG,"X")
+  Y = pymc.FFVar(DAG,"Y")
+  Z = pymc.FFVar(DAG,"Z")
+  C = pymc.FFVar(3)
+  F = Z-pymc.exp(X*Y)-2*X**2+C
+  G = pymc.exp(Y*Z)
+  F.set( "F" )
+  G.set( "G" )
   
-dag_test()
+  # Subgraph and dot script
+  SG = DAG.subgraph( [F,G] )
+  DAG.output( SG )
+  DAG.dot_script( [F,G], "FG.dot" )
+
+  # Backward differentiation
+  DFGDXYZ = DAG.fdiff( [F,G], [X,Y,Z] )
+  print( DFGDXYZ )
+
+  # Forward second-order differentiation
+  D2FGDXYZ2 = DAG.fdiff( DFGDXYZ[2], [X,Y,Z] )
+  print( D2FGDXYZ2 )
+  
+dag_test1()
+dag_test2()
 
