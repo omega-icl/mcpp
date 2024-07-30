@@ -945,16 +945,21 @@ SLiftBase::_insert_expr_external
     op.data = pOp->data; // passing data structure
 
     // Append new DAG variables in _Aux for all operands
-    FFVar const* pVarOut = nullptr;
-    bool first = true;
-    for( auto const& pres : pOp->varout ){
-      if( first ){
-        pVarOut = _insert_aux( pres, true );
-	first = false;
-      }
-      else
-        _insert_aux( pres, true );
-    }
+    std::vector<FFVar> pVarOut;
+    pVarOut.reserve( pOp->varout.size() );
+    for( auto const& pres : pOp->varout )
+      pVarOut.push_back( *_insert_aux( pres, true ) );
+
+//    FFVar const* pVarOut = nullptr;
+//    bool first = true;
+//    for( auto const& pres : pOp->varout ){
+//      if( first ){
+//        pVarOut = _insert_aux( pres, true );
+//	first = false;
+//      }
+//      else
+//        _insert_aux( pres, true );
+//    }
 
     std::vector<FFVar> vVar( vAux.size() ), vRes(pOp->varout.size());
     std::vector<unsigned> mVar( vAux.size(), 0 );
