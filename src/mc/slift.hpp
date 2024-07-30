@@ -60,7 +60,7 @@ The last line displays the following information about the DAG:
 Next, an environment <a>mc::SLiftEnv</a> is defined for lifting the factorable expressions in <a>DAG</a>. The method <a>mc::SLiftEnv::process</a> decomposes the factorable expressions recursively into sparse polynomial and transcendental subexpressions:
 
 \code
-      mc::SLiftEnv<mc::FFGraph<>> SPE( &DAG );
+      mc::SLiftEnv SPE( &DAG );
       SPE.process( NF, F );
 \endcode
 
@@ -189,7 +189,7 @@ Finally, the original vector-valued function \f${\bf f}\f$ is now given by:
 namespace mc
 {
 
-class SLiftBase;
+class SLiftEnv;
 
 //! @brief Arithmetic for recursive decomposition of factorable expressions into polynomial/rational and transcendental subexpressions
 ////////////////////////////////////////////////////////////////////////
@@ -210,7 +210,7 @@ public:
 private:
 
   //! @brief Pointer to recursive decomposition environment
-  SLiftBase *_env;
+  SLiftEnv *_env;
 
 protected:
 
@@ -247,7 +247,7 @@ public:
 
   //! @brief Constructor of sparse rational expression as DAG variable
   SLiftVar
-    ( SLiftBase* env, FFVar const& x);
+    ( SLiftEnv* env, FFVar const& x);
     
   //! @brief Copy constructor of sparse rational expression
   SLiftVar
@@ -255,7 +255,7 @@ public:
 
   //! @brief Constructor of sparse rational expression
   SLiftVar
-    ( SLiftBase* env, t_poly const& n, t_poly const& d );
+    ( SLiftEnv* env, t_poly const& n, t_poly const& d );
 
   //! @brief Destructor of sparse rational expression
   virtual ~SLiftVar()
@@ -263,7 +263,7 @@ public:
 
   //! @brief Initialize variable in sparse rational envrionment <a>env</a> corresponding to DAG variable <a>x</a>
   SLiftVar& set
-    ( SLiftBase* env, FFVar const& x );
+    ( SLiftEnv* env, FFVar const& x );
 
   //! @brief Overloaded operator '=' for sparse rational expression
   SLiftVar& operator=
@@ -292,7 +292,7 @@ public:
     ( SLiftVar const& var );
 
   // Sparse rational polynomial environment
-  SLiftBase* env
+  SLiftEnv* env
     ()
     const
     { return _env; };
@@ -310,15 +310,17 @@ public:
     { return _denom; };
 };
 
-//! @brief C++ base class for recursive decomposition of factorable expressions into polynomial/rational and transcendental subexpressions
 ////////////////////////////////////////////////////////////////////////
-//! mc::SLiftBase is a C++ base class defining the environment for
-//! recursive decomposition of factorable expressions into polynomial/
-//! rational and transcendental subexpressions
+//! mc::SLiftEnv is a C++ class defining the environment for recursive
+//! decomposition of factorable expressions into polynomial/rational
+//! and transcendental subexpressions
 ////////////////////////////////////////////////////////////////////////
-class SLiftBase
+class SLiftEnv
 ////////////////////////////////////////////////////////////////////////
 {
+
+  friend  std::ostream& operator<< ( std::ostream&, SLiftEnv const& );
+
   friend class SLiftVar;
   friend  SLiftVar inv ( SLiftVar const& );
   friend  SLiftVar exp ( SLiftVar const& );
@@ -357,22 +359,42 @@ public:
   typedef SMon<FFVar const*, lt_FFVar> t_mon;
   typedef SPoly<FFVar const*, lt_FFVar> t_poly;
 
+public:
+
   //! @brief Default Constructor
-  SLiftBase
-    ( FFBase* dag=nullptr )
+  SLiftEnv
+    ( FFGraph<>* dag=nullptr )
     : _dag( dag )
     {}
-
+  
   //! @brief Destructor
-  virtual ~SLiftBase
+  virtual ~SLiftEnv
     ()
     { _reset(); }
-  
+
   // Retreive pointer to DAG
-  FFBase* dag
+  FFGraph<>* dag
     ()
     const
     { return _dag; };
+
+  //! @brief Process the dependents in set <a>sDep</a>
+  void process
+    ( std::set<unsigned> const& ndxDep, FFVar const* pDep, bool const add2dag=true );
+
+  //! @brief Process the <a>nDep</a> dependents in array <a>pDep</a>
+  void process
+    ( unsigned const nDep, FFVar const* pDep, const bool add2dag=true );
+
+  //! @brief Set DAG environment
+  void set
+    ( FFGraph<>* dag )
+    { _dag = dag; _reset(); }
+
+  //! @brief Reset intermediate expressions
+  void reset
+    ()
+    { _reset(); }
 
   //! @brief Retreive reference to vector of depedent DAG subexpressions
   std::vector<FFVar>& Dep
@@ -409,16 +431,6 @@ public:
     ()
     { return _AuxLift; }
 
-  //! @brief Set DAG environment
-  void set
-    (  FFBase* dag )
-    { _dag = dag; _reset(); }
-
-  //! @brief Reset intermediate expressions
-  void reset
-    ()
-    { _reset(); }
-
   //! @brief Transcribe sparse polynomial into DAG
   FFVar insert_dag
     ( t_poly const& poly, bool const useprod=false, bool const dagaux=false );
@@ -429,8 +441,7 @@ public:
 
   //! @brief Lift an external operation
   void lift
-    ( unsigned const nres, SLiftVar* pres,
-      unsigned const nvar, SLiftVar const* pvar );
+    ( unsigned const nres, SLiftVar* pres, unsigned const nvar, SLiftVar const* pvar );
 
   //! @brief Exceptions of mc::SLiftVar
   class Exceptions
@@ -451,21 +462,21 @@ public:
     std::string what(){
       switch( _ierr ){
       case DAGERR:
-        return "mc::SLiftBase\t Operation involving a factorable expression linked to a different DAG is not allowed";
+        return "mc::SLiftEnv\t Operation involving a factorable expression linked to a different DAG is not allowed";
       case ENVERR:
-        return "mc::SLiftBase\t Operation between factorable expressions linked to different environments or without an environment is not allowed";
+        return "mc::SLiftEnv\t Operation between factorable expressions linked to different environments or without an environment is not allowed";
       case EXTERNAL:
-        return "mc::SLiftBase\t Invalid external operation";
+        return "mc::SLiftEnv\t Invalid external operation";
       case INTERNAL:
       default:
-        return "mc::SLiftBase\t Internal error";
+        return "mc::SLiftEnv\t Internal error";
       }
     }
    private:
     TYPE _ierr;
   };
 
-  //! @brief Options of mc::SLiftBase
+  //! @brief Options of mc::SLiftEnv
   struct Options
   {
     //! @brief Constructor
@@ -474,7 +485,7 @@ public:
       LOG2EXP( true ), SQRT2SQR( true ), ACOS2COS( true ), ASIN2SIN( true ),
       ATAN2TAN( false ), TAN2ATAN( true ), DISPFULL( false )
       {}
-    //! @brief Assignment of mc::SLiftBase::Options
+    //! @brief Assignment of mc::SLiftEnv::Options
     Options& operator=
       ( Options const& opt ){
         KEEPFACT = opt.KEEPFACT;
@@ -513,12 +524,10 @@ public:
     bool DISPFULL;
   } options;
 
-private:
+protected:
 
   //! @brief pointer to underlying dag
-  FFBase*                _dag;
-
-protected:
+  FFGraph<>*             _dag;
 
   //! @brief Map of lifted DAG operations and sparse expressions
   t_OpLift               _OpLift;
@@ -560,10 +569,8 @@ protected:
     ( FFOp const* pOp, std::vector<const FFVar*>& vAux );
 
   //! @brief Insert an external operation into DAG via the introduction of auxiliary variables
-  template <typename ExtOp, typename... NextOps>
   void _insert_expr_external
-    ( FFOp const* pOp, std::vector<FFVar const*>& vAux,
-      ExtOp op, std::tuple<NextOps...> ops );
+    ( FFOp const* pOp, std::vector<FFVar const*>& vAux );
 
   //! @brief Find/insert auxiliary variable in DAG and return corresponding new DAG variable (or NULL if undefined)
   FFVar const* _insert_aux
@@ -587,56 +594,6 @@ protected:
 };
 
 ////////////////////////////////////////////////////////////////////////
-//! mc::SLiftEnv is a C++ class defining the environment for recursive
-//! decomposition of factorable expressions into polynomial/rational
-//! and transcendental subexpressions
-////////////////////////////////////////////////////////////////////////
-template <typename... ExtOps>
-class SLiftEnv
-: public SLiftBase
-////////////////////////////////////////////////////////////////////////
-{
-  typedef std::tuple<ExtOps...> t_ExtOps;
-  typedef typename remove_first_type< t_ExtOps >::type t_NextExtOps;
-  typedef typename first_type_of< ExtOps... >::type FirstExtOps;
-
-  template <typename... Ops> friend  std::ostream& operator<< ( std::ostream&, SLiftEnv<Ops...> const& );
-  
-public:
-
-  //! @brief Default Constructor
-  SLiftEnv
-    ( FFGraph<ExtOps...>* dag=nullptr )
-    : SLiftBase( dag ),
-      _dag( dag )
-    {}
-  
-  // Retreive pointer to DAG
-  FFGraph<ExtOps...>* dag
-    ()
-    const
-    { return _dag; };
-
-  //! @brief Process the dependents in set <a>sDep</a>
-  void process
-    ( std::set<unsigned> const& ndxDep, FFVar const* pDep, bool const add2dag=true );
-
-  //! @brief Process the <a>nDep</a> dependents in array <a>pDep</a>
-  void process
-    ( unsigned const nDep, FFVar const* pDep, const bool add2dag=true );
-
-  //! @brief Set DAG environment
-  void set
-    ( FFGraph<ExtOps...>* dag )
-    { SLiftBase::set( dag ); _dag = dag; }
-
-protected:
-
-  //! @brief pointer to underlying dag
-  FFGraph<ExtOps...>* _dag;
-};
-
-////////////////////////////////////////////////////////////////////////
 
 inline std::ostream&
 operator<<
@@ -648,10 +605,9 @@ operator<<
   return out;
 }
 
-template <typename... ExtOps>
 inline std::ostream&
 operator<<
-( std::ostream& out, SLiftEnv<ExtOps...> const& env )
+( std::ostream& out, SLiftEnv const& env )
 {
   if( env._Dep.empty() ){
     unsigned count = 0;
@@ -733,9 +689,8 @@ operator<<
   return out;
 }
 
-template <typename... ExtOps>
 inline void
-SLiftEnv<ExtOps...>::process
+SLiftEnv::process
 ( std::set<unsigned> const& ndxDep, FFVar const* pDep, bool const add2dag )
 {
   if( ndxDep.empty() ) return; // Nothing to do!
@@ -745,9 +700,8 @@ SLiftEnv<ExtOps...>::process
   process( ndxDep.size(), vpDep.data(), add2dag );
 }
 
-template <typename... ExtOps>
 inline void
-SLiftEnv<ExtOps...>::process
+SLiftEnv::process
 ( unsigned const nDep, FFVar const* pDep, bool const add2dag )
 {
   // Reset intermediate / auxiliary arrays
@@ -800,10 +754,8 @@ SLiftEnv<ExtOps...>::process
     // Insert operation result and their defining expressions
     if( pOp->type < FFOp::EXTERN )
       _insert_expr( pOp, vAux );
-    else if( !sizeof...(ExtOps) )
-      throw Exceptions( Exceptions::EXTERNAL );
     else
-      _insert_expr_external( pOp, vAux, FirstExtOps(), t_NextExtOps() );
+      _insert_expr_external( pOp, vAux );
   }
 
   // Insert terminal expressions into DAG
@@ -830,7 +782,7 @@ SLiftEnv<ExtOps...>::process
 }
 
 inline FFVar const*
-SLiftBase::_insert_expr
+SLiftEnv::_insert_expr
 ( FFVar const* var, SLiftVar const* expr, bool const isdep )
 { 
   auto itdagvar = _dag->Vars().find( const_cast<FFVar*>(var) );
@@ -875,7 +827,7 @@ SLiftBase::_insert_expr
 }
 
 inline void
-SLiftBase::_insert_expr
+SLiftEnv::_insert_expr
 ( FFOp const* pOp, std::vector<FFVar const*>& vAux )
 {
   // Append new DAG variable in _Aux for unique operand
@@ -930,61 +882,43 @@ SLiftBase::_insert_expr
   }
 }
 
-template <typename ExtOp, typename... NextOps>
 inline void
-SLiftBase::_insert_expr_external
-( FFOp const* pOp, std::vector<FFVar const*>& vAux,
-  ExtOp op, std::tuple<NextOps...> ops )
+SLiftEnv::_insert_expr_external
+( FFOp const* pOp, std::vector<FFVar const*>& vAux )
 {
   if( !pOp || pOp->type < FFOp::EXTERN )
     throw Exceptions( Exceptions::INTERNAL );
 
-  // Current operation matches ExtOp type
-  if( typeid(*pOp) == typeid(op) ){
-    op.info = pOp->info; // passing info field to recast data
-    op.data = pOp->data; // passing data structure
-
-    // Append new DAG variables in _Aux for all operands
-    FFVar const* pVarOut = nullptr;
-    bool first = true;
-    for( auto const& pres : pOp->varout ){
-      if( first ){
-        pVarOut = _insert_aux( pres, true );
-	first = false;
-      }
-      else
-        _insert_aux( pres, true );
+  // Append new DAG variables in _Aux for all operands
+  FFVar const* pVarOut = nullptr;
+  bool first = true;
+  for( auto const& pres : pOp->varout ){
+    if( first ){
+      pVarOut = _insert_aux( pres, true );
+      first = false;
     }
-
-    std::vector<FFVar> vVar( vAux.size() ), vRes(pOp->varout.size());
-    std::vector<unsigned> mVar( vAux.size(), 0 );
-    for( unsigned i=0; i<vAux.size(); ++i )
-      vVar[i] = *vAux.at(i);
-    op.eval( vRes.size(), vRes.data(), vVar.size(), vVar.data(), mVar.data() );
-    for( unsigned j=0; j<vRes.size(); ++j )
-      _Trans.push_back( pVarOut[j] - vRes[j] );
-    return;
+    else
+      _insert_aux( pres, true );
   }
-  
-  // No more external operations to peel off parameter pack
-  if( !sizeof...( NextOps ) )
-    throw Exceptions( Exceptions::EXTERNAL );
 
-  // Separate first element off parameter pack and recursive call
-  typedef std::tuple<NextOps...> t_NextOps;
-  typedef typename remove_first_type< t_NextOps >::type t_NextNextOps;
-  typedef typename first_type_of< NextOps... >::type FirstNextOps;
-  _insert_expr_external( pOp, vAux, FirstNextOps(), t_NextNextOps() );
+  std::vector<FFVar> vVar( vAux.size() ), vRes(pOp->varout.size());
+  std::vector<unsigned> mVar( vAux.size(), 0 );
+  for( unsigned i=0; i<vAux.size(); ++i )
+    vVar[i] = *vAux.at(i);
+  pOp->feval( typeid( FFVar ), vRes.size(), vRes.data(), vVar.size(), vVar.data(), mVar.data() );
+  for( unsigned j=0; j<vRes.size(); ++j )
+    _Trans.push_back( pVarOut[j] - vRes[j] );
+  return;
 }
 
 inline FFVar const*
-SLiftBase::_insert_aux
+SLiftEnv::_insert_aux
 ( FFVar const* aux, bool const ins )
 {
   // First check if auxiliary already exists
-#ifdef MC__SLIFT_DEBUG_PROCESS
+//#ifdef MC__SLIFT_DEBUG_PROCESS
   std::cout << std::endl << "operand: " << *aux << std::endl;
-#endif
+//#endif
   if( aux->opdef().first->type == FFOp::VAR ) return aux;
   auto itaux = _Aux.find( aux );
   if( itaux != _Aux.end() ) return itaux->second;
@@ -996,16 +930,16 @@ SLiftBase::_insert_aux
 #ifdef MC__SLIFT_CHECK
   assert( itnewvar != _dag->Vars().end() );
 #endif
-#ifdef MC__SLIFT_DEBUG_PROCESS
+//#ifdef MC__SLIFT_DEBUG_PROCESS
   std::cout << "paired with new DAG variable: " << **itnewvar << std::endl;
-#endif
+//#endif
   _Aux.insert( std::make_pair( aux, *itnewvar ) );
   _Var.push_back( **itnewvar );
   return *itnewvar;
 }
 
 inline FFVar
-SLiftBase::insert_dag
+SLiftEnv::insert_dag
 ( t_poly const& pol, bool const useprod, bool const dagaux )
 {
   assert( !pol.mapmon().empty() );
@@ -1026,7 +960,7 @@ SLiftBase::insert_dag
 }
 
 inline FFVar
-SLiftBase::insert_dag
+SLiftEnv::insert_dag
 ( t_mon const& mon, bool const useprod, bool const dagaux )
 {
   if( useprod ){
@@ -1071,7 +1005,7 @@ SLiftBase::insert_dag
 }
 
 inline void
-SLiftBase::_reset
+SLiftEnv::_reset
 ()
 {
   for( auto& [pvar,psvar] : _AuxLift )
@@ -1093,7 +1027,7 @@ SLiftBase::_reset
 }
 
 inline void
-SLiftBase::lift
+SLiftEnv::lift
 ( unsigned const nres, SLiftVar* pres,
   unsigned const nvar, SLiftVar const* pvar )
 {
@@ -1112,7 +1046,7 @@ SLiftBase::lift
 }
 
 inline SLiftVar
-SLiftBase::_lift_intermediate_term
+SLiftEnv::_lift_intermediate_term
 ( FFVar const* pVar, SLiftVar const& var )
 {
   if( !pVar )
@@ -1124,7 +1058,7 @@ SLiftBase::_lift_intermediate_term
 }
 
 inline void
-SLiftBase::_append_interm
+SLiftEnv::_append_interm
 ( FFOp const* pOp, SLiftVar const* var1, SLiftVar const* var2 )
 {
   if( !var1 ) throw Exceptions( Exceptions::INTERNAL );
@@ -1136,7 +1070,7 @@ SLiftBase::_append_interm
 }
 
 inline SLiftVar
-SLiftBase::_lift_univariate_term
+SLiftEnv::_lift_univariate_term
 ( FFOp const* pOp, SLiftVar const& var )
 {
   if( !pOp || pOp->varout.size() != 1 )
@@ -1148,7 +1082,7 @@ SLiftBase::_lift_univariate_term
 }
 
 inline SLiftVar
-SLiftBase::_lift_bivariate_term
+SLiftEnv::_lift_bivariate_term
 ( FFOp const* pOp, SLiftVar const& var1, SLiftVar const& var2 )
 {
   if( !pOp || pOp->varout.size() != 1 )
@@ -1161,11 +1095,11 @@ SLiftBase::_lift_bivariate_term
 
 inline
 SLiftVar::SLiftVar
-( SLiftBase* env, FFVar const& x)
+( SLiftEnv* env, FFVar const& x)
 : _env( env )
 {
   if( env->dag() != x.dag() )
-  throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::DAGERR );
+  throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::DAGERR );
   _set( x );
 }
 
@@ -1178,17 +1112,17 @@ SLiftVar::SLiftVar
 
 inline
 SLiftVar::SLiftVar
-( SLiftBase* env, t_poly const& n, t_poly const& d )
+( SLiftEnv* env, t_poly const& n, t_poly const& d )
 : _env( env ), _numer( n ), _denom( d )
 {}
 
 inline SLiftVar&
 SLiftVar::set
-( SLiftBase* env, FFVar const& x )
+( SLiftEnv* env, FFVar const& x )
 {
   _env = env;
   if( env->dag() != x.dag() )
-  throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::DAGERR );
+  throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::DAGERR );
   _set( x );
   return *this;
 }
@@ -1236,7 +1170,7 @@ SLiftVar::operator+=
   if( !_env )
     _env = var._env;
   else if( var._env && _env != var._env )
-    throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
+    throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::ENVERR );
 
   // Check for common denominator first, including a constant denominator
   auto const& [ismult,factor] = _denom.ismultiple( var._denom );
@@ -1250,7 +1184,7 @@ SLiftVar::operator+=
   else if( _env->options.KEEPFACT ){
     FFOp const* pOp = _env->dag()->curOp();
     if( !pOp || pOp->varin.size() != 2 )
-      throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::INTERNAL );
+      throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::INTERNAL );
     if( _denom.maxord() )
       *this = _env->_lift_intermediate_term( pOp->varin[0], *this );
     if( var._denom.maxord() )
@@ -1300,7 +1234,7 @@ SLiftVar::operator-=
   if( !_env )
     _env = var._env;
   else if( var._env && _env != var._env )
-    throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
+    throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::ENVERR );
 
   // Check for common denominator first, including a constant denominator
   auto const& [ismult,factor] = _denom.ismultiple( var._denom );
@@ -1314,7 +1248,7 @@ SLiftVar::operator-=
   else if( _env->options.KEEPFACT ){
     FFOp const* pOp = _env->dag()->curOp();
     if( !pOp || pOp->varin.size() != 2 )
-      throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::INTERNAL );
+      throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::INTERNAL );
     if( _denom.maxord() )
       *this = _env->_lift_intermediate_term( pOp->varin[0], *this );
     if( var._denom.maxord() )
@@ -1357,13 +1291,13 @@ SLiftVar::operator*=
   if( !_env )
     _env = var._env;
   else if( var._env && _env != var._env )
-    throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
+    throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::ENVERR );
 
   // With KEEPFACT enabled, lift operands with non-constant denominator
   if( _env->options.KEEPFACT ){
     FFOp const* pOp = _env->dag()->curOp();
     if( !pOp || pOp->varin.size() != 2 )
-      throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::INTERNAL );
+      throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::INTERNAL );
     // ACCOUNT FOR EITHER COMMON NUMERATOR OR COMMON DENOMINATOR??
     if( _numer.nmon() > 1 || _denom.nmon() > 1 )
       *this = _env->_lift_intermediate_term( pOp->varin[0], *this );
@@ -1406,7 +1340,7 @@ inv
 ( SLiftVar const& var )
 {
   if( !var.env() )
-   throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
+   throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::ENVERR );
 
   return SLiftVar( var.env(), var.denom(), var.numer() );
 }
@@ -1418,7 +1352,7 @@ SLiftVar::operator/=
   if( !_env )
     _env = var._env;
   else if( var._env && _env != var._env )
-    throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
+    throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::ENVERR );
 
   // With LIFTDIV enabled, lift all operands and fractional term
   if( _env->options.LIFTDIV ){
@@ -1430,7 +1364,7 @@ SLiftVar::operator/=
   else if( _env->options.KEEPFACT ){
     FFOp const* pOp = _env->dag()->curOp();
     if( !pOp || pOp->varin.size() != 2 )
-      throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::INTERNAL );
+      throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::INTERNAL );
     // ACCOUNT FOR EITHER COMMON NUMERATOR OR COMMON DENOMINATOR??
     if( _numer.nmon() > 1 || _denom.nmon() > 1 )
       *this = _env->_lift_intermediate_term( pOp->varin[0], *this );
@@ -1454,7 +1388,7 @@ SLiftVar::operator/=
   if( !_env )
     _env = var._env;
   else if( var._env && _env != var._env )
-    throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
+    throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::ENVERR );
 
   if( _env->options.LIFTDIV ){
     *this = _env->_lift_bivariate_term( _env->dag()->curOp(), *this, var );
@@ -1496,7 +1430,7 @@ sqr
 ( SLiftVar const& var )
 {
   if( !var.env() )
-    throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
+    throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::ENVERR );
 
   if( var.env()->options.LIFTIPOW 
     || ( var.env()->options.KEEPFACT && ( var.numer().nmon() > 1 || var.denom().nmon() > 1 ) ) )
@@ -1510,7 +1444,7 @@ pow
 ( SLiftVar const& var, double const& a )
 {
   if( !var.env() )
-    throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
+    throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::ENVERR );
 
   return var.env()->_lift_bivariate_term( var.env()->dag()->curOp(), var, a );
 }
@@ -1581,7 +1515,7 @@ exp
 ( SLiftVar const& var )
 {
   if( !var.env() )
-    throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
+    throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::ENVERR );
 
   return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
@@ -1591,7 +1525,7 @@ log
 ( SLiftVar const& var )
 {
   if( !var.env() )
-    throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
+    throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::ENVERR );
 
   return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
@@ -1601,7 +1535,7 @@ xlog
 ( SLiftVar const& var )
 {
   if( !var.env() )
-    throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
+    throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::ENVERR );
 
   return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
@@ -1611,7 +1545,7 @@ sqrt
 ( SLiftVar const& var )
 {
   if( !var.env() )
-    throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
+    throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::ENVERR );
 
   return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
@@ -1621,7 +1555,7 @@ cos
 ( SLiftVar const& var )
 {
   if( !var.env() )
-    throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
+    throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::ENVERR );
 
   return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
@@ -1631,7 +1565,7 @@ sin
 ( SLiftVar const& var )
 {
   if( !var.env() )
-    throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
+    throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::ENVERR );
 
   return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
@@ -1641,7 +1575,7 @@ tan
 ( SLiftVar const& var )
 {
   if( !var.env() )
-    throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
+    throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::ENVERR );
 
   return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
@@ -1651,7 +1585,7 @@ acos
 ( SLiftVar const& var )
 {
   if( !var.env() )
-    throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
+    throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::ENVERR );
 
   return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
@@ -1661,7 +1595,7 @@ asin
 ( SLiftVar const& var )
 {
   if( !var.env() )
-    throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
+    throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::ENVERR );
 
   return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
@@ -1671,7 +1605,7 @@ atan
 ( SLiftVar const& var )
 {
   if( !var.env() )
-    throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
+    throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::ENVERR );
 
   return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
@@ -1681,7 +1615,7 @@ cosh
 ( SLiftVar const& var )
 {
   if( !var.env() )
-    throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
+    throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::ENVERR );
 
   return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
@@ -1691,7 +1625,7 @@ sinh
 ( SLiftVar const& var )
 {
   if( !var.env() )
-    throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
+    throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::ENVERR );
 
   return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
@@ -1701,7 +1635,7 @@ tanh
 ( SLiftVar const& var )
 {
   if( !var.env() )
-    throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
+    throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::ENVERR );
 
   return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
@@ -1711,7 +1645,7 @@ fabs
 ( SLiftVar const& var )
 {
   if( !var.env() )
-    throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
+    throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::ENVERR );
 
   return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
@@ -1721,7 +1655,7 @@ erf
 ( SLiftVar const& var )
 {
   if( !var.env() )
-    throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
+    throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::ENVERR );
 
   return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
@@ -1731,7 +1665,7 @@ fstep
 ( SLiftVar const& var )
 {
   if( !var.env() )
-    throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
+    throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::ENVERR );
 
   return var.env()->_lift_univariate_term( var.env()->dag()->curOp(), var );
 }
@@ -1741,7 +1675,7 @@ max
 ( SLiftVar const& var1, SLiftVar const& var2 )
 {
   if( !var1.env() || ( var2.env() && var1.env() != var2.env() ) )
-    throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
+    throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::ENVERR );
 
   return var1.env()->_lift_bivariate_term( var1.env()->dag()->curOp(), var1, var2 );
 }
@@ -1751,7 +1685,7 @@ min
 ( SLiftVar const& var1, SLiftVar const& var2 )
 {
   if( !var1.env() || ( var2.env() && var1.env() != var2.env() ) )
-    throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
+    throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::ENVERR );
 
   return var1.env()->_lift_bivariate_term( var1.env()->dag()->curOp(), var1, var2 );
 }
@@ -1761,7 +1695,7 @@ lmtd
 ( SLiftVar const& var1, SLiftVar const& var2 )
 {
   if( !var1.env() || ( var2.env() && var1.env() != var2.env() ) )
-    throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
+    throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::ENVERR );
 
   return var1.env()->_lift_bivariate_term( var1.env()->dag()->curOp(), var1, var2 );
 }
@@ -1771,7 +1705,7 @@ rlmtd
 ( SLiftVar const& var1, SLiftVar const& var2 )
 {
   if( !var1.env() || ( var2.env() && var1.env() != var2.env() ) )
-    throw typename SLiftBase::Exceptions( SLiftBase::Exceptions::ENVERR );
+    throw typename SLiftEnv::Exceptions( SLiftEnv::Exceptions::ENVERR );
 
   return var1.env()->_lift_bivariate_term( var1.env()->dag()->curOp(), var1, var2 );
 }

@@ -10,25 +10,21 @@
 #include "slift.hpp"
 #include "mcml.hpp"
 
-#ifdef MC__USE_PROFIL
+#if defined( MC__USE_PROFIL )
  #include "mcprofil.hpp"
  typedef INTERVAL I;
+#elif defined( MC__USE_FILIB )
+ #include "mcfilib.hpp"
+ typedef filib::interval<double,filib::native_switched,filib::i_mode_extended> I;
+#elif defined( MC__USE_BOOST )
+ #include "mcboost.hpp"
+ typedef boost::numeric::interval_lib::save_state<boost::numeric::interval_lib::rounded_transc_opp<double>> T_boost_round;
+ typedef boost::numeric::interval_lib::checking_base<double> T_boost_check;
+ typedef boost::numeric::interval_lib::policies<T_boost_round,T_boost_check> T_boost_policy;
+ typedef boost::numeric::interval<double,T_boost_policy> I;
 #else
- #ifdef MC__USE_FILIB
-  #include "mcfilib.hpp"
-  typedef filib::interval<double,filib::native_switched,filib::i_mode_extended> I;
- #else
-  #ifdef MC__USE_BOOST
-   #include "mcboost.hpp"
-   typedef boost::numeric::interval_lib::save_state<boost::numeric::interval_lib::rounded_transc_opp<double>> T_boost_round;
-   typedef boost::numeric::interval_lib::checking_base<double> T_boost_check;
-   typedef boost::numeric::interval_lib::policies<T_boost_round,T_boost_check> T_boost_policy;
-   typedef boost::numeric::interval<double,T_boost_policy> I;
-  #else
-   #include "interval.hpp"
-   typedef mc::Interval I;
-  #endif
- #endif
+ #include "interval.hpp"
+ typedef mc::Interval I;
 #endif
 
 #include "mccormick.hpp"
@@ -73,6 +69,29 @@ public:
     }
 
   // Evaluation overloads
+  virtual void feval
+    ( std::type_info const& idU, unsigned const nRes, void* vRes, unsigned const nVar,
+      void const* vVar, unsigned const* mVar )
+    const
+    {
+      if( idU == typeid( FFVar ) )
+        return eval( nRes, static_cast<FFVar*>(vRes), nVar, static_cast<FFVar const*>(vVar), mVar );
+      else if( idU == typeid( FFDep ) )
+        return eval( nRes, static_cast<FFDep*>(vRes), nVar, static_cast<FFDep const*>(vVar), mVar );
+      else if( idU == typeid( FFExpr ) )
+        return eval( nRes, static_cast<FFExpr*>(vRes), nVar, static_cast<FFExpr const*>(vVar), mVar );
+      else if( idU == typeid( double ) )
+        return eval( nRes, static_cast<double*>(vRes), nVar, static_cast<double const*>(vVar), mVar );
+      else if( idU == typeid( I ) )
+        return eval( nRes, static_cast<I*>(vRes), nVar, static_cast<I const*>(vVar), mVar );
+      else if( idU == typeid( McCormick<I> ) )
+        return eval( nRes, static_cast<McCormick<I>*>(vRes), nVar, static_cast<McCormick<I> const*>(vVar), mVar );
+      else if( idU == typeid( SLiftVar ) )
+        return eval( nRes, static_cast<SLiftVar*>(vRes), nVar, static_cast<SLiftVar const*>(vVar), mVar );
+
+      throw std::runtime_error( "Error: No evaluation method for FFnorm2 with type"+std::string(idU.name())+"\n" );
+    }
+
   template< typename T >
   void eval
     ( unsigned const nRes, T* vRes, unsigned const nVar, T const* vVar, unsigned const* mVar )
@@ -136,6 +155,8 @@ public:
     { return true; }
 };
 
+///////////////////////////////////////////////////////////////////////////////
+
 template<unsigned int ID>
 class FFnorm12
 : public FFOp
@@ -162,6 +183,29 @@ public:
     }
 
   // Evaluation overloads
+  virtual void feval
+    ( std::type_info const& idU, unsigned const nRes, void* vRes, unsigned const nVar,
+      void const* vVar, unsigned const* mVar )
+    const
+    {
+      if( idU == typeid( FFVar ) )
+        return eval( nRes, static_cast<FFVar*>(vRes), nVar, static_cast<FFVar const*>(vVar), mVar );
+      else if( idU == typeid( FFDep ) )
+        return eval( nRes, static_cast<FFDep*>(vRes), nVar, static_cast<FFDep const*>(vVar), mVar );
+      else if( idU == typeid( FFExpr ) )
+        return eval( nRes, static_cast<FFExpr*>(vRes), nVar, static_cast<FFExpr const*>(vVar), mVar );
+      else if( idU == typeid( double ) )
+        return eval( nRes, static_cast<double*>(vRes), nVar, static_cast<double const*>(vVar), mVar );
+      else if( idU == typeid( I ) )
+        return eval( nRes, static_cast<I*>(vRes), nVar, static_cast<I const*>(vVar), mVar );
+      else if( idU == typeid( McCormick<I> ) )
+        return eval( nRes, static_cast<McCormick<I>*>(vRes), nVar, static_cast<McCormick<I> const*>(vVar), mVar );
+      else if( idU == typeid( SLiftVar ) )
+        return eval( nRes, static_cast<SLiftVar*>(vRes), nVar, static_cast<SLiftVar const*>(vVar), mVar );
+
+      throw std::runtime_error( "Error: No evaluation method for FFnorm12 with type"+std::string(idU.name())+"\n" );
+    }
+
   template< typename T >
   void eval
     ( unsigned const nRes, T* vRes, unsigned const nVar, T const* vVar, unsigned const* mVar )
@@ -232,6 +276,8 @@ public:
     { return true; }
 };
 
+///////////////////////////////////////////////////////////////////////////////
+
 template<unsigned int ID>
 class FFxlog
 : public FFOp
@@ -252,6 +298,31 @@ public:
     }
 
   // Evaluation overloads
+  virtual void feval
+    ( std::type_info const& idU, unsigned const nRes, void* vRes, unsigned const nVar,
+      void const* vVar, unsigned const* mVar )
+    const
+    {
+      if( idU == typeid( FFVar ) )
+        return eval( nRes, static_cast<FFVar*>(vRes), nVar, static_cast<FFVar const*>(vVar), mVar );
+      else if( idU == typeid( FFDep ) )
+        return eval( nRes, static_cast<FFDep*>(vRes), nVar, static_cast<FFDep const*>(vVar), mVar );
+      else if( idU == typeid( FFExpr ) )
+        return eval( nRes, static_cast<FFExpr*>(vRes), nVar, static_cast<FFExpr const*>(vVar), mVar );
+      else if( idU == typeid( double ) )
+        return eval( nRes, static_cast<double*>(vRes), nVar, static_cast<double const*>(vVar), mVar );
+      else if( idU == typeid( I ) )
+        return eval( nRes, static_cast<I*>(vRes), nVar, static_cast<I const*>(vVar), mVar );
+      else if( idU == typeid( McCormick<I> ) )
+        return eval( nRes, static_cast<McCormick<I>*>(vRes), nVar, static_cast<McCormick<I> const*>(vVar), mVar );
+      else if( idU == typeid( fadbad::F<FFVar> ) )
+        return eval( nRes, static_cast<fadbad::F<FFVar>*>(vRes), nVar, static_cast<fadbad::F<FFVar> const*>(vVar), mVar );
+      else if( idU == typeid( PolVar<I> ) )
+        return eval( nRes, static_cast<PolVar<I>*>(vRes), nVar, static_cast<PolVar<I> const*>(vVar), mVar );
+
+      throw std::runtime_error( "Error: No evaluation method for FFxlog with type"+std::string(idU.name())+"\n" );
+    }
+
   template <typename T>
   void eval
     ( unsigned const nRes, T* vRes, unsigned const nVar, T const* vVar, unsigned const* mVar )
@@ -304,13 +375,23 @@ public:
     {
       assert( nVar == 1 && nRes == 1 );
       std::cout << "xlog Polyhedral image instantiation\n"; 
-      PolBase<T>* img = vVar[0].image();
+      PolImg<T>* img = vVar[0].image();
       FFBase* dag = vVar[0].var().dag();
       assert( img && dag );
       FFVar* pRes = dag->curOp()->varout[0];
       T TRes = Op<I>::xlog( vVar[0].range() );
       vRes[0].set( img, *pRes, TRes );
       // vRes[0] = xlog( vVar[0] );
+    }
+
+  virtual bool reval
+    ( std::type_info const& idU, unsigned const nRes, void const* vRes, unsigned const nVar, void* vVar )
+    const
+    {
+      if( idU == typeid( PolVar<I> ) )
+        return reval( nRes, static_cast<PolVar<I> const*>(vRes), nVar, static_cast<PolVar<I>*>(vVar) );
+
+      throw std::runtime_error( "Error: No evaluation method for FFXlog with type"+std::string(idU.name())+"\n" );
     }
 
   template <typename T>
@@ -320,7 +401,7 @@ public:
     {
       assert( nVar == 1 && nRes == 1 );
       std::cout << "xlog Polyhedral image generation\n"; 
-      PolBase<T>* img = vVar[0].image();
+      PolImg<T>* img = vVar[0].image();
       FFBase* dag = vVar[0].var().dag();
       FFOp* pop = vVar[0].var().opdef().first;
       assert( img && dag && pop );
@@ -335,7 +416,7 @@ public:
       return true;
     }
 
-  void deriv
+  virtual void deriv
     ( unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar, FFVar** vDer )
     const
     {
@@ -350,6 +431,8 @@ public:
     const
     { return "XLOG EXT"; }
 };
+
+///////////////////////////////////////////////////////////////////////////////
 
 template<unsigned int ID>
 class FFdet
@@ -371,6 +454,29 @@ public:
     }
 
   // Evaluation overloads
+  virtual void feval
+    ( std::type_info const& idU, unsigned const nRes, void* vRes, unsigned const nVar,
+      void const* vVar, unsigned const* mVar )
+    const
+    {
+      if( idU == typeid( FFVar ) )
+        return eval( nRes, static_cast<FFVar*>(vRes), nVar, static_cast<FFVar const*>(vVar), mVar );
+      else if( idU == typeid( FFDep ) )
+        return eval( nRes, static_cast<FFDep*>(vRes), nVar, static_cast<FFDep const*>(vVar), mVar );
+      else if( idU == typeid( FFExpr ) )
+        return eval( nRes, static_cast<FFExpr*>(vRes), nVar, static_cast<FFExpr const*>(vVar), mVar );
+      else if( idU == typeid( double ) )
+        return eval( nRes, static_cast<double*>(vRes), nVar, static_cast<double const*>(vVar), mVar );
+      else if( idU == typeid( I ) )
+        return eval( nRes, static_cast<I*>(vRes), nVar, static_cast<I const*>(vVar), mVar );
+      else if( idU == typeid( McCormick<I> ) )
+        return eval( nRes, static_cast<McCormick<I>*>(vRes), nVar, static_cast<McCormick<I> const*>(vVar), mVar );
+      else if( idU == typeid( SLiftVar ) )
+        return eval( nRes, static_cast<SLiftVar*>(vRes), nVar, static_cast<SLiftVar const*>(vVar), mVar );
+
+      throw std::runtime_error( "Error: No evaluation method for FFArrh with type"+std::string(idU.name())+"\n" );
+    }
+
   template< typename T >
   void eval
     ( unsigned const nRes, T* vRes, unsigned const nVar, T const* vVar, unsigned const* mVar )
@@ -432,6 +538,8 @@ public:
     { return false; }
 };
 
+///////////////////////////////////////////////////////////////////////////////
+
 struct FFDOptBase
 {
   // Vector of atom matrices
@@ -456,7 +564,7 @@ struct FFDOptBase
             empty = true;
             break;
           }
-          std::cout << "reading (" << i << "," << j << "): " << Ai(i,j) << std::endl;
+          if( disp ) std::cout << "reading (" << i << "," << j << "): " << Ai(i,j) << std::endl;
         }
         i++;
         if( empty ){
@@ -496,12 +604,21 @@ public:
     }
 
   // Evaluation overloads
-  template< typename T >
-  void eval
-    ( unsigned const nRes, T* vRes, unsigned const nVar, T const* vVar, unsigned const* mVar )
+  virtual void feval
+    ( std::type_info const& idU, unsigned const nRes, void* vRes, unsigned const nVar,
+      void const* vVar, unsigned const* mVar )
     const
     {
-      throw std::runtime_error("Error: No generic implementation for DOpt\n");
+      if( idU == typeid( FFVar ) )
+        return eval( nRes, static_cast<FFVar*>(vRes), nVar, static_cast<FFVar const*>(vVar), mVar );
+      else if( idU == typeid( fadbad::F<FFVar> ) )
+        return eval( nRes, static_cast<fadbad::F<FFVar>*>(vRes), nVar, static_cast<fadbad::F<FFVar> const*>(vVar), mVar );
+      else if( idU == typeid( FFDep ) )
+        return eval( nRes, static_cast<FFDep*>(vRes), nVar, static_cast<FFDep const*>(vVar), mVar );
+      else if( idU == typeid( double ) )
+        return eval( nRes, static_cast<double*>(vRes), nVar, static_cast<double const*>(vVar), mVar );
+
+      throw std::runtime_error( "Error: No evaluation method for FFDOpt with type"+std::string(idU.name())+"\n" );
     }
 
   void eval
@@ -591,12 +708,19 @@ public:
     }
 
   // Evaluation overloads
-  template< typename T >
-  void eval
-    ( unsigned const nRes, T* vRes, unsigned const nVar, T const* vVar, unsigned const* mVar )
+  virtual void feval
+    ( std::type_info const& idU, unsigned const nRes, void* vRes, unsigned const nVar,
+      void const* vVar, unsigned const* mVar )
     const
     {
-      throw std::runtime_error("Error: No generic implementation for DOptGrad\n");
+      if( idU == typeid( FFVar ) )
+        return eval( nRes, static_cast<FFVar*>(vRes), nVar, static_cast<FFVar const*>(vVar), mVar );
+      else if( idU == typeid( FFDep ) )
+        return eval( nRes, static_cast<FFDep*>(vRes), nVar, static_cast<FFDep const*>(vVar), mVar );
+      else if( idU == typeid( double ) )
+        return eval( nRes, static_cast<double*>(vRes), nVar, static_cast<double const*>(vVar), mVar );
+
+      throw std::runtime_error( "Error: No evaluation method for FFDOptGrad with type"+std::string(idU.name())+"\n" );
     }
 
   void eval
@@ -697,6 +821,8 @@ const
     vDer[0][i] = DOptGrad( i, nVar, vVar );
 }
 
+///////////////////////////////////////////////////////////////////////////////
+
 template<unsigned int ID>
 class FFArrh
 : public FFOp
@@ -720,6 +846,29 @@ public:
     }
 
   // Evaluation overloads
+  virtual void feval
+    ( std::type_info const& idU, unsigned const nRes, void* vRes, unsigned const nVar,
+      void const* vVar, unsigned const* mVar )
+    const
+    {
+      if( idU == typeid( FFVar ) )
+        return eval( nRes, static_cast<FFVar*>(vRes), nVar, static_cast<FFVar const*>(vVar), mVar );
+      else if( idU == typeid( FFDep ) )
+        return eval( nRes, static_cast<FFDep*>(vRes), nVar, static_cast<FFDep const*>(vVar), mVar );
+      else if( idU == typeid( FFExpr ) )
+        return eval( nRes, static_cast<FFExpr*>(vRes), nVar, static_cast<FFExpr const*>(vVar), mVar );
+      else if( idU == typeid( double ) )
+        return eval( nRes, static_cast<double*>(vRes), nVar, static_cast<double const*>(vVar), mVar );
+      else if( idU == typeid( I ) )
+        return eval( nRes, static_cast<I*>(vRes), nVar, static_cast<I const*>(vVar), mVar );
+      else if( idU == typeid( McCormick<I> ) )
+        return eval( nRes, static_cast<McCormick<I>*>(vRes), nVar, static_cast<McCormick<I> const*>(vVar), mVar );
+      else if( idU == typeid( SLiftVar ) )
+        return eval( nRes, static_cast<SLiftVar*>(vRes), nVar, static_cast<SLiftVar const*>(vVar), mVar );
+
+      throw std::runtime_error( "Error: No evaluation method for FFArrh with type"+std::string(idU.name())+"\n" );
+    }
+
   template <typename T>
   void eval
     ( unsigned const nRes, T* vRes, unsigned const nVar, T const* vVar, unsigned const* mVar )
@@ -793,7 +942,7 @@ int test_external0()
   std::cout << "\n==============================================\ntest_external0:\n";
 
   // Create DAG
-  mc::FFGraph< mc::FFnorm2<0>, mc::FFnorm12<1> > DAG;
+  mc::FFGraph DAG;
   const unsigned NX = 2, NF = 3;
   mc::FFVar X[NX];
   for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
@@ -831,7 +980,6 @@ int test_external0()
   DAG.output( dFdX_op );
   delete[] dFdX;
 
-
   auto F2_op  = DAG.subgraph( 1, F+1 );
   DAG.output( F2_op );
 
@@ -845,7 +993,7 @@ int test_external1()
   std::cout << "\n==============================================\ntest_external1:\n";
 
   // Create DAG
-  mc::FFGraph< mc::FFnorm2<0>, mc::FFxlog<1> > DAG;
+  mc::FFGraph DAG;
   const unsigned NX = 2, NF = 2;
   mc::FFVar X[NX];
   for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
@@ -892,7 +1040,7 @@ int test_external2()
 {
   std::cout << "\n==============================================\ntest_external2:\n";
 
-  mc::FFGraph< mc::FFdet<0> > DAG;
+  mc::FFGraph DAG;
   const unsigned NX = 4, NF = NX*NX;
   mc::FFVar X[NX];
   for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
@@ -934,7 +1082,7 @@ int test_external3()
 {
   std::cout << "\n==============================================\ntest_external3:\n";
 
-  mc::FFGraph< mc::FFxlog<0> > DAG;
+  mc::FFGraph DAG;
   mc::FFVar X, Y, F, G;
   X.set( &DAG );
   Y.set( &DAG );
@@ -943,14 +1091,20 @@ int test_external3()
   F = exp(X);
   //G = sqr(Y)+F;
   G = myxlog(Y)+F;
-  std::cout << DAG;
+
+  auto F_op  = DAG.subgraph( 1, &F );
+  DAG.output( F_op, " F" );
+  auto G_op  = DAG.subgraph( 1, &G );
+  DAG.output( G_op, " G" );
 
   std::ofstream o_comp0( "external3_0.dot", std::ios_base::out );
   DAG.dot_script( 1, &G, o_comp0 );
   o_comp0.close();
 
   const mc::FFVar* GoF = DAG.compose( 1, &G, 1, &Y, &F );
-  std::cout << DAG;
+
+  auto GoF_op  = DAG.subgraph( 1, GoF );
+  DAG.output( GoF_op, " GoF" );
 
   std::ofstream o_comp1( "external3_1.dot", std::ios_base::out );
   DAG.dot_script( 1, GoF, o_comp1 );
@@ -966,7 +1120,8 @@ int test_external4()
 {
   std::cout << "\n==============================================\ntest_external4:\n";
 
-  mc::FFGraph< mc::FFxlog<0> > DAG;
+  //mc::FFGraph< mc::FFxlog<0> > DAG;
+  mc::FFGraph DAG;
   mc::FFVar X;
   X.set( &DAG );
   mc::FFxlog<0> myxlog;
@@ -976,12 +1131,30 @@ int test_external4()
   auto F_op  = DAG.subgraph( 1, &F );
   DAG.output( F_op, " F" );
 
+  // Evaluation in real arithmetic
+  double dX = 2., dF;
+  std::vector<double> dwk;
+  DAG.eval( F_op, dwk, 1, &F, &dF, 1, &X, &dX );
+  std::cout << "F = " << dF << std::endl;
+
+  // Evaluation in interval arithmetic
+  I IX = I(1.5,2.5), IF;
+  std::vector<I> Iwk;
+  DAG.eval( F_op, Iwk, 1, &F, &IF, 1, &X, &IX );
+  std::cout << "F = " << IF << std::endl;
+
+  // Evaluation in McCormick arithmetic
+  MC mcX = MC(IX,2.), mcF;
+  std::vector<MC> mcwk;
+  DAG.eval( F_op, mcwk, 1, &F, &mcF, 1, &X, &mcX );
+  std::cout << "F = " << mcF << std::endl;
+
   // Forward AD
   const mc::FFVar* dFdX = DAG.FAD( 1, &F, 1, &X );
   std::cout << DAG;
   DAG.output( DAG.subgraph( 1, dFdX ), " dFdX" );
-
   delete[] dFdX;
+
   return 0;
 }
 
@@ -991,7 +1164,7 @@ int test_external5()
 {
   std::cout << "\n==============================================\ntest_external5:\n";
 
-  mc::FFGraph< mc::FFxlog<0> > DAG;
+  mc::FFGraph DAG;
   mc::FFVar X;
   X.set( &DAG );
   mc::FFxlog<0> myxlog;
@@ -1002,7 +1175,7 @@ int test_external5()
   DAG.output( F_op, " F" );
 
   // Polyhedral relaxation
-  mc::PolImg< I, mc::FFxlog<0> > IMG;
+  mc::PolImg<I> IMG;
   I IX = { I(1,5) };
   POLV PX( &IMG, X, IX ), PF;
   std::vector<POLV> polwk;
@@ -1019,9 +1192,9 @@ int test_external6()
 {
   std::cout << "\n==============================================\ntest_external6:\n";
 
-  mc::FFGraph< mc::FFDOpt<0>, mc::FFDOptGrad<0> > DAG;
+  mc::FFGraph DAG;
   const unsigned NP = 4;
-  const unsigned NS = mc::FFDOptBase::read( NP, "fims.txt", true ); 
+  const unsigned NS = mc::FFDOptBase::read( NP, "fims.txt", false ); 
   mc::FFVar S[NS];
   for( unsigned int i=0; i<NS; i++ ) S[i].set( &DAG );
   mc::FFDOpt<0> DOpt;
@@ -1060,7 +1233,8 @@ int test_external7()
   std::cout << "\n==============================================\ntest_external7:\n";
 
   // Create DAG
-  mc::FFGraph< mc::FFArrh<0> > DAG;
+  //mc::FFGraph< mc::FFArrh<0> > DAG;
+  mc::FFGraph DAG;
   mc::FFVar X( &DAG );
   mc::FFArrh<0> Arrh;
   double C1(2.), C2(3.);
@@ -1099,7 +1273,7 @@ int test_external8()
 
   // Create MLP
   mc::MLP<I> f;
-  f.options.RELAX     = mc::MLP<I>::Options::AUX;//MCISM;
+  f.options.RELAX     = mc::MLP<I>::Options::MC;//AUX;//MCISM;
   f.options.ISMDIV    = 16;
   f.options.ASMBPS    = 8;
   f.options.ISMCONT   = true;
@@ -1115,7 +1289,7 @@ int test_external8()
                                                 mc::MLP<I>::Options::LINEAR );
 
   // Create DAG
-  mc::FFGraph< mc::FFMLP<I,0>, mc::FFGRADMLP<I,0> > DAG;
+  mc::FFGraph DAG;
   size_t NX = 2;
   mc::FFVar X[NX];
   for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
@@ -1142,8 +1316,8 @@ int test_external8()
   std::cout << "F = " << mcF << std::endl;
 
   // Polyhedral relaxation
-  mc::PolImg< I, mc::FFMLP<I,0>, mc::FFGRADMLP<I,0> > IMG;
-  IMG.options.BREAKPOINT_TYPE = mc::PolBase<I>::Options::CONT;//BIN;//SOS2;
+  mc::PolImg<I> IMG;
+  IMG.options.BREAKPOINT_TYPE = mc::PolImg<I>::Options::CONT;//BIN;//SOS2;
   IMG.options.AGGREG_LQ       = true;
   IMG.options.BREAKPOINT_RTOL =
   IMG.options.BREAKPOINT_ATOL = 0e0;
@@ -1216,17 +1390,18 @@ int test_slift_external0()
   std::cout << "\n==============================================\ntest_slift_external0:\n";
 
   // Create DAG
-  mc::FFGraph< mc::FFnorm2<0>, mc::FFnorm12<1> > DAG;
-  const unsigned NX = 2, NF = 3;
+  mc::FFGraph DAG;
+  const unsigned NX = 2, NF = 2;
   mc::FFVar X[NX];
   for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
   mc::FFnorm2<0> norm2;
   mc::FFnorm12<1> norm12;
   //mc::FFVar F[NF] = { max( X[0], X[1] ), norm12( 0, NX, X ), norm12( 1, NX, X ) };
-  mc::FFVar F[NF] = { norm2( NX, X ), norm12( 0, NX, X ), norm12( 1, NX, X ) };
+  //mc::FFVar F[NF] = { norm2( NX, X ), norm12( 0, NX, X ), norm12( 1, NX, X ) };
+  mc::FFVar F[NF] = { norm12( 0, NX, X ), norm12( 1, NX, X ) };
   std::cout << DAG;
 
-  mc::SLiftEnv< mc::FFnorm2<0>, mc::FFnorm12<1> > SPE( &DAG );
+  mc::SLiftEnv SPE( &DAG );
   SPE.process( 2, F, true );
   std::cout << SPE;
 
@@ -1240,7 +1415,7 @@ int test_slift_external1()
   std::cout << "\n==============================================\ntest_slift_external1:\n";
 
   // Create DAG
-  mc::FFGraph< mc::FFArrh<0> > DAG;
+  mc::FFGraph DAG;
   mc::FFVar X( &DAG );
   mc::FFArrh<0> Arrh;
   double C1(2.), C2(3.);
@@ -1248,7 +1423,7 @@ int test_slift_external1()
   mc::FFVar F = 1 - Arrh( X, C1 ) / Arrh( X, C2 );
   std::cout << DAG;
 
-  mc::SLiftEnv< mc::FFArrh<0> > SPE( &DAG );
+  mc::SLiftEnv SPE( &DAG );
   SPE.process( 1, &F, true );
   std::cout << SPE;
 
@@ -1269,8 +1444,8 @@ int main()
 //    test_external6();
 //    test_external7();
 //    test_external8();
-//    test_slift_external0();
-    test_slift_external1();
+    test_slift_external0();
+//    test_slift_external1();
   }
   catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
@@ -1309,7 +1484,7 @@ int main()
               << "Aborts." << std::endl;
     return eObj.ierr();
   }
-  catch( mc::PolBase<I>::Exceptions &eObj ){
+  catch( mc::PolImg<I>::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
               << " in polyhedral image arithmetic:" << std::endl
               << eObj.what() << std::endl

@@ -284,7 +284,7 @@ TODO:
 namespace mc
 {
 
-template< class T > class PolBase;
+template< class T > class PolImg;
 template< class T > class PolLQExpr;
 template< class T > class PolCut;
 template< class T > class lt_PolVar;
@@ -299,7 +299,7 @@ template< class T >
 class PolVar
 ////////////////////////////////////////////////////////////////////////
 {
-  friend class PolBase<T>;
+  friend class PolImg<T>;
   friend class lt_PolVar<T>;
 
   template< class U > friend  PolVar<U> operator+( const PolVar<U>&, const PolVar<U>& );
@@ -387,7 +387,7 @@ class PolVar
 						  
   private:
     //! @brief pointer to underlying polytope
-    mutable PolBase<T>* _img;
+    mutable PolImg<T>* _img;
     //! @brief underlying variable in DAG
     FFVar _var;
     //! @brief variable range
@@ -403,13 +403,13 @@ class PolVar
 
     //! @brief set as DAG variable <a>X</a> in polytope image <a>P</a> with range <a>B</a>
     void _set
-      ( PolBase<T>*P, FFVar const& X, T const& B, const bool cont, const unsigned index )
+      ( PolImg<T>*P, FFVar const& X, T const& B, const bool cont, const unsigned index )
       { _img = P; _var = X; _range = (!_var.cst()? B: _var.num().val());
         _id = std::make_pair( cont? VARCONT: VARINT, index );
         _breakpts.clear(); reset_subdiv(); reset_cuts(); }
     //! @brief set as auxiliary variable in polytope image <a>P</a> with range <a>B</a>
     void _set
-      ( PolBase<T>*P, const T&B, const bool cont, const unsigned index )
+      ( PolImg<T>*P, const T&B, const bool cont, const unsigned index )
       { _img = P; _var = 0; _range = B;
         _id = std::make_pair( cont? AUXCONT: AUXINT, index );
          _breakpts.clear(); reset_subdiv(); reset_cuts(); }
@@ -457,11 +457,11 @@ class PolVar
       {}
     //! @brief Constructor for DAG variable <a>X</a> in polytope image <a>P</a> with range <a>B</a>
     PolVar
-      ( PolBase<T>*P, FFVar const& X, T const& B=0., const bool cont=true )
+      ( PolImg<T>*P, FFVar const& X, T const& B=0., const bool cont=true )
       { set( P, X, B, cont ); }
     //! @brief Constructor for auxiliary variable in polytope image <a>P</a> with range <a>B</a>
     PolVar
-      ( PolBase<T>*P, T const& B=0., const bool cont=true )
+      ( PolImg<T>*P, T const& B=0., const bool cont=true )
       { set( P, B, cont ); }
     //! @brief Copy constructor for a polytope image <a>P</a>
     PolVar
@@ -491,12 +491,12 @@ class PolVar
         reset_subdiv(); reset_cuts(); return *this; }
     //! @brief set as DAG variable <a>X</a> in polytope image <a>P</a> with range <a>B</a>
     PolVar<T>& set
-      ( PolBase<T>*P, FFVar const& X, T const& B=0., const bool cont=true )
+      ( PolImg<T>*P, FFVar const& X, T const& B=0., const bool cont=true )
       { *this = *P->_append_var( &X, B, cont );
         _breakpts.clear(); reset_subdiv(); reset_cuts(); return *this; }
     //! @brief set as auxiliary variable in polytope image <a>P</a> with range <a>B</a>
     PolVar<T>& set
-      ( PolBase<T>*P, T const& B=0., const bool cont=true )
+      ( PolImg<T>*P, T const& B=0., const bool cont=true )
       { *this = *P->_append_aux( B, cont );
         _breakpts.clear(); reset_subdiv(); reset_cuts(); return *this; }
 
@@ -515,7 +515,7 @@ class PolVar
       { return _range; }//_var.cst()? _var.num().val(): _range; }
       //{ return _range; }
     //! @brief get pointer to polytopic image
-    PolBase<T>* image
+    PolImg<T>* image
       () const
       { return _img; }
     //! @brief get pointer to variable identifier
@@ -1232,7 +1232,7 @@ public:
         _coef[ivar] = ita->second;
         auto itX = X.find(ita->first);
         if( itX == X.cend() )
-          throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::BADCUT );
+          throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::BADCUT );
         _var[ivar] = itX->second;
       }
     }
@@ -1321,7 +1321,7 @@ public:
         _coef[ivar] = ita->second;
         auto itX = X.find(ita->first);
         if( itX == X.cend() )
-          throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::BADCUT );
+          throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::BADCUT );
         _var[ivar] = itX->second;
       }
       _coef[a.size()] = a1;
@@ -1339,7 +1339,7 @@ public:
         _coef[ivar] = ita->second;
         auto itX = X.find(ita->first);
         if( itX == X.cend() )
-          throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::BADCUT );
+          throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::BADCUT );
         _var[ivar] = itX->second;
       }
       _coef[a.size()]   = a1;
@@ -1349,7 +1349,7 @@ public:
     }
   //! @brief Constructor for <a>cut</a> defined in another image into <a>img</a>
   PolCut
-    ( PolBase<T>* img, PolCut const* cut, std::map<PolVar<T> const*,PolVar<T>,lt_PolVar<T>>& mapvar )
+    ( PolImg<T>* img, PolCut const* cut, std::map<PolVar<T> const*,PolVar<T>,lt_PolVar<T>>& mapvar )
     : _op(cut->_op), _type(cut->_type), _rhs(cut->_rhs), _var(cut->_var), _coef(cut->_coef),
       _qvar1(cut->_qvar1), _qvar2(cut->_qvar2), _qcoef(cut->_qcoef)
     {
@@ -1409,7 +1409,7 @@ private:
 
   //! @brief Substitute variable from another image as new auxliary into <a>img</a>
   void _substitute
-    ( PolBase<T>* img, PolVar<T> const& refvar, PolVar<T>& newvar,
+    ( PolImg<T>* img, PolVar<T> const& refvar, PolVar<T>& newvar,
       std::map<PolVar<T> const*,PolVar<T>,lt_PolVar<T>>& mapvar )
     {
       // Nothing to do if newvar already mapped
@@ -1425,7 +1425,7 @@ private:
         case PolVar<T>::VARINT:
         case PolVar<T>::AUXINT:  newvar.set( img, refvar.range(), false ); break;
         case PolVar<T>::AUXCST:
-        default:      throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::BADCUT );
+        default: throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::BADCUT );
       }
       // Update map
       mapvar[&refvar] = newvar;
@@ -1524,7 +1524,7 @@ operator<<
             out << cut._var[cut._op->varin.size()-1].name() << " )"; break;
           }
           // Should not reach this point
-          throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::BADCUT );
+          throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::BADCUT );
       }
     }
   return out;
@@ -1600,20 +1600,21 @@ struct lt_OAsub
 
 //! @brief C++ class for polytopic image evaluation
 ////////////////////////////////////////////////////////////////////////
-//! mc::PolBase is the C++ base class for evaluation of the polytoptic
+//! mc::PolImg is the main C++ class for evaluation of the polytoptic
 //! image of a factorable function. Propagation of the image is via
 //! lifting, relaxation and out-approximation, and enabled by the
 //! propagation of mc::PolVar types. The template parameter corresponds
 //! to the type used to propagate variable range. Round-off errors are
 //! not accounted for in the computations (non-verified implementation).
 ////////////////////////////////////////////////////////////////////////
-template< class T >
-class PolBase
+template < typename T >
+class PolImg
 ////////////////////////////////////////////////////////////////////////
 {
+
   friend class PolVar<T>;
  
-  template <typename U> friend std::ostream& operator<<( std::ostream&, const PolBase<U>& );
+  template <typename U> friend std::ostream& operator<<( std::ostream&, const PolImg<U>& );
 
   template< class U > friend  PolVar<U> operator+( const PolVar<U>&, const PolVar<U>& );
   template< class U > friend  PolVar<U> operator+( const PolVar<U>&, const double );
@@ -1653,6 +1654,7 @@ class PolBase
   template< class U > friend  PolVar<U> rlmtd( const PolVar<U>&, const PolVar<U>& );  
 
 public:
+
   //! @brief Container type for main (DAG) variables
   typedef std::map< FFVar const*, PolVar<T>*, lt_FFVar > t_Vars;
   typedef typename t_Vars::iterator it_Vars;
@@ -1663,13 +1665,14 @@ public:
   typedef std::multiset< PolCut<T>*, lt_PolCut<T> > t_Cuts;
   typedef double (*p_Univ)( const double, const double*, const int* );
   typedef std::pair<double,double> (*p_dUniv)( const double, const double*, const int* );
-  typedef void (PolBase<T>::*p_Cut)( FFOp*, const double, const PolVar<T>&, const double,
+  typedef void (PolImg<T>::*p_Cut)( FFOp*, const double, const PolVar<T>&, const double,
     const double, const PolVar<T>&, const double, const double, const double*, const int* );
-  typedef void (PolBase<T>::*p_Cut2)( FFOp*, const PolVar<T>&, const double,
+  typedef void (PolImg<T>::*p_Cut2)( FFOp*, const PolVar<T>&, const double,
     const double, const PolVar<T>&, const double, const double, const double*, const int* );
   typedef std::priority_queue< OAsub, std::vector<OAsub>, lt_OAsub > t_OA;
 
 protected:
+
   //! @brief Map of main (DAG) variables in polytopic image
   t_Vars _Vars;
   //! @brief Appends new pointer to DAG variable map in polytopic image
@@ -1879,25 +1882,28 @@ protected:
   void _append_cuts_default
     ( FFOp const* pOp, PolVar<T>* pPolVar );
   //! @brief generate cuts for external DAG operation
-  template <typename ExtOp, typename... NextOps>
   void _append_cuts_external
-    ( FFOp const* pOp, PolVar<T>* pPolVar, ExtOp op, std::tuple<NextOps...> ops );
+    ( FFOp const* pOp, PolVar<T>* pPolVar );
+
+  //! @brief propagate cuts backwards through polyhedral image
+  void _propagate_cuts
+    ( FFOp const* pOp, PolVar<T>* pPolVar );
 
 public:
   /** @ingroup POLYTOPE
    *  @{
    */
   //! @brief Default Constructor
-  PolBase
+  PolImg
     ()
     {}
 
   //! @brief Destructor
-  virtual ~PolBase
+  virtual ~PolImg
     ()
     { reset(); }
 
-  //! @brief PolBase exceptions
+  //! @brief PolImg exceptions
   class Exceptions
   {
   public:
@@ -1948,7 +1954,7 @@ public:
     TYPE _ierr;
   };
 
-  //! @brief PolBase options class
+  //! @brief PolImg options class
   struct Options
   {
     //! @brief Constructor
@@ -2026,7 +2032,7 @@ public:
     std::set<FFOp::TYPE> ALLOW_DISJ;
   };
 
-  //! @brief PolBase options handle
+  //! @brief PolImg options handle
   Options options;
 
   //! @brief Retreive reference to set of DAG variables in polytopic image
@@ -2181,12 +2187,23 @@ public:
 
   //! @brief Insert cuts from other polyhedral image <a>img</a>
   void insert_cuts
-    ( PolBase<T> const* img, std::map<PolVar<T> const*,PolVar<T>,lt_PolVar<T>>& POLMap );
+    ( PolImg<T> const* img, std::map<PolVar<T> const*,PolVar<T>,lt_PolVar<T>>& POLMap );
+
+  //! @brief Append relaxation cuts for the <a>ndep</a> dependents in <a>pdep</a>
+  void generate_cuts
+    ( const unsigned ndep, const PolVar<T>*pdep, const bool reset=false );
+  //! @brief Append relaxation cuts for the dependents in <a>pdep</a> indexed by <a>ndxdep</a>
+  void generate_cuts
+    ( const std::set<unsigned>&ndxdep, const PolVar<T>*pdep, const bool reset=false );
+  //! @brief Append relaxation cuts for the dependents in the map <a>mdep</a>
+  template <typename KEY, typename COMP>
+  void generate_cuts
+    ( std::map<KEY,PolVar<T>,COMP> const& mdep, const bool reset=false );
 };
 
 template <typename T>
 inline PolVar<T>*
-PolBase<T>::_append_var
+PolImg<T>::_append_var
 ( FFVar const* var, T const& range, const bool cont )
 {
   auto itVar = _Vars.find( var );
@@ -2203,7 +2220,7 @@ PolBase<T>::_append_var
 
 template <typename T>
 inline PolVar<T>*
-PolBase<T>::_update_var
+PolImg<T>::_update_var
 ( FFVar const* var, const bool cont )
 {
   auto itVar = _Vars.find( var );
@@ -2216,7 +2233,7 @@ PolBase<T>::_update_var
 
 template <typename T>
 inline PolVar<T>*
-PolBase<T>::_update_var
+PolImg<T>::_update_var
 ( FFVar const* var, T const& range )
 {
   auto itVar = _Vars.find( var );
@@ -2228,7 +2245,7 @@ PolBase<T>::_update_var
 }
 
 template <typename T> inline void
-PolBase<T>::_erase_vars
+PolImg<T>::_erase_vars
 ()
 {
   for( auto itv = _Vars.begin(); itv != _Vars.end(); ++itv )
@@ -2237,7 +2254,7 @@ PolBase<T>::_erase_vars
 }
 
 template <typename T> inline void
-PolBase<T>::_reset_vars
+PolImg<T>::_reset_vars
 ()
 {
   for( auto itv = _Vars.begin(); itv != _Vars.end(); ++itv ){
@@ -2248,7 +2265,7 @@ PolBase<T>::_reset_vars
 
 template <typename T>
 inline PolVar<T>*
-PolBase<T>::_append_aux
+PolImg<T>::_append_aux
 ( const T&range, const bool cont )
 {
   PolVar<T>* pAux = new PolVar<T>;
@@ -2258,7 +2275,7 @@ PolBase<T>::_append_aux
 }
 
 template <typename T> inline void
-PolBase<T>::_erase_aux
+PolImg<T>::_erase_aux
 ()
 {
   for( auto itv = _Aux.begin(); itv != _Aux.end(); ++itv )
@@ -2268,7 +2285,7 @@ PolBase<T>::_erase_aux
 
 template <typename T>
 inline PolLQExpr<T>*
-PolBase<T>::_append_LQ
+PolImg<T>::_append_LQ
 ( const PolVar<T>*varR )
 {
   PolLQExpr<T>* pLQ = new PolLQExpr<T>( varR );
@@ -2278,7 +2295,7 @@ PolBase<T>::_append_LQ
 
 template <typename T>
 inline void
-PolBase<T>::_erase_LQ
+PolImg<T>::_erase_LQ
 ()
 {
   for( auto itl = _LQExpr.begin(); itl != _LQExpr.end(); ++itl )
@@ -2287,7 +2304,7 @@ PolBase<T>::_erase_LQ
 }
 
 template <typename T> inline void
-PolBase<T>::_erase_cuts
+PolImg<T>::_erase_cuts
 ()
 {
   for( auto itc = _Cuts.begin(); itc != _Cuts.end(); ++itc )
@@ -2297,7 +2314,7 @@ PolBase<T>::_erase_cuts
  
 template <typename T>
 inline void
-PolBase<T>::_erase_cuts
+PolImg<T>::_erase_cuts
 ( FFOp* op )
 {
   auto itc = _Cuts.begin();
@@ -2310,8 +2327,8 @@ PolBase<T>::_erase_cuts
 template <typename T>
 inline
 void
-PolBase<T>::insert_cuts
-( PolBase<T> const* img, std::map<PolVar<T> const*,PolVar<T>,lt_PolVar<T>>& POLMap )
+PolImg<T>::insert_cuts
+( PolImg<T> const* img, std::map<PolVar<T> const*,PolVar<T>,lt_PolVar<T>>& POLMap )
 {
   for( auto const& pCutRef : img->_Cuts ){
     PolCut<T>* pCut = new PolCut<T>( this, pCutRef, POLMap );
@@ -2320,8 +2337,8 @@ PolBase<T>::insert_cuts
 }
 
 template <typename T>
-inline typename PolBase<T>::t_Cuts::iterator
-PolBase<T>::add_cut
+inline typename PolImg<T>::t_Cuts::iterator
+PolImg<T>::add_cut
 ( FFOp const* op, const PolVar<T>&X1, const PolVar<T>&X2 )
 {
   PolCut<T>* pCut = new PolCut<T>( op, X1, X2 );
@@ -2329,8 +2346,8 @@ PolBase<T>::add_cut
 }
 
 template <typename T>
-inline typename PolBase<T>::t_Cuts::iterator
-PolBase<T>::add_cut
+inline typename PolImg<T>::t_Cuts::iterator
+PolImg<T>::add_cut
 ( FFOp const* op, const PolVar<T>&X1, const PolVar<T>&X2, const PolVar<T>&X3 )
 {
   PolCut<T>* pCut = new PolCut<T>( op, X1, X2, X3 );
@@ -2338,8 +2355,8 @@ PolBase<T>::add_cut
 }
 
 template <typename T>
-inline typename PolBase<T>::t_Cuts::iterator
-PolBase<T>::add_cut
+inline typename PolImg<T>::t_Cuts::iterator
+PolImg<T>::add_cut
 ( FFOp const* op, const PolVar<T>&X1, const PolVar<T>&X2, const double X3 )
 {
   PolCut<T>* pCut = new PolCut<T>( op, X1, X2, X3 );
@@ -2347,8 +2364,8 @@ PolBase<T>::add_cut
 }
 
 template <typename T>
-inline typename PolBase<T>::t_Cuts::iterator
-PolBase<T>::add_cut
+inline typename PolImg<T>::t_Cuts::iterator
+PolImg<T>::add_cut
 ( FFOp const* op, const typename PolCut<T>::TYPE type,
   const double b )
 {
@@ -2357,8 +2374,8 @@ PolBase<T>::add_cut
 }
 
 template <typename T>
-inline typename PolBase<T>::t_Cuts::iterator
-PolBase<T>::add_cut
+inline typename PolImg<T>::t_Cuts::iterator
+PolImg<T>::add_cut
 ( FFOp const* op, const typename PolCut<T>::TYPE type,
   const double b, const PolVar<T>&X1, const double a1 )
 {
@@ -2367,8 +2384,8 @@ PolBase<T>::add_cut
 }
 
 template <typename T>
-inline typename PolBase<T>::t_Cuts::iterator
-PolBase<T>::add_cut
+inline typename PolImg<T>::t_Cuts::iterator
+PolImg<T>::add_cut
 ( FFOp const* op, const typename PolCut<T>::TYPE type,
   const double b, const PolVar<T>&X1, const double a1,
   const PolVar<T>&X2, const double a2 )
@@ -2378,8 +2395,8 @@ PolBase<T>::add_cut
 }
 
 template <typename T>
-inline typename PolBase<T>::t_Cuts::iterator
-PolBase<T>::add_cut
+inline typename PolImg<T>::t_Cuts::iterator
+PolImg<T>::add_cut
 ( FFOp const* op, const typename PolCut<T>::TYPE type,
   const double b, const PolVar<T>&X1, const double a1,
   const PolVar<T>&X2, const double a2, const PolVar<T>&X3,
@@ -2390,8 +2407,8 @@ PolBase<T>::add_cut
 }
 
 template <typename T>
-inline typename PolBase<T>::t_Cuts::iterator
-PolBase<T>::add_cut
+inline typename PolImg<T>::t_Cuts::iterator
+PolImg<T>::add_cut
 ( FFOp const* op, const typename PolCut<T>::TYPE type,
   const double b, const PolVar<T>&X1, const double a1,
   const PolVar<T>&X2, const double a2, const PolVar<T>&X3,
@@ -2402,8 +2419,8 @@ PolBase<T>::add_cut
 }
 
 template <typename T>
-inline typename PolBase<T>::t_Cuts::iterator
-PolBase<T>::add_cut
+inline typename PolImg<T>::t_Cuts::iterator
+PolImg<T>::add_cut
 ( FFOp const* op, const typename PolCut<T>::TYPE type,
   const double b, const unsigned n,
   const PolVar<T>*X, const double*a )
@@ -2414,8 +2431,8 @@ PolBase<T>::add_cut
 }
 
 template <typename T>
-inline typename PolBase<T>::t_Cuts::iterator
-PolBase<T>::add_cut
+inline typename PolImg<T>::t_Cuts::iterator
+PolImg<T>::add_cut
 ( FFOp const* op, const typename PolCut<T>::TYPE type,
   const double b, const unsigned n,
   const PolVar<T>*X, const double a )
@@ -2426,8 +2443,8 @@ PolBase<T>::add_cut
 }
 
 template <typename T>
-inline typename PolBase<T>::t_Cuts::iterator
-PolBase<T>::add_cut
+inline typename PolImg<T>::t_Cuts::iterator
+PolImg<T>::add_cut
 ( FFOp const* op, const typename PolCut<T>::TYPE type,
   const double b, const std::set<unsigned>&ndx,
   const PolVar<T>*X, const double*a )
@@ -2437,8 +2454,8 @@ PolBase<T>::add_cut
 }
 
 template <typename T> template <typename KEY, typename COMP>
-inline typename PolBase<T>::t_Cuts::iterator
-PolBase<T>::add_cut
+inline typename PolImg<T>::t_Cuts::iterator
+PolImg<T>::add_cut
 ( FFOp const* op, const typename PolCut<T>::TYPE type,
   const double b, const std::map<KEY,PolVar<T>,COMP>&X,
   const std::map<KEY,double,COMP>&a )
@@ -2448,8 +2465,8 @@ PolBase<T>::add_cut
 }
 
 template <typename T>
-inline typename PolBase<T>::t_Cuts::iterator
-PolBase<T>::add_cut
+inline typename PolImg<T>::t_Cuts::iterator
+PolImg<T>::add_cut
 ( FFOp const* op, const typename PolCut<T>::TYPE type,
   const double b, const unsigned n,
   const PolVar<T>*X, const double*a,
@@ -2461,8 +2478,8 @@ PolBase<T>::add_cut
 }
 
 template <typename T>
-inline typename PolBase<T>::t_Cuts::iterator
-PolBase<T>::add_cut
+inline typename PolImg<T>::t_Cuts::iterator
+PolImg<T>::add_cut
 ( FFOp const* op, const typename PolCut<T>::TYPE type,
   const double b, const unsigned n,
   const PolVar<T>*X, const double a,
@@ -2474,8 +2491,8 @@ PolBase<T>::add_cut
 }
 
 template <typename T>
-inline typename PolBase<T>::t_Cuts::iterator
-PolBase<T>::add_cut
+inline typename PolImg<T>::t_Cuts::iterator
+PolImg<T>::add_cut
 ( FFOp const* op, const typename PolCut<T>::TYPE type,
   const double b, const unsigned n,
   const PolVar<T>*X, const double*a,
@@ -2488,8 +2505,8 @@ PolBase<T>::add_cut
 }
 
 template <typename T>
-inline typename PolBase<T>::t_Cuts::iterator
-PolBase<T>::add_cut
+inline typename PolImg<T>::t_Cuts::iterator
+PolImg<T>::add_cut
 ( FFOp const* op, const typename PolCut<T>::TYPE type,
   const double b, const unsigned n,
   const PolVar<T>*X, const double*a,
@@ -2503,8 +2520,8 @@ PolBase<T>::add_cut
 }
 
 template <typename T>
-inline typename PolBase<T>::t_Cuts::iterator
-PolBase<T>::add_cut
+inline typename PolImg<T>::t_Cuts::iterator
+PolImg<T>::add_cut
 ( FFOp const* op, const typename PolCut<T>::TYPE type,
   const double b, const std::set<unsigned>&ndx,
   const PolVar<T>*X, const double*a,
@@ -2515,8 +2532,8 @@ PolBase<T>::add_cut
 }
 
 template <typename T> template <typename KEY, typename COMP>
-inline typename PolBase<T>::t_Cuts::iterator
-PolBase<T>::add_cut
+inline typename PolImg<T>::t_Cuts::iterator
+PolImg<T>::add_cut
 ( FFOp const* op, const typename PolCut<T>::TYPE type,
   const double b, const std::map<KEY,PolVar<T>,COMP>&X,
   const std::map<KEY,double,COMP>&a, const PolVar<T>&X1,
@@ -2527,8 +2544,8 @@ PolBase<T>::add_cut
 }
 
 template <typename T> template <typename KEY, typename COMP>
-inline typename PolBase<T>::t_Cuts::iterator
-PolBase<T>::add_cut
+inline typename PolImg<T>::t_Cuts::iterator
+PolImg<T>::add_cut
 ( FFOp const* op, const typename PolCut<T>::TYPE type,
   const double b, const std::map<KEY,PolVar<T>,COMP>&X,
   const std::map<KEY,double,COMP>&a, const PolVar<T>&X1,
@@ -2541,7 +2558,7 @@ PolBase<T>::add_cut
 template <typename T>
 inline std::ostream&
 operator<<
-( std::ostream&out, const PolBase<T>&P )
+( std::ostream&out, const PolImg<T>&P )
 {
   out << ( P._Vars.empty()? "\nNO VARIABLE\n": "\nVARIABLES:\n" );
   for( auto itv=P._Vars.begin(); itv!=P._Vars.end(); ++itv ){
@@ -2569,21 +2586,21 @@ operator^
 ( const PolVar<T>&Var1, const PolVar<T>&Var2 )
 {
   if( Var1._img && Var2._img && Var1._img != Var2._img )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::ENVMIS );
-  PolBase<T>* img = Var1._img? Var1._img: Var2._img;
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::ENVMIS );
+  PolImg<T>* img = Var1._img? Var1._img: Var2._img;
   FFBase* dag = Var1._var.cst()? Var2._var.dag(): Var1._var.dag();
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
   FFVar* pFFVarR = dag->curOp()->varout[0];
   T IVarR;
   if( !Op<T>::inter( IVarR, Var1._range, Var2._range ) )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::INTER );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::INTER );
   PolVar<T>* pVarR = img->_append_var( pFFVarR, IVarR, true );
   return *pVarR;
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_INTER
+PolImg<T>::_add_cuts_INTER
 ( const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
 {
   if( pVar1->cst() )
@@ -2605,10 +2622,10 @@ inline PolVar<T>
 operator+
 ( const PolVar<T>&Var1, const double Cst2 )
 {
-  PolBase<T>* img = Var1._img;
+  PolImg<T>* img = Var1._img;
   FFBase* dag = Var1._var.dag();
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
   FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = img->_append_var( pFFVarR, Var1.range() + Cst2, true );
   return *pVarR;
@@ -2620,18 +2637,18 @@ operator+
 ( const PolVar<T>&Var1, const PolVar<T>&Var2 )
 {
   if( Var1._img && Var2._img && Var1._img != Var2._img )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::ENVMIS );
-  PolBase<T>* img = Var1._img? Var1._img: Var2._img;
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::ENVMIS );
+  PolImg<T>* img = Var1._img? Var1._img: Var2._img;
   FFBase* dag = Var1._var.cst()? Var2._var.dag(): Var1._var.dag();
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
   FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = img->_append_var( pFFVarR, Var1.range() + Var2.range(), true );
   return *pVarR;
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_PLUS
+PolImg<T>::_add_cuts_PLUS
 ( const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
 {
   if( pVar1->cst() && pVar2->cst() )
@@ -2652,7 +2669,7 @@ PolBase<T>::_add_cuts_PLUS
 }
 
 template <typename T> inline bool
-PolBase<T>::_add_LQ_PLUS
+PolImg<T>::_add_LQ_PLUS
 ( PolLQExpr<T>*&pLQ, const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
 {
   if( !pLQ ) pLQ = _append_LQ( VarR );
@@ -2681,15 +2698,15 @@ operator-
 {
   FFBase* dag = Var1._var.dag();
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
-  PolBase<T>* img = Var1._img;
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
+  PolImg<T>* img = Var1._img;
   FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = img->_append_var( pFFVarR, -Var1.range(), true );
   return *pVarR;
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_NEG
+PolImg<T>::_add_cuts_NEG
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() )
@@ -2701,7 +2718,7 @@ PolBase<T>::_add_cuts_NEG
 }
 
 template <typename T> inline bool
-PolBase<T>::_add_LQ_NEG
+PolImg<T>::_add_LQ_NEG
 ( PolLQExpr<T>*&pLQ, const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( !pLQ ) pLQ = _append_LQ( VarR );
@@ -2720,18 +2737,18 @@ operator-
 ( const PolVar<T>&Var1, const PolVar<T>&Var2 )
 {
   if( Var1._img && Var2._img && Var1._img != Var2._img )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::ENVMIS );
-  PolBase<T>* img = Var1._img? Var1._img: Var2._img;
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::ENVMIS );
+  PolImg<T>* img = Var1._img? Var1._img: Var2._img;
   FFBase* dag = Var1._var.cst()? Var2._var.dag(): Var1._var.dag();
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
   FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = img->_append_var( pFFVarR, Var1.range() - Var2.range(), true );
   return *pVarR;
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_MINUS
+PolImg<T>::_add_cuts_MINUS
 ( const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
 {
   if( pVar1->cst() && pVar2->cst() )
@@ -2752,7 +2769,7 @@ PolBase<T>::_add_cuts_MINUS
 }
 
 template <typename T> inline bool
-PolBase<T>::_add_LQ_MINUS
+PolImg<T>::_add_LQ_MINUS
 ( PolLQExpr<T>*&pLQ, const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
 {
   if( !pLQ ) pLQ = _append_LQ( VarR );
@@ -2779,10 +2796,10 @@ inline PolVar<T>
 operator*
 ( const PolVar<T>&Var1, const double Cst2 )
 {
-  PolBase<T>* img = Var1._img;
+  PolImg<T>* img = Var1._img;
   FFBase* dag = Var1._var.dag();
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
   FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = img->_append_var( pFFVarR, Var1.range() * Cst2, true );
   return *pVarR;
@@ -2794,18 +2811,18 @@ operator*
 ( const PolVar<T>&Var1, const PolVar<T>&Var2 )
 {
   if( Var1._img && Var2._img && Var1._img != Var2._img )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::ENVMIS );
-  PolBase<T>* img = Var1._img? Var1._img: Var2._img;
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::ENVMIS );
+  PolImg<T>* img = Var1._img? Var1._img: Var2._img;
   FFBase* dag = Var1._var.cst()? Var2._var.dag(): Var1._var.dag();
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
   FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = img->_append_var( pFFVarR, Var1.range() * Var2.range(), Var1.discr() && Var2.discr()? false: true );
   return *pVarR;
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_TIMES
+PolImg<T>::_add_cuts_TIMES
 ( const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2, FFOp*pOp )
 {
   assert( VarR && pVar1 && pVar2 );
@@ -2852,8 +2869,8 @@ PolBase<T>::_add_cuts_TIMES
     }
 #else
     switch( options.BREAKPOINT_TYPE ){
-      case PolBase<T>::Options::BIN:
-      case PolBase<T>::Options::SOS2:{
+      case PolImg<T>::Options::BIN:
+      case PolImg<T>::Options::SOS2:{
         const unsigned NKNOTS1 = itVar1->second->create_subdiv( Op<T>::l(itVar1->second->_range), Op<T>::u(itVar1->second->_range) ).size();
         if( NKNOTS1 > 2 )
           _pwmccormick_cuts( pOp, *itVar1->second, Op<T>::l(itVar1->second->_range),
@@ -2866,8 +2883,8 @@ PolBase<T>::_add_cuts_TIMES
             Op<T>::u(itVar1->second->_range), *VarR );
         if( NKNOTS1 > 2 || NKNOTS2 > 2 ) break; // The standard McCormick cuts are implied
       }
-      case PolBase<T>::Options::CONT:
-      case PolBase<T>::Options::NONE:
+      case PolImg<T>::Options::CONT:
+      case PolImg<T>::Options::NONE:
       default:
         add_cut( pOp, PolCut<T>::GE, -Op<T>::u(itVar1->second->_range)*Op<T>::u(itVar2->second->_range),
           *VarR, 1., *itVar1->second, -Op<T>::u(itVar2->second->_range), *itVar2->second, -Op<T>::u(itVar1->second->_range) );
@@ -2883,14 +2900,14 @@ PolBase<T>::_add_cuts_TIMES
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_TIMES
+PolImg<T>::_add_cuts_TIMES
 ( const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
 {
   return _add_cuts_TIMES( VarR, pVar1, pVar2, VarR->_var.opdef().first );
 }
 
 template <typename T> inline void
-PolBase<T>::append_cuts_TIMES
+PolImg<T>::append_cuts_TIMES
 ( PolVar<T> const& VarR, PolVar<T> const& Var1, PolVar<T> const& Var2, FFOp* pOp )
 {
   assert( &Var1._var && &Var2._var );
@@ -2898,7 +2915,7 @@ PolBase<T>::append_cuts_TIMES
 }
 
 template <typename T> inline bool
-PolBase<T>::_add_LQ_TIMES
+PolImg<T>::_add_LQ_TIMES
 ( PolLQExpr<T>*&pLQ, const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
 {
   if( !options.ALLOW_QUAD && !pVar1->cst() && !pVar2->cst() ) return false;
@@ -2926,10 +2943,10 @@ inline PolVar<T>
 operator/
 ( const double Cst1, const PolVar<T>&Var2 )
 {
-  PolBase<T>* img = Var2._img;
+  PolImg<T>* img = Var2._img;
   FFBase* dag = Var2._var.dag();
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
   FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = img->_append_var( pFFVarR, Cst1 / Var2.range(), true );
   return *pVarR;
@@ -2941,18 +2958,18 @@ operator/
 ( const PolVar<T>&Var1, const PolVar<T>&Var2 )
 {
   if( Var1._img && Var2._img && Var1._img != Var2._img )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::ENVMIS );
-  PolBase<T>* img = Var1._img? Var1._img: Var2._img;
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::ENVMIS );
+  PolImg<T>* img = Var1._img? Var1._img: Var2._img;
   FFBase* dag = Var1._var.cst()? Var2._var.dag(): Var1._var.dag();
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
   FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = img->_append_var( pFFVarR, Var1.range() / Var2.range(), true );
   return *pVarR;
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_DIV
+PolImg<T>::_add_cuts_DIV
 ( const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
 {
   if( pVar1->cst() && pVar2->cst() )
@@ -3023,8 +3040,8 @@ PolBase<T>::_add_cuts_DIV
     }
 #else
     switch( options.BREAKPOINT_TYPE ){
-      case PolBase<T>::Options::BIN:
-      case PolBase<T>::Options::SOS2:{
+      case PolImg<T>::Options::BIN:
+      case PolImg<T>::Options::SOS2:{
         const unsigned NKNOTSR = VarR->create_subdiv( Op<T>::l(VarR->_range), Op<T>::u(VarR->_range) ).size();
         if( NKNOTSR > 2 )
           _pwmccormick_cuts( VarR->_var.opdef().first, *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
@@ -3035,8 +3052,8 @@ PolBase<T>::_add_cuts_DIV
             Op<T>::u(itVar2->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), *itVar1->second );
         if( NKNOTSR > 2 || NKNOTS2 > 2 ) break; // The standard McCormick cuts are implied
       }
-      case PolBase<T>::Options::NONE:
-      case PolBase<T>::Options::CONT:
+      case PolImg<T>::Options::NONE:
+      case PolImg<T>::Options::CONT:
       default:
         add_cut( VarR->_var.opdef().first, PolCut<T>::GE, -Op<T>::u(VarR->_range)*Op<T>::u(itVar2->second->_range),
           *itVar1->second, 1., *VarR, -Op<T>::u(itVar2->second->_range), *itVar2->second, -Op<T>::u(VarR->_range) );
@@ -3052,7 +3069,7 @@ PolBase<T>::_add_cuts_DIV
 }
 
 template <typename T> inline bool
-PolBase<T>::_add_LQ_DIV
+PolImg<T>::_add_LQ_DIV
 ( PolLQExpr<T>*&pLQ, const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
 {
   if( !pVar2->cst() ) return false;
@@ -3067,7 +3084,7 @@ PolBase<T>::_add_LQ_DIV
 }
 
 template <typename T> inline std::pair< double, double >
-PolBase<T>::_distmax
+PolImg<T>::_distmax
 ( p_dUniv f, const double xL, const double xU, const double*rpar,
   const int*ipar ) const
 {
@@ -3091,7 +3108,7 @@ PolBase<T>::_distmax
 
 template <typename T>
 inline void
-PolBase<T>::add_sandwich_cuts
+PolImg<T>::add_sandwich_cuts
 ( FFOp*pOp, const PolVar<T>&X, const double XL, const double XU, const PolVar<T>&Y,
   const double YL, const double YU, const typename PolCut<T>::TYPE sense, p_dUniv f,
   const double*rpar, const int*ipar )
@@ -3174,7 +3191,7 @@ PolBase<T>::add_sandwich_cuts
 
 template <typename T>
 inline void
-PolBase<T>::add_linearization_cut
+PolImg<T>::add_linearization_cut
 ( FFOp*pOp, const double Xref, const PolVar<T>&X, const double XL, const double XU,
   const PolVar<T>&Y, const double YL, const double YU, const typename PolCut<T>::TYPE sense,
   p_dUniv f, const double*rpar, const int*ipar )
@@ -3186,7 +3203,7 @@ PolBase<T>::add_linearization_cut
 }
 
 template <typename T> inline double
-PolBase<T>::_newton
+PolImg<T>::_newton
 ( const double x0, const double xL, const double xU, p_dUniv f,
   const double TOL, const unsigned MAXIT, const double*rusr, const int*iusr ) const
 {
@@ -3207,7 +3224,7 @@ PolBase<T>::_newton
 }
 
 template <typename T> inline double
-PolBase<T>::_secant
+PolImg<T>::_secant
 ( const double x0, const double x1, const double xL, const double xU, p_Univ f,
   const double TOL, const unsigned MAXIT, const double*rusr, const int*iusr ) const
 {
@@ -3231,7 +3248,7 @@ PolBase<T>::_secant
 }
 
 template <typename T> inline double
-PolBase<T>::_goldsect
+PolImg<T>::_goldsect
 ( const double xL, const double xU, p_Univ f, const double TOL, const unsigned MAXIT,
   const double*rusr, const int*iusr ) const
 {
@@ -3243,7 +3260,7 @@ PolBase<T>::_goldsect
 }
 
 template <typename T> inline double
-PolBase<T>::_goldsect_iter
+PolImg<T>::_goldsect_iter
 ( const bool init, const double a, const double fa, const double b,
   const double fb, const double c, const double fc, p_Univ f,
   const double TOL, const unsigned MAXIT, const double*rusr, const int*iusr ) const
@@ -3267,7 +3284,7 @@ PolBase<T>::_goldsect_iter
 
 template <typename T>
 inline void
-PolBase<T>::add_semilinear_cuts
+PolImg<T>::add_semilinear_cuts
 ( FFOp*pOp, const PolVar<T>&X, const double XL, const double XU, const PolVar<T>&Y,
   const typename PolCut<T>::TYPE sense, p_dUniv f, const double*rpar, const int*ipar )
 {
@@ -3333,7 +3350,7 @@ PolBase<T>::add_semilinear_cuts
 
 template <typename T>
 inline void
-PolBase<T>::add_semilinear_cuts
+PolImg<T>::add_semilinear_cuts
 ( FFOp* pOp, unsigned const Nk, PolVar<T> const& X, double const* Xk,
   PolVar<T> const& Y, double const* Yk, typename PolCut<T>::TYPE const sense )
 {
@@ -3449,7 +3466,7 @@ PolBase<T>::add_semilinear_cuts
 #ifdef MC__POLIMG_PWMCCORMICK_1D
 template <typename T>
 inline bool
-PolBase<T>::_pwmccormick_cuts
+PolImg<T>::_pwmccormick_cuts
 ( FFOp*pOp, const PolVar<T>&X1, const double X1L, const double X1U,
   const PolVar<T>&X2, const double X2L, const double X2U, const PolVar<T>&Y )
 {
@@ -3487,7 +3504,7 @@ PolBase<T>::_pwmccormick_cuts
 #else
 template <typename T>
 inline bool
-PolBase<T>::_pwmccormick_cuts
+PolImg<T>::_pwmccormick_cuts
 ( FFOp*pOp, const PolVar<T>&X1, const double X1L, const double X1U,
   const PolVar<T>&X2, const double X2L, const double X2U, const PolVar<T>&Y )
 {
@@ -3594,7 +3611,7 @@ sqr
   FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
   FFVar* pFFVarR = dag->curOp()->varout[0];
@@ -3603,7 +3620,7 @@ sqr
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_SQR
+PolImg<T>::_add_cuts_SQR
 ( const PolVar<T>*VarR, FFVar*pVar1, FFOp* pOp )
 {
   assert( VarR && pVar1 );
@@ -3639,14 +3656,14 @@ PolBase<T>::_add_cuts_SQR
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_SQR
+PolImg<T>::_add_cuts_SQR
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   return _add_cuts_SQR( VarR, pVar1, VarR->_var.opdef().first );
 }
 
 template <typename T> inline void
-PolBase<T>::append_cuts_SQR
+PolImg<T>::append_cuts_SQR
 ( PolVar<T> const& VarR, PolVar<T> const& Var1, FFOp* pOp )
 {
   assert( &Var1._var );
@@ -3654,7 +3671,7 @@ PolBase<T>::append_cuts_SQR
 }
 
 template <typename T> inline bool
-PolBase<T>::_add_LQ_SQR
+PolImg<T>::_add_LQ_SQR
 ( PolLQExpr<T>*&pLQ, const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( !pVar1->cst() && !options.ALLOW_NLIN.count( FFOp::SQR ) && !options.ALLOW_QUAD ) return false;
@@ -3676,7 +3693,7 @@ sqrt
   FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
   FFVar* pFFVarR = dag->curOp()->varout[0];
@@ -3685,7 +3702,7 @@ sqrt
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_SQRT
+PolImg<T>::_add_cuts_SQRT
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() ){
@@ -3723,7 +3740,7 @@ pow
   FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
   FFVar* pFFVarR = dag->curOp()->varout[0];
@@ -3732,7 +3749,7 @@ pow
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_DPOW
+PolImg<T>::_add_cuts_DPOW
 ( const PolVar<T>*VarR, FFVar*pVar1, const double dExp )
 {
   if( pVar1->cst() ){
@@ -3778,12 +3795,12 @@ pow
 {
 #ifdef MC__POLIMG_CHECK
   if( iExp == 0 || iExp == 1 || iExp == 2 )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
   FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
   FFVar* pFFVarR = dag->curOp()->varout[0];
@@ -3792,7 +3809,7 @@ pow
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_IPOW
+PolImg<T>::_add_cuts_IPOW
 ( const PolVar<T>*VarR, FFVar*pVar1, const int iExp )
 {
   assert( iExp > 2 || iExp < 0 );
@@ -3847,9 +3864,9 @@ PolBase<T>::_add_cuts_IPOW
     // -- Nonconvex/Nonconcave Portion
     else{
       switch( options.BREAKPOINT_TYPE ){
-        case PolBase<T>::Options::CONT:
-        case PolBase<T>::Options::BIN:
-        case PolBase<T>::Options::SOS2:{
+        case PolImg<T>::Options::CONT:
+        case PolImg<T>::Options::BIN:
+        case PolImg<T>::Options::SOS2:{
           const unsigned NKNOTS = itVar1->second->create_subdiv( Op<T>::l(itVar1->second->_range),
             Op<T>::u(itVar1->second->_range) ).size();
           if( NKNOTS > 2 ){
@@ -3876,7 +3893,7 @@ PolBase<T>::_add_cuts_IPOW
           }
           // No break in order to append other "normal" cuts if no breakpoints
         }
-        case PolBase<T>::Options::NONE: default:{
+        case PolImg<T>::Options::NONE: default:{
           struct fct{ static std::pair<double,double> powoddfunc
             ( const double x, const double*rusr, const int*iusr )
             { return std::make_pair(
@@ -3936,12 +3953,12 @@ cheb
 {
 #ifdef MC__POLIMG_CHECK
   if( iOrd <= 2 )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
   FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
   FFVar* pFFVarR = dag->curOp()->varout[0];
@@ -3954,7 +3971,7 @@ cheb
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_CHEB
+PolImg<T>::_add_cuts_CHEB
 ( const PolVar<T>*VarR, FFVar*pVar1, const unsigned iOrd )
 {
   if( pVar1->cst() )
@@ -4005,12 +4022,12 @@ prod
 {
 #ifdef MC__POLIMG_CHECK
   if( nVar <= 2 )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
   FFBase* dag = pVar->_var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
   FFVar* pFFVarR = dag->curOp()->varout[0];
@@ -4021,7 +4038,7 @@ prod
 }
 
 template <typename T> inline bool
-PolBase<T>::_subset_incr
+PolImg<T>::_subset_incr
 ( const unsigned ntot, std::vector<unsigned>&ndx )
 {
   auto rit=ndx.rbegin();
@@ -4034,7 +4051,7 @@ PolBase<T>::_subset_incr
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_PROD
+PolImg<T>::_add_cuts_PROD
 ( PolVar<T> const* VarR, std::vector<FFVar*> const& vVar )
 {
   std::vector<PolVar<T>> vPolVar;
@@ -4071,7 +4088,7 @@ PolBase<T>::_add_cuts_PROD
 
   // Case: Non-centered multilinear term
   if( !isCen ){
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw Exceptions( Exceptions::NOTALLOWED );
 //    for( unsigned i=0; i<vPolVar.size(); i++ ){
 //    PolVar<T>* auxVar = _append_aux( Op<T>::pow( itVar1->second->_range, iExp ), true );
 //    _add_cuts_TIMES( const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
@@ -4131,7 +4148,7 @@ exp
   FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
   FFVar* pFFVarR = dag->curOp()->varout[0];
@@ -4140,7 +4157,7 @@ exp
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_EXP
+PolImg<T>::_add_cuts_EXP
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() ){
@@ -4174,7 +4191,7 @@ log
   FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
   FFVar* pFFVarR = dag->curOp()->varout[0];
@@ -4183,7 +4200,7 @@ log
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_LOG
+PolImg<T>::_add_cuts_LOG
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() ){
@@ -4221,7 +4238,7 @@ xlog
   FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
   FFVar* pFFVarR = dag->curOp()->varout[0];
@@ -4230,7 +4247,7 @@ xlog
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_XLOG
+PolImg<T>::_add_cuts_XLOG
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() ){
@@ -4258,7 +4275,7 @@ cos
   FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
   FFVar* pFFVarR = dag->curOp()->varout[0];
@@ -4267,7 +4284,7 @@ cos
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_COS
+PolImg<T>::_add_cuts_COS
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() ){
@@ -4428,7 +4445,7 @@ sin
   FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
   FFVar* pFFVarR = dag->curOp()->varout[0];
@@ -4437,7 +4454,7 @@ sin
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_SIN
+PolImg<T>::_add_cuts_SIN
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() ){
@@ -4598,7 +4615,7 @@ tan
   FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
   FFVar* pFFVarR = dag->curOp()->varout[0];
@@ -4607,7 +4624,7 @@ tan
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_TAN
+PolImg<T>::_add_cuts_TAN
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() ){
@@ -4649,9 +4666,9 @@ PolBase<T>::_add_cuts_TAN
   // -- Nonconvex/Nonconcave Portion
   else{
     switch( options.BREAKPOINT_TYPE ){
-      case PolBase<T>::Options::CONT:
-      case PolBase<T>::Options::BIN:
-      case PolBase<T>::Options::SOS2:{
+      case PolImg<T>::Options::CONT:
+      case PolImg<T>::Options::BIN:
+      case PolImg<T>::Options::SOS2:{
         const unsigned NKNOTS = itVar1->second->create_subdiv( Op<T>::l(itVar1->second->_range),
           Op<T>::u(itVar1->second->_range) ).size();
         if( NKNOTS > 2 ){
@@ -4679,7 +4696,7 @@ PolBase<T>::_add_cuts_TAN
         }
         // No break in order to append other "normal" cuts
       }
-      case PolBase<T>::Options::NONE: default:{
+      case PolImg<T>::Options::NONE: default:{
         struct fct{ static std::pair<double,double> tanfunc
           ( const double x, const double*rusr, const int*iusr )
           { return std::make_pair(
@@ -4722,7 +4739,7 @@ acos
   FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
   FFVar* pFFVarR = dag->curOp()->varout[0];
@@ -4731,7 +4748,7 @@ acos
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_ACOS
+PolImg<T>::_add_cuts_ACOS
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() ){
@@ -4773,9 +4790,9 @@ PolBase<T>::_add_cuts_ACOS
   // -- Nonconvex/Nonconcave Portion
   else{
     switch( options.BREAKPOINT_TYPE ){
-      case PolBase<T>::Options::CONT:
-      case PolBase<T>::Options::BIN:
-      case PolBase<T>::Options::SOS2:{
+      case PolImg<T>::Options::CONT:
+      case PolImg<T>::Options::BIN:
+      case PolImg<T>::Options::SOS2:{
         const unsigned NKNOTS = itVar1->second->create_subdiv( Op<T>::l(itVar1->second->_range),
           Op<T>::u(itVar1->second->_range) ).size();
         if( NKNOTS > 2 ){
@@ -4805,7 +4822,7 @@ PolBase<T>::_add_cuts_ACOS
         }
         // No break in order to append other "normal" cuts
       }
-      case PolBase<T>::Options::NONE: default:{
+      case PolImg<T>::Options::NONE: default:{
         struct fct{ static double acosfunc
           ( const double x, const double*rusr, const int*iusr )
           { // f(z) = z-a+sqrt(1-z^2)*(acos(z)-acos(a)) = 0
@@ -4857,7 +4874,7 @@ asin
   FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
   FFVar* pFFVarR = dag->curOp()->varout[0];
@@ -4866,7 +4883,7 @@ asin
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_ASIN
+PolImg<T>::_add_cuts_ASIN
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() ){
@@ -4908,9 +4925,9 @@ PolBase<T>::_add_cuts_ASIN
   // -- Nonconvex/Nonconcave Portion
   else{
     switch( options.BREAKPOINT_TYPE ){
-      case PolBase<T>::Options::CONT:
-      case PolBase<T>::Options::BIN:
-      case PolBase<T>::Options::SOS2:{
+      case PolImg<T>::Options::CONT:
+      case PolImg<T>::Options::BIN:
+      case PolImg<T>::Options::SOS2:{
         const unsigned NKNOTS = itVar1->second->create_subdiv( Op<T>::l(itVar1->second->_range),
           Op<T>::u(itVar1->second->_range) ).size();
         if( NKNOTS > 2 ){
@@ -4940,7 +4957,7 @@ PolBase<T>::_add_cuts_ASIN
         }
         // No break in order to append other "normal" cuts
       }
-      case PolBase<T>::Options::NONE: default:{
+      case PolImg<T>::Options::NONE: default:{
         struct fct{ static double asinfunc
           ( const double x, const double*rusr, const int*iusr )
           { // f(z) = z-a-sqrt(1-z^2)*(asin(z)-asin(a)) = 0
@@ -4992,7 +5009,7 @@ atan
   FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
   FFVar* pFFVarR = dag->curOp()->varout[0];
@@ -5001,7 +5018,7 @@ atan
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_ATAN
+PolImg<T>::_add_cuts_ATAN
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() ){
@@ -5043,9 +5060,9 @@ PolBase<T>::_add_cuts_ATAN
   // -- Nonconvex/Nonconcave Portion
   else{
     switch( options.BREAKPOINT_TYPE ){
-      case PolBase<T>::Options::CONT:
-      case PolBase<T>::Options::BIN:
-      case PolBase<T>::Options::SOS2:{
+      case PolImg<T>::Options::CONT:
+      case PolImg<T>::Options::BIN:
+      case PolImg<T>::Options::SOS2:{
         const unsigned NKNOTS = itVar1->second->create_subdiv( Op<T>::l(itVar1->second->_range),
           Op<T>::u(itVar1->second->_range) ).size();
         if( NKNOTS > 2 ){
@@ -5075,7 +5092,7 @@ PolBase<T>::_add_cuts_ATAN
         }
         // No break in order to append other "normal" cuts
       }
-      case PolBase<T>::Options::NONE: default:{
+      case PolImg<T>::Options::NONE: default:{
         struct fct{ static double atanfunc
           ( const double x, const double*rusr, const int*iusr )
           { // f(z) = z-a-(1+z^2)*(atan(z)-atan(a)) = 0
@@ -5127,7 +5144,7 @@ cosh
   FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
   FFVar* pFFVarR = dag->curOp()->varout[0];
@@ -5136,7 +5153,7 @@ cosh
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_COSH
+PolImg<T>::_add_cuts_COSH
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() ){
@@ -5170,7 +5187,7 @@ sinh
   FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
   FFVar* pFFVarR = dag->curOp()->varout[0];
@@ -5179,7 +5196,7 @@ sinh
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_SINH
+PolImg<T>::_add_cuts_SINH
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() ){
@@ -5221,9 +5238,9 @@ PolBase<T>::_add_cuts_SINH
   // -- Nonconvex/Nonconcave Portion
   else{
     switch( options.BREAKPOINT_TYPE ){
-      case PolBase<T>::Options::CONT:
-      case PolBase<T>::Options::BIN:
-      case PolBase<T>::Options::SOS2:{
+      case PolImg<T>::Options::CONT:
+      case PolImg<T>::Options::BIN:
+      case PolImg<T>::Options::SOS2:{
         const unsigned NKNOTS = itVar1->second->create_subdiv( Op<T>::l(itVar1->second->_range),
           Op<T>::u(itVar1->second->_range) ).size();
         if( NKNOTS > 2 ){
@@ -5251,7 +5268,7 @@ PolBase<T>::_add_cuts_SINH
         }
         // No break in order to append other "normal" cuts
       }
-      case PolBase<T>::Options::NONE: default:{
+      case PolImg<T>::Options::NONE: default:{
         struct fct{ static std::pair<double,double> sinhfunc
           ( const double x, const double*rusr, const int*iusr )
           { return std::make_pair(
@@ -5294,7 +5311,7 @@ tanh
   FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
   FFVar* pFFVarR = dag->curOp()->varout[0];
@@ -5303,7 +5320,7 @@ tanh
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_TANH
+PolImg<T>::_add_cuts_TANH
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() ){
@@ -5345,9 +5362,9 @@ PolBase<T>::_add_cuts_TANH
   // -- Nonconvex/Nonconcave Portion
   else{
     switch( options.BREAKPOINT_TYPE ){
-      case PolBase<T>::Options::CONT:
-      case PolBase<T>::Options::BIN:
-      case PolBase<T>::Options::SOS2:{
+      case PolImg<T>::Options::CONT:
+      case PolImg<T>::Options::BIN:
+      case PolImg<T>::Options::SOS2:{
         const unsigned NKNOTS = itVar1->second->create_subdiv( Op<T>::l(itVar1->second->_range),
           Op<T>::u(itVar1->second->_range) ).size();
         if( NKNOTS > 2 ){
@@ -5377,7 +5394,7 @@ PolBase<T>::_add_cuts_TANH
         }
         // No break in order to append other "normal" cuts
       }
-      case PolBase<T>::Options::NONE: default:{
+      case PolImg<T>::Options::NONE: default:{
         struct fct{ static double tanhfunc
           ( const double x, const double*rusr, const int*iusr )
           { // f(z) = (z-a)*(1-tanh(z)^2)-(tanh(z)-tanh(a)) = 0
@@ -5429,7 +5446,7 @@ erf
   FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
   FFVar* pFFVarR = dag->curOp()->varout[0];
@@ -5438,7 +5455,7 @@ erf
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_ERF
+PolImg<T>::_add_cuts_ERF
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   if( pVar1->cst() ){
@@ -5480,9 +5497,9 @@ PolBase<T>::_add_cuts_ERF
   // -- Nonconvex/Nonconcave Portion
   else{
     switch( options.BREAKPOINT_TYPE ){
-      case PolBase<T>::Options::CONT:
-      case PolBase<T>::Options::BIN:
-      case PolBase<T>::Options::SOS2:{
+      case PolImg<T>::Options::CONT:
+      case PolImg<T>::Options::BIN:
+      case PolImg<T>::Options::SOS2:{
         const unsigned NKNOTS = itVar1->second->create_subdiv( Op<T>::l(itVar1->second->_range),
           Op<T>::u(itVar1->second->_range) ).size();
         if( NKNOTS > 2 ){
@@ -5512,7 +5529,7 @@ PolBase<T>::_add_cuts_ERF
         }
         // No break in order to append other "normal" cuts
       }
-      case PolBase<T>::Options::NONE: default:{
+      case PolImg<T>::Options::NONE: default:{
         struct fct{ static double erffunc
           ( const double x, const double*rusr, const int*iusr )
           { // f(z) = (z-a)*exp(-z^2)-sqrt(pi)/2.*(erf(z)-erf(a)) = 0
@@ -5564,7 +5581,7 @@ fabs
   FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
   FFVar* pFFVarR = dag->curOp()->varout[0];
@@ -5573,7 +5590,7 @@ fabs
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_FABS
+PolImg<T>::_add_cuts_FABS
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   // Constant operand
@@ -5631,7 +5648,7 @@ PolBase<T>::_add_cuts_FABS
 }
 
 template <typename T> inline bool
-PolBase<T>::_add_LQ_FABS
+PolImg<T>::_add_LQ_FABS
 ( PolLQExpr<T>*&pLQ, const PolVar<T>*VarR, FFVar*pVar1 )
 {
   auto itVar1 = _Vars.find( pVar1 );
@@ -5654,7 +5671,7 @@ fstep
   FFBase* dag = Var1._var.dag();
 #ifdef MC__POLIMG_CHECK
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
 #endif
 
   FFVar* pFFVarR = dag->curOp()->varout[0];
@@ -5663,7 +5680,7 @@ fstep
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_FSTEP
+PolImg<T>::_add_cuts_FSTEP
 ( const PolVar<T>*VarR, FFVar*pVar1 )
 {
   // Constant operand
@@ -5718,7 +5735,7 @@ PolBase<T>::_add_cuts_FSTEP
 }
 
 template <typename T> inline bool
-PolBase<T>::_add_LQ_FSTEP
+PolImg<T>::_add_LQ_FSTEP
 ( PolLQExpr<T>*&pLQ, const PolVar<T>*VarR, FFVar*pVar1 )
 {
   auto itVar1 = _Vars.find( pVar1 );
@@ -5737,18 +5754,18 @@ min
 ( const PolVar<T>&Var1, const PolVar<T>&Var2 )
 {
   if( Var1._img && Var2._img && Var1._img != Var2._img )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::ENVMIS );
-  PolBase<T>* img = Var1._img? Var1._img: Var2._img;
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::ENVMIS );
+  PolImg<T>* img = Var1._img? Var1._img: Var2._img;
   FFBase* dag = Var1._var.cst()? Var2._var.dag(): Var1._var.dag();
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
   FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = img->_append_var( pFFVarR, Op<T>::min( Var1.range(), Var2.range() ), true );
   return *pVarR;
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_MINF
+PolImg<T>::_add_cuts_MINF
 ( const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
 {
   // Both operands constant
@@ -5855,7 +5872,7 @@ PolBase<T>::_add_cuts_MINF
 }
 
 template <typename T> inline bool
-PolBase<T>::_add_LQ_MINF
+PolImg<T>::_add_LQ_MINF
 ( PolLQExpr<T>*&pLQ, const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
 {
   if( pVar1->cst() && pVar2->cst() ){
@@ -5915,18 +5932,18 @@ max
 ( const PolVar<T>&Var1, const PolVar<T>&Var2 )
 {
   if( Var1._img && Var2._img && Var1._img != Var2._img )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::ENVMIS );
-  PolBase<T>* img = Var1._img? Var1._img: Var2._img;
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::ENVMIS );
+  PolImg<T>* img = Var1._img? Var1._img: Var2._img;
   FFBase* dag = Var1._var.cst()? Var2._var.dag(): Var1._var.dag();
   if( !dag || !dag->curOp() )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::NOTALLOWED );
+    throw typename PolImg<T>::Exceptions( PolImg<T>::Exceptions::NOTALLOWED );
   FFVar* pFFVarR = dag->curOp()->varout[0];
   PolVar<T>* pVarR = img->_append_var( pFFVarR, Op<T>::max( Var1.range(), Var2.range() ), true );
   return *pVarR;
 }
 
 template <typename T> inline void
-PolBase<T>::_add_cuts_MAXF
+PolImg<T>::_add_cuts_MAXF
 ( const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
 {
   // Both operands constant
@@ -6033,7 +6050,7 @@ PolBase<T>::_add_cuts_MAXF
 }
 
 template <typename T> inline bool
-PolBase<T>::_add_LQ_MAXF
+PolImg<T>::_add_LQ_MAXF
 ( PolLQExpr<T>*&pLQ, const PolVar<T>*VarR, FFVar*pVar1, FFVar*pVar2 )
 {
   if( pVar1->cst() && pVar2->cst() ){
@@ -6090,7 +6107,7 @@ PolBase<T>::_add_LQ_MAXF
 template <typename T>
 inline
 void
-PolBase<T>::_append_cuts_default
+PolImg<T>::_append_cuts_default
 ( FFOp const* pOp, PolVar<T>* pPolVar )
 {
   // CNST, VAR,
@@ -6230,64 +6247,48 @@ PolBase<T>::_append_cuts_default
 }
 
 template <typename T>
-template <typename ExtOp, typename... NextOps>
 inline
 void
-PolBase<T>::_append_cuts_external
-( FFOp const* pOp, PolVar<T>* pPolVar,
-  ExtOp op, std::tuple<NextOps...> ops )
+PolImg<T>::_append_cuts_external
+( FFOp const* pOp, PolVar<T>* pPolVar )
 {
   if( !pOp || pOp->type < FFOp::EXTERN )
     throw Exceptions( Exceptions::INTERNAL );
 
-  // Current operation matches ExtOp type
-  if( typeid(*pOp) == typeid(op) ){
-    op.info = pOp->info; // passing info field to recast data
-    op.data = pOp->data; // passing data structure
+  std::vector<PolVar<T>> vPolVar, vPolRes;
 
-    std::vector<PolVar<T>> vPolVar, vPolRes;
-    vPolVar.reserve( pOp->varin.size() ); 
-    vPolRes.reserve( pOp->varout.size() );
-    for( auto const& pvar : pOp->varin ){
-      auto itvar = _Vars.find( pvar );
+  vPolVar.reserve( pOp->varin.size() ); 
+  for( auto const& pvar : pOp->varin ){
+    auto itvar = _Vars.find( pvar );
 #ifdef MC__POLIMG_CHECK
-      if( itvar == _Vars.end() ) throw Exceptions( Exceptions::INTERNAL );
+    if( itvar == _Vars.end() ) throw Exceptions( Exceptions::INTERNAL );
 #endif
 #ifdef MC__POLIMG_DEBUG_EXTERNAL
-      std::cout << std::endl << "varin: " << **itvar << std::endl;
+    std::cout << std::endl << "varin: " << **itvar << std::endl;
 #endif
-      vPolVar.push_back( *(itvar->second) );
-    }
-    for( auto const& pres : pOp->varout ){
-      auto itres = _Vars.find( pres );
-#ifdef MC__POLIMG_CHECK
-      if( itres == _Vars.end() ) throw Exceptions( Exceptions::INTERNAL );
-#endif
-#ifdef MC__POLIMG_DEBUG_EXTERNAL
-      std::cout << std::endl << "varout: " << **itres << std::endl;
-#endif
-      vPolRes.push_back( *(itres->second) );
-    }
-
-    op.reval( vPolRes.size(), vPolRes.data(), vPolVar.size(), vPolVar.data() );
-    return;
+    vPolVar.push_back( *(itvar->second) );
   }
-  
-  // No more external operations to peel off parameter pack
-  if( !sizeof...( NextOps ) )
-    throw Exceptions( Exceptions::EXTERNAL );
 
-  // Separate first element off parameter pack and recursive call
-  typedef std::tuple<NextOps...> t_NextOps;
-  typedef typename remove_first_type< t_NextOps >::type t_NextNextOps;
-  typedef typename first_type_of< NextOps... >::type FirstNextOps;
-  _append_cuts_external( pOp, pPolVar, FirstNextOps(), t_NextNextOps() );
+  vPolRes.reserve( pOp->varout.size() );
+  for( auto const& pres : pOp->varout ){
+    auto itres = _Vars.find( pres );
+#ifdef MC__POLIMG_CHECK
+    if( itres == _Vars.end() ) throw Exceptions( Exceptions::INTERNAL );
+#endif
+#ifdef MC__POLIMG_DEBUG_EXTERNAL
+    std::cout << std::endl << "varout: " << **itres << std::endl;
+#endif
+    vPolRes.push_back( *(itres->second) );
+  }
+
+  pOp->reval( typeid( PolVar<T> ), vPolRes.size(), vPolRes.data(), vPolVar.size(), vPolVar.data() );
+  return;
 }
 
 template <typename T>
 inline
 bool
-PolBase<T>::_propagate_aggreg
+PolImg<T>::_propagate_aggreg
 ( PolLQExpr<T>*& pLQ, FFOp const* pOp, PolVar<T>* pPolVar )
 {
 #ifdef MC__POLIMG_DEBUG_CUTS
@@ -6361,78 +6362,10 @@ PolBase<T>::_propagate_aggreg
   return true;
 }
 
-//! @brief C++ class for polytopic image evaluation
-////////////////////////////////////////////////////////////////////////
-//! mc::PolBase is the main C++ class for evaluation of the polytoptic
-//! image of a factorable function. Propagation of the image is via
-//! lifting, relaxation and out-approximation, and enabled by the
-//! propagation of mc::PolVar types. The template parameter corresponds
-//! to the type used to propagate variable range. Round-off errors are
-//! not accounted for in the computations (non-verified implementation).
-////////////////////////////////////////////////////////////////////////
-template < typename T,
-           typename... ExtOps >
-class PolImg
-: public PolBase<T>
-////////////////////////////////////////////////////////////////////////
-{
-protected:
-
-  using PolBase<T>::_propagate_aggreg;
-  using PolBase<T>::_append_cuts_default;
-  using PolBase<T>::_append_cuts_external;
-  using PolBase<T>::_Vars;
-  using PolBase<T>::_erase_LQ;
-  using PolBase<T>::_LQExpr;
-
-  //! @brief propagate cuts backwards through polyhedral image
-  void _propagate_cuts
-    ( FFOp const* pOp, PolVar<T>* pPolVar );
-
-public:
-
-  using PolBase<T>::options;
-  using PolBase<T>::Vars;
-  using PolBase<T>::Aux;
-  using PolBase<T>::Cuts;
-  using PolBase<T>::reset;
-  using PolBase<T>::add_cut;
-  using PolBase<T>::add_linearization_cut;
-  using PolBase<T>::add_sandwich_cuts;
-  using PolBase<T>::add_semilinear_cuts;
-  using PolBase<T>::append_cuts_TIMES;
-  using PolBase<T>::append_cuts_SQR;
-  using PolBase<T>::erase_cut;
-  using PolBase<T>::erase_cuts;
-  using PolBase<T>::reset_cuts;
-
-  //! @brief Default Constructor
-  PolImg
-    ()
-    : PolBase<T>()
-    {}
-
-  //! @brief Destructor
-  virtual ~PolImg
-    ()
-    {}
-
-  //! @brief Append relaxation cuts for the <a>ndep</a> dependents in <a>pdep</a>
-  void generate_cuts
-    ( const unsigned ndep, const PolVar<T>*pdep, const bool reset=false );
-  //! @brief Append relaxation cuts for the dependents in <a>pdep</a> indexed by <a>ndxdep</a>
-  void generate_cuts
-    ( const std::set<unsigned>&ndxdep, const PolVar<T>*pdep, const bool reset=false );
-  //! @brief Append relaxation cuts for the dependents in the map <a>mdep</a>
-  template <typename KEY, typename COMP>
-  void generate_cuts
-    ( std::map<KEY,PolVar<T>,COMP> const& mdep, const bool reset=false );
-};
-
-template <typename T, typename... ExtOps>
-inline 
+template <typename T>
+inline
 void
-PolImg<T,ExtOps...>::_propagate_cuts
+PolImg<T>::_propagate_cuts
 ( FFOp const* pOp, PolVar<T>* pPolVar )
 {
   if( pPolVar->has_cuts() ) return;
@@ -6444,7 +6377,7 @@ PolImg<T,ExtOps...>::_propagate_cuts
   // Nothing to do if underlying dag variable is constant
   if( !pOp ){
     if( !pPolVar->var().cst() )
-      throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::INTERNAL );
+      throw Exceptions( Exceptions::INTERNAL );
     //assert( pPolVar->var()->cst() );
     return;
   }
@@ -6485,13 +6418,8 @@ PolImg<T,ExtOps...>::_propagate_cuts
   }
 
   // External operation
-  else if( !sizeof...(ExtOps) )
-    throw typename PolBase<T>::Exceptions( PolBase<T>::Exceptions::EXTERNAL );
   else{
-    typedef std::tuple<ExtOps...> t_ExtOps;
-    typedef typename remove_first_type< t_ExtOps >::type t_NextExtOps;
-    typedef typename first_type_of< ExtOps... >::type FirstExtOps;
-    _append_cuts_external( pOp, pPolVar, FirstExtOps(), t_NextExtOps() );
+    _append_cuts_external( pOp, pPolVar );
     for( auto const& pVarin : pOp->varin ){ 
       auto itVarin = _Vars.find( pVarin );
       if( itVarin == _Vars.end() ) continue;
@@ -6500,10 +6428,10 @@ PolImg<T,ExtOps...>::_propagate_cuts
   }
 }
 
-template <typename T, typename... ExtOps>
+template <typename T>
 inline
 void
-PolImg<T,ExtOps...>::generate_cuts
+PolImg<T>::generate_cuts
 ( unsigned const ndep, PolVar<T> const* pdep, bool const reset )
 {
   // Reset cuts in polyhedral image?
@@ -6518,10 +6446,10 @@ PolImg<T,ExtOps...>::generate_cuts
   }
 }
 
-template <typename T, typename... ExtOps>
+template <typename T>
 inline
 void
-PolImg<T,ExtOps...>::generate_cuts
+PolImg<T>::generate_cuts
 ( std::set<unsigned> const& ndxdep, PolVar<T> const* pdep, bool const reset )
 {
   // Reset cuts in polyhedral image?
@@ -6536,11 +6464,11 @@ PolImg<T,ExtOps...>::generate_cuts
   }
 }
 
-template <typename T, typename... ExtOps>
+template <typename T>
 template <typename KEY, typename COMP>
 inline
 void
-PolImg<T,ExtOps...>::generate_cuts
+PolImg<T>::generate_cuts
 ( std::map<KEY,PolVar<T>,COMP> const& mdep, const bool reset )
 {
   // Reset cuts in polyhedral image?

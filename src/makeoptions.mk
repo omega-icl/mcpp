@@ -41,12 +41,12 @@ LIB_CPPUNIT = -lcppunit
 # COMPILATION <<-- CHANGE AS APPROPRIATE -->>
 
 PROF = #-pg
-OPTIM = -O2
-DEBUG = #-g
+OPTIM = #-O2
+DEBUG = -g
 WARN  = -Wall -Wno-misleading-indentation -Wno-unknown-pragmas -Wno-parentheses
 CPP17 = -std=c++17
-CC    = gcc-13
-CPP   = g++-13
+CC    = gcc-12
+CPP   = g++-12
 # CPP   = icpc
 
 # <<-- NO CHANGE BEYOND THIS POINT -->>

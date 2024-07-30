@@ -214,11 +214,11 @@ public:
 
   //! @brief Propagate polyhedral image through neural network
   void propagate_relax
-    ( PolBase<T>* img, FFVar** pRes, PolVar<T>* vRes, PolVar<T> const* vVar );
+    ( PolImg<T>* img, FFVar** pRes, PolVar<T>* vRes, PolVar<T> const* vVar );
 
   //! @brief Append polyhedral image cuts for neural network
   void backpropagate_relax
-    ( PolBase<T>* img, FFOp* pOp, PolVar<T> const* vRes, PolVar<T>* vVar );
+    ( PolImg<T>* img, FFOp* pOp, PolVar<T> const* vRes, PolVar<T>* vVar );
 
 private:
 
@@ -228,11 +228,11 @@ private:
     const;
 
   void append_ASMcuts
-    ( PolBase<T>* img, FFOp* pop, PolVar<T> const& vRes, PolVar<T>* vVar,
+    ( PolImg<T>* img, FFOp* pop, PolVar<T> const& vRes, PolVar<T>* vVar,
       std::vector<UnivarPWL<T>> const& pwlEst );
 
   void append_ASMcuts
-    ( PolBase<T>* img, FFOp* pOp, PolVar<T> const& vRes, PolVar<T>* vVar,
+    ( PolImg<T>* img, FFOp* pOp, PolVar<T> const& vRes, PolVar<T>* vVar,
       double const& rhsEst, std::vector<double> const& lnrEst=std::vector<double>() );
   
   template <typename U>
@@ -500,7 +500,7 @@ MLP<T>::resize_relax
 template<typename T>
 inline void
 MLP<T>::propagate_relax
-( PolBase<T>* img, FFVar ** pRes, PolVar<T>* vRes, PolVar<T> const* vVar )
+( PolImg<T>* img, FFVar ** pRes, PolVar<T>* vRes, PolVar<T> const* vVar )
 {
   switch( options.RELAX ){
     // Polyhedral relaxation with auxiliary variables
@@ -606,7 +606,7 @@ MLP<T>::propagate_relax
 template<typename T>
 inline void
 MLP<T>::backpropagate_relax
-( PolBase<T>* img, FFOp* pOp, PolVar<T> const* vRes, PolVar<T>* vVar )
+( PolImg<T>* img, FFOp* pOp, PolVar<T> const* vRes, PolVar<T>* vVar )
 {
   switch( options.RELAX ){
     // Polyhedral relaxation with auxiliary variables
@@ -796,7 +796,7 @@ MLP<T>::backpropagate_relax
 template<typename T>
 inline void
 MLP<T>::append_ASMcuts
-( PolBase<T>* img, FFOp* pOp, PolVar<T> const& vRes, PolVar<T>* vVar,
+( PolImg<T>* img, FFOp* pOp, PolVar<T> const& vRes, PolVar<T>* vVar,
   double const& rhsEst, std::vector<double> const& lnrEst )
 {
   double rhs = rhsEst / (double)nin;
@@ -815,7 +815,7 @@ MLP<T>::append_ASMcuts
 template<typename T>
 inline void
 MLP<T>::append_ASMcuts
-( PolBase<T>* img, FFOp* pOp, PolVar<T> const& vRes, PolVar<T>* vVar,
+( PolImg<T>* img, FFOp* pOp, PolVar<T> const& vRes, PolVar<T>* vVar,
   std::vector<UnivarPWL<T>> const& pwlEst )
 {
   for( unsigned i=0; i<nin; ++i ){
@@ -935,6 +935,35 @@ public:
     }
 
   // Forward evaluation overloads
+  virtual void feval
+    ( std::type_info const& idU, unsigned const nRes, void* vRes, unsigned const nVar,
+      void const* vVar, unsigned const* mVar )
+    const
+    {
+      if( idU == typeid( FFVar ) )
+        return eval( nRes, static_cast<FFVar*>(vRes), nVar, static_cast<FFVar const*>(vVar), mVar );
+      else if( idU == typeid( fadbad::F<FFVar> ) )
+        return eval( nRes, static_cast<fadbad::F<FFVar>*>(vRes), nVar, static_cast<fadbad::F<FFVar> const*>(vVar), mVar );
+      else if( idU == typeid( FFDep ) )
+        return eval( nRes, static_cast<FFDep*>(vRes), nVar, static_cast<FFDep const*>(vVar), mVar );
+      else if( idU == typeid( double ) )
+        return eval( nRes, static_cast<double*>(vRes), nVar, static_cast<double const*>(vVar), mVar );
+      else if( idU == typeid( fadbad::F<double> ) )
+        return eval( nRes, static_cast<fadbad::F<double>*>(vRes), nVar, static_cast<fadbad::F<double> const*>(vVar), mVar );
+      else if( idU == typeid( T ) )
+        return eval( nRes, static_cast<T*>(vRes), nVar, static_cast<T const*>(vVar), mVar );
+      else if( idU == typeid( McCormick<T> ) )
+        return eval( nRes, static_cast<McCormick<T>*>(vRes), nVar, static_cast<McCormick<T> const*>(vVar), mVar );
+      else if( idU == typeid( ISVar<T> ) )
+        return eval( nRes, static_cast<ISVar<T>*>(vRes), nVar, static_cast<ISVar<T> const*>(vVar), mVar );
+      else if( idU == typeid( ASVar<T> ) )
+        return eval( nRes, static_cast<ASVar<T>*>(vRes), nVar, static_cast<ASVar<T> const*>(vVar), mVar );
+      else if( idU == typeid( PolVar<T> ) )
+        return eval( nRes, static_cast<PolVar<T>*>(vRes), nVar, static_cast<PolVar<T> const*>(vVar), mVar );
+
+      throw std::runtime_error( "FFMLP::feval: **ERROR** No evaluation method with type"+std::string(idU.name())+"\n" );
+    }
+
   template<typename U>
   void eval
     ( unsigned const nRes, U* vRes, unsigned const nVar, U const* vVar, unsigned const* mVar )
@@ -960,12 +989,17 @@ public:
     ( unsigned const nRes, PolVar<T>* vRes, unsigned const nVar, PolVar<T> const* vVar, unsigned const* mVar )
     const;
 
+
   // Backward evaluation overloads
-  template<typename U>
-  bool reval
-    ( unsigned const nRes, U const* vRes, unsigned const nVar, U* vVar )
+  virtual bool reval
+    ( std::type_info const& idU, unsigned const nRes, void const* vRes, unsigned const nVar, void* vVar )
     const
-    { throw std::runtime_error("FFMLP::reval: **ERROR** no generic implementation\n"); }
+    {
+      if( idU == typeid( PolVar<T> ) )
+        return reval( nRes, static_cast<PolVar<T> const*>(vRes), nVar, static_cast<PolVar<T>*>(vVar) );
+
+      throw std::runtime_error( "FFMLP::reval: **ERROR** No evaluation method with type"+std::string(idU.name())+"\n" );
+    }
 
   bool reval
     ( unsigned const nRes, PolVar<T> const* vRes, unsigned const nVar, PolVar<T>* vVar )
@@ -1033,11 +1067,22 @@ public:
     }
 
   // Forward evaluation overloads
-  template<typename U>
-  void eval
-    ( unsigned const nRes, U* vRes, unsigned const nVar, U const* vVar, unsigned const* mVar )
+  virtual void feval
+    ( std::type_info const& idU, unsigned const nRes, void* vRes, unsigned const nVar,
+      void const* vVar, unsigned const* mVar )
     const
-    { throw std::runtime_error("FFGRADMLP::eval: **ERROR** no generic implementation\n"); }
+    {
+      if( idU == typeid( FFVar ) )
+        return eval( nRes, static_cast<FFVar*>(vRes), nVar, static_cast<FFVar const*>(vVar), mVar );
+      else if( idU == typeid( FFDep ) )
+        return eval( nRes, static_cast<FFDep*>(vRes), nVar, static_cast<FFDep const*>(vVar), mVar );
+      else if( idU == typeid( double ) )
+        return eval( nRes, static_cast<double*>(vRes), nVar, static_cast<double const*>(vVar), mVar );
+      else if( idU == typeid( SLiftVar ) )
+        return eval( nRes, static_cast<SLiftVar*>(vRes), nVar, static_cast<SLiftVar const*>(vVar), mVar );
+
+      throw std::runtime_error( "FFGRADMLP::feval: **ERROR** No evaluation method with type"+std::string(idU.name())+"\n" );
+    }
 
   void eval
     ( unsigned const nRes, double* vRes, unsigned const nVar, double const* vVar, unsigned const* mVar )
@@ -1056,11 +1101,12 @@ public:
     const;
 
   // Backward evaluation overloads
-  template<typename U>
-  bool reval
-    ( unsigned const nRes, U const* vRes, unsigned const nVar, U* vVar )
+  virtual bool reval
+    ( std::type_info const& idU, unsigned const nRes, void const* vRes, unsigned const nVar, void* vVar )
     const
-    { throw std::runtime_error("FFGRADMLP::reval: **ERROR** no generic implementation\n"); }
+    {
+      throw std::runtime_error( "FFGRADMLP::feval: **ERROR** No evaluation method with type"+std::string(idU.name())+"\n" );
+    }
 
   // Properties
   std::string name
@@ -1225,7 +1271,7 @@ const
   assert( pMLP && nVar == pMLP->nin && nRes == pMLP->nout );
 #endif
 
-  PolBase<T>* img = vVar[0].image();
+  PolImg<T>* img = vVar[0].image();
   FFBase* dag = vVar[0].var().dag();
 #ifdef MC__MCMLP_CHECK
   assert( img && dag );
@@ -1253,7 +1299,7 @@ const
   assert( pMLP && nVar == pMLP->nin && nRes == pMLP->nout );
 #endif
 
-  PolBase<T>* img = vVar[0].image();
+  PolImg<T>* img = vVar[0].image();
   FFOp* pop = vVar[0].var().opdef().first;
 #ifdef MC__MCMLP_CHECK
   assert( img && pop );

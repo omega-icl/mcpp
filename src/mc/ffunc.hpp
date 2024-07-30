@@ -1230,26 +1230,42 @@ public:
     ( const U* dumU )
     const;
 
-  //! @brief Differentiate external operation in U arithmetic, putting the result at <a>resU</a>
+  //! @brief Differentiate external operation
   void differentiate_external
     ( FFVar** grad )
     const;
-  //! @brief Evaluate external operation in U arithmetic, putting the result at <a>resU</a>
-  template <typename U, typename ExtOp, typename... NextOps>
+  //! @brief Evaluate external operation in U arithmetic
+  template <typename U>
   void evaluate_external
-    ( U* resU, unsigned const* movU, U* wkU, unsigned* wkmov,
-      ExtOp const& op, std::tuple<NextOps...> const& ops )
+    ( U* resU, unsigned const* resmov, U* wkU, unsigned* wkmov )
     const;
-  //! @brief Forward external operation propagation in U arithmetic
-  template <typename U, typename ExtOp, typename... NextOps>
+  //! @brief Forward propagate external operation in U arithmetic
+  template <typename U>
   bool tighten_forward_external
-    ( U const* dumU, ExtOp const& op, std::tuple<NextOps...> const& ops )
+    ( U const* dumU )
     const;
-  //! @brief Backward external operation propagation in U arithmetic
-  template <typename U, typename ExtOp, typename... NextOps>
+  //! @brief Backward propagate external operation in U arithmetic
+  template <typename U>
   bool tighten_backward_external
-    ( U const* dumU, ExtOp const& op, std::tuple<NextOps...> const& ops )
+    ( U const* dumU )
     const;
+
+//  //! @brief Evaluate external operation in U arithmetic, putting the result at <a>resU</a>
+//  template <typename U, typename ExtOp, typename... NextOps>
+//  void evaluate_external
+//    ( U* resU, unsigned const* movU, U* wkU, unsigned* wkmov,
+//      ExtOp const& op, std::tuple<NextOps...> const& ops )
+//    const;
+//  //! @brief Forward external operation propagation in U arithmetic
+//  template <typename U, typename ExtOp, typename... NextOps>
+//  bool tighten_forward_external
+//    ( U const* dumU, ExtOp const& op, std::tuple<NextOps...> const& ops )
+//    const;
+//  //! @brief Backward external operation propagation in U arithmetic
+//  template <typename U, typename ExtOp, typename... NextOps>
+//  bool tighten_backward_external
+//    ( U const* dumU, ExtOp const& op, std::tuple<NextOps...> const& ops )
+//    const;
 
   //! @brief Update data field and data ownership in operation
   template <typename ExtOp>
@@ -1283,21 +1299,30 @@ public:
     ( ExtOp const& Op, unsigned const nDep, unsigned const nVar, FFVar const*const* pVar )
     const;
 
-  //! @brief Virtual deriv function
+  //! @brief Virtual differentiation function for external operations
   virtual void deriv
     ( unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar, FFVar** vDer )
     const;
+  //! @brief Virtual forward evaluation function for external operations
+  virtual void feval
+    ( std::type_info const& idU, unsigned const nRes, void* vRes, unsigned const nVar, void const* vVar,
+      unsigned const* mVar=nullptr )
+    const;
+  //! @brief Virtual forward evaluation function for external operations
+  virtual bool reval
+    ( std::type_info const& idU, unsigned const nRes, void const* vRes, unsigned const nVar, void* vVar )
+    const;
 
-  //! @brief Emulate virtual templated eval function
-  template< typename U >
-  void eval
-    ( unsigned const nRes, U* vRes, unsigned const nVar, U const* vVar, unsigned const* mVar=nullptr )
-    const;
-  //! @brief Emulate virtual templated reval function
-  template< typename U >
-  bool reval
-    ( unsigned const nRes, U const* vRes, unsigned const nVar, U* vVar )
-    const;
+//  //! @brief Emulate virtual templated eval function
+//  template< typename U >
+//  void eval
+//    ( unsigned const nRes, U* vRes, unsigned const nVar, U const* vVar, unsigned const* mVar=nullptr )
+//    const;
+//  //! @brief Emulate virtual templated reval function
+//  template< typename U >
+//  bool reval
+//    ( unsigned const nRes, U const* vRes, unsigned const nVar, U* vVar )
+//    const;
 
   //! @brief Return whether or not data structure was deleted
   virtual bool cleanup
@@ -4725,6 +4750,53 @@ const
   return;
 }
 
+template <typename U>
+inline void
+FFOp::evaluate_external
+( U* resU, unsigned const* resmov, U* wkU, unsigned* wkmov )
+const
+{
+  if( type < FFOp::EXTERN )
+    throw typename FFBase::Exceptions( FFBase::Exceptions::INTERN );
+
+  if( varin.empty() )
+    throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
+
+  //std::vector<FFVar> ops_res; ops_res.reserve( varout.size() );
+  //for( auto const& pvar : varout ) ops_res.push_back( *pvar );
+  for( unsigned j=0; j<varout.size(); ++j ){
+    varout[j]->val() = &resU[j];
+    varout[j]->mov() = (resmov? resmov[j]: 0);
+  }
+
+  if( varin.size() == 1 )
+    feval( typeid( U ), varout.size(), resU, 1, static_cast<U*>( varin[0]->val() ), &varin[0]->mov() );
+
+  else{
+    if( !wkU ) throw typename FFBase::Exceptions( FFBase::Exceptions::INTERN );
+    // Move variable values into temporary storage
+    for( unsigned i=0; i<varin.size(); ++i ){
+      wkU[i]   = std::move( *static_cast<U*>( varin[i]->val() ) );
+      wkmov[i] = varin[i]->mov();
+    }
+    feval( typeid( U ), varout.size(), resU, varin.size(), wkU, wkmov );
+    // Move non-movable variable values back from temporary storage
+    for( unsigned i=0; i<varin.size(); ++i )
+      if( !wkmov[i] ) *static_cast<U*>( varin[i]->val() ) = std::move( wkU[i] );
+  }
+
+  return;
+}
+
+inline void
+FFOp::feval
+( std::type_info const& idU, unsigned const nRes, void* vRes, unsigned const nVar,
+  void const* vVar, unsigned const* mVar )
+const
+{
+  throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
+}
+/*
 template <typename U, typename ExtOp, typename... NextOps>
 inline void
 FFOp::evaluate_external
@@ -4784,7 +4856,7 @@ const
 {
   throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
 }
-
+*/
 template <typename U> inline bool
 FFOp::tighten_forward
 ( U const* dumU )
@@ -5095,6 +5167,36 @@ const
   return true;
 }
 
+template <typename U>
+inline bool
+FFOp::tighten_forward_external
+( U const* dumU )
+const
+{
+  if( type < FFOp::EXTERN )
+    throw typename FFBase::Exceptions( FFBase::Exceptions::INTERN );
+
+  if( varin.empty() )
+    throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
+
+  std::vector<U> vres( varout.size() );
+
+  if( varin.size() == 1 )
+    feval( typeid( U ), vres.size(), vres.data(), 1, static_cast<U*>( varin[0]->val() ), nullptr );
+
+  else{
+    std::vector<U> ops_val; ops_val.reserve( varin.size() );
+    for( auto it=varin.begin(); it!=varin.end(); ++it )
+      ops_val.push_back( *static_cast<U*>( (*it)->val() ) );
+    feval( typeid( U ), vres.size(), vres.data(), ops_val.size(), ops_val.data(), nullptr );
+  }
+
+  for( unsigned j=0; j<varout.size(); ++j )
+    if( !Op<U>::inter( *static_cast<U*>( varout[j]->val() ), vres[j],
+                       *static_cast<U*>( varout[j]->val() ) ) ) return false;
+  return true;
+}
+/*
 template <typename U, typename ExtOp, typename... NextOps>
 inline bool
 FFOp::tighten_forward_external
@@ -5138,7 +5240,7 @@ const
   typedef typename first_type_of< NextOps... >::type FirstNextOps;
   return tighten_forward_external( dumU, FirstNextOps(), t_NextNextOps() );
 }
-
+*/
 template <typename U> inline bool
 FFOp::tighten_backward
 ( U const* dumU )
@@ -5588,6 +5690,47 @@ const
   return true;
 }
 
+inline bool
+FFOp::reval
+( std::type_info const& idU, unsigned const nRes, void const* vRes, unsigned const nVar, void* vVar )
+const
+{
+  return true;
+  //throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
+}
+
+template <typename U>
+inline bool
+FFOp::tighten_backward_external
+( U const* dumU )
+const
+{
+  if( type < FFOp::EXTERN )
+    throw typename FFBase::Exceptions( FFBase::Exceptions::INTERN );
+
+  if( varin.empty() )
+    throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
+
+  std::vector<U> vres( varout.size() );
+
+  if( varin.size() == 1 )
+    if( !reval( typeid( U ), vres.size(), vres.data(), 1, static_cast<U*>( varin[0]->val() ) ) )
+      return false;
+
+  else{
+    std::vector<U> ops_val; ops_val.reserve( varin.size() );
+    for( auto it=varin.begin(); it!=varin.end(); ++it )
+      ops_val.push_back( *static_cast<U*>( (*it)->val() ) );
+    if( !reval( typeid( U ), vres.size(), vres.data(), ops_val.size(), ops_val.data() ) )
+      return false;
+  }
+
+  for( unsigned j=0; j<varout.size(); ++j )
+    if( !Op<U>::inter( *static_cast<U*>( varout[j]->val() ), vres[j],
+                       *static_cast<U*>( varout[j]->val() ) ) ) return false;
+  return true;
+}
+/*
 template <typename U, typename ExtOp, typename... NextOps>
 inline bool
 FFOp::tighten_backward_external
@@ -5641,7 +5784,7 @@ const
   return true;
   //throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
 }
-
+*/
 template <typename ExtOp, typename... NextOps>
 inline bool
 FFOp::cleanup_data_external
@@ -5856,6 +5999,8 @@ FFOp::sameid
 ( std::type_info const& id )
 const
 {
+  std::cout << "type: " << typeid(*this).name() << " == " << id.name() << std::endl; 
+
   return( typeid(*this) == id );
 }
 
@@ -7024,8 +7169,6 @@ FFGraph<ExtOps...>::SFAD
         vDep_deriv[iwk+iout] = new FFVar[ _curOp->varin.size() ];
       if( _curOp->type < FFOp::EXTERN )
         _curOp->differentiate( vDep_deriv[iwk] );
-      else if( !sizeof...(ExtOps) )
-        throw Exceptions( Exceptions::EXTERN );
       else
         _curOp->differentiate_external( vDep_deriv.data()+iwk );
 
@@ -7203,10 +7346,8 @@ FFGraph<ExtOps...>::SFAD
       // Evaluate current operation
       if( _curOp->type < FFOp::EXTERN )
         _curOp->evaluate( &_wkSFAD[iwk], 0, pwkSFAD, pwkmov );
-      else if( !sizeof...(ExtOps) )
-        throw Exceptions( Exceptions::EXTERN );
       else
-        _curOp->evaluate_external( &_wkSFAD[iwk], nullptr, pwkSFAD, pwkmov, FirstExtOps(), t_NextExtOps() );
+        _curOp->evaluate_external( &_wkSFAD[iwk], nullptr, pwkSFAD, pwkmov );
       // Increment tape
       iwk += _curOp->varout.size();
     }
@@ -7495,8 +7636,6 @@ FFGraph<ExtOps...>::SBAD
       // Differentiate current operation
       if( _curOp->type < FFOp::EXTERN )
         _curOp->differentiate( vDep_deriv[iwk] );
-      else if( !sizeof...(ExtOps) )
-        throw Exceptions( Exceptions::EXTERN );
       else
         _curOp->differentiate_external( vDep_deriv.data()+iwk );
 
@@ -7686,10 +7825,8 @@ FFGraph<ExtOps...>::SBAD
       // Evaluate current operation
       if( _curOp->type < FFOp::EXTERN )
         _curOp->evaluate( &_wkSBAD[iwk], 0, pwkSBAD, pwkmov );
-      else if( !sizeof...(ExtOps) )
-        throw Exceptions( Exceptions::EXTERN );
       else
-        _curOp->evaluate_external( &_wkSBAD[iwk], nullptr, pwkSBAD, pwkmov, FirstExtOps(), t_NextExtOps() );
+        _curOp->evaluate_external( &_wkSBAD[iwk], nullptr, pwkSBAD, pwkmov );
       iwk += _curOp->varout.size();
     }
 
@@ -7814,10 +7951,8 @@ FFGraph<ExtOps...>::TAD
     // Evaluate current operation
     if( _curOp->type < FFOp::EXTERN )
       _curOp->evaluate( &_wkTAD[iwk], 0, pwkTAD, pwkmov );
-    else if( !sizeof...(ExtOps) )
-      throw Exceptions( Exceptions::EXTERN );
     else
-      _curOp->evaluate_external( &_wkTAD[iwk], nullptr, pwkTAD, pwkmov, FirstExtOps(), t_NextExtOps() );
+      _curOp->evaluate_external( &_wkTAD[iwk], nullptr, pwkTAD, pwkmov );
     // Increment tape
     iwk += _curOp->varout.size();    
   }
@@ -8010,10 +8145,8 @@ FFGraph<ExtOps...>::compose
       pvar->val() = &wkDep[iwk];
     else if( _curOp->type < FFOp::EXTERN )
       _curOp->evaluate( &wkDep[iwk], 0, pwkDep, pwkmov );
-    else if( !sizeof...(ExtOps) )
-      throw Exceptions( Exceptions::EXTERN );
     else
-      _curOp->evaluate_external( &wkDep[iwk], nullptr, pwkDep, pwkmov, FirstExtOps(), t_NextExtOps() );
+      _curOp->evaluate_external( &wkDep[iwk], nullptr, pwkDep, pwkmov );
     // Increment tape
     iwk += _curOp->varout.size();    
 
@@ -8289,11 +8422,8 @@ FFGraph<ExtOps...>::eval
     // Evaluate current operation
     if( _curOp->type < FFOp::EXTERN )
       _curOp->evaluate( &wkDep[iwk], (this->options.USEMOVE? sgDep.v_mov[iwk]: 0), pwkDep, pwkmov );
-    else if( !sizeof...(ExtOps) )
-      throw Exceptions( Exceptions::EXTERN );
     else
-      _curOp->evaluate_external( &wkDep[iwk], (this->options.USEMOVE? &sgDep.v_mov[iwk]: nullptr),
-                                 pwkDep, pwkmov, FirstExtOps(), t_NextExtOps() );
+      _curOp->evaluate_external( &wkDep[iwk], (this->options.USEMOVE? &sgDep.v_mov[iwk]: nullptr), pwkDep, pwkmov );
     // Increment tape
     iwk += _curOp->varout.size();    
   }
@@ -8542,12 +8672,10 @@ FFGraph<ExtOps...>::reval
         }
         catch(...){}// continue; }
       }
-      else if( !sizeof...(ExtOps) )
-        throw Exceptions( Exceptions::EXTERN );
       else{
         try{
-          if( !ipass ) _curOp->evaluate_external( &wkDep[iwk], nullptr, pwkDep, pwkmov, FirstExtOps(), t_NextExtOps() );
-          else if( !_curOp->tighten_forward_external( pwkDep, FirstExtOps(), t_NextExtOps() ) ) is_feasible = false;
+          if( !ipass ) _curOp->evaluate_external( &wkDep[iwk], nullptr, pwkDep, pwkmov );
+          else if( !_curOp->tighten_forward_external( pwkDep ) ) is_feasible = false;
         }
         catch(...){
 #ifdef MC__REVAL_DEBUG
@@ -8603,11 +8731,9 @@ FFGraph<ExtOps...>::reval
         }
         catch(...){ continue; }
       }
-      else if( !sizeof...(ExtOps) )
-        throw Exceptions( Exceptions::EXTERN );
       else{
         try{
-          if( !_curOp->tighten_backward_external( pwkDep, FirstExtOps(), t_NextExtOps() ) ) is_feasible = false;
+          if( !_curOp->tighten_backward_external( pwkDep ) ) is_feasible = false;
         }
         catch(...){ continue; }
       }
