@@ -194,33 +194,33 @@ pyFFBase
  .def( "__repr__", []( mc::FFBase const& G ){ std::ostringstream Gss; Gss << G; return Gss.str(); } )
 ;
 
-py::class_<mc::FFGraph<>, mc::FFBase> pyFFGraph( m, "FFGraph" );
+py::class_<mc::FFGraph, mc::FFBase> pyFFGraph( m, "FFGraph" );
 pyFFGraph
  .def( py::init<>() )
- .def( "fdiff", []( mc::FFGraph<>& G, std::vector<mc::FFVar const*> const& vDep, std::vector<mc::FFVar const*> const& vIndep ){ return G.SFAD( vDep, vIndep ); }, py::return_value_policy::reference_internal, "apply forward differentiation" )
- .def( "fdiff", []( mc::FFGraph<>& G, std::vector<mc::FFVar const*> const& vDep, std::vector<mc::FFVar const*> const& vIndep, std::vector<mc::FFVar const*> const& vDir ){ return G.SFAD( vDep, vIndep, vDir ); }, py::return_value_policy::reference_internal, "apply directional forward differentiation" )
- .def( "bdiff", []( mc::FFGraph<>& G, std::vector<mc::FFVar const*> const& vDep, std::vector<mc::FFVar const*> const& vIndep ){ return G.SBAD( vDep, std::vector<mc::FFVar const*>(), vIndep ); }, py::return_value_policy::reference_internal, "apply backward differentiation" )
- .def( "bdiff", []( mc::FFGraph<>& G, std::vector<mc::FFVar const*> const& vDep, std::vector<mc::FFVar const*> const& vDir, std::vector<mc::FFVar const*> const& vIndep ){ return G.SBAD( vDep, vDir, vIndep ); }, py::return_value_policy::reference_internal, "apply backward differentiation" )
- .def( "tdiff", []( mc::FFGraph<>& G, unsigned int const ordermax, std::vector<mc::FFVar const*> const& vDep, std::vector<mc::FFVar const*> const& vVar, mc::FFVar const* const pIndep ){ return G.TAD( ordermax, vDep, vVar, pIndep ); }, py::return_value_policy::reference_internal, "apply Taylor expansion" )
- .def( "compose",[]( mc::FFGraph<>& G, std::vector<mc::FFVar const*> const& vDepOut, std::vector< std::pair<mc::FFVar const*, mc::FFVar const*> > const& vDepIn ){ return G.compose( vDepOut, vDepIn ); }, "apply compostion" )
- .def( "__str__", []( mc::FFGraph<> const& G ){ std::ostringstream Gss; Gss << G; return Gss.str(); } )
- .def( "__repr__", []( mc::FFGraph<> const& G ){ std::ostringstream Gss; Gss << G; return Gss.str(); } )
- .def("eval", []( mc::FFGraph<>& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep, std::vector<mc::FFVar> const& vVar, std::vector<double> const& DVar ){
+ .def( "fdiff", []( mc::FFGraph& G, std::vector<mc::FFVar const*> const& vDep, std::vector<mc::FFVar const*> const& vIndep ){ return G.SFAD( vDep, vIndep ); }, py::return_value_policy::reference_internal, "apply forward differentiation" )
+ .def( "fdiff", []( mc::FFGraph& G, std::vector<mc::FFVar const*> const& vDep, std::vector<mc::FFVar const*> const& vIndep, std::vector<mc::FFVar const*> const& vDir ){ return G.SFAD( vDep, vIndep, vDir ); }, py::return_value_policy::reference_internal, "apply directional forward differentiation" )
+ .def( "bdiff", []( mc::FFGraph& G, std::vector<mc::FFVar const*> const& vDep, std::vector<mc::FFVar const*> const& vIndep ){ return G.SBAD( vDep, std::vector<mc::FFVar const*>(), vIndep ); }, py::return_value_policy::reference_internal, "apply backward differentiation" )
+ .def( "bdiff", []( mc::FFGraph& G, std::vector<mc::FFVar const*> const& vDep, std::vector<mc::FFVar const*> const& vDir, std::vector<mc::FFVar const*> const& vIndep ){ return G.SBAD( vDep, vDir, vIndep ); }, py::return_value_policy::reference_internal, "apply backward differentiation" )
+ .def( "tdiff", []( mc::FFGraph& G, unsigned int const ordermax, std::vector<mc::FFVar const*> const& vDep, std::vector<mc::FFVar const*> const& vVar, mc::FFVar const* const pIndep ){ return G.TAD( ordermax, vDep, vVar, pIndep ); }, py::return_value_policy::reference_internal, "apply Taylor expansion" )
+ .def( "compose",[]( mc::FFGraph& G, std::vector<mc::FFVar const*> const& vDepOut, std::vector< std::pair<mc::FFVar const*, mc::FFVar const*> > const& vDepIn ){ return G.compose( vDepOut, vDepIn ); }, "apply compostion" )
+ .def( "__str__", []( mc::FFGraph const& G ){ std::ostringstream Gss; Gss << G; return Gss.str(); } )
+ .def( "__repr__", []( mc::FFGraph const& G ){ std::ostringstream Gss; Gss << G; return Gss.str(); } )
+ .def("eval", []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep, std::vector<mc::FFVar> const& vVar, std::vector<double> const& DVar ){
    size_t const nDep = vDep.size();
    std::vector<double> DDep( nDep );
    G.eval( SgDep, nDep, vDep.data(), DDep.data(), vVar.size(), vVar.data(), DVar.data() );
    return DDep; }, py::return_value_policy::take_ownership, "evaluate subgraph in double arithmetic" )
- .def("eval", []( mc::FFGraph<>& G, std::vector<mc::FFVar> const& vDep, std::vector<mc::FFVar> const& vVar, std::vector<double> const& DVar ){
+ .def("eval", []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep, std::vector<mc::FFVar> const& vVar, std::vector<double> const& DVar ){
    size_t const nDep = vDep.size();
    std::vector<double> DDep( nDep );
    G.eval( nDep, vDep.data(), DDep.data(), vVar.size(), vVar.data(), DVar.data() );
    return DDep; }, py::return_value_policy::take_ownership, "evaluate subgraph in double arithmetic" )
- .def("eval", []( mc::FFGraph<>& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep, std::vector<mc::FFVar> const& vVar, std::vector<I> const& IVar ){
+ .def("eval", []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep, std::vector<mc::FFVar> const& vVar, std::vector<I> const& IVar ){
    size_t const nDep = vDep.size();
    std::vector<I> IDep( nDep );
    G.eval( SgDep, nDep, vDep.data(), IDep.data(), vVar.size(), vVar.data(), IVar.data() );
    return IDep; }, py::return_value_policy::take_ownership, "evaluate subgraph in interval arithmetic" )
- .def("eval", []( mc::FFGraph<>& G, std::vector<mc::FFVar> const& vDep, std::vector<mc::FFVar> const& vVar, std::vector<I> const& IVar ){
+ .def("eval", []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep, std::vector<mc::FFVar> const& vVar, std::vector<I> const& IVar ){
    size_t const nDep = vDep.size();
    std::vector<I> IDep( nDep );
    G.eval( nDep, vDep.data(), IDep.data(), vVar.size(), vVar.data(), IVar.data() );

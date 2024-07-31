@@ -238,7 +238,7 @@ public:
 #endif
       DISPFULL(false)
       {}
-    //! @brief Assignment of mc::SElimEnv<ExtOps...>::Options
+    //! @brief Assignment of mc::SElimBase::Options
     Options& operator=
       ( Options const& opt ){
 #if defined(MC__USE_GUROBI)
@@ -526,42 +526,39 @@ SElimBase::_MIP_reset
 //! elimination from factorable expressions through expoiting solvable
 //! equality constraints
 ////////////////////////////////////////////////////////////////////////
-template <typename... ExtOps>
 class SElimEnv
 : public SElimBase,
-  protected virtual SLiftEnv<ExtOps...>
+  protected virtual SLiftEnv
 ////////////////////////////////////////////////////////////////////////
 {
-  using SLiftEnv<ExtOps...>::_dag;
-  using SLiftEnv<ExtOps...>::_OpLift;
-  using SLiftEnv<ExtOps...>::_SPDep;
+  using SLiftEnv::_dag;
+  using SLiftEnv::_OpLift;
+  using SLiftEnv::_SPDep;
 
-  using SLiftEnv<ExtOps...>::dag;
-  using SLiftEnv<ExtOps...>::insert_dag;
+  using SLiftEnv::dag;
+  using SLiftEnv::insert_dag;
 
-  template <typename... Ops> friend std::ostream& operator<<
-    ( std::ostream&, const SElimEnv<Ops...>& );
+  friend std::ostream& operator<<
+    ( std::ostream&, const SElimEnv& );
 
 public:
 
   typedef std::tuple< std::vector<FFVar>, std::vector<FFVar>, std::vector<FFVar> > t_VarElim;
-  typedef SLiftEnv<ExtOps...> t_lift;
+  typedef SLiftEnv t_lift;
   typedef typename SLiftVar::t_poly t_poly;
   typedef typename t_poly::t_mon t_mon;
 
   //! @brief Default Constructor
   SElimEnv
-    ( FFGraph<ExtOps...>* dag=nullptr )
-    : SLiftEnv<ExtOps...>( dag ),
+    ( FFGraph* dag=nullptr )
+    : SLiftEnv( dag ),
       SElimBase()
     {}
     
   //! @brief Destructor
   virtual ~SElimEnv
     ()
-    {
-      _reset();
-    }
+    { _reset(); }
 
   //! @brief Retreive vector of partipating variables in equality constraints
   std::vector<FFVar> const& Var
@@ -578,9 +575,9 @@ public:
 
   //! @brief Set DAG environment
   void set
-    (  FFGraph<ExtOps...>* dag )
+    (  FFGraph* dag )
     {
-      SLiftEnv<ExtOps...>::set( dag );
+      SLiftEnv::set( dag );
       _reset();
     }
 
@@ -588,7 +585,7 @@ public:
   void reset
     ()
     {
-      SLiftEnv<ExtOps...>::_reset();
+      SLiftEnv::_reset();
       _reset();
     }
 
@@ -604,7 +601,7 @@ public:
       std::map<FFVar const*,double,lt_FFVar> const& wVar=std::map<FFVar const*,double,lt_FFVar>(),
       const bool add2dag=true );
 
-  //! @brief Exceptions of mc::SElimVar
+  //! @brief Exceptions of mc::SElimEnv
   class Exceptions
   {
    public:
@@ -646,7 +643,7 @@ public:
                   FFInv::Options::LOG, FFInv::Options::RPOW } )
       {
         SLIFT.KEEPFACT = true;
-        SLIFT.LIFTDIV  = false;
+        SLIFT.LIFTDIV  = true;
         SLIFT.LIFTIPOW = false;
       }
     //! @brief Assignment of mc::SElimEnv::Options
@@ -669,7 +666,7 @@ public:
     //! @brief Set of invertible nonlinear operations
     std::set<FFInv::Options::NLINV> ELIMNLIN;
     //! @brief Options for factorable function decomposition using mc::SLiftEnv
-    typename SLiftBase::Options SLIFT;
+    typename SLiftEnv::Options SLIFT;
   } options;
 
 
@@ -715,7 +712,7 @@ protected:
 
   //! @brief Check dependency in variable ndxVarEl in a lifted variable
   std::set< FFVar const*, lt_FFVar > _dep_expr
-    ( long const ndxVarEl, t_poly const& numer, t_poly const& denom );
+    ( long const ndxVarEl, t_poly const& numer, t_poly const& denom, bool toplevel=false );
 
   //! @brief Return pointer to intrenal DAG variable of expression
   FFVar const* _ptr_expr
@@ -726,11 +723,10 @@ protected:
     ();
 };
 
-template <typename... ExtOps>
 inline
 std::ostream&
 operator<<
-( std::ostream& out, SElimEnv<ExtOps...> const& env)
+( std::ostream& out, SElimEnv const& env)
 {
   auto const& [vvar,vctr,vaux] = env._VarElim;
   std::cout << std::endl
@@ -765,10 +761,9 @@ operator<<
   return out;
 }
 
-template <typename... ExtOps>
 inline
 void
-SElimEnv<ExtOps...>::_reset
+SElimEnv::_reset
 ()
 {
   _Var.clear();
@@ -791,10 +786,9 @@ SElimEnv<ExtOps...>::_reset
   std::get<2>( _VarElim ).clear();
 }
 
-template <typename... ExtOps>
 inline
 void
-SElimEnv<ExtOps...>::process
+SElimEnv::process
 ( std::set<unsigned> const& ndxCtr, FFVar const* pCtr,
   std::map<FFVar const*,double,lt_FFVar> const& wVar,
   bool const add2dag )
@@ -806,10 +800,9 @@ SElimEnv<ExtOps...>::process
   process( ndxCtr.size(), vCtr.data(), wVar, add2dag );
 }
 
-template <typename... ExtOps>
 inline
 void
-SElimEnv<ExtOps...>::process
+SElimEnv::process
 ( unsigned const nCtr, FFVar const* pCtr,
   std::map<FFVar const*,double,lt_FFVar> const& wVar,
   bool const add2dag )
@@ -996,13 +989,15 @@ SElimEnv<ExtOps...>::process
 #endif
 
     // Initialize lifted variable and loop over intermediate operations
+    bool toplevel = true;
     for( FFVar VarEl = 0.; ; ){
 
       // Check active dependence of spvar
       auto const& denom = spvar->denom();
       auto const& numer = spvar->numer();
       long ndxVarEl = itvarel->id().second;
-      auto&& sdep = _dep_expr( ndxVarEl, numer, denom );
+      auto&& sdep = _dep_expr( ndxVarEl, numer, denom, toplevel );
+      toplevel = false;
       //std::cout << "HERE2\n";
       
       if( sdep.empty() )
@@ -1133,16 +1128,16 @@ SElimEnv<ExtOps...>::process
   }
 }
 
-template <typename... ExtOps>
 inline
 std::set< FFVar const*, lt_FFVar >
-SElimEnv<ExtOps...>::_dep_expr
-( long const ndxVarEl, t_poly const& numer, t_poly const& denom )
+SElimEnv::_dep_expr
+( long const ndxVarEl, t_poly const& numer, t_poly const& denom, bool toplevel )
 {
   // Check denominator is 1
-  if( denom.maxord() || denom.coefmon( t_mon() ) != 1e0 )
+  if( !toplevel && ( denom.maxord() || denom.coefmon( t_mon() ) != 1e0 ) )
+    //std::cerr << "SElimEnv::_dep_expr ** warning: denominator is not 1" << std::endl;
     throw Exceptions( Exceptions::INVERT );
-	
+
   // Check numerator active dependence in ndxVarEl
   std::set< FFVar const*, lt_FFVar > sdep;
 #ifdef MC__SELIM_DEBUG_PROCESS
@@ -1164,10 +1159,9 @@ SElimEnv<ExtOps...>::_dep_expr
   return sdep;
 }
 
-template <typename... ExtOps>
 inline
 std::pair< FFVar const*, SLiftVar const* >
-SElimEnv<ExtOps...>::_insert_expr
+SElimEnv::_insert_expr
 ( long const ndxVarEl, FFVar& var, std::vector<SLiftVar const*> const& SPVar,
   FFOp const* pOp, t_poly const& polyindep, t_poly const& polydep, bool const useprod,
   int const order )
@@ -1254,10 +1248,9 @@ SElimEnv<ExtOps...>::_insert_expr
   return std::make_pair( _ptr_expr( var ), SPVar.at( ndxsp ) );
 }
 
-template <typename... ExtOps>
 inline
 FFVar const*
-SElimEnv<ExtOps...>::_insert_expr
+SElimEnv::_insert_expr
 ( FFVar& var, t_poly const& polyindep, t_poly const& polydep, bool const useprod,
   int const order )
 {
@@ -1331,10 +1324,9 @@ SElimEnv<ExtOps...>::_insert_expr
   return _ptr_expr( var );
 }
 
-template <typename... ExtOps>
 inline
 FFVar const*
-SElimEnv<ExtOps...>::_ptr_expr
+SElimEnv::_ptr_expr
 ( FFVar& var )
 {
   // Return pointer to internal DAG variable
@@ -1354,10 +1346,9 @@ SElimEnv<ExtOps...>::_ptr_expr
 }
 
 #if defined(MC__USE_GUROBI)
-template <typename... ExtOps>
 inline
 void
-SElimEnv<ExtOps...>::_MIP_decode
+SElimEnv::_MIP_decode
 ()
 {
   // Get order of variable elimination

@@ -1,4 +1,4 @@
-#undef MC__SELIM_DEBUG_PROCESS
+#define MC__SELIM_DEBUG_PROCESS
 #undef MC__SLIFT_CHECK
 #undef MC__SLIFT_DEBUG_PROCESS
 
@@ -265,9 +265,11 @@ int test_selim0()
     DAG.output( DAG.subgraph( 1, F+i ) );
 
   mc::SElimEnv SPE( &DAG );
-  SPE.options.ELIMMLIN      = true;
-  SPE.options.MIPDISPLEVEL  = 0;
-  SPE.options.MIPOUTPUTFILE = "test_selim0.lp";
+  SPE.options.SLIFT.KEEPFACT = false;
+  SPE.options.SLIFT.LIFTDIV  = false;
+  SPE.options.ELIMMLIN       = true;
+  SPE.options.MIPDISPLEVEL   = 1;
+  SPE.options.MIPOUTPUTFILE  = "test_selim0.lp";
 
   std::map<mc::FFVar const*,double,mc::lt_FFVar> W = { { &X[2], 0. } };
   SPE.process( NF, F, W, true );
@@ -294,10 +296,10 @@ int test_selim1()
   std::cout << DAG;
 
   mc::SElimEnv SPE( &DAG );
-  SPE.options.ELIMMLIN      = true;
-  SPE.options.MIPDISPLEVEL  = 0;
-  SPE.options.MIPOUTPUTFILE = "test_selim1.lp";
-  SPE.options.DISPFULL      = false;
+  SPE.options.ELIMMLIN       = true;
+  SPE.options.MIPDISPLEVEL   = 0;
+  SPE.options.MIPOUTPUTFILE  = "test_selim1.lp";
+  SPE.options.DISPFULL       = false;
 
   SPE.process( NF, F );
   std::cout << SPE;
@@ -376,18 +378,18 @@ int test_selim3()
 int main()
 {
   try{
-    //test_expr1();
-    //test_dep1();
-    //test_inv1();
-    //test_dep2();
-    //test_inv2();
-    //test_spoly1();
-    //test_slift0();
-    //test_slift1();
-    //test_selim0();
-    //test_selim1();
-    //test_selim2();
-    test_selim3();
+//    test_expr1();
+//    test_dep1();
+//    test_inv1();
+//    test_dep2();
+//    test_inv2();
+//    test_spoly1();
+//    test_slift0();
+//    test_slift1();
+    test_selim0();
+//    test_selim1();
+//    test_selim2();
+//    test_selim3();
   }
   catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
@@ -396,14 +398,14 @@ int main()
               << "Aborts." << std::endl;
     return eObj.ierr();
   }
-  catch( mc::SLiftEnv<>::Exceptions &eObj ){
+  catch( mc::SLiftEnv::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
               << " in variable lifting manipulation:" << std::endl
               << eObj.what() << std::endl
               << "Aborts." << std::endl;
     return eObj.ierr();
   }
-  catch( mc::SElimEnv<>::Exceptions &eObj ){
+  catch( mc::SElimEnv::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
               << " in variable elimination manipulation:" << std::endl
               << eObj.what() << std::endl

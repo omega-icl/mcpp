@@ -229,9 +229,8 @@ public:
     ( std::string const& UNIV, FFExpr const& E, double const& d );
 
   //! @brief Retrieve string expression for subgraph
-  template <typename... ExtOps>
   static std::vector<FFExpr> subgraph
-    ( FFGraph<ExtOps...>* dag, FFSubgraph& sg );
+    ( FFGraph* dag, FFSubgraph& sg );
   /** @} */
 
   // other operator overloadings (inlined)
@@ -499,11 +498,10 @@ operator*
   return _E *= E2;
 }
 
-template <typename... ExtOps>
 inline
 std::vector<FFExpr>
 FFExpr::subgraph
-( FFGraph<ExtOps...>* dag, FFSubgraph& sg )
+( FFGraph* dag, FFSubgraph& sg )
 {
   std::vector<FFVar> Var;
   Var.reserve( sg.v_indep.size() );

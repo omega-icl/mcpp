@@ -1250,32 +1250,9 @@ public:
     ( U const* dumU )
     const;
 
-//  //! @brief Evaluate external operation in U arithmetic, putting the result at <a>resU</a>
-//  template <typename U, typename ExtOp, typename... NextOps>
-//  void evaluate_external
-//    ( U* resU, unsigned const* movU, U* wkU, unsigned* wkmov,
-//      ExtOp const& op, std::tuple<NextOps...> const& ops )
-//    const;
-//  //! @brief Forward external operation propagation in U arithmetic
-//  template <typename U, typename ExtOp, typename... NextOps>
-//  bool tighten_forward_external
-//    ( U const* dumU, ExtOp const& op, std::tuple<NextOps...> const& ops )
-//    const;
-//  //! @brief Backward external operation propagation in U arithmetic
-//  template <typename U, typename ExtOp, typename... NextOps>
-//  bool tighten_backward_external
-//    ( U const* dumU, ExtOp const& op, std::tuple<NextOps...> const& ops )
-//    const;
-
   //! @brief Update data field and data ownership in operation
-  template <typename ExtOp>
   std::pair< FFOp*, bool > update_data
-    ( ExtOp const& Op, FFOp* pOp, void* data, bool const own )
-    const;
-  //! @brief Cleanup data in external operation
-  template <typename ExtOp, typename... NextOps>
-  bool cleanup_data_external
-    ( ExtOp const& op, std::tuple<NextOps...> const& ops )
+    ( FFOp* pOp, void* data, bool const own )
     const;
 
   //! @brief Insert unary external vector operation <a>Op</a> with operand <a>Var</a> in DAG
@@ -1313,17 +1290,6 @@ public:
     ( std::type_info const& idU, unsigned const nRes, void const* vRes, unsigned const nVar, void* vVar )
     const;
 
-//  //! @brief Emulate virtual templated eval function
-//  template< typename U >
-//  void eval
-//    ( unsigned const nRes, U* vRes, unsigned const nVar, U const* vVar, unsigned const* mVar=nullptr )
-//    const;
-//  //! @brief Emulate virtual templated reval function
-//  template< typename U >
-//  bool reval
-//    ( unsigned const nRes, U const* vRes, unsigned const nVar, U* vVar )
-//    const;
-
   //! @brief Return whether or not data structure was deleted
   virtual bool cleanup
     ()
@@ -1360,11 +1326,27 @@ struct lt_FFOp
       if( Op1->type < Op2->type ) return true;
       if( Op1->type > Op2->type ) return false;
 
+      // Sort externals by info and data fields next
+        // Compare info fields
+      if( Op1->type == FFOp::TYPE::EXTERN ){
+#ifdef MC__FFUNC_DEBUG_DATA
+        std::cout << Op1->info << " <? " << Op2->info << ": " << (Op1->info < Op2->info) << std::endl;
+#endif
+        if( Op1->info < Op2->info ) return true;
+        if( Op1->info > Op2->info ) return false;
+        // Compare data fields
+#ifdef MC__FFUNC_DEBUG_DATA
+        std::cout << Op1->data << " <? " << Op2->data << ": " << (Op1->data < Op2->data) << std::endl;
+#endif
+        if( Op1->data < Op2->data ) return true;
+        if( Op1->data > Op2->data ) return false;
+      }
+
       // Sort by number of operands next
       if( Op1->varin.size() < Op2->varin.size() ) return true;
       if( Op1->varin.size() > Op2->varin.size() ) return false;
 
-      // Sort by operands next
+      // Sort by operands last
       // Different variable ordering is accounted for CAVEAT: This ignores variable ordering; e.g. X1+X2 different from X2+X1
       lt_FFVar ltVar;
       if( Op1->varin.empty() ) return ltVar( Op1->varout.front(), Op2->varout.front() );
@@ -1374,16 +1356,7 @@ struct lt_FFOp
         if( ltVar( *it2, *it1 ) ) return false;
       }
 
-      // Final sort by data structure pointer
-      //if( Op1->type < FFOp::TYPE::EXTERN ) return false;
-      if( Op1->type == FFOp::TYPE::EXTERN )
-#ifdef MC__FFUNC_DEBUG_DATA
-        std::cout << Op1->info << " <? " << Op2->info << ": " << (Op1->info < Op2->info)
-	<< " || " << Op1->data << " <? " << Op2->data << ": " << (Op1->data < Op2->data) << std::endl;
-#endif
-      if( Op1->info < Op2->info ) return true;
-      if( Op1->info > Op2->info ) return false;
-      return( Op1->data < Op2->data );
+      return false;
     }
 };
 
@@ -1587,6 +1560,9 @@ protected:
   //! @brief Number of auxiliary variables in DAG
   unsigned long _naux;
 
+  //! @brief Number of external operations in DAG
+  unsigned long _next;
+
   //! @brief Set of variables in DAG
   t_Vars _Vars;
 
@@ -1605,7 +1581,7 @@ public:
    */
   //! @brief Default Constructor
   FFBase():
-    _nvar( 0 ), _naux( 0 ), _dummyVar( 0 ), _curOp( nullptr )
+    _nvar( 0 ), _naux( 0 ), _next( 0 ), _dummyVar( 0 ), _curOp( nullptr )
     {}
 
   //! @brief Destructor
@@ -1722,7 +1698,7 @@ public:
   //! @brief Clear DAG (all variables and operations)
   virtual void clear
     ()
-    { _clear_variables(); _clear_data(); _clear_operations(); _naux = _nvar = 0; }
+    { _clear_variables(); _clear_operations(); _naux = _nvar = _next = 0; }
 
   //! @brief Looks for the real constant <a>x</a> and adds it if not found
   FFVar const* add_constant
@@ -1828,10 +1804,10 @@ protected:
   bool _remove_operation
     ( FFOp* op );
 
-  //! @brief Erase all operations in set <a>_Ops</a>
-  virtual void _clear_data
-    ()
-    { /*std::cout << "FFBase: _clear_data\n";*/ }
+//  //! @brief Erase all operations in set <a>_Ops</a>
+//  virtual void _clear_data
+//    ()
+//    { /*std::cout << "FFBase: _clear_data\n";*/ }
 
   //! @brief Erase all operations in set <a>_Ops</a>
   void _clear_operations
@@ -1889,9 +1865,8 @@ protected:
     ( ExtOp const& Op, unsigned const nDep, FFVar const& Var1 );
 
   //! @brief Update the data field and data ownership in an operation, making sure that the ordering in set _Ops remains valid
-  template <typename ExtOp>
-  static std::pair< FFOp*, bool > _update_data
-    ( ExtOp const& Op, FFOp* pOp, void* data, bool const own );
+  std::pair< FFOp*, bool > _update_data
+    ( FFOp* pOp, void* data, bool const own );
 
   //! @brief Looks for the real constant <a>x</a> and adds it if not found
   FFVar* _add_constant
@@ -1924,6 +1899,10 @@ protected:
   void _append_cst
     ( FFVar* pAux );
 
+  //! @brief Search for the operation with same type_info <a>id</a> in <a>_Ops</a>
+  FFOp* _find_extop
+    ( std::type_info const& id );
+
   //! @brief Search for the variable with identify <a>id</a> in <a>_Vars</a>
   FFVar* _find_var
     ( typename FFVar::pt_idVar const& id );
@@ -1943,7 +1922,7 @@ private:
   FFBase& operator=
     ( FFBase const& );
 };
-
+/*
 ////////////////////////////////////////////////////////////////////////
 // META-FUNCTIONS FOR MANIPULATING PARAMETER PACKS AND TUPLES
 
@@ -1995,23 +1974,20 @@ struct remove_first_type< std::tuple<ExtOp, NextOps...> >
 {
   typedef std::tuple<NextOps...> type;
 };
-
+*/
 //! @brief C++ class representing the DAG of factorable functions with external operations
 ////////////////////////////////////////////////////////////////////////
 //! mc::FFGraph is a C++ class derived from mc::FFBase enabling
 //! basic manipulations on a DAG, evaluation of a DAG in various
 //! arithmetics, and external operations in a DAG.
 ////////////////////////////////////////////////////////////////////////
-template <typename... ExtOps>
 class FFGraph
 : public FFBase
 ////////////////////////////////////////////////////////////////////////
 {
-  typedef std::tuple<ExtOps...> t_ExtOps;
-  typedef typename remove_first_type< t_ExtOps >::type t_NextExtOps;
-  typedef typename first_type_of< ExtOps... >::type FirstExtOps;
 
 protected:
+
   //! @brief Work array for forward differentiation of subgraph
   std::vector<FFVar> _wkAD;
 
@@ -2039,7 +2015,8 @@ public:
 
   //! @brief Destructor
   virtual ~FFGraph()
-    { _clear_data(); }
+    {}
+//    { _clear_data(); }
 
   //! @brief Expand DAG with derivatives of <a>nDep</a> dependents in array <a>pDep</a> with respect to <a>nIndep</a> independents in array <a>pIndep</a> using fadbad::F. The return value is an array with entries of the dense Jacobian matrix. The function parameter pack <a>args</a> can be any number of extra pairs {const unsigned nIndep, const FFVar* const pIndep}, as well as a final, optional flag {const bool transp} indicating if the entries in the returned Jacobian matrix are ordered row-wise (transp=false, default) or column-wise (transp=true).
   template <typename... Deps>
@@ -2408,16 +2385,16 @@ protected:
       U*vVar, Deps... args );
 
 
-  //! @brief Erase all operations in set <a>_Ops</a>
-  void _clear_data
-    ();
+//  //! @brief Erase all operations in set <a>_Ops</a>
+//  void _clear_data
+//    ();
 
 private:
   //! @brief Private methods to block default compiler methods
   FFGraph
-    ( FFGraph<ExtOps...> const& );
+    ( FFGraph const& ) = delete;
   FFGraph& operator=
-    ( FFGraph<ExtOps...> const& );
+    ( FFGraph const& ) = delete;
 };
 
 ////////////////////////////////// FFNum ///////////////////////////////////////
@@ -3850,16 +3827,15 @@ FFOp::set
   return *this;
 }
 
-template <typename ExtOp>
 inline
 std::pair< FFOp*, bool >
 FFOp::update_data
-( ExtOp const& Op, FFOp* pOp, void* data, bool const own )
+( FFOp* pOp, void* data, bool const own )
 const
 {
-  return FFBase::_update_data( Op, pOp, data, own );
-  //if( varout.empty() || !varout[0]->dag() ) return std::make_pair( this, false );
-  //return varout[0]->dag()->_update_data( this, data, own );
+  if( pOp->varout.empty() || !pOp->varout[0]->dag() )
+    throw typename FFBase::Exceptions( FFBase::Exceptions::DAG );
+  return pOp->varout[0]->dag()->_update_data( pOp, data, own );
 }
 
 template <typename ExtOp>
@@ -4796,67 +4772,7 @@ const
 {
   throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
 }
-/*
-template <typename U, typename ExtOp, typename... NextOps>
-inline void
-FFOp::evaluate_external
-( U* resU, unsigned const* resmov, U* wkU, unsigned* wkmov,
-  ExtOp const& op, std::tuple<NextOps...> const& ops )
-const
-{
-  if( type < FFOp::EXTERN )
-    throw typename FFBase::Exceptions( FFBase::Exceptions::INTERN );
 
-  // Current operation matches ExtOp type
-  if( sameid( typeid(op) ) ){
-    op.info = info; // passing info field to recast data
-    op.data = data; // passing data structure
-    for( unsigned j=0; j<varout.size(); ++j ){
-      varout[j]->val() = &resU[j];
-      varout[j]->mov() = (resmov? resmov[j]: 0);
-    }
-    
-    if( varin.empty() )
-      throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
-
-    else if( varin.size() == 1 )
-      op.eval( varout.size(), resU, 1, static_cast<U*>( varin[0]->val() ), &varin[0]->mov() );
-
-    else{
-      if( !wkU ) throw typename FFBase::Exceptions( FFBase::Exceptions::INTERN );
-      for( unsigned i=0; i<varin.size(); ++i ){
-        wkU[i]   = std::move( *static_cast<U*>( varin[i]->val() ) );
-        wkmov[i] = varin[i]->mov();
-      }
-      op.eval( varout.size(), resU, varin.size(), wkU, wkmov );
-      // Move back variable values for non-movable ones
-      for( unsigned i=0; i<varin.size(); ++i )
-        if( !wkmov[i] ) *static_cast<U*>( varin[i]->val() ) = std::move( wkU[i] );
-    }
-
-    return;
-  }
-  
-  // No more external operations to peel off parameter pack
-  if( !sizeof...( NextOps ) )
-    throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
-
-  // Separate first element off parameter pack and recursive call
-  typedef std::tuple<NextOps...> t_NextOps;
-  typedef typename remove_first_type< t_NextOps >::type t_NextNextOps;
-  typedef typename first_type_of< NextOps... >::type FirstNextOps;
-  evaluate_external( resU, resmov, wkU, wkmov, FirstNextOps(), t_NextNextOps() );
-}
-
-template <typename U>
-inline void
-FFOp::eval
-( unsigned const nRes, U* vRes, unsigned const nVar, U const* vVar, unsigned const* mVar )
-const
-{
-  throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
-}
-*/
 template <typename U> inline bool
 FFOp::tighten_forward
 ( U const* dumU )
@@ -5196,51 +5112,7 @@ const
                        *static_cast<U*>( varout[j]->val() ) ) ) return false;
   return true;
 }
-/*
-template <typename U, typename ExtOp, typename... NextOps>
-inline bool
-FFOp::tighten_forward_external
-( U const* dumU, ExtOp const& op, std::tuple<NextOps...> const& ops )
-const
-{
-  if( type < FFOp::EXTERN )
-    throw typename FFBase::Exceptions( FFBase::Exceptions::INTERN );
 
-  // Current operation matches ExtOp type
-  if( sameid( typeid(op) ) ){
-    op.info = info; // passing info field to recast data
-    op.data = data; // passing data structure
-    std::vector<U> vres( varout.size() );
-    if( varin.empty() )
-      throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
-
-    else if( varin.size() == 1 )
-      op.eval( vres.size(), vres.data(), 1, static_cast<U*>( varin[0]->val() ), nullptr );
-    
-    else{
-      std::vector<U> ops_val; ops_val.reserve( varin.size() );
-      for( auto it=varin.begin(); it!=varin.end(); ++it )
-        ops_val.push_back( *static_cast<U*>( (*it)->val() ) );
-      op.eval( vres.size(), vres.data(), ops_val.size(), ops_val.data(), nullptr );
-    }
-    
-    for( unsigned j=0; j<varout.size(); ++j )
-      if( !Op<U>::inter( *static_cast<U*>( varout[j]->val() ), vres[j],
-                         *static_cast<U*>( varout[j]->val() ) ) ) return false;
-    return true;
-  }
-  
-  // No more external operations to peel off parameter pack
-  if( !sizeof...( NextOps ) )
-    throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
-
-  // Separate first element off parameter pack and recursive call
-  typedef std::tuple<NextOps...> t_NextOps;
-  typedef typename remove_first_type< t_NextOps >::type t_NextNextOps;
-  typedef typename first_type_of< NextOps... >::type FirstNextOps;
-  return tighten_forward_external( dumU, FirstNextOps(), t_NextNextOps() );
-}
-*/
 template <typename U> inline bool
 FFOp::tighten_backward
 ( U const* dumU )
@@ -5730,89 +5602,6 @@ const
                        *static_cast<U*>( varout[j]->val() ) ) ) return false;
   return true;
 }
-/*
-template <typename U, typename ExtOp, typename... NextOps>
-inline bool
-FFOp::tighten_backward_external
-( U const* dumU, ExtOp const& op, std::tuple<NextOps...> const& ops )
-const
-{
-  if( type < FFOp::EXTERN )
-    throw typename FFBase::Exceptions( FFBase::Exceptions::INTERN );
-
-  // Current operation matches ExtOp type
-  if( sameid( typeid(op) ) ){
-    op.info = info; // passing info field to recast data
-    op.data = data; // passing data structure
-    std::vector<U> vres( varout.size() );
-    if( varin.empty() )
-      throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
-
-    else if( varin.size() == 1 ){
-      // op.eval( vres.size(), vres.data(), 1, static_cast<U*>( varin[0]->val() ) );
-      if( !op.reval( vres.size(), vres.data(), 1, static_cast<U*>( varin[0]->val() ) ) ) return false;
-    }
-
-    else{
-      std::vector<U> ops_val; ops_val.reserve( varin.size() );
-      for( auto it=varin.begin(); it!=varin.end(); ++it )
-        ops_val.push_back( *static_cast<U*>( (*it)->val() ) );
-      //op.eval( vres.size(), vres.data(), ops_val.size(), ops_val.data() );
-      if( !op.reval( vres.size(), vres.data(), ops_val.size(), ops_val.data() ) ) return false;
-    }
-
-    return true;
-  }
-  
-  // No more external operations to peel off parameter pack
-  if( !sizeof...( NextOps ) )
-    throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
-
-  // Separate first element off parameter pack and recursive call
-  typedef std::tuple<NextOps...> t_NextOps;
-  typedef typename remove_first_type< t_NextOps >::type t_NextNextOps;
-  typedef typename first_type_of< NextOps... >::type FirstNextOps;
-  return tighten_backward_external( dumU, FirstNextOps(), t_NextNextOps() );
-}   
-
-template <typename U>
-inline bool
-FFOp::reval
-( unsigned const nRes, U const* vRes, unsigned const nVar, U* vVar )
-const
-{
-  return true;
-  //throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
-}
-*/
-template <typename ExtOp, typename... NextOps>
-inline bool
-FFOp::cleanup_data_external
-( ExtOp const& op, std::tuple<NextOps...> const& ops )
-const
-{
-  if( type < FFOp::EXTERN )
-    throw typename FFBase::Exceptions( FFBase::Exceptions::INTERN );
-
-  // Current operation matches ExtOp type
-  if( sameid( typeid(op) ) ){
-    if( !owndata ) return false;
-    op.info = info; // passing info field to recast data
-    op.data = data; // passing data structure
-    op.owndata = owndata; // passing data ownership
-    return op.cleanup();
-  }
-  
-  // No more external operations to peel off parameter pack
-  if( !sizeof...( NextOps ) )
-    throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
-
-  // Separate first element off parameter pack and recursive call
-  typedef std::tuple<NextOps...> t_NextOps;
-  typedef typename remove_first_type< t_NextOps >::type t_NextNextOps;
-  typedef typename first_type_of< NextOps... >::type FirstNextOps;
-  return cleanup_data_external( FirstNextOps(), t_NextNextOps() );
-}
 
 inline void
 FFOp::generate_dot_script
@@ -6072,41 +5861,23 @@ operator <<
   return out;
 }
 
-template <typename ExtOp>
 inline
 std::pair< FFOp*, bool >
 FFBase::_update_data
-( ExtOp const& Op, FFOp* pOp, void* data, bool const own )
+( FFOp* pOp, void* data, bool const own )
 {
-  // Get DAG pointer from participating variables
-  if( pOp->varout.empty() || !pOp->varout[0]->_dag ) throw Exceptions( Exceptions::DAG );
-  auto dag = pOp->varout[0]->_dag;
-
-  auto itOp = dag->_Ops.find( const_cast<FFOp*>( pOp ) );
-  if( itOp == dag->_Ops.end() )
+  auto itOp = _Ops.find( const_cast<FFOp*>( pOp ) );
+  if( itOp == _Ops.end() )
     return std::make_pair( pOp, false );
 
-  if( pOp->owndata ){
-    ExtOp op;
-    op.data = pOp->data;   
-    op.cleanup();
-  }
-  dag->_Ops.erase( itOp );
+  if( pOp->owndata )
+    pOp->cleanup();
+
+  _Ops.erase( itOp );
   pOp->data = data;
   pOp->owndata = own;
-  auto [itOpUpdt,ins] = dag->_Ops.insert( pOp );
+  auto [itOpUpdt,ins] = _Ops.insert( pOp );
 
-/*
-  FFOp* pOpUpdt = new ExtOp();
-  pOpUpdt->set( *pOp );
-  pOpUpdt->data = data;
-  pOpUpdt->owndata = true;
-  delete *itOp;
-  dag->_Ops.erase( itOp );
-  auto [itOpUpdt,ins] = dag->_Ops.insert( pOpUpdt );
-  for( auto pRes : (*itOpUpdt)->varout )
-    pRes->_opdef.first = pOpUpdt;
-*/
   return std::make_pair( *itOpUpdt, ins );
 }
 
@@ -6135,6 +5906,41 @@ FFBase::_insert_nary_external_operation
     }
   }
 
+  // Create operation
+  FFOp* pOp = new ExtOp( Op );  // Copy constructor to pass any data fields
+  pOp->set( nVar, vVar.data(), nullptr );
+  pOp->data = Op.data; // passing data structure
+
+  // Check if same operation type in _Ops
+  FFOp* pExtOp = dag->_find_extop( typeid( ExtOp ) );
+#ifdef MC__FFUNC_EXTERN_DEBUG
+  std::cerr << "Checking for external type " << typeid( ExtOp ).name() << std::endl;
+#endif
+  auto itOp = dag->_Ops.end();
+  if( pExtOp ){
+#ifdef MC__FFUNC_EXTERN_DEBUG
+    std::cerr << "Already defined with info=" << pExtOp->info << std::endl;
+#endif
+    pOp->info = pExtOp->info; // passing existing info field
+    itOp = dag->_Ops.find( pOp ); // getting iterator to check if operation already in DAG
+  }
+  // Else increment _next
+  else{
+#ifdef MC__FFUNC_EXTERN_DEBUG
+    std::cerr << "Newly defined with info=" << dag->_next << std::endl;
+#endif
+    pOp->info = dag->_next++; // increment info field
+  }
+
+  // Check if operation already in DAG
+  if( itOp != dag->_Ops.end() ){
+#ifdef MC__FFUNC_EXTERN_DEBUG
+    std::cerr << "External operation " << (*itOp)->name() << " already defined " << std::endl;
+#endif
+    delete pOp;
+    pOp = *itOp;
+  }
+/*
   // Check if operation is already in DAG, else insert it
   FFOp* pOp = new ExtOp();
   pOp->set( nVar, vVar.data(), nullptr );
@@ -6151,16 +5957,11 @@ FFBase::_insert_nary_external_operation
     delete pOp;
     pOp = *itOp;
   }
+*/
   else{
-#ifdef MC__FFUNC_DEBUG_DATA
-    std::cout << " Inserted: " << pOp << std::endl;
+#ifdef MC__FFUNC_EXTERN_DEBUG
+    std::cerr << "External operation " << pOp->name() << " newly defined " << std::endl;
 #endif
-    for( auto Op : dag->_Ops ){
-      if( Op->type < FFOp::EXTERN ) continue;
-#ifdef MC__FFUNC_DEBUG_DATA
-      std::cout << *Op << std::endl;
-#endif
-    }
     dag->_Ops.insert( pOp );
     for( unsigned i=0; i<nVar; i++ )
       vVar[i]->_opuse.push_back( pOp );
@@ -6171,7 +5972,7 @@ FFBase::_insert_nary_external_operation
       pOp->varout.push_back( pAux );
     }
   }
-  
+
   return pOp->varout.data();
 }
 
@@ -6200,6 +6001,41 @@ FFBase::_insert_nary_external_operation
     }
   }
 
+  // Create operation
+  FFOp* pOp = new ExtOp( Op );  // Copy constructor to pass any data fields
+  pOp->set( nVar, vVar.data(), nullptr );
+  pOp->data = Op.data; // passing data structure
+
+  // Check if same operation type in _Ops
+  FFOp* pExtOp = dag->_find_extop( typeid( ExtOp ) );
+#ifdef MC__FFUNC_EXTERN_DEBUG
+  std::cerr << "Checking for external type " << typeid( ExtOp ).name() << std::endl;
+#endif
+  auto itOp = dag->_Ops.end();
+  if( pExtOp ){
+#ifdef MC__FFUNC_EXTERN_DEBUG
+    std::cerr << "Already defined with info=" << pExtOp->info << std::endl;
+#endif
+    pOp->info = pExtOp->info; // passing existing info field
+    itOp = dag->_Ops.find( pOp ); // getting iterator to check if operation already in DAG
+  }
+  // Else increment _next
+  else{
+#ifdef MC__FFUNC_EXTERN_DEBUG
+    std::cerr << "Newly defined with info=" << dag->_next << std::endl;
+#endif
+    pOp->info = dag->_next++; // increment info field
+  }
+
+  // Check if operation already in DAG
+  if( itOp != dag->_Ops.end() ){
+#ifdef MC__FFUNC_EXTERN_DEBUG
+    std::cerr << "External operation " << (*itOp)->name() << " already defined " << std::endl;
+#endif
+    delete pOp;
+    pOp = *itOp;
+  }
+/*
   // Check if operation is already in DAG, else insert it
   FFOp* pOp = new ExtOp();
   pOp->set( nVar, vVar.data(), nullptr );
@@ -6210,7 +6046,11 @@ FFBase::_insert_nary_external_operation
     delete pOp;
     pOp = *itOp;
   }
+*/
   else{
+#ifdef MC__FFUNC_EXTERN_DEBUG
+    std::cerr << "External operation " << pOp->name() << " newly defined " << std::endl;
+#endif
     dag->_Ops.insert( pOp );
     for( unsigned i=0; i<nVar; i++ )
       vVar[i]->_opuse.push_back( pOp );
@@ -6221,7 +6061,7 @@ FFBase::_insert_nary_external_operation
       pOp->varout.push_back( pAux );
     }
   }
-  
+
   return pOp->varout.data();
 }
 
@@ -6257,6 +6097,41 @@ FFBase::_insert_binary_external_operation
     pVar2 = pOp->varout[j];
   }
 
+  // Create operation
+  FFOp* pOp = new ExtOp( Op );  // Copy constructor to pass any data fields
+  pOp->set( pVar1, pVar2, nullptr );
+  pOp->data = Op.data; // passing data structure
+
+  // Check if same operation type in _Ops
+  FFOp* pExtOp = dag->_find_extop( typeid( ExtOp ) );
+#ifdef MC__FFUNC_EXTERN_DEBUG
+  std::cerr << "Checking for external type " << typeid( ExtOp ).name() << std::endl;
+#endif
+  auto itOp = dag->_Ops.end();
+  if( pExtOp ){
+#ifdef MC__FFUNC_EXTERN_DEBUG
+    std::cerr << "Already defined with info=" << pExtOp->info << std::endl;
+#endif
+    pOp->info = pExtOp->info; // passing existing info field
+    itOp = dag->_Ops.find( pOp ); // getting iterator to check if operation already in DAG
+  }
+  // Else increment _next
+  else{
+#ifdef MC__FFUNC_EXTERN_DEBUG
+    std::cerr << "Newly defined with info=" << dag->_next << std::endl;
+#endif
+    pOp->info = dag->_next++; // increment info field
+  }
+
+  // Check if operation already in DAG
+  if( itOp != dag->_Ops.end() ){
+#ifdef MC__FFUNC_EXTERN_DEBUG
+    std::cerr << "External operation " << (*itOp)->name() << " already defined " << std::endl;
+#endif
+    delete pOp;
+    pOp = *itOp;
+  }
+/*
   // Check if operation is already in DAG, else insert it
   FFOp* pOp = new ExtOp();
   pOp->set( pVar1, pVar2, nullptr );
@@ -6267,7 +6142,11 @@ FFBase::_insert_binary_external_operation
     delete pOp;
     pOp = *itOp;
   }
+*/
   else{
+#ifdef MC__FFUNC_EXTERN_DEBUG
+    std::cerr << "External operation " << pOp->name() << " newly defined " << std::endl;
+#endif
     dag->_Ops.insert( pOp );
     pVar1->_opuse.push_back( pOp );
     pVar2->_opuse.push_back( pOp );
@@ -6303,6 +6182,41 @@ FFBase::_insert_unary_external_operation
     pVar = pOp->varout[j];
   }
 
+  // Create operation
+  FFOp* pOp = new ExtOp( Op );  // Copy constructor to pass any data fields
+  pOp->set( pVar, nullptr );
+  pOp->data = Op.data; // passing data structure
+
+  // Check if same operation type in _Ops
+  FFOp* pExtOp = dag->_find_extop( typeid( ExtOp ) );
+#ifdef MC__FFUNC_EXTERN_DEBUG
+  std::cerr << "Checking for external type " << typeid( ExtOp ).name() << std::endl;
+#endif
+  auto itOp = dag->_Ops.end();
+  if( pExtOp ){
+#ifdef MC__FFUNC_EXTERN_DEBUG
+    std::cerr << "Already defined with info=" << pExtOp->info << std::endl;
+#endif
+    pOp->info = pExtOp->info; // passing existing info field
+    itOp = dag->_Ops.find( pOp ); // getting iterator to check if operation already in DAG
+  }
+  // Else increment _next
+  else{
+#ifdef MC__FFUNC_EXTERN_DEBUG
+    std::cerr << "Newly defined with info=" << dag->_next << std::endl;
+#endif
+    pOp->info = dag->_next++; // increment info field
+  }
+
+  // Check if operation already in DAG
+  if( itOp != dag->_Ops.end() ){
+#ifdef MC__FFUNC_EXTERN_DEBUG
+    std::cerr << "External operation " << (*itOp)->name() << " already defined " << std::endl;
+#endif
+    delete pOp;
+    pOp = *itOp;
+  }
+/*
   // Check if operation is already in DAG, else insert it
   FFOp* pOp = new ExtOp();
   pOp->set( pVar, nullptr );
@@ -6313,7 +6227,11 @@ FFBase::_insert_unary_external_operation
     delete pOp;
     pOp = *itOp;
   }
+*/
   else{
+#ifdef MC__FFUNC_EXTERN_DEBUG
+    std::cerr << "External operation " << pOp->name() << " newly defined " << std::endl;
+#endif
     dag->_Ops.insert( pOp );
     pVar->_opuse.push_back( pOp );
     pOp->varout.reserve( nDep );
@@ -6593,6 +6511,21 @@ const
   for( auto pvar : _Vars )
     if( pvar->name() == str ) return pvar;
   return nullptr;
+}
+
+inline FFOp*
+FFBase::_find_extop
+( std::type_info const& id )
+{
+  if( id == typeid( FFOp ) ) return nullptr; // Intended for external operations only
+
+  FFOp* pOp = nullptr;
+  for( auto ritop=_Ops.rbegin(); ritop!=_Ops.rend() && (*ritop)->type==FFOp::TYPE::EXTERN; ++ritop ){
+    if( typeid( **ritop ) != id ) continue;
+    pOp = *ritop;
+    break;
+  }
+  return pOp;  
 }
 
 inline FFVar*
@@ -6917,25 +6850,9 @@ FFBase::det
 
 ///////////////////////////////// FFGraph //////////////////////////////////////
 
-template <typename... ExtOps>
-inline void
-FFGraph<ExtOps...>::_clear_data
-()
-{
-  //std::cout << "FFGraph: _clear_data\n"; 
-  for( auto& op : _Ops ){
-    if( op->type < FFOp::EXTERN || !op->owndata )
-      continue;
-    if( !sizeof...(ExtOps) )
-      throw Exceptions( Exceptions::EXTERN );
-    op->cleanup_data_external( FirstExtOps(), t_NextExtOps() );
-  }
-}
-
-template <typename... ExtOps>
 template <typename... Deps> 
 inline FFVar*
-FFGraph<ExtOps...>::FAD
+FFGraph::FAD
 ( unsigned const nDep, FFVar const* const pDep, unsigned const nIndep,
   FFVar const* const pIndep, Deps... args )
 {
@@ -6953,10 +6870,9 @@ FFGraph<ExtOps...>::FAD
   return pDep_F;
 }
 
-template <typename... ExtOps>
 template <typename... Deps>
 inline std::vector<FFVar const*>
-FFGraph<ExtOps...>::FAD
+FFGraph::FAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*>& vIndep,
   unsigned const nIndep, FFVar const* const pIndep, Deps... args )
 {
@@ -6964,10 +6880,9 @@ FFGraph<ExtOps...>::FAD
   return FAD( vDep, vIndep, args... );
 }
 
-template <typename... ExtOps>
 template <typename... Deps> 
 inline FFVar*
-FFGraph<ExtOps...>::DFAD
+FFGraph::DFAD
 ( unsigned const nDep, FFVar const* const pDep, unsigned const nIndep,
   FFVar const* const pIndep, FFVar const* const pDir, Deps... args )
 {
@@ -6985,10 +6900,9 @@ FFGraph<ExtOps...>::DFAD
   return pDep_F;
 }
 
-template <typename... ExtOps>
 template <typename... Deps>
 inline std::vector<FFVar const*>
-FFGraph<ExtOps...>::FAD
+FFGraph::FAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*>& vIndep,
   std::vector<FFVar const*>& vDir, unsigned const nIndep,
   FFVar const* const pIndep, FFVar const* const pDir, Deps... args )
@@ -6997,9 +6911,8 @@ FFGraph<ExtOps...>::FAD
   return FAD( vDep, vIndep, vDir, args... );
 }
 
-template <typename... ExtOps>
 inline std::vector<const FFVar*>
-FFGraph<ExtOps...>::FAD
+FFGraph::FAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vIndep,
   std::vector<FFVar const*> const& vDir )
 {
@@ -7019,9 +6932,8 @@ FFGraph<ExtOps...>::FAD
   return vDep_F;
 }
 
-template <typename... ExtOps>
 inline std::vector<FFVar const*>
-FFGraph<ExtOps...>::FAD
+FFGraph::FAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vIndep,
   bool const transp )
 {
@@ -7037,10 +6949,9 @@ FFGraph<ExtOps...>::FAD
   return vDep_F;
 }
 
-template <typename... ExtOps>
 template <typename... Deps>
 inline std::tuple< unsigned, unsigned*, unsigned*, FFVar* >
-FFGraph<ExtOps...>::SDFAD
+FFGraph::SDFAD
 ( unsigned const nDep, FFVar const* const pDep, unsigned const nIndep,
   FFVar const* const pIndep, FFVar const* const pDir, Deps... args )
 {
@@ -7064,10 +6975,9 @@ FFGraph<ExtOps...>::SDFAD
   return std::make_tuple( nDep_F, iDep_F, jDep_F, pDep_F );
 }
 
-template <typename... ExtOps>
 template <typename... Deps>
 inline std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> >
-FFGraph<ExtOps...>::SFAD
+FFGraph::SFAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*>& vIndep,
   std::vector<FFVar const*>& vDir, unsigned const nIndep,
   FFVar const* const pIndep, FFVar const* const pDir, Deps... args )
@@ -7076,10 +6986,9 @@ FFGraph<ExtOps...>::SFAD
   return SFAD( vDep, vIndep, vDir, args... );
 }
 
-template <typename... ExtOps>
 template <typename... Deps>
 inline std::tuple< unsigned, unsigned*, unsigned*, FFVar* >
-FFGraph<ExtOps...>::SFAD
+FFGraph::SFAD
 ( unsigned const nDep, FFVar const* const pDep, unsigned const nIndep,
   FFVar const* const pIndep, Deps... args )
 {
@@ -7103,10 +7012,9 @@ FFGraph<ExtOps...>::SFAD
   return std::make_tuple( nDep_F, iDep_F, jDep_F, pDep_F );
 }
 
-template <typename... ExtOps>
 template <typename... Deps>
 inline std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> >
-FFGraph<ExtOps...>::SFAD
+FFGraph::SFAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*>& vIndep,
   const unsigned nIndep, FFVar const* const pIndep, Deps... args )
 {
@@ -7114,9 +7022,8 @@ FFGraph<ExtOps...>::SFAD
   return SFAD( vDep, vIndep, args... );
 }
 
-template <typename... ExtOps>
 inline std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> >
-FFGraph<ExtOps...>::SFAD
+FFGraph::SFAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vIndep,
   int const LUopt )
 {
@@ -7134,9 +7041,8 @@ FFGraph<ExtOps...>::SFAD
 }
 
 #ifndef MC__USE_FADIFF
-template <typename... ExtOps>
 inline std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> >
-FFGraph<ExtOps...>::SFAD
+FFGraph::SFAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vIndep,
   std::vector<FFVar const*> const& vDir )
 {
@@ -7272,9 +7178,8 @@ FFGraph<ExtOps...>::SFAD
 }
 
 #else
-template <typename... ExtOps>
 inline std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> >
-FFGraph<ExtOps...>::SFAD
+FFGraph::SFAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vIndep,
   std::vector<FFVar const*> const& vDir )
 {
@@ -7385,10 +7290,9 @@ FFGraph<ExtOps...>::SFAD
 }
 #endif
 
-template <typename... ExtOps>
 template <typename... Deps> 
 inline FFVar*
-FFGraph<ExtOps...>::BAD
+FFGraph::BAD
 ( const unsigned nDep, const FFVar* const pDep, const unsigned nIndep,
   const FFVar* const pIndep, Deps... args )
 {
@@ -7406,10 +7310,9 @@ FFGraph<ExtOps...>::BAD
   return pDep_B;
 }
 
-template <typename... ExtOps>
 template <typename... Deps>
 inline std::vector<FFVar const*>
-FFGraph<ExtOps...>::BAD
+FFGraph::BAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*>& vIndep,
   unsigned const nIndep, FFVar const* const pIndep, Deps... args )
 {
@@ -7417,10 +7320,9 @@ FFGraph<ExtOps...>::BAD
   return BAD( vDep, vIndep, args... );
 }
 
-template <typename... ExtOps>
 template <typename... Deps> 
 inline FFVar*
-FFGraph<ExtOps...>::DBAD
+FFGraph::DBAD
 ( unsigned const nDep, FFVar const* const pDep, FFVar const* const pDir,
   unsigned const nIndep, FFVar const* const pIndep, Deps... args )
 {
@@ -7438,10 +7340,9 @@ FFGraph<ExtOps...>::DBAD
   return pDep_B;
 }
 
-template <typename... ExtOps>
 template <typename... Deps>
 inline std::vector<FFVar const*>
-FFGraph<ExtOps...>::BAD
+FFGraph::BAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*>& vDir,
   std::vector<FFVar const*>& vIndep, unsigned const nIndep,
   FFVar const* const pIndep, Deps... args )
@@ -7450,9 +7351,8 @@ FFGraph<ExtOps...>::BAD
   return BAD( vDep, vDir, vIndep, args... );
 }
 
-template <typename... ExtOps>
 inline std::vector<const FFVar*>
-FFGraph<ExtOps...>::BAD
+FFGraph::BAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vDir, 
   std::vector<FFVar const*> const& vIndep )
 {
@@ -7472,9 +7372,8 @@ FFGraph<ExtOps...>::BAD
   return vDep_B;
 }
 
-template <typename... ExtOps>
 inline std::vector<FFVar const*>
-FFGraph<ExtOps...>::BAD
+FFGraph::BAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vIndep,
   bool const transp )
 {
@@ -7490,10 +7389,9 @@ FFGraph<ExtOps...>::BAD
   return vDep_B;
 }
 
-template <typename... ExtOps>
 template <typename... Deps>
 inline std::tuple< unsigned, unsigned*, unsigned*, FFVar* >
-FFGraph<ExtOps...>::SDBAD
+FFGraph::SDBAD
 ( unsigned const nDep, FFVar const* const pDep, FFVar const* const pDir,
   unsigned const nIndep, FFVar const* const pIndep, Deps... args )
 {
@@ -7517,10 +7415,9 @@ FFGraph<ExtOps...>::SDBAD
   return std::make_tuple( nDep_B, iDep_B, jDep_B, pDep_B );
 }
 
-template <typename... ExtOps>
 template <typename... Deps>
 inline std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> >
-FFGraph<ExtOps...>::SBAD
+FFGraph::SBAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*>& vDir,
   std::vector<FFVar const*>& vIndep, unsigned const nIndep, FFVar const* const pIndep,
   Deps... args )
@@ -7529,10 +7426,9 @@ FFGraph<ExtOps...>::SBAD
   return SBAD( vDep, vDir, vIndep, args... );
 }
 
-template <typename... ExtOps>
 template <typename... Deps>
 inline std::tuple< unsigned, unsigned*, unsigned*, FFVar* >
-FFGraph<ExtOps...>::SBAD
+FFGraph::SBAD
 ( unsigned const nDep, FFVar const* const pDep, unsigned const nIndep,
   FFVar const* const pIndep, Deps... args )
 {
@@ -7556,10 +7452,9 @@ FFGraph<ExtOps...>::SBAD
   return std::make_tuple( nDep_B, iDep_B, jDep_B, pDep_B );
 }
 
-template <typename... ExtOps>
 template <typename... Deps>
 inline std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> >
-FFGraph<ExtOps...>::SBAD
+FFGraph::SBAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*>& vIndep,
   unsigned const nIndep, FFVar const* const pIndep, Deps... args )
 {
@@ -7567,9 +7462,8 @@ FFGraph<ExtOps...>::SBAD
   return SBAD( vDep, vIndep, args... );
 }
 
-template <typename... ExtOps>
 inline std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> >
-FFGraph<ExtOps...>::SBAD
+FFGraph::SBAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vIndep,
   int const LUopt )
 {
@@ -7588,9 +7482,8 @@ FFGraph<ExtOps...>::SBAD
 }
 
 #ifndef MC__USE_BADIFF
-template <typename... ExtOps>
 inline std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> >
-FFGraph<ExtOps...>::SBAD
+FFGraph::SBAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vDir,
   std::vector<FFVar const*> const& vIndep )
 {
@@ -7765,9 +7658,8 @@ FFGraph<ExtOps...>::SBAD
 }
 
 #else
-template <typename... ExtOps>
 inline std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> >
-FFGraph<ExtOps...>::SBAD
+FFGraph::SBAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vDir,
   std::vector<FFVar const*> const& vIndep )
 {
@@ -7868,9 +7760,8 @@ FFGraph<ExtOps...>::SBAD
 }
 #endif
 
-template <typename... ExtOps>
 inline const FFVar*
-FFGraph<ExtOps...>::TAD
+FFGraph::TAD
 ( const unsigned int ordermax, const unsigned nDep, const FFVar* const pDep,
   const unsigned nVar, const FFVar* const pVar, const FFVar* const pIndep )
 {
@@ -7889,9 +7780,8 @@ FFGraph<ExtOps...>::TAD
   return pDep_T;
 }
 
-template <typename... ExtOps>
 inline std::vector<FFVar const*>
-FFGraph<ExtOps...>::TAD
+FFGraph::TAD
 ( unsigned int const ordermax, std::vector<FFVar const*> const& vDep,
   std::vector<FFVar const*> const& vVar, FFVar const* const pIndep )
 {
@@ -8012,10 +7902,9 @@ FFGraph<ExtOps...>::TAD
 }
 
 
-template <typename... ExtOps>
 template <typename DAG>
 inline void
-FFGraph<ExtOps...>::insert
+FFGraph::insert
 ( DAG* dag, unsigned const nDep, FFVar const* pDepIn, FFVar* pDepOut )
 {
   if( !nDep ) return;
@@ -8043,10 +7932,9 @@ FFGraph<ExtOps...>::insert
   dag->eval( sg, wk, nDep, pDepIn, pDepOut, vVarIn.size(), vVarIn.data(), vVarOut.data() );
 }
 
-template <typename... ExtOps>
 template <typename... Deps>
 inline FFVar*
-FFGraph<ExtOps...>::compose
+FFGraph::compose
 ( std::set<unsigned> const& ndxDepOut, FFVar const* pDepOut, unsigned const nDepIn,
   FFVar const* pVarOut, FFVar const* pDepIn, Deps... args )
 {
@@ -8064,10 +7952,9 @@ FFGraph<ExtOps...>::compose
   return pDepComp;
 }
 
-template <typename... ExtOps>
 template <typename... Deps>
 inline FFVar*
-FFGraph<ExtOps...>::compose
+FFGraph::compose
 ( unsigned const nDepOut, FFVar const* pDepOut, unsigned const nDepIn,
   FFVar const* pVarOut, FFVar const* pDepIn, Deps... args )
 {
@@ -8087,10 +7974,9 @@ FFGraph<ExtOps...>::compose
   return pDepComp;
 }
 
-template <typename... ExtOps>
 template <typename... Deps>
 inline std::vector<const FFVar*>
-FFGraph<ExtOps...>::compose
+FFGraph::compose
 ( std::vector<FFVar const*> const& vDepOut,
   std::vector< std::pair<FFVar const*, FFVar const*> >& vDepIn,
   unsigned const nDepIn, FFVar const* pVarOut, FFVar const* pDepIn, Deps... args  )
@@ -8099,9 +7985,8 @@ FFGraph<ExtOps...>::compose
   return compose( vDepOut, vDepIn, args... );
 }
 
-template <typename... ExtOps>
 inline std::vector<const FFVar*>
-FFGraph<ExtOps...>::compose
+FFGraph::compose
 ( std::vector<FFVar const*> const& vDepOut,
   std::vector< std::pair<FFVar const*, FFVar const*> > const& vDepIn )
 {
@@ -8172,10 +8057,9 @@ FFGraph<ExtOps...>::compose
   return vDepComp;
 }
 
-template <typename... ExtOps>
 template <typename U, typename... Deps>
 inline void
-FFGraph<ExtOps...>::eval
+FFGraph::eval
 ( const std::set<unsigned>&ndxDep, const FFVar*pDep, U*vDep,
   const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args )
 {
@@ -8185,10 +8069,9 @@ FFGraph<ExtOps...>::eval
   return eval( sgDep, ndxDep, pDep, vDep, nVar, pVar, vVar, args... );
 }
 
-template <typename... ExtOps>
 template <typename U, typename... Deps>
 inline void
-FFGraph<ExtOps...>::eval
+FFGraph::eval
 ( std::vector<U>&wkDep, const std::set<unsigned>&ndxDep, const FFVar*pDep, U*vDep,
   const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args )
 {
@@ -8198,10 +8081,9 @@ FFGraph<ExtOps...>::eval
   return eval( sgDep, wkDep, ndxDep, pDep, vDep, nVar, pVar, vVar, args... );
 }
 
-template <typename... ExtOps>
 template <typename U, typename... Deps>
 inline void
-FFGraph<ExtOps...>::eval
+FFGraph::eval
 ( FFSubgraph&sgDep, const std::set<unsigned>&ndxDep, const FFVar*pDep, U*vDep,
   const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args )
 {
@@ -8211,10 +8093,9 @@ FFGraph<ExtOps...>::eval
   return eval( sgDep, wkDep, ndxDep, pDep, vDep, nVar, pVar, vVar, args... );
 }
 
-template <typename... ExtOps>
 template <typename U, typename... Deps>
 inline void
-FFGraph<ExtOps...>::eval
+FFGraph::eval
 ( FFSubgraph&sgDep, std::vector<U>&wkDep, const std::set<unsigned>&ndxDep,
   const FFVar*pDep, U*vDep, const unsigned nVar, const FFVar*pVar,
   const U*vVar, Deps... args )
@@ -8232,10 +8113,9 @@ FFGraph<ExtOps...>::eval
   for( unsigned iDep=0; it != ndxDep.cend(); ++it, iDep++ ) vDep[*it] = vvDep[iDep];
 }
 
-template <typename... ExtOps>
 template <typename U, typename V, typename COMP, typename... Deps>
  inline void
-FFGraph<ExtOps...>::eval
+FFGraph::eval
 ( const std::map<V,FFVar,COMP>&pDep, std::map<V,U,COMP>&vDep,
   const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args )
 {
@@ -8246,10 +8126,9 @@ FFGraph<ExtOps...>::eval
   return eval( sgDep, pDep, vDep, nVar, pVar, vVar, args... );
 }
 
-template <typename... ExtOps>
 template <typename U, typename V, typename COMP, typename... Deps>
  inline void
-FFGraph<ExtOps...>::eval
+FFGraph::eval
 ( std::vector<U>&wkDep, const std::map<V,FFVar,COMP>&pDep, std::map<V,U,COMP>&vDep,
   const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args )
 {
@@ -8260,10 +8139,9 @@ FFGraph<ExtOps...>::eval
   return eval( sgDep, wkDep, pDep, vDep, nVar, pVar, vVar, args... );
 }
 
-template <typename... ExtOps>
 template <typename U, typename V, typename COMP, typename... Deps>
  inline void
-FFGraph<ExtOps...>::eval
+FFGraph::eval
 ( FFSubgraph&sgDep, const std::map<V,FFVar,COMP>&pDep, std::map<V,U,COMP>&vDep,
   const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args )
 {
@@ -8274,10 +8152,9 @@ FFGraph<ExtOps...>::eval
   return eval( sgDep, wkDep, pDep, vDep, nVar, pVar, vVar, args... );
 }
 
-template <typename... ExtOps>
 template <typename U, typename V, typename COMP, typename... Deps>
  inline void
-FFGraph<ExtOps...>::eval
+FFGraph::eval
 ( FFSubgraph&sgDep, std::vector<U>&wkDep, const std::map<V,FFVar,COMP>&pDep,
   std::map<V,U,COMP>&vDep, const unsigned nVar, const FFVar*pVar, const U*vVar,
   Deps... args )
@@ -8298,10 +8175,9 @@ FFGraph<ExtOps...>::eval
     vDep.insert( vDep.end(), std::make_pair( it->first, vvDep[iDep] ) );
 }
 
-template <typename... ExtOps>
 template <typename U, typename... Deps>
 inline void
-FFGraph<ExtOps...>::eval
+FFGraph::eval
 ( const unsigned nDep, const FFVar*pDep, U*vDep, const unsigned nVar,
   const FFVar*pVar, const U*vVar, Deps... args )
 {
@@ -8312,10 +8188,9 @@ FFGraph<ExtOps...>::eval
   return eval( sgDep, nDep, pDep, vDep, nVar, pVar, vVar, args... );
 }
 
-template <typename... ExtOps>
 template <typename U, typename... Deps>
 inline void
-FFGraph<ExtOps...>::eval
+FFGraph::eval
 ( std::vector<U>&wkDep, const unsigned nDep, const FFVar*pDep, U*vDep,
   const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args )
 {
@@ -8326,10 +8201,9 @@ FFGraph<ExtOps...>::eval
   return eval( sgDep, wkDep, nDep, pDep, vDep, nVar, pVar, vVar, args... );
 }
 
-template <typename... ExtOps>
 template <typename U, typename... Deps>
 inline void
-FFGraph<ExtOps...>::eval
+FFGraph::eval
 ( FFSubgraph&sgDep, const unsigned nDep, const FFVar*pDep, U*vDep,
   const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args )
 {
@@ -8340,10 +8214,9 @@ FFGraph<ExtOps...>::eval
   return eval( sgDep, wkDep, nDep, pDep, vDep, nVar, pVar, vVar, args... );
 }
 
-template <typename... ExtOps>
 template <typename U, typename... Deps>
 inline void
-FFGraph<ExtOps...>::eval
+FFGraph::eval
 ( FFSubgraph&sgDep, std::vector<U>&wkDep, const unsigned nDep, const FFVar*pDep,
   U*vDep, const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args )
 {
@@ -8353,10 +8226,9 @@ FFGraph<ExtOps...>::eval
   return eval( sgDep, wkDep, nDep, pDep, vDep, l_nVar, l_pVar, l_vVar, args... );
 }
 
-template <typename... ExtOps>
 template <typename U, typename... Deps>
 inline void
-FFGraph<ExtOps...>::eval
+FFGraph::eval
 ( FFSubgraph&sgDep, std::vector<U>&wkDep, const unsigned nDep, const FFVar*pDep,
   U*vDep, std::list<unsigned>&l_nVar, std::list<const FFVar*>&l_pVar,
   std::list<const U*>&l_vVar, const unsigned nVar, const FFVar*pVar,
@@ -8368,10 +8240,9 @@ FFGraph<ExtOps...>::eval
   return eval( sgDep, wkDep, nDep, pDep, vDep, l_nVar, l_pVar, l_vVar, args... );
 }
 
-template <typename... ExtOps>
 template <typename U>
 inline void
-FFGraph<ExtOps...>::eval
+FFGraph::eval
 ( FFSubgraph&sgDep, std::vector<U>&wkDep, const unsigned nDep, const FFVar*pDep,
   U*vDep, const std::list<unsigned>&l_nVar, const std::list<const FFVar*>&l_pVar,
   const std::list<const U*>&l_vVar, const bool add )
@@ -8450,10 +8321,9 @@ FFGraph<ExtOps...>::eval
   return;
 }
 
-template <typename... ExtOps>
 template <typename U, typename... Deps>
 inline int
-FFGraph<ExtOps...>::reval
+FFGraph::reval
 ( const std::set<unsigned>&ndxDep, const FFVar*pDep,
   U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args )
 {
@@ -8463,10 +8333,9 @@ FFGraph<ExtOps...>::reval
   return reval( wkDep, ndxDep, pDep, vDep, nVar, pVar, vVar, args... );
 }
 
-template <typename... ExtOps>
 template <typename U, typename... Deps>
 inline int
-FFGraph<ExtOps...>::reval
+FFGraph::reval
 ( std::vector<U>&wkDep, const std::set<unsigned>&ndxDep, const FFVar*pDep,
   U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args )
 {
@@ -8476,10 +8345,9 @@ FFGraph<ExtOps...>::reval
   return reval( sgDep, wkDep, ndxDep, pDep, vDep, nVar, pVar, vVar, args... );
 }
 
-template <typename... ExtOps>
 template <typename U, typename... Deps>
 inline int
-FFGraph<ExtOps...>::reval
+FFGraph::reval
 ( FFSubgraph&sgDep, const std::set<unsigned>&ndxDep, const FFVar*pDep,
   U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args )
 {
@@ -8489,10 +8357,9 @@ FFGraph<ExtOps...>::reval
   return reval( sgDep, wkDep, ndxDep, pDep, vDep, nVar, pVar, vVar, args... );
 }
 
-template <typename... ExtOps>
 template <typename U, typename... Deps>
 inline int
-FFGraph<ExtOps...>::reval
+FFGraph::reval
 ( FFSubgraph&sgDep, std::vector<U>&wkDep, const std::set<unsigned>&ndxDep,
   const FFVar*pDep, U*vDep, const unsigned nVar, const FFVar*pVar,
   U*vVar, Deps... args )
@@ -8513,10 +8380,9 @@ FFGraph<ExtOps...>::reval
   return flag;
 }
 
-template <typename... ExtOps>
 template <typename U, typename... Deps>
 inline int
-FFGraph<ExtOps...>::reval
+FFGraph::reval
 ( const unsigned nDep, const FFVar*pDep,
   U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args )
 {
@@ -8528,10 +8394,9 @@ FFGraph<ExtOps...>::reval
   return reval( sgDep, wkDep, nDep, pDep, vDep, nVar, pVar, vVar, args... );
 }
 
-template <typename... ExtOps>
 template <typename U, typename... Deps>
 inline int
-FFGraph<ExtOps...>::reval
+FFGraph::reval
 ( std::vector<U>&wkDep, const unsigned nDep, const FFVar*pDep,
   U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args )
 {
@@ -8542,10 +8407,9 @@ FFGraph<ExtOps...>::reval
   return reval( sgDep, wkDep, nDep, pDep, vDep, l_nVar, l_pVar, l_vVar, args... );
 }
 
-template <typename... ExtOps>
 template <typename U, typename... Deps>
 inline int
-FFGraph<ExtOps...>::reval
+FFGraph::reval
 ( FFSubgraph&sgDep, const unsigned nDep, const FFVar*pDep,
   U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args )
 {
@@ -8556,10 +8420,9 @@ FFGraph<ExtOps...>::reval
   return reval( sgDep, wkDep, nDep, pDep, vDep, nVar, pVar, vVar, args... );
 }
 
-template <typename... ExtOps>
 template <typename U, typename... Deps>
 inline int
-FFGraph<ExtOps...>::reval
+FFGraph::reval
 ( FFSubgraph&sgDep, std::vector<U>&wkDep, const unsigned nDep, const FFVar*pDep,
   U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args )
 {
@@ -8569,10 +8432,9 @@ FFGraph<ExtOps...>::reval
   return reval( sgDep, wkDep, nDep, pDep, vDep, l_nVar, l_pVar, l_vVar, args... );
 }
 
-template <typename... ExtOps>
 template <typename U, typename... Deps>
 inline int
-FFGraph<ExtOps...>::reval
+FFGraph::reval
 ( FFSubgraph&sgDep, std::vector<U>&wkDep, const unsigned nDep, const FFVar*pDep,
   U*vDep, std::list<unsigned>&l_nVar, std::list<const FFVar*>&l_pVar,
   std::list<U*>&l_vVar, const unsigned nVar, const FFVar*pVar,
@@ -8584,10 +8446,9 @@ FFGraph<ExtOps...>::reval
   return reval( sgDep, wkDep, nDep, pDep, vDep, l_nVar, l_pVar, l_vVar, args... );
 }
 
-template <typename... ExtOps>
 template <typename U>
 inline int
-FFGraph<ExtOps...>::reval
+FFGraph::reval
 ( FFSubgraph&sgDep, std::vector<U>&wkDep, const unsigned nDep, const FFVar*pDep,
   U*vDep, const std::list<unsigned>&l_nVar, const std::list<const FFVar*>&l_pVar,
   const std::list<U*>&l_vVar, U const& InfVal, const unsigned MAXPASS,
@@ -8796,10 +8657,9 @@ FFGraph<ExtOps...>::reval
   return ipass;
 }
 
-template <typename... ExtOps>
 template <typename U>
 inline void
-FFGraph<ExtOps...>::wkextract
+FFGraph::wkextract
 ( FFSubgraph const& sgOut, std::vector<U>& wkOut, FFSubgraph const& sgIn, std::vector<U>& wkIn )
 {
   // Anything to do?
@@ -8826,9 +8686,8 @@ FFGraph<ExtOps...>::wkextract
   }
 }
 
-template <typename... ExtOps>
 inline bool
-FFGraph<ExtOps...>::MC13
+FFGraph::MC13
 ( unsigned const nDep, FFVar const* pDep, FFVar const* pIndep,
   int* IPERM, int* IOR, int* IB, int& NB, bool const disp, std::ostream& os )
 {
@@ -8935,9 +8794,8 @@ FFGraph<ExtOps...>::MC13
 #endif
 }
 
-template <typename... ExtOps>
 inline bool
-FFGraph<ExtOps...>::MC33
+FFGraph::MC33
 ( unsigned const nDep, FFVar const* pDep, unsigned const nIndep,
   FFVar const* pIndep, int* IP, int* IQ, int* IPROF, int* IFLAG, bool const disp,
   std::ostream& os )

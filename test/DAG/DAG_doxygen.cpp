@@ -226,7 +226,7 @@ public:
   // Constructors
   FFnorm2
     ()
-    : FFOp( (int)EXTERN )
+    : FFOp( EXTERN )
     {}
 
   // Functor
@@ -238,12 +238,28 @@ public:
     }
 
   // Evaluation overloads
+  virtual void feval
+    ( std::type_info const& idU, unsigned const nRes, void* vRes, unsigned const nVar,
+      void const* vVar, unsigned const* mVar )
+    const
+    {
+      if( idU == typeid( FFVar ) )
+        return eval( nRes, static_cast<FFVar*>(vRes), nVar, static_cast<FFVar const*>(vVar), mVar );
+      else if( idU == typeid( double ) )
+        return eval( nRes, static_cast<double*>(vRes), nVar, static_cast<double const*>(vVar), mVar );
+      else if( idU == typeid( I ) )
+        return eval( nRes, static_cast<I*>(vRes), nVar, static_cast<I const*>(vVar), mVar );
+
+      throw std::runtime_error( "Error: No evaluation method for FFnorm2 with type"+std::string(idU.name())+"\n" );
+    }
+
   template< typename T >
   void eval
     ( unsigned const nRes, T* vRes, unsigned const nVar, T const* vVar, unsigned const* mVar )
     const
     {
       assert( nRes == 1 );
+      std::cout << "NORM2 generic instantiation\n";
       switch( nVar ){
         case 0: vRes[0] = T( 0. ); break;
         case 1: vRes[0] = vVar[0]; break;
@@ -252,12 +268,13 @@ public:
                  vRes[0] = Op<T>::sqrt( vRes[0] ); break;
       }
     }
-  // Overload for DAG manipulationz
+
   void eval
     ( unsigned const nRes, FFVar* vRes, unsigned const nVar, FFVar const* vVar, unsigned const* mVar )
     const
     {
       assert( nRes == 1 );
+      std::cout << "NORM2 FFVar instantiation\n";
       vRes[0] = operator()( nVar, vVar );
     }
 
@@ -296,7 +313,7 @@ int test_extern()
   std::cout << "\n==============================================\ntest_extern:\n";
 
   // DAG environment
-  mc::FFGraph<mc::FFnorm2> DAG;
+  mc::FFGraph DAG;
   const unsigned int NX = 3;
   mc::FFVar X[NX];
   for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
@@ -348,7 +365,7 @@ int main()
     test_move();
     test_extern();
   }
-  catch( mc::FFBase::Exceptions &eObj ){
+  catch( mc::FFGraph::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
               << " in factorable function manipulation:" << std::endl
               << eObj.what() << std::endl

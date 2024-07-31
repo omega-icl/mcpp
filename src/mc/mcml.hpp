@@ -37,7 +37,7 @@ public:
   std::vector<std::pair<std::vector<std::vector<double>>,int>> data;
 
   //! @brief Storage for Polhedral relaxation
-  std::pair<FFGraph<>*,void*>          DAG;
+  std::pair<FFGraph*,void*>            DAG;
   FFSubgraph                           DAGOps;
   std::vector<FFVar>                   DAGVar;
   std::vector<FFVar>                   DAGRes;
@@ -434,7 +434,7 @@ MLP<T>::resize_relax
     default:
       if( !DAG.first || DAG.second != &data ){
         delete DAG.first;
-        DAG = std::make_pair( new FFGraph<>, &data );
+        DAG = std::make_pair( new FFGraph, &data );
         DAGVar.resize( nin );
         DAGRes.resize( nout );
         for( unsigned i=0; i<nin; ++i )

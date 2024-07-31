@@ -1,4 +1,5 @@
 #undef  MC__FFUNC_CPU_EVAL
+#define MC__FFUNC_EXTERN_DEBUG
 ////////////////////////////////////////////////////////////////////////
 
 #include <fstream>
@@ -48,7 +49,6 @@ typedef mc::PolVar<I> POLV;
 namespace mc
 {
 
-template<unsigned int ID>
 class FFnorm2
 : public FFOp
 {
@@ -56,7 +56,7 @@ public:
   // Constructors
   FFnorm2
     ()
-    : FFOp( (int)EXTERN+ID )
+    : FFOp( EXTERN )
     {}
 
   // Functor
@@ -64,7 +64,6 @@ public:
     ( unsigned const nVar, FFVar const* pVar )
     const
     {
-//      dep.update( FFDep::TYPE::N );
       return **insert_external_operation( *this, 1, nVar, pVar );
     }
 
@@ -157,7 +156,6 @@ public:
 
 ///////////////////////////////////////////////////////////////////////////////
 
-template<unsigned int ID>
 class FFnorm12
 : public FFOp
 {
@@ -165,7 +163,7 @@ public:
   // Constructors
   FFnorm12
     ()
-    : FFOp( (int)EXTERN+ID )
+    : FFOp( EXTERN )
     {}
 
   // Functor
@@ -278,7 +276,6 @@ public:
 
 ///////////////////////////////////////////////////////////////////////////////
 
-template<unsigned int ID>
 class FFxlog
 : public FFOp
 {
@@ -286,7 +283,7 @@ public:
   // Constructors
   FFxlog
     ()
-    : FFOp( (int)EXTERN+ID )
+    : FFOp( EXTERN )
     {}
 
   // Functor
@@ -434,7 +431,6 @@ public:
 
 ///////////////////////////////////////////////////////////////////////////////
 
-template<unsigned int ID>
 class FFdet
 : public FFOp
 {
@@ -442,7 +438,7 @@ public:
   // Constructors
   FFdet
     ()
-    : FFOp( (int)EXTERN+ID )
+    : FFOp( EXTERN )
     {}
 
   // Functor
@@ -582,7 +578,6 @@ struct FFDOptBase
 
 inline std::vector< CPPL::dsymatrix > FFDOptBase::_A;
 
-template<unsigned int ID>
 class FFDOpt
 : public FFOp,
   public FFDOptBase
@@ -591,7 +586,7 @@ public:
   // Constructors
   FFDOpt
     ()
-    : FFOp( (int)EXTERN+ID )
+    : FFOp( EXTERN )
     {}
 
   // Functor
@@ -599,7 +594,6 @@ public:
     ( unsigned const nVar, FFVar const* pVar )
     const
     {
-      info = ID;
       return **insert_external_operation( *this, 1, nVar, pVar );
     }
 
@@ -679,7 +673,6 @@ public:
     { return false; }
 };
 
-template<unsigned int ID>
 class FFDOptGrad
 : public FFOp,
   public FFDOptBase
@@ -688,7 +681,7 @@ public:
   // Constructors
   FFDOptGrad
     ()
-    : FFOp( (int)EXTERN+ID )
+    : FFOp( EXTERN )
     {}
 
   // Functor
@@ -696,14 +689,12 @@ public:
     ( unsigned const idep, unsigned const nVar, FFVar const* pVar )
     const
     {
-      info = ID+1;
       return *(insert_external_operation( *this, nVar, nVar, pVar )[idep]);
     }
   FFVar** operator()
     ( unsigned const nVar, FFVar const* pVar )
     const
     {
-      info = ID+1;
       return insert_external_operation( *this, nVar, nVar, pVar );
     }
 
@@ -785,9 +776,8 @@ public:
     { return false; }
 };
 
-template<unsigned int ID>
 inline void
-FFDOpt<ID>::eval
+FFDOpt::eval
 ( unsigned const nRes, fadbad::F<FFVar>* vRes, unsigned const nVar, fadbad::F<FFVar> const* vVar,
   unsigned const* mVar )
 const
@@ -798,7 +788,7 @@ const
   for( unsigned i=0; i<nVar; ++i )
     vVarVal[i] = vVar[i].val();
   vRes[0] = operator()( nVar, vVarVal.data() );
-  FFDOptGrad<ID> DOptGrad;
+  FFDOptGrad DOptGrad;
   for( unsigned i=0; i<nVar; ++i )
     vRes[0].setDepend( vVar[i] );
   for( unsigned j=0; j<vRes[0].size(); ++j )
@@ -807,23 +797,20 @@ const
       else     vRes[0][j] += DOptGrad( i, nVar, vVarVal.data() ) * vVar[i][j];
 }
 
-
-template<unsigned int ID>
 inline void
-FFDOpt<ID>::deriv
+FFDOpt::deriv
 ( unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar, FFVar** vDer )
 const
 {
   assert( nRes == 1 && nVar == _A.size() && _A.begin() != _A.end() );
   std::cout << "FFDOpt::deriv: FFVar\n";
-  FFDOptGrad<ID> DOptGrad;
+  FFDOptGrad DOptGrad;
   for( unsigned i=0; i<nVar; ++i )
     vDer[0][i] = DOptGrad( i, nVar, vVar );
 }
 
 ///////////////////////////////////////////////////////////////////////////////
 
-template<unsigned int ID>
 class FFArrh
 : public FFOp
 {
@@ -831,18 +818,42 @@ public:
   // Constructors
   FFArrh
     ()
-    : FFOp( (int)EXTERN+ID )
+    : FFOp( EXTERN )
     {}
 
-  // Functor
+  FFArrh
+    ( FFArrh const& Op )
+    : FFOp( Op )
+    {}
+
+  // Destructor
+  virtual ~FFArrh
+    ()
+    {
+//      std::cout << "FFArrh destructor invoked\n";
+//      if( owndata ) delete static_cast<double*>( data );
+    }
+
+  // Define operation
   FFVar& operator()
-    ( FFVar const& Var, double& r )
+    ( FFVar const& Var, double& r, bool const copy=false )
     const
     {
       data = &r; // this is assuming r isn't going out of scope
-      info = ID;
-      //std::cout << "data: " << data << std::endl;
+//      info = ID;
+//      std::cout << "data: " << data << std::endl;
       return *(insert_external_operation( *this, 1, Var )[0]);
+//      FFVar* pRes = insert_external_operation( *this, 1, Var )[0];
+//      FFOp* pOp = pRes->opdef().first;
+//      if( copy && !pOp->owndata ){
+//        double* pr = new double( r );
+//	auto opins = update_data( pOp, pr, true );
+//	assert( opins.second );
+//	pOp = opins.first;
+////        data = pODE = static_cast<ODESLVS_CVODES<ExtOps...>*>( pOp->data );
+//        data = pOp->data;
+//      }
+//      return *pRes;
     }
 
   // Evaluation overloads
@@ -924,13 +935,6 @@ public:
     const
     { //std::cout << "data: " << data << std::endl;
       return "ARRH[" + std::to_string(*static_cast<double*>( data )) + "]"; }
-
-  // Data cleanup
-  bool cleanup
-    ()
-    const
-    { std::cout << "FFArrh: cleanup\n"; 
-      return false; }
 };
 
 }
@@ -946,8 +950,8 @@ int test_external0()
   const unsigned NX = 2, NF = 3;
   mc::FFVar X[NX];
   for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
-  mc::FFnorm2<0>  norm2;
-  mc::FFnorm12<1> norm12;
+  mc::FFnorm2  norm2;
+  mc::FFnorm12 norm12;
   mc::FFVar F[NF] = { norm2( NX, X ), norm12( 0, NX, X ), norm12( 1, NX, X ) };
   std::cout << DAG;
   
@@ -997,8 +1001,8 @@ int test_external1()
   const unsigned NX = 2, NF = 2;
   mc::FFVar X[NX];
   for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
-  mc::FFnorm2<0> norm2;
-  mc::FFxlog<1>  myxlog;
+  mc::FFnorm2 norm2;
+  mc::FFxlog  myxlog;
   mc::FFVar F[NF] = { xlog( norm2( NX, X) ), myxlog( norm2( NX, X ) ) };
   std::cout << DAG;
   
@@ -1048,7 +1052,7 @@ int test_external2()
   for( unsigned i=0; i<NX; ++i )
     for( unsigned j=0; j<NX; ++j )
       F[i+j*NX] = pow(X[i],(int)j);
-  mc::FFdet<0> det;
+  mc::FFdet det;
   mc::FFVar G = det( NF, F );
   std::cout << DAG;
   
@@ -1086,7 +1090,7 @@ int test_external3()
   mc::FFVar X, Y, F, G;
   X.set( &DAG );
   Y.set( &DAG );
-  mc::FFxlog<0> myxlog;
+  mc::FFxlog myxlog;
   //F = myxlog(X);
   F = exp(X);
   //G = sqr(Y)+F;
@@ -1120,11 +1124,10 @@ int test_external4()
 {
   std::cout << "\n==============================================\ntest_external4:\n";
 
-  //mc::FFGraph< mc::FFxlog<0> > DAG;
   mc::FFGraph DAG;
   mc::FFVar X;
   X.set( &DAG );
-  mc::FFxlog<0> myxlog;
+  mc::FFxlog myxlog;
 
   mc::FFVar F = myxlog(X);
   std::cout << DAG;
@@ -1167,7 +1170,7 @@ int test_external5()
   mc::FFGraph DAG;
   mc::FFVar X;
   X.set( &DAG );
-  mc::FFxlog<0> myxlog;
+  mc::FFxlog myxlog;
 
   mc::FFVar F = myxlog(X);
   std::cout << DAG;
@@ -1197,7 +1200,7 @@ int test_external6()
   const unsigned NS = mc::FFDOptBase::read( NP, "fims.txt", false ); 
   mc::FFVar S[NS];
   for( unsigned int i=0; i<NS; i++ ) S[i].set( &DAG );
-  mc::FFDOpt<0> DOpt;
+  mc::FFDOpt DOpt;
   mc::FFVar F = DOpt( NS, S );
   //std::cout << DAG;
 
@@ -1233,13 +1236,13 @@ int test_external7()
   std::cout << "\n==============================================\ntest_external7:\n";
 
   // Create DAG
-  //mc::FFGraph< mc::FFArrh<0> > DAG;
   mc::FFGraph DAG;
   mc::FFVar X( &DAG );
-  mc::FFArrh<0> Arrh;
+  mc::FFArrh Arrh;
   double C1(2.), C2(3.);
   //std::cout << "C1: " << &C1 << "  C2: " << &C2 << std::endl;
-  mc::FFVar F[2] = { Arrh( X, C1 ) + Arrh( X, C2 ), Arrh( X, C1 ) - Arrh( X, C2 ) };
+  //mc::FFVar F[2] = { Arrh( X, C1 ) + Arrh( X, C2 ), Arrh( X, C1 ) - Arrh( X, C2 ) };
+  mc::FFVar F[2] = { Arrh( X, C1, true ) + Arrh( X, C2, true ), Arrh( X, C1, true ) - Arrh( X, C2, true ) };
   std::cout << DAG;
 
   std::ofstream o_F( "external7_F.dot", std::ios_base::out );
@@ -1394,8 +1397,8 @@ int test_slift_external0()
   const unsigned NX = 2, NF = 2;
   mc::FFVar X[NX];
   for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
-  mc::FFnorm2<0> norm2;
-  mc::FFnorm12<1> norm12;
+  mc::FFnorm2 norm2;
+  mc::FFnorm12 norm12;
   //mc::FFVar F[NF] = { max( X[0], X[1] ), norm12( 0, NX, X ), norm12( 1, NX, X ) };
   //mc::FFVar F[NF] = { norm2( NX, X ), norm12( 0, NX, X ), norm12( 1, NX, X ) };
   mc::FFVar F[NF] = { norm12( 0, NX, X ), norm12( 1, NX, X ) };
@@ -1417,7 +1420,7 @@ int test_slift_external1()
   // Create DAG
   mc::FFGraph DAG;
   mc::FFVar X( &DAG );
-  mc::FFArrh<0> Arrh;
+  mc::FFArrh Arrh;
   double C1(2.), C2(3.);
   //std::cout << "C1: " << &C1 << "  C2: " << &C2 << std::endl;
   mc::FFVar F = 1 - Arrh( X, C1 ) / Arrh( X, C2 );
@@ -1435,17 +1438,17 @@ int test_slift_external1()
 int main()
 {
   try{
-//    test_external0();
-//    test_external1();
-//    test_external2();
-//    test_external3();
-//    test_external4();
-//    test_external5();
-//    test_external6();
-//    test_external7();
-//    test_external8();
+    test_external0();
+    test_external1();
+    test_external2();
+    test_external3();
+    test_external4();
+    test_external5();
+    test_external6();
+    test_external7();
+    test_external8();
     test_slift_external0();
-//    test_slift_external1();
+    test_slift_external1();
   }
   catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()

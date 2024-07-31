@@ -363,7 +363,7 @@ public:
 
   //! @brief Default Constructor
   SLiftEnv
-    ( FFGraph<>* dag=nullptr )
+    ( FFGraph* dag=nullptr )
     : _dag( dag )
     {}
   
@@ -373,7 +373,7 @@ public:
     { _reset(); }
 
   // Retreive pointer to DAG
-  FFGraph<>* dag
+  FFGraph* dag
     ()
     const
     { return _dag; };
@@ -388,7 +388,7 @@ public:
 
   //! @brief Set DAG environment
   void set
-    ( FFGraph<>* dag )
+    ( FFGraph* dag )
     { _dag = dag; _reset(); }
 
   //! @brief Reset intermediate expressions
@@ -527,7 +527,7 @@ public:
 protected:
 
   //! @brief pointer to underlying dag
-  FFGraph<>*             _dag;
+  FFGraph*               _dag;
 
   //! @brief Map of lifted DAG operations and sparse expressions
   t_OpLift               _OpLift;
@@ -890,16 +890,10 @@ SLiftEnv::_insert_expr_external
     throw Exceptions( Exceptions::INTERNAL );
 
   // Append new DAG variables in _Aux for all operands
-  FFVar const* pVarOut = nullptr;
-  bool first = true;
-  for( auto const& pres : pOp->varout ){
-    if( first ){
-      pVarOut = _insert_aux( pres, true );
-      first = false;
-    }
-    else
-      _insert_aux( pres, true );
-  }
+  std::vector<FFVar> pVarOut;
+  pVarOut.reserve( pOp->varout.size() );
+  for( auto const& pres : pOp->varout )
+    pVarOut.push_back( *_insert_aux( pres, true ) );
 
   std::vector<FFVar> vVar( vAux.size() ), vRes(pOp->varout.size());
   std::vector<unsigned> mVar( vAux.size(), 0 );
@@ -916,9 +910,9 @@ SLiftEnv::_insert_aux
 ( FFVar const* aux, bool const ins )
 {
   // First check if auxiliary already exists
-//#ifdef MC__SLIFT_DEBUG_PROCESS
+#ifdef MC__SLIFT_DEBUG_PROCESS
   std::cout << std::endl << "operand: " << *aux << std::endl;
-//#endif
+#endif
   if( aux->opdef().first->type == FFOp::VAR ) return aux;
   auto itaux = _Aux.find( aux );
   if( itaux != _Aux.end() ) return itaux->second;
@@ -930,9 +924,9 @@ SLiftEnv::_insert_aux
 #ifdef MC__SLIFT_CHECK
   assert( itnewvar != _dag->Vars().end() );
 #endif
-//#ifdef MC__SLIFT_DEBUG_PROCESS
+#ifdef MC__SLIFT_DEBUG_PROCESS
   std::cout << "paired with new DAG variable: " << **itnewvar << std::endl;
-//#endif
+#endif
   _Aux.insert( std::make_pair( aux, *itnewvar ) );
   _Var.push_back( **itnewvar );
   return *itnewvar;
