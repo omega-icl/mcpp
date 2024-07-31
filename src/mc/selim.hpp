@@ -646,7 +646,7 @@ public:
                   FFInv::Options::LOG, FFInv::Options::RPOW } )
       {
         SLIFT.KEEPFACT = true;
-        SLIFT.LIFTDIV  = false;
+        SLIFT.LIFTDIV  = true;
         SLIFT.LIFTIPOW = false;
       }
     //! @brief Assignment of mc::SElimEnv::Options

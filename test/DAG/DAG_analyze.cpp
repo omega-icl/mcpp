@@ -258,16 +258,18 @@ int test_selim0()
   mc::FFVar X[NX];
   for( unsigned i(0); i<NX; i++ ) X[i].set( &DAG );
   mc::FFVar F[NF];
-  F[0] = ( 3. * X[0] * sqr( X[2] ) ) / X[1] - 2. * X[0] * X[1] - X[0] - 1;
+  F[0] = ( 3. * X[0] * sqr( X[2] ) ) / X[1] - 2. * X[0] * ( X[1] - 1 ) - 1;
   F[1] = 2./X[1] + 3./X[2] - 1.;
   //std::cout << DAG;
   for( unsigned i=0; i<NF; ++i )
     DAG.output( DAG.subgraph( 1, F+i ) );
 
   mc::SElimEnv SPE( &DAG );
-  SPE.options.ELIMMLIN      = true;
-  SPE.options.MIPDISPLEVEL  = 0;
-  SPE.options.MIPOUTPUTFILE = "test_selim0.lp";
+  SPE.options.SLIFT.KEEPFACT = true;
+  SPE.options.SLIFT.LIFTDIV  = true;
+  SPE.options.ELIMMLIN       = true;
+  SPE.options.MIPDISPLEVEL   = 0;
+  SPE.options.MIPOUTPUTFILE  = "test_selim0.lp";
 
   std::map<mc::FFVar const*,double,mc::lt_FFVar> W = { { &X[2], 0. } };
   SPE.process( NF, F, W, true );
@@ -384,10 +386,10 @@ int main()
     //test_spoly1();
     //test_slift0();
     //test_slift1();
-    //test_selim0();
+    test_selim0();
     //test_selim1();
     //test_selim2();
-    test_selim3();
+//    test_selim3();
   }
   catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
