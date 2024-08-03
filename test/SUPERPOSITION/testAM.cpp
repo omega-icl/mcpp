@@ -346,7 +346,7 @@ int main()
 #endif
   } // end: try   
     
-#ifndef USE_PROFIL 
+/*#ifndef USE_PROFIL 
 #ifndef MC__USE_FILIB 
   catch( I::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
@@ -356,7 +356,7 @@ int main()
     return eObj.ierr();
   }
 #endif
-#endif
+#endif*/
   catch( ASM::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
               << " in interval superposition model:" << std::endl

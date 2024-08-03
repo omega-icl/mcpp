@@ -1,12 +1,16 @@
 #ifndef MC__MCML_HPP
 #define MC__MCML_HPP
-
+//#define USE_ASMCPWL
 //#define MC__MCMLP_DEBUG
 #define MC__MCMLP_CHECK
 
 #include "mccormick.hpp"
 #include "ismodel.hpp"
+#ifdef USE_ASMCPWL
+  #include "asmodelCPWL.hpp"
+#else
 #include "asmodel.hpp"
+#endif
 #include "mcfunc.hpp"
 #include "ffunc.hpp"
 #include "polimage.hpp"
@@ -103,6 +107,7 @@ public:
     //! @brief Assignment operator
     Options& operator=
       ( Options const& opt ){
+
         RELAX     = opt.RELAX;
         ISMDIV    = opt.ISMDIV;
         ASMBPS    = opt.ASMBPS;
@@ -113,6 +118,7 @@ public:
         ZEROTOL   = opt.ZEROTOL;
         RELU2ABS  = opt.RELU2ABS;
         SIG2EXP   = opt.SIG2EXP;
+        AUTODIFF  = opt.AUTODIFF;
         return *this;
       }
 
@@ -122,6 +128,8 @@ public:
       B		//!< Backward differentiation
     };
 
+    // //! @brief Type of activation function
+    // ACTIVTYPE ACTIV;
     //! @brief Type of relaxation
     RELAXTYPE RELAX;
     //! @brief Number of subdivisions in superposition model
@@ -226,11 +234,15 @@ private:
   void evaluate
     ( U* y, U const* x, std::vector<std::vector<U>>& vhid )
     const;
-
+#ifdef USE_ASMCPWL
+  void append_ASMcuts
+    ( PolBase<T>* img, FFOp* pop, PolVar<T> const& vRes, PolVar<T>* vVar,
+      std::vector<PWLUVar> const& pwlEst );
+#else
   void append_ASMcuts
     ( PolBase<T>* img, FFOp* pop, PolVar<T> const& vRes, PolVar<T>* vVar,
       std::vector<UnivarPWL<T>> const& pwlEst );
-
+#endif
   void append_ASMcuts
     ( PolBase<T>* img, FFOp* pOp, PolVar<T> const& vRes, PolVar<T>* vVar,
       double const& rhsEst, std::vector<double> const& lnrEst=std::vector<double>() );
@@ -588,17 +600,36 @@ MLP<T>::propagate_relax
 
     // Affine superposition models
     case MLP<T>::Options::RELAXTYPE::ASM:
+    #ifdef USE_ASMCPWL
+      PWLUVar::options.BKPTMAX = options.ASMBPS;
+      PWLUEst::options.BKPTMAX = options.ASMBPS;
+#else
       UnivarPWLE<double>::nbpsMax = options.ASMBPS;       
-      for( unsigned i=0; i<nin; ++i )
+#endif
+      for( unsigned i=0; i<nin; ++i ){
         ASMVar[i].set( ASMEnv, i, vVar[i].range() );
+        //std::cerr << "vVar[" << i << "] in " << vVar[i].range() << std::endl;  
+      }
+      //std::cerr << "before evaluation\n";      
       evaluate( ASMRes.data(), ASMVar.data() );
+      //std::cerr << "evaluated\n";      
       for( unsigned j=0; j<nout; ++j ){
         vRes[j].set( img, *pRes[j], ASMRes[j].B() );
 #ifdef MC__MCMLP_DEBUG
         std::cerr << "ASMRes[" << j << "] in " << ASMRes[j] << std::endl;
         std::cerr << "vRes[" << j << "] in " << vRes[j].range() << std::endl;
 #endif
+        //std::cerr << "ASMRes[" << j << "] in " << ASMRes[j] << std::endl;
       }
+      // double sumDiff = 0.;
+      // for( unsigned i=0; i<nin; ++i ){
+      //   UnivarPWLE<double> _tmp = ASMRes[0].get_lst()[i].oveEst;  
+      //   UnivarPWLE<double> _tmp1 = ASMRes[0].get_lst()[i].undEst;
+      //   _tmp = _tmp - _tmp1;
+      //   //_tmp -= ASMRes[0].get_lst()[i].undEst;
+      //   sumDiff += _tmp.get_lb();
+      // }
+      // std::cerr << sumDiff << std::endl;
       return;
   }
 }
@@ -812,9 +843,121 @@ MLP<T>::append_ASMcuts
   img->add_cut( pOp, PolCut<T>::EQ, 0., nin, POLLASMAux.data(), 1., vRes, -1. );
 }
 
+#ifdef USE_ASMCPWL
 template<typename T>
 inline void
-MLP<T>::append_ASMcuts
+ANN<T>::append_ASMcuts
+( PolBase<T>* img, FFOp* pOp, PolVar<T> const& vRes, PolVar<T>* vVar,
+  std::vector<PWLUVar> const& pwlEst )
+{
+  //std::cout << "append_ASMcuts" << std::endl;
+
+  for( unsigned i=0; i<nin; ++i ){
+    PWLUEst const& uest = pwlEst[i].undEst();
+    if( uest.empty() )
+      POLLASMAux[i].set( img, T(0.), true );
+    else{ 
+      POLLASMAux[i].set( img, T(uest.get_lb(),uest.get_ub()), true );
+      // auto const [ucst,isuCst] = uest.get_cst();
+      // if( isuCst )
+      //   img->add_cut( pOp, PolCut<T>::EQ, ucst, POLLASMAux[i], 1. );
+      //std::cout << "append_ASMcuts 2" << std::endl;
+      if( uest.size() == 1)
+        img->add_cut( pOp, PolCut<T>::EQ, (uest.cbegin()->second), POLLASMAux[i], 1. );
+      else{
+        // unsigned NK = uest.first.size()-1;
+        unsigned NK = uest.size();      
+// #ifdef MC__MCANN_CHECK
+//         assert( uest.second.size() == uest.first.size() );
+// #endif
+        //std::cout << "append_ASMcuts 3" << std::endl;
+        DXASMAux.assign( NK, 0. );
+        DYASMAux.assign( NK, 0. );
+        unsigned int j = 0;
+        for( auto it1 = uest.cbegin(); it1 != uest.cend(); ){
+          auto& [x1,y1] = *it1;  
+          DXASMAux[j] = x1;
+          DYASMAux[j] = y1; 
+          it1 = std::next(it1);
+          j++;         
+        }        
+        // if(NK==1){
+        //   NK += 1;
+        //   DXASMAux.assign( NK, 0. );
+        //   DYASMAux.assign( NK, 0. );
+        //   for( unsigned j=0; j<NK; ++j ){
+        //     DXASMAux[j] = uest.first[j];
+        //     DYASMAux[j] = uest.second[j];
+        //   }            
+        // }
+        // else{
+        //   DXASMAux.assign( NK, uest.first[0] );
+        //   DYASMAux.assign( NK, uest.second[0] );
+        //   for( unsigned j=0; j<NK; ++j ){
+        //     DXASMAux[j] += uest.first[j+1];
+        //     DYASMAux[j] += uest.second[j+1];
+        //   }
+        // }
+        //std::cout << "append_ASMcuts 4" << std::endl;
+        img->add_semilinear_cuts( pOp, NK, vVar[i], DXASMAux.data(), POLLASMAux[i], DYASMAux.data(), mc::PolCut<T>::EQ );
+      }
+    }
+
+    PWLUEst const& oest = pwlEst[i].oveEst();
+    if( oest.empty() )
+      POLUASMAux[i].set( img, T(0.), true );
+    else{
+      POLUASMAux[i].set( img, T(oest.get_lb(),oest.get_ub()), true );
+      // auto const [ocst,isoCst] = oest.get_cst();
+      // if( isoCst )
+      //   img->add_cut( pOp, PolCut<T>::EQ, ocst, POLUASMAux[i], 1. );
+      if( oest.size() == 1)
+        img->add_cut( pOp, PolCut<T>::EQ, (oest.cbegin()->second), POLLASMAux[i], 1. );     
+      else{
+        unsigned NK = oest.size(); 
+//         unsigned NK = oest.first.size()-1;
+// #ifdef MC__MCANN_CHECK
+//         assert( oest.second.size() == oest.first.size() );
+// #endif
+        DXASMAux.assign( NK, 0. );
+        DYASMAux.assign( NK, 0. );
+        unsigned int j = 0;
+        for( auto it1 = oest.cbegin(); it1 != oest.cend(); ){
+          auto& [x1,y1] = *it1;  
+          DXASMAux[j] = x1;
+          DYASMAux[j] = y1; 
+          it1 = std::next(it1);
+          j++;         
+        } 
+
+        // if(NK == 1){
+        //   NK += 1;
+        //   DXASMAux.assign( NK, 0. );
+        //   DYASMAux.assign( NK, 0. );
+        //   for( unsigned j=0; j<NK; ++j ){
+        //     DXASMAux[j] = oest.first[j];
+        //     DYASMAux[j] = oest.second[j];
+        //   }
+        // }  
+        // else{  
+        //   DXASMAux.assign( NK, oest.first[0] );
+        //   DYASMAux.assign( NK, oest.second[0] );
+        //   for( unsigned j=0; j<NK; ++j ){
+        //     DXASMAux[j] += oest.first[j+1];
+        //     DYASMAux[j] += oest.second[j+1];
+        //   }
+        // }	      
+        img->add_semilinear_cuts( pOp, NK, vVar[i], DXASMAux.data(), POLUASMAux[i], DYASMAux.data(), mc::PolCut<T>::EQ );
+      }
+    }
+  }
+  img->add_cut( pOp, PolCut<T>::LE, 0., nin, POLLASMAux.data(), 1., vRes, -1. );
+  img->add_cut( pOp, PolCut<T>::GE, 0., nin, POLUASMAux.data(), 1., vRes, -1. );
+} 
+#else
+template<typename T>
+inline void
+ANN<T>::append_ASMcuts
 ( PolBase<T>* img, FFOp* pOp, PolVar<T> const& vRes, PolVar<T>* vVar,
   std::vector<UnivarPWL<T>> const& pwlEst )
 {
@@ -889,7 +1032,10 @@ MLP<T>::append_ASMcuts
   }
   img->add_cut( pOp, PolCut<T>::LE, 0., nin, POLLASMAux.data(), 1., vRes, -1. );
   img->add_cut( pOp, PolCut<T>::GE, 0., nin, POLUASMAux.data(), 1., vRes, -1. );
-} 
+}
+#endif
+
+
 
 //! @brief C++ class defining neural networks as external DAG operations in MC++.
 ////////////////////////////////////////////////////////////////////////
