@@ -2,6 +2,7 @@
 #undef  MC__FFUNC_CPU_EVAL
 #undef  MC__SCMODEL_TRACE
 #undef  MC__CMODEL_TRACE
+#define MC__USE_TREADLOCAL
 ////////////////////////////////////////////////////////////////////////
 
 #include <fstream>

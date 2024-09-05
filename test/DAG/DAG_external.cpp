@@ -1,5 +1,6 @@
 #undef  MC__FFUNC_CPU_EVAL
-#define MC__FFUNC_EXTERN_DEBUG
+#undef  MC__FFUNC_EXTERN_DEBUG
+#undef  MC__FFUNC_SBAD_DEBUG
 ////////////////////////////////////////////////////////////////////////
 
 #include <fstream>
@@ -9,7 +10,8 @@
 #include "mclapack.hpp"
 #include "ffunc.hpp"
 #include "slift.hpp"
-#include "mcml.hpp"
+#include "ffspol.hpp"
+#include "ffmlp.hpp"
 
 #if defined( MC__USE_PROFIL )
  #include "mcprofil.hpp"
@@ -1276,7 +1278,7 @@ int test_external8()
 
   // Create MLP
   mc::MLP<I> f;
-  f.options.RELAX     = mc::MLP<I>::Options::MC;//AUX;//MCISM;
+  f.options.RELAX     = mc::MLP<I>::Options::AUX;//MC;//AUX;//MCISM;
   f.options.ISMDIV    = 16;
   f.options.ASMBPS    = 8;
   f.options.ISMCONT   = true;
@@ -1296,7 +1298,7 @@ int test_external8()
   size_t NX = 2;
   mc::FFVar X[NX];
   for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
-  mc::FFMLP<I,0> MLP;
+  mc::FFMLP<I> MLP;
   mc::FFVar F = MLP( 0, NX, X, &f );
   std::cout << DAG;
 
@@ -1388,6 +1390,157 @@ int test_external8()
 
 ///////////////////////////////////////////////////////////////////////////////
 
+int test_external9()
+{
+  std::cout << "\n==============================================\ntest_external9:\n";
+
+  // Create sparse polynomial
+  typedef mc::SPoly<mc::FFVar const*,mc::lt_FFVar> t_SPoly;
+  t_SPoly::options.BASIS = t_SPoly::Options::CHEB;//MONOM; //
+  t_SPoly::options.DISPLINE = true;
+
+  size_t const NX = 3;
+  t_SPoly X[NX], P;
+
+  mc::FFGraph DAG;
+  mc::FFVar DAGX[NX];
+  for( size_t i=0; i<NX; i++ ) X[i].var( &DAGX[i].set( &DAG ) );
+  P = pow( X[0] + sqr( X[1] ) - 2 * X[2], 3 );
+  //P = pow( X[0], 3 );//2 * sqr( X[0] ) - 1;
+
+  std::cout << "\nSparse multivariate polynomial:\n";
+  std::cout << "P = " << P << std::endl;
+
+  // Evaluate polynomial
+  std::map<mc::FFVar const*,double,mc::lt_FFVar> Xval{ { &DAGX[0], 0.5 }, { &DAGX[1], -0.5 }, { &DAGX[2], 0.75 } };
+  std::cout << "\nSparse multivariate polynomial value:\n";
+  std::cout << "P = " << P.eval( Xval ) << std::endl;
+
+  // Insert sparse polynomial in DAG
+  mc::FFVar DAGP = mc::FFSPoly<I>::insert( P, &DAG );
+  auto P_op = DAG.subgraph( 1, &DAGP );
+  DAG.output( P_op, " OF P" );
+  //std::cout << DAG;
+
+  // Incorporate sparse polynomial as DAG operation
+  mc::FFSPoly<I> SPoly;
+  DAGP = SPoly( P );
+  //std::cout << DAG;
+
+  std::ofstream o_P( "external9_P.dot", std::ios_base::out );
+  DAG.dot_script( 1, &DAGP, o_P );
+  o_P.close();
+
+  P_op = DAG.subgraph( 1, &DAGP );
+  DAG.output( P_op, " OF P" );
+
+  // Evaluation in real arithmetic
+  double dX[NX] = { 0.5, -0.5, 0.75 }, dP;
+  DAG.eval( P_op, 1, &DAGP, &dP, NX, DAGX, dX );
+  std::cout << "\nSparse multivariate polynomial value from DAG:\n";
+  std::cout << "P = " << dP << std::endl;
+
+  // Evaluation in McCormick arithmetic
+  I IX[NX] = { I(0.4,0.6), I(-0.6,-0.4), I(0.7,0.8) };
+  MC mcX[NX] = { MC(IX[0],0.5), MC(IX[1],-0.5), MC(IX[2],0.75) }, mcP;
+  DAG.eval( P_op, 1, &DAGP, &mcP, NX, DAGX, mcX );
+  std::cout << "\nSparse multivariate polynomial McCormick relaxation from DAG:\n";
+  std::cout << "P = " << mcP << std::endl;
+
+  // Differentiate polynomial and evaluate derivative
+  for( unsigned i=0; i<NX; ++i ){
+    t_SPoly dPdXi = P.diff( &DAGX[i] );
+    std::cout << "\nSparse multivariate polynomial derivative:\n";
+    std::cout << "dPdX[" << i << "] = " << dPdXi << std::endl;
+
+    // Evaluate polynomial derivative
+    std::cout << "\nSparse multivariate polynomial derivative value:\n";
+    std::cout << "dPdX[" << i << "] = " << dPdXi.eval( Xval ) << std::endl;
+  }
+  
+  // Evaluation of forward symbolic derivatives in real arithmetic
+  const mc::FFVar* DAGdPdX_FAD = DAG.FAD( 1, &DAGP, NX, DAGX );
+  std::ofstream o_DAGdPdX_FAD( "external9_dPdX_FAD.dot", std::ios_base::out );
+  DAG.dot_script( NX, DAGdPdX_FAD, o_DAGdPdX_FAD );
+  o_DAGdPdX_FAD.close();
+
+  auto op_DAGdPdX_FAD = DAG.subgraph( NX, DAGdPdX_FAD );
+  DAG.output( op_DAGdPdX_FAD, " OF dPdX" );
+
+  double ddPdX_FAD[NX];
+  DAG.eval( op_DAGdPdX_FAD, NX, DAGdPdX_FAD, ddPdX_FAD, NX, DAGX, dX );
+  std::cout << "\nSparse multivariate polynomial derivative value from DAG forward symbolic differentiation:\n";
+  for( unsigned i=0; i<NX; ++i )
+    std::cout << "dPdX[" << i << "] = " << ddPdX_FAD[i] << std::endl;
+  delete[] DAGdPdX_FAD;
+
+  // Evaluation of forward automatic derivatives in real arithmetic
+  fadbad::F<double> fdX[NX], fdP;
+  for( unsigned i=0; i<NX; ++i ){
+    fdX[i] = dX[i];
+    fdX[i].diff(i,NX);
+  }
+  DAG.eval( P_op, 1, &DAGP, &fdP, NX, DAGX, fdX );
+  std::cout << "\nSparse multivariate polynomial derivative value from DAG forward automatic differentiation:\n";
+  for( unsigned i=0; i<NX; ++i )
+    std::cout << "dPdX[" << i << "] = " << fdP.d(i) << std::endl;
+
+  // Evaluation of backward symbolic derivatives in real arithmetic
+  const mc::FFVar* DAGdPdX_BAD = DAG.BAD( 1, &DAGP, NX, DAGX );
+  std::ofstream o_DAGdPdX_BAD( "external9_dPdX_BAD.dot", std::ios_base::out );
+  DAG.dot_script( NX, DAGdPdX_BAD, o_DAGdPdX_BAD );
+  o_DAGdPdX_BAD.close();
+
+  auto op_DAGdPdX_BAD = DAG.subgraph( NX, DAGdPdX_BAD );
+  DAG.output( op_DAGdPdX_BAD, " OF dPdX" );
+
+  double ddPdX_BAD[NX];
+  DAG.eval( op_DAGdPdX_BAD, NX, DAGdPdX_BAD, ddPdX_BAD, NX, DAGX, dX );
+  std::cout << "\nSparse multivariate polynomial derivative value from DAG backward symbolic differentiation:\n";
+  for( unsigned i=0; i<NX; ++i )
+    std::cout << "dPdX[" << i << "] = " << ddPdX_BAD[i] << std::endl;
+  delete[] DAGdPdX_BAD;
+
+  // Evaluation of backward automatic derivatives in real arithmetic
+  if( t_SPoly::options.BASIS == t_SPoly::Options::MONOM ){
+    fadbad::B<double> bdX[NX], bdF;
+    for( unsigned i=0; i<NX; ++i )
+      bdX[i] = dX[i];
+    DAG.eval( P_op, 1, &DAGP, &bdF, NX, DAGX, bdX );
+    bdF.diff(0,1);
+    std::cout << "\nSparse multivariate polynomial derivative value from DAG backward automatic differentiation:\n";
+    for( unsigned i=0; i<NX; ++i )
+      std::cout << "dFdX[" << i << "] = " << bdX[i].d(0) << std::endl;
+  
+    // Lifting of polynomial subexpression
+    mc::SLiftEnv SPE( &DAG );
+    SPE.options.KEEPFACT = false;
+    SPE.options.LIFTIPOW = false;
+    SPE.process( 1, &DAGP, true );
+    std::cout << "\nLifting of sparse multivariate polynomial in DAG:\n";
+    std::cout << SPE;
+  }
+/*
+  // Polyhedral relaxation
+  mc::PolImg<I> IMG;
+  IMG.options.BREAKPOINT_TYPE = mc::PolImg<I>::Options::CONT;//BIN;//SOS2;
+  IMG.options.AGGREG_LQ       = true;
+  IMG.options.BREAKPOINT_RTOL =
+  IMG.options.BREAKPOINT_ATOL = 0e0;
+  IMG.options.ALLOW_DISJ      = { mc::FFOp::FABS, mc::FFOp::MAXF };
+  IMG.options.ALLOW_NLIN      = { mc::FFOp::TANH, mc::FFOp::EXP  };
+  I IX[NX] = { I(-3.,3.), I(-3.,3.) };
+  POLV polX[NX] = { POLV( &IMG, X[0], IX[0] ), POLV( &IMG, X[1], IX[1] ) }, polF;
+  DAG.eval( F_op, 1, &F, &polF, NX, X, polX );
+  IMG.generate_cuts( 1, &polF );
+  std::cout << "F =" << IMG << std::endl;
+*/
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 int test_slift_external0()
 {
   std::cout << "\n==============================================\ntest_slift_external0:\n";
@@ -1438,17 +1591,18 @@ int test_slift_external1()
 int main()
 {
   try{
-    test_external0();
-    test_external1();
-    test_external2();
-    test_external3();
-    test_external4();
-    test_external5();
-    test_external6();
-    test_external7();
-    test_external8();
-    test_slift_external0();
-    test_slift_external1();
+//    test_external0();
+//    test_external1();
+//    test_external2();
+//    test_external3();
+//    test_external4();
+//    test_external5();
+//    test_external6();
+//    test_external7();
+//    test_external8();
+    test_external9();
+//    test_slift_external0();
+//    test_slift_external1();
   }
   catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()

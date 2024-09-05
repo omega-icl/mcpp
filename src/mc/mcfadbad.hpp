@@ -47,18 +47,12 @@ INLINE2 FTypeName<T,N> cheb(const FTypeName<T,N>& a, const unsigned b)
 {
 	FTypeName<T,N> c(mc::Op<T>::cheb(a.val(),b));
 	if (!a.depend()) return c;
-        // dTn/dx = n*Un-1(x)
-        // Un-1(x) = 2*(T1(x)+T3(x)+...+Tn-1(x)) if n even
-        //           2*(T0(x)+T2(x)+...+Tn-1(x))-1 if n odd
-	T tmp(0.);
-        if( b%2 ){ // odd case
-          for( unsigned k=0; k<b; k+=2 ) tmp += mc::Op<T>::cheb(a.val(),k);
-          tmp *= 2.; tmp -= 1.;
-        }
-        else{ // even case
-          for( unsigned k=1; k<b; k+=2 ) tmp += mc::Op<T>::cheb(a.val(),k);
-          tmp *= 2.;
-        }
+
+	T tmp( b%2? 0.5: 0. );
+        for( int j=b-1; j>0; j-=2 )
+          tmp += mc::Op<T>::cheb(a.val(),j);
+        tmp *= 2*(double)b;
+
 	c.setDepend(a);
 	for(unsigned int i=0;i<N;++i) c[i]=tmp*a[i];
 	return c;
@@ -69,18 +63,12 @@ INLINE2 FTypeName<T,0> cheb(const FTypeName<T,0>& a, const unsigned b)
 {
 	FTypeName<T,0> c(mc::Op<T>::cheb(a.val(),b));
 	if (!a.depend()) return c;
-        // dTn/dx = n*Un-1(x)
-        // Un-1(x) = 2*(T1(x)+T3(x)+...+Tn-1(x)) if n even
-        //           2*(T0(x)+T2(x)+...+Tn-1(x))-1 if n odd
-	T tmp(0.);
-        if( b%2 ){ // odd case
-          for( unsigned k=0; k<b; k+=2 ) tmp += mc::Op<T>::cheb(a.val(),k);
-          tmp *= 2.; tmp -= 1.;
-        }
-        else{ // even case
-          for( unsigned k=1; k<b; k+=2 ) tmp += mc::Op<T>::cheb(a.val(),k);
-          tmp *= 2.;
-        }
+
+	T tmp( b%2? 0.5: 0. );
+        for( int j=b-1; j>0; j-=2 )
+          tmp += mc::Op<T>::cheb(a.val(),j);
+        tmp *= 2*(double)b;
+
 	c.setDepend(a);
 	for(unsigned int i=0;i<c.size();++i) c[i]=tmp*a[i];
 	return c;

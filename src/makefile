@@ -5,7 +5,7 @@
 #   existing), and creates smybolic links therein
 # - `make cleaninstall' removes the smybolic links and cleans src/test
 
-export version = 3.0
+export version = 4.0
 
 export rootpath = $(shell cd .. ; pwd)
 export srcpath  = $(rootpath)/src

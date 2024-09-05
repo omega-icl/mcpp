@@ -8,7 +8,7 @@
 #include <vector>
 #include <set>
 #include "smon.hpp"
-#include "mcfunc.hpp"
+//#include "mcfunc.hpp"
 
 #undef  MC__SPOLY_DEBUG_SPROD
 
@@ -102,6 +102,13 @@ protected:
       std::string const& name, std::ostream& os=std::cout )
     const;
 
+  //! @brief Display of recursive univariate sparse polynomial
+  void _sdisp1D
+    ( std::map<unsigned,SPoly<KEY,COMP>> const& mapspoly,
+      typename t_var::const_iterator itvar, 
+      std::string const& name, std::ostream& os=std::cout )
+    const;
+
   //! @brief Build univariate sparse polynomial (with sparse polynomial coefficients)
   static void _svec1D
     ( typename t_var::const_iterator itvar,
@@ -131,6 +138,12 @@ protected:
     ( typename t_var::const_iterator itvar,
       std::pair<t_mon,double> const& mon,
       std::map<unsigned,t_poly>& mapspoly );
+
+  //! @brief Build univariate sparse polynomial (with sparse polynomial coefficients)
+  static void _svec1Dfull
+    ( typename t_var::const_iterator itvar,
+      std::pair<t_mon,double> const& mon,
+      std::map<unsigned,SPoly<KEY,COMP>>& mapspoly );
 
   //! @brief Convert univariate polynomial from monomial to Chebyshev basis
   static void _pow2cheb
@@ -188,7 +201,7 @@ public:
   //! @brief Display sparse coefficient map
   std::string display
     ( t_poly spoly, int const& BASIS=options.BASIS, int const& DISPLEN=options.DISPLEN,
-      bool const ONELINE=false )
+      bool const ONELINE=options.DISPLINE )
     const;
     
   //! @brief Clean sparse polynomial by removing entries below threshold <a>tol</a>
@@ -220,12 +233,14 @@ public:
   unsigned minord
     ( KEY const& x )
     const
-    { if( _mapmon.empty() || !minord() ) return 0;
+    {
+      if( _mapmon.empty() || !minord() ) return 0;
       unsigned ord = maxord();
       for( auto const& [mon,coef] : mapmon ){
         unsigned const exp = mon.exp(x);
         if( exp < ord ) ord = exp;
-      } }
+      }
+    }
 
   //! @brief Total number of monomial terms in polynomial variable
   unsigned nmon
@@ -251,6 +266,12 @@ public:
     ()
     { return _mapmon; }
 
+  //! @brief Total number of participating variables
+  unsigned nvar
+    ()
+    const
+    { return _setvar.size(); };
+
   //! @brief Get const map of monomial coefficients
   t_var const& setvar
     ()
@@ -261,6 +282,22 @@ public:
   t_var& setvar
     ()
     { return _setvar; }
+
+  //! @brief Evaluate polynomial in T arithmetic
+  template< typename T >
+  T eval
+    ( std::map<KEY,T,COMP> const& x )
+    const;
+
+  //! @brief Factor polynomial with respect to variable <a>ivar</a>
+  std::map<unsigned,SPoly<KEY,COMP>> factor
+    ( KEY ivar )
+    const;
+
+  //! @brief Differentiate polynomial with respect to variable <a>ivar</a>
+  SPoly<KEY,COMP> diff
+    ( KEY ivar )
+    const;
 
   //! @brief Set variable key
   SPoly<KEY,COMP>& var
@@ -361,21 +398,23 @@ public:
   {
     //! @brief Constructor
     Options():
-      BASIS(MONOM), REMZERO(true), DISPLEN(5)
+      BASIS(MONOM), REMZERO(true), DISPLEN(5), DISPLINE(true)
       {}
     //! @brief Copy of mc::SPoly::Options
     Options
       ( Options const& opt ){
-        BASIS   = opt.BASIS;
-        REMZERO = opt.REMZERO;
-        DISPLEN = opt.DISPLEN;
+        BASIS    = opt.BASIS;
+        REMZERO  = opt.REMZERO;
+        DISPLEN  = opt.DISPLEN;
+        DISPLINE = opt.DISPLINE;
       }
     //! @brief Assignment of mc::SPoly::Options
     Options& operator=
       ( Options const& opt ){
-        BASIS   = opt.BASIS;
-        REMZERO = opt.REMZERO;
-        DISPLEN = opt.DISPLEN;
+        BASIS    = opt.BASIS;
+        REMZERO  = opt.REMZERO;
+        DISPLEN  = opt.DISPLEN;
+        DISPLINE = opt.DISPLEN;
         return *this;
       }
     //! @brief Available basis representations
@@ -389,6 +428,8 @@ public:
     bool REMZERO;
     //! @brief Number of digits in output stream for sparse polynomial coefficients
     unsigned DISPLEN;
+    //! @brief Whether to display polynomial on single line
+    bool DISPLINE;
   } options;
 };
 
@@ -617,11 +658,30 @@ SPoly<KEY,COMP>::_svec1Dfull
 }
 
 template <typename KEY, typename COMP>
+inline void
+SPoly<KEY,COMP>::_svec1Dfull
+( typename t_var::const_iterator itvar,
+  std::pair<t_mon,double> const& coefmon,
+  std::map<unsigned,SPoly<KEY,COMP>>& mapspoly )
+{
+  auto& [mon,coef] = coefmon;
+  auto ie = mon.expr.find( *itvar );
+  if( ie == mon.expr.end() ) // no dependence on variable *itvar 
+    mapspoly[ 0 ] += coefmon;
+  else{ // dependence on variable *itvar of order iord
+    auto& [ivar,iord] = *ie;
+    t_mon monmod( mon.tord - iord, mon.expr );
+    monmod.expr.erase( ivar ); // remove *itvar entry
+    mapspoly[ iord ] += std::make_pair( monmod, coef );
+  }
+}
+
+template <typename KEY, typename COMP>
 inline SPoly<KEY,COMP>&
 SPoly<KEY,COMP>::convert
 ( int const BASIS )
 {
-  if( BASIS != options.BASIS) _convert( _mapmon, _setvar, BASIS );
+  if( BASIS != options.BASIS ) _convert( _mapmon, _setvar, BASIS );
   return *this;
 }
 
@@ -739,15 +799,15 @@ template <typename KEY, typename COMP>
 inline
 std::string
 SPoly<KEY,COMP>::display
-( t_poly mapmon, int const& BASIS, int const& DISPLEN, bool const ONELINE )
+( t_poly mapmon, int const& BASIS, int const& DISPLEN, bool const DISPLINE )
 const
 {
   std::ostringstream out;
-  if( !ONELINE ) out << std::endl; 
+  if( !DISPLINE ) out << std::endl; 
   out << std::scientific << std::setprecision(DISPLEN);
   bool first = true;
   for( auto const& [mon,coef] : mapmon ){
-    if( ONELINE ){
+    if( DISPLINE ){
       if( first ){
         first = false;
         out << coef;
@@ -763,6 +823,10 @@ const
       out << std::right << std::setw(DISPLEN+7) << coef << "  " << std::setw(2) << mon.tord << "  "
           << mon.display( BASIS ) << std::endl;
   }
+//  out << "\n{";
+//  for( auto const& var : _setvar )
+//    out << " " << *t_mon::ptr(var);
+//  out << " }\n";
   return out.str();
 }
 
@@ -771,7 +835,94 @@ inline std::ostream&
 operator<<
 ( std::ostream& out, SPoly<KEY,COMP> const& spoly )
 {
-  return out << spoly.display( spoly._mapmon, spoly.options.BASIS, spoly.options.DISPLEN );
+  return out << spoly.display( spoly._mapmon, spoly.options.BASIS, spoly.options.DISPLEN, spoly.options.DISPLINE );
+}
+
+template <typename KEY, typename COMP>
+template< typename T >
+inline
+T
+SPoly<KEY,COMP>::eval
+( std::map<KEY,T,COMP> const& x )
+const
+{
+  T val( 0. );
+  for( auto const& [mon,coef] : _mapmon )
+    val += coef * mon.eval( x, options.BASIS );
+  return val;
+}
+
+template <typename KEY, typename COMP>
+inline
+std::map<unsigned,SPoly<KEY,COMP>>
+SPoly<KEY,COMP>::factor
+( KEY ivar )
+const
+{
+  std::map<unsigned,SPoly<KEY,COMP>> spmap;
+  auto itvar = _setvar.find( ivar ); // Do not use ivar below since could be a temporary variable
+  if( itvar == _setvar.end() ) return spmap;
+
+  for( auto const& mon : _mapmon )
+    _svec1Dfull( itvar, mon, spmap );
+#ifdef MC__SPOLY_DEBUG_FACTOR
+  _sdisp1D( spmap, itvar, "Var: " );
+#endif
+
+  return spmap;
+}
+
+template <typename KEY, typename COMP>
+inline
+SPoly<KEY,COMP>
+SPoly<KEY,COMP>::diff
+( KEY ivar )
+const
+{
+  SPoly<KEY,COMP> spder;
+  auto itvar = _setvar.find( ivar ); // Do not use ivar below since could be a temporary variable
+  if( itvar == _setvar.end() ) return spder;
+
+  std::map<unsigned,t_poly> spmap;
+  for( auto const& mon : _mapmon )
+    _svec1Dfull( itvar, mon, spmap );
+#ifdef MC__SPOLY_DEBUG_DIFF
+  _sdisp1D( spmap, itvar, "Var: " );
+#endif
+
+  switch( options.BASIS ){
+   case Options::MONOM:
+    for( auto const& [iord,mapmon] : spmap ){
+      if( !iord )
+        continue;
+      else if( iord == 1 )
+        spder += SPoly<KEY,COMP>( mapmon );
+      else
+        spder += SPoly<KEY,COMP>( std::make_pair( SMon<KEY,COMP>( *itvar, iord-1 ), (double)iord ) )
+               * SPoly<KEY,COMP>( mapmon );
+    }
+    break;
+
+   default:
+    for( auto const& [iord,mapmon] : spmap ){
+      if( !iord )
+        continue;
+      else if( iord == 1 )
+        spder += SPoly<KEY,COMP>( mapmon );
+      else if( iord == 2 )
+        spder += SPoly<KEY,COMP>( std::make_pair( SMon<KEY,COMP>( *itvar, 1 ), 4. ) )
+               * SPoly<KEY,COMP>( mapmon );
+      else{
+        SPoly<KEY,COMP> monder( iord%2? (double)iord: 0. );
+        for( int jord=iord-1; jord>0; jord-=2 )
+          monder +=  SPoly<KEY,COMP>( std::make_pair( SMon<KEY,COMP>( *itvar, jord ), 2.*iord ) );
+        spder += monder * SPoly<KEY,COMP>( mapmon );
+      }
+    }
+    break;
+  }
+
+  return spder;
 }
 
 template <typename KEY, typename COMP>
@@ -1255,6 +1406,25 @@ const
 }
 
 template <typename KEY, typename COMP>
+inline void
+SPoly<KEY,COMP>::_sdisp1D
+( std::map<unsigned,SPoly<KEY,COMP>> const& mapspoly, typename t_var::const_iterator itvar, 
+  std::string const& name, std::ostream& os )
+const
+{
+  os << name;
+  bool first = true;
+  for( auto const& [iord,spoly] : mapspoly ){
+    if( !first ) os << " + " << t_mon( *itvar, iord ).display( options.BASIS ) << " ·";
+    os << " { ";
+    _sdisp1D( spoly._mapmon, "", os );
+    os << " }";
+    first = false;
+  }
+  os << std::endl;
+}
+
+template <typename KEY, typename COMP>
 inline SPoly<KEY,COMP>
 pow
 ( SPoly<KEY,COMP> const& spoly, unsigned const n )
@@ -1277,6 +1447,31 @@ cheb
    case 1:  return spoly;
    case 2:  return 2 * sqr( spoly ) - 1;
    default: return 2 * spoly * cheb( spoly, n-1 ) - cheb( spoly, n-2 );
+  }
+}
+
+template <typename KEY, typename COMP>
+inline SPoly<KEY,COMP>
+prod
+( unsigned int const npoly, SPoly<KEY,COMP> const* ppoly )
+{
+  switch( npoly ){
+   case 0:  return 1.;
+   case 1:  return ppoly[0];
+   default: return ppoly[0] * prod( npoly-1, ppoly+1 );
+  }
+}
+
+template <typename KEY, typename COMP>
+inline SPoly<KEY,COMP>
+monom
+( unsigned int const npoly, SPoly<KEY,COMP> const* ppoly, unsigned const* k,
+  bool const chebbasis=false )
+{
+  switch( npoly ){
+   case 0:  return 1.;
+   case 1:  return chebbasis? cheb( ppoly[0], k[0] ): pow( ppoly[0], k[0] );
+   default: return ( chebbasis? cheb( ppoly[0], k[0] ): pow( ppoly[0], k[0] ) ) * monom( npoly-1, ppoly+1, k+1 );
   }
 }
 
@@ -1336,30 +1531,35 @@ operator!=
   return( !operator==<KEY,COMP>( spoly1, spoly2 ) );
 }
 
-template <typename KEY, typename COMP>
-inline SPoly<KEY,COMP>
-prod
-( unsigned int const npoly, SPoly<KEY,COMP> const* ppoly )
+//! @brief C++ structure for ordering of polynomials
+template <typename COMP=std::less<unsigned>>
+struct lt_SPoly
 {
-  switch( npoly ){
-   case 0:  return 1.;
-   case 1:  return ppoly[0];
-   default: return ppoly[0] * prod( npoly-1, ppoly+1 );
-  }
-}
-
-template <typename KEY, typename COMP>
-inline SPoly<KEY,COMP>
-monom
-( unsigned int const npoly, SPoly<KEY,COMP> const* ppoly, unsigned const* k,
-  bool const chebbasis=false )
-{
-  switch( npoly ){
-   case 0:  return 1.;
-   case 1:  return chebbasis? cheb( ppoly[0], k[0] ): pow( ppoly[0], k[0] );
-   default: return ( chebbasis? cheb( ppoly[0], k[0] ): pow( ppoly[0], k[0] ) ) * monom( npoly-1, ppoly+1, k+1 );
-  }
-}
+  template <typename KEY>
+  bool operator()
+    ( SPoly<KEY,COMP> const& spoly1, SPoly<KEY,COMP> const& spoly2 )
+    const
+    {
+      // Order based on their number of monomials first
+      if( spoly1.nmon() < spoly2.nmon() ) return true;
+      if( spoly1.nmon() > spoly2.nmon() ) return false;
+      // Order based on their total order second
+      if( spoly1.maxord() < spoly2.maxord() ) return true;
+      if( spoly1.maxord() > spoly2.maxord() ) return false;
+      // Order in graded lexicographic order next
+      auto it1 = spoly1.mapmon().cbegin();
+      auto it2 = spoly2.mapmon().cbegin();
+      for( ; it1 != spoly1.mapmon().cend(); ++it1, ++it2 ){
+        auto const& [mon1,coef1] = *it1;
+        auto const& [mon2,coef2] = *it2;
+        if( lt_SMon<COMP>()( mon1, mon2 ) ) return true;
+        if( lt_SMon<COMP>()( mon2, mon1 ) ) return false;
+        if( coef1 < coef2 ) return true;
+        if( coef1 > coef2 ) return false;
+      }
+      return false;
+    }
+};
 
 } // namespace mc
 

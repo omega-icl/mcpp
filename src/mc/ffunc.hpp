@@ -1275,6 +1275,17 @@ public:
   FFVar** insert_external_operation
     ( ExtOp const& Op, unsigned const nDep, unsigned const nVar, FFVar const*const* pVar )
     const;
+  //! @brief Insert n-ary external vector operation <a>Op</a> with operand arrays <a>pVar1</a> of size <a>nVar1</a> and <a>pVar2</a> of size <a>nVar2</a> in DAG
+  template <typename ExtOp>
+  FFVar** insert_external_operation
+    ( ExtOp const& Op, unsigned const nDep, unsigned const nVar1, FFVar const* pVar1,
+      unsigned const nVar2, FFVar const* pVar2 )
+    const;
+  //! @brief Insert n-ary external vector operation <a>Op</a> with operand array <a>pVar</a> of size <a>nVar</a> in DAG
+  template <typename ExtOp>
+  FFVar** insert_external_operation
+    ( ExtOp const& Op, unsigned const nDep, std::set<FFVar const*,lt_FFVar> const& sVar )
+    const;
 
   //! @brief Virtual differentiation function for external operations
   virtual void deriv
@@ -1288,6 +1299,11 @@ public:
   //! @brief Virtual forward evaluation function for external operations
   virtual bool reval
     ( std::type_info const& idU, unsigned const nRes, void const* vRes, unsigned const nVar, void* vVar )
+    const;
+
+  //! @brief Define an ordering for external operations - default is comparing data field addresses
+  virtual bool lt
+    ( FFOp const* op )
     const;
 
   //! @brief Return whether or not data structure was deleted
@@ -1326,27 +1342,20 @@ struct lt_FFOp
       if( Op1->type < Op2->type ) return true;
       if( Op1->type > Op2->type ) return false;
 
-      // Sort externals by info and data fields next
-        // Compare info fields
+      // Sort externals by info field next
       if( Op1->type == FFOp::TYPE::EXTERN ){
 #ifdef MC__FFUNC_DEBUG_DATA
         std::cout << Op1->info << " <? " << Op2->info << ": " << (Op1->info < Op2->info) << std::endl;
 #endif
         if( Op1->info < Op2->info ) return true;
         if( Op1->info > Op2->info ) return false;
-        // Compare data fields
-#ifdef MC__FFUNC_DEBUG_DATA
-        std::cout << Op1->data << " <? " << Op2->data << ": " << (Op1->data < Op2->data) << std::endl;
-#endif
-        if( Op1->data < Op2->data ) return true;
-        if( Op1->data > Op2->data ) return false;
       }
 
       // Sort by number of operands next
       if( Op1->varin.size() < Op2->varin.size() ) return true;
       if( Op1->varin.size() > Op2->varin.size() ) return false;
 
-      // Sort by operands last
+      // Sort by operands next
       // Different variable ordering is accounted for CAVEAT: This ignores variable ordering; e.g. X1+X2 different from X2+X1
       lt_FFVar ltVar;
       if( Op1->varin.empty() ) return ltVar( Op1->varout.front(), Op2->varout.front() );
@@ -1356,7 +1365,18 @@ struct lt_FFOp
         if( ltVar( *it2, *it1 ) ) return false;
       }
 
-      return false;
+      // Sort externals by data field last
+      return( Op1->type == FFOp::TYPE::EXTERN? Op1->lt(Op2): false );
+//      
+//      // Compare data fields
+//#ifdef MC__FFUNC_DEBUG_DATA
+//      std::cout << Op1->data << " <? " << Op2->data << ": " << (Op1->data < Op2->data) << std::endl;
+//#endif
+//      if( Op1->data < Op2->data ) return true;
+//      if( Op1->data > Op2->data ) return false;
+//      }
+
+//      return false;
     }
 };
 
@@ -1573,7 +1593,11 @@ protected:
   FFVar _dummyVar;
 
   //! @brief Pointer to current operation in subtree evaluation
+#ifdef MC__USE_TREADLOCAL
+  thread_local static FFOp const* _curOp;
+#else
   FFOp const* _curOp;
+#endif
 
 public:
   /** @ingroup FFunc
@@ -1581,7 +1605,11 @@ public:
    */
   //! @brief Default Constructor
   FFBase():
+#ifdef MC__USE_TREADLOCAL
+    _nvar( 0 ), _naux( 0 ), _next( 0 ), _dummyVar( 0 )
+#else
     _nvar( 0 ), _naux( 0 ), _next( 0 ), _dummyVar( 0 ), _curOp( nullptr )
+#endif
     {}
 
   //! @brief Destructor
@@ -1844,7 +1872,12 @@ protected:
   static FFVar& _insert_unary_operation
     ( int const tOp, FFVar const& Var );
 
-  //! @brief Inserts the external n-ary operation <a>Op</a> with operand array <a>pVar</a> of size <a>nVar</a> in set <a>_Ops</a>, if not alrady present, adds new auxiliary variable in set <a>_Vars</a> and update list of dependencies in all operands in <a>_Vars</a>
+  //! @brief Insert nthe external n-ary operation <a>Op</a> with operand arrays <a>pVar1</a> of size <a>nVar1</a> and <a>pVar2</a> of size <a>nVar2</a> in set <a>_Ops</a>, if not already present, adds new auxiliary variable in set <a>_Vars</a> and update list of dependencies in all operands in <a>_Vars</a>
+  template <typename ExtOp>
+  static FFVar** _insert_nary_external_operation
+    ( ExtOp const& Op, unsigned const nDep, unsigned const nVar1, FFVar const* pVar1,
+      unsigned const nVar2, FFVar const* pVar2 );
+  //! @brief Inserts the external n-ary operation <a>Op</a> with operand array <a>pVar</a> of size <a>nVar</a> in set <a>_Ops</a>, if not already present, adds new auxiliary variable in set <a>_Vars</a> and update list of dependencies in all operands in <a>_Vars</a>
   template <typename ExtOp>
   static FFVar** _insert_nary_external_operation
     ( ExtOp const& Op, unsigned const nDep, unsigned const nVar, FFVar const* pVar );
@@ -1853,6 +1886,11 @@ protected:
   template <typename ExtOp>
   static FFVar** _insert_nary_external_operation
     ( ExtOp const& Op, unsigned const nDep, unsigned const nVar, FFVar const*const* pVar );
+
+  //! @brief Inserts the external n-ary operation <a>Op</a> with operand set <a>sVar</a> of size <a>nVar</a> in set <a>_Ops</a>, if not already present, adds new auxiliary variable in set <a>_Vars</a> and update list of dependencies in all operands in <a>_Vars</a>
+  template <typename ExtOp>
+  static FFVar** _insert_nary_external_operation
+    ( ExtOp const& Op, unsigned const nDep, std::set<FFVar const*,lt_FFVar> const& sVar );
 
   //! @brief Inserts the external binary operation <a>Op</a> with operands <a>Var1</a> and <a>Var2</a> in set <a>_Ops</a>, if not already present, adds new auxiliary variable in set <a>_Vars</a> and update list of dependencies in all operands in <a>_Vars</a>
   template <typename ExtOp>
@@ -1922,6 +1960,10 @@ private:
   FFBase& operator=
     ( FFBase const& );
 };
+
+#ifdef MC__USE_TREADLOCAL
+  inline thread_local FFOp const* FFBase::_curOp = nullptr;
+#endif
 /*
 ////////////////////////////////////////////////////////////////////////
 // META-FUNCTIONS FOR MANIPULATING PARAMETER PACKS AND TUPLES
@@ -1989,7 +2031,7 @@ class FFGraph
 protected:
 
   //! @brief Work array for forward differentiation of subgraph
-  std::vector<FFVar> _wkAD;
+  //std::vector<FFVar> _wkAD;
 
 #ifdef MC__USE_FADIFF
   //! @brief Work array for forward differentiation of subgraph
@@ -2040,6 +2082,12 @@ public:
     ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vIndep,
       std::vector<FFVar const*> const& vDir=std::vector<FFVar const*>() );
 
+  //! @brief Expand DAG with derivatives of dependents in array <a>pDep</a> indexed by <a>ndxDep</a> with respect to <a>nIndep</a> independents in array <a>pIndep</a> using fadbad::F. The return value is a 4-tuple of size and arrays with the row indices, column indices, and non-zero Jacobian entries. The function parameter pack <a>args</a> can be any number of pairs {const unsigned nIndep, const FFVar* const pIndep}, as well as a final, optional flag {const int LUopt} indicating to only keep the entries in the lower (LUopt=1) or upper (LUopt=-1) triangular part of the Jacobian matrix (e.g. for use in square symmetric matrix of derivatives such as Hessians).
+  template <typename... Deps>
+  std::tuple< unsigned, unsigned*, unsigned*, FFVar* > SFAD
+    ( std::set<unsigned> const& ndxDep, FFVar const* const pDep, unsigned const nIndep,
+      FFVar const* const pIndep, Deps... args );
+
   //! @brief Expand DAG with derivatives of <a>nDep</a> dependents in array <a>pDep</a> with respect to <a>nIndep</a> independents in array <a>pIndep</a> using fadbad::F. The return value is a 4-tuple of size and arrays with the row indices, column indices, and non-zero Jacobian entries. The function parameter pack <a>args</a> can be any number of pairs {const unsigned nIndep, const FFVar* const pIndep}, as well as a final, optional flag {const int LUopt} indicating to only keep the entries in the lower (LUopt=1) or upper (LUopt=-1) triangular part of the Jacobian matrix (e.g. for use in square symmetric matrix of derivatives such as Hessians).
   template <typename... Deps>
   std::tuple< unsigned, unsigned*, unsigned*, FFVar* > SFAD
@@ -2078,6 +2126,12 @@ public:
   std::vector<FFVar const*> BAD
     ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vIndep,
       std::vector<FFVar const*> const& vDir );
+
+  //! @brief Expand DAG with derivatives of dependents in array <a>pDep</a> indexed by <a>ndxDep</a> with respect to <a>nIndep</a> independents in array <a>pIndep</a> using fadbad::B. The return value is a 4-tuple of size and arrays with the row indices, column indices, and non-zero Jacobian entries. The function parameter pack <a>args</a> can be any number of extra pairs {const unsigned nIndep, const FFVar* const pIndep}, as well as a final, optional flag {const int LUopt} indicating to only keep the entries in the lower (LUopt=1) or upper (LUopt=-1) triangular part of the Jacobian matrix (e.g. for use in square symmetric matrix of derivatives such as Hessians).
+  template <typename... Deps>
+  std::tuple< unsigned, unsigned*, unsigned*, FFVar* > SBAD
+    ( std::set<unsigned> const& ndxDep, const FFVar* const pDep, const unsigned nIndep,
+      const FFVar* const pIndep, Deps... args );
 
   //! @brief Expand DAG with derivatives of <a>nDep</a> dependents in array <a>pDep</a> with respect to <a>nIndep</a> independents in array <a>pIndep</a> using fadbad::B. The return value is a 4-tuple of size and arrays with the row indices, column indices, and non-zero Jacobian entries. The function parameter pack <a>args</a> can be any number of extra pairs {const unsigned nIndep, const FFVar* const pIndep}, as well as a final, optional flag {const int LUopt} indicating to only keep the entries in the lower (LUopt=1) or upper (LUopt=-1) triangular part of the Jacobian matrix (e.g. for use in square symmetric matrix of derivatives such as Hessians).
   template <typename... Deps>
@@ -3838,6 +3892,29 @@ const
   return pOp->varout[0]->dag()->_update_data( pOp, data, own );
 }
 
+inline bool
+FFOp::lt
+( FFOp const* op )
+const
+{
+#ifdef MC__FFOP_TRACE
+  std::cout << "FFOp::lt\n";
+#endif
+
+  return( data < op->data );
+}
+
+template <typename ExtOp>
+inline
+FFVar**
+FFOp::insert_external_operation
+( ExtOp const& Op, unsigned const nDep, unsigned const nVar1, FFVar const* pVar1,
+  unsigned const nVar2, FFVar const* pVar2 )
+const
+{
+  return FFBase::_insert_nary_external_operation( Op, nDep, nVar1, pVar1, nVar2, pVar2 );
+}
+
 template <typename ExtOp>
 inline
 FFVar**
@@ -3856,6 +3933,16 @@ FFOp::insert_external_operation
 const
 {
   return FFBase::_insert_nary_external_operation( Op, nDep, nVar, pVar );
+}
+
+template <typename ExtOp>
+inline
+FFVar**
+FFOp::insert_external_operation
+( ExtOp const& Op, unsigned const nDep, std::set<FFVar const*,lt_FFVar> const& sVar )
+const
+{
+  return FFBase::_insert_nary_external_operation( Op, nDep, sVar );
 }
 
 template <typename ExtOp>
@@ -4154,6 +4241,7 @@ const
 
   switch( type ){
    case FFOp::VAR:
+    //if( !pres->cst() || typeid(U) == typeid(FFVar) ) break; // do not override constant value if set
     if( !pres->cst() ) break; // do not override constant value if set
 
    case FFOp::CNST:
@@ -5095,20 +5183,26 @@ const
   if( varin.empty() )
     throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
 
-  std::vector<U> vres( varout.size() );
+  thread_local static std::vector<U> valout;
+  if( valout.size() < varout.size() ) valout.resize( varout.size() );
+  //std::vector<U> vres( varout.size() );
 
   if( varin.size() == 1 )
-    feval( typeid( U ), vres.size(), vres.data(), 1, static_cast<U*>( varin[0]->val() ), nullptr );
+    feval( typeid( U ), varout.size(), valout.data(), 1, static_cast<U*>( varin[0]->val() ), nullptr );
 
   else{
-    std::vector<U> ops_val; ops_val.reserve( varin.size() );
-    for( auto it=varin.begin(); it!=varin.end(); ++it )
-      ops_val.push_back( *static_cast<U*>( (*it)->val() ) );
-    feval( typeid( U ), vres.size(), vres.data(), ops_val.size(), ops_val.data(), nullptr );
+    thread_local static std::vector<U> valin;
+    if( valin.size() < varin.size() ) valin.resize( varin.size() );
+    for( size_t i=0; i<varin.size(); ++i ) valin[i] = *static_cast<U*>( varin[i]->val() );
+    feval( typeid( U ), varout.size(), valout.data(), varin.size(), valin.data(), nullptr );
+    //std::vector<U> ops_val; ops_val.reserve( varin.size() );
+    //for( auto it=varin.begin(); it!=varin.end(); ++it )
+    //  ops_val.push_back( *static_cast<U*>( (*it)->val() ) );
+    //feval( typeid( U ), vres.size(), vres.data(), ops_val.size(), ops_val.data(), nullptr );
   }
 
   for( unsigned j=0; j<varout.size(); ++j )
-    if( !Op<U>::inter( *static_cast<U*>( varout[j]->val() ), vres[j],
+    if( !Op<U>::inter( *static_cast<U*>( varout[j]->val() ), valout[j],
                        *static_cast<U*>( varout[j]->val() ) ) ) return false;
   return true;
 }
@@ -5583,23 +5677,45 @@ const
   if( varin.empty() )
     throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
 
-  std::vector<U> vres( varout.size() );
-
-  if( varin.size() == 1 )
-    if( !reval( typeid( U ), vres.size(), vres.data(), 1, static_cast<U*>( varin[0]->val() ) ) )
-      return false;
-
-  else{
-    std::vector<U> ops_val; ops_val.reserve( varin.size() );
-    for( auto it=varin.begin(); it!=varin.end(); ++it )
-      ops_val.push_back( *static_cast<U*>( (*it)->val() ) );
-    if( !reval( typeid( U ), vres.size(), vres.data(), ops_val.size(), ops_val.data() ) )
-      return false;
+  if( varout.size() == 1 ){
+    if( varin.size() == 1 ){
+      if( !reval( typeid( U ), 1, static_cast<U*>( varout[0]->val() ), 1, static_cast<U*>( varin[0]->val() ) ) )
+        return false;
+    }
+    else{
+      thread_local static std::vector<U> valin;
+      if( valin.size() < varin.size() ) valin.resize( varin.size() );
+      for( size_t i=0; i<varin.size(); ++i ) valin[i] = *static_cast<U*>( varin[i]->val() );
+      //std::vector<U> ops_val; ops_val.reserve( varin.size() );
+      //for( auto it=varin.begin(); it!=varin.end(); ++it )
+      //  ops_val.push_back( *static_cast<U*>( (*it)->val() ) );
+      //if( !reval( typeid( U ), 1, static_cast<U*>( varout[0]->val() ), ops_val.size(), ops_val.data() ) )
+      if( !reval( typeid( U ), 1, static_cast<U*>( varout[0]->val() ), varin.size(), valin.data() ) )
+        return false;
+    }
   }
 
-  for( unsigned j=0; j<varout.size(); ++j )
-    if( !Op<U>::inter( *static_cast<U*>( varout[j]->val() ), vres[j],
-                       *static_cast<U*>( varout[j]->val() ) ) ) return false;
+  else{
+    thread_local static std::vector<U> valout;
+    if( valout.size() < varout.size() ) valout.resize( varout.size() );
+    for( size_t j=0; j<varout.size(); ++j ) valout[j] = *static_cast<U*>( varout[j]->val() );
+
+    if( varin.size() == 1 ){
+      if( !reval( typeid( U ), varout.size(), valout.data(), 1, static_cast<U*>( varin[0]->val() ) ) )
+        return false;
+    }
+    else{
+      thread_local static std::vector<U> valin;
+      if( valin.size() < varin.size() ) valin.resize( varin.size() );
+      for( size_t i=0; i<varin.size(); ++i ) valin[i] = *static_cast<U*>( varin[i]->val() );
+      if( !reval( typeid( U ), varout.size(), valout.data(), varin.size(), valin.data() ) )
+        return false;
+    }
+  }
+  
+  //for( unsigned j=0; j<varout.size(); ++j )
+  //  if( !Op<U>::inter( *static_cast<U*>( varout[j]->val() ), vres[j],
+  //                     *static_cast<U*>( varout[j]->val() ) ) ) return false;
   return true;
 }
 
@@ -5884,6 +6000,179 @@ FFBase::_update_data
 template <typename ExtOp>
 inline FFVar**
 FFBase::_insert_nary_external_operation
+( ExtOp const& Op, unsigned const nDep, std::set<FFVar const*,lt_FFVar> const& sVar )
+{
+  // Get DAG pointer from participating variables
+  FFBase* dag = nullptr;
+  for( auto const& pVar : sVar ){
+    if( dag ) break;
+    dag = pVar->_dag;
+  }
+  if( !dag ) throw Exceptions( Exceptions::DAG );
+
+  // Retreive pointers to participating variables in DAG
+  size_t nVar = sVar.size();
+  std::vector<FFVar*> vVar; vVar.reserve( nVar );
+  for( auto const& pVar : sVar ){
+    if( !pVar->_dag && pVar->_cst ){
+      FFVar* pCst = dag->_add_constant( pVar->_num.val() );
+      auto& [pOp,j] = pCst->_opdef;
+      vVar.push_back( pOp->varout[j] );
+    }
+    else{
+      auto const& [pOp,j] = pVar->_opdef;
+      vVar.push_back( pOp->varout[j] );
+    }
+  }
+
+  // Create operation
+  FFOp* pOp = new ExtOp( Op );  // Copy constructor to pass any data fields
+  pOp->set( nVar, vVar.data(), nullptr );
+  pOp->data = Op.data; // passing data structure
+
+  // Check if same operation type in _Ops
+  FFOp* pExtOp = dag->_find_extop( typeid( ExtOp ) );
+#ifdef MC__FFUNC_EXTERN_DEBUG
+  std::cerr << "Checking for external type " << typeid( ExtOp ).name() << std::endl;
+#endif
+  auto itOp = dag->_Ops.end();
+  if( pExtOp ){
+#ifdef MC__FFUNC_EXTERN_DEBUG
+    std::cerr << "Already defined with info=" << pExtOp->info << std::endl;
+#endif
+    pOp->info = pExtOp->info; // passing existing info field
+    itOp = dag->_Ops.find( pOp ); // getting iterator to check if operation already in DAG
+  }
+  // Else increment _next
+  else{
+#ifdef MC__FFUNC_EXTERN_DEBUG
+    std::cerr << "Newly defined with info=" << dag->_next << std::endl;
+#endif
+    pOp->info = dag->_next++; // increment info field
+  }
+
+  // Check if operation already in DAG
+  if( itOp != dag->_Ops.end() ){
+#ifdef MC__FFUNC_EXTERN_DEBUG
+    std::cerr << "External operation " << (*itOp)->name() << " already defined " << std::endl;
+#endif
+    delete pOp;
+    pOp = *itOp;
+  }
+  // Else insert as new operation
+  else{
+#ifdef MC__FFUNC_EXTERN_DEBUG
+    std::cerr << "External operation " << pOp->name() << " newly defined " << std::endl;
+#endif
+    dag->_Ops.insert( pOp );
+    for( unsigned i=0; i<nVar; i++ )
+      vVar[i]->_opuse.push_back( pOp );
+    pOp->varout.reserve( nDep );
+    for( unsigned j=0; j<nDep; j++ ){
+      FFVar* pAux = new FFVar( dag, pOp, j );
+      dag->_Vars.insert( pAux );
+      pOp->varout.push_back( pAux );
+    }
+  }
+
+  return pOp->varout.data();
+}
+
+template <typename ExtOp>
+inline FFVar**
+FFBase::_insert_nary_external_operation
+( ExtOp const& Op, unsigned const nDep, unsigned const nVar1, FFVar const* pVar1,
+  unsigned const nVar2, FFVar const* pVar2 )
+{
+  // Get DAG pointer from participating variables
+  auto dag = pVar1[0]._dag;
+  for( unsigned i=1; !dag && i<nVar1; i++ )
+    if( pVar1[i]._dag ) dag = pVar1[i]._dag;
+  for( unsigned i=0; !dag && i<nVar2; i++ )
+    if( pVar2[i]._dag ) dag = pVar2[i]._dag;
+  if( !dag ) throw Exceptions( Exceptions::DAG );
+
+  // Retreive pointers to participating variables in DAG
+  std::vector<FFVar*> vVar; vVar.reserve( nVar1+nVar2 );
+  for( unsigned i=0; i<nVar1; i++ ){
+    if( !pVar1[i]._dag && pVar1[i]._cst ){
+      FFVar* pCst = dag->_add_constant( pVar1[i]._num.val() );
+      auto& [pOp,j] = pCst->_opdef;
+      vVar.push_back( pOp->varout[j] );
+    }
+    else{
+      auto const& [pOp,j] = pVar1[i]._opdef;
+      vVar.push_back( pOp->varout[j] );
+    }
+  }
+  for( unsigned i=0; i<nVar2; i++ ){
+    if( !pVar2[i]._dag && pVar2[i]._cst ){
+      FFVar* pCst = dag->_add_constant( pVar2[i]._num.val() );
+      auto& [pOp,j] = pCst->_opdef;
+      vVar.push_back( pOp->varout[j] );
+    }
+    else{
+      auto const& [pOp,j] = pVar2[i]._opdef;
+      vVar.push_back( pOp->varout[j] );
+    }
+  }
+
+  // Create operation
+  FFOp* pOp = new ExtOp( Op );  // Copy constructor to pass any data fields
+  pOp->set( vVar.size(), vVar.data(), nullptr );
+  pOp->data = Op.data; // passing data structure
+
+  // Check if same operation type in _Ops
+  FFOp* pExtOp = dag->_find_extop( typeid( ExtOp ) );
+#ifdef MC__FFUNC_EXTERN_DEBUG
+  std::cerr << "Checking for external type " << typeid( ExtOp ).name() << std::endl;
+#endif
+  auto itOp = dag->_Ops.end();
+  if( pExtOp ){
+#ifdef MC__FFUNC_EXTERN_DEBUG
+    std::cerr << "Already defined with info=" << pExtOp->info << std::endl;
+#endif
+    pOp->info = pExtOp->info; // passing existing info field
+    itOp = dag->_Ops.find( pOp ); // getting iterator to check if operation already in DAG
+  }
+  // Else increment _next
+  else{
+#ifdef MC__FFUNC_EXTERN_DEBUG
+    std::cerr << "Newly defined with info=" << dag->_next << std::endl;
+#endif
+    pOp->info = dag->_next++; // increment info field
+  }
+
+  // Check if operation already in DAG
+  if( itOp != dag->_Ops.end() ){
+#ifdef MC__FFUNC_EXTERN_DEBUG
+    std::cerr << "External operation " << (*itOp)->name() << " already defined " << std::endl;
+#endif
+    delete pOp;
+    pOp = *itOp;
+  }
+  // Else insert as new operation
+  else{
+#ifdef MC__FFUNC_EXTERN_DEBUG
+    std::cerr << "External operation " << pOp->name() << " newly defined " << std::endl;
+#endif
+    dag->_Ops.insert( pOp );
+    for( unsigned i=0; i<vVar.size(); i++ )
+      vVar[i]->_opuse.push_back( pOp );
+    pOp->varout.reserve( nDep );
+    for( unsigned j=0; j<nDep; j++ ){
+      FFVar* pAux = new FFVar( dag, pOp, j );
+      dag->_Vars.insert( pAux );
+      pOp->varout.push_back( pAux );
+    }
+  }
+
+  return pOp->varout.data();
+}
+
+template <typename ExtOp>
+inline FFVar**
+FFBase::_insert_nary_external_operation
 ( ExtOp const& Op, unsigned const nDep, unsigned const nVar, FFVar const* pVar )
 {
   // Get DAG pointer from participating variables
@@ -5940,24 +6229,7 @@ FFBase::_insert_nary_external_operation
     delete pOp;
     pOp = *itOp;
   }
-/*
-  // Check if operation is already in DAG, else insert it
-  FFOp* pOp = new ExtOp();
-  pOp->set( nVar, vVar.data(), nullptr );
-  pOp->info = Op.info; // passing info field to recast data
-  pOp->data = Op.data; // passing data structure
-  auto itOp = dag->_Ops.find( pOp );
-#ifdef MC__FFUNC_DEBUG_DATA
-  std::cout << "Data: " << pOp->data << "  Info: " << pOp->info;
-#endif
-  if( itOp != dag->_Ops.end() ){
-#ifdef MC__FFUNC_DEBUG_DATA
-    std::cout << " Existing" << std::endl;
-#endif
-    delete pOp;
-    pOp = *itOp;
-  }
-*/
+  // Else insert as new operation
   else{
 #ifdef MC__FFUNC_EXTERN_DEBUG
     std::cerr << "External operation " << pOp->name() << " newly defined " << std::endl;
@@ -6035,18 +6307,7 @@ FFBase::_insert_nary_external_operation
     delete pOp;
     pOp = *itOp;
   }
-/*
-  // Check if operation is already in DAG, else insert it
-  FFOp* pOp = new ExtOp();
-  pOp->set( nVar, vVar.data(), nullptr );
-  pOp->info = Op.info; // passing info field to recast data
-  pOp->data = Op.data; // passing data structure
-  auto itOp = dag->_Ops.find( pOp );
-  if( itOp != dag->_Ops.end() ){
-    delete pOp;
-    pOp = *itOp;
-  }
-*/
+  // Else insert as new operation
   else{
 #ifdef MC__FFUNC_EXTERN_DEBUG
     std::cerr << "External operation " << pOp->name() << " newly defined " << std::endl;
@@ -6131,18 +6392,8 @@ FFBase::_insert_binary_external_operation
     delete pOp;
     pOp = *itOp;
   }
-/*
-  // Check if operation is already in DAG, else insert it
-  FFOp* pOp = new ExtOp();
-  pOp->set( pVar1, pVar2, nullptr );
-  pOp->info = Op.info; // passing info field to recast data
-  pOp->data = Op.data; // passing data structure
-  auto itOp = dag->_Ops.find( pOp );
-  if( itOp != dag->_Ops.end() ){
-    delete pOp;
-    pOp = *itOp;
-  }
-*/
+
+  // Else insert as new operation
   else{
 #ifdef MC__FFUNC_EXTERN_DEBUG
     std::cerr << "External operation " << pOp->name() << " newly defined " << std::endl;
@@ -6216,18 +6467,8 @@ FFBase::_insert_unary_external_operation
     delete pOp;
     pOp = *itOp;
   }
-/*
-  // Check if operation is already in DAG, else insert it
-  FFOp* pOp = new ExtOp();
-  pOp->set( pVar, nullptr );
-  pOp->info = Op.info; // passing info field to recast data
-  pOp->data = Op.data; // passing data structure
-  auto itOp = dag->_Ops.find( pOp );
-  if( itOp != dag->_Ops.end() ){
-    delete pOp;
-    pOp = *itOp;
-  }
-*/
+
+  // Else insert as new operation
   else{
 #ifdef MC__FFUNC_EXTERN_DEBUG
     std::cerr << "External operation " << pOp->name() << " newly defined " << std::endl;
@@ -6989,6 +7230,28 @@ FFGraph::SFAD
 template <typename... Deps>
 inline std::tuple< unsigned, unsigned*, unsigned*, FFVar* >
 FFGraph::SFAD
+( const std::set<unsigned>&ndxDep, FFVar const* const pDep, unsigned const nIndep,
+  FFVar const* const pIndep, Deps... args )
+{
+  if( ndxDep.empty() ) return std::make_tuple(0,nullptr,nullptr,nullptr); // Nothing to do!
+
+  std::vector<FFVar> vpDep( ndxDep.size() );
+  std::set<unsigned>::const_iterator it = ndxDep.cbegin();
+  for( unsigned iDep=0; it != ndxDep.cend(); ++it, iDep++ ) vpDep[iDep] = pDep[*it];
+
+  auto&& vDep_F = SFAD( vpDep.size(), vpDep.data(), nIndep, pIndep, args... );
+  
+  for( unsigned ie=0; ie<std::get<0>(vDep_F); ie++ ){
+    auto it = ndxDep.cbegin();
+    std::advance( it, std::get<1>(vDep_F)[ie] );
+    std::get<1>(vDep_F)[ie] = *it;
+  }
+  return vDep_F;
+}
+
+template <typename... Deps>
+inline std::tuple< unsigned, unsigned*, unsigned*, FFVar* >
+FFGraph::SFAD
 ( unsigned const nDep, FFVar const* const pDep, unsigned const nIndep,
   FFVar const* const pIndep, Deps... args )
 {
@@ -6998,7 +7261,7 @@ FFGraph::SFAD
   std::vector<const FFVar*> vDep, vIndep;
   for( unsigned i=0; i<nDep; i++ )   vDep.push_back( pDep+i );
   for( unsigned i=0; i<nIndep; i++ ) vIndep.push_back( pIndep+i );
-  auto vDep_F = SFAD( vDep, vIndep, args... );
+  auto&& vDep_F = SFAD( vDep, vIndep, args... );
 
   const unsigned nDep_F = std::get<0>(vDep_F).size();
   unsigned* iDep_F = new unsigned[ nDep_F ];
@@ -7056,30 +7319,33 @@ FFGraph::SFAD
 #ifdef MC__FFUNC_SFAD_DEBUG
   output( sgDep );
 #endif
-  _wkAD.clear();
-  _wkAD.resize( sgDep.len_tap );
+  //_wkAD.clear();
+  //_wkAD.resize( sgDep.len_tap );
+  std::vector<FFVar> _wkAD( sgDep.len_tap );
+
 #ifdef MC__FFUNC_CPU_EVAL
   double cputime = -cpuclock();
+  std::cerr << "#wk " << sgDep.len_tap << std::endl;
   std::cerr << "#operations " << sgDep.l_op.size() << std::endl;
 #endif
 
   // Gather the derivatives of each operation
   std::vector< FFVar* > vDep_deriv( sgDep.len_tap, nullptr );
   try{
-    auto ito = sgDep.l_op.begin();
-    for( unsigned int iwk=0; ito!=sgDep.l_op.end(); ++ito ){
-      _curOp = *ito;
+    unsigned iwk = 0;
+    for( auto const& op : sgDep.l_op ){
 
       // Differentiate current operation
-      for( unsigned int iout=0; iout<_curOp->varout.size(); ++iout )
-        vDep_deriv[iwk+iout] = new FFVar[ _curOp->varin.size() ];
-      if( _curOp->type < FFOp::EXTERN )
-        _curOp->differentiate( vDep_deriv[iwk] );
+      _curOp = op;
+      for( unsigned int iout=0; iout<op->varout.size(); ++iout )
+        vDep_deriv[iwk+iout] = new FFVar[ op->varin.size() ];
+      if( op->type < FFOp::EXTERN )
+        op->differentiate( vDep_deriv[iwk] );
       else
-        _curOp->differentiate_external( vDep_deriv.data()+iwk );
+        op->differentiate_external( vDep_deriv.data()+iwk );
 
       // Increment tape
-      iwk += _curOp->varout.size();
+      iwk += op->varout.size();
     }
   }
   catch( Exceptions& e ){
@@ -7097,52 +7363,52 @@ FFGraph::SFAD
     if( ivar && !vDir.empty() ) break;
 
     // Forward differentiation through subgraph
-    auto ito = sgDep.l_op.begin();
-    for( unsigned int iwk=0; ito!=sgDep.l_op.end(); ++ito ){
-      _curOp = *ito;
+    unsigned int iwk=0;
+    for( auto const& op : sgDep.l_op ){
 
-      switch( _curOp->type ){
+      switch( op->type ){
         // Initialize constant
         case FFOp::CNST: 
-          _curOp->varout[0]->val() = &FFZero;
+          op->varout[0]->val() = &FFZero;
           break;
       
         // Initialize variable
         case FFOp::VAR:
           if( vDir.size() ){
-            _curOp->varout[0]->val() = &FFZero;
+            op->varout[0]->val() = &FFZero;
             for( unsigned int j=0; j<vIndep.size(); ++j ){
-              if( _curOp->varout[0]->id() != vIndep[j]->id() ) continue;
-              _curOp->varout[0]->val() = const_cast<FFVar*>( vDir[j] );
+              if( op->varout[0]->id() != vIndep[j]->id() ) continue;
+              op->varout[0]->val() = const_cast<FFVar*>( vDir[j] );
               break;
             }
           }
-          else if( _curOp->varout[0]->id() == vIndep[ivar]->id() )
-            _curOp->varout[0]->val() = &FFOne;
+          else if( op->varout[0]->id() == vIndep[ivar]->id() )
+            op->varout[0]->val() = &FFOne;
           else
-            _curOp->varout[0]->val() = &FFZero;
+            op->varout[0]->val() = &FFZero;
           break;
 
         // Propagate chain rule
         default:
-          for( unsigned int iout=0; iout<_curOp->varout.size(); ++iout ){
+          for( unsigned int iout=0; iout<op->varout.size(); ++iout ){
+            //std::cerr << "iwk+iout = " << iwk+iout << std::endl;
             _wkAD[iwk+iout] = FFZero;
-            for( unsigned int iin=0; iin<_curOp->varin.size(); ++iin ){
-              if( _curOp->varin[iin]->val() == &FFZero
+            for( unsigned int iin=0; iin<op->varin.size(); ++iin ){
+              if( op->varin[iin]->val() == &FFZero
                || ((vDep_deriv[iwk+iout][iin].id().first == FFVar::CREAL
                  || vDep_deriv[iwk+iout][iin].id().first == FFVar::CINT)
                  && vDep_deriv[iwk+iout][iin].num().val() == 0.) )
                 continue;
-              else if( _curOp->varin[iin]->val() == &FFOne )
+              else if( op->varin[iin]->val() == &FFOne )
                 _wkAD[iwk+iout] += vDep_deriv[iwk+iout][iin];
               else
-                _wkAD[iwk+iout] += vDep_deriv[iwk+iout][iin] * *static_cast<FFVar*>( _curOp->varin[iin]->val() );
+                _wkAD[iwk+iout] += vDep_deriv[iwk+iout][iin] * *static_cast<FFVar*>( op->varin[iin]->val() );
             }
-            _curOp->varout[iout]->val() = &_wkAD[iwk+iout];
+            op->varout[iout]->val() = &_wkAD[iwk+iout];
           }
       }
       // Increment tape
-      iwk += _curOp->varout.size();      
+      iwk += op->varout.size();      
     }
 
     // Copy dependent values in vDep_F
@@ -7221,14 +7487,12 @@ FFGraph::SFAD
     double cputime = -cpuclock();
     std::cerr << "#operations " << sgDep.l_op.size() << std::endl;
 #endif
-    auto ito = sgDep.l_op.begin();
-    unsigned iwk = 0;
-    for( unsigned int idiff=0; ito!=sgDep.l_op.end(); ++ito ){
-      _curOp = *ito;
+    unsigned iwk = 0, idiff = 0; 
+    for( FFOp const& op : sgDep.l_op ){
 
       // Initialize variable using values in l_vVar
-      if( _curOp->type == FFOp::VAR ){
-        auto pvar = _curOp->varout[0];
+      if( op->type == FFOp::VAR ){
+        auto pvar = op->varout[0];
         _wkSFAD[iwk] = *pvar;
         auto iti = vIndep.begin();
         auto itd = vDir.begin();
@@ -7249,12 +7513,13 @@ FFGraph::SFAD
       }
 
       // Evaluate current operation
-      if( _curOp->type < FFOp::EXTERN )
-        _curOp->evaluate( &_wkSFAD[iwk], 0, pwkSFAD, pwkmov );
+      _curOp = op;
+      if( op->type < FFOp::EXTERN )
+        op->evaluate( &_wkSFAD[iwk], 0, pwkSFAD, pwkmov );
       else
-        _curOp->evaluate_external( &_wkSFAD[iwk], nullptr, pwkSFAD, pwkmov );
+        op->evaluate_external( &_wkSFAD[iwk], nullptr, pwkSFAD, pwkmov );
       // Increment tape
-      iwk += _curOp->varout.size();
+      iwk += op->varout.size();
     }
 
     // Copy dependent values in vDep 
@@ -7429,6 +7694,28 @@ FFGraph::SBAD
 template <typename... Deps>
 inline std::tuple< unsigned, unsigned*, unsigned*, FFVar* >
 FFGraph::SBAD
+( const std::set<unsigned>&ndxDep, FFVar const* const pDep, unsigned const nIndep,
+  FFVar const* const pIndep, Deps... args )
+{
+  if( ndxDep.empty() ) return std::make_tuple(0,nullptr,nullptr,nullptr); // Nothing to do!
+
+  std::vector<FFVar> vpDep( ndxDep.size() );
+  std::set<unsigned>::const_iterator it = ndxDep.cbegin();
+  for( unsigned iDep=0; it != ndxDep.cend(); ++it, iDep++ ) vpDep[iDep] = pDep[*it];
+
+  auto&& vDep_B = SBAD( vpDep.size(), vpDep.data(), nIndep, pIndep, args... );
+  
+  for( unsigned ie=0; ie<std::get<0>(vDep_B); ie++ ){
+    auto it = ndxDep.cbegin();
+    std::advance( it, std::get<1>(vDep_B)[ie] );
+    std::get<1>(vDep_B)[ie] = *it;
+  }
+  return vDep_B;
+}
+
+template <typename... Deps>
+inline std::tuple< unsigned, unsigned*, unsigned*, FFVar* >
+FFGraph::SBAD
 ( unsigned const nDep, FFVar const* const pDep, unsigned const nIndep,
   FFVar const* const pIndep, Deps... args )
 {
@@ -7503,8 +7790,9 @@ FFGraph::SBAD
   output( sgDep );
   std::cout << "l_op.size() = " << sgDep.l_op.size() << "  len_tap = " << sgDep.len_tap << std::endl;
 #endif
-  _wkAD.clear();
-  _wkAD.resize( sgDep.len_tap );
+  //_wkAD.clear();
+  //_wkAD.resize( sgDep.len_tap );
+  std::vector<FFVar> _wkAD( sgDep.len_tap );
 
 #ifdef MC__FFUNC_CPU_EVAL
   double cputime = -cpuclock();
@@ -7518,30 +7806,31 @@ FFGraph::SBAD
   std::set< FFVar const*, lt_FFVar > setIndep;
   unsigned int iwk = 0;
   try{
-    for( auto ito = sgDep.l_op.begin(); ito!=sgDep.l_op.end(); ++ito ){
-      _curOp = *ito;
-      for( unsigned int iout=0; iout<_curOp->varout.size(); ++iout ){
-        vDep_deriv[iwk+iout] = new FFVar[ _curOp->varin.size() ];
+    for( auto const& op : sgDep.l_op ){
+
+      for( unsigned int iout=0; iout<op->varout.size(); ++iout ){
+        vDep_deriv[iwk+iout] = new FFVar[ op->varin.size() ];
         vDep_index[iwk+iout] = iwk+iout;
-        _curOp->varout[iout]->val() = &vDep_index[iwk+iout];
+        op->varout[iout]->val() = &vDep_index[iwk+iout];
       }
 
       // Differentiate current operation
-      if( _curOp->type < FFOp::EXTERN )
-        _curOp->differentiate( vDep_deriv[iwk] );
+      _curOp = op;
+      if( op->type < FFOp::EXTERN )
+        op->differentiate( vDep_deriv[iwk] );
       else
-        _curOp->differentiate_external( vDep_deriv.data()+iwk );
+        op->differentiate_external( vDep_deriv.data()+iwk );
 
       // Track dependencies
-      for( unsigned int iout=0; iout<_curOp->varout.size(); ++iout )
-        for( unsigned int iin=0; iin<_curOp->varin.size(); ++iin )
-          mapDep.insert( std::make_pair( *static_cast<unsigned*>( _curOp->varin[iin]->val() ),
+      for( unsigned int iout=0; iout<op->varout.size(); ++iout )
+        for( unsigned int iin=0; iin<op->varin.size(); ++iin )
+          mapDep.insert( std::make_pair( *static_cast<unsigned*>( op->varin[iin]->val() ),
                                          std::make_pair( iwk+iout, iin ) ) );
-      if( _curOp->type == FFOp::VAR )
-        setIndep.insert( _curOp->varout[0] );
+      if( op->type == FFOp::VAR )
+        setIndep.insert( op->varout[0] );
 
       // Increment tape
-      iwk += _curOp->varout.size();
+      iwk += op->varout.size();
     }
   }
   catch( Exceptions& e ){
@@ -7560,11 +7849,10 @@ FFGraph::SBAD
 
     // Initialize dependents
     iwk = 0;
-    for( auto ito = sgDep.l_op.begin(); ito!=sgDep.l_op.end(); ++ito ){
-      _curOp = *ito;
-      for( unsigned int iout=0; iout<_curOp->varout.size(); ++iout )
-        _curOp->varout[iout]->val() = nullptr; // make sure only dependents are initialized
-      iwk += _curOp->varout.size();
+    for( auto const& op : sgDep.l_op ){
+      for( unsigned int iout=0; iout<op->varout.size(); ++iout )
+        op->varout[iout]->val() = nullptr; // make sure only dependents are initialized
+      iwk += op->varout.size();
     }
     if( vDir.size() ){
       for( auto const& pdep : sgDep.v_dep )
@@ -7586,22 +7874,25 @@ FFGraph::SBAD
 
     // Backpropagate derivatives
     for( auto ito = sgDep.l_op.rbegin(); ito!=sgDep.l_op.rend(); ++ito ){
-      _curOp = *ito;
-      iwk -= _curOp->varout.size();
+      auto const& op = *ito;
+      iwk -= op->varout.size();
 
-      switch( _curOp->type ){
+      switch( op->type ){
         // Ignore constant
         case FFOp::CNST:
-          _curOp->varout[0]->val() = &FFZero;
+          op->varout[0]->val() = &FFZero;
           _wkAD[iwk] = FFZero;
           break;
 
         // Backpropagate chain rule
         default:
-          for( unsigned int iout=0; iout<_curOp->varout.size(); ++iout ){
+          for( unsigned int iout=0; iout<op->varout.size(); ++iout ){
             // Is a dependent?
-            if( _curOp->varout[iout]->val() ){
-              _wkAD[iwk+iout] = *static_cast<FFVar*>( _curOp->varout[iout]->val() );
+            if( op->varout[iout]->val() ){
+              _wkAD[iwk+iout] = *static_cast<FFVar*>( op->varout[iout]->val() );
+#ifdef MC__FFUNC_SBAD_DEBUG
+              std::cout << "_wkAD[" << iwk+iout << "] = " << _wkAD[iwk+iout] << std::endl;
+#endif
               continue;
             }
             // Not a dependent
@@ -7609,6 +7900,10 @@ FFGraph::SBAD
             auto [ itdep1, itdep2 ] = mapDep.equal_range( iwk+iout );
             for( auto itd=itdep1; itd!=itdep2; ++itd ){
               auto const& [jwk,jin] = itd->second;
+#ifdef MC__FFUNC_SBAD_DEBUG
+              std::cout << "itd: " << jwk << " <- " << itd->first << " [" << jin << "]" << std::endl;
+              std::cout << "_wkAD[" << jwk << "] = " << _wkAD[jwk] << std::endl;
+#endif
               if( ((_wkAD[jwk].id().first == FFVar::CREAL
                  || _wkAD[jwk].id().first == FFVar::CINT)
                  && _wkAD[jwk].num().val() == 0.)
@@ -7616,8 +7911,11 @@ FFGraph::SBAD
                  || vDep_deriv[jwk][jin].id().first == FFVar::CINT)
                  && vDep_deriv[jwk][jin].num().val() == 0.) ) continue;
               _wkAD[iwk+iout] += _wkAD[jwk] * vDep_deriv[jwk][jin];
+#ifdef MC__FFUNC_SBAD_DEBUG
+              std::cout << "_wkAD[" << iwk+iout << "] = " << _wkAD[iwk+iout] << std::endl;
+#endif
             }
-            _curOp->varout[iout]->val() = &_wkAD[iwk+iout];
+            op->varout[iout]->val() = &_wkAD[iwk+iout];
           }
           break;
       }
@@ -7691,15 +7989,13 @@ FFGraph::SBAD
     double cputime = -cpuclock();
     std::cerr << "#operations " << sgDep.l_op.size() << std::endl;
 #endif
-    auto ito = sgDep.l_op.begin();
     unsigned iwk = 0;
     unsigned nIndep = 0; // count dependencies
-    for( ; ito!=sgDep.l_op.end(); ++ito ){
-      _curOp = *ito;
+    for( auto const& op : sgDep.l_op ){
 
       // Initialize variable using values in l_vVar
-      if( _curOp->type == FFOp::VAR ){
-        auto pvar = _curOp->varout[0];
+      if( op->type == FFOp::VAR ){
+        auto pvar = op->varout[0];
         _wkSBAD[iwk] = *pvar;
         auto iti = vIndep.begin();
         for( unsigned int ii=0; iti!=vIndep.end(); ++iti, ++ii ){
@@ -7715,11 +8011,12 @@ FFGraph::SBAD
       }
       
       // Evaluate current operation
-      if( _curOp->type < FFOp::EXTERN )
-        _curOp->evaluate( &_wkSBAD[iwk], 0, pwkSBAD, pwkmov );
+      _curOp = op;
+      if( op->type < FFOp::EXTERN )
+        op->evaluate( &_wkSBAD[iwk], 0, pwkSBAD, pwkmov );
       else
-        _curOp->evaluate_external( &_wkSBAD[iwk], nullptr, pwkSBAD, pwkmov );
-      iwk += _curOp->varout.size();
+        op->evaluate_external( &_wkSBAD[iwk], nullptr, pwkSBAD, pwkmov );
+      iwk += op->varout.size();
     }
 
     // Copy values in DepB, IndepB
@@ -7810,14 +8107,12 @@ FFGraph::TAD
   double cputime = -cpuclock();
   std::cerr << "#operations " << sgDep.l_op.size() << std::endl;
 #endif
-  auto ito = sgDep.l_op.begin();
   unsigned iwk = 0;
-  for( ; ito!=sgDep.l_op.end(); ++ito ){
-    _curOp = *ito;
+  for( auto const& op : sgDep.l_op ){
 
     // Initialize variable
-    if( _curOp->type == FFOp::VAR ){
-      FFVar* pXi = _curOp->varout[0];
+    if( op->type == FFOp::VAR ){
+      FFVar* pXi = op->varout[0];
       _wkTAD[iwk] = *pXi;
       // Independent variable
       if( pIndep && pXi->id() == pIndep->id() )
@@ -7839,12 +8134,13 @@ FFGraph::TAD
     }
     
     // Evaluate current operation
-    if( _curOp->type < FFOp::EXTERN )
-      _curOp->evaluate( &_wkTAD[iwk], 0, pwkTAD, pwkmov );
+    _curOp = op;
+    if( op->type < FFOp::EXTERN )
+      op->evaluate( &_wkTAD[iwk], 0, pwkTAD, pwkmov );
     else
-      _curOp->evaluate_external( &_wkTAD[iwk], nullptr, pwkTAD, pwkmov );
+      op->evaluate_external( &_wkTAD[iwk], nullptr, pwkTAD, pwkmov );
     // Increment tape
-    iwk += _curOp->varout.size();    
+    iwk += op->varout.size();    
   }
 
   // Set pointers to the dependents
@@ -8002,14 +8298,13 @@ FFGraph::compose
   
   unsigned iwk = 0;
   for( auto const& op : sgDep.l_op ){
-    _curOp = op;
 
-    // Check if _curOp is to be substituted
+    // Check if op is to be substituted
     bool is_set = false;
     FFVar* pvar = nullptr;
     for( auto const& [varout,depin] : vDepIn ){
-      for( unsigned iout=0; iout<_curOp->varout.size(); ++iout ){
-        pvar = _curOp->varout[iout];
+      for( unsigned iout=0; iout<op->varout.size(); ++iout ){
+        pvar = op->varout[iout];
         if( varout->id() == pvar->id() ){
           wkDep[iwk] = *depin;
           is_set = true;
@@ -8017,8 +8312,8 @@ FFGraph::compose
         }
       }
     }
-    if( !is_set && _curOp->type == FFOp::VAR ){
-      pvar = _curOp->varout[0];
+    if( !is_set && op->type == FFOp::VAR ){
+      pvar = op->varout[0];
       if( !pvar->cst() ){
         wkDep[iwk] = *pvar;
         is_set = true;
@@ -8026,20 +8321,21 @@ FFGraph::compose
     }
 
     // (Re)evaluate current operation
+    _curOp = op;
     if( is_set )
       pvar->val() = &wkDep[iwk];
-    else if( _curOp->type < FFOp::EXTERN )
-      _curOp->evaluate( &wkDep[iwk], 0, pwkDep, pwkmov );
+    else if( op->type < FFOp::EXTERN )
+      op->evaluate( &wkDep[iwk], 0, pwkDep, pwkmov );
     else
-      _curOp->evaluate_external( &wkDep[iwk], nullptr, pwkDep, pwkmov );
+      op->evaluate_external( &wkDep[iwk], nullptr, pwkDep, pwkmov );
     // Increment tape
-    iwk += _curOp->varout.size();    
+    iwk += op->varout.size();    
 
     // Check for a corresponding dependent
     auto itNew = vDepComp.begin();
     for( auto const& dep : vDepOut ){
-      for( unsigned iout=0; iout<_curOp->varout.size(); ++iout ){
-        pvar = _curOp->varout[iout];
+      for( unsigned iout=0; iout<op->varout.size(); ++iout ){
+        pvar = op->varout[iout];
         if( dep->id() == pvar->id() ){
           auto pNew = static_cast<const FFVar*>( pvar->val() );
           *itNew = _find_var( pNew->id() );
@@ -8220,9 +8516,9 @@ FFGraph::eval
 ( FFSubgraph&sgDep, std::vector<U>&wkDep, const unsigned nDep, const FFVar*pDep,
   U*vDep, const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args )
 {
-  std::list<unsigned> l_nVar;     l_nVar.push_back(nVar);
-  std::list<const FFVar*> l_pVar; l_pVar.push_back(pVar);
-  std::list<const U*> l_vVar;     l_vVar.push_back(vVar);
+  std::list<unsigned>     l_nVar({nVar});
+  std::list<const FFVar*> l_pVar({pVar});
+  std::list<const U*>     l_vVar({vVar});
   return eval( sgDep, wkDep, nDep, pDep, vDep, l_nVar, l_pVar, l_vVar, args... );
 }
 
@@ -8269,14 +8565,12 @@ FFGraph::eval
   double cputime = -cpuclock();
   std::cerr << "#operations " << sgDep.l_op.size() << std::endl;
 #endif
-  auto ito = sgDep.l_op.begin();
   unsigned iwk = 0;
-  for( ; ito!=sgDep.l_op.end(); ++ito ){
-    _curOp = *ito;
+  for( auto const& op : sgDep.l_op ){
 
     // Initialize non-constant variable using values in l_vVar
-    if( _curOp->type == FFOp::VAR && !_curOp->varout[0]->cst() ){
-      FFVar* pvar = _curOp->varout[0];
+    if( op->type == FFOp::VAR && !op->varout[0]->cst() ){
+      FFVar* pvar = op->varout[0];
       FFVar* pX = nullptr;
       auto itnVar = l_nVar.begin(); auto itpVar = l_pVar.begin(); auto itvVar = l_vVar.begin();
       for( ; !pX && itnVar != l_nVar.end(); ++itnVar, ++itpVar, ++itvVar ){
@@ -8291,12 +8585,13 @@ FFGraph::eval
     }
 
     // Evaluate current operation
-    if( _curOp->type < FFOp::EXTERN )
-      _curOp->evaluate( &wkDep[iwk], (this->options.USEMOVE? sgDep.v_mov[iwk]: 0), pwkDep, pwkmov );
+    _curOp = op;
+    if( op->type < FFOp::EXTERN )
+      op->evaluate( &wkDep[iwk], (this->options.USEMOVE? sgDep.v_mov[iwk]: 0), pwkDep, pwkmov );
     else
-      _curOp->evaluate_external( &wkDep[iwk], (this->options.USEMOVE? &sgDep.v_mov[iwk]: nullptr), pwkDep, pwkmov );
+      op->evaluate_external( &wkDep[iwk], (this->options.USEMOVE? &sgDep.v_mov[iwk]: nullptr), pwkDep, pwkmov );
     // Increment tape
-    iwk += _curOp->varout.size();    
+    iwk += op->varout.size();    
   }
 
   // Copy dependent values in vDep 
@@ -8477,12 +8772,10 @@ FFGraph::reval
 
   // Initialization of independent variables with values in l_vVar
   std::map<U*,U*> mapVar;// 1st: pointer to wkDep; 2nd: pointer to l_vVar
-  auto ito = opDep.begin();
   unsigned iwk = 0;
-  for( ; ito!=opDep.end(); ++ito ){
-    _curOp = *ito;
-    if( _curOp->type == FFOp::VAR && !_curOp->varout[0]->cst() ){
-      FFVar* pvar = _curOp->varout[0];
+  for( auto const& op : sgDep.l_op ){
+    if( op->type == FFOp::VAR && !op->varout[0]->cst() ){
+      FFVar* pvar = op->varout[0];
       FFVar* pX = nullptr;
       auto itnVar = l_nVar.begin(); auto itpVar = l_pVar.begin(); auto itvVar = l_vVar.begin();
       for( ; !pX && itnVar != l_nVar.end(); ++itnVar, ++itpVar, ++itvVar ){
@@ -8500,7 +8793,7 @@ FFGraph::reval
       if( !pX ) throw Exceptions( Exceptions::MISSVAR );
     }
     // Increment tape
-    iwk += _curOp->varout.size();    
+    iwk += op->varout.size();    
   }
 
   // Repeat forward/backward pass
@@ -8512,31 +8805,30 @@ FFGraph::reval
 #endif
 
     // Forward propagation in U arithmetic through subgraph
-    ito = opDep.begin();
     iwk = 0;
     bool is_feasible = true;
-    for( ; ito != opDep.end(); ++ito ){
+    for( auto const& op : sgDep.l_op ){
       // Evaluate current operation
-      _curOp = *ito;
 #ifdef MC__REVAL_DEBUG
-      for( auto const& var : _curOp->varout )        
+      for( auto const& var : op->varout )        
         std::cout << *var << " ";
-      std::cout << " : " << _curOp->name();
-      for( auto const& var : _curOp->varin )        
+      std::cout << " : " << op->name();
+      for( auto const& var : op->varin )        
         std::cout << *var << " @(" << static_cast<U*>(var->val()) << ") " << *static_cast<U*>(var->val()) << " ";
       std::cout << std::endl;
 #endif
-      if( _curOp->type < FFOp::EXTERN ){
+      _curOp = op;
+      if( op->type < FFOp::EXTERN ){
         try{
-          if( !ipass ) _curOp->evaluate( &wkDep[iwk], 0, pwkDep, pwkmov );
-          else if( !_curOp->tighten_forward( pwkDep ) ) is_feasible = false;
+          if( !ipass ) op->evaluate( &wkDep[iwk], 0, pwkDep, pwkmov );
+          else if( !op->tighten_forward( pwkDep ) ) is_feasible = false;
         }
         catch(...){}// continue; }
       }
       else{
         try{
-          if( !ipass ) _curOp->evaluate_external( &wkDep[iwk], nullptr, pwkDep, pwkmov );
-          else if( !_curOp->tighten_forward_external( pwkDep ) ) is_feasible = false;
+          if( !ipass ) op->evaluate_external( &wkDep[iwk], nullptr, pwkDep, pwkmov );
+          else if( !op->tighten_forward_external( pwkDep ) ) is_feasible = false;
         }
         catch(...){
 #ifdef MC__REVAL_DEBUG
@@ -8547,7 +8839,7 @@ FFGraph::reval
       }
       if( !is_feasible ) return -ipass-1;
       // Increment tape
-      iwk += _curOp->varout.size();    
+      iwk += op->varout.size();    
     }
 
     // Intersection of propagated dependents with vDep 
@@ -8571,39 +8863,42 @@ FFGraph::reval
     // Backward propagation in U arithmetic through subgraph
     bool is_tighter = false;
     for( auto rito = opDep.rbegin(); rito!=opDep.rend(); ++rito ){
-      _curOp = *rito;
+      FFOp const* op = *rito;
 #ifdef MC__REVAL_DEBUG
-      for( auto const& var : _curOp->varout )        
-        std::cout << *var << " ";
-      std::cout << " : " << _curOp->name() << " ";
-      for( auto const& var : _curOp->varin )        
+      for( auto const& var : op->varout )
+        std::cout << *var << " " << *static_cast<U*>(var->val()) << " & ";
+        //std::cout << *var << " ";
+      std::cout << " : " << op->name() << " ";
+      for( auto const& var : op->varin )
         std::cout << *var << " @" << *static_cast<U*>(var->val()) << " ";
       std::cout << std::endl;
 #endif
       // Store current operand variables
-      curVar.resize( _curOp->varin.size() );
-      unsigned iop = 0;
-      for( auto const& op : _curOp->varin )
-        curVar[iop++] = *static_cast<U*>( op->val() );
+      curVar.resize( op->varin.size() );
+      unsigned ivar = 0;
+      for( auto const& var : op->varin )
+        curVar[ivar++] = *static_cast<U*>( var->val() );
       // Tighten current operation
-      if( _curOp->type < FFOp::EXTERN ){
+      _curOp = op;
+      if( op->type < FFOp::EXTERN ){
         try{
-          if( !_curOp->tighten_backward( pwkDep ) ) is_feasible = false;
+          if( !op->tighten_backward( pwkDep ) ) is_feasible = false;
         }
         catch(...){ continue; }
       }
       else{
         try{
-          if( !_curOp->tighten_backward_external( pwkDep ) ) is_feasible = false;
+          if( !op->tighten_backward_external( pwkDep ) ) is_feasible = false;
         }
         catch(...){ continue; }
       }
 #ifdef MC__REVAL_DEBUG
-      for( auto const& var : _curOp->varout )
+      for( auto const& var : op->varout )
         std::cout << *var << " " << *static_cast<U*>(var->val()) << " & ";
-      std::cout << " = " << _curOp->name();
-      for( auto const& var : _curOp->varin )
-        std::cout << *var << " " << *static_cast<U*>(var->val()) << " @ ";
+      std::cout << " = " << op->name();
+      for( auto const& var : op->varin )
+        std::cout << *var << " @" << *static_cast<U*>(var->val()) << " ";
+        //std::cout << *var << " " << *static_cast<U*>(var->val()) << " @ ";
       std::cout << std::endl;
 #endif
       if( !is_feasible ){
@@ -8613,24 +8908,24 @@ FFGraph::reval
         return -ipass-1;
       }
       // Test improvement of operand variables
-      iop = 0;
-      for( auto const& op : _curOp->varin ){
+      ivar = 0;
+      for( auto const& var : op->varin ){
         is_tighter = is_tighter
-                  || Op<U>::l(*static_cast<U*>( op->val() )) > Op<U>::l(curVar[iop])
-                     + THRESPASS*Op<U>::diam(curVar[iop])
-                  || Op<U>::u(*static_cast<U*>( op->val() )) < Op<U>::u(curVar[iop])
-                     - THRESPASS*Op<U>::diam(curVar[iop]);
-                  //|| !Op<U>::ge( *static_cast<U*>( op->val() ), curVar[iop] );
+                  || Op<U>::l(*static_cast<U*>( var->val() )) > Op<U>::l(curVar[ivar])
+                     + THRESPASS*Op<U>::diam(curVar[ivar])
+                  || Op<U>::u(*static_cast<U*>( var->val() )) < Op<U>::u(curVar[ivar])
+                     - THRESPASS*Op<U>::diam(curVar[ivar]);
+                  //|| !Op<U>::ge( *static_cast<U*>( var->val() ), curVar[ivar] );
 #ifdef MC__REVAL_DEBUG
-        std::cout << *static_cast<U*>( op->val() ) << "<" << curVar[iop] << "? "
-                  << (Op<U>::l(*static_cast<U*>( op->val() )) > Op<U>::l(curVar[iop])
-                     + THRESPASS*Op<U>::diam(curVar[iop]))
-                  << (Op<U>::u(*static_cast<U*>( op->val() )) < Op<U>::u(curVar[iop])
-                     - THRESPASS*Op<U>::diam(curVar[iop]))
-                  //<< !Op<U>::ge( *static_cast<U*>( op->val() ), curVar[iop] )
+        std::cout << *static_cast<U*>( var->val() ) << "<" << curVar[ivar] << "? "
+                  << (Op<U>::l(*static_cast<U*>( var->val() )) > Op<U>::l(curVar[ivar])
+                     + THRESPASS*Op<U>::diam(curVar[ivar]))
+                  << (Op<U>::u(*static_cast<U*>( var->val() )) < Op<U>::u(curVar[ivar])
+                     - THRESPASS*Op<U>::diam(curVar[ivar]))
+                  //<< !Op<U>::ge( *static_cast<U*>( var->val() ), curVar[ivar] )
                   << std::endl;
 #endif
-        ++iop;
+        ++ivar;
       }
     }
 

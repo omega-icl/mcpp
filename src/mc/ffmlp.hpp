@@ -1,8 +1,8 @@
-#ifndef MC__MCML_HPP
-#define MC__MCML_HPP
+#ifndef MC__FFMLP_HPP
+#define MC__FFMLP_HPP
 
-//#define MC__MCMLP_DEBUG
-#define MC__MCMLP_CHECK
+//#define MC__FFMLP_DEBUG
+#define MC__FFMLP_CHECK
 
 #include "mccormick.hpp"
 #include "ismodel.hpp"
@@ -35,9 +35,11 @@ public:
   size_t                               nhid;
   //! @brief MLP data
   std::vector<std::pair<std::vector<std::vector<double>>,int>> data;
+  //! @brief Whether MLP data changed since DAG setup
+  bool                                 DAGupdt;
 
-  //! @brief Storage for Polhedral relaxation
-  std::pair<FFGraph*,void*>            DAG;
+  //! @brief Storage for Polyhedral relaxation
+  FFGraph*                             DAG;
   FFSubgraph                           DAGOps;
   std::vector<FFVar>                   DAGVar;
   std::vector<FFVar>                   DAGRes;
@@ -149,13 +151,13 @@ public:
   //! @brief Default constructor
   MLP
   ()
-  : nin(0), nout(0), DAG(nullptr,nullptr), POLEnv(nullptr), ISMEnv(nullptr), ASMEnv(nullptr)
+  : nin(0), nout(0), DAGupdt(false), DAG(nullptr), POLEnv(nullptr), ISMEnv(nullptr), ASMEnv(nullptr)
   {}
 
   ~MLP() 
   {
     delete POLEnv;
-    delete DAG.first;
+    delete DAG;
     delete ISMEnv;
     delete ASMEnv;
   }
@@ -244,7 +246,7 @@ private:
              ( x + Op<U>::fabs(x) ) * 0.5:
              Op<U>::max( x, U(0.) );
     }
-    
+
   template <typename U>
   ISVar<U> ReLU
     ( ISVar<U> const& x )
@@ -293,7 +295,7 @@ template <typename T> inline thread_local std::vector<std::vector<McCormick<ISVa
 template <typename T> inline thread_local std::vector<std::vector<ASVar<T>>>            MLP<T>::ASMhid   = std::vector<std::vector<ASVar<T>>>();
 template <typename T> inline thread_local std::vector<std::vector<PolVar<T>>>           MLP<T>::POLhid   = std::vector<std::vector<PolVar<T>>>();
 
-template<typename T>
+template< typename T >
 inline bool
 MLP<T>::set_data
 ( std::vector<std::pair<std::vector<std::vector<double>>,int>> const& mlp )
@@ -308,10 +310,12 @@ MLP<T>::set_data
   nin  = data.front().first.front().size() - 1;
   nout = data.back().first.size();
   nhid = data.size() - 1;
+  DAGupdt = true;
+
   return true;
 }
 
-template<typename T>
+template< typename T >
 inline void
 MLP<T>::clear_data
 ()
@@ -319,14 +323,18 @@ MLP<T>::clear_data
   // Reset data
   nin  = nout = nhid = 0;
   data.clear();
+  DAGupdt = true;
 }
 
-template<typename T>
+template< typename T >
 inline bool
 MLP<T>::append_data
 ( std::vector<std::vector<double>> const& layer, int const activ, bool const reset )
 {
-  if( reset ) clear_data();
+  if( reset ){
+    clear_data();
+    DAGupdt = true;
+  }
   if( !layer.size()
    || layer[0].size() <= 1
    || ( !data.empty() && data.back().first.size() != layer[0].size() - 1 ) )
@@ -337,10 +345,12 @@ MLP<T>::append_data
   nin  = data.front().first.front().size() - 1;
   nout = data.back().first.size();
   nhid = data.size() - 1;
+  DAGupdt = true;
+
   return true;
 }
 
-template<typename T>
+template< typename T >
 inline bool
 MLP<T>::append_data
 ( std::vector<double> const& layer, int const activ, bool const reset )
@@ -348,8 +358,8 @@ MLP<T>::append_data
   return append_data( std::vector<std::vector<double>>({layer}), activ, reset );
 }
 
-template<typename T>
-template<typename U>
+template< typename T >
+template< typename U >
 inline void
 MLP<T>::evaluate
 ( U* y, U const* x, std::vector<std::vector<U>>& vhid )
@@ -357,25 +367,25 @@ const
 {
   // Propagate through hidden layers
   vhid.resize( nhid );
-#ifdef MC__MCMLP_DEBUG
+#ifdef MC__FFMLP_DEBUG
   std::cerr << "No hidden layers: " << nhid << std::endl;
 #endif
   for( unsigned l=0; l<nhid; ++l ){
-#ifdef MC__MCMLP_CHECK
+#ifdef MC__FFMLP_CHECK
     assert( data[l].first.size() ); // number of neurons in layer l+1
 #endif
     size_t const nneu = data[l].first.size();
     vhid[l].resize( nneu );
-#ifdef MC__MCMLP_DEBUG
+#ifdef MC__FFMLP_DEBUG
     std::cerr << "No neurons in layer " << l << ": " << nneu << std::endl;
 #endif
     for( unsigned i=0; i<nneu; ++i ){
       vhid[l][i] = (data[l].first)[i][0]; // bias term
-#ifdef MC__MCMLP_DEBUG
+#ifdef MC__FFMLP_DEBUG
       std::cerr << "No inputs to neuron " << i << " in layer " << l << ": " << data[l][i].size()-1 << std::endl;
 #endif
       for( unsigned j=0; j<(data[l].first)[i].size()-1; ++j ){
-#ifdef MC__MCMLP_DEBUG
+#ifdef MC__FFMLP_DEBUG
         std::cout << "layer:" << l << " neuron:" << i << " input:" << j << std::endl;
 #endif
         if( std::fabs((data[l].first)[i][1+j]) < options.ZEROTOL ) continue;
@@ -393,20 +403,20 @@ const
   }
 
   // Propagate through output layers
-#ifdef MC__MCMLP_CHECK
+#ifdef MC__FFMLP_CHECK
   assert( data.back().first.size() ); // number of neurons in layer l+1
 #endif
   size_t const nneu = data.back().first.size();
-#ifdef MC__MCMLP_DEBUG
+#ifdef MC__FFMLP_DEBUG
   std::cerr << "No neurons in layer " << nhid << ": " << nneu << std::endl;
 #endif
   for( unsigned i=0; i<nneu; ++i ){
     y[i] = (data.back().first)[i][0]; // bias term
-#ifdef MC__MCMLP_DEBUG
+#ifdef MC__FFMLP_DEBUG
     std::cerr << "No inputs to neuron " << i << " in layer " << nhid << ": " << (data.back().first)[i].size()-1 << std::endl;
 #endif
     for( unsigned j=0; j<(data.back().first)[i].size()-1; ++j ){
-#ifdef MC__MCMLP_DEBUG
+#ifdef MC__FFMLP_DEBUG
       std::cout << "layer:" << nhid << " neuron:" << i << " input:" << j << std::endl;
 #endif
       if( std::fabs((data.back().first)[i][1+j]) < options.ZEROTOL ) continue;
@@ -423,7 +433,7 @@ const
   }
 }
 
-template<typename T>
+template< typename T >
 inline void
 MLP<T>::resize_relax
 ()
@@ -432,21 +442,22 @@ MLP<T>::resize_relax
   switch( options.RELAX ){
     case Options::AUX:
     default:
-      if( !DAG.first || DAG.second != &data ){
-        delete DAG.first;
-        DAG = std::make_pair( new FFGraph, &data );
+      if( !DAG || DAGupdt ){
+        delete DAG;
+        DAG = new FFGraph;//, &data );
         DAGVar.resize( nin );
         DAGRes.resize( nout );
         for( unsigned i=0; i<nin; ++i )
-          DAGVar[i].set( DAG.first );
+          DAGVar[i].set( DAG );
         evaluate( DAGRes.data(), DAGVar.data() );
-        DAGOps = DAG.first->subgraph( nout, DAGRes.data() );
-#ifdef MC__MCMLP_DEBUG
-        DAG.first->output( DAGOps, " MLP", std::cerr );
+        DAGOps = DAG->subgraph( nout, DAGRes.data() );
+#ifdef MC__FFMLP_DEBUG
+        DAG->output( DAGOps, " MLP", std::cerr );
         std::ofstream oFile( "MLP.dot", std::ios_base::out );
-        DAG.first->dot_script( nout, DAGRes.data(), oFile );
+        DAG->dot_script( nout, DAGRes.data(), oFile );
         oFile.close();
 #endif
+        DAGupdt = false;
       }
       if( !POLEnv ) POLEnv = new PolImg<T>;
       POLVar.resize( nin );
@@ -497,7 +508,7 @@ MLP<T>::resize_relax
   }
 }
 
-template<typename T>
+template< typename T >
 inline void
 MLP<T>::propagate_relax
 ( PolImg<T>* img, FFVar ** pRes, PolVar<T>* vRes, PolVar<T> const* vVar )
@@ -513,17 +524,17 @@ MLP<T>::propagate_relax
         POLVar[i].set( POLEnv, DAGVar[i], vVar[i].range() );
         POLMap[&POLVar[i]] = vVar[i];
       }
-#ifdef MC__MCMLP_DEBUG
+#ifdef MC__FFMLP_DEBUG
       std::vector<PolVar<T>> POLwk;
-      DAG.first->eval( DAGOps, POLwk, nout, DAGRes.data(), POLRes.data(), nin, DAGVar.data(), POLVar.data() );
+      DAG->eval( DAGOps, POLwk, nout, DAGRes.data(), POLRes.data(), nin, DAGVar.data(), POLVar.data() );
       for( auto polv : POLwk ) std::cout << polv.name() << ": " << polv.range() << std::endl;
 #else
-      DAG.first->eval( DAGOps, nout, DAGRes.data(), POLRes.data(), nin, DAGVar.data(), POLVar.data() );
+      DAG->eval( DAGOps, nout, DAGRes.data(), POLRes.data(), nin, DAGVar.data(), POLVar.data() );
 #endif
       // COULD DO CONSTRAINT PROPAGATION BASED ON vRes.range()
       for( unsigned j=0; j<nout; ++j ){
         vRes[j].set( img, *pRes[j], POLRes[j].range() );
-#ifdef MC__MCMLP_DEBUG
+#ifdef MC__FFMLP_DEBUG
         std::cerr << "vRes[" << j << "] in " << vRes[j] << std::endl;
 #endif
         POLMap[&POLRes[j]] = vRes[j];
@@ -537,7 +548,7 @@ MLP<T>::propagate_relax
       evaluate( IRes.data(), IVar.data() );
       for( unsigned j=0; j<nout; ++j ){
         vRes[j].set( img, *pRes[j], IRes[j] );
-#ifdef MC__MCMLP_DEBUG
+#ifdef MC__FFMLP_DEBUG
         std::cerr << "vRes[" << j << "] in " << vRes[j] << std::endl;
 #endif
       }
@@ -550,7 +561,7 @@ MLP<T>::propagate_relax
       evaluate( MCRes.data(), MCVar.data() );
       for( unsigned j=0; j<nout; ++j ){
         vRes[j].set( img, *pRes[j], MCRes[j].I() );
-#ifdef MC__MCMLP_DEBUG
+#ifdef MC__FFMLP_DEBUG
         std::cerr << "vRes[" << j << "] in " << vRes[j].range() << std::endl;
 #endif
       }
@@ -563,7 +574,7 @@ MLP<T>::propagate_relax
       evaluate( ISMRes.data(), ISMVar.data() );
       for( unsigned j=0; j<nout; ++j ){
         vRes[j].set( img, *pRes[j], ISMRes[j].B() );
-#ifdef MC__MCMLP_DEBUG
+#ifdef MC__FFMLP_DEBUG
         std::cerr << "ISMRes[" << j << "] in " << ISMRes[j] << std::endl;
         std::cerr << "vRes[" << j << "] in " << vRes[j].range() << std::endl;
 #endif
@@ -578,7 +589,7 @@ MLP<T>::propagate_relax
       evaluate( MCISMRes.data(), MCISMVar.data() );
       for( unsigned j=0; j<nout; ++j ){
         vRes[j].set( img, *pRes[j], MCISMRes[j].I().B() );
-#ifdef MC__MCMLP_DEBUG
+#ifdef MC__FFMLP_DEBUG
         std::cerr << "ISMRes[" << j << "] in " << MCISMRes[j].I() << std::endl;
         std::cerr << "MCISMRes[" << j << "] in " << MCISMRes[j] << std::endl;
         std::cerr << "vRes[" << j << "] in " << vRes[j].range() << std::endl;
@@ -594,7 +605,7 @@ MLP<T>::propagate_relax
       evaluate( ASMRes.data(), ASMVar.data() );
       for( unsigned j=0; j<nout; ++j ){
         vRes[j].set( img, *pRes[j], ASMRes[j].B() );
-#ifdef MC__MCMLP_DEBUG
+#ifdef MC__FFMLP_DEBUG
         std::cerr << "ASMRes[" << j << "] in " << ASMRes[j] << std::endl;
         std::cerr << "vRes[" << j << "] in " << vRes[j].range() << std::endl;
 #endif
@@ -603,7 +614,7 @@ MLP<T>::propagate_relax
   }
 }
 
-template<typename T>
+template< typename T >
 inline void
 MLP<T>::backpropagate_relax
 ( PolImg<T>* img, FFOp* pOp, PolVar<T> const* vRes, PolVar<T>* vVar )
@@ -613,7 +624,7 @@ MLP<T>::backpropagate_relax
     case Options::AUX:
     default:
       POLEnv->generate_cuts( nout, POLRes.data() );
-#ifdef MC__MCMLP_DEBUG
+#ifdef MC__FFMLP_DEBUG
       std::cerr << "POLEnv:" << *POLEnv << std::endl;
 #endif
       img->insert_cuts( POLEnv, POLMap );
@@ -627,7 +638,7 @@ MLP<T>::backpropagate_relax
     case MLP<T>::Options::RELAXTYPE::MC:
       // polyhedral cut generation
       for( unsigned j=0; j<nout; ++j ){
-#ifdef MC__MCMLP_DEBUG
+#ifdef MC__FFMLP_DEBUG
         std::cerr << "MCRes[" << j << "] in " << MCRes[j] << std::endl;
 #endif
         double rhs1 = -MCRes[j].cv(),
@@ -643,7 +654,7 @@ MLP<T>::backpropagate_relax
 
     // Interval superposition models
     case MLP<T>::Options::RELAXTYPE::ISM:
-#ifdef MC__MCMLP_CHECK
+#ifdef MC__FFMLP_CHECK
       assert( ISMEnv->ndiv() == options.ISMDIV );
 #endif
       // define auxiliary variables 
@@ -655,7 +666,7 @@ MLP<T>::backpropagate_relax
 
       // polyhedral cut generation
       for( unsigned j=0; j<nout; ++j ){
-#ifdef MC__MCMLP_DEBUG
+#ifdef MC__FFMLP_DEBUG
         std::cerr << "MCRes[" << j << "] in " << MCRes[j] << std::endl;
 #endif
         auto cutF1 = *img->add_cut( pOp, PolCut<T>::LE, 0., vRes[j], -1. );
@@ -693,7 +704,7 @@ MLP<T>::backpropagate_relax
 
     // McCormick relaxation with ISM bounds at mid-point with subgradient in each direction    
     case MLP<T>::Options::RELAXTYPE::MCISM:
-#ifdef MC__MCMLP_CHECK
+#ifdef MC__FFMLP_CHECK
       assert( ISMEnv->ndiv() == options.ISMDIV );
 #endif
       // define auxiliary variables 
@@ -705,7 +716,7 @@ MLP<T>::backpropagate_relax
   
       // polyhedral cut generation
       for( unsigned j=0; j<nout; ++j ){
-#ifdef MC__MCMLP_DEBUG
+#ifdef MC__FFMLP_DEBUG
         std::cerr << "MCISMRes[" << j << "] in " << MCISMRes[j] << std::endl;
 #endif
         auto cutF1 = *img->add_cut( pOp, PolCut<T>::LE, 0., vRes[j], -1. );
@@ -753,12 +764,12 @@ MLP<T>::backpropagate_relax
       
     // Affine superposition models
     case MLP<T>::Options::RELAXTYPE::ASM:
-#ifdef MC__MCMLP_CHECK
+#ifdef MC__FFMLP_CHECK
       assert( ASMEnv->ndiv() == options.ISMDIV );
 #endif
       // polyhedral cut generation
       for( unsigned j=0; j<nout; ++j ){
-#ifdef MC__MCMLP_DEBUG
+#ifdef MC__FFMLP_DEBUG
         std::cerr << "ASMRes[" << j << "] in " << ASMRes[j] << std::endl;
 #endif
         switch(ASMRes[j].get_ASVar()){
@@ -787,13 +798,13 @@ MLP<T>::backpropagate_relax
       return;
   }
 
-#ifdef MC__MCMLP_DEBUG
+#ifdef MC__FFMLP_DEBUG
   std::cerr << *img;
   {int dum; std::cout << "PAUSED, ENTER 1"; std::cin >> dum;}
 #endif
 }
 
-template<typename T>
+template< typename T >
 inline void
 MLP<T>::append_ASMcuts
 ( PolImg<T>* img, FFOp* pOp, PolVar<T> const& vRes, PolVar<T>* vVar,
@@ -812,7 +823,7 @@ MLP<T>::append_ASMcuts
   img->add_cut( pOp, PolCut<T>::EQ, 0., nin, POLLASMAux.data(), 1., vRes, -1. );
 }
 
-template<typename T>
+template< typename T >
 inline void
 MLP<T>::append_ASMcuts
 ( PolImg<T>* img, FFOp* pOp, PolVar<T> const& vRes, PolVar<T>* vVar,
@@ -829,7 +840,7 @@ MLP<T>::append_ASMcuts
         img->add_cut( pOp, PolCut<T>::EQ, ucst, POLLASMAux[i], 1. );
       else{
         unsigned NK = uest.first.size()-1;
-#ifdef MC__MCMLP_CHECK
+#ifdef MC__FFMLP_CHECK
         assert( uest.second.size() == uest.first.size() );
 #endif
         if(NK==1){
@@ -863,7 +874,7 @@ MLP<T>::append_ASMcuts
         img->add_cut( pOp, PolCut<T>::EQ, ocst, POLUASMAux[i], 1. );
       else{
         unsigned NK = oest.first.size()-1;
-#ifdef MC__MCMLP_CHECK
+#ifdef MC__FFMLP_CHECK
         assert( oest.second.size() == oest.first.size() );
 #endif
         if(NK == 1){
@@ -894,9 +905,10 @@ MLP<T>::append_ASMcuts
 //! @brief C++ class defining neural networks as external DAG operations in MC++.
 ////////////////////////////////////////////////////////////////////////
 //! mc::FFMLP is a C++ class for defining neural networks as external
-//! DAG operations in MC++.
+//! DAG operations in MC++. The template parameter specifies the type
+//! for interval arithmetic.
 ////////////////////////////////////////////////////////////////////////
-template<typename T, unsigned int ID>
+template< typename T >
 class FFMLP
 ////////////////////////////////////////////////////////////////////////
 : public FFOp
@@ -906,7 +918,7 @@ public:
   //! @brief Constructors
   FFMLP
     ()
-    : FFOp( (int)EXTERN )
+    : FFOp( EXTERN )
     {}
 
   // Functor
@@ -915,8 +927,8 @@ public:
     const
     {
       data = pMLP;
-      info = ID;
-#ifdef MC__MCMLP_CHECK
+      owndata = false;
+#ifdef MC__FFMLP_CHECK
       assert( nVar == pMLP->nin && idep < pMLP->nout );
 #endif
       return *(insert_external_operation( *this, pMLP->nout, nVar, pVar )[idep]);
@@ -927,8 +939,8 @@ public:
     const
     {
       data = pMLP;
-      info = ID;
-#ifdef MC__MCMLP_CHECK
+      owndata = false;
+#ifdef MC__FFMLP_CHECK
       assert( nVar == pMLP->nin );
 #endif
       return insert_external_operation( *this, pMLP->nout, nVar, pVar );
@@ -964,7 +976,7 @@ public:
       throw std::runtime_error( "FFMLP::feval: **ERROR** No evaluation method with type"+std::string(idU.name())+"\n" );
     }
 
-  template<typename U>
+  template< typename U >
   void eval
     ( unsigned const nRes, U* vRes, unsigned const nVar, U const* vVar, unsigned const* mVar )
     const;
@@ -1025,20 +1037,20 @@ public:
 
 //! @brief C++ class defining gradient of neural networks as external DAG operations in MC++.
 ////////////////////////////////////////////////////////////////////////
-//! mc::FFMLP is a C++ class for defining gradient of neural networks
-//! as external DAG operations in MC++.
+//! mc::FFGradMLP is a C++ class for defining gradient of neural 
+//! networks as external DAG operations in MC++.
 ////////////////////////////////////////////////////////////////////////
-template<typename T, unsigned int ID>
-class FFGRADMLP
+template< typename T >
+class FFGradMLP
 ////////////////////////////////////////////////////////////////////////
 : public FFOp
 {
 public:
 
   //! @brief Constructors
-  FFGRADMLP
+  FFGradMLP
     ()
-    : FFOp( (int)EXTERN )
+    : FFOp( EXTERN )
     {}
 
   // Functor
@@ -1047,8 +1059,8 @@ public:
     const
     {
       data = pMLP;
-      info = ID+1;
-#ifdef MC__MCMLP_CHECK
+      owndata = false;
+#ifdef MC__FFMLP_CHECK
       assert( nVar == pMLP->nin && idep < pMLP->nout );
 #endif
       return *(insert_external_operation( *this, nVar*pMLP->nout, nVar, pVar )[idep]);
@@ -1059,8 +1071,8 @@ public:
     const
     {
       data = pMLP;
-      info = ID+1;
-#ifdef MC__MCMLP_CHECK
+      owndata = false;
+#ifdef MC__FFMLP_CHECK
       assert( nVar == pMLP->nin );
 #endif
       return insert_external_operation( *this, nVar*pMLP->nout, nVar, pVar );
@@ -1081,7 +1093,7 @@ public:
       else if( idU == typeid( SLiftVar ) )
         return eval( nRes, static_cast<SLiftVar*>(vRes), nVar, static_cast<SLiftVar const*>(vVar), mVar );
 
-      throw std::runtime_error( "FFGRADMLP::feval: **ERROR** No evaluation method with type"+std::string(idU.name())+"\n" );
+      throw std::runtime_error( "FFGradMLP::feval: **ERROR** No evaluation method with type"+std::string(idU.name())+"\n" );
     }
 
   void eval
@@ -1105,7 +1117,7 @@ public:
     ( std::type_info const& idU, unsigned const nRes, void const* vRes, unsigned const nVar, void* vVar )
     const
     {
-      throw std::runtime_error( "FFGRADMLP::feval: **ERROR** No evaluation method with type"+std::string(idU.name())+"\n" );
+      throw std::runtime_error( "FFGradMLP::feval: **ERROR** No evaluation method with type"+std::string(idU.name())+"\n" );
     }
 
   // Properties
@@ -1122,10 +1134,10 @@ public:
 };
 
 
-template<typename T, unsigned int ID>
-template<typename U>
+template< typename T >
+template< typename U >
 inline void
-FFMLP<T,ID>::eval
+FFMLP<T>::eval
 ( unsigned const nRes, U* vRes, unsigned const nVar, U const* vVar,
   unsigned const* mVar )
 const
@@ -1134,16 +1146,16 @@ const
   std::cout << "FFMLP::eval: " << typeid( vRes[0] ).name() << " (generic)\n";
 #endif
   MLP<T>* pMLP = static_cast<MLP<T>*>( data );
-#ifdef MC__MCMLP_CHECK
+#ifdef MC__FFMLP_CHECK
   assert( pMLP && nVar == pMLP->nin && nRes == pMLP->nout );
 #endif
 
   pMLP->evaluate( vRes, vVar );
 }
 
-template<typename T, unsigned int ID>
+template< typename T >
 inline void
-FFMLP<T,ID>::eval
+FFMLP<T>::eval
 ( unsigned const nRes, FFDep* vRes, unsigned const nVar, FFDep const* vVar,
   unsigned const* mVar )
 const
@@ -1152,7 +1164,7 @@ const
   std::cout << "FFMLP::eval: FFDep\n";
 #endif
   MLP<T>* pMLP = static_cast<MLP<T>*>( data );
-#ifdef MC__MCMLP_CHECK
+#ifdef MC__FFMLP_CHECK
   assert( pMLP && nVar == pMLP->nin && nRes == pMLP->nout );
 #endif
 
@@ -1162,9 +1174,9 @@ const
   for( unsigned j=1; j<nRes; ++j ) vRes[j] = vRes[0];
 }
 
-template<typename T, unsigned int ID>
+template< typename T >
 inline void
-FFMLP<T,ID>::eval
+FFMLP<T>::eval
 ( unsigned const nRes, FFVar* vRes, unsigned const nVar, FFVar const* vVar,
   unsigned const* mVar )
 const
@@ -1173,7 +1185,7 @@ const
   std::cout << "FFMLP::eval: FFVar\n";
 #endif
   MLP<T>* pMLP = static_cast<MLP<T>*>( data );
-#ifdef MC__MCMLP_CHECK
+#ifdef MC__FFMLP_CHECK
   assert( pMLP && nVar == pMLP->nin && nRes == pMLP->nout );
 #endif
 
@@ -1181,9 +1193,9 @@ const
   for( unsigned j=0; j<nRes; ++j ) vRes[j] = *(pRes[j]);
 }
 
-template<typename T, unsigned int ID>
+template< typename T >
 inline void
-FFMLP<T,ID>::eval
+FFMLP<T>::eval
 ( unsigned const nRes, fadbad::F<FFVar>* vRes, unsigned const nVar, fadbad::F<FFVar> const* vVar,
   unsigned const* mVar )
 const
@@ -1192,7 +1204,7 @@ const
   std::cout << "FFMLP::eval: fadbad::F<FFVar>\n";
 #endif
   MLP<T>* pMLP = static_cast<MLP<T>*>( data );
-#ifdef MC__MCMLP_CHECK
+#ifdef MC__FFMLP_CHECK
   assert( pMLP && nVar == pMLP->nin && nRes == pMLP->nout );
 #endif
 
@@ -1200,7 +1212,7 @@ const
   for( unsigned i=0; i<nVar; ++i )
     vVarVal[i] = vVar[i].val();
   FFVar const*const* vResVal = operator()( nVar, vVarVal.data(), pMLP );
-  FFGRADMLP<T,ID> ResDer;
+  FFGradMLP<T> ResDer;
   FFVar const*const* vResDer = ResDer( nVar, vVarVal.data(), pMLP );
 
   for( unsigned k=0; k<nRes; ++k ){
@@ -1217,9 +1229,9 @@ const
   }
 }
 
-template<typename T, unsigned int ID>
+template< typename T >
 inline void
-FFMLP<T,ID>::deriv
+FFMLP<T>::deriv
 ( unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar, FFVar** vDer )
 const
 {
@@ -1227,20 +1239,20 @@ const
   std::cout << "FFMLP::deriv: FFVar\n";
 #endif
   MLP<T>* pMLP = static_cast<MLP<T>*>( data );
-#ifdef MC__MCMLP_CHECK
+#ifdef MC__FFMLP_CHECK
   assert( pMLP && nVar == pMLP->nin && nRes == pMLP->nout );
 #endif
 
-  FFGRADMLP<T,ID> ResDer;
+  FFGradMLP<T> ResDer;
   FFVar const*const* vResDer = ResDer( nVar, vVar, pMLP );
   for( unsigned k=0; k<nRes; ++k )
     for( unsigned i=0; i<nVar; ++i )
       vDer[k][i] = *vResDer[k+nRes*i];
 }
 
-template<typename T, unsigned int ID>
+template< typename T >
 inline void
-FFMLP<T,ID>::eval
+FFMLP<T>::eval
 ( unsigned const nRes, SLiftVar* vRes, unsigned const nVar, SLiftVar const* vVar,
   unsigned const* mVar )
 const
@@ -1249,16 +1261,16 @@ const
   std::cout << "FFMLP::eval: SLiftVar\n";
 #endif
   MLP<T>* pMLP = static_cast<MLP<T>*>( data );
-#ifdef MC__MCMLP_CHECK
+#ifdef MC__FFMLP_CHECK
   assert( pMLP && nVar == pMLP->nin && nRes == pMLP->nout );
 #endif
 
   vVar->env()->lift( nRes, vRes, nVar, vVar );
 }
 
-template<typename T, unsigned int ID>
+template< typename T >
 inline void
-FFMLP<T,ID>::eval
+FFMLP<T>::eval
 ( unsigned const nRes, PolVar<T>* vRes, unsigned const nVar, PolVar<T> const* vVar,
   unsigned const* mVar )
 const
@@ -1267,17 +1279,17 @@ const
   std::cout << "FFMLP::eval: PolVar\n";
 #endif
   MLP<T>* pMLP = static_cast<MLP<T>*>( data );
-#ifdef MC__MCMLP_CHECK
+#ifdef MC__FFMLP_CHECK
   assert( pMLP && nVar == pMLP->nin && nRes == pMLP->nout );
 #endif
 
   PolImg<T>* img = vVar[0].image();
   FFBase* dag = vVar[0].var().dag();
-#ifdef MC__MCMLP_CHECK
+#ifdef MC__FFMLP_CHECK
   assert( img && dag );
 #endif
   FFVar** pRes = dag->curOp()->varout.data(); // ACCOUNT FOR MULTIPLE OUTPUTS
-#ifdef MC__MCMLP_CHECK
+#ifdef MC__FFMLP_CHECK
   assert( nRes == dag->curOp()->varout.size() );
 #endif
 
@@ -1285,9 +1297,9 @@ const
   pMLP->propagate_relax( img, pRes, vRes, vVar );
 }
 
-template<typename T, unsigned int ID>
+template< typename T >
 inline bool
-FFMLP<T,ID>::reval
+FFMLP<T>::reval
 ( unsigned const nRes, PolVar<T> const* vRes, unsigned const nVar, PolVar<T>* vVar )
 const
 {
@@ -1295,13 +1307,13 @@ const
   std::cout << "FFMLP::reval: PolVar\n";
 #endif
   MLP<T>* pMLP = static_cast<MLP<T>*>( data );
-#ifdef MC__MCMLP_CHECK
+#ifdef MC__FFMLP_CHECK
   assert( pMLP && nVar == pMLP->nin && nRes == pMLP->nout );
 #endif
 
   PolImg<T>* img = vVar[0].image();
   FFOp* pop = vVar[0].var().opdef().first;
-#ifdef MC__MCMLP_CHECK
+#ifdef MC__FFMLP_CHECK
   assert( img && pop );
 #endif
 
@@ -1309,18 +1321,18 @@ const
   return true;
 }
 
-template<typename T, unsigned int ID>
+template< typename T >
 inline void
-FFGRADMLP<T,ID>::eval
+FFGradMLP<T>::eval
 ( unsigned const nRes, double* vRes, unsigned const nVar, double const* vVar,
   unsigned const* mVar )
 const
 {
 #ifdef MC__FFODE_TRACE
-  std::cout << "FFGRADMLP::eval: double\n";
+  std::cout << "FFGradMLP::eval: double\n";
 #endif
   MLP<T>* pMLP = static_cast<MLP<T>*>( data );
-#ifdef MC__MCMLP_CHECK
+#ifdef MC__FFMLP_CHECK
   assert( pMLP && nVar == pMLP->nin && nRes == pMLP->nin * pMLP->nout );
 #endif
 
@@ -1356,18 +1368,18 @@ const
   }
 }
 
-template<typename T, unsigned int ID>
+template< typename T >
 inline void
-FFGRADMLP<T,ID>::eval
+FFGradMLP<T>::eval
 ( unsigned const nRes, FFDep* vRes, unsigned const nVar, FFDep const* vVar,
   unsigned const* mVar )
 const
 {
 #ifdef MC__FFMLP_TRACE
-  std::cout << "FFGRADMLP::eval: FFDep\n";
+  std::cout << "FFGradMLP::eval: FFDep\n";
 #endif
   MLP<T>* pMLP = static_cast<MLP<T>*>( data );
-#ifdef MC__MCMLP_CHECK
+#ifdef MC__FFMLP_CHECK
   assert( pMLP && nVar == pMLP->nin && nRes == pMLP->nin * pMLP->nout );
 #endif
 
@@ -1377,18 +1389,18 @@ const
   for( unsigned j=1; j<nRes; ++j ) vRes[j] = vRes[0];
 }
 
-template<typename T, unsigned int ID>
+template< typename T >
 inline void
-FFGRADMLP<T,ID>::eval
+FFGradMLP<T>::eval
 ( unsigned const nRes, FFVar* vRes, unsigned const nVar, FFVar const* vVar,
   unsigned const* mVar )
 const
 {
 #ifdef MC__FFODE_TRACE
-  std::cout << "FFGRADMLP::eval: FFVar\n";
+  std::cout << "FFGradMLP::eval: FFVar\n";
 #endif
   MLP<T>* pMLP = static_cast<MLP<T>*>( data );
-#ifdef MC__MCMLP_CHECK
+#ifdef MC__FFMLP_CHECK
   assert( pMLP && nVar == pMLP->nin && nRes == pMLP->nin * pMLP->nout );
 #endif
 
@@ -1396,18 +1408,18 @@ const
   for( unsigned j=0; j<nRes; ++j ) vRes[j] = *(pRes[j]);
 }
 
-template<typename T, unsigned int ID>
+template< typename T >
 inline void
-FFGRADMLP<T,ID>::eval
+FFGradMLP<T>::eval
 ( unsigned const nRes, SLiftVar* vRes, unsigned const nVar, SLiftVar const* vVar,
   unsigned const* mVar )
 const
 {
 #ifdef MC__FFODE_TRACE
-  std::cout << "FFGRADMLP::eval: SLiftFVar\n";
+  std::cout << "FFGradMLP::eval: SLiftFVar\n";
 #endif
   MLP<T>* pMLP = static_cast<MLP<T>*>( data );
-#ifdef MC__MCMLP_CHECK
+#ifdef MC__FFMLP_CHECK
   assert( pMLP && nVar == pMLP->nin && nRes == pMLP->nin * pMLP->nout );
 #endif
 

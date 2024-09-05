@@ -3949,7 +3949,7 @@ operator/
     return CV3;
   }
 
-  SCVar<T,KEY,COMP> CV3( std::move( inv( CV2 ) ) );
+  SCVar<T,KEY,COMP> CV3( inv( CV2 ) );
   CV3 *= CV1;
   return CV3;
 }
@@ -3959,7 +3959,7 @@ inline SCVar<T,KEY,COMP>
 operator/
 ( SCVar<T,KEY,COMP> const& CV1, SCVar<T,KEY,COMP> && CV2 )
 {
-    SCVar<T,KEY,COMP> CV3( std::move( inv( CV2 ) ) );
+    SCVar<T,KEY,COMP> CV3( inv( CV2 ) );
     CV3 *= CV1;
     return CV3;
 }
@@ -3975,7 +3975,7 @@ operator/
     return CV3;
   }
 
-  SCVar<T,KEY,COMP> CV3( std::move( inv( CV2 ) ) );
+  SCVar<T,KEY,COMP> CV3( inv( CV2 ) );
   CV3 *= CV1;
   return CV3;
 }

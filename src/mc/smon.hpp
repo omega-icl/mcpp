@@ -14,8 +14,13 @@
 #include <functional>
 #include <numeric>
 
+#include "mcop.hpp"
+
 namespace mc
 {
+
+template <typename COMP> struct lt_SMon;
+
 
 //! @brief C++ class for sparse monomial storage and manipulation
 ////////////////////////////////////////////////////////////////////////
@@ -78,6 +83,12 @@ struct SMon
       expr.clear();
       expr[var] = 1;
     }
+
+  //! @brief Evaluate monomial in T arithmetic
+  template< typename T >
+  T eval
+    ( std::map<KEY,T,COMP> const& x, int const& basis )
+    const;
 
   //! @brief Append monomial to output stream <a>out</a>
   std::string display
@@ -189,6 +200,67 @@ struct SMon
    ( T* obj )
    { return obj; }
 };
+
+//! @brief C++ structure for ordering of monomials in graded lexicographic order (grlex)
+template <typename COMP=std::less<unsigned>>
+struct lt_SMon
+{
+  template <typename KEY>
+  bool operator()
+    ( SMon<KEY,COMP> const& Mon1, SMon<KEY,COMP> const& Mon2 )
+    const
+    {
+      // Order monomials based on their total order first
+      if( Mon1.tord < Mon2.tord ) return true;
+      if( Mon1.tord > Mon2.tord ) return false;
+      // Account for the case of an empty list
+      if( Mon2.expr.empty() ) return false;
+      if( Mon1.expr.empty() ) return true;
+      // Order in graded lexicographic order next
+      for( auto it1=Mon1.expr.begin(), it2=Mon2.expr.begin(); it1!=Mon1.expr.end(); ++it1, ++it2 ){
+        if( COMP()( it1->first, it2->first ) ) return true;
+        if( COMP()( it2->first, it1->first ) ) return false;
+        if( it1->second > it2->second ) return true;
+        if( it1->second < it2->second ) return false;
+      }
+      return false;
+    }
+};
+
+//! @brief C++ structure for ordering of monomials in graded lexicographic order (grlex)
+template <typename COMP=std::less<unsigned>>
+struct lt_pSMon
+{
+  template <typename KEY>
+  bool operator()
+    ( SMon<KEY,COMP> const* Mon1, SMon<KEY,COMP> const* Mon2 )
+    const
+    {
+      assert( Mon1 && Mon2 );
+      return lt_SMon<COMP>()( *Mon1, *Mon2 );
+    }
+};
+
+template <typename KEY, typename COMP>
+template< typename T >
+inline T
+SMon<KEY,COMP>::eval
+( std::map<KEY,T,COMP> const& x, int const& basis )
+const
+{
+  T val( 1. );
+  for( auto const& [key,ord] : expr ){
+    switch( basis ){
+     case 0:
+      val *= Op<T>::pow( x.at(key), (int)ord );
+      break;
+     default:
+      val *= Op<T>::cheb( x.at(key), ord );
+      break;
+    }
+  }
+  return val;
+}
 
 template <typename KEY, typename COMP>
 inline std::string
@@ -499,46 +571,6 @@ operator!=
 {
   return( !Mon1.subseteq( Mon2 ) || !Mon2.subseteq( Mon1 ) );
 }
-
-//! @brief C++ structure for ordering of monomials in graded lexicographic order (grlex)
-template <typename COMP=std::less<unsigned>>
-struct lt_SMon
-{
-  template <typename KEY>
-  bool operator()
-    ( SMon<KEY,COMP> const& Mon1, SMon<KEY,COMP> const& Mon2 )
-    const
-    {
-      // Order monomials based on their total order first
-      if( Mon1.tord < Mon2.tord ) return true;
-      if( Mon1.tord > Mon2.tord ) return false;
-      // Account for the case of an empty list
-      if( Mon2.expr.empty() ) return false;
-      if( Mon1.expr.empty() ) return true;
-      // Order in graded lexicographic order next
-      for( auto&& it1=Mon1.expr.begin(),&& it2=Mon2.expr.begin(); it1!=Mon1.expr.end(); ++it1, ++it2 ){
-        if( COMP()( it1->first, it2->first ) ) return true;
-        if( COMP()( it2->first, it1->first ) ) return false;
-        if( it1->second > it2->second ) return true;
-        if( it1->second < it2->second ) return false;
-      }
-      return false;
-    }
-};
-
-//! @brief C++ structure for ordering of monomials in graded lexicographic order (grlex)
-template <typename COMP=std::less<unsigned>>
-struct lt_pSMon
-{
-  template <typename KEY>
-  bool operator()
-    ( SMon<KEY,COMP> const* Mon1, SMon<KEY,COMP> const* Mon2 )
-    const
-    {
-      assert( Mon1 && Mon2 );
-      return lt_SMon<COMP>()( *Mon1, *Mon2 );
-    }
-};
 
 //! @brief C++ class for sparse extended monomial storage and manipulation
 ////////////////////////////////////////////////////////////////////////

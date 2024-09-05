@@ -365,7 +365,7 @@ int main()
     test_move();
     test_extern();
   }
-  catch( mc::FFGraph::Exceptions &eObj ){
+  catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
               << " in factorable function manipulation:" << std::endl
               << eObj.what() << std::endl

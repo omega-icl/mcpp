@@ -571,7 +571,7 @@ public:
       SQRT,	//!< Square-root with nonpositive values in range
       ASIN,	//!< Inverse sine or cosine with values outside of \f$[-1,1]\f$ range
       TAN,	//!< Tangent with values outside of \f$[-\frac{\pi}{2}+k\pi,\frac{\pi}{2}+k\pi]\f$ range
-      CHEB,	//!< Chebyshev basis function different from [-1,1] range
+      CHEB,	//!< Chebyshev basis function outside of [-1,1] range
       MULTSUB=-3,	//!< Failed to propagate subgradients for a product term with Tsoukalas & Mitsos's multivariable composition result
       ENVEL, 	//!< Failed to compute the convex or concave envelope of a univariate term
       SUB	//!< Inconsistent subgradient dimension between two mc::McCormick variables
@@ -3772,7 +3772,8 @@ template <typename T> inline McCormick<T>
 cheb
 ( const McCormick<T> &MC, const unsigned n )
 {
-  if ( !isequal(Op<T>::l(MC._I),-1.) || !isequal(Op<T>::u(MC._I),1.) )
+  if ( Op<T>::l(MC._I)<-1. || Op<T>::u(MC._I)>1. )
+//  if ( !isequal(Op<T>::l(MC._I),-1.) || !isequal(Op<T>::u(MC._I),1.) )
     throw typename McCormick<T>::Exceptions( McCormick<T>::Exceptions::CHEB );
 
   switch( n ){

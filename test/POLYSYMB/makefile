@@ -10,7 +10,13 @@ FLAG_MIP    = -DMC__USE_GUROBI
 
 #####
 
-all: SQUAD-TEST SRED-TEST
+all: SPOLY-TEST SQUAD-TEST SRED-TEST
+
+SPOLY-TEST : SPOLY-TEST.o
+	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
+
+SPOLY-TEST.o: SPOLY-TEST.cpp 
+	$(CPP) -c $(FLAG_CPP) $(FLAG_MC) $(INC_MC) $(FLAG_MIP) $< -o $@
 
 SQUAD-TEST : SQUAD-TEST.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC) $(LIB_MIP)
@@ -30,6 +36,6 @@ SRED-TEST.o: SRED-TEST.cpp
 #####
 
 clean :
-	rm -f SQUAD-TEST SRED-TEST
+	rm -f SPOLY-TEST SQUAD-TEST SRED-TEST
 	rm -f *.o *.out *.eps *.dot *.svg *.lp *~
 
