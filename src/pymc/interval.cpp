@@ -41,8 +41,12 @@ pyInterval
  .def_property( "u", []( I& self ){ return mc::Op<I>::u(self); },
                      []( I& self, double const& u ){ self.u() = u; } )
 #else
- .def_property_readonly( "l", []( I& self ){ return mc::Op<I>::l(self); } )
- .def_property_readonly( "u", []( I& self ){ return mc::Op<I>::u(self); } )
+// .def_property_readonly( "l", []( I& self ){ return mc::Op<I>::l(self); } )
+// .def_property_readonly( "u", []( I& self ){ return mc::Op<I>::u(self); } )
+ .def_property( "l", []( I& self ){ return mc::Op<I>::l(self); },
+                     []( I& self, double const& l ){ self = I(l,mc::Op<I>::u(self)); } )
+ .def_property( "u", []( I& self ){ return mc::Op<I>::u(self); },
+                     []( I& self, double const& u ){ self = I(mc::Op<I>::l(self),u); } )
 #endif
  .def( "__str__", []( I const& x ){ std::ostringstream Iss; Iss << x; return Iss.str(); } )
  .def( "__repr__", []( I const& x ){ std::ostringstream Iss; Iss << x; return Iss.str(); } )
@@ -107,8 +111,11 @@ m.def( "erfc",  []( I const& x ){ return mc::Op<I>::erfc(x); } );
 #if !defined(MC__USE_PROFIL) && !defined(MC__USE_FILIB) && !defined(MC__USE_BOOST)
 m.def( "lmtd",  []( mc::Interval const& I1, mc::Interval const& I2 ){ return mc::lmtd(I1,I2); } );
 m.def( "rlmtd", []( mc::Interval const& I1, mc::Interval const& I2 ){ return mc::rlmtd(I1,I2); } );
-m.def( "pow",   []( double const& r, I const& y ){ return mc::Op<I>::pow(r,y); } );
 #endif
+m.def( "pow",   []( I const& x, int const n ){ return mc::Op<I>::pow(x,n); } );
+m.def( "pow",   []( I const& x, double const& r ){ return mc::Op<I>::pow(x,r); } );
+m.def( "pow",   []( I const& x, I const& y ){ return mc::Op<I>::pow(x,y); } );
+m.def( "pow",   []( double const& r, I const& y ){ return mc::Op<I>::pow(r,y); } );
 m.def( "cheb",  []( I const& x, unsigned const n ){ return mc::Op<I>::cheb(x,n); } );
 m.def( "hull",  []( I const& x, I const& y ){ return mc::Op<I>::hull(x,y); } );
 m.def( "max",   []( I const& x, I const& y ){ return mc::Op<I>::min(x,y); } );

@@ -67,7 +67,29 @@ def dag_test2():
   # Forward second-order differentiation
   D2FGDXYZ2 = DAG.fdiff( DFGDXYZ[2], [X,Y,Z] )
   print( D2FGDXYZ2 )
+
+
+def dag_test3():
+
+  # Define DAG environment
+  DAG = pymc.FFGraph()
+
+  # Define variables and dependents
+  X = pymc.FFVar(DAG,"X")
+  Y = pymc.FFVar(DAG,"Y")
+  F = pymc.pow(X,2)+X*Y+4
+
+  # Evaluation in interval arithmetic
+  IX, IY = pymc.Interval(-0.8,-0.3), pymc.Interval(6.,9.)
+  [IF] = DAG.eval( [F], [X,Y], [IX,IY] )
+  print( "IX: ", IX, "IY: ", IY, "IF: ", IF )
   
-dag_test1()
-dag_test2()
+  # Constraint propagation in interval arithmetic
+  IF = pymc.Interval(0.)
+  [IX,IY], [IF] = DAG.reval( [F], [IF], [X,Y], [IX,IY], pymc.Interval(-1,1)*1e20 )
+  print( "IX: ", IX, "IY: ", IY, "IF: ", IF )
+
+#dag_test1()
+#dag_test2()
+dag_test3()
 

@@ -2,11 +2,13 @@
 #undef  MC__FFUNC_CPU_EVAL
 #undef  MC__SCMODEL_TRACE
 #undef  MC__CMODEL_TRACE
-#define MC__USE_TREADLOCAL
+#undef  MC__USE_THREADLOCAL
+#undef MC__VEVAL_DEBUG
 ////////////////////////////////////////////////////////////////////////
 
 #include <fstream>
 #include <iomanip>
+#include <chrono>
 
 #include "mctime.hpp"
 #include "ffunc.hpp"
@@ -51,25 +53,27 @@ int test_eval1()
   // Create DAG
   const unsigned NX = 4, NF = 2;
   mc::FFGraph DAG;
-  mc::FFVar X[NX];
-  for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
-  mc::FFVar F[NF] = { X[2]*X[3]-2./(X[1]+X[2]),
-                      X[0]/pow(exp(X[2]*X[1])+3.,3)+tanh(X[3]) };
+  std::vector<mc::FFVar> X(NX);
+  for( auto& Xi : X ) Xi.set( &DAG );
+  std::vector<mc::FFVar> F{
+    X[2]*X[3]-2./(X[1]+X[2]),
+    X[0]/pow(exp(X[2]*X[1])+3.,3)+tanh(X[3])
+  };
   std::cout << DAG;
 
   std::ofstream o_F( "eval1_F.dot", std::ios_base::out );
-  DAG.dot_script( NF, F, o_F );
+  DAG.dot_script( F, o_F );
   o_F.close();
 
   double cputime;
   const unsigned NREP=1000;
 
   // Evaluate with doubles, no parameter pack
-  auto F_op  = DAG.subgraph( NF, F );
-  double dX[NX] = { -1., -1., 2., 3. };
+  auto&& F_op  = DAG.subgraph( F );
+  std::vector<double> dX{ -1., -1., 2., 3. };
   for( unsigned i=0; i<NX; i++ ) std::cout << "X[" << i << "] = " << dX[i] << std::endl;
 
-  double dF[NF];
+  std::vector<double> dF(NF);
   cputime = -mc::cpuclock();
   for( unsigned i=0; i<NREP; i++ ){
     dF[0] = dX[2]*dX[3]-2./(dX[1]+dX[2]);
@@ -82,14 +86,14 @@ int test_eval1()
   std::vector<double> WK;
   cputime = -mc::cpuclock();
   for( unsigned i=0; i<NREP; i++ )
-    DAG.eval( F_op, WK, NF, F, dF, NX, X, dX );
+    DAG.eval( F_op, WK, F, dF, X, dX );
   cputime += mc::cpuclock();
   std::cout << "\nDAG evaluation, w/ preallocation, w/o variadic template: " << (cputime/=NREP) << " CPU-sec\n";
   for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << dF[i] << std::endl;
 
   cputime = -mc::cpuclock();
   for( unsigned i=0; i<NREP; i++ )
-    DAG.eval( F_op, WK, NF, F, dF, 1, &X[0], &dX[0], 1, &X[1], &dX[1], 1, &X[2], &dX[2], 1, &X[3], &dX[3] );
+    DAG.eval( F_op, WK, NF, &F[0], &dF[0], 1, &X[0], &dX[0], 1, &X[1], &dX[1], 1, &X[2], &dX[2], 1, &X[3], &dX[3] );
   cputime += mc::cpuclock();
   std::cout << "\nDAG evaluation, w/ preallocation, w/ variadic template: " << (cputime/=NREP) << " CPU-sec\n";
   for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << dF[i] << std::endl;
@@ -107,18 +111,18 @@ int test_eval2()
   const unsigned NX = 4, NF = 2;
   mc::FFGraph DAG;
   DAG.options.USEMOVE = true;
-  mc::FFVar X[NX];
-  for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
-  mc::FFVar F[NF] = { X[2]*X[3]-2./(X[1]+X[2]),
-                      X[0]/pow(exp(X[2]*X[1])+3.,3)+tanh(X[3]) };
-//  mc::FFVar F[NF] = { sqrt(X[0])*exp(X[1])*X[0],
-//                      pow(X[1],3)*sqrt(X[0]) };
+  std::vector<mc::FFVar> X(NX);
+  for( auto& Xi : X ) Xi.set( &DAG );
+  std::vector<mc::FFVar> F{ X[2]*X[3]-2./(X[1]+X[2]),
+                            X[0]/pow(exp(X[2]*X[1])+3.,3)+tanh(X[3]) };
+//  std::vector<mc::FFVar> F{ sqrt(X[0])*exp(X[1])*X[0],
+//                            pow(X[1],3)*sqrt(X[0]) };
   std::cout << DAG;
 
-  auto F_op  = DAG.subgraph( NF, F );
+  auto F_op  = DAG.subgraph( F );
   DAG.output( F_op );
   std::ofstream o_F( "eval2_F.dot", std::ios_base::out );
-  DAG.dot_script( NF, F, o_F );
+  DAG.dot_script( F, o_F );
   o_F.close();
 
   double cputime;
@@ -127,11 +131,11 @@ int test_eval2()
 
   // Evaluate in interval arithmetic
   std::vector<I> IWK;
-  I IX[NX] = { I(-1.1,-0.9), I(-1.1, -0.9), I(1.6,2.4), I(2.5,3.5) }, IF[NF];
+  std::vector<I> IX{ I(-1.1,-0.9), I(-1.1, -0.9), I(1.6,2.4), I(2.5,3.5) }, IF;
   for( unsigned i=0; i<NX; i++ ) std::cout << "X[" << i << "] = " << IX[i] << std::endl;
   cputime = -mc::cpuclock();
   for( unsigned i=0; i<NREP; i++ )
-    DAG.eval( F_op, IWK, NF, F, IF, NX, X, IX );
+    DAG.eval( F_op, IWK, F, IF, X, IX );
   cputime += mc::cpuclock();
   std::cout << "\nDAG interval evaluation, w/ preallocation, w/o variadic template: " << (cputime/=NREP) << " CPU-sec\n";
   for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << IF[i] << std::endl;
@@ -141,7 +145,7 @@ int test_eval2()
     //modSCM.options.BOUNDER_TYPE = SCM::Options::LSB;
     modSCM.options.REMEZ_USE = false;
     modSCM.options.MIXED_IA = false;
-    SCV SCX[NX] = {  SCV( &modSCM, 0, IX[0] ), SCV( &modSCM, 1, IX[1] ), SCV( &modSCM, 2, IX[2] ), SCV( &modSCM, 3, IX[3] ) }, SCF[NF];
+    std::vector<SCV> SCX{  SCV( &modSCM, 0, IX[0] ), SCV( &modSCM, 1, IX[1] ), SCV( &modSCM, 2, IX[2] ), SCV( &modSCM, 3, IX[3] ) }, SCF(NF);
     cputime = -mc::cpuclock();
     for( unsigned i=0; i<NREP; i++ ){
       SCF[0] = SCX[2]*SCX[3]-2./(SCX[1]+SCX[2]);
@@ -158,10 +162,10 @@ int test_eval2()
     //modSCM.options.BOUNDER_TYPE = SCM::Options::LSB;
     modSCM.options.REMEZ_USE = false;
     modSCM.options.MIXED_IA = false;
-    SCV SCX[NX] = {  SCV( &modSCM, 0, IX[0] ), SCV( &modSCM, 1, IX[1] ), SCV( &modSCM, 2, IX[2] ), SCV( &modSCM, 3, IX[3] ) }, SCF[NF];
+    std::vector<SCV> SCX{  SCV( &modSCM, 0, IX[0] ), SCV( &modSCM, 1, IX[1] ), SCV( &modSCM, 2, IX[2] ), SCV( &modSCM, 3, IX[3] ) }, SCF;
     cputime = -mc::cpuclock();
     for( unsigned i=0; i<NREP; i++ )
-      DAG.eval( F_op, SCWK, NF, F, SCF, NX, X, SCX );
+      DAG.eval( F_op, SCWK, F, SCF, X, SCX );
     cputime += mc::cpuclock();
     std::cout << "\nDAG " << NTE << "th-order sparse Chebyshev model evaluation, w/ preallocation, w/o variadic template: " << (cputime/=NREP) << " CPU-sec\n";
     for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << SCF[i].P().B() << " +/- " << SCF[i].R() << std::endl;
@@ -171,7 +175,7 @@ int test_eval2()
     CM modCM( NX, NTE );
     //modSCM.options.BOUNDER_TYPE = SCM::Options::LSB;
     modCM.options.MIXED_IA = false;
-    CV CX[NX] = {  CV( &modCM, 0, IX[0] ), CV( &modCM, 1, IX[1] ), CV( &modCM, 2, IX[2] ), CV( &modCM, 3, IX[3] ) }, CF[NF];
+    std::vector<CV> CX{  CV( &modCM, 0, IX[0] ), CV( &modCM, 1, IX[1] ), CV( &modCM, 2, IX[2] ), CV( &modCM, 3, IX[3] ) }, CF(NF);
     cputime = -mc::cpuclock();
     for( unsigned i=0; i<NREP; i++ ){
       CF[0] = CX[2]*CX[3]-2./(CX[1]+CX[2]);
@@ -187,10 +191,10 @@ int test_eval2()
     CM modCM( NX, NTE );
     //modSCM.options.BOUNDER_TYPE = SCM::Options::LSB;
     modCM.options.MIXED_IA = false;
-    CV CX[NX] = {  CV( &modCM, 0, IX[0] ), CV( &modCM, 1, IX[1] ), CV( &modCM, 2, IX[2] ), CV( &modCM, 3, IX[3] ) }, CF[NF];
+    std::vector<CV> CX{  CV( &modCM, 0, IX[0] ), CV( &modCM, 1, IX[1] ), CV( &modCM, 2, IX[2] ), CV( &modCM, 3, IX[3] ) }, CF;
     cputime = -mc::cpuclock();
     for( unsigned i=0; i<NREP; i++ )
-      DAG.eval( F_op, CWK, NF, F, CF, NX, X, CX );
+      DAG.eval( F_op, CWK, F, CF, X, CX );
     cputime += mc::cpuclock();
     std::cout << "\nDAG " << NTE << "th-order dense Chebyshev model evaluation, w/ preallocation, w/o variadic template: " << (cputime/=NREP) << " CPU-sec\n";
     for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << CF[i].P().B() << " +/- " << CF[i].R() << std::endl;
@@ -243,14 +247,14 @@ int test_reval1()
   // Create DAG for: h(z,p)=z2+zp+4
   const unsigned NX = 2, NF = 1;
   mc::FFGraph DAG;
-  mc::FFVar X[NX];
-  for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
-  mc::FFVar F[NF] = { sqr(X[0])+X[0]*X[1]+4 };
-  auto SGF  = DAG.subgraph( NF, F );
+  std::vector<mc::FFVar> X(NX);
+  for( auto& Xi : X ) Xi.set( &DAG );
+  std::vector<mc::FFVar> F{ sqr(X[0])+X[0]*X[1]+4 };
+  auto SGF  = DAG.subgraph( F );
   DAG.output( SGF );
 
   std::ofstream o_F( "reval1_F.dot", std::ios_base::out );
-  DAG.dot_script( NF, F, o_F );
+  DAG.dot_script( F, o_F );
   o_F.close();
 
   double cputime;
@@ -258,8 +262,7 @@ int test_reval1()
 
   // Evaluate in interval arithmetic, both forward and backward
   std::vector<I> IWKF;
-  I IX[NX] = { I(-0.8,-0.3), I(6.,9.) },
-    IF[NF];
+  std::vector<I> IX{ I(-0.8,-0.3), I(6.,9.) }, IF;
   std::cout << "\nInterval hull:\n";
   std::cout << "X[0] = "
             << I(-mc::Op<I>::l(IX[1])/2.+sqrt(mc::sqr(mc::Op<I>::l(IX[1])/2.)-4),
@@ -269,7 +272,7 @@ int test_reval1()
 
   cputime = -mc::cpuclock();
   for( unsigned i=0; i<NREP; i++ ){
-    DAG.eval( SGF, IWKF, NF, F, IF, NX, X, IX );
+    DAG.eval( SGF, IWKF, F, IF, X, IX );
   }
   cputime += mc::cpuclock();
   std::cout << "\nDAG interval evaluation w/ forward pass only: "
@@ -282,14 +285,14 @@ int test_reval1()
     cputime = -mc::cpuclock();
     int flag = 0;
     for( unsigned i=0; i<NREP; i++ ){
-      I IX[NX] = { I(-0.8,-0.3), I(6.,9.) };
-      flag = DAG.reval( SGF, IWKF, NF, F, IF, NX, X, IX, IINF, maxpass );
+      std::vector<I> IX{ I(-0.8,-0.3), I(6.,9.) };
+      flag = DAG.reval( SGF, IWKF, F, IF, X, IX, IINF, maxpass );
     }
     cputime += mc::cpuclock();
     std::cout << "\nDAG interval evaluation w/ " << flag << " forward/backward passes: "
               << (cputime/=NREP) << " CPU-sec\n";
-    I IX[NX] = { I(-0.8,-0.3), I(6.,9.) };
-    DAG.reval( SGF, IWKF, NF, F, IF, NX, X, IX, IINF, maxpass );
+    std::vector<I> IX{ I(-0.8,-0.3), I(6.,9.) };
+    DAG.reval( SGF, IWKF, F, IF, X, IX, IINF, maxpass );
     for( unsigned i=0; i<NX; i++ ) std::cout << "X[" << i << "] = " << IX[i] << std::endl;
     for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << IF[i] << std::endl;
   }
@@ -662,16 +665,59 @@ int test_reval4()
 
 ///////////////////////////////////////////////////////////////////////////////
 
+int test_veval1()
+{
+  std::cout << "\n==============================================\ntest_veval1:\n";
+
+  // Create DAG
+  const unsigned NX = 4, NF = 2;
+  mc::FFGraph DAG;
+  std::vector<mc::FFVar> X(NX);
+  for( auto& Xi : X ) Xi.set( &DAG );
+  std::vector<mc::FFVar> F{
+    X[2]*X[3]-2./(X[1]+X[2]),
+    X[0]/pow(exp(X[2]*X[1])+3.,3)+tanh(X[3])
+  };
+  auto&& F_op  = DAG.subgraph( F );
+  std::cout << DAG;
+
+  const unsigned NREP=10000000;
+
+  // Evaluate with doubles, no parameter pack
+  std::vector<double> dX{ -1., -1., 2., 3. };
+  for( unsigned i=0; i<NX; i++ ) std::cout << "X[" << i << "] = " << dX[i] << std::endl;
+  std::vector<std::vector<double>> v_dX( NREP, dX );
+
+  for( DAG.options.MAXTHREAD = 1; DAG.options.MAXTHREAD <= 12; ++DAG.options.MAXTHREAD ){
+    std::vector<std::vector<double>> v_dF;
+    auto starttime = std::chrono::system_clock::now();
+    DAG.veval( F_op, F, v_dF, X, v_dX );
+    auto walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+    std::cout << "\nvectorized DAG evaluation on " << DAG.options.MAXTHREAD << " threads: " << walltime.count()*1e-6 << " sec\n";
+  }
+  
+  //for( auto dF : v_dF ){
+  //  for( auto dFi : dF ) std::cout << " " << dFi;
+  //  std::cout << std::endl;
+  //} 
+  //for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << dF[i] << std::endl;
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 int main()
 {
   try{
-    test_eval1();
-    test_eval2();
-    test_eval3();
+//    test_eval1();
+//    test_eval2();
+//    test_eval3();
     test_reval1();
     test_reval2();
     test_reval3();
     test_reval4();
+//    test_veval1();
   }
   catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()

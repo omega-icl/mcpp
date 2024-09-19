@@ -107,11 +107,18 @@ m.def( "fstep", []( mc::FFVar const& V ){ return mc::xlog(V); } );
 m.def( "bstep", []( mc::FFVar const& V ){ return mc::xlog(V); } );
 m.def( "erf",   []( mc::FFVar const& V ){ return mc::erf(V); } );
 m.def( "erfc",  []( mc::FFVar const& V ){ return mc::erfc(V); } );
+m.def( "pow",   []( I const& x, int const n ){ return mc::Op<I>::pow(x,n); } );
+m.def( "pow",   []( I const& x, double const& r ){ return mc::Op<I>::pow(x,r); } );
+m.def( "pow",   []( I const& x, I const& y ){ return mc::Op<I>::pow(x,y); } );
+m.def( "pow",   []( double const& r, I const& y ){ return mc::Op<I>::pow(r,y); } );
+m.def( "pow",   []( mc::FFVar const& V, int const n ){ return mc::pow(V,n); } );
+m.def( "pow",   []( mc::FFVar const& V, double const& r ){ return mc::pow(V,r); } );
+m.def( "pow",   []( mc::FFVar const& V, mc::FFVar const& W ){ return mc::pow(V,W); } );
 m.def( "pow",   []( double const& r, mc::FFVar const& W ){ return mc::pow(r,W); } );
 m.def( "cheb",  []( mc::FFVar const& V, unsigned const n ){ return mc::cheb(V,n); } );
-m.def( "max",   []( mc::FFVar const& V1, mc::FFVar const& V2 ){ return mc::min(V1,V2); } );
-m.def( "min",   []( mc::FFVar const& V1, mc::FFVar const& V2 ){ return mc::max(V1,V2); } );
-m.def( "inter", []( mc::FFVar const& V1, mc::FFVar const& V2 ){ return mc::inter(V1,V2); } );
+m.def( "max",   []( mc::FFVar const& V, mc::FFVar const& W ){ return mc::min(V,W); } );
+m.def( "min",   []( mc::FFVar const& V, mc::FFVar const& W ){ return mc::max(V,W); } );
+m.def( "inter", []( mc::FFVar const& V, mc::FFVar const& W ){ return mc::inter(V,W); } );
 
 py::enum_<mc::FFVar::TYPE>(pyFFVar, "TYPE")
  .value("VAR",   mc::FFVar::TYPE::VAR)
@@ -182,49 +189,257 @@ pyFFSubgraph
 py::class_<mc::FFBase> pyFFBase( m, "FFBase" );
 pyFFBase
  .def( py::init<>() )
- .def( "clear", &mc::FFBase::clear, "clear graph" )
- .def( "subgraph", []( mc::FFBase& G, std::vector<mc::FFVar const*> const& V ){ return G.subgraph( V ); }, "create subgraph" )
- .def( "output", []( mc::FFBase& G, std::vector<mc::FFVar const*> const& V ){ return mc::FFBase::output( G.subgraph( V ) ); }, "output subgraph" )
- .def( "output", []( mc::FFBase const& G, mc::FFSubgraph const& SG ){ mc::FFBase::output( SG ); }, "output subgraph" )
- .def( "dot_script", []( mc::FFBase const& G, std::vector<mc::FFVar const*> const& V, std::string const& fname ){
-   if( fname == "" ) return G.dot_script( V );
-   std::ofstream ofs( fname );
-   return G.dot_script( V, ofs ); }, "output dot script" )
- .def( "__str__", []( mc::FFBase const& G ){ std::ostringstream Gss; Gss << G; return Gss.str(); } )
- .def( "__repr__", []( mc::FFBase const& G ){ std::ostringstream Gss; Gss << G; return Gss.str(); } )
+ .def( "clear",
+       &mc::FFBase::clear,
+       "clear graph"
+ )
+ .def( "subgraph",
+       []( mc::FFBase& G, std::vector<mc::FFVar const*> const& V )
+       {
+         return G.subgraph( V );
+       },
+       "create subgraph"
+ )
+ .def( "output",
+       []( mc::FFBase& G, std::vector<mc::FFVar const*> const& V, std::string const& S )
+       {
+         return mc::FFBase::output( G.subgraph( V ), S );
+       },
+       py::arg("vDep"),
+       py::arg("str") = "",
+       "output subgraph"
+ )
+ .def( "output",
+       []( mc::FFBase const& G, mc::FFSubgraph const& SG, std::string const& S )
+       {
+         mc::FFBase::output( SG, S );
+       },
+       py::arg("sgDep"),
+       py::arg("str") = "",
+       "output subgraph"
+ )
+ .def( "dot_script",
+       []( mc::FFBase const& G, std::vector<mc::FFVar const*> const& V, std::string const& fname )
+       {
+         if( fname == "" ) return G.dot_script( V );
+         std::ofstream ofs( fname );
+         return G.dot_script( V, ofs );
+       },
+       "output dot script"
+ )
+ .def( "__str__",
+       []( mc::FFBase const& G )
+       {
+         std::ostringstream Gss;
+         Gss << G;
+         return Gss.str();
+       }
+ )
+ .def( "__repr__",
+       []( mc::FFBase const& G )
+       {
+         std::ostringstream Gss;
+         Gss << G;
+         return Gss.str();
+       }
+ )
 ;
 
 py::class_<mc::FFGraph, mc::FFBase> pyFFGraph( m, "FFGraph" );
 pyFFGraph
  .def( py::init<>() )
- .def( "fdiff", []( mc::FFGraph& G, std::vector<mc::FFVar const*> const& vDep, std::vector<mc::FFVar const*> const& vIndep ){ return G.SFAD( vDep, vIndep ); }, py::return_value_policy::reference_internal, "apply forward differentiation" )
- .def( "fdiff", []( mc::FFGraph& G, std::vector<mc::FFVar const*> const& vDep, std::vector<mc::FFVar const*> const& vIndep, std::vector<mc::FFVar const*> const& vDir ){ return G.SFAD( vDep, vIndep, vDir ); }, py::return_value_policy::reference_internal, "apply directional forward differentiation" )
- .def( "bdiff", []( mc::FFGraph& G, std::vector<mc::FFVar const*> const& vDep, std::vector<mc::FFVar const*> const& vIndep ){ return G.SBAD( vDep, std::vector<mc::FFVar const*>(), vIndep ); }, py::return_value_policy::reference_internal, "apply backward differentiation" )
- .def( "bdiff", []( mc::FFGraph& G, std::vector<mc::FFVar const*> const& vDep, std::vector<mc::FFVar const*> const& vDir, std::vector<mc::FFVar const*> const& vIndep ){ return G.SBAD( vDep, vDir, vIndep ); }, py::return_value_policy::reference_internal, "apply backward differentiation" )
- .def( "tdiff", []( mc::FFGraph& G, unsigned int const ordermax, std::vector<mc::FFVar const*> const& vDep, std::vector<mc::FFVar const*> const& vVar, mc::FFVar const* const pIndep ){ return G.TAD( ordermax, vDep, vVar, pIndep ); }, py::return_value_policy::reference_internal, "apply Taylor expansion" )
- .def( "compose",[]( mc::FFGraph& G, std::vector<mc::FFVar const*> const& vDepOut, std::vector< std::pair<mc::FFVar const*, mc::FFVar const*> > const& vDepIn ){ return G.compose( vDepOut, vDepIn ); }, "apply compostion" )
- .def( "__str__", []( mc::FFGraph const& G ){ std::ostringstream Gss; Gss << G; return Gss.str(); } )
- .def( "__repr__", []( mc::FFGraph const& G ){ std::ostringstream Gss; Gss << G; return Gss.str(); } )
- .def("eval", []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep, std::vector<mc::FFVar> const& vVar, std::vector<double> const& DVar ){
-   size_t const nDep = vDep.size();
-   std::vector<double> DDep( nDep );
-   G.eval( SgDep, nDep, vDep.data(), DDep.data(), vVar.size(), vVar.data(), DVar.data() );
-   return DDep; }, py::return_value_policy::take_ownership, "evaluate subgraph in double arithmetic" )
- .def("eval", []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep, std::vector<mc::FFVar> const& vVar, std::vector<double> const& DVar ){
-   size_t const nDep = vDep.size();
-   std::vector<double> DDep( nDep );
-   G.eval( nDep, vDep.data(), DDep.data(), vVar.size(), vVar.data(), DVar.data() );
-   return DDep; }, py::return_value_policy::take_ownership, "evaluate subgraph in double arithmetic" )
- .def("eval", []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep, std::vector<mc::FFVar> const& vVar, std::vector<I> const& IVar ){
-   size_t const nDep = vDep.size();
-   std::vector<I> IDep( nDep );
-   G.eval( SgDep, nDep, vDep.data(), IDep.data(), vVar.size(), vVar.data(), IVar.data() );
-   return IDep; }, py::return_value_policy::take_ownership, "evaluate subgraph in interval arithmetic" )
- .def("eval", []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep, std::vector<mc::FFVar> const& vVar, std::vector<I> const& IVar ){
-   size_t const nDep = vDep.size();
-   std::vector<I> IDep( nDep );
-   G.eval( nDep, vDep.data(), IDep.data(), vVar.size(), vVar.data(), IVar.data() );
-   return IDep; }, py::return_value_policy::take_ownership, "evaluate subgraph in interval arithmetic" )
+ .def_readwrite( 
+   "options",
+   &mc::FFGraph::options
+ )
+ .def( "fdiff",
+       []( mc::FFGraph& G, std::vector<mc::FFVar const*> const& vDep, std::vector<mc::FFVar const*> const& vIndep )
+       {
+         return G.SDFAD( vDep, vIndep, std::vector<mc::FFVar const*>() );
+       },
+       py::return_value_policy::reference_internal,
+       "apply forward differentiation"
+     )
+ .def( "fdiff",
+       []( mc::FFGraph& G, std::vector<mc::FFVar const*> const& vDep, std::vector<mc::FFVar const*> const& vIndep,
+           std::vector<mc::FFVar const*> const& vDir )
+       {
+         return G.SDFAD( vDep, vIndep, vDir ); 
+       },
+       py::return_value_policy::reference_internal,
+       "apply directional forward differentiation"
+     )
+ .def( "bdiff",
+       []( mc::FFGraph& G, std::vector<mc::FFVar const*> const& vDep, std::vector<mc::FFVar const*> const& vIndep )
+       {
+         return G.SDBAD( vDep, std::vector<mc::FFVar const*>(), vIndep );
+       },
+       py::return_value_policy::reference_internal,
+       "apply backward differentiation"
+     )
+ .def( "bdiff",
+       []( mc::FFGraph& G, std::vector<mc::FFVar const*> const& vDep, std::vector<mc::FFVar const*> const& vDir,
+           std::vector<mc::FFVar const*> const& vIndep )
+       {
+         return G.SDBAD( vDep, vDir, vIndep );
+       },
+       py::return_value_policy::reference_internal,
+       "apply backward differentiation"
+     )
+ .def( "tdiff",
+       []( mc::FFGraph& G, unsigned int const ordermax, std::vector<mc::FFVar const*> const& vDep,
+           std::vector<mc::FFVar const*> const& vVar, mc::FFVar const* const pIndep )
+       {
+         return G.TAD( ordermax, vDep, vVar, pIndep );
+       },
+       py::return_value_policy::reference_internal,
+       "apply Taylor expansion"
+     )
+ .def( "compose",
+       []( mc::FFGraph& G, std::vector<mc::FFVar const*> const& vDepOut, std::vector< std::pair<mc::FFVar const*,
+           mc::FFVar const*> > const& vDepIn )
+       {
+         return G.compose( vDepOut, vDepIn );
+       },
+       "apply compostion"
+     )
+ .def( "__str__",
+       []( mc::FFGraph const& G ){ std::ostringstream Gss; Gss << G; return Gss.str(); }
+     )
+ .def( "__repr__",
+       []( mc::FFGraph const& G ){ std::ostringstream Gss; Gss << G; return Gss.str(); }
+     )
+ .def( "eval",
+       []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar, std::vector<double> const& DVar )
+       {
+         size_t const nDep = vDep.size();
+         std::vector<double> DDep( nDep );
+         G.eval( SgDep, vDep, DDep, vVar, DVar );
+         return DDep;
+       },
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in double arithmetic"
+     )
+ .def( "eval",
+       []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep, std::vector<mc::FFVar> const& vVar,
+           std::vector<double> const& DVar )
+       {
+         size_t const nDep = vDep.size();
+         std::vector<double> DDep( nDep );
+         G.eval( vDep, DDep, vVar, DVar );
+         return DDep;
+       },
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in double arithmetic"
+     )
+ .def( "eval",
+       []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar, std::vector<I> const& IVar )
+       {
+         size_t const nDep = vDep.size();
+         std::vector<I> IDep( nDep );
+         G.eval( SgDep, vDep, IDep, vVar, IVar );
+         return IDep;
+       },
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in interval arithmetic"
+     )
+ .def( "eval",
+       []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep, std::vector<mc::FFVar> const& vVar,
+           std::vector<I> const& IVar )
+       {
+         size_t const nDep = vDep.size();
+         std::vector<I> IDep( nDep );
+         G.eval( vDep, IDep, vVar, IVar );
+         return IDep;
+       },
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in interval arithmetic"
+     )
+ .def( "reval",
+       []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep,
+           std::vector<I>& IDep, std::vector<mc::FFVar> const& vVar, std::vector<I>& IVar,
+           I const& InfVal, unsigned const MaxPass, double const& ThresPass )
+       {
+         G.reval( SgDep, vDep, IDep, vVar, IVar, InfVal, MaxPass, ThresPass );
+         return std::make_pair(IVar,IDep);
+       },
+       py::arg("SgDep"),
+       py::arg("vDep"),
+       py::arg("IDep"),
+       py::arg("vVar"),
+       py::arg("IVar"),
+       py::arg("InfVal"),
+       py::arg("MaxPass")   = 5,
+       py::arg("ThresPass") = 0e0,
+       //py::return_value_policy::take_ownership,
+       "propagate dependent ranges through subgraph in interval arithmetic"
+     )
+ .def( "reval",
+       []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep, std::vector<I>& IDep,
+           std::vector<mc::FFVar> const& vVar, std::vector<I>& IVar, I const& InfVal,
+           unsigned const MaxPass, double const& ThresPass )
+       {
+         G.reval( vDep, IDep, vVar, IVar, InfVal, MaxPass, ThresPass );
+         return std::make_pair(IVar,IDep);
+       },
+       py::arg("vDep"),
+       py::arg("IDep"),
+       py::arg("vVar"),
+       py::arg("IVar"),
+       py::arg("InfVal"),
+       py::arg("MaxPass")   = 5,
+       py::arg("ThresPass") = 0e0,
+       //py::return_value_policy::take_ownership,
+       "propagate dependent ranges through subgraph in interval arithmetic"
+     )
+ .def( "veval",
+       []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar1, std::vector<std::vector<double>>& DVar1,
+           std::vector<mc::FFVar> const& vVar2, std::vector<double>& DVar2 )
+       {
+         size_t const nDep = vDep.size(), nSam = DVar1.size();
+         std::vector<std::vector<double>> DDep( nSam, std::vector<double>( nDep ) );
+         G.veval( SgDep, vDep, DDep, vVar1, DVar1, vVar2, DVar2 );
+         return DDep;
+       },
+       py::arg("SgDep"),
+       py::arg("vDep"),
+       py::arg("vVar1"),
+       py::arg("DVar1"),
+       py::arg("vVar2") = std::vector<mc::FFVar>(),
+       py::arg("DVar2") = std::vector<double>(),
+       //py::return_value_policy::take_ownership,
+       "evaluate subgraph in double arithmetic for multiple scenarios"
+     )
+ .def( "veval",
+       []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar1, std::vector<std::vector<double>>& DVar1,
+           std::vector<mc::FFVar> const& vVar2, std::vector<double>& DVar2 )
+       {
+         size_t const nDep = vDep.size(), nSam = DVar1.size();
+         std::vector<std::vector<double>> DDep( nSam, std::vector<double>( nDep ) );
+         G.veval( vDep, DDep, vVar1, DVar1, vVar2, DVar2 );
+         return DDep;
+       },
+       py::arg("vDep"),
+       py::arg("vVar1"),
+       py::arg("DVar1"),
+       py::arg("vVar2") = std::vector<mc::FFVar>(),
+       py::arg("DVar2") = std::vector<double>(),
+       //py::return_value_policy::take_ownership,
+       "evaluate subgraph in double arithmetic for multiple scenarios"
+     )
+;
+
+py::class_<mc::FFGraph::Options> pyFFGraphOptions( pyFFGraph, "FFGraph.Options" );
+pyFFGraphOptions
+ .def( py::init<>() )
+ .def( py::init<mc::FFGraph::Options const&>() )
+ .def_readwrite( "DETECTSIGNOM",   &mc::FFGraph::Options::DETECTSIGNOM,   "Whether to detect signomial terms as exp(d.log(x)) and handle them as x^d signomial terms [Default: True]" )
+ .def_readwrite( "USEMOVE",        &mc::FFGraph::Options::USEMOVE,        "Whether to enable the move semantic during DAG evaluation [Default: False]" )
+ .def_readwrite( "MAXTHREAD",      &mc::FFGraph::Options::MAXTHREAD,      "Maximum number of threads in vectorized DAG evaluation [Default: 1]" )
 ;
 }
 

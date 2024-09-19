@@ -1,6 +1,6 @@
 # THIRD-PARTY LIBRARIES <<-- CHANGE AS APPROPRIATE -->>
 
-PATH_MC        = $(HOME)/Programs/bitbucket/mcpp30
+PATH_MC        = $(HOME)/Programs/bitbucket/mcpp40
 PATH_3RD_PARTY = $(PATH_MC)/src/3rdparty
 PATH_EXTERN    = $(PATH_MC)/extern
 
@@ -34,19 +34,19 @@ LIB_HSL  = -lmc13 -lmc21 -lmc33 -lgfortran
 INC_HSL  = 
 FLAG_HSL = -DMC__USE_HSL
 
-INC_PYBIND11 = -I/usr/include/python3.10 -I$(PATH_EXTERN)/pybind11/include
+INC_PYBIND11 = -I/usr/include/python3.12 -I$(PATH_EXTERN)/pybind11/include
 
 LIB_CPPUNIT = -lcppunit
 
 # COMPILATION <<-- CHANGE AS APPROPRIATE -->>
 
 PROF = #-pg
-OPTIM = #-O2
-DEBUG = -g
+OPTIM = -O2
+DEBUG = #-g
 WARN  = -Wall -Wno-misleading-indentation -Wno-unknown-pragmas -Wno-parentheses
 CPP17 = -std=c++17
-CC    = gcc-12
-CPP   = g++-12
+CC    = gcc-13
+CPP   = g++-13
 # CPP   = icpc
 
 # <<-- NO CHANGE BEYOND THIS POINT -->>
@@ -55,7 +55,7 @@ FLAG_CPP  = $(DEBUG) $(OPTIM) $(CPP17) $(WARN) $(PROF)
 LINK      = $(CPP)
 FLAG_LINK = $(PROF)
 
-FLAG_MC  = $(FLAG_FADBAD) $(FLAG_LAPACK) $(FLAG_BOOST)
+FLAG_MC  = -DMC__USE_THREAD $(FLAG_FADBAD) $(FLAG_LAPACK) $(FLAG_BOOST)
 LIB_MC   = $(LIB_FADBAD) $(LIB_LAPACK) $(LIB_BOOST)
 INC_MC   = -I$(PATH_MC)/src/mc $(INC_FADBAD) $(INC_LAPACK) $(INC_BOOST)
 

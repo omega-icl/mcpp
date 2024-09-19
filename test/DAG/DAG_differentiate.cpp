@@ -13,75 +13,66 @@ int test_fadiff0()
   std::cout << "\n==============================================\ntest_fadiff0:\n";
 
   // Create DAG
-  const unsigned NX = 2, NF = 2;
   mc::FFGraph DAG;
-  mc::FFVar X[NX];
-  for( unsigned int i=0; i<NX; i++ )
-    X[i].set( &DAG );
-  mc::FFVar F[NF] = { exp( sqr( X[0] ) ), sqr( X[1] ) + 1 };
+  size_t const NX = 2;
+  std::vector<mc::FFVar> X(NX);
+  for( auto& Xi : X ) Xi.set( &DAG );
+  std::vector<mc::FFVar> F{ exp( sqr( X[0] ) ), sqr( X[1] ) + 1 };
   std::cout << DAG;
 
   mc::FFSubgraph opF;
-  opF = DAG.subgraph( NF, F );
+  opF = DAG.subgraph( F );
   DAG.output( opF, " F" );
 
   std::ofstream o_F( "fadiff0_F.dot", std::ios_base::out );
-  DAG.dot_script( NF, F, o_F );
+  DAG.dot_script( F, o_F );
   o_F.close();
 
   // Evaluate in double arithmetic
-  std::vector<double> dX(NX,0.), dF(NF);
-  DAG.eval( NF, F, dF.data(), NX, X, dX.data() );
+  std::vector<double> dX(NX,0.), dF;
+  DAG.eval( F, dF, X, dX );
   std::cout << "dF = [ ";
-  for( unsigned i=0; i<NF; i++ ) std::cout << dF[i] << " ";
+  for( auto const& dFi : dF ) std::cout << dFi << " ";
   std::cout << "]" << std::endl;
   //return 0;
 
   // Forward AD
-  const mc::FFVar* dFdX_FAD = DAG.FAD( NF, F, NX, X );
+  auto&& dFdX_FAD = DAG.FAD( F, X );
   std::cout << DAG;
 
-  DAG.output( DAG.subgraph( NX*NF, dFdX_FAD ), " dFdX_FAD" );
+  DAG.output( DAG.subgraph( dFdX_FAD ), " dFdX_FAD" );
   std::ofstream o_dFdX_FAD( "fadiff0_dFdX_FAD.dot", std::ios_base::out );
-  DAG.dot_script( NX*NF, dFdX_FAD, o_dFdX_FAD );
+  DAG.dot_script( dFdX_FAD, o_dFdX_FAD );
   o_dFdX_FAD.close();
 
-  delete[] dFdX_FAD;
-
   // Forward directional AD
-  mc::FFVar DX[NX] = { X[0], X[1] };
-  const mc::FFVar* dFdX_DFAD = DAG.DFAD( NF, F, NX, X, DX );
+  std::vector<mc::FFVar> DX{ X[0], X[1] };
+  auto&& dFdX_DFAD = DAG.DFAD( F, X, DX );
   std::cout << DAG;
 
-  DAG.output( DAG.subgraph( NF, dFdX_DFAD ), " dFdX_DFAD" );
+  DAG.output( DAG.subgraph( dFdX_DFAD ), " dFdX_DFAD" );
   std::ofstream o_dFdX_DFAD( "fadiff0_dFdX_DFAD.dot", std::ios_base::out );
-  DAG.dot_script( NF, dFdX_DFAD, o_dFdX_DFAD );
+  DAG.dot_script( dFdX_DFAD, o_dFdX_DFAD );
   o_dFdX_DFAD.close();
 
-  delete[] dFdX_DFAD;
-
   // Backward AD
-  const mc::FFVar* dFdX_BAD = DAG.BAD( NF, F, NX, X );
+  auto&& dFdX_BAD = DAG.BAD( F, X );
   std::cout << DAG;
 
-  DAG.output( DAG.subgraph( NX*NF, dFdX_BAD ), " dFdX_BAD" );
+  DAG.output( DAG.subgraph( dFdX_BAD ), " dFdX_BAD" );
   std::ofstream o_dFdX_BAD( "fadiff0_dFdX_BAD.dot", std::ios_base::out );
-  DAG.dot_script( NX*NF, dFdX_BAD, o_dFdX_BAD );
+  DAG.dot_script( dFdX_BAD, o_dFdX_BAD );
   o_dFdX_BAD.close();
 
-  delete[] dFdX_BAD;
-
   // Backward directional AD
-  mc::FFVar DF[NF] = { X[0], X[1] };
-  const mc::FFVar* dFdX_DBAD = DAG.DBAD( NF, F, DF, NX, X );
+  std::vector<mc::FFVar> DF{ X[0], X[1] };
+  auto&& dFdX_DBAD = DAG.DBAD( F, DF, X );
   std::cout << DAG;
 
-  DAG.output( DAG.subgraph( NX, dFdX_DBAD ), " dFdX_DBAD" );
+  DAG.output( DAG.subgraph( dFdX_DBAD ), " dFdX_DBAD" );
   std::ofstream o_dFdX_DBAD( "fadiff0_dFdX_DBAD.dot", std::ios_base::out );
-  DAG.dot_script( NX, dFdX_DBAD, o_dFdX_DBAD );
+  DAG.dot_script( dFdX_DBAD, o_dFdX_DBAD );
   o_dFdX_DBAD.close();
-
-  delete[] dFdX_DBAD;
 
   return 0;
 }
@@ -298,30 +289,25 @@ int test_fadiff_directional()
 
   // Create DAG
   mc::FFGraph DAG;
-  mc::FFVar X[2], F[2], D[2];
-  X[0].set( &DAG );
-  X[1].set( &DAG );
-  F[0] = sqrt(X[0])*X[1];
-  F[1] = X[0]*X[1];
-  D[0] = 1.;
-  D[1] = X[0];
+  std::vector<mc::FFVar> X{ mc::FFVar(&DAG), mc::FFVar(&DAG) };
+  std::vector<mc::FFVar> F{ sqrt(X[0])*X[1], X[0]*X[1] };
+  std::vector<mc::FFVar> D{ 1., X[0] };
   std::cout << DAG;
 
   // Directional forward AD
-  const mc::FFVar* dFdXxD = DAG.DFAD( 2, F, 2, X, D );
-  DAG.output( DAG.subgraph( 1, dFdXxD ), " dF0dX·D (non-recursive)" );
-  DAG.output( DAG.subgraph( 1, dFdXxD+1), " dF1dX·D (non-recursive)" );
+  auto&& dFdXxD = DAG.DFAD( F, X, D );
+  DAG.output( DAG.subgraph( 1, &dFdXxD[0] ), " dF0dX·D (non-recursive)" );
+  DAG.output( DAG.subgraph( 1, &dFdXxD[1] ), " dF1dX·D (non-recursive)" );
   std::ofstream o_dFdXxD( "fadiff_directional.dot", std::ios_base::out );
-  DAG.dot_script( 1, dFdXxD, o_dFdXxD );
+  DAG.dot_script( dFdXxD, o_dFdXxD );
   o_dFdXxD.close();
-  delete[] dFdXxD;
 
   // Directional forward AD recursive
-  const mc::FFVar* dFdXxD_recur = DAG.DFAD( 2, F, 1, &X[0], &D[0], 1, &X[1], &D[1] );
-  DAG.output( DAG.subgraph( 1, dFdXxD_recur ), " dF0dX·D (recursive)" );
-  DAG.output( DAG.subgraph( 1, dFdXxD_recur+1), " dF1dX·D (recursive)" );
+  const mc::FFVar* dFdXxD_recur = DAG.DFAD( 2, &F[0], 1, &X[0], &D[0], 1, &X[1], &D[1] );
+  DAG.output( DAG.subgraph( 1, &dFdXxD_recur[0] ), " dF0dX·D (recursive)" );
+  DAG.output( DAG.subgraph( 1, &dFdXxD_recur[1] ), " dF1dX·D (recursive)" );
   std::ofstream o_dFdXxD_recur( "fadiff_directional_recur.dot", std::ios_base::out );
-  DAG.dot_script( 1, dFdXxD_recur, o_dFdXxD_recur );
+  DAG.dot_script( 2, dFdXxD_recur, o_dFdXxD_recur );
   o_dFdXxD_recur.close();
   delete[] dFdXxD_recur;
 
@@ -337,10 +323,8 @@ int test_fadiff_directional2()
   mc::FFGraph DAG;  // DAG describing the problem
   
   const unsigned NP = 6;  // Number of model parameters
-  const unsigned NX = 3;  // Number of states
-
-  mc::FFVar P[NP];  // Parameters
-  for( unsigned int i=0; i<NP; i++ ) P[i].set( &DAG );
+  std::vector<mc::FFVar> P(NP);
+  for( auto& Pi : P ) Pi.set( &DAG );
 
   mc::FFVar& Qin   = P[0]; // [L/min]
   mc::FFVar& T     = P[1];
@@ -352,21 +336,24 @@ int test_fadiff_directional2()
   double Tref = 273.15; // [K]
   mc::FFVar One = 1.;
 
-  mc::FFVar X[NX];  // States & state sensitivities
-  for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
+  const unsigned NX = 3;  // Number of states
+  std::vector<mc::FFVar> X(NX);
+  for( auto& Xi : X ) Xi.set( &DAG );
   mc::FFVar& CA  = X[0];
   mc::FFVar& CB  = X[1];
   mc::FFVar& V   = X[2];
 
-  mc::FFVar RHS[NX];  // Right-hand side function
   mc::FFVar R = exp( K0 + K1 * ( 1 - T / Tref ) );
-  RHS[0] = Qin / V * ( CAin - CA ) - R * pow( CA, alpha );
-  RHS[1] = - Qin / V * CB + nu * R * pow( CA, alpha );
-  RHS[2] = Qin;
+  std::vector<mc::FFVar> RHS{  // Right-hand side function
+    Qin / V * ( CAin - CA ) - R * pow( CA, alpha ),
+    - Qin / V * CB + nu * R * pow( CA, alpha ),
+    Qin
+  };
 
-  mc::FFVar XQin[NX];  // State sensitivities
-  for( unsigned int i=0; i<NX; i++ ) XQin[i].set( &DAG );
-  mc::FFVar* dRHSdQin = DAG.DFAD( NX, RHS, NX, X, XQin, 1, P, &One );
+  std::vector<mc::FFVar> XQin(NX);  // State sensitivities
+  for( auto& XQini : XQin ) XQini.set( &DAG );
+
+  mc::FFVar* dRHSdQin = DAG.DFAD( NX, RHS.data(), NX, X.data(), XQin.data(), 1, P.data(), &One );
   DAG.output( DAG.subgraph( NX, dRHSdQin ), " dRHSdX·XQin + dRHSdQin" );
   delete[] dRHSdQin;
 
@@ -381,58 +368,48 @@ int test_gradient_sparse()
 
   // Create DAG
   mc::FFGraph DAG;
-  const unsigned NX = 2, NF = 3;
-  mc::FFVar X[NX];
-  for( unsigned i(0); i<NX; i++ )  X[i].set( &DAG );
-  mc::FFVar F[3] = { 0.5*X[0], X[0]*X[1], sqrt(X[1])*exp(X[1])*X[1]+1. };
+  size_t const NX = 2;
+  std::vector<mc::FFVar> X(NX);
+  for( auto& Xi : X ) Xi.set( &DAG );
+  std::vector<mc::FFVar> F{ 0.5*X[0], X[0]*X[1], sqrt(X[1])*exp(X[1])*X[1]+1. };
   std::cout << DAG;
 
   // Sparse directional forward AD
-  mc::FFVar D[NX] = { 1., 2. };  
-  auto dFdXxD_FAD = DAG.SDFAD( NF, F, NX, X, D );
-  std::cout << "\nNon-zero Jacobian elements (DFAD, non-recursive): "
-            << std::get<0>(dFdXxD_FAD) << std::endl;
-  for( unsigned ie=0; ie<std::get<0>(dFdXxD_FAD); ie++ )
-    std::cout << "(" << std::get<1>(dFdXxD_FAD)[ie] << "," << std::get<2>(dFdXxD_FAD)[ie] << ") "
-                     << std::get<3>(dFdXxD_FAD)[ie] << std::endl;
-  DAG.output( DAG.subgraph( std::get<0>(dFdXxD_FAD), std::get<3>(dFdXxD_FAD) ) );
+  std::vector<mc::FFVar> D{ 1., 2. };  
+  auto&& dFdXxD_FAD = DAG.SDFAD( F, X, D );
+  size_t NE = std::get<0>(dFdXxD_FAD).size();
+  std::cout << "\nNon-zero Jacobian elements (DFAD, non-recursive): " << NE << std::endl;
+  for( unsigned ie=0; ie<NE; ie++ )
+    std::cout << "(" << std::get<0>(dFdXxD_FAD)[ie] << "," << std::get<1>(dFdXxD_FAD)[ie] << ") "
+                     << std::get<2>(dFdXxD_FAD)[ie] << std::endl;
+  DAG.output( DAG.subgraph( std::get<2>(dFdXxD_FAD) ) );
   std::ofstream o_dFdXxD_FAD( "gradient_sparse_DFAD.dot", std::ios_base::out );
-  DAG.dot_script( std::get<0>(dFdXxD_FAD), std::get<3>(dFdXxD_FAD), o_dFdXxD_FAD );
+  DAG.dot_script( std::get<2>(dFdXxD_FAD), o_dFdXxD_FAD );
   o_dFdXxD_FAD.close();
-  delete[] std::get<1>(dFdXxD_FAD);
-  delete[] std::get<2>(dFdXxD_FAD);
-  delete[] std::get<3>(dFdXxD_FAD);
 
   // Sparse forward AD
-  auto dFdX_FAD = DAG.SFAD( NF, F, NX, X );
-  std::cout << "\nNon-zero Jacobian elements (FAD, non-recursive): "
-            << std::get<0>(dFdX_FAD) << std::endl;
-  for( unsigned ie=0; ie<std::get<0>(dFdX_FAD); ie++ )
-    std::cout << "(" << std::get<1>(dFdX_FAD)[ie] << "," << std::get<2>(dFdX_FAD)[ie] << ") "
-                     << std::get<3>(dFdX_FAD)[ie] << std::endl;
-  DAG.output( DAG.subgraph( std::get<0>(dFdX_FAD), std::get<3>(dFdX_FAD) ) );
+  auto&& dFdX_FAD = DAG.SFAD( F, X );
+  NE = std::get<0>(dFdX_FAD).size();
+  std::cout << "\nNon-zero Jacobian elements (FAD, non-recursive): " << NE << std::endl;
+  for( unsigned ie=0; ie<NE; ie++ )
+    std::cout << "(" << std::get<0>(dFdX_FAD)[ie] << "," << std::get<1>(dFdX_FAD)[ie] << ") "
+                     << std::get<2>(dFdX_FAD)[ie] << std::endl;
+  DAG.output( DAG.subgraph( std::get<2>(dFdX_FAD) ) );
   std::ofstream o_dFdX_FAD( "gradient_sparse_FAD.dot", std::ios_base::out );
-  DAG.dot_script( std::get<0>(dFdX_FAD), std::get<3>(dFdX_FAD), o_dFdX_FAD );
+  DAG.dot_script( std::get<2>(dFdX_FAD), o_dFdX_FAD );
   o_dFdX_FAD.close();
-  delete[] std::get<1>(dFdX_FAD);
-  delete[] std::get<2>(dFdX_FAD);
-  delete[] std::get<3>(dFdX_FAD);
 
   // Sparse backward AD
-  auto dFdX_BAD = DAG.SBAD( NF, F, NX, X );
-  std::cout << "\nNon-zero Jacobian elements (BAD, non-recursive): "
-            << std::get<0>(dFdX_BAD) << std::endl;
-  for( unsigned ie=0; ie<std::get<0>(dFdX_BAD); ie++ )
-    std::cout << "(" << std::get<1>(dFdX_BAD)[ie] << "," << std::get<2>(dFdX_BAD)[ie] << ") "
-                     << std::get<3>(dFdX_BAD)[ie] << std::endl;
-  DAG.output( DAG.subgraph( std::get<0>(dFdX_BAD), std::get<3>(dFdX_BAD) ) );
+  auto&& dFdX_BAD = DAG.SBAD( F, X );
+  NE = std::get<0>(dFdX_BAD).size();
+  std::cout << "\nNon-zero Jacobian elements (BAD, non-recursive): " << NE << std::endl;
+  for( unsigned ie=0; ie<NE; ie++ )
+    std::cout << "(" << std::get<0>(dFdX_BAD)[ie] << "," << std::get<1>(dFdX_BAD)[ie] << ") "
+                     << std::get<2>(dFdX_BAD)[ie] << std::endl;
+  DAG.output( DAG.subgraph( std::get<2>(dFdX_BAD) ) );
   std::ofstream o_dFdX_BAD( "gradient_sparse_BAD.dot", std::ios_base::out );
-  DAG.dot_script( std::get<0>(dFdX_BAD), std::get<3>(dFdX_BAD), o_dFdX_BAD );
+  DAG.dot_script( std::get<2>(dFdX_BAD), o_dFdX_BAD );
   o_dFdX_BAD.close();
-
-  delete[] std::get<1>(dFdX_BAD);
-  delete[] std::get<2>(dFdX_BAD);
-  delete[] std::get<3>(dFdX_BAD);
 
   return 0;
 }
@@ -444,45 +421,38 @@ int test_hessian_sparse()
   std::cout << "\n==============================================\ntest_hessian_sparse:\n";
 
   mc::FFGraph DAG;
-  const unsigned NX = 5, NF = 1;
-  mc::FFVar X[NX];
-  for( unsigned i(0); i<NX; i++ )  X[i].set( &DAG );
-  mc::FFVar F[NF] = { sqrt(X[0])*X[1]*(X[3]+2.) };
+  const unsigned NX = 5;
+  std::vector<mc::FFVar> X(NX);
+  for( auto& Xi : X ) Xi.set( &DAG );
+  std::vector<mc::FFVar> F{ sqrt(X[0])*X[1]*(X[3]+2.) };
   std::cout << DAG;
 
-  auto dFdX = DAG.SBAD( NF, F, NX, X );
+  auto&& dFdX = DAG.SBAD( F, X );
   //std::cout << DAG;
-  std::cout << "\nNumber of non-zero elements in Jacobian matrix: "
-            << std::get<0>(dFdX) << std::endl;
-  for( unsigned ie=0; ie<std::get<0>(dFdX); ie++ )
-    std::cout << "(" << std::get<1>(dFdX)[ie] << "," << std::get<2>(dFdX)[ie] << ") "
-              << std::get<3>(dFdX)[ie] << std::endl;
+  size_t NE = std::get<0>(dFdX).size();
+  std::cout << "\nNumber of non-zero elements in Jacobian matrix: " << NE << std::endl;
+  for( unsigned ie=0; ie<NE; ie++ )
+    std::cout << "(" << std::get<0>(dFdX)[ie] << "," << std::get<1>(dFdX)[ie] << ") "
+                     << std::get<2>(dFdX)[ie] << std::endl;
 
-  DAG.output( DAG.subgraph( std::get<0>(dFdX), std::get<3>(dFdX) ), " dFdX" );
+  DAG.output( DAG.subgraph( std::get<2>(dFdX) ), " dFdX" );
   std::ofstream o_dFdX( "hessian_sparse_BAD.dot", std::ios_base::out );
-  DAG.dot_script( std::get<0>(dFdX), std::get<3>(dFdX), o_dFdX );
+  DAG.dot_script( std::get<2>(dFdX), o_dFdX );
   o_dFdX.close();
 
-  auto d2FdX2 = DAG.SFAD( std::get<0>(dFdX), std::get<3>(dFdX), NX, X, true );
+  auto&& d2FdX2 = DAG.SFAD( std::get<2>(dFdX), X, true );
   //std::cout << DAG;
-  std::cout << "\nNumber of non-zero elements in Hessian matrix: "
-            << std::get<0>(d2FdX2) << std::endl;
-  for( unsigned ie=0; ie<std::get<0>(d2FdX2); ie++ )
-    std::cout << "(" << std::get<1>(d2FdX2)[ie] << "," << std::get<2>(d2FdX2)[ie] << ") "
-              << std::get<3>(d2FdX2)[ie] << std::endl;
+  NE = std::get<0>(d2FdX2).size();
+  std::cout << "\nNumber of non-zero elements in Hessian matrix: " << NE << std::endl;
+  for( unsigned ie=0; ie<NE; ie++ )
+    std::cout << "(" << std::get<0>(d2FdX2)[ie] << "," << std::get<1>(d2FdX2)[ie] << ") "
+                     << std::get<2>(d2FdX2)[ie] << std::endl;
 
-  DAG.output( DAG.subgraph( std::get<0>(d2FdX2), std::get<3>(d2FdX2) ), " d2FdX2" );
+  DAG.output( DAG.subgraph( std::get<2>(d2FdX2) ), " d2FdX2" );
   std::ofstream o_d2FdX2( "hessian_sparse_FAD+BAD.dot", std::ios_base::out );
-  DAG.dot_script( std::get<0>(d2FdX2), std::get<3>(d2FdX2), o_d2FdX2 );
+  DAG.dot_script( std::get<2>(d2FdX2), o_d2FdX2 );
   o_d2FdX2.close();
 
-  delete[] std::get<1>(dFdX);
-  delete[] std::get<2>(dFdX);
-  delete[] std::get<3>(dFdX);
-
-  delete[] std::get<1>(d2FdX2);
-  delete[] std::get<2>(d2FdX2);
-  delete[] std::get<3>(d2FdX2);
   return 0;
 }
 ///////////////////////////////////////////////////////////////////////////////
@@ -550,31 +520,29 @@ int test_tadiff3()
 
   mc::FFGraph DAG;
 
-  const unsigned NP = 1;  // Number of parameters
-  mc::FFVar P[NP];  // Parameter array
-  for( unsigned i=0; i<NP; i++ ) P[i].set( &DAG );
+  size_t const NP = 1;  // Number of parameters
+  std::vector<mc::FFVar> P(NP);  // Parameter array
+  for( auto& Pi : P ) Pi.set( &DAG );
 
-  const unsigned NX = 2;  // Number of states
-  mc::FFVar X[NX];  // State array
-  for( unsigned i=0; i<NX; i++ ) X[i].set( &DAG );
+  size_t const NX = 2;  // Number of states
+  std::vector<mc::FFVar> X(NX);  // State array
+  for( auto& Xi : X ) Xi.set( &DAG );
 
-  mc::FFVar RHS[NX];  // Right-hand side function
-  RHS[0] = P[0] * X[0] * ( 1. - X[1] );
-  RHS[1] = P[0] * X[1] * ( X[0] - 1. );
-  
+  // Right-hand side function
+  std::vector<mc::FFVar> RHS{ P[0] * X[0] * ( 1. - X[1] ), P[0] * X[1] * ( X[0] - 1. ) };
   std::cout << DAG;
 
   const unsigned NTE = 5;
-  const mc::FFVar* RHS_TAD = DAG.TAD( NTE, NX, RHS, NX, X );//, &T );
+  std::vector<mc::FFVar>&& RHS_TAD = DAG.TAD( NTE, RHS, X );
   std::cout << DAG;
 
-  DAG.output( DAG.subgraph( NTE+1, RHS_TAD ), " RHS_TAD" );
+  DAG.output( DAG.subgraph( RHS_TAD ), " RHS_TAD" );
   std::ofstream o_TAD( "tadiff3.dot", std::ios_base::out );
-  DAG.dot_script( NX*(NTE+1), RHS_TAD, o_TAD );
+  DAG.dot_script( RHS_TAD, o_TAD );
   o_TAD.close();
 
   double dX[NX] = { 1.2, 1.1 }, dP[NP] = { 3 }, dRHS_TAD[NX*(NTE+1)];
-  DAG.eval( NX*(NTE+1), RHS_TAD, dRHS_TAD, NX, X, dX, NP, P, dP );//, 1, &T, &dT );
+  DAG.eval( NX*(NTE+1), RHS_TAD.data(), dRHS_TAD, NX, X.data(), dX, NP, P.data(), dP );//, 1, &T, &dT );
   std::cout << X[0] << " = " << dX[0] << std::endl;
   std::cout << X[1] << " = " << dX[1] << std::endl;
   for( unsigned k=0; k<NX*(NTE+1); k+=NX ){
@@ -582,7 +550,6 @@ int test_tadiff3()
     std::cout << RHS_TAD[k+1] << " = " << dRHS_TAD[k+1] << std::endl;
   }
   
-  delete[] RHS_TAD;
   return 0;
 }
 

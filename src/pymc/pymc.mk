@@ -5,7 +5,7 @@ include $(srcpath)/makeoptions.mk
 
 #####
 
-libobjs = interval.o ffunc.o main.o
+libobjs = interval.o ffunc.o ffvect.o main.o
 libname = pymc.so
 
 #####

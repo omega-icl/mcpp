@@ -9,6 +9,7 @@
 #include "asmodel.hpp"
 #include "mcfunc.hpp"
 #include "ffunc.hpp"
+#include "ffdep.hpp"
 #include "polimage.hpp"
 #include "slift.hpp"
 

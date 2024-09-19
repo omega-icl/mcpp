@@ -12,6 +12,7 @@
 #include "slift.hpp"
 #include "ffspol.hpp"
 #include "ffmlp.hpp"
+#include "ffvect.hpp"
 
 #if defined( MC__USE_PROFIL )
  #include "mcprofil.hpp"
@@ -1541,6 +1542,54 @@ int test_external9()
 
 ///////////////////////////////////////////////////////////////////////////////
 
+int test_external10()
+{
+  std::cout << "\n==============================================\ntest_external10:\n";
+
+  // Create DAG
+  mc::FFGraph DAG;
+  size_t const NX = 3;
+  std::vector<mc::FFVar> X(NX);
+  for( auto& Xi : X ) Xi.set( &DAG );
+  std::vector<mc::FFVar> Y{ pow( X[0] + sqr( X[1] ) - 2 * X[2], 3 ), X[0] };
+  std::vector<std::vector<mc::FFVar>> vY( 3, Y );
+  
+  mc::Vect vF( &DAG, X, vY );
+  mc::FFVect<I> OpVect;
+  
+  //mc::FFVar** ppF = OpVect( &vF );
+  std::vector<mc::FFVar> F;
+  for( size_t i=0; i<vF.nFun(); ++i )
+    F.push_back( OpVect( i, &vF ) );
+
+  std::cout << DAG;
+
+  auto opF  = DAG.subgraph( F );
+  DAG.output( opF, " OF F" );
+
+  // Evaluation in real arithmetic
+  std::vector<double> dX{ 0.5, -0.5, 0.75 }, dF;
+  DAG.eval( opF, F, dF, X, dX );
+  std::cout << "\nVectorized function value:\n";
+  for( auto const& dFi : dF )
+    std::cout << dFi << std::endl;
+
+  // Evaluation of symbolic derivatives in real arithmetic
+  std::vector<mc::FFVar>&& dFdX = DAG.FAD( F, X );
+  auto opdFdX = DAG.subgraph( dFdX );
+  DAG.output( opdFdX, " OF dFdX" );
+
+  std::vector<double> ddFdX;
+  DAG.eval( opdFdX, dFdX, ddFdX, X, dX );
+  std::cout << "\nVectorized function derivative:\n";
+  for( auto const& dFdXi : ddFdX )
+    std::cout << dFdXi << std::endl;
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 int test_slift_external0()
 {
   std::cout << "\n==============================================\ntest_slift_external0:\n";
@@ -1600,7 +1649,8 @@ int main()
 //    test_external6();
 //    test_external7();
 //    test_external8();
-    test_external9();
+//    test_external9();
+    test_external10();
 //    test_slift_external0();
 //    test_slift_external1();
   }

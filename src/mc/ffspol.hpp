@@ -5,6 +5,7 @@
 #ifndef MC__FFSPOLY_HPP
 #define MC__FFSPOLY_HPP
 
+#include "ffdep.hpp"
 #include "ffinv.hpp"
 #include "ffexpr.hpp"
 #include "slift.hpp"

@@ -147,6 +147,9 @@ template <> struct Op< boost::numeric::interval < double,boost::numeric::interva
   static T arh (const T& x, const double k) { return boost::numeric::exp( -x / k ); }
   static T cheb (const T& x, const unsigned n) { return T(-1.,1.); }
   static T pow(const T& x, const int n) { return boost::numeric::pow( x, n ); }
+  template <typename Y> static T pow(const double& r, const Y& y) {
+    return boost::numeric::exp( y * std::log(r) );
+  }
   template <typename X, typename Y> static T pow(const X& x, const Y& y) {
     return boost::numeric::exp( y * boost::numeric::log(x) );
   }

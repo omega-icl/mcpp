@@ -23,7 +23,7 @@ The classes mc::FFGraph, mc::FFBase, mc::FFVar and mc::FFOp defined in <tt>ffunc
 
 For illustration, suppose we want to construct a DAG for the factorable function \f${\bf f}:\mathbb{R}^4\to\mathbb{R}^2\f$ defined by
 \f{align*}
-  {\bf f}(x_0,x_1,x_2,x_3) = \left(\begin{array}{c} x_2x_3-x_0\\ x_0(\exp(x_2x_3)+3.0)^4)+x_1\end{array}\right)
+  {\bf f}(x_0,x_1,x_2,x_3) = \left(\begin{array}{c} x_2x_3-x_0\\ x_0(\exp(x_2x_3)+3.0)^4+x_1\end{array}\right)
 \f}
 
 The constructions require the header file <tt>ffunc.hpp</tt> to be included:
@@ -636,6 +636,7 @@ Differentiation</A></I>, SIAM, 2009
 #include <set>
 #include <list>
 #include <vector>
+#include <map>
 #include <typeinfo>
 #include <utility>
 #include <type_traits>
@@ -645,10 +646,13 @@ Differentiation</A></I>, SIAM, 2009
 #include <cassert>
 #include <climits>
 
+#ifdef MC__USE_THREAD
+ #include <thread>
+#endif
+
 #include "mcop.hpp"
 #include "mcfadbad.hpp"
 #include "mcfunc.hpp"
-#include "ffdep.hpp"
 
 //#undef  MC__FFUNC_DEBUG
 //#undef  MC__FFUNC_DEBUG_TAD
@@ -657,17 +661,6 @@ Differentiation</A></I>, SIAM, 2009
 //#undef  MC__FFUNC_CPU_EVAL
 #ifdef MC__FFUNC_CPU_EVAL
   #include "mctime.hpp"
-#endif
-
-// For block decomposition
-#ifdef MC__USE_HSL
-extern "C" void mc13d_
-  ( const int*, const int*, const int*, const int*, const int*, int*, int*, int*, int* );
-extern "C" void mc21a_
-  ( const int*, const int*, const int*, const int*, const int*, int*, int*, int* );
-extern "C" void mc33ad_
-  ( const int*, const int*, const int*, int*, const int*, double*, int*, int*, int*,
-    int*, int*, int*, int*, int*, int* );
 #endif
 
 namespace mc
@@ -1593,7 +1586,7 @@ protected:
   FFVar _dummyVar;
 
   //! @brief Pointer to current operation in subtree evaluation
-#ifdef MC__USE_TREADLOCAL
+#ifdef MC__USE_THREADLOCAL
   thread_local static FFOp const* _curOp;
 #else
   FFOp const* _curOp;
@@ -1605,7 +1598,7 @@ public:
    */
   //! @brief Default Constructor
   FFBase():
-#ifdef MC__USE_TREADLOCAL
+#ifdef MC__USE_THREADLOCAL
     _nvar( 0 ), _naux( 0 ), _next( 0 ), _dummyVar( 0 )
 #else
     _nvar( 0 ), _naux( 0 ), _next( 0 ), _dummyVar( 0 ), _curOp( nullptr )
@@ -1629,7 +1622,6 @@ public:
       MISSVAR,		//!< Missing independent variable during subgraph evaluation
       EVAL,		//!< Error during subgraph evaluation
       CONSTVAL,		//!< Error due to overriding a constant variable during subgraph evaluation
-      MISSHSL,		//!< Error due to calling the HSL library which is disabled
       MISSTADIFF,	//!< Error due to calling the TADIFF component of FADBAD library which is disabled
       INTERN = -1, 	//!< Internal error
       EXTERN = -2, 	//!< Error in external operation
@@ -1654,8 +1646,6 @@ public:
         return "Error during subgraph evaluation";
       case CONSTVAL:
         return "Error due to overriding a constant variable during subgraph evaluation";
-      case MISSHSL:
-        return "Error due to calling the HSL library which is disabled";
       case MISSTADIFF:
         return "Error due to calling the TADIFF component of FADBAD library which is disabled";
       case INTERN:
@@ -1678,14 +1668,26 @@ public:
     Options():
       DETECTSIGNOM( true ),
       CHEBRECURS( false ),
-      USEMOVE( false )
+      USEMOVE( false ),
+      MAXTHREAD( 1 )
       {}
+    //! @brief Assignment operator
+    Options& operator= ( Options const& options ){
+        DETECTSIGNOM = options.DETECTSIGNOM;
+        CHEBRECURS   = options.CHEBRECURS;
+        USEMOVE      = options.USEMOVE;
+        MAXTHREAD    = options.MAXTHREAD;
+        return *this;
+      }
     //! @brief Whether to detect signomial terms as exp(d.log(x)) and handle them as x^d signomial terms
     bool DETECTSIGNOM;
     //! @brief Whether to intersect Chebyshev variables with their recursive expressions -- this may be used to build redundancy in constructing tighter relaxations
     bool CHEBRECURS;
     //! @brief Whether to enable the move semantic during DAG evaluation
     bool USEMOVE;
+    //! @brief Maximum number of threads for vectorized DAG evaluation
+    size_t MAXTHREAD;
+
   } options;
 
   //! @brief Number of original variables in DAG
@@ -1743,6 +1745,10 @@ public:
 
   //! @brief Extract subgraph corresponding to dependents <a>vDep</a>
   FFSubgraph subgraph
+    ( std::vector<FFVar> const& vDep );
+
+  //! @brief Extract subgraph corresponding to dependents <a>vDep</a>
+  FFSubgraph subgraph
     ( std::vector<const FFVar*> const& vDep );
 
   //! @brief Extract list of operations corresponding to dependents <a>vDep</a>
@@ -1755,14 +1761,19 @@ public:
     ( FFSubgraph const& Ops, std::string const& header="", 
       std::ostream& os=std::cout );
 
-  //! @brief Generate script for DAG visualization of factors <a>*F</a> using DOT
+  //! @brief Generate script for DAG visualization of dependent variables <a>pDep</a> using DOT
   void dot_script
     ( unsigned int const nDep, FFVar const* pDep, std::ostream& os=std::cout )
     const;
 
-  //! @brief Generate script for DAG visualization of factors <a>*F</a> using DOT
+  //! @brief Generate script for DAG visualization of dependent variables <a>vDep</a> using DOT
   void dot_script
-    ( std::vector<const FFVar*> const& vDep, std::ostream& os=std::cout )
+    ( std::vector<FFVar> const& vDep, std::ostream& os=std::cout )
+    const;
+
+  //! @brief Generate script for DAG visualization of dependent variables <a>vDep</a> using DOT
+  void dot_script
+    ( std::vector<FFVar const*> const& vDep, std::ostream& os=std::cout )
     const;
 
   //! @brief Search for the variable with name <a>str</a> in <a>_Vars</a>
@@ -1961,7 +1972,7 @@ private:
     ( FFBase const& );
 };
 
-#ifdef MC__USE_TREADLOCAL
+#ifdef MC__USE_THREADLOCAL
   inline thread_local FFOp const* FFBase::_curOp = nullptr;
 #endif
 /*
@@ -2028,24 +2039,6 @@ class FFGraph
 ////////////////////////////////////////////////////////////////////////
 {
 
-protected:
-
-  //! @brief Work array for forward differentiation of subgraph
-  //std::vector<FFVar> _wkAD;
-
-#ifdef MC__USE_FADIFF
-  //! @brief Work array for forward differentiation of subgraph
-  std::vector< fadbad::F<FFVar> > _wkSFAD;
-#endif
-#ifndef MC__USE_BADIFF
-  //! @brief Work array for backward differentiation of subgraph
-  std::vector< fadbad::B<FFVar> > _wkSBAD;
-#endif
-#ifdef MC__USE_TADIFF
-  //! @brief Work array for Taylor expansion of subgraph
-  std::vector< fadbad::T<FFVar> > _wkTAD;
-#endif
-
 public:
   /** @ingroup FFunc
    *  @{
@@ -2060,56 +2053,90 @@ public:
     {}
 //    { _clear_data(); }
 
-  //! @brief Expand DAG with derivatives of <a>nDep</a> dependents in array <a>pDep</a> with respect to <a>nIndep</a> independents in array <a>pIndep</a> using fadbad::F. The return value is an array with entries of the dense Jacobian matrix. The function parameter pack <a>args</a> can be any number of extra pairs {const unsigned nIndep, const FFVar* const pIndep}, as well as a final, optional flag {const bool transp} indicating if the entries in the returned Jacobian matrix are ordered row-wise (transp=false, default) or column-wise (transp=true).
+  //! @brief Expand DAG with derivatives of dependents in vector <a>vDep</a> with respect to independents in vector <a>vIndep</a> along the direction of vector <a>vDir</a>. The return value is an array with entries of the dense Jacobian matrix. The function parameter pack <a>args</a> can be any number of extra vectors {std::vector<FFVar> const& vIndep}, as well as a final, optional flag {const bool transp} indicating if the entries in the returned Jacobian matrix are ordered row-wise (transp=false, default) or column-wise (transp=true).
+  template <typename... Deps>
+  std::vector<FFVar> FAD
+    ( std::vector<FFVar> const& vDep, std::vector<FFVar> const& vIndep, Deps... args );
+
+  //! @brief Expand DAG with derivatives of dependents in vector <a>vDep</a> with respect to independents in vector <a>vIndep</a> along the direction of vector <a>vDir</a>. The return value is an array with entries of the dense Jacobian matrix. The function parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vIndep, std::vector<FFVar> const& vDir}.
+  template <typename... Deps> 
+  std::vector<FFVar> DFAD
+    ( std::vector<FFVar> const& vDep, std::vector<FFVar> const& vIndep,
+      std::vector<FFVar> const& vDir, Deps... args );
+
+  //! @brief Expand DAG with derivatives of <a>nDep</a> dependents in array <a>pDep</a> with respect to <a>nIndep</a> independents in array <a>pIndep</a>. The return value is an array with entries of the dense Jacobian matrix. The function parameter pack <a>args</a> can be any number of extra pairs {const unsigned nIndep, const FFVar* const pIndep}, as well as a final, optional flag {const bool transp} indicating if the entries in the returned Jacobian matrix are ordered row-wise (transp=false, default) or column-wise (transp=true).
   template <typename... Deps>
   FFVar* FAD
     ( unsigned const nDep, FFVar const* const pDep, unsigned const nIndep,
       FFVar const* const pIndep, Deps... args );
 
-  //! @brief Expand DAG with derivatives of <a>nDep</a> dependents in array <a>pDep</a> with respect to <a>nIndep</a> independents in array <a>pIndep</a> for the direction in array <a>pDir</a> using fadbad::F. The return value is an array with entries of the Jacobian matrix-vector product. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nIndep, const FFVar* const pIndep, const FFVar* const pDir}.
+  //! @brief Expand DAG with derivatives of <a>nDep</a> dependents in array <a>pDep</a> with respect to <a>nIndep</a> independents in array <a>pIndep</a> for the direction in array <a>pDir</a>. The return value is an array with entries of the Jacobian matrix-vector product. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nIndep, const FFVar* const pIndep, const FFVar* const pDir}.
   template <typename... Deps> 
   FFVar* DFAD
     ( unsigned const nDep, const FFVar* const pDep, unsigned const nIndep,
       FFVar const* const pIndep, FFVar const* const pDir, Deps... args );
 
-  //! @brief Expand DAG with derivatives of dependents <a>vDep</a> with respect to independents <a>vIndep</a> using fadbad::F. The returns a vector with the entries of the Jacobian matrix, ordered either row-wise (transp=false) or column-wise (transp=true)
-  std::vector<FFVar const*> FAD
-    ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vIndep,
-      bool const transp );
-
-  //! @brief Expand DAG with derivatives of dependents <a>vDep</a> with respect to independents <a>vIndep</a> using fadbad::F (directional derivatives if <a>vDir</a> is specifed). The returns value is a vector with the entries of the Jacobian matrix, ordered row-wise
-  std::vector<FFVar const*> FAD
-    ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vIndep,
-      std::vector<FFVar const*> const& vDir=std::vector<FFVar const*>() );
-
-  //! @brief Expand DAG with derivatives of dependents in array <a>pDep</a> indexed by <a>ndxDep</a> with respect to <a>nIndep</a> independents in array <a>pIndep</a> using fadbad::F. The return value is a 4-tuple of size and arrays with the row indices, column indices, and non-zero Jacobian entries. The function parameter pack <a>args</a> can be any number of pairs {const unsigned nIndep, const FFVar* const pIndep}, as well as a final, optional flag {const int LUopt} indicating to only keep the entries in the lower (LUopt=1) or upper (LUopt=-1) triangular part of the Jacobian matrix (e.g. for use in square symmetric matrix of derivatives such as Hessians).
+  //! @brief Expand DAG with derivatives of dependents in array <a>pDep</a> indexed by <a>ndxDep</a> with respect to <a>nIndep</a> independents in array <a>pIndep</a>. The return value is a 4-tuple of size and arrays with the row indices, column indices, and non-zero Jacobian entries. The function parameter pack <a>args</a> can be any number of pairs {const unsigned nIndep, const FFVar* const pIndep}, as well as a final, optional flag {const int LUopt} indicating to keep all of the entries (LUopt=0, default), or only the lower (LUopt=1) or upper (LUopt=-1) triangular part of the Jacobian matrix (e.g. for use in square symmetric matrix of derivatives such as Hessians).
   template <typename... Deps>
   std::tuple< unsigned, unsigned*, unsigned*, FFVar* > SFAD
     ( std::set<unsigned> const& ndxDep, FFVar const* const pDep, unsigned const nIndep,
       FFVar const* const pIndep, Deps... args );
 
-  //! @brief Expand DAG with derivatives of <a>nDep</a> dependents in array <a>pDep</a> with respect to <a>nIndep</a> independents in array <a>pIndep</a> using fadbad::F. The return value is a 4-tuple of size and arrays with the row indices, column indices, and non-zero Jacobian entries. The function parameter pack <a>args</a> can be any number of pairs {const unsigned nIndep, const FFVar* const pIndep}, as well as a final, optional flag {const int LUopt} indicating to only keep the entries in the lower (LUopt=1) or upper (LUopt=-1) triangular part of the Jacobian matrix (e.g. for use in square symmetric matrix of derivatives such as Hessians).
+  //! @brief Expand DAG with derivatives of <a>nDep</a> dependents in array <a>pDep</a> with respect to <a>nIndep</a> independents in array <a>pIndep</a>. The return value is a 4-tuple of size and arrays with the row indices, column indices, and non-zero Jacobian entries. The function parameter pack <a>args</a> can be any number of pairs {const unsigned nIndep, const FFVar* const pIndep}, as well as a final, optional flag {const int LUopt} indicating to keep all of the entries (LUopt=0, default), or the lower (LUopt=1) or upper (LUopt=-1) triangular part of the Jacobian matrix (e.g. for use in square symmetric matrix of derivatives such as Hessians).
   template <typename... Deps>
   std::tuple< unsigned, unsigned*, unsigned*, FFVar* > SFAD
     ( unsigned const nDep, FFVar const* const pDep, unsigned const nIndep,
       FFVar const* const pIndep, Deps... args );
 
-  //! @brief Expand DAG with derivatives of <a>nDep</a> dependents in array <a>pDep</a> with respect to <a>nIndep</a> independents in array <a>pIndep</a> for the direction in array <a>pDir</a> using fadbad::F. The return value is a 4-tuple of size and arrays with the row indices, column indices, and non-zero Jacobian matrix-vector product entries. The function parameter pack <a>args</a> can be any number of triplets {const unsigned nIndep, const FFVar* const pIndep, const FFVar* const pDir}.
+  //! @brief Expand DAG with derivatives of <a>nDep</a> dependents in array <a>pDep</a> with respect to <a>nIndep</a> independents in array <a>pIndep</a> for the direction in array <a>pDir</a>. The return value is a 4-tuple of size and arrays with the row indices, column indices, and non-zero Jacobian matrix-vector product entries. The function parameter pack <a>args</a> can be any number of triplets {const unsigned nIndep, const FFVar* const pIndep, const FFVar* const pDir}.
   template <typename... Deps>
   std::tuple< unsigned, unsigned*, unsigned*, FFVar* > SDFAD
     ( unsigned const nDep, FFVar const* const pDep, unsigned const nIndep,
       FFVar const* const pIndep, FFVar const* const pDir, Deps... args );
 
-  //! @brief Expand DAG with derivatives of dependents <a>vDep</a> with respect to independents <a>vIndep</a> using fadbad::F. The return value is a 3-tuple of vectors with the row indices, column indices, and non-zero Jacobian entries.
+  //! @brief Expand DAG with derivatives of dependents in vector <a>vDep</a> indexed by <a>ndxDep</a> with respect to independents in vectpr <a>vIndep</a>. The return value is a 3-tuple of vectors with the row indices, column indices, and non-zero Jacobian entries. The function parameter pack <a>args</a> can be any number of vectors {std::vector<FFVar> const& vIndep}, as well as a final, optional flag {const int LUopt} indicating to only keep all of the entries (LUopt=0, default), or only the lower (LUopt=1) or upper (LUopt=-1) triangular part of the Jacobian matrix (e.g. for use in square symmetric matrix of derivatives such as Hessians).
+  template <typename... Deps>
+  std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar> > SFAD
+    ( std::set<unsigned> const& ndxDep, std::vector<FFVar> const& vDep,
+      std::vector<FFVar> const& vIndep, Deps... args );
+
+  //! @brief Expand DAG with derivatives of dependents in vector <a>vDep</a> with respect to independents in vector <a>vIndep</a>. The return value is a 3-tuple of vectors with the row indices, column indices, and non-zero Jacobian entries. The function parameter pack <a>args</a> can be any number of vectors {std::vector<FFVar> const& vIndep}, as well as a final, optional flag {const int LUopt} indicating to keep all of the entries (LUopt=0, default), or only the lower (LUopt=1) or upper (LUopt=-1) triangular part of the Jacobian matrix (e.g. for use in square symmetric matrix of derivatives such as Hessians).
+  template <typename... Deps>
+  std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar> > SFAD
+    ( std::vector<FFVar> const& vDep, std::vector<FFVar> const& vIndep, Deps... args );
+
+  //! @brief Expand DAG with derivatives of dependents in vector <a>vDep</a> with respect to independents in vector <a>vIndep</a> for the direction in vector <a>vDir</a>. The return value is a 3-tuple of vectors with the row indices, column indices, and non-zero Jacobian matrix-vector product entries. The function parameter pack <a>args</a> can be any number of vector pairs {std::vector<FFVar> const& vIndep, std::vector<FFVar> const& vDir}.
+  template <typename... Deps>
+  std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar> > SDFAD
+    ( std::vector<FFVar> const& vDep, std::vector<FFVar> const& vIndep,
+      std::vector<FFVar> const& vDir, Deps... args );
+
+  //! @brief Expand DAG with derivatives of dependents <a>vDep</a> with respect to independents <a>vIndep</a>. The return value is a 3-tuple of vectors with the row indices, column indices, and non-zero Jacobian entries.
   std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> > SFAD
     ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vIndep,
-      std::vector<FFVar const*> const& vDir=std::vector<FFVar const*>() );
+      int const LUopt=0 );
 
-  //! @brief Expand DAG with derivatives of <a>nDep</a> dependents in array <a>pDep</a> with respect to <a>nIndep</a> independents in array <a>pIndep</a> using fadbad::B. The return value is an array with entries of the dense Jacobian matrix. The function parameter pack <a>args</a> can be any number of extra pairs {const unsigned nIndep, const FFVar* const pIndep}, as well as a final, optional flag {const bool transp} indicating if the entries in the returned Jacobian matrix are ordered row-wise (transp=false, default) or column-wise (transp=true).
+  //! @brief Expand DAG with derivatives of dependents <a>vDep</a> with respect to independents <a>vIndep</a> along direction <a>vDir</a>. The return value is a 3-tuple of vectors with the row indices, column indices, and non-zero Jacobian entries.
+  std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> > SDFAD
+    ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vIndep,
+      std::vector<FFVar const*> const& vDir );
+
+  //! @brief Expand DAG with derivatives of dependents in vector <a>vDep</a> with respect to independents in vector <a>vIndep</a>. The return value is an array with entries of the dense Jacobian matrix. The function parameter pack <a>args</a> can be any number of extra vectors {std::vector<FFVar> const& vIndep}, as well as a final, optional flag {const bool transp} indicating if the entries in the returned Jacobian matrix are ordered row-wise (transp=false, default) or column-wise (transp=true).
+  template <typename... Deps> 
+  std::vector<FFVar> BAD
+    ( std::vector<FFVar> const& vDep, std::vector<FFVar> const& vIndep, Deps... args );
+
+  //! @brief Expand DAG with derivatives of <a>nDep</a> dependents in array <a>pDep</a> with respect to <a>nIndep</a> independents in array <a>pIndep</a>. The return value is a vector with entries of the dense Jacobian matrix. The function parameter pack <a>args</a> can be any number of extra pairs {const unsigned nIndep, const FFVar* const pIndep}, as well as a final, optional flag {const bool transp} indicating if the entries in the returned Jacobian matrix are ordered row-wise (transp=false, default) or column-wise (transp=true).
   template <typename... Deps> 
   FFVar* BAD
     ( unsigned const nDep, FFVar const* const pDep, unsigned const nIndep,
       FFVar const* const pIndep, Deps... args );
+
+  //! @brief Expand DAG with derivatives of dependents in vector <a>vDep</a> with respect to independents in vector <a>vIndep</a> for the direction in vector <a>vDir</a>. The return value is a vector with entries of the Jacobian matrix-vector product. The function parameter pack <a>args</a> can be any number of extra pairs {const unsigned nIndep, const FFVar* const pIndep}.
+  template <typename... Deps> 
+  std::vector<FFVar> DBAD
+    ( std::vector<FFVar> const& vDep, std::vector<FFVar> const& vDir,
+      std::vector<FFVar> const& vIndep, Deps... args );
 
   //! @brief Expand DAG with derivatives of <a>nDep</a> dependents in array <a>pDep</a> with respect to <a>nIndep</a> independents in array <a>pIndep</a> for the direction in array <a>pDir</a> using fadbad::B. The return value is an array with entries of the Jacobian matrix-vector product. The function parameter pack <a>args</a> can be any number of extra pairs {const unsigned nIndep, const FFVar* const pIndep}.
   template <typename... Deps> 
@@ -2117,113 +2144,193 @@ public:
     ( unsigned const nDep, const FFVar* const pDep, FFVar const* const pDir, unsigned const nIndep,
       FFVar const* const pIndep, Deps... args );
 
-  //! @brief Expand DAG with derivatives of dependents <a>vDep</a> with respect to independents <a>vIndep</a> using fadbad::B. The returns value is a vector with the entries of the Jacobian matrix, ordered row-wise (transp=false) or column-wise (transp=true)
-  std::vector<FFVar const*> BAD
-    ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vIndep,
-      bool const transp=false );
+  //! @brief Expand DAG with derivatives of dependents in vector <a>vDep</a> indexed by <a>ndxDep</a> with respect to independents in vector <a>vIndep</a>. The return value is a 3-tuple of vectors with the row indices, column indices, and non-zero Jacobian entries. The function parameter pack <a>args</a> can be any number of extra vectors {std::vector<FFVar> const& pIndep}, as well as a final, optional flag {const int LUopt} indicating to keep all of the entries (LUopt=0, default), or the lower (LUopt=1) or upper (LUopt=-1) triangular part of the Jacobian matrix (e.g. for use in square symmetric matrix of derivatives such as Hessians).
+  template <typename... Deps>
+  std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar> > SBAD
+    ( std::set<unsigned> const& ndxDep, std::vector<FFVar> const& vDep,
+      std::vector<FFVar> const& vIndep, Deps... args );
 
-  //! @brief Expand DAG with derivatives of dependents <a>vDep</a> with respect to independents <a>vIndep</a> using fadbad::B (directional derivatives if <a>vDir</a> is specifed). The returns value is a vector with the entries of the Jacobian matrix, ordered row-wise
-  std::vector<FFVar const*> BAD
-    ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vIndep,
-      std::vector<FFVar const*> const& vDir );
-
-  //! @brief Expand DAG with derivatives of dependents in array <a>pDep</a> indexed by <a>ndxDep</a> with respect to <a>nIndep</a> independents in array <a>pIndep</a> using fadbad::B. The return value is a 4-tuple of size and arrays with the row indices, column indices, and non-zero Jacobian entries. The function parameter pack <a>args</a> can be any number of extra pairs {const unsigned nIndep, const FFVar* const pIndep}, as well as a final, optional flag {const int LUopt} indicating to only keep the entries in the lower (LUopt=1) or upper (LUopt=-1) triangular part of the Jacobian matrix (e.g. for use in square symmetric matrix of derivatives such as Hessians).
+  //! @brief Expand DAG with derivatives of dependents in array <a>pDep</a> indexed by <a>ndxDep</a> with respect to <a>nIndep</a> independents in array <a>pIndep</a>. The return value is a 4-tuple of size and arrays with the row indices, column indices, and non-zero Jacobian entries. The function parameter pack <a>args</a> can be any number of extra pairs {const unsigned nIndep, const FFVar* const pIndep}, as well as a final, optional flag {const int LUopt} indicating to keep all of the entries (LUopt=0, default), or the lower (LUopt=1) or upper (LUopt=-1) triangular part of the Jacobian matrix (e.g. for use in square symmetric matrix of derivatives such as Hessians).
   template <typename... Deps>
   std::tuple< unsigned, unsigned*, unsigned*, FFVar* > SBAD
-    ( std::set<unsigned> const& ndxDep, const FFVar* const pDep, const unsigned nIndep,
-      const FFVar* const pIndep, Deps... args );
+    ( std::set<unsigned> const& ndxDep, FFVar const* const pDep, unsigned const nIndep,
+      FFVar const* const pIndep, Deps... args );
 
-  //! @brief Expand DAG with derivatives of <a>nDep</a> dependents in array <a>pDep</a> with respect to <a>nIndep</a> independents in array <a>pIndep</a> using fadbad::B. The return value is a 4-tuple of size and arrays with the row indices, column indices, and non-zero Jacobian entries. The function parameter pack <a>args</a> can be any number of extra pairs {const unsigned nIndep, const FFVar* const pIndep}, as well as a final, optional flag {const int LUopt} indicating to only keep the entries in the lower (LUopt=1) or upper (LUopt=-1) triangular part of the Jacobian matrix (e.g. for use in square symmetric matrix of derivatives such as Hessians).
+  //! @brief Expand DAG with derivatives of dependents in vector <a>vDep</a> with respect to independents in vector <a>vIndep</a>. The return value is a 3-tuple of vectors with the row indices, column indices, and non-zero Jacobian entries. The function parameter pack <a>args</a> can be any number of extra vectors {std::vector<FFVar> const& pIndep}, as well as a final, optional flag {const int LUopt} indicating to keep all of the entries (LUopt=0, default), or the lower (LUopt=1) or upper (LUopt=-1) triangular part of the Jacobian matrix (e.g. for use in square symmetric matrix of derivatives such as Hessians).
+  template <typename... Deps>
+  std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar> > SBAD
+    ( std::vector<FFVar> const& vDep, std::vector<FFVar> const& vIndep, Deps... args );
+
+  //! @brief Expand DAG with derivatives of <a>nDep</a> dependents in array <a>pDep</a> with respect to <a>nIndep</a> independents in array <a>pIndep</a>. The return value is a 4-tuple of size and arrays with the row indices, column indices, and non-zero Jacobian entries. The function parameter pack <a>args</a> can be any number of extra pairs {const unsigned nIndep, const FFVar* const pIndep}, as well as a final, optional flag {const int LUopt} indicating to keep all of the entries (LUopt=0, default), or the lower (LUopt=1) or upper (LUopt=-1) triangular part of the Jacobian matrix (e.g. for use in square symmetric matrix of derivatives such as Hessians).
   template <typename... Deps>
   std::tuple< unsigned, unsigned*, unsigned*, FFVar* > SBAD
     ( const unsigned nDep, const FFVar* const pDep, const unsigned nIndep,
       const FFVar* const pIndep, Deps... args );
 
-  //! @brief Expand DAG with derivatives of <a>nDep</a> dependents in array <a>pDep</a> with respect to <a>nIndep</a> independents in array <a>pIndep</a> for the direction in array <a>pDir</a> using fadbad::B. The return value is a 4-tuple of size and arrays with the row indices, column indices, and non-zero Jacobian matrix-vector product entries. The function parameter pack <a>args</a> can be any number of pairs {const unsigned nIndep, const FFVar* const pIndep}.
+  //! @brief Expand DAG with derivatives of dependents in vector <a>vDep</a> with respect to independents in vector <a>vIndep</a> for the direction in vector <a>vDir</a>. The return value is a 3-tuple of vectors with the row indices, column indices, and non-zero Jacobian matrix-vector product entries. The function parameter pack <a>args</a> can be any number of vectors {std::vector<FFVar> const& vIndep}.
+  template <typename... Deps>
+  std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar> > SDBAD
+    ( std::vector<FFVar> const& vDep, std::vector<FFVar> const& vDir,
+      std::vector<FFVar> const& vIndep, Deps... args );
+
+  //! @brief Expand DAG with derivatives of <a>nDep</a> dependents in array <a>pDep</a> with respect to <a>nIndep</a> independents in array <a>pIndep</a> for the direction in array <a>pDir</a>. The return value is a 4-tuple of size and arrays with the row indices, column indices, and non-zero Jacobian matrix-vector product entries. The function parameter pack <a>args</a> can be any number of pairs {const unsigned nIndep, const FFVar* const pIndep}.
   template <typename... Deps>
   std::tuple< unsigned, unsigned*, unsigned*, FFVar* > SDBAD
     ( unsigned const nDep, FFVar const* const pDep, FFVar const* const pDir, unsigned const nIndep,
       FFVar const* const pIndep, Deps... args );
 
-  //! @brief Expand DAG with derivatives of dependents <a>vDep</a> with respect to independents <a>vIndep</a> using fadbad::B. The return value is a 3-tuple of vectors with the row indices, column indices, and non-zero Jacobian entries.
+  //! @brief Expand DAG with derivatives of dependents <a>vDep</a> with respect to independents <a>vIndep</a>. The return value is a 3-tuple of vectors with the row indices, column indices, and non-zero Jacobian entries.
   std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> > SBAD
     ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vIndep,
-      std::vector<FFVar const*> const& vDir=std::vector<FFVar const*>() );
+      int const LUopt=0 );
+
+  //! @brief Expand DAG with derivatives of dependents <a>vDep</a> along direction <a>vDir</a> with respect to independents <a>vIndep</a>. The return value is a 3-tuple of vectors with the row indices, column indices, and non-zero Jacobian entries.
+  std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> > SDBAD
+    ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vDir,
+      std::vector<FFVar const*> const& vIndep );
+
+  //! @brief Expand DAG with Taylor coefficients of dependents <a>vDep</a> with respect to independents <a>vIndep</a> using fadbad::T -- Same number of dependents and independent is required, e.g. for expansion of ODE solutions -- Return a vector with the 0th, 1st, ..., ordermax'th order Taylor coefficients ordered sequentially
+  std::vector<FFVar> TAD
+    ( size_t const ordermax, std::vector<FFVar> const& vDep,
+      std::vector<FFVar> const& vVar );
+
+  //! @brief Expand DAG with Taylor coefficients of dependents <a>vDep</a> with respect to independents <a>vIndep</a> using fadbad::T -- Same number of dependents and independent is required, e.g. for expansion of ODE solutions -- Return a vector with the 0th, 1st, ..., ordermax'th order Taylor coefficients ordered sequentially
+  std::vector<FFVar> TAD
+    ( size_t const ordermax, std::vector<FFVar> const& vDep,
+      std::vector<FFVar> const& vVar, FFVar const& Indep );
 
   //! @brief Expand DAG with Taylor coefficients of dependents <a>vDep</a> with respect to independents <a>vIndep</a> using fadbad::T -- Same number of dependents and independent is required, e.g. for expansion of ODE solutions -- Return a vector with the 0th, 1st, ..., ordermax'th order Taylor coefficients ordered sequentially
   std::vector<const FFVar*> TAD
-    ( const unsigned int ordermax, const std::vector<const FFVar*>&vDep,
-      const std::vector<const FFVar*>&vVar, const FFVar* const pIndep=0 );
+    ( size_t const ordermax, const std::vector<const FFVar*>&vDep,
+      std::vector<FFVar const*> const& vVar, FFVar const* const pIndep=nullptr );
 
   //! @brief Expand DAG with Taylor coefficients of <a>nDep</a> dependents in array <a>pDep</a> with respect to <a>nIndep</a> independents in array <a>pIndep</a> using fadbad::T -- Same number of dependents and independent is required, e.g. for expansion of ODE solutions -- Returns an array with the 0th, 1st, ..., ordermax'th order Taylor coefficients ordered sequentially
   const FFVar* TAD
-    ( const unsigned int ordermax, const unsigned nDep, const FFVar* const pDep,
-      const unsigned nVar, const FFVar* const pVar, const FFVar* const pIndep=nullptr );
+    ( size_t const ordermax, size_t const nDep, FFVar const* const pDep,
+      size_t const nVar, FFVar const* const pVar, FFVar const* const pIndep=nullptr );
+
+  //! @brief Insert the dependents <a>vDepIn</a> from the DAG <a>dag</a> into the current DAG with the resulting dependents <a>vDepOut</a>. Participating variables share the same indices in both DAGs
+  template <typename DAG>
+  void insert
+    ( DAG* dag, std::vector<FFVar> const& vDepIn, std::vector<FFVar>& vDepOut );
 
   //! @brief Insert the dependents <a>pDepIn</a> from the DAG <a>dag</a> into the current DAG with the resulting dependents <a>pDepOut</a>. Participating variables share the same indices in both DAGs
   template <typename DAG>
   void insert
     ( DAG* dag, unsigned const nDep, FFVar const* pDepIn, FFVar* pDepOut );
 
-  //! @brief Compose the dependents in <a>vDepOut</a> with those in <a>vDepIn</a>. This function creates the subgraph for the outer dependent variables internally
-  std::vector<FFVar const*> compose
-    ( std::vector<FFVar const*> const& vDepOut,
-      std::vector< std::pair<FFVar const*, FFVar const*> > const& vDepIn );
+  //! @brief Compose the dependents in vector <a>vDepOut</a> with the dependents in vector <a>vDepIn</a> for the variables in vector <a>vVarOut</a>. The function parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVarOut, std::vector<FFVar> const& vDepIn}. This function creates the subgraph for the outer dependent variables internally.
+  template <typename... Deps>
+  std::vector<FFVar> compose
+    ( std::vector<FFVar> const& vDepOut, std::vector<FFVar> const& vVarOut,
+      std::vector<FFVar> const& vDepIn, Deps... args );
 
-  //! @brief Compose the <a>nDepOut</a> dependents in array <a>pDepOut</a> with the <a>nDepIn</a> dependents in array <a>pDepIn</a> for the variables <a>pVarOut</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nDepIn,      const FFVar*pVarOut, const FFVar*pDepIn}. This function creates the subgraph for the outer dependent variables internally
+  //! @brief Compose the dependents indexed by <a>ndxDepOut</a> in vector <a>vDepOut</a> with the dependents in vector <a>vDepIn</a> for the variables in vector <a>vVarOut</a>. The function parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVarOut, std::vector<FFVar> const& vDepIn}. This function creates the subgraph for the outer dependent variables internally.
+  template <typename... Deps>
+  std::vector<FFVar> compose
+    ( std::set<unsigned> const& ndxDepOut, std::vector<FFVar> const& vDepOut,
+      std::vector<FFVar> const& vVarOut, std::vector<FFVar> const& vDepIn, Deps... args );
+
+  //! @brief Compose the <a>nDepOut</a> dependents in array <a>pDepOut</a> with the <a>nDepIn</a> dependents in array <a>pDepIn</a> for the variables <a>pVarOut</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nDepIn, const FFVar*pVarOut, const FFVar*pDepIn}. This function creates the subgraph for the outer dependent variables internally.
   template <typename... Deps>
   FFVar* compose
     ( unsigned const nDepOut, FFVar const* pDepOut, unsigned const nDepIn,
       FFVar const* pVarOut, FFVar const* pDepIn, Deps... args );
 
-  //! @brief Compose the dependents indexed by <a>ndxDepOut</a> in array <a>pDepOut</a> with the <a>nDepIn</a> dependents in array <a>pDepIn</a> for the variables <a>pVarOut</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nDepIn,      const FFVar*pVarOut, const FFVar*pDepIn}. This function creates the subgraph for the outer dependent variables internally
+  //! @brief Compose the dependents indexed by <a>ndxDepOut</a> in array <a>pDepOut</a> with the <a>nDepIn</a> dependents in array <a>pDepIn</a> for the variables <a>pVarOut</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nDepIn, const FFVar*pVarOut, const FFVar*pDepIn}. This function creates the subgraph for the outer dependent variables internally.
   template <typename... Deps>
   FFVar* compose
     ( std::set<unsigned> const& ndxDepOut, FFVar const* pDepOut, unsigned const nDepIn,
       FFVar const* pVarOut, FFVar const* pDepIn, Deps... args );
+
+  //! @brief Compose the dependents in <a>vDepOut</a> with those in <a>vDepIn</a>. This function creates the subgraph for the outer dependent variables internally
+  std::vector<FFVar const*> compose
+    ( std::vector<FFVar const*> const& vDepOut,
+      std::vector< std::pair<FFVar const*, FFVar const*> > const& vDepIn );
  
-  //! @brief Evaluate the dependents in array <a>pDep</a> indexed by <a>ndxDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result into <a>vDep</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, const U*vVar}. This function allocates memory for intermediate operations internally. It creates the subgraph for the dependent variables internally. 
+  //! @brief Evaluate the dependents in vector <a>vDep</a> indexed by <a>ndxDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, whose values are specified in vector <a>uVar</a>, and write the result into vector <a>uDep</a>. The function parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}. This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It creates the subgraph for the dependent variables internally. 
   template <typename U, typename... Deps> 
   void eval
-    ( const std::set<unsigned>&ndxDep, const FFVar*pDep, U*vDep,
-      const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args );
+    ( std::vector<U>& wkDep, std::set<unsigned> const& ndxDep, std::vector<FFVar> const& vDep,
+      std::vector<U>& uDep, std::vector<FFVar> const& vVar, std::vector<U> const& uVar,
+      Deps... args );
 
-  //! @brief Evaluate the dependents in array <a>pDep</a> indexed by <a>ndxDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result into <a>vDep</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, const U*vVar}. This function allocates memory for intermediate operations internally.  It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions).
+  //! @brief Evaluate the dependents in vector <a>vDep</a> indexed by <a>ndxDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, whose values are specified in vector <a>uVar</a>, and write the result into vector <a>uDep</a>. The function parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}. This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions).
   template <typename U, typename... Deps> 
   void eval
-    ( FFSubgraph&sgDep, const std::set<unsigned>&ndxDep, const FFVar*pDep, U*vDep,
-      const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args );
+    ( FFSubgraph& sgDep, std::vector<U>& wkDep, std::set<unsigned> const& ndxDep,
+      std::vector<FFVar> const& vDep, std::vector<U>& uDep, std::vector<FFVar> const& vVar,
+      std::vector<U> const& uVar, Deps... args );
 
-  //! @brief Evaluate the dependents in the map <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result in the map <a>vDep</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, const U*vVar}. This function allocates memory for intermediate operations internally. It creates the subgraph for the dependent variables internally. 
+  //! @brief Evaluate the dependents in vector <a>vDep</a> indexed by <a>ndxDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, whose values are specified in vector <a>uVar</a>, and write the result into vector <a>uDep</a>. The function parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}. This function allocates memory for intermediate operations internally. It creates the subgraph for the dependent variables internally. 
+  template <typename U, typename... Deps> 
+  void eval
+    ( std::set<unsigned> const& ndxDep, std::vector<FFVar> const& vDep, std::vector<U>& uDep,
+      std::vector<FFVar> const& vVar, std::vector<U> const& uVar, Deps... args );
+
+  //! @brief Evaluate the dependents in vector <a>vDep</a> indexed by <a>ndxDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, whose values are specified in vector <a>uVar</a>, and write the result into vector <a>uDep</a>. The function parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}. This function allocates memory for intermediate operations internally. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions).
+  template <typename U, typename... Deps> 
+  void eval
+    ( FFSubgraph& sgDep, std::set<unsigned> const& ndxDep, std::vector<FFVar> const& vDep,
+      std::vector<U>& uDep, std::vector<FFVar> const& vVar, std::vector<U> const& uVar,
+      Deps... args );
+      
+  //! @brief Evaluate the dependents in map <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, whose values are specified in vector <a>uVar</a>, and write the result into map <a>uDep</a>. The function parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}. This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It creates the subgraph for the dependent variables internally. 
   template <typename U, typename V, typename COMP, typename... Deps> 
   void eval
-    ( const std::map<V,FFVar,COMP>&pDep, std::map<V,U,COMP>&vDep,
-      const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args );
+    ( std::vector<U>& wkDep, std::map<V,FFVar,COMP> const& vDep, std::map<V,U,COMP>& uDep,
+      std::vector<FFVar> const& vVar, std::vector<U> const& uVar, Deps... args );
 
-  //! @brief Evaluate the dependents in the map <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result in the map <a>vDep</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, const U*vVar}. This function allocates memory for intermediate operations internally.  It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions).
+  //! @brief Evaluate the dependents in map <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, whose values are specified in vector <a>uVar</a>, and write the result into map <a>uDep</a>. The function parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}. This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions).
   template <typename U, typename V, typename COMP, typename... Deps> 
   void eval
-    ( FFSubgraph&sgDep, const std::map<V,FFVar,COMP>&pDep, std::map<V,U,COMP>&vDep,
-      const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args );
+    ( FFSubgraph& sgDep, std::vector<U>& wkDep, std::map<V,FFVar,COMP> const& vDep,
+      std::map<V,U,COMP>& uDep, std::vector<FFVar> const& vVar, std::vector<U> const& uVar,
+      Deps... args );
 
-  //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result into <a>vDep</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, const U*vVar}, as well as a final, optional flag {const bool add} indicating if the dependent values are to overwrite (add=false) or be added to (add=true) <a>vDep</a>. This function allocates memory for intermediate operations internally. It creates the subgraph for the dependent variables internally. 
+  //! @brief Evaluate the dependents in map <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, whose values are specified in vector <a>uVar</a>, and write the result into map <a>uDep</a>. The function parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}. This function allocates memory for intermediate operations internally. It creates the subgraph for the dependent variables internally. 
+  template <typename U, typename V, typename COMP, typename... Deps> 
+  void eval
+    ( std::map<V,FFVar,COMP> const& vDep, std::map<V,U,COMP>& uDep,
+      std::vector<FFVar> const& vVar, std::vector<U> const& uVar, Deps... args );
+
+  //! @brief Evaluate the dependents in map <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, whose values are specified in vector <a>uVar</a>, and write the result into map <a>uDep</a>. The function parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}. This function allocates memory for intermediate operations internally.  It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions).
+  template <typename U, typename V, typename COMP, typename... Deps> 
+  void eval
+    ( FFSubgraph& sgDep, std::map<V,FFVar,COMP> const& vDep, std::map<V,U,COMP>& uDep,
+      std::vector<FFVar> const& vVar, std::vector<U> const& uVar, Deps... args );
+
+  //! @brief Evaluate the dependents in vector <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, whose values are specified in vector <a>uVar</a>, and write the result into vector <a>uDep</a>. The function parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}, as well as a final, optional flag {const bool add} indicating if the dependent values are to overwrite (add=false) or be added to (add=true) those in <a>vDep</a>. This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It creates the subgraph for the dependent variables internally. 
   template <typename U, typename... Deps> 
   void eval
-    ( const unsigned nDep, const FFVar*pDep, U*vDep,
-      const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args );
+    ( std::vector<U>& wkDep, std::vector<FFVar> const& vDep, std::vector<U>& uDep,
+      std::vector<FFVar> const& vVar, std::vector<U> const& uVar, Deps... args );
 
-  //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result into <a>vDep</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, const U*vVar}, as well as a final, optional flag {const bool add} indicating if the dependent values are to overwrite (add=false) or be added to (add=true) <a>vDep</a>. This function allocates memory for intermediate operations internally. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions).
+  //! @brief Evaluate the dependents in vector <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, whose values are specified in vector <a>uVar</a>, and write the result into vector <a>uDep</a>. The function parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}, as well as a final, optional flag {const bool add} indicating if the dependent values are to overwrite (add=false) or be added to (add=true) those in <a>vDep</a>. This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions).
   template <typename U, typename... Deps> 
   void eval
-    ( FFSubgraph&sgDep, const unsigned nDep, const FFVar*pDep,
-      U*vDep, const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args );
+    ( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
+      std::vector<U>& uDep, std::vector<FFVar> const& vVar, std::vector<U> const& uVar,
+      Deps... args );
 
-  //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the variable sizes and identifiers in lists <a>l_nVar</a> and <a>l_pVar</a>, whose values are specified in the list <a>l_vVar</a>, and write the result into <a>vDep</a>. The final, optional flag {const bool add} indicates if the dependent values are to overwrite (add=false) or be added to (add=true) those in <a>vDep</a>. This function allocates memory for intermediate operations internally. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions).
+  //! @brief Evaluate the dependents in vector <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, whose values are specified in vector <a>uVar</a>, and write the result into vector <a>uDep</a>. The function parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}, as well as a final, optional flag {const bool add} indicating if the dependent values are to overwrite (add=false) or be added to (add=true) those in <a>vDep</a>. This function allocates memory for intermediate operations internally. It creates the subgraph for the dependent variables internally. 
+  template <typename U, typename... Deps> 
+  void eval
+    ( std::vector<FFVar> const& vDep, std::vector<U>& uDep, std::vector<FFVar> const& vVar,
+      std::vector<U> const& uVar, Deps... args );
+
+  //! @brief Evaluate the dependents in vector <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, whose values are specified in vector <a>uVar</a>, and write the result into vector <a>uDep</a>. The function parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}, as well as a final, optional flag {const bool add} indicating if the dependent values are to overwrite (add=false) or be added to (add=true) those in <a>vDep</a>. This function allocates memory for intermediate operations internally. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions).
+  template <typename U, typename... Deps> 
+  void eval
+    ( FFSubgraph& sgDep, std::vector<FFVar> const& vDep, std::vector<U>& uDep,
+      std::vector<FFVar> const& vVar, std::vector<U> const& uVar, Deps... args );
+
+  //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the variable sizes and identifiers in lists <a>l_nVar</a> and <a>l_pVar</a>, whose values are specified in the list <a>l_vVar</a>, and write the result into <a>vDep</a>. The final, optional flag {const bool add} indicates if the dependent values are to overwrite (add=false) or be added to (add=true) those in <a>vDep</a>. This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions).
   template <typename U> 
   void eval
-    ( FFSubgraph&sgDep, const unsigned nDep, const FFVar*pDep,
-      U*vDep, const std::list<unsigned>&nVar, const std::list<const FFVar*>&pVar,
-      const std::list<const U*>&vVar, const bool add=false );
+    ( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
+      std::vector<U>& uDep, std::list<size_t> const& l_nVar, std::list<const FFVar*> const& l_pVar,
+      std::list<const U*> const& l_vVar, bool const add=false );
 
   //! @brief Evaluate the dependents in array <a>pDep</a> indexed by <a>ndxDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result into <a>vDep</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, const U*vVar}. This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It creates the subgraph for the dependent variables internally. 
   template <typename U, typename... Deps> 
@@ -2238,6 +2345,18 @@ public:
       const FFVar*pDep, U*vDep, const unsigned nVar, const FFVar*pVar,
       const U*vVar, Deps... args );
 
+  //! @brief Evaluate the dependents in array <a>pDep</a> indexed by <a>ndxDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result into <a>vDep</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, const U*vVar}. This function allocates memory for intermediate operations internally. It creates the subgraph for the dependent variables internally. 
+  template <typename U, typename... Deps> 
+  void eval
+    ( const std::set<unsigned>&ndxDep, const FFVar*pDep, U*vDep,
+      const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args );
+
+  //! @brief Evaluate the dependents in array <a>pDep</a> indexed by <a>ndxDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result into <a>vDep</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, const U*vVar}. This function allocates memory for intermediate operations internally.  It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions).
+  template <typename U, typename... Deps> 
+  void eval
+    ( FFSubgraph&sgDep, const std::set<unsigned>&ndxDep, const FFVar*pDep, U*vDep,
+      const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args );
+
   //! @brief Evaluate the dependents in the map <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result in the map <a>vDep</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, const U*vVar}. This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It creates the subgraph for the dependent variables internally. 
   template <typename U, typename V, typename COMP, typename... Deps> 
   void eval
@@ -2251,6 +2370,18 @@ public:
       std::map<V,U,COMP>&vDep, const unsigned nVar, const FFVar*pVar, const U*vVar,
       Deps... args );
 
+  //! @brief Evaluate the dependents in the map <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result in the map <a>vDep</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, const U*vVar}. This function allocates memory for intermediate operations internally. It creates the subgraph for the dependent variables internally. 
+  template <typename U, typename V, typename COMP, typename... Deps> 
+  void eval
+    ( const std::map<V,FFVar,COMP>&pDep, std::map<V,U,COMP>&vDep,
+      const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args );
+
+  //! @brief Evaluate the dependents in the map <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result in the map <a>vDep</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, const U*vVar}. This function allocates memory for intermediate operations internally.  It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions).
+  template <typename U, typename V, typename COMP, typename... Deps> 
+  void eval
+    ( FFSubgraph&sgDep, const std::map<V,FFVar,COMP>&pDep, std::map<V,U,COMP>&vDep,
+      const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args );
+
   //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result into <a>vDep</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, const U*vVar}, as well as a final, optional flag {const bool add} indicating if the dependent values are to overwrite (add=false) or be added to (add=true) <a>vDep</a>. This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It creates the subgraph for the dependent variables internally. 
   template <typename U, typename... Deps> 
   void eval
@@ -2263,32 +2394,105 @@ public:
     ( FFSubgraph&sgDep, std::vector<U>&wkDep, const unsigned nDep, const FFVar*pDep,
       U*vDep, const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args );
 
+  //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result into <a>vDep</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, const U*vVar}, as well as a final, optional flag {const bool add} indicating if the dependent values are to overwrite (add=false) or be added to (add=true) <a>vDep</a>. This function allocates memory for intermediate operations internally. It creates the subgraph for the dependent variables internally. 
+  template <typename U, typename... Deps> 
+  void eval
+    ( const unsigned nDep, const FFVar*pDep, U*vDep,
+      const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args );
+
+  //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result into <a>vDep</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, const U*vVar}, as well as a final, optional flag {const bool add} indicating if the dependent values are to overwrite (add=false) or be added to (add=true) <a>vDep</a>. This function allocates memory for intermediate operations internally. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions).
+  template <typename U, typename... Deps> 
+  void eval
+    ( FFSubgraph&sgDep, const unsigned nDep, const FFVar*pDep,
+      U*vDep, const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args );
+
   //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the variable sizes and identifiers in lists <a>l_nVar</a> and <a>l_pVar</a>, whose values are specified in the list <a>l_vVar</a>, and write the result into <a>vDep</a>. The final, optional flag {const bool add} indicates if the dependent values are to overwrite (add=false) or be added to (add=true) those in <a>vDep</a>. This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions).
   template <typename U> 
   void eval
     ( FFSubgraph&sgDep, std::vector<U>&wkDep, const unsigned nDep, const FFVar*pDep,
-      U*vDep, const std::list<unsigned>&l_nVar, const std::list<const FFVar*>&l_pVar,
+      U*vDep, const std::list<size_t>&l_nVar, const std::list<const FFVar*>&l_pVar,
       const std::list<const U*>&l_vVar, const bool add=false );
 
-  //! @brief Evaluate the dependents in array <a>pDep</a> indexed by <a>ndxDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and use a priori information about the dependents in <a>vDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, U*vVar}, as well as optional flags {const unsigned MAXPASS, const double THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function allocates memory for intermediate operations internally. It also creates the subgraph for the dependent variables internally. The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
+  //! @brief Evaluate the dependents in vector <a>vDep</a> indexed by <a>ndxDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, whose values are specified in <a>uVar</a>, and use a priori information about the dependents in <a>uDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U>& vVar}, as well as optional flags {const unsigned MAXPASS, const double& THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function allocates memory for intermediate operations internally. It also creates the subgraph for the dependent variables internally. The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
+  template <typename U, typename... Deps> 
+  int reval
+    ( std::set<unsigned> const& ndxDep,
+      std::vector<FFVar> const& vDep, std::vector<U>& uDep,
+      std::vector<FFVar> const& vVar, std::vector<U>& uVar, Deps... args );
+
+  //! @brief Evaluate the dependents in vector <a>vDep</a> indexed by <a>ndxDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, whose values are specified in <a>uVar</a>, and use a priori information about the dependents in <a>uDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U>& vVar}, as well as optional flags {const unsigned MAXPASS, const double& THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It creates the subgraph for the dependent variables internally. The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
+  template <typename U, typename... Deps> 
+  int reval
+    ( std::vector<U>& wkDep, std::set<unsigned> const& ndxDep,
+      std::vector<FFVar> const& vDep, std::vector<U>& uDep,
+      std::vector<FFVar> const& vVar, std::vector<U>& uVar, Deps... args );
+
+  //! @brief Evaluate the dependents in vector <a>vDep</a> indexed by <a>ndxDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, whose values are specified in <a>uVar</a>, and use a priori information about the dependents in <a>uDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U>& vVar}, as well as optional flags {const unsigned MAXPASS, const double& THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function allocates memory for intermediate operations internally. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions). The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
+  template <typename U, typename... Deps> 
+  int reval
+    ( FFSubgraph& sgDep, std::set<unsigned> const& ndxDep,
+      std::vector<FFVar> const& vDep, std::vector<U>& uDep,
+      std::vector<FFVar> const& vVar, std::vector<U>& uVar, Deps... args );
+
+  //! @brief Evaluate the dependents in vector <a>vDep</a> indexed by <a>ndxDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, whose values are specified in <a>uVar</a>, and use a priori information about the dependents in <a>uDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U>& vVar}, as well as optional flags {const unsigned MAXPASS, const double& THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions). The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
+  template <typename U, typename... Deps> 
+  int reval
+    ( FFSubgraph& sgDep, std::vector<U>& wkDep, std::set<unsigned> const& ndxDep,
+      std::vector<FFVar> const& vDep, std::vector<U>& uDep,
+      std::vector<FFVar> const& vVar, std::vector<U>& uVar, Deps... args );
+
+  //! @brief Evaluate the dependents in vector <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, whose values are specified in <a>uVar</a>, and use a priori information about the dependents in <a>uDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U>& vVar}, as well as optional flags {const unsigned MAXPASS, const double& THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function allocates memory for intermediate operations internally. It also creates the subgraph for the dependent variables internally. The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
+  template <typename U, typename... Deps> 
+  int reval
+    ( std::vector<FFVar> const& vDep, std::vector<U>& uDep,
+      std::vector<FFVar> const& vVar, std::vector<U>& uVar, Deps... args );
+
+  //! @brief Evaluate the dependents in vector <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, whose values are specified in <a>uVar</a>, and use a priori information about the dependents in <a>uDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U>& vVar}, as well as optional flags {const unsigned MAXPASS, const double& THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It creates the subgraph for the dependent variables internally. The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
+  template <typename U, typename... Deps> 
+  int reval
+    ( std::vector<U>& wkDep, std::vector<FFVar> const& vDep, std::vector<U>& uDep,
+      std::vector<FFVar> const& vVar, std::vector<U>& uVar, Deps... args );
+
+  //! @brief Evaluate the dependents in vector <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, whose values are specified in <a>uVar</a>, and use a priori information about the dependents in <a>uDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U>& vVar}, as well as optional flags {const unsigned MAXPASS, const double& THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function allocates memory for intermediate operations internally. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions). The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
+  template <typename U, typename... Deps> 
+  int reval
+    ( FFSubgraph& sgDep, std::vector<FFVar> const& vDep, std::vector<U>& uDep,
+      std::vector<FFVar> const& vVar, std::vector<U>& uVar, Deps... args );
+
+  //! @brief Evaluate the dependents in vector <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, whose values are specified in <a>uVar</a>, and use a priori information about the dependents in <a>uDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U>& vVar}, as well as optional flags {const unsigned MAXPASS, const double& THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions). The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
+  template <typename U, typename... Deps> 
+  int reval
+    ( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
+      std::vector<U>& uDep, std::vector<FFVar> const& vVar, std::vector<U>& uVar,
+      Deps... args );
+
+  //! @brief Evaluate the dependents in vector <a>vDep</a> using the arithmetic U for the variable sizes and identifiers in lists <a>l_nVar</a> and <a>l_pVar</a>, whose values are specified in the list <a>l_uVar</a>, and use a priori information about the dependents in <a>uDep</a> to refine the variables in <a>l_vVar</a> based on forward/backard propagation. Should the propagation fail for any operation, the default value <a>InfVal</a> is used instead. The optional flags {const unsigned MAXPASS, const double& THRESPASS} indicate the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions). The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
+  template <typename U> 
+  int reval
+    ( FFSubgraph&sgDep, std::vector<U>&wkDep, std::vector<FFVar> const& vDep,
+      std::vector<U>& uDep, std::list<size_t> const& l_nVar, std::list<FFVar const*> const& l_pVar,
+      std::list<U*> const& l_uVar, U const& InfVal, const unsigned MAXPASS=5,
+      const double& THRESPASS=0. );
+
+  //! @brief Evaluate the dependents in array <a>pDep</a> indexed by <a>ndxDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and use a priori information about the dependents in <a>vDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, U*vVar}, as well as optional flags {const unsigned MAXPASS, const double& THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function allocates memory for intermediate operations internally. It also creates the subgraph for the dependent variables internally. The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
   template <typename U, typename... Deps> 
   int reval
     ( const std::set<unsigned>&ndxDep, const FFVar*pDep, U*vDep, 
       const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args );
 
-  //! @brief Evaluate the dependents in array <a>pDep</a> indexed by <a>ndxDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and use a priori information about the dependents in <a>vDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, U*vVar}, as well as optional flags {const unsigned MAXPASS, const double THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It creates the subgraph for the dependent variables internally. The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
+  //! @brief Evaluate the dependents in array <a>pDep</a> indexed by <a>ndxDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and use a priori information about the dependents in <a>vDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, U*vVar}, as well as optional flags {const unsigned MAXPASS, const double& THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It creates the subgraph for the dependent variables internally. The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
   template <typename U, typename... Deps> 
   int reval
     ( std::vector<U>&wkDep, const std::set<unsigned>&ndxDep, const FFVar*pDep,
       U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args );
 
-  //! @brief Evaluate the dependents in array <a>pDep</a> indexed by <a>ndxDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and use a priori information about the dependents in <a>vDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, U*vVar}, including optional flags {const unsigned MAXPASS, const double THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function allocates memory for intermediate operations internally. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions). The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
+  //! @brief Evaluate the dependents in array <a>pDep</a> indexed by <a>ndxDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and use a priori information about the dependents in <a>vDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, U*vVar}, including optional flags {const unsigned MAXPASS, const double& THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function allocates memory for intermediate operations internally. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions). The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
   template <typename U, typename... Deps> 
   int reval
     ( FFSubgraph&sgDep, const std::set<unsigned>&ndxDep, const FFVar*pDep, 
       U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args );
 
-  //! @brief Evaluate the dependents in array <a>pDep</a> indexed by <a>ndxDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and use a priori information about the dependents in <a>vDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, U*vVar}, including optional flags {const unsigned MAXPASS, const double THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions). The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
+  //! @brief Evaluate the dependents in array <a>pDep</a> indexed by <a>ndxDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and use a priori information about the dependents in <a>vDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, U*vVar}, including optional flags {const unsigned MAXPASS, const double& THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions). The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
   template <typename U, typename... Deps> 
   int reval
     ( FFSubgraph&sgDep, std::vector<U>&wkDep, const std::set<unsigned>&ndxDep,
@@ -2301,50 +2505,141 @@ public:
     ( const unsigned nDep, const FFVar*pDep, U*vDep, 
       const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args );
 
-  //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and use a priori information about the dependents in <a>vDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, U*vVar}, as well as optional flags {const unsigned MAXPASS, const double THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It creates the subgraph for the dependent variables internally. The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
+  //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and use a priori information about the dependents in <a>vDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, U*vVar}, as well as optional flags {const unsigned MAXPASS, const double& THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It creates the subgraph for the dependent variables internally. The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
   template <typename U, typename... Deps> 
   int reval
     ( std::vector<U>&wkDep, const unsigned nDep, const FFVar*pDep,
       U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args );
 
-  //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and use a priori information about the dependents in <a>vDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, U*vVar}, including optional flags {const unsigned MAXPASS, const double THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function allocates memory for intermediate operations internally. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions). The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
+  //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and use a priori information about the dependents in <a>vDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, U*vVar}, including optional flags {const unsigned MAXPASS, const double& THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function allocates memory for intermediate operations internally. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions). The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
   template <typename U, typename... Deps> 
   int reval
     ( FFSubgraph&sgDep, const unsigned nDep, const FFVar*pDep,
       U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args );
 
-  //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and use a priori information about the dependents in <a>vDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, U*vVar}, including optional flags {const unsigned MAXPASS, const double THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions). The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
+  //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and use a priori information about the dependents in <a>vDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, U*vVar}, including optional flags {const unsigned MAXPASS, const double& THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions). The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
   template <typename U, typename... Deps> 
   int reval
     ( FFSubgraph&sgDep, std::vector<U>&wkDep, const unsigned nDep, const FFVar*pDep,
       U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args );
 
-  //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the variable sizes and identifiers in lists <a>l_nVar</a> and <a>l_pVar</a>, whose values are specified in the list <a>l_vVar</a>, and use a priori information about the dependents in <a>vDep</a> to refine the variables in <a>l_vVar</a> based on forward/backard propagation. Should the propagation fail for any operation, the default value <a>InfVal</a> is used instead. The optional flags {const unsigned MAXPASS, const double THRESPASS} indicate the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions). The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
+  //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the variable sizes and identifiers in lists <a>l_nVar</a> and <a>l_pVar</a>, whose values are specified in the list <a>l_vVar</a>, and use a priori information about the dependents in <a>vDep</a> to refine the variables in <a>l_vVar</a> based on forward/backard propagation. Should the propagation fail for any operation, the default value <a>InfVal</a> is used instead. The optional flags {const unsigned MAXPASS, const double& THRESPASS} indicate the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions). The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
   template <typename U> 
   int reval
     ( FFSubgraph&sgDep, std::vector<U>&wkDep, const unsigned nDep, const FFVar*pDep,
-      U*vDep, const std::list<unsigned>&l_nVar, const std::list<const FFVar*>&l_pVar,
+      U*vDep, const std::list<size_t>&l_nVar, const std::list<const FFVar*>&l_pVar,
       const std::list<U*>&l_vVar, U const& InfVal, const unsigned MAXPASS=5,
-      const double THRESPASS=0. );
+      const double& THRESPASS=0. );
+
+  //! @brief Evaluate the dependents in vector <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, for all the values specified in the vector of vectors <a>v_uVar</a>, and write the results into the vector of vectors <a>v_uDep</a>. The parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}. This function creates the subgraph for the dependent variables internally. The number of threads for the evaluation is controlled by FFGraph::Options::MAXTHREADS, where 0 indicates the number of concurrent threads supported by the implementation.
+  template <typename U, typename... Deps>
+  void veval
+    ( std::vector<FFVar> const& vDep, std::vector<std::vector<U>>& v_uDep,
+      std::vector<FFVar> const& vVar, std::vector<std::vector<U>> const& v_uVar,
+      Deps... args );
+
+  //! @brief Evaluate the dependents in vector <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, for all the values specified in the vector of vectors <a>v_uVar</a>, and write the results into the vector of vectors <a>v_uDep</a>. The parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}. This function uses / creates the subgraph for the dependent variables passed via <a>sgDep</a>. The number of threads for the evaluation is controlled by FFGraph::Options::MAXTHREADS, where 0 indicates the number of concurrent threads supported by the implementation.
+  template <typename U, typename... Deps>
+  void veval
+    ( FFSubgraph& sgDep, std::vector<FFVar> const& vDep, std::vector<std::vector<U>>& v_uDep,
+      std::vector<FFVar> const& vVar, std::vector<std::vector<U>> const& v_uVar,
+      Deps... args );
+
+  //! @brief Evaluate the dependents in vector <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, for all the values specified in the vector of vectors <a>v_uVar</a>, and write the results into the vector of vectors <a>v_uDep</a>. The parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}. This function stores the results of intermediate operations on the current thread in the vector <a>wkDep</a>, resizing it as necessary. It creates the subgraph for the dependent variables internally. The number of threads for the evaluation is controlled by FFGraph::Options::MAXTHREADS, where 0 indicates the number of concurrent threads supported by the implementation.
+  template <typename U, typename... Deps>
+  void veval
+    ( std::vector<U>& wkDep, std::vector<FFVar> const& vDep, std::vector<std::vector<U>>& v_uDep,
+      std::vector<FFVar> const& vVar, std::vector<std::vector<U>> const& v_uVar,
+      Deps... args );
+
+  //! @brief Evaluate the dependents in vector <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, for all the values specified in the vector of vectors <a>v_uVar</a>, and write the results into the vector of vectors <a>v_uDep</a>. This function uses / creates the subgraph for the dependent variables passed via <a>sgDep</a>. The number of threads for the evaluation is controlled by FFGraph::Options::MAXTHREADS, where 0 indicates the number of concurrent threads supported by the implementation.
+  template <typename U>
+  void veval
+    ( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
+      std::vector<std::vector<U>>& v_uDep, std::vector<FFVar> const& vVar,
+      std::vector<std::vector<U>> const& v_uVar );
+
+  //! @brief Evaluate the dependents in vector <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, for all the values specified in the vector of vectors <a>v_uVar</a>, and write the results into the vector of vectors <a>v_uDep</a>. The parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}. This function stores the results of intermediate operations on the current thread in the vector <a>wkDep</a>, resizing it as necessary. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a>. The number of threads for the evaluation is controlled by FFGraph::Options::MAXTHREADS, where 0 indicates the number of concurrent threads supported by the implementation.
+  template <typename U, typename... Deps>
+  void veval
+    ( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
+      std::vector<std::vector<U>>& v_uDep, std::vector<FFVar> const& vVar,
+      std::vector<std::vector<U>> const& v_uVar, std::vector<FFVar> const& vvVar,
+      std::vector<U> const& uuVar, Deps... args );
+
+  //! @brief Evaluate the dependents in vector <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, for all the values specified in the vector of vectors <a>v_uVar</a>, and write the results into the vector of vectors <a>v_uDep</a>. Additional arguments are the variable sizes and identifiers in lists <a>l_nVar</a> and <a>l_pVar</a>, whose values are specified in the list <a>l_vVar</a>. This function uses / creates the subgraph for the dependent variables passed via <a>sgDep</a>. The number of threads for the evaluation is controlled by FFGraph::Options::MAXTHREADS, where 0 indicates the number of concurrent threads supported by the implementation.
+  template <typename U>
+  void veval
+    ( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
+      std::vector<std::vector<U>>& v_uDep, std::vector<FFVar> const& vVar,
+      std::vector<std::vector<U>> const& v_uVar,
+      std::list<size_t>& l_nVar, 
+      std::list<const FFVar*>& l_pVar,
+      std::list<const U*>& l_uVar );
 
   //! @brief Extract operand values from work array <a>wkIn</a> corresponding to subgraph <a>sgIn</a> and copy them into work array <a>wkOut</a> corresponding to subgraph <a>sgOut</a>. This extraction assumes that the subgraph <a>sgOut</a> is contained within the subgraph <a>sgIn</a>, otherwise the behavior is undefined.
   template <typename U> 
   void wkextract
     ( const FFSubgraph&sgOut, std::vector<U>&wkOut, const FFSubgraph&sgIn, std::vector<U>&wkIn );
-
-  //! @brief Perform lower triangular block reaarangement of a square system - the output arguments are the same as in the <a href="http://www.hsl.rl.ac.uk/catalogue/mc13.html">documentation of MC13</a>
-  bool MC13
-    ( const unsigned nDep, const FFVar*pDep, const FFVar*pIndep,
-      int*IPERM, int*IOR, int*IB, int&NB, const bool disp=false,
-      std::ostream&os=std::cout );
-  //! @brief Perform bordered-block triangular reaarangement of a possibly non-square system - the output arguments are the same as in the <a href="http://www.hsl.rl.ac.uk/catalogue/mc33.html">documentation of MC33</a>
-  bool MC33
-    ( const unsigned nDep, const FFVar*pDep, const unsigned nIndep,
-      const FFVar*pIndep, int*IP, int*IQ, int*IPROF, int*IFLAG, const bool disp=false,
-      std::ostream&os=std::cout );
   /** @} */
 
 protected:
+
+  //! @brief DAG duplication for thread evaluation
+  template <typename U>
+  struct Worker
+  {
+    //! @brief Constructor
+    Worker
+      ()
+      {
+        dag = new FFGraph;
+      }
+      
+    //! @brief Destructor
+    ~Worker
+      ()
+      {
+        for( auto& pv : l_pVar ) delete[] pv;
+        // no need to clean up l_uVar
+        delete dag;
+      }
+
+    //! @brief local copy of DAG
+    FFGraph*                dag;
+
+    //! @brief DAG subgraph
+    FFSubgraph              sgDep;
+
+    //! @brief work array for evaluation
+    std::vector<U>          wkDep;
+
+    //! @brief vector of dependent vector variables
+    std::vector<FFVar>      vDep;
+
+    //! @breif list of independent variable sizes
+    std::list<size_t>       l_nVar; 
+
+    //! @breif list of independent variable arrays
+    std::list<FFVar const*> l_pVar;
+
+    //! @breif list of independent variable values
+    std::list<U const*>     l_uVar; 
+  };
+
+  //! brief Intermediate function for recursive calls in FAD with a function parameter pack.
+  template <typename... Deps> 
+  std::vector<const FFVar*> FAD
+    ( std::vector<FFVar const*> const& vpDep, std::vector<FFVar const*>& vpIndep,
+      std::vector<FFVar> const& vIndep, Deps... args );
+
+  //! brief Intermediate function for recursive calls in directional FAD with a function parameter pack.
+  template <typename... Deps> 
+  std::vector<const FFVar*> DFAD
+    ( std::vector<FFVar const*> const& vpDep, std::vector<FFVar const*>& vpIndep,
+      std::vector<FFVar const*>& vpDir, std::vector<FFVar> const& vIndep,
+      std::vector<FFVar> const& vDir, Deps... args );
+
   //! brief Intermediate function for recursive calls in FAD with a function parameter pack.
   template <typename... Deps> 
   std::vector<const FFVar*> FAD
@@ -2353,10 +2648,10 @@ protected:
 
   //! brief Intermediate function for recursive calls in directional FAD with a function parameter pack.
   template <typename... Deps> 
-  std::vector<const FFVar*> FAD
+  std::vector<const FFVar*> DFAD
     ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*>& vIndep,
       std::vector<FFVar const*>& vDir, unsigned const nIndep,
-      FFVar const * const pIndep, FFVar const* const pDir, Deps... args );
+      FFVar const* const pIndep, FFVar const* const pDir, Deps... args );
 
   //! brief Intermediate function for recursive calls in sparse FAD with a function parameter pack.
   template <typename... Deps>
@@ -2364,17 +2659,59 @@ protected:
     ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*>& vIndep,
       unsigned const nIndep, FFVar const* const pIndep, Deps... args );
 
-  //! brief Intermediate function for recursive calls in sparse FAD with a function parameter pack.
-  std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> > SFAD
-    ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vIndep,
-      int const LUopt );
-
   //! brief Intermediate function for recursive calls in sparse directional FAD with a function parameter pack.
   template <typename... Deps>
-  std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> > SFAD
+  std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> > SDFAD
     ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*>& vIndep,
       std::vector<FFVar const*>& vDir, unsigned const nIndep,
       FFVar const* const pIndep, const FFVar* const pDir, Deps... args );
+
+  //! brief Intermediate function for recursive calls in sparse FAD with a function parameter pack.
+  template <typename... Deps>
+  std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> > SFAD
+    ( std::vector<FFVar const*> const& vpDep, std::vector<FFVar const*>& vpIndep,
+      std::vector<FFVar> const& vIndep, Deps... args );
+
+  //! brief Intermediate function for recursive calls in sparse directional FAD with a function parameter pack.
+  template <typename... Deps>
+  std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> > SDFAD
+    ( std::vector<FFVar const*> const& vpDep, std::vector<FFVar const*>& vpIndep,
+      std::vector<FFVar const*>& vpDir, std::vector<FFVar> const& vIndep,
+      std::vector<FFVar> const& vDir, Deps... args );
+
+  //! @brief Expand DAG with derivatives of dependents <a>vDep</a> with respect to independents <a>vIndep</a>. The returns a vector with the entries of the Jacobian matrix, ordered either row-wise (transp=false) or column-wise (transp=true)
+  std::vector<FFVar const*> FAD
+    ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vIndep,
+      bool const transp=false );
+
+  //! @brief Expand DAG with derivatives of dependents <a>vDep</a> with respect to independents <a>vIndep</a> (directional derivatives if <a>vDir</a> is specifed). The returns value is a vector with the entries of the Jacobian matrix, ordered row-wise
+  std::vector<FFVar const*> DFAD
+    ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vIndep,
+      std::vector<FFVar const*> const& vDir );
+
+  //! brief Intermediate function for recursive calls in BAD with a function parameter pack.
+  template <typename... Deps> 
+  std::vector<const FFVar*> BAD
+    ( std::vector<FFVar const*> const& vpDep, std::vector<FFVar const*>& vpIndep,
+      std::vector<FFVar> const& vIndep, Deps... args );
+
+  //! brief Intermediate function for recursive calls in directional BAD with a function parameter pack.
+  template <typename... Deps> 
+  std::vector<const FFVar*> DBAD
+    ( std::vector<FFVar const*> const& vpDep, std::vector<FFVar const*>& vpDir, 
+      std::vector<FFVar const*>& vpIndep, std::vector<FFVar> const& vIndep, Deps... args );
+
+  //! brief Intermediate function for recursive calls in sparse BAD with a function parameter pack.
+  template <typename... Deps>
+  std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> > SBAD
+    ( std::vector<FFVar const*> const& vpDep, std::vector<FFVar const*>& vpIndep,
+      std::vector<FFVar> const& vIndep, Deps... args );
+
+  //! brief Intermediate function for recursive calls in sparse directional BAD with a function parameter pack.
+  template <typename... Deps>
+  std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> > SDBAD
+    ( std::vector<FFVar const*> const& vpDep, std::vector<FFVar const*>& vpDir, 
+      std::vector<FFVar const*>& vpIndep, std::vector<FFVar> const& vIndep, Deps... args );
 
   //! brief Intermediate function for recursive calls in BAD with a function parameter pack.
   template <typename... Deps> 
@@ -2384,7 +2721,7 @@ protected:
 
   //! brief Intermediate function for recursive calls in directional BAD with a function parameter pack.
   template <typename... Deps> 
-  std::vector<const FFVar*> BAD
+  std::vector<const FFVar*> DBAD
     ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*>& vDir, 
       std::vector<FFVar const*>& vIndep, unsigned const nIndep, FFVar const * const pIndep,
       Deps... args );
@@ -2395,17 +2732,29 @@ protected:
     ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*>& vIndep,
       unsigned const nIndep, FFVar const* const pIndep, Deps... args );
 
-  //! brief Intermediate function for recursive calls in sparse VBAD with a function parameter pack.
-  std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> > SBAD
-    ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vIndep,
-      int const LUopt=0 );
-
   //! brief Intermediate function for recursive calls in sparse directional BAD with a function parameter pack.
   template <typename... Deps>
-  std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> > SBAD
+  std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> > SDBAD
     ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*>& vDir, 
       std::vector<FFVar const*>& vIndep, unsigned const nIndep, FFVar const* const pIndep,
       Deps... args );
+
+  //! @brief Expand DAG with derivatives of dependents <a>vDep</a> with respect to independents <a>vIndep</a>. The returns value is a vector with the entries of the Jacobian matrix, ordered row-wise (transp=false) or column-wise (transp=true)
+  std::vector<FFVar const*> BAD
+    ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vIndep,
+      bool const transp=false );
+
+  //! @brief Expand DAG with derivatives of dependents <a>vDep</a> with respect to independents <a>vIndep</a> (directional derivatives if <a>vDir</a> is specifed). The returns value is a vector with the entries of the Jacobian matrix, ordered row-wise
+  std::vector<FFVar const*> DBAD
+    ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vDir,
+      std::vector<FFVar const*> const& vIndep );
+
+  //! brief Intermediate function for recursive calls in DAG composition with a function parameter pack.
+  template <typename... Deps> 
+  std::vector<FFVar const*> compose
+    ( std::vector<FFVar const*> const& vDepOut,
+      std::vector< std::pair<FFVar const*, FFVar const*> >& vDepIn,
+      std::vector<FFVar> const& vVarOut, std::vector<FFVar> const& pDepIn, Deps... args  );
 
   //! brief Intermediate function for recursive calls in DAG composition with a function parameter pack.
   template <typename... Deps> 
@@ -2417,31 +2766,66 @@ protected:
   //! brief Intermediate function for recursive calls in DAG evaluation with a function parameter pack.
   template <typename U, typename... Deps> 
   void eval
-    ( FFSubgraph&sgDep, const unsigned nDep, const FFVar*pDep, U*vDep, 
-      std::list<unsigned>&l_nVar, std::list<const FFVar*>&l_pVar,
-      std::list<const U*>&l_vVar, const unsigned nVar, const FFVar*pVar,
-      const U*vVar, Deps... args );
+    ( FFSubgraph& sgDep, std::vector<U>&wkDep, std::vector<FFVar> const& vDep,
+      std::vector<U>& uDep, std::list<size_t>&l_nVar, std::list<const FFVar*>&l_pVar,
+      std::list<const U*>&l_vVar, std::vector<FFVar> const& vVar,
+      std::vector<U> const& uVar, Deps... args );
 
   //! brief Intermediate function for recursive calls in DAG evaluation with a function parameter pack.
   template <typename U, typename... Deps> 
   void eval
     ( FFSubgraph&sgDep, std::vector<U>&wkDep, const unsigned nDep, const FFVar*pDep,
-      U*vDep, std::list<unsigned>&l_nVar, std::list<const FFVar*>&l_pVar,
+      U*vDep, std::list<size_t>&l_nVar, std::list<const FFVar*>&l_pVar,
       std::list<const U*>&l_vVar, const unsigned nVar, const FFVar*pVar,
       const U*vVar, Deps... args );
 
-  //! brief Intermediate function for recursive calls in DAG evaluation with a function parameter pack.
+  //! brief Intermediate function for recursive calls in DAG vector evaluation with a function parameter pack.
+  template <typename U, typename... Deps>
+  void veval
+    ( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
+      std::vector<std::vector<U>>& v_uDep, std::vector<FFVar> const& vVar,
+      std::vector<std::vector<U>> const& v_uVar,
+      std::list<size_t>& l_nVar, std::list<const FFVar*>& l_pVar,
+      std::list<const U*>& l_uVar, std::vector<FFVar> const& vvVar,
+      std::vector<U> const& uuVar, Deps... args );
+
+  //! brief Intermediate function for DAG vector evaluation.
+  template <typename U>
+  bool _vcopy
+    ( FFGraph::Worker<U>& wk, FFSubgraph& sgDep, size_t const nDep,
+      FFVar const* pDep, size_t const nVar, FFVar const* pVar,
+      std::list<size_t>& l_nVar, std::list<const FFVar*>& l_pVar, std::list<const U*>& l_uVar );
+
+  //! brief Intermediate function for DAG vector evaluation.
+  template <typename U>
+  void _veval
+    ( size_t const CURTHREAD, size_t const NOTHREADS, FFGraph::Worker<U>& wk, 
+      std::vector<std::vector<U>>& v_uDep, std::vector<std::vector<U>> const& v_uVar );
+
+  //! brief Intermediate function for DAG vector evaluation.
+  template <typename U>
+  void _veval0
+    ( size_t const NOTHREADS, 
+      FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
+      std::vector<std::vector<U>>& v_uDep, std::vector<FFVar> const& vVar,
+      std::vector<std::vector<U>> const& v_uVar, std::list<size_t>& l_nVar,
+      std::list<const FFVar*>& l_pVar, std::list<const U*>& l_uVar );
+
+  //! brief Intermediate function for recursive calls in DAG reverse evaluation with a function parameter pack.
+  template <typename U, typename... Deps> 
+  int reval
+    ( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
+      std::vector<U>& uDep, std::list<size_t>& l_nVar, std::list<FFVar const*>& l_pVar,
+      std::list<U*>& l_uVar, std::vector<FFVar> const& vVar, std::vector<U>& uVar,
+      Deps... args );
+
+  //! brief Intermediate function for recursive calls in DAG reverse evaluation with a function parameter pack.
   template <typename U, typename... Deps> 
   int reval
     ( FFSubgraph&sgDep, std::vector<U>&wkDep, const unsigned nDep, const FFVar*pDep,
-      U*vDep, std::list<unsigned>&l_nVar, std::list<const FFVar*>&l_pVar,
-      std::list<U*>&l_vVar, const unsigned nVar, const FFVar*pVar,
-      U*vVar, Deps... args );
-
-
-//  //! @brief Erase all operations in set <a>_Ops</a>
-//  void _clear_data
-//    ();
+      U*vDep, std::list<size_t>&l_nVar, std::list<const FFVar*>&l_pVar,
+      std::list<U*>&l_vVar, const unsigned nVar, const FFVar*pVar, U*vVar,
+      Deps... args );
 
 private:
   //! @brief Private methods to block default compiler methods
@@ -6818,6 +7202,13 @@ FFBase::subgraph
 
 inline FFSubgraph
 FFBase::subgraph
+( std::vector<FFVar> const& vDep )
+{
+  return subgraph( vDep.size(), vDep.data() );
+}
+
+inline FFSubgraph
+FFBase::subgraph
 ( unsigned int const nDep, FFVar const* pDep )
 {
   _reset_operations();
@@ -6873,6 +7264,14 @@ FFBase::output
 ( FFSubgraph const& sgDep, std::string const& header, std::ostream& os )
 {
   sgDep.output( header, os );
+}
+
+inline void
+FFBase::dot_script
+( std::vector<FFVar> const& vDep, std::ostream& os )
+const
+{
+  dot_script( vDep.size(), vDep.data(), os );
 }
 
 inline void
@@ -7092,18 +7491,85 @@ FFBase::det
 ///////////////////////////////// FFGraph //////////////////////////////////////
 
 template <typename... Deps> 
+inline std::vector<FFVar>
+FFGraph::FAD
+( std::vector<FFVar> const& vDep, std::vector<FFVar> const& vIndep, Deps... args )
+{
+  if( vDep.empty() || vIndep.empty() ) return std::vector<FFVar>();  // Nothing to do!
+
+  std::vector<FFVar const*> vpDep; vpDep.reserve( vDep.size() );
+  for( auto const& var : vDep ) vpDep.push_back( &var );
+
+  std::vector<FFVar const*> vpIndep; vpIndep.reserve( vIndep.size() );
+  for( auto const& var : vIndep ) vpIndep.push_back( &var );
+
+  auto&& vpDep_F = FAD( vpDep, vpIndep, args... );
+
+  std::vector<FFVar> vDep_F; vDep_F.reserve( vpDep_F.size() );
+  for( auto& pvar : vpDep_F ) vDep_F.push_back( *pvar );
+  return vDep_F;
+}
+
+template <typename... Deps>
+inline std::vector<FFVar const*>
+FFGraph::FAD
+( std::vector<FFVar const*> const& vpDep, std::vector<FFVar const*>& vpIndep,
+  std::vector<FFVar> const& vIndep, Deps... args )
+{
+  for( auto const& var : vIndep ) vpIndep.push_back( &var );
+  return FAD( vpDep, vpIndep, args... );
+}
+
+template <typename... Deps> 
+inline std::vector<FFVar>
+FFGraph::DFAD
+( std::vector<FFVar> const& vDep, std::vector<FFVar> const& vIndep,
+  std::vector<FFVar> const& vDir, Deps... args )
+{
+  if( vDep.empty() || vIndep.empty() ) return std::vector<FFVar>();  // Nothing to do!
+  assert( vIndep.size() == vDir.size() );
+
+  std::vector<FFVar const*> vpDep; vpDep.reserve( vDep.size() );
+  for( auto const& var : vDep ) vpDep.push_back( &var );
+
+  std::vector<FFVar const*> vpIndep; vpIndep.reserve( vIndep.size() );
+  for( auto const& var : vIndep ) vpIndep.push_back( &var );
+
+  std::vector<FFVar const*> vpDir; vpDir.reserve( vDir.size() );
+  for( auto const& var : vDir ) vpDir.push_back( &var );
+
+  auto&& vpDep_F = DFAD( vpDep, vpIndep, vpDir, args... );
+
+  std::vector<FFVar> vDep_F; vDep_F.reserve( vpDep_F.size() );
+  for( auto& pvar : vpDep_F ) vDep_F.push_back( *pvar );
+  return vDep_F;
+}
+
+template <typename... Deps>
+inline std::vector<FFVar const*>
+FFGraph::DFAD
+( std::vector<FFVar const*> const& vpDep, std::vector<FFVar const*>& vpIndep,
+  std::vector<FFVar const*>& vpDir, std::vector<FFVar> const& vIndep,
+  std::vector<FFVar> const& vDir, Deps... args )
+{
+  for( auto const& var : vIndep ) vpIndep.push_back( &var );
+  for( auto const& var : vDir )   vpDir.push_back( &var );
+  return DFAD( vpDep, vpIndep, vpDir, args... );
+}
+
+template <typename... Deps> 
 inline FFVar*
 FFGraph::FAD
 ( unsigned const nDep, FFVar const* const pDep, unsigned const nIndep,
   FFVar const* const pIndep, Deps... args )
 {
-  if( !nDep || !nIndep ) return 0;  // Nothing to do!
+  if( !nDep || !nIndep ) return nullptr;  // Nothing to do!
   assert( pDep && pIndep );
 
   std::vector<FFVar const*> vDep, vIndep;
   for( unsigned i=0; i<nDep; i++ )   vDep.push_back( pDep+i );
   for( unsigned i=0; i<nIndep; i++ ) vIndep.push_back( pIndep+i );
-  auto vDep_F = FAD( vDep, vIndep, args... );
+  auto&& vDep_F = FAD( vDep, vIndep, args... );
 
   FFVar* pDep_F = new FFVar[ vDep_F.size() ];
   auto it = vDep_F.begin();
@@ -7133,7 +7599,7 @@ FFGraph::DFAD
   std::vector<FFVar const*> vDep, vIndep, vDir;
   for( unsigned i=0; i<nDep; i++ ) vDep.push_back( pDep+i );
   for( unsigned i=0; i<nIndep; i++ ){ vIndep.push_back( pIndep+i ); vDir.push_back( pDir+i ); }
-  std::vector<FFVar const*> vDep_F = FAD( vDep, vIndep, vDir, args... );
+  auto&& vDep_F = DFAD( vDep, vIndep, vDir, args... );
 
   FFVar* pDep_F = new FFVar[ vDep_F.size() ];
   auto it = vDep_F.begin();
@@ -7143,17 +7609,17 @@ FFGraph::DFAD
 
 template <typename... Deps>
 inline std::vector<FFVar const*>
-FFGraph::FAD
+FFGraph::DFAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*>& vIndep,
   std::vector<FFVar const*>& vDir, unsigned const nIndep,
   FFVar const* const pIndep, FFVar const* const pDir, Deps... args )
 {
   for( unsigned i=0; i<nIndep; i++ ){ vIndep.push_back( pIndep+i ); vDir.push_back( pDir+i ); }
-  return FAD( vDep, vIndep, vDir, args... );
+  return DFAD( vDep, vIndep, vDir, args... );
 }
 
 inline std::vector<const FFVar*>
-FFGraph::FAD
+FFGraph::DFAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vIndep,
   std::vector<FFVar const*> const& vDir )
 {
@@ -7163,7 +7629,7 @@ FFGraph::FAD
   std::cout << std::endl;
 #endif
 
-  auto sDep_F = SFAD( vDep, vIndep, vDir );
+  auto&& sDep_F = SDFAD( vDep, vIndep, vDir );
   const FFVar*pZero = _add_constant( 0. );
   std::vector<FFVar const*> vDep_F( (vDir.size()?1:vIndep.size())*vDep.size(), pZero );
   for( unsigned ie(0); ie<std::get<2>(sDep_F).size(); ie++ ){
@@ -7178,7 +7644,7 @@ FFGraph::FAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vIndep,
   bool const transp )
 {
-  auto sDep_F = SFAD( vDep, vIndep );
+  auto&& sDep_F = SFAD( vDep, vIndep );
   const FFVar*pZero = _add_constant( 0. );
   std::vector<FFVar const*> vDep_F( vIndep.size()*vDep.size(), pZero );
   for( unsigned ie(0); ie<std::get<2>(sDep_F).size(); ie++ ){
@@ -7188,6 +7654,88 @@ FFGraph::FAD
     vDep_F[pDep_F] = std::get<2>(sDep_F)[ie];
   }
   return vDep_F;
+}
+
+template <typename... Deps>
+inline std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar> >
+FFGraph::SDFAD
+( std::vector<FFVar> const& vDep, std::vector<FFVar> const& vIndep,
+  std::vector<FFVar> const& vDir, Deps... args )
+{
+  if( vDep.empty() || vIndep.empty() )
+    return std::make_tuple(std::vector<unsigned>(),std::vector<unsigned>(),std::vector<FFVar>());  // Nothing to do!
+
+  std::vector<FFVar const*> vpDep; vpDep.reserve( vDep.size() );
+  for( auto const& var : vDep ) vpDep.push_back( &var );
+
+  std::vector<FFVar const*> vpIndep; vpIndep.reserve( vIndep.size() );
+  for( auto const& var : vIndep ) vpIndep.push_back( &var );
+
+  std::vector<FFVar const*> vpDir; vpDir.reserve( vDir.size() );
+  for( auto const& var : vDir ) vpDir.push_back( &var );
+
+  auto&& vpDep_F = SDFAD( vpDep, vpIndep, vpDir, args... );
+
+  std::vector<FFVar> vDep_F; vDep_F.reserve( std::get<2>(vpDep_F).size() );
+  for( auto& pvar : std::get<2>(vpDep_F) ) vDep_F.push_back( *pvar );
+
+  return std::make_tuple( std::get<0>(vpDep_F), std::get<1>(vpDep_F), vDep_F );
+}
+
+template <typename... Deps>
+inline std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> >
+FFGraph::SDFAD
+( std::vector<FFVar const*> const& vpDep, std::vector<FFVar const*>& vpIndep,
+  std::vector<FFVar const*>& vpDir, std::vector<FFVar> const& vIndep,
+  std::vector<FFVar> const& vDir, Deps... args )
+{
+  for( auto const& var : vIndep ) vpIndep.push_back( &var );
+  for( auto const& var : vDir )   vpDir.push_back( &var );
+  return SDFAD( vpDep, vpIndep, vpDir, args... );
+}
+
+template <typename... Deps>
+inline std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar> >
+FFGraph::SFAD
+( std::set<unsigned> const& ndxDep, std::vector<FFVar> const& vDep,
+  std::vector<FFVar> const& vIndep, Deps... args )
+{
+  if( ndxDep.empty() )
+    return std::make_tuple(std::vector<unsigned>(),std::vector<unsigned>(),std::vector<FFVar>());  // Nothing to do!
+
+  std::vector<FFVar> vDepRed( ndxDep.size() );
+  std::set<unsigned>::const_iterator it = ndxDep.cbegin();
+  for( unsigned iDep=0; it != ndxDep.cend(); ++it, iDep++ ) vDepRed[iDep] = vDep[*it];
+  auto&& vDep_F = SFAD( vDepRed, vIndep, args... );
+
+  for( unsigned ie=0; ie<std::get<0>(vDep_F).size(); ie++ ){
+    auto it = ndxDep.cbegin();
+    std::advance( it, std::get<0>(vDep_F)[ie] );
+    std::get<0>(vDep_F)[ie] = *it;
+  }
+  return vDep_F;
+}
+
+template <typename... Deps>
+inline std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar> >
+FFGraph::SFAD
+( std::vector<FFVar> const& vDep, std::vector<FFVar> const& vIndep, Deps... args )
+{
+  if( !vIndep.size() || !vDep.size() )
+    return std::make_tuple( std::vector<unsigned>(), std::vector<unsigned>(), std::vector<FFVar>() );
+
+  std::vector<FFVar const*> vpDep; vpDep.reserve( vDep.size() );
+  for( auto const& var : vDep ) vpDep.push_back( &var );
+
+  std::vector<FFVar const*> vpIndep; vpIndep.reserve( vIndep.size() );
+  for( auto const& var : vIndep ) vpIndep.push_back( &var );
+
+  auto&& vpDep_F = SFAD( vpDep, vpIndep, args... );
+
+  std::vector<FFVar> vDep_F; vDep_F.reserve( std::get<2>(vpDep_F).size() );
+  for( auto& pvar : std::get<2>(vpDep_F) ) vDep_F.push_back( *pvar );
+
+  return std::make_tuple( std::get<0>(vpDep_F), std::get<1>(vpDep_F), vDep_F );
 }
 
 template <typename... Deps>
@@ -7202,7 +7750,7 @@ FFGraph::SDFAD
   std::vector<FFVar const*> vDep, vIndep, vDir;
   for( unsigned i=0; i<nDep; i++ ) vDep.push_back( pDep+i );
   for( unsigned i=0; i<nIndep; i++ ){ vIndep.push_back( pIndep+i ); vDir.push_back( pDir+i ); }
-  auto vDep_F = SFAD( vDep, vIndep, vDir, args... );
+  auto vDep_F = SDFAD( vDep, vIndep, vDir, args... );
 
   const unsigned nDep_F = std::get<0>(vDep_F).size();
   unsigned* iDep_F = new unsigned[ nDep_F ];
@@ -7218,13 +7766,13 @@ FFGraph::SDFAD
 
 template <typename... Deps>
 inline std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> >
-FFGraph::SFAD
+FFGraph::SDFAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*>& vIndep,
   std::vector<FFVar const*>& vDir, unsigned const nIndep,
   FFVar const* const pIndep, FFVar const* const pDir, Deps... args )
 {
   for( unsigned i=0; i<nIndep; i++ ){ vIndep.push_back( pIndep+i ); vDir.push_back( pDir+i ); }
-  return SFAD( vDep, vIndep, vDir, args... );
+  return SDFAD( vDep, vIndep, vDir, args... );
 }
 
 template <typename... Deps>
@@ -7278,6 +7826,16 @@ FFGraph::SFAD
 template <typename... Deps>
 inline std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> >
 FFGraph::SFAD
+( std::vector<FFVar const*> const& vpDep, std::vector<FFVar const*>& vpIndep,
+  std::vector<FFVar> const& vIndep, Deps... args )
+{
+  for( auto const& var : vIndep ) vpIndep.push_back( &var );
+  return SFAD( vpDep, vpIndep, args... );
+}
+
+template <typename... Deps>
+inline std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> >
+FFGraph::SFAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*>& vIndep,
   const unsigned nIndep, FFVar const* const pIndep, Deps... args )
 {
@@ -7290,7 +7848,9 @@ FFGraph::SFAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vIndep,
   int const LUopt )
 {
-  auto sDep_F = SFAD( vDep, vIndep );
+  auto&& sDep_F = SDFAD( vDep, vIndep, std::vector<FFVar const*>() );
+  if( LUopt == 0 ) return sDep_F;
+
   std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> > vDep_F;
   for( unsigned iv=0; iv<std::get<0>(sDep_F).size(); iv++ ){
     if( ( LUopt ==  1 && std::get<0>(sDep_F)[iv] < std::get<1>(sDep_F)[iv] )
@@ -7305,7 +7865,7 @@ FFGraph::SFAD
 
 #ifndef MC__USE_FADIFF
 inline std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> >
-FFGraph::SFAD
+FFGraph::SDFAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vIndep,
   std::vector<FFVar const*> const& vDir )
 {
@@ -7315,13 +7875,11 @@ FFGraph::SFAD
   assert( !vDir.size() || vIndep.size() == vDir.size() );
 
   // Populate subgraph
-  auto sgDep = subgraph( vDep );
+  auto&& sgDep = subgraph( vDep );
 #ifdef MC__FFUNC_SFAD_DEBUG
   output( sgDep );
 #endif
-  //_wkAD.clear();
-  //_wkAD.resize( sgDep.len_tap );
-  std::vector<FFVar> _wkAD( sgDep.len_tap );
+  std::vector<FFVar> wkAD( sgDep.len_tap );
 
 #ifdef MC__FFUNC_CPU_EVAL
   double cputime = -cpuclock();
@@ -7392,7 +7950,7 @@ FFGraph::SFAD
         default:
           for( unsigned int iout=0; iout<op->varout.size(); ++iout ){
             //std::cerr << "iwk+iout = " << iwk+iout << std::endl;
-            _wkAD[iwk+iout] = FFZero;
+            wkAD[iwk+iout] = FFZero;
             for( unsigned int iin=0; iin<op->varin.size(); ++iin ){
               if( op->varin[iin]->val() == &FFZero
                || ((vDep_deriv[iwk+iout][iin].id().first == FFVar::CREAL
@@ -7400,11 +7958,11 @@ FFGraph::SFAD
                  && vDep_deriv[iwk+iout][iin].num().val() == 0.) )
                 continue;
               else if( op->varin[iin]->val() == &FFOne )
-                _wkAD[iwk+iout] += vDep_deriv[iwk+iout][iin];
+                wkAD[iwk+iout] += vDep_deriv[iwk+iout][iin];
               else
-                _wkAD[iwk+iout] += vDep_deriv[iwk+iout][iin] * *static_cast<FFVar*>( op->varin[iin]->val() );
+                wkAD[iwk+iout] += vDep_deriv[iwk+iout][iin] * *static_cast<FFVar*>( op->varin[iin]->val() );
             }
-            op->varout[iout]->val() = &_wkAD[iwk+iout];
+            op->varout[iout]->val() = &wkAD[iwk+iout];
           }
       }
       // Increment tape
@@ -7431,10 +7989,6 @@ FFGraph::SFAD
 
   // Clean-up intermediate derivative arrays
   for( auto& vdep : vDep_deriv ) if( vdep ) delete[] vdep;
-#ifdef MC__FFUNC_SFAD_CLEAR
-  std::cout << "Clearing work array _wkAD" << std::endl;
-  _wkAD.clear();
-#endif
 #ifdef MC__FFUNC_CPU_EVAL
   cputime += cpuclock();
   std::cout << "\nEvaluation time: " << std::fixed << cputime << std::endl;
@@ -7466,9 +8020,8 @@ FFGraph::SFAD
 #ifdef MC__FFUNC_SFAD_DEBUG
     output( sgDep );
 #endif
-    _wkSFAD.clear();
-    _wkSFAD.resize( sgDep.len_tap );
-    auto pwkSFAD = ( sgDep.len_wrk? &_wkSFAD[sgDep.len_tap-sgDep.len_wrk]: nullptr );
+    std::vector< fadbad::F<FFVar> > wkAD( sgDep.len_tap );
+    auto pwkSFAD = ( sgDep.len_wrk? &wkAD[sgDep.len_tap-sgDep.len_wrk]: nullptr );
     unsigned* pwkmov = ( sgDep.len_wrk? &sgDep.v_mov[sgDep.len_tap-sgDep.len_wrk]: nullptr );
     std::map< unsigned, unsigned > mapIndep;
 
@@ -7493,21 +8046,21 @@ FFGraph::SFAD
       // Initialize variable using values in l_vVar
       if( op->type == FFOp::VAR ){
         auto pvar = op->varout[0];
-        _wkSFAD[iwk] = *pvar;
+        wkAD[iwk] = *pvar;
         auto iti = vIndep.begin();
         auto itd = vDir.begin();
         for( unsigned int ii=0; iti!=vIndep.end(); ++iti, ++itd, ++ii ){
           if( pvar->id() != (*iti)->id() ) continue;
 #ifdef MC__FFUNC_SFAD_DEBUG
-          std::cerr << "independent " << idiff << ": " << _wkSFAD[iwk].val() << std::endl;
+          std::cerr << "independent " << idiff << ": " << wkAD[iwk].val() << std::endl;
 #endif
           if( vDir.size() ){
             mapIndep[idiff] = 0;
-            _wkSFAD[iwk].diff( 0, 1 ) = **itd;
+            wkAD[iwk].diff( 0, 1 ) = **itd;
           }
           else{
             mapIndep[idiff] = ii;
-            _wkSFAD[iwk].diff( idiff++, nIndep );
+            wkAD[iwk].diff( idiff++, nIndep );
           }
         }
       }
@@ -7515,9 +8068,9 @@ FFGraph::SFAD
       // Evaluate current operation
       _curOp = op;
       if( op->type < FFOp::EXTERN )
-        op->evaluate( &_wkSFAD[iwk], 0, pwkSFAD, pwkmov );
+        op->evaluate( &wkAD[iwk], 0, pwkSFAD, pwkmov );
       else
-        op->evaluate_external( &_wkSFAD[iwk], nullptr, pwkSFAD, pwkmov );
+        op->evaluate_external( &wkAD[iwk], nullptr, pwkSFAD, pwkmov );
       // Increment tape
       iwk += op->varout.size();
     }
@@ -7542,10 +8095,6 @@ FFGraph::SFAD
     }
   }
   
-#ifdef MC__FFUNC_SFAD_CLEAR
-  std::cout << "Clearing work array _wkSFAD" << std::endl;
-  _wkSFAD.clear();
-#endif
 #ifdef MC__FFUNC_CPU_EVAL
   cputime += cpuclock();
   std::cout << "\nEvaluation time: " << std::fixed << cputime << std::endl;
@@ -7554,6 +8103,26 @@ FFGraph::SFAD
   return vDep_F;
 }
 #endif
+
+template <typename... Deps> 
+inline std::vector<FFVar>
+FFGraph::BAD
+( std::vector<FFVar> const& vDep, std::vector<FFVar> const& vIndep, Deps... args )
+{
+  if( vDep.empty() || vIndep.empty() ) return std::vector<FFVar>();  // Nothing to do!
+
+  std::vector<FFVar const*> vpDep; vpDep.reserve( vDep.size() );
+  for( auto const& var : vDep ) vpDep.push_back( &var );
+
+  std::vector<FFVar const*> vpIndep; vpIndep.reserve( vIndep.size() );
+  for( auto const& var : vIndep ) vpIndep.push_back( &var );
+
+  auto&& vpDep_B = BAD( vpDep, vpIndep, args... );
+
+  std::vector<FFVar> vDep_B; vDep_B.reserve( vpDep_B.size() );
+  for( auto& pvar : vpDep_B ) vDep_B.push_back( *pvar );
+  return vDep_B;
+}
 
 template <typename... Deps> 
 inline FFVar*
@@ -7578,11 +8147,46 @@ FFGraph::BAD
 template <typename... Deps>
 inline std::vector<FFVar const*>
 FFGraph::BAD
+( std::vector<FFVar const*> const& vpDep, std::vector<FFVar const*>& vpIndep,
+  std::vector<FFVar> const& vIndep, Deps... args )
+{
+  for( auto const& var : vIndep ) vpIndep.push_back( &var );
+  return BAD( vpDep, vpIndep, args... );
+}
+
+template <typename... Deps>
+inline std::vector<FFVar const*>
+FFGraph::BAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*>& vIndep,
   unsigned const nIndep, FFVar const* const pIndep, Deps... args )
 {
   for( unsigned i=0; i<nIndep; i++ ) vIndep.push_back( pIndep+i );
   return BAD( vDep, vIndep, args... );
+}
+
+template <typename... Deps> 
+inline std::vector<FFVar>
+FFGraph::DBAD
+( std::vector<FFVar> const& vDep, std::vector<FFVar> const& vDir,
+  std::vector<FFVar> const& vIndep, Deps... args )
+{
+  if( vDep.empty() || vIndep.empty() ) return std::vector<FFVar>();  // Nothing to do!
+  assert( vDep.size() == vDir.size() );
+
+  std::vector<FFVar const*> vpDep; vpDep.reserve( vDep.size() );
+  for( auto const& var : vDep ) vpDep.push_back( &var );
+
+  std::vector<FFVar const*> vpDir; vpDir.reserve( vDir.size() );
+  for( auto const& var : vDir ) vpDir.push_back( &var );
+
+  std::vector<FFVar const*> vpIndep; vpIndep.reserve( vIndep.size() );
+  for( auto const& var : vIndep ) vpIndep.push_back( &var );
+
+  auto&& vpDep_B = DBAD( vpDep, vpDir, vpIndep, args... );
+
+  std::vector<FFVar> vDep_B; vDep_B.reserve( vpDep_B.size() );
+  for( auto& pvar : vpDep_B ) vDep_B.push_back( *pvar );
+  return vDep_B;
 }
 
 template <typename... Deps> 
@@ -7597,7 +8201,7 @@ FFGraph::DBAD
   std::vector<FFVar const*> vDep, vIndep, vDir;
   for( unsigned i=0; i<nDep; i++ ){ vDep.push_back( pDep+i ); vDir.push_back( pDir+i ); }
   for( unsigned i=0; i<nIndep; i++ ) vIndep.push_back( pIndep+i );
-  std::vector<FFVar const*> vDep_B = BAD( vDep, vDir, vIndep, args... );
+  auto&& vDep_B = DBAD( vDep, vDir, vIndep, args... );
 
   FFVar* pDep_B = new FFVar[ vDep_B.size() ];
   auto it = vDep_B.begin();
@@ -7607,17 +8211,27 @@ FFGraph::DBAD
 
 template <typename... Deps>
 inline std::vector<FFVar const*>
-FFGraph::BAD
+FFGraph::DBAD
+( std::vector<FFVar const*> const& vpDep, std::vector<FFVar const*>& vpDir,
+  std::vector<FFVar const*>& vpIndep, std::vector<FFVar> const& vIndep, Deps... args )
+{
+  for( auto const& var : vIndep ) vpIndep.push_back( &var );
+  return DBAD( vpDep, vpDir, vpIndep, args... );
+}
+
+template <typename... Deps>
+inline std::vector<FFVar const*>
+FFGraph::DBAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*>& vDir,
   std::vector<FFVar const*>& vIndep, unsigned const nIndep,
   FFVar const* const pIndep, Deps... args )
 {
   for( unsigned i=0; i<nIndep; i++ ) vIndep.push_back( pIndep+i );
-  return BAD( vDep, vDir, vIndep, args... );
+  return DBAD( vDep, vDir, vIndep, args... );
 }
 
 inline std::vector<const FFVar*>
-FFGraph::BAD
+FFGraph::DBAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vDir, 
   std::vector<FFVar const*> const& vIndep )
 {
@@ -7627,7 +8241,8 @@ FFGraph::BAD
   std::cout << std::endl;
 #endif
 
-  auto sDep_B = SBAD( vDep, vDir, vIndep );
+  auto&& sDep_B = SDBAD( vDep, vDir, vIndep );
+
   FFVar const* pZero = _add_constant( 0. );
   std::vector<FFVar const*> vDep_B( (vDir.size()?1:vIndep.size())*vDep.size(), pZero );
   for( unsigned ie(0); ie<std::get<2>(sDep_B).size(); ie++ ){
@@ -7642,7 +8257,8 @@ FFGraph::BAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vIndep,
   bool const transp )
 {
-  auto sDep_B = SBAD( vDep, std::vector<FFVar const*>(), vIndep );
+  auto&& sDep_B = SDBAD( vDep, std::vector<FFVar const*>(), vIndep );
+
   FFVar const* pZero = _add_constant( 0. );
   std::vector<const FFVar*> vDep_B( vIndep.size()*vDep.size(), pZero );
   for( unsigned ie(0); ie<std::get<2>(sDep_B).size(); ie++ ){
@@ -7652,6 +8268,33 @@ FFGraph::BAD
     vDep_B[pDep_B] = std::get<2>(sDep_B)[ie];
   }
   return vDep_B;
+}
+
+template <typename... Deps>
+inline std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar> >
+FFGraph::SDBAD
+( std::vector<FFVar> const& vDep, std::vector<FFVar> const& vDir,
+  std::vector<FFVar> const& vIndep, Deps... args )
+{
+  if( vDep.empty() || vIndep.empty() )
+    return std::make_tuple(std::vector<unsigned>(),std::vector<unsigned>(),std::vector<FFVar>());  // Nothing to do!
+  assert( vDep.size() == vDir.size() );
+  
+  std::vector<FFVar const*> vpDep; vpDep.reserve( vDep.size() );
+  for( auto const& var : vDep ) vpDep.push_back( &var );
+
+  std::vector<FFVar const*> vpDir; vpDir.reserve( vDir.size() );
+  for( auto const& var : vDir ) vpDir.push_back( &var );
+
+  std::vector<FFVar const*> vpIndep; vpIndep.reserve( vIndep.size() );
+  for( auto const& var : vIndep ) vpIndep.push_back( &var );
+
+  auto&& vpDep_B = SDBAD( vpDep, vpDir, vpIndep, args... );
+
+  std::vector<FFVar> vDep_B; vDep_B.reserve( std::get<2>(vpDep_B).size() );
+  for( auto& pvar : std::get<2>(vpDep_B) ) vDep_B.push_back( *pvar );
+
+  return std::make_tuple( std::get<0>(vpDep_B), std::get<1>(vpDep_B), vDep_B );
 }
 
 template <typename... Deps>
@@ -7668,7 +8311,7 @@ FFGraph::SDBAD
   for( unsigned i=0; i<nIndep; i++ ) vIndep.push_back( pIndep+i );
   auto vDep_B = SBAD( vDep, vDir, vIndep, args... );
 
-  const unsigned nDep_B = std::get<0>(vDep_B).size();
+  size_t const nDep_B = std::get<0>(vDep_B).size();
   unsigned* iDep_B = new unsigned[ nDep_B ];
   unsigned* jDep_B = new unsigned[ nDep_B ];
   FFVar* pDep_B = new FFVar[ nDep_B ];
@@ -7682,13 +8325,45 @@ FFGraph::SDBAD
 
 template <typename... Deps>
 inline std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> >
-FFGraph::SBAD
+FFGraph::SDBAD
+( std::vector<FFVar const*> const& vpDep, std::vector<FFVar const*>& vpDir,
+  std::vector<FFVar const*>& vpIndep, std::vector<FFVar> const& vIndep, Deps... args )
+{
+  for( auto const& var : vIndep ) vpIndep.push_back( &var );
+  return SDBAD( vpDep, vpDir, vpIndep, args... );
+}
+
+template <typename... Deps>
+inline std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> >
+FFGraph::SDBAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*>& vDir,
   std::vector<FFVar const*>& vIndep, unsigned const nIndep, FFVar const* const pIndep,
   Deps... args )
 {
   for( unsigned i=0; i<nIndep; i++ ) vIndep.push_back( pIndep+i );
-  return SBAD( vDep, vDir, vIndep, args... );
+  return SDBAD( vDep, vDir, vIndep, args... );
+}
+
+template <typename... Deps>
+inline std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar> >
+FFGraph::SBAD
+( std::set<unsigned> const& ndxDep, std::vector<FFVar> const& vDep,
+  std::vector<FFVar> const& vIndep, Deps... args )
+{
+  if( ndxDep.empty() )
+    return std::make_tuple(std::vector<unsigned>(),std::vector<unsigned>(),std::vector<FFVar>());  // Nothing to do!
+
+  std::vector<FFVar> vDepRed( ndxDep.size() );
+  std::set<unsigned>::const_iterator it = ndxDep.cbegin();
+  for( unsigned iDep=0; it != ndxDep.cend(); ++it, iDep++ ) vDepRed[iDep] = vDep[*it];
+  auto&& vDep_B = SBAD( vDepRed, vIndep, args... );
+
+  for( unsigned ie=0; ie<std::get<0>(vDep_B).size(); ie++ ){
+    auto it = ndxDep.cbegin();
+    std::advance( it, std::get<0>(vDep_B)[ie] );
+    std::get<0>(vDep_B)[ie] = *it;
+  }
+  return vDep_B;
 }
 
 template <typename... Deps>
@@ -7714,6 +8389,28 @@ FFGraph::SBAD
 }
 
 template <typename... Deps>
+inline std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar> >
+FFGraph::SBAD
+( std::vector<FFVar> const& vDep, std::vector<FFVar> const& vIndep, Deps... args )
+{
+  if( vDep.empty() || vIndep.empty() )
+    return std::make_tuple(std::vector<unsigned>(),std::vector<unsigned>(),std::vector<FFVar>());  // Nothing to do!
+  
+  std::vector<FFVar const*> vpDep; vpDep.reserve( vDep.size() );
+  for( auto const& var : vDep ) vpDep.push_back( &var );
+
+  std::vector<FFVar const*> vpIndep; vpIndep.reserve( vIndep.size() );
+  for( auto const& var : vIndep ) vpIndep.push_back( &var );
+
+  auto&& vpDep_B = SDBAD( vpDep, std::vector<FFVar const*>(), vpIndep, args... );
+
+  std::vector<FFVar> vDep_B; vDep_B.reserve( std::get<2>(vpDep_B).size() );
+  for( auto& pvar : std::get<2>(vpDep_B) ) vDep_B.push_back( *pvar );
+
+  return std::make_tuple( std::get<0>(vpDep_B), std::get<1>(vpDep_B), vDep_B );
+}
+
+template <typename... Deps>
 inline std::tuple< unsigned, unsigned*, unsigned*, FFVar* >
 FFGraph::SBAD
 ( unsigned const nDep, FFVar const* const pDep, unsigned const nIndep,
@@ -7725,7 +8422,7 @@ FFGraph::SBAD
   std::vector<FFVar const*> vDep, vIndep;
   for( unsigned i=0; i<nDep; i++ )   vDep.push_back( pDep+i );
   for( unsigned i=0; i<nIndep; i++ ) vIndep.push_back( pIndep+i );
-  auto vDep_B = SBAD( vDep, std::vector<FFVar const*>(), vIndep, args... );
+  auto&& vDep_B = SDBAD( vDep, std::vector<FFVar const*>(), vIndep, args... );
 
   unsigned const nDep_B = std::get<0>(vDep_B).size();
   unsigned* iDep_B = new unsigned[ nDep_B ];
@@ -7737,6 +8434,16 @@ FFGraph::SBAD
     pDep_B[ie] = *std::get<2>(vDep_B)[ie];
   }
   return std::make_tuple( nDep_B, iDep_B, jDep_B, pDep_B );
+}
+
+template <typename... Deps>
+inline std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> >
+FFGraph::SBAD
+( std::vector<FFVar const*> const& vpDep, std::vector<FFVar const*>& vpIndep,
+  std::vector<FFVar> const& vIndep, Deps... args )
+{
+  for( auto const& var : vIndep ) vpIndep.push_back( &var );
+  return SBAD( vpDep, vpIndep, args... );
 }
 
 template <typename... Deps>
@@ -7754,7 +8461,9 @@ FFGraph::SBAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vIndep,
   int const LUopt )
 {
-  auto sDep_B = SBAD( vDep, std::vector<FFVar const*>(), vIndep );
+  auto&& sDep_B = SDBAD( vDep, std::vector<FFVar const*>(), vIndep );
+  if( LUopt == 0 ) return sDep_B;
+  
   std::tuple< std::vector<unsigned>, std::vector<unsigned>,
               std::vector<FFVar const*> > vDep_B;
   for( unsigned iv=0; iv<std::get<0>(sDep_B).size(); iv++ ){
@@ -7770,7 +8479,7 @@ FFGraph::SBAD
 
 #ifndef MC__USE_BADIFF
 inline std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> >
-FFGraph::SBAD
+FFGraph::SDBAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vDir,
   std::vector<FFVar const*> const& vIndep )
 {
@@ -7790,9 +8499,7 @@ FFGraph::SBAD
   output( sgDep );
   std::cout << "l_op.size() = " << sgDep.l_op.size() << "  len_tap = " << sgDep.len_tap << std::endl;
 #endif
-  //_wkAD.clear();
-  //_wkAD.resize( sgDep.len_tap );
-  std::vector<FFVar> _wkAD( sgDep.len_tap );
+  std::vector<FFVar> wkAD( sgDep.len_tap );
 
 #ifdef MC__FFUNC_CPU_EVAL
   double cputime = -cpuclock();
@@ -7881,7 +8588,7 @@ FFGraph::SBAD
         // Ignore constant
         case FFOp::CNST:
           op->varout[0]->val() = &FFZero;
-          _wkAD[iwk] = FFZero;
+          wkAD[iwk] = FFZero;
           break;
 
         // Backpropagate chain rule
@@ -7889,33 +8596,33 @@ FFGraph::SBAD
           for( unsigned int iout=0; iout<op->varout.size(); ++iout ){
             // Is a dependent?
             if( op->varout[iout]->val() ){
-              _wkAD[iwk+iout] = *static_cast<FFVar*>( op->varout[iout]->val() );
+              wkAD[iwk+iout] = *static_cast<FFVar*>( op->varout[iout]->val() );
 #ifdef MC__FFUNC_SBAD_DEBUG
-              std::cout << "_wkAD[" << iwk+iout << "] = " << _wkAD[iwk+iout] << std::endl;
+              std::cout << "wkAD[" << iwk+iout << "] = " << wkAD[iwk+iout] << std::endl;
 #endif
               continue;
             }
             // Not a dependent
-            _wkAD[iwk+iout] = 0.;
+            wkAD[iwk+iout] = 0.;
             auto [ itdep1, itdep2 ] = mapDep.equal_range( iwk+iout );
             for( auto itd=itdep1; itd!=itdep2; ++itd ){
               auto const& [jwk,jin] = itd->second;
 #ifdef MC__FFUNC_SBAD_DEBUG
               std::cout << "itd: " << jwk << " <- " << itd->first << " [" << jin << "]" << std::endl;
-              std::cout << "_wkAD[" << jwk << "] = " << _wkAD[jwk] << std::endl;
+              std::cout << "wkAD[" << jwk << "] = " << wkAD[jwk] << std::endl;
 #endif
-              if( ((_wkAD[jwk].id().first == FFVar::CREAL
-                 || _wkAD[jwk].id().first == FFVar::CINT)
-                 && _wkAD[jwk].num().val() == 0.)
+              if( ((wkAD[jwk].id().first == FFVar::CREAL
+                 || wkAD[jwk].id().first == FFVar::CINT)
+                 && wkAD[jwk].num().val() == 0.)
                || ((vDep_deriv[jwk][jin].id().first == FFVar::CREAL
                  || vDep_deriv[jwk][jin].id().first == FFVar::CINT)
                  && vDep_deriv[jwk][jin].num().val() == 0.) ) continue;
-              _wkAD[iwk+iout] += _wkAD[jwk] * vDep_deriv[jwk][jin];
+              wkAD[iwk+iout] += wkAD[jwk] * vDep_deriv[jwk][jin];
 #ifdef MC__FFUNC_SBAD_DEBUG
-              std::cout << "_wkAD[" << iwk+iout << "] = " << _wkAD[iwk+iout] << std::endl;
+              std::cout << "wkAD[" << iwk+iout << "] = " << wkAD[iwk+iout] << std::endl;
 #endif
             }
-            op->varout[iout]->val() = &_wkAD[iwk+iout];
+            op->varout[iout]->val() = &wkAD[iwk+iout];
           }
           break;
       }
@@ -7943,10 +8650,6 @@ FFGraph::SBAD
 
   // Clean-up intermediate derivative arrays
   for( auto& vdep : vDep_deriv ) if( vdep ) delete[] vdep;
-#ifdef MC__FFUNC_SFAD_CLEAR
-  std::cout << "Clearing work array _wkAD" << std::endl;
-  _wkAD.clear();
-#endif
 #ifdef MC__FFUNC_CPU_EVAL
   cputime += cpuclock();
   std::cout << "\nEvaluation time: " << std::fixed << cputime << std::endl;
@@ -7978,9 +8681,9 @@ FFGraph::SBAD
     output( sgDep );
     std::cout << "l_op.size() = " << sgDep.l_op.size() << "  len_tap = " << sgDep.len_tap << std::endl;
 #endif
-    _wkSBAD.clear();
-    _wkSBAD.resize( sgDep.len_tap );
-    auto pwkSBAD = ( sgDep.len_wrk? &_wkSBAD[sgDep.len_tap-sgDep.len_wrk]: nullptr );
+    wkAD.clear();
+    wkAD.resize( sgDep.len_tap );
+    auto pwkSBAD = ( sgDep.len_wrk? &wkAD[sgDep.len_tap-sgDep.len_wrk]: nullptr );
     unsigned* pwkmov = ( sgDep.len_wrk? &sgDep.v_mov[sgDep.len_tap-sgDep.len_wrk]: nullptr );
     std::map< unsigned, std::pair< unsigned, fadbad::B<FFVar>* > > mapIndep;
 
@@ -7996,16 +8699,16 @@ FFGraph::SBAD
       // Initialize variable using values in l_vVar
       if( op->type == FFOp::VAR ){
         auto pvar = op->varout[0];
-        _wkSBAD[iwk] = *pvar;
+        wkAD[iwk] = *pvar;
         auto iti = vIndep.begin();
         for( unsigned int ii=0; iti!=vIndep.end(); ++iti, ++ii ){
           if( pvar->id() != (*iti)->id() ) continue;
 #ifdef MC__FFUNC_SBAD_DEBUG
-          std::cerr << "independent " << nIndep << ": " << _wkSBAD[iwk].val() << std::endl;
+          std::cerr << "independent " << nIndep << ": " << wkAD[iwk].val() << std::endl;
 #endif
-          mapIndep[nIndep++] = std::make_pair( ii, &_wkSBAD[iwk] );
+          mapIndep[nIndep++] = std::make_pair( ii, &wkAD[iwk] );
 #ifdef MC__FFUNC_SBAD_DEBUG
-          std::cerr << "mapIndep[" << nIndep-1 << "] = (" << ii << "," << &_wkSBAD[iwk] <<")" << std::endl;
+          std::cerr << "mapIndep[" << nIndep-1 << "] = (" << ii << "," << &wkAD[iwk] <<")" << std::endl;
 #endif
         }
       }
@@ -8013,19 +8716,19 @@ FFGraph::SBAD
       // Evaluate current operation
       _curOp = op;
       if( op->type < FFOp::EXTERN )
-        op->evaluate( &_wkSBAD[iwk], 0, pwkSBAD, pwkmov );
+        op->evaluate( &wkAD[iwk], 0, pwkSBAD, pwkmov );
       else
-        op->evaluate_external( &_wkSBAD[iwk], nullptr, pwkSBAD, pwkmov );
+        op->evaluate_external( &wkAD[iwk], nullptr, pwkSBAD, pwkmov );
       iwk += op->varout.size();
     }
 
     // Copy values in DepB, IndepB
-    fadbad::B<FFVar> DepB = _wkSBAD[sgDep.l_op.size()-1];
+    fadbad::B<FFVar> DepB = wkAD[sgDep.l_op.size()-1];
     std::vector<fadbad::B<FFVar>> IndepB( nIndep );
     for( unsigned j=0; j<nIndep; j++ )
       IndepB[j] = *mapIndep[j].second;
     // Increment tape
-    _wkSBAD.clear();
+    wkAD.clear();
   
     DepB.diff( 0, 1 );
     for( unsigned j=0; j<nIndep; j++ ){
@@ -8057,10 +8760,54 @@ FFGraph::SBAD
 }
 #endif
 
+inline std::vector<FFVar>
+FFGraph::TAD
+( size_t const ordermax, std::vector<FFVar> const& vDep,
+  std::vector<FFVar> const& vVar, FFVar const& Indep )
+{
+  if( vDep.empty() || vVar.empty() ) return std::vector<FFVar>();  // Nothing to do!
+
+  std::vector<const FFVar*> vpDep;
+  vpDep.reserve( vDep.size() );
+  for( auto const& var : vDep ) vpDep.push_back( &var );
+
+  std::vector<const FFVar*> vpVar;
+  vpDep.reserve( vVar.size() );
+  for( auto const& var : vVar ) vpVar.push_back( &var );
+
+  std::vector<FFVar const*>&& vpDep_T = TAD( ordermax, vpDep, vpVar, &Indep );
+  std::vector<FFVar> vDep_T; vDep_T.reserve( vpDep_T.size() );
+  for( auto& pvar : vpDep_T ) vDep_T.push_back( *pvar );
+
+  return vDep_T;
+}
+
+inline std::vector<FFVar>
+FFGraph::TAD
+( size_t const ordermax, std::vector<FFVar> const& vDep,
+  std::vector<FFVar> const& vVar )
+{
+  if( vDep.empty() || vVar.empty() ) return std::vector<FFVar>();  // Nothing to do!
+
+  std::vector<const FFVar*> vpDep;
+  vpDep.reserve( vDep.size() );
+  for( auto const& var : vDep ) vpDep.push_back( &var );
+
+  std::vector<const FFVar*> vpVar;
+  vpDep.reserve( vVar.size() );
+  for( auto const& var : vVar ) vpVar.push_back( &var );
+
+  std::vector<const FFVar*>&& vpDep_T = TAD( ordermax, vpDep, vpVar, nullptr );
+  std::vector<FFVar> vDep_T; vDep_T.reserve( vpDep_T.size() );
+  for( auto& pvar : vpDep_T ) vDep_T.push_back( *pvar );
+
+  return vDep_T;
+}
+
 inline const FFVar*
 FFGraph::TAD
-( const unsigned int ordermax, const unsigned nDep, const FFVar* const pDep,
-  const unsigned nVar, const FFVar* const pVar, const FFVar* const pIndep )
+( size_t const ordermax, size_t const nDep, FFVar const* const pDep,
+  size_t const nVar, FFVar const* const pVar, FFVar const* const pIndep )
 {
   if( !nDep || !nVar ) return nullptr;  // Nothing to do!
   assert( pDep && pVar );
@@ -8079,7 +8826,7 @@ FFGraph::TAD
 
 inline std::vector<FFVar const*>
 FFGraph::TAD
-( unsigned int const ordermax, std::vector<FFVar const*> const& vDep,
+( size_t const ordermax, std::vector<FFVar const*> const& vDep,
   std::vector<FFVar const*> const& vVar, FFVar const* const pIndep )
 {
 #ifndef MC__USE_TADIFF
@@ -8092,9 +8839,8 @@ FFGraph::TAD
 
   // Obtain subgraph
   auto sgDep = subgraph( vDep );
-  _wkTAD.clear();
-  _wkTAD.resize( sgDep.len_tap );
-  auto pwkTAD = ( sgDep.len_wrk? &_wkTAD[sgDep.len_tap-sgDep.len_wrk]: nullptr );
+  std::vector< fadbad::T<FFVar> > wkAD( sgDep.len_tap );
+  auto pwkTAD = ( sgDep.len_wrk? &wkAD[sgDep.len_tap-sgDep.len_wrk]: nullptr );
   unsigned* pwkmov = ( sgDep.len_wrk? &sgDep.v_mov[sgDep.len_tap-sgDep.len_wrk]: nullptr );
 
   // Vector holding the results
@@ -8113,15 +8859,15 @@ FFGraph::TAD
     // Initialize variable
     if( op->type == FFOp::VAR ){
       FFVar* pXi = op->varout[0];
-      _wkTAD[iwk] = *pXi;
+      wkAD[iwk] = *pXi;
       // Independent variable
       if( pIndep && pXi->id() == pIndep->id() )
-        _wkTAD[iwk][1] = 1.;
+        wkAD[iwk][1] = 1.;
       // Dependent variables
       auto itv = vVar.begin();
       for( unsigned int i=0; itv!=vVar.end(); ++itv, i++ ){
         if( pXi->id() != (*itv)->id() ) continue;
-        pX_T[i] = &_wkTAD[iwk];
+        pX_T[i] = &wkAD[iwk];
         // Append 0th-order Taylor coefficient of ith-dependent to result vector
         vDep_T.push_back( pXi );
 #ifdef MC__FFUNC_DEBUG_TAD
@@ -8130,15 +8876,15 @@ FFGraph::TAD
 #endif
       }
       // Attach fadbad::T<FFVar>* variable to corresponding variable
-      pXi->val() = &_wkTAD[iwk];
+      pXi->val() = &wkAD[iwk];
     }
     
     // Evaluate current operation
     _curOp = op;
     if( op->type < FFOp::EXTERN )
-      op->evaluate( &_wkTAD[iwk], 0, pwkTAD, pwkmov );
+      op->evaluate( &wkAD[iwk], 0, pwkTAD, pwkmov );
     else
-      op->evaluate_external( &_wkTAD[iwk], nullptr, pwkTAD, pwkmov );
+      op->evaluate_external( &wkAD[iwk], nullptr, pwkTAD, pwkmov );
     // Increment tape
     iwk += op->varout.size();    
   }
@@ -8201,6 +8947,17 @@ FFGraph::TAD
 template <typename DAG>
 inline void
 FFGraph::insert
+( DAG* dag, std::vector<FFVar> const& vDepIn, std::vector<FFVar>& vDepOut )
+{
+  size_t const nIn = vDepIn.size();
+  if( !nIn ) return;
+  if( vDepOut.size() < nIn ) vDepOut.resize( nIn );
+  insert( dag, nIn, vDepIn.data(), vDepOut.data() );
+}
+
+template <typename DAG>
+inline void
+FFGraph::insert
 ( DAG* dag, unsigned const nDep, FFVar const* pDepIn, FFVar* pDepOut )
 {
   if( !nDep ) return;
@@ -8229,6 +8986,27 @@ FFGraph::insert
 }
 
 template <typename... Deps>
+inline std::vector<FFVar>
+FFGraph::compose
+( std::set<unsigned> const& ndxDepOut, std::vector<FFVar> const& vDepOut, 
+  std::vector<FFVar> const& vVarOut, std::vector<FFVar> const& vDepIn, Deps... args )
+{
+  if( ndxDepOut.empty() ) return std::vector<FFVar>(); // Nothing to do!
+  assert( vVarOut.size() == vDepIn.size() );
+
+  std::vector<FFVar const*> vpDepOut; vpDepOut.reserve( ndxDepOut.size() );
+  for( unsigned const& i : ndxDepOut ) vpDepOut.push_back( &vDepOut[i] );
+  std::vector< std::pair<FFVar const*, FFVar const*> > vpDepIn; vpDepIn.reserve( vDepIn.size() );
+  for( unsigned i=0; i<vDepIn.size(); i++ ) vpDepIn.push_back( std::make_pair( &vVarOut[i], &vDepIn[i] ) );
+  auto&& vpDepComp = compose( vpDepOut, vpDepIn, args... );
+
+  std::vector<FFVar> vDepComp( vDepOut.size(), 0. );
+  auto it = vpDepComp.cbegin();
+  for( auto const& i : ndxDepOut ) vDepComp[i] = **(it++);
+  return vDepComp;
+}
+
+template <typename... Deps>
 inline FFVar*
 FFGraph::compose
 ( std::set<unsigned> const& ndxDepOut, FFVar const* pDepOut, unsigned const nDepIn,
@@ -8240,7 +9018,7 @@ FFGraph::compose
   for( unsigned const& i : ndxDepOut ) vDepOut.push_back( pDepOut+i );
   std::vector< std::pair<const FFVar*,const FFVar*> > vDepIn; vDepIn.reserve( nDepIn );
   for( unsigned i=0; i<nDepIn; i++ ) vDepIn.push_back( std::make_pair(pVarOut+i,pDepIn+i) );
-  std::vector<const FFVar*> vDepComp = compose( vDepOut, vDepIn, args... );
+  auto&& vDepComp = compose( vDepOut, vDepIn, args... );
 
   FFVar* pDepComp = new FFVar[ *ndxDepOut.rbegin()+1 ];
   typename std::vector<FFVar const*>::const_iterator it = vDepComp.begin();
@@ -8249,25 +9027,54 @@ FFGraph::compose
 }
 
 template <typename... Deps>
+inline std::vector<FFVar>
+FFGraph::compose
+( std::vector<FFVar> const& vDepOut, std::vector<FFVar> const& vVarOut,
+  std::vector<FFVar> const& vDepIn, Deps... args )
+{
+  if( vDepOut.empty() ) return std::vector<FFVar>(); // Nothing to do!
+
+  std::vector<FFVar const*> vpDepOut; vpDepOut.reserve( vDepOut.size() );
+  for( auto const& var : vDepOut ) vpDepOut.push_back( &var );
+  std::vector< std::pair<FFVar const*, FFVar const*> > vpDepIn; vpDepIn.reserve( vDepIn.size() );
+  for( unsigned i=0; i<vDepIn.size(); i++ ) vpDepIn.push_back( std::make_pair( &vVarOut[i], &vDepIn[i] ) );
+  auto&& vpDepComp = compose( vpDepOut, vpDepIn, args... );
+
+  std::vector<FFVar> vDepComp; vDepComp.reserve( vpDepComp.size() );
+  for( auto const& pvar : vpDepComp ) vDepComp.push_back( *pvar );
+  return vDepComp;
+}
+
+template <typename... Deps>
 inline FFVar*
 FFGraph::compose
 ( unsigned const nDepOut, FFVar const* pDepOut, unsigned const nDepIn,
   FFVar const* pVarOut, FFVar const* pDepIn, Deps... args )
 {
-  if( !nDepOut ) return 0;
-  //if( !nDepIn ) return pDepOut;  // Nothing to do!
-  assert( pDepOut && pVarOut && pDepIn );
+  if( !nDepOut ) return nullptr;
+  assert( pDepOut );
 
   std::vector<FFVar const*> vDepOut; vDepOut.reserve( nDepOut );
   for( unsigned i=0; i<nDepOut; i++ ) vDepOut.push_back( pDepOut+i );
   std::vector< std::pair<const FFVar*,const FFVar*> > vDepIn; vDepIn.reserve( nDepIn );
   for( unsigned i=0; i<nDepIn; i++ ) vDepIn.push_back( std::make_pair(pVarOut+i,pDepIn+i) );
-  std::vector<const FFVar*> vDepComp = compose( vDepOut, vDepIn, args... );
+  auto&& vDepComp = compose( vDepOut, vDepIn, args... );
 
   FFVar* pDepComp = new FFVar[ vDepComp.size() ];
   typename std::vector<FFVar const*>::const_iterator it = vDepComp.begin();
   for( unsigned k=0; it!=vDepComp.end(); ++it, k++ ) pDepComp[k] = **it;
   return pDepComp;
+}
+
+template <typename... Deps>
+inline std::vector<const FFVar*>
+FFGraph::compose
+( std::vector<FFVar const*> const& vpDepOut,
+  std::vector< std::pair<FFVar const*, FFVar const*> >& vpDepIn,
+  std::vector<FFVar> const& vVarOut, std::vector<FFVar> const& vDepIn, Deps... args  )
+{
+  for( unsigned i=0; i<vDepIn.size(); i++ ) vpDepIn.push_back( std::make_pair( &vVarOut[i], &vDepIn[i] ) );
+  return compose( vpDepOut, vpDepIn, args... );
 }
 
 template <typename... Deps>
@@ -8351,6 +9158,203 @@ FFGraph::compose
   }
 
   return vDepComp;
+}
+
+template <typename U, typename... Deps>
+inline void
+FFGraph::eval
+( const std::set<unsigned>&ndxDep, std::vector<FFVar> const& vDep, std::vector<U>& uDep,
+  std::vector<FFVar> const& vVar, std::vector<U> const& uVar, Deps... args )
+{
+  if( ndxDep.empty() ) return; // Nothing to do!
+
+  FFSubgraph sgDep;
+  std::vector<U> wkDep; 
+  return eval( sgDep, wkDep, ndxDep, vDep, uDep, vVar, uVar, args... );
+}
+
+template <typename U, typename... Deps>
+inline void
+FFGraph::eval
+( std::vector<U>&wkDep, const std::set<unsigned>&ndxDep, std::vector<FFVar> const& vDep,
+  std::vector<U>& uDep, std::vector<FFVar> const& vVar, std::vector<U> const& uVar,
+  Deps... args )
+{
+  if( ndxDep.empty() ) return; // Nothing to do!
+
+  FFSubgraph sgDep;
+  return eval( sgDep, wkDep, ndxDep, vDep, uDep, vVar, uVar, args... );
+}
+
+template <typename U, typename... Deps>
+inline void
+FFGraph::eval
+( FFSubgraph&sgDep, const std::set<unsigned>&ndxDep, std::vector<FFVar> const& vDep,
+  std::vector<U>& uDep, std::vector<FFVar> const& vVar, std::vector<U> const& uVar,
+  Deps... args )
+{
+  if( ndxDep.empty() ) return; // Nothing to do!
+
+  std::vector<U> wkDep; 
+  return eval( sgDep, wkDep, ndxDep, vDep, uDep, vVar, uVar, args... );
+}
+
+template <typename U, typename... Deps>
+inline void
+FFGraph::eval
+( FFSubgraph&sgDep, std::vector<U>&wkDep, const std::set<unsigned>&ndxDep,
+  std::vector<FFVar> const& vDep, std::vector<U>& uDep, std::vector<FFVar> const& vVar,
+  std::vector<U> const& uVar, Deps... args )
+{
+  if( ndxDep.empty() ) return; // Nothing to do!
+
+  std::vector<FFVar> vpDep( ndxDep.size() );
+  std::vector<U> upDep;
+  std::set<unsigned>::const_iterator it = ndxDep.cbegin();
+  for( unsigned iDep=0; it != ndxDep.cend(); ++it, iDep++ ) vpDep[iDep] = vDep[*it];
+
+  eval( sgDep, wkDep, vpDep, upDep, vVar, uVar, args... );
+
+  it = ndxDep.cbegin();
+  for( unsigned iDep=0; it != ndxDep.cend(); ++it, iDep++ ) uDep[*it] = upDep[iDep];
+}
+
+template <typename U, typename V, typename COMP, typename... Deps>
+ inline void
+FFGraph::eval
+( const std::map<V,FFVar,COMP>&vDep, std::map<V,U,COMP>&uDep,
+  std::vector<FFVar> const& vVar, std::vector<U> const& uVar, Deps... args )
+{
+  if( vDep.empty() ) return; // Nothing to do!
+
+  FFSubgraph sgDep;
+  std::vector<U> wkDep; 
+  return eval( sgDep, wkDep, vDep, uDep, vVar, uVar, args... );
+}
+
+template <typename U, typename V, typename COMP, typename... Deps>
+ inline void
+FFGraph::eval
+( std::vector<U>&wkDep, const std::map<V,FFVar,COMP>&vDep, std::map<V,U,COMP>&uDep,
+  std::vector<FFVar> const& vVar, std::vector<U> const& uVar, Deps... args )
+{
+  if( vDep.empty() ) return; // Nothing to do!
+
+  FFSubgraph sgDep;
+  return eval( sgDep, wkDep, vDep, uDep, vVar, uVar, args... );
+}
+
+template <typename U, typename V, typename COMP, typename... Deps>
+ inline void
+FFGraph::eval
+( FFSubgraph& sgDep, const std::map<V,FFVar,COMP>& vDep, std::map<V,U,COMP>& uDep,
+  std::vector<FFVar> const& vVar, std::vector<U> const& uVar, Deps... args )
+{
+  if( vDep.empty() ) return; // Nothing to do!
+
+  std::vector<U> wkDep;
+  return eval( sgDep, wkDep, vDep, uDep, vVar, uVar, args... );
+}
+
+template <typename U, typename V, typename COMP, typename... Deps>
+ inline void
+FFGraph::eval
+( FFSubgraph& sgDep, std::vector<U>& wkDep, const std::map<V,FFVar,COMP>& vDep,
+  std::map<V,U,COMP>& uDep, std::vector<FFVar> const& vVar, std::vector<U> const& uVar,
+  Deps... args )
+{
+  uDep.clear(); 
+  if( vDep.empty() ) return; // Nothing to do!
+
+  std::vector<FFVar> vvDep( vDep.size() );
+  std::vector<U> uuDep;
+  auto it = vDep.cbegin();
+  for( unsigned iDep=0; it != vDep.cend(); ++it, iDep++ )
+    vvDep[iDep] = it->second;
+
+  eval( sgDep, wkDep, vvDep, uuDep, vVar, uVar, args... );
+
+  it = vDep.cbegin();
+  for( unsigned iDep=0; it != vDep.cend(); ++it, iDep++ )
+    uDep.insert( uDep.end(), std::make_pair( it->first, uuDep[iDep] ) );
+}
+
+template <typename U, typename... Deps>
+inline void
+FFGraph::eval
+( std::vector<FFVar> const& vDep, std::vector<U>& uDep, std::vector<FFVar> const& vVar,
+  std::vector<U> const& uVar, Deps... args )
+{
+  // Nothing to do!
+  if( vDep.empty() ) return;
+
+  FFSubgraph sgDep;
+  std::vector<U> wkDep; 
+  return eval( sgDep, wkDep, vDep, uDep, vVar, uVar, args... );
+}
+
+template <typename U, typename... Deps>
+inline void
+FFGraph::eval
+( std::vector<U>& wkDep, std::vector<FFVar> const& vDep, std::vector<U>& uDep,
+  std::vector<FFVar> const& vVar, std::vector<U> const& uVar, Deps... args )
+{
+  // Nothing to do!
+  if( vDep.empty() ) return;
+  
+  FFSubgraph sgDep;
+  return eval( sgDep, wkDep, vDep, uDep, vVar, uVar, args... );
+}
+
+template <typename U, typename... Deps>
+inline void
+FFGraph::eval
+( FFSubgraph& sgDep, std::vector<FFVar> const& vDep, std::vector<U>& uDep,
+  std::vector<FFVar> const& vVar, std::vector<U> const& uVar, Deps... args )
+{
+  // Nothing to do!
+  if( vDep.empty() ) return;
+  
+  std::vector<U> wkDep; 
+  return eval( sgDep, wkDep, vDep, uDep, vVar, uVar, args... );
+}
+
+template <typename U, typename... Deps>
+inline void
+FFGraph::eval
+( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
+  std::vector<U>& uDep, std::vector<FFVar> const& vVar, std::vector<U> const& uVar,
+  Deps... args )
+{
+  std::list<size_t>       l_nVar{ vVar.size() };
+  std::list<const FFVar*> l_pVar{ vVar.data() };
+  std::list<const U*>     l_uVar{ uVar.data() };
+  return eval( sgDep, wkDep, vDep, uDep, l_nVar, l_pVar, l_uVar, args... );
+}
+
+template <typename U, typename... Deps>
+inline void
+FFGraph::eval
+( FFSubgraph&sgDep, std::vector<U>&wkDep, std::vector<FFVar> const& vDep,
+  std::vector<U>& uDep, std::list<size_t>& l_nVar, std::list<const FFVar*>& l_pVar,
+  std::list<const U*>& l_uVar, std::vector<FFVar> const& vVar,
+  std::vector<U> const& uVar, Deps... args )
+{
+  l_nVar.push_back( vVar.size() );
+  l_pVar.push_back( vVar.data() );
+  l_uVar.push_back( uVar.data() );
+  return eval( sgDep, wkDep, vDep, uDep, l_nVar, l_pVar, l_uVar, args... );
+}
+
+template <typename U>
+inline void
+FFGraph::eval
+( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
+  std::vector<U>& uDep, std::list<size_t> const& l_nVar, std::list<FFVar const*> const& l_pVar,
+  std::list<U const*> const& l_uVar, bool const add )
+{
+  if( uDep.size() < vDep.size() ) uDep.resize( vDep.size() );
+  return eval( sgDep, wkDep, vDep.size(), vDep.data(), uDep.data(), l_nVar, l_pVar, l_uVar, add );
 }
 
 template <typename U, typename... Deps>
@@ -8516,9 +9520,9 @@ FFGraph::eval
 ( FFSubgraph&sgDep, std::vector<U>&wkDep, const unsigned nDep, const FFVar*pDep,
   U*vDep, const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args )
 {
-  std::list<unsigned>     l_nVar({nVar});
-  std::list<const FFVar*> l_pVar({pVar});
-  std::list<const U*>     l_vVar({vVar});
+  std::list<size_t>       l_nVar{ nVar };
+  std::list<const FFVar*> l_pVar{ pVar };
+  std::list<const U*>     l_vVar{ vVar };
   return eval( sgDep, wkDep, nDep, pDep, vDep, l_nVar, l_pVar, l_vVar, args... );
 }
 
@@ -8526,32 +9530,27 @@ template <typename U, typename... Deps>
 inline void
 FFGraph::eval
 ( FFSubgraph&sgDep, std::vector<U>&wkDep, const unsigned nDep, const FFVar*pDep,
-  U*vDep, std::list<unsigned>&l_nVar, std::list<const FFVar*>&l_pVar,
+  U*vDep, std::list<size_t>&l_nVar, std::list<const FFVar*>&l_pVar,
   std::list<const U*>&l_vVar, const unsigned nVar, const FFVar*pVar,
   const U*vVar, Deps... args )
 {
-  l_nVar.push_back(nVar);
-  l_pVar.push_back(pVar);
-  l_vVar.push_back(vVar);
+  l_nVar.push_back( nVar );
+  l_pVar.push_back( pVar );
+  l_vVar.push_back( vVar );
   return eval( sgDep, wkDep, nDep, pDep, vDep, l_nVar, l_pVar, l_vVar, args... );
 }
 
 template <typename U>
 inline void
 FFGraph::eval
-( FFSubgraph&sgDep, std::vector<U>&wkDep, const unsigned nDep, const FFVar*pDep,
-  U*vDep, const std::list<unsigned>&l_nVar, const std::list<const FFVar*>&l_pVar,
-  const std::list<const U*>&l_vVar, const bool add )
+( FFSubgraph& sgDep, std::vector<U>& wkDep, unsigned const nDep, FFVar const* pDep,
+  U* vDep, std::list<size_t> const& l_nVar, std::list<FFVar const*> const& l_pVar,
+  std::list<U const*> const& l_vVar, bool const add )
 {
-#ifdef MC__FFUNC_DEBUG_EVAL
-  std::cout << "entering FFGraphExt<>::eval\n";
-  std::cout << "Size of parameter pack: " << sizeof...(ExtOps) << std::endl;
-#endif
-
   // Nothing to do!
   if( !nDep ) return;
   assert( pDep && vDep );
-  const unsigned nIndep = l_nVar.size();
+  size_t const nIndep = l_nVar.size();
   assert( l_pVar.size() == nIndep && l_vVar.size() == nIndep );
 
   // Populate subgraph if empty
@@ -8617,6 +9616,298 @@ FFGraph::eval
 }
 
 template <typename U, typename... Deps>
+inline void
+FFGraph::veval
+( std::vector<FFVar> const& vDep, std::vector<std::vector<U>>& v_uDep,
+  std::vector<FFVar> const& vVar, std::vector<std::vector<U>> const& v_uVar,
+  Deps... args )
+{
+  // Nothing to do!
+  if( vDep.empty() ) return;
+
+  FFSubgraph sgDep;
+  std::vector<U> wkDep; 
+  return veval( sgDep, wkDep, vDep, v_uDep, vVar, v_uVar, args... );
+}
+
+template <typename U, typename... Deps>
+inline void
+FFGraph::veval
+( std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
+  std::vector<std::vector<U>>& v_uDep, std::vector<FFVar> const& vVar,
+  std::vector<std::vector<U>> const& v_uVar, Deps... args )
+{
+  // Nothing to do!
+  if( vDep.empty() ) return;
+
+  FFSubgraph sgDep;
+  return veval( sgDep, wkDep, vDep, v_uDep, vVar, v_uVar, args... );
+}
+
+template <typename U, typename... Deps>
+inline void
+FFGraph::veval
+( FFSubgraph& sgDep, std::vector<FFVar> const& vDep,
+  std::vector<std::vector<U>>& v_uDep, std::vector<FFVar> const& vVar,
+  std::vector<std::vector<U>> const& v_uVar, Deps... args )
+{
+  // Nothing to do!
+  if( vDep.empty() ) return;
+
+  std::vector<U> wkDep; 
+  return veval( sgDep, wkDep, vDep, v_uDep, vVar, v_uVar, args... );
+}
+
+template <typename U>
+inline void
+FFGraph::veval
+( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
+  std::vector<std::vector<U>>& v_uDep, std::vector<FFVar> const& vVar,
+  std::vector<std::vector<U>> const& v_uVar )
+{
+  std::list<size_t>       l_nVar;
+  std::list<const FFVar*> l_pVar;
+  std::list<const U*>     l_uVar;
+  return veval( sgDep, wkDep, vDep, v_uDep, vVar, v_uVar, l_nVar, l_pVar, l_uVar );
+}
+
+template <typename U, typename... Deps>
+inline void
+FFGraph::veval
+( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
+  std::vector<std::vector<U>>& v_uDep, std::vector<FFVar> const& vVar,
+  std::vector<std::vector<U>> const& v_uVar, std::vector<FFVar> const& vvVar,
+  std::vector<U> const& uuVar, Deps... args )
+{
+  std::list<size_t>       l_nVar{ vvVar.size() };
+  std::list<const FFVar*> l_pVar{ vvVar.data() };
+  std::list<const U*>     l_uVar{ uuVar.data() };
+  return veval( sgDep, wkDep, vDep, v_uDep, vVar, v_uVar, l_nVar, l_pVar, l_uVar, args... );
+}
+
+template <typename U, typename... Deps>
+inline void
+FFGraph::veval
+( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
+  std::vector<std::vector<U>>& v_uDep, std::vector<FFVar> const& vVar,
+  std::vector<std::vector<U>> const& v_uVar, std::list<size_t>& l_nVar,
+  std::list<const FFVar*>& l_pVar, std::list<const U*>& l_uVar,
+  std::vector<FFVar> const& vvVar, std::vector<U> const& uuVar, Deps... args )
+{
+  l_nVar.push_back( vvVar.size() );
+  l_pVar.push_back( vvVar.data() );
+  l_uVar.push_back( uuVar.data() );
+  return veval( sgDep, wkDep, vDep, v_uDep, vVar, v_uVar, l_nVar, l_pVar, l_uVar, args... );
+}
+
+template <typename U>
+inline void
+FFGraph::veval
+( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
+  std::vector<std::vector<U>>& v_uDep, std::vector<FFVar> const& vVar,
+  std::vector<std::vector<U>> const& v_uVar, std::list<size_t>& l_nVar,
+  std::list<const FFVar*>& l_pVar, std::list<const U*>& l_uVar )
+{
+  v_uDep.resize( v_uVar.size() );
+  
+#ifdef MC__USE_THREAD
+  size_t const NOTHREADS = ( options.MAXTHREAD>0? options.MAXTHREAD: std::thread::hardware_concurrency() );
+  std::vector<std::thread> vth( NOTHREADS-1 ); // Main thread also runs evaluations
+  std::vector<FFGraph::Worker<U>> vwk( NOTHREADS-1 ); // Main thread also runs evaluations
+
+  for( size_t th=1; th<NOTHREADS; th++ ){
+#ifdef MC__VEVAL_DEBUG
+    std::cout << "Starting thread #" << th << std::endl;
+#endif
+    // Copy problem before evaluating on thread
+    if( !_vcopy( vwk[th-1], sgDep, vDep.size(), vDep.data(), vVar.size(), vVar.data(), l_nVar, l_pVar, l_uVar ) )
+      continue;
+    // Dispatch evaluations on auxiliary thread
+    vth[th-1] = std::thread( &FFGraph::_veval<U>, this, th, NOTHREADS, std::ref(vwk[th-1]),
+                             std::ref(v_uDep), std::cref(v_uVar) );
+  }
+
+  // Run evaluations on main thread as well
+  _veval0( NOTHREADS, sgDep, wkDep, vDep, v_uDep, vVar, v_uVar, l_nVar, l_pVar, l_uVar ); 
+
+  // Join all the threads to the main one
+  for( size_t th=1; th<NOTHREADS; th++ )
+    vth[th-1].join();
+
+#else
+  _veval0( 1, sgDep, wkDep, vDep, v_uDep, vVar, v_uVar, l_nVar, l_pVar, l_uVar ); 
+#endif
+}
+/*
+template <typename U>
+inline void
+FFGraph::veval
+( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
+  std::vector<std::vector<U>>& v_uDep, std::vector<FFVar> const& vVar,
+  std::vector<std::vector<U>> const& v_uVar, std::list<size_t>& l_nVar,
+  std::list<const FFVar*>& l_pVar, std::list<const U*>& l_uVar )
+{
+  v_uDep.resize( v_uVar.size() );
+  //std::cout << "v_uDep.size(): " << v_uDep.size();
+  //for( auto const& vdep : v_uDep ) std::cout << " " << &vdep;
+  //std::cout << std::endl;
+  
+#ifdef MC__USE_THREAD
+  size_t const NOTHREADS = ( options.MAXTHREAD>0? options.MAXTHREAD: std::thread::hardware_concurrency() );
+  std::vector<std::thread> vth( NOTHREADS ); // Main thread also runs evaluations
+  std::vector<FFGraph::Worker<U>> vwk( NOTHREADS ); // Main thread also runs evaluations
+
+  for( size_t th=0; th<NOTHREADS; th++ ){
+    std::cout << "Starting thread #" << th << std::endl;
+    // Copy problem before evaluating on thread
+    if( !_vcopy( vwk[th], sgDep, vDep.size(), vDep.data(), vVar.size(), vVar.data(), l_nVar, l_pVar, l_uVar ) )
+      continue;
+    // Dispatch evaluations on auxiliary thread
+    vth[th] = std::thread( &FFGraph::_veval<U>, this, th, NOTHREADS, std::ref(vwk[th]),
+                           std::ref(v_uDep), std::cref(v_uVar) );
+  }
+
+  // Run evaluations on main thread
+  //_veval0( NOTHREADS, sgDep, wkDep, vDep, v_uDep, vVar, v_uVar, l_nVar, l_pVar, l_uVar ); 
+
+  // Join all the threads to the main one
+  for( size_t th=0; th<NOTHREADS; th++ )
+    vth[th].join();
+
+#else
+  _veval0( 1, sgDep, wkDep, vDep, v_uDep, vVar, v_uVar, l_nVar, l_pVar, l_uVar ); 
+#endif
+}
+*/
+template <typename U>
+inline bool
+FFGraph::_vcopy
+( FFGraph::Worker<U>& wk, FFSubgraph& sgDep, size_t const nDep,
+  FFVar const* pDep, size_t const nVar, FFVar const* pVar,
+  std::list<size_t>& l_nVar, std::list<const FFVar*>& l_pVar, std::list<const U*>& l_uVar )
+{
+  try{
+    wk.dag->options = options;
+
+    wk.l_nVar = l_nVar; 
+    wk.l_uVar = l_uVar; 
+
+    auto itnVar = l_nVar.cbegin();
+    auto itpVar = l_pVar.cbegin();
+    for( ; itpVar != l_pVar.cend(); ++itnVar, ++itpVar ){
+      FFVar* pvar = new FFVar[*itnVar];
+      wk.dag->insert( this, *itnVar, *itpVar, pvar );
+      wk.l_pVar.push_back( pvar );
+    }
+
+    wk.l_nVar.push_back( nVar );
+    FFVar* pv = new FFVar[nVar];
+    wk.dag->insert( this, nVar, pVar, pv );
+    wk.l_pVar.push_back( pv );
+    wk.l_uVar.push_back( nullptr ); // pointer to be updated before an evaluation
+
+    wk.vDep.resize( nDep );
+    wk.dag->insert( this, nDep, pDep, wk.vDep.data() );
+  }
+  
+  catch( mc::FFBase::Exceptions &eObj ){
+    std::cerr << "Error " << eObj.ierr()
+              << " in factorable function manipulation:" << std::endl
+              << eObj.what() << std::endl;
+    return false;
+  }
+  
+  return true;
+}
+
+template <typename U>
+inline void
+FFGraph::_veval
+( size_t const CURTHREAD, size_t const NOTHREADS, FFGraph::Worker<U>& wk, 
+  std::vector<std::vector<U>>& v_uDep, std::vector<std::vector<U>> const& v_uVar )
+{
+#ifdef MC__VEVAL_DEBUG
+  std::cerr << "Thread #" << CURTHREAD << std::endl;
+#endif
+
+  auto ituDep = v_uDep.begin();
+  auto ituVar = v_uVar.cbegin();
+  std::advance( ituVar, CURTHREAD );
+  std::advance( ituDep, CURTHREAD );
+
+  for( size_t s=CURTHREAD; s<v_uVar.size(); s+=NOTHREADS ){
+#ifdef MC__VEVAL_DEBUG
+    std::cerr << "evaluating scenario " << CURTHREAD << "." << s << std::endl;
+    std::cout << "*ituDep: " << &*ituDep << std::endl;
+#endif
+    ituDep->resize( wk.vDep.size() );
+    wk.l_uVar.back() = ituVar->data();
+    try{
+      wk.dag->eval( wk.sgDep, wk.wkDep, wk.vDep.size(), wk.vDep.data(), ituDep->data(),
+                    wk.l_nVar, wk.l_pVar, wk.l_uVar );
+    }
+    catch( ... ){
+      // skip evaluation and try to carry on
+      continue;
+    }    
+    std::advance( ituVar, NOTHREADS );
+    std::advance( ituDep, NOTHREADS );
+  }
+}
+
+template <typename U>
+inline void
+FFGraph::_veval0
+( size_t const NOTHREADS,  FFSubgraph& sgDep, std::vector<U>& wkDep,
+  std::vector<FFVar> const& vDep, std::vector<std::vector<U>>& v_uDep,
+  std::vector<FFVar> const& vVar, std::vector<std::vector<U>> const& v_uVar,
+  std::list<size_t>& l_nVar, std::list<const FFVar*>& l_pVar, std::list<const U*>& l_uVar )
+{
+#ifdef MC__VEVAL_DEBUG
+  std::cerr << "Thread #" << CURTHREAD << std::endl;
+#endif
+
+  // Run evaluations on current thread
+  l_nVar.push_back( vVar.size() );
+  l_pVar.push_back( vVar.data() );
+  l_uVar.push_back( nullptr ); // pointer to be updated inside the loop
+
+  auto ituDep = v_uDep.begin();
+  auto ituVar = v_uVar.cbegin();
+
+  for( size_t s=0; s<v_uVar.size(); s+=NOTHREADS ){
+#ifdef MC__VEVAL_DEBUG
+    std::cerr << "evaluating scenario " << 0 << "." << s << std::endl;
+    std::cout << "*ituDep: " << &*ituDep << std::endl;
+#endif
+    ituDep->resize( vDep.size() );
+    l_uVar.back() = ituVar->data();
+    try{
+      eval( sgDep, wkDep, vDep.size(), vDep.data(), ituDep->data(), l_nVar, l_pVar, l_uVar );
+    }
+    catch( ... ){
+      // skip evaluation and try to carry on
+      continue;
+    }
+    std::advance( ituVar, NOTHREADS );
+    std::advance( ituDep, NOTHREADS );
+  }
+}
+
+template <typename U, typename... Deps>
+inline int
+FFGraph::reval
+( const std::set<unsigned>& ndxDep, std::vector<FFVar> const& vDep,
+  std::vector<U>& uDep, std::vector<FFVar> const& vVar, std::vector<U>& uVar,
+  Deps... args )
+{
+  if( ndxDep.empty() ) return 0; // Nothing to do!
+
+  std::vector<U> wkDep;
+  return reval( wkDep, ndxDep, vDep, uDep, vVar, uVar, args... );
+}
+
+template <typename U, typename... Deps>
 inline int
 FFGraph::reval
 ( const std::set<unsigned>&ndxDep, const FFVar*pDep,
@@ -8626,6 +9917,19 @@ FFGraph::reval
 
   std::vector<U> wkDep;
   return reval( wkDep, ndxDep, pDep, vDep, nVar, pVar, vVar, args... );
+}
+
+template <typename U, typename... Deps>
+inline int
+FFGraph::reval
+( std::vector<U>& wkDep, std::set<unsigned> const& ndxDep, std::vector<FFVar> const& vDep,
+  std::vector<U>& uDep, std::vector<FFVar> const& vVar, std::vector<U>& uVar,
+  Deps... args )
+{
+  if( ndxDep.empty() ) return 0; // Nothing to do!
+
+  FFSubgraph sgDep;
+  return reval( sgDep, wkDep, ndxDep, vDep, uDep, vVar, uVar, args... );
 }
 
 template <typename U, typename... Deps>
@@ -8643,6 +9947,19 @@ FFGraph::reval
 template <typename U, typename... Deps>
 inline int
 FFGraph::reval
+( FFSubgraph& sgDep, std::set<unsigned> const& ndxDep, std::vector<FFVar> const& vDep,
+  std::vector<U>& uDep, std::vector<FFVar> const& vVar, std::vector<U>& uVar,
+  Deps... args )
+{
+  if( ndxDep.empty() ) return 0; // Nothing to do!
+
+  std::vector<U> wkDep;
+  return reval( sgDep, wkDep, ndxDep, vDep, uDep, vVar, uVar, args... );
+}
+
+template <typename U, typename... Deps>
+inline int
+FFGraph::reval
 ( FFSubgraph&sgDep, const std::set<unsigned>&ndxDep, const FFVar*pDep,
   U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args )
 {
@@ -8650,6 +9967,27 @@ FFGraph::reval
 
   std::vector<U> wkDep;
   return reval( sgDep, wkDep, ndxDep, pDep, vDep, nVar, pVar, vVar, args... );
+}
+
+template <typename U, typename... Deps>
+inline int
+FFGraph::reval
+( FFSubgraph& sgDep, std::vector<U>& wkDep, std::set<unsigned> const& ndxDep,
+  std::vector<FFVar> const& vDep, std::vector<U>& uDep, std::vector<FFVar> const& vVar,
+  std::vector<U>& uVar, Deps... args )
+{
+  if( ndxDep.empty() ) return 0; // Nothing to do!
+
+  std::vector<FFVar> vpDep( ndxDep.size() );
+  std::vector<U> upDep;
+  std::set<unsigned>::const_iterator it = ndxDep.cbegin();
+  for( unsigned iDep=0; it != ndxDep.cend(); ++it, iDep++ ) vpDep[iDep] = vDep[*it];
+
+  int flag = reval( sgDep, wkDep, vpDep, upDep, vVar, uVar, args... );
+
+  it = ndxDep.cbegin();
+  for( unsigned iDep=0; it != ndxDep.cend(); ++it, iDep++ ) uDep[*it] = upDep[iDep];
+  return flag;
 }
 
 template <typename U, typename... Deps>
@@ -8678,28 +10016,68 @@ FFGraph::reval
 template <typename U, typename... Deps>
 inline int
 FFGraph::reval
-( const unsigned nDep, const FFVar*pDep,
-  U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args )
+( std::vector<FFVar> const& vDep, std::vector<U>& uDep, std::vector<FFVar> const& vVar,
+  std::vector<U>& uVar, Deps... args )
 {
-  auto sgDep = subgraph( nDep, pDep );
+  auto sgDep = subgraph( vDep );
   std::vector<U> wkDep;
-  std::list<unsigned> l_nVar;     l_nVar.push_back(nVar);
-  std::list<const FFVar*> l_pVar; l_pVar.push_back(pVar);
-  std::list<U*> l_vVar;           l_vVar.push_back(vVar);
-  return reval( sgDep, wkDep, nDep, pDep, vDep, nVar, pVar, vVar, args... );
+  std::list<size_t>       l_nVar{ vVar.size() };
+  std::list<const FFVar*> l_pVar{ vVar.data() };
+  std::list<U*>           l_uVar{ uVar.data() };
+  return reval( sgDep, wkDep, vDep, uDep, l_nVar, l_pVar, l_uVar, args... );
 }
 
 template <typename U, typename... Deps>
 inline int
 FFGraph::reval
-( std::vector<U>&wkDep, const unsigned nDep, const FFVar*pDep,
-  U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args )
+( const unsigned nDep, const FFVar*pDep, U*vDep, 
+  const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args )
 {
   auto sgDep = subgraph( nDep, pDep );
-  std::list<unsigned> l_nVar;     l_nVar.push_back(nVar);
-  std::list<const FFVar*> l_pVar; l_pVar.push_back(pVar);
-  std::list<U*> l_vVar;           l_vVar.push_back(vVar);
+  std::vector<U> wkDep;
+  std::list<size_t>       l_nVar{ nVar };
+  std::list<const FFVar*> l_pVar{ pVar };
+  std::list<U*>           l_vVar{ vVar };
   return reval( sgDep, wkDep, nDep, pDep, vDep, l_nVar, l_pVar, l_vVar, args... );
+}
+
+template <typename U, typename... Deps>
+inline int
+FFGraph::reval
+( std::vector<U>& wkDep, std::vector<FFVar> const& vDep, std::vector<U>& uDep,
+  std::vector<FFVar> const& vVar, std::vector<U>& uVar, Deps... args )
+{
+  auto sgDep = subgraph( vDep );
+  std::list<size_t>       l_nVar{ vVar.size() };
+  std::list<const FFVar*> l_pVar{ vVar.data() };
+  std::list<U*>           l_uVar{ uVar.data() };
+  return reval( sgDep, wkDep, vDep, uDep, l_nVar, l_pVar, l_uVar, args... );
+}
+
+template <typename U, typename... Deps>
+inline int
+FFGraph::reval
+( std::vector<U>&wkDep, const unsigned nDep, const FFVar*pDep, U*vDep, 
+  const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args )
+{
+  auto sgDep = subgraph( nDep, pDep );
+  std::list<size_t>       l_nVar{ nVar };
+  std::list<const FFVar*> l_pVar{ pVar };
+  std::list<U*>           l_vVar{ vVar };
+  return reval( sgDep, wkDep, nDep, pDep, vDep, l_nVar, l_pVar, l_vVar, args... );
+}
+
+template <typename U, typename... Deps>
+inline int
+FFGraph::reval
+( FFSubgraph& sgDep, std::vector<FFVar> const& vDep, std::vector<U>& uDep,
+  std::vector<FFVar> const& vVar, std::vector<U>& uVar, Deps... args )
+{
+  std::vector<U> wkDep;
+  std::list<size_t>       l_nVar{ vVar.size() };
+  std::list<const FFVar*> l_pVar{ vVar.data() };
+  std::list<U*>           l_uVar{ uVar.data() };
+  return reval( sgDep, wkDep, vDep, uDep, l_nVar, l_pVar, l_uVar, args... );
 }
 
 template <typename U, typename... Deps>
@@ -8709,10 +10087,23 @@ FFGraph::reval
   U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args )
 {
   std::vector<U> wkDep;
-  std::list<unsigned> l_nVar;     l_nVar.push_back(nVar);
-  std::list<const FFVar*> l_pVar; l_pVar.push_back(pVar);
-  std::list<U*> l_vVar;           l_vVar.push_back(vVar);
+  std::list<size_t>       l_nVar{ nVar };
+  std::list<const FFVar*> l_pVar{ pVar };
+  std::list<U*>           l_vVar{ vVar };
   return reval( sgDep, wkDep, nDep, pDep, vDep, nVar, pVar, vVar, args... );
+}
+
+template <typename U, typename... Deps>
+inline int
+FFGraph::reval
+( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
+  std::vector<U>& uDep, std::vector<FFVar> const& vVar, std::vector<U>& uVar,
+  Deps... args )
+{
+  std::list<size_t>       l_nVar{ vVar.size() };
+  std::list<const FFVar*> l_pVar{ vVar.data() };
+  std::list<U*>           l_uVar{ uVar.data() };
+  return reval( sgDep, wkDep, vDep, uDep, l_nVar, l_pVar, l_uVar, args... );
 }
 
 template <typename U, typename... Deps>
@@ -8721,38 +10112,64 @@ FFGraph::reval
 ( FFSubgraph&sgDep, std::vector<U>&wkDep, const unsigned nDep, const FFVar*pDep,
   U*vDep, const unsigned nVar, const FFVar*pVar, U*vVar, Deps... args )
 {
-  std::list<unsigned> l_nVar;     l_nVar.push_back(nVar);
-  std::list<const FFVar*> l_pVar; l_pVar.push_back(pVar);
-  std::list<U*> l_vVar;           l_vVar.push_back(vVar);
+  std::list<size_t>       l_nVar{ nVar };
+  std::list<const FFVar*> l_pVar{ pVar };
+  std::list<U*>           l_vVar{ vVar };
   return reval( sgDep, wkDep, nDep, pDep, vDep, l_nVar, l_pVar, l_vVar, args... );
 }
 
 template <typename U, typename... Deps>
 inline int
 FFGraph::reval
+( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
+  std::vector<U>& uDep, std::list<size_t>& l_nVar, std::list<FFVar const*>& l_pVar,
+  std::list<U*>& l_uVar, std::vector<FFVar> const& vVar, std::vector<U>& uVar,
+  Deps... args )
+{
+  l_nVar.push_back( vVar.size() );
+  l_pVar.push_back( vVar.data() );
+  l_uVar.push_back( uVar.data() );
+  return reval( sgDep, wkDep, vDep, uDep, l_nVar, l_pVar, l_uVar, args... );
+}
+
+template <typename U, typename... Deps>
+inline int
+FFGraph::reval
 ( FFSubgraph&sgDep, std::vector<U>&wkDep, const unsigned nDep, const FFVar*pDep,
-  U*vDep, std::list<unsigned>&l_nVar, std::list<const FFVar*>&l_pVar,
+  U*vDep, std::list<size_t>&l_nVar, std::list<const FFVar*>&l_pVar,
   std::list<U*>&l_vVar, const unsigned nVar, const FFVar*pVar,
   U*vVar, Deps... args )
 {
-  l_nVar.push_back(nVar);
-  l_pVar.push_back(pVar);
-  l_vVar.push_back(vVar);
+  l_nVar.push_back( nVar);
+  l_pVar.push_back( pVar );
+  l_vVar.push_back( vVar );
   return reval( sgDep, wkDep, nDep, pDep, vDep, l_nVar, l_pVar, l_vVar, args... );
 }
 
 template <typename U>
 inline int
 FFGraph::reval
-( FFSubgraph&sgDep, std::vector<U>&wkDep, const unsigned nDep, const FFVar*pDep,
-  U*vDep, const std::list<unsigned>&l_nVar, const std::list<const FFVar*>&l_pVar,
-  const std::list<U*>&l_vVar, U const& InfVal, const unsigned MAXPASS,
-  const double THRESPASS )
+( FFSubgraph&sgDep, std::vector<U>&wkDep, std::vector<FFVar> const& vDep,
+  std::vector<U>& uDep, std::list<size_t> const& l_nVar,
+  std::list<const FFVar*> const& l_pVar, std::list<U*> const& l_uVar,
+  U const& InfVal, unsigned const MAXPASS, double const& THRESPASS )
+{
+  return reval( sgDep, wkDep, vDep.size(), vDep.data(), uDep.data(), l_nVar, l_pVar, l_uVar,
+                InfVal, MAXPASS, THRESPASS );
+}
+
+template <typename U>
+inline int
+FFGraph::reval
+( FFSubgraph& sgDep, std::vector<U>& wkDep, unsigned const nDep, FFVar const* pDep,
+  U* vDep, std::list<size_t> const& l_nVar, std::list<const FFVar*> const& l_pVar,
+  std::list<U*> const& l_vVar, U const& InfVal, unsigned const MAXPASS,
+  double const& THRESPASS )
 {
   // Nothing to do!
   if( !nDep ) return 0;
   assert( pDep && vDep );
-  const unsigned nIndep = l_nVar.size();
+  size_t const nIndep = l_nVar.size();
   assert( l_pVar.size() == nIndep && l_vVar.size() == nIndep );
 
   // Populate subgraph if empty
@@ -8979,200 +10396,6 @@ FFGraph::wkextract
 #endif
     }
   }
-}
-
-inline bool
-FFGraph::MC13
-( unsigned const nDep, FFVar const* pDep, FFVar const* pIndep,
-  int* IPERM, int* IOR, int* IB, int& NB, bool const disp, std::ostream& os )
-{
-#ifndef MC__USE_HSL
-  throw Exceptions( Exceptions::MISSHSL );
-#else
-  // Get list of operations
-  std::vector<FFVar> pVar( pIndep, pIndep+nDep );
-  std::vector<FFDep> vVar( nDep );
-  for( unsigned i=0; i<nDep; i++ ) vVar[i].indep(i);
-  auto sgDep = subgraph( nDep, pDep );
-  for( auto const& op : sgDep.l_op ){
-    // Operation not a variable
-    if( op->type != FFOp::VAR ) continue;
-    FFVar var = *op->varout.front();
-    bool isParam = true;
-    // Operation is a current independent
-    for( unsigned i=0; isParam && i<nDep; i++ )
-      if( var.id() == pIndep[i].id() ) isParam = false;
-    if( !isParam ) continue;
-    // Add dummy variable for parameter
-    pVar.push_back( var );
-    vVar.push_back( FFDep() );
-  }
-  const unsigned nVar = pVar.size();
-  std::vector<FFDep> wkDep( sgDep.len_tap );
-  std::vector<FFDep> vDep( nDep );
-  //for( unsigned i=0; i<nVar; i++ )
-  //  std::cout << pVar[i] << " = " << vVar[i] << std::endl;
-  eval( sgDep, wkDep, nDep, pDep, vDep.data(), nVar, pVar.data(), vVar.data() );
-
-  // Populate sparse arrays
-  std::vector<int> IP(nDep), LENR(nDep), ICN;
-  for( unsigned i=0; i<nDep; i++ ){
-    IP[i] = ICN.size()+1;
-    LENR[i] = vDep[i].dep().size();
-    auto cit = vDep[i].dep().begin();
-    for( ; cit != vDep[i].dep().end(); ++cit )
-      ICN.push_back( (*cit).first+1 );
-  }
-
-  // Make a row permutation to remove nonzeros on diagonal: MC21A
-  int N = IP.size(), LICN = ICN.size();
-  std::vector<int> IW(4*nDep);
-#ifdef MC__MC13_DISABLE_MC21A
-  for( unsigned i=0; i<nDep; i++ ) IPERM[i] = i+1;
-  bool singDep = false;
-#else
-  int NUMNZ; 
-  mc21a_( &N, ICN.data(), &LICN, IP.data(), LENR.data(), IPERM,
-          &NUMNZ, IW.data() );
-  bool singDep = NUMNZ<N? true: false;
-#ifdef MC__MC13_DEBUG
-  std::cout << "Structural singularity: " << (singDep?'Y':'N') << std::endl;
-#endif
-  if( singDep ) return false;
-
-  // Permute order of equation system using IPERM (!!Fortran style indices!!)
-  ICN.clear();
-  for( unsigned i=0; i<nDep; i++ ){
-    IP[i] = ICN.size()+1;
-    LENR[i] = vDep[IPERM[i]-1].dep().size();
-    auto cit = vDep[IPERM[i]-1].dep().begin();
-    for( ; cit != vDep[IPERM[i]-1].dep().end(); ++cit )
-      ICN.push_back( (*cit).first+1 );
-  }
-#ifdef MC__MC13_DEBUG
-  std::cout << "Row reordering: ";
-  for( unsigned i=0; i<nDep; i++) std::cout << " " << IPERM[i];
-  std::cout << std::endl;
-#endif
-#endif
-
-  // Make a block lower-triangular decomposition: MC13D
-  mc13d_( &N, ICN.data(), &LICN, IP.data(), LENR.data(), IOR,
-          IB, &NB, IW.data() );
-#ifdef MC__MC13_DEBUG
-  std::cout << "Number of blocks in permuted matrix: " << NB << std::endl;
-  std::cout << "Row/Column reordering: ";
-  for( unsigned i=0; i<nDep; i++) std::cout << " " << IOR[i];
-  std::cout << std::endl;
-#endif
-
-  // Display permuted system structure
-  if( disp ){
-    std::cout << std::endl << "Number of Blocks: " << NB << std::endl;
-    os << "Lower-triangular block structure:" << std::endl
-       << std::right << "     ";
-    for( unsigned j=0; j<nDep; j++ )
-    //  os << " " << std::setw(3) << IOR[j]-1;
-      os << " " << std::setw(4) << pIndep[IOR[j]-1];
-    os << std::endl;
-    for( unsigned i=0; i<nDep; i++ ){
-      //os << std::setw(3) << IPERM[IOR[i]-1]-1 << " ";
-      os << std::setw(4) << pDep[IPERM[IOR[i]-1]-1] << " ";
-      for( unsigned j=0; j<nDep; j++ )
-        os << std::setw(3) << " "
-           << (vDep[IPERM[IOR[i]-1]-1].dep(IOR[j]-1).first?"X ":"  ");
-      os << std::endl;
-    }
-    os << std::endl;
-  }
-  return true;
-#endif
-}
-
-inline bool
-FFGraph::MC33
-( unsigned const nDep, FFVar const* pDep, unsigned const nIndep,
-  FFVar const* pIndep, int* IP, int* IQ, int* IPROF, int* IFLAG, bool const disp,
-  std::ostream& os )
-{
-#ifndef MC__USE_HSL
-  throw Exceptions( Exceptions::MISSHSL );
-#else
-  // Get list of operations
-  std::vector<FFVar> pVar( pIndep, pIndep+nIndep );
-  std::vector<FFDep> vVar( nIndep );
-  for( unsigned i=0; i<nIndep; i++ ) vVar[i].indep(i);
-  auto sgDep = subgraph( nDep, pDep );
-  for( auto const& op : sgDep.l_op ){
-    // Operation not a variable
-    if( op->type != FFOp::VAR ) continue;
-    FFVar var = *op->varout.front();
-    bool isParam = true;
-    // Operation is a current independent
-    for( unsigned i=0; isParam && i<nIndep; i++ )
-      if( var.id() == pIndep[i].id() ) isParam = false;
-    if( !isParam ) continue;
-    // Add dummy variable for parameter
-    pVar.push_back( var );
-    vVar.push_back( FFDep() );
-  }
-  const unsigned nVar = pVar.size();
-  std::vector<FFDep> wkDep( sgDep.len_tap );
-  std::vector<FFDep> vDep( nDep );
-  //for( unsigned i=0; i<nVar; i++ )
-  //  std::cout << pVar[i] << " = " << vVar[i] << std::endl;
-  eval( sgDep, wkDep, nDep, pDep, vDep.data(), nVar, pVar.data(), vVar.data() );
-
-  // Populate sparse arrays
-  std::vector<int> IRN, JCN;
-  std::vector<double> A;
-  for( unsigned i=0; i<nDep; i++ ){
-    auto cit = vDep[i].dep().begin();
-    for( ; cit != vDep[i].dep().end(); ++cit ){
-      IRN.push_back( i+1 );
-      JCN.push_back( (*cit).first+1 );
-      A.push_back( IRN.size() );
-    }
-  }
-
-  // Make a bordered-block lower-triangular decomposition: MC33A
-  const int ITYPE = 5;
-  const int M = nDep, N = nIndep, NZI = IRN.size();
-  int NZO, IERR;
-  std::vector<int> IW(M+N), IW1(9*N+3*M);
-  mc33ad_( &M, &N, &NZI, &NZO, &ITYPE, A.data(), IRN.data(), JCN.data(),
-           IP, IQ, IPROF, IFLAG, IW.data(), IW1.data(), &IERR );
-  if( IERR ) return false;
-#ifdef MC__MC33_DEBUG
-  std::cout << "Width of bordered block: " << IFLAG[2] << std::endl;
-  std::cout << "Row reordering: ";
-  for( unsigned i=0; i<nDep; i++) std::cout << " " << IP[i];
-  std::cout << "Column reordering: ";
-  for( unsigned i=0; i<nIndep; i++) std::cout << " " << IQ[i];
-  std::cout << std::endl;
-#endif
-
-  // Display permuted system structure
-  if( disp ){
-    os << std::endl << "Bordered-block Lower-triangular structure:" << std::endl
-       << std::right << "   ";
-    for( unsigned j=0; j<nIndep; j++ )
-      os << (j+IFLAG[2]-IFLAG[1]?" ":" | ") << std::setw(4) << pIndep[IQ[j]-1];
-    os << std::endl;
-    for( unsigned i=0; i<nDep; i++ ){
-      //os << std::setw(3) << IP[i]-1;
-      os << std::setw(4) << pDep[IP[i]-1];
-      for( unsigned j=0; j<nIndep; j++ ){
-        os << (j+IFLAG[2]-IFLAG[1]?"   ":"|    ")
-           << (vDep[IP[i]-1].dep(IQ[j]-1).first?"X ":"  ");
-      }
-      os << std::endl;
-    }
-    os /* << "  Border bandwidth:" << IFLAG[2] */ << std::endl;
-  }
-
-  return true;
-#endif
 }
 
 } // namespace mc

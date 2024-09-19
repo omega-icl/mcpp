@@ -54,15 +54,17 @@ int test_compose2()
   DAG.dot_script( 1, &G, o_comp0 );
   o_comp0.close();
 
-  const mc::FFVar* GoF = DAG.compose( 1, &G, 1, &Y, &F, 1, &Z, &F );
-  //std::cout << DAG;
+  auto&& vGoF = DAG.compose( std::vector<mc::FFVar>({G}), std::vector<mc::FFVar>({Y,Z}), std::vector<mc::FFVar>({F,F}) );
+  DAG.output( DAG.subgraph( vGoF ), " GoF" );
 
-  DAG.output( DAG.subgraph( 1, GoF ), " GoF" );
+  mc::FFVar const* pGoF = DAG.compose( 1, &G, 1, &Y, &F, 1, &Z, &F );
+  DAG.output( DAG.subgraph( 1, pGoF ), " GoF" );
+
   std::ofstream o_comp1( "compose2_1.dot", std::ios_base::out );
-  DAG.dot_script( 1, GoF, o_comp1 );
+  DAG.dot_script( 1, pGoF, o_comp1 );
   o_comp1.close();
 
-  delete[] GoF;
+  delete[] pGoF;
   return 0;
 }
 
@@ -106,27 +108,32 @@ int test_insert()
   std::cout << "\n==============================================\ntest_insert:\n";
 
   mc::FFGraph DAG1;
-  mc::FFVar X1[3], F1[3];
-  for( unsigned i=0; i<3; i++ )
-    X1[i].set( &DAG1 );
 
-  F1[0] = exp(X1[1]);
-  F1[1] = sqr(X1[0])-exp(X1[1])*X1[0];
-  F1[2] = sqr(X1[2])-exp(X1[1])*X1[2];
+  size_t const NX = 3;
+  std::vector<mc::FFVar> X1(NX);
+  for( auto& X1i : X1 ) X1i.set( &DAG1 );
+
+  std::vector<mc::FFVar> F1{
+    exp(X1[1]),
+    sqr(X1[0])-exp(X1[1])*X1[0],
+    sqr(X1[2])-exp(X1[1])*X1[2]
+  };
   std::cout << DAG1;
 
-  DAG1.output( DAG1.subgraph( 3, F1 ) );
+  DAG1.output( DAG1.subgraph( F1 ) );
 
   mc::FFGraph DAG2;
-  mc::FFVar F2[2];
-  DAG2.insert( &DAG1, 1, F1, F2 );
+
+  std::vector<mc::FFVar> F2(2);
+  DAG2.insert( &DAG1, 1, &F1[0], &F2[0] );
   std::cout << DAG2;
-  DAG2.insert( &DAG1, 1, F1+1, F2+1 );
+  DAG2.insert( &DAG1, 1, &F1[1], &F2[1] );
   std::cout << DAG2;
 
   mc::FFGraph DAG3;
-  mc::FFVar F3[3];
-  DAG3.insert( &DAG1, 3, F1, F3 );
+
+  std::vector<mc::FFVar> F3(3);
+  DAG3.insert( &DAG1, F1, F3 );
   std::cout << DAG3;
 
   return 0;
