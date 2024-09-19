@@ -88,17 +88,17 @@ public:
     std::string what(){
       switch( _ierr ){
       case DAG:
-        return "mc::FFHSL::Exceptions\t "DAG not set";
+        return "mc::FFHSL::Exceptions\t DAG not set";
       case UNDEF:
       default:
-        return "mc::FFHSL::Exceptions\t "Undocumented error";
+        return "mc::FFHSL::Exceptions\t Undocumented error";
       }
     }
   private:
     TYPE _ierr;
   };
 
-protexted:
+protected:
 
   //! @brief pointer to underlying dag
   FFGraph* _dag;

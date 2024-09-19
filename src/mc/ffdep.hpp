@@ -869,6 +869,8 @@ operator>
 
 } // namespace mc
 
+#include "mcop.hpp"
+
 namespace mc
 {
 
