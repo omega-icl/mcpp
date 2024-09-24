@@ -40,7 +40,12 @@ pyVect
  )
  .def(
    py::init<mc::FFGraph*, std::vector<mc::FFVar> const&, std::vector<std::vector<mc::FFVar>> const&>(),
-   "constructor passing current DAG, independent and dependent variables"
+   "constructor passing current DAG, dependent and independent variables"
+ )
+ .def(
+   py::init<mc::FFGraph*, std::vector<mc::FFVar> const&, std::vector<mc::FFVar> const&,
+            std::vector<std::vector<mc::FFVar>> const&>(),
+   "constructor passing current DAG, dependent, independent and constant variables"
  )
  .def(
    py::init<mc::Vect const&>(),
@@ -51,7 +56,14 @@ pyVect
    []( mc::Vect& self, mc::FFGraph* pDAG, std::vector<mc::FFVar> const& vVar,
        std::vector<std::vector<mc::FFVar>> const& vFun )
      { return self.set( pDAG, vVar, vFun ); },
-   "set current DAG, independent and dependent variables"
+   "set current DAG, dependent and independent variables"
+ )
+ .def( 
+   "set",
+   []( mc::Vect& self, mc::FFGraph* pDAG, std::vector<mc::FFVar> const& vVar,
+       std::vector<mc::FFVar> const& vCst, std::vector<std::vector<mc::FFVar>> const& vFun )
+     { return self.set( pDAG, vVar, vCst, vFun ); },
+   "set current DAG, dependent, independent and constant variables"
  )
  .def_readwrite( 
    "options",
@@ -70,6 +82,14 @@ pyVect
    []( mc::Vect& self )
    {
      return self.vVar();
+   },
+   "Participating variables"
+ )
+ .def_property_readonly(
+   "Cst",
+   []( mc::Vect& self )
+   {
+     return self.vCst();
    },
    "Participating variables"
  )

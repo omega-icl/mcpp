@@ -1,7 +1,7 @@
 #ifndef MC__FFVECT_HPP
 #define MC__FFVECT_HPP
 
-#define MC__FFVECT_DEBUG
+#undef  MC__FFVECT_DEBUG
 #define MC__FFVECT_CHECK
 
 #include "ffunc.hpp"
@@ -23,7 +23,7 @@ private:
   //! @brief DAG duplication for thread evaluation
   struct Worker
   {
-    //! @brief Constructor
+    //! @brief Default constructor
     Worker
       ()
       : pDAG( nullptr )
@@ -47,16 +47,31 @@ private:
 
     //! @brief vector of independent variables
     std::vector<FFVar>      vVar;
-    
+
+    //! @brief vector of constants
+    std::vector<FFVar>      vCst;
+ 
+    //! @brief copy worker
+    bool copy
+      ( Worker const& wkr )
+      {
+        return set( wkr.pDAG, wkr.vDep, wkr.vVar, wkr.vCst );
+      }
+ 
     //! @brief set DAG copy
     bool set
-      ( FFGraph* _pDAG, std::vector<FFVar> const& _vVar, std::vector<FFVar> const& _vDep )
+      ( FFGraph* _pDAG, std::vector<FFVar> const& _vDep, std::vector<FFVar> const& _vVar,
+        std::vector<FFVar> const& _vCst )
       {
         try{
           if( pDAG ) delete pDAG;
           pDAG = new FFGraph;
           pDAG->options = _pDAG->options;
           pDAG->insert( _pDAG, _vVar, vVar );
+          if( _vCst.empty() )
+            vCst.clear();
+          else
+            pDAG->insert( _pDAG, _vCst, vCst );
           pDAG->insert( _pDAG, _vDep, vDep );
           sgDep = pDAG->subgraph( vDep );
         }
@@ -74,11 +89,32 @@ private:
     //! @brief evaluate DAG
     template <typename U>
     void eval
-      ( std::vector<U>& wkU, U* uDep, U const* uVar )
+      ( std::vector<U>& wkU, U* uDep, U const* uVar, U const* uCst )
       {
-        //pDAG->output( sgDep );
-        pDAG->eval( sgDep, wkU, vDep.size(), vDep.data(), uDep, vVar.size(), vVar.data(), uVar );
+#ifdef MC__FFVECT_DEBUG
+        pDAG->output( sgDep );
+#endif
+        if( uCst )
+          pDAG->eval( sgDep, wkU, vDep.size(), vDep.data(), uDep, vVar.size(), vVar.data(), uVar,
+                      vCst.size(), vCst.data(), uCst );
+        else
+          pDAG->eval( sgDep, wkU, vDep.size(), vDep.data(), uDep, vVar.size(), vVar.data(), uVar );
       }
+#ifdef MC__FFVECT_DEBUG
+    void eval
+      ( std::vector<double>& wkU, double* uDep, double const* uVar, double const* uCst )
+      {
+        pDAG->output( sgDep );
+        for( size_t i=0; i<vVar.size(); ++i ) std::cout << "Var: " << vVar[i] << " = " << uVar[i] << std::endl;
+        for( size_t i=0; i<vCst.size(); ++i ) std::cout << "Cst: " << vCst[i] << " = " << uCst[i] << std::endl;
+        if( uCst )
+          pDAG->eval( sgDep, wkU, vDep.size(), vDep.data(), uDep, vVar.size(), vVar.data(), uVar,
+                      vCst.size(), vCst.data(), uCst );
+        else
+          pDAG->eval( sgDep, wkU, vDep.size(), vDep.data(), uDep, vVar.size(), vVar.data(), uVar );
+        for( size_t i=0; i<vDep.size(); ++i ) std::cout << "Dep:" << vDep[i] << " = " << uDep[i] << std::endl;
+      }
+#endif
   };
 
   //! @brief Underlying DAG
@@ -87,6 +123,10 @@ private:
   std::vector<FFVar>                            _vVar;
   //! @brief Number of variables
   size_t                                        _nVar;
+  //! @brief Participating variables
+  std::vector<FFVar>                            _vCst;
+  //! @brief Number of variables
+  size_t                                        _nCst;
   //! @brief Function structure
   std::vector<std::vector<FFVar>>               _vFun;
   //! @brief Number of functions
@@ -104,7 +144,7 @@ public:
   Vect
     ()
     : _pDAG( nullptr ),
-      _nVar( 0 ), _nFun( 0 )
+      _nVar( 0 ), _nCst( 0 ), _nFun( 0 )
     {}
 
   //! @brief Default constructor
@@ -112,15 +152,33 @@ public:
     ( FFGraph* pDAG, std::vector<FFVar> const& vVar,
       std::vector<std::vector<FFVar>> const& vFun=std::vector<std::vector<FFVar>>() )
     {
-      set( pDAG, vVar, vFun );
+      set( pDAG, vVar, std::vector<FFVar>(), vFun );
+    }
+
+  Vect
+    ( FFGraph* pDAG, std::vector<FFVar> const& vVar, std::vector<FFVar> const& vCst,
+      std::vector<std::vector<FFVar>> const& vFun=std::vector<std::vector<FFVar>>() )
+    {
+      set( pDAG, vVar, vCst, vFun );
     }
 
   //! @brief Copy constructor
   Vect
     ( Vect const& v )
-    : options(v.options)
+    : _pDAG( v._pDAG ),
+      _vVar( v._vVar ), _nVar( v._nVar ),
+      _vCst( v._vCst ), _nCst( v._nCst ),
+      _vFun( v._vFun ), _nFun( v._nFun ),
+      options( v.options )
     {
-      set( v._pDAG, v._vVar, v._vFun );
+      _vWkr.resize( v._vWkr.size() );
+      for( size_t iwkr=0; iwkr<v._vWkr.size(); ++iwkr ){
+#ifdef MC__FFVECT_DEBUG
+        std::cout << "Copying worker #" << iwkr << std::endl;
+#endif
+        _vWkr[iwkr].copy( v._vWkr[iwkr] );
+
+      }
     }
 
   ~Vect
@@ -132,12 +190,25 @@ public:
     ( FFGraph* pDAG, size_t nVar, FFVar const* pVar,
       std::vector<std::vector<FFVar>> const& vFun=std::vector<std::vector<FFVar>>() )
     {
-      return set( pDAG, std::vector<FFVar>( pVar, pVar+nVar ), vFun );
+      return set( pDAG, std::vector<FFVar>( pVar, pVar+nVar ), std::vector<FFVar>(), vFun );
     }
 
-  //! @brief Set function structure
+  bool set
+    ( FFGraph* pDAG, size_t nVar, FFVar const* pVar, size_t nCst, FFVar const* pCst,
+      std::vector<std::vector<FFVar>> const& vFun=std::vector<std::vector<FFVar>>() )
+    {
+      return set( pDAG, std::vector<FFVar>( pVar, pVar+nVar ), std::vector<FFVar>( pCst, pCst+nCst ), vFun );
+    }
+
   bool set
     ( FFGraph* pDAG, std::vector<FFVar> const& vVar,
+      std::vector<std::vector<FFVar>> const& vFun=std::vector<std::vector<FFVar>>() )
+    {
+      return set( pDAG, vVar, std::vector<FFVar>(), vFun );
+    }
+    
+  bool set
+    ( FFGraph* pDAG, std::vector<FFVar> const& vVar, std::vector<FFVar> const& vCst,
       std::vector<std::vector<FFVar>> const& vFun=std::vector<std::vector<FFVar>>() )
     {
       _pDAG = pDAG;
@@ -145,6 +216,15 @@ public:
       _vVar = vVar;
       _nVar = vVar.size();
 
+      if( vCst.empty() ){
+        _vCst.clear();
+        _nCst = 0;
+      }
+      else{
+        _vCst = vCst;
+        _nCst = vCst.size();
+      }
+      
       _nFun = 0;
       _vFun = vFun;
       _vWkr.clear();
@@ -152,7 +232,7 @@ public:
       for( size_t i=0; i<vFun.size(); ++i ){
         _nFun += vFun[i].size();
         _vWkr.push_back( Worker() );
-        if( !_vWkr.back().set( pDAG, vVar, vFun[i] ) )
+        if( !_vWkr.back().set( pDAG, vFun[i], vVar, vCst ) )
           return false;
       }
       return true;
@@ -165,7 +245,7 @@ public:
 //      _nFun += vFun.size();
 //      _vFun.push_back( vFun );
 //      _vWkr.push_back( Worker() );
-//      return _vWkr.back().set( _pDAG, _vVar, vFun );
+//      return _vWkr.back().set( _pDAG, vFun, _vVar, _vCst );
 //    }
 
   //! @brief Original DAG
@@ -173,6 +253,18 @@ public:
     ()
     const
     { return _pDAG; }
+
+  //! @brief Number of constants
+  size_t nCst
+    ()
+    const
+    { return _nCst; }
+
+  //! @brief Participating constats
+  std::vector<FFVar> const& vCst
+    ()
+    const
+    { return _vCst; }
 
   //! @brief Number of variables
   size_t nVar
@@ -226,30 +318,30 @@ public:
   //! @brief Evaluate function
   template <typename U>
   void eval_serial
-    ( U* y, U const* x );
+    ( U* y, U const* x, U const* c );
 
   //! @brief Evaluate function
   template <typename U>
   void eval_parallel
-    ( U* y, U const* x );
+    ( U* y, U const* x, U const* c );
 };
 
 template< typename U >
 inline void
 Vect::eval_serial
-( U* y, U const* x )
+( U* y, U const* x, U const* c )
 {
   static thread_local std::vector<U> wkU;
   U* yi = y;
   for( size_t i=0; i<_vFun.size(); yi+=_vFun[i].size(), ++i ) // increment i last
-    _vWkr[i].eval( wkU, yi, x ); 
+    _vWkr[i].eval( wkU, yi, x, c ); 
 }
 
 
 template< typename U >
 inline void
 Vect::eval_parallel
-( U* y, U const* x )
+( U* y, U const* x, U const* c )
 {
   static thread_local std::vector<std::vector<U>> vwkU( _vFun.size() );
 
@@ -260,20 +352,23 @@ Vect::eval_parallel
   for( size_t i=0; i<_vFun.size(); yi+=_vFun[i].size(), ++i ){ // increment i last
     // Final element to run on current thread
     if( i == _vFun.size()-1 ){
-      _vWkr[i].eval( vwkU[i], yi, x );
+#ifdef MC__FFVECT_DEBUG
+      std::cout << "Running on current thread" << std::endl;
+#endif
+      _vWkr[i].eval( vwkU[i], yi, x, c );
     }
     // Other elements to run on auxiliary threads
     else{
 #ifdef MC__FFVECT_DEBUG
       std::cout << "Starting thread #" << i << std::endl;
 #endif
-      //_vWkr[i].eval( vwkU[i], yi, x );
-      _vThd[i] = std::thread( &Vect::Worker::eval<U>, &_vWkr[i], std::ref(vwkU[i]), yi, x );
+      //_vWkr[i].eval( vwkU[i], yi, x, c );
+      _vThd[i] = std::thread( &Vect::Worker::eval<U>, &_vWkr[i], std::ref(vwkU[i]), yi, x, c );
     }
   }
 #else
   for( size_t i=0; i<_vFun.size(); yi+=_vFun[i].size(), ++i ){ // increment i last
-    _vWkr[i].eval( vwkU[i], yi, x );
+    _vWkr[i].eval( vwkU[i], yi, x, c );
   }
 #endif
 
@@ -308,7 +403,10 @@ private:
       owndata = false;
       data = _pFun;
 
-      FFVar** ppRes = insert_external_operation( *this, _pFun->nFun(), _pFun->nVar(), _pFun->vVar().data() );
+      FFVar** ppRes = ( _pFun->nCst()?
+                        insert_external_operation( *this, _pFun->nFun(), _pFun->nVar(), _pFun->vVar().data(),
+                                                   _pFun->nCst(), _pFun->vCst().data() ):
+                        insert_external_operation( *this, _pFun->nFun(), _pFun->nVar(), _pFun->vVar().data() ) );
 
       _ownFun = false;
       FFOp* pOp = (*ppRes)->opdef().first;
@@ -408,6 +506,12 @@ public:
     ( unsigned const nRes, U* vRes, unsigned const nVar, U const* vVar, unsigned const* mVar )
     const;
 
+#ifdef MC__FFVECT_DEBUG
+  void eval
+    ( unsigned const nRes, double* vRes, unsigned const nVar, double const* vVar, unsigned const* mVar )
+    const;
+#endif
+
   void eval
     ( unsigned const nRes, FFDep* vRes, unsigned const nVar, FFDep const* vVar, unsigned const* mVar )
     const;
@@ -459,7 +563,7 @@ public:
   bool commutative
     ()
     const
-    { return true; }
+    { return false; }
 };
 
 template< typename T >
@@ -474,12 +578,33 @@ const
   std::cout << "FFVect::eval: " << typeid( vRes[0] ).name() << " (generic)\n";
 #endif
 #ifdef MC__FFVECT_CHECK
-  assert( _pFun && nVar == _pFun->nVar() && nRes == _pFun->nFun() );
+  assert( _pFun && nVar == _pFun->nVar()+_pFun->nCst() && nRes == _pFun->nFun() );
 #endif
 
   //_pFun->eval_serial( vRes, vVar );
-  _pFun->eval_parallel( vRes, vVar );
+  _pFun->eval_parallel( vRes, vVar, vVar+_pFun->nVar() );
 }
+
+#ifdef MC__FFVECT_DEBUG
+template< typename T >
+inline void
+FFVect<T>::eval
+( unsigned const nRes, double* vRes, unsigned const nVar, double const* vVar,
+  unsigned const* mVar )
+const
+{
+#ifdef MC__FFVECT_TRACE
+  std::cout << "FFVect::eval: double\n";
+#endif
+#ifdef MC__FFVECT_CHECK
+  assert( _pFun && nVar == _pFun->nVar()+_pFun->nCst() && nRes == _pFun->nFun() );
+#endif
+
+  //_pFun->eval_serial( vRes, vVar );
+  _pFun->eval_parallel( vRes, vVar, vVar+_pFun->nVar() );
+  for( size_t i=0; i<nRes; ++i ) std::cout << "vRes[" << i << "] = " << vRes[i] << std::endl;
+}
+#endif
 
 template< typename T >
 inline void
@@ -492,10 +617,10 @@ const
   std::cout << "FFVect::eval: FFDep\n";
 #endif
 #ifdef MC__FFVECT_CHECK
-  assert( _pFun && nVar == _pFun->nVar() && nRes == _pFun->nFun() );
+  assert( _pFun && nVar == _pFun->nVar()+_pFun->nCst() && nRes == _pFun->nFun() );
 #endif
 
-  _pFun->eval_serial( vRes, vVar );
+  _pFun->eval_serial( vRes, vVar, vVar+_pFun->nVar() );
 
 //  vRes[0] = 0;
 //  for( unsigned i=0; i<nVar; ++i ) vRes[0] += vVar[i];
@@ -510,11 +635,13 @@ FFVect<T>::eval
   unsigned const* mVar )
 const
 {
-#ifdef MC__FFVECT_TRACE
+#ifdef NC__FFVECT_TRACE
   std::cout << "FFVect::eval: FFVar\n";
+  std::cerr << "FFVect operation address: " << this << std::endl;
+  std::cerr << "Vect address in DAG: " << _pFun << std::endl;
 #endif
 #ifdef MC__FFVECT_CHECK
-  assert( _pFun && nVar == _pFun->nVar() && nRes == _pFun->nFun() );
+  assert( _pFun && nVar == _pFun->nVar()+_pFun->nCst() && nRes == _pFun->nFun() );
   #endif
 
   FFVar** ppRes = insert_external_operation( *this, nRes, nVar, vVar );
@@ -584,13 +711,14 @@ const
   std::cout << "FFVect::deriv: FFVar\n";
 #endif
 #ifdef MC__FFVECT_CHECK
-  assert( _pFun && nVar == _pFun->nVar() && nRes == _pFun->nFun() && _pFun->pDAG() );
+  assert( _pFun && nVar == _pFun->nVar()+_pFun->nCst() && nRes == _pFun->nFun() && _pFun->pDAG() );
 #endif
 
-  auto&& vVar = std::vector<FFVar>( pVar, pVar+nVar );
+  auto&& vVar = std::vector<FFVar>( pVar, pVar+_pFun->nVar() );
+  auto&& vCst = ( _pFun->nCst()? std::vector<FFVar>( pVar+_pFun->nVar(), pVar+nVar ): std::vector<FFVar>() );
   std::vector<std::vector<FFVar>> vFun;
   vFun.reserve( _pFun->vFun().size() );
-//  Vect FunDer( _pFun->pDAG(), vVar );
+//  Vect FunDer( _pFun->pDAG(), vVar, vCst );
   for( auto const& vFi : _pFun->vFun() )
     switch( _pFun->options.AUTODIFF ){
       default:
@@ -606,17 +734,21 @@ const
         break;
     }
 
-  Vect FunDer( _pFun->pDAG(), vVar, vFun );
+  Vect FunDer( _pFun->pDAG(), vVar, vCst, vFun );
   FFVect<T> ResDer;
   FFVar const*const* vResDer = ResDer._set( &FunDer ); 
 
   for( unsigned b=0, bik=0, boff=0; b<_pFun->vFun().size(); boff+=_pFun->vFun()[b].size(), ++b )
-    for( unsigned k=0; k<_pFun->vFun()[b].size(); ++k )
-      for( unsigned i=0; i<nVar; ++i, ++bik ){
+    for( unsigned k=0; k<_pFun->vFun()[b].size(); ++k ){
+      for( unsigned i=0; i<_pFun->nVar(); ++i, ++bik ){
         //std::cout << boff+k << "," << i << " ==> " << bik << std::endl;
         vDer[boff+k][i] = *vResDer[bik];
       }
-
+      for( unsigned i=_pFun->nVar(); i<nVar; ++i ){
+        //std::cout << boff+k << "," << i << " ==> --" << std::endl;
+        vDer[boff+k][i] = 0;
+      }
+    }
 }
 
 //F1[1]
@@ -657,7 +789,7 @@ const
   std::cout << "FFVect::eval: SLiftVar\n";
 #endif
 #ifdef MC__FFVECT_CHECK
-  assert( _pFun && nVar == _pFun->nVar() && nRes == _pFun->nFun() );
+  assert( _pFun && nVar == _pFun->nVar()+_pFun->nCst() && nRes == _pFun->nFun() );
 #endif
 
   vVar->env()->lift( nRes, vRes, nVar, vVar );

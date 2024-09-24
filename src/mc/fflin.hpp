@@ -5,6 +5,8 @@
 #ifndef MC__FFLIN_HPP
 #define MC__FFLIN_HPP
 
+#include "ffunc.hpp"
+#include "ffdep.hpp"
 #include "ffinv.hpp"
 #include "ffexpr.hpp"
 #include "slift.hpp"
@@ -63,6 +65,15 @@ public:
       return **insert_external_operation( *this, 1, nVar, pVar );
     }
 
+  FFVar& operator()
+    ( std::vector<FFVar> const& vVar, double* wVar=nullptr )
+    const
+    {
+      data = wVar; // no local copy - make sure wVar isn't going out of scope!
+      owndata = false;
+      return **insert_external_operation( *this, 1, vVar.size(), vVar.data() );
+    }
+    
   // Evaluation overloads
   virtual void feval
     ( std::type_info const& idU, unsigned const nRes, void* vRes, unsigned const nVar,

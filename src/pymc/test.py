@@ -89,7 +89,27 @@ def dag_test3():
   [IX,IY], [IF] = DAG.reval( [F], [IF], [X,Y], [IX,IY], pymc.Interval(-1,1)*1e20 )
   print( "IX: ", IX, "IY: ", IY, "IF: ", IF )
 
+
+def dag_test4():
+
+  # Define DAG environment
+  DAG = pymc.FFGraph()
+
+  # Define variables and dependents
+  X = pymc.FFVar(DAG,"X")
+  Y = pymc.FFVar(DAG,"Y")
+  C = pymc.FFVar(3)
+  F = pymc.exp(X*Y)-2*X**2+C
+  F.set( "F" )
+
+  # Subgraph and dot script
+  SGF = DAG.subgraph( [F] )
+  DAG.output( SGF )
+
+  # Dependent evaluation in various arithmetics
+  print( DAG.veval( SGF, [F], [X,Y], [[1.,1.],[2.,2.]] ) )
+
 #dag_test1()
 #dag_test2()
-dag_test3()
-
+#dag_test3()
+dag_test4()

@@ -4,6 +4,7 @@ namespace py = pybind11;
 
 void mc_interval( py::module_ & );
 void mc_ffunc( py::module_ & );
+void mc_fflin( py::module_ & );
 void mc_ffvect( py::module_ & );
 
 PYBIND11_MODULE( pymc, m )
@@ -13,6 +14,7 @@ PYBIND11_MODULE( pymc, m )
 
   mc_interval( m );
   mc_ffunc( m );
+  mc_fflin( m );
   mc_ffvect( m );
 
 }

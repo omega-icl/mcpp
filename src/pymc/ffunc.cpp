@@ -23,6 +23,7 @@
  #endif
 #endif
 
+#include <chrono>
 #include <fstream>
 #include "ffunc.hpp" 
 
@@ -399,9 +400,12 @@ pyFFGraph
            std::vector<mc::FFVar> const& vVar1, std::vector<std::vector<double>>& DVar1,
            std::vector<mc::FFVar> const& vVar2, std::vector<double>& DVar2 )
        {
+         auto starttime = std::chrono::system_clock::now();
          size_t const nDep = vDep.size(), nSam = DVar1.size();
          std::vector<std::vector<double>> DDep( nSam, std::vector<double>( nDep ) );
          G.veval( SgDep, vDep, DDep, vVar1, DVar1, vVar2, DVar2 );
+         auto walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+         std::cerr << "\nvectorized DAG evaluation on " << G.options.MAXTHREAD << " threads: " << walltime.count()*1e-6 << " sec\n";
          return DDep;
        },
        py::arg("SgDep"),
@@ -418,9 +422,12 @@ pyFFGraph
            std::vector<mc::FFVar> const& vVar1, std::vector<std::vector<double>>& DVar1,
            std::vector<mc::FFVar> const& vVar2, std::vector<double>& DVar2 )
        {
+         auto starttime = std::chrono::system_clock::now();
          size_t const nDep = vDep.size(), nSam = DVar1.size();
          std::vector<std::vector<double>> DDep( nSam, std::vector<double>( nDep ) );
          G.veval( vDep, DDep, vVar1, DVar1, vVar2, DVar2 );
+         auto walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+         std::cerr << "\nvectorized DAG evaluation on " << G.options.MAXTHREAD << " threads: " << walltime.count()*1e-6 << " sec\n";
          return DDep;
        },
        py::arg("vDep"),

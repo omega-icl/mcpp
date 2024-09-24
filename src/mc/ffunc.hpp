@@ -5229,8 +5229,11 @@ const
     }
     feval( typeid( U ), varout.size(), resU, varin.size(), wkU, wkmov );
     // Move non-movable variable values back from temporary storage
-    for( unsigned i=0; i<varin.size(); ++i )
-      if( !wkmov[i] ) *static_cast<U*>( varin[i]->val() ) = std::move( wkU[i] );
+    for( unsigned i=0; i<varin.size(); ++i ){
+      //std::cout << "Moving back variable " << *varin[i] << ": " << i << std::endl;
+      if( !wkmov[i] )
+        *static_cast<U*>( varin[i]->val() ) = std::move( wkU[i] );
+    }
   }
 
   return;
@@ -9709,7 +9712,7 @@ FFGraph::veval
   std::list<const FFVar*>& l_pVar, std::list<const U*>& l_uVar )
 {
   v_uDep.resize( v_uVar.size() );
-  
+
 #ifdef MC__USE_THREAD
   size_t const NOTHREADS = ( options.MAXTHREAD>0? options.MAXTHREAD: std::thread::hardware_concurrency() );
   std::vector<std::thread> vth( NOTHREADS-1 ); // Main thread also runs evaluations
