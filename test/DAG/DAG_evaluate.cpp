@@ -222,18 +222,19 @@ int test_eval3()
   o_F.close();
 
   // Compute bounds on residual sum-of-squares by specializing the DAG at 3 different data points
-  std::vector< double > xdat = { 1, 2, 3 };
-  std::vector< double > ydat = { 2, 5, 9 };
+  std::vector< double > xdat = { 3, 2, 1 };
+  std::vector< double > ydat = { 9, 5, 2 };
   I IP(-1.,1.), IF( 0. );  
   std::vector<I> IWK;
+  double const scaladd = 1.;
   for( size_t k=0; k<xdat.size(); ++k ){
     // Assign constant values to the variables X and Y
     X.set( xdat[k] );
     Y.set( ydat[k] );
     // Evaluate the current residual - the final 'true' argument is to append the result to IF instead of overwriting IF
-    DAG.eval( F_op, IWK, 1, &F, &IF, 1, &P, &IP, true );
+    DAG.eval( F_op, IWK, 1, &F, &IF, 1, &P, &IP, &scaladd );
+    std::cout << "\nSSE bound: " << IF << std::endl;
   }
-  std::cout << "\nSSE bound: " << IF << std::endl;
 
   return 0;
 }
@@ -681,19 +682,34 @@ int test_veval1()
   auto&& F_op  = DAG.subgraph( F );
   std::cout << DAG;
 
-  const unsigned NREP=10000000;
+  const unsigned NREP=10000;//000;
 
   // Evaluate with doubles, no parameter pack
   std::vector<double> dX{ -1., -1., 2., 3. };
   for( unsigned i=0; i<NX; i++ ) std::cout << "X[" << i << "] = " << dX[i] << std::endl;
   std::vector<std::vector<double>> v_dX( NREP, dX );
-
+  static double const one = 2.;
+    
   for( DAG.options.MAXTHREAD = 1; DAG.options.MAXTHREAD <= 12; ++DAG.options.MAXTHREAD ){
     std::vector<std::vector<double>> v_dF;
+    std::vector<double> dwk;
+    std::vector<mc::FFGraph::Worker<double>> thwk;
     auto starttime = std::chrono::system_clock::now();
-    DAG.veval( F_op, F, v_dF, X, v_dX );
+    DAG.veval( F_op, dwk, thwk, F, v_dF, X, v_dX );
     auto walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
     std::cout << "\nvectorized DAG evaluation on " << DAG.options.MAXTHREAD << " threads: " << walltime.count()*1e-6 << " sec\n";
+    starttime = std::chrono::system_clock::now();
+    DAG.veval( F_op, dwk, thwk, F, v_dF, X, v_dX );
+    walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+    std::cout << "\nvectorized DAG evaluation on " << DAG.options.MAXTHREAD << " threads: " << walltime.count()*1e-6 << " sec\n";
+    starttime = std::chrono::system_clock::now();
+    std::cout << "v_dF: " << v_dF.front()[0] << "  " << v_dF.front()[1] << std::endl;
+    std::cout << "v_dF: " << v_dF.back()[0] << "  " << v_dF.back()[1] << std::endl;
+    DAG.veval( F_op, dwk, thwk, F, v_dF, X, v_dX, &one );
+    walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+    std::cout << "\nvectorized DAG evaluation on " << DAG.options.MAXTHREAD << " threads: " << walltime.count()*1e-6 << " sec\n";
+    std::cout << "v_dF: " << v_dF.front()[0] << "  " << v_dF.front()[1] << std::endl;
+    std::cout << "v_dF: " << v_dF.back()[0] << "  " << v_dF.back()[1] << std::endl;
   }
   
   //for( auto dF : v_dF ){
@@ -712,12 +728,12 @@ int main()
   try{
 //    test_eval1();
 //    test_eval2();
-//    test_eval3();
-    test_reval1();
-    test_reval2();
-    test_reval3();
-    test_reval4();
-//    test_veval1();
+    test_eval3();
+//    test_reval1();
+//    test_reval2();
+//    test_reval3();
+//    test_reval4();
+    test_veval1();
   }
   catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()

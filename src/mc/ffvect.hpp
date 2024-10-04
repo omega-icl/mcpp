@@ -331,7 +331,8 @@ inline void
 Vect::eval_serial
 ( U* y, U const* x, U const* c )
 {
-  static thread_local std::vector<U> wkU;
+  //static thread_local std::vector<U> wkU;
+  std::vector<U> wkU;
   U* yi = y;
   for( size_t i=0; i<_vFun.size(); yi+=_vFun[i].size(), ++i ) // increment i last
     _vWkr[i].eval( wkU, yi, x, c ); 
@@ -343,7 +344,8 @@ inline void
 Vect::eval_parallel
 ( U* y, U const* x, U const* c )
 {
-  static thread_local std::vector<std::vector<U>> vwkU( _vFun.size() );
+  //static thread_local std::vector<std::vector<U>> vwkU( _vFun.size() );
+  std::vector<std::vector<U>> vwkU( _vFun.size() );
 
   // Run evaluations on current and auxiliary threads
   U* yi = y;

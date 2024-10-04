@@ -2053,6 +2053,48 @@ public:
     {}
 //    { _clear_data(); }
 
+  //! @brief DAG duplication for thread evaluation
+  template <typename U>
+  struct Worker
+  {
+    //! @brief Constructor
+    Worker
+      ()
+      {
+        dag = new FFGraph;
+      }
+      
+    //! @brief Destructor
+    ~Worker
+      ()
+      {
+        for( auto& pv : l_pVar ) delete[] pv;
+        // no need to clean up l_uVar
+        delete dag;
+      }
+
+    //! @brief local copy of DAG
+    FFGraph*                dag;
+
+    //! @brief DAG subgraph
+    FFSubgraph              sgDep;
+
+    //! @brief work array for evaluation
+    std::vector<U>          wkDep;
+
+    //! @brief vector of dependent vector variables
+    std::vector<FFVar>      vDep;
+
+    //! @breif list of independent variable sizes
+    std::list<size_t>       l_nVar; 
+
+    //! @breif list of independent variable arrays
+    std::list<FFVar const*> l_pVar;
+
+    //! @breif list of independent variable values
+    //std::list<U const*>     l_uVar; 
+  };
+
   //! @brief Expand DAG with derivatives of dependents in vector <a>vDep</a> with respect to independents in vector <a>vIndep</a> along the direction of vector <a>vDir</a>. The return value is an array with entries of the dense Jacobian matrix. The function parameter pack <a>args</a> can be any number of extra vectors {std::vector<FFVar> const& vIndep}, as well as a final, optional flag {const bool transp} indicating if the entries in the returned Jacobian matrix are ordered row-wise (transp=false, default) or column-wise (transp=true).
   template <typename... Deps>
   std::vector<FFVar> FAD
@@ -2330,7 +2372,7 @@ public:
   void eval
     ( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
       std::vector<U>& uDep, std::list<size_t> const& l_nVar, std::list<const FFVar*> const& l_pVar,
-      std::list<const U*> const& l_vVar, bool const add=false );
+      std::list<const U*> const& l_vVar, double const* scaladd=nullptr );
 
   //! @brief Evaluate the dependents in array <a>pDep</a> indexed by <a>ndxDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result into <a>vDep</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, const U*vVar}. This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It creates the subgraph for the dependent variables internally. 
   template <typename U, typename... Deps> 
@@ -2382,36 +2424,36 @@ public:
     ( FFSubgraph&sgDep, const std::map<V,FFVar,COMP>&pDep, std::map<V,U,COMP>&vDep,
       const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args );
 
-  //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result into <a>vDep</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, const U*vVar}, as well as a final, optional flag {const bool add} indicating if the dependent values are to overwrite (add=false) or be added to (add=true) <a>vDep</a>. This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It creates the subgraph for the dependent variables internally. 
+  //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result into <a>vDep</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, const U*vVar}, as well as a final, optional pointer {const double* scaladd} indicating if the dependent values are to be overwriten (scaladd=nullptr) or be added (and premultiplied by *scaladd) to those in <a>vDep</a>. This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It creates the subgraph for the dependent variables internally. 
   template <typename U, typename... Deps> 
   void eval
     ( std::vector<U>&wkDep, const unsigned nDep, const FFVar*pDep,
       U*vDep, const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args );
 
-  //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result into <a>vDep</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, const U*vVar}, as well as a final, optional flag {const bool add} indicating if the dependent values are to overwrite (add=false) or be added to (add=true) <a>vDep</a>. This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions).
+  //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result into <a>vDep</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, const U*vVar}, as well as a final,  optional pointer {const double* scaladd} indicating if the dependent values are to be overwriten (scaladd=nullptr) or be added (and premultiplied by *scaladd) to those in <a>vDep</a>. This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions).
   template <typename U, typename... Deps> 
   void eval
     ( FFSubgraph&sgDep, std::vector<U>&wkDep, const unsigned nDep, const FFVar*pDep,
       U*vDep, const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args );
 
-  //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result into <a>vDep</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, const U*vVar}, as well as a final, optional flag {const bool add} indicating if the dependent values are to overwrite (add=false) or be added to (add=true) <a>vDep</a>. This function allocates memory for intermediate operations internally. It creates the subgraph for the dependent variables internally. 
+  //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result into <a>vDep</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, const U*vVar}, as well as a final,  optional pointer {const double* scaladd} indicating if the dependent values are to be overwriten (scaladd=nullptr) or be added (and premultiplied by *scaladd) to those in <a>vDep</a>. This function allocates memory for intermediate operations internally. It creates the subgraph for the dependent variables internally. 
   template <typename U, typename... Deps> 
   void eval
     ( const unsigned nDep, const FFVar*pDep, U*vDep,
       const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args );
 
-  //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result into <a>vDep</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, const U*vVar}, as well as a final, optional flag {const bool add} indicating if the dependent values are to overwrite (add=false) or be added to (add=true) <a>vDep</a>. This function allocates memory for intermediate operations internally. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions).
+  //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the <a>nVar</a> variables in array <a>pVar</a>, whose values are specified in <a>vVar</a>, and write the result into <a>vDep</a>. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nVar, const FFVar*pVar, const U*vVar}, as well as a final,  optional pointer {const double* scaladd} indicating if the dependent values are to be overwriten (scaladd=nullptr) or be added (and premultiplied by *scaladd) to those in <a>vDep</a>. This function allocates memory for intermediate operations internally. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions).
   template <typename U, typename... Deps> 
   void eval
     ( FFSubgraph&sgDep, const unsigned nDep, const FFVar*pDep,
       U*vDep, const unsigned nVar, const FFVar*pVar, const U*vVar, Deps... args );
 
-  //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the variable sizes and identifiers in lists <a>l_nVar</a> and <a>l_pVar</a>, whose values are specified in the list <a>l_vVar</a>, and write the result into <a>vDep</a>. The final, optional flag {const bool add} indicates if the dependent values are to overwrite (add=false) or be added to (add=true) those in <a>vDep</a>. This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions).
+  //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the variable sizes and identifiers in lists <a>l_nVar</a> and <a>l_pVar</a>, whose values are specified in the list <a>l_vVar</a>, and write the result into <a>vDep</a>. The final,  optional pointer {const double* scaladd} indicating if the dependent values are to be overwriten (scaladd=nullptr) or be added (and premultiplied by *scaladd) to those in <a>vDep</a>. This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> (e.g. to reduce the computational burden in repetitive evaluation of the same dependents/functions).
   template <typename U> 
   void eval
-    ( FFSubgraph&sgDep, std::vector<U>&wkDep, const unsigned nDep, const FFVar*pDep,
-      U*vDep, const std::list<size_t>&l_nVar, const std::list<const FFVar*>&l_pVar,
-      const std::list<const U*>&l_vVar, const bool add=false );
+    ( FFSubgraph& sgDep, std::vector<U>& wkDep, unsigned const nDep, FFVar const* pDep,
+      U* vDep, std::list<size_t> const& l_nVar, std::list<FFVar const*> const& l_pVar,
+      std::list<U const*> const& l_vVar, double const* scaladd=nullptr );
 
   //! @brief Evaluate the dependents in vector <a>vDep</a> indexed by <a>ndxDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, whose values are specified in <a>uVar</a>, and use a priori information about the dependents in <a>uDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U>& vVar}, as well as optional flags {const unsigned MAXPASS, const double& THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function allocates memory for intermediate operations internally. It also creates the subgraph for the dependent variables internally. The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
   template <typename U, typename... Deps> 
@@ -2531,51 +2573,61 @@ public:
       const std::list<U*>&l_vVar, U const& InfVal, const unsigned MAXPASS=5,
       const double& THRESPASS=0. );
 
-  //! @brief Evaluate the dependents in vector <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, for all the values specified in the vector of vectors <a>v_uVar</a>, and write the results into the vector of vectors <a>v_uDep</a>. The parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}. This function creates the subgraph for the dependent variables internally. The number of threads for the evaluation is controlled by FFGraph::Options::MAXTHREADS, where 0 indicates the number of concurrent threads supported by the implementation.
+  //! @brief Evaluate the dependents in vector <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, for all the values specified in the vector of vectors <a>v_uVar</a>, and write the results into the vector of vectors <a>v_uDep</a>. The parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}, as well as a final, optional pointer {const double* scaladd} indicating if the dependent values are to be overwriten (scaladd=nullptr) or be added (and premultiplied by *scaladd) to those in <a>v_uDep</a>. This function creates the subgraph for the dependent variables internally. The number of threads for the evaluation is controlled by FFGraph::Options::MAXTHREADS, where 0 indicates the number of concurrent threads supported by the implementation.
   template <typename U, typename... Deps>
   void veval
     ( std::vector<FFVar> const& vDep, std::vector<std::vector<U>>& v_uDep,
       std::vector<FFVar> const& vVar, std::vector<std::vector<U>> const& v_uVar,
       Deps... args );
 
-  //! @brief Evaluate the dependents in vector <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, for all the values specified in the vector of vectors <a>v_uVar</a>, and write the results into the vector of vectors <a>v_uDep</a>. The parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}. This function uses / creates the subgraph for the dependent variables passed via <a>sgDep</a>. The number of threads for the evaluation is controlled by FFGraph::Options::MAXTHREADS, where 0 indicates the number of concurrent threads supported by the implementation.
+  //! @brief Evaluate the dependents in vector <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, for all the values specified in the vector of vectors <a>v_uVar</a>, and write the results into the vector of vectors <a>v_uDep</a>. The parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}, as well as a final, optional pointer {const double* scaladd} indicating if the dependent values are to be overwriten (scaladd=nullptr) or be added (and premultiplied by *scaladd) to those in <a>v_uDep</a>. This function uses / creates the subgraph for the dependent variables passed via <a>sgDep</a>. The number of threads for the evaluation is controlled by FFGraph::Options::MAXTHREADS, where 0 indicates the number of concurrent threads supported by the implementation.
   template <typename U, typename... Deps>
   void veval
-    ( FFSubgraph& sgDep, std::vector<FFVar> const& vDep, std::vector<std::vector<U>>& v_uDep,
+    ( FFSubgraph& sgDep,
+      std::vector<FFVar> const& vDep, std::vector<std::vector<U>>& v_uDep,
       std::vector<FFVar> const& vVar, std::vector<std::vector<U>> const& v_uVar,
       Deps... args );
 
-  //! @brief Evaluate the dependents in vector <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, for all the values specified in the vector of vectors <a>v_uVar</a>, and write the results into the vector of vectors <a>v_uDep</a>. The parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}. This function stores the results of intermediate operations on the current thread in the vector <a>wkDep</a>, resizing it as necessary. It creates the subgraph for the dependent variables internally. The number of threads for the evaluation is controlled by FFGraph::Options::MAXTHREADS, where 0 indicates the number of concurrent threads supported by the implementation.
+  //! @brief Evaluate the dependents in vector <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, for all the values specified in the vector of vectors <a>v_uVar</a>, and write the results into the vector of vectors <a>v_uDep</a>. The parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}, as well as a final, optional pointer {const double* scaladd} indicating if the dependent values are to be overwriten (scaladd=nullptr) or be added (and premultiplied by *scaladd) to those in <a>v_uDep</a>. This function stores the results of intermediate operations on the current thread in the vector <a>wkDep</a>, resizing it as necessary. It creates the subgraph for the dependent variables internally. The number of threads for the evaluation is controlled by FFGraph::Options::MAXTHREADS, where 0 indicates the number of concurrent threads supported by the implementation.
   template <typename U, typename... Deps>
   void veval
-    ( std::vector<U>& wkDep, std::vector<FFVar> const& vDep, std::vector<std::vector<U>>& v_uDep,
+    ( std::vector<U>& wkDep,
+      std::vector<FFVar> const& vDep, std::vector<std::vector<U>>& v_uDep,
       std::vector<FFVar> const& vVar, std::vector<std::vector<U>> const& v_uVar,
       Deps... args );
 
-  //! @brief Evaluate the dependents in vector <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, for all the values specified in the vector of vectors <a>v_uVar</a>, and write the results into the vector of vectors <a>v_uDep</a>. This function uses / creates the subgraph for the dependent variables passed via <a>sgDep</a>. The number of threads for the evaluation is controlled by FFGraph::Options::MAXTHREADS, where 0 indicates the number of concurrent threads supported by the implementation.
-  template <typename U>
-  void veval
-    ( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
-      std::vector<std::vector<U>>& v_uDep, std::vector<FFVar> const& vVar,
-      std::vector<std::vector<U>> const& v_uVar );
-
-  //! @brief Evaluate the dependents in vector <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, for all the values specified in the vector of vectors <a>v_uVar</a>, and write the results into the vector of vectors <a>v_uDep</a>. The parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}. This function stores the results of intermediate operations on the current thread in the vector <a>wkDep</a>, resizing it as necessary. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a>. The number of threads for the evaluation is controlled by FFGraph::Options::MAXTHREADS, where 0 indicates the number of concurrent threads supported by the implementation.
+  //! @brief Evaluate the dependents in vector <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, for all the values specified in the vector of vectors <a>v_uVar</a>, and write the results into the vector of vectors <a>v_uDep</a>. The parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}, as well as a final, optional pointer {const double* scaladd} indicating if the dependent values are to be overwriten (scaladd=nullptr) or be added (and premultiplied by *scaladd) to those in <a>v_uDep</a>. This function stores the results of intermediate operations on the current thread in the vector <a>wkDep</a>, resizing it as necessary. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a>. The number of threads for the evaluation is controlled by FFGraph::Options::MAXTHREADS, where 0 indicates the number of concurrent threads supported by the implementation.
   template <typename U, typename... Deps>
   void veval
-    ( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
-      std::vector<std::vector<U>>& v_uDep, std::vector<FFVar> const& vVar,
-      std::vector<std::vector<U>> const& v_uVar, std::vector<FFVar> const& vvVar,
-      std::vector<U> const& uuVar, Deps... args );
+    ( FFSubgraph& sgDep, std::vector<U>& wkDep,
+      std::vector<FFVar> const& vDep, std::vector<std::vector<U>>& v_uDep,
+      std::vector<FFVar> const& vVar, std::vector<std::vector<U>> const& v_uVar,
+      Deps... args );
 
-  //! @brief Evaluate the dependents in vector <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, for all the values specified in the vector of vectors <a>v_uVar</a>, and write the results into the vector of vectors <a>v_uDep</a>. Additional arguments are the variable sizes and identifiers in lists <a>l_nVar</a> and <a>l_pVar</a>, whose values are specified in the list <a>l_vVar</a>. This function uses / creates the subgraph for the dependent variables passed via <a>sgDep</a>. The number of threads for the evaluation is controlled by FFGraph::Options::MAXTHREADS, where 0 indicates the number of concurrent threads supported by the implementation.
+  //! @brief Evaluate the dependents in vector <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, for all the values specified in the vector of vectors <a>v_uVar</a>, and write the results into the vector of vectors <a>v_uDep</a>. The optional pointer {const double* scaladd} indicates if the dependent values are to be overwriten (scaladd=nullptr) or be added (and premultiplied by *scaladd) to those in <a>v_uDep</a>. This function uses / creates the subgraph for the dependent variables passed via <a>sgDep</a>. This function stores the results of intermediate operations on the current thread in the vector <a>wkDep</a>, resizing it as necessary. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a>. The number of threads for the evaluation is controlled by FFGraph::Options::MAXTHREADS, where 0 indicates the number of concurrent threads supported by the implementation.
   template <typename U>
   void veval
-    ( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
-      std::vector<std::vector<U>>& v_uDep, std::vector<FFVar> const& vVar,
-      std::vector<std::vector<U>> const& v_uVar,
-      std::list<size_t>& l_nVar, 
-      std::list<const FFVar*>& l_pVar,
-      std::list<const U*>& l_uVar );
+    ( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<Worker<U>>& wkThd,
+      std::vector<FFVar> const& vDep, std::vector<std::vector<U>>& v_uDep,
+      std::vector<FFVar> const& vVar, std::vector<std::vector<U>> const& v_uVar,
+      double const* scaladd=nullptr );
+
+  //! @brief Evaluate the dependents in vector <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, for all the values specified in the vector of vectors <a>v_uVar</a>, and write the results into the vector of vectors <a>v_uDep</a>. The parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}, as well as a final, optional pointer {const double* scaladd} indicating if the dependent values are to be overwriten (scaladd=nullptr) or be added (and premultiplied by *scaladd) to those in <a>v_uDep</a>. This function stores the results of intermediate operations on the current thread in the vector <a>wkDep</a>, resizing it as necessary. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a>. The number of threads for the evaluation is controlled by FFGraph::Options::MAXTHREADS, where 0 indicates the number of concurrent threads supported by the implementation.
+  template <typename U, typename... Deps>
+  void veval
+    ( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<Worker<U>>& wkThd,
+      std::vector<FFVar> const& vDep, std::vector<std::vector<U>>& v_uDep,
+      std::vector<FFVar> const& vVar, std::vector<std::vector<U>> const& v_uVar,
+      std::vector<FFVar> const& vvVar, std::vector<U> const& uuVar, Deps... args );
+
+  //! @brief Evaluate the dependents in vector <a>vDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, for all the values specified in the vector of vectors <a>v_uVar</a>, and write the results into the vector of vectors <a>v_uDep</a>. Additional arguments are the variable sizes and identifiers in lists <a>l_nVar</a> and <a>l_pVar</a>, whose values are specified in the list <a>l_vVar</a>. The final, optional pointer {const double* scaladd} indicates if the dependent values are to be overwriten (scaladd=nullptr) or be added (and premultiplied by *scaladd) to those in <a>v_uDep</a>. This function uses / creates the subgraph for the dependent variables passed via <a>sgDep</a>. The number of threads for the evaluation is controlled by FFGraph::Options::MAXTHREADS, where 0 indicates the number of concurrent threads supported by the implementation.
+  template <typename U>
+  void veval
+    ( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<Worker<U>>& wkThd,
+      std::vector<FFVar> const& vDep, std::vector<std::vector<U>>& v_uDep,
+      std::vector<FFVar> const& vVar, std::vector<std::vector<U>> const& v_uVar,
+      std::list<size_t>& l_nVar, std::list<const FFVar*>& l_pVar, std::list<const U*>& l_uVar,
+      double const* scaladd=nullptr );
 
   //! @brief Extract operand values from work array <a>wkIn</a> corresponding to subgraph <a>sgIn</a> and copy them into work array <a>wkOut</a> corresponding to subgraph <a>sgOut</a>. This extraction assumes that the subgraph <a>sgOut</a> is contained within the subgraph <a>sgIn</a>, otherwise the behavior is undefined.
   template <typename U> 
@@ -2584,48 +2636,6 @@ public:
   /** @} */
 
 protected:
-
-  //! @brief DAG duplication for thread evaluation
-  template <typename U>
-  struct Worker
-  {
-    //! @brief Constructor
-    Worker
-      ()
-      {
-        dag = new FFGraph;
-      }
-      
-    //! @brief Destructor
-    ~Worker
-      ()
-      {
-        for( auto& pv : l_pVar ) delete[] pv;
-        // no need to clean up l_uVar
-        delete dag;
-      }
-
-    //! @brief local copy of DAG
-    FFGraph*                dag;
-
-    //! @brief DAG subgraph
-    FFSubgraph              sgDep;
-
-    //! @brief work array for evaluation
-    std::vector<U>          wkDep;
-
-    //! @brief vector of dependent vector variables
-    std::vector<FFVar>      vDep;
-
-    //! @breif list of independent variable sizes
-    std::list<size_t>       l_nVar; 
-
-    //! @breif list of independent variable arrays
-    std::list<FFVar const*> l_pVar;
-
-    //! @breif list of independent variable values
-    std::list<U const*>     l_uVar; 
-  };
 
   //! brief Intermediate function for recursive calls in FAD with a function parameter pack.
   template <typename... Deps> 
@@ -2782,25 +2792,25 @@ protected:
   //! brief Intermediate function for recursive calls in DAG vector evaluation with a function parameter pack.
   template <typename U, typename... Deps>
   void veval
-    ( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
-      std::vector<std::vector<U>>& v_uDep, std::vector<FFVar> const& vVar,
-      std::vector<std::vector<U>> const& v_uVar,
-      std::list<size_t>& l_nVar, std::list<const FFVar*>& l_pVar,
-      std::list<const U*>& l_uVar, std::vector<FFVar> const& vvVar,
-      std::vector<U> const& uuVar, Deps... args );
+    ( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<Worker<U>>& wkThd,
+      std::vector<FFVar> const& vDep, std::vector<std::vector<U>>& v_uDep,
+      std::vector<FFVar> const& vVar, std::vector<std::vector<U>> const& v_uVar,
+      std::list<size_t>& l_nVar, std::list<const FFVar*>& l_pVar, std::list<const U*>& l_uVar,
+      std::vector<FFVar> const& vvVar, std::vector<U> const& uuVar, Deps... args );
 
   //! brief Intermediate function for DAG vector evaluation.
   template <typename U>
   bool _vcopy
-    ( FFGraph::Worker<U>& wk, FFSubgraph& sgDep, size_t const nDep,
+    ( Worker<U>& wk, FFSubgraph& sgDep, size_t const nDep,
       FFVar const* pDep, size_t const nVar, FFVar const* pVar,
-      std::list<size_t>& l_nVar, std::list<const FFVar*>& l_pVar, std::list<const U*>& l_uVar );
+      std::list<size_t>& l_nVar, std::list<const FFVar*>& l_pVar );
 
   //! brief Intermediate function for DAG vector evaluation.
   template <typename U>
   void _veval
-    ( size_t const CURTHREAD, size_t const NOTHREADS, FFGraph::Worker<U>& wk, 
-      std::vector<std::vector<U>>& v_uDep, std::vector<std::vector<U>> const& v_uVar );
+    ( size_t const CURTHREAD, size_t const NOTHREADS, Worker<U>& wk, 
+      std::vector<std::vector<U>>& v_uDep, std::vector<std::vector<U>> const& v_uVar,
+      std::list<const U*> l_uVar, double const* scaladd );
 
   //! brief Intermediate function for DAG vector evaluation.
   template <typename U>
@@ -2809,7 +2819,8 @@ protected:
       FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
       std::vector<std::vector<U>>& v_uDep, std::vector<FFVar> const& vVar,
       std::vector<std::vector<U>> const& v_uVar, std::list<size_t>& l_nVar,
-      std::list<const FFVar*>& l_pVar, std::list<const U*>& l_uVar );
+      std::list<const FFVar*>& l_pVar, std::list<const U*>& l_uVar,
+      double const* scaladd );
 
   //! brief Intermediate function for recursive calls in DAG reverse evaluation with a function parameter pack.
   template <typename U, typename... Deps> 
@@ -8002,7 +8013,7 @@ FFGraph::SDFAD
 
 #else
 inline std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> >
-FFGraph::SFAD
+FFGraph::SDFAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vIndep,
   std::vector<FFVar const*> const& vDir )
 {
@@ -8663,7 +8674,7 @@ FFGraph::SDBAD
 
 #else
 inline std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar const*> >
-FFGraph::SBAD
+FFGraph::SDBAD
 ( std::vector<FFVar const*> const& vDep, std::vector<FFVar const*> const& vDir,
   std::vector<FFVar const*> const& vIndep )
 {
@@ -9354,10 +9365,10 @@ inline void
 FFGraph::eval
 ( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
   std::vector<U>& uDep, std::list<size_t> const& l_nVar, std::list<FFVar const*> const& l_pVar,
-  std::list<U const*> const& l_uVar, bool const add )
+  std::list<U const*> const& l_uVar, double const* scaladd )
 {
   if( uDep.size() < vDep.size() ) uDep.resize( vDep.size() );
-  return eval( sgDep, wkDep, vDep.size(), vDep.data(), uDep.data(), l_nVar, l_pVar, l_uVar, add );
+  return eval( sgDep, wkDep, vDep.size(), vDep.data(), uDep.data(), l_nVar, l_pVar, l_uVar, scaladd );
 }
 
 template <typename U, typename... Deps>
@@ -9548,7 +9559,7 @@ inline void
 FFGraph::eval
 ( FFSubgraph& sgDep, std::vector<U>& wkDep, unsigned const nDep, FFVar const* pDep,
   U* vDep, std::list<size_t> const& l_nVar, std::list<FFVar const*> const& l_pVar,
-  std::list<U const*> const& l_vVar, bool const add )
+  std::list<U const*> const& l_vVar, double const* scaladd )
 {
   // Nothing to do!
   if( !nDep ) return;
@@ -9600,12 +9611,14 @@ FFGraph::eval
   unsigned int i=0;
   for( auto const& pdep : sgDep.v_dep ){
     if( !this->options.USEMOVE || !pdep->mov() ){
-      if( !add ) vDep[i++]  = *static_cast<U*>( pdep->val() );
-      else       vDep[i++] += *static_cast<U*>( pdep->val() );
+      if( !scaladd )           vDep[i++]  = *static_cast<U*>( pdep->val() );
+      else if( *scaladd == 1 ) vDep[i++] += *static_cast<U*>( pdep->val() );
+      else                     vDep[i++] += ( *static_cast<U*>( pdep->val() ) *= (*scaladd) );
     }
     else{
-      if( !add ) vDep[i++]  = std::move( *static_cast<U*>( pdep->val() ) );
-      else       vDep[i++] += std::move( *static_cast<U*>( pdep->val() ) );    
+      if( !scaladd )           vDep[i++]  = std::move( *static_cast<U*>( pdep->val() ) );
+      else if( *scaladd == 1 ) vDep[i++] += std::move( *static_cast<U*>( pdep->val() ) );
+      else                     vDep[i++] += std::move( *static_cast<U*>( pdep->val() ) *= (*scaladd) );    
     }
   }
   
@@ -9629,8 +9642,9 @@ FFGraph::veval
   if( vDep.empty() ) return;
 
   FFSubgraph sgDep;
-  std::vector<U> wkDep; 
-  return veval( sgDep, wkDep, vDep, v_uDep, vVar, v_uVar, args... );
+  std::vector<U> wkDep;
+  std::vector<Worker<U>> wkThd;
+  return veval( sgDep, wkDep, wkThd, vDep, v_uDep, vVar, v_uVar, args... );
 }
 
 template <typename U, typename... Deps>
@@ -9644,7 +9658,8 @@ FFGraph::veval
   if( vDep.empty() ) return;
 
   FFSubgraph sgDep;
-  return veval( sgDep, wkDep, vDep, v_uDep, vVar, v_uVar, args... );
+  std::vector<Worker<U>> wkThd;
+  return veval( sgDep, wkDep, wkThd, vDep, v_uDep, vVar, v_uVar, args... );
 }
 
 template <typename U, typename... Deps>
@@ -9658,142 +9673,124 @@ FFGraph::veval
   if( vDep.empty() ) return;
 
   std::vector<U> wkDep; 
-  return veval( sgDep, wkDep, vDep, v_uDep, vVar, v_uVar, args... );
+  std::vector<Worker<U>> wkThd;
+  return veval( sgDep, wkDep, wkThd, vDep, v_uDep, vVar, v_uVar, args... );
+}
+
+template <typename U, typename... Deps>
+inline void
+FFGraph::veval
+( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
+  std::vector<std::vector<U>>& v_uDep, std::vector<FFVar> const& vVar,
+  std::vector<std::vector<U>> const& v_uVar, Deps... args )
+{
+  // Nothing to do!
+  if( vDep.empty() ) return;
+
+  std::vector<Worker<U>> wkThd;
+  return veval( sgDep, wkDep, wkThd, vDep, v_uDep, vVar, v_uVar, args... );
 }
 
 template <typename U>
 inline void
 FFGraph::veval
-( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
-  std::vector<std::vector<U>>& v_uDep, std::vector<FFVar> const& vVar,
-  std::vector<std::vector<U>> const& v_uVar )
+( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<Worker<U>>& wkThd,
+  std::vector<FFVar> const& vDep, std::vector<std::vector<U>>& v_uDep,
+  std::vector<FFVar> const& vVar, std::vector<std::vector<U>> const& v_uVar,
+  double const* scaladd )
 {
   std::list<size_t>       l_nVar;
   std::list<const FFVar*> l_pVar;
   std::list<const U*>     l_uVar;
-  return veval( sgDep, wkDep, vDep, v_uDep, vVar, v_uVar, l_nVar, l_pVar, l_uVar );
+  return veval( sgDep, wkDep, wkThd, vDep, v_uDep, vVar, v_uVar, l_nVar, l_pVar, l_uVar, scaladd );
 }
 
 template <typename U, typename... Deps>
 inline void
 FFGraph::veval
-( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
-  std::vector<std::vector<U>>& v_uDep, std::vector<FFVar> const& vVar,
-  std::vector<std::vector<U>> const& v_uVar, std::vector<FFVar> const& vvVar,
-  std::vector<U> const& uuVar, Deps... args )
+( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<Worker<U>>& wkThd,
+  std::vector<FFVar> const& vDep, std::vector<std::vector<U>>& v_uDep,
+  std::vector<FFVar> const& vVar, std::vector<std::vector<U>> const& v_uVar,
+  std::vector<FFVar> const& vvVar, std::vector<U> const& uuVar, Deps... args )
 {
   std::list<size_t>       l_nVar{ vvVar.size() };
   std::list<const FFVar*> l_pVar{ vvVar.data() };
   std::list<const U*>     l_uVar{ uuVar.data() };
-  return veval( sgDep, wkDep, vDep, v_uDep, vVar, v_uVar, l_nVar, l_pVar, l_uVar, args... );
+  return veval( sgDep, wkDep, wkThd, vDep, v_uDep, vVar, v_uVar, l_nVar, l_pVar, l_uVar, args... );
 }
 
 template <typename U, typename... Deps>
 inline void
 FFGraph::veval
-( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
-  std::vector<std::vector<U>>& v_uDep, std::vector<FFVar> const& vVar,
-  std::vector<std::vector<U>> const& v_uVar, std::list<size_t>& l_nVar,
-  std::list<const FFVar*>& l_pVar, std::list<const U*>& l_uVar,
+( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<Worker<U>>& wkThd,
+  std::vector<FFVar> const& vDep, std::vector<std::vector<U>>& v_uDep,
+  std::vector<FFVar> const& vVar, std::vector<std::vector<U>> const& v_uVar,
+  std::list<size_t>& l_nVar, std::list<const FFVar*>& l_pVar, std::list<const U*>& l_uVar,
   std::vector<FFVar> const& vvVar, std::vector<U> const& uuVar, Deps... args )
 {
   l_nVar.push_back( vvVar.size() );
   l_pVar.push_back( vvVar.data() );
   l_uVar.push_back( uuVar.data() );
-  return veval( sgDep, wkDep, vDep, v_uDep, vVar, v_uVar, l_nVar, l_pVar, l_uVar, args... );
+  return veval( sgDep, wkDep, wkThd, vDep, v_uDep, vVar, v_uVar, l_nVar, l_pVar, l_uVar, args... );
 }
 
 template <typename U>
 inline void
 FFGraph::veval
-( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
-  std::vector<std::vector<U>>& v_uDep, std::vector<FFVar> const& vVar,
-  std::vector<std::vector<U>> const& v_uVar, std::list<size_t>& l_nVar,
-  std::list<const FFVar*>& l_pVar, std::list<const U*>& l_uVar )
+( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<Worker<U>>& wkThd,
+  std::vector<FFVar> const& vDep, std::vector<std::vector<U>>& v_uDep,
+  std::vector<FFVar> const& vVar, std::vector<std::vector<U>> const& v_uVar,
+  std::list<size_t>& l_nVar, std::list<const FFVar*>& l_pVar, std::list<const U*>& l_uVar,
+  double const* scaladd )
 {
   v_uDep.resize( v_uVar.size() );
+
+  l_nVar.push_back( vVar.size() );
+  l_pVar.push_back( vVar.data() );
+  l_uVar.push_back( nullptr ); // pointer to be updated within the evaluation loops
 
 #ifdef MC__USE_THREAD
   size_t const NOTHREADS = ( options.MAXTHREAD>0? options.MAXTHREAD: std::thread::hardware_concurrency() );
   std::vector<std::thread> vth( NOTHREADS-1 ); // Main thread also runs evaluations
-  std::vector<FFGraph::Worker<U>> vwk( NOTHREADS-1 ); // Main thread also runs evaluations
+  wkThd.resize( NOTHREADS-1 ); // Main thread also runs evaluations
 
   for( size_t th=1; th<NOTHREADS; th++ ){
 #ifdef MC__VEVAL_DEBUG
     std::cout << "Starting thread #" << th << std::endl;
 #endif
     // Copy problem before evaluating on thread
-    if( !_vcopy( vwk[th-1], sgDep, vDep.size(), vDep.data(), vVar.size(), vVar.data(), l_nVar, l_pVar, l_uVar ) )
+    if( wkThd[th-1].vDep.empty()
+     && !_vcopy( wkThd[th-1], sgDep, vDep.size(), vDep.data(), vVar.size(), vVar.data(), l_nVar, l_pVar ) )
       continue;
+    
     // Dispatch evaluations on auxiliary thread
-    vth[th-1] = std::thread( &FFGraph::_veval<U>, this, th, NOTHREADS, std::ref(vwk[th-1]),
-                             std::ref(v_uDep), std::cref(v_uVar) );
+    vth[th-1] = std::thread( &FFGraph::_veval<U>, this, th, NOTHREADS, std::ref(wkThd[th-1]),
+                             std::ref(v_uDep), std::cref(v_uVar), l_uVar, scaladd );
   }
 
   // Run evaluations on main thread as well
-  _veval0( NOTHREADS, sgDep, wkDep, vDep, v_uDep, vVar, v_uVar, l_nVar, l_pVar, l_uVar ); 
+  _veval0( NOTHREADS, sgDep, wkDep, vDep, v_uDep, vVar, v_uVar, l_nVar, l_pVar, l_uVar, scaladd ); 
 
   // Join all the threads to the main one
   for( size_t th=1; th<NOTHREADS; th++ )
     vth[th-1].join();
 
 #else
-  _veval0( 1, sgDep, wkDep, vDep, v_uDep, vVar, v_uVar, l_nVar, l_pVar, l_uVar ); 
+  _veval0( 1, sgDep, wkDep, vDep, v_uDep, vVar, v_uVar, l_nVar, l_pVar, l_uVar, scaladd ); 
 #endif
 }
-/*
-template <typename U>
-inline void
-FFGraph::veval
-( FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
-  std::vector<std::vector<U>>& v_uDep, std::vector<FFVar> const& vVar,
-  std::vector<std::vector<U>> const& v_uVar, std::list<size_t>& l_nVar,
-  std::list<const FFVar*>& l_pVar, std::list<const U*>& l_uVar )
-{
-  v_uDep.resize( v_uVar.size() );
-  //std::cout << "v_uDep.size(): " << v_uDep.size();
-  //for( auto const& vdep : v_uDep ) std::cout << " " << &vdep;
-  //std::cout << std::endl;
-  
-#ifdef MC__USE_THREAD
-  size_t const NOTHREADS = ( options.MAXTHREAD>0? options.MAXTHREAD: std::thread::hardware_concurrency() );
-  std::vector<std::thread> vth( NOTHREADS ); // Main thread also runs evaluations
-  std::vector<FFGraph::Worker<U>> vwk( NOTHREADS ); // Main thread also runs evaluations
 
-  for( size_t th=0; th<NOTHREADS; th++ ){
-    std::cout << "Starting thread #" << th << std::endl;
-    // Copy problem before evaluating on thread
-    if( !_vcopy( vwk[th], sgDep, vDep.size(), vDep.data(), vVar.size(), vVar.data(), l_nVar, l_pVar, l_uVar ) )
-      continue;
-    // Dispatch evaluations on auxiliary thread
-    vth[th] = std::thread( &FFGraph::_veval<U>, this, th, NOTHREADS, std::ref(vwk[th]),
-                           std::ref(v_uDep), std::cref(v_uVar) );
-  }
-
-  // Run evaluations on main thread
-  //_veval0( NOTHREADS, sgDep, wkDep, vDep, v_uDep, vVar, v_uVar, l_nVar, l_pVar, l_uVar ); 
-
-  // Join all the threads to the main one
-  for( size_t th=0; th<NOTHREADS; th++ )
-    vth[th].join();
-
-#else
-  _veval0( 1, sgDep, wkDep, vDep, v_uDep, vVar, v_uVar, l_nVar, l_pVar, l_uVar ); 
-#endif
-}
-*/
 template <typename U>
 inline bool
 FFGraph::_vcopy
-( FFGraph::Worker<U>& wk, FFSubgraph& sgDep, size_t const nDep,
+( Worker<U>& wk, FFSubgraph& sgDep, size_t const nDep,
   FFVar const* pDep, size_t const nVar, FFVar const* pVar,
-  std::list<size_t>& l_nVar, std::list<const FFVar*>& l_pVar, std::list<const U*>& l_uVar )
+  std::list<size_t>& l_nVar, std::list<const FFVar*>& l_pVar )
 {
   try{
     wk.dag->options = options;
 
     wk.l_nVar = l_nVar; 
-    wk.l_uVar = l_uVar; 
 
     auto itnVar = l_nVar.cbegin();
     auto itpVar = l_pVar.cbegin();
@@ -9803,11 +9800,11 @@ FFGraph::_vcopy
       wk.l_pVar.push_back( pvar );
     }
 
-    wk.l_nVar.push_back( nVar );
-    FFVar* pv = new FFVar[nVar];
-    wk.dag->insert( this, nVar, pVar, pv );
-    wk.l_pVar.push_back( pv );
-    wk.l_uVar.push_back( nullptr ); // pointer to be updated before an evaluation
+//    wk.l_nVar.push_back( nVar );
+//    FFVar* pv = new FFVar[nVar];
+//    wk.dag->insert( this, nVar, pVar, pv );
+//    wk.l_pVar.push_back( pv );
+//    wk.l_uVar.push_back( nullptr ); // pointer to be updated before an evaluation
 
     wk.vDep.resize( nDep );
     wk.dag->insert( this, nDep, pDep, wk.vDep.data() );
@@ -9826,8 +9823,9 @@ FFGraph::_vcopy
 template <typename U>
 inline void
 FFGraph::_veval
-( size_t const CURTHREAD, size_t const NOTHREADS, FFGraph::Worker<U>& wk, 
-  std::vector<std::vector<U>>& v_uDep, std::vector<std::vector<U>> const& v_uVar )
+( size_t const CURTHREAD, size_t const NOTHREADS, Worker<U>& wk, 
+  std::vector<std::vector<U>>& v_uDep, std::vector<std::vector<U>> const& v_uVar,
+  std::list<const U*> l_uVar, double const* scaladd )
 {
 #ifdef MC__VEVAL_DEBUG
   std::cerr << "Thread #" << CURTHREAD << std::endl;
@@ -9844,10 +9842,10 @@ FFGraph::_veval
     std::cout << "*ituDep: " << &*ituDep << std::endl;
 #endif
     ituDep->resize( wk.vDep.size() );
-    wk.l_uVar.back() = ituVar->data();
+    l_uVar.back() = ituVar->data();
     try{
       wk.dag->eval( wk.sgDep, wk.wkDep, wk.vDep.size(), wk.vDep.data(), ituDep->data(),
-                    wk.l_nVar, wk.l_pVar, wk.l_uVar );
+                    wk.l_nVar, wk.l_pVar, l_uVar, scaladd );
     }
     catch( ... ){
       // skip evaluation and try to carry on
@@ -9864,16 +9862,17 @@ FFGraph::_veval0
 ( size_t const NOTHREADS,  FFSubgraph& sgDep, std::vector<U>& wkDep,
   std::vector<FFVar> const& vDep, std::vector<std::vector<U>>& v_uDep,
   std::vector<FFVar> const& vVar, std::vector<std::vector<U>> const& v_uVar,
-  std::list<size_t>& l_nVar, std::list<const FFVar*>& l_pVar, std::list<const U*>& l_uVar )
+  std::list<size_t>& l_nVar, std::list<const FFVar*>& l_pVar, std::list<const U*>& l_uVar,
+  double const* scaladd )
 {
 #ifdef MC__VEVAL_DEBUG
   std::cerr << "Thread #" << CURTHREAD << std::endl;
 #endif
 
   // Run evaluations on current thread
-  l_nVar.push_back( vVar.size() );
-  l_pVar.push_back( vVar.data() );
-  l_uVar.push_back( nullptr ); // pointer to be updated inside the loop
+//  l_nVar.push_back( vVar.size() );
+//  l_pVar.push_back( vVar.data() );
+//  l_uVar.push_back( nullptr ); // pointer to be updated inside the loop
 
   auto ituDep = v_uDep.begin();
   auto ituVar = v_uVar.cbegin();
@@ -9886,7 +9885,7 @@ FFGraph::_veval0
     ituDep->resize( vDep.size() );
     l_uVar.back() = ituVar->data();
     try{
-      eval( sgDep, wkDep, vDep.size(), vDep.data(), ituDep->data(), l_nVar, l_pVar, l_uVar );
+      eval( sgDep, wkDep, vDep.size(), vDep.data(), ituDep->data(), l_nVar, l_pVar, l_uVar, scaladd );
     }
     catch( ... ){
       // skip evaluation and try to carry on

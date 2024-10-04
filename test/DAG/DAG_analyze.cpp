@@ -7,6 +7,7 @@
 #include <iomanip>
 
 #include "ffunc.hpp"
+#include "ffdep.hpp"
 #include "ffinv.hpp"
 #include "ffexpr.hpp"
 #include "slift.hpp"
@@ -375,6 +376,50 @@ int test_selim3()
 
 ///////////////////////////////////////////////////////////////////////////////
 
+int test_selim4()
+{
+  std::cout << "\n==============================================\ntest_selim4:\n";
+
+  mc::FFGraph DAG;
+  const unsigned NX = 11;
+  std::vector<mc::FFVar> X(NX);
+  mc::FFVar &dP  = X[0].set( &DAG, "dP"  ),
+            &fD  = X[1].set( &DAG, "fD"  ),
+            &v   = X[2].set( &DAG, "v"   ),
+            &Re  = X[3].set( &DAG, "Re"  ),
+            &Fv  = X[4].set( &DAG, "Fv"  ),
+            &F   = X[5].set( &DAG, "F"   ),
+            &L   = X[6].set( &DAG, "L"   ),
+            &Dh  = X[7].set( &DAG, "Dh"  ),
+            &eps = X[8].set( &DAG, "eps" ),
+            &rho = X[9].set( &DAG, "rho" ),
+            &mu  = X[10].set( &DAG, "mu" );
+
+  std::vector<mc::FFVar> Eq{ 1/sqrt(fD) + 2*log( eps/(3.7*Dh) + 2.51/(Re*sqrt(fD)) ),
+                             Re - Dh*v*rho/mu,
+                             dP/L - fD*rho/2*sqr(v)/Dh,
+                             Fv - v*mc::PI*mc::sqr(Dh)/4,
+                             F - Fv*rho };
+  std::cout << DAG;
+
+  mc::SElimEnv SPE( &DAG );
+  SPE.options.ELIMLIN        = true;
+  SPE.options.ELIMMLIN       = true;
+  SPE.options.ELIMNLIN       = { mc::FFInv::Options::SQRT, mc::FFInv::Options::LOG, mc::FFInv::Options::IPOW };
+
+  //SPE.options.SLIFT.KEEPFACT = false;
+  //SPE.options.SLIFT.LIFTDIV  = true;
+  SPE.options.MIPDISPLEVEL   = 1;
+  SPE.options.MIPOUTPUTFILE  = "test_selim4.lp";
+
+  SPE.process( Eq, { {&L,-1}, {&Dh,-1}, {&eps,-1}, {&rho,-1}, {&mu,-1} } );
+  std::cout << SPE;
+  
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 int main()
 {
   try{
@@ -386,10 +431,11 @@ int main()
 //    test_spoly1();
 //    test_slift0();
 //    test_slift1();
-    test_selim0();
+//    test_selim0();
 //    test_selim1();
 //    test_selim2();
 //    test_selim3();
+    test_selim4();
   }
   catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()

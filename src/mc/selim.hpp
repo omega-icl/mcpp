@@ -589,17 +589,31 @@ public:
       _reset();
     }
 
-  //! @brief Process the <a>ndxCtr</a> equality constraints in array <a>pDep</a> 
+  //! @brief Process the <a>ndxCtr</a> equality constraints in array <a>pCtr</a> 
   void process
     ( std::set<unsigned> const& ndxCtr, FFVar const* pCtr, 
       std::map<FFVar const*,double,lt_FFVar> const& wVar=std::map<FFVar const*,double,lt_FFVar>(),
       bool const add2dag=true );
 
-  //! @brief Process the <a>nCtr</a> equality constraints in array <a>pDep</a>
+  //! @brief Process the <a>nCtr</a> equality constraints in array <a>pCtr</a>
   void process
     ( unsigned const nCtr, FFVar const* pCtr, 
       std::map<FFVar const*,double,lt_FFVar> const& wVar=std::map<FFVar const*,double,lt_FFVar>(),
       const bool add2dag=true );
+
+  //! @brief Process the <a>ndxCtr</a> equality constraints in vector <a>vCtr</a> 
+  void process
+    ( std::set<unsigned> const& ndxCtr, std::vector<FFVar> const& vCtr, 
+      std::map<FFVar const*,double,lt_FFVar> const& wVar=std::map<FFVar const*,double,lt_FFVar>(),
+      bool const add2dag=true )
+    { process( ndxCtr, vCtr.data(), wVar, add2dag ); }
+
+  //! @brief Process the <a>nCtr</a> equality constraints in vector <a>vCtr</a>
+  void process
+    ( std::vector<FFVar> const& vCtr, 
+      std::map<FFVar const*,double,lt_FFVar> const& wVar=std::map<FFVar const*,double,lt_FFVar>(),
+      const bool add2dag=true )
+    { process( vCtr.size(), vCtr.data(), wVar, add2dag ); }
 
   //! @brief Exceptions of mc::SElimEnv
   class Exceptions
