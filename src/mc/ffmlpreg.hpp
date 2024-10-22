@@ -6,6 +6,7 @@
 
 #include "mcfunc.hpp"
 #include "ffunc.hpp"
+#include "ffdep.hpp"
 #include "slift.hpp"
 
 namespace mc

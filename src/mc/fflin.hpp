@@ -27,50 +27,52 @@ template< typename T >
 class FFLin
 : public FFOp
 {
+private:
+
+  // Weigth matrix
+  double const* _wVar;
 
 public:
+
+  void set
+    ( double const* wVar )
+    {
+      _wVar = wVar;
+      data = const_cast<double*>(_wVar); // for operation comparison
+    }
+
   // Default constructor
   FFLin
     ()
     : FFOp( EXTERN )
     {}
-/*
+    
   // Copy constructor
   FFLin
-    ( FFSPoly<T> const& Op )
-    : FFOp( Op )
-    {
-#ifdef MC__FFSPOLY_TRACE
-      std::cout << "FFLin::copy constructor\n";
-#endif
-      _WLin = Op._WLin;
-    }
-*/
+    ( FFLin const& Op )
+    : FFOp( Op ),
+      _wVar( Op._wVar )
+    {}
+
   // Define operation
   FFVar& operator()
-    ( unsigned const nVar, FFVar const* pVar, double* wVar=nullptr )
-    const
+    ( size_t const nVar, FFVar const* pVar, double const* wVar=nullptr )
     {
-      data = wVar; // no local copy - make sure wVar isn't going out of scope!
-      owndata = false;
+      set( wVar ); // no local copy - make sure wVar isn't going out of scope!
       return **insert_external_operation( *this, 1, nVar, pVar );
     }
     
   FFVar& operator()
-    ( unsigned const nVar, FFVar const*const* pVar, double* wVar=nullptr )
-    const
+    ( size_t const nVar, FFVar const*const* ppVar, double const* wVar=nullptr )
     {
-      data = wVar; // no local copy - make sure wVar isn't going out of scope!
-      owndata = false;
-      return **insert_external_operation( *this, 1, nVar, pVar );
+      set( wVar ); // no local copy - make sure wVar isn't going out of scope!
+      return **insert_external_operation( *this, 1, nVar, ppVar );
     }
 
   FFVar& operator()
-    ( std::vector<FFVar> const& vVar, double* wVar=nullptr )
-    const
+    ( std::vector<FFVar> const& vVar, std::vector<double> const& wVar=std::vector<double>() )
     {
-      data = wVar; // no local copy - make sure wVar isn't going out of scope!
-      owndata = false;
+      set( !wVar.empty()? wVar.data(): nullptr ); // no local copy - make sure wVar isn't going out of scope!
       return **insert_external_operation( *this, 1, vVar.size(), vVar.data() );
     }
     
@@ -113,21 +115,20 @@ public:
     const
     {
 #ifdef MC__FFLIN_TRACE
-      std::cout << "FFLin::eval: U\n"; 
+      std::cout << "FFLin::eval: generic\n"; 
 #endif
 #ifdef MC__FFLIN_CHECK
       assert( nRes == 1 );
 #endif
-      if( !data ){
-        for( unsigned i=0; i<nVar; ++i )
+      if( !_wVar ){
+        for( size_t i=0; i<nVar; ++i )
           if( !i ) vRes[0]  = vVar[0];
           else     vRes[0] += vVar[i];
       }
       else{
-        double const* wVar = static_cast<double const*>( data );
-        for( unsigned i=0; i<nVar; ++i )
-          if( !i ) vRes[0]  = wVar[0] * vVar[0];
-          else     vRes[0] += wVar[i] * vVar[i];     
+        for( size_t i=0; i<nVar; ++i )
+          if( !i ) vRes[0]  = _wVar[0] * vVar[0];
+          else     vRes[0] += _wVar[i] * vVar[i];     
       }
     }
 
@@ -141,8 +142,6 @@ public:
 #ifdef MC__FFLIN_CHECK
       assert( nRes == 1 );
 #endif
-      //double* wVar = static_cast<double*>( data );
-      //vRes[0] = operator()( nVar, vVar, wVar );
       vRes[0] = **insert_external_operation( *this, 1, nVar, vVar );
     }
 
@@ -157,7 +156,7 @@ public:
       assert( nRes == 1 );
 #endif
       vRes[0] = 0;
-      for( unsigned i=0; i<nVar; ++i ) vRes[0] += vVar[i];
+      for( size_t i=0; i<nVar; ++i ) vRes[0] += vVar[i];
       vRes[0].update( FFDep::TYPE::L );
     }
 
@@ -172,7 +171,6 @@ public:
 #ifdef MC__FFLIN_CHECK
       assert( nRes == 1 );
 #endif
-      double* wVar = static_cast<double*>( data );
 
       std::vector<FFVar> vVarVal( nVar );
       for( unsigned i=0; i<nVar; ++i )
@@ -187,7 +185,7 @@ public:
         vRes[0][j] = 0.;
         for( unsigned i=0; i<nVar; ++i ){
           if( vVar[i][j].cst() && vVar[i][j].num().val() == 0. ) continue;
-          vRes[0][j] += wVar? wVar[i]*vVar[i][j]: vVar[i][j];
+          vRes[0][j] += _wVar? _wVar[i]*vVar[i][j]: vVar[i][j];
         }
       }
     }
@@ -203,7 +201,6 @@ public:
 #ifdef MC__FFLIN_CHECK
       assert( nRes == 1 );
 #endif
-      double* wVar = static_cast<double*>( data );
 
       std::vector<double> vVarVal( nVar );
       if( vVarVal.size() < nVar ) vVarVal.resize( nVar );
@@ -219,7 +216,7 @@ public:
         vRes[0][j] = 0.;
         for( unsigned i=0; i<nVar; ++i ){
           if( vVar[i][j] == 0. ) continue;
-          vRes[0][j] += wVar? wVar[i]*vVar[i][j]: vVar[i][j];
+          vRes[0][j] += _wVar? _wVar[i]*vVar[i][j]: vVar[i][j];
         }
       }
     }
@@ -234,10 +231,9 @@ public:
 #ifdef MC__FFLIN_CHECK
       assert( nRes == 1 );
 #endif
-      double* wVar = static_cast<double*>( data );
 
       for( unsigned i=0; i<nVar; ++i )
-        vDer[0][i] = wVar? wVar[i]: 1.;
+        vDer[0][i] = _wVar? _wVar[i]: 1.;
     }
 
   bool reval
