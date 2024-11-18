@@ -22,12 +22,13 @@ namespace mc
 //! external DAG operation in MC++. The template parameter specifies the
 //! type for interval arithmetic.
 ////////////////////////////////////////////////////////////////////////
-template< typename T >
+template< typename T=void>
 class FFSPoly
 : public FFOp
 {
 
 typedef SPoly<mc::FFVar const*,mc::lt_FFVar> t_SPoly;
+typedef SMon<mc::FFVar const*,mc::lt_FFVar> t_SMon;
 
 private:
   // Sparse polynomial
@@ -157,6 +158,13 @@ public:
         x[var] = *var;
       }
       return SPoly.eval( x );
+    }
+
+  // Insert operation in DAG
+  static FFVar insert
+    ( t_SMon const& SMon, FFGraph* dag )
+    {
+      return insert( std::make_pair( SMon, 1. ), dag );
     }
 };
 

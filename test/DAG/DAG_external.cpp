@@ -1418,7 +1418,7 @@ int test_external9()
   std::cout << "P = " << P.eval( Xval ) << std::endl;
 
   // Insert sparse polynomial in DAG
-  mc::FFVar DAGP = mc::FFSPoly<I>::insert( P, &DAG );
+  mc::FFVar DAGP = mc::FFSPoly<>::insert( P, &DAG );
   auto P_op = DAG.subgraph( 1, &DAGP );
   DAG.output( P_op, " OF P" );
   //std::cout << DAG;
