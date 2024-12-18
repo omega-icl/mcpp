@@ -283,6 +283,75 @@ int test_fadiff4()
 
 ///////////////////////////////////////////////////////////////////////////////
 
+int test_fadiff5()
+{
+  std::cout << "\n==============================================\ntest_fadiff5:\n";
+
+  // Create DAG
+  const unsigned NS = 20;
+  mc::FFGraph DAG;
+  std::vector<mc::FFVar> E( NS );
+  for( auto& Ek : E )
+    Ek.set( &DAG );
+
+//  mc::FFVar Z = E[0]-E[1];
+//  std::cout << DAG;
+//  return 0;
+  
+  std::vector<mc::FFVar> S( NS*(NS-1)/2 );
+  for( auto& Sk : S )
+    Sk.set( &DAG );
+
+  std::vector<mc::FFVar> Si( NS ), C;
+  for( size_t i=0; i<NS; i++ ){
+    for( size_t j=0; j<i; j++ )
+      Si[j] = S[i*(i-1)/2+j];
+    Si[i] = 0.;
+    for( size_t j=i+1; j<NS; j++ )
+      Si[j] = S[j*(j-1)/2+i];
+
+    for( size_t j=0; j<i; j++ )
+      C.push_back( Si[j] - E[i] - E[j] + 1 );
+  }
+
+  std::cout << "Number of linear functions: " << C.size() << std::endl;
+  std::cout << "DAG variables/operations: " << DAG.Vars().size() << "/" << DAG.Ops().size() << std::endl;
+
+  // Forward AD
+  size_t iF = 0;
+  std::vector<int>        row_Cgrad;
+  std::vector<int>        col_Cgrad;
+  std::vector<mc::FFVar>  var_Cgrad;
+
+  for( auto const& Ck : C ){
+    //std::cout << "Differentiating linear function #" << iF << std::endl;
+    auto Ckgrad = DAG.SFAD( 1, &Ck, NS, E.data(), NS*(NS-1)/2, S.data() );
+    //DAG.output( DAG.subgraph( std::get<0>( Ckgrad ), std::get<3>( Ckgrad ) ) );
+    //std::cout << "DAG variables/operations: " << DAG.Vars().size() << "/" << DAG.Ops().size() << std::endl;
+
+    for( size_t k=0; k<std::get<0>(Ckgrad); ++k ){
+      row_Cgrad.push_back( iF );
+      col_Cgrad.push_back( std::get<2>(Ckgrad)[k] );
+      var_Cgrad.push_back( std::get<3>(Ckgrad)[k] );
+      //std::cout << "  _Avar[" << _iAfun.back() << "," << _jAvar.back() << "] = " << _Avar.back() << std::endl;
+    }
+
+    delete[] std::get<1>( Ckgrad );
+    delete[] std::get<2>( Ckgrad );
+    delete[] std::get<3>( Ckgrad );
+
+    iF++;
+  }
+
+  std::cout << "Nonzero elements in Jacobian matrix: " << row_Cgrad.size() << std::endl;
+  std::cout << "Size of mc::FFVar: " << sizeof( mc::FFVar ) << std::endl;
+  std::cout << "Size of double: " << sizeof( double ) << std::endl;
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 int test_fadiff_directional()
 {
   std::cout << "\n==============================================\ntest_fadiff_directional:\n";
@@ -563,6 +632,7 @@ int main()
     test_fadiff2();
     test_fadiff3();
     test_fadiff4();
+    test_fadiff5();
     test_fadiff_directional();
     test_fadiff_directional2();
     test_gradient_sparse();

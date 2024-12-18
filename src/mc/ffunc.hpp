@@ -884,7 +884,7 @@ private:
   //! @brief Defining operation and corresponding index in vector operation; _opdef.first=nullptr for unreferenced constants
   std::pair<FFOp*,unsigned>  _opdef;
   //! @brief User operations in DAG
-  std::list<FFOp*>           _opuse;
+  std::list<FFOp*>*          _opuse;
   //! @brief Non-default name
   mutable std::string        _nam;
 
@@ -927,14 +927,14 @@ public:
   FFVar
     ( int const i=0 )
     : _dag( nullptr ), _id( CINT, NOREF ), _num( i ), _val( nullptr ),
-      _mov( 0 ), _cst( true ), _nam( "" )
+      _mov( 0 ), _cst( true ), _opuse( nullptr ), _nam( "" )
     { _opdef.first = nullptr; }
 
   //! @brief Constructor for real parameter
   FFVar
     ( double const& d )
     : _dag( nullptr ), _id( CREAL, NOREF ), _num( d ), _val( nullptr ),
-      _mov( 0 ), _cst( true ), _nam( "" )
+      _mov( 0 ), _cst( true ), _opuse( nullptr ), _nam( "" )
     { _opdef.first = nullptr;
       if( _num.t == FFNum::INT ) _id.first = CINT; }
 
@@ -945,6 +945,11 @@ public:
       _val( Var._val ), _mov( Var._mov ), _cst( Var._cst ), _opdef( Var._opdef ),
       _opuse( Var._opuse ), _nam( Var._nam )
     {}
+
+  //! @brief Destructor
+  virtual ~FFVar
+    ()
+    {}//{ delete _opuse; }
   /** @} */
 
 private:
@@ -990,16 +995,27 @@ public:
     ()
     { return _opdef; }
 
+  //! @brief Get pointer to user operations
+  std::list<FFOp*> const* opuse
+    ()
+    const
+    { return _opuse; }
+
+  //! @brief Get/set pointer to user operations
+  std::list<FFOp*>*& opuse
+    ()
+    { return _opuse; }
+
+  //! @brief Get flag for ownership of user operation list
+  void reset_opuse
+    ()
+    { if( !_opuse ) return; delete _opuse; _opuse = nullptr; }
+
   //! @brief Get/set const pointer to factorable function dag
   FFBase*& dag
     ()
     const // since mutable _dag
     { return _dag; }
-
-//  //! @brief Get/set pointer to factorable function dag
-//  FFBase*& dag
-//    ()
-//    { return _dag; }
 
   //! @brief Get/set pointer to value field
   void*& val
@@ -1011,7 +1027,7 @@ public:
   template <typename U>
   void reset_val
     ( U const&  U_dum )
-    { if( !_val ) return; delete static_cast<U*>( _val ); _val = 0; }
+    { if( !_val ) return; delete static_cast<U*>( _val ); _val = nullptr; }
 
   //! @brief Get/set movability attribute
   unsigned& mov
@@ -1030,11 +1046,6 @@ public:
     ()
     const // since mutable _cst
     { return _cst; }
-
-//  //! @brief Get/set constness
-//  bool& cst
-//    ()
-//    { return _cst; }
 
   //! @brief Set variable name
   void set
@@ -1248,6 +1259,11 @@ public:
     ( FFOp* pOp, void* data, bool const own )
     const;
 
+  //! @brief Insert unary external vector operation <a>Op</a> without operand in DAG
+  template <typename ExtOp>
+  FFVar** insert_external_operation
+    ( ExtOp const& Op, unsigned const nDep, FFBase* dag )
+    const;
   //! @brief Insert unary external vector operation <a>Op</a> with operand <a>Var</a> in DAG
   template <typename ExtOp>
   FFVar** insert_external_operation
@@ -1351,7 +1367,10 @@ struct lt_FFOp
       // Sort by operands next
       // Different variable ordering is accounted for CAVEAT: This ignores variable ordering; e.g. X1+X2 different from X2+X1
       lt_FFVar ltVar;
-      if( Op1->varin.empty() ) return ltVar( Op1->varout.front(), Op2->varout.front() );
+      if( Op1->varin.empty() && Op1->type != FFOp::TYPE::EXTERN ){
+      //  std::cout << Op1->varout.size() << "  " << Op2->varout.size() << std::endl;
+        return ltVar( Op1->varout.front(), Op2->varout.front() );
+      }
       for( auto it1=Op1->varin.begin(), it2=Op2->varin.begin(); 
            it1!=Op1->varin.end() && it2!=Op2->varin.end(); ++it1, ++it2 ){
         if( ltVar( *it1, *it2 ) ) return true;
@@ -1839,9 +1858,16 @@ public:
   /** @} */
 
 protected:
-  //! @brief Erase operation <a>op</a> in set <a>_Ops</a>
-  bool _remove_operation
-    ( FFOp* op );
+
+  //! @brief Erase all variables in _Vars
+  void _clear_variables
+    ()
+    { it_Vars itv = _Vars.begin();
+      for( ; itv != _Vars.end(); ++itv ){
+        (*itv)->reset_opuse();
+        delete *itv;
+      }
+      _Vars.clear(); }
 
 //  //! @brief Erase all operations in set <a>_Ops</a>
 //  virtual void _clear_data
@@ -1854,6 +1880,10 @@ protected:
     { //std::cout << "FFBase: _clear_operations\n"; 
       for( auto& op : _Ops ) delete op;
       _Ops.clear(); }
+
+  //! @brief Erase operation <a>op</a> in set <a>_Ops</a>
+  bool _remove_operation
+    ( FFOp* op );
 
   //! @brief Reset all operations in set <a>_Ops</a>
   void _reset_operations
@@ -1883,11 +1913,17 @@ protected:
   static FFVar& _insert_unary_operation
     ( int const tOp, FFVar const& Var );
 
-  //! @brief Insert nthe external n-ary operation <a>Op</a> with operand arrays <a>pVar1</a> of size <a>nVar1</a> and <a>pVar2</a> of size <a>nVar2</a> in set <a>_Ops</a>, if not already present, adds new auxiliary variable in set <a>_Vars</a> and update list of dependencies in all operands in <a>_Vars</a>
+  //! @brief Insert the external n-ary operation <a>Op</a> without operands in set <a>_Ops</a> of <a>dag</a>, if not already present, adds new auxiliary variable in set <a>_Vars</a> and update list of dependencies in all operands in <a>_Vars</a>
+  template <typename ExtOp>
+  static FFVar** _insert_nary_external_operation
+    ( ExtOp const& Op, unsigned const nDep, FFBase* dag );
+
+  //! @brief Insert the external n-ary operation <a>Op</a> with operand arrays <a>pVar1</a> of size <a>nVar1</a> and <a>pVar2</a> of size <a>nVar2</a> in set <a>_Ops</a>, if not already present, adds new auxiliary variable in set <a>_Vars</a> and update list of dependencies in all operands in <a>_Vars</a>
   template <typename ExtOp>
   static FFVar** _insert_nary_external_operation
     ( ExtOp const& Op, unsigned const nDep, unsigned const nVar1, FFVar const* pVar1,
       unsigned const nVar2, FFVar const* pVar2 );
+
   //! @brief Inserts the external n-ary operation <a>Op</a> with operand array <a>pVar</a> of size <a>nVar</a> in set <a>_Ops</a>, if not already present, adds new auxiliary variable in set <a>_Vars</a> and update list of dependencies in all operands in <a>_Vars</a>
   template <typename ExtOp>
   static FFVar** _insert_nary_external_operation
@@ -1936,13 +1972,6 @@ protected:
   //! @brief Unsets a variables to a constant
   FFVar* _unset_constant
     ( FFVar const* pVar );
-
-  //! @brief Erase all variables in _Vars
-  void _clear_variables
-    ()
-    { it_Vars itv = _Vars.begin();
-      for( ; itv != _Vars.end(); ++itv ) delete *itv;
-      _Vars.clear(); }
 
   //! @brief Appends the auxiliary constant <a>pAux</a>
   void _append_cst
@@ -2885,6 +2914,7 @@ inline FFVar::FFVar
   FFOp* pOp = new FFOp( FFOp::VAR, nullptr, pVar );
   _dag->_Ops.insert( pOp );
   pVar->_opdef = _opdef = std::make_pair( pOp, 0 ); // Set index to 0 for scalar operation
+  pVar->_opuse = _opuse = new std::list<FFOp*>; // Create empty list of user operations
   _dag->_Vars.insert( pVar );
 }
 
@@ -2899,6 +2929,7 @@ inline FFVar::FFVar
   FFOp* pOp = new FFOp( FFOp::VAR, nullptr, pVar );
   _dag->_Ops.insert( pOp );
   pVar->_opdef = _opdef = std::make_pair( pOp, 0 ); // Set index to 0 for scalar operation
+  pVar->_opuse = _opuse = new std::list<FFOp*>; // Create empty list of user operations
   _dag->_Vars.insert( pVar );
 }
 
@@ -2913,6 +2944,7 @@ inline FFVar::FFVar
   FFOp* pOp = new FFOp( FFOp::VAR, nullptr, pVar );
   _dag->_Ops.insert( pOp );
   pVar->_opdef = _opdef = std::make_pair( pOp, 0 ); // Set index to 0 for scalar operation
+  pVar->_opuse = _opuse = new std::list<FFOp*>; // Create empty list of user operations
   _dag->_Vars.insert( pVar );
 }
 
@@ -2920,20 +2952,20 @@ inline FFVar::FFVar
 ( FFBase* dag, FFOp* op, unsigned ndxdep )
 : _dag( dag ), _id( AUX, dag->_naux++ ), _num( 0./0. ), 
   _val ( nullptr ), _mov( 0 ), _cst( false ), _opdef( op, ndxdep ),
-  _nam( "" )
+  _opuse( new std::list<FFOp*> ), _nam( "" )
 {}
 
 inline FFVar::FFVar
 ( FFBase* dag, pt_idVar const& id, std::string const& name )
 : _dag( dag? dag: throw typename FFBase::Exceptions( FFBase::Exceptions::INIT )),
-  _id( id ), _num( 0./0. ), _val( nullptr ), _mov( 0 ), _cst( false ),
-  _nam( name )
+  _id( id ), _num( 0./0. ), _val( nullptr ), _mov( 0 ), _cst( false ), _nam( name )
 {
   // Insert new variable in set FFBase::_Vars and corresponding operation in set FFBase::_Ops
   FFVar* pVar = new FFVar( *this );
   FFOp* pOp = new FFOp( FFOp::VAR, nullptr, pVar );
   _dag->_Ops.insert( pOp );
   pVar->_opdef = _opdef = std::make_pair( pOp, 0 ); // Set index to 0 for scalar operation
+  pVar->_opuse = _opuse = new std::list<FFOp*>; // Create empty list of user operations
   _dag->_Vars.insert( pVar );
 }
 
@@ -3020,7 +3052,7 @@ FFVar::operator=
   _cst   = true;
   _nam   = "";
   _opdef = std::make_pair( nullptr, 0 );
-  _opuse.clear();
+  _opuse = nullptr;
   return *this;
 }
 
@@ -3036,7 +3068,7 @@ FFVar::operator=
   _cst   = true;
   _nam   = "";
   _opdef = std::make_pair( nullptr, 0 );
-  _opuse.clear();
+  _opuse = nullptr;
   return *this;
 }
 
@@ -4150,14 +4182,20 @@ operator <<
     case FFOp::FSTEP: out << Op.name() << "( " << Op.varin[0]->name() << " )\t";
                       break;
     case FFOp::PROD:  out << Op.name() << "( ";
-                      for( unsigned i=0; i<Op.varin.size()-1; i++ ) out << Op.varin[i]->name() << ", ";
-                      out << Op.varin[Op.varin.size()-1]->name() << " )\t";
+                      for( unsigned i=0; i<Op.varin.size(); i++ ){
+                        out << Op.varin[i]->name();
+                        if( i<Op.varin.size()-1 ) out << ", ";
+                      }
+                      out << " )\t";
                       break;
     default: 
       if( Op.type >= FFOp::EXTERN ){
                       out << Op.name() << "( ";
-                      for( unsigned i=0; i<Op.varin.size()-1; i++ ) out << Op.varin[i]->name() << ", ";
-                      out << Op.varin[Op.varin.size()-1]->name() << " )\t";
+                      for( unsigned i=0; i<Op.varin.size(); i++ ){
+                        out << Op.varin[i]->name();
+                        if( i<Op.varin.size()-1 ) out << ", ";
+                      }
+                      out << " )\t";
                       break;
       }
       // Should not reach this point
@@ -4297,6 +4335,16 @@ const
 #endif
 
   return( data < op->data );
+}
+
+template <typename ExtOp>
+inline
+FFVar**
+FFOp::insert_external_operation
+( ExtOp const& Op, unsigned const nDep, FFBase* dag )
+const
+{
+  return FFBase::_insert_nary_external_operation( Op, nDep, dag );
 }
 
 template <typename ExtOp>
@@ -5218,8 +5266,8 @@ const
   if( type < FFOp::EXTERN )
     throw typename FFBase::Exceptions( FFBase::Exceptions::INTERN );
 
-  if( varin.empty() )
-    throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
+  //if( varin.empty() )
+  //  throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
 
   //std::vector<FFVar> ops_res; ops_res.reserve( varout.size() );
   //for( auto const& pvar : varout ) ops_res.push_back( *pvar );
@@ -5232,7 +5280,7 @@ const
     feval( typeid( U ), varout.size(), resU, 1, static_cast<U*>( varin[0]->val() ), &varin[0]->mov() );
 
   else{
-    if( !wkU ) throw typename FFBase::Exceptions( FFBase::Exceptions::INTERN );
+    if( varin.size() && !wkU ) throw typename FFBase::Exceptions( FFBase::Exceptions::INTERN );
     // Move variable values into temporary storage
     for( unsigned i=0; i<varin.size(); ++i ){
       wkU[i]   = std::move( *static_cast<U*>( varin[i]->val() ) );
@@ -5578,8 +5626,8 @@ const
   if( type < FFOp::EXTERN )
     throw typename FFBase::Exceptions( FFBase::Exceptions::INTERN );
 
-  if( varin.empty() )
-    throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
+  //if( varin.empty() )
+  //  throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
 
   thread_local static std::vector<U> valout;
   if( valout.size() < varout.size() ) valout.resize( varout.size() );
@@ -6072,8 +6120,8 @@ const
   if( type < FFOp::EXTERN )
     throw typename FFBase::Exceptions( FFBase::Exceptions::INTERN );
 
-  if( varin.empty() )
-    throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
+  //if( varin.empty() )
+  //  throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
 
   if( varout.size() == 1 ){
     if( varin.size() == 1 ){
@@ -6351,8 +6399,9 @@ operator <<
     //out << "  " << **itv << "  (" << *itv << ")";
     out << "  " << **itv;
     out << "\t => {";
-    for( auto const& pop : (*itv)->_opuse )
-      for( auto pvar : pop->varout ) out << " " << *pvar;
+    //if( (*itv)->opuse() )
+      for( auto const& pop : *(*itv)->opuse() )
+        for( auto pvar : pop->varout ) out << " " << *pvar;
     out << " }" << std::endl;
   }
 
@@ -6367,8 +6416,9 @@ operator <<
         out << "[" << ndxDep << "]";
     }
     out << "\t => {";
-    for( auto const& pop : (*itv)->_opuse )
-      for( auto pvar : pop->varout ) out << " " << *pvar;
+    //if( (*itv)->opuse() )
+      for( auto const& pop : *(*itv)->opuse() )
+        for( auto pvar : pop->varout ) out << " " << *pvar;
     out << " }" << std::endl;
   }
 
@@ -6464,7 +6514,7 @@ FFBase::_insert_nary_external_operation
 #endif
     dag->_Ops.insert( pOp );
     for( unsigned i=0; i<nVar; i++ )
-      vVar[i]->_opuse.push_back( pOp );
+      vVar[i]->opuse()->push_back( pOp );
     pOp->varout.reserve( nDep );
     for( unsigned j=0; j<nDep; j++ ){
       FFVar* pAux = new FFVar( dag, pOp, j );
@@ -6556,7 +6606,65 @@ FFBase::_insert_nary_external_operation
 #endif
     dag->_Ops.insert( pOp );
     for( unsigned i=0; i<vVar.size(); i++ )
-      vVar[i]->_opuse.push_back( pOp );
+      vVar[i]->opuse()->push_back( pOp );
+    pOp->varout.reserve( nDep );
+    for( unsigned j=0; j<nDep; j++ ){
+      FFVar* pAux = new FFVar( dag, pOp, j );
+      dag->_Vars.insert( pAux );
+      pOp->varout.push_back( pAux );
+    }
+  }
+
+  return pOp->varout.data();
+}
+
+template <typename ExtOp>
+inline FFVar**
+FFBase::_insert_nary_external_operation
+( ExtOp const& Op, unsigned const nDep, FFBase* dag )
+{
+  if( !dag ) throw Exceptions( Exceptions::DAG );
+   
+  // Create operation
+  FFOp* pOp = new ExtOp( Op );  // Copy constructor to pass any data fields
+  //pOp->set( nVar, vVar.data(), nullptr );
+  pOp->data = Op.data; // passing data structure
+
+  // Check if same operation type in _Ops
+  FFOp* pExtOp = dag->_find_extop( typeid( ExtOp ) );
+#ifdef MC__FFUNC_EXTERN_DEBUG
+  std::cerr << "Checking for external type " << typeid( ExtOp ).name() << std::endl;
+#endif
+  auto itOp = dag->_Ops.end();
+  if( pExtOp ){
+#ifdef MC__FFUNC_EXTERN_DEBUG
+    std::cerr << "Already defined with info=" << pExtOp->info << std::endl;
+#endif
+    pOp->info = pExtOp->info; // passing existing info field
+    itOp = dag->_Ops.find( pOp ); // getting iterator to check if operation already in DAG
+  }
+  // Else increment _next
+  else{
+#ifdef MC__FFUNC_EXTERN_DEBUG
+    std::cerr << "Newly defined with info=" << dag->_next << std::endl;
+#endif
+    pOp->info = dag->_next++; // increment info field
+  }
+
+  // Check if operation already in DAG
+  if( itOp != dag->_Ops.end() ){
+#ifdef MC__FFUNC_EXTERN_DEBUG
+    std::cerr << "External operation " << (*itOp)->name() << " already defined " << std::endl;
+#endif
+    delete pOp;
+    pOp = *itOp;
+  }
+  // Else insert as new operation
+  else{
+#ifdef MC__FFUNC_EXTERN_DEBUG
+    std::cerr << "External operation " << pOp->name() << " newly defined " << std::endl;
+#endif
+    dag->_Ops.insert( pOp );
     pOp->varout.reserve( nDep );
     for( unsigned j=0; j<nDep; j++ ){
       FFVar* pAux = new FFVar( dag, pOp, j );
@@ -6634,7 +6742,7 @@ FFBase::_insert_nary_external_operation
 #endif
     dag->_Ops.insert( pOp );
     for( unsigned i=0; i<nVar; i++ )
-      vVar[i]->_opuse.push_back( pOp );
+      vVar[i]->opuse()->push_back( pOp );
     pOp->varout.reserve( nDep );
     for( unsigned j=0; j<nDep; j++ ){
       FFVar* pAux = new FFVar( dag, pOp, j );
@@ -6712,7 +6820,7 @@ FFBase::_insert_nary_external_operation
 #endif
     dag->_Ops.insert( pOp );
     for( unsigned i=0; i<nVar; i++ )
-      vVar[i]->_opuse.push_back( pOp );
+      vVar[i]->opuse()->push_back( pOp );
     pOp->varout.reserve( nDep );
     for( unsigned j=0; j<nDep; j++ ){
       FFVar* pAux = new FFVar( dag, pOp, j );
@@ -6797,8 +6905,8 @@ FFBase::_insert_binary_external_operation
     std::cerr << "External operation " << pOp->name() << " newly defined " << std::endl;
 #endif
     dag->_Ops.insert( pOp );
-    pVar1->_opuse.push_back( pOp );
-    pVar2->_opuse.push_back( pOp );
+    pVar1->opuse()->push_back( pOp );
+    pVar2->opuse()->push_back( pOp );
     pOp->varout.reserve( nDep );
     for( unsigned j=0; j<nDep; j++ ){
       FFVar* pAux = new FFVar( dag, pOp, j );
@@ -6872,7 +6980,7 @@ FFBase::_insert_unary_external_operation
     std::cerr << "External operation " << pOp->name() << " newly defined " << std::endl;
 #endif
     dag->_Ops.insert( pOp );
-    pVar->_opuse.push_back( pOp );
+    pVar->opuse()->push_back( pOp );
     pOp->varout.reserve( nDep );
     for( unsigned j=0; j<nDep; j++ ){
       FFVar* pAux = new FFVar( dag, pOp, j );
@@ -6910,7 +7018,7 @@ FFBase::_insert_nary_operation
   else{
     dag->_Ops.insert( pOp );
     for( unsigned i=0; i<nVar; i++ )
-      vVar[i]->_opuse.push_back( pOp );
+      vVar[i]->opuse()->push_back( pOp );
     FFVar* pAux = new FFVar( dag, pOp, 0 );
     dag->_Vars.insert( pAux );
     pOp->varout.push_back( pAux );
@@ -6943,8 +7051,9 @@ FFBase::_insert_binary_operation
   }
   else{
     dag->_Ops.insert( pOp );
-    pVar1->_opuse.push_back( pOp );
-    pVar2->_opuse.push_back( pOp );
+    assert( pVar1->opuse() && pVar2->opuse() );
+    pVar1->opuse()->push_back( pOp );
+    pVar2->opuse()->push_back( pOp );
     FFVar* pAux = new FFVar( dag, pOp, 0 );
     dag->_Vars.insert( pAux );
     pOp->varout.push_back( pAux );
@@ -6977,8 +7086,8 @@ FFBase::_insert_binary_operation
   }
   else{
     dag->_Ops.insert( pOp );
-    pVar1->_opuse.push_back( pOp );
-    pVar2->_opuse.push_back( pOp );
+    pVar1->opuse()->push_back( pOp );
+    pVar2->opuse()->push_back( pOp );
     FFVar* pAux = new FFVar( dag, pOp, 0 );
     dag->_Vars.insert( pAux );
     pOp->varout.push_back( pAux );
@@ -7011,8 +7120,8 @@ FFBase::_insert_binary_operation
   }
   else{
     dag->_Ops.insert( pOp );
-    pVar1->_opuse.push_back( pOp );
-    pVar2->_opuse.push_back( pOp );
+    pVar1->opuse()->push_back( pOp );
+    pVar2->opuse()->push_back( pOp );
     FFVar* pAux = new FFVar( dag, pOp, 0 );
     dag->_Vars.insert( pAux );
     pOp->varout.push_back( pAux );
@@ -7042,7 +7151,7 @@ FFBase::_insert_unary_operation
   }
   else{
     dag->_Ops.insert( pOp );
-    pVar->_opuse.push_back( pOp );
+    pVar->opuse()->push_back( pOp );
     FFVar* pAux = new FFVar( dag, pOp, 0 );
     dag->_Vars.insert( pAux );
     pOp->varout.push_back( pAux );
@@ -7138,6 +7247,8 @@ FFBase::_append_cst
   _Ops.insert( pOp );
   pAux->dag() = this;
   pAux->opdef() = std::make_pair( pOp, 0 );
+  assert( !pAux->opuse() );
+  pAux->opuse() = new std::list<FFOp*>;
   pAux->id().second = _naux++;
   _Vars.insert( pAux );
 }
@@ -7891,14 +8002,14 @@ FFGraph::SDFAD
   // Populate subgraph
   auto&& sgDep = subgraph( vDep );
 #ifdef MC__FFUNC_SFAD_DEBUG
-  output( sgDep );
+  //output( sgDep );
+  std::cerr << "#wk " << sgDep.len_tap << std::endl;
+  std::cerr << "#operations " << sgDep.l_op.size() << std::endl;
 #endif
   std::vector<FFVar> wkAD( sgDep.len_tap );
 
 #ifdef MC__FFUNC_CPU_EVAL
-  double cputime = -cpuclock();
-  std::cerr << "#wk " << sgDep.len_tap << std::endl;
-  std::cerr << "#operations " << sgDep.l_op.size() << std::endl;
+  //double cputime = -cpuclock();
 #endif
 
   // Gather the derivatives of each operation
@@ -8055,7 +8166,7 @@ FFGraph::SDFAD
     std::cerr << "#operations " << sgDep.l_op.size() << std::endl;
 #endif
     unsigned iwk = 0, idiff = 0; 
-    for( FFOp const& op : sgDep.l_op ){
+    for( auto const& op : sgDep.l_op ){
 
       // Initialize variable using values in l_vVar
       if( op->type == FFOp::VAR ){
@@ -9594,7 +9705,10 @@ FFGraph::eval
           break;
         }
       }
-      if( !pX ) throw Exceptions( Exceptions::MISSVAR );
+      if( !pX ){
+        std::cerr << "Subgraph evaluation failed -- missing variable " << *pvar << std::endl;
+        throw Exceptions( Exceptions::MISSVAR );
+      }
     }
 
     // Evaluate current operation
