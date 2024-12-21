@@ -174,6 +174,7 @@ The method mc::SElimEnv::VarElim allows retreiving a 3-tuple of vectors of (i) t
 #define MC__SELIM_H
 
 #include "ffunc.hpp"
+#include "ffdep.hpp"
 #include "ffinv.hpp"
 #include "slift.hpp"
 
