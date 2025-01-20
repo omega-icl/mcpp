@@ -1109,11 +1109,17 @@ struct lt_FFVar
           if( Var1->_id.second > Var2->_id.second ) return false;
           break;
         case FFVar::CINT: case FFVar::CREAL:
-          lt_FFNum ltNum;
-          return ltNum( &Var1->_num, &Var2->_num );
+          return lt_FFNum()( &Var1->_num, &Var2->_num );
           break;
       }
       return false;
+    }
+    
+  bool operator()
+    ( FFVar const& Var1, FFVar const& Var2 )
+    const
+    {
+      return lt_FFVar()( &Var1, &Var2 );
     }
 };
 
