@@ -23,6 +23,9 @@
  #endif
 #endif
 
+#include "mccormick.hpp"
+typedef mc::McCormick<I> MC;
+
 #include <chrono>
 #include <fstream>
 #include "ffunc.hpp" 
@@ -358,6 +361,30 @@ pyFFGraph
        py::return_value_policy::take_ownership,
        "evaluate subgraph in interval arithmetic"
      )
+ .def( "eval",
+       []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar, std::vector<MC> const& MCVar )
+       {
+         size_t const nDep = vDep.size();
+         std::vector<MC> MCDep( nDep );
+         G.eval( SgDep, vDep, MCDep, vVar, MCVar );
+         return MCDep;
+       },
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in McCormick arithmetic"
+     )
+ .def( "eval",
+       []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep, std::vector<mc::FFVar> const& vVar,
+           std::vector<MC> const& MCVar )
+       {
+         size_t const nDep = vDep.size();
+         std::vector<MC> MCDep( nDep );
+         G.eval( vDep, MCDep, vVar, MCVar );
+         return MCDep;
+       },
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in McCormick arithmetic"
+     )
  .def( "reval",
        []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep,
            std::vector<I>& IDep, std::vector<mc::FFVar> const& vVar, std::vector<I>& IVar,
@@ -398,14 +425,16 @@ pyFFGraph
  .def( "veval",
        []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep,
            std::vector<mc::FFVar> const& vVar1, std::vector<std::vector<double>>& DVar1,
-           std::vector<mc::FFVar> const& vVar2, std::vector<double>& DVar2 )
+           std::vector<mc::FFVar> const& vVar2, std::vector<double>& DVar2, bool const walltime )
        {
          auto starttime = std::chrono::system_clock::now();
          size_t const nDep = vDep.size(), nSam = DVar1.size();
          std::vector<std::vector<double>> DDep( nSam, std::vector<double>( nDep ) );
          G.veval( SgDep, vDep, DDep, vVar1, DVar1, vVar2, DVar2 );
-         auto walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
-         std::cerr << "\nvectorized DAG evaluation on " << G.options.MAXTHREAD << " threads: " << walltime.count()*1e-6 << " sec\n";
+         if( walltime ){
+           auto wtime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+           std::cerr << "vectorized DAG evaluation on " << G.options.MAXTHREAD << " threads: " << wtime.count()*1e-6 << " sec\n";
+         }
          return DDep;
        },
        py::arg("SgDep"),
@@ -414,20 +443,23 @@ pyFFGraph
        py::arg("DVar1"),
        py::arg("vVar2") = std::vector<mc::FFVar>(),
        py::arg("DVar2") = std::vector<double>(),
-       //py::return_value_policy::take_ownership,
+       py::arg("walltime") = false,
+       py::return_value_policy::take_ownership,
        "evaluate subgraph in double arithmetic for multiple scenarios"
      )
  .def( "veval",
        []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep,
            std::vector<mc::FFVar> const& vVar1, std::vector<std::vector<double>>& DVar1,
-           std::vector<mc::FFVar> const& vVar2, std::vector<double>& DVar2 )
+           std::vector<mc::FFVar> const& vVar2, std::vector<double>& DVar2, bool const walltime )
        {
          auto starttime = std::chrono::system_clock::now();
          size_t const nDep = vDep.size(), nSam = DVar1.size();
          std::vector<std::vector<double>> DDep( nSam, std::vector<double>( nDep ) );
          G.veval( vDep, DDep, vVar1, DVar1, vVar2, DVar2 );
-         auto walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
-         std::cerr << "\nvectorized DAG evaluation on " << G.options.MAXTHREAD << " threads: " << walltime.count()*1e-6 << " sec\n";
+         if( walltime ){
+           auto wtime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+           std::cerr << "vectorized DAG evaluation on " << G.options.MAXTHREAD << " threads: " << wtime.count()*1e-6 << " sec\n";
+         }
          return DDep;
        },
        py::arg("vDep"),
@@ -435,8 +467,107 @@ pyFFGraph
        py::arg("DVar1"),
        py::arg("vVar2") = std::vector<mc::FFVar>(),
        py::arg("DVar2") = std::vector<double>(),
-       //py::return_value_policy::take_ownership,
+       py::arg("walltime") = false,
+       py::return_value_policy::take_ownership,
        "evaluate subgraph in double arithmetic for multiple scenarios"
+     )
+ .def( "veval",
+       []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar1, std::vector<std::vector<I>>& IVar1,
+           std::vector<mc::FFVar> const& vVar2, std::vector<I>& IVar2, bool const walltime )
+       {
+         auto starttime = std::chrono::system_clock::now();
+         size_t const nDep = vDep.size(), nSam = IVar1.size();
+         std::vector<std::vector<I>> IDep( nSam, std::vector<I>( nDep ) );
+         G.veval( SgDep, vDep, IDep, vVar1, IVar1, vVar2, IVar2 );
+         if( walltime ){
+           auto wtime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+           std::cerr << "vectorized DAG evaluation on " << G.options.MAXTHREAD << " threads: " << wtime.count()*1e-6 << " sec\n";
+         }
+         return IDep;
+       },
+       py::arg("SgDep"),
+       py::arg("vDep"),
+       py::arg("vVar1"),
+       py::arg("IVar1"),
+       py::arg("vVar2") = std::vector<mc::FFVar>(),
+       py::arg("IVar2") = std::vector<I>(),
+       py::arg("walltime") = false,
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in interval arithmetic for multiple scenarios"
+     )
+ .def( "veval",
+       []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar1, std::vector<std::vector<I>>& IVar1,
+           std::vector<mc::FFVar> const& vVar2, std::vector<I>& IVar2, bool const walltime )
+       {
+         auto starttime = std::chrono::system_clock::now();
+         size_t const nDep = vDep.size(), nSam = IVar1.size();
+         std::vector<std::vector<I>> IDep( nSam, std::vector<I>( nDep ) );
+         G.veval( vDep, IDep, vVar1, IVar1, vVar2, IVar2 );
+         if( walltime ){
+           auto wtime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+           std::cerr << "vectorized DAG evaluation on " << G.options.MAXTHREAD << " threads: " << wtime.count()*1e-6 << " sec\n";
+         }
+         return IDep;
+       },
+       py::arg("vDep"),
+       py::arg("vVar1"),
+       py::arg("IVar1"),
+       py::arg("vVar2") = std::vector<mc::FFVar>(),
+       py::arg("IVar2") = std::vector<I>(),
+       py::arg("walltime") = false,
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in interval arithmetic for multiple scenarios"
+     )
+ .def( "veval",
+       []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar1, std::vector<std::vector<MC>>& MCVar1,
+           std::vector<mc::FFVar> const& vVar2, std::vector<MC>& MCVar2, bool const walltime )
+       {
+         auto starttime = std::chrono::system_clock::now();
+         size_t const nDep = vDep.size(), nSam = MCVar1.size();
+         std::vector<std::vector<MC>> MCDep( nSam, std::vector<MC>( nDep ) );
+         G.veval( SgDep, vDep, MCDep, vVar1, MCVar1, vVar2, MCVar2 );
+         if( walltime ){
+           auto wtime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+           std::cerr << "vectorized DAG evaluation on " << G.options.MAXTHREAD << " threads: " << wtime.count()*1e-6 << " sec\n";
+         }
+         return MCDep;
+       },
+       py::arg("SgDep"),
+       py::arg("vDep"),
+       py::arg("vVar1"),
+       py::arg("MCVar1"),
+       py::arg("vVar2") = std::vector<mc::FFVar>(),
+       py::arg("MCVar2") = std::vector<MC>(),
+       py::arg("walltime") = false,
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in McCormick arithmetic for multiple scenarios"
+     )
+ .def( "veval",
+       []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar1, std::vector<std::vector<MC>>& MCVar1,
+           std::vector<mc::FFVar> const& vVar2, std::vector<MC>& MCVar2, bool const walltime )
+       {
+         auto starttime = std::chrono::system_clock::now();
+         size_t const nDep = vDep.size(), nSam = MCVar1.size();
+         std::vector<std::vector<MC>> MCDep( nSam, std::vector<MC>( nDep ) );
+         G.veval( vDep, MCDep, vVar1, MCVar1, vVar2, MCVar2 );
+         if( walltime ){
+           auto wtime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+           std::cerr << "vectorized DAG evaluation on " << G.options.MAXTHREAD << " threads: " << wtime.count()*1e-6 << " sec\n";
+         }
+         return MCDep;
+       },
+       py::arg("vDep"),
+       py::arg("vVar1"),
+       py::arg("MCVar1"),
+       py::arg("vVar2") = std::vector<mc::FFVar>(),
+       py::arg("MCVar2") = std::vector<MC>(),
+       py::arg("walltime") = false,
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in McCormick arithmetic for multiple scenarios"
      )
 ;
 

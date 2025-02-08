@@ -72,10 +72,17 @@ pyInterval
  .def( double() / py::self )
  .def( py::self / double() )
  .def( py::self / py::self )
- .def( "__abs__", []( I const& self ){ return mc::Op<I>::abs(self); } )
- .def( "__pow__", []( I const& self, int const n ){ return mc::Op<I>::pow(self,n); } )
- .def( "__pow__", []( I const& self, double const& r ){ return mc::Op<I>::pow(self,r); } )
- .def( "__pow__", []( I const& self, I const& J ){ return mc::Op<I>::pow(self,J); } )
+ .def( "__abs__", []( I const& i ){ return mc::Op<I>::abs(i); } )
+ .def( "__pow__", []( I const& i, int const n ){ return mc::Op<I>::pow(i,n); } )
+ .def( "__pow__", []( I const& i, double const& r ){ return mc::Op<I>::pow(i,r); } )
+ .def( "__pow__", []( I const& i, I const& ii ){ return mc::Op<I>::pow(i,ii); } )
+ .def( "__pow__", []( double const& r, I const& i ){ return mc::Op<I>::pow(r,i); } )
+ .def( py::self == py::self ) 
+ .def( py::self != py::self )
+ .def( py::self <= py::self )
+ .def( py::self >= py::self )
+ .def( py::self < py::self )
+ .def( py::self > py::self )
 ;
 
 #if !defined(MC__USE_PROFIL) && !defined(MC__USE_FILIB) && !defined(MC__USE_BOOST)
@@ -104,13 +111,13 @@ m.def( "tanh",  []( I const& x ){ return mc::Op<I>::tanh(x); } );
 m.def( "fabs",  []( I const& x ){ return mc::Op<I>::fabs(x); } );
 m.def( "relu",  []( I const& x ){ return mc::Op<I>::max(x,0.); } );
 m.def( "xlog",  []( I const& x ){ return mc::Op<I>::xlog(x); } );
-m.def( "fstep", []( I const& x ){ return mc::Op<I>::xlog(x); } );
-m.def( "bstep", []( I const& x ){ return mc::Op<I>::xlog(x); } );
+m.def( "fstep", []( I const& x ){ return mc::Op<I>::fstep(x); } );
+m.def( "bstep", []( I const& x ){ return mc::Op<I>::bstep(x); } );
 m.def( "erf",   []( I const& x ){ return mc::Op<I>::erf(x); } );
 m.def( "erfc",  []( I const& x ){ return mc::Op<I>::erfc(x); } );
 #if !defined(MC__USE_PROFIL) && !defined(MC__USE_FILIB) && !defined(MC__USE_BOOST)
-m.def( "lmtd",  []( mc::Interval const& I1, mc::Interval const& I2 ){ return mc::lmtd(I1,I2); } );
-m.def( "rlmtd", []( mc::Interval const& I1, mc::Interval const& I2 ){ return mc::rlmtd(I1,I2); } );
+m.def( "lmtd",  []( I const& x, I const& y ){ return mc::lmtd(x,y); } );
+m.def( "rlmtd", []( I const& x, I const& y ){ return mc::rlmtd(x,y); } );
 #endif
 m.def( "pow",   []( I const& x, int const n ){ return mc::Op<I>::pow(x,n); } );
 m.def( "pow",   []( I const& x, double const& r ){ return mc::Op<I>::pow(x,r); } );

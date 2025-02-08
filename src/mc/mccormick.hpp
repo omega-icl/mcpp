@@ -613,19 +613,19 @@ public:
 
   //! @brief Default constructor (needed to declare arrays of McCormick class)
   McCormick():
-    _nsub(0), _cvsub(0), _ccsub(0), _const(true)
+    _nsub(0), _cvsub(nullptr), _ccsub(nullptr), _const(true)
     {}
   //! @brief Constructor for a constant value <a>c</a>
   McCormick
     ( const double c ):
-    _nsub(0), _cv(c), _cc(c), _cvsub(0), _ccsub(0), _const(true)
+    _nsub(0), _cv(c), _cc(c), _cvsub(nullptr), _ccsub(nullptr), _const(true)
     {
       Op<T>::I(_I,c);
     }
   //! @brief Constructor for an interval I
   McCormick
     ( const T&I ):
-    _nsub(0), _cvsub(0), _ccsub(0), _const(true)
+    _nsub(0), _cvsub(nullptr), _ccsub(nullptr), _const(true)
     {
       Op<T>::I(_I,I);
       _cv = Op<T>::l(I); _cc = Op<T>::u(I);
@@ -633,14 +633,14 @@ public:
   //! @brief Constructor for a variable, whose range is <a>I</a> and value is <a>c</a>
   McCormick
     ( const T&I, const double c ):
-    _nsub(0), _cv(c), _cc(c), _cvsub(0), _ccsub(0), _const(false)
+    _nsub(0), _cv(c), _cc(c), _cvsub(nullptr), _ccsub(nullptr), _const(false)
     {
       Op<T>::I(_I,I);
     }
   //! @brief Constructor for a variable, whose range is <a>I</a> and convex and concave bounds are <a>cv</a> and <a>cc</a>
   McCormick
     ( const T&I, const double cv, const double cc ):
-    _nsub(0), _cv(cv), _cc(cc), _cvsub(0), _ccsub(0), _const(false)
+    _nsub(0), _cv(cv), _cc(cc), _cvsub(nullptr), _ccsub(nullptr), _const(false)
     {
       Op<T>::I(_I,I); cut();
     }
@@ -648,7 +648,7 @@ public:
   McCormick
     ( const McCormick<T>&MC ):
     _nsub(MC._nsub), _cv(MC._cv), _cc(MC._cc),
-    _cvsub(_nsub>0?new double[_nsub]:0), _ccsub(_nsub>0?new double[_nsub]:0),
+    _cvsub(_nsub>0?new double[_nsub]:nullptr), _ccsub(_nsub>0?new double[_nsub]:nullptr),
     _const(MC._const)
     {
       Op<T>::I(_I,MC._I);
@@ -661,7 +661,7 @@ public:
   template <typename U> McCormick
     ( const McCormick<U>&MC ):
     _nsub(MC._nsub), _cv(MC._cv), _cc(MC._cc),
-    _cvsub(_nsub>0?new double[_nsub]:0), _ccsub(_nsub>0?new double[_nsub]:0),
+    _cvsub(_nsub>0?new double[_nsub]:nullptr), _ccsub(_nsub>0?new double[_nsub]:nullptr),
     _const(MC._const)
     {
       Op<T>::I(_I,MC._I);
@@ -679,10 +679,10 @@ public:
     }
 
   //! @brief Number of subgradient components/directions
-  unsigned int& nsub()
-    {
-      return _nsub;
-    }
+  //unsigned int& nsub()
+  //  {
+  //    return _nsub;
+  //  }
   unsigned int nsub() const
     {
       return _nsub;
@@ -707,37 +707,37 @@ public:
       return Op<T>::u(_I);
     }
   //! @brief Convex bound
-  double& cv()
-    {
-      return _cv;
-    }
+  //double& cv()
+  //  {
+  //    return _cv;
+  //  }
   double cv() const
     {
       return _cv;
     }
   //! @brief Concave bound
-  double& cc()
-    {
-      return _cc;
-    }
+  //double& cc()
+  //  {
+  //    return _cc;
+  //  }
   double cc() const
     {
       return _cc;
     }
   //! @brief Pointer to a subgradient of convex underestimator
-  double*& cvsub()
-    {
-      return _cvsub;
-    }
+  //double*& cvsub()
+  //  {
+  //    return _cvsub;
+  //  }
   const double* cvsub() const
     {
       return _cvsub;
     }
   //! @brief Pointer to a subgradient of concave overestimator
-  double*& ccsub()
-    {
-      return _ccsub;
-    }
+  //double*& ccsub()
+  //  {
+  //    return _ccsub;
+  //  }
   const double* ccsub() const
     {
       return _ccsub;
@@ -786,16 +786,17 @@ public:
       _const = false;
     }
   //! @brief Set both convex and concave bounds to <a>c</a>
-  void c
+  McCormick<T>& c
     ( const double& c )
     {
       _cv = _cc = c;
       _const = false;
+      return *this;
     }
 
   //! @brief Set dimension of subgradient to <a>nsub</a>
   McCormick<T>& sub
-    ( const unsigned int nsub);
+    ( const unsigned int nsub );
   //! @brief Set dimension of subgradient to <a>nsub</a> and variable index <a>isub</a> (starts at 0)
   McCormick<T>& sub
     ( const unsigned int nsub, const unsigned int isub );
