@@ -29,6 +29,7 @@ typedef mc::McCormick<I> MC;
 #include <chrono>
 #include <fstream>
 #include "ffunc.hpp" 
+#include "ffexpr.hpp" 
 
 namespace py = pybind11;
 
@@ -59,6 +60,7 @@ pyFFVar
  .def( "num", &mc::FFVar::num, "retreive constant value" )
  .def( "cst", &mc::FFVar::cst, "retreive constness" )
  .def( "dag", &mc::FFVar::dag, "retreive DAG" )
+ .def( "str", []( mc::FFVar const& V ){ return mc::FFExpr::dep( V ).ostr().str(); } )
  .def_property_readonly( "opdef", py::overload_cast<>(&mc::FFVar::opdef, py::const_), "retreive DAG defining operation" )
  .def_property_readonly( "id", py::overload_cast<>(&mc::FFVar::id, py::const_), "retreive identifier" )
  .def( "__str__", []( mc::FFVar const& V ){ std::ostringstream Vss; Vss << V; return Vss.str(); } )
@@ -207,7 +209,7 @@ pyFFBase
  .def( "output",
        []( mc::FFBase& G, std::vector<mc::FFVar const*> const& V, std::string const& S )
        {
-         return mc::FFBase::output( G.subgraph( V ), S );
+         mc::FFBase::output( G.subgraph( V ), S );
        },
        py::arg("vDep"),
        py::arg("str") = "",
@@ -571,7 +573,7 @@ pyFFGraph
      )
 ;
 
-py::class_<mc::FFGraph::Options> pyFFGraphOptions( pyFFGraph, "FFGraph.Options" );
+py::class_<mc::FFGraph::Options> pyFFGraphOptions( pyFFGraph, "Options" );
 pyFFGraphOptions
  .def( py::init<>() )
  .def( py::init<mc::FFGraph::Options const&>() )

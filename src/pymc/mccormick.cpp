@@ -237,7 +237,7 @@ pyMcCormick
  .def( py::self > py::self )
 ; 
 
-py::class_<MC::Options> pyMcCormickOptions( pyMcCormick, "McCormick.Options");
+py::class_<MC::Options> pyMcCormickOptions( pyMcCormick, "Options");
 pyMcCormickOptions
  .def( py::init<>() )
  .def( py::init<MC::Options const&>() )

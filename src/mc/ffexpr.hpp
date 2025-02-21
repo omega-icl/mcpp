@@ -228,6 +228,9 @@ public:
   static FFExpr compose
     ( std::string const& UNIV, FFExpr const& E, double const& d );
 
+  //! @brief Retrieve string expression for DAG dependent
+  static FFExpr dep
+    ( FFVar const& dep );
   //! @brief Retrieve string expression for subgraph
   static std::vector<FFExpr> subgraph
     ( FFGraph* dag, FFSubgraph& sg );
@@ -521,6 +524,27 @@ FFExpr::subgraph
 
   dag->eval( sg, Dep.size(), Dep.data(), EDep.data(), Var.size(), Var.data(), EVar.data() );
   return EDep;
+}
+
+inline
+FFExpr
+FFExpr::dep
+( FFVar const& vdep )
+{
+  if( !vdep.dag() ) return FFExpr();
+  FFSubgraph&& sg = vdep.dag()->subgraph( 1, &vdep );
+  std::vector<FFVar> vvar;
+  vvar.reserve( sg.v_indep.size() );
+  std::vector<FFExpr> evar;
+  evar.reserve( sg.v_indep.size() );
+  for( auto const& v : sg.v_indep ){
+    vvar.push_back( *v );
+    evar.push_back( FFExpr( *v ) );
+  }
+
+  FFExpr edep;
+  dynamic_cast<FFGraph*>(vdep.dag())->eval( sg, 1, &vdep, &edep, vvar.size(), vvar.data(), evar.data() );
+  return edep;
 }
 
 inline

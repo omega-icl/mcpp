@@ -9986,7 +9986,7 @@ FFGraph::_veval0
   double const* scaladd )
 {
 #ifdef MC__VEVAL_DEBUG
-  std::cerr << "Thread #" << CURTHREAD << std::endl;
+  std::cerr << "Thread #0, DAG:" << this << std::endl;
 #endif
 
   // Run evaluations on current thread

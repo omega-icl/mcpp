@@ -80,6 +80,7 @@ Possible errors encountered in determining the structure of a factorable functio
 
 #include <iostream>
 #include <map>
+#include <cmath>
 
 namespace mc
 {

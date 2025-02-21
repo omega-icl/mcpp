@@ -86,7 +86,7 @@ pyInterval
 ;
 
 #if !defined(MC__USE_PROFIL) && !defined(MC__USE_FILIB) && !defined(MC__USE_BOOST)
-py::class_<I::Options> pyIntervalOptions( pyInterval, "Interval.Options" );
+py::class_<I::Options> pyIntervalOptions( pyInterval, "Options" );
 pyIntervalOptions
  .def( py::init<>() )
  .def( py::init<I::Options const&>() )

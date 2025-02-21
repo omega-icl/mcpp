@@ -103,7 +103,7 @@ pyVect
  )
 ;
 
-py::class_<mc::Vect::Options> pyVectOptions( pyVect, "Vect.Options" );
+py::class_<mc::Vect::Options> pyVectOptions( pyVect, "Options" );
 
 pyVectOptions
  .def( py::init<>() )
@@ -115,7 +115,7 @@ pyVectOptions
  )
 ;
 
-py::enum_<mc::Vect::Options::AD>(pyVectOptions, "Vect.AD")
+py::enum_<mc::Vect::Options::AD>(pyVectOptions, "AD")
  .value("F", mc::Vect::Options::AD::F, "Forward differentiation")
  .value("B", mc::Vect::Options::AD::B, "Backward differentiation")
  .export_values()
