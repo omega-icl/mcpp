@@ -109,8 +109,8 @@ m.def( "tanh",  []( mc::FFVar const& V ){ return mc::tanh(V); } );
 m.def( "fabs",  []( mc::FFVar const& V ){ return mc::fabs(V); } );
 m.def( "relu",  []( mc::FFVar const& V ){ return mc::max(V,0.); } );
 m.def( "xlog",  []( mc::FFVar const& V ){ return mc::xlog(V); } );
-m.def( "fstep", []( mc::FFVar const& V ){ return mc::xlog(V); } );
-m.def( "bstep", []( mc::FFVar const& V ){ return mc::xlog(V); } );
+m.def( "fstep", []( mc::FFVar const& V ){ return mc::fstep(V); } );
+m.def( "bstep", []( mc::FFVar const& V ){ return mc::bstep(V); } );
 m.def( "erf",   []( mc::FFVar const& V ){ return mc::erf(V); } );
 m.def( "erfc",  []( mc::FFVar const& V ){ return mc::erfc(V); } );
 m.def( "pow",   []( I const& x, int const n ){ return mc::Op<I>::pow(x,n); } );
@@ -122,8 +122,8 @@ m.def( "pow",   []( mc::FFVar const& V, double const& r ){ return mc::pow(V,r); 
 m.def( "pow",   []( mc::FFVar const& V, mc::FFVar const& W ){ return mc::pow(V,W); } );
 m.def( "pow",   []( double const& r, mc::FFVar const& W ){ return mc::pow(r,W); } );
 m.def( "cheb",  []( mc::FFVar const& V, unsigned const n ){ return mc::cheb(V,n); } );
-m.def( "max",   []( mc::FFVar const& V, mc::FFVar const& W ){ return mc::min(V,W); } );
-m.def( "min",   []( mc::FFVar const& V, mc::FFVar const& W ){ return mc::max(V,W); } );
+m.def( "max",   []( mc::FFVar const& V, mc::FFVar const& W ){ return mc::max(V,W); } );
+m.def( "min",   []( mc::FFVar const& V, mc::FFVar const& W ){ return mc::min(V,W); } );
 m.def( "inter", []( mc::FFVar const& V, mc::FFVar const& W ){ return mc::inter(V,W); } );
 
 py::enum_<mc::FFVar::TYPE>(pyFFVar, "TYPE")

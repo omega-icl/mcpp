@@ -125,8 +125,8 @@ m.def( "pow",   []( I const& x, I const& y ){ return mc::Op<I>::pow(x,y); } );
 m.def( "pow",   []( double const& r, I const& y ){ return mc::Op<I>::pow(r,y); } );
 m.def( "cheb",  []( I const& x, unsigned const n ){ return mc::Op<I>::cheb(x,n); } );
 m.def( "hull",  []( I const& x, I const& y ){ return mc::Op<I>::hull(x,y); } );
-m.def( "max",   []( I const& x, I const& y ){ return mc::Op<I>::min(x,y); } );
-m.def( "min",   []( I const& x, I const& y ){ return mc::Op<I>::max(x,y); } );
+m.def( "max",   []( I const& x, I const& y ){ return mc::Op<I>::max(x,y); } );
+m.def( "min",   []( I const& x, I const& y ){ return mc::Op<I>::min(x,y); } );
 m.def( "inter",  []( I& z, I const& x, I const& y ){ return mc::Op<I>::inter(z,x,y); } );
 }
 
