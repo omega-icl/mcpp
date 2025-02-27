@@ -2286,6 +2286,22 @@ public:
     ( size_t const ordermax, size_t const nDep, FFVar const* const pDep,
       size_t const nVar, FFVar const* const pVar, FFVar const* const pIndep=nullptr );
 
+
+  //! @brief Insert the dependents in map <a>mDepIn</a> from the DAG <a>dag</a> into the current DAG with the resulting dependents <a>vDepOut</a>. Other entries than those indexed by <a>mDepIn</a> are unaffected in <a>vDepOut</a>. Participating variables share the same indices in both DAGs
+  template <typename DAG, typename KEY, typename COMP>
+  void insert
+    ( DAG* dag, std::map<KEY,FFVar,COMP> const& mDepIn, std::vector<FFVar>& vDepOut );
+
+  //! @brief Insert the dependents indexed by <a>ndxDep</a> in <a>vDepIn</a> from the DAG <a>dag</a> into the current DAG with the resulting dependents <a>vDepOut</a>. Other entries than those indexed by <a>ndxDep</a> are unaffected. Participating variables share the same indices in both DAGs
+  template <typename DAG>
+  void insert
+    ( DAG* dag, std::set<unsigned> const& ndxDep, std::vector<FFVar> const& vDepIn, std::vector<FFVar>& vDepOut );
+
+  //! @brief Insert the dependents indexed by <a>ndxDep</a> in array <a>pDepIn</a> from the DAG <a>dag</a> into the current DAG with the resulting dependents <a>pDepOut</a>. Other entries than those indexed by <a>ndxDep</a> are unaffected. Participating variables share the same indices in both DAGs
+  template <typename DAG>
+  void insert
+    ( DAG* dag, std::set<unsigned> const& ndxDep, FFVar const* vDepIn, FFVar* vDepOut );
+
   //! @brief Insert the dependents <a>vDepIn</a> from the DAG <a>dag</a> into the current DAG with the resulting dependents <a>vDepOut</a>. Participating variables share the same indices in both DAGs
   template <typename DAG>
   void insert
@@ -9074,6 +9090,63 @@ FFGraph::TAD
 #endif
 }
 
+template <typename DAG, typename KEY, typename COMP>
+inline void
+FFGraph::insert
+( DAG* dag, std::map<KEY,FFVar,COMP> const& mDepIn, std::vector<FFVar>& vDepOut )
+{
+  if( mDepIn.empty() ) return;
+  std::vector<FFVar> vDepIn( mDepIn.rbegin()->first+1 );
+  std::set<unsigned> ndxDep;
+  for( auto const& [j,DepInj]: mDepIn ){
+    ndxDep.insert( j );
+    vDepIn[j] = DepInj;
+  }
+  insert( dag, ndxDep, vDepIn.data(), vDepOut.data() );
+}
+
+template <typename DAG>
+inline void
+FFGraph::insert
+( DAG* dag, std::set<unsigned> const& ndxDep, std::vector<FFVar> const& vDepIn,
+  std::vector<FFVar>& vDepOut )
+{
+  if( ndxDep.empty() ) return;
+  size_t const nIn = *(ndxDep.rbegin());
+  assert( vDepIn.size() >= nIn );
+  if( vDepOut.size() < nIn ) vDepOut.resize( nIn );
+  insert( dag, ndxDep, vDepIn.data(), vDepOut.data() );
+}
+
+template <typename DAG>
+inline void
+FFGraph::insert
+( DAG* dag, std::set<unsigned> const& ndxDep, FFVar const* pDepIn, FFVar* pDepOut )
+{
+  if( ndxDep.empty() ) return;
+  assert( pDepOut && pDepIn );
+
+  // Populate variable arrays
+  auto sg = dag->subgraph( ndxDep, pDepIn );
+  std::vector<FFVar> vVarIn, vVarOut;
+  for( auto const& op : sg.l_op ){
+    if( op->type != FFOp::VAR ) continue;
+    FFVar* pvar = op->varout[0];
+    vVarIn.push_back( *pvar );
+    auto iVar = _Vars.find( pvar );
+    if( iVar == _Vars.end() ){
+      vVarOut.push_back( _create_var( pvar->id(), pvar->name(true) ) );
+      if( (long int)_nvar <= pvar->id().second ) _nvar = pvar->id().second+1;
+    }
+    else
+      vVarOut.push_back( **iVar );
+    //std::cout << "Inserting variable: " << vVarOut.back() << std::endl;
+  }
+
+  // Evaluate dependents in current DAG
+  std::vector<FFVar> wk( sg.len_tap );
+  dag->eval( sg, wk, ndxDep, pDepIn, pDepOut, vVarIn.size(), vVarIn.data(), vVarOut.data() );
+}
 
 template <typename DAG>
 inline void
