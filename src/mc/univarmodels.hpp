@@ -745,8 +745,8 @@ class UnivarPWLE
 
   UnivarPWLE<T>& operator+=
     ( UnivarPWLE<T> const& );
-  UnivarPWLE<T>& operator+=
-    ( UnivarPWLE<T> && );       
+  // UnivarPWLE<T>& operator+=
+  //   ( UnivarPWLE<T> && );       
   UnivarPWLE<T>& operator+=
     ( double const& );
    UnivarPWLE<T>& operator+=
@@ -1824,6 +1824,7 @@ void UnivarPWLE<T>::_condense_by_relax
     T p1AreaLoss;
     T p2AreaLoss;
     std::vector<T> data(3);
+    // there are n-3 4-windows
     std::vector<T> vtx2addX(n-3);
     std::vector<T> vtx2addY(n-3);
     std::vector<std::pair<T, int>> areaLoss(n-3);
@@ -1868,11 +1869,11 @@ void UnivarPWLE<T>::_condense_by_relax
       // }
     }
     
-    const T yMinOrMax = (_isUnder?(_lbnd.first):(_ubnd.first))-yori[0];
+    T yMinOrMax = (_isUnder?(_lbnd.first):(_ubnd.first))-yori[0];
 
     std::make_heap(areaLoss.begin(), areaLoss.end(), _cmp_indexed_areaLoss);
 
-    std::vector<int> hind(n-3);
+    std::vector<int> hind(n-3);       // mapping each window index to the position in the heap areaLoss
     for (unsigned int i = 0; i < n-3; i++) {
         hind[areaLoss[i].second] = (int) i;
     }        
@@ -1897,7 +1898,7 @@ void UnivarPWLE<T>::_condense_by_relax
         areaLoss[0].first = DBL_MAX;
         _modify_heap(areaLoss,0,hind);
         ctr --;
-        if(ctr == 0 ) {_lbnd.first = vtx2addY[aMin.second]; break;}      
+        if(ctr == 0 ) {_lbnd.first = vtx2addY[aMin.second] + yori[0]; yMinOrMax = vtx2addY[aMin.second]; break;}      
         // std::cout << "aMin " << aMin.first << " at " << aMin.second << std::endl;
         // if(areaLoss.size() <= 2) {
         //   std::cout << " here we only have 1-2 choices" << std::endl;
@@ -1911,7 +1912,7 @@ void UnivarPWLE<T>::_condense_by_relax
         areaLoss[0].first = DBL_MAX;
         _modify_heap(areaLoss,0,hind);
         ctr --;
-        if(ctr == 0 ){_ubnd.first = vtx2addY[aMin.second]; break;};
+        if(ctr == 0 ){_ubnd.first = vtx2addY[aMin.second] + yori[0]; yMinOrMax = vtx2addY[aMin.second]; break;};
         //aMin = areaLoss[0]; // as the reference binds to that, we do not need assignment
       }       
     }    
@@ -1981,6 +1982,7 @@ void UnivarPWLE<T>::_condense_by_relax
         }
       } 
       if (idx3 < ((int )n - 1)){
+      //  the index of the right endpoint is n-1
           const int idx4 = nxtInd[idx3];
           const std::vector<T> xIn{xori[idx1+1],xori[idx2+1],xori[idx3+1],xori[idx4+1]}; 
           const std::vector<T> yIn{yori[idx1+1],yori[idx2+1],yori[idx3+1],yori[idx4+1]};     
@@ -2031,7 +2033,7 @@ void UnivarPWLE<T>::_condense_by_relax
             areaLoss[0].first = DBL_MAX;
             _modify_heap(areaLoss,0,hind);
             ctr --;
-            if(ctr == 0 ) {_lbnd.first = vtx2addY[aMin.second]; break;}   
+            if(ctr == 0 ) {_lbnd.first = vtx2addY[aMin.second] + yori[0]; yMinOrMax = vtx2addY[aMin.second]; break;}   
             //aMin = areaLoss[0];  // as the reference binds to that, we do not need assignment
         }
       }
@@ -2040,7 +2042,7 @@ void UnivarPWLE<T>::_condense_by_relax
             areaLoss[0].first = DBL_MAX;
             _modify_heap(areaLoss,0,hind);
             ctr --;
-            if(ctr == 0 ) {_ubnd.first = vtx2addY[aMin.second]; break;}   
+            if(ctr == 0 ) {_ubnd.first = vtx2addY[aMin.second] + yori[0]; yMinOrMax = vtx2addY[aMin.second]; break;}   
             //aMin = areaLoss[0];  // as the reference binds to that, we do not need assignment
         }           
       }
@@ -5496,3 +5498,4 @@ UnivarPWL<T> relu
 // } // namespace mc
 
 #endif
+

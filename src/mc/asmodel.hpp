@@ -216,8 +216,21 @@ class ASModel
   ~ASModel() 
   {
 #ifdef FASM_LIFITIME_DEBUG     
-    std::cout<< "ASM delated, nvar = " <<_nvar <<std::endl;
+    std::cout<< "ASM deleted, nvar = " <<_nvar <<std::endl;
 #endif
+//     _bndvar.resize( 0 );
+//     _defvar.resize( 0 );
+    
+//     _L1.resize(0);
+//     _L2.resize(0);
+//     _U1.resize(0);
+//     _U2.resize(0);
+//     _c1.resize(0);
+//     _c2.resize(0);
+//     _r1.resize(0);
+//     _r2.resize(0);
+//     _r2.resize(0);
+//     _psize.resize(0);
   }
 
   //! @brief Retrieve number of variables in ASM
@@ -233,12 +246,12 @@ class ASModel
   { return _ndiv; };
 
   //! @brief Retrieve partition sizes in ASM
-  std::vector<double> psize
+  std::vector<double> const& psize
   ()
   const
   { return _psize; };
 
-  std::vector<T> const & bndvar
+  std::vector<T> const& bndvar
   ()
   const
   { return _bndvar; };
@@ -433,7 +446,7 @@ class ASModel
     //std::cout << "ove" << std::endl; 
 
     double sum_r1 = 0.;
-    for (unsigned int i = 0; i < _nvar; i++){
+    for (unsigned int i=0; i<_nvar; i++){
       if (lst[i].empty()) continue;
       _r1[i] = _COve[i][0] - _CUnd[i][0];
       for (unsigned int j = 1; j < options.NSUB; j++){
@@ -446,7 +459,7 @@ class ASModel
     if(sum_r1 < 0){
       std::cout << "Error in Display! sum_r1 = " << sum_r1 << std::endl;
             std::cout << "The domain is " << std::endl;
-      for(unsigned int i; i< _nvar; i++ ){
+      for(unsigned int i=0; i<_nvar; i++ ){
         if (lst[i].empty()) continue;
         std::cout << _bndvar[i] <<std::endl;
         std::cout << std::defaultfloat << std::setprecision(2)  << "i: " << i << std::endl;
@@ -1717,7 +1730,7 @@ const
       _r2[i] = ( _U1[i] - _U2[i] );
     }        
     double sum_r2( mu - sigma_u ); 
-    double theta_i_times_mu = sum_r2/((double) ndep);
+    double theta_i_times_mu = mu/((double) ndep);
     for( unsigned int i=0; i<_nvar; i++ ){
       if( lst[i].empty() ) continue;   
       if(sum_r2 != 0.){
@@ -1745,7 +1758,7 @@ const
         _r2[i] = ( _U1[i] - _U2[i] );
       }        
       double sum_r2( mu - sigma_u ); 
-      double theta_i_times_mu = sum_r2/((double) ndep);
+      double theta_i_times_mu = mu/((double) ndep);
       for( unsigned int i=0; i<_nvar; i++ ){
         if( lst[i].empty() ) continue;   
         if(sum_r2 != 0.){
@@ -2858,7 +2871,7 @@ class ASVar
  private:
  
   //! @brief Pointer to interval superposition model
-  ASModel<T>* _mod;
+  mutable ASModel<T>* _mod;
   //! @brief Number of partitions
   unsigned long long _ndiv;                   // To support up to 2^64 partitions
   //! @brief Number of variables
@@ -3328,6 +3341,13 @@ class ASVar
 #endif
   }
 
+
+  ASModel<T>* mod
+  ()
+  const
+  {
+    return _mod;
+  }    
 
   ASVar<T>& set
   ( ASModel<T>* const mod )
@@ -4276,9 +4296,9 @@ ASVar<T>& ASVar<T>::operator-=
           UnivarPWL _temp((_mod->_bndvar[i]),(-var._lnr.first[i]));
           _lst[i] += _temp; 
           if (_shadow_info[0] > 0)
-            _shadow[i].undEst = _temp[i].undEst;
+            _shadow[i].undEst = _temp.undEst;
           if (_shadow_info[1] > 0)
-            _shadow[i].oveEst = _temp[i].oveEst;
+            _shadow[i].oveEst = _temp.oveEst;
         }
         else{
           _lst[i] += UnivarPWL((_mod->_bndvar[i]),(-var._lnr.first[i]));           

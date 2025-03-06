@@ -9,7 +9,10 @@ INC_GUROBI  = -I$(PATH_GUROBI)/include
 
 #####
 
-all: test1 test2 test3
+all: test0 test1 test2 test3
+
+test0 : test0.o
+	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
 
 test1 : test1.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
