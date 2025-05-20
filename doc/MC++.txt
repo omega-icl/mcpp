@@ -84,7 +84,7 @@ A description of the main bounding components of MC++ can be found under <A HREF
 - \ref page_CHEBYSHEV
 - \ref page_ELLIPSOID
 - \ref page_POLYHEDRAL
-- \ref page_ISM
+- \ref page_SUPREL
 .
 Information about the DAG construction and manipulation in MC++ can also be found under <A HREF="pages.html">Related Pages</A>:
 - \ref page_FFUNC

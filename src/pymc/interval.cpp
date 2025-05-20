@@ -94,6 +94,9 @@ pyIntervalOptions
 ;
 #endif
 
+m.def( "abs",   []( I const& x ){ return mc::Op<I>::abs(x); } );
+m.def( "mid",   []( I const& x ){ return mc::Op<I>::mid(x); } );
+m.def( "diam",  []( I const& x ){ return mc::Op<I>::diam(x); } );
 m.def( "inv",   []( I const& x ){ return mc::Op<I>::inv(x); } );
 m.def( "sqr",   []( I const& x ){ return mc::Op<I>::sqr(x); } );
 m.def( "sqrt",  []( I const& x ){ return mc::Op<I>::sqrt(x); } );

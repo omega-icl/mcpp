@@ -5,7 +5,7 @@ include $(srcpath)/makeoptions.mk
 
 #####
 
-libobjs = mcfunc.o interval.o mccormick.o asmodel.o ffunc.o fflin.o ffvect.o main.o
+libobjs = mcfunc.o interval.o mccormick.o supmodel.o ffunc.o fflin.o ffvect.o main.o
 libname = pymc.so
 
 #####

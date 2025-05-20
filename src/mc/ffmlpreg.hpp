@@ -51,7 +51,7 @@ public:
     : _nin(0), _nout(0), _nhid(0), _nwei(0)
     {}
 
-  //! @brief Default constructor
+  //! @brief Default constructor: {#inputs, {{#neurons fist hidden layer, activation function}, ..., {#neurons last hidden layer, activation function}, {#neurons output layer, activation function}}} 
   MLPREG
     ( std::pair<size_t,std::vector<std::pair<size_t,int>>> const& structure )
     {

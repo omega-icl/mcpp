@@ -5,8 +5,9 @@
 #define MC__FFMLP_CHECK
 
 #include "mccormick.hpp"
-#include "ismodel.hpp"
-#include "asmodel.hpp"
+#include "supmodel.hpp"
+#include "pwcu.hpp"
+#include "pwlu.hpp"
 #include "mcfunc.hpp"
 #include "ffunc.hpp"
 #include "ffdep.hpp"
@@ -16,11 +17,15 @@
 namespace mc
 {
 
+// IDEAS:
+// - read data from {structure, weights} from MLPREG
+// - pass data from pytorch trained ANN
+
 //! @brief C++ class for evaluation and relaxation of multilayer perceptrons
 ////////////////////////////////////////////////////////////////////////
-//! mc::MLP is a C++ class for evaluation and relaxation of multilayer
-//! perceptrons (MLP) that leverages expression trees and arithmetics
-//! available through MC++
+//! mc::MLP is a C++ class for evaluation and relaxation of (trained)
+//! multilayer perceptrons (MLP) that leverages expression trees and
+//! arithmetics available through MC++
 ////////////////////////////////////////////////////////////////////////
 template <typename T> 
 class MLP
@@ -29,52 +34,53 @@ class MLP
 public:
 
   //! @brief Number of inputs
-  size_t                               nin;
+  size_t                                 nin;
   //! @brief Number of outputs
-  size_t                               nout;
+  size_t                                 nout;
   //! @brief Number of hidden layers
-  size_t                               nhid;
+  size_t                                 nhid;
   //! @brief MLP data
   std::vector<std::pair<std::vector<std::vector<double>>,int>> data;
   //! @brief Whether MLP data changed since DAG setup
-  bool                                 DAGupdt;
+  bool                                   DAGupdt;
 
   //! @brief Storage for Polyhedral relaxation
-  FFGraph*                             DAG;
-  FFSubgraph                           DAGOps;
-  std::vector<FFVar>                   DAGVar;
-  std::vector<FFVar>                   DAGRes;
-  PolImg<T>*                           POLEnv;
-  std::vector<PolVar<T>>               POLVar;
-  std::vector<PolVar<T>>               POLRes;
+  FFGraph*                               DAG;
+  FFSubgraph                             DAGOps;
+  std::vector<FFVar>                     DAGVar;
+  std::vector<FFVar>                     DAGRes;
+  PolImg<T>*                             POLEnv;
+  std::vector<PolVar<T>>                 POLVar;
+  std::vector<PolVar<T>>                 POLRes;
   std::map<PolVar<T> const*,PolVar<T>,lt_PolVar<T>> POLMap;
 
   //! @brief Storage for Interval bounds
-  std::vector<T>                       IVar;
-  std::vector<T>                       IRes;
+  std::vector<T>                         IVar;
+  std::vector<T>                         IRes;
 
   //! @brief Storage for McCormick relaxation
-  std::vector<McCormick<T>>            MCVar;
-  std::vector<McCormick<T>>            MCRes;
+  std::vector<McCormick<T>>              MCVar;
+  std::vector<McCormick<T>>              MCRes;
 
   //! @brief Storage for interval superposition models
-  ISModel<T>*                          ISMEnv;
-  std::vector<ISVar<T>>                ISMVar;
-  std::vector<ISVar<T>>                ISMRes;
-  std::vector<std::vector<PolVar<T>>>  POLISMAux;
-  std::vector<double>                  DLISMAux;
-  std::vector<double>                  DUISMAux;
-  std::vector<McCormick<ISVar<T>>>     MCISMVar;
-  std::vector<McCormick<ISVar<T>>>     MCISMRes;
+  SupModel<PWCU>*                        PWCSEnv;
+  std::vector<SupVar<PWCU>>              PWCSVar;
+  std::vector<SupVar<PWCU>>              PWCSRes;
+  std::vector<std::vector<PolVar<T>>>    POLPWCSAux;
+  std::vector<double>                    DLPWCSAux;
+  std::vector<double>                    DUPWCSAux;
+  std::vector<McCormick<SupVar<PWCU>>>   MCPWCSVar;
+  std::vector<McCormick<SupVar<PWCU>>>   MCPWCSRes;
 
   //! @brief Storage for affine superposition models
-  ASModel<T>*                          ASMEnv;
-  std::vector<ASVar<T>>                ASMVar;
-  std::vector<ASVar<T>>                ASMRes;
-  std::vector<PolVar<T>>               POLLASMAux;
-  std::vector<PolVar<T>>               POLUASMAux;
-  std::vector<double>                  DXASMAux;
-  std::vector<double>                  DYASMAux;
+  SupModel<PWLU>*                        PWLSEnv;
+  std::vector<SupVar<PWLU>>              PWLSVar;
+  std::vector<SupVar<PWLU>>              PWLSRes;
+  std::vector<PolVar<T>>                 POLPWLSAux;
+  std::vector<double>                    DXPWLSAux;
+  std::vector<double>                    DYPWLSAux;
+  std::vector<McCormick<SupVar<PWLU>>>   MCPWLSVar;
+  std::vector<McCormick<SupVar<PWLU>>>   MCPWLSRes;
 
   //! @brief MLP options
   struct Options
@@ -89,29 +95,29 @@ public:
 
     //! @brief Relaxation type
     enum RELAXTYPE{
-      AUX=0, //!< Auxiliary variable polyhedral relaxation
-      INT,   //!< Interval bounds
-      MC,    //!< McCormick relaxation with interval bounds
-      ISM,   //!< Interval superposition model
-      MCISM, //!< McCormick relaxation with interval superposition bounds
-      ASM    //!< Affine superposition model
+      AUX=0,   //!< Auxiliary variable polyhedral relaxation
+      INT,     //!< Interval bounds
+      MC,      //!< McCormick relaxation with interval bounds
+      PWCS,    //!< Piecewise-constant superposition model
+      MCPWCS,  //!< McCormick relaxation with piecewise-constant superposition bounds
+      PWLS,    //!< Piecewise-linear superposition model
+      MCPWLS   //!< McCormick relaxation with piecewise-linear superposition bounds
     };
 
     //! @brief Default constructor
     Options():
-      RELAX(MC), ISMDIV(64), ASMBPS(8), ISMCONT(true), ISMSLOPE(true), ISMSHADOW(true), CUTSHADOW(false), 
-      ZEROTOL(machprec()), RELU2ABS(false), SIG2EXP(false), AUTODIFF(F)
+      RELAX(MC), SUPDIV(64), INIPWL(1), SUPCONT(true), SUPSHADOW(true), CUTSHADOW(false), 
+      ZEROTOL(DBL_EPSILON), RELU2ABS(false), SIG2EXP(false), AUTODIFF(F)
       {}
 
     //! @brief Assignment operator
     Options& operator=
       ( Options const& opt ){
         RELAX     = opt.RELAX;
-        ISMDIV    = opt.ISMDIV;
-        ASMBPS    = opt.ASMBPS;
-        ISMCONT   = opt.ISMCONT;
-        ISMSLOPE  = opt.ISMSLOPE;
-        ISMSHADOW = opt.ISMSHADOW;
+        SUPDIV    = opt.SUPDIV;
+        INIPWL    = opt.INIPWL;
+        SUPCONT   = opt.SUPCONT;
+        SUPSHADOW = opt.SUPSHADOW;
         CUTSHADOW = opt.CUTSHADOW;
         ZEROTOL   = opt.ZEROTOL;
         RELU2ABS  = opt.RELU2ABS;
@@ -127,17 +133,15 @@ public:
 
     //! @brief Type of relaxation
     RELAXTYPE RELAX;
-    //! @brief Number of subdivisions in superposition model
-    unsigned ISMDIV;
-    //! @brief Number of ??? in superposition model   
-    unsigned ASMBPS;
+    //! @brief Partition size in superposition model
+    size_t SUPDIV;
+    //! @brief Initial partition size in piecewise-linear superposition model
+    size_t INIPWL;
     //! @brief Whether to construct continuous or binary relaxation of superposition model
-    bool     ISMCONT;
-    //! @brief Whether to propagate slopes in superposition model
-    bool     ISMSLOPE;
-    //! @brief Whether to propagate shadow remainders in superposition model
-    bool     ISMSHADOW;
-    //! @brief Whether to append cuts from shadow remainders in superposition model relaxation
+    bool     SUPCONT;
+    //! @brief Whether to propagate shadow estimators in superposition model
+    bool     SUPSHADOW;
+    //! @brief Whether to append cuts from shadow estimators in superposition model relaxation
     bool     CUTSHADOW;
     //! @brief Threshold for zero coefficient in neural network
     double   ZEROTOL;
@@ -152,30 +156,31 @@ public:
   //! @brief Default constructor
   MLP
   ()
-  : nin(0), nout(0), DAGupdt(false), DAG(nullptr), POLEnv(nullptr), ISMEnv(nullptr), ASMEnv(nullptr)
+  : nin(0), nout(0), DAGupdt(false),
+    DAG(nullptr), POLEnv(nullptr), PWCSEnv(nullptr), PWLSEnv(nullptr)
   {}
 
   ~MLP() 
   {
     delete POLEnv;
     delete DAG;
-    delete ISMEnv;
-    delete ASMEnv;
+    delete PWCSEnv;
+    delete PWLSEnv;
   }
 
-  //! @brief Clear MLP data
-  void clear_data
+  //! @brief Reset MLP data
+  void reset_data
     ();
 
   //! @brief Set MLP data
   bool set_data
     ( std::vector<std::pair<std::vector<std::vector<double>>,int>> const& data );
 
-  //! @brief Append multi-neuron layer to MLP data
+  //! @brief Append multi-neuron layer to MLP data: outer vector size is #neurons in hidden layer; inner vector has scalar weights multiplying each neuron in previous (input or hidden) layer and a bias term and size 1+#neuron in previous layer 
   bool append_data
     ( std::vector<std::vector<double>> const& data, int const activ=Options::LINEAR, bool const reset=false );
 
-  //! @brief Append single-neuron layer to MLP data
+  //! @brief Append single-neuron layer to MLP data: vector has scalar weights multiplying each neuron in previous (input or hidden) layer and a bias term and size 1+#neuron in previous layer 
   bool append_data
     ( std::vector<double> const& data, int const activ=Options::LINEAR, bool const reset=false );
 
@@ -203,14 +208,17 @@ public:
     ( McCormick<T>* y, McCormick<T> const* x )
     { evaluate( y, x, MCIhid ); }
   void evaluate
-    ( ISVar<T>* y, ISVar<T> const* x )
-    { evaluate( y, x, ISMhid ); }
+    ( SupVar<PWCU>* y, SupVar<PWCU> const* x )
+    { evaluate( y, x, PWCShid ); }
   void evaluate
-    ( McCormick<ISVar<T>>* y, McCormick<ISVar<T>> const* x )
-    { evaluate( y, x, MCISMhid ); }
+    ( McCormick<SupVar<PWCU>>* y, McCormick<SupVar<PWCU>> const* x )
+    { evaluate( y, x, MCPWCShid ); }
   void evaluate
-    ( ASVar<T>* y, ASVar<T> const* x )
-    { evaluate( y, x, ASMhid ); }
+    ( SupVar<PWLU>* y, SupVar<PWLU> const* x )
+    { evaluate( y, x, PWLShid ); }
+  void evaluate
+    ( McCormick<SupVar<PWLU>>* y, McCormick<SupVar<PWLU>> const* x )
+    { evaluate( y, x, MCPWLShid ); }
   void evaluate
     ( PolVar<T>* y, PolVar<T> const* x )
     { evaluate( y, x, POLhid ); }
@@ -230,14 +238,10 @@ private:
     ( U* y, U const* x, std::vector<std::vector<U>>& vhid )
     const;
 
-  void append_ASMcuts
-    ( PolImg<T>* img, FFOp* pop, PolVar<T> const& vRes, PolVar<T>* vVar,
-      std::vector<UnivarPWL<T>> const& pwlEst );
-
-  void append_ASMcuts
+  void append_PWLScuts
     ( PolImg<T>* img, FFOp* pOp, PolVar<T> const& vRes, PolVar<T>* vVar,
-      double const& rhsEst, std::vector<double> const& lnrEst=std::vector<double>() );
-  
+      std::vector<PWLU> const& est, std::set<unsigned int> const& dep, bool const under );
+
   template <typename U>
   U ReLU
     ( U const& x )
@@ -245,25 +249,24 @@ private:
     {
       return options.RELU2ABS?
              ( x + Op<U>::fabs(x) ) * 0.5:
-             Op<U>::max( x, U(0.) );
+             Op<U>::max( x, 0. );
     }
-
-  template <typename U>
-  ISVar<U> ReLU
-    ( ISVar<U> const& x )
+/*
+  SupVar<PWCU> ReLU
+    ( SupVar<PWCU> const& x )
     const
     {
       return relu( x );
     }
 
   template <typename U>
-  ASVar<U> ReLU
-    ( ASVar<U> const& x )
+  SupVar<PWLU> ReLU
+    ( SupVar<PWCU> const& x )
     const
     {
       return relu( x );
     }
-    
+*/
   template <typename U>
   fadbad::F<U> ReLU
     ( fadbad::F<U> const& x )
@@ -277,24 +280,26 @@ private:
     }
 
   //! @brief Intermediate storage for MLP evaluation
-  static thread_local std::vector<std::vector<double>>              Dhid;
-  static thread_local std::vector<std::vector<fadbad::F<double>>>   FDhid;
-  static thread_local std::vector<std::vector<T>>                   Ihid;
-  static thread_local std::vector<std::vector<McCormick<T>>>        MCIhid;
-  static thread_local std::vector<std::vector<ISVar<T>>>            ISMhid;
-  static thread_local std::vector<std::vector<McCormick<ISVar<T>>>> MCISMhid;
-  static thread_local std::vector<std::vector<ASVar<T>>>            ASMhid;
-  static thread_local std::vector<std::vector<PolVar<T>>>           POLhid;
+  static thread_local std::vector<std::vector<double>>                   Dhid;
+  static thread_local std::vector<std::vector<fadbad::F<double>>>        FDhid;
+  static thread_local std::vector<std::vector<T>>                        Ihid;
+  static thread_local std::vector<std::vector<McCormick<T>>>             MCIhid;
+  static thread_local std::vector<std::vector<SupVar<PWCU>>>             PWCShid;
+  static thread_local std::vector<std::vector<McCormick<SupVar<PWCU>>>>  MCPWCShid;
+  static thread_local std::vector<std::vector<SupVar<PWLU>>>             PWLShid;
+  static thread_local std::vector<std::vector<McCormick<SupVar<PWLU>>>>  MCPWLShid;
+  static thread_local std::vector<std::vector<PolVar<T>>>                POLhid;
 };
 
-template <typename T> inline thread_local std::vector<std::vector<double>>              MLP<T>::Dhid     = std::vector<std::vector<double>>();
-template <typename T> inline thread_local std::vector<std::vector<fadbad::F<double>>>   MLP<T>::FDhid    = std::vector<std::vector<fadbad::F<double>>>();
-template <typename T> inline thread_local std::vector<std::vector<T>>                   MLP<T>::Ihid     = std::vector<std::vector<T>>();
-template <typename T> inline thread_local std::vector<std::vector<McCormick<T>>>        MLP<T>::MCIhid   = std::vector<std::vector<McCormick<T>>>();
-template <typename T> inline thread_local std::vector<std::vector<ISVar<T>>>            MLP<T>::ISMhid   = std::vector<std::vector<ISVar<T>>>();
-template <typename T> inline thread_local std::vector<std::vector<McCormick<ISVar<T>>>> MLP<T>::MCISMhid = std::vector<std::vector<McCormick<ISVar<T>>>>();
-template <typename T> inline thread_local std::vector<std::vector<ASVar<T>>>            MLP<T>::ASMhid   = std::vector<std::vector<ASVar<T>>>();
-template <typename T> inline thread_local std::vector<std::vector<PolVar<T>>>           MLP<T>::POLhid   = std::vector<std::vector<PolVar<T>>>();
+template <typename T> inline thread_local std::vector<std::vector<double>>                  MLP<T>::Dhid      = std::vector<std::vector<double>>();
+template <typename T> inline thread_local std::vector<std::vector<fadbad::F<double>>>       MLP<T>::FDhid     = std::vector<std::vector<fadbad::F<double>>>();
+template <typename T> inline thread_local std::vector<std::vector<T>>                       MLP<T>::Ihid      = std::vector<std::vector<T>>();
+template <typename T> inline thread_local std::vector<std::vector<McCormick<T>>>            MLP<T>::MCIhid    = std::vector<std::vector<McCormick<T>>>();
+template <typename T> inline thread_local std::vector<std::vector<SupVar<PWCU>>>            MLP<T>::PWCShid   = std::vector<std::vector<SupVar<PWCU>>>();
+template <typename T> inline thread_local std::vector<std::vector<McCormick<SupVar<PWCU>>>> MLP<T>::MCPWCShid = std::vector<std::vector<McCormick<SupVar<PWCU>>>>();
+template <typename T> inline thread_local std::vector<std::vector<SupVar<PWLU>>>            MLP<T>::PWLShid   = std::vector<std::vector<SupVar<PWLU>>>();
+template <typename T> inline thread_local std::vector<std::vector<McCormick<SupVar<PWLU>>>> MLP<T>::MCPWLShid = std::vector<std::vector<McCormick<SupVar<PWLU>>>>();
+template <typename T> inline thread_local std::vector<std::vector<PolVar<T>>>               MLP<T>::POLhid    = std::vector<std::vector<PolVar<T>>>();
 
 template< typename T >
 inline bool
@@ -318,7 +323,7 @@ MLP<T>::set_data
 
 template< typename T >
 inline void
-MLP<T>::clear_data
+MLP<T>::reset_data
 ()
 {
   // Reset data
@@ -333,7 +338,7 @@ MLP<T>::append_data
 ( std::vector<std::vector<double>> const& layer, int const activ, bool const reset )
 {
   if( reset ){
-    clear_data();
+    reset_data();
     DAGupdt = true;
   }
   if( !layer.size()
@@ -383,7 +388,7 @@ const
     for( unsigned i=0; i<nneu; ++i ){
       vhid[l][i] = (data[l].first)[i][0]; // bias term
 #ifdef MC__FFMLP_DEBUG
-      std::cerr << "No inputs to neuron " << i << " in layer " << l << ": " << data[l][i].size()-1 << std::endl;
+      std::cerr << "No inputs to neuron " << i << " in layer " << l << ": " << (data[l].first)[i].size()-1 << std::endl;
 #endif
       for( unsigned j=0; j<(data[l].first)[i].size()-1; ++j ){
 #ifdef MC__FFMLP_DEBUG
@@ -445,7 +450,7 @@ MLP<T>::resize_relax
     default:
       if( !DAG || DAGupdt ){
         delete DAG;
-        DAG = new FFGraph;//, &data );
+        DAG = new FFGraph;
         DAGVar.resize( nin );
         DAGRes.resize( nout );
         for( unsigned i=0; i<nin; ++i )
@@ -468,44 +473,46 @@ MLP<T>::resize_relax
     case Options::INT:
       IVar.resize( nin );
       IRes.resize( nout );
-      return;
+      break;
 
     case Options::MC:
       MCVar.resize( nin );
       MCRes.resize( nout );
-      return;
+      break;
 
-    case Options::MCISM:
-      MCISMVar.resize( nin );
-      MCISMRes.resize( nout );
+    case Options::MCPWCS:
+      MCPWCSVar.resize( nin );
+      MCPWCSRes.resize( nout );
       // no break
 
-    case Options::ISM:
-      if( !ISMEnv || ISMEnv->nvar() != nin || ISMEnv->ndiv() != options.ISMDIV ){
-        delete ISMEnv;
-        ISMEnv = new ISModel<T>( nin, options.ISMDIV );
+    case Options::PWCS:
+      if( !PWCSEnv || PWCSEnv->nvar() != nin ){
+        delete PWCSEnv;
+        PWCSEnv = new SupModel<PWCU>( nin );
       }
-      ISMEnv->options.SLOPE_USE  = options.ISMSLOPE;  
-      ISMEnv->options.SHADOW_USE = options.ISMSHADOW;
-      ISMVar.resize( nin );
-      ISMRes.resize( nout );
-      POLISMAux.resize( nin );
-      DLISMAux.resize( options.ISMDIV );
-      DUISMAux.resize( options.ISMDIV );
-      return;
+      PWCSEnv->options.USE_SHADOW = options.SUPSHADOW;
+      PWCSVar.resize( nin );
+      PWCSRes.resize( nout );
+      POLPWCSAux.resize( nin );
+      DLPWCSAux.resize( options.SUPDIV );
+      DUPWCSAux.resize( options.SUPDIV );
+      break;
 
-    case Options::ASM:
-      if( !ASMEnv || ASMEnv->nvar() != nin || ASMEnv->ndiv() != options.ISMDIV ){
-        delete ASMEnv;
-        ASMEnv = new ASModel<T>( nin, options.ISMDIV );
+    case Options::MCPWLS:
+      MCPWLSVar.resize( nin );
+      MCPWLSRes.resize( nout );
+      // no break
+
+    case Options::PWLS:
+      if( !PWLSEnv || PWLSEnv->nvar() != nin ){
+        delete PWLSEnv;
+        PWLSEnv = new SupModel<PWLU>( nin );
       }
-      ASMEnv->options.SLOPE_USE  = options.ISMSLOPE;
-      ASMEnv->options.SHADOW_USE = options.ISMSHADOW;
-      ASMVar.resize( nin );
-      ASMRes.resize( nout );
-      POLLASMAux.resize( nin );
-      POLUASMAux.resize( nin );
-      return;
+      PWLSEnv->options.USE_SHADOW = options.SUPSHADOW;
+      PWLSVar.resize( nin );
+      PWLSRes.resize( nout );
+      POLPWLSAux.resize( nin );
+      break;
   }
 }
 
@@ -526,9 +533,9 @@ MLP<T>::propagate_relax
         POLMap[&POLVar[i]] = vVar[i];
       }
 #ifdef MC__FFMLP_DEBUG
-      std::vector<PolVar<T>> POLwk;
-      DAG->eval( DAGOps, POLwk, nout, DAGRes.data(), POLRes.data(), nin, DAGVar.data(), POLVar.data() );
-      for( auto polv : POLwk ) std::cout << polv.name() << ": " << polv.range() << std::endl;
+      { std::vector<PolVar<T>> POLwk;
+        DAG->eval( DAGOps, POLwk, nout, DAGRes.data(), POLRes.data(), nin, DAGVar.data(), POLVar.data() );
+        for( auto polv : POLwk ) std::cout << polv.name() << ": " << polv.range() << std::endl; }
 #else
       DAG->eval( DAGOps, nout, DAGRes.data(), POLRes.data(), nin, DAGVar.data(), POLVar.data() );
 #endif
@@ -553,7 +560,7 @@ MLP<T>::propagate_relax
         std::cerr << "vRes[" << j << "] in " << vRes[j] << std::endl;
 #endif
       }
-      return;
+      break;
       
     // McCormick relaxations at mid-point with subgradient in each direction
     case MLP<T>::Options::RELAXTYPE::MC:
@@ -566,52 +573,68 @@ MLP<T>::propagate_relax
         std::cerr << "vRes[" << j << "] in " << vRes[j].range() << std::endl;
 #endif
       }
-      return;
+      break;
 
-    // Interval superposition models
-    case MLP<T>::Options::RELAXTYPE::ISM:
+    // Piecewise-constant superposition models
+    case MLP<T>::Options::RELAXTYPE::PWCS:
       for( unsigned i=0; i<nin; ++i )
-        ISMVar[i].set( ISMEnv, i, vVar[i].range() );
-      evaluate( ISMRes.data(), ISMVar.data() );
+        PWCSVar[i].set( *PWCSEnv, i, vVar[i].range(), options.SUPDIV );
+      evaluate( PWCSRes.data(), PWCSVar.data() );
       for( unsigned j=0; j<nout; ++j ){
-        vRes[j].set( img, *pRes[j], ISMRes[j].B() );
+        vRes[j].set( img, *pRes[j], T(PWCSRes[j].l(),PWCSRes[j].u()) );
 #ifdef MC__FFMLP_DEBUG
-        std::cerr << "ISMRes[" << j << "] in " << ISMRes[j] << std::endl;
-        std::cerr << "vRes[" << j << "] in " << vRes[j].range() << std::endl;
+        std::cerr << "PWCSRes[" << j << "] in " << PWCSRes[j]      << std::endl;
+        std::cerr << "vRes["    << j << "] in " << vRes[j].range() << std::endl;
 #endif
       }
-      return;
-
+      break;
  
-    // McCormick relaxation with ISM bounds at mid-point with subgradient in each direction
-    case MLP<T>::Options::RELAXTYPE::MCISM:
+    // McCormick relaxation with piecewise-constant superposition bounds and subgradient calculated at mid-point
+    case MLP<T>::Options::RELAXTYPE::MCPWCS:
       for( unsigned i=0; i<nin; ++i )
-        MCISMVar[i] = McCormick<ISVar<T>>( ISVar<T>( ISMEnv, i, vVar[i].range() ), Op<T>::mid( vVar[i].range() ) ).sub( nin, i );
-      evaluate( MCISMRes.data(), MCISMVar.data() );
+        MCPWCSVar[i] = McCormick<SupVar<PWCU>>( SupVar<PWCU>( *PWCSEnv, i, vVar[i].range(), options.SUPDIV ),
+                                                Op<T>::mid( vVar[i].range() ) ).sub( nin, i );
+      evaluate( MCPWCSRes.data(), MCPWCSVar.data() );
       for( unsigned j=0; j<nout; ++j ){
-        vRes[j].set( img, *pRes[j], MCISMRes[j].I().B() );
+        vRes[j].set( img, *pRes[j], T(MCPWCSRes[j].I().l(),MCPWCSRes[j].I().u()) );
 #ifdef MC__FFMLP_DEBUG
-        std::cerr << "ISMRes[" << j << "] in " << MCISMRes[j].I() << std::endl;
-        std::cerr << "MCISMRes[" << j << "] in " << MCISMRes[j] << std::endl;
-        std::cerr << "vRes[" << j << "] in " << vRes[j].range() << std::endl;
+        std::cerr << "PWCSRes["   << j << "] in " << MCPWCSRes[j].I() << std::endl;
+        std::cerr << "MCPWCSRes[" << j << "] in " << MCPWCSRes[j]     << std::endl;
+        std::cerr << "vRes["      << j << "] in " << vRes[j].range()  << std::endl;
 #endif
       }
-      return;
+      break;
 
-    // Affine superposition models
-    case MLP<T>::Options::RELAXTYPE::ASM:
-      UnivarPWLE<double>::nbpsMax = options.ASMBPS;       
+    // Piecewise-linear superposition models
+    case MLP<T>::Options::RELAXTYPE::PWLS:
+      //UnivarPWLE<double>::nbpsMax = options.ASMBPS;       
       for( unsigned i=0; i<nin; ++i )
-        ASMVar[i].set( ASMEnv, i, vVar[i].range() );
-      evaluate( ASMRes.data(), ASMVar.data() );
+        PWLSVar[i].set( *PWLSEnv, i, vVar[i].range(), options.INIPWL );
+      evaluate( PWLSRes.data(), PWLSVar.data() );
       for( unsigned j=0; j<nout; ++j ){
-        vRes[j].set( img, *pRes[j], ASMRes[j].B() );
+        vRes[j].set( img, *pRes[j], T(PWLSRes[j].l(),PWLSRes[j].u()) );
 #ifdef MC__FFMLP_DEBUG
-        std::cerr << "ASMRes[" << j << "] in " << ASMRes[j] << std::endl;
-        std::cerr << "vRes[" << j << "] in " << vRes[j].range() << std::endl;
+        std::cerr << "PWLSRes[" << j << "] in " << PWLSRes[j]      << std::endl;
+        std::cerr << "vRes["    << j << "] in " << vRes[j].range() << std::endl;
 #endif
       }
-      return;
+      break;
+
+    // McCormick relaxation with piecewise-linear superposition bounds and subgradient calculated at mid-point
+    case MLP<T>::Options::RELAXTYPE::MCPWLS:
+      for( unsigned i=0; i<nin; ++i )
+        MCPWLSVar[i] = McCormick<SupVar<PWLU>>( SupVar<PWLU>( *PWLSEnv, i, vVar[i].range(), options.INIPWL ),
+                                                Op<T>::mid( vVar[i].range() ) ).sub( nin, i );
+      evaluate( MCPWLSRes.data(), MCPWLSVar.data() );
+      for( unsigned j=0; j<nout; ++j ){
+        vRes[j].set( img, *pRes[j], T(MCPWLSRes[j].I().l(),MCPWLSRes[j].I().u()) );
+#ifdef MC__FFMLP_DEBUG
+        std::cerr << "PWLSRes["   << j << "] in " << MCPWLSRes[j].I() << std::endl;
+        std::cerr << "MCPWLSRes[" << j << "] in " << MCPWLSRes[j]     << std::endl;
+        std::cerr << "vRes["      << j << "] in " << vRes[j].range()  << std::endl;
+#endif
+      }
+      break;
   }
 }
 
@@ -633,11 +656,11 @@ MLP<T>::backpropagate_relax
 
     // Interval bounds
     case MLP<T>::Options::RELAXTYPE::INT:
-      return;
+      break;
       
     // McCormick relaxations at mid-point with subgradient in each direction
     case MLP<T>::Options::RELAXTYPE::MC:
-      // polyhedral cut generation
+      // add polyhedral cuts
       for( unsigned j=0; j<nout; ++j ){
 #ifdef MC__FFMLP_DEBUG
         std::cerr << "MCRes[" << j << "] in " << MCRes[j] << std::endl;
@@ -651,153 +674,168 @@ MLP<T>::backpropagate_relax
         img->add_cut( pOp, PolCut<T>::LE, rhs1, nin, vVar, MCRes[j].cvsub(), vRes[j], -1. );
         img->add_cut( pOp, PolCut<T>::GE, rhs2, nin, vVar, MCRes[j].ccsub(), vRes[j], -1. );
       }
-      return;
+      break;
 
-    // Interval superposition models
-    case MLP<T>::Options::RELAXTYPE::ISM:
-#ifdef MC__FFMLP_CHECK
-      assert( ISMEnv->ndiv() == options.ISMDIV );
-#endif
+    // Piecewise-constant superposition models
+    case MLP<T>::Options::RELAXTYPE::PWCS:
       // define auxiliary variables 
       for( unsigned i=0; i<nin; ++i ){
-        POLISMAux[i].resize( ISMEnv->ndiv() );
-        for( unsigned k=0; k<ISMEnv->ndiv(); ++k )
-          POLISMAux[i][k].set( img, Op<T>::zeroone(), options.ISMCONT );
+        auto& PWCSVar_i = PWCSVar[i];
+#ifdef MC__FFMLP_CHECK
+        assert( PWCSVar_i.uest()[i].yL().size() == options.SUPDIV 
+             && PWCSVar_i.uest()[i].yL().size() == PWCSVar_i.oest()[i].yU().size() );
+#endif
+        POLPWCSAux[i].resize( options.SUPDIV );
+        for( unsigned k=0; k<options.SUPDIV; ++k )
+          POLPWCSAux[i][k].set( img, Op<T>::zeroone(), options.SUPCONT );
+
+        // sum of auxiliaries equal to 1
+        img->add_cut( pOp, PolCut<T>::EQ, 1., options.SUPDIV, POLPWCSAux[i].data(), 1. );
+
+        // link auxiliaries to independent variables
+        img->add_cut( pOp, PolCut<T>::LE, 0., options.SUPDIV, POLPWCSAux[i].data(), PWCSVar_i.uest()[i].yL().data(), vVar[i], -1. );
+        img->add_cut( pOp, PolCut<T>::GE, 0., options.SUPDIV, POLPWCSAux[i].data(), PWCSVar_i.oest()[i].yU().data(), vVar[i], -1. );
       }
 
-      // polyhedral cut generation
+      // add polyhedral cuts
       for( unsigned j=0; j<nout; ++j ){
+        auto& PWCSRes_j = PWCSRes[j];
 #ifdef MC__FFMLP_DEBUG
-        std::cerr << "MCRes[" << j << "] in " << MCRes[j] << std::endl;
+        std::cerr << "PWCSRes["   << j << "] in " << PWCSRes_j    << std::endl;
 #endif
+        // constant superposition relaxation
+        if( PWCSRes_j.sdep().empty() ){
+          *img->add_cut( pOp, PolCut<T>::EQ, PWCSRes_j.cst(), vRes[j], 1. );
+          continue;
+        }
+
+        // polyhedral cuts for superposition relaxation
         auto cutF1 = *img->add_cut( pOp, PolCut<T>::LE, 0., vRes[j], -1. );
         auto cutF2 = *img->add_cut( pOp, PolCut<T>::GE, 0., vRes[j], -1. );
-        for( unsigned i=0; i<nin; ++i ){
-          auto const& ISMi = ISMRes[j].C()[i];
-          if( ISMi.empty() ) continue;
-          for( unsigned k=0; k<ISMEnv->ndiv(); ++k ){
-            DLISMAux[k] = Op<T>::l( ISMi[k] );
-            DUISMAux[k] = Op<T>::u( ISMi[k] );
-          }
-          cutF1->append( ISMEnv->ndiv(), POLISMAux[i].data(), DLISMAux.data() );
-          cutF2->append( ISMEnv->ndiv(), POLISMAux[i].data(), DUISMAux.data() );
-        }
-
-        // add polyhedral cuts for ISM-participating variables
-        for( unsigned i=0; i<nin; i++ ){
-          if( POLISMAux[i].empty() ) continue;
-          // auxiliaries add up to 1
-          img->add_cut( pOp, PolCut<T>::EQ, 1., ISMEnv->ndiv(), POLISMAux[i].data(), 1. );
-
-          // link auxiliaries to model variables
-          PolVar<T> POLvarL( 0. ), POLvarU( 0. );
-          auto&& ISMi = ISMVar[i].C()[i];
-          assert( !ISMi.empty() );
-          for( unsigned k=0; k<ISMEnv->ndiv(); k++ ){
-            DLISMAux[k] = Op<T>::l(ISMi[k]);
-            DUISMAux[k] = Op<T>::u(ISMi[k]);
-          } 
-          img->add_cut( pOp, PolCut<T>::LE, 0., ISMEnv->ndiv(), POLISMAux[i].data(), DLISMAux.data(), vVar[i], -1. );
-          img->add_cut( pOp, PolCut<T>::GE, 0., ISMEnv->ndiv(), POLISMAux[i].data(), DUISMAux.data(), vVar[i], -1. );
+        for( auto const& i : PWCSRes_j.sdep() ){
+#ifdef MC__FFMLP_CHECK
+          assert( PWCSRes_j.uest()[i].yL().size() == options.SUPDIV 
+               && PWCSRes_j.uest()[i].yL().size() == PWCSRes_j.oest()[i].yU().size() );
+#endif
+          cutF1->append( options.SUPDIV, POLPWCSAux[i].data(), PWCSRes_j.uest()[i].yL().data() );
+          cutF2->append( options.SUPDIV, POLPWCSAux[i].data(), PWCSRes_j.oest()[i].yU().data() );
         }
       }
-      return;
+      break;
 
-    // McCormick relaxation with ISM bounds at mid-point with subgradient in each direction    
-    case MLP<T>::Options::RELAXTYPE::MCISM:
-#ifdef MC__FFMLP_CHECK
-      assert( ISMEnv->ndiv() == options.ISMDIV );
-#endif
+    // McCormick relaxation with piecewise-constant superposition bounds and subgradient calculated at mid-point
+    case MLP<T>::Options::RELAXTYPE::MCPWCS:
       // define auxiliary variables 
       for( unsigned i=0; i<nin; ++i ){
-        POLISMAux[i].resize( ISMEnv->ndiv() );
-        for( unsigned k=0; k<ISMEnv->ndiv(); ++k )
-          POLISMAux[i][k].set( img, Op<T>::zeroone(), options.ISMCONT );  
-      }
-  
-      // polyhedral cut generation
-      for( unsigned j=0; j<nout; ++j ){
-#ifdef MC__FFMLP_DEBUG
-        std::cerr << "MCISMRes[" << j << "] in " << MCISMRes[j] << std::endl;
+        auto& PWCSVar_i = MCPWCSVar[i].I();
+#ifdef MC__FFMLP_CHECK
+        assert( PWCSVar_i.uest()[i].yL().size() == options.SUPDIV 
+             && PWCSVar_i.uest()[i].yL().size() == PWCSVar_i.oest()[i].yU().size() );
 #endif
-        auto cutF1 = *img->add_cut( pOp, PolCut<T>::LE, 0., vRes[j], -1. );
-        auto cutF2 = *img->add_cut( pOp, PolCut<T>::GE, 0., vRes[j], -1. );
-        for( unsigned i=0; i<nin; ++i ){
-          auto const& ISMi = MCISMRes[j].I().C()[i];
-          if( ISMi.empty() ) continue;
-          for( unsigned k=0; k<ISMEnv->ndiv(); ++k ){
-            DLISMAux[k] = Op<T>::l( ISMi[k] );
-            DUISMAux[k] = Op<T>::u( ISMi[k] );
-          }
-          cutF1->append( ISMEnv->ndiv(), POLISMAux[i].data(), DLISMAux.data() );
-          cutF2->append( ISMEnv->ndiv(), POLISMAux[i].data(), DUISMAux.data() );
+        POLPWCSAux[i].resize( options.SUPDIV );
+        for( unsigned k=0; k<options.SUPDIV; ++k )
+          POLPWCSAux[i][k].set( img, Op<T>::zeroone(), options.SUPCONT );
+
+        // sum of auxiliaries equal to 1
+        img->add_cut( pOp, PolCut<T>::EQ, 1., options.SUPDIV, POLPWCSAux[i].data(), 1. );
+
+        // link auxiliaries to independent variables
+        img->add_cut( pOp, PolCut<T>::LE, 0., options.SUPDIV, POLPWCSAux[i].data(), PWCSVar_i.uest()[i].yL().data(), vVar[i], -1. );
+        img->add_cut( pOp, PolCut<T>::GE, 0., options.SUPDIV, POLPWCSAux[i].data(), PWCSVar_i.oest()[i].yU().data(), vVar[i], -1. );
+      }
+
+      // add polyhedral cuts
+      for( unsigned j=0; j<nout; ++j ){
+        auto& PWCSRes_j = MCPWCSRes[j].I();
+#ifdef MC__FFMLP_DEBUG
+        std::cerr << "PWCSRes["   << j << "] in " << PWCSRes_j    << std::endl;
+#endif
+        // constant superposition relaxation
+        if( PWCSRes_j.sdep().empty() ){
+          *img->add_cut( pOp, PolCut<T>::EQ, PWCSRes_j.cst(), vRes[j], 1. );
+          continue;
         }
 
-        // add polyhedral cuts for ISM-participating variables
-        for( unsigned i=0; i<nin; i++ ){
-          if( POLISMAux[i].empty() ) continue;
-          // auxiliaries add up to 1
-          img->add_cut( pOp, PolCut<T>::EQ, 1., ISMEnv->ndiv(), POLISMAux[i].data(), 1. );
-
-          // link ISM auxiliaries to model variables
-          PolVar<T> POLvarL( 0. ), POLvarU( 0. );
-          auto&& ISMi = MCISMVar[i].I().C()[i];
-          assert( !ISMi.empty() );
-          for( unsigned k=0; k<ISMEnv->ndiv(); k++ ){
-            DLISMAux[k] = Op<T>::l(ISMi[k]);
-            DUISMAux[k] = Op<T>::u(ISMi[k]);
-          }
-          img->add_cut( pOp, PolCut<T>::LE, 0., ISMEnv->ndiv(), POLISMAux[i].data(), DLISMAux.data(), vVar[i], -1. );
-          img->add_cut( pOp, PolCut<T>::GE, 0., ISMEnv->ndiv(), POLISMAux[i].data(), DUISMAux.data(), vVar[i], -1. );
+        // polyhedral cuts for superposition relaxation
+        auto cutF1 = *img->add_cut( pOp, PolCut<T>::LE, 0., vRes[j], -1. );
+        auto cutF2 = *img->add_cut( pOp, PolCut<T>::GE, 0., vRes[j], -1. );
+        for( auto const& i : PWCSRes_j.sdep() ){
+#ifdef MC__FFMLP_CHECK
+          assert( PWCSRes_j.uest()[i].yL().size() == options.SUPDIV 
+               && PWCSRes_j.uest()[i].yL().size() == PWCSRes_j.oest()[i].yU().size() );
+#endif
+          cutF1->append( options.SUPDIV, POLPWCSAux[i].data(), PWCSRes_j.uest()[i].yL().data() );
+          cutF2->append( options.SUPDIV, POLPWCSAux[i].data(), PWCSRes_j.oest()[i].yU().data() );
         }
 
         // polyhedral cut generation for MC  
-        double rhs1 = -MCISMRes[j].cv(),  
-               rhs2 = -MCISMRes[j].cc();
-        for( unsigned i=0; i<nin; ++i ){ 
-          rhs1 += MCISMRes[j].cvsub(i) * MCISMVar[i].cv();
-          rhs2 += MCISMRes[j].ccsub(i) * MCISMVar[i].cc();
-        }
-        img->add_cut( pOp, PolCut<T>::LE, rhs1, nin, vVar, MCISMRes[j].cvsub(), vRes[j], -1. );
-        img->add_cut( pOp, PolCut<T>::GE, rhs2, nin, vVar, MCISMRes[j].ccsub(), vRes[j], -1. );
-      }
-      return;
-      
-    // Affine superposition models
-    case MLP<T>::Options::RELAXTYPE::ASM:
-#ifdef MC__FFMLP_CHECK
-      assert( ASMEnv->ndiv() == options.ISMDIV );
-#endif
-      // polyhedral cut generation
-      for( unsigned j=0; j<nout; ++j ){
 #ifdef MC__FFMLP_DEBUG
-        std::cerr << "ASMRes[" << j << "] in " << ASMRes[j] << std::endl;
+        std::cerr << "MCPWCSRes[" << j << "] in " << MCPWCSRes[j] << std::endl;
 #endif
-        switch(ASMRes[j].get_ASVar()){
-          case 1:
-            append_ASMcuts( img, pOp, vRes[j], vVar, ASMRes[j].get_cst() );
-            break;    
-                    
-          case 2:
-            append_ASMcuts( img, pOp, vRes[j], vVar, ASMRes[j].get_cst(), ASMRes[j].get_lnr() );
-            break;
-
-          case 3:
-            append_ASMcuts( img, pOp, vRes[j], vVar, ASMRes[j].get_lst() );          
-            break;
-
-          case 4:
-            append_ASMcuts( img, pOp, vRes[j], vVar, ASMRes[j].get_lst() );
-            if( options.CUTSHADOW && options.ISMSHADOW )
-              append_ASMcuts( img, pOp, vRes[j], vVar, ASMRes[j].get_shadow() );
-            break;
-
-          default:
-           throw std::runtime_error("MLP::relax: **ERROR** invalid flag from get_ASVar()\n");
+        double rhs1 = -MCPWCSRes[j].cv(),  
+               rhs2 = -MCPWCSRes[j].cc();
+        for( unsigned i=0; i<nin; ++i ){ 
+          rhs1 += MCPWCSRes[j].cvsub(i) * MCPWCSVar[i].cv();
+          rhs2 += MCPWCSRes[j].ccsub(i) * MCPWCSVar[i].cc();
         }
+        img->add_cut( pOp, PolCut<T>::LE, rhs1, nin, vVar, MCPWCSRes[j].cvsub(), vRes[j], -1. );
+        img->add_cut( pOp, PolCut<T>::GE, rhs2, nin, vVar, MCPWCSRes[j].ccsub(), vRes[j], -1. );
       }
-      return;
-  }
+      break;
+      
+    // Piecewise-linear superposition models
+    case MLP<T>::Options::RELAXTYPE::PWLS:
+      // add polyhedral cuts
+      for( unsigned j=0; j<nout; ++j ){
+        auto& PWLSRes_j = PWLSRes[j];
+#ifdef MC__FFMLP_DEBUG
+        std::cerr << "PWLSRes["   << j << "] in " << PWLSRes_j    << std::endl;
+#endif
+        // constant superposition relaxation
+        if( PWLSRes_j.sdep().empty() ){
+          *img->add_cut( pOp, PolCut<T>::EQ, PWLSRes_j.cst(), vRes[j], 1. );
+          continue;
+        }
+
+        // polyhedral cuts for superposition relaxation
+        append_PWLScuts( img, pOp, vRes[j], vVar, PWLSRes_j.uest(), PWLSRes_j.sdep(), true  );          
+        append_PWLScuts( img, pOp, vRes[j], vVar, PWLSRes_j.oest(), PWLSRes_j.sdep(), false );          
+      }
+      break;
+
+    // McCormick relaxation with piecewise-linear superposition bounds and subgradient calculated at mid-point
+    case MLP<T>::Options::RELAXTYPE::MCPWLS:
+      // add polyhedral cuts
+      for( unsigned j=0; j<nout; ++j ){
+        auto& PWLSRes_j = MCPWLSRes[j].I();
+#ifdef MC__FFMLP_DEBUG
+        std::cerr << "PWLSRes["   << j << "] in " << PWLSRes_j    << std::endl;
+#endif
+        // constant superposition relaxation
+        if( PWLSRes_j.sdep().empty() ){
+          *img->add_cut( pOp, PolCut<T>::EQ, PWLSRes_j.cst(), vRes[j], 1. );
+          continue;
+        }
+
+        // polyhedral cuts for superposition relaxation
+        append_PWLScuts( img, pOp, vRes[j], vVar, PWLSRes_j.uest(), PWLSRes_j.sdep(), true  );          
+        append_PWLScuts( img, pOp, vRes[j], vVar, PWLSRes_j.oest(), PWLSRes_j.sdep(), false );          
+
+        // polyhedral cut generation for MC  
+#ifdef MC__FFMLP_DEBUG
+        std::cerr << "MCPWLSRes[" << j << "] in " << MCPWLSRes[j] << std::endl;
+#endif
+        double rhs1 = -MCPWLSRes[j].cv(),  
+               rhs2 = -MCPWLSRes[j].cc();
+        for( unsigned i=0; i<nin; ++i ){ 
+          rhs1 += MCPWLSRes[j].cvsub(i) * MCPWLSVar[i].cv();
+          rhs2 += MCPWLSRes[j].ccsub(i) * MCPWLSVar[i].cc();
+        }
+        img->add_cut( pOp, PolCut<T>::LE, rhs1, nin, vVar, MCPWLSRes[j].cvsub(), vRes[j], -1. );
+        img->add_cut( pOp, PolCut<T>::GE, rhs2, nin, vVar, MCPWLSRes[j].ccsub(), vRes[j], -1. );
+      }
+      break;
+  } // end switch
 
 #ifdef MC__FFMLP_DEBUG
   std::cerr << *img;
@@ -805,102 +843,31 @@ MLP<T>::backpropagate_relax
 #endif
 }
 
-template< typename T >
-inline void
-MLP<T>::append_ASMcuts
-( PolImg<T>* img, FFOp* pOp, PolVar<T> const& vRes, PolVar<T>* vVar,
-  double const& rhsEst, std::vector<double> const& lnrEst )
-{
-  double rhs = rhsEst / (double)nin;
-  for( unsigned i=0; i<nin; ++i ){
-    double DX = mc::Op<T>::diam(vVar[i].range()),
-           DY = !lnrEst.empty()? lnrEst[i] * DX: 0.,
-           XL = mc::Op<T>::l(vVar[i].range()),
-           YL = !lnrEst.empty()? lnrEst[i] * DX + rhs: rhs;
-    T IY = !lnrEst.empty()? lnrEst[i] * vVar[i].range() + rhs: T(rhs);
-    POLLASMAux[i].set( img, IY, true );
-    img->add_cut( pOp, mc::PolCut<T>::EQ, DX*YL-DY*XL, POLLASMAux[i], DX, vVar[i], -DY );
-  }
-  img->add_cut( pOp, PolCut<T>::EQ, 0., nin, POLLASMAux.data(), 1., vRes, -1. );
-}
 
 template< typename T >
 inline void
-MLP<T>::append_ASMcuts
+MLP<T>::append_PWLScuts
 ( PolImg<T>* img, FFOp* pOp, PolVar<T> const& vRes, PolVar<T>* vVar,
-  std::vector<UnivarPWL<T>> const& pwlEst )
+  std::vector<PWLU> const& est, std::set<unsigned int> const& dep, bool const under )
 {
-  for( unsigned i=0; i<nin; ++i ){
-    UnivarPWLE<double> const& uest = pwlEst[i].undEst;
-    if( uest.empty() )
-      POLLASMAux[i].set( img, T(0.), true );
-    else{ 
-      POLLASMAux[i].set( img, T(uest.get_lb(),uest.get_ub()), true );
-      auto const [ucst,isuCst] = uest.get_cst();
-      if( isuCst )
-        img->add_cut( pOp, PolCut<T>::EQ, ucst, POLLASMAux[i], 1. );
-      else{
-        unsigned NK = uest.first.size()-1;
-#ifdef MC__FFMLP_CHECK
-        assert( uest.second.size() == uest.first.size() );
-#endif
-        if(NK==1){
-          NK += 1;
-          DXASMAux.assign( NK, 0. );
-          DYASMAux.assign( NK, 0. );
-          for( unsigned j=0; j<NK; ++j ){
-            DXASMAux[j] = uest.first[j];
-            DYASMAux[j] = uest.second[j];
-          }            
-        }
-        else{
-          DXASMAux.assign( NK, uest.first[0] );
-          DYASMAux.assign( NK, uest.second[0] );
-          for( unsigned j=0; j<NK; ++j ){
-            DXASMAux[j] += uest.first[j+1];
-            DYASMAux[j] += uest.second[j+1];
-          }
-        }
-        img->add_semilinear_cuts( pOp, NK, vVar[i], DXASMAux.data(), POLLASMAux[i], DYASMAux.data(), mc::PolCut<T>::EQ );
-      }
+  for( auto const& i : dep ){
+    POLPWLSAux[i].set( img, T(est.at(i).xL(),est.at(i).xU()), true );
+
+    // Generate breakpoints from segment-based representation in mc::PWLU
+    auto const& est_i = est.at(i);
+    size_t const NK = est_i.dx().size()+1;
+    DXPWLSAux.resize( NK ); DXPWLSAux[0] = est_i.xL();
+    DYPWLSAux.resize( NK ); DYPWLSAux[0] = est_i.yL();
+    auto idx = est_i.dx().cbegin(), idy = est_i.dy().cbegin();
+    for( unsigned k=1; k<NK; ++k, ++idx, ++idy ){
+      DXPWLSAux[k] = DXPWLSAux[k-1] + *idx;
+      DYPWLSAux[k] = DYPWLSAux[k-1] + *idx * *idy;
     }
 
-    UnivarPWLE<double> const& oest = pwlEst[i].oveEst;
-    if( oest.empty() )
-      POLUASMAux[i].set( img, T(0.), true );
-    else{
-      POLUASMAux[i].set( img, T(oest.get_lb(),oest.get_ub()), true );
-      auto const [ocst,isoCst] = oest.get_cst();
-      if( isoCst )
-        img->add_cut( pOp, PolCut<T>::EQ, ocst, POLUASMAux[i], 1. );
-      else{
-        unsigned NK = oest.first.size()-1;
-#ifdef MC__FFMLP_CHECK
-        assert( oest.second.size() == oest.first.size() );
-#endif
-        if(NK == 1){
-          NK += 1;
-          DXASMAux.assign( NK, 0. );
-          DYASMAux.assign( NK, 0. );
-          for( unsigned j=0; j<NK; ++j ){
-            DXASMAux[j] = oest.first[j];
-            DYASMAux[j] = oest.second[j];
-          }
-        }  
-        else{  
-          DXASMAux.assign( NK, oest.first[0] );
-          DYASMAux.assign( NK, oest.second[0] );
-          for( unsigned j=0; j<NK; ++j ){
-            DXASMAux[j] += oest.first[j+1];
-            DYASMAux[j] += oest.second[j+1];
-          }
-        }	      
-        img->add_semilinear_cuts( pOp, NK, vVar[i], DXASMAux.data(), POLUASMAux[i], DYASMAux.data(), mc::PolCut<T>::EQ );
-      }
-    }
+    img->add_semilinear_cuts( pOp, NK, vVar[i], DXPWLSAux.data(), POLPWLSAux[i], DYPWLSAux.data(), mc::PolCut<T>::EQ );
   }
-  img->add_cut( pOp, PolCut<T>::LE, 0., nin, POLLASMAux.data(), 1., vRes, -1. );
-  img->add_cut( pOp, PolCut<T>::GE, 0., nin, POLUASMAux.data(), 1., vRes, -1. );
+     
+  img->add_cut( pOp, (under? PolCut<T>::LE: PolCut<T>::GE), 0., dep, POLPWLSAux.data(), 1., vRes, -1. );
 } 
 
 //! @brief C++ class defining neural networks as external DAG operations in MC++.
@@ -967,10 +934,10 @@ public:
         return eval( nRes, static_cast<T*>(vRes), nVar, static_cast<T const*>(vVar), mVar );
       else if( idU == typeid( McCormick<T> ) )
         return eval( nRes, static_cast<McCormick<T>*>(vRes), nVar, static_cast<McCormick<T> const*>(vVar), mVar );
-      else if( idU == typeid( ISVar<T> ) )
-        return eval( nRes, static_cast<ISVar<T>*>(vRes), nVar, static_cast<ISVar<T> const*>(vVar), mVar );
-      else if( idU == typeid( ASVar<T> ) )
-        return eval( nRes, static_cast<ASVar<T>*>(vRes), nVar, static_cast<ASVar<T> const*>(vVar), mVar );
+      else if( idU == typeid( SupVar<PWCU> ) )
+        return eval( nRes, static_cast<SupVar<PWCU>*>(vRes), nVar, static_cast<SupVar<PWCU> const*>(vVar), mVar );
+      else if( idU == typeid( SupVar<PWLU> ) )
+        return eval( nRes, static_cast<SupVar<PWLU>*>(vRes), nVar, static_cast<SupVar<PWLU> const*>(vVar), mVar );
       else if( idU == typeid( PolVar<T> ) )
         return eval( nRes, static_cast<PolVar<T>*>(vRes), nVar, static_cast<PolVar<T> const*>(vVar), mVar );
 

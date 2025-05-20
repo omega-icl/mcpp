@@ -875,7 +875,9 @@ INPUT                  = MC++.txt \
                          ../src/mc/ellipsoid.hpp \
                          ../src/mc/ellimage.hpp \
                          ../src/mc/polimage.hpp \
-                         ../src/mc/ismodel.hpp \
+                         ../src/mc/pwcu.hpp \
+                         ../src/mc/pwlu.hpp \
+                         ../src/mc/supmodel.hpp \
                          ../src/mc/spoly.hpp \
                          ../src/mc/squad.hpp \
                          ../src/mc/ffdep.hpp \

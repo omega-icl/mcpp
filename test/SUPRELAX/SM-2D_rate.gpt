@@ -1,0 +1,82 @@
+file = "SM-2D_rate.out"
+
+# COLOR SCHEMES
+# https://hihayk.github.io/scale/#2/2/43/57/2/2/3/33/4F62B6/13/21/93/white
+
+set linetype  1 lc rgb "red" lw 3
+set linetype  2 lc rgb "#857D2D" lw 3
+set linetype  3 lc rgb "#B0A745" lw 3
+set linetype  4 lc rgb "#D6CF62" lw 3
+set linetype  5 lc rgb "#E2DC8E" lw 3
+set linetype  6 lc rgb "#374A96" lw 3
+set linetype  7 lc rgb "#4F62B6" lw 3
+set linetype  8 lc rgb "#8190CB" lw 3
+set linetype  9 lc rgb "#B3BDE0" lw 3
+set linetype cycle  9
+
+#233471
+#374A96
+#4F62B6
+#8190CB
+
+#857D2D
+#B0A745
+#D6CF62
+#E2DC8E
+#EEE9BB
+
+set logscale x
+set logscale y
+set xrange [1e-2:1e0]
+set autoscale y
+set yrange [1e-2:]
+set format x "10^{%T}"
+set format y "10^{%T}"
+set grid
+#set key bottom right spacing 1.7 box lc -1 lw 1 width -2 font ",18"
+set key top left Left reverse spacing 1.5 maxrows 5 box lc -1 lw 1 width 0 font ",18"
+
+set samples 1000
+
+set xlabel "{/Symbol r}" font ",21"
+set ylabel "max pointwise" font ",21"
+
+plot file u 1:6 tit "McCormick" w l lt 1, \
+     file u 1:16 tit "Sup. PWL1" w l lt 2, \
+     file u 1:18 tit "Sup. PWL2" w l lt 3, \
+     file u 1:20 tit "Sup. PWL4" w l lt 4, \
+     file u 1:22 tit "Sup. PWL8" w l lt 5, \
+     file u 1:8 tit "Sup. PWC16" w l lt 6, \
+     file u 1:10 tit "Sup. PWC32" w l lt 7, \
+     file u 1:12 tit "Sup. PWC64" w l lt 8, \
+     file u 1:14 tit "Sup. PWC128" w l lt 9
+
+pause -1 "ENTER TO CONTINUE"
+set term post dashed color eps enh 21
+set out "SM-2D_rate_pointwise.eps"
+rep
+!ps2eps -B -f -l SM-2D_rate_pointwise.eps
+!mv SM-2D_rate_pointwise.eps.eps SM-2D_rate_pointwise.eps
+set term qt
+
+set xlabel "{/Symbol r}" font ",21"
+set ylabel "Hausdorff" font ",21"
+
+plot file u 1:7 tit "McCormick" w l lt 1, \
+     file u 1:17 tit "Sup. PWL1" w l lt 2, \
+     file u 1:19 tit "Sup. PWL2" w l lt 3, \
+     file u 1:21 tit "Sup. PWL4" w l lt 4, \
+     file u 1:23 tit "Sup. PWL8" w l lt 5, \
+     file u 1:9 tit "Sup. PWC16" w l lt 6, \
+     file u 1:11 tit "Sup. PWC32" w l lt 7, \
+     file u 1:13 tit "Sup. PWC64" w l lt 8, \
+     file u 1:15 tit "Sup. PWC128" w l lt 9
+
+pause -1 "ENTER TO CONTINUE"
+set term post dashed color eps enh 21
+set out "SM-2D_rate_hausdorff.eps"
+rep
+!ps2eps -B -f -l SM-2D_rate_hausdorff.eps
+!mv SM-2D_rate_hausdorff.eps.eps SM-2D_rate_hausdorff.eps
+set term qt
+

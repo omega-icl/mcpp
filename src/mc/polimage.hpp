@@ -1310,6 +1310,20 @@ public:
       _coef[ndx.size()] = a1;
       _var[ndx.size()]  = X1;
     }
+  //! @brief Constructor for cut w/ selection among <a>n</a> linear variables plus 1 linear variable
+  PolCut
+    ( FFOp const* op, TYPE type, double const& b, std::set<unsigned> const& ndx,
+      PolVar<T> const* X, double const& a, PolVar<T> const& X1, double const& a1 )
+    : _op(op), _type(type), _rhs(b), _var(ndx.size()+1), _coef(ndx.size()+1)
+    {
+      std::set<unsigned>::const_iterator it = ndx.begin();
+      for( unsigned ivar=0; it!=ndx.end(); ++it, ivar++ ){
+        _coef[ivar] = a;
+        _var[ivar] = X[*it];
+      }
+      _coef[ndx.size()] = a1;
+      _var[ndx.size()]  = X1;
+    }
   //! @brief Constructor for cut w/ variable and coefficient maps plus 1 linear variable
   template <typename KEY, typename COMP> PolCut
     ( FFOp const* op, TYPE type, double const& b, std::map<KEY,PolVar<T>,COMP> const& X,
@@ -2132,6 +2146,11 @@ public:
     ( FFOp const* op, const typename PolCut<T>::TYPE type, const double b,
       const std::set<unsigned>&ndx, const PolVar<T>*X, const double*a,
       const PolVar<T>&X1, const double a1 );
+  //! @brief Appends new relaxation cut in _Cuts w/ <a>n+1</a> variables
+  typename t_Cuts::iterator add_cut
+    ( FFOp const* op, const typename PolCut<T>::TYPE type, const double b,
+      const std::set<unsigned>&ndx, const PolVar<T>*X, const double&a,
+      const PolVar<T>&X1, const double a1 );
   //! @brief Appends new relaxation cut in _Cuts w/ 1 variable and coefficient maps
   template <typename KEY, typename COMP> typename t_Cuts::iterator add_cut
     ( FFOp const* op, const typename PolCut<T>::TYPE type, const double b,
@@ -2159,7 +2178,7 @@ public:
     ( FFOp*pOp, const PolVar<T>&X, const double XL, const double XU, const PolVar<T>&Y,
       const typename PolCut<T>::TYPE sense, p_dUniv f, const double*rpar=nullptr,
       const int*ipar=nullptr );
-  //! @brief Append cuts for nonlinear univariate using piecewise-linear approximation
+  //! @brief Append cuts for piecewise-linear function
   void add_semilinear_cuts
     ( FFOp* pOp, unsigned const Nk, PolVar<T> const& X, double const* Xk,
       PolVar<T> const& Y, double const* Yk, typename PolCut<T>::TYPE const sense );
@@ -2525,6 +2544,18 @@ PolImg<T>::add_cut
 ( FFOp const* op, const typename PolCut<T>::TYPE type,
   const double b, const std::set<unsigned>&ndx,
   const PolVar<T>*X, const double*a,
+  const PolVar<T>&X1, const double a1 )
+{
+  PolCut<T>* pCut = new PolCut<T>( op, type, b, ndx, X, a, X1, a1 );
+  return _Cuts.insert( pCut );
+}
+
+template <typename T>
+inline typename PolImg<T>::t_Cuts::iterator
+PolImg<T>::add_cut
+( FFOp const* op, const typename PolCut<T>::TYPE type,
+  const double b, const std::set<unsigned>&ndx,
+  const PolVar<T>*X, const double&a,
   const PolVar<T>&X1, const double a1 )
 {
   PolCut<T>* pCut = new PolCut<T>( op, type, b, ndx, X, a, X1, a1 );

@@ -1,0 +1,56 @@
+set xlabel 'x'
+set ylabel 'y'
+set hidden3d
+set view 65,330
+
+#splot 'test_MLP.out' u 1:2:3 tit 'function' w l lt 1 lc 8, \
+#  '' u 1:2:4 tit 'lower bound' w l lt 1 lc 4, \
+#  '' u 1:2:5 tit 'upper bound' w l lt 1 lc 7
+  
+#pause -1 "<ENTER> TO CONTINUE"
+
+splot 'test_MLP.out' u 1:2:3 tit 'function' w l lt 1 lc 8, \
+  '' u 1:2:6 tit 'McCormick underst.' w l lt 1 lc 4, \
+  '' u 1:2:7 tit 'McCormick overest.' w l lt 1 lc 7
+  
+pause -1 "<ENTER> TO CONTINUE"
+
+splot 'test_MLP.out' u 1:2:3 tit 'function' w l lt 1 lc 8, \
+  '' u 1:2:10 tit 'superposition underst.' w l lt 1 lc 4, \
+  '' u 1:2:11 tit 'superposition overest.' w l lt 1 lc 7
+
+pause -1 "<ENTER> TO CONTINUE"
+
+set term post eps enh solid color 15
+set out "test_MLP.eps"
+rep
+set term qt
+
+splot 'test_MLP.out' u 1:2:($3-$10) tit 'underestimation error' w l lt 1 lc 4
+  
+pause -1 "<ENTER> TO CONTINUE"
+
+splot 'test_MLP.out' u 1:2:($11-$3) tit 'overestimation error' w l lt 1 lc 7
+
+pause -1 "<ENTER> TO CONTINUE"
+
+# MLP MAXIMUM
+# X[0]:  LEVEL = -1.497271e-02  MARGINAL =  3.763823e-01
+# X[1]:  LEVEL =  1.617562e+00  MARGINAL =  2.075424e-01
+# F[0]:  LEVEL =  8.124853e+00  MARGINAL = -1.000000e+00
+
+# MLP MINIMUM
+# X[0]:  LEVEL =  2.034074e-01  MARGINAL =  4.778095e-01
+# X[1]:  LEVEL = -1.637012e+00  MARGINAL = -4.296992e-01
+# F[0]:  LEVEL = -6.599811e+00  MARGINAL = -1.000000e+00
+
+# PEAK MAXIMUM
+# X[0]:  LEVEL = -1.059997e-02  MARGINAL =  1.927703e-11
+# X[1]:  LEVEL =  1.580344e+00  MARGINAL =  2.071327e-11
+# F[0]:  LEVEL =  8.116490e+00  MARGINAL = -1.000000e+00
+
+# PEAK MINIMUM
+# X[0]:  LEVEL =  2.288469e-01  MARGINAL =  3.805839e-09
+# X[1]:  LEVEL = -1.626050e+00  MARGINAL =  2.077765e-09
+# F[0]:  LEVEL = -6.545892e+00  MARGINAL = -1.000000e+00
+

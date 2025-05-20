@@ -1211,6 +1211,8 @@ template <> struct Op<mc::Interval>
   static T erfc(const T& x) { return mc::erfc(x); }
   static T fstep(const T& x) { return mc::fstep(x); }
   static T bstep(const T& x) { return mc::bstep(x); }
+  static T lmtd (const T& x,const T& y){ return mc::lmtd( x, y ); }
+  static T rlmtd (const T& x,const T& y){ return mc::rlmtd( x, y ); }
   static T min (const T& x, const T& y) { return mc::min(x,y);  }
   static T max (const T& x, const T& y) { return mc::max(x,y);  }
   template <typename X, typename Y> static T pow(const X& x, const Y& y) { return mc::pow(x,y); }

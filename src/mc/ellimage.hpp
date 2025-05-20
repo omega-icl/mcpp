@@ -1705,7 +1705,7 @@ sqrt
 {
   // var1 is a range
   if( var1._img == nullptr )
-    return Op<T>::acos( var1._range ) ;
+    return Op<T>::sqrt( var1._range ) ;
 
   // var1 is a variable
   T const& domain = var1._range;

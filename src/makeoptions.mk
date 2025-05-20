@@ -34,8 +34,8 @@ LIB_HSL  = -lmc13 -lmc21 -lmc33 -lgfortran
 INC_HSL  = 
 FLAG_HSL = -DMC__USE_HSL
 
-INC_PYBIND11 = -I/usr/include/python3.12 -I$(PATH_EXTERN)/pybind11/include
-
+#INC_PYBIND11 = -I/usr/include/python3.12 -I$(PATH_EXTERN)/pybind11/include
+INC_PYBIND11 = -I/opt/anaconda3/include/python3.12 -I$(PATH_EXTERN)/pybind11/include
 LIB_CPPUNIT = -lcppunit
 
 # COMPILATION <<-- CHANGE AS APPROPRIATE -->>

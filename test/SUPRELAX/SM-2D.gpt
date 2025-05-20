@@ -1,0 +1,32 @@
+set xlabel 'x'
+set ylabel 'y'
+set hidden3d
+set view 65,330
+
+file = "SM-2D.out"
+
+splot file u 1:2:3 tit 'function' w l lt 1 lc 8, \
+      file u 1:2:4 tit 'lower bound' w l lt 1 lc 4, \
+      file u 1:2:5 tit 'upper bound' w l lt 1 lc 7
+  
+pause -1 "<ENTER> TO CONTINUE"
+
+splot file u 1:2:3 tit 'function' w l lt 1 lc 8, \
+      file u 1:2:6 tit 'superposition underst.' w l lt 1 lc 4, \
+      file u 1:2:7 tit 'superposition overest.' w l lt 1 lc 7
+
+pause -1 "<ENTER> TO CONTINUE"
+
+set term post eps enh solid color 15
+set out "SM-2D.eps"
+rep
+set term qt
+
+splot file u 1:2:($3-$6) tit 'underestimation error' w l lt 1 lc 4
+  
+pause -1 "<ENTER> TO CONTINUE"
+
+splot file u 1:2:($7-$3) tit 'overestimation error' w l lt 1 lc 7
+
+pause -1 "<ENTER> TO CONTINUE"
+

@@ -1,8 +1,8 @@
-#define TEST_TANH	// <-- select test function here
+#define TEST_EXP	// <-- select test function here
 #define USE_DAG        // <-- specify to evaluate via a DAG of the function
 #define SAVE_RESULTS   // <-- specify whether to save results to file
-const int NX = 40;	// <-- select X discretization here
-const int NY = 40;	// <-- select Y discretization here
+const int NX = 32;	// <-- select X discretization here
+const int NY = 32;	// <-- select Y discretization here
 ////////////////////////////////////////////////////////////////////////
 
 #include <fstream>
@@ -53,6 +53,18 @@ T myfunc
   return sqrt(fabs(x-y));
 }
 
+#elif defined( TEST_PEAK )
+const double XL   = -3.;	// <-- X range lower bound
+const double XU   =  3.;	// <-- X range upper bound
+const double YL   = -3.;	// <-- Y range lower bound
+const double YU   =  3.;	// <-- Y range upper bound
+template <class T>
+T myfunc
+( const T&x, const T&y )
+{
+  return 3*pow(1-x,2)*exp(-pow(x,2)-pow(y+1,2))-10*(x/5-pow(x,3)-pow(y,5))*exp(-pow(x,2)-pow(y,2))-(1/3)*exp(-pow(x+1,2)-pow(y,2));
+}
+
 #elif defined( TEST_EXP )
 const double XL   = -2.;	// <-- X range lower bound
 const double XU   =  1.;	// <-- X range upper bound
@@ -80,8 +92,8 @@ T myfunc
 #elif defined( TEST_EXP2 )
 const double XL   = -1.;	// <-- X range lower bound
 const double XU   =  1.;	// <-- X range upper bound
-const double YL   =  2.;	// <-- Y range lower bound
-const double YU   =  0.5;	// <-- Y range upper bound
+const double YL   =  0.5;	// <-- Y range lower bound
+const double YU   =  2.;	// <-- Y range upper bound
 template <class T>
 T myfunc
 ( const T&x, const T&y )
@@ -101,6 +113,26 @@ T myfunc
   return +1./(pow(x-1.,3)+pow(y-1.,3)+0.1)
          -1./(pow(x-2.,2)+pow(y-3.,4)+0.2)
          +1./(pow(x-3.,3)+pow(y-2.,1)+0.2);
+}
+
+#elif defined( TEST_RELU )
+const double XL   = -3;	// <-- X range lower bound
+const double XU   =  3;	// <-- X range upper bound
+const double YL   = -3; // <-- Y range lower bound
+const double YU   =  3;	// <-- Y range upper bound
+template <typename T>
+T relu
+( T const& x )
+{
+  return Op<T>::max( x, 0. );
+}
+template <class T>
+T myfunc
+( const T&x, const T&y )
+{
+  //return relu(x+y);
+  //return - relu(0.5*x-0.2*y);
+  return relu(0.2*x+0.3*y) - relu(0.5*x-0.2*y-3) + relu(0.2*x-0.4*y) + relu(-0.5*x);
 }
 
 #elif defined( TEST_DISC )
@@ -236,6 +268,8 @@ int main()
 #else
        MC MCF = myfunc( MCX, MCY );
 #endif
+       if( !iX && !iY ) std::cout << MCF << std::endl;
+
        allsub << setw(14) << DX << setw(14) << DY << setw(14) << DF
               << setw(14) << MCF.l() << setw(14) <<  MCF.u()
               << setw(14) << MCF.cv() << setw(14) << MCF.cc()

@@ -7,7 +7,10 @@ include $(PATH_MC)/src/makeoptions.mk
 
 all: MLP_test
 
-MLP_test : MLP_test.o
+test_MLP : test_MLP.o
+	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
+
+test_MLPREG : test_MLPREG.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
 
 %.o: %.cpp 
@@ -30,6 +33,6 @@ gensvg :
 #####
 
 clean :
-	rm -f MLP_test
+	rm -f test_MLP test_MLPREG
 	-(rm -f *.o *.out *.eps *.dot *.png *.lp *~)
 
