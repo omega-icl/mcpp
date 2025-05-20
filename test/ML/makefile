@@ -5,8 +5,6 @@ include $(PATH_MC)/src/makeoptions.mk
 
 #####
 
-all: MLP_test
-
 test_MLP : test_MLP.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
 

@@ -1,8 +1,8 @@
-#define TEST_EXP	// <-- select test function here
+#define TEST_PEAK	// <-- select test function here
 #undef  USE_DAG        // <-- specify to evaluate via a DAG of the function
 #define SAVE_RESULTS   // <-- specify whether to save results to file
-#define  ANALYSE_RATE    // <-- specify whether to analyse rate of convergence
-#undef  ANALYSE_TIME    // <-- specify whether to analyse computational time
+#undef  ANALYSE_RATE    // <-- specify whether to analyse rate of convergence
+#define  ANALYSE_TIME    // <-- specify whether to analyse computational time
 ////////////////////////////////////////////////////////////////////////
 
 #include <fstream>
@@ -245,10 +245,6 @@ int main()
     resfile.close();
 #endif
 
-#ifdef ANALYSE_RATE
-    ofstream ratefile( "SM-2D_rate.out", ios_base::out );
-    ratefile << scientific << setprecision(5) << right;
-
     vector<I> const XBND0{ I(XL,XU), I(YL,YU) };
 #ifdef TEST_PEAK
     map<unsigned,double> XREF{ {0,-1.059997e-02}, {1,1.580344e+00} }; // peak maximum point
@@ -256,6 +252,11 @@ int main()
 #else
     map<unsigned,double> XREF{ {0,Op<I>::mid(XBND0[0])}, {1,Op<I>::mid(XBND0[1])} }; // mid-point
 #endif
+    
+#ifdef ANALYSE_RATE
+    ofstream ratefile( "SM-2D_rate.out", ios_base::out );
+    ratefile << scientific << setprecision(5) << right;
+
     auto const& red = [=]( const I& bnd, const double& ref, const double& r ){ return r*bnd + (1-r)*ref; };
     auto const& min = [=]( const double& x, const double& y ){ return x<y?x:y; };
     auto const& max = [=]( const double& x, const double& y ){ return x>y?x:y; };
@@ -329,7 +330,7 @@ int main()
       for( unsigned iX1=0; iX1<NGRID; iX1++ ){
         for( unsigned iX2=0; iX2<NGRID; iX2++ ){
           vector<double> DX{ mc::Op<I>::l(XBND[0])+iX1*mc::Op<I>::diam(XBND[0])/(NGRID-1.),
-                                  mc::Op<I>::l(XBND[1])+iX2*mc::Op<I>::diam(XBND[1])/(NGRID-1.) };
+                             mc::Op<I>::l(XBND[1])+iX2*mc::Op<I>::diam(XBND[1])/(NGRID-1.) };
           vector<double> DF( 1 );
           DF[0] = myfunc( DX[0], DX[1] );
 
@@ -420,6 +421,114 @@ int main()
                << setw(14) << max( min_F - PWL8SVF[0].l(),   PWL8SVF[0].u() - max_F )
                << endl;
     }
+#endif
+
+#ifdef ANALYSE_TIME
+    std::chrono::time_point<std::chrono::system_clock> start;
+    std::chrono::microseconds walltime;
+    size_t NREPEAT = 50000;
+
+    vector<MC> MCX{ MC( I(XL,XU), XREF[0] ), MC( I(XL,XU), XREF[1] ) }, MCF( 1 );
+
+    start = std::chrono::system_clock::now();
+    for( unsigned i=0; i<NREPEAT; ++i )
+       MCF[0] = myfunc( MCX[0], MCX[1] );
+    walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - start );
+    std::cout << "McCormick walltime: " << (walltime.count() * 1e-6) / (double)NREPEAT << std::endl;
+
+    std::vector<MC> MCsubX{ MC( I(XL,XU), XREF[0] ), MC( I(XL,XU), XREF[1] ) }, MCsubF( 1 );
+    MCsubX[0].sub( 2, 0 );
+    MCsubX[1].sub( 2, 1 );
+
+    start = std::chrono::system_clock::now();
+    for( unsigned i=0; i<NREPEAT; ++i )
+      MCsubF[0] = myfunc( MCsubX[0], MCsubX[1] );
+    walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - start );
+    std::cout << "McCormick subgradient walltime: " << (walltime.count() * 1e-6) / (double)NREPEAT << std::endl;
+
+    NREPEAT = 20000;
+    
+    std::vector<PWCSV> PWC16SVX(2), PWC16SVF( 1 );
+    PWC16SVX[0].set( pwcmod, 0, I(XL,XU), 16 );
+    PWC16SVX[1].set( pwcmod, 1, I(YL,YU), 16 );
+
+    start = std::chrono::system_clock::now();
+    for( unsigned i=0; i<NREPEAT; ++i )
+      PWC16SVF[0] = myfunc( PWC16SVX[0], PWC16SVX[1] );
+    walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - start );
+    std::cout << "Superposition PWC16 walltime: " << (walltime.count() * 1e-6) / (double)NREPEAT << std::endl;
+
+    std::vector<PWCSV> PWC32SVX(2), PWC32SVF( 1 );
+    PWC32SVX[0].set( pwcmod, 0, I(XL,XU), 32 );
+    PWC32SVX[1].set( pwcmod, 1, I(YL,YU), 32 );
+
+    start = std::chrono::system_clock::now();
+    for( unsigned i=0; i<NREPEAT; ++i )
+      PWC32SVF[0] = myfunc( PWC32SVX[0], PWC32SVX[1] );
+    walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - start );
+    std::cout << "Superposition PWC32 walltime: " << (walltime.count() * 1e-6) / (double)NREPEAT << std::endl;
+
+    std::vector<PWCSV> PWC64SVX(2), PWC64SVF( 1 );
+    PWC64SVX[0].set( pwcmod, 0, I(XL,XU), 64 );
+    PWC64SVX[1].set( pwcmod, 1, I(YL,YU), 64 );
+
+    start = std::chrono::system_clock::now();
+    for( unsigned i=0; i<NREPEAT; ++i )
+      PWC64SVF[0] = myfunc( PWC64SVX[0], PWC64SVX[1] );
+    walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - start );
+    std::cout << "Superposition PWC64 walltime: " << (walltime.count() * 1e-6) / (double)NREPEAT << std::endl;
+
+    std::vector<PWCSV> PWC128SVX(2), PWC128SVF( 1 );
+    PWC128SVX[0].set( pwcmod, 0, I(XL,XU), 128 );
+    PWC128SVX[1].set( pwcmod, 1, I(YL,YU), 128 );
+
+    start = std::chrono::system_clock::now();
+    for( unsigned i=0; i<NREPEAT; ++i )
+      PWC128SVF[0] = myfunc( PWC128SVX[0], PWC128SVX[1] );
+    walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - start );
+    std::cout << "Superposition PWC128 walltime: " << (walltime.count() * 1e-6) / (double)NREPEAT << std::endl;
+
+    NREPEAT = 10000;
+
+    std::vector<PWLSV> PWL1SVX(2), PWL1SVF( 1 );
+    PWL1SVX[0].set( pwlmod, 0, I(XL,XU), 1 );
+    PWL1SVX[1].set( pwlmod, 1, I(YL,YU), 1 );
+
+    start = std::chrono::system_clock::now();
+    for( unsigned i=0; i<NREPEAT; ++i )
+      PWL1SVF[0] = myfunc( PWL1SVX[0], PWL1SVX[1] );
+    walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - start );
+    std::cout << "Superposition PWL1 walltime: " << (walltime.count() * 1e-6) / (double)NREPEAT << std::endl;
+
+    std::vector<PWLSV> PWL2SVX(2), PWL2SVF( 1 );
+    PWL2SVX[0].set( pwlmod, 0, I(XL,XU), 2 );
+    PWL2SVX[1].set( pwlmod, 1, I(YL,YU), 2 );
+
+    start = std::chrono::system_clock::now();
+    for( unsigned i=0; i<NREPEAT; ++i )
+      PWL2SVF[0] = myfunc( PWL2SVX[0], PWL2SVX[1] );
+    walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - start );
+    std::cout << "Superposition PWL2 walltime: " << (walltime.count() * 1e-6) / (double)NREPEAT << std::endl;
+
+    std::vector<PWLSV> PWL4SVX(2), PWL4SVF( 1 );
+    PWL4SVX[0].set( pwlmod, 0, I(XL,XU), 4 );
+    PWL4SVX[1].set( pwlmod, 1, I(YL,YU), 4 );
+
+    start = std::chrono::system_clock::now();
+    for( unsigned i=0; i<NREPEAT; ++i )
+      PWL4SVF[0] = myfunc( PWL4SVX[0], PWL4SVX[1] );
+    walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - start );
+    std::cout << "Superposition PWL4 walltime: " << (walltime.count() * 1e-6) / (double)NREPEAT << std::endl;
+
+    std::vector<PWLSV> PWL8SVX(2), PWL8SVF( 1 );
+    PWL8SVX[0].set( pwlmod, 0, I(XL,XU), 8 );
+    PWL8SVX[1].set( pwlmod, 1, I(YL,YU), 8 );
+
+    start = std::chrono::system_clock::now();
+    for( unsigned i=0; i<NREPEAT; ++i )
+      PWL8SVF[0] = myfunc( PWL8SVX[0], PWL8SVX[1] );
+    walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - start );
+    std::cout << "Superposition PWL8 walltime: " << (walltime.count() * 1e-6) / (double)NREPEAT << std::endl;
 #endif
   }
 

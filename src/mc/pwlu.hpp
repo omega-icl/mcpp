@@ -14,7 +14,7 @@ The class mc::PWLU provides an implementation of piecewise linear univariate est
 
 #include <iostream>
 #include <iomanip> 
-#include <list> 
+#include <vector> 
 #include <algorithm>
 
 #include "mcfunc.hpp"
@@ -43,10 +43,10 @@ private:
   double _y0;
 
   //! @brief list of distances between breakpoints
-  std::list<double> _dx;
+  std::vector<double> _dx;
   
   //! @brief list of slopes between breakpoints
-  std::list<double> _dy;
+  std::vector<double> _dy;
 
 public:
 
@@ -93,7 +93,7 @@ public:
   class Exceptions
   {
    public:
-    //! @brief Enumeration type for SElimVar exception handling
+    //! @brief Enumeration type for PWLU exception handling
     enum TYPE{
       RANGE=0,        //!< Operation on variable with empty range
       SIZE,           //!< Inconsistent array or list sizes in estimator
@@ -158,7 +158,7 @@ public:
 
   //! @brief Constructor of variable
   PWLU
-    ( double const& xL, std::list<double> const& dx )
+    ( double const& xL, std::vector<double> const& dx )
     : _x0(xL), _y0(xL), _dx(dx), _dy(dx.size(),1)
     {
 #ifdef MC__PWLU_CHECK
@@ -180,7 +180,7 @@ public:
 
   //! @brief Constructor of variable
   PWLU
-    ( double const& xL, double const& yL, std::list<double> const& dx, std::list<double> const& dy )
+    ( double const& xL, double const& yL, std::vector<double> const& dx, std::vector<double> const& dy )
     : _x0(xL), _y0(yL), _dx(dx), _dy(dy)
     {
 #ifdef MC__PWLU_CHECK
@@ -238,14 +238,14 @@ public:
 #endif
       _x0 = xL;
       _y0 = xL;
-      _dx = std::list<double>( N>1?N:1, N>1?(xU-xL)/N:(xU-xL) );
-      _dy = std::list<double>( N>1?N:1, 1. );
+      _dx = std::vector<double>( N>1?N:1, N>1?(xU-xL)/N:(xU-xL) );
+      _dy = std::vector<double>( N>1?N:1, 1. );
       return *this;
     }
 
   //! @brief Set variable estimator
   PWLU& set
-    ( double const& xL, std::list<double> const& dx )
+    ( double const& xL, std::vector<double> const& dx )
     {
 #ifdef MC__PWLU_CHECK
       for( auto const& dxi : dx )
@@ -254,7 +254,7 @@ public:
       _x0 = xL;
       _y0 = xL;
       _dx = dx;
-      _dy = std::list<double>( _dx.size(), 1. );
+      _dy = std::vector<double>( _dx.size(), 1. );
       return *this;
     }
 
@@ -275,7 +275,7 @@ public:
 
   //! @brief Set variable estimator
   PWLU& set
-    ( double const& xL, double const& yL, std::list<double> const& dx, std::list<double> const& dy )
+    ( double const& xL, double const& yL, std::vector<double> const& dx, std::vector<double> const& dy )
     {
 #ifdef MC__PWLU_CHECK
       if( dx.size() != dy.size() )
@@ -290,10 +290,12 @@ public:
       return *this;
     }
 
-  //! @brief Insert breakpoint
+  //! @brief Insert breakpoints
   PWLU& insert
-    ( std::list<double> const& x )
+    ( std::vector<double> const& x )
     {
+      _dx.reserve( _dx.size() + x.size() );
+      _dy.reserve( _dy.size() + x.size() );
       for( auto const& xi : x )
         insert( xi );
       return *this;
@@ -443,13 +445,13 @@ public:
     }
 
   //! @brief Retreive distances between breakpoints
-  std::list<double> const& dx
+  std::vector<double> const& dx
     ()
     const
     { return _dx; }
 
   //! @brief Retreive slopes between breakpoints
-  std::list<double> const& dy
+  std::vector<double> const& dy
     ()
     const
     { return _dy; }
@@ -484,12 +486,12 @@ public:
     { return _y0; }
 
   //! @brief Retreive/set distances between breakpoints
-  std::list<double>& dx
+  std::vector<double>& dx
     ()
     { return _dx; }
 
   //! @brief Retreive/set slopes between breakpoints
-  std::list<double>& dy
+  std::vector<double>& dy
     ()
     { return _dy; }
 
@@ -572,6 +574,9 @@ public:
       if( !isequal( _x0, var._x0 ) )
         throw Exceptions( Exceptions::RANGE );
 
+      _dx.reserve( _dx.size() + var._dx.size() );
+      _dy.reserve( _dy.size() + var._dy.size() );
+
       _y0 += var._y0;
       double d2 = 0.;
       auto idx1 = _dx.begin(),      idy1 = _dy.begin();
@@ -645,6 +650,9 @@ public:
 
       if( !isequal( _x0, var._x0 ) )
         throw Exceptions( Exceptions::RANGE );
+
+      _dx.reserve( _dx.size() + var._dx.size() );
+      _dy.reserve( _dy.size() + var._dy.size() );
 
       _y0 -= var._y0;
       double d2 = 0.;
@@ -721,6 +729,9 @@ public:
       }
 
       else{
+        _dx.reserve( 2*_dx.size() );
+        _dy.reserve( 2*_dy.size() );
+
         double f1  = f( _y0 ), f2;
         double df1 = df( _y0 ), df2;
         double yi = _y0;
@@ -770,10 +781,14 @@ public:
     {
       if( _dx.empty() )
         return *this;
+
 #ifdef MC__PWLU_CHECK
       if( _dx.size() != _dy.size() )
         throw Exceptions( Exceptions::SIZE );
 #endif
+      _dx.reserve( 2*_dx.size() );
+      _dy.reserve( 2*_dy.size() );
+
       double y1 = _y0, y2;
       if( _y0 < c ) _y0 = c;
       for( auto idx=_dx.begin(), idy=_dy.begin(); idx!=_dx.end(); ++idx, ++idy ){
@@ -807,10 +822,14 @@ public:
     {
       if( _dx.empty() )
         return *this;
+
 #ifdef MC__PWLU_CHECK
       if( _dx.size() != _dy.size() )
         throw Exceptions( Exceptions::SIZE );
 #endif
+      _dx.reserve( 2*_dx.size() );
+      _dy.reserve( 2*_dy.size() );
+
       double y1 = _y0, y2;
       if( _y0 > c ) _y0 = c;
       for( auto idx=_dx.begin(), idy=_dy.begin(); idx!=_dx.end(); ++idx, ++idy ){
@@ -963,7 +982,6 @@ public:
       // Compute minimal loss for each 3-segment combination
       static thread_local std::vector<std::tuple<double,int,int,double,double>> vloss;
       vloss.resize( _dx.size()-2 );
-      std::list<std::tuple<double,int,int,double,double>*> loss;
 
       static thread_local double x[5], y[5], lcv[3];
       double *x0 = x, *x1 = x0+1, *x2 = x1+1, *x3 = x2+1, *x4 = x3+1;
@@ -978,7 +996,6 @@ public:
 
       double totalloss( 0. );
       for( auto ploss = vloss.data(); ; ploss++ ){
-        loss.push_back( ploss );
         _loss( under, *lcv2<0, *lcv3<0, *x1, *y1, *x2, *y2, *x3, *y3, *x4, *y4, *ploss );
 #ifdef MC__PWLU_DEBUG
         std::cout << "loss: " << std::get<0>( *ploss ) << std::endl;
@@ -1003,7 +1020,8 @@ public:
         std::cout << std::endl;
 
         std::cout << "Candidate 3-segments:\n";
-        for( auto itloss=loss.cbegin(); itloss!=loss.cend(); ++itloss )
+        //for( auto itloss=loss.cbegin(); itloss!=loss.cend(); ++itloss )
+        for( auto itloss=vloss.cbegin(); itloss!=vloss.cend(); ++itloss )
           std::cout << std::get<0>(**itloss) << " "
                     << std::get<1>(**itloss) << " "
                     << std::get<2>(**itloss) << " "
@@ -1013,37 +1031,37 @@ public:
 
         // Determine minimal element
         auto ilossopt = std::min_element(
-          loss.cbegin(), loss.cend(),
-          [=]( std::tuple<double,int,int,double,double> const* a, std::tuple<double,int,int,double,double> const* b )
+          vloss.cbegin(), vloss.cend(),
+          [=]( std::tuple<double,int,int,double,double> const& a, std::tuple<double,int,int,double,double> const& b )
           { // Below threshold eliminate breakpoints that create smaller gaps
             auto const& fmax = [=]( const double& x1, const double& x2 ){ return x1>x2? x1: x2; };
-            if( std::get<0>(*a) < totalloss && std::get<0>(*b) < totalloss )
-              return fmax( std::get<3>(*a),std::get<4>(*a) ) < fmax( std::get<3>(*b),std::get<4>(*b) );
+            if( std::get<0>(a) < totalloss && std::get<0>(b) < totalloss )
+              return fmax( std::get<3>(a),std::get<4>(a) ) < fmax( std::get<3>(b),std::get<4>(b) );
             // Above threshold eliminate breakpoints according to area loss
-            return std::get<0>(*a) < std::get<0>(*b); }
+            return std::get<0>(a) < std::get<0>(b); }
         );
 
-        std::list<double>::iterator idxopt=_dx.begin(), idyopt=_dy.begin();
-        size_t pos = std::distance( loss.cbegin(), ilossopt );
+        auto idxopt = _dx.begin(), idyopt = _dy.begin();
+        size_t pos = std::distance( vloss.cbegin(), ilossopt );
         if( pos ){
           std::advance( idxopt, pos );
           std::advance( idyopt, pos );
         }
 
         // Remove minimal element
-        if( !std::get<2>(**ilossopt) ){
-          std::advance( idxopt, std::get<1>(**ilossopt)-1 );
-          std::advance( idyopt, std::get<1>(**ilossopt)-1 );
+        if( !std::get<2>(*ilossopt) ){
+          std::advance( idxopt, std::get<1>(*ilossopt)-1 );
+          std::advance( idyopt, std::get<1>(*ilossopt)-1 );
           double dx = *idxopt, dy = *idyopt;
           idxopt = _dx.erase( idxopt );
           idyopt = _dy.erase( idyopt );
           _average( *idxopt, *idyopt, dx, dy );
         }
         else{
-          *idxopt = std::get<3>(**ilossopt);
+          *idxopt = std::get<3>(*ilossopt);
           idxopt = _dx.erase( ++idxopt );
           idyopt = _dy.erase( ++idyopt );
-          *idxopt = std::get<4>(**ilossopt);        
+          *idxopt = std::get<4>(*ilossopt);        
         }
         
         if( _dx.size() <= nseg || _dx.size() < 3 ){
@@ -1058,8 +1076,8 @@ public:
         }
 
         // Update minimal loss
-        loss.erase( ilossopt );
-        auto itloss = loss.begin();
+        vloss.erase( ilossopt );
+        auto itloss = vloss.begin();
         idx  = _dx.begin(),     idy  = _dy.begin();
 
 #ifdef MC__PWLU_FULL_UPDATE
@@ -1072,10 +1090,10 @@ public:
         x[3] = x[2] + *(++idx), y[3] = y[2] + *(++idy) * *idx,     lcv[1] -= *idy; lcv[2]  = *idy; 
         x[4] = x[3] + *(++idx), y[4] = y[3] + *(++idy) * *idx;                     lcv[2] -= *idy;
 
-        for( ; itloss!=loss.end(); ++itloss ){
-          _loss( under, *lcv2<0, *lcv3<0, *x1, *y1, *x2, *y2, *x3, *y3, *x4, *y4, **itloss );
+        for( ; itloss!=vloss.end(); ++itloss ){
+          _loss( under, *lcv2<0, *lcv3<0, *x1, *y1, *x2, *y2, *x3, *y3, *x4, *y4, *itloss );
 #ifdef MC__PWLU_DEBUG
-          std::cout << std::get<0>( **itloss ) << std::endl;
+          std::cout << std::get<0>( *itloss ) << std::endl;
 #endif
           if( ++idx == _dx.end() ) break;
           lcv0 = lcv2, lcv2 = lcv3, lcv3 = lcv0;
@@ -1091,41 +1109,41 @@ public:
         x[2] = x[1] + *idx,     y[2] = y[1] + *idy * *idx,         lcv[1]  = *idy;
         x[3] = x[2] + *(++idx), y[3] = y[2] + *(++idy) * *idx,     lcv[1] -= *idy; lcv[2]  = *idy; 
         x[4] = x[3] + *(++idx), y[4] = y[3] + *(++idy) * *idx;                     lcv[2] -= *idy;
-        _loss( under, lcv[1]<0, lcv[2]<0, x[1], y[1], x[2], y[2], x[3], y[3], x[4], y[4], **itloss );      
+        _loss( under, lcv[1]<0, lcv[2]<0, x[1], y[1], x[2], y[2], x[3], y[3], x[4], y[4], *itloss );      
 #ifdef MC__PWLU_DEBUG
-        std::cout << std::get<0>( **itloss ) << std::endl;
+        std::cout << std::get<0>( *itloss ) << std::endl;
 #endif
         if( ++idx==_dx.end() || ++p>pos+2 ) continue;
 
         x[0] = x[4] + *idx;            lcv[0]  = *idy;
         y[0] = y[4] + *(++idy) * *idx; lcv[0] -= *idy;
-        _loss( under, lcv[2]<0, lcv[0]<0, x[2], y[2], x[3], y[3], x[4], y[4], x[0], y[0], **(++itloss) );
+        _loss( under, lcv[2]<0, lcv[0]<0, x[2], y[2], x[3], y[3], x[4], y[4], x[0], y[0], *(++itloss) );
 #ifdef MC__PWLU_DEBUG
-        std::cout << std::get<0>( **itloss ) << std::endl;
+        std::cout << std::get<0>( *itloss ) << std::endl;
 #endif
         if( ++idx==_dx.end() || ++p>pos+2 ) continue;
 
         x[1] = x[0] + *idx;            lcv[1]  = *idy;
         y[1] = y[0] + *(++idy) * *idx; lcv[1] -= *idy;
-        _loss( under, lcv[0]<0, lcv[1]<0, x[3], y[3], x[4], y[4], x[0], y[0], x[1], y[1], **(++itloss) );
+        _loss( under, lcv[0]<0, lcv[1]<0, x[3], y[3], x[4], y[4], x[0], y[0], x[1], y[1], *(++itloss) );
 #ifdef MC__PWLU_DEBUG
-        std::cout << std::get<0>( **itloss ) << std::endl;
+        std::cout << std::get<0>( *itloss ) << std::endl;
 #endif
         if( ++idx==_dx.end() || ++p>pos+2 ) continue;
 
         x[2] = x[1] + *idx;            lcv[2]  = *idy;
         y[2] = y[1] + *(++idy) * *idx; lcv[2] -= *idy;
-        _loss( under, lcv[1]<0, lcv[2]<0, x[4], y[4], x[0], y[0], x[1], y[1], x[2], y[2], **(++itloss) );
+        _loss( under, lcv[1]<0, lcv[2]<0, x[4], y[4], x[0], y[0], x[1], y[1], x[2], y[2], *(++itloss) );
 #ifdef MC__PWLU_DEBUG
-        std::cout << std::get<0>( **itloss ) << std::endl;
+        std::cout << std::get<0>( *itloss ) << std::endl;
 #endif
         if( ++idx==_dx.end() || ++p>pos+2 ) continue;
 
         x[3] = x[2] + *idx;            lcv[0]  = *idy;
         y[3] = y[2] + *(++idy) * *idx; lcv[0] -= *idy;
-        _loss( under, lcv[2]<0, lcv[0]<0, x[0], y[0], x[1], y[1], x[2], y[2], x[3], y[3], **(++itloss) );
+        _loss( under, lcv[2]<0, lcv[0]<0, x[0], y[0], x[1], y[1], x[2], y[2], x[3], y[3], *(++itloss) );
 #ifdef MC__PWLU_DEBUG
-        std::cout << std::get<0>( **itloss ) << std::endl;
+        std::cout << std::get<0>( *itloss ) << std::endl;
 #endif
         if( ++idx==_dx.end() || ++p>pos+2 ) continue;
 #endif
