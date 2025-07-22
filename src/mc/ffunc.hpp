@@ -1174,7 +1174,7 @@ public:
   mutable std::vector<FFVar*>  varin;
   //! @brief Flag for current operation (during a DAG traversal)
   mutable int                  iflag;
-  //! @brief Pointer to info field
+  //! @brief Pointer to info field - acts as unique identifier for external operations
   mutable int                  info;
   //! @brief Pointer to data field - has to be const_cast'ed in order to retreive original pointer type
   mutable void*                data;
@@ -1755,6 +1755,19 @@ public:
     ()
     { _clear_variables(); _clear_operations(); _naux = _nvar = _next = 0; }
 
+  //! @brief Search for the variable with name <a>str</a> in <a>_Vars</a>
+  FFVar add_var
+    ( std::string const& name="" )
+    { return FFVar( this, name ); }
+
+  //! @brief Search for the variable with name <a>str</a> in <a>_Vars</a>
+  std::vector<FFVar> add_vars
+    ( size_t dim, std::string const& name="", unsigned const ini=0 )
+    { std::vector<FFVar> vars( dim );
+      for( unsigned i=0; i<dim; ++i )
+        vars[i] = add_var( !name.empty()? name+std::to_string(i+ini): "" );
+      return vars; }
+
   //! @brief Looks for the real constant <a>x</a> and adds it if not found
   FFVar const* add_constant
     ( double const x )
@@ -1801,9 +1814,9 @@ public:
     ( std::vector<FFVar const*> const& vDep, std::ostream& os=std::cout )
     const;
 
-  //! @brief Search for the variable with name <a>str</a> in <a>_Vars</a>
+  //! @brief Search for the variable with name <a>name</a> in <a>_Vars</a>
   FFVar* find_var
-    ( std::string const& str )
+    ( std::string const& name )
     const;
 
   //! @brief Compute (symbolic) sum of vector elements in <a>V</a>, possibly weighted by elements in <a>a</a>
@@ -6159,7 +6172,8 @@ const
       //  ops_val.push_back( *static_cast<U*>( (*it)->val() ) );
       //if( !reval( typeid( U ), 1, static_cast<U*>( varout[0]->val() ), ops_val.size(), ops_val.data() ) )
       if( !reval( typeid( U ), 1, static_cast<U*>( varout[0]->val() ), varin.size(), valin.data() ) )
-        return false;
+        return false;        
+      for( size_t i=0; i<varin.size(); ++i ) *static_cast<U*>( varin[i]->val() ) = valin[i];
     }
   }
 
@@ -6178,9 +6192,10 @@ const
       for( size_t i=0; i<varin.size(); ++i ) valin[i] = *static_cast<U*>( varin[i]->val() );
       if( !reval( typeid( U ), varout.size(), valout.data(), varin.size(), valin.data() ) )
         return false;
+      for( size_t i=0; i<varin.size(); ++i ) *static_cast<U*>( varin[i]->val() ) = valin[i];
     }
   }
-  
+
   //for( unsigned j=0; j<varout.size(); ++j )
   //  if( !Op<U>::inter( *static_cast<U*>( varout[j]->val() ), vres[j],
   //                     *static_cast<U*>( varout[j]->val() ) ) ) return false;

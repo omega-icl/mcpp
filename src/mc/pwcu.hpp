@@ -17,7 +17,6 @@ The class mc::PWCU provides an implementation of piecewise constant univariate e
 #include <vector> 
 #include <algorithm>
 
-#include "mcop.hpp"
 #include "mcfunc.hpp"
 
 #define MC__PWCU_DEBUG
@@ -528,6 +527,7 @@ class PWCU
 
 inline PWCU::Options PWCU::options;
 
+inline
 std::ostream& operator<<
 ( std::ostream& os, PWCU const& var )
 {

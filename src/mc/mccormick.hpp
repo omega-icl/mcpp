@@ -766,24 +766,27 @@ public:
     }
 
   //! @brief Set interval bounds
-  void I
+  McCormick<T>& I
     ( const T& I )
     {
       Op<T>::I(_I,I);
+      return *this;
     }
   //! @brief Set convex bound to <a>cv</a>
-  void cv
+  McCormick<T>&  cv
     ( const double& cv )
     {
       _cv = cv;
       _const = false;
+      return *this;
     }
   //! @brief Set concave bound to <a>cc</a>
-  void cc
+  McCormick<T>&  cc
     ( const double& cc )
     {
       _cc = cc;
       _const = false;
+      return *this;
     }
   //! @brief Set both convex and concave bounds to <a>c</a>
   McCormick<T>& c

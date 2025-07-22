@@ -22,7 +22,7 @@ namespace mc
 //! external DAG operation in MC++. The template parameter specifies the
 //! type for interval arithmetic.
 ////////////////////////////////////////////////////////////////////////
-template< typename T=void>
+template< typename T = void >
 class FFSPoly
 : public FFOp
 {
@@ -60,7 +60,7 @@ public:
 
   // Define operation
   FFVar& operator()
-    ( t_SPoly const& SPoly, bool insert=false )
+    ( t_SPoly const& SPoly, bool insert=false ) // argument 'insert' not used?
     const
     {
       _SPoly = SPoly;

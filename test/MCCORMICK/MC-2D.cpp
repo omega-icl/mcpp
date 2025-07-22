@@ -1,4 +1,4 @@
-#define TEST_EXP	// <-- select test function here
+#define TEST_SHEKEL	// <-- select test function here
 #define USE_DAG        // <-- specify to evaluate via a DAG of the function
 #define SAVE_RESULTS   // <-- specify whether to save results to file
 const int NX = 32;	// <-- select X discretization here
@@ -51,6 +51,29 @@ T myfunc
 ( const T&x, const T&y )
 {
   return sqrt(fabs(x-y));
+}
+
+#elif defined( TEST_SHEKEL )
+unsigned const M = 10;
+
+const double B[10]    = {0.1, 0.2, 0.2, 0.4, 0.4, 0.6, 0.3, 0.7, 0.5, 0.5};
+const double C[4][10] = {{4.0, 1.0, 8.0, 6.0, 3.0, 2.0, 5.0, 8.0, 6.0, 7.0},
+                         {4.0, 1.0, 8.0, 6.0, 7.0, 9.0, 3.0, 1.0, 2.0, 3.6}};
+
+const double XL   =   0;	// <-- X range lower bound
+const double XU   =  10;	// <-- X range upper bound
+const double YL   =   0;	// <-- Y range lower bound
+const double YU   =  10;	// <-- Y range upper bound
+
+template <class T>
+T myfunc
+( const T&x, const T&y ){
+  T z = 0.;
+  for( unsigned i=0; i<M; ++i ){
+    T w = pow(x-C[0][i],2) + pow(y-C[1][i],2);
+    z += 1./(w+B[i]);
+  }
+  return z;
 }
 
 #elif defined( TEST_PEAK )

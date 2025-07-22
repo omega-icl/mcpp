@@ -533,7 +533,7 @@ class PolVar
 
     //! @brief add variable break-points
     void add_breakpt
-      ( const double bkpt ) const;
+      ( const double& bkpt ) const;
     //! @brief get variable break-points
     std::set<double>& breakpts
       () const
@@ -549,7 +549,7 @@ class PolVar
       { _subdiv.first.clear(); _subdiv.second.clear(); }
     //! @brief create variable subdivision
     const std::vector<double>& create_subdiv
-      ( const double XL, const double XU, const bool reset=false ) const;
+      ( const double& XL, const double& XU, const bool reset=false ) const;
     //! @brief set SOS2 variable subdivision
     const std::vector< PolVar<T> >& SOS2_subdiv
       ( FFOp*pOp=nullptr, const bool reset=false ) const;
@@ -713,7 +713,7 @@ PolVar<T>::operator/=
 template <typename T>
 inline void
 PolVar<T>::add_breakpt
-( const double bkpt )
+( double const& bkpt )
 const
 {
    if( !_img ) return;
@@ -737,9 +737,10 @@ const
 }
 
 template <typename T>
-inline const std::vector<double>&
+inline std::vector<double> const&
 PolVar<T>::create_subdiv
-( const double XL, const double XU, const bool reset ) const
+( double const& XL, double const& XU, bool const reset )
+const
 {
   if( !reset && !_subdiv.first.empty() ) return _subdiv.first;
   if(  reset && !_subdiv.first.empty() ) reset_subdiv();
@@ -753,21 +754,22 @@ PolVar<T>::create_subdiv
 }
 
 template <typename T>
-inline const std::vector< PolVar<T> >&
+inline std::vector< PolVar<T> > const&
 PolVar<T>::CONT_subdiv
-( FFOp*pOp, const bool reset ) const
+( FFOp* pOp, bool const reset )
+const
 {
   if( !reset && !_subdiv.second.empty() ) return _subdiv.second;
   if(  reset && !_subdiv.second.empty() ) _subdiv.second.clear();
   if( !_img ) return _subdiv.second;
 
-  const unsigned NINTS = _subdiv.first.size()-1;
-  std::vector<double> coef( NINTS );
+  size_t const NINTS = _subdiv.first.size()-1;
+  _img->_coef.resize( NINTS );
   for( unsigned isub=0; isub<NINTS; isub++ ){
-    coef[isub] = _subdiv.first[isub] - _subdiv.first[isub+1];
+    _img->_coef[isub] = _subdiv.first[isub] - _subdiv.first[isub+1];
     _push_subdiv( PolVar<T>( _img, Op<T>::zeroone(), true ) ); 
   }
-  _img->add_cut( pOp, PolCut<T>::EQ, _subdiv.first[0], NINTS, _subdiv.second.data(), coef.data(), *this, 1. );
+  _img->add_cut( pOp, PolCut<T>::EQ, _subdiv.first[0], NINTS, _subdiv.second.data(), _img->_coef.data(), *this, 1. );
 
   for( unsigned isub=0; isub<NINTS-1; isub++ )
     _img->add_cut( pOp, PolCut<T>::LE, 0., _subdiv.second[isub+1], 1., _subdiv.second[isub], -1. );
@@ -776,21 +778,22 @@ PolVar<T>::CONT_subdiv
 }
 
 template <typename T>
-inline const std::vector< PolVar<T> >&
+inline std::vector< PolVar<T> > const&
 PolVar<T>::BIN_subdiv
-( FFOp*pOp, const bool reset ) const
+( FFOp* pOp, bool const reset )
+const
 {
   if( !reset && !_subdiv.second.empty() ) return _subdiv.second;
   if(  reset && !_subdiv.second.empty() ) _subdiv.second.clear();
   if( !_img ) return _subdiv.second;
 
-  const unsigned NINTS = _subdiv.first.size()-1;
-  std::vector<double> coef( NINTS );
+  size_t const NINTS = _subdiv.first.size()-1;
+  _img->_coef.resize( NINTS );
   for( unsigned isub=0; isub<NINTS; isub++ ){
-    coef[isub] = _subdiv.first[isub] - _subdiv.first[isub+1];
+    _img->_coef[isub] = _subdiv.first[isub] - _subdiv.first[isub+1];
     _push_subdiv( PolVar<T>( _img, Op<T>::zeroone(), true ) ); 
   }
-  _img->add_cut( pOp, PolCut<T>::EQ, _subdiv.first[0], NINTS, _subdiv.second.data(), coef.data(), *this, 1. );
+  _img->add_cut( pOp, PolCut<T>::EQ, _subdiv.first[0], NINTS, _subdiv.second.data(), _img->_coef.data(), *this, 1. );
 
   for( unsigned isub=0; isub<NINTS-1; isub++ ){
     _push_subdiv( PolVar<T>( _img, Op<T>::zeroone(), false ) );
@@ -802,23 +805,24 @@ PolVar<T>::BIN_subdiv
 }
 
 template <typename T>
-inline const std::vector< PolVar<T> >&
+inline std::vector< PolVar<T> > const&
 PolVar<T>::SOS2_subdiv
-( FFOp*pOp, const bool reset ) const
+( FFOp* pOp, bool const reset )
+const
 {
   if( !reset && !_subdiv.second.empty() ) return _subdiv.second;
   if(  reset && !_subdiv.second.empty() ) _subdiv.second.clear();
   if( !_img ) return _subdiv.second;
 
-  const unsigned NINTS = _subdiv.first.size();
-  std::vector<double> weight( NINTS );
+  size_t const NINTS = _subdiv.first.size();
+  _img->_coef.resize( NINTS );
   for( unsigned isub=0; isub<NINTS; isub++ ){
-    weight[isub] = (double)isub;
+    _img->_coef[isub] = (double)isub;
     _push_subdiv( PolVar<T>( _img, Op<T>::zeroone(), true ) ); // continuous auxiliaries
   }
-  _img->add_cut( pOp, PolCut<T>::EQ, 1., NINTS, _subdiv.second.data(), 1. );
-  _img->add_cut( pOp, PolCut<T>::EQ, 0., NINTS, _subdiv.second.data(), _subdiv.first.data(), *this, -1. );
-  _img->add_cut( pOp, PolCut<T>::SOS2, 0., NINTS, _subdiv.second.data(), weight.data() );
+  _img->add_cut( pOp, PolCut<T>::EQ,   1., NINTS, _subdiv.second.data(), 1. );
+  _img->add_cut( pOp, PolCut<T>::EQ,   0., NINTS, _subdiv.second.data(), _subdiv.first.data(), *this, -1. );
+  _img->add_cut( pOp, PolCut<T>::SOS2, 0., NINTS, _subdiv.second.data(), _img->_coef.data() );
 
   return _subdiv.second;
 }
@@ -1687,6 +1691,9 @@ public:
 
 protected:
 
+  //! @brief Storage container
+  std::vector<double> _coef;
+
   //! @brief Map of main (DAG) variables in polytopic image
   t_Vars _Vars;
   //! @brief Appends new pointer to DAG variable map in polytopic image
@@ -1972,14 +1979,33 @@ public:
   struct Options
   {
     //! @brief Constructor
-    Options():
-      AGGREG_LQ(false), ROOT_USE(true), ROOT_MAXIT(100), ROOT_TOL(1e-10),
-      SANDWICH_ATOL(1e-10), SANDWICH_RTOL(1e-3), SANDWICH_MAXCUT(5),
-      SANDWICH_RULE(MAXERR), FRACTIONAL_ATOL(machprec()),
-      FRACTIONAL_RTOL(machprec()), BREAKPOINT_TYPE(NONE),
-      BREAKPOINT_ATOL(1e-5), BREAKPOINT_RTOL(1e-5),
-      ALLOW_QUAD(0), ALLOW_NLIN({}), ALLOW_DISJ({})
-      {}
+    Options()
+      {
+        reset();
+      }
+
+    //! @brief Reset options
+    void reset
+      ()
+      {
+        AGGREG_LQ        = false;
+        ROOT_USE         = true;
+        ROOT_MAXIT       = 100;
+        ROOT_TOL         = 1e-10;
+        SANDWICH_ATOL    = 1e-10;
+        SANDWICH_RTOL    = 1e-3;
+        SANDWICH_MAXCUT  = 5;
+        SANDWICH_RULE    = MAXERR;
+        FRACTIONAL_ATOL  = 
+        FRACTIONAL_RTOL  = DBL_EPSILON;
+        BREAKPOINT_TYPE  = NONE;
+        BREAKPOINT_ATOL  = 
+        BREAKPOINT_RTOL  = 1e-5;
+        ALLOW_QUAD       = 0;
+        ALLOW_NLIN.clear();
+        ALLOW_DISJ.clear();
+      }
+
     //! @brief Assignment operator
     Options& operator= ( Options const& options ){
         AGGREG_LQ      = options.AGGREG_LQ;
@@ -2000,6 +2026,7 @@ public:
         ALLOW_DISJ      = options.ALLOW_DISJ;
         return *this;
       }
+      
     //! @brief Enumeration type for sandwich strategy
     enum SANDWICH{
       BISECT=0,	//!< Range bisection
@@ -2020,7 +2047,7 @@ public:
     unsigned ROOT_MAXIT;
     //! @brief Termination tolerance in root search - Default: 1e-10
     double ROOT_TOL;
-    //! @brief Absolute tolerance in outer-approximation of univariate terms - Default: 1e-3
+    //! @brief Absolute tolerance in outer-approximation of univariate terms - Default: 1e-10
     double SANDWICH_ATOL;
     //! @brief Relative tolerance in outer-approximation of univariate terms - Default: 1e-3
     double SANDWICH_RTOL;
@@ -2165,23 +2192,24 @@ public:
 
   //! @brief Append linearization cut for nonlinear operation using outer-approximation
   void add_linearization_cut
-    ( FFOp*pOp, const double Xref, const PolVar<T>&X, const double XL, const double XU,
-      const PolVar<T>&Y, const double YL, const double YU, const typename PolCut<T>::TYPE sense,
+    ( FFOp*pOp, const double Xref, const PolVar<T>&X, const double& XL, const double& XU,
+      const PolVar<T>&Y, const double& YL, const double& YU, const typename PolCut<T>::TYPE sense,
       p_dUniv f, const double*rpar, const int*ipar );
   //! @brief Append cuts for nonlinear operation using outer-approximation (sandwich algorithm)
   void add_sandwich_cuts
-    ( FFOp*pOp, const PolVar<T>&X, const double XL, const double XU, const PolVar<T>&Y,
-      const double YL, const double YU, const typename PolCut<T>::TYPE sense, p_dUniv f,
+    ( FFOp*pOp, const PolVar<T>&X, const double& XL, const double& XU, const PolVar<T>&Y,
+      const double& YL, const double& YU, const typename PolCut<T>::TYPE sense, p_dUniv f,
       const double*rpar=nullptr, const int*ipar=nullptr );
   //! @brief Append cuts for nonlinear univariate using piecewise-linear approximation
   void add_semilinear_cuts
-    ( FFOp*pOp, const PolVar<T>&X, const double XL, const double XU, const PolVar<T>&Y,
+    ( FFOp*pOp, const PolVar<T>&X, const double& XL, const double& XU, const PolVar<T>&Y,
       const typename PolCut<T>::TYPE sense, p_dUniv f, const double*rpar=nullptr,
       const int*ipar=nullptr );
   //! @brief Append cuts for piecewise-linear function
   void add_semilinear_cuts
     ( FFOp* pOp, unsigned const Nk, PolVar<T> const& X, double const* Xk,
-      PolVar<T> const& Y, double const* Yk, typename PolCut<T>::TYPE const sense );
+      PolVar<T> const& Y, double const* Yk, typename PolCut<T>::TYPE const sense,
+      int const type );
 
   //! @brief Append new relaxation cuts for product term
   void append_cuts_TIMES
@@ -2208,6 +2236,9 @@ public:
   void insert_cuts
     ( PolImg<T> const* img, std::map<PolVar<T> const*,PolVar<T>,lt_PolVar<T>>& POLMap );
 
+  //! @brief Append relaxation cuts for the <a>ndep</a> dependents in <a>pdep</a>
+  void generate_cuts
+    ( std::vector<PolVar<T>> const& vdep, const bool reset=false );
   //! @brief Append relaxation cuts for the <a>ndep</a> dependents in <a>pdep</a>
   void generate_cuts
     ( const unsigned ndep, const PolVar<T>*pdep, const bool reset=false );
@@ -3140,8 +3171,8 @@ PolImg<T>::_distmax
 template <typename T>
 inline void
 PolImg<T>::add_sandwich_cuts
-( FFOp*pOp, const PolVar<T>&X, const double XL, const double XU, const PolVar<T>&Y,
-  const double YL, const double YU, const typename PolCut<T>::TYPE sense, p_dUniv f,
+( FFOp*pOp, const PolVar<T>&X, const double& XL, const double& XU, const PolVar<T>&Y,
+  const double& YL, const double& YU, const typename PolCut<T>::TYPE sense, p_dUniv f,
   const double*rpar, const int*ipar )
 {
   t_OA OA;
@@ -3184,8 +3215,7 @@ PolImg<T>::add_sandwich_cuts
     }
   }
 
-  const double dtol = options.SANDWICH_ATOL
-    + options.SANDWICH_RTOL*std::max(std::fabs(YL),std::fabs(YU));
+  const double dtol = options.SANDWICH_ATOL + options.SANDWICH_RTOL*std::max(std::fabs(YL),std::fabs(YU));
 #ifdef MC__POLIMG_DEBUG_SANDWICH
   std::cerr << "DTOL: " << dtol << std::endl;
   std::cerr << OA.top() << std::endl;
@@ -3223,8 +3253,8 @@ PolImg<T>::add_sandwich_cuts
 template <typename T>
 inline void
 PolImg<T>::add_linearization_cut
-( FFOp*pOp, const double Xref, const PolVar<T>&X, const double XL, const double XU,
-  const PolVar<T>&Y, const double YL, const double YU, const typename PolCut<T>::TYPE sense,
+( FFOp*pOp, const double Xref, const PolVar<T>&X, const double& XL, const double& XU,
+  const PolVar<T>&Y, const double& YL, const double& YU, const typename PolCut<T>::TYPE sense,
   p_dUniv f, const double*rpar, const int*ipar )
 {
   // sense: f convex -> PolCut<T>::GE - f concave -> PolCut<T>::LE
@@ -3316,55 +3346,55 @@ PolImg<T>::_goldsect_iter
 template <typename T>
 inline void
 PolImg<T>::add_semilinear_cuts
-( FFOp*pOp, const PolVar<T>&X, const double XL, const double XU, const PolVar<T>&Y,
-  const typename PolCut<T>::TYPE sense, p_dUniv f, const double*rpar, const int*ipar )
+( FFOp* pOp, PolVar<T> const& X, double const& XL, double const& XU, PolVar<T> const& Y,
+  typename PolCut<T>::TYPE const sense, p_dUniv f, double const* rpar, int const* ipar )
 {
   switch( options.BREAKPOINT_TYPE ){
    case Options::CONT:{
-    const std::vector<double>& XKNOT = X.create_subdiv( XL, XU );
-    const unsigned NKNOTS = XKNOT.size()-1;
+    std::vector<double> const& XKNOT = X.create_subdiv( XL, XU );
+    size_t const NKNOTS = XKNOT.size()-1;
     if( NKNOTS > 1 ){
       // Represent variable range using linear binary transformation
-      const std::vector< PolVar<T> >& subvar = X.CONT_subdiv( pOp );
+      std::vector< PolVar<T> > const& subvar = X.CONT_subdiv( pOp );
       // Append semilinear cuts
-      double coef[NKNOTS];
-      double rhs = f( XKNOT[0], rpar, ipar ).first;
+      _coef.resize( NKNOTS );
+      double const& rhs = f( XKNOT[0], rpar, ipar ).first;
       for( unsigned isub=0; isub<NKNOTS; isub++ )
-        coef[isub] = f( XKNOT[isub], rpar, ipar ).first - f( XKNOT[isub+1], rpar, ipar ).first;
-      add_cut( pOp, sense, rhs, NKNOTS, subvar.data(), coef, Y, 1. );
+        _coef[isub] = f( XKNOT[isub], rpar, ipar ).first - f( XKNOT[isub+1], rpar, ipar ).first;
+      add_cut( pOp, sense, rhs, NKNOTS, subvar.data(), _coef.data(), Y, 1. );
       return;
     }
     break;
    }
 
    case Options::BIN:{
-    const std::vector<double>& XKNOT = X.create_subdiv( XL, XU );
-    const unsigned NKNOTS = XKNOT.size()-1;
+    std::vector<double> const& XKNOT = X.create_subdiv( XL, XU );
+    size_t const NKNOTS = XKNOT.size()-1;
     if( NKNOTS > 1 ){
       // Represent variable range using linear binary transformation
       const std::vector< PolVar<T> >& subvar = X.BIN_subdiv( pOp );
       // Append semilinear cuts
-      double coef[NKNOTS];
-      double rhs = f( XKNOT[0], rpar, ipar ).first;
+      _coef.resize( NKNOTS );
+      double const& rhs = f( XKNOT[0], rpar, ipar ).first;
       for( unsigned isub=0; isub<NKNOTS; isub++ )
-        coef[isub] = f( XKNOT[isub], rpar, ipar ).first - f( XKNOT[isub+1], rpar, ipar ).first;
-      add_cut( pOp, sense, rhs, NKNOTS, subvar.data(), coef, Y, 1. );
+        _coef[isub] = f( XKNOT[isub], rpar, ipar ).first - f( XKNOT[isub+1], rpar, ipar ).first;
+      add_cut( pOp, sense, rhs, NKNOTS, subvar.data(), _coef.data(), Y, 1. );
       return;
     }
     break;
    }
 
    case Options::SOS2:{
-    const std::vector<double>& XKNOT = X.create_subdiv( XL, XU );
-    const unsigned NKNOTS = XKNOT.size();
+    std::vector<double> const& XKNOT = X.create_subdiv( XL, XU );
+    size_t const NKNOTS = XKNOT.size();
     if( NKNOTS > 2 ){
       // Represent variable range using SOS2 transformation
-      const std::vector< PolVar<T> >& subvar = X.SOS2_subdiv( pOp );
+      std::vector< PolVar<T> > const& subvar = X.SOS2_subdiv( pOp );
       // Append semilinear cuts
-      double coef[NKNOTS];
+      _coef.resize( NKNOTS );
       for( unsigned isub=0; isub<NKNOTS; isub++ )
-        coef[isub] = -f( XKNOT[isub], rpar, ipar ).first;
-      add_cut( pOp, sense, 0., NKNOTS, subvar.data(), coef, Y, 1. );
+        _coef[isub] = -f( XKNOT[isub], rpar, ipar ).first;
+      add_cut( pOp, sense, 0., NKNOTS, subvar.data(), _coef.data(), Y, 1. );
       return;
     }
     break;
@@ -3383,12 +3413,13 @@ template <typename T>
 inline void
 PolImg<T>::add_semilinear_cuts
 ( FFOp* pOp, unsigned const Nk, PolVar<T> const& X, double const* Xk,
-  PolVar<T> const& Y, double const* Yk, typename PolCut<T>::TYPE const sense )
+  PolVar<T> const& Y, double const* Yk, typename PolCut<T>::TYPE const sense,
+  int const type )
 {
   if( Nk < 2 )
     return;
 
-  else if( Nk == 2 || options.BREAKPOINT_TYPE == Options::NONE ){
+  else if( Nk == 2 || type < 0 || type > 2 ){
     double dX = Xk[Nk-1]-Xk[0], dY = Yk[Nk-1]-Yk[0];
     add_cut( pOp, sense, dX*Yk[0]-dY*Xk[0], Y, dX, X, -dY );
     return;
@@ -3400,29 +3431,26 @@ PolImg<T>::add_semilinear_cuts
   for( unsigned i=1; i<Nk-1; ++i )
     X.add_breakpt( Xk[i] );
 
-  switch( options.BREAKPOINT_TYPE ){
-   case Options::CONT:{
-    const std::vector<double>& XKNOT = X.create_subdiv( Xk[0], Xk[Nk-1] );
+  switch( type ){
+   case 0:{
+    std::vector<double> const& XKNOT = X.create_subdiv( Xk[0], Xk[Nk-1] );
     //assert( Nk == XKNOT.size() );
-    // Represent variable range using linear binary transformation
+    // Represent variable range using linear continuous encoding
     std::vector< PolVar<T> > const& subvar = X.CONT_subdiv( pOp );
     // Append piecewise-linear cuts
-    double coef[ XKNOT.size()-1 ];
+    _coef.resize( XKNOT.size()-1 );
     for( unsigned i=0, k=0; k<Nk; ++k ){
       if( Xk[k] != XKNOT[i] ) continue;
-      if( k < Nk-1 ) coef[i]    = Yk[k];
-      if( i > 0    ) coef[i-1] -= Yk[k];
+      if( k < Nk-1 ) _coef[i]    = Yk[k];
+      if( i > 0    ) _coef[i-1] -= Yk[k];
       ++i;
     }
-    //double coef[Nk-1];
-    //for( unsigned k=0; k<Nk-1; ++k )
-    //  coef[k] = Yk[k] - Yk[k+1];
-    add_cut( pOp, sense, Yk[0], XKNOT.size()-1, subvar.data(), coef, Y, 1. );
+    add_cut( pOp, sense, Yk[0], _coef.size(), subvar.data(), _coef.data(), Y, 1. );
     break;
    }
 
-   case Options::BIN:{
-    const std::vector<double>& XKNOT = X.create_subdiv( Xk[0], Xk[Nk-1] );    
+   case 1:{
+    std::vector<double> const& XKNOT = X.create_subdiv( Xk[0], Xk[Nk-1] );    
     //if( Nk != XKNOT.size() ){
     //  std::cerr << "Size mismatch: Nk = " << Nk << ", XKNOT = " << XKNOT.size() << std::endl;
     //  std::cerr << "Xk = [ ";
@@ -3433,14 +3461,14 @@ PolImg<T>::add_semilinear_cuts
     //  std::cerr << "]" << std::endl;
     //}
     //assert( Nk == XKNOT.size() );
-    // Represent variable range using linear binary transformation
+    // Represent variable range using linear binary encoding
     std::vector< PolVar<T> > const& subvar = X.BIN_subdiv( pOp );
     // Append piecewise-linear cuts
-    double coef[ XKNOT.size()-1 ];
+    _coef.resize( XKNOT.size()-1 );
     for( unsigned i=0, k=0; k<Nk; ++k ){
       if( Xk[k] != XKNOT[i] ) continue;
-      if( k < Nk-1 ) coef[i]    = Yk[k];
-      if( i > 0    ) coef[i-1] -= Yk[k];
+      if( k < Nk-1 ) _coef[i]    = Yk[k];
+      if( i > 0    ) _coef[i-1] -= Yk[k];
       ++i;
     }
     //if( Nk != XKNOT.size() ){
@@ -3452,15 +3480,12 @@ PolImg<T>::add_semilinear_cuts
     //  std::cerr << "]" << std::endl;
     //  int dum; std::cout << "PAuSED"; std::cin >> dum;
     //}
-    //double coef[Nk-1];
-    //for( unsigned k=0; k<Nk-1; ++k )
-    //  coef[k] = Yk[k] - Yk[k+1];
-    add_cut( pOp, sense, Yk[0], XKNOT.size()-1, subvar.data(), coef, Y, 1. );
+    add_cut( pOp, sense, Yk[0], _coef.size(), subvar.data(), _coef.data(), Y, 1. );
     break;
    }
 
-   case Options::SOS2:{
-    const std::vector<double>& XKNOT = X.create_subdiv( Xk[0], Xk[Nk-1] );
+   case 2:{
+    std::vector<double> const& XKNOT = X.create_subdiv( Xk[0], Xk[Nk-1] );
     //if( Nk != XKNOT.size() ){
     //  std::cerr << "Size mismatch: Nk = " << Nk << ", XKNOT = " << XKNOT.size() << std::endl;
     //  std::cerr << "Xk = [ ";
@@ -3471,19 +3496,16 @@ PolImg<T>::add_semilinear_cuts
     //  std::cerr << "]" << std::endl;
     //}
     //assert( Nk == XKNOT.size() );
-    // Represent variable range using linear binary transformation
+    // Represent variable range using SOS2 encoding
     std::vector< PolVar<T> > const& subvar = X.SOS2_subdiv( pOp );
     // Append piecewise-linear cuts
-    double coef[ XKNOT.size() ];
+    _coef.resize( XKNOT.size() );
     for( unsigned i=0, k=0; k<Nk; ++k ){
       if( Xk[k] != XKNOT[i] ) continue;
-      coef[i] = - Yk[k];
+      _coef[i] = - Yk[k];
       ++i;
     }
-    //double coef[Nk];
-    //for( unsigned k=0; k<Nk; ++k )
-    //  coef[k] = - Yk[k];
-    add_cut( pOp, sense, 0., XKNOT.size(), subvar.data(), coef, Y, 1. );
+    add_cut( pOp, sense, 0., _coef.size(), subvar.data(), _coef.data(), Y, 1. );
     break;
    }
    default:
@@ -6457,6 +6479,15 @@ PolImg<T>::_propagate_cuts
       _propagate_cuts( itVarin->first->opdef().first, itVarin->second );
     }
   }
+}
+
+template <typename T>
+inline
+void
+PolImg<T>::generate_cuts
+( std::vector<PolVar<T>> const& vdep, bool const reset )
+{
+  generate_cuts( vdep.size(), vdep.data(), reset );
 }
 
 template <typename T>

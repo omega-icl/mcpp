@@ -1,6 +1,8 @@
 #undef  MC__FFUNC_CPU_EVAL
 #undef  MC__FFUNC_EXTERN_DEBUG
 #undef  MC__FFUNC_SBAD_DEBUG
+#define MC__SELIM_DEBUG_PROCESS
+#define MC__SELIM_DEBUG_MIP
 ////////////////////////////////////////////////////////////////////////
 
 #include <fstream>
@@ -10,9 +12,13 @@
 #include "mclapack.hpp"
 #include "ffunc.hpp"
 #include "slift.hpp"
+#include "selim.hpp"
+#include "fflin.hpp"
 #include "ffspol.hpp"
 #include "ffmlp.hpp"
 #include "ffvect.hpp"
+#include "ffextern.hpp"
+#include "ffcustom.hpp"
 
 #if defined( MC__USE_PROFIL )
  #include "mcprofil.hpp"
@@ -33,6 +39,12 @@
 
 #include "mccormick.hpp"
 typedef mc::McCormick<I> MC;
+
+#include "supmodel.hpp"
+#include "pwcu.hpp"
+typedef mc::SupModel<mc::PWCU> PWCSM;
+typedef mc::SupVar<mc::PWCU> PWCSV;
+typedef mc::McCormick<PWCSV> MCPWCSV;
 
 #include "cmodel.hpp"
 typedef mc::CModel<I> CM;
@@ -1276,7 +1288,7 @@ int test_external7()
 int test_external8()
 {
   std::cout << "\n==============================================\ntest_external8:\n";
-
+/*
   // Create MLP
   mc::MLP<I> f;
   f.options.RELAX     = mc::MLP<I>::Options::AUX;//MC;//AUX;//MCISM;
@@ -1376,7 +1388,7 @@ int test_external8()
   for( unsigned i=0; i<NX; ++i )
     std::cout << "dFdX_B[" << i << "] = " << ddFdX_B[i] << std::endl;
   delete[] dFdX_B;
-/*
+
   // Evaluation of backward automatic derivatives in real arithmetic
   fadbad::B<double> bdX[NX], bdF;
   for( unsigned i=0; i<NX; ++i )
@@ -1542,6 +1554,156 @@ int test_external9()
 
 ///////////////////////////////////////////////////////////////////////////////
 
+int test_external9_1()
+{
+  std::cout << "\n==============================================\ntest_external9_1:\n";
+
+  // Create graph
+  size_t const NX = 3;
+  mc::FFGraph DAG;
+  std::vector<mc::FFVar> X(NX);
+  for( size_t i=0; i<NX; i++ ) X[i].set( &DAG );
+
+  // Insert linear expression in DAG
+  mc::FFLin<I> Sum;
+  std::vector<mc::FFVar> F{ sqrt( Sum( X, 1. ) ) - 0., 0.5*X[0]+2.*X[1]-1. };
+  //std::vector<mc::FFVar> F{ Sum( X, 1. ), Sum( X, {0.5,2.,3.}, 1. ) - 0.5*X[0] };
+  //std::vector<mc::FFVar> F{ exp( Sum( X, 1. ) ), Sum( X, {0.5,2.,3.}, 1. ) + 0.5*X[0] };
+  std::cout << DAG;
+
+  auto opF  = DAG.subgraph( F );
+  DAG.output( opF, " OF F" );
+  auto strout = mc::FFExpr::subgraph( &DAG, opF );
+  for( unsigned i=0; i<strout.size(); ++i )
+    std::cout << "F[" << i << "]: " << strout[i] << std::endl;
+
+  std::ofstream oF( "external9_1.dot", std::ios_base::out );
+  DAG.dot_script( F, oF );
+  oF.close();
+
+  // Evaluation in real arithmetic
+  std::vector<double> DX{ 0.5, -0.5, 0.75 }, DF;
+  DAG.eval( opF, F, DF, X, DX );
+  std::cout << "\nLinear subexpression values from DAG:\n";
+  for( unsigned i=0; i<DF.size(); ++i )
+    std::cout << "F[" << i << "]: " << DF[i] << std::endl;
+
+  // Evaluation in interval arithmetic
+  std::vector<I> IX{ I(0.4,0.6), I(-0.6,-0.4), I(0.7,0.8) }, IF;
+  DAG.eval( opF, F, IF, X, IX );
+  std::cout << "\nLinear subexpression interval bounds from DAG:\n";
+  for( unsigned i=0; i<IF.size(); ++i )
+    std::cout << "F[" << i << "]: " << IF[i] << std::endl;
+
+  // Constraint propagation
+  IF = { I(2.3), I(2.75) };
+  auto flag = DAG.reval( opF, F, IF, X, IX, I(-1e10,1e10), 10 );
+  std::cout << "\nLinear subexpression constraint propagation from DAG: " << flag << " passes\n";
+  for( unsigned i=0; i<IX.size(); ++i )
+    std::cout << "X[" << i << "]: " << IX[i] << std::endl;
+  for( unsigned i=0; i<IF.size(); ++i )
+    std::cout << "F[" << i << "]: " << IF[i] << std::endl;
+
+  // Evaluation in McCormick arithmetic
+  std::vector<MC> MCX{ MC(IX[0],0.5), MC(IX[1],-0.5), MC(IX[2],0.75) }, MCF;
+  DAG.eval( opF, F, MCF, X, MCX );
+  std::cout << "\nLinear subexpression McCormick relaxations from DAG:\n";
+  for( unsigned i=0; i<MCF.size(); ++i )
+    std::cout << "F[" << i << "]: " << MCF[i] << std::endl;
+
+  // Polyhedral relaxation
+  mc::PolImg<I> IMG;
+  IMG.options.AGGREG_LQ = true;
+  std::vector<POLV> PX{ POLV( &IMG, X[0], IX[0] ), POLV( &IMG, X[1], IX[1] ), POLV( &IMG, X[2], IX[2] ) }, PF;
+  DAG.eval( opF, F, PF, X, PX );
+  IMG.generate_cuts( PF );
+  std::cout << "\nLinear subexpression polyhedral relaxation from DAG:\n";
+  std::cout << IMG << std::endl;
+  
+  // Forward differentiation
+  std::vector<mc::FFVar> dFdX_FAD = DAG.FAD( F, X );
+  auto opdFdX_FAD = DAG.subgraph( dFdX_FAD );
+  DAG.output( opdFdX_FAD, " OF dFdX" );
+  
+  // Lifting of polynomial subexpression
+  mc::SLiftEnv SLE( &DAG );
+  SLE.options.KEEPFACT = false;
+  SLE.process( F, true );
+  std::cout << "\nLifting of linear subexpression:\n";
+  std::cout << SLE;
+
+  // Variable elimination
+  mc::SElimEnv SEE( &DAG );
+  SEE.options.SLIFT.KEEPFACT = false;
+  SEE.options.MIPDISPLEVEL   = 0;
+  SEE.options.MIPOUTPUTFILE  = "test_external9_1.lp";
+  SEE.options.DISPFULL       = false;
+  SEE.process( F );
+  std::cout << "\nVariable elimination in linear subexpression:\n";
+  std::cout << SEE;
+
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+int test_external9_2()
+{
+  std::cout << "\n==============================================\ntest_external9_2:\n";
+
+  // Create graph
+  size_t const NX = 3;
+  mc::FFGraph DAG;
+  std::vector<mc::FFVar> X = DAG.add_vars( NX );
+
+  // Insert linear expression in DAG
+  mc::FFLin<I> Sum;
+  mc::FFVar Sum1;
+  mc::FFSubgraph opSum1;
+  std::vector<mc::FFExpr> strSum1;
+
+  Sum1 = Sum( X, 1. );
+  opSum1  = DAG.subgraph( {Sum1} );
+  strSum1 = mc::FFExpr::subgraph( &DAG, opSum1 );
+  std::cout << "Sum1: " << strSum1[0] << std::endl << std::endl;
+
+  Sum1 = Sum( X, 1., 2. );
+  opSum1  = DAG.subgraph( {Sum1} );
+  strSum1 = mc::FFExpr::subgraph( &DAG, opSum1 );
+  std::cout << "Sum1: " << strSum1[0] << std::endl << std::endl;
+
+  Sum1 = Sum( X, 2. );
+  opSum1  = DAG.subgraph( {Sum1} );
+  strSum1 = mc::FFExpr::subgraph( &DAG, opSum1 );
+  std::cout << "Sum1: " << strSum1[0] << std::endl << std::endl;
+
+  Sum1 = Sum( X, 2., 1. );
+  opSum1  = DAG.subgraph( {Sum1} );
+  strSum1 = mc::FFExpr::subgraph( &DAG, opSum1 );
+  std::cout << "Sum1: " << strSum1[0] << std::endl << std::endl;
+
+  std::cout << DAG;
+
+  Sum1 = Sum( X, std::vector<double>(NX,-1.) );
+  opSum1  = DAG.subgraph( {Sum1} );
+  strSum1 = mc::FFExpr::subgraph( &DAG, opSum1 );
+  std::cout << "Sum1: " << strSum1[0] << std::endl << std::endl;
+
+  std::cout << DAG;
+
+  Sum1 = Sum( X, -1. );
+  opSum1  = DAG.subgraph( {Sum1} );
+  strSum1 = mc::FFExpr::subgraph( &DAG, opSum1 );
+  std::cout << "Sum1: " << strSum1[0] << std::endl << std::endl;
+
+  std::cout << DAG;
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 int test_external10()
 {
   std::cout << "\n==============================================\ntest_external10:\n";
@@ -1639,6 +1801,260 @@ int test_external11()
 
 ///////////////////////////////////////////////////////////////////////////////
 
+int test_external12()
+{
+  std::cout << "\n==============================================\ntest_external12:\n";
+
+  // Create DAG
+  mc::FFGraph DAG;
+  size_t const NX = 3;
+  std::vector<mc::FFVar> X(NX);
+  for( auto& Xi : X ) Xi.set( &DAG );
+  std::vector<mc::FFVar> Y{ pow( X[0] + sqr( X[1] ) - 2 * X[2], 3 ) };
+
+  mc::DAG<I> DAGY0( &DAG, X, Y );
+  DAGY0.options.AUTODIFF = DAGY0.options.B;
+  mc::FFDAG<I> Expr;
+  std::vector<mc::FFVar> F{ Expr( 0, X, &DAGY0, 1 ) }; // with DAG copy
+
+  std::cout << DAG;
+
+  auto opF  = DAG.subgraph( F );
+  DAG.output( opF, " OF F" );
+  auto strout = mc::FFExpr::subgraph( &DAG, opF );
+  std::cout << "F: " << strout[0] << std::endl;
+
+  // Evaluation in real arithmetic
+  std::vector<double> dX{ 0.5, -0.5, 0.75 }, dF;
+  DAG.eval( opF, F, dF, X, dX );
+  std::cout << "\nFunction value: " << dF[0] << std::endl;
+
+  // Evaluation of symbolic derivatives in real arithmetic
+  std::vector<mc::FFVar>&& dFdX = DAG.FAD( F, X );
+  auto opdFdX = DAG.subgraph( dFdX );
+  DAG.output( opdFdX, " OF dFdX" );
+  strout = mc::FFExpr::subgraph( &DAG, opdFdX );
+  for( unsigned i=0; i<strout.size(); ++i )
+    std::cout << "dFdX[" << i << "]: " << strout[i] << std::endl;
+
+  // Evaluation in real arithmetic
+  std::vector<double> ddFdX;
+  DAG.eval( opdFdX, dFdX, ddFdX, X, dX );
+  std::cout << "\nFunction derivative: [ ";
+  for( auto const& dFdXi : ddFdX )
+    std::cout << dFdXi << " ";
+  std::cout << "]" << std::endl;
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+int test_external13()
+{
+  std::cout << "\n==============================================\ntest_external13:\n";
+
+  // Create DAG
+  mc::FFGraph DAG;
+  size_t const NX = 3;
+  std::vector<mc::FFVar> X(NX);
+  for( auto& Xi : X ) Xi.set( &DAG );
+  std::vector<mc::FFVar> Y{ pow( X[0] + sqr( X[1] ) - 2 * X[2], 3 ) };
+
+  mc::DAG<I> DAGY0( &DAG, X, Y );
+  mc::FFDAG<I> Expr;
+  Expr.options.RELAX  = { Expr.options.MCPWCS };//AUX };//MC };//INT };
+  Expr.options.PWLINI = 4;
+  std::vector<mc::FFVar> F{ Expr( 0, X, &DAGY0, 1 ) }; // with DAG copy
+
+  std::cout << DAG;
+
+  auto opF  = DAG.subgraph( F );
+  DAG.output( opF, " OF F" );
+  auto strout = mc::FFExpr::subgraph( &DAG, opF );
+  std::cout << "F: " << strout[0] << std::endl;
+
+  // Evaluation in interval arithmetic
+  std::vector<I> IX{ I(-1.,1.), I(0.,1.), I(-1.,0.) }, IF;
+  DAG.eval( opF, F, IF, X, IX );
+  std::cout << "\nFunction enclosure: " << IF[0] << std::endl;
+
+  // Evaluation in McCormick arithmetic
+  std::vector<MC> MCX{ MC( IX[0], mc::Op<I>::mid(IX[0]) ).sub(NX,0),
+                       MC( IX[1], mc::Op<I>::mid(IX[1]) ).sub(NX,1),
+                       MC( IX[2], mc::Op<I>::mid(IX[2]) ).sub(NX,2) }, MCF;
+  DAG.eval( opF, F, MCF, X, MCX );
+  std::cout << "\nFunction enclosure: " << MCF[0] << std::endl;
+
+  // Evaluation in McCormick arithmetic
+  PWCSM PWCSenv( NX );
+  std::vector<PWCSV> PWCSX{ PWCSV( PWCSenv, 0, IX[0], 16 ),
+                            PWCSV( PWCSenv, 1, IX[1], 16 ),
+                            PWCSV( PWCSenv, 2, IX[2], 16 ) }, PWCSF;
+  DAG.eval( opF, F, PWCSF, X, PWCSX );
+  std::cout << "\nFunction enclosure: " << PWCSF[0] << std::endl;
+
+  // Evaluation in McCormick arithmetic with PWC support bounds
+  std::vector<MCPWCSV> MCPWCSX{ MCPWCSV( PWCSX[0], mc::Op<I>::mid(IX[0]) ).sub(NX,0),
+                                MCPWCSV( PWCSX[1], mc::Op<I>::mid(IX[1]) ).sub(NX,1),
+                                MCPWCSV( PWCSX[2], mc::Op<I>::mid(IX[2]) ).sub(NX,2) }, MCPWCSF;
+  DAG.eval( opF, F, MCPWCSF, X, MCPWCSX );
+  std::cout << "\nFunction enclosure: " << MCPWCSF[0] << std::endl;
+  //std::cout << "\nFunction enclosure: " << MCPWCSF[0].I() << std::endl;
+  
+  // Polyhedral relaxation
+  mc::PolImg<I> IMG;
+  IMG.options.BREAKPOINT_TYPE = mc::PolImg<I>::Options::CONT;//BIN;//SOS2;
+  IMG.options.AGGREG_LQ       = true;
+  IMG.options.BREAKPOINT_RTOL =
+  IMG.options.BREAKPOINT_ATOL = 0e0;
+  IMG.options.ALLOW_DISJ      = { mc::FFOp::FABS, mc::FFOp::MAXF };
+  IMG.options.ALLOW_NLIN      = { mc::FFOp::TANH, mc::FFOp::EXP  };
+  std::vector<POLV> polX{ POLV( &IMG, X[0], IX[0] ), POLV( &IMG, X[1], IX[1] ), POLV( &IMG, X[2], IX[2] ) }, polF;
+  DAG.eval( opF, F, polF, X, polX );
+  IMG.generate_cuts( polF );
+  std::cout << "\n Polyhedral relaxation:" << IMG << std::endl;
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+int test_external14()
+{
+  std::cout << "\n==============================================\ntest_external14:\n";
+
+  // Create DAG
+  mc::FFGraph DAG;
+  size_t const NX = 2, NF = 1;
+  std::vector<mc::FFVar> X( NX );
+  for( auto& Xi : X ) Xi.set( &DAG );
+  std::vector<mc::FFVar> Y{ sqr(X[0])+X[0]*X[1]+4 };
+  auto opY  = DAG.subgraph( Y );
+
+  mc::DAG<I> DAGY0( &DAG, X, Y );
+  DAGY0.options.CPMAX = 1;
+  
+  mc::FFDAG<I> Expr;
+  Expr.options.RELAX  = { Expr.options.AUX };
+  std::vector<mc::FFVar> F{ Expr( 0, X, &DAGY0, 1 ) }; // with DAG copy
+
+  std::cout << DAG;
+
+  auto opF  = DAG.subgraph( F );
+  DAG.output( opF, " OF F" );
+  auto strout = mc::FFExpr::subgraph( &DAG, opF );
+  std::cout << "F: " << strout[0] << std::endl;
+
+  // Evaluate in interval arithmetic, both forward and backward
+  std::vector<I> IWKF;
+  std::vector<I> IX{ I(-0.8,-0.3), I(6.,9.) }, IF;
+  std::cout << "\nInterval hull:\n";
+  std::cout << "X[0] = "
+            << I(-mc::Op<I>::l(IX[1])/2.+sqrt(mc::sqr(mc::Op<I>::l(IX[1])/2.)-4),
+                 -mc::Op<I>::u(IX[1])/2.+sqrt(mc::sqr(mc::Op<I>::u(IX[1])/2.)-4))
+            << std::endl;
+  std::cout << "X[1] = " << IX[1] << std::endl;  
+
+  DAG.eval( opY, IWKF, Y, IF, X, IX );
+  std::cout << "\nInterval forward evaluation:\n";
+  for( unsigned i=0; i<NX; i++ ) std::cout << "X[" << i << "] = " << IX[i] << std::endl;
+  for( unsigned i=0; i<NF; i++ ) std::cout << "Y[" << i << "] = " << IF[i] << std::endl;
+
+  DAG.eval( opF, IWKF, F, IF, X, IX );
+  std::cout << "\nInterval forward evaluation:\n";
+  for( unsigned i=0; i<NX; i++ ) std::cout << "X[" << i << "] = " << IX[i] << std::endl;
+  for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << IF[i] << std::endl;
+
+  IF[0] = 0.;
+  IX = { I(-0.8,-0.3), I(6.,9.) };
+  int flag = DAG.reval( opY, IWKF, Y, IF, X, IX, DAGY0.options.CPINF*I(-1,1), 10 );
+  std::cout << "\nInterval forward/backward evaluation: " << flag << std::endl;
+  for( unsigned i=0; i<NX; i++ ) std::cout << "X[" << i << "] = " << IX[i] << std::endl;
+  for( unsigned i=0; i<NF; i++ ) std::cout << "Y[" << i << "] = " << IF[i] << std::endl;
+
+  IX = { I(-0.8,-0.3), I(6.,9.) };
+  flag = DAG.reval( opF, IWKF, F, IF, X, IX, DAGY0.options.CPINF*I(-1,1), 10 );
+  std::cout << "\nInterval forward/backward evaluation: " << flag << std::endl;
+  for( unsigned i=0; i<NX; i++ ) std::cout << "X[" << i << "] = " << IX[i] << std::endl;
+  for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << IF[i] << std::endl;
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
+std::vector<double> addition( std::vector<double> const& x ) { return {x[0]+x[1]}; }
+
+int test_external15()
+{
+  std::cout << "\n==============================================\ntest_external15:\n";
+
+  // Create graph
+  size_t const NX = 2;
+  mc::FFGraph DAG;
+  std::vector<mc::FFVar> X = DAG.add_vars( NX );
+
+  // Insert custom expressions in DAG
+  mc::FFCustom<I> Custom;
+  std::function<std::vector<double>( std::vector<double> const& )> DEval
+    ( [](std::vector<double> x)
+      -> std::vector<double>
+      { return { x[0]*x[1] }; } );
+  std::function<std::vector<I>( std::vector<I> const& )> IEval
+    ( [](std::vector<I> x)
+      -> std::vector<I>
+      { return { x[0]*x[1] }; } );
+  //std::function<std::vector<double>( std::vector<double> const& )> DEval( addition );
+  Custom.set_eval( DEval );
+  Custom.set_eval( IEval );
+
+  mc::FFCustom<I> DCustom;
+  std::function<std::vector<double>( std::vector<double> const& )> DDerEval
+    ( [](std::vector<double> x)
+      -> std::vector<double>
+      { return { x[1], x[0] }; } );
+  DCustom.set_eval( DDerEval );
+  Custom.set_deriv( DCustom, 1 ); // uid=1
+
+  mc::FFVar Y = Custom( X, 0 ); // uid=0
+  mc::FFSubgraph opY = DAG.subgraph( {Y} );
+  std::vector<mc::FFExpr> strY = mc::FFExpr::subgraph( &DAG, opY );
+  std::cout << "\nY: " << strY[0] << std::endl << std::endl;
+
+  std::cout << DAG;
+
+  // Evaluation in real arithmetic
+  std::vector<double> DX{2,3}, DY;
+  DAG.eval( {Y}, DY, X, DX );
+  std::cout << "Y = " << DY[0] << std::endl; 
+
+  // Evaluation in interval arithmetic
+  std::vector<I> IX{I(1,3), I(2,4)}, IY;
+  DAG.eval( {Y}, IY, X, IX );
+  std::cout << "Y = " << IY[0] << std::endl; 
+
+  // Differentiation and evaluation in real arithmetic
+  std::vector<mc::FFVar>&& dYdX = DAG.FAD( {Y}, X );
+  mc::FFSubgraph opdYdX = DAG.subgraph( dYdX );
+  std::vector<mc::FFExpr> strdYdX = mc::FFExpr::subgraph( &DAG, opdYdX );
+  std::cout << std::endl;
+  for( unsigned i=0; i<strdYdX.size(); ++i )
+    std::cout << "dYdX[" << i << "]: " << strdYdX[i] << std::endl;
+
+  std::cout << DAG;
+
+  // Derivative evaluation in real arithmetic
+  std::vector<double> DdYdX;
+  DAG.eval( dYdX, DdYdX, X, DX );
+  for( unsigned i=0; i<DdYdX.size(); ++i )
+    std::cout << "dYdX[" << i << "] = " << DdYdX[i] << std::endl; 
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 int test_slift_external0()
 {
   std::cout << "\n==============================================\ntest_slift_external0:\n";
@@ -1698,11 +2114,17 @@ int main()
 //    test_external6();
 //    test_external7();
 //    test_external8();
-//    test_external9();
-    test_external10();
-    test_external11();
+//    test_external9_1();
+//    test_external9_2();
+//    test_external10();
+//    test_external11();
+//    test_external12();
+//    test_external13();
+//    test_external14();
+    test_external15();
 //    test_slift_external0();
 //    test_slift_external1();
+
   }
   catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()

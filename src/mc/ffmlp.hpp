@@ -864,7 +864,7 @@ MLP<T>::append_PWLScuts
       DYPWLSAux[k] = DYPWLSAux[k-1] + *idx * *idy;
     }
 
-    img->add_semilinear_cuts( pOp, NK, vVar[i], DXPWLSAux.data(), POLPWLSAux[i], DYPWLSAux.data(), mc::PolCut<T>::EQ );
+    img->add_semilinear_cuts( pOp, NK, vVar[i], DXPWLSAux.data(), POLPWLSAux[i], DYPWLSAux.data(), mc::PolCut<T>::EQ, !options.SUPCONT );
   }
      
   img->add_cut( pOp, (under? PolCut<T>::LE: PolCut<T>::GE), 0., dep, POLPWLSAux.data(), 1., vRes, -1. );

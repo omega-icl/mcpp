@@ -386,6 +386,10 @@ public:
   void process
     ( unsigned const nDep, FFVar const* pDep, const bool add2dag=true );
 
+  //! @brief Process the dependents in vector <a>vDep</a>
+  void process
+    ( std::vector<FFVar> const& vDep, const bool add2dag=true );
+
   //! @brief Set DAG environment
   void set
     ( FFGraph* dag )
@@ -644,34 +648,27 @@ operator<<
   }
 
   if( !env.options.DISPFULL ){
-    out << std::endl << env._Dep.size() << " DEPENDENT EXPRESSION" << (env._Dep.size()>1?"S:":":") << std::endl;
-    auto sgExpr = env._dag->subgraph( env._Dep.size(), env._Dep.data() );
-    auto vExpr = FFExpr::subgraph( env._dag, sgExpr );
-    for( auto const& expr : vExpr )
-      out << "  " << expr << std::endl;
-
     out << std::endl << env._Poly.size() << " AUXILIARY POLYNOMIAL CONSTRAINT" << (env._Poly.size()>1?"S:":":") << std::endl;
-    sgExpr = env._dag->subgraph( env._Poly.size(), env._Poly.data() );
-    vExpr = FFExpr::subgraph( env._dag, sgExpr );
+    auto sgExpr = env._dag->subgraph( env._Poly.size(), env._Poly.data() );
+    auto vExpr = FFExpr::subgraph( env._dag, sgExpr );
     for( auto const& expr : vExpr )
       out << "  0 = " << expr << std::endl;
 
-    out << std::endl << env._Trans.size() << " AUXILIARY NON-POLYNOMIAL CONSTRAINT" << (env._Trans.size()>1?"S:":":") << std::endl;
+    out << std::endl << env._Trans.size() << " AUXILIARY TRANSCENDENTAL CONSTRAINT" << (env._Trans.size()>1?"S:":":") << std::endl;
     sgExpr = env._dag->subgraph( env._Trans.size(), env._Trans.data() );
     vExpr = FFExpr::subgraph( env._dag, sgExpr );
     for( auto const& expr : vExpr )
       out << "  0 = " << expr << std::endl;
+
+    out << std::endl << env._Dep.size() << " DEPENDENT EXPRESSION" << (env._Dep.size()>1?"S:":":") << std::endl;
+    sgExpr = env._dag->subgraph( env._Dep.size(), env._Dep.data() );
+    vExpr = FFExpr::subgraph( env._dag, sgExpr );
+    for( auto const& expr : vExpr )
+      out << "  " << expr << std::endl;
   }
   
   else{
     unsigned count = 0;
-    for( auto const& expr : env._Dep ){
-      std::ostringstream ext; 
-      ext << " OF DEPENDENT EXPRESSION #" << ++count;
-      env._dag->subgraph( 1, &expr ).output( ext.str(), out );
-    }
-
-    count = 0;
     for( auto const& expr : env._Poly ){
       std::ostringstream ext; 
       ext << " OF AUXILIARY POLYNOMIAL CONSTRAINT #" << ++count;
@@ -681,12 +678,26 @@ operator<<
     count = 0;
     for( auto const& expr : env._Trans ){
       std::ostringstream ext; 
-      ext << " OF AUXILIARY NON-POLYNOMIAL CONSTRAINT #" << ++count;
+      ext << " OF AUXILIARY TRANSCENDENTAL CONSTRAINT #" << ++count;
+      env._dag->subgraph( 1, &expr ).output( ext.str(), out );
+    }
+
+    count = 0;
+    for( auto const& expr : env._Dep ){
+      std::ostringstream ext; 
+      ext << " OF DEPENDENT EXPRESSION #" << ++count;
       env._dag->subgraph( 1, &expr ).output( ext.str(), out );
     }
   }
 
   return out;
+}
+
+inline void
+SLiftEnv::process
+( std::vector<FFVar> const& vDep, bool const add2dag )
+{
+  process( vDep.size(), vDep.data(), add2dag );
 }
 
 inline void

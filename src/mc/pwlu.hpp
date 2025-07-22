@@ -12,18 +12,21 @@ The class mc::PWLU provides an implementation of piecewise linear univariate est
 #ifndef MC__PWLU_HPP
 #define MC__PWLU_HPP
 
+#include <fstream>
 #include <iostream>
 #include <iomanip> 
 #include <vector> 
 #include <algorithm>
+#include <cmath>
+#include <limits>
+#include <bitset>
+#include <cassert>
 
 #include "mcfunc.hpp"
 
 //#define MC__PWLU_DEBUG
 //#define MC__PWLU_TRACE
 //#define MC__PWLU_CHECK
-#undef  MC__PWLU_FULL_UPDATE
-
 namespace mc
 {
 //! @brief C++ class for propagation of piecewise linear univariate estimators
@@ -54,37 +57,35 @@ public:
   static struct Options
   {
     //! @brief Constructor
-    Options():
-      BKPTATOL( 1e2*DBL_EPSILON ),
-      BKPTRTOL( 1e2*DBL_EPSILON ),
-      LOSSRTOL( 1e-2 ),
-      DISPNUM( 5 )
-      {}
+    Options()
+      {
+        reset();
+      }
     //! @brief Assignment
     Options& operator=
       ( Options const& opt )
       {
         BKPTATOL        = opt.BKPTATOL;
         BKPTRTOL        = opt.BKPTRTOL;
-        LOSSRTOL        = opt.LOSSRTOL;
+        REDUCEMETH      = opt.REDUCEMETH;
         DISPNUM         = opt.DISPNUM;
         return *this;
       }
-    //! @brief Assignment
+    //! @brief Reset to default options
     void reset
       ()
       {
-        BKPTATOL = 1e2*DBL_EPSILON;
-        BKPTRTOL = 1e2*DBL_EPSILON;
-        LOSSRTOL = 1e-2;
-        DISPNUM  = 5;
+        BKPTATOL   = 1e3*DBL_EPSILON;
+        BKPTRTOL   = 1e3*DBL_EPSILON;
+        REDUCEMETH = 0;
+        DISPNUM    = 5;
       }
-    //! @brief Absolute tolerance in breakpoints - Default: 1e2*DBL_EPSILON
+    //! @brief Absolute tolerance in breakpoints - Default: 1e3*DBL_EPSILON
     double BKPTATOL;
-    //! @brief Relative tolerance in breakpoints - Default: 1e2*DBL_EPSILON
+    //! @brief Relative tolerance in breakpoints - Default: 1e3*DBL_EPSILON
     double BKPTRTOL;
-    //! @brief Relative tolerance in reduction loss - Default: 1e-2
-    double LOSSRTOL;
+    //! @brief Method for breakpoint reduction - <=0: Standard library (default); >0: Tailored heap implementation over threshold
+    int REDUCEMETH;
     //! @brief Number of numerical digits displayed with << operator - Default: 5
     unsigned int DISPNUM;
   } options;
@@ -952,204 +953,17 @@ public:
     }
 
   PWLU& reduce
-    ( bool const under, size_t const nseg )
-    {
-      //if( !nseg )
-      //  return *this;
-#ifdef MC__PWLU_CHECK
-      if( _dx.size() != _dy.size() )
-        throw Exceptions( Exceptions::SIZE );
-#endif
-
-      // Remove any degenerate segments, reporting on adjacent segments as necessary
+    ( bool const under, size_t const nseg ){
       clean( under );
       if( !nseg || _dx.size() <= nseg || _dx.size() < 3 )
         return *this;
 
-#ifdef MC__PWLU_DEBUG
-      std::cout << std::scientific << std::setprecision(16);
-      std::cout << "INITIAL VARIABLE AFTER CLEAN:" << std::endl;
-      std::cout << "under:" << " " << under << std::endl;
-      std::cout << "x0:" << " " << _x0;
-      std::cout << std::endl << "dx:";
-      for( auto dxi : _dx ) std::cout << " " << dxi;
-      std::cout << std::endl << "y0:" << " " << _y0;
-      std::cout << std::endl << "dy:";
-      for( auto dyi : _dy ) std::cout << " " << dyi;
-      std::cout << std::endl;
-#endif
+      // use standard library methods std::erase with std::min_element
+      if( options.REDUCEMETH <= 0 || _dx.size() <= nseg + options.REDUCEMETH )
+        return _reduce_std( under, nseg );
 
-      // Compute minimal loss for each 3-segment combination
-      static thread_local std::vector<std::tuple<double,int,int,double,double>> vloss;
-      vloss.resize( _dx.size()-2 );
-
-      static thread_local double x[5], y[5], lcv[3];
-      double *x0 = x, *x1 = x0+1, *x2 = x1+1, *x3 = x2+1, *x4 = x3+1;
-      double *y0 = y, *y1 = y0+1, *y2 = y1+1, *y3 = y2+1, *y4 = y3+1;
-      double *lcv0 = lcv, *lcv2 = lcv0+1, *lcv3 = lcv2+1;
-      
-      auto idx = _dx.begin(), idy = _dy.begin();
-      x[1] = _x0,             y[1] = _y0;
-      x[2] = x[1] + *idx,     y[2] = y[1] + *idy * *idx,         lcv[1]  = *idy;
-      x[3] = x[2] + *(++idx), y[3] = y[2] + *(++idy) * *idx,     lcv[1] -= *idy; lcv[2]  = *idy; 
-      x[4] = x[3] + *(++idx), y[4] = y[3] + *(++idy) * *idx;                     lcv[2] -= *idy;
-
-      double totalloss( 0. );
-      for( auto ploss = vloss.data(); ; ploss++ ){
-        _loss( under, *lcv2<0, *lcv3<0, *x1, *y1, *x2, *y2, *x3, *y3, *x4, *y4, *ploss );
-#ifdef MC__PWLU_DEBUG
-        std::cout << "loss: " << std::get<0>( *ploss ) << std::endl;
-#endif
-        totalloss += std::get<0>( *ploss );
-        
-        if( ++idx == _dx.end() ) break;
-        lcv0 = lcv2, lcv2 = lcv3, lcv3 = lcv0;
-        x0 = x1; x1 = x2; x2 = x3; x3 = x4; x4 = x0; *x4 = *x3 + *idx;            *lcv3  = *idy;
-        y0 = y1; y1 = y2; y2 = y3; y3 = y4; y4 = y0; *y4 = *y3 + *(++idy) * *idx; *lcv3 -= *idy;
-      }
-      totalloss *= options.LOSSRTOL;
-      
-      // Main reduction loop
-      for( ; ; ){
-
-#ifdef MC__PWLU_DEBUG
-        std::cout << "dx:";
-        for( auto dxi : _dx ) std::cout << " " << dxi;
-        std::cout << std::endl << "dy:";
-        for( auto dyi : _dy ) std::cout << " " << dyi;
-        std::cout << std::endl;
-
-        std::cout << "Candidate 3-segments:\n";
-        //for( auto itloss=loss.cbegin(); itloss!=loss.cend(); ++itloss )
-        for( auto itloss=vloss.cbegin(); itloss!=vloss.cend(); ++itloss )
-          std::cout << std::get<0>(**itloss) << " "
-                    << std::get<1>(**itloss) << " "
-                    << std::get<2>(**itloss) << " "
-                    << std::get<3>(**itloss) << " "
-                    << std::get<4>(**itloss) << " " << std::endl;
-#endif
-
-        // Determine minimal element
-        auto ilossopt = std::min_element(
-          vloss.cbegin(), vloss.cend(),
-          [=]( std::tuple<double,int,int,double,double> const& a, std::tuple<double,int,int,double,double> const& b )
-          { // Below threshold eliminate breakpoints that create smaller gaps
-            auto const& fmax = [=]( const double& x1, const double& x2 ){ return x1>x2? x1: x2; };
-            if( std::get<0>(a) < totalloss && std::get<0>(b) < totalloss )
-              return fmax( std::get<3>(a),std::get<4>(a) ) < fmax( std::get<3>(b),std::get<4>(b) );
-            // Above threshold eliminate breakpoints according to area loss
-            return std::get<0>(a) < std::get<0>(b); }
-        );
-
-        auto idxopt = _dx.begin(), idyopt = _dy.begin();
-        size_t pos = std::distance( vloss.cbegin(), ilossopt );
-        if( pos ){
-          std::advance( idxopt, pos );
-          std::advance( idyopt, pos );
-        }
-
-        // Remove minimal element
-        if( !std::get<2>(*ilossopt) ){
-          std::advance( idxopt, std::get<1>(*ilossopt)-1 );
-          std::advance( idyopt, std::get<1>(*ilossopt)-1 );
-          double dx = *idxopt, dy = *idyopt;
-          idxopt = _dx.erase( idxopt );
-          idyopt = _dy.erase( idyopt );
-          _average( *idxopt, *idyopt, dx, dy );
-        }
-        else{
-          *idxopt = std::get<3>(*ilossopt);
-          idxopt = _dx.erase( ++idxopt );
-          idyopt = _dy.erase( ++idyopt );
-          *idxopt = std::get<4>(*ilossopt);        
-        }
-        
-        if( _dx.size() <= nseg || _dx.size() < 3 ){
-#ifdef MC__PWLU_DEBUG
-          std::cout << "dx:";
-          for( auto dxi : _dx ) std::cout << " " << dxi;
-          std::cout << std::endl << "dy:";
-          for( auto dyi : _dy ) std::cout << " " << dyi;
-          std::cout << std::endl;
-#endif
-          return *this;
-        }
-
-        // Update minimal loss
-        vloss.erase( ilossopt );
-        auto itloss = vloss.begin();
-        idx  = _dx.begin(),     idy  = _dy.begin();
-
-#ifdef MC__PWLU_FULL_UPDATE
-        x0 = x, x1 = x0+1, x2 = x1+1, x3 = x2+1, x4 = x3+1;
-        y0 = y, y1 = y0+1, y2 = y1+1, y3 = y2+1, y4 = y3+1;
-        lcv0 = lcv, lcv2 = lcv0+1, lcv3 = lcv2+1;
-      
-        x[1] = _x0,             y[1] = _y0;
-        x[2] = x[1] + *idx,     y[2] = y[1] + *idy * *idx,         lcv[1]  = *idy;
-        x[3] = x[2] + *(++idx), y[3] = y[2] + *(++idy) * *idx,     lcv[1] -= *idy; lcv[2]  = *idy; 
-        x[4] = x[3] + *(++idx), y[4] = y[3] + *(++idy) * *idx;                     lcv[2] -= *idy;
-
-        for( ; itloss!=vloss.end(); ++itloss ){
-          _loss( under, *lcv2<0, *lcv3<0, *x1, *y1, *x2, *y2, *x3, *y3, *x4, *y4, *itloss );
-#ifdef MC__PWLU_DEBUG
-          std::cout << std::get<0>( *itloss ) << std::endl;
-#endif
-          if( ++idx == _dx.end() ) break;
-          lcv0 = lcv2, lcv2 = lcv3, lcv3 = lcv0;
-          x0 = x1; x1 = x2; x2 = x3; x3 = x4; x4 = x0; *x4 = *x3 + *idx;            *lcv3  = *idy;
-          y0 = y1; y1 = y2; y2 = y3; y3 = y4; y4 = y0; *y4 = *y3 + *(++idy) * *idx; *lcv3 -= *idy;
-        }
-
-#else
-        size_t p = 0;
-        x[1] = _x0,             y[1] = _y0;
-        for( ; p+2<pos; ++p, ++idx, ++idy, ++itloss )
-          x[1] += *idx, y[1] += *idy * *idx;
-        x[2] = x[1] + *idx,     y[2] = y[1] + *idy * *idx,         lcv[1]  = *idy;
-        x[3] = x[2] + *(++idx), y[3] = y[2] + *(++idy) * *idx,     lcv[1] -= *idy; lcv[2]  = *idy; 
-        x[4] = x[3] + *(++idx), y[4] = y[3] + *(++idy) * *idx;                     lcv[2] -= *idy;
-        _loss( under, lcv[1]<0, lcv[2]<0, x[1], y[1], x[2], y[2], x[3], y[3], x[4], y[4], *itloss );      
-#ifdef MC__PWLU_DEBUG
-        std::cout << std::get<0>( *itloss ) << std::endl;
-#endif
-        if( ++idx==_dx.end() || ++p>pos+2 ) continue;
-
-        x[0] = x[4] + *idx;            lcv[0]  = *idy;
-        y[0] = y[4] + *(++idy) * *idx; lcv[0] -= *idy;
-        _loss( under, lcv[2]<0, lcv[0]<0, x[2], y[2], x[3], y[3], x[4], y[4], x[0], y[0], *(++itloss) );
-#ifdef MC__PWLU_DEBUG
-        std::cout << std::get<0>( *itloss ) << std::endl;
-#endif
-        if( ++idx==_dx.end() || ++p>pos+2 ) continue;
-
-        x[1] = x[0] + *idx;            lcv[1]  = *idy;
-        y[1] = y[0] + *(++idy) * *idx; lcv[1] -= *idy;
-        _loss( under, lcv[0]<0, lcv[1]<0, x[3], y[3], x[4], y[4], x[0], y[0], x[1], y[1], *(++itloss) );
-#ifdef MC__PWLU_DEBUG
-        std::cout << std::get<0>( *itloss ) << std::endl;
-#endif
-        if( ++idx==_dx.end() || ++p>pos+2 ) continue;
-
-        x[2] = x[1] + *idx;            lcv[2]  = *idy;
-        y[2] = y[1] + *(++idy) * *idx; lcv[2] -= *idy;
-        _loss( under, lcv[1]<0, lcv[2]<0, x[4], y[4], x[0], y[0], x[1], y[1], x[2], y[2], *(++itloss) );
-#ifdef MC__PWLU_DEBUG
-        std::cout << std::get<0>( *itloss ) << std::endl;
-#endif
-        if( ++idx==_dx.end() || ++p>pos+2 ) continue;
-
-        x[3] = x[2] + *idx;            lcv[0]  = *idy;
-        y[3] = y[2] + *(++idy) * *idx; lcv[0] -= *idy;
-        _loss( under, lcv[2]<0, lcv[0]<0, x[0], y[0], x[1], y[1], x[2], y[2], x[3], y[3], *(++itloss) );
-#ifdef MC__PWLU_DEBUG
-        std::cout << std::get<0>( *itloss ) << std::endl;
-#endif
-        if( ++idx==_dx.end() || ++p>pos+2 ) continue;
-#endif
-      }
-
-      return *this;
+      // use tailored heap-based implementation
+      return _reduce_heap( under, nseg );
     }
 
 private:
@@ -1164,140 +978,16 @@ private:
     }    
 
   static void _loss
-    ( bool const under, bool const lcv2, bool const lcv3,
-      double const& x1, double const& y1, double const& x2, double const& y2,
-      double const& x3, double const& y3, double const& x4, double const& y4,
-      std::tuple<double,int,int,double,double>& loss )
-    {
-      if( ( under && lcv2 && lcv3 ) || ( !under && !lcv2 && !lcv3 ) ){
-#ifdef MC__PWLU_DEBUG
-        std::cout << "remove (" << x2 << "," << y2 << ")" << std::endl;
-        std::cout << "remove (" << x3 << "," << y3 << ")" << std::endl;
-#endif
-        // cross point of (x1,y1)-(x2,y2) and (x3,y3)-(x4,y4) lines
-        auto const& [x5,y5] = _intersect( x1,y1, x2,y2, x3,y3, x4,y4 );
-#ifdef MC__PWLU_DEBUG
-        std::cout << "insert (" << x5 << "," << y5 << ")" << std::endl;
-#endif
-        loss = std::make_tuple( _area( x2,y2, x3,y3, x5,y5 ), 1, 2, x5-x1, x4-x5 );
-        return;
-      }
-
-      else if( under && lcv2 && !lcv3 ){
-        if( (y2-y1)*(x4-x1) <= (y4-y1)*(x2-x1) + options.BKPTATOL ){
-#ifdef MC__PWLU_DEBUG
-          std::cout << "remove (" << x3 << "," << y3 << ")" << std::endl;
-#endif
-          // keep (x2,y2)
-          loss = std::make_tuple( _area( x2,y2, x3,y3, x4,y4 ), 2, 0, x2-x1, x4-x2 );
-        }
-        else{
-#ifdef MC__PWLU_DEBUG
-          std::cout << "remove (" << x2 << "," << y2 << ")" << std::endl;
-          std::cout << "remove (" << x3 << "," << y3 << ")" << std::endl;
-#endif
-          // cross point of (x1,y1)-(x2,y2) and (x3,y3)-(x4,y4) lines
-          auto const& [x5,y5] = _intersect( x1,y1, x2,y2, x3,y3, x4,y4 );
-#ifdef MC__PWLU_DEBUG
-          std::cout << "insert (" << x5 << "," << y5 << ")" << std::endl;
-#endif
-          loss = std::make_tuple( _area( x2,y2, x3,y3, x5,y5 ), 1, 2, x5-x1, x4-x5 );
-        }
-        return;
-      }
-
-      else if( !under && !lcv2 && lcv3 ){
-        if( (y2-y1)*(x4-x1) + options.BKPTATOL >= (y4-y1)*(x2-x1) ){
-#ifdef MC__PWLU_DEBUG
-          std::cout << "remove (" << x3 << "," << y3 << ")" << std::endl;
-#endif
-          // keep (x2,y2)
-          loss = std::make_tuple( _area( x2,y2, x3,y3, x4,y4 ), 2, 0, x2-x1, x4-x2 );
-        }
-        else{
-#ifdef MC__PWLU_DEBUG
-          std::cout << "remove (" << x2 << "," << y2 << ")" << std::endl;
-          std::cout << "remove (" << x3 << "," << y3 << ")" << std::endl;
-#endif
-          // cross point of (x1,y1)-(x2,y2) and (x3,y3)-(x4,y4) lines
-          auto const& [x5,y5] = _intersect( x1,y1, x2,y2, x3,y3, x4,y4 );
-#ifdef MC__PWLU_DEBUG
-          std::cout << "insert (" << x5 << "," << y5 << ")" << std::endl;
-#endif
-          loss = std::make_tuple( _area( x2,y2, x3,y3, x5,y5 ), 1, 2, x5-x1, x4-x5 );
-        }
-        return;
-      }
-
-      else if( under && !lcv2 && lcv3 ){
-        if( (y4-y3)*(x4-x1) + options.BKPTATOL >= (y4-y1)*(x4-x3) ){
-#ifdef MC__PWLU_DEBUG
-          std::cout << "remove (" << x2 << "," << y2 << ")" << std::endl;
-#endif
-          // keep (x3,y3)
-          loss = std::make_tuple( _area( x1,y1, x2,y2, x3,y3 ), 1, 0, x3-x1, x4-x3 );
-        }
-        else{
-#ifdef MC__PWLU_DEBUG
-          std::cout << "remove (" << x2 << "," << y2 << ")" << std::endl;
-          std::cout << "remove (" << x3 << "," << y3 << ")" << std::endl;
-#endif
-          // cross point of (x1,y1)-(x2,y2) and (x3,y3)-(x4,y4) lines
-          auto const& [x5,y5] = _intersect( x1,y1, x2,y2, x3,y3, x4,y4 );
-#ifdef MC__PWLU_DEBUG
-          std::cout << "insert (" << x5 << "," << y5 << ")" << std::endl;
-#endif
-          loss = std::make_tuple( _area( x2,y2, x3,y3, x5,y5 ), 1, 2, x5-x1, x4-x5 );
-        }
-        return;
-      }
-
-      else if( !under && lcv2 && !lcv3 ){
-        if( (y4-y3)*(x4-x1) <= (y4-y1)*(x4-x3) + options.BKPTATOL ){
-#ifdef MC__PWLU_DEBUG
-          std::cout << "remove (" << x2 << "," << y2 << ")" << std::endl;
-#endif
-          // keep (x3,y3)
-          loss = std::make_tuple( _area( x1,y1, x2,y2, x3,y3 ), 1, 0, x3-x1, x4-x3 );
-        }
-        else{
-#ifdef MC__PWLU_DEBUG
-          std::cout << "remove (" << x2 << "," << y2 << ")" << std::endl;
-          std::cout << "remove (" << x3 << "," << y3 << ")" << std::endl;
-#endif
-          // cross point of (x1,y1)-(x2,y2) and (x3,y3)-(x4,y4) lines
-          auto const& [x5,y5] = _intersect( x1,y1, x2,y2, x3,y3, x4,y4 );
-#ifdef MC__PWLU_DEBUG
-          std::cout << "insert (" << x5 << "," << y5 << ")" << std::endl;
-#endif
-          loss = std::make_tuple( _area( x2,y2, x3,y3, x5,y5 ), 1, 2, x5-x1, x4-x5 );
-        }
-        return;
-      }
-
-      // keep either (x2,y2) or (x3,y3)
-      double const& A1 = _area( x1,y1, x2,y2, x3,y3 );
-      double const& A2 = _area( x2,y2, x3,y3, x4,y4 );
-      if( A1 < A2 ){
-#ifdef MC__PWLU_DEBUG
-        std::cout << "remove (" << x2 << "," << y2 << ")" << std::endl;
-#endif
-        loss = std::make_tuple( A1, 1, 0, x3-x1, x4-x3 );
-      }
-      else{
-#ifdef MC__PWLU_DEBUG
-        std::cout << "remove (" << x3 << "," << y3 << ")" << std::endl;
-#endif
-        loss = std::make_tuple( A2, 2, 0, x2-x1, x4-x2 );
-      }
-      return;
-    }
+    ( bool const isUnder, double const& slpDiff1, double const& slpDiff2,
+      double const& incA0, double const& slpA0, 
+      double const& incA1, double const& slpA1,
+      double const& incA2, double const& slpA2,
+      std::tuple<double,int,double,double>& loss );
 
   static double _area
-    ( double const& x1, double const& y1, double const& x2, double const& y2,
-      double const& x3, double const& y3 )
+    ( double const& inc1, double const& inc2, double const& slpdiff)
     {
-      return std::fabs((x1-x3)*(y2-y1)-(x1-x2)*(y3-y1));
+      return inc1*inc2*slpdiff;
     }
 
   static std::pair<double,double> _intersect
@@ -1310,12 +1000,938 @@ private:
       if( x < x2 || x > x3 ) x = 0.5*(x2+x3);
       return std::make_pair( x, (y1*(x2-x)+y2*(x-x1))/(x2-x1) );
     }
+
+  static void _underestimate_in_window3
+    ( const std::vector<double> & x, const std::vector<double> & y, const unsigned int pos, 
+      const double p1AreaLoss, const double p2AreaLoss, std::vector<double> & data, const bool isUnder );
+
+  static bool _cmp_indexed_areaLoss
+    ( const std::pair<double, int>& a, const std::pair<double, int>& b );
+
+  static std::pair<double, int> _heap_pop
+    ( std::vector<std::pair<double, int>> & heap, std::vector<int> & hind );
+
+  static void _modify_heap
+    ( std::vector<std::pair<double, int>> & heap, const int pos, std::vector<int> & hind );
+
+  static void _heap_bubble_up
+    ( std::vector<std::pair<double, int>> & heap, int pos, std::vector<int> & hind );
+
+  static void _heap_bubble_down
+    ( std::vector<std::pair<double, int>> & heap, int pos, std::vector<int> & hind );
+
+  PWLU& _reduce_heap
+    ( bool const under, size_t const nseg );
+
+  PWLU& _reduce_std
+    ( bool const under, size_t const nseg );
+
 };
 
 ////////////////////////////////////////////////////////////////////////
 
 inline PWLU::Options PWLU::options;
 
+inline
+PWLU& PWLU::_reduce_std
+( bool const under, size_t const nseg )
+{
+#ifdef MC__PWLU_CHECK
+  if( _dx.size() != _dy.size() )
+    throw Exceptions( Exceptions::SIZE );
+#endif
+
+  // Remove any degenerate segments, reporting on adjacent segments as necessary
+  clean( under );
+  if( !nseg || _dx.size() <= nseg || _dx.size() < 3 )
+    return *this;  
+
+#ifdef MC__PWLU_DEBUG
+  std::cout << std::scientific << std::setprecision(16);
+  std::cout << "INITIAL VARIABLE AFTER CLEAN:" << std::endl;
+  std::cout << "under:" << " " << under << std::endl;
+  std::cout << "x0:" << " " << _x0;
+  std::cout << std::endl << "dx:";
+  for( auto dxi : _dx ) std::cout << " " << dxi;
+  std::cout << std::endl << "y0:" << " " << _y0;
+  std::cout << std::endl << "dy:";
+  for( auto dyi : _dy ) std::cout << " " << dyi;
+  std::cout << std::endl;
+#endif
+
+  // Compute minimal loss for each 3-segment combination
+  static thread_local std::vector<std::tuple<double,int,double,double>> vloss;  
+  vloss.resize( _dx.size()-2 );  
+
+  static thread_local double lcv[3];
+  double *lcv0 = lcv, *lcv2 = lcv0+1, *lcv3 = lcv2+1;
+
+  auto idx = _dx.begin(), idy = _dy.begin();
+  double *incA0 = &(*idx), *incA1 = &(*(++idx)), *incA2 = &(*(++idx));
+  double *slpA0 = &(*idy), *slpA1 = &(*(++idy)), *slpA2 = &(*(++idy));
+  lcv[1]  = under? (*slpA0)-(*slpA1):(*slpA1)-(*slpA0); 
+  lcv[2]  = under? (*slpA1)-(*slpA2):(*slpA2)-(*slpA1);
+
+  for( auto ploss = vloss.data(); ; ploss++ ){
+    _loss( under, *lcv2, *lcv3, *incA0, *slpA0, *incA1, *slpA1, *incA2, *slpA2, *ploss );
+#ifdef MC__PWLU_DEBUG
+    std::cout << "loss: " << std::get<0>( *ploss ) << std::endl;
+#endif
+    
+    if( ++idx == _dx.end() ) break;
+    lcv0 = lcv2, lcv2 = lcv3, lcv3 = lcv0;
+    incA0 = incA1; incA1 = incA2; incA2 = &(*idx);
+    slpA0 = slpA1; slpA1 = slpA2; slpA2 = &(*(++idy));   
+    *lcv3 = under? (*slpA1)-(*slpA2):(*slpA2)-(*slpA1); 
+  }
+
+  // Main reduction loop
+  for( ; ; ){
+
+#ifdef MC__PWLU_DEBUG
+    std::cout << "dx:";
+    for( auto dxi : _dx ) std::cout << " " << dxi;
+    std::cout << std::endl << "dy:";
+    for( auto dyi : _dy ) std::cout << " " << dyi;
+    std::cout << std::endl;
+
+    std::cout << "Candidate 3-segments:\n";
+    for( auto itloss=vloss.cbegin(); itloss!=vloss.cend(); ++itloss )
+      std::cout << std::get<0>(*itloss) << " "
+                << std::get<1>(*itloss) << " "
+                << std::get<2>(*itloss) << " "
+                << std::get<3>(*itloss) << " " << std::endl;
+#endif
+
+    // Determine minimal element
+    auto ilossopt = std::min_element(
+      vloss.cbegin(), vloss.cend(),
+      [=]( std::tuple<double,int,double,double> const& a, std::tuple<double,int,double,double> const& b )
+      { return std::get<0>(a) < std::get<0>(b); }
+    );
+
+    size_t pos = std::distance( vloss.cbegin(), ilossopt );
+    auto idxopt = _dx.begin() + pos, idyopt = _dy.begin() + pos;
+
+#ifdef MC__PWLU_DEBUG
+    std::cout << "Minimum-segments at" << pos << " :\n";
+    std::cout << std::get<0>(*ilossopt) << " "
+              << std::get<1>(*ilossopt) << " "
+              << std::get<2>(*ilossopt) << " "
+              << std::get<3>(*ilossopt) << " " << std::endl;
+#endif
+
+    // Remove minimal element
+    switch (std::get<1>(*ilossopt)) {
+        case 0:       // remove two vtx then add one vtx == remove mid seg
+            *idxopt = std::get<2>(*ilossopt);
+            idxopt = _dx.erase( ++idxopt );
+            idyopt = _dy.erase( ++idyopt );
+            *idxopt = std::get<3>(*ilossopt);   
+            break;
+        case 2:        // remove one vtx == remove mid seg and update one seg
+            std::advance( idxopt, 1 );
+            std::advance( idyopt, 1 );
+        case 1:       // remove one vtx == remove mid seg and update one seg
+            idxopt = _dx.erase( idxopt );
+            idyopt = _dy.erase( idyopt );
+            *idxopt = std::get<3>(*ilossopt);
+            *idyopt = std::get<2>(*ilossopt);  
+            break;
+        default:
+            std::cout << "error in reduce" << std::endl;
+            break;
+    }
+
+    if( _dx.size() <= nseg || _dx.size() < 3 ){
+#ifdef MC__PWLU_DEBUG
+      std::cout << "dx:";
+      for( auto dxi : _dx ) std::cout << " " << dxi;
+      std::cout << std::endl << "dy:";
+      for( auto dyi : _dy ) std::cout << " " << dyi;
+      std::cout << std::endl;
+#endif
+      return *this;
+    }
+
+    // Update minimal loss
+    vloss.erase( ilossopt );
+    auto itloss = vloss.begin();
+
+    idx  = _dx.begin(),     idy  = _dy.begin();
+    size_t p = 0;
+    if( pos > 2 ){
+      p = pos - 2;
+      idx += p;    
+      idy += p;
+      itloss += p;
+    }
+
+    incA0 = &(*idx); incA1 = &(*(++idx)); incA2 = &(*(++idx));
+    slpA0 = &(*idy); slpA1 = &(*(++idy)); slpA2 = &(*(++idy));
+
+    lcv[1]  = under? (*slpA0)-(*slpA1):(*slpA1)-(*slpA0); 
+    lcv[2]  = under? (*slpA1)-(*slpA2):(*slpA2)-(*slpA1);
+    _loss( under, lcv[1], lcv[2], *incA0, *slpA0, *incA1, *slpA1, *incA2, *slpA2, *itloss );
+#ifdef MC__PWLU_DEBUG
+    std::cout << std::get<0>( *itloss ) << std::endl;
+#endif
+    if( ++idx==_dx.end() || ++p>pos+2 ) continue;
+
+    incA0 = &(*idx);
+    slpA0 = &(*(++idy));
+    lcv[0] = under? (*slpA2)-(*slpA0):(*slpA0)-(*slpA2); 
+    _loss( under, lcv[2], lcv[0], *incA1, *slpA1, *incA2, *slpA2, *incA0, *slpA0,*(++itloss) );    
+#ifdef MC__PWLU_DEBUG
+    std::cout << std::get<0>( *itloss ) << std::endl;
+#endif
+    if( ++idx==_dx.end() || ++p>pos+2 ) continue;
+
+    incA1 = &(*idx);
+    slpA1 = &(*(++idy));
+    lcv[1] = under? (*slpA0)-(*slpA1):(*slpA1)-(*slpA0); 
+    _loss( under, lcv[0], lcv[1],  *incA2, *slpA2, *incA0, *slpA0, *incA1, *slpA1, *(++itloss) );      
+#ifdef MC__PWLU_DEBUG
+    std::cout << std::get<0>( *itloss ) << std::endl;
+#endif
+    if( ++idx==_dx.end() || ++p>pos+2 ) continue;
+
+    incA2 = &(*idx);
+    slpA2 = &(*(++idy));
+    lcv[2] = under? (*slpA1)-(*slpA2):(*slpA2)-(*slpA1); 
+    _loss( under, lcv[1], lcv[2], *incA0, *slpA0, *incA1, *slpA1, *incA2, *slpA2, *(++itloss) );      
+#ifdef MC__PWLU_DEBUG
+    std::cout << std::get<0>( *itloss ) << std::endl;
+#endif
+    if( ++idx==_dx.end() || ++p>pos+2 ) continue;
+
+    incA0 = &(*idx);
+    slpA0 = &(*(++idy));
+    lcv[0] = under? (*slpA2)-(*slpA0):(*slpA0)-(*slpA2); 
+    _loss( under, lcv[2], lcv[0], *incA1, *slpA1, *incA2, *slpA2, *incA0, *slpA0, *(++itloss) );      
+#ifdef MC__PWLU_DEBUG
+    std::cout << std::get<0>( *itloss ) << std::endl;
+#endif
+    if( ++idx==_dx.end() || ++p>pos+2 ) continue;
+  }
+
+  return *this;
+}
+
+inline
+void PWLU::_loss
+( bool const isUnder, double const& slpDiff1, double const& slpDiff2,
+  double const& incA0, double const& slpA0, 
+  double const& incA1, double const& slpA1,
+  double const& incA2, double const& slpA2,
+  std::tuple<double,int,double,double>& loss )
+{
+  if( slpDiff1 >= 0. && slpDiff2 >= 0. ){ // ccv ccv 
+    //std::cerr << "case 1" << std::endl;
+    double const p1AreaLoss = slpDiff1 * incA0 * incA1;
+    double const p2AreaLoss = slpDiff2 * incA1 * incA2;
+
+    if( p1AreaLoss < p2AreaLoss ){
+      double const deltaXL = incA1 + incA0;
+      double const ratioL = incA0/deltaXL;
+      double const slpXL = slpA0*ratioL + slpA1*(1 - ratioL);
+      loss = std::make_tuple( p1AreaLoss, 1, slpXL, deltaXL);
+    }
+
+    else{
+      double const deltaXR = incA1 + incA2;
+      double const ratioL = incA1/deltaXR;
+      double const slpXR = slpA1*ratioL + slpA2*(1 - ratioL);            
+      loss = std::make_tuple( p2AreaLoss, 2, slpXR, deltaXR);
+    }
+  }        
+
+  else if( slpDiff2 >= 0. ){ // cvx ccv
+    //std::cerr << "case 2" << std::endl;
+    double const deltaXR = incA1 + incA2;
+    double const ratioL = incA1/deltaXR;
+    double const ratioR = 1 - ratioL;    
+    double const slpXR = slpA1*ratioL + slpA2*ratioR;
+    double slpDiff3 = isUnder?slpA0 - slpXR:slpXR - slpA0;        
+    
+    if( slpDiff3 > 1e-14 ){
+      //std::cerr << "case 2.1" << std::endl;
+      double const _tmpL = ((slpA1-slpA0)*incA1)/(slpA0-slpA2);
+      double const _tmpR = incA2 - _tmpL;
+      if( _tmpR > options.BKPTATOL ){
+        loss = std::make_tuple( slpDiff2*incA1*_tmpL, 0, incA0 + incA1 + _tmpL, _tmpR );
+        return;
+      }
+    }
+    loss = std::make_tuple( slpDiff2*incA1*incA2, 2, slpXR, deltaXR);
+  }
+
+  else if( slpDiff1 >= 0. ){ // ccv cvx
+    //std::cerr << "case 3" << std::endl;    
+    double const deltaXL = incA1 + incA0;
+    double const ratioL = incA0/deltaXL;
+    double const ratioR = 1 - ratioL;
+    double const slpXL = slpA0*ratioL + slpA1*ratioR;
+    double slpDiff3 = isUnder?slpXL - slpA2:slpA2 - slpXL;  
+    
+    if( slpDiff3 > 1e-14 ){
+      //std::cerr << "case 3.1" << std::endl;
+      double const _tmpR = ((slpA1-slpA2)*incA1)/(slpA2-slpA0);
+      double const _tmpL = incA0 - _tmpR;     
+      if( _tmpL > options.BKPTATOL ){
+        loss = std::make_tuple( (slpA0-slpA1)*incA1*_tmpR, 0, _tmpL, _tmpR + incA1 + incA2 );
+        return;
+      }                
+    
+    }
+    loss = std::make_tuple( slpDiff1*incA0*incA1, 1, slpXL, deltaXL );    
+  }
+
+  else{
+    //std::cerr << "case 4" << std::endl;
+    double slpDiff3 = isUnder?slpA0-slpA2:slpA2-slpA0;  
+    double const ratioR = slpDiff1/slpDiff3;
+    double const ratioL = slpDiff2/slpDiff3;
+    double const deltaXR = ratioR*incA1;
+    double const deltaXL = ratioL*incA1;  
+    loss = std::make_tuple( -slpDiff3*deltaXL*deltaXR, 0, deltaXL + incA0, deltaXR + incA2 );
+  }
+
+  return;
+}
+
+//! static member function 
+//! @brief Linear interpolation for aligning a univariate linear estimator with a univariate piecewise linear estimator w.r.t. the same variable
+//! @param[in] pos is
+//! @param[in] p1AreaLoss is 
+//! @param[in] p2AreaLoss is t
+//! @param[out] data 
+inline
+void PWLU::_underestimate_in_window3
+( const std::vector<double>& incA, const std::vector<double>& slpA, const unsigned int pos, 
+  const double slpDiff1, const double slpDiff2, std::vector<double>& data, const bool isUnder )
+{
+
+  double & deltaXL  = data[0];
+  double & deltaXR  = data[1];
+  double & slpXL = data[2];     
+  double & slpXR = data[3];     
+  double & aLoss = data[4]; 
+
+  // T slpDiff1 = isUnder?(slpA[0]-slpA[1]):(slpA[1]-slpA[0]); 
+  // T slpDiff2 = isUnder?(slpA[1]-slpA[2]):(slpA[2]-slpA[1]);
+  unsigned int pos1(pos+1),pos2(pos+2);
+  if (slpDiff1 >= 0. && slpDiff2 >= 0.){ // ccv ccv 
+    //std::cerr << "case 1" << std::endl;
+
+    double const p1AreaLoss = slpDiff1*incA[pos]*incA[pos1];
+    double const p2AreaLoss = slpDiff2*incA[pos1]*incA[pos2];
+    if (p1AreaLoss < p2AreaLoss){
+        deltaXL = incA[pos1] + incA[pos];
+        deltaXR = incA[pos2];
+        double const ratioL = incA[pos]/deltaXL;
+        double const ratioR = 1 - ratioL;
+        slpXL = slpA[pos]*ratioL + slpA[pos1]*ratioR;
+        slpXR = slpA[pos2];            
+        aLoss = p1AreaLoss;
+    }
+    else{
+        deltaXL = incA[pos];
+        deltaXR = incA[pos1] + incA[pos2];
+        double const ratioL = incA[pos1]/deltaXR;
+        double const ratioR = 1 - ratioL;
+        slpXL = slpA[pos];
+        slpXR = slpA[pos1]*ratioL + slpA[pos2]*ratioR;            
+        aLoss = p2AreaLoss;
+    }
+  }        
+  else if (slpDiff2 >= 0.){ // cvx ccv
+    //std::cerr << "case 2" << std::endl;
+
+    deltaXL = incA[pos];
+    deltaXR = incA[pos1] + incA[pos2];
+    double const ratioL = incA[pos1]/deltaXR;
+    double const ratioR = 1 - ratioL;    
+    slpXL = slpA[pos];
+    slpXR = slpA[pos1]*ratioL + slpA[pos2]*ratioR;
+    aLoss = slpDiff2*incA[pos1]*incA[pos2];
+    double slpDiff3 = isUnder?slpA[pos] - slpXR:slpXR - slpA[pos];        
+
+    if (slpDiff3 > 1e-14){
+      //std::cerr << "case 2.1" << std::endl;
+      double const _tmpL = ((slpA[pos1]-slpA[pos])*incA[pos1])/(slpA[pos]-slpA[pos2]);
+      double const _tmpR = incA[pos2] - _tmpL;
+      if( _tmpR > options.BKPTATOL ){
+        deltaXR = _tmpR; 
+        slpXR = slpA[pos2];
+        aLoss = slpDiff2*incA[pos1]*_tmpL; 
+        deltaXL = incA[pos] + incA[pos1] + _tmpL;
+      }
+    }
+  }
+  else if (slpDiff1 >= 0.){ // ccv cvx
+    //std::cerr << "case 3" << std::endl;
+
+    deltaXL = incA[pos1] + incA[pos];
+    deltaXR = incA[pos2];
+    double const ratioL = incA[pos]/deltaXL;
+    double const ratioR = 1 - ratioL;
+    slpXL = slpA[pos]*ratioL + slpA[pos1]*ratioR;
+    slpXR = slpA[pos2];            
+    aLoss = slpDiff1*incA[pos]*incA[pos1];
+    double slpDiff3 = isUnder?slpXL - slpA[pos2]:slpA[pos2] - slpXL;  
+
+    if (slpDiff3 > 1e-14){
+      //std::cerr << "case 3.1" << std::endl;
+      double const _tmpR = ((slpA[pos1]-slpA[pos2])*incA[pos1])/(slpA[pos2]-slpA[pos]);
+      // if(_tmpR < 0){
+      //   std::cout << isUnder << std::endl;
+      //   std::cout << _tmpR << std::endl;
+      //   std::cout << slpA[pos] << ", " << slpA[pos1] << ", " << slpA[pos2] << std::endl;
+      //   std::cout << incA[pos] << ", " << incA[pos1] << ", " << incA[pos2] << std::endl;
+      //   assert(_tmpR >=0.);
+      // }
+      double const _tmpL = incA[pos] - _tmpR;     
+      if( _tmpL > options.BKPTATOL ){
+        deltaXL = _tmpL;
+        slpXL = slpA[pos];
+        aLoss = (slpA[pos]-slpA[pos1])*incA[pos1]*_tmpR; 
+        deltaXR = _tmpR + incA[pos1] + incA[pos2];
+      }                
+
+    }
+  }
+  else{
+    //std::cerr << "case 4" << std::endl;
+    double slpDiff3 = isUnder?slpA[pos]-slpA[pos2]:slpA[pos2]-slpA[pos];  
+    double const ratioR = slpDiff1/slpDiff3;
+    double const ratioL = slpDiff2/slpDiff3;
+    
+    slpXL = slpA[pos];
+    slpXR = slpA[pos2];      
+    deltaXR = ratioR*incA[pos1];
+    deltaXL = ratioL*incA[pos1];  
+    aLoss = -slpDiff3*deltaXL*deltaXR; 
+    deltaXR = deltaXR + incA[pos2];
+    deltaXL = deltaXL + incA[pos];
+  }
+#ifdef MC__CPWLUSG_DEBUG    
+    if(deltaXR < 1e-15){
+      std::cerr << deltaXR << std::endl;
+      assert(deltaXR >= 1e-15);
+    }
+    if(deltaXL < 1e-15){
+      std::cerr << deltaXL << std::endl;
+      assert(deltaXL >= 1e-15);
+    }    
+
+    assert(std::fabs(slpXL) <= 50);
+    assert(std::fabs(slpXR) <= 50);  
+#endif 
+}
+
+//! @brief Linear interpolation for aligning a univariate linear estimator with a univariate piecewise linear estimator w.r.t. the same variable
+//! @param[in] nbpsMax is
+//! @param[in] isUnder is 
+//! @param[out] first 
+//! @param[out] second
+inline
+PWLU& PWLU::_reduce_heap
+( bool const isUnder, size_t const nseg )
+{
+  // std::cout <<  "        in reduce" << std::endl;
+  std::vector<double> & incA = _dx;
+  std::vector<double> & slpA = _dy;
+  const unsigned int n = _dx.size() + 1;
+  const unsigned int k = nseg;
+
+  // std::cout <<  "          max pieces = " << k << std::endl;
+  // std::cout <<  "          current number of vertices = " << n << std::endl;
+
+  // double const xRightEndpoint = first.back();
+  // first[n-1] = 0.;
+  // for (unsigned int i = 0; i < n-1; i++)
+  //   first[n-1] += first[i];
+  // first[n-1] = xRightEndpoint - first[n-1];  
+
+#ifdef MC__CPWLUSG_DEBUG    
+          for (unsigned int jj = 1; jj < first.size(); jj++)
+            if(first[jj] < 1e-15){std::cout << jj << " in " << first.size() << first[jj] << std::endl; assert(first[jj] >= 1e-15);};
+#endif
+
+  double slpDiff1;// = isUnder?(slpA[0]-slpA[1]):(slpA[1]-slpA[0]); 
+  double slpDiff2;// = isUnder?(slpA[1]-slpA[2]):(slpA[2]-slpA[1]);
+
+  std::vector<double> data(5);
+  std::vector<double> deltaXL(n-3);
+  std::vector<double> deltaXR(n-3);
+  std::vector<double> slpXL(n-3);
+  std::vector<double> slpXR(n-3);  
+  std::vector<std::pair<double, int>> areaLoss(n-3);
+
+  std::vector<double> yval(n);
+  yval[0] = _y0;//slpA[0];
+
+  double yMinOrMax = _y0;//slpA[0];
+
+  slpDiff1 = isUnder?(slpA[0]-slpA[1]):(slpA[1]-slpA[0]);//isUnder?(slpA[1]-slpA[2]):(slpA[2]-slpA[1]); 
+  for(unsigned int j = 0; j < n - 3; j++){       
+    slpDiff2 = isUnder?(slpA[j+1]-slpA[j+2]):(slpA[j+2]-slpA[j+1]);
+    _underestimate_in_window3(_dx,_dy,j,slpDiff1,slpDiff2,data,isUnder);
+    deltaXL[j] = data[0];
+    deltaXR[j] = data[1];
+    slpXL[j] = data[2];
+    slpXR[j] = data[3];
+
+#ifdef MC__CPWLUSG_DEBUG            
+    assert(std::fabs(slpXL[j-1]) <= 50);
+    assert(std::fabs(slpXR[j-1]) <= 50);   
+#endif       
+
+    areaLoss[j] = std::make_pair(data[4],j);// AreaLoss(aLoss,j)
+    //std::cout << "j: " << j << " area: " << data[2] << std::endl;
+    yval[j+1] = yval[j] + slpA[j]*incA[j];
+    // std::cout << "j: " << j << " yval[j-1] " << yval[j-1] 
+    //           << " yval[j] " << yval[j]  
+    //           << " slpA[j] " << slpA[j]
+    //           << " incA[j] " << incA[j]
+    //           << std::endl;
+    yMinOrMax = isUnder?std::min(yMinOrMax,yval[j+1]):std::max(yMinOrMax,yval[j+1]);
+    slpDiff1 = slpDiff2;
+  }
+
+
+  yval[n-2] = slpA[n-3]*incA[n-3]+yval[n-3];  
+  yval[n-1] = slpA[n-2]*incA[n-2]+yval[n-2];
+
+  // std::cout << "          input vertices" << std::endl;
+  // for (unsigned int jj = 0; jj < yval.size(); jj++)
+  //   std::cout <<"              " << jj << " : " << yval[jj] << "  - " << incA[jj] << std::endl; 
+  // for (unsigned int jj = 0; jj < incA.size(); jj++)
+  //   assert(incA[jj] > 0);
+  
+#ifdef MC__CPWLUSG_DEBUG    
+          for (unsigned int jj = 1; jj < yval.size(); jj++)
+            if(std::fabs(yval[jj]) > 1000){std::cout << jj << " in " << yval.size() << " "<< yval[jj] << std::endl; assert(std::fabs(yval[jj]) < 1000);};
+#endif  
+
+  //double lbnd;
+  //double ubnd;
+
+  if(isUnder){
+    yMinOrMax = std::min(yMinOrMax,yval[n-2]);      
+    yMinOrMax = std::min(yMinOrMax,yval[n-1]);    
+    // if(!_lbnd.second) {_lbnd.second = true;_lbnd.first = yMinOrMax;};
+    // _ubnd.second = false;
+    //lbnd = yMinOrMax;
+  }
+  else{
+    yMinOrMax = std::max(yMinOrMax,yval[n-2]);      
+    yMinOrMax = std::max(yMinOrMax,yval[n-1]);
+    // if(!_ubnd.second) {_ubnd.second = true;_ubnd.first = yMinOrMax;};
+    // _lbnd.second = false;
+    //ubnd = yMinOrMax;
+  }
+  
+  // std::cout << "yMinOrMax " << yMinOrMax << std::endl;
+
+  std::make_heap(areaLoss.begin(), areaLoss.end(), _cmp_indexed_areaLoss);
+
+  std::vector<int> hind(n-3);       // mapping each window index to the position in the heap areaLoss
+  for (unsigned int i = 0; i < n-3; i++) {
+      hind[areaLoss[i].second] = (int) i;
+  }        
+    
+
+  std::vector<int> nxtInd(n); // = [i for i in range(1,n+1)]
+  std::vector<int> prvInd(n); // = [i for i in range(-1,n-1,1)]
+  for (int i = 0; i < ((int) n); i++) {
+      prvInd[i] = i - 1;  
+      nxtInd[i] = i + 1;        
+  }                 
+
+  auto & aMin = areaLoss[0]; // bind the reference to the top of the heap, heappop(areaLoss,hind) in python 
+    // std::cout << "aMin " << aMin.first << " at " << aMin.second << std::endl;
+    // std::cout << "areaLoss len" << areaLoss.size() << std::endl;
+    // std::cout << "aMin1 " << areaLoss[1].first << " at " << areaLoss[1].second << std::endl;
+  //unsigned int ctr = areaLoss.size();
+
+  // if (isUnder){
+  //   while (yval[aMin.second] + slpXL[aMin.second]*deltaXL[aMin.second] + 1e-14 < yMinOrMax){
+  //     areaLoss[0].first = DBL_MAX;
+  //     _modify_heap(areaLoss,0,hind);
+  //     ctr --;
+  //     if(ctr == 0 ){
+  //       // _lbnd.first = yval[aMin.second] + slpXL[aMin.second]*deltaXL[aMin.second]; 
+  //       // yMinOrMax = _lbnd.first; 
+  //       yMinOrMax = yval[aMin.second] + slpXL[aMin.second]*deltaXL[aMin.second]; 
+  //       break;
+  //     }      
+  //     // std::cout << "aMin " << aMin.first << " at " << aMin.second << std::endl;
+  //     // if(areaLoss.size() <= 2) {
+  //     //   std::cout << " here we only have 1-2 choices" << std::endl;
+  //     //   throw typename PWLU::Exceptions( PWLU::Exceptions::UNDEF );
+  //     // }        
+  //     // aMin = areaLoss[0]; // as the reference binds to that, we do not need assignment
+  //   }
+  // }
+  // else{
+  //   while (yval[aMin.second] + slpXL[aMin.second]*deltaXL[aMin.second] + 1e-14 > yMinOrMax){
+  //     areaLoss[0].first = DBL_MAX;
+  //     _modify_heap(areaLoss,0,hind);
+  //     ctr --;
+  //     if(ctr == 0 ){
+  //       // _ubnd.first = yval[aMin.second] + slpXL[aMin.second]*deltaXL[aMin.second]; 
+  //       // yMinOrMax = _ubnd.first;
+  //       yMinOrMax = yval[aMin.second] + slpXL[aMin.second]*deltaXL[aMin.second]; 
+  //       break;
+  //     };
+  //     // aMin = areaLoss[0]; // as the reference binds to that, we do not need assignment
+  //   }       
+  // }    
+
+  //std::cout <<  "            aMin.second " << aMin.second << " with " << std::scientific << std::setprecision(14) << aMin.first << std::endl;    
+  // updating the indexes so that we can skip the second element in the window, and 
+  //   update the third one with the computed one
+  // std::cout << "update the third one with the computed one" << std::endl;
+  int pos = aMin.second;
+  int id_1 = nxtInd[aMin.second];
+  int id   = nxtInd[id_1];
+  prvInd[id]   = aMin.second;
+  nxtInd[aMin.second] = id;
+ 
+  // std::cout << "        pos = "<< pos << std::endl;
+
+  incA[pos] = deltaXL[aMin.second];
+  slpA[pos] = slpXL[aMin.second];
+  incA[id]  = deltaXR[aMin.second];
+  slpA[id]  = slpXR[aMin.second];
+  yval[id] = yval[pos] + slpXL[aMin.second]*deltaXL[aMin.second];
+
+#ifdef MC__CPWLUSG_DEBUG    
+    assert(incA[pos] >= 1e-15);
+    assert(incA[id] >= 1e-15);    
+    assert(std::fabs(slpA[pos]) <= 50);
+    assert(std::fabs(slpA[id]) <= 50);  
+#endif
+
+  //T accAreaLoss = aMin.first;
+  // std::cout << "n-k-1 " << n-k-1 << std::endl;    
+  for(unsigned int i = 1; i < n-k-1; i ++ ){
+    // std::cout << "i =  " << i << std::endl; 
+    _heap_pop(areaLoss,hind);
+    const int idx1 = pos;
+    //const int idx2 = id; 
+    const int idx3 = nxtInd[id]; 
+
+    if (pos > 0){
+      const int idx0 = prvInd[idx1];
+
+      const std::vector<double> incIn{incA[idx0],incA[pos],incA[id]}; 
+      const std::vector<double> slpIn{slpA[idx0],slpA[pos],slpA[id]};
+
+      slpDiff1 = isUnder?(slpIn[0]-slpIn[1]):(slpIn[1]-slpIn[0]);       
+      slpDiff2 = isUnder?(slpIn[1]-slpIn[2]):(slpIn[2]-slpIn[1]); 
+      _underestimate_in_window3(incIn,slpIn,0,slpDiff1,slpDiff2,data,isUnder);
+      areaLoss[hind[idx0]].first = data[4]; // aLoss;
+      deltaXL[idx0] = data[0];
+      deltaXR[idx0] = data[1];
+      slpXL[idx0] = data[2];
+      slpXR[idx0] = data[3];    
+      _modify_heap(areaLoss,hind[idx0],hind);
+      // std::cout << "data[0] " << data[0] << std::endl;
+      // std::cout << "data[1] " << data[1] << std::endl;     
+      // std::cout << "data[2] " << data[2] << std::endl;            
+      if (idx0 > 0){
+
+        const int idx_1 = prvInd[idx0];
+        const std::vector<double> incIn{incA[idx_1],incA[idx0],incA[pos]}; 
+        const std::vector<double> slpIn{slpA[idx_1],slpA[idx0],slpA[pos]};                
+
+        slpDiff2 = slpDiff1;
+        slpDiff1 = isUnder?(slpIn[0]-slpIn[1]):(slpIn[1]-slpIn[0]);
+        _underestimate_in_window3(incIn,slpIn,0,slpDiff1,slpDiff2,data,isUnder);          
+        areaLoss[hind[idx_1]].first = data[4];
+        deltaXL[idx_1] = data[0];
+        deltaXR[idx_1] = data[1];
+        slpXL[idx_1] = data[2];
+        slpXR[idx_1] = data[3];  
+        _modify_heap(areaLoss,hind[idx_1],hind);
+        // std::cout << "data[0] " << data[0] << std::endl;
+        // std::cout << "data[1] " << data[1] << std::endl;     
+        // std::cout << "data[2] " << data[2] << std::endl;                
+      }
+    } 
+    if (idx3 <= ((int )n - 2)){  
+    //  the index of the right endpoint is n-1
+
+      const int idx4 = nxtInd[idx3];
+      const std::vector<double> incIn{incA[pos],incA[id],incA[idx3]}; 
+      const std::vector<double> slpIn{slpA[pos],slpA[id],slpA[idx3]};     
+      slpDiff1 = isUnder?(slpIn[0]-slpIn[1]):(slpIn[1]-slpIn[0]);
+      slpDiff2 = isUnder?(slpIn[1]-slpIn[2]):(slpIn[2]-slpIn[1]);
+      _underestimate_in_window3(incIn,slpIn,0,slpDiff1,slpDiff2,data,isUnder);                          
+      areaLoss[hind[id_1]].first = data[4];
+      areaLoss[hind[id_1]].second = pos;
+      deltaXL[pos] = data[0];
+      deltaXR[pos] = data[1];
+      slpXL[pos] = data[2];
+      slpXR[pos] = data[3];  
+      //hind[idx1] = hind[id_1]
+      _modify_heap(areaLoss,hind[id_1],hind);
+
+      // std::cout << "data[0] " << data[0] << std::endl;
+      // std::cout << "data[1] " << data[1] << std::endl;     
+      // std::cout << "data[2] " << data[2] << std::endl;    
+      if (idx4 <= ((int )n - 2)){
+
+
+        const std::vector<double> incIn{incA[id],incA[idx3],incA[idx4]}; 
+        const std::vector<double> slpIn{slpA[id],slpA[idx3],slpA[idx4]};                     
+        slpDiff1 = slpDiff2;
+        slpDiff2 = isUnder?(slpIn[1]-slpIn[2]):(slpIn[2]-slpIn[1]);
+        _underestimate_in_window3(incIn,slpIn,0,slpDiff1,slpDiff2,data,isUnder);    
+
+        areaLoss[hind[id]].first = data[4]; // aLoss
+        deltaXL[id] = data[0];
+        deltaXR[id] = data[1];
+        slpXL[id] = data[2];
+        slpXR[id] = data[3]; 
+        _modify_heap(areaLoss,hind[id],hind);
+        // std::cout << "data[0] " << data[0] << std::endl;
+        // std::cout << "data[1] " << data[1] << std::endl;     
+        // std::cout << "data[2] " << data[2] << std::endl;                      
+      }
+    } 
+
+    // std::cout << "aMin " << areaLoss[0].first << " at " << areaLoss[0].second << std::endl;
+    // std::cout << "aMin1 " << areaLoss[1].first << " at " << areaLoss[1].second << std::endl;
+
+
+    // // if(aMin.first != areaLoss[0].first) std::cout << "error" << std::endl; // test to make sure the reference binds to the heap top
+    // // aMin = areaLoss[0]; // as the reference binds to that, we do not need assignment, heappop(areaLoss,hind) in python
+    // unsigned int ctr = areaLoss.size();
+    // if (isUnder){
+    //   while (yval[aMin.second] + slpXL[aMin.second]*deltaXL[aMin.second] + 1e-14 < yMinOrMax){
+    //     areaLoss[0].first = DBL_MAX;
+    //     _modify_heap(areaLoss,0,hind);
+    //     ctr --;
+    //     if(ctr == 0 ){
+    //       // _lbnd.first = yval[aMin.second] + slpXL[aMin.second]*deltaXL[aMin.second]; 
+    //       // yMinOrMax = _lbnd.first; 
+    //       yMinOrMax = yval[aMin.second] + slpXL[aMin.second]*deltaXL[aMin.second]; 
+    //       break;
+    //     }      
+    //     // std::cout << "aMin " << aMin.first << " at " << aMin.second << std::endl;
+    //     // if(areaLoss.size() <= 2) {
+    //     //   std::cout << " here we only have 1-2 choices" << std::endl;
+    //     //   throw typename PWLU::Exceptions( PWLU::Exceptions::UNDEF );
+    //     //}        
+    //     //aMin = areaLoss[0]; // as the reference binds to that, we do not need assignment
+    //   }
+    // }
+    // else{
+    //   while (yval[aMin.second] + slpXL[aMin.second]*deltaXL[aMin.second] + 1e-14 > yMinOrMax){
+    //     areaLoss[0].first = DBL_MAX;
+    //     _modify_heap(areaLoss,0,hind);
+    //     ctr --;
+    //     if(ctr == 0 ){
+    //       // _ubnd.first = yval[aMin.second] + slpXL[aMin.second]*deltaXL[aMin.second]; 
+    //       // yMinOrMax = _ubnd.first;
+    //       yMinOrMax = yval[aMin.second] + slpXL[aMin.second]*deltaXL[aMin.second];           
+    //       break;
+    //     };
+    //     //aMin = areaLoss[0]; // as the reference binds to that, we do not need assignment
+    //   }       
+    // }    
+    // //std::cout <<  "              aMin.second " << aMin.second << " with " << std::scientific << std::setprecision(14) << aMin.first << std::endl;
+
+    pos = aMin.second;
+    id_1 = nxtInd[aMin.second];
+    id   = nxtInd[id_1];
+    prvInd[id]   = aMin.second;
+    nxtInd[aMin.second] = id;
+
+    incA[pos] = deltaXL[aMin.second];
+    slpA[pos] = slpXL[aMin.second];
+    incA[id]  = deltaXR[aMin.second];
+    slpA[id]  = slpXR[aMin.second];
+    yval[id] = yval[pos] + slpXL[aMin.second]*deltaXL[aMin.second];
+
+#ifdef MC__CPWLUSG_DEBUG    
+    assert(incA[pos+1] >= 1e-15);
+    assert(incA[id+1] >= 1e-15);    
+
+    assert(std::fabs(slpA[pos+1]) <= 50);
+    assert(std::fabs(slpA[id+1]) <= 50);  
+#endif    
+    //accAreaLoss = accAreaLoss + aMin.first;
+  }
+
+
+
+  // std::vector<double> incC(k); 
+  // std::vector<double> slpC(k);  
+
+  unsigned int i = 0;
+  for(unsigned int j = 0; j < k; j++){
+    incA[j] = incA[i];
+    slpA[j] = slpA[i];
+#ifdef MC__CPWLUSG_DEBUG        
+    assert(i+1 < first.size()); 
+#endif     
+    // if(j==k-1){
+    //   std::cout << i+1 << " , " << first.size() << std::endl;
+    // }
+    // std::cout << "    i = " << i << std::endl;
+    i = nxtInd[i];
+  }
+    
+  // std::cout << " , " << incA.size() << std::endl;  
+  // std::cout << " , " << _dy.size() << std::endl;
+  _dx.resize(k);
+  _dy.resize(k);
+  // _dx.swap(incC);
+  // _dy.swap(slpC);
+
+
+  // std::cout << "          output vertices" << std::endl;
+  // std::cout <<"              0" << " : " << yval[0] << std::endl; 
+  // for (unsigned int jj = 0; jj < _dx.size(); jj++){
+  //   yval[jj+1] = yval[jj] + _dx[jj]*_dy[jj];
+  //   std::cout <<"              " << jj+1 << " : " << yval[jj+1] << "  - " << _dx[jj] << std::endl; 
+  // }
+
+  // for (unsigned int jj = 0; jj < _dx.size(); jj++)
+  //   assert(_dx[jj] > 0);
+
+#ifdef MC__CPWLUSG_DEBUG    
+          for (unsigned int jj = 1; jj < first.size(); jj++)
+            if(first[jj] < 1e-15){std::cout  << jj << " in " << first.size() << "\n"   << first[jj] << std::endl; assert(first[jj] >= 1e-15);};
+#endif
+
+  // first.back() = xRightEndpoint;
+
+#ifdef MC__CPWLUSG_DEBUG              
+  for (unsigned int jj = 1; jj < second.size(); jj++)
+    if(std::fabs(second[jj]) > 50) {
+      std::cout << jj << " in " << second.size() << std::endl;
+      std::cout << second[jj] << std::endl;
+      assert(std::fabs(second[jj]) <= 50);
+    }  
+#endif
+  //std::cout <<  "leave segment reduction" << std::endl;
+
+  return *this;
+}  
+
+inline
+bool PWLU::_cmp_indexed_areaLoss
+( const std::pair<double, int>& a, const std::pair<double, int>& b )
+{
+  return a.first > b.first;
+}
+
+inline
+std::pair<double, int> PWLU::_heap_pop
+( std::vector<std::pair<double, int>>& heap, std::vector<int>& hind )
+{
+  // Pop the smallest item off the heap, maintaining the heap invariant."""
+  auto lastelt =  heap[heap.size()-1];
+  heap.pop_back();    // raises appropriate IndexError if heap is empty
+  if (!heap.empty()){
+    auto returnitem = heap[0];
+    hind[heap[0].second] = -1;
+    heap[0] = lastelt;
+    hind[lastelt.second] = 0;
+    _heap_bubble_down(heap, 0, hind);
+    return returnitem;
+  }
+  hind[lastelt.second] = -1;
+  return lastelt;
+}
+
+inline 
+void PWLU::_modify_heap
+( std::vector<std::pair<double, int>>& heap, const int pos, std::vector<int>& hind )
+{
+  if (pos == 0){
+    _heap_bubble_down(heap, pos, hind);
+    //print("pos",pos,"heap[pos].al",heap[pos].al)
+  }
+  else{
+    unsigned int parentpos = (pos - 1) >> 1;
+    // print("pos",pos,"parentpos",parentpos)
+    // print("heap[pos]",heap[pos].al,"heap[parentpos]",heap[parentpos].al)
+    if (heap[pos].first < heap[parentpos].first){
+      std::swap(heap[pos],heap[parentpos]);
+      // print("heap[pos]",heap[pos],"heap[parentpos]",heap[parentpos])
+      hind[heap[pos].second] = pos;
+      hind[heap[parentpos].second] = parentpos;
+      _heap_bubble_up(heap, parentpos, hind);
+    }
+    else
+      _heap_bubble_down(heap, pos, hind);
+  }
+
+}
+
+inline 
+void PWLU::_heap_bubble_up
+(std::vector<std::pair<double, int>> & heap, int pos, std::vector<int> & hind)
+{
+    auto newitem = heap[pos];
+    // Follow the path to the root, moving parents down until finding a place
+    // newitem fits.
+    while (pos > 0){
+        unsigned int parentpos = (pos - 1) >> 1;
+        auto parent = heap[parentpos];
+        if (newitem.first < parent.first){
+            heap[pos] = parent;
+            hind[parent.second] = pos;
+            pos = parentpos;
+            continue;
+        }
+        break;
+    }
+    heap[pos] = newitem;
+    hind[newitem.second] = pos;
+}
+
+inline
+void PWLU::_heap_bubble_down
+( std::vector<std::pair<double, int>>& heap, int pos, std::vector<int>& hind )
+{
+    // print("bubble_down")
+    int endpos = heap.size();
+    //int startpos = pos;
+    auto newitem = heap[pos];
+    // print("endpos ", endpos,"startpos ",startpos,"newitem ",newitem)
+    //  Bubble up the smaller child until hitting a leaf.
+    int childpos = 2*pos + 1;    // leftmost child position
+    while (childpos < endpos){
+        // Set childpos to index of smaller child.
+        int rightpos = childpos + 1;
+        // print("left: heap[childpos] ", heap[childpos], "heap[rightpos]", heap[rightpos])
+        if (rightpos < endpos && (heap[childpos].first >= heap[rightpos].first)){
+            childpos = rightpos;
+        // Move the smaller child up.
+        }
+        if (newitem.first > heap[childpos].first){
+            heap[pos] = heap[childpos];
+            hind[heap[pos].second] = pos;
+            pos = childpos;
+            childpos = 2*pos + 1;
+        }
+        else break;
+    }
+    // The leaf at pos is empty now.  Put newitem there, and bubble it up
+    // to its final resting place (by sifting its parents down).
+    heap[pos] = newitem;
+    hind[newitem.second] = pos;
+}
+
+inline
 std::ostream& operator<<
 ( std::ostream& os, PWLU const& var )
 {

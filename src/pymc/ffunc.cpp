@@ -195,6 +195,23 @@ pyFFSubgraph
 py::class_<mc::FFBase> pyFFBase( m, "FFBase" );
 pyFFBase
  .def( py::init<>() )
+ .def( "add_var",
+       []( mc::FFBase& G, std::string const& name )
+       {
+         return G.add_var( name );
+       },
+       py::arg("name") = "",
+       "add variable to graph"
+  )
+ .def( "add_vars",
+       []( mc::FFBase& G, size_t dim, std::string const& name )
+       {
+         return G.add_vars( dim, name );
+       },
+       py::arg("dim"),
+       py::arg("name") = "",
+       "add variables to graph"
+  )
  .def( "clear",
        &mc::FFBase::clear,
        "clear graph"

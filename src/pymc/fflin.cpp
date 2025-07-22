@@ -2,8 +2,6 @@
 #include <pybind11/operators.h>
 #include <pybind11/stl.h>
 
-#include "fflin.hpp" 
-
 #ifdef MC__USE_PROFIL
  #include "mcprofil.hpp"
  typedef INTERVAL I;
@@ -25,48 +23,76 @@
  #endif
 #endif
 
+#include "fflin.hpp" 
+
 namespace py = pybind11;
 
 
 void mc_fflin( py::module_ &m )
 {
 
-py::class_<mc::FFLin<I>, mc::FFOp> pyFFSum( m, "FFSum" );
+py::class_<mc::FFLin<I>, mc::FFOp> pyFFLin( m, "FFLin" );
 
-pyFFSum
+pyFFLin
  .def(
    py::init<>(),
    "default constructor"
  )
  .def(
    "__call__",
-   []( mc::FFLin<I>& self, std::vector<mc::FFVar> const& vVar, std::vector<double>& wVar )
+   []( mc::FFLin<I>& self, std::vector<mc::FFVar> const& Var, std::vector<double>& Coef, double const& Bias )
    {
-     return self( vVar.size(), vVar.data(), wVar.data() );
+     return self( Var, Coef, Bias );
    },
-   py::arg("vVar"),
-   py::arg("wVar") = std::vector<double>(),
+   py::arg("Var"),
+   py::arg("Coef"),
+   py::arg("Bias") = 0.,
    py::return_value_policy::reference_internal,
-   "define ODE operation in DAG"
+   "define linear combination operation in DAG"
  )
- .def_readwrite(
-   "type",
-   &mc::FFLin<I>::type,
-   "retreive operation type"
+ .def(
+   "__call__",
+   []( mc::FFLin<I>& self, std::vector<mc::FFVar> const& Var, double const& Coef, double const& Bias )
+   {
+     return self( Var, Coef, Bias );
+   },
+   py::arg("Var"),
+   py::arg("Coef"),
+   py::arg("Bias") = 0.,
+   py::return_value_policy::reference_internal,
+   "define linear combination operation in DAG"
  )
- .def_readwrite(
-   "info",
-   &mc::FFLin<I>::info,
-   "retreive operation id"
+ .def(
+   "Coef",
+   []( mc::FFLin<I>& self )
+     { return std::vector<double>( self.Coef(), self.Coef()+self.nCoef() ); },
+   py::return_value_policy::move,
+   "retrieve linear coefficients"
  )
- .def_readwrite(
-   "varin",
-   &mc::FFLin<I>::varin
+ .def(
+   "Bias",
+   []( mc::FFLin<I>& self )
+     { return self.Bias(); },
+   "retrieve bias coefficient"
  )
- .def_readwrite(
-   "varout",
-   &mc::FFLin<I>::varout
- )
+// .def_readwrite(
+//   "type",
+//   &mc::FFLin<I>::type,
+//   "retreive operation type"
+// )
+// .def_readwrite(
+//   "info",
+//   &mc::FFLin<I>::info,
+//   "retreive operation id"
+// )
+// .def_readwrite(
+//   "varin",
+//   &mc::FFLin<I>::varin
+// )
+// .def_readwrite(
+//   "varout",
+//   &mc::FFLin<I>::varout
+// )
  .def( "name",
    &mc::FFLin<I>::name,
    "retreive operation name"

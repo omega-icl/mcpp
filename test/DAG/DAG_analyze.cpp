@@ -1,4 +1,4 @@
-#define MC__SELIM_DEBUG_PROCESS
+#undef MC__SELIM_DEBUG_PROCESS
 #undef MC__SLIFT_CHECK
 #undef MC__SLIFT_DEBUG_PROCESS
 
@@ -198,22 +198,21 @@ int test_slift0()
   std::cout << "\n==============================================\ntest_slift0:\n";
 
   mc::FFGraph DAG;
-  const unsigned NX = 2, NF = 2;
-  mc::FFVar X[NX];
+  const unsigned NX = 2;
+  std::vector<mc::FFVar> X(NX);
   for( unsigned i(0); i<NX; i++ ) X[i].set( &DAG );
-  mc::FFVar F[NF];
-  F[0] = pow( X[0] + 1 / sqr( X[1] ), 3 );
-  F[1] = exp( 2 * sqr( X[1] ) - 1 );
+  std::vector<mc::FFVar> F{ pow( X[0] + 1 / sqr( X[1] ), 3 ),
+                            exp( 2 * sqr( X[1] ) - 1 ) };
   std::cout << DAG;
 
   //mc::SLiftVar::t_poly::options.BASIS = mc::SLiftVar::t_poly::Options::MONOM;
   mc::SLiftEnv SPL( &DAG );
-  SPL.options.KEEPFACT = true;
-  SPL.options.LIFTDIV  = false;
-  SPL.options.LIFTIPOW = false;
-  SPL.process( NF, F );
+  //SPL.options.KEEPFACT = true;
+  //SPL.options.LIFTDIV  = false;
+  //SPL.options.LIFTIPOW = false;
+  SPL.process( F );
   std::cout << SPL;
-  
+
   return 0;
 }
 
@@ -256,24 +255,24 @@ int test_selim0()
 
   mc::FFGraph DAG;
   const unsigned NX = 3, NF = 2;
-  mc::FFVar X[NX];
+  std::vector<mc::FFVar> X(NX);
   for( unsigned i(0); i<NX; i++ ) X[i].set( &DAG );
-  mc::FFVar F[NF];
-  F[0] = ( 3. * X[0] * sqr( X[2] ) ) / X[1] - 2. * X[0] * X[1] - X[0] - 1;
-  F[1] = 2./X[1] + 3./X[2] - 1.;
-  //std::cout << DAG;
+  std::vector<mc::FFVar> F{ ( 3. * X[0] * sqr( X[2] ) ) / X[1] - 2. * X[0] * X[1] - X[0] - 1,
+                              2./X[1] + 3./X[2] - 1. };
+  std::cout << DAG;
   for( unsigned i=0; i<NF; ++i )
-    DAG.output( DAG.subgraph( 1, F+i ) );
+    DAG.output( DAG.subgraph( 1, &F[i] ) );
 
   mc::SElimEnv SPE( &DAG );
-  SPE.options.SLIFT.KEEPFACT = false;
-  SPE.options.SLIFT.LIFTDIV  = false;
-  SPE.options.ELIMMLIN       = true;
-  SPE.options.MIPDISPLEVEL   = 1;
-  SPE.options.MIPOUTPUTFILE  = "test_selim0.lp";
+  //SPE.options.SLIFT.KEEPFACT = false;
+  //SPE.options.SLIFT.LIFTDIV  = false;
+  //SPE.options.ELIMMLIN       = true;
+  //SPE.options.MIPDISPLEVEL   = 0;
+  //SPE.options.MIPOUTPUTFILE  = "test_selim0.lp";
 
-  std::map<mc::FFVar const*,double,mc::lt_FFVar> W = { { &X[2], 0. } };
-  SPE.process( NF, F, W, true );
+  //std::map<mc::FFVar const*,double,mc::lt_FFVar> W = { { &X[2], 0. } };
+  //SPE.process( NF, F, W, true );
+  SPE.process( F );
   std::cout << SPE;
 
   return 0;
@@ -429,13 +428,13 @@ int main()
 //    test_dep2();
 //    test_inv2();
 //    test_spoly1();
-//    test_slift0();
+    test_slift0();
 //    test_slift1();
 //    test_selim0();
 //    test_selim1();
 //    test_selim2();
 //    test_selim3();
-    test_selim4();
+//    test_selim4();
   }
   catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()

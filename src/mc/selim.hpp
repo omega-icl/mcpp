@@ -5,7 +5,7 @@
 /*!
 \page page_SELIM Variable Elimination in Factorable Expressions
 \author Benoit Chachuat & Dominik Bongartz
-\date 2023
+\date 2025
 \bug No known bugs.
 
 The classes mc::SElimEnv and mc::SElimVar defined in <tt>selim.hpp</tt> enable the elimination of a subset of variables from factorable expressions through expoiting solvable (invertible) equality constraints. 
@@ -25,7 +25,7 @@ This elimination proceeds in 3 steps:
 
 The MIP formulation solves the following problem using Gurobi:
 \f{align*}
-\displaystyle\min_{\boldsymbol{v},\boldsymbol{c},\boldsymbol{d},\boldsymbol{e},\boldsymbol{z}}\ & \sum_{i=1}^{\bar{V}} \omega_i v_i\\
+\displaystyle\max_{\boldsymbol{v},\boldsymbol{c},\boldsymbol{d},\boldsymbol{e},\boldsymbol{z}}\ & \sum_{i=1}^{\bar{V}} \omega_i v_i\\
 \displaystyle\text{s.t.}\ \ \ 
 & \sum_{k\in E_i} e_{i,k} = v_i,\ \ i=1\ldots\bar{V}\\
 & \sum_{i\in C_k} e_{i,k} = c_k,\ \ k=1\ldots\bar{C}\\
@@ -68,84 +68,26 @@ A DAG of the factorable function defining the equality constraints is first crea
 \code
       mc::FFGraph DAG;
       const unsigned NX = 3, NF = 2;
-      mc::FFVar X[NX];
+      std::vector<mc::FFVar> X(NX), F(NF);
       for( unsigned i(0); i<NX; i++ ) X[i].set( &DAG );
-      mc::FFVar F[NF];
       F[0] = ( 3. * X[0] * sqr( X[2] ) ) / X[1] - 2. * X[0] * X[1] - X[0] - 1;
       F[1] = 2./X[1] + 3./X[2] - 1.;
-      std::cout << DAG;
 \endcode
-
-The last line displays the following information about the DAG:
-
-\verbatim
-    DAG VARIABLES:
-      V0	 => { Z1 Z5 Z9 }
-      V1	 => { Z2 Z7 Z13 }
-      V2	 => { Z3 Z12 }
-
-    DAG INTERMEDIATES:
-      Z1	<=  V0 x Z0		 => { Z2 }
-      Z2	<=  V1 x Z1		 => { Z8 }
-      Z3	<=  SQR( V2 )		 => { Z6 }
-      Z5	<=  V0 x Z4		 => { Z6 }
-      Z6	<=  Z3 x Z5		 => { Z7 }
-      Z7	<=  Z6 / V1		 => { Z8 }
-      Z8	<=  Z7 - Z2		 => { Z9 }
-      Z9	<=  Z8 - V0		 => { Z11 }
-      Z11	<=  Z9 + Z10		 => { }
-      Z12	<=  Z4 / V2		 => { Z14 }
-      Z13	<=  Z0 / V1		 => { Z14 }
-      Z14	<=  Z12 + Z13		 => { Z15 }
-      Z15	<=  Z14 + Z10		 => { }
-      Z10	<=  -1(I)		 => { Z11 Z15 }
-      Z0	<=  2(I)		 => { Z1 Z13 }
-      Z4	<=  3(I)		 => { Z5 Z12 }
-\endverbatim
 
 Next, an environment <a>mc::SElimEnv</a> is defined and the method <a>mc::SElimEnv::process</a> is invoked to perform the elimination:
 
 \code
       mc::SElimEnv SPE( &DAG );
-      SPE.process( NF, F );
+      SPE.process( F );
       std::cout << SPE;
 \endcode
 
 The following information is displayed in this instance:
 
 \verbatim
-    2 VARIABLES MAY BE ELIMINATED
-
-    OPERATIONS IN SUBGRAPH OF V2 USING Z15=0:
-      Z4	<<  3(I)	
-      Z0	<<  2(I)	
-      V1	<<  VARIABLE
-      Z13	<<  Z0 / V1	
-      Z16	<<  - Z13	
-      Z17	<<  1(I)	
-      Z18	<<  Z16 + Z17	
-      Z19	<<  Z4 / Z18	
-    DEPENDENTS IN SUBGRAPH OF V2 USING Z15=0:
-      0:  Z19
-    WORK ARRAY SIZE: 8
-
-    OPERATIONS IN SUBGRAPH OF V0 USING Z11=0:
-      Z17	<<  1(I)	
-      V2	<<  VARIABLE
-      Z3	<<  SQR( V2 )	
-      Z4	<<  3(I)	
-      Z20	<<  Z3 x Z4	
-      V1	<-  VARIABLE
-      Z21	<<  Z20 / V1	
-      Z10	<<  -1(I)	
-      Z22	<<  Z21 + Z10	
-      Z23	<<  -2(I)	
-      Z24	<<  V1 x Z23	
-      Z25	<<  Z22 + Z24	
-      Z26	<<  Z17 / Z25	
-    DEPENDENTS IN SUBGRAPH OF V0 USING Z11=0:
-      0:  Z26
-    WORK ARRAY SIZE: 13
+2 VARIABLES CAN BE ELIMINATED
+  0 = Z15   -> V2 = 3 / ( ( - 2 / V1 ) + 1 )
+  0 = Z11   -> V0 = 1 / ( ( SQR( V2 ) * 3 ) / V1 - 1 + V1 * (-2) )
 \endverbatim
 
 These results show that both variables \f$x_0\f$ and \f$x_2\f$ can be eliminated through inverting both equality constraints.
@@ -169,6 +111,7 @@ The method mc::SElimEnv::VarElim allows retreiving a 3-tuple of vectors of (i) t
 
 // TO DO:
 // - Complete documentation
+// - Add heuristic method
 
 #ifndef MC__SELIM_H
 #define MC__SELIM_H
@@ -402,10 +345,10 @@ SElimBase::_MIP_solve
 ()
 {
   _GRBmodel->update();
-  if( options.MIPOUTPUTFILE != "" )
-    _GRBmodel->write( options.MIPOUTPUTFILE );
   fedisableexcept(FE_ALL_EXCEPT);
   _GRBmodel->set( GRB_IntAttr_ModelSense, -1 );
+  if( options.MIPOUTPUTFILE != "" )
+    _GRBmodel->write( options.MIPOUTPUTFILE );
   _GRBmodel->optimize();
 }
 
@@ -417,14 +360,14 @@ SElimBase::_MIP_encode
   // Define Gurobi continuous and binary variables  
   for( auto const& [v,vset] : _mapVarElVar ){
     // This also defines the objective function
-    _MIP_var[v]    = _GRBmodel->addVar( 0., 1., _VarWeight[v], GRB_BINARY );
-    _MIP_varMTZ[v] = _GRBmodel->addVar( 0., _ndxVar.size()-1., 0., GRB_CONTINUOUS );
+    _MIP_var[v]    = _GRBmodel->addVar( 0., 1., _VarWeight[v], GRB_BINARY, "v_"+std::to_string(v) );
+    _MIP_varMTZ[v] = _GRBmodel->addVar( 0., _ndxVar.size()-1., 0., GRB_CONTINUOUS, "z_"+std::to_string(v) );
     for( auto const& vv : vset )
-      _MIP_varvar[v][vv] = _GRBmodel->addVar( 0., 1., 0., GRB_BINARY );
+      _MIP_varvar[v][vv] = _GRBmodel->addVar( 0., 1., 0., GRB_BINARY, "d_"+std::to_string(v)+","+std::to_string(vv) );
   }
 
   for( auto const& [e,vset] : _mapCtrVarCand ){
-    _MIP_ctr[e] = _GRBmodel->addVar( 0., 1., 0., GRB_BINARY );
+    _MIP_ctr[e] = _GRBmodel->addVar( 0., 1., 0., GRB_BINARY, "c_"+std::to_string(e) );
 #ifdef MC__SELIM_CHECK
     assert( !_mapCtrVarCand[e].empty() );
 #endif
@@ -432,7 +375,7 @@ SElimBase::_MIP_encode
 #ifdef MC__SELIM_DEBUG_MIP
       std::cout << "Define: _MIP_ctrvar[" << e << "][" << v << "]\n";
 #endif
-      _MIP_ctrvar[e][v] = _GRBmodel->addVar( 0., 1., 0., GRB_BINARY );
+      _MIP_ctrvar[e][v] = _GRBmodel->addVar( 0., 1., 0., GRB_BINARY, "e_"+std::to_string(v)+","+std::to_string(e) );
     }
   }
 

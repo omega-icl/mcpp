@@ -1,8 +1,8 @@
-#define TEST_PEAK	// <-- select test function here
+#define TEST_SHEKEL	// <-- select test function here
 #undef  USE_DAG        // <-- specify to evaluate via a DAG of the function
 #define SAVE_RESULTS   // <-- specify whether to save results to file
-#undef  ANALYSE_RATE    // <-- specify whether to analyse rate of convergence
-#define  ANALYSE_TIME    // <-- specify whether to analyse computational time
+#define  ANALYSE_RATE    // <-- specify whether to analyse rate of convergence
+#undef  ANALYSE_TIME    // <-- specify whether to analyse computational time
 ////////////////////////////////////////////////////////////////////////
 
 #include <fstream>
@@ -51,6 +51,32 @@ T myfunc
   return sqrt(fabs(x-y));
 }
 
+#elif defined( TEST_SHEKEL )
+unsigned const N = 2;
+unsigned const M = 10;
+
+const double B[10]    = {0.1, 0.2, 0.2, 0.4, 0.4, 0.6, 0.3, 0.7, 0.5, 0.5};
+const double C[4][10] = {{4.0, 1.0, 8.0, 6.0, 3.0, 2.0, 5.0, 8.0, 6.0, 7.0},
+                         {4.0, 1.0, 8.0, 6.0, 7.0, 9.0, 3.0, 1.0, 2.0, 3.6},
+                         {4.0, 1.0, 8.0, 6.0, 3.0, 2.0, 5.0, 8.0, 6.0, 7.0},
+                         {4.0, 1.0, 8.0, 6.0, 7.0, 9.0, 3.0, 1.0, 2.0, 3.6}};
+
+const double XL   =   0;	// <-- X range lower bound
+const double XU   =  10;	// <-- X range upper bound
+const double YL   =   0;	// <-- Y range lower bound
+const double YU   =  10;	// <-- Y range upper bound
+
+template <class T>
+T myfunc
+( const T&x, const T&y ){
+  T z = 0.;
+  for( unsigned i=0; i<M; ++i ){
+    T w = pow(x-C[0][i],2) + pow(y-C[1][i],2);
+    z += 1./(w+B[i]);
+  }
+  return z;
+}
+
 #elif defined( TEST_EXP )
 const double XL   = -2;	// <-- X range lower bound
 const double XU   =  1; // <-- X range upper bound
@@ -80,6 +106,8 @@ T myfunc
   //return (x/5-pow(x,3)-pow(y,5))*exp(-pow(x,2)-pow(y,2));
   //return 3*pow(1-x,2)*exp(-pow(x,2)-pow(y+1,2));// - 10*(x/5-pow(x,3)-pow(y,5))*exp(-pow(x,2)-pow(y,2));
   return 3*pow(1-x,2)*exp(-pow(x,2)-pow(y+1,2))-10*(x/5-pow(x,3)-pow(y,5))*exp(-pow(x,2)-pow(y,2))-(1/3)*exp(-pow(x+1,2)-pow(y,2));
+  //gnuplot> splot 'test_MLP.out' u 1:2:(3*(1-$1)**2*exp(-$1**2-($2+1)**2)-10*($1/5-$1**3-$2**5)*exp(-$1**2-$2**2)-(1/3)*exp(-($1+1)**2-$2**2)-$3) w l  
+
 }
 
 #elif defined( TEST_EXP1 )
@@ -192,7 +220,7 @@ int main()
     pwcmod.options = pwlmod.options;
 
     // Calculate superposition relaxations
-    int const NPWL = 8;	// <-- select initial variable partition >=1
+    int const NPWL = 4;	// <-- select initial variable partition >=1
     vector<PWLSV> PWLSVX{ PWLSV( pwlmod, 0, I(XL,XU), NPWL ), PWLSV( pwlmod, 1, I(YL,YU), NPWL ) },
                   PWLSVF( 1 );
     vector<double> DF( 1 );
@@ -246,9 +274,11 @@ int main()
 #endif
 
     vector<I> const XBND0{ I(XL,XU), I(YL,YU) };
-#ifdef TEST_PEAK
+#if defined( TEST_PEAK )
     map<unsigned,double> XREF{ {0,-1.059997e-02}, {1,1.580344e+00} }; // peak maximum point
     //map<unsigned,double> XREF{ {0,2.288469e-01}, {1,-1.626050e+00} }; // peak minimum point
+#elif defined( TEST_SHEKEL )
+    map<unsigned,double> XREF{ {0,4}, {1,4} }; // Shekel function maximum
 #else
     map<unsigned,double> XREF{ {0,Op<I>::mid(XBND0[0])}, {1,Op<I>::mid(XBND0[1])} }; // mid-point
 #endif
@@ -278,6 +308,7 @@ int main()
       double distmax_PWL2SVFu = 0.,   distmax_PWL2SVFo = 0.;
       double distmax_PWL4SVFu = 0.,   distmax_PWL4SVFo = 0.;
       double distmax_PWL8SVFu = 0.,   distmax_PWL8SVFo = 0.;
+      double distmax_PWL16SVFu = 0.,  distmax_PWL16SVFo = 0.;
 
       vector<I> XBND = { red( XBND0[0], XREF[0], rho ), red( XBND0[1], XREF[1], rho ) };
       cout << rho << " " << XBND[0] << " " << XBND[1];
@@ -326,6 +357,12 @@ int main()
       PWL8SVX[1].set( pwlmod, 1, XBND[1], 8 );
       PWL8SVF[0] = myfunc( PWL8SVX[0], PWL8SVX[1] );
       cout << " PWL8SVX " << endl;
+
+      vector<PWLSV> PWL16SVX(2), PWL16SVF( 1 );
+      PWL16SVX[0].set( pwlmod, 0, XBND[0], 16 );
+      PWL16SVX[1].set( pwlmod, 1, XBND[1], 16 );
+      PWL16SVF[0] = myfunc( PWL16SVX[0], PWL16SVX[1] );
+      cout << " PWL16SVX " << endl;
 
       for( unsigned iX1=0; iX1<NGRID; iX1++ ){
         for( unsigned iX2=0; iX2<NGRID; iX2++ ){
@@ -393,9 +430,17 @@ int main()
 
           distmax_PWL8SVFu = max( distmax_PWL8SVFu, DF[0] - PWL8SVFu );
           distmax_PWL8SVFo = max( distmax_PWL8SVFo, PWL8SVFo - DF[0] );
+
+          double const PWL16SVFu = PWL16SVF[0].uval({{0,DX[0]},{1,DX[1]}});
+          double const PWL16SVFo = PWL16SVF[0].oval({{0,DX[0]},{1,DX[1]}});
+
+          distmax_PWL16SVFu = max( distmax_PWL16SVFu, DF[0] - PWL16SVFu );
+          distmax_PWL16SVFo = max( distmax_PWL16SVFo, PWL16SVFo - DF[0] );
         }
       }
       
+      std::cout << "minF: " << min_F << "  maxF: " << max_F << std::endl;      
+
       ratefile << scientific << setprecision(5) << right
                << setw(14) << rho
                << setw(14) << mc::Op<I>::l(XBND[0]) << setw(14) << mc::Op<I>::u(XBND[0])
@@ -419,6 +464,8 @@ int main()
                << setw(14) << max( min_F - PWL4SVF[0].l(),   PWL4SVF[0].u() - max_F )
                << setw(14) << max( distmax_PWL8SVFu,         distmax_PWL8SVFo )
                << setw(14) << max( min_F - PWL8SVF[0].l(),   PWL8SVF[0].u() - max_F )
+               << setw(14) << max( distmax_PWL16SVFu,        distmax_PWL16SVFo )
+               << setw(14) << max( min_F - PWL16SVF[0].l(),  PWL16SVF[0].u() - max_F )
                << endl;
     }
 #endif
@@ -426,9 +473,9 @@ int main()
 #ifdef ANALYSE_TIME
     std::chrono::time_point<std::chrono::system_clock> start;
     std::chrono::microseconds walltime;
-    size_t NREPEAT = 50000;
+    size_t NREPEAT = 100000;
 
-    vector<MC> MCX{ MC( I(XL,XU), XREF[0] ), MC( I(XL,XU), XREF[1] ) }, MCF( 1 );
+    vector<MC> MCX{ MC( I(XL,XU), XREF[0] ), MC( I(YL,YU), XREF[1] ) }, MCF( 1 );
 
     start = std::chrono::system_clock::now();
     for( unsigned i=0; i<NREPEAT; ++i )
@@ -436,7 +483,7 @@ int main()
     walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - start );
     std::cout << "McCormick walltime: " << (walltime.count() * 1e-6) / (double)NREPEAT << std::endl;
 
-    std::vector<MC> MCsubX{ MC( I(XL,XU), XREF[0] ), MC( I(XL,XU), XREF[1] ) }, MCsubF( 1 );
+    std::vector<MC> MCsubX{ MC( I(XL,XU), XREF[0] ), MC( I(YL,YU), XREF[1] ) }, MCsubF( 1 );
     MCsubX[0].sub( 2, 0 );
     MCsubX[1].sub( 2, 1 );
 
@@ -446,7 +493,7 @@ int main()
     walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - start );
     std::cout << "McCormick subgradient walltime: " << (walltime.count() * 1e-6) / (double)NREPEAT << std::endl;
 
-    NREPEAT = 20000;
+    NREPEAT = 50000;
     
     std::vector<PWCSV> PWC16SVX(2), PWC16SVF( 1 );
     PWC16SVX[0].set( pwcmod, 0, I(XL,XU), 16 );
@@ -488,7 +535,7 @@ int main()
     walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - start );
     std::cout << "Superposition PWC128 walltime: " << (walltime.count() * 1e-6) / (double)NREPEAT << std::endl;
 
-    NREPEAT = 10000;
+    NREPEAT = 50000;
 
     std::vector<PWLSV> PWL1SVX(2), PWL1SVF( 1 );
     PWL1SVX[0].set( pwlmod, 0, I(XL,XU), 1 );

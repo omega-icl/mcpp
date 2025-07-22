@@ -199,7 +199,7 @@ public:
     { _prec = 0;
       std::ostringstream otmp;
       _ostr.swap(otmp);
-      if( c >= 0 )
+      if( c > 0 )
         _ostr << _d2s(c);
       else if( c < 0 )
         _ostr << "(" << _d2s(c) << ")";
@@ -404,14 +404,24 @@ inline FFExpr
 operator+
 ( double const& c, FFExpr const& E )
 {
-  FFExpr _E( E );
-  return _E += c;
+#ifdef MC__FFEXPR_TRACE
+  std::cout << "FFExpr::operator+( double const&, FFExpr const& )\n";
+#endif
+  if( c == 0. ) return E;
+
+  FFExpr _E( c );
+  return _E += E;
 }
 
 inline FFExpr
 operator+
 ( FFExpr const& E, double const& c )
 {
+#ifdef MC__FFEXPR_TRACE
+  std::cout << "FFExpr::operator+( FFExpr const&, double const& )\n";
+#endif
+  if( c == 0. ) return E;
+
   FFExpr _E( E );
   return _E += c;
 }
@@ -440,6 +450,8 @@ inline FFExpr
 operator-
 ( double const& c, FFExpr const& E )
 {
+  if( c == 0. ) return operator-(E);
+  
   FFExpr _E( c );
   return _E -= E;
 }
@@ -448,6 +460,8 @@ inline FFExpr
 operator-
 ( FFExpr const& E, double const& c )
 {
+  if( c == 0. ) return E;
+  
   FFExpr _E( E );
   return _E -= c;
 }
@@ -464,14 +478,22 @@ inline FFExpr
 operator*
 ( double const& c, FFExpr const& E )
 {
-  FFExpr _E( E );
-  return _E *= c;
+  if( c == 0. )  return 0.;
+  if( c == 1. )  return E;
+  if( c == -1. ) return operator-(E);
+
+  FFExpr _E( c );
+  return _E *= E;
 }
 
 inline FFExpr
 operator*
 ( FFExpr const& E, double const& c )
 {
+  if( c == 0. )  return 0.;
+  if( c == 1. )  return E;
+  if( c == -1. ) return operator-(E);
+
   FFExpr _E( E );
   return _E *= c;
 }
