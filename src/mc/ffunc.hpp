@@ -1773,6 +1773,10 @@ public:
     ( double const x )
     { return _add_constant( x ); }
 
+  //! @brief Extract subgraph corresponding to <a>nDep</a> dependents in array <a>ppDep</a>
+  FFSubgraph subgraph
+    ( unsigned int const nDep, FFVar const*const* ppDep );
+
   //! @brief Extract subgraph corresponding to <a>nDep</a> dependents in array <a>pDep</a>
   FFSubgraph subgraph
     ( unsigned int const nDep, FFVar const* pDep );
@@ -7367,6 +7371,23 @@ FFBase::subgraph
 ( std::vector<FFVar> const& vDep )
 {
   return subgraph( vDep.size(), vDep.data() );
+}
+
+inline FFSubgraph
+FFBase::subgraph
+( unsigned int const nDep, FFVar const*const* ppDep )
+{
+  _reset_operations();
+  FFSubgraph sgDep;
+  for( unsigned int i=0; i<nDep; i++ ){
+    FFVar const* pVar = ppDep[i];
+    if( !pVar->opdef().first ) assert( _get_constant( pVar ) );
+    auto const& [ pOp, ndxDep ] = pVar->opdef();
+    pOp->propagate_subgraph( ndxDep, sgDep.l_op );
+    sgDep.set_dep( pOp->iflag, ndxDep );
+  }
+  sgDep.set_wk();
+  return sgDep;
 }
 
 inline FFSubgraph
