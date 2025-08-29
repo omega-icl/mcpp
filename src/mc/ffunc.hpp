@@ -2170,6 +2170,12 @@ public:
     ( unsigned const nDep, const FFVar* const pDep, unsigned const nIndep,
       FFVar const* const pIndep, FFVar const* const pDir, Deps... args );
 
+  //! @brief Expand DAG with derivatives of <a>nDep</a> dependents in array <a>pDep</a> with respect to independents in array <a>pIndep</a> for the direction in array <a>pDir</a> indexed by set <a>ndxIndep</a>. The return value is an array with entries of the Jacobian matrix-vector product. The function parameter pack <a>args</a> can be any number of extra triplets {const unsigned nIndep, const FFVar* const pIndep, const FFVar* const pDir}.
+  template <typename... Deps> 
+  FFVar* DFAD
+    ( unsigned const nDep, const FFVar* const pDep, std::set<unsigned> const& ndxIndep,
+      FFVar const* const pIndep, FFVar const* const pDir, Deps... args );
+
   //! @brief Expand DAG with derivatives of dependents in array <a>pDep</a> indexed by <a>ndxDep</a> with respect to <a>nIndep</a> independents in array <a>pIndep</a>. The return value is a 4-tuple of size and arrays with the row indices, column indices, and non-zero Jacobian entries. The function parameter pack <a>args</a> can be any number of pairs {const unsigned nIndep, const FFVar* const pIndep}, as well as a final, optional flag {const int LUopt} indicating to keep all of the entries (LUopt=0, default), or only the lower (LUopt=1) or upper (LUopt=-1) triangular part of the Jacobian matrix (e.g. for use in square symmetric matrix of derivatives such as Hessians).
   template <typename... Deps>
   std::tuple< unsigned, unsigned*, unsigned*, FFVar* > SFAD
@@ -7782,6 +7788,26 @@ FFGraph::DFAD
   std::vector<FFVar const*> vDep, vIndep, vDir;
   for( unsigned i=0; i<nDep; i++ ) vDep.push_back( pDep+i );
   for( unsigned i=0; i<nIndep; i++ ){ vIndep.push_back( pIndep+i ); vDir.push_back( pDir+i ); }
+  auto&& vDep_F = DFAD( vDep, vIndep, vDir, args... );
+
+  FFVar* pDep_F = new FFVar[ vDep_F.size() ];
+  auto it = vDep_F.begin();
+  for( unsigned k=0; it!=vDep_F.end(); ++it, k++ ) pDep_F[k] = **it;
+  return pDep_F;
+}
+
+template <typename... Deps> 
+inline FFVar*
+FFGraph::DFAD
+( unsigned const nDep, FFVar const* const pDep, std::set<unsigned> const& ndxIndep,
+  FFVar const* const pIndep, FFVar const* const pDir, Deps... args )
+{
+  if( !nDep || !ndxIndep.empty() ) return 0;  // Nothing to do!
+  assert( pDep && pIndep && pDir );
+
+  std::vector<FFVar const*> vDep, vIndep, vDir;
+  for( unsigned i=0; i<nDep; i++ ) vDep.push_back( pDep+i );
+  for( auto const& i : ndxIndep ){ vIndep.push_back( pIndep+i ); vDir.push_back( pDir+i ); }
   auto&& vDep_F = DFAD( vDep, vIndep, vDir, args... );
 
   FFVar* pDep_F = new FFVar[ vDep_F.size() ];
