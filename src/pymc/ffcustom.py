@@ -15,9 +15,9 @@ OpDY.set_D_eval( dprod )
 OpY = pymc.FFCustom()
 OpY.set_D_eval( prod )
 OpY.set_I_eval( prod )
-OpY.set_deriv( OpDY, 1 )
+OpY.set_deriv( OpDY, 0 )
 
-Y = OpY( X, 0 )
+Y = OpY( X, 1 )
 print( Y, " = ", Y.str() )
 
 print( G )
@@ -31,3 +31,7 @@ print( "IY = ", IY )
 dYdX = G.fdiff( [Y], X )
 [ print( dYdXi, " = ", dYdXi.str() ) for dYdXi in dYdX[2] ]
 
+dDYdX = G.eval( dYdX[2], X, [2,3] )
+print( dDYdX )
+
+print( G )
