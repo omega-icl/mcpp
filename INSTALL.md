@@ -30,7 +30,7 @@
 ## MC++
 - `cd`, then `mkdir -p Programs/bitbucket && cd Programs/bitbucket`
 - clone the repository `git clone --recurse-submodules git@github.com:omega-icl/mcpp.git mcpp40`
-- `cd mcpp40`, then checkout the relevant branch with `git checkout 4.0`
+- `cd mcpp40` [](, then checkout the relevant branch with `git checkout 4.0`)
 - `git submodule init && git submodule update`
 - `cd src`, then `make install` (make sure that the correct Python path is used in _makeoptions.mk_)
 
@@ -55,7 +55,7 @@ export PYTHONPATH="${PYTHONPATH}:${HOME}/Programs/bitbucket/mcpp40/src/pymc"
 
 ## CRONOS 
 - `cd && cd Programs/bitbucket`, clone the repository: `git clone git@github.com:omega-icl/cronos.git cronos40`
-- `cd cronos40`, then checkout the relevant branch with `git checkout 4.0`
+- `cd cronos40`[](, then checkout the relevant branch with `git checkout 4.1`)
 - `cd src`, then do `make all`
 
 ## Environment variables
@@ -108,7 +108,7 @@ export GRB_LICENSE_FILE="${HOME}/gurobi.lic"
 ## CANON
 - `cd && cd Programs/bitbucket`
 - clone the repository: `git clone git@github.com:omega-icl/canon.git canon40`
-- `cd canon40`, checkout the relevant branch `git checkout 4.0`
+- `cd canon40`[](, checkout the relevant branch `git checkout 4.1`)
 - `cd src`, update the GAMS version in _makeoptions.mk_ to 50.4 using a text editor, then `make install`
 
 ## Environment variables
@@ -127,7 +127,7 @@ export PYTHONPATH="${PYTHONPATH}:${HOME}/Programs/bitbucket/canon40/src/interfac
 ## MAGNUS
 - `cd && cd Programs/bitbucket`
 - clone the repository: `git clone git@github.com:omega-icl/magnus.git`
-- `cd magnus`, checkout the relevant branch `git checkout 1.0`
+- `cd magnus`[](, checkout the relevant branch `git checkout 1.1`)
 - `cd src`, then `make install`
 
 ## Environment variables
