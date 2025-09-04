@@ -38,7 +38,7 @@ dispInstall:
 #####
 
 clean: dispClean
-	rm -f $(libobjs) $(libname)
+	rm -fi $(libobjs) $(libname)
 
 dispClean:
 	@echo
@@ -48,6 +48,7 @@ dispClean:
 #####
 
 uninstall: dispUninstall
+	rm -f $(libobjs) $(libname)
 	cd $(libpath); rm -f $(libname)
 
 dispUninstall:

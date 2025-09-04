@@ -12,22 +12,9 @@ export pymcpath = $(srcpath)/pymc
 
 #####
 
-help:
-	@echo
-	@echo "MC++ Makefile (ver. $(version))"
-	@echo "Available targets:"
-	@echo "  install      - Create directories and install headers/libraries"
-	@echo "  clean        - Remove compiled files"
-	@echo "  cleaninstall - Clean and then install"
-	@echo "  uninstall    - Remove installed headers and libraries"
-	@echo "  help         - Show this help message"
-	@echo
+install: dirs_create mc_install pymc_install
 
-#####
-
-install: dirs mc_install pymc_install
-
-dirs:
+dirs_create:
 	@if test ! -e $(incpath)/; then \
 		echo creating include directory; \
 		mkdir $(incpath); \
@@ -52,14 +39,23 @@ pymc_clean:
 
 #####
 
-cleaninstall: clean install
-
-#####
-
-uninstall: clean mc_uninstall pymc_uninstall
+uninstall: mc_uninstall pymc_uninstall
 
 mc_uninstall:
 	-(cd $(mcpath); make -f mc.mk uninstall)
 
 pymc_uninstall:
 	-(cd $(pymcpath); make -f pymc.mk uninstall)
+
+#####
+
+help:
+	@echo
+	@echo "MC++ Makefile (ver. $(version))"
+	@echo "Available targets:"
+	@echo "  install      - Create 'include' and 'lib' directories, compile a shared library,"
+	@echo "                 create symbolic links to header files and compiled libraries"
+	@echo "  clean        - Remove object files"
+	@echo "  uninstall    - Remove libraries, object files, and symbolic links"
+	@echo "  help         - Show this help message"
+	@echo
