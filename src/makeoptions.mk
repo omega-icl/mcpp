@@ -1,6 +1,8 @@
 # THIRD-PARTY LIBRARIES <<-- CHANGE AS APPROPRIATE -->>
 
-PATH_MC        = $(HOME)/Programs/bitbucket/mcpp40
+PATH_MC_MK := $(dir $(lastword $(MAKEFILE_LIST)))
+
+PATH_MC        = $(abspath $(PATH_MC_MK)../)
 PATH_3RD_PARTY = $(PATH_MC)/src/3rdparty
 PATH_EXTERN    = $(PATH_MC)/extern
 
@@ -10,7 +12,7 @@ INC_LAPACK  = -I$(PATH_LAPACK)/include
 FLAG_LAPACK = -DMC__USE_ARMADILLO
 
 PATH_FADBAD = $(PATH_3RD_PARTY)/fadbad++
-LIB_FADBAD  = 
+LIB_FADBAD  =
 INC_FADBAD  = -I$(PATH_FADBAD)
 FLAG_FADBAD = -DMC__USE_TADIFF #-DMC__USE_FADIFF
 
@@ -25,17 +27,19 @@ INC_FILIB   = -I$(PATH_FILIB)/include -I$(PATH_FILIB)/include/interval
 FLAG_FILIB = -frounding-math #-DMC__USE_FILIB
 
 PATH_BOOST = $(PATH_3RD_PARTY)/boost
-LIB_BOOST  = 
-INC_BOOST  = -I/usr/include -I$(PATH_BOOST) 
-FLAG_BOOST = -DBOOST_UBLAS_NO_STD_CERR #-DMC__USE_BOOST
+LIB_BOOST  =
+INC_BOOST  = -I/usr/include -I$(PATH_BOOST)
+FLAG_BOOST = -DBOOST_UBLAS_NO_STD_CERR -DMC__USE_BOOST
 
-PATH_HSL = 
+PATH_HSL =
 LIB_HSL  = -lmc13 -lmc21 -lmc33 -lgfortran
-INC_HSL  = 
+INC_HSL  =
 FLAG_HSL = -DMC__USE_HSL
 
-#INC_PYBIND11 = -I/usr/include/python3.12 -I$(PATH_EXTERN)/pybind11/include
-INC_PYBIND11 = -I/opt/anaconda3/include/python3.12 -I$(PATH_EXTERN)/pybind11/include
+INC_PYTHON = $(shell python3 -c "from sysconfig import get_paths; print(get_paths()['include'])")
+#INC_PYTHON = /opt/anaconda3/include/python3.12
+#INC_PYTHON = /usr/include/python3.12
+INC_PYBIND11 = -I$(INC_PYTHON) -I$(PATH_EXTERN)/pybind11/include
 LIB_CPPUNIT = -lcppunit
 
 # COMPILATION <<-- CHANGE AS APPROPRIATE -->>
@@ -45,8 +49,8 @@ OPTIM = -O2
 DEBUG = #-g
 WARN  = -Wall -Wno-misleading-indentation -Wno-unknown-pragmas -Wno-parentheses
 CPP17 = -std=c++17
-CC    = gcc-13
-CPP   = g++-13
+CC    = gcc
+CPP   = g++
 # CPP   = icpc
 
 # <<-- NO CHANGE BEYOND THIS POINT -->>

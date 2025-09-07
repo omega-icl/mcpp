@@ -1,5 +1,5 @@
 # This makefile compiles the python interface and creates a symbolic link
-# to the libray in $(libpath)
+# to the library in $(libpath)
 
 include $(srcpath)/makeoptions.mk
 
@@ -15,12 +15,12 @@ libname = pymc.so
 install: dispBuild $(libname) dispInstall
 	@if test ! -e $(libpath)/$(libname); then \
 		echo creating symolic link to shared library $(libname); \
-		cd $(libpath) ; ln -s $(pymcpath)/$(libname) $(libname); \
+		cd $(libpath); ln -s $(pymcpath)/$(libname) $(libname); \
 	fi
 	@echo
 
 $(libname): $(libobjs)
-	$(CPP) -shared -Wl,--export-dynamic $(libobjs) -o $(libname) 
+	$(CPP) -shared -Wl,--export-dynamic $(libobjs) -o $(libname)
 
 %.o : %.cpp
 	$(CPP) $(INC_MC) $(INC_PYBIND11) $(FLAG_CPP) $(FLAG_MC) -fPIC -c $< -o $@
@@ -38,7 +38,7 @@ dispInstall:
 #####
 
 clean: dispClean
-	rm -fi $(libobjs) $(libname)
+	rm -f $(libobjs) $(libname)
 
 dispClean:
 	@echo
@@ -47,12 +47,10 @@ dispClean:
 
 #####
 
-cleandist: dispCleanInstall
-	rm -f $(libname)
-	-(cd $(libpath) ; rm -f $(libname))
+uninstall: dispUninstall
+	cd $(libpath); rm -f $(libname)
 
-dispCleanInstall:
+dispUninstall:
 	@echo
 	@(echo '***Uninstalling PYMC library (ver.' $(version)')***')
 	@echo
-

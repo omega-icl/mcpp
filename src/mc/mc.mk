@@ -32,10 +32,10 @@ dispInstall:
 
 #####
 
-cleaninstall: dispCleanInstall
-	cd $(incpath) ; rm $(incobjs)
+uninstall: dispUninstall
+	cd $(incpath); rm -f $(incobjs)
 
-dispCleanInstall:
+dispUninstall:
 	@echo
 	@(echo '***Uninstalling MC++ library (ver.' $(version)')***')
 	@echo

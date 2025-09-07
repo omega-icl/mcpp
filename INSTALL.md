@@ -1,4 +1,4 @@
-# Installation instructions for MC++/CRONOS/CANON/MAGNUS (last updated 2025-09-02)
+# Installation instructions for MC++/CRONOS/CANON/MAGNUS (last updated 2025-09-07)
 
 ## Windows: install WSL2 with default distribution (Ubuntu 24.04 LTS)
 - from Powershell or Command Prompt run `wsl --install`, then follow the instructions to set up a user account (a system restart might be required)
@@ -22,22 +22,22 @@
 ---
 ## MC++ dependencies
 - `sudo apt install liblapack-dev libblas-dev libboost-all-dev` 
-- get the HSL libraries [MC13](https://www.hsl.rl.ac.uk/catalogue/mc13.html), [MC21](https://www.hsl.rl.ac.uk/catalogue/mc21.html), [MC33](https://www.hsl.rl.ac.uk/catalogue/mc13.html), and install them: `tar -xzf mc13-1.0.0.tar.gz`, `cd mc13-1.0.0` to enter the source folder, then `./configure` and `sudo make install` (repeat for the other HSL libraries)
+- obtain the HSL libraries [MC13](https://www.hsl.rl.ac.uk/catalogue/mc13.html), [MC21](https://www.hsl.rl.ac.uk/catalogue/mc21.html), [MC33](https://www.hsl.rl.ac.uk/catalogue/mc13.html), and install them: `tar -xzf mc13-1.0.0.tar.gz`, `cd mc13-1.0.0` to enter the source folder, then `./configure` and `sudo make install` (repeat for the other HSL libraries)
 - Armadillo dependencies: `sudo apt install libopenblas-dev libarpack2-dev libsuperlu-dev`
 - Armadillo: download the [latest release](https://sourceforge.net/projects/arma/files/armadillo-14.4.6.tar.xz), extract it with `tar -xJf armadillo-14.4.6.tar.xz`, `cd armadillo-14.4.6` then `./configure` and `sudo make install`
 - Boost: `sudo apt update && sudo apt install libboost-all-dev`, then verify that the boost libraries have been installed correctly with `cat /usr/include/boost/version.hpp | grep "BOOST_LIB_VERSION"`
 
 ## MC++
-- `cd`, then `mkdir -p Programs/bitbucket && cd Programs/bitbucket`
+- `cd /opt`
 - clone the repository `git clone --recurse-submodules git@github.com:omega-icl/mcpp.git mcpp40`
-- `cd mcpp40` [](, then checkout the relevant branch with `git checkout 4.0`)
+- `cd mcpp40`
 - `git submodule init && git submodule update`
 - `cd src`, then `make install` (make sure that the correct Python path is used in _makeoptions.mk_)
 
 ## Environment variables
 - `cd`, then append the following lines to .bashrc using a text editor
 ```
-export PYTHONPATH="${PYTHONPATH}:${HOME}/Programs/bitbucket/mcpp40/src/pymc"
+export PYTHONPATH="${PYTHONPATH}:/opt/mcpp40/src/pymc"
 ```
 - restart the terminal for changes to take effect, or run `source .bashrc`
 
@@ -53,19 +53,19 @@ export PYTHONPATH="${PYTHONPATH}:${HOME}/Programs/bitbucket/mcpp40/src/pymc"
 - download the [latest release](https://github.com/LLNL/sundials/releases/download/v7.4.0/cvodes-7.4.0.tar.gz), extract it with `tar -xzf cvodes-7.4.0.tar.gz`
 - `mkdir build && cd build`, then run `cmake -DCMAKE_INSTALL_PREFIX=/opt/sundials-7.4.0 -DENABLE_LAPACK=ON -DENABLE_PTHREAD=ON -DENABLE_KLU=ON -DKLU_INCLUDE_DIR=/usr/include/suitesparse -DKLU_LIBRARY_DIR=/lib/x86_64-linux-gnu ../cvodes-7.4.0`, and install the library with `sudo make install`
 
-## CRONOS 
-- `cd && cd Programs/bitbucket`, clone the repository: `git clone git@github.com:omega-icl/cronos.git cronos40`
-- `cd cronos40`[](, then checkout the relevant branch with `git checkout 4.1`)
-- `cd src`, then do `make all`
-
 ## Environment variables
 - `cd`, then append the following lines to .bashrc using a text editor
 ```
 export SUNDIALS_HOME="/opt/sundials-7.4.0"
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/lib/x86_64-linux-gnu:${SUNDIALS_HOME}/lib"
-export PYTHONPATH="${PYTHONPATH}:${HOME}/Programs/bitbucket/cronos40/src/interface"
+export PYTHONPATH="${PYTHONPATH}:/opt/cronos40/src/interface"
 ```
 - restart the terminal for changes to take effect, or run `source .bashrc`
+
+## CRONOS 
+- `cd /opt`, clone the repository: `git clone git@github.com:omega-icl/cronos.git cronos40`
+- `cd cronos40`
+- `cd src`, then do `make install`
 
 ---
 ## CANON dependencies: SNOPT
@@ -105,36 +105,37 @@ fi
 export GRB_LICENSE_FILE="${HOME}/gurobi.lic"
 ```
 
-## CANON
-- `cd && cd Programs/bitbucket`
-- clone the repository: `git clone git@github.com:omega-icl/canon.git canon40`
-- `cd canon40`[](, checkout the relevant branch `git checkout 4.1`)
-- `cd src`, update the GAMS version in _makeoptions.mk_ to 50.4 using a text editor, then `make install`
-
 ## Environment variables
 - `cd`
 - append the following lines to _.bashrc_
 ```
+export GAMS_HOME="/opt/gams/gams50.4_linux_x64_64_sfx"
 export GUROBI_HOME="/opt/gurobi1203/linux64"
 export SNOPT_HOME="/opt/snopt77"
 export PATH="${PATH}:${GUROBI_HOME}/bin"
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${GUROBI_HOME}/lib:${SNOPT_HOME}/lib"
-export PYTHONPATH="${PYTHONPATH}:${HOME}/Programs/bitbucket/canon40/src/interface"
+export PYTHONPATH="${PYTHONPATH}:/opt/canon40/src/interface"
 ```
 - restart the terminal for changes to take effect, or run `source .bashrc`
 
----
-## MAGNUS
-- `cd && cd Programs/bitbucket`
-- clone the repository: `git clone git@github.com:omega-icl/magnus.git`
-- `cd magnus`[](, checkout the relevant branch `git checkout 1.1`)
-- `cd src`, then `make install`
+## CANON
+- `cd /opt`
+- clone the repository: `git clone git@github.com:omega-icl/canon.git canon40`
+- `cd canon40`
+- `cd src`, then do `make install`
 
+---
 ## Environment variables
 - `cd`
 - append the following lines to _.bashrc_
 ```
-export PYTHONPATH="${PYTHONPATH}:${HOME}/Programs/bitbucket/magnus/src/interface"
+export PYTHONPATH="${PYTHONPATH}:/opt/magnus/src/interface"
 ```
 - restart the terminal for changes to take effect, or run `source .bashrc`
+
+## MAGNUS
+- `cd /opt`
+- clone the repository: `git clone git@github.com:omega-icl/magnus.git`
+- `cd magnus`
+- `cd src`, then `make install`
 

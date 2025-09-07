@@ -1,9 +1,5 @@
 # This is the main makefile for MC++
-# - `make all' compiles the reates the subsdirectory `include' (if not already
-#   existing, and creates links toheader files therein
-# - `make install' creates the subsdirectories `include' and 'lib' (if not already
-#   existing), and creates smybolic links therein
-# - `make cleaninstall' removes the smybolic links and cleans src/test
+# Run `make help' for a list of available targets
 
 export version = 4.0
 
@@ -16,19 +12,22 @@ export pymcpath = $(srcpath)/pymc
 
 #####
 
-all: mc_all pymc_all
-
-mc_all:
-	-(cd $(mcpath); make -f mc.mk all)
-
-pymc_all:
-	-(cd $(pymcpath); make -f pymc.mk all)
+help:
+	@echo
+	@echo "MC++ Makefile (ver. $(version))"
+	@echo "Available targets:"
+	@echo "  install      - Create directories and install headers/libraries"
+	@echo "  clean        - Remove compiled files"
+	@echo "  cleaninstall - Clean and then install"
+	@echo "  uninstall    - Remove installed headers and libraries"
+	@echo "  help         - Show this help message"
+	@echo
 
 #####
 
 install: dirs mc_install pymc_install
 
-dirs :
+dirs:
 	@if test ! -e $(incpath)/; then \
 		echo creating include directory; \
 		mkdir $(incpath); \
@@ -46,21 +45,21 @@ pymc_install:
 
 #####
 
-clean: mc_clean pymc_clean
-
-mc_clean:
-	-(cd $(mcpath);   make -f mc.mk clean)
+clean: pymc_clean
 
 pymc_clean:
 	-(cd $(pymcpath); make -f pymc.mk clean)
 
 #####
 
-cleaninstall: clean mc_cleaninstall pymc_cleaninstall
+cleaninstall: clean install
 
-mc_cleaninstall:
-	-(cd $(mcpath);   make -f mc.mk cleaninstall)
-	
-pymc_cleaninstall:
-	-(cd $(pymcpath); make -f pymc.mk cleaninstall)
+#####
 
+uninstall: clean mc_uninstall pymc_uninstall
+
+mc_uninstall:
+	-(cd $(mcpath); make -f mc.mk uninstall)
+
+pymc_uninstall:
+	-(cd $(pymcpath); make -f pymc.mk uninstall)
