@@ -5671,25 +5671,25 @@ const
   if( type < FFOp::EXTERN )
     throw typename FFBase::Exceptions( FFBase::Exceptions::INTERN );
 
-  //if( varin.empty() )
-  //  throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
-
+#ifdef MC__USE_THREADLOCAL
   thread_local static std::vector<U> valout;
   if( valout.size() < varout.size() ) valout.resize( varout.size() );
-  //std::vector<U> vres( varout.size() );
+#else
+  std::vector<U> valout( varout.size() );
+#endif
 
   if( varin.size() == 1 )
     feval( typeid( U ), varout.size(), valout.data(), 1, static_cast<U*>( varin[0]->val() ), nullptr );
 
   else{
+#ifdef MC__USE_THREADLOCAL
     thread_local static std::vector<U> valin;
     if( valin.size() < varin.size() ) valin.resize( varin.size() );
+#else
+    std::vector<U> valin( varin.size() );
+#endif
     for( size_t i=0; i<varin.size(); ++i ) valin[i] = *static_cast<U*>( varin[i]->val() );
     feval( typeid( U ), varout.size(), valout.data(), varin.size(), valin.data(), nullptr );
-    //std::vector<U> ops_val; ops_val.reserve( varin.size() );
-    //for( auto it=varin.begin(); it!=varin.end(); ++it )
-    //  ops_val.push_back( *static_cast<U*>( (*it)->val() ) );
-    //feval( typeid( U ), vres.size(), vres.data(), ops_val.size(), ops_val.data(), nullptr );
   }
 
   for( unsigned j=0; j<varout.size(); ++j )
@@ -6165,22 +6165,19 @@ const
   if( type < FFOp::EXTERN )
     throw typename FFBase::Exceptions( FFBase::Exceptions::INTERN );
 
-  //if( varin.empty() )
-  //  throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
-
   if( varout.size() == 1 ){
     if( varin.size() == 1 ){
       if( !reval( typeid( U ), 1, static_cast<U*>( varout[0]->val() ), 1, static_cast<U*>( varin[0]->val() ) ) )
         return false;
     }
     else{
+#ifdef MC__USE_THREADLOCAL
       thread_local static std::vector<U> valin;
       if( valin.size() < varin.size() ) valin.resize( varin.size() );
+#else
+      std::vector<U> valin( varin.size() );
+#endif
       for( size_t i=0; i<varin.size(); ++i ) valin[i] = *static_cast<U*>( varin[i]->val() );
-      //std::vector<U> ops_val; ops_val.reserve( varin.size() );
-      //for( auto it=varin.begin(); it!=varin.end(); ++it )
-      //  ops_val.push_back( *static_cast<U*>( (*it)->val() ) );
-      //if( !reval( typeid( U ), 1, static_cast<U*>( varout[0]->val() ), ops_val.size(), ops_val.data() ) )
       if( !reval( typeid( U ), 1, static_cast<U*>( varout[0]->val() ), varin.size(), valin.data() ) )
         return false;        
       for( size_t i=0; i<varin.size(); ++i ) *static_cast<U*>( varin[i]->val() ) = valin[i];
@@ -6188,8 +6185,12 @@ const
   }
 
   else{
+#ifdef MC__USE_THREADLOCAL
     thread_local static std::vector<U> valout;
     if( valout.size() < varout.size() ) valout.resize( varout.size() );
+#else
+    std::vector<U> valout( varout.size() );
+#endif
     for( size_t j=0; j<varout.size(); ++j ) valout[j] = *static_cast<U*>( varout[j]->val() );
 
     if( varin.size() == 1 ){
@@ -6197,8 +6198,12 @@ const
         return false;
     }
     else{
+#ifdef MC__USE_THREADLOCAL
       thread_local static std::vector<U> valin;
       if( valin.size() < varin.size() ) valin.resize( varin.size() );
+#else
+      std::vector<U> valin( varin.size() );
+#endif
       for( size_t i=0; i<varin.size(); ++i ) valin[i] = *static_cast<U*>( varin[i]->val() );
       if( !reval( typeid( U ), varout.size(), valout.data(), varin.size(), valin.data() ) )
         return false;

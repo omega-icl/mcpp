@@ -28,7 +28,7 @@ const int NGRID = 40;	    // <-- select discretization here
  #endif
 #endif
 
-#include "ffextern.hpp"
+#include "ffdagext.hpp"
 
 #if defined( MC__USE_GUROBI )
  #include "gurobi_c++.h"
@@ -288,7 +288,7 @@ void append_cut
 int main()
 {
 #ifdef SAVE_RESULTS
-  std::ofstream res( "FFDAG_2d.out", std::ios_base::out );
+  std::ofstream res( "FFDAGEXT_2d.out", std::ios_base::out );
   res << std::scientific << std::setprecision(5) << std::right;
 #endif
 
@@ -297,8 +297,8 @@ int main()
   std::vector<mc::FFVar> X{ mc::FFVar( &DAG ), mc::FFVar( &DAG ) };
 
   mc::FFVar F = myfunc( X.data() );
-  mc::DAG<I> DAGF( &DAG, X, {F} );
-  mc::FFDAG<I> OpF;
+  mc::DAGEXT<I> DAGF( &DAG, X, {F} );
+  mc::FFDAGEXT<I> OpF;
   OpF.options.RELAX  = { OpF.options.PWCS, OpF.options.AUX };//MC };//INT };
   OpF.options.PWCDIV = 32;
   OpF.options.PWCREL = 1;
@@ -331,6 +331,8 @@ int main()
   PolEnv.generate_cuts( PolF );
   std::cout << "\n Polyhedral relaxation:" << PolEnv << std::endl;
 
+  return 0;
+  
 #if defined( MC__USE_GUROBI )
   try{ 
     GRBEnv GRBenv;
@@ -392,7 +394,7 @@ int main()
 
       GRBmodel.set( GRB_IntAttr_ModelSense, 1 ); // MIN:1, MAX:-1
       GRBmodel.update();
-      GRBmodel.write( "FFDAG_2d.lp" );
+      GRBmodel.write( "FFDAGEXT_2d.lp" );
       GRBmodel.optimize();
       double Zcv = GRBmodel.get( GRB_DoubleAttr_ObjVal );
 

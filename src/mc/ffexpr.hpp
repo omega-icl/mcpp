@@ -576,7 +576,7 @@ FFExpr::compose
 {
   assert( E._ostr.tellp() );
   FFExpr _E; // sets _E._prec = 0 by default
-  _E.ostr() << UNIV << "( " << E.ostr().str() << " )";
+  _E.ostr() << UNIV << "( " << E._ostr.str() << " )";
   return _E;
 }
 
@@ -586,9 +586,9 @@ FFExpr::compose
 ( std::string const& UNIV, FFExpr const& E1, FFExpr const& E2 )
 {
   assert( E1._ostr.tellp() );
-  assert( E2._ostr.tellp() );
+  if( !E2._ostr.tellp() ) return FFExpr::compose( UNIV, E1, 0 );
   FFExpr _E; // sets _E._prec = 0 by default
-  _E.ostr() << UNIV << "( " << E1.ostr().str() << ", " << E2.ostr().str() << " )";
+  _E.ostr() << UNIV << "( " << E1._ostr.str() << ", " << E2._ostr.str() << " )";
   return _E;
 }
 
@@ -602,7 +602,7 @@ FFExpr::compose
   for( unsigned i=0; i<n; ++i ){
     assert( E[i]._ostr.tellp() );
     if( i ) _E.ostr() << ", ";
-    _E.ostr() << E[i].ostr().str();
+    _E.ostr() << E[i]._ostr.str();
   }
   _E.ostr() << " )";
   return _E;
@@ -615,7 +615,7 @@ FFExpr::compose
 {
   assert( E._ostr.tellp() );
   FFExpr _E; // sets _E._prec = 0 by default
-  _E.ostr() << UNIV << "( " << E.ostr().str() << ", " << n << " )";
+  _E.ostr() << UNIV << "( " << E._ostr.str() << ", " << n << " )";
   return _E;
 }
 
@@ -626,7 +626,7 @@ FFExpr::compose
 {
   assert( E._ostr.tellp() );
   FFExpr _E; // sets _E._prec = 0 by default
-  _E.ostr() << UNIV << "( " << E.ostr().str() << ", " << _d2s(d) << " )";
+  _E.ostr() << UNIV << "( " << E._ostr.str() << ", " << _d2s(d) << " )";
   return _E;
 }
 
@@ -894,6 +894,48 @@ min
 }
 
 inline FFExpr
+min
+( const unsigned n, FFExpr const* E )
+{
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::MINF).name(), n, E );
+   case FFExpr::Options::GAMS:
+    return FFExpr::compose( "MIN", n, E );
+   default:
+    throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
+}
+
+inline FFExpr
+min
+( FFExpr const& E1, double const& d2 )
+{
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::MINF).name(), E1, d2 );
+   case FFExpr::Options::GAMS:
+    return FFExpr::compose( "MIN", E1, d2 );
+   default:
+    throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
+}
+
+inline FFExpr
+min
+( FFExpr const& E1, int const n2 )
+{
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::MINF).name(), E1, n2 );
+   case FFExpr::Options::GAMS:
+    return FFExpr::compose( "MIN", E1, n2 );
+   default:
+    throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
+}
+
+inline FFExpr
 max
 ( FFExpr const& E1, FFExpr const& E2 )
 {
@@ -908,14 +950,28 @@ max
 }
 
 inline FFExpr
-min
-( const unsigned n, FFExpr const* E )
+max
+( FFExpr const& E1, double const& d2 )
 {
   switch( FFExpr::options.LANG ){
    case FFExpr::Options::DAG:
-    return FFExpr::compose( FFOp(FFOp::MINF).name(), n, E );
+    return FFExpr::compose( FFOp(FFOp::MAXF).name(), E1, d2 );
    case FFExpr::Options::GAMS:
-    return FFExpr::compose( "MIN", n, E );
+    return FFExpr::compose( "MAX", E1, d2 );
+   default:
+    throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
+}
+
+inline FFExpr
+max
+( FFExpr const& E1, int const n2 )
+{
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    return FFExpr::compose( FFOp(FFOp::MAXF).name(), E1, n2 );
+   case FFExpr::Options::GAMS:
+    return FFExpr::compose( "MAX", E1, n2 );
    default:
     throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
   }
@@ -1121,8 +1177,8 @@ template <> struct Op< mc::FFExpr >
   static FFE fstep(const FFE& x) { return mc::fstep(x); }
   static FFE bstep(const FFE& x) { return mc::bstep(x); }
   static FFE hull(const FFE& x, const FFE& y) { throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF ); }
-  static FFE min (const FFE& x, const FFE& y) { return mc::min(x,y); }
-  static FFE max (const FFE& x, const FFE& y) { return mc::max(x,y); }
+  template <typename Y> static FFE min (const FFE& x, const Y& y) { return mc::min(x,y); }
+  template <typename Y> static FFE max (const FFE& x, const Y& y) { return mc::max(x,y); }
   static FFE arh (const FFE& x, const double k) { throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF ); }
   template <typename X, typename Y> static FFE pow(const X& x, const Y& y) { return mc::pow(x,y); }
   static FFE cheb(const FFE& x, const unsigned n) { return mc::cheb(x,n); }

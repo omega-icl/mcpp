@@ -413,7 +413,7 @@ private:
       _ownFun = false;
       FFOp* pOp = (*ppRes)->opdef().first;
       
-      _pFun = dynamic_cast<FFVect<T>*>(pOp)->_pFun;
+      _pFun = static_cast<FFVect<T>*>(pOp)->_pFun;
 #ifdef MC__FFVECT_TRACE
       std::cerr << "Vect address in DAG: " << _pFun << std::endl;
 #endif

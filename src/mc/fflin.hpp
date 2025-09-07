@@ -64,9 +64,9 @@ private:
       _ownCoef = false;
       FFOp* pOp = pRes->opdef().first;
       if( policy > 0 )
-        _ptrCoef = static_cast<FFLin*>(pOp)->_ptrCoef; // set pointer to DAG copy
+        _ptrCoef = static_cast<FFLin<T>*>(pOp)->_ptrCoef; // set pointer to DAG copy
       else if( policy < 0 )
-        static_cast<FFLin*>(pOp)->_ownCoef = true; // transfer ownership
+        static_cast<FFLin<T>*>(pOp)->_ownCoef = true; // transfer ownership
       // nothing to do if shallow copy requested (policy=0)
 #ifdef MC__FFLIN_TRACE
       std::cerr << "FFLin operation address: " << this << std::endl;
@@ -92,9 +92,9 @@ private:
       _ownCoef = false;
       FFOp* pOp = pRes->opdef().first;
       if( policy > 0 )
-        _ptrCoef = static_cast<FFLin*>(pOp)->_ptrCoef; // set pointer to DAG copy
+        _ptrCoef = static_cast<FFLin<T>*>(pOp)->_ptrCoef; // set pointer to DAG copy
       else if( policy < 0 )
-        static_cast<FFLin*>(pOp)->_ownCoef = true; // transfer ownership
+        static_cast<FFLin<T>*>(pOp)->_ownCoef = true; // transfer ownership
       // nothing to do if shallow copy requested (policy=0)
 #ifdef MC__FFLIN_TRACE
       std::cerr << "FFLin operation address: " << this << std::endl;
@@ -125,9 +125,9 @@ private:
       _ownCoef = false;
       FFOp* pOp = pRes->opdef().first;
       //if( policy > 0 )
-        _ptrCoef = static_cast<FFLin*>(pOp)->_ptrCoef; // set pointer to DAG copy
+        _ptrCoef = static_cast<FFLin<T>*>(pOp)->_ptrCoef; // set pointer to DAG copy
       //else if( policy < 0 )
-      //  static_cast<FFLin*>(pOp)->_ownCoef = true; // transfer ownership
+      //  static_cast<FFLin<T>*>(pOp)->_ownCoef = true; // transfer ownership
       // nothing to do if shallow copy requested (policy=0)
 #ifdef MC__FFLIN_TRACE
       std::cerr << "FFLin operation address: " << this << std::endl;
@@ -153,9 +153,9 @@ private:
       _ownCoef = false;
       FFOp* pOp = pRes->opdef().first;
       //if( policy > 0 )
-        _ptrCoef = static_cast<FFLin*>(pOp)->_ptrCoef; // set pointer to DAG copy
+        _ptrCoef = static_cast<FFLin<T>*>(pOp)->_ptrCoef; // set pointer to DAG copy
       //else if( policy < 0 )
-      //  static_cast<FFLin*>(pOp)->_ownCoef = true; // transfer ownership
+      //  static_cast<FFLin<T>*>(pOp)->_ownCoef = true; // transfer ownership
       // nothing to do if shallow copy requested (policy=0)
 #ifdef MC__FFLIN_TRACE
       std::cerr << "FFLin operation address: " << this << std::endl;
@@ -635,10 +635,24 @@ const
   assert( img && pop );
 #endif
 
+  //if( _nCoef < nVar )
+  //  img->add_cut( pop, PolCut<T>::EQ, -_valBias, nVar, vVar, _ptrCoef[0], vRes[0], -1. );
+  //else
+  //  img->add_cut( pop, PolCut<T>::EQ, -_valBias, nVar, vVar, _ptrCoef, vRes[0], -1. );
+
+  // Exclude zero coefficients in cut
+  auto cut = *img->add_cut( pop, PolCut<T>::EQ, -_valBias, vRes[0], -1. );
   if( _nCoef < nVar )
-    img->add_cut( pop, PolCut<T>::EQ, -_valBias, nVar, vVar, _ptrCoef[0], vRes[0], -1. );
+    for( size_t i=0; i<nVar; ++i ){
+      if( *_ptrCoef == 0. ) continue;
+      cut->append( vVar[i], _ptrCoef[0] );
+    }
   else
-    img->add_cut( pop, PolCut<T>::EQ, -_valBias, nVar, vVar, _ptrCoef, vRes[0], -1. );
+    for( size_t i=0; i<nVar; ++i ){
+      if( _ptrCoef[i] == 0. ) continue;
+      cut->append( vVar[i], _ptrCoef[i] );
+    }
+  
   return true;
 }
 
