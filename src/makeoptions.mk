@@ -16,12 +16,12 @@ LIB_FADBAD  =
 INC_FADBAD  = -I$(PATH_FADBAD)
 FLAG_FADBAD = -DMC__USE_TADIFF #-DMC__USE_FADIFF
 
-PATH_PROFIL = /opt/Profil-2.0.8
+PATH_PROFIL = $(PROFIL_HOME)
 LIB_PROFIL  = -L$(PATH_PROFIL)/lib -lProfilPackages -lProfil -lBias -llr
 INC_PROFIL  = -I$(PATH_PROFIL)/include
 FLAG_PROFIL = #-DMC__USE_PROFIL
 
-PATH_FILIB  = /opt/filib++
+PATH_FILIB  = $(FILIB_HOME)
 LIB_FILIB   = -L$(PATH_FILIB)/lib -lprim
 INC_FILIB   = -I$(PATH_FILIB)/include -I$(PATH_FILIB)/include/interval
 FLAG_FILIB = -frounding-math #-DMC__USE_FILIB
@@ -37,8 +37,6 @@ INC_HSL  =
 FLAG_HSL = -DMC__USE_HSL
 
 INC_PYTHON = $(shell python3 -c "from sysconfig import get_paths; print(get_paths()['include'])")
-#INC_PYTHON = /opt/anaconda3/include/python3.12
-#INC_PYTHON = /usr/include/python3.12
 INC_PYBIND11 = -I$(INC_PYTHON) -I$(PATH_EXTERN)/pybind11/include
 LIB_CPPUNIT = -lcppunit
 

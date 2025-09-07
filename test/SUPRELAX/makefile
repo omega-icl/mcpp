@@ -1,12 +1,12 @@
-PATH_MC = $(shell cd ../../ ; pwd)
+PATH_MC := $(shell cd ../../ ; pwd)
 
 # Compilation options
 include $(PATH_MC)/src/makeoptions.mk
 
-PATH_CANON = /home/bchachua/Programs/bitbucket/canon40/src
+PATH_CANON = $(abspath $(PATH_MC)/../canon)
 INC_CANON  = -I$(PATH_CANON)
 
-PATH_GAMS  = /opt/gams/gams50.1_linux_x64_64_sfx
+PATH_GAMS  = $(GAMS_HOME)
 LIB_GAMS   =
 INC_GAMS   = -I$(PATH_GAMS)/apifiles/C/api
 FLAG_GAMS  = -DMC__WITH_GAMS=\"$(PATH_GAMS)\"
@@ -25,7 +25,7 @@ testpwlu : testpwlu.o
 testpwcu : testpwcu.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
 
-%.o: %.cpp 
+%.o: %.cpp
 	$(CPP) -c $(FLAG_CPP) $(FLAG_MC) $(FLAG_GAMS) $(INC_MC) $(INC_GUROBI) $(INC_GAMS) $(INC_CANON) $< -o $@
 
 %.o : %.c
