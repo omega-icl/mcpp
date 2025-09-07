@@ -15,35 +15,33 @@
 - _nano_ is the default text editor; to change it to _vim_, run `git config --global core.editor "vim"`
 
 ## SSH key
-- `cd`
-- generate a new keypair: `ssh-keygen -t ed25519 -m PEM`, then spam Enter to keep the default options
-- print the public key with `cat ~/.ssh/id_ed25519.pub`, copy and add it to the Github account settings
+- generate a new keypair: `ssh-keygen -t ed25519 -m PEM`, then click Enter a few times to continue with the default options
+- read the public key with `cat ~/.ssh/id_ed25519.pub`, copy and add it to the Github account settings
 
 ---
 ## MC++ dependencies
-- `sudo apt install liblapack-dev libblas-dev libboost-all-dev` 
+- `sudo apt install liblapack-dev libblas-dev`
+- Boost: `sudo apt install libboost-all-dev`, then verify that the boost libraries have been installed correctly with `cat /usr/include/boost/version.hpp | grep "BOOST_LIB_VERSION"`
 - obtain the HSL libraries [MC13](https://www.hsl.rl.ac.uk/catalogue/mc13.html), [MC21](https://www.hsl.rl.ac.uk/catalogue/mc21.html), [MC33](https://www.hsl.rl.ac.uk/catalogue/mc13.html), and install them: `tar -xzf mc13-1.0.0.tar.gz`, `cd mc13-1.0.0` to enter the source folder, then `./configure` and `sudo make install` (repeat for the other HSL libraries)
 - Armadillo dependencies: `sudo apt install libopenblas-dev libarpack2-dev libsuperlu-dev`
-- Armadillo: download the [latest release](https://sourceforge.net/projects/arma/files/armadillo-14.4.6.tar.xz), extract it with `tar -xJf armadillo-14.4.6.tar.xz`, `cd armadillo-14.4.6` then `./configure` and `sudo make install`
-- Boost: `sudo apt update && sudo apt install libboost-all-dev`, then verify that the boost libraries have been installed correctly with `cat /usr/include/boost/version.hpp | grep "BOOST_LIB_VERSION"`
+- Armadillo: download the [latest release](https://sourceforge.net/projects/arma/files/armadillo-15.0.1.tar.xz), extract it with `tar -xJf armadillo-15.0.1.tar.xz`, `cd armadillo-15.0.1` then `./configure` and `sudo make install`
 
 ## MC++
 - `cd /opt`
-- clone the repository `git clone --recurse-submodules git@github.com:omega-icl/mcpp.git mcpp40`
-- `cd mcpp40`
+- clone the repository `git clone --recurse-submodules git@github.com:omega-icl/mcpp.git`
+- `cd mcpp`
 - `git submodule init && git submodule update`
-- `cd src`, then `make install` (make sure that the correct Python path is used in _makeoptions.mk_)
+- `cd src`, then `make install`
 
 ## Environment variables
-- `cd`, then append the following lines to .bashrc using a text editor
+- append the following lines to _.bashrc_ using a text editor
 ```
-export PYTHONPATH="${PYTHONPATH}:/opt/mcpp40/src/pymc"
+export PYTHONPATH="${PYTHONPATH}:/opt/mcpp/src/pymc"
 ```
 - restart the terminal for changes to take effect, or run `source .bashrc`
 
 ---
 ## CRONOS dependencies
-- `cd`
 - SuiteSparse: `sudo apt install libsuitesparse-dev`
 ### SUNDIALS
 - `mkdir sundials && cd sundials`, download the [latest release](https://github.com/LLNL/sundials/releases/download/v7.4.0/sundials-7.4.0.tar.gz) and save it in the folder, then extract it with `tar -xzf sundials-7.4.0.tar.gz`
@@ -54,18 +52,18 @@ export PYTHONPATH="${PYTHONPATH}:/opt/mcpp40/src/pymc"
 - `mkdir build && cd build`, then run `cmake -DCMAKE_INSTALL_PREFIX=/opt/sundials-7.4.0 -DENABLE_LAPACK=ON -DENABLE_PTHREAD=ON -DENABLE_KLU=ON -DKLU_INCLUDE_DIR=/usr/include/suitesparse -DKLU_LIBRARY_DIR=/lib/x86_64-linux-gnu ../cvodes-7.4.0`, and install the library with `sudo make install`
 
 ## Environment variables
-- `cd`, then append the following lines to .bashrc using a text editor
+- append the following lines to _.bashrc_ using a text editor
 ```
 export SUNDIALS_HOME="/opt/sundials-7.4.0"
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/lib/x86_64-linux-gnu:${SUNDIALS_HOME}/lib"
-export PYTHONPATH="${PYTHONPATH}:/opt/cronos40/src/interface"
+export PYTHONPATH="${PYTHONPATH}:/opt/cronos/src/interface"
 ```
 - restart the terminal for changes to take effect, or run `source .bashrc`
 
-## CRONOS 
-- `cd /opt`, clone the repository: `git clone git@github.com:omega-icl/cronos.git cronos40`
-- `cd cronos40`
-- `cd src`, then do `make install`
+## CRONOS
+- `cd /opt`, clone the repository: `git clone git@github.com:omega-icl/cronos.git`
+- `cd cronos/src`
+- `make install`
 
 ---
 ## CANON dependencies: SNOPT
@@ -75,7 +73,7 @@ export PYTHONPATH="${PYTHONPATH}:/opt/cronos40/src/interface"
 
 ## CANON dependencies: GAMS
 - download the [installer](https://www.gams.com/download/) for GAMS (v50.4.0)
-- `sudo mkdir /opt/gams/ && cd /opt/gams/` 
+- `sudo mkdir /opt/gams/ && cd /opt/gams/`
 - move the installer into this directory `sudo mv <FILEPATH> ./` (<FILEPATH> can be a Windows path, for example _/mnt/c/Users/<username>/Downloads/linux_x64_64_sfx.exe_)
 - make sure the file can be executed with `sudo chmod u+x linux_x64_64_sfx.exe` and run it `sudo ./linux_x64_64_sfx.exe`
 
@@ -86,7 +84,7 @@ export PYTHONPATH="${PYTHONPATH}:/opt/cronos40/src/interface"
 - `sudo tar -xzf gurobi12.0.3_linux64.tar.gz`
 ### Fix for Gurobi under WSL2
 - `cd`
-- append the following lines to _.bashrc_ to assign a fixed MAC address, otherwise the license does not work after WSL2 restarts 
+- append the following lines to _.bashrc_ to assign a fixed MAC address, otherwise the license does not work after WSL2 restarts
 ```
 # assign a persistent MAC address for adapter bond0 and rename it eth1
 mac=1a:2b:3c:4d:5e:6f
@@ -100,13 +98,12 @@ fi
 ```
 ### Gurobi license
 - generate a new **Named-User Academic** license on the website, run `grbgetkey <LICENSE_KEY>` and click enter to save it at the default location
-- `cd`, add the following line to _.bashrc_ and restart the terminal
+- add the following line to _.bashrc_ and restart the terminal
 ```
 export GRB_LICENSE_FILE="${HOME}/gurobi.lic"
 ```
 
 ## Environment variables
-- `cd`
 - append the following lines to _.bashrc_
 ```
 export GAMS_HOME="/opt/gams/gams50.4_linux_x64_64_sfx"
@@ -114,19 +111,18 @@ export GUROBI_HOME="/opt/gurobi1203/linux64"
 export SNOPT_HOME="/opt/snopt77"
 export PATH="${PATH}:${GUROBI_HOME}/bin"
 export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${GUROBI_HOME}/lib:${SNOPT_HOME}/lib"
-export PYTHONPATH="${PYTHONPATH}:/opt/canon40/src/interface"
+export PYTHONPATH="${PYTHONPATH}:/opt/canon/src/interface"
 ```
 - restart the terminal for changes to take effect, or run `source .bashrc`
 
 ## CANON
 - `cd /opt`
-- clone the repository: `git clone git@github.com:omega-icl/canon.git canon40`
-- `cd canon40`
-- `cd src`, then do `make install`
+- clone the repository: `git clone git@github.com:omega-icl/canon.git`
+- `cd canon/src`
+- `make install`
 
 ---
 ## Environment variables
-- `cd`
 - append the following lines to _.bashrc_
 ```
 export PYTHONPATH="${PYTHONPATH}:/opt/magnus/src/interface"
@@ -136,6 +132,5 @@ export PYTHONPATH="${PYTHONPATH}:/opt/magnus/src/interface"
 ## MAGNUS
 - `cd /opt`
 - clone the repository: `git clone git@github.com:omega-icl/magnus.git`
-- `cd magnus`
-- `cd src`, then `make install`
-
+- `cd magnus/src`
+- `make install`
