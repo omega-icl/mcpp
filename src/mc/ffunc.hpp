@@ -642,6 +642,7 @@ Differentiation</A></I>, SIAM, 2009
 #include <type_traits>
 #include <tuple>
 #include <algorithm>
+#include <numeric>
 #include <stdexcept>
 #include <cassert>
 #include <climits>
@@ -662,6 +663,9 @@ Differentiation</A></I>, SIAM, 2009
 #ifdef MC__FFUNC_CPU_EVAL
   #include "mctime.hpp"
 #endif
+
+// Map DAG variables to values for DAG vectorized evaluation
+#undef MC__VEVAL_USE_NDXVAR
 
 namespace mc
 {
@@ -1167,19 +1171,21 @@ public:
     {}
 
   //! @brief Type of operation
-  int                          type;
+  int                                       type;
   //! @brief Pointer to results
-  mutable std::vector<FFVar*>  varout;
+  mutable std::vector<FFVar*>               varout;
   //! @brief Vector of operands
-  mutable std::vector<FFVar*>  varin;
+  mutable std::vector<FFVar*>               varin;
+  //! @brief Vector of dependencies
+  mutable std::vector<std::vector<size_t>>  depin;
   //! @brief Flag for current operation (during a DAG traversal)
-  mutable int                  iflag;
+  mutable int                               iflag;
   //! @brief Pointer to info field - acts as unique identifier for external operations
-  mutable int                  info;
+  mutable int                               info;
   //! @brief Pointer to data field - has to be const_cast'ed in order to retreive original pointer type
-  mutable void*                data;
+  mutable void*                             data;
   //! @brief Flag for data ownership - data pointer deletion will be attempted when erasing operation
-  mutable bool                 owndata;
+  mutable bool                              owndata;
 
   //! @brief Set operand copy
   FFOp& set
@@ -2529,6 +2535,14 @@ public:
       U* vDep, std::list<size_t> const& l_nVar, std::list<FFVar const*> const& l_pVar,
       std::list<U const*> const& l_vVar, double const* scaladd=nullptr );
 
+  //! @brief Evaluate the <a>nDep</a> dependents in array <a>pDep</a> using the arithmetic U for the variable sizes and identifiers in lists <a>l_nVar</a> and <a>l_pVar</a>, whose values are specified in the list <a>l_vVar</a>, and write the result into <a>vDep</a>. The final,  optional pointer {const double* scaladd} indicating if the dependent values are to be overwriten (scaladd=nullptr) or be added (and premultiplied by *scaladd) to those in <a>vDep</a>. This function stores the results of intermediate operations in the vector <a>wkDep</a>, resizing it as necessary. It uses / creates the subgraph for the dependent variables passed via <a>sgDep</a> and variable indexing vector <a>ndxVar</a> to reduce the computational burden in repetitive evaluation of the same dependents/functions.
+  template <typename U> 
+  void eval
+    ( FFSubgraph& sgDep, std::vector<std::pair<size_t,size_t>>& ndxVar, std::vector<U>& wkDep, 
+      unsigned const nDep, FFVar const* pDep, U* vDep, std::list<size_t> const& l_nVar,
+      std::list<FFVar const*> const& l_pVar, std::list<U const*> const& l_vVar,
+      double const* scaladd=nullptr );
+
   //! @brief Evaluate the dependents in vector <a>vDep</a> indexed by <a>ndxDep</a> using the arithmetic U for the variables in vector <a>vVar</a>, whose values are specified in <a>uVar</a>, and use a priori information about the dependents in <a>uDep</a> to refine the variables in <a>pVar</a> based on forward/backard propagation. The function parameter pack <a>args</a> can be any number of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U>& vVar}, as well as optional flags {const unsigned MAXPASS, const double& THRESPASS} indicating the maximum number of forward/backward passes (default: 5) and minimum relative range reduction threshold (default: 0). This function allocates memory for intermediate operations internally. It also creates the subgraph for the dependent variables internally. The return value is the number of forward/backward passes, negative if the contraction leads to an empty intersection.
   template <typename U, typename... Deps> 
   int reval
@@ -2707,9 +2721,19 @@ public:
   template <typename U> 
   void wkextract
     ( const FFSubgraph&sgOut, std::vector<U>&wkOut, const FFSubgraph&sgIn, std::vector<U>&wkIn );
+
+  //! brief Retrieve evaluation status in vector evaluation method <a>veval</a>.
+  std::vector<char> const& veval_err
+    ()
+    const
+    { return _vevalErr; };
+
   /** @} */
 
 protected:
+
+  //! brief Array storing evaluation status in vector evaluation method <a>veval</a>.
+  std::vector<char> _vevalErr;
 
   //! brief Intermediate function for recursive calls in FAD with a function parameter pack.
   template <typename... Deps> 
@@ -2882,14 +2906,14 @@ protected:
   //! brief Intermediate function for DAG vector evaluation.
   template <typename U>
   void _veval
-    ( size_t const CURTHREAD, size_t const NOTHREADS, Worker<U>& wk, 
+    ( size_t const CURTHREAD, size_t const NOTHREADS, Worker<U>& wk, std::vector<char>& v_Err,
       std::vector<std::vector<U>>& v_uDep, std::vector<std::vector<U>> const& v_uVar,
       std::list<const U*> l_uVar, double const* scaladd );
 
   //! brief Intermediate function for DAG vector evaluation.
   template <typename U>
   void _veval0
-    ( size_t const NOTHREADS, 
+    ( size_t const NOTHREADS,
       FFSubgraph& sgDep, std::vector<U>& wkDep, std::vector<FFVar> const& vDep,
       std::vector<std::vector<U>>& v_uDep, std::vector<FFVar> const& vVar,
       std::vector<std::vector<U>> const& v_uVar, std::list<size_t>& l_nVar,
@@ -8114,7 +8138,7 @@ FFGraph::SDFAD
       if( op->type < FFOp::EXTERN )
         op->differentiate( vDep_deriv[iwk] );
       else
-        op->differentiate_external( vDep_deriv.data()+iwk );
+        op->differentiate_external( vDep_deriv.data()+iwk );  // pass op->depin.data() for sparse derivatives
 
       // Increment tape
       iwk += op->varout.size();
@@ -9891,6 +9915,105 @@ FFGraph::eval
   return;
 }
 
+template <typename U>
+inline void
+FFGraph::eval
+( FFSubgraph& sgDep, std::vector<std::pair<size_t,size_t>>& ndxVar, std::vector<U>& wkDep,
+  unsigned const nDep, FFVar const* pDep, U* vDep,
+  std::list<size_t> const& l_nVar, std::list<FFVar const*> const& l_pVar,
+  std::list<U const*> const& l_vVar, double const* scaladd )
+{
+  // Nothing to do!
+  if( !nDep ) return;
+  assert( pDep && vDep );
+  size_t const nIndep = l_nVar.size();
+  assert( l_pVar.size() == nIndep && l_vVar.size() == nIndep );
+
+  // Populate subgraph if empty
+  if( sgDep.l_op.empty() ) sgDep = subgraph( nDep, pDep );
+  wkDep.resize( sgDep.len_tap );
+  U* pwkDep = ( sgDep.len_wrk? &wkDep[sgDep.len_tap-sgDep.len_wrk]: nullptr );
+  unsigned* pwkmov = ( sgDep.len_wrk? &sgDep.v_mov[sgDep.len_tap-sgDep.len_wrk]: nullptr );
+
+  // Propagate values in U arithmetic through subgraph
+#ifdef MC__FFUNC_CPU_EVAL
+  double cputime = -cpuclock();
+  std::cerr << "#operations " << sgDep.l_op.size() << std::endl;
+#endif
+  size_t iwk = 0;
+  bool ndxVarUse = !ndxVar.empty();
+  if( ndxVar.empty() ) ndxVar.resize( std::accumulate( l_nVar.cbegin(), l_nVar.cend(), 0 ) );
+  size_t iVar = 0;
+
+  for( auto const& op : sgDep.l_op ){
+
+    // Initialize non-constant variable using values in l_vVar
+    if( op->type == FFOp::VAR && !op->varout[0]->cst() ){
+    
+      // Using existing variable index
+      if( ndxVarUse ){
+        auto itvVar = l_vVar.begin();
+        std::advance( itvVar, ndxVar[iVar].first );
+        wkDep[iwk] = (*itvVar)[ndxVar[iVar].second];
+      }
+
+      // Create variable index          
+      else{
+        FFVar* pvar = op->varout[0];
+        FFVar* pX = nullptr;
+        auto itnVar = l_nVar.begin(); auto itpVar = l_pVar.begin(); auto itvVar = l_vVar.begin();
+        for( size_t l=0; !pX && itnVar != l_nVar.end(); ++l, ++itnVar, ++itpVar, ++itvVar ){
+          for( size_t i=0; i<(*itnVar); i++ ){
+            if( pvar->id() != (*itpVar)[i].id() ) continue;
+            pX = pvar;
+            wkDep[iwk] = (*itvVar)[i];
+            ndxVar[iVar] = { l, i };
+            break;
+          }
+        }
+        if( !pX ){
+          std::cerr << "Subgraph evaluation failed -- missing variable " << *pvar << std::endl;
+          throw Exceptions( Exceptions::MISSVAR );
+        }
+      }
+      
+      ++iVar;
+    }
+
+    // Evaluate current operation
+    _curOp = op;
+    if( op->type < FFOp::EXTERN )
+      op->evaluate( &wkDep[iwk], (this->options.USEMOVE? sgDep.v_mov[iwk]: 0), pwkDep, pwkmov );
+    else
+      op->evaluate_external( &wkDep[iwk], (this->options.USEMOVE? &sgDep.v_mov[iwk]: nullptr), pwkDep, pwkmov );
+    // Increment tape
+    iwk += op->varout.size();    
+  }
+
+  // Copy dependent values in vDep 
+  unsigned int i=0;
+  for( auto const& pdep : sgDep.v_dep ){
+    if( !this->options.USEMOVE || !pdep->mov() ){
+      if( !scaladd )           vDep[i++]  = *static_cast<U*>( pdep->val() );
+      else if( *scaladd == 1 ) vDep[i++] += *static_cast<U*>( pdep->val() );
+      else                     vDep[i++] += ( *static_cast<U*>( pdep->val() ) *= (*scaladd) );
+    }
+    else{
+      if( !scaladd )           vDep[i++]  = std::move( *static_cast<U*>( pdep->val() ) );
+      else if( *scaladd == 1 ) vDep[i++] += std::move( *static_cast<U*>( pdep->val() ) );
+      else                     vDep[i++] += std::move( *static_cast<U*>( pdep->val() ) *= (*scaladd) );    
+    }
+  }
+  
+  //std::cout << "#assigned dependents: " << curdep << std::endl;
+#ifdef MC__FFUNC_CPU_EVAL
+  cputime += cpuclock();
+  std::cout << "\nEvaluation time: " << std::fixed << cputime << std::endl;
+#endif
+
+  return;
+}
+
 template <typename U, typename... Deps>
 inline void
 FFGraph::veval
@@ -10004,6 +10127,7 @@ FFGraph::veval
   double const* scaladd )
 {
   v_uDep.resize( v_uVar.size() );
+  _vevalErr.resize( v_uVar.size() ); // vector to store simluation status
 
   l_nVar.push_back( vVar.size() );
   l_pVar.push_back( vVar.data() );
@@ -10025,7 +10149,7 @@ FFGraph::veval
     
     // Dispatch evaluations on auxiliary thread
     vth[th-1] = std::thread( &FFGraph::_veval<U>, this, th, NOTHREADS, std::ref(wkThd[th-1]),
-                             std::ref(v_uDep), std::cref(v_uVar), l_uVar, scaladd );
+                             std::ref(_vevalErr), std::ref(v_uDep), std::cref(v_uVar), l_uVar, scaladd );
   }
 
   // Run evaluations on main thread as well
@@ -10038,6 +10162,7 @@ FFGraph::veval
 #else
   _veval0( 1, sgDep, wkDep, vDep, v_uDep, vVar, v_uVar, l_nVar, l_pVar, l_uVar, scaladd ); 
 #endif
+
 }
 
 template <typename U>
@@ -10083,7 +10208,7 @@ FFGraph::_vcopy
 template <typename U>
 inline void
 FFGraph::_veval
-( size_t const CURTHREAD, size_t const NOTHREADS, Worker<U>& wk, 
+( size_t const CURTHREAD, size_t const NOTHREADS, Worker<U>& wk, std::vector<char>& v_Err,
   std::vector<std::vector<U>>& v_uDep, std::vector<std::vector<U>> const& v_uVar,
   std::list<const U*> l_uVar, double const* scaladd )
 {
@@ -10093,8 +10218,13 @@ FFGraph::_veval
 
   auto ituDep = v_uDep.begin();
   auto ituVar = v_uVar.cbegin();
+  auto ituErr = v_Err.begin();
   std::advance( ituVar, CURTHREAD );
   std::advance( ituDep, CURTHREAD );
+  std::advance( ituErr, CURTHREAD );
+#ifdef MC__VEVAL_USE_NDXVAR
+  std::vector<std::pair<size_t,size_t>> ndxVar; // map variable values to subgraph
+#endif
 
   for( size_t s=CURTHREAD; s<v_uVar.size(); s+=NOTHREADS ){
 #ifdef MC__VEVAL_DEBUG
@@ -10104,15 +10234,23 @@ FFGraph::_veval
     ituDep->resize( wk.vDep.size() );
     l_uVar.back() = ituVar->data();
     try{
+#ifdef MC__VEVAL_USE_NDXVAR
+      wk.dag->eval( wk.sgDep, ndxVar, wk.wkDep, wk.vDep.size(), wk.vDep.data(), ituDep->data(),
+                    wk.l_nVar, wk.l_pVar, l_uVar, scaladd );
+#else
       wk.dag->eval( wk.sgDep, wk.wkDep, wk.vDep.size(), wk.vDep.data(), ituDep->data(),
                     wk.l_nVar, wk.l_pVar, l_uVar, scaladd );
+#endif
+      *ituErr = true; // record successful evaluation
     }
     catch( ... ){
-      // skip evaluation and try to carry on
-      continue;
+      std::cout << "Failed scenario " << CURTHREAD << "." << s << std::endl;
+      *ituErr = false; // record unsuccessful evaluation
+      continue; // carry on
     }    
     std::advance( ituVar, NOTHREADS );
     std::advance( ituDep, NOTHREADS );
+    std::advance( ituErr, NOTHREADS );
   }
 }
 
@@ -10130,12 +10268,12 @@ FFGraph::_veval0
 #endif
 
   // Run evaluations on current thread
-//  l_nVar.push_back( vVar.size() );
-//  l_pVar.push_back( vVar.data() );
-//  l_uVar.push_back( nullptr ); // pointer to be updated inside the loop
-
   auto ituDep = v_uDep.begin();
   auto ituVar = v_uVar.cbegin();
+  auto ituErr = _vevalErr.begin();
+#ifdef MC__VEVAL_USE_NDXVAR
+  std::vector<std::pair<size_t,size_t>> ndxVar; // map variable values to subgraph
+#endif
 
   for( size_t s=0; s<v_uVar.size(); s+=NOTHREADS ){
 #ifdef MC__VEVAL_DEBUG
@@ -10145,14 +10283,21 @@ FFGraph::_veval0
     ituDep->resize( vDep.size() );
     l_uVar.back() = ituVar->data();
     try{
+#ifdef MC__VEVAL_USE_NDXVAR
+      eval( sgDep, ndxVar, wkDep, vDep.size(), vDep.data(), ituDep->data(), l_nVar, l_pVar, l_uVar, scaladd );
+#else
       eval( sgDep, wkDep, vDep.size(), vDep.data(), ituDep->data(), l_nVar, l_pVar, l_uVar, scaladd );
+#endif
+      *ituErr = true; // record successful evaluation
     }
     catch( ... ){
-      // skip evaluation and try to carry on
-      continue;
+      std::cout << "Failed scenario 0." << s << std::endl;
+      *ituErr = false; // record unsuccessful evaluation
+      continue; // carry on
     }
     std::advance( ituVar, NOTHREADS );
     std::advance( ituDep, NOTHREADS );
+    std::advance( ituErr, NOTHREADS );
   }
 }
 

@@ -682,7 +682,7 @@ int test_veval1()
   auto&& F_op  = DAG.subgraph( F );
   std::cout << DAG;
 
-  const unsigned NREP=10000;//000;
+  const unsigned NREP=1000000;//000;
 
   // Evaluate with doubles, no parameter pack
   std::vector<double> dX{ -1., -1., 2., 3. };
@@ -728,7 +728,7 @@ int main()
   try{
 //    test_eval1();
 //    test_eval2();
-    test_eval3();
+//    test_eval3();
 //    test_reval1();
 //    test_reval2();
 //    test_reval3();
