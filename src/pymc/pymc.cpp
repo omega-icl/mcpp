@@ -24,5 +24,7 @@ PYBIND11_MODULE( pymc, m )
   mc_fflin     ( m );
   mc_ffvect    ( m );
   mc_ffcustom  ( m );
+  
+  m.attr("__version__") = "4";
 }
 

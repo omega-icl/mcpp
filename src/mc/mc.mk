@@ -11,7 +11,7 @@ incobjs = mcfunc.hpp mctime.hpp mclapack.hpp \
 	  ellipsoid.hpp ellimage.hpp polimage.hpp \
 	  polymodel.hpp tmodel.hpp cmodel.hpp smon.hpp scmodel.hpp sicmodel.hpp \
 	  spoly.hpp squad.hpp \
-	  ffdep.hpp ffinv.hpp ffunc.hpp mchsl.hpp sred.hpp slift.hpp selim.hpp \
+	  ffdep.hpp ffinv.hpp ffunc.hpp ffexpr.hpp mchsl.hpp sred.hpp slift.hpp selim.hpp \
 	  fflin.hpp ffspol.hpp ffvect.hpp ffextern.hpp ffdagext.hpp ffmlp.hpp ffmlpreg.hpp ffcustom.hpp
 
 #####

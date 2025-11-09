@@ -455,10 +455,10 @@ MLP<T>::_set_dag
     std::cerr << "No neurons in layer " << l << ": " << nneu << std::endl;
 #endif
     for( unsigned i=0; i<nneu; ++i ){
-      FFLin<I> sum;
+      FFLin<T> sum;
       // Need to clean data beforehand
       wkhid[l][i] = sum( (data[l].first)[i].size()-1, l? wkhid[l-1].data(): _varin.data(),
-                         (data[l].first)[i].data()+1, (data[l].first)[i][0], FFLin<I>::SHALLOW );
+                         (data[l].first)[i].data()+1, (data[l].first)[i][0], FFLin<T>::SHALLOW );
 #ifdef MC__FFMLP_DEBUG
       std::cerr << "No inputs to neuron " << i << " in layer " << l << ": " << (data[l].first)[i].size()-1 << std::endl;
 #endif
@@ -481,10 +481,10 @@ MLP<T>::_set_dag
   std::cerr << "No neurons in layer " << _nhid << ": " << _nout << std::endl;
 #endif
   for( unsigned i=0; i<_nout; ++i ){
-    FFLin<I> sum;
+    FFLin<T> sum;
     // Need to clean data beforehand
     _varout[i] = sum( (data.back().first)[i].size()-1, _nhid? wkhid[_nhid-1].data(): _varin.data(),
-                      (data.back().first)[i].data()+1, (data.back().first)[i][0], FFLin<I>::SHALLOW );
+                      (data.back().first)[i].data()+1, (data.back().first)[i][0], FFLin<T>::SHALLOW );
 #ifdef MC__FFMLP_DEBUG
     std::cerr << "No inputs to neuron " << i << " in layer " << _nhid << ": " << (data.back().first)[i].size()-1 << std::endl;
 #endif
@@ -693,13 +693,18 @@ public:
     {}
 
   // Define operation
-  FFVar** operator()
+  //FFVar** operator()
+  std::vector<FFVar> operator()
     ( std::vector<FFVar> const& vVar, MLP<T>* pMLP, int policy=COPY )
     {
 #ifdef MC__FFMLP_CHECK
       assert( vVar.size() == pMLP->nin() );
 #endif
-      return _set( vVar.size(), vVar.data(), pMLP, policy );
+      //return _set( vVar.size(), vVar.data(), pMLP, policy );
+      FFVar** ppDer = _set( vVar.size(), vVar.data(), pMLP, policy );
+      std::vector<FFVar> vDer( vVar.size() );
+      for( size_t i=0; i<vVar.size(); ++i ) vDer[i] = *ppDer[i];
+      return std::move( vDer );
     }
 
   FFVar& operator()

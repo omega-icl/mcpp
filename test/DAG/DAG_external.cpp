@@ -17,7 +17,7 @@
 #include "ffspol.hpp"
 #include "ffmlp.hpp"
 #include "ffvect.hpp"
-#include "ffextern.hpp"
+#include "ffdagext.hpp"
 #include "ffcustom.hpp"
 
 #if defined( MC__USE_PROFIL )
@@ -1807,27 +1807,31 @@ int test_external12()
 
   // Create DAG
   mc::FFGraph DAG;
-  size_t const NX = 3;
+  size_t const NX = 4;
   std::vector<mc::FFVar> X(NX);
   for( auto& Xi : X ) Xi.set( &DAG );
-  std::vector<mc::FFVar> Y{ pow( X[0] + sqr( X[1] ) - 2 * X[2], 3 ) };
+  std::vector<mc::FFVar> Y{ pow( X[0] + sqr( X[1] ) - 2 * X[2], 3 ), sqrt( X[3] ) };
 
-  mc::DAG<I> DAGY0( &DAG, X, Y );
-  DAGY0.options.AUTODIFF = DAGY0.options.B;
-  mc::FFDAG<I> Expr;
-  std::vector<mc::FFVar> F{ Expr( 0, X, &DAGY0, 1 ) }; // with DAG copy
+  mc::DAGEXT<I> DAGY0( &DAG, X, Y );
+  DAGY0.options.AUTODIFF = DAGY0.options.F;
+  mc::FFDAGEXT<I> Expr( false );//true );
+  std::vector<mc::FFVar> F{ Expr( 0, X, &DAGY0, 1 ), Expr( 1, X, &DAGY0, 1 ) }; // with DAG copy
 
   std::cout << DAG;
 
   auto opF  = DAG.subgraph( F );
   DAG.output( opF, " OF F" );
   auto strout = mc::FFExpr::subgraph( &DAG, opF );
-  std::cout << "F: " << strout[0] << std::endl;
+  for( unsigned i=0; i<strout.size(); ++i )
+    std::cout << "F: " << strout[i] << std::endl;
 
   // Evaluation in real arithmetic
-  std::vector<double> dX{ 0.5, -0.5, 0.75 }, dF;
+  std::vector<double> dX{ 0.5, -0.5, 0.75, 4. }, dF;
   DAG.eval( opF, F, dF, X, dX );
-  std::cout << "\nFunction value: " << dF[0] << std::endl;
+  std::cout << "\nFunction value: [ ";
+  for( auto const& Fi : dF )
+    std::cout << Fi << " ";
+  std::cout << "]" << std::endl;
 
   // Evaluation of symbolic derivatives in real arithmetic
   std::vector<mc::FFVar>&& dFdX = DAG.FAD( F, X );
@@ -1861,8 +1865,8 @@ int test_external13()
   for( auto& Xi : X ) Xi.set( &DAG );
   std::vector<mc::FFVar> Y{ pow( X[0] + sqr( X[1] ) - 2 * X[2], 3 ) };
 
-  mc::DAG<I> DAGY0( &DAG, X, Y );
-  mc::FFDAG<I> Expr;
+  mc::DAGEXT<I> DAGY0( &DAG, X, Y );
+  mc::FFDAGEXT<I> Expr;
   Expr.options.RELAX  = { Expr.options.MCPWCS };//AUX };//MC };//INT };
   Expr.options.PWLINI = 4;
   std::vector<mc::FFVar> F{ Expr( 0, X, &DAGY0, 1 ) }; // with DAG copy
@@ -1932,10 +1936,10 @@ int test_external14()
   std::vector<mc::FFVar> Y{ sqr(X[0])+X[0]*X[1]+4 };
   auto opY  = DAG.subgraph( Y );
 
-  mc::DAG<I> DAGY0( &DAG, X, Y );
+  mc::DAGEXT<I> DAGY0( &DAG, X, Y );
   DAGY0.options.CPMAX = 1;
   
-  mc::FFDAG<I> Expr;
+  mc::FFDAGEXT<I> Expr;
   Expr.options.RELAX  = { Expr.options.AUX };
   std::vector<mc::FFVar> F{ Expr( 0, X, &DAGY0, 1 ) }; // with DAG copy
 
@@ -2118,10 +2122,10 @@ int main()
 //    test_external9_2();
 //    test_external10();
 //    test_external11();
-//    test_external12();
+    test_external12();
 //    test_external13();
 //    test_external14();
-    test_external15();
+//    test_external15();
 //    test_slift_external0();
 //    test_slift_external1();
 

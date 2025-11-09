@@ -787,18 +787,26 @@ class FFVar
   friend std::ostream& operator<< ( std::ostream&, const FFVar& );
   friend FFVar operator+ ( const FFVar& );
   friend FFVar operator+ ( const FFVar&, const FFVar& );
-  template <typename V> friend FFVar operator+ ( const V&, const FFVar& );
-  template <typename V> friend FFVar operator+ ( const FFVar&, const V& );
+  friend FFVar operator+ ( const double&, const FFVar& );
+  friend FFVar operator+ ( const FFVar&, const double& );
+  //template <typename V> friend FFVar operator+ ( const V&, const FFVar& );
+  //template <typename V> friend FFVar operator+ ( const FFVar&, const V& );
   friend FFVar operator- ( const FFVar& );
   friend FFVar operator- ( const FFVar&, const FFVar& );
-  template <typename V> friend FFVar operator- ( const V&, const FFVar& );
-  template <typename V> friend FFVar operator- ( const FFVar&, const V& );
+  friend FFVar operator- ( const double&, const FFVar& );
+  friend FFVar operator- ( const FFVar&, const double& );
+  //template <typename V> friend FFVar operator- ( const V&, const FFVar& );
+  //template <typename V> friend FFVar operator- ( const FFVar&, const V& );
   friend FFVar operator* ( const FFVar&, const FFVar& );
-  template <typename V> friend FFVar operator* ( const V&, const FFVar& );
-  template <typename V> friend FFVar operator* ( const FFVar&, const V& );
+  friend FFVar operator* ( const double&, const FFVar& );
+  friend FFVar operator* ( const FFVar&, const double& );
+  //template <typename V> friend FFVar operator* ( const V&, const FFVar& );
+  //template <typename V> friend FFVar operator* ( const FFVar&, const V& );
   friend FFVar operator/ ( const FFVar&, const FFVar& );
-  template <typename V> friend FFVar operator/ ( const V&, const FFVar& );
-  template <typename V> friend FFVar operator/ ( const FFVar&, const V& );
+  friend FFVar operator/ ( const double&, const FFVar& );
+  friend FFVar operator/ ( const FFVar&, const double& );
+  //template <typename V> friend FFVar operator/ ( const V&, const FFVar& );
+  //template <typename V> friend FFVar operator/ ( const FFVar&, const V& );
   friend FFVar sum   ( const unsigned int, const FFVar* );
   friend FFVar prod  ( const unsigned int, const FFVar* );
   friend FFVar monom ( const unsigned int, const FFVar*, const unsigned*, const bool );
@@ -811,8 +819,10 @@ class FFVar
   friend FFVar min ( const double&, const FFVar& );
   friend FFVar min ( const FFVar&, const double& );
   friend FFVar inter ( const FFVar&, const FFVar& );
-  template <typename V> friend FFVar inter ( const V&, const FFVar& );
-  template <typename V> friend FFVar inter ( const FFVar&, const V& );
+  friend FFVar inter ( const double&, const FFVar& );
+  friend FFVar inter ( const FFVar&, const double& );
+  //template <typename V> friend FFVar inter ( const V&, const FFVar& );
+  //template <typename V> friend FFVar inter ( const FFVar&, const V& );
   friend FFVar inv   ( const FFVar& );
   friend FFVar sqr   ( const FFVar& );
   friend FFVar exp   ( const FFVar& );
@@ -1186,6 +1196,8 @@ public:
   mutable void*                             data;
   //! @brief Flag for data ownership - data pointer deletion will be attempted when erasing operation
   mutable bool                              owndata;
+  //! @brief Flag for derivative sparsity
+  mutable bool                              sparse;
 
   //! @brief Set operand copy
   FFOp& set
@@ -1248,7 +1260,7 @@ public:
 
   //! @brief Differentiate external operation
   void differentiate_external
-    ( FFVar** grad )
+    ( FFVar** grad, size_t* nnz, size_t** colnz )
     const;
   //! @brief Evaluate external operation in U arithmetic
   template <typename U>
@@ -1308,9 +1320,15 @@ public:
     ( ExtOp const& Op, unsigned const nDep, std::set<FFVar const*,lt_FFVar> const& sVar )
     const;
 
-  //! @brief Virtual differentiation function for external operations
+  //! @brief Virtual dense differentiation function for external operations
   virtual void deriv
-    ( unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar, FFVar** vDer )
+    ( unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar,
+      FFVar** vDer )
+    const;
+  //! @brief Virtual sparse differentiation function for external operations
+  virtual void deriv
+    ( unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar, FFVar** vDer,
+      size_t* nnz, size_t** colnz )
     const;
   //! @brief Virtual forward evaluation function for external operations
   virtual void feval
@@ -1529,18 +1547,26 @@ class FFBase
   friend class FFOp;
   friend FFVar operator+ ( const FFVar& );
   friend FFVar operator+ ( const FFVar&, const FFVar& );
-  template <typename V> friend FFVar operator+ ( const V&, const FFVar& );
-  template <typename V> friend FFVar operator+ ( const FFVar&, const V& );
+  friend FFVar operator+ ( const double&, const FFVar& );
+  friend FFVar operator+ ( const FFVar&, const double& );
+  //template <typename V> friend FFVar operator+ ( const V&, const FFVar& );
+  //template <typename V> friend FFVar operator+ ( const FFVar&, const V& );
   friend FFVar operator- ( const FFVar& );
   friend FFVar operator- ( const FFVar&, const FFVar& );
-  template <typename V> friend FFVar operator- ( const V&, const FFVar& );
-  template <typename V> friend FFVar operator- ( const FFVar&, const V& );
+  friend FFVar operator- ( const double&, const FFVar& );
+  friend FFVar operator- ( const FFVar&, const double& );
+  //template <typename V> friend FFVar operator- ( const V&, const FFVar& );
+  //template <typename V> friend FFVar operator- ( const FFVar&, const V& );
   friend FFVar operator* ( const FFVar&, const FFVar& );
-  template <typename V> friend FFVar operator* ( const V&, const FFVar& );
-  template <typename V> friend FFVar operator* ( const FFVar&, const V& );
+  friend FFVar operator* ( const double&, const FFVar& );
+  friend FFVar operator* ( const FFVar&, const double& );
+  //template <typename V> friend FFVar operator* ( const V&, const FFVar& );
+  //template <typename V> friend FFVar operator* ( const FFVar&, const V& );
   friend FFVar operator/ ( const FFVar&, const FFVar& );
-  template <typename V> friend FFVar operator/ ( const V&, const FFVar& );
-  template <typename V> friend FFVar operator/ ( const FFVar&, const V& );
+  friend FFVar operator/ ( const double&, const FFVar& );
+  friend FFVar operator/ ( const FFVar&, const double& );
+  //template <typename V> friend FFVar operator/ ( const V&, const FFVar& );
+  //template <typename V> friend FFVar operator/ ( const FFVar&, const V& );
   friend FFVar sum   ( const unsigned int, const FFVar* );
   friend FFVar prod  ( const unsigned int, const FFVar* );
   friend FFVar monom ( const unsigned int, const FFVar*, const unsigned*, const bool );
@@ -1553,8 +1579,10 @@ class FFBase
   friend FFVar min   ( const double&, const FFVar& );
   friend FFVar min   ( const FFVar&, const double& );
   friend FFVar inter ( const FFVar&, const FFVar& );
-  template <typename V> friend FFVar inter ( const V&, const FFVar& );
-  template <typename V> friend FFVar inter ( const FFVar&, const V& );
+  friend FFVar inter ( const double&, const FFVar& );
+  friend FFVar inter ( const FFVar&, const double& );
+  //template <typename V> friend FFVar inter ( const V&, const FFVar& );
+  //template <typename V> friend FFVar inter ( const FFVar&, const V& );
   friend FFVar inv   ( const FFVar& );
   friend FFVar sqr   ( const FFVar& );
   friend FFVar exp   ( const FFVar& );
@@ -3195,13 +3223,12 @@ operator+
   }
 }
 
-template <typename U>
 inline FFVar
 operator+
-( U const& Cst, FFVar const& Var )
+( double const& Cst, FFVar const& Var )
 {
   // Case constant is zero
-  if( Cst == U(0) ) return Var;
+  if( Cst == 0.0 ) return Var;
 
   switch( Var._id.first ){
   case FFVar::CREAL:
@@ -3209,14 +3236,13 @@ operator+
   case FFVar::CINT:
     return( Cst + Var._num.n );
   default:
-    return FFBase::_insert_binary_operation( FFOp::SHIFT, Var, (double)Cst );
+    return FFBase::_insert_binary_operation( FFOp::SHIFT, Var, Cst );
   }
 }
 
-template <typename U>
 inline FFVar
 operator+
-( FFVar const& Var, U const& Cst )
+( FFVar const& Var, double const& Cst )
 {
   return( Cst + Var );
 }
@@ -3286,13 +3312,12 @@ operator-
   }
 }
 
-template <typename U>
 inline FFVar
 operator-
-( FFVar const& Var, U const& Cst )
+( FFVar const& Var, double const& Cst )
 {
   // Case constant is zero
-  if( Cst == U(0) ) return Var;
+  if( Cst == 0.0 ) return Var;
 
   switch( Var._id.first ){
   case FFVar::CREAL:
@@ -3300,14 +3325,13 @@ operator-
   case FFVar::CINT:
     return( Var._num.n - Cst );
   default:
-    return FFBase::_insert_binary_operation( FFOp::SHIFT, Var, -(double)Cst );
+    return FFBase::_insert_binary_operation( FFOp::SHIFT, Var, -Cst );
   }
 }
 
-template <typename U>
 inline FFVar
 operator-
-( U const& Cst, FFVar const& Var )
+( double const& Cst, FFVar const& Var )
 {
   return( Cst + (-Var) );
 }
@@ -3360,25 +3384,23 @@ operator*
   }
 }
 
-template <typename U>
 inline FFVar
 operator*
-( FFVar const& Var, U const& Cst )
+( FFVar const& Var, double const& Cst )
 {
   return( Cst * Var );
 }
 
-template <typename U>
 inline FFVar
 operator*
-( U const& Cst, FFVar const& Var )
+( double const& Cst, FFVar const& Var )
 {
   // Case constant is zero
-  if( Cst == U(0) ) return 0.;
+  if( Cst == 0.0 ) return 0.;
   // Case constant is one
-  if( Cst == U(1) ) return Var;
+  if( Cst == 1.0 ) return Var;
   // Case constant is negative one
-  if( Cst == U(-1) ) return -Var;
+  if( Cst == -1.0 ) return -Var;
 
   switch( Var._id.first ){
   case FFVar::CREAL:
@@ -3386,7 +3408,7 @@ operator*
   case FFVar::CINT:
     return( Cst * Var._num.n );
   default:
-    return FFBase::_insert_binary_operation( FFOp::SCALE, Var, (double)Cst );
+    return FFBase::_insert_binary_operation( FFOp::SCALE, Var, Cst );
   }
 }
 
@@ -3442,25 +3464,20 @@ operator/
   }
 }
 
-template <typename U>
 inline FFVar
 operator/
-( FFVar const& Var, U const& Cst )
+( FFVar const& Var, double const& Cst )
 {
-  if( Cst == U(0) ) return std::numeric_limits<double>::quiet_NaN();
-  //FFVar Z = ( 1. / Cst ) * Var;
-  //std::cout << Z << " = " << Z._opdef.first->name() << std::endl;
-  //return Z;
+  if( Cst == 0.0 ) return std::numeric_limits<double>::quiet_NaN();
   return( ( 1. / Cst ) * Var );
 }
 
-template <typename U>
 inline FFVar
 operator/
-( U const& Cst, FFVar const& Var )
+( double const& Cst, FFVar const& Var )
 {
   // Case constant is zero
-  if( Cst == U(0) ) return 0.;
+  if( Cst == 0.0 ) return 0.;
 
   switch( Var._id.first ){
   case FFVar::CREAL:
@@ -3468,7 +3485,7 @@ operator/
   case FFVar::CINT:
     return( Cst / Var._num.n );
   default:{
-    return FFBase::_insert_binary_operation( FFOp::INV, (double)Cst, Var );
+    return FFBase::_insert_binary_operation( FFOp::INV, Cst, Var );
    }
   }
 }
@@ -4100,9 +4117,9 @@ inter
   return FFBase::_insert_binary_operation( FFOp::INTER, Var1, Var2 );
 }
 
-template <typename U> inline FFVar
+inline FFVar
 inter
-( U const& Cst1, FFVar const& Var2 )
+( double const& Cst1, FFVar const& Var2 )
 {
   // Case right operand is a numerhic constant
   if( Var2._id.second == FFVar::NOREF ){
@@ -4113,13 +4130,12 @@ inter
 
   // Append new intermediate variable and corresponding operation
   // (only if operation does not exist already)
-  return FFBase::_insert_binary_operation( FFOp::INTER, (double)Cst1, Var2 );
+  return FFBase::_insert_binary_operation( FFOp::INTER, Cst1, Var2 );
 }
 
-template <typename U>
 inline FFVar
 inter
-( FFVar const& Var1, U const& Cst2 )
+( FFVar const& Var1, double const& Cst2 )
 {
   return( inter( Cst2, Var1 ) );
 }
@@ -4275,8 +4291,13 @@ operator <<
 
 inline
 FFOp::FFOp
-( int const top, FFVar* lop, FFVar* res ):
-  type( top ), iflag( 0 ), info( 0 ), data( nullptr ), owndata( false )
+( int const top, FFVar* lop, FFVar* res )
+: type    ( top     ),
+  iflag   ( 0       ),
+  info    ( 0       ),
+  data    ( nullptr ),
+  owndata ( false   ),
+  sparse  ( false   )
 {
   if( res ) varout.push_back( res );
   if( lop ) varin.push_back( lop );
@@ -4284,8 +4305,13 @@ FFOp::FFOp
 
 inline
 FFOp::FFOp
-( int const top, FFVar* lop, FFVar* rop, FFVar* res ):
-  type( top ), iflag( 0 ), info( 0 ), data( nullptr ), owndata( false )
+( int const top, FFVar* lop, FFVar* rop, FFVar* res )
+: type    ( top     ),
+  iflag   ( 0       ),
+  info    ( 0       ),
+  data    ( nullptr ),
+  owndata ( false   ),
+  sparse  ( false   )
 {
   if( res ) varout.push_back( res );
 
@@ -4298,8 +4324,14 @@ FFOp::FFOp
 
 inline
 FFOp::FFOp
-( int const top, unsigned const nop, FFVar** ops, FFVar* res ):
-  type( top ), varin( ops, ops+nop ), iflag( 0 ), info( 0 ), data( nullptr ), owndata( false )
+( int const top, unsigned const nop, FFVar** ops, FFVar* res )
+: type    ( top          ),
+  varin   ( ops, ops+nop ),
+  iflag   ( 0            ),
+  info    ( 0            ),
+  data    ( nullptr      ),
+  owndata ( false        ),
+  sparse  ( false        )
 {
   if( res ) varout.push_back( res );
 
@@ -4309,9 +4341,15 @@ FFOp::FFOp
 
 inline
 FFOp::FFOp
-( FFOp const& other ):
-  type( other.type ), varout( other.varout ), varin( other.varin ), iflag( 0 ),
-  info( other.info ), data( other.data ), owndata( false )
+( FFOp const& other )
+: type    ( other.type   ),
+  varout  ( other.varout ),
+  varin   ( other.varin  ),
+  iflag   ( 0            ),
+  info    ( other.info   ),
+  data    ( other.data   ),
+  owndata ( false        ),
+  sparse  ( other.sparse )
 {}
 
 inline
@@ -4325,6 +4363,7 @@ FFOp::set
   info    = other.info;
   data    = other.data;
   owndata = false;
+  sparse  = other.sparse;
   return *this;
 }
 
@@ -4339,9 +4378,10 @@ FFOp::set
   varin.clear();
   if( lop ) varin.push_back( lop );
 
-  info = 0;
-  data = nullptr;
+  info    = 0;
+  data    = nullptr;
   owndata = false;
+  sparse  = false;
   return *this;
 }
 
@@ -4359,9 +4399,10 @@ FFOp::set
   else
     varin.assign( { lop, rop } );
 
-  info = 0;
-  data = nullptr;
+  info    = 0;
+  data    = nullptr;
   owndata = false;
+  sparse  = false;
   return *this;
 }
 
@@ -4377,9 +4418,10 @@ FFOp::set
   if( nop > 1 && commutative() )
     std::sort( varin.begin(), varin.end(), lt_FFVar() );
 
-  info = 0;
-  data = nullptr;
+  info    = 0;
+  data    = nullptr;
   owndata = false;
+  sparse  = false;
   return *this;
 }
 
@@ -4464,7 +4506,7 @@ FFOp::insert_external_operation
 ( ExtOp const& Op, unsigned const nDep, FFVar const& Var1, FFVar const& Var2 )
 const
 {
-  return FFBase::_insert_unary_external_operation( Op, nDep, Var1, Var2 );
+  return FFBase::_insert_binary_external_operation( Op, nDep, Var1, Var2 );
 }
 
 template <typename ExtOp>
@@ -4712,7 +4754,7 @@ const
 
 inline void
 FFOp::differentiate_external
-( FFVar** grad )
+( FFVar** grad, size_t* nnz, size_t** colnz )
 const
 {
   if( type < FFOp::EXTERN )
@@ -4724,17 +4766,34 @@ const
   std::vector<FFVar> ops_res; ops_res.reserve( varout.size() );
   for( auto const& pvar : varout ) ops_res.push_back( *pvar );
 
-  if( varin.size() == 1 )
-    return deriv( ops_res.size(), ops_res.data(), 1, varin[0], grad );
-
+  if( varin.size() == 1 ){
+    if( sparse )
+      return deriv( ops_res.size(), ops_res.data(), 1, varin[0], grad, nnz, colnz );
+    else
+      return deriv( ops_res.size(), ops_res.data(), 1, varin[0], grad );
+  }
+  
   std::vector<FFVar> ops_val; ops_val.reserve( varin.size() );
   for( auto const& pvar : varin ) ops_val.push_back( *pvar );
-  deriv( ops_res.size(), ops_res.data(), ops_val.size(), ops_val.data(), grad );
+  if( sparse )
+    return deriv( ops_res.size(), ops_res.data(), ops_val.size(), ops_val.data(), grad, nnz, colnz );
+  else
+    return deriv( ops_res.size(), ops_res.data(), ops_val.size(), ops_val.data(), grad );
 }
 
 inline void
 FFOp::deriv
-( unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar, FFVar** vDer )
+( unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar,
+  FFVar** vDer )
+const
+{
+  throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
+}
+
+inline void
+FFOp::deriv
+( unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar,
+  FFVar** vDer, size_t* nnz, size_t** colnz )
 const
 {
   throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
@@ -6552,7 +6611,8 @@ FFBase::_insert_nary_external_operation
   // Create operation
   FFOp* pOp = new ExtOp( Op );  // Copy constructor to pass any data fields
   pOp->set( nVar, vVar.data(), nullptr );
-  pOp->data = Op.data; // passing data structure
+  pOp->data   = Op.data;   // passing data structure
+  pOp->sparse = Op.sparse; // passing sparsity
 
   // Check if same operation type in _Ops
   FFOp* pExtOp = dag->_find_extop( typeid( ExtOp ) );
@@ -6644,7 +6704,8 @@ FFBase::_insert_nary_external_operation
   // Create operation
   FFOp* pOp = new ExtOp( Op );  // Copy constructor to pass any data fields
   pOp->set( vVar.size(), vVar.data(), nullptr );
-  pOp->data = Op.data; // passing data structure
+  pOp->data   = Op.data;   // passing data structure
+  pOp->sparse = Op.sparse; // passing sparsity
 
   // Check if same operation type in _Ops
   FFOp* pExtOp = dag->_find_extop( typeid( ExtOp ) );
@@ -6704,7 +6765,8 @@ FFBase::_insert_nary_external_operation
   // Create operation
   FFOp* pOp = new ExtOp( Op );  // Copy constructor to pass any data fields
   //pOp->set( nVar, vVar.data(), nullptr );
-  pOp->data = Op.data; // passing data structure
+  pOp->data   = Op.data;   // passing data structure
+  pOp->sparse = Op.sparse; // passing sparsity
 
   // Check if same operation type in _Ops
   FFOp* pExtOp = dag->_find_extop( typeid( ExtOp ) );
@@ -6780,7 +6842,9 @@ FFBase::_insert_nary_external_operation
   // Create operation
   FFOp* pOp = new ExtOp( Op );  // Copy constructor to pass any data fields
   pOp->set( nVar, vVar.data(), nullptr );
-  pOp->data = Op.data; // passing data structure
+  pOp->data   = Op.data;   // passing data structure
+  pOp->sparse = Op.sparse; // passing sparsity
+
 
   // Check if same operation type in _Ops
   FFOp* pExtOp = dag->_find_extop( typeid( ExtOp ) );
@@ -6858,7 +6922,9 @@ FFBase::_insert_nary_external_operation
   // Create operation
   FFOp* pOp = new ExtOp( Op );  // Copy constructor to pass any data fields
   pOp->set( nVar, vVar.data(), nullptr );
-  pOp->data = Op.data; // passing data structure
+  pOp->data   = Op.data;   // passing data structure
+  pOp->sparse = Op.sparse; // passing sparsity
+
 
   // Check if same operation type in _Ops
   FFOp* pExtOp = dag->_find_extop( typeid( ExtOp ) );
@@ -6943,7 +7009,9 @@ FFBase::_insert_binary_external_operation
   // Create operation
   FFOp* pOp = new ExtOp( Op );  // Copy constructor to pass any data fields
   pOp->set( pVar1, pVar2, nullptr );
-  pOp->data = Op.data; // passing data structure
+  pOp->data   = Op.data;   // passing data structure
+  pOp->sparse = Op.sparse; // passing sparsity
+
 
   // Check if same operation type in _Ops
   FFOp* pExtOp = dag->_find_extop( typeid( ExtOp ) );
@@ -8126,19 +8194,22 @@ FFGraph::SDFAD
 #endif
 
   // Gather the derivatives of each operation
-  std::vector< FFVar* > vDep_deriv( sgDep.len_tap, nullptr );
+  std::vector< FFVar*  > vDep_deriv( sgDep.len_tap, nullptr );
+  std::vector< size_t  > vDim_deriv( sgDep.len_tap, 0 );
+  std::vector< size_t* > vCol_deriv( sgDep.len_tap, nullptr );
   try{
-    unsigned iwk = 0;
+    size_t iwk = 0;
     for( auto const& op : sgDep.l_op ){
 
       // Differentiate current operation
       _curOp = op;
-      for( unsigned int iout=0; iout<op->varout.size(); ++iout )
+      for( size_t iout=0; !op->sparse && iout<op->varout.size(); ++iout )
         vDep_deriv[iwk+iout] = new FFVar[ op->varin.size() ];
       if( op->type < FFOp::EXTERN )
         op->differentiate( vDep_deriv[iwk] );
       else
-        op->differentiate_external( vDep_deriv.data()+iwk );  // pass op->depin.data() for sparse derivatives
+        // vDep/vCol/vDim need to be sized/set by external operation if sparse operation
+        op->differentiate_external( vDep_deriv.data()+iwk, vDim_deriv.data()+iwk, vCol_deriv.data()+iwk );
 
       // Increment tape
       iwk += op->varout.size();
@@ -8146,6 +8217,7 @@ FFGraph::SDFAD
   }
   catch( Exceptions& e ){
     for( auto& vdep : vDep_deriv ) if( vdep ) delete[] vdep;
+    for( auto& vcol : vCol_deriv ) if( vcol ) delete[] vcol;
     throw;
   }
 
@@ -8155,11 +8227,11 @@ FFGraph::SDFAD
   static FFVar FFOne  = 1.; 
 
   // Repeat forward differentiation for each independent or in selected direction
-  for( unsigned int ivar=0; ivar<vIndep.size(); ++ivar ){
+  for( size_t ivar=0; ivar<vIndep.size(); ++ivar ){
     if( ivar && !vDir.empty() ) break;
 
     // Forward differentiation through subgraph
-    unsigned int iwk=0;
+    size_t iwk=0;
     for( auto const& op : sgDep.l_op ){
 
       switch( op->type ){
@@ -8172,7 +8244,7 @@ FFGraph::SDFAD
         case FFOp::VAR:
           if( vDir.size() ){
             op->varout[0]->val() = &FFZero;
-            for( unsigned int j=0; j<vIndep.size(); ++j ){
+            for( size_t j=0; j<vIndep.size(); ++j ){
               if( op->varout[0]->id() != vIndep[j]->id() ) continue;
               op->varout[0]->val() = const_cast<FFVar*>( vDir[j] );
               break;
@@ -8186,29 +8258,54 @@ FFGraph::SDFAD
 
         // Propagate chain rule
         default:
-          for( unsigned int iout=0; iout<op->varout.size(); ++iout ){
+          for( size_t iout=0; iout<op->varout.size(); ++iout ){
             //std::cerr << "iwk+iout = " << iwk+iout << std::endl;
             wkAD[iwk+iout] = FFZero;
-            for( unsigned int iin=0; iin<op->varin.size(); ++iin ){
-              if( op->varin[iin]->val() == &FFZero
-               || ((vDep_deriv[iwk+iout][iin].id().first == FFVar::CREAL
-                 || vDep_deriv[iwk+iout][iin].id().first == FFVar::CINT)
-                 && vDep_deriv[iwk+iout][iin].num().val() == 0.) )
-                continue;
-              else if( op->varin[iin]->val() == &FFOne )
-                wkAD[iwk+iout] += vDep_deriv[iwk+iout][iin];
-              else
-                wkAD[iwk+iout] += vDep_deriv[iwk+iout][iin] * *static_cast<FFVar*>( op->varin[iin]->val() );
+
+            // Sparse derivatives
+            if( vCol_deriv[iwk+iout] ){
+              for( size_t jin=0; jin<vDim_deriv[iwk+iout]; ++jin ){
+                size_t const iin = vCol_deriv[iwk+iout][jin];
+                if( op->varin[iin]->val() == &FFZero
+                 || ((vDep_deriv[iwk+iout][jin].id().first == FFVar::CREAL
+                   || vDep_deriv[iwk+iout][jin].id().first == FFVar::CINT)
+                   && vDep_deriv[iwk+iout][jin].num().val() == 0.) )
+                  continue;
+                else if( op->varin[iin]->val() == &FFOne )
+                  wkAD[iwk+iout] += vDep_deriv[iwk+iout][jin];
+                else
+                  wkAD[iwk+iout] += vDep_deriv[iwk+iout][jin]
+                                  * *static_cast<FFVar*>( op->varin[iin]->val() );
+              }
             }
+            
+            // Dense derivatives
+            else{
+              for( size_t iin=0; iin<op->varin.size(); ++iin ){
+                if( op->varin[iin]->val() == &FFZero
+                 || ((vDep_deriv[iwk+iout][iin].id().first == FFVar::CREAL
+                   || vDep_deriv[iwk+iout][iin].id().first == FFVar::CINT)
+                   && vDep_deriv[iwk+iout][iin].num().val() == 0.) )
+                  continue;
+                else if( op->varin[iin]->val() == &FFOne )
+                  wkAD[iwk+iout] += vDep_deriv[iwk+iout][iin];
+                else
+                  wkAD[iwk+iout] += vDep_deriv[iwk+iout][iin]
+                                  * *static_cast<FFVar*>( op->varin[iin]->val() );
+              }
+            }
+            
+            // Set derivative
             op->varout[iout]->val() = &wkAD[iwk+iout];
           }
       }
+      
       // Increment tape
       iwk += op->varout.size();      
     }
 
     // Copy dependent values in vDep_F
-    for( unsigned idep=0; idep<sgDep.v_dep.size(); ++idep ){
+    for( size_t idep=0; idep<sgDep.v_dep.size(); ++idep ){
       FFVar const* pDep_F = static_cast<FFVar*>( sgDep.v_dep[idep]->val() );
       auto vder = _find_var( pDep_F->id() );
       if( vder == nullptr ){
@@ -8227,6 +8324,7 @@ FFGraph::SDFAD
 
   // Clean-up intermediate derivative arrays
   for( auto& vdep : vDep_deriv ) if( vdep ) delete[] vdep;
+  for( auto& vcol : vCol_deriv ) if( vcol ) delete[] vcol;
 #ifdef MC__FFUNC_CPU_EVAL
   cputime += cpuclock();
   std::cout << "\nEvaluation time: " << std::fixed << cputime << std::endl;
@@ -8746,6 +8844,8 @@ FFGraph::SDBAD
 
   // Gather the derivatives of each operation
   std::vector< FFVar* >   vDep_deriv( sgDep.len_tap, nullptr );
+  std::vector< size_t >   vDim_deriv( sgDep.len_tap, 0 );
+  std::vector< size_t* >  vCol_deriv( sgDep.len_tap, nullptr );
   std::vector< unsigned > vDep_index( sgDep.len_tap );
   std::multimap< unsigned, std::pair< unsigned, unsigned > > mapDep; // [ pos_indep, [ pos_dep, index_indep ] ]
   std::set< FFVar const*, lt_FFVar > setIndep;
@@ -8754,7 +8854,7 @@ FFGraph::SDBAD
     for( auto const& op : sgDep.l_op ){
 
       for( unsigned int iout=0; iout<op->varout.size(); ++iout ){
-        vDep_deriv[iwk+iout] = new FFVar[ op->varin.size() ];
+        if( !op->sparse ) vDep_deriv[iwk+iout] = new FFVar[ op->varin.size() ];
         vDep_index[iwk+iout] = iwk+iout;
         op->varout[iout]->val() = &vDep_index[iwk+iout];
       }
@@ -8764,13 +8864,25 @@ FFGraph::SDBAD
       if( op->type < FFOp::EXTERN )
         op->differentiate( vDep_deriv[iwk] );
       else
-        op->differentiate_external( vDep_deriv.data()+iwk );
+        // vDep/vCol/vDim need to be sized/set by external operation if sparse operation
+        op->differentiate_external( vDep_deriv.data()+iwk, vDim_deriv.data()+iwk, vCol_deriv.data()+iwk );
+        //op->differentiate_external( vDep_deriv.data()+iwk );
 
       // Track dependencies
-      for( unsigned int iout=0; iout<op->varout.size(); ++iout )
-        for( unsigned int iin=0; iin<op->varin.size(); ++iin )
-          mapDep.insert( std::make_pair( *static_cast<unsigned*>( op->varin[iin]->val() ),
-                                         std::make_pair( iwk+iout, iin ) ) );
+      for( unsigned int iout=0; iout<op->varout.size(); ++iout ){
+        // Sparse derivatives
+        if( vCol_deriv[iwk+iout] )
+          for( size_t jin=0; jin<vDim_deriv[iwk+iout]; ++jin ){
+            size_t const iin = vCol_deriv[iwk+iout][jin];
+            mapDep.insert( std::make_pair( *static_cast<unsigned*>( op->varin[iin]->val() ),
+                                           std::make_pair( iwk+iout, jin ) ) );
+          }
+        // Dense derivatives
+        else
+          for( unsigned int iin=0; iin<op->varin.size(); ++iin )
+            mapDep.insert( std::make_pair( *static_cast<unsigned*>( op->varin[iin]->val() ),
+                                           std::make_pair( iwk+iout, iin ) ) );
+      }
       if( op->type == FFOp::VAR )
         setIndep.insert( op->varout[0] );
 
@@ -8780,12 +8892,13 @@ FFGraph::SDBAD
   }
   catch( Exceptions& e ){
     for( auto& vdep : vDep_deriv ) if( vdep ) delete[] vdep;
+    for( auto& vcol : vCol_deriv ) if( vcol ) delete[] vcol;
     throw;
   }
 
 #ifdef MC__FFUNC_SBAD_DEBUG
-    for( auto const& [key,val] : mapDep )
-      std::cout << val.first << " <- " << key << " [" << val.second << "]" << std::endl;
+  for( auto const& [key,val] : mapDep )
+    std::cout << val.first << " <- " << key << " [" << val.second << "]" << std::endl;
 #endif
 
   // Repeat backward differentiation for each dependent
@@ -8888,6 +9001,7 @@ FFGraph::SDBAD
 
   // Clean-up intermediate derivative arrays
   for( auto& vdep : vDep_deriv ) if( vdep ) delete[] vdep;
+  for( auto& vcol : vCol_deriv ) if( vcol ) delete[] vcol;
 #ifdef MC__FFUNC_CPU_EVAL
   cputime += cpuclock();
   std::cout << "\nEvaluation time: " << std::fixed << cputime << std::endl;
@@ -10229,7 +10343,7 @@ FFGraph::_veval
   for( size_t s=CURTHREAD; s<v_uVar.size(); s+=NOTHREADS ){
 #ifdef MC__VEVAL_DEBUG
     std::cerr << "evaluating scenario " << CURTHREAD << "." << s << std::endl;
-    std::cout << "*ituDep: " << &*ituDep << std::endl;
+    //std::cout << "*ituDep: " << &*ituDep << std::endl;
 #endif
     ituDep->resize( wk.vDep.size() );
     l_uVar.back() = ituVar->data();
@@ -10278,7 +10392,7 @@ FFGraph::_veval0
   for( size_t s=0; s<v_uVar.size(); s+=NOTHREADS ){
 #ifdef MC__VEVAL_DEBUG
     std::cerr << "evaluating scenario " << 0 << "." << s << std::endl;
-    std::cout << "*ituDep: " << &*ituDep << std::endl;
+    //std::cout << "*ituDep: " << &*ituDep << std::endl;
 #endif
     ituDep->resize( vDep.size() );
     l_uVar.back() = ituVar->data();

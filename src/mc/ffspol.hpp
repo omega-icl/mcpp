@@ -27,8 +27,8 @@ class FFSPoly
 : public FFOp
 {
 
-typedef SPoly<mc::FFVar const*,mc::lt_FFVar> t_SPoly;
-typedef SMon<mc::FFVar const*,mc::lt_FFVar> t_SMon;
+typedef SPoly<FFVar const*,lt_FFVar> t_SPoly;
+typedef SMon<FFVar const*,lt_FFVar> t_SMon;
 
 private:
   // Sparse polynomial
@@ -305,7 +305,7 @@ const
   std::cout << "FFSPoly<T>::lt\n";
 #endif
 
-  return lt_SPoly<mc::lt_FFVar>()( _SPoly, dynamic_cast<FFSPoly<T> const*>(op)->_SPoly );
+  return lt_SPoly<lt_FFVar>()( _SPoly, dynamic_cast<FFSPoly<T> const*>(op)->_SPoly );
 }
 
 } // end namescape mc

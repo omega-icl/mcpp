@@ -1,8 +1,8 @@
 #ifndef MC__FFDAGEXT_HPP
 #define MC__FFDAGEXT_HPP
 
-//#define MC__FFDAG_DEBUG
-#define MC__FFDAG_CHECK
+//#define MC__FFDAGEXT_DEBUG
+#define MC__FFDAGEXT_CHECK
 
 #include "ffextern.hpp"
 
@@ -314,6 +314,7 @@ protected:
       //_ownObj = true;
       this->owndata = false;
       this->data = _ptrObj = pDAG;
+      //this->sparse = sparse;
 
       FFVar** ppRes = this->insert_external_operation( *this, pDAG->nout(), nVar, pVar );
 
@@ -342,9 +343,11 @@ public:
 
   //! @brief Default constructor
   FFDAGEXT
-    ()
+    ( bool const sparse=true )
     : FFEXTERN<T,DAGEXT<T>>()
-    {}
+    {
+      this->sparse = sparse;
+    }
 
   // Destructor
   virtual ~FFDAGEXT
@@ -358,10 +361,15 @@ public:
     {}
 
   // Define operation
-  FFVar** operator()
+  //FFVar** operator()
+  std::vector<FFVar> operator()
     ( std::vector<FFVar> const& vVar, DAGEXT<T>* pDAG, int policy=COPY )
     {
-      return _set( vVar.size(), vVar.data(), pDAG, policy );
+      //return _set( vVar.size(), vVar.data(), pDAG, policy );
+      FFVar** ppDer = _set( vVar.size(), vVar.data(), pDAG, policy );
+      std::vector<FFVar> vDer( vVar.size() );
+      for( size_t i=0; i<vVar.size(); ++i ) vDer[i] = *ppDer[i];
+      return std::move( vDer );
     }
 
   FFVar& operator()
@@ -482,9 +490,15 @@ public:
 
   // Derivatives
   void deriv
-    ( unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar, FFVar** vDer )
+    ( unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar,
+      FFVar** vDer )
     const;
-    
+
+  void deriv
+    ( unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar,
+      FFVar** vDer, size_t* nnz, size_t** colnz )
+    const;
+
   // Properties
   std::string name
     ()
@@ -497,7 +511,7 @@ public:
     const
     { return false; }
 };
-
+/*
 template< typename T >
 inline void
 FFDAGEXT<T>::eval
@@ -512,12 +526,13 @@ const
   assert( _ptrObj && nRes == _ptrObj->nout() && nVar == _ptrObj->nin() );
 #endif
 
+  // COULD THIS LEVERAGE _ptrObj->eval in FFDep?
   vRes[0] = 0;
   for( unsigned i=0; i<nVar; ++i ) vRes[0] += vVar[i];
   vRes[0].update( FFDep::TYPE::N );
   for( unsigned j=1; j<nRes; ++j ) vRes[j] = vRes[0];
 }
-
+*/
 template< typename T >
 inline void
 FFDAGEXT<T>::eval
@@ -596,7 +611,8 @@ const
       auto const& k = std::get<0>(sdervarout)[ie];
       auto const& i = std::get<1>(sdervarout)[ie];
       if( vVar[i][j].cst() && vVar[i][j].num().val() == 0. ) continue;
-      vRes[k][j] += *vResDer[k+nRes*i] * vVar[i][j];
+      vRes[k][j] += *vResDer[ie] * vVar[i][j];
+      //vRes[k][j] += *vResDer[k+nRes*i] * vVar[i][j];
     }
   }
 }
@@ -604,14 +620,62 @@ const
 template< typename T >
 inline void
 FFDAGEXT<T>::deriv
-( unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar, FFVar** vDer )
+( unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar,
+  FFVar** vDer, size_t* nnz, size_t** colnz )
 const
 {
-#ifdef MC__FFDAGEXT_TRACE
-  std::cout << "FFDAGEXT::deriv: FFVar\n";
-#endif
+//#ifdef MC__FFDAGEXT_TRACE
+  std::cout << "FFDAGEXT::deriv (sparse): FFVar\n";
+//#endif
 #ifdef MC__FFDAGEXT_CHECK
   assert( _ptrObj && nRes == _ptrObj->nout() && nVar == _ptrObj->nin() );
+  assert( this->sparse && nnz && colnz );
+#endif
+
+  auto&& sdervarout = _ptrObj->diff();
+  DAGEXT<T>* pDAGDer = new DAGEXT<T>( _ptrObj->dag(), _ptrObj->varin(), std::get<2>(sdervarout) );
+  FFDAGEXT<T> ResDer;
+  FFVar const*const* vResDer = ResDer._set( nVar, vVar, pDAGDer, TRANSFER );
+
+  // count non-zero dependencies for each output
+  for( size_t k=0; k<nRes; ++k ) nnz[k] = 0;
+  for( size_t ie=0; ie<std::get<0>(sdervarout).size(); ++ie )
+    ++nnz[std::get<0>(sdervarout)[ie]];
+
+  // resize each derivative and component arrays
+  for( size_t k=0; k<nRes; ++k ){
+    assert( !vDer[k] && !colnz[k] );
+    if( !nnz[k] ) continue;
+    vDer[k]  = new FFVar[nnz[k]];
+    colnz[k] = new size_t[nnz[k]];
+//#ifdef MC__FFDAGEXT_DEBUG
+    std::cout << "NNZ[" << k << "] = " << nnz[k] << std::endl;
+//#endif
+  }
+
+  // copy nonzero derivatives from sparse Jacobian
+  for( size_t k=0; k<nRes; ++k ) nnz[k] = 0;
+  for( size_t ie=0; ie<std::get<0>(sdervarout).size(); ++ie ){
+    auto const& k = std::get<0>(sdervarout)[ie];
+    auto const& i = std::get<1>(sdervarout)[ie];
+    colnz[k][nnz[k]] = i;
+    vDer[k][nnz[k]]  = *vResDer[ie];
+    ++nnz[k];
+  }
+}
+
+template< typename T >
+inline void
+FFDAGEXT<T>::deriv
+( unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar,
+  FFVar** vDer )
+const
+{
+//#ifdef MC__FFDAGEXT_TRACE
+  std::cout << "FFDAGEXT::deriv (dense): FFVar\n";
+//#endif
+#ifdef MC__FFDAGEXT_CHECK
+  assert( !this->sparse && _ptrObj && nRes == _ptrObj->nout() && nVar == _ptrObj->nin() );
 #endif
 
   auto&& sdervarout = _ptrObj->diff();
@@ -620,15 +684,15 @@ const
   FFVar const*const* vResDer = ResDer._set( nVar, vVar, pDAGDer, TRANSFER );
 
   // set all derivatives to zero
-  for( unsigned k=0; k<nRes; ++k )
-    for( unsigned i=0; i<nVar; ++i )
+  for( size_t k=0; k<nRes; ++k )
+    for( size_t i=0; i<nVar; ++i )
         vDer[k][i] = 0;
 
   // copy nonzero derivatives from sparse Jacobian
-  for( unsigned int ie=0; ie<std::get<0>(sdervarout).size(); ++ie ){
+  for( size_t ie=0; ie<std::get<0>(sdervarout).size(); ++ie ){
     auto const& k = std::get<0>(sdervarout)[ie];
     auto const& i = std::get<1>(sdervarout)[ie];
-    vDer[k][i] = *vResDer[k+nRes*i];
+    vDer[k][i] = *vResDer[ie]; //[k+nRes*i];
   }
 }
 
