@@ -1,0 +1,43 @@
+set xlabel 'x'
+set samples 1000
+
+file = "SM-1D.out"
+
+plot file u 1:2 tit 'function' w l lt 1 lc 8, \
+     file u 1:3 tit 'lower bound' w l lt 1 lc 4 dt 2, \
+     file u 1:4 tit 'upper bound' w l lt 1 lc 7 dt 2, \
+     file u 1:5 tit 'underestimator' w l lt 1 lc 4, \
+     file u 1:6 tit 'overestimator' w l lt 1 lc 7
+
+pause -1 "<ENTER> TO CONTINUE"
+
+set term post eps enh solid color 15
+set out "SM-1D_PWL.eps"
+rep
+set term qt
+
+
+plot file u 1:($2-$5) tit 'underestimation error' w l lt 1 lc 4, \
+     file u 1:($6-$2) tit 'overestimation error' w l lt 1 lc 7
+
+pause -1 "<ENTER> TO CONTINUE"
+
+plot file u 1:2 tit 'function' w l lt 1 lc 8, \
+     file u 1:7 tit 'lower bound' w l lt 1 lc 4 dt 2, \
+     file u 1:8 tit 'upper bound' w l lt 1 lc 7 dt 2, \
+     file u 1:9 tit 'underestimator' w l lt 1 lc 4, \
+     file u 1:10 tit 'overestimator' w l lt 1 lc 7
+
+pause -1 "<ENTER> TO CONTINUE"
+
+set term post eps enh solid color 15
+set out "SM-1D_PWC.eps"
+rep
+set term qt
+
+
+plot file u 1:($2-$9) tit 'underestimation error' w l lt 1 lc 4, \
+     file u 1:($10-$2) tit 'overestimation error' w l lt 1 lc 7
+
+pause -1 "<ENTER> TO CONTINUE"
+

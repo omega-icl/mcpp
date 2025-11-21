@@ -12,6 +12,7 @@
 #include <map>
 #include <cassert>
 #include <functional>
+#include <algorithm>
 #include <numeric>
 
 #include "mcop.hpp"
@@ -51,6 +52,18 @@ struct SMon
     : tord( ord )
     { if( tord ) expr.insert( std::make_pair( var, ord ) ); }
 
+  //! @brief Constructor of monomial for map of variables with indices
+  SMon
+    ( std::pair<KEY,unsigned> const& expr_ )
+    : tord(expr_.second), expr( { expr_ } )
+    {}
+
+  //! @brief Constructor of monomial for map of variables with indices
+  SMon
+    ( std::map<KEY,unsigned,COMP> const& expr_ )
+    : tord(0), expr( expr_ )
+    { for( auto const& [key,ord] : expr ) tord += ord; }
+
   //! @brief Copy constructor of monomial
   SMon
     ( unsigned const tord_, std::map<KEY,unsigned,COMP> const& expr_ )
@@ -73,6 +86,7 @@ struct SMon
       expr.clear();
       for( auto const& [key,ord] : mon.expr )
         expr[key] = ord;
+      return *this;
     }
 
   //! @brief Overloaded operator '=' for monomial assigment
@@ -82,6 +96,7 @@ struct SMon
       tord = 1;
       expr.clear();
       expr[var] = 1;
+      return *this;
     }
 
   //! @brief Evaluate monomial in T arithmetic

@@ -1,7 +1,7 @@
 set xlabel 'x'
 set ylabel 'y'
 set hidden3d
-set view 65,330
+set view 65,30
 
 file = "SM-2D.out"
 

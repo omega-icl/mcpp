@@ -109,7 +109,7 @@ test_supmodel_1d
   SM mod( 1 );
 
   //SV X( mod, 0, I(XL,XU) );
-  SV X( mod, 0, mc::PWLU( XL, std::list<double>(8,(XU-XL)/8) ) );
+  SV X( mod, 0, mc::PWLU( XL, std::vector<double>(8,(XU-XL)/8) ) );
 
   auto Z = f_1d(X);
   std::cout << Z;
@@ -227,9 +227,9 @@ test_supmodel_2d
   mod.options.REF_WEIGHT = 0.5;
   //SV X( mod, 0, I(XL,XU) );
   //SV X( mod, 0, mc::PWLU( XL, {0.5*(XU-XL),0.5*(XU-XL)} ) );
-  SV X( mod, 0, mc::PWLU( XL, std::list<double>(5, 0.2*(XU-XL)) ) );
+  SV X( mod, 0, mc::PWLU( XL, std::vector<double>(5, 0.2*(XU-XL)) ) );
   //SV Y( mod, 1, mc::PWLU( YL, {0.5*(YU-YL),0.5*(YU-YL)} ) );
-  SV Y( mod, 1, mc::PWLU( YL, std::list<double>(5, 0.2*(YU-YL)) ) );
+  SV Y( mod, 1, mc::PWLU( YL, std::vector<double>(5, 0.2*(YU-YL)) ) );
 
   auto Z = f_2d(X,Y);
   std::cout << Z;
@@ -458,11 +458,12 @@ test_cub
 
   PWLU cubX_u = cub1X_u + cub2X_u;
   PWLU cubX_o = cub1X_o + cub2X_o;
-  cubX_u.reduce( 1, 5 );
-  cubX_o.reduce( 0, 5 );
+  //cubX_u.reduce( 1, 5 );
+  //cubX_o.reduce( 0, 5 );
 
+  size_t N = 500;
   std::cout << std::scientific << std::setprecision(5) << std::endl;
-  for( double x=X.l(); x<=X.u(); x+=(X.u()-X.l())/500-DBL_EPSILON*10. )
+  for( double x=X.l(); x<=X.u(); x+=(X.u()-X.l())/N-DBL_EPSILON*10. )
     std::cout << std::setw(13) << x
               << std::setw(13) << x*x*x
               << std::setw(13) << cub1X_u.val(x)
@@ -478,6 +479,72 @@ test_cub
   return;
 }
 
+void
+test_cub2
+()
+{
+  PWLU X( -1., 1. );
+  std::cout << "X:" << X << std::endl;
+
+  auto const& f  = []( const double& x ){ return std::pow(x,3); };
+  auto const& df = []( const double& x ){ return 3*std::pow(x,2); };
+
+  //X.insert({-0.5,0.,0.5});
+  X.insert({-0.8,-0.6,-0.4,-0.2,0.,0.2,0.4,0.6,0.8});
+  PWLU cubX_u = X;
+  PWLU cubX_o = X;
+  
+  std::cout << "cub(X) oest:" << cubX_o.compose( f, df, 0, 2, 1, 0.0 ) << std::endl;
+  std::cout << "cub(X) uest:" << cubX_u.compose( f, df, 1, 2, 1, 0.0 ) << std::endl;
+
+  //cubX_u.reduce( 1, 5 );
+  //cubX_o.reduce( 0, 5 );
+
+  size_t N = 500;
+  std::cout << std::scientific << std::setprecision(5) << std::endl;
+  for( double x=X.l(); x<=X.u(); x+=(X.u()-X.l())/N-DBL_EPSILON*10. )
+    std::cout << std::setw(13) << x
+              << std::setw(13) << x*x*x
+              << std::setw(13) << cubX_u.val(x)
+              << std::setw(13) << cubX_o.val(x)
+              << std::endl;
+
+  return;
+}
+
+void
+test_tanh
+()
+{
+  PWLU X( -2., 1. );
+  std::cout << "X:" << X << std::endl;
+
+  auto const& f  = []( const double& x ){ return std::tanh(x+1); };
+  auto const& df = []( const double& x ){ return 1-std::pow(std::tanh(x+1),2); };
+
+  //X.insert({-0.5,0.,0.5});
+  X.insert({-1.6,-1.2,-0.8,-0.4,0.,0.4,0.8});
+  PWLU tanhX_u = X;
+  PWLU tanhX_o = X;
+  
+  std::cout << "tanh(X) oest:" << tanhX_o.compose( f, df, 0, 3, 1, -1.0 ) << std::endl;
+  std::cout << "tanh(X) uest:" << tanhX_u.compose( f, df, 1, 3, 1, -1.0 ) << std::endl;
+
+  //tanhX_u.reduce( 1, 5 );
+  //tanhX_o.reduce( 0, 5 );
+
+  size_t N = 500;
+  std::cout << std::scientific << std::setprecision(5) << std::endl;
+  for( double x=X.l(); x<=X.u(); x+=(X.u()-X.l())/N-DBL_EPSILON*10. )
+    std::cout << std::setw(13) << x
+              << std::setw(13) << f(x)
+              << std::setw(13) << tanhX_u.val(x)
+              << std::setw(13) << tanhX_o.val(x)
+              << std::endl;
+
+  return;
+}
+
 int
 main
 ( int argc, char* argv[] )
@@ -486,12 +553,14 @@ main
   //test_supmodel();
   //test_supmodel_1d();
   //test_supmodel_2d();
-  test_reduce();
+  //test_reduce();
   //test_merge();
   //test_linear();
   //test_sqr();
   //test_sqr2();
   //test_cub();
+  //test_cub2();
+  test_tanh();
 
   return 0;
 }

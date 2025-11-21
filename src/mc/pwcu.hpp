@@ -48,6 +48,25 @@ class PWCU
   //! @brief vector of y upper bounds
   std::vector<double> _yU;
 
+  // cvx=0: concave  cvx=1: convex  cvx=2: concavoconvex  cvx=3: convexoconcave
+  template <typename UNIV, typename DUNIV>
+  PWCU& _compose
+    ( UNIV const& f, DUNIV const& df, bool const under, int const cvx, bool const inc )
+    {
+      if( _yL.empty() || _yL.size() != _yU.size() )
+        return *this;
+
+      // Bounding valid regardless of convexity
+      for( auto iyL=_yL.begin(), iyU=_yU.begin(); iyL!=_yL.end(); ++iyL, ++iyU ){
+        *iyL = f( *iyL );
+        *iyU = f( *iyU );
+      }
+
+      if( !inc )
+        std::swap( _yL, _yU );
+      return *this;
+    }
+
  public:
 
   //! @brief Options of mc::PWCU
@@ -464,22 +483,35 @@ class PWCU
       return *this;
     }
 
+  // cvx=0: concave  cvx=1: convex  cvx=2: concavoconvex  cvx=3: convexoconcave
   template <typename UNIV, typename DUNIV>
   PWCU& compose
-    ( UNIV const& f, DUNIV const& df, bool const under, bool const cvx, bool const inc )
+    ( UNIV const& f, DUNIV const& df, bool const under, int const cvx, bool const inc,
+      double const& xmid=0.0 )
     {
       if( _yL.empty() || _yL.size() != _yU.size() )
         return *this;
 
-      for( auto iyL=_yL.begin(), iyU=_yU.begin(); iyL!=_yL.end(); ++iyL, ++iyU ){
-        *iyL = f( *iyL );
-        *iyU = f( *iyU );
+      if( cvx >= 0 && cvx <= 3 )
+        return this->_compose( f, df, under, cvx, inc );
+
+      else if( cvx == 4 || cvx == 5 ){
+        double const fmid = f( xmid );
+        auto const& fr  = [&]( const double& x ){ return x>xmid?f(x):fmid; };
+        auto const& dfr = [&]( const double& x ){ return x>xmid?df(x):0; };
+        auto const& fl  = [&]( const double& x ){ return x<xmid?f(x)-fmid:0; };
+        auto const& dfl = [&]( const double& x ){ return x<xmid?df(x):0; };
+
+        PWCU copy( *this );     
+        if( cvx == 4 )
+          return this->_compose( fr, dfr, under, 0, 0 ) += copy._compose( fl, dfl, under, 0, 1 );
+        else 
+          return this->_compose( fr, dfr, under, 1, 1 ) += copy._compose( fl, dfl, under, 1, 0 );
+
+        return *this;  
       }
 
-      if( !inc )
-        std::swap( _yL, _yU );
-
-      return *this;
+      throw Exceptions( Exceptions::INTERNAL );
     }
 
   PWCU& min

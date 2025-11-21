@@ -446,11 +446,11 @@ public:
   void eval
     ( size_t const nRes, U* vRes, size_t const nVar, U const* vVar, unsigned const* mVar )
     const;
-
+/*
   void eval
     ( size_t const nRes, FFDep* vRes, size_t const nVar, FFDep const* vVar, unsigned const* mVar )
     const;
-
+*/
   void eval
     ( size_t const nRes, FFVar* vRes, size_t const nVar, FFVar const* vVar, unsigned const* mVar )
     const;
@@ -624,9 +624,9 @@ FFDAGEXT<T>::deriv
   FFVar** vDer, size_t* nnz, size_t** colnz )
 const
 {
-//#ifdef MC__FFDAGEXT_TRACE
+#ifdef MC__FFDAGEXT_TRACE
   std::cout << "FFDAGEXT::deriv (sparse): FFVar\n";
-//#endif
+#endif
 #ifdef MC__FFDAGEXT_CHECK
   assert( _ptrObj && nRes == _ptrObj->nout() && nVar == _ptrObj->nin() );
   assert( this->sparse && nnz && colnz );
@@ -648,9 +648,9 @@ const
     if( !nnz[k] ) continue;
     vDer[k]  = new FFVar[nnz[k]];
     colnz[k] = new size_t[nnz[k]];
-//#ifdef MC__FFDAGEXT_DEBUG
+#ifdef MC__FFDAGEXT_DEBUG
     std::cout << "NNZ[" << k << "] = " << nnz[k] << std::endl;
-//#endif
+#endif
   }
 
   // copy nonzero derivatives from sparse Jacobian

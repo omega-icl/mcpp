@@ -1,5 +1,5 @@
-#define TEST_SHEKEL	// <-- select test function here
-#define USE_DAG        // <-- specify to evaluate via a DAG of the function
+#define TEST_PEAK	// <-- select test function here
+#undef  USE_DAG        // <-- specify to evaluate via a DAG of the function
 #define SAVE_RESULTS   // <-- specify whether to save results to file
 const int NX = 32;	// <-- select X discretization here
 const int NY = 32;	// <-- select Y discretization here
@@ -77,15 +77,19 @@ T myfunc
 }
 
 #elif defined( TEST_PEAK )
-const double XL   = -3.;	// <-- X range lower bound
-const double XU   =  3.;	// <-- X range upper bound
-const double YL   = -3.;	// <-- Y range lower bound
-const double YU   =  3.;	// <-- Y range upper bound
+const double XL   = -0.5; // <-- X range lower bound
+const double XU   =  0.5; // <-- X range upper bound
+const double YL   = -2.; // <-- Y range lower bound
+const double YU   =  2.; // <-- Y range upper bound
+//const double XL   = -3.;	// <-- X range lower bound
+//const double XU   =  3.;	// <-- X range upper bound
+//const double YL   = -3.;	// <-- Y range lower bound
+//const double YU   =  3.;	// <-- Y range upper bound
 template <class T>
 T myfunc
 ( const T&x, const T&y )
 {
-  return 3*pow(1-x,2)*exp(-pow(x,2)-pow(y+1,2))-10*(x/5-pow(x,3)-pow(y,5))*exp(-pow(x,2)-pow(y,2))-(1/3)*exp(-pow(x+1,2)-pow(y,2));
+  return 3.*pow(1-x,2)*exp(-pow(x,2)-pow(y+1,2))-10.*(x/5-pow(x,3)-pow(y,5))*exp(-pow(x,2)-pow(y,2))-(1./3.)*exp(-pow(x+1,2)-pow(y,2));
 }
 
 #elif defined( TEST_EXP )
@@ -98,6 +102,21 @@ T myfunc
 ( const T&x, const T&y )
 {
   return x*y*(x*(exp(x)-exp(-x))-y*(exp(y)-exp(-y)));
+}
+
+#elif defined( TEST_INV1 )
+const double XL   = -2.0;	// <-- X range lower bound
+const double XU   = -1.0;	// <-- X range upper bound
+const double YL   = -2.0;	// <-- Y range lower bound
+const double YU   = -0.5;	// <-- Y range upper bound
+template <class T>
+T myfunc
+( const T&x, const T&y )
+{
+  //return exp(x+y);
+  //return 1./(x+y);
+  return 1./(-exp(x+y));
+  //return 1./exp(x+y);
 }
 
 #elif defined( TEST_EXP1 )

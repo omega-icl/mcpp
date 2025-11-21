@@ -711,70 +711,54 @@ public:
       return *this;
     }
 
+  // cvx=0: concave  cvx=1: convex  cvx=2: concavoconvex  cvx=3: convexoconcave  cvx=4: concave nonotonic  cvx=5: convex non-monotonic
   template <typename UNIV, typename DUNIV>
   PWLU& compose
-    ( UNIV const& f, DUNIV const& df, bool const under, bool const cvx, bool const inc=true )
+    ( UNIV const& f, DUNIV const& df, bool const under, int const cvx, bool const inc=0,
+      double const& xmid=0.0 )
     {
-      if( cvx && !under || !cvx && under ){
-        double f1 = f( _y0 ), f2;
-        double yi = _y0;
-        _y0 = f1;
-        //std::cout << yi << ": " << f1 << std::endl;
-        for( auto idx=_dx.begin(), idy=_dy.begin(); idx!=_dx.end(); ++idx, ++idy ){
-          yi += *idx * *idy;
-          f2 = f( yi );
-          *idy = ( f2 - f1 ) / *idx; 
-          //std::cout << yi << ": " << f2 << "  " << *idy << std::endl;
-          std::swap( f1, f2 );
-        }
+      // univariate is either convex or concave
+      if( cvx == 0 || cvx == 1 )
+        return _compose( f, df, under, cvx, inc );
+
+      // univariate is either concavoconvex or convexoconcave with inflection at xmid
+      else if( cvx == 2 || cvx == 3 ){
+        double const fmid = f( xmid ), dfmid = df( xmid );
+        auto const& fcv  = [&]( const double& x )
+                              { double const z = f(x), t = fmid+dfmid*(x-xmid); return z>t?z:t; };
+        auto const& dfcv = [&]( const double& x )
+                              { double const z = f(x), t = fmid+dfmid*(x-xmid); return z>t?df(x):dfmid; };
+        auto const& fcc  = [&]( const double& x )
+                              { double const z = f(x)-fmid, t = dfmid*(x-xmid); return z<t?z-t:0; };
+        auto const& dfcc = [&]( const double& x )
+                              { double const z = f(x)-fmid, t = dfmid*(x-xmid); return z<t?df(x)-dfmid:0; };
+        PWLU copy( *this );     
+        if( cvx == 2 )
+          return this->_compose( fcv, dfcv, under, 1, inc ) += copy._compose( fcc, dfcc, under, 0, 1 );
+        else 
+          return this->_compose( fcv, dfcv, under, 1, inc ) += copy._compose( fcc, dfcc, under, 0, 0 );
+      }
+      
+      // univariate is either convex or concave non-monotonic with optimum at xmid
+      else if( cvx == 4 || cvx == 5 ){
+        double const fmid = f( xmid );
+        auto const& fr  = [&]( const double& x )
+                             { return x>xmid?f(x):fmid; };
+        auto const& dfr = [&]( const double& x )
+                             { return x>xmid?df(x):0; };
+        auto const& fl  = [&]( const double& x )
+                             { return x<xmid?f(x)-fmid:0; };
+        auto const& dfl = [&]( const double& x )
+                             { return x<xmid?df(x):0; };
+
+        PWLU copy( *this );     
+        if( cvx == 4 )
+          return this->_compose( fr, dfr, under, 0, 0 ) += copy._compose( fl, dfl, under, 0, 1 );
+        else 
+          return this->_compose( fr, dfr, under, 1, 1 ) += copy._compose( fl, dfl, under, 1, 0 );
       }
 
-      else{
-        _dx.reserve( 2*_dx.size() );
-        _dy.reserve( 2*_dy.size() );
-
-        double f1  = f( _y0 ), f2;
-        double df1 = df( _y0 ), df2;
-        double yi = _y0;
-        _y0 = f1;
-        //std::cout << yi << ": " << f1 << std::endl;
-        for( auto idx=_dx.begin(), idy=_dy.begin(); idx!=_dx.end(); ++idx, ++idy ){
-          yi += *idx * *idy;
-          f2  = f( yi );
-          df2 = df( yi );
-
-          //if( isequal( f1 + 0.5 * df1 * *idy * *idx, f2 - 0.5 * df2 * *idy * *idx, options.BKPTATOL, options.BKPTRTOL ) ){
-          if( isequal( f1, f2 - df2 * *idy * *idx, options.BKPTATOL, options.BKPTRTOL )
-           && isequal( f1 + df1 * *idy * *idx, f2, options.BKPTATOL, options.BKPTRTOL ) ){
-          //if( isequal( df1 * *idy * *idx, df2 * *idy * *idx, options.BKPTATOL, options.BKPTRTOL ) ){
-            *idy = ( f2 - f1 ) / *idx; // use secant approximation
-          }
-          //double denom = *idy * ( df2 - df1 ); 
-          //if( isequal( denom, 0., options.BKPTATOL, options.BKPTRTOL ) ){
-          //  *idy = ( f2 - f1 ) / *idx;
-          //}
-          else{
-            double dx = ( f2 - f1 - *idx * *idy * df1 ) / ( *idy * ( df2 - df1 ) );
-            if( dx < 0. || dx > *idx ){
-#ifdef MC__PWLU_CHECK
-              std::cout << " dx = " << dx << " not in [0," << *idx << "]" << std::endl;
-#endif
-              *idy = ( f2 - f1 ) / *idx; // use secant approximation
-            }
-            else{
-              auto idx0 = idx, idy0 = idy;
-              idx = _dx.insert( ++idx, dx );
-              idy = _dy.insert( ++idy, *idy0 * df2 );
-              *idx0 -= *idx;
-              *idy0 *= df1;
-            }
-          }
-          std::swap( f1, f2 );
-          std::swap( df1, df2 );
-        }
-      }
-
-      return *this;
+      throw Exceptions( Exceptions::INTERNAL );
     }
 
   PWLU& max
@@ -1019,6 +1003,72 @@ private:
 
   static void _heap_bubble_down
     ( std::vector<std::pair<double, int>> & heap, int pos, std::vector<int> & hind );
+   
+  template <typename UNIV, typename DUNIV>
+  PWLU& _compose
+    ( UNIV const& f, DUNIV const& df, bool const under, bool const cvx, bool const inc )
+    {
+      if( cvx && !under || !cvx && under ){
+        double f1 = f( _y0 ), f2;
+        double yi = _y0;
+        _y0 = f1;
+        //std::cout << yi << ": " << f1 << std::endl;
+        for( auto idx=_dx.begin(), idy=_dy.begin(); idx!=_dx.end(); ++idx, ++idy ){
+          yi += *idx * *idy;
+          f2 = f( yi );
+          *idy = ( f2 - f1 ) / *idx; 
+          //std::cout << yi << ": " << f2 << "  " << *idy << std::endl;
+          std::swap( f1, f2 );
+        }
+      }
+
+      else{
+        _dx.reserve( 2*_dx.size() );
+        _dy.reserve( 2*_dy.size() );
+
+        double f1  = f( _y0 ), f2;
+        double df1 = df( _y0 ), df2;
+        double yi = _y0;
+        _y0 = f1;
+        //std::cout << yi << ": " << f1 << std::endl;
+        for( auto idx=_dx.begin(), idy=_dy.begin(); idx!=_dx.end(); ++idx, ++idy ){
+          yi += *idx * *idy;
+          f2  = f( yi );
+          df2 = df( yi );
+
+          //if( isequal( f1 + 0.5 * df1 * *idy * *idx, f2 - 0.5 * df2 * *idy * *idx, options.BKPTATOL, options.BKPTRTOL ) ){
+          if( isequal( f1, f2 - df2 * *idy * *idx, options.BKPTATOL, options.BKPTRTOL )
+           && isequal( f1 + df1 * *idy * *idx, f2, options.BKPTATOL, options.BKPTRTOL ) ){
+          //if( isequal( df1 * *idy * *idx, df2 * *idy * *idx, options.BKPTATOL, options.BKPTRTOL ) ){
+            *idy = ( f2 - f1 ) / *idx; // use secant approximation
+          }
+          //double denom = *idy * ( df2 - df1 ); 
+          //if( isequal( denom, 0., options.BKPTATOL, options.BKPTRTOL ) ){
+          //  *idy = ( f2 - f1 ) / *idx;
+          //}
+          else{
+            double dx = ( f2 - f1 - *idx * *idy * df1 ) / ( *idy * ( df2 - df1 ) );
+            if( dx < 0. || dx > *idx ){
+#ifdef MC__PWLU_CHECK
+              std::cout << " dx = " << dx << " not in [0," << *idx << "]" << std::endl;
+#endif
+              *idy = ( f2 - f1 ) / *idx; // use secant approximation
+            }
+            else{
+              auto idx0 = idx, idy0 = idy;
+              idx = _dx.insert( ++idx, dx );
+              idy = _dy.insert( ++idy, *idy0 * df2 );
+              *idx0 -= *idx;
+              *idy0 *= df1;
+            }
+          }
+          std::swap( f1, f2 );
+          std::swap( df1, df2 );
+        }
+      }
+
+      return *this;
+    }
 
   PWLU& _reduce_heap
     ( bool const under, size_t const nseg );

@@ -376,9 +376,9 @@ const
           else if( !Op<T>::inter( _IRes[j], _IRes[j], _POLRes[j].range() ) )
             std::cerr << "Empty intersection of relaxation bounds: "
                       << _IRes[j] << "  " << _POLRes[j].range() << std::endl;
-//#ifdef MC__FFEXTERN_DEBUG
+#ifdef MC__FFEXTERN_DEBUG
           std::cerr << "_POLRes[" << j << "]: " << _POLRes[j] << std::endl;
-//#endif
+#endif
         }
         break;
 

@@ -1814,7 +1814,7 @@ int test_external12()
 
   mc::DAGEXT<I> DAGY0( &DAG, X, Y );
   DAGY0.options.AUTODIFF = DAGY0.options.F;
-  mc::FFDAGEXT<I> Expr( false );//true );
+  mc::FFDAGEXT<I> Expr( true ); //false );
   std::vector<mc::FFVar> F{ Expr( 0, X, &DAGY0, 1 ), Expr( 1, X, &DAGY0, 1 ) }; // with DAG copy
 
   std::cout << DAG;

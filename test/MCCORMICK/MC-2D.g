@@ -1,7 +1,7 @@
 set xlabel 'x'
 set ylabel 'y'
 set hidden3d
-set view 65,330
+set view 65,30
 
 splot 'MC-2D.out' u 1:2:3 tit 'function' w l lt 1 lc 8, \
   '' u 1:2:4 tit 'lower bound' w l lt 1 lc 4, \

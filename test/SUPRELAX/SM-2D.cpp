@@ -1,7 +1,7 @@
-#define TEST_SHEKEL	// <-- select test function here
+#define TEST_PEAK	// <-- select test function here
 #undef  USE_DAG        // <-- specify to evaluate via a DAG of the function
 #define SAVE_RESULTS   // <-- specify whether to save results to file
-#define  ANALYSE_RATE    // <-- specify whether to analyse rate of convergence
+#undef  ANALYSE_RATE    // <-- specify whether to analyse rate of convergence
 #undef  ANALYSE_TIME    // <-- specify whether to analyse computational time
 ////////////////////////////////////////////////////////////////////////
 
@@ -93,33 +93,55 @@ T myfunc
 }
 
 #elif defined( TEST_PEAK )
-const double XL   = -3.; // <-- X range lower bound
-const double XU   =  3.; // <-- X range upper bound
-const double YL   = -3.; // <-- Y range lower bound
-const double YU   =  3.; // <-- Y range upper bound
+const double XL   = -0.5; // <-- X range lower bound
+const double XU   =  0.5; // <-- X range upper bound
+const double YL   = 1.; // <-- Y range lower bound
+const double YU   =  2.; // <-- Y range upper bound
+//const double XL   = -3.; // <-- X range lower bound
+//const double XU   =  3.; // <-- X range upper bound
+//const double YL   = -3.; // <-- Y range lower bound
+//const double YU   =  3.; // <-- Y range upper bound
 template <class T>
 T myfunc
 ( const T&x, const T&y )
 {
-  //return exp(-pow(x,2)-pow(y,2));
-  //return pow((x/5-pow(x,3)-pow(y,5))-exp(-pow(x,2)-pow(y,2)),2);
-  //return (x/5-pow(x,3)-pow(y,5))*exp(-pow(x,2)-pow(y,2));
-  //return 3*pow(1-x,2)*exp(-pow(x,2)-pow(y+1,2));// - 10*(x/5-pow(x,3)-pow(y,5))*exp(-pow(x,2)-pow(y,2));
-  return 3*pow(1-x,2)*exp(-pow(x,2)-pow(y+1,2))-10*(x/5-pow(x,3)-pow(y,5))*exp(-pow(x,2)-pow(y,2))-(1/3)*exp(-pow(x+1,2)-pow(y,2));
+  //return 3.*pow(1-x,2)*exp(-pow(x,2)-pow(y+1,2));
+  //return -10.*(x/5-pow(x,3)-pow(y,5))*exp(-pow(x,2)-pow(y,2));
+  //return -(1./3.)*exp(-pow(x+1,2)-pow(y,2));
+  return 3.*pow(1-x,2)*exp(-pow(x,2)-pow(y+1,2))-10.*(x/5.-pow(x,3)-pow(y,5))*exp(-pow(x,2)-pow(y,2))-(1./3.)*exp(-pow(x+1,2)-pow(y,2));
   //gnuplot> splot 'test_MLP.out' u 1:2:(3*(1-$1)**2*exp(-$1**2-($2+1)**2)-10*($1/5-$1**3-$2**5)*exp(-$1**2-$2**2)-(1/3)*exp(-($1+1)**2-$2**2)-$3) w l  
 
+}
+
+#elif defined( TEST_INV1 )
+const double XL   = -2.0;	// <-- X range lower bound
+const double XU   = -1.0;	// <-- X range upper bound
+const double YL   = -2.0;	// <-- Y range lower bound
+const double YU   = -0.5;	// <-- Y range upper bound
+template <class T>
+T myfunc
+( const T&x, const T&y )
+{
+  //return sqrt(-x-y);
+  return sqrt(exp(x+y));
+  //return exp(x+y);
+  //return 1./(-x-y);
+  return 1./(exp(x+y));
+  //return 1./(-exp(x+y));
+  //return 1./exp(x+y);
 }
 
 #elif defined( TEST_EXP1 )
 const double XL   = 1.;	// <-- X range lower bound
 const double XU   = 2.;	// <-- X range upper bound
 const double YL   = 0.;	// <-- Y range lower bound
-const double YU   = 1.;	// <-- Y range upper bound
+const double YU   = 2.;	// <-- Y range upper bound
 template <class T>
 T myfunc
 ( const T&x, const T&y )
 {
-  return x*exp(x+sqr(y))-sqr(y);
+  return exp(x+y);
+  //return x*exp(x+sqr(y))-sqr(y);
 }
 
 #elif defined( TEST_EXP2 )
@@ -153,11 +175,56 @@ const double XL   = -1.;	// <-- X range lower bound
 const double XU   =  1.;	// <-- X range upper bound
 const double YL   = -2.;	// <-- Y range lower bound
 const double YU   =  2.;	// <-- Y range upper bound
+//const double XL   =  -0.4;	// <-- X range lower bound
+//const double XU   =   1.;	// <-- X range upper bound
+//const double YL   =  -1.2;	// <-- Y range lower bound
+//const double YU   =   0.5;	// <-- Y range upper bound
+//const double XL   = -0.35;	// <-- X range lower bound
+//const double XU   =  0.6;	// <-- X range upper bound
+//const double YL   = -0.6;	// <-- Y range lower bound
+//const double YU   =  0.35;	// <-- Y range upper bound
 template <class T>
 T myfunc
 ( const T&x, const T&y )
 {
+  //return pow(atan(x+y),3);
+  //return tan(atan(x+y));
+  //return pow(pow(x,2)+pow(y,2)-0.5,3);
+  //return tan(pow(x,2)+pow(y,2)-0.5+3*PI);
+  //return pow(x+y,3);
+  //return pow(2*atan(x+y),3);
+  //return pow(x,2)+pow(y,2)-2.0;
+  //return pow(x+y,2);
+  //return pow(pow(x,2)+pow(y,2)-0.5,3);
+  //return cosh(x+y);// + pow(cosh(x+y),2);
+  //return sinh(pow(x,2)+pow(y,2)-1.0);
+  //return atan(x+y);
+  //return atan(pow(x,2)+pow(y,2)-1);
+  //return acos(x+y);
+  //return acos(tanh(x+y));
+  //return tanh(acos(x+y)-1);
+  //return pow(x+y,3);
+  //return pow(atan(x+y),3);
+  //return asin(x+y);
+  //return erfc(x+y);
+  //return erfc(pow(x,2)+pow(y,2)-0.5);
+  //return erfc(2*atan(x+y));
+  //return cos(5*x+5*y);
   return 1.+x-sin(2.*x+3.*y)-cos(3.*x-5.*y);
+  //return -sin(2.*x+3.*y)-cos(3.*x-5.*y);
+}
+
+#elif defined( TEST_TRIG2 )
+const double XL   =  0;	// <-- X range lower bound
+const double XU   = 10;	// <-- X range upper bound
+const double YL   =  0;	// <-- Y range lower bound
+const double YU   = 20;	// <-- Y range upper bound
+template <class T>
+T myfunc
+( const T&x, const T&y )
+{
+  return exp(sin(x)+sin(y)*cos(y));
+
 }
 
 #elif defined( TEST_RELU )
@@ -181,7 +248,12 @@ template <class T>
 T myfunc
 ( const T&x, const T&y )
 {
-  return tanh(x+y);
+  //return pow(x+y,2);
+  //return pow(x+y,3);
+  return erfc(x+y);
+  //return atan(x+y);
+  //return tanh(x+y);
+  //return tanh(pow(x+y,2));
 }
 
 #elif defined( TEST_NORM )
@@ -193,6 +265,7 @@ template <class T>
 T myfunc
 ( const T&x, const T&y )
 {
+  return pow(x+y,2)-pow(x-y,2);
   return sqrt(pow(x,2)+pow(y,2));
 }
 #endif
@@ -212,7 +285,9 @@ int main()
     pwlmod.options.PROD_CUT       = 0;
     pwlmod.options.REF_WEIGHT     = 0.5;
     pwlmod.options.MAX_SUBDIV     = 0;//8;//16;
-    pwlmod.options.USE_SHADOW     = 0;
+    pwlmod.options.USE_CVXCC      = 1;
+    pwlmod.options.USE_ENDRAY     = 0;
+    pwlmod.options.USE_SHADOW     = 1;
     pwlmod.options.DISPLAY_SHADOW = 1;
     pwlmod.options.DISPLAY_DIGITS = 10;
 
@@ -220,7 +295,7 @@ int main()
     pwcmod.options = pwlmod.options;
 
     // Calculate superposition relaxations
-    int const NPWL = 4;	// <-- select initial variable partition >=1
+    int const NPWL = 16;	// <-- select initial variable partition >=1
     vector<PWLSV> PWLSVX{ PWLSV( pwlmod, 0, I(XL,XU), NPWL ), PWLSV( pwlmod, 1, I(YL,YU), NPWL ) },
                   PWLSVF( 1 );
     vector<double> DF( 1 );

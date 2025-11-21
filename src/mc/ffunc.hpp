@@ -6485,8 +6485,7 @@ FFOp::sameid
 ( std::type_info const& id )
 const
 {
-  std::cout << "type: " << typeid(*this).name() << " == " << id.name() << std::endl; 
-
+  //std::cout << "type: " << typeid(*this).name() << " == " << id.name() << std::endl; 
   return( typeid(*this) == id );
 }
 
