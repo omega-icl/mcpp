@@ -8,8 +8,8 @@ set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 # Options
 option(ENABLE_HSL "Enable HSL libraries" OFF)
 
-set(MC_INTERVAL_LIBRARY "BOOST" CACHE STRING "Interval library backend: BOOST, PROFIL, FILIB, or NONE")
-set_property(CACHE MC_INTERVAL_LIBRARY PROPERTY STRINGS BOOST PROFIL FILIB NONE)
+set(MC_INTERVAL_LIBRARY "BOOST" CACHE STRING "Interval library backend: BOOST, PROFIL, FILIB, or NONVERIFIED")
+set_property(CACHE MC_INTERVAL_LIBRARY PROPERTY STRINGS BOOST PROFIL FILIB NONVERIFIED)
 
 # Dependencies
 
@@ -36,8 +36,30 @@ find_package(LAPACK REQUIRED)
 
 # HSL (Optional)
 if(ENABLE_HSL)
-    # Assuming system libraries for HSL
-    set(HSL_LIBRARIES mc13 mc21 mc33 gfortran)
+    find_library(LIB_MC13 NAMES mc13)
+    find_library(LIB_MC21 NAMES mc21)
+    find_library(LIB_MC33 NAMES mc33)
+
+    set(HSL_LIBRARIES "")
+    if(LIB_MC13)
+        list(APPEND HSL_LIBRARIES ${LIB_MC13})
+    else()
+        list(APPEND HSL_LIBRARIES mc13)
+    endif()
+
+    if(LIB_MC21)
+        list(APPEND HSL_LIBRARIES ${LIB_MC21})
+    else()
+        list(APPEND HSL_LIBRARIES mc21)
+    endif()
+
+    if(LIB_MC33)
+        list(APPEND HSL_LIBRARIES ${LIB_MC33})
+    else()
+        list(APPEND HSL_LIBRARIES mc33)
+    endif()
+
+    list(APPEND HSL_LIBRARIES gfortran)
     add_compile_definitions(MC__USE_HSL)
 endif()
 
@@ -46,8 +68,11 @@ set(INTERVAL_LIBRARIES "")
 set(INTERVAL_INCLUDE_DIRS "")
 set(INTERVAL_DEFINITIONS "")
 
+# Always include BOOST_UBLAS_NO_STD_CERR
+list(APPEND INTERVAL_DEFINITIONS BOOST_UBLAS_NO_STD_CERR)
+
 if(MC_INTERVAL_LIBRARY STREQUAL "BOOST")
-    list(APPEND INTERVAL_DEFINITIONS MC__USE_BOOST BOOST_UBLAS_NO_STD_CERR)
+    list(APPEND INTERVAL_DEFINITIONS MC__USE_BOOST)
     # Boost headers are already in Boost_INCLUDE_DIRS, which we add globally or to target
 elseif(MC_INTERVAL_LIBRARY STREQUAL "PROFIL")
     if(NOT DEFINED PROFIL_HOME)
@@ -72,10 +97,10 @@ elseif(MC_INTERVAL_LIBRARY STREQUAL "FILIB")
     list(APPEND INTERVAL_LIBRARIES -L${FILIB_HOME}/lib prim)
     list(APPEND INTERVAL_DEFINITIONS MC__USE_FILIB)
     add_compile_options(-frounding-math)
-elseif(MC_INTERVAL_LIBRARY STREQUAL "NONE")
+elseif(MC_INTERVAL_LIBRARY STREQUAL "NONVERIFIED")
     # No interval library
 else()
-    message(FATAL_ERROR "Invalid MC_INTERVAL_LIBRARY: ${MC_INTERVAL_LIBRARY}. Must be one of BOOST, PROFIL, FILIB, NONE.")
+    message(FATAL_ERROR "Invalid MC_INTERVAL_LIBRARY: ${MC_INTERVAL_LIBRARY}. Must be one of BOOST, PROFIL, FILIB, NONVERIFIED.")
 endif()
 
 
