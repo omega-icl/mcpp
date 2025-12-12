@@ -202,10 +202,11 @@ foreach(HEADER ${MC_HEADERS})
     list(APPEND MC_HEADERS_FULL "src/mc/${HEADER}")
 endforeach()
 
-install(FILES ${MC_HEADERS_FULL} DESTINATION include)
+install(FILES ${MC_HEADERS_FULL} DESTINATION include COMPONENT headers)
 
 # Install pymc
-install(TARGETS pymc DESTINATION lib)
+set(PYMC_INSTALL_DIR "lib" CACHE STRING "Installation directory for pymc module")
+install(TARGETS pymc DESTINATION ${PYMC_INSTALL_DIR} COMPONENT python_modules)
 
 # Examples
 if(ENABLE_EXAMPLES)

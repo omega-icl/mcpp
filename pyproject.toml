@@ -1,0 +1,18 @@
+[build-system]
+requires = ["scikit-build-core", "pybind11"]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "pymc"
+version = "4.0.0"
+description = "Python bindings for MC++"
+readme = "README.md"
+requires-python = ">=3.7"
+dependencies = []
+
+[tool.scikit-build]
+cmake.version = ">=3.14"
+# Install the python module into the wheel root
+cmake.args = ["-DPYMC_INSTALL_DIR=."]
+# Only install the python module component, not headers
+install.components = ["python_modules"]
