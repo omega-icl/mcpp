@@ -5,8 +5,24 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
+# 1. Compilation Modes
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+  message(STATUS "Setting build type to 'Release' as none was specified.")
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
+  # Set the possible values of build type for cmake-gui
+  set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release")
+endif()
+
+# Set specific flags if needed, although standard CMake flags are usually sufficient.
+# Debug: -g is standard. -O0 is often default for Debug but we can ensure it.
+# Release: -O3 is standard. User asked for high optimization.
+set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG")
+
+
 # Options
 option(ENABLE_HSL "Enable HSL libraries" OFF)
+option(ENABLE_EXAMPLES "Build examples" OFF)
 
 set(MC_INTERVAL_LIBRARY "BOOST" CACHE STRING "Interval library backend: BOOST, PROFIL, FILIB, or NONVERIFIED")
 set_property(CACHE MC_INTERVAL_LIBRARY PROPERTY STRINGS BOOST PROFIL FILIB NONVERIFIED)
@@ -139,7 +155,20 @@ if(ENABLE_HSL)
 endif()
 
 # PyMC Library
-file(GLOB PYMC_SOURCES src/pymc/*.cpp)
+
+# Explicitly list sources as per pymc.mk
+set(PYMC_SOURCES
+    src/pymc/mcfunc.cpp
+    src/pymc/interval.cpp
+    src/pymc/mccormick.cpp
+    src/pymc/supmodel.cpp
+    src/pymc/ffunc.cpp
+    src/pymc/fflin.cpp
+    src/pymc/ffvect.cpp
+    src/pymc/ffcustom.cpp
+    src/pymc/pymc.cpp
+)
+
 pybind11_add_module(pymc ${PYMC_SOURCES})
 
 target_link_libraries(pymc PRIVATE mc)
@@ -147,11 +176,36 @@ target_link_libraries(pymc PRIVATE mc)
 # Installation
 
 # Install headers
-# The legacy makefile installs specific headers from src/mc to include/
-# We will install all headers in src/mc to include/
-install(DIRECTORY src/mc/ DESTINATION include
-    FILES_MATCHING PATTERN "*.hpp"
+# Explicitly list headers as per mc.mk
+set(MC_HEADERS
+    mcfunc.hpp mctime.hpp mclapack.hpp
+    mcop.hpp mcboost.hpp mcprofil.hpp mcfilib.hpp mcfadbad.hpp
+    interval.hpp mccormick.hpp specbnd.hpp
+    supmodel.hpp pwcu.hpp pwlu.hpp
+    ellipsoid.hpp ellimage.hpp polimage.hpp
+    polymodel.hpp tmodel.hpp cmodel.hpp smon.hpp scmodel.hpp sicmodel.hpp
+    spoly.hpp squad.hpp
+    ffdep.hpp ffinv.hpp ffunc.hpp ffexpr.hpp mchsl.hpp sred.hpp slift.hpp selim.hpp
+    fflin.hpp ffspol.hpp ffvect.hpp ffextern.hpp ffdagext.hpp ffmlp.hpp ffmlpreg.hpp ffcustom.hpp
 )
+
+# Prefix headers with source path
+set(MC_HEADERS_FULL "")
+foreach(HEADER ${MC_HEADERS})
+    list(APPEND MC_HEADERS_FULL "src/mc/${HEADER}")
+endforeach()
+
+install(FILES ${MC_HEADERS_FULL} DESTINATION include)
 
 # Install pymc
 install(TARGETS pymc DESTINATION lib)
+
+# Examples
+if(ENABLE_EXAMPLES)
+    file(GLOB_RECURSE EXAMPLE_SOURCES "test/*.cpp")
+    foreach(SOURCE_FILE ${EXAMPLE_SOURCES})
+        get_filename_component(EXEC_NAME ${SOURCE_FILE} NAME_WE)
+        add_executable(${EXEC_NAME} ${SOURCE_FILE})
+        target_link_libraries(${EXEC_NAME} PRIVATE mc)
+    endforeach()
+endif()
