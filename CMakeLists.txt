@@ -6,31 +6,73 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
 # 1. Compilation Modes
+message(STATUS "--------------------------------------------------------")
 if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
-  message(STATUS "Setting build type to 'Release' as none was specified.")
-  set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build." FORCE)
+  message(STATUS "Setting build type to 'Release' as none was specified")
+  set(CMAKE_BUILD_TYPE Release CACHE STRING "Choose the type of build" FORCE)
   # Set the possible values of build type for cmake-gui
   set_property(CACHE CMAKE_BUILD_TYPE PROPERTY STRINGS "Debug" "Release")
+elseif(CMAKE_BUILD_TYPE STREQUAL "Release")
+  message(STATUS "Setting build type to 'Release'")
+else()
+  message(STATUS "Setting build type to 'Debug'")
 endif()
+message(STATUS "--------------------------------------------------------")
 
 # Set specific flags if needed, although standard CMake flags are usually sufficient.
 # Debug: -g is standard. -O0 is often default for Debug but we can ensure it.
-# Release: -O3 is standard. User asked for high optimization.
+# Release: -O2 is standard. User asked for high optimization.
 set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -DNDEBUG")
+set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2 -DNDEBUG")
 
 
 # Options
 option(ENABLE_HSL "Enable HSL libraries" OFF)
 option(ENABLE_EXAMPLES "Build examples" OFF)
+option(ENABLE_TORCH "Enable Torch interface" OFF)
 
 set(MC_INTERVAL_LIBRARY "BOOST" CACHE STRING "Interval library backend: BOOST, PROFIL, FILIB, or NONVERIFIED")
 set_property(CACHE MC_INTERVAL_LIBRARY PROPERTY STRINGS BOOST PROFIL FILIB NONVERIFIED)
 
 # Dependencies
 
-# Python 3
-find_package(Python3 COMPONENTS Interpreter Development REQUIRED)
+# Python 3 Configuration
+set(CUSTOM_PYTHON_PATH "" CACHE PATH "Custom path to Python 3 root (e.g. /opt/anaconda3) or executable")
+
+if(CUSTOM_PYTHON_PATH)
+    # 1. Check if the user provided a full path to an executable (e.g. /opt/anaconda3/bin/python3)
+    if(EXISTS "${CUSTOM_PYTHON_PATH}" AND NOT IS_DIRECTORY "${CUSTOM_PYTHON_PATH}")
+        set(Python3_EXECUTABLE "${CUSTOM_PYTHON_PATH}")
+        message(STATUS "Custom Python path recognized as executable: ${Python3_EXECUTABLE}")
+
+    # 2. Check if the user provided a directory (e.g. /opt/anaconda3)
+    elseif(IS_DIRECTORY "${CUSTOM_PYTHON_PATH}")
+        set(Python3_ROOT_DIR "${CUSTOM_PYTHON_PATH}")
+
+        # Manually look for the executable inside the custom root to force CMake's hand
+        find_program(Python3_EXECUTABLE_HINT
+            NAMES python3.12 python3 python
+            PATHS "${CUSTOM_PYTHON_PATH}/bin" "${CUSTOM_PYTHON_PATH}"
+            NO_DEFAULT_PATH
+            NO_CMAKE_ENVIRONMENT_PATH
+            NO_SYSTEM_ENVIRONMENT_PATH
+        )
+
+        if(Python3_EXECUTABLE_HINT)
+            set(Python3_EXECUTABLE "${Python3_EXECUTABLE_HINT}")
+            message(STATUS "Found Python executable in custom root: ${Python3_EXECUTABLE}")
+        endif()
+    endif()
+endif()
+
+# Find Python with the specific executable locked in
+find_package(Python3 3.12 COMPONENTS Interpreter Development REQUIRED)
+
+message(STATUS "--------------------------------------------------------")
+message(STATUS "Python3 Interpreter: ${Python3_EXECUTABLE}")
+message(STATUS "Python3 Libraries:   ${Python3_LIBRARIES}")
+message(STATUS "Python3 Includes:    ${Python3_INCLUDE_DIRS}")
+message(STATUS "--------------------------------------------------------")
 
 # pybind11
 # Check if extern/pybind11 is populated
@@ -49,6 +91,12 @@ find_package(Armadillo REQUIRED)
 # LAPACK / BLAS
 find_package(BLAS REQUIRED)
 find_package(LAPACK REQUIRED)
+
+# Torch (Optional)
+if(ENABLE_TORCH)
+    message(STATUS "Enabling Torch interface")
+    find_package(Torch REQUIRED)
+endif()
 
 # HSL (Optional)
 if(ENABLE_HSL)
@@ -87,6 +135,10 @@ if(ENABLE_HSL)
 endif()
 
 # Interval Library Configuration
+message(STATUS "--------------------------------------------------------")
+message(STATUS "Active Interval Library Backend: ${MC_INTERVAL_LIBRARY}")
+message(STATUS "--------------------------------------------------------")
+
 set(INTERVAL_LIBRARIES "")
 set(INTERVAL_INCLUDE_DIRS "")
 set(INTERVAL_DEFINITIONS "")
@@ -134,6 +186,7 @@ add_library(mc INTERFACE)
 target_include_directories(mc INTERFACE
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/mc>
     $<INSTALL_INTERFACE:include>
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/3rdparty/boost
     ${CMAKE_CURRENT_SOURCE_DIR}/src/3rdparty/fadbad++
     ${CMAKE_CURRENT_SOURCE_DIR}/src/3rdparty/cpplapack-2015.05.11-1/include
     ${Boost_INCLUDE_DIRS}
@@ -161,6 +214,13 @@ if(ENABLE_HSL)
     target_link_libraries(mc INTERFACE ${HSL_LIBRARIES})
 endif()
 
+if(ENABLE_TORCH)
+    target_include_directories(mc INTERFACE ${TORCH_INCLUDE_DIRS})
+    target_compile_definitions(mc INTERFACE MC__USE_TORCH)
+    target_compile_options(mc INTERFACE -frounding-math)
+    target_link_libraries(mc INTERFACE ${TORCH_LIBRARIES})
+endif()
+
 # PyMC Library
 
 # Explicitly list sources as per pymc.mk
@@ -182,6 +242,13 @@ target_link_libraries(pymc PRIVATE mc)
 
 # Installation
 
+# Display the computed installation path for user confirmation
+message(STATUS "--------------------------------------------------------")
+message(STATUS "Installation Prefix (CMAKE_INSTALL_PREFIX): ${CMAKE_INSTALL_PREFIX}")
+message(STATUS "Headers will be installed to: ${CMAKE_INSTALL_PREFIX}/include")
+message(STATUS "Libraries will be installed to: ${CMAKE_INSTALL_PREFIX}/lib")
+message(STATUS "--------------------------------------------------------")
+
 # Install headers
 # Explicitly list headers as per mc.mk
 set(MC_HEADERS
@@ -191,9 +258,10 @@ set(MC_HEADERS
     supmodel.hpp pwcu.hpp pwlu.hpp
     ellipsoid.hpp ellimage.hpp polimage.hpp
     polymodel.hpp tmodel.hpp cmodel.hpp smon.hpp scmodel.hpp sicmodel.hpp
-    spoly.hpp squad.hpp
-    ffdep.hpp ffinv.hpp ffunc.hpp ffexpr.hpp mchsl.hpp sred.hpp slift.hpp selim.hpp
-    fflin.hpp ffspol.hpp ffvect.hpp ffextern.hpp ffdagext.hpp ffmlp.hpp ffmlpreg.hpp ffcustom.hpp
+    spoly.hpp #squad.hpp
+    ffdep.hpp ffinv.hpp ffunc.hpp ffexpr.hpp mchsl.hpp slift.hpp #selim.hpp sred.hpp
+    fflin.hpp ffspol.hpp ffvect.hpp ffcustom.hpp ffextern.hpp ffdagext.hpp
+    ffmlp.hpp ffmlpreg.hpp
 )
 
 # Prefix headers with source path
