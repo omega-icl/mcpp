@@ -29,14 +29,17 @@
 ## MC++
 - `cd /opt`
 - clone the repository `git clone git@github.com:omega-icl/mcpp.git`
-- `cd mcpp/src`
-- `git submodule init && git submodule update`
+- `cd mcpp`
+- `git submodule update --init --recursive`
+- `mkdir build && cd build`
+- `cmake .. -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/opt/mcpp`
+- `make -j$(nproc)`
 - `sudo make install`
 
 ## Environment variables
 - append the following lines to `~/.bashrc` using a text editor
 ```
-export PYTHONPATH="${PYTHONPATH}:/opt/mcpp/src/pymc"
+export PYTHONPATH="${PYTHONPATH}:/opt/mcpp/lib"
 ```
 - restart the terminal for changes to take effect, or run `source ~/.bashrc`
 
