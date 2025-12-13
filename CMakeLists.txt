@@ -95,6 +95,20 @@ find_package(LAPACK REQUIRED)
 # Torch (Optional)
 if(ENABLE_TORCH)
     message(STATUS "Enabling Torch interface")
+
+    # Automatically detect Torch via Python if not already in prefix path
+    execute_process(
+        COMMAND "${Python3_EXECUTABLE}" -c "import torch; print(torch.utils.cmake_prefix_path)"
+        OUTPUT_VARIABLE TORCH_PYTHON_PREFIX
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+
+    if(TORCH_PYTHON_PREFIX)
+        message(STATUS "Detected Torch installation via Python: ${TORCH_PYTHON_PREFIX}")
+        list(APPEND CMAKE_PREFIX_PATH "${TORCH_PYTHON_PREFIX}")
+    endif()
+
     find_package(Torch REQUIRED)
 endif()
 
