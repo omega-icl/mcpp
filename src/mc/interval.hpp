@@ -303,8 +303,8 @@ public:
       std::cout << "In operator=(Interval &&)\n";
 #endif
       if( this != &I ){
-        _l = I._l;
-        _u = I._u;
+        _l = std::move( I._l );
+        _u = std::move( I._u );
       }
       return *this;
     }

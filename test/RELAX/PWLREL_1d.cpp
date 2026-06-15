@@ -375,7 +375,8 @@ int main()
   Xk[NBKPT+1] = XU;
   for( unsigned i=0; i<NBKPT+2; i++ )
     DAG.eval( 1, &F, &Fk[i], 1, &X, &Xk[i] );
-  PolEnv.add_semilinear_cuts( nullptr, NBKPT+2, PX, Xk.data(), PF, Fk.data(), mc::PolCut<I>::EQ ); 
+  PolEnv.add_semilinear_cuts( nullptr, NBKPT+2, PX, Xk.data(), PF, Fk.data(), mc::PolCut<I>::EQ,
+                              PolEnv.options.BREAKPOINT_TYPE ); 
   std::cout << PolEnv;
 
 #if defined( MC__USE_GUROBI )
@@ -386,8 +387,8 @@ int main()
     GRBmodel.getEnv().set( GRB_DoubleParam_OptimalityTol,  1e-9 );
     GRBmodel.getEnv().set( GRB_IntParam_OutputFlag,        0    );
 
-    auto itvar = PolEnv.Vars().find( &PX.var() );
-    auto itobj = PolEnv.Vars().find( &PF.var() );
+    auto itvar = PolEnv.Vars().find( PX.var().id() );
+    auto itobj = PolEnv.Vars().find( PF.var().id() );
     auto jtvar = DAGVars.end(), jtobj = DAGVars.end();
     for( auto itv=PolEnv.Vars().begin(); itv!=PolEnv.Vars().end(); ++itv ){
       //std::cout << itv->second->name() << ": " << itv->second->has_cuts() << std::endl;

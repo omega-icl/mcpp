@@ -1,12 +1,11 @@
-// Copyright (C) 2017 Benoit Chachuat, Imperial College London.
+// Copyright (C) Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
 /*!
 \page page_FFDEP Dependence Structure Detection for Factorable Functions
 \author Benoit C. Chachuat
-\version 1.0
-\date 2017
+\date 2026
 \bug No known bugs.
 
 mc::FFDep is a C++ class that determines the structure of mathematical expressions, namely their sparsity pattern and linearity, for a given set of participating variables. It relies on the operator overloading and function overloading mechanisms of C++. The overloaded operators are: `+', `-', `*', and `/'; the overloaded functions include: `exp', `log', `sqr', `pow', `cheb', `sqrt', `fabs', `xlog', `min', `max', `cos', `sin', `tan', `acos', `asin', `atan', `cosh', `sinh', `tanh'.
@@ -58,7 +57,7 @@ The corresponding output is
       Variable dependence of F[1]: { 0N 1L 2N 3P }
 \endverbatim
 
-which indicates that X[0], X[2] and X[3] participate in F[0], but not X[1], and that X[0] and X[2] participate in rational 'R' terms, whereas X[3] participates in quadratic 'Q' terms. Likewise, all four variables X[0], X[1], X[2] and X[3] participate in F[1], with X[0] and X[2] in nonlinea 'N' terms, X[3] in polynomial 'P' terms. and X[1] in linear terms.
+which indicates that X[0], X[2] and X[3] participate in F[0], but not X[1], and that X[0] and X[2] participate in rational 'R' terms, whereas X[3] participates in quadratic 'Q' terms. Likewise, all four variables X[0], X[1], X[2] and X[3] participate in F[1], with X[0] and X[2] in nonlinear 'N' terms, X[3] in polynomial 'P' terms. and X[1] in linear terms.
 
 
 \section sec_FFDepErr Errors Encountered in Determining the Structure of a Factorable Function?
@@ -81,6 +80,11 @@ Possible errors encountered in determining the structure of a factorable functio
 #include <iostream>
 #include <map>
 #include <cmath>
+#include <limits>
+
+#ifndef MC__FFDEP_ZERO_TOL
+#define MC__FFDEP_ZERO_TOL 0.
+#endif
 
 namespace mc
 {
@@ -169,8 +173,6 @@ public:
 
     //! @brief Inline function returning the error flag
     int ierr(){ return _ierr; }
-  private:
-    TYPE _ierr;
     //! @brief Error description
     std::string what(){
       switch( _ierr ){
@@ -182,6 +184,8 @@ public:
         return "mc::FFDep\t Undocumented error";
       }
     }
+  private:
+    TYPE _ierr;
   };
 
   //! @brief Dependence type
@@ -205,6 +209,9 @@ public:
     ( const FFDep&S ):
     _dep(S._dep)
     {}
+  //! @brief Move constructor
+  FFDep
+    ( FFDep&& ) noexcept = default;
   //! @brief Destructor
   ~FFDep()
     {}
@@ -247,36 +254,78 @@ public:
   /** @} */
   
 private:
+
   //! @brief Dependency set
   t_FFDep _dep;
 
+  //! @brief Test whether a scalar multiplier is structurally zero.
+  static bool _zero
+    ( const double c )
+    { return std::fabs( c ) <= MC__FFDEP_ZERO_TOL; }
+
+  //! @brief Maximum of two dependence types.
+  static TYPE _max
+    ( const TYPE&a, const TYPE&b )
+    { return a < b? b: a; }
+
+  //! @brief Insert or update a single dependency.
+  void _insert_or_update
+    ( const int ind, const TYPE dep );
+
+  //! @brief Raise all existing dependencies to at least dep.
+  void _raise_all
+    ( const TYPE dep );
+
+  //! @brief Merge another dependency set after raising its entries to at least dep.
+  void _merge_raise
+    ( const FFDep&S, const TYPE dep );
+
+  //! @brief Merge another dependency set multiplied by a linear factor.
+  void _merge_mul_linear
+    ( const FFDep&S );
+
+  //! @brief Dependence type after multiplication by a linear dependency in same variable.
+  static TYPE _mul_linear
+    ( const TYPE dep );
+
 public:
+
   // other operator overloadings (inlined)
   FFDep& operator=
     ( const double c )
     { _dep.clear();
       return *this; }
+  //! @brief Copy assignment
   FFDep& operator=
     ( const FFDep&S )
     { if( this != &S ) _dep = S._dep;
       return *this; }
+  //! @brief Move assignment
+  FFDep& operator=
+    ( FFDep&& )
+    noexcept = default;
+
   FFDep& operator+=
     ( const double c )
     { return *this; }
   FFDep& operator+=
     ( const FFDep&S )
     { return combine( S, TYPE::L ); }
+
   FFDep& operator-=
     ( const double c )
     { return *this; }
   FFDep& operator-=
     ( const FFDep&S )
     { return combine( S, TYPE::L ); }
+
   FFDep& operator*=
     ( const double c )
-    { return *this; }
+    { if( _zero( c ) ) _dep.clear();
+      return *this; }
   FFDep& operator*=
     ( const FFDep&S );
+
   FFDep& operator/=
     ( const double c )
     { return *this; }
@@ -290,20 +339,107 @@ inline FFDep::TYPE
 FFDep::worst
 () const
 {
-  auto it = _dep.begin();
   TYPE depw = TYPE::L;
-  for( ; it != _dep.end(); ++it )
-    if( it->second > depw ) depw = it->second;
+  for( auto const& kv : _dep ){
+    if( kv.second > depw ){
+      depw = kv.second;
+      if( depw == TYPE::N ) break;
+    }
+  }
   return depw;
+}
+
+inline void
+FFDep::_insert_or_update
+( const int ind, const TYPE dep )
+{
+  auto it = _dep.lower_bound( ind );
+  if( it == _dep.end() || it->first != ind )
+    _dep.emplace_hint( it, ind, dep );
+  else if( it->second < dep )
+    it->second = dep;
+}
+
+inline FFDep::TYPE
+FFDep::_mul_linear
+( const TYPE dep )
+{
+  switch( dep ){
+   case TYPE::L: return TYPE::Q;
+   case TYPE::Q: return TYPE::P;
+   case TYPE::P:
+   case TYPE::R:
+   case TYPE::N: return dep;
+  }
+  return dep;
+}
+
+inline void
+FFDep::_raise_all
+( const TYPE dep )
+{
+  if( dep == TYPE::L || _dep.empty() ) return;
+  for( auto& kv : _dep )
+    if( kv.second < dep ) kv.second = dep;
+}
+
+inline void
+FFDep::_merge_raise
+( const FFDep&S, const TYPE dep )
+{
+  if( S._dep.empty() ) return;
+  if( _dep.empty() ){
+    _dep = S._dep;
+    _raise_all( dep );
+    return;
+  }
+
+  auto it = _dep.begin();
+  for( auto const& kv : S._dep ){
+    TYPE const adddep = kv.second < dep? dep: kv.second;
+    while( it != _dep.end() && it->first < kv.first ) ++it;
+    if( it != _dep.end() && it->first == kv.first ){
+      if( it->second < adddep ) it->second = adddep;
+      ++it;
+    }
+    else{
+      it = _dep.emplace_hint( it, kv.first, adddep );
+      ++it;
+    }
+  }
+}
+
+inline void
+FFDep::_merge_mul_linear
+( const FFDep&S )
+{
+  if( S._dep.empty() ) return;
+  if( _dep.empty() ){
+    _dep = S._dep;
+    for( auto& kv : _dep ) kv.second = _mul_linear( kv.second );
+    return;
+  }
+
+  auto it = _dep.begin();
+  for( auto const& kv : S._dep ){
+    TYPE const adddep = _mul_linear( kv.second );
+    while( it != _dep.end() && it->first < kv.first ) ++it;
+    if( it != _dep.end() && it->first == kv.first ){
+      if( it->second < adddep ) it->second = adddep;
+      ++it;
+    }
+    else{
+      it = _dep.emplace_hint( it, kv.first, adddep );
+      ++it;
+    }
+  }
 }
 
 inline FFDep&
 FFDep::update
 ( const TYPE&dep )
 {
-  auto it = _dep.begin();
-  for( ; it != _dep.end(); ++it )
-    if( it->second < dep ) it->second = dep;
+  _raise_all( dep );
   return *this;
 }
 
@@ -311,26 +447,40 @@ inline FFDep
 FFDep::copy
 ( const FFDep&S, const TYPE&dep )
 {
+  if( S._dep.empty() ) return FFDep();
   FFDep S2( S );
-  return S2.update( dep ); 
+  return S2.update( dep );
 }
 
 inline FFDep&
 FFDep::combine
 ( const FFDep&S, const TYPE&dep )
 {
-  auto cit = S._dep.begin();
-  for( ; cit != S._dep.end(); ++cit ){
-    auto ins = _dep.insert( *cit );
-    if( !ins.second && ins.first->second < cit->second ) ins.first->second = cit->second;
+  if( S._dep.empty() ){
+    _raise_all( dep );
+    return *this;
   }
-  return( dep? update( dep ): *this );
+  if( _dep.empty() ){
+    _dep = S._dep;
+    _raise_all( dep );
+    return *this;
+  }
+
+  _raise_all( dep );
+  _merge_raise( S, dep );
+  return *this;
 }
 
 inline FFDep
 FFDep::combine
 ( const FFDep&S1, const FFDep&S2, const TYPE&dep )
 {
+  if( S1._dep.empty() ) return FFDep::copy( S2, dep );
+  if( S2._dep.empty() ) return FFDep::copy( S1, dep );
+  if( S2._dep.size() > S1._dep.size() ){
+    FFDep S3( S2 );
+    return S3.combine( S1, dep );
+  }
   FFDep S3( S1 );
   return S3.combine( S2, dep );
 }
@@ -396,12 +546,10 @@ inline FFDep
 sum
 ( const unsigned int n, const FFDep*S )
 {
-  switch( n ){
-   case 0:  return 0.;
-   case 1:  return S[0];
-   case 2:  return S[0] + S[1];
-   default: return S[0] + sum( n-1, S+1 );
-  }
+  FFDep R;
+  for( unsigned int i=0; i<n; ++i )
+    if( !S[i]._dep.empty() ) R.combine( S[i], FFDep::TYPE::L );
+  return R;
 }
 
 inline FFDep
@@ -431,6 +579,7 @@ inline FFDep
 operator*
 ( const double c, const FFDep&S )
 {
+  if( FFDep::_zero( c ) ) return FFDep();
   return S;
 }
 
@@ -438,6 +587,7 @@ inline FFDep
 operator*
 ( const FFDep&S, const double c )
 {
+  if( FFDep::_zero( c ) ) return FFDep();
   return S;
 }
 
@@ -451,70 +601,30 @@ FFDep::operator*=
   if( _dep.empty() )
     return combine( S, TYPE::L );
 
-  TYPE w = worst(), depw = S.worst(), wmax = ( w>depw? w: depw );
+  TYPE const w = worst();
+  TYPE const depw = S.worst();
+  TYPE const wmax = ( w>depw? w: depw );
 
-  if( wmax == TYPE::L )
-    return combine( S, TYPE::Q );
-
-  if( w == TYPE::L ){
-    auto it = _dep.begin();
-    TYPE wthres = ( depw>TYPE::P? depw: TYPE::P );
-    for( ; it != _dep.end(); ++it ){
-      //if( it->second < TYPE::P ) it->second = TYPE::P;
-      if( it->second < wthres ) it->second = wthres;
-    }
-    auto cit = S._dep.cbegin();
-    for( ; cit != S._dep.cend(); ++cit ){
-      auto ins = _dep.insert( *cit );
-      switch( ins.first->second ){
-       case TYPE::L: ins.first->second = TYPE::Q; break;
-       case TYPE::Q: ins.first->second = TYPE::P; break;
-       case TYPE::P:
-       case TYPE::R:
-       case TYPE::N: break;
-      }
-    }
-  }
-  
-  else if( depw == TYPE::L ){
-    auto it = _dep.begin();
-    for( ; it != _dep.end(); ++it ){
-      switch( it->second ){
-       case TYPE::L: it->second = TYPE::Q; break;
-       case TYPE::Q: it->second = TYPE::P; break;
-       case TYPE::P:
-       case TYPE::R:
-       case TYPE::N: break;
-      }
-    }
-    auto cit = S._dep.cbegin();
-    TYPE wthres = ( w>TYPE::P? w: TYPE::P );
-    for( ; cit != S._dep.cend(); ++cit ){
-      auto ins = _dep.insert( *cit );
-      //if( ins.first->second < TYPE::P ) ins.first->second = TYPE::P;
-      if( ins.first->second < wthres ) ins.first->second = wthres;
-    }
+  if( wmax == TYPE::L ){
+    _raise_all( TYPE::Q );
+    _merge_raise( S, TYPE::Q );
     return *this;
   }
 
-  else{
-    auto it = _dep.begin();
-    TYPE wthres = ( depw>TYPE::P? depw: TYPE::P );
-    for( ; it != _dep.end(); ++it ){
-      //if( it->second < TYPE::P ) it->second = TYPE::P;
-      if( it->second < wthres ) it->second = wthres;
-    }
-    auto cit = S._dep.cbegin();
-    wthres = ( w>TYPE::P? w: TYPE::P );
-    for( ; cit != S._dep.cend(); ++cit ){
-      auto ins = _dep.insert( *cit );
-      //if( ins.first->second < TYPE::P ) ins.first->second = TYPE::P;
-      if( ins.first->second < wthres ) ins.first->second = wthres;
-    }
-    //return combine( S, wmax>TYPE::P? wmax: TYPE::P ); 
-    //return combine( S, TYPE::P ); 
+  if( w == TYPE::L ){
+    _raise_all( depw>TYPE::P? depw: TYPE::P );
+    _merge_mul_linear( S );
+    return *this;
   }
 
+  if( depw == TYPE::L ){
+    for( auto& kv : _dep ) kv.second = _mul_linear( kv.second );
+    _merge_raise( S, w>TYPE::P? w: TYPE::P );
+    return *this;
+  }
+
+  _raise_all( depw>TYPE::P? depw: TYPE::P );
+  _merge_raise( S, w>TYPE::P? w: TYPE::P );
   return *this;
 }
 
@@ -538,23 +648,28 @@ inline FFDep
 prod
 ( const unsigned int n, const FFDep*S )
 {
-  switch( n ){
-   case 0:  return 0.;
-   case 1:  return S[0];
-   case 2:  return S[0] * S[1];
-   default: return S[0] * prod( n-1, S+1 );
+  FFDep R;
+  bool init = false;
+  for( unsigned int i=0; i<n; ++i ){
+    if( !init ){ R = S[i]; init = true; }
+    else       { R *= S[i]; }
   }
+  return R;
 }
 
 inline FFDep
 monom
 ( const unsigned int n, const FFDep*S, const unsigned*k )
 {
-  switch( n ){
-   case 0:  return 0.;
-   case 1:  return pow( S[0], (int)k[0] );
-   default: return pow( S[0], (int)k[0] ) * monom( n-1, S+1, k+1 );
+  FFDep R;
+  bool init = false;
+  for( unsigned int i=0; i<n; ++i ){
+    if( !k[i] ) continue;
+    FFDep const P = pow( S[i], static_cast<int>( k[i] ) );
+    if( !init ){ R = P; init = true; }
+    else       { R *= P; }
   }
+  return R;
 }
 
 inline FFDep
@@ -568,6 +683,7 @@ inline FFDep
 operator/
 ( const double c, const FFDep&S )
 {
+  if( FFDep::_zero( c ) ) return FFDep();
   return inv( S );
 }
 
@@ -736,24 +852,20 @@ inline FFDep
 min
 ( const unsigned int n, const FFDep*S )
 {
-  switch( n ){
-   case 0:  return FFDep();
-   case 1:  return S[0];
-   case 2:  return min( S[0], S[1] );
-   default: return min( S[0], min( n-1, S+1 ) );
-  }
+  FFDep R;
+  for( unsigned int i=0; i<n; ++i )
+    if( !S[i]._dep.empty() ) R.combine( S[i], FFDep::TYPE::N );
+  return R;
 }
 
 inline FFDep
 max
 ( const unsigned int n, const FFDep*S )
 {
-  switch( n ){
-   case 0:  return FFDep();
-   case 1:  return S[0];
-   case 2:  return max( S[0], S[1] );
-   default: return max( S[0], max( n-1, S+1 ) );
-  }
+  FFDep R;
+  for( unsigned int i=0; i<n; ++i )
+    if( !S[i]._dep.empty() ) R.combine( S[i], FFDep::TYPE::N );
+  return R;
 }
 
 inline FFDep

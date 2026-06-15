@@ -1,10 +1,10 @@
-resfile  = 'FFDAG_2d.out'
+resfile  = 'FFDAGEXT_2d.out'
 
 set xlabel "x_1"
 set ylabel "x_2"
 set zlabel "f"
 set key below
-unset hidden3d
+set hidden3d
 
 splot resfile u 1:2:3 tit 'function' w l lt 1 lc -1 lw 2, \
   '' u 1:2:6 tit 'underestimator' w l lt 7 lc 4 lw 1, \
@@ -15,7 +15,7 @@ splot resfile u 1:2:3 tit 'function' w l lt 1 lc -1 lw 2, \
 pause -1 "<ENTER> TO CONTINUE"
 
 set term post eps enh solid color 15
-set out 'FFDAG_2d.eps'
+set out 'FFDAGEXT_2d.eps'
 rep
 set term qt
 

@@ -1,4 +1,4 @@
-// Copyright (C) 2009-2017 Benoit Chachuat, Imperial College London.
+// Copyright (C) Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
@@ -14,7 +14,14 @@ namespace mc
 //! @brief C++ structure to allow usage of MC++ types for DAG evaluation and as template parameters in other MC++ types.
 template <typename T> struct Op
 {
-  static T point( const double c ) { return T(c); } // { throw std::runtime_error("mc::Op<T>::point -- Function not overloaded"); }
+  // The primary template is a "not specialized" sentinel: every usable type must
+  // provide a full specialization of mc::Op. Instantiating this template means a
+  // specialization is missing. We fail at compile time (dependent on T, so it only
+  // fires on actual instantiation) instead of recursing infinitely at run time, e.g.
+  // diam(const T&x){ return diam(x); } -- which otherwise overflows the stack/hangs.
+  static_assert( sizeof(T) == 0,
+    "mc::Op<T> is not specialized for this type; provide an mc::Op specialization." );
+  static T point( const double c ) { return T(c); }
   static T zeroone() { return T(0,1); }
   static void I(T& x, const T& y) { x = y; }
   static double l(const T& x) { return x.l(); }
@@ -104,7 +111,7 @@ template <> struct Op< double >
   template <typename X, typename Y> static double pow(const X& x, const Y& y) { return std::pow(x,y); }
   static double prod (const unsigned n, const double* x) { return mc::prod(n,x); }
   static double monom (const unsigned n, const double* x, const unsigned* k) { return mc::monom(n,x,k); }
-  static bool inter(double& xIy, const double& x, const double& y) { xIy = x; return true; }//{ throw std::runtime_error("mc::Op<double>::inter -- operation not permitted"); }
+  static bool inter(double& xIy, const double& x, const double& y) { xIy = x; return true; }
   static bool eq(const double& x, const double& y) { return x==y; }
   static bool ne(const double& x, const double& y) { return x!=y; }
   static bool lt(const double& x, const double& y) { return x<y;  }

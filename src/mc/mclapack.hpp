@@ -76,8 +76,12 @@ inline double* dsyev_wrapper
   int lwork = -1;
   CPPL::dsyev_( &JOBZ, &UPLO, &N, A, &N, D, &worktmp, &lwork, &info );
 
+  // bail out if the workspace query itself failed (worktmp is then undefined)
+  if( info ){ delete[] D; return 0; }
+
   // perform eigenvalue decomposition
   lwork = (int)worktmp;
+  if( lwork < 1 ) lwork = 1;
   double*work = new double[lwork];
   CPPL::dsyev_( &JOBZ, &UPLO, &N, A, &N, D, work, &lwork, &info );
 #ifdef MC__DEBUG_DSYEV_WRAPPER

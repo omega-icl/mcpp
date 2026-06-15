@@ -1,3 +1,7 @@
+// Copyright (C) Benoit Chachuat, Imperial College London.
+// All Rights Reserved.
+// This code is published under the Eclipse Public License.
+
 #ifndef MC__FFVECT_HPP
 #define MC__FFVECT_HPP
 
@@ -6,7 +10,20 @@
 
 #include "ffunc.hpp"
 #include "ffdep.hpp"
+#include "ffinv.hpp"
+#include "ffexpr.hpp"
 #include "slift.hpp"
+//#include "spoly.hpp"
+#include "mccormick.hpp"
+#include "specbnd.hpp"
+#include "tmodel.hpp"
+#include "cmodel.hpp"
+#include "scmodel.hpp"
+#include "pwlu.hpp"
+#include "pwcu.hpp"
+#include "supmodel.hpp"
+//#include "polimage.hpp"
+
 
 namespace mc
 {
@@ -482,29 +499,46 @@ public:
 //      else if( idU == typeid( fadbad::F<FFVar> ) )
 //        return eval( nRes, static_cast<fadbad::F<FFVar>*>(vRes), nVar, static_cast<fadbad::F<FFVar> const*>(vVar), mVar );
       else if( idU == typeid( FFDep ) )
-        return eval( nRes, static_cast<FFDep*>(vRes), nVar, static_cast<FFDep const*>(vVar), mVar );
+        return eval_serial( nRes, static_cast<FFDep*>(vRes), nVar, static_cast<FFDep const*>(vVar), mVar );
+      else if( idU == typeid( FFInv ) )
+        return eval_serial( nRes, static_cast<FFInv*>(vRes), nVar, static_cast<FFInv const*>(vVar), mVar );
       else if( idU == typeid( double ) )
-        return eval( nRes, static_cast<double*>(vRes), nVar, static_cast<double const*>(vVar), mVar );
+        return eval_parallel( nRes, static_cast<double*>(vRes), nVar, static_cast<double const*>(vVar), mVar );
       else if( idU == typeid( fadbad::F<double> ) )
-        return eval( nRes, static_cast<fadbad::F<double>*>(vRes), nVar, static_cast<fadbad::F<double> const*>(vVar), mVar );
-//      else if( idU == typeid( T ) )
-//        return eval( nRes, static_cast<T*>(vRes), nVar, static_cast<T const*>(vVar), mVar );
-//      else if( idU == typeid( McCormick<T> ) )
-//        return eval( nRes, static_cast<McCormick<T>*>(vRes), nVar, static_cast<McCormick<T> const*>(vVar), mVar );
-//      else if( idU == typeid( ISVar<T> ) )
-//        return eval( nRes, static_cast<ISVar<T>*>(vRes), nVar, static_cast<ISVar<T> const*>(vVar), mVar );
-//      else if( idU == typeid( ASVar<T> ) )
-//        return eval( nRes, static_cast<ASVar<T>*>(vRes), nVar, static_cast<ASVar<T> const*>(vVar), mVar );
-//      else if( idU == typeid( PolVar<T> ) )
-//        return eval( nRes, static_cast<PolVar<T>*>(vRes), nVar, static_cast<PolVar<T> const*>(vVar), mVar );
+        return eval_parallel( nRes, static_cast<fadbad::F<double>*>(vRes), nVar, static_cast<fadbad::F<double> const*>(vVar), mVar );
+      else if( idU == typeid( T ) )
+        return eval_parallel( nRes, static_cast<T*>(vRes), nVar, static_cast<T const*>(vVar), mVar );
+      else if( idU == typeid( McCormick<T> ) )
+        return eval_parallel( nRes, static_cast<McCormick<T>*>(vRes), nVar, static_cast<McCormick<T> const*>(vVar), mVar );
+      else if( idU == typeid( Specbnd<T> ) )
+        return eval_parallel( nRes, static_cast<Specbnd<T>*>(vRes), nVar, static_cast<Specbnd<T> const*>(vVar), mVar );
+      else if( idU == typeid( TVar<T> ) )
+        return eval_parallel( nRes, static_cast<TVar<T>*>(vRes), nVar, static_cast<TVar<T> const*>(vVar), mVar );
+      else if( idU == typeid( CVar<T> ) )
+        return eval_parallel( nRes, static_cast<CVar<T>*>(vRes), nVar, static_cast<CVar<T> const*>(vVar), mVar );
+      else if( idU == typeid( SCVar<T> ) )
+        return eval_parallel( nRes, static_cast<SCVar<T>*>(vRes), nVar, static_cast<SCVar<T> const*>(vVar), mVar );
+      else if( idU == typeid( SupVar<PWCU> ) )
+        return eval_parallel( nRes, static_cast<SupVar<PWCU>*>(vRes), nVar, static_cast<SupVar<PWCU> const*>(vVar), mVar );
+      else if( idU == typeid( SupVar<PWLU> ) )
+        return eval_parallel( nRes, static_cast<SupVar<PWLU>*>(vRes), nVar, static_cast<SupVar<PWLU> const*>(vVar), mVar );
+      //else if( idU == typeid( PolVar<T> ) )
+      //  return eval( nRes, static_cast<PolVar<T>*>(vRes), nVar, static_cast<PolVar<T> const*>(vVar), mVar );
       else if( idU == typeid( SLiftVar ) )
         return eval( nRes, static_cast<SLiftVar*>(vRes), nVar, static_cast<SLiftVar const*>(vVar), mVar );
+      else if( idU == typeid( FFExpr ) )
+        return eval_serial( nRes, static_cast<FFExpr*>(vRes), nVar, static_cast<FFExpr const*>(vVar), mVar );
 
       throw std::runtime_error( "FFVect::feval: **ERROR** No evaluation method with type"+std::string(idU.name())+"\n" );
     }
 
   template< typename U >
-  void eval
+  void eval_parallel
+    ( unsigned const nRes, U* vRes, unsigned const nVar, U const* vVar, unsigned const* mVar )
+    const;
+
+  template< typename U >
+  void eval_serial
     ( unsigned const nRes, U* vRes, unsigned const nVar, U const* vVar, unsigned const* mVar )
     const;
 
@@ -515,16 +549,12 @@ public:
 #endif
 
   void eval
-    ( unsigned const nRes, FFDep* vRes, unsigned const nVar, FFDep const* vVar, unsigned const* mVar )
-    const;
-
-  void eval
     ( unsigned const nRes, FFVar* vRes, unsigned const nVar, FFVar const* vVar, unsigned const* mVar )
     const;
 
-  void eval
-    ( unsigned const nRes, fadbad::F<FFVar>* vRes, unsigned const nVar, fadbad::F<FFVar> const* vVar, unsigned const* mVar )
-    const;
+//  void eval
+//    ( unsigned const nRes, fadbad::F<FFVar>* vRes, unsigned const nVar, fadbad::F<FFVar> const* vVar, unsigned const* mVar )
+//    const;
 
   void eval
     ( unsigned const nRes, SLiftVar* vRes, unsigned const nVar, SLiftVar const* vVar, unsigned const* mVar )
@@ -537,17 +567,17 @@ public:
 
   // Backward evaluation overloads
   virtual bool reval
-    ( std::type_info const& idU, unsigned const nRes, void const* vRes, unsigned const nVar, void* vVar )
+    ( std::type_info const& idU, unsigned const nRes, void* vRes, unsigned const nVar, void* vVar )
     const
     {
 //      if( idU == typeid( PolVar<T> ) )
-//        return reval( nRes, static_cast<PolVar<T> const*>(vRes), nVar, static_cast<PolVar<T>*>(vVar) );
+//        return reval( nRes, static_cast<PolVar<T>*>(vRes), nVar, static_cast<PolVar<T>*>(vVar) );
 
       throw std::runtime_error( "FFVect::reval: **ERROR** No evaluation method with type"+std::string(idU.name())+"\n" );
     }
 
 //  bool reval
-//    ( unsigned const nRes, PolVar<T> const* vRes, unsigned const nVar, PolVar<T>* vVar )
+//    ( unsigned const nRes, PolVar<T>* vRes, unsigned const nVar, PolVar<T>* vVar )
 //    const;
 
   // Derivatives
@@ -571,26 +601,25 @@ public:
 template< typename T >
 template< typename U >
 inline void
-FFVect<T>::eval
+FFVect<T>::eval_parallel
 ( unsigned const nRes, U* vRes, unsigned const nVar, U const* vVar,
   unsigned const* mVar )
 const
 {
 #ifdef MC__FFVECT_TRACE
-  std::cout << "FFVect::eval: " << typeid( vRes[0] ).name() << " (generic)\n";
+  std::cout << "FFVect::eval_parallel: " << typeid( vRes[0] ).name() << " (generic)\n";
 #endif
 #ifdef MC__FFVECT_CHECK
   assert( _pFun && nVar == _pFun->nVar()+_pFun->nCst() && nRes == _pFun->nFun() );
 #endif
 
-  //_pFun->eval_serial( vRes, vVar );
   _pFun->eval_parallel( vRes, vVar, vVar+_pFun->nVar() );
 }
 
 #ifdef MC__FFVECT_DEBUG
 template< typename T >
 inline void
-FFVect<T>::eval
+FFVect<T>::eval_parallel
 ( unsigned const nRes, double* vRes, unsigned const nVar, double const* vVar,
   unsigned const* mVar )
 const
@@ -602,32 +631,27 @@ const
   assert( _pFun && nVar == _pFun->nVar()+_pFun->nCst() && nRes == _pFun->nFun() );
 #endif
 
-  //_pFun->eval_serial( vRes, vVar );
   _pFun->eval_parallel( vRes, vVar, vVar+_pFun->nVar() );
   for( size_t i=0; i<nRes; ++i ) std::cout << "vRes[" << i << "] = " << vRes[i] << std::endl;
 }
 #endif
 
 template< typename T >
+template< typename U >
 inline void
-FFVect<T>::eval
-( unsigned const nRes, FFDep* vRes, unsigned const nVar, FFDep const* vVar,
+FFVect<T>::eval_serial
+( unsigned const nRes, U* vRes, unsigned const nVar, U const* vVar,
   unsigned const* mVar )
 const
 {
 #ifdef MC__FFVECT_TRACE
-  std::cout << "FFVect::eval: FFDep\n";
+  std::cout << "FFVect::eval_serial: " << typeid( vRes[0] ).name() << " (generic)\n";
 #endif
 #ifdef MC__FFVECT_CHECK
   assert( _pFun && nVar == _pFun->nVar()+_pFun->nCst() && nRes == _pFun->nFun() );
 #endif
 
   _pFun->eval_serial( vRes, vVar, vVar+_pFun->nVar() );
-
-//  vRes[0] = 0;
-//  for( unsigned i=0; i<nVar; ++i ) vRes[0] += vVar[i];
-//  vRes[0].update( FFDep::TYPE::N );
-//  for( unsigned j=1; j<nRes; ++j ) vRes[j] = vRes[0];
 }
 
 template< typename T >

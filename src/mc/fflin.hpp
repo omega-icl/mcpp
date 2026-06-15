@@ -10,8 +10,12 @@
 #include "ffinv.hpp"
 #include "ffexpr.hpp"
 #include "slift.hpp"
-#include "spoly.hpp"
+//#include "spoly.hpp"
 #include "mccormick.hpp"
+#include "specbnd.hpp"
+#include "tmodel.hpp"
+#include "cmodel.hpp"
+#include "scmodel.hpp"
 #include "pwlu.hpp"
 #include "pwcu.hpp"
 #include "supmodel.hpp"
@@ -169,7 +173,6 @@ private:
   void _eval
     ( size_t const nRes, U* vRes, size_t const nVar, U const* vVar, unsigned const* mVar )
     const;
-
 
 public:
 
@@ -335,14 +338,18 @@ public:
         return _eval( nRes, static_cast<T*>(vRes), nVar, static_cast<T const*>(vVar), mVar );
       else if( idU == typeid( McCormick<T> ) )
         return _eval( nRes, static_cast<McCormick<T>*>(vRes), nVar, static_cast<McCormick<T> const*>(vVar), mVar );
+      else if( idU == typeid( Specbnd<T> ) )
+        return _eval( nRes, static_cast<Specbnd<T>*>(vRes), nVar, static_cast<Specbnd<T> const*>(vVar), mVar );
+      else if( idU == typeid( TVar<T> ) )
+        return _eval( nRes, static_cast<TVar<T>*>(vRes), nVar, static_cast<TVar<T> const*>(vVar), mVar );
+      else if( idU == typeid( CVar<T> ) )
+        return _eval( nRes, static_cast<CVar<T>*>(vRes), nVar, static_cast<CVar<T> const*>(vVar), mVar );
+      else if( idU == typeid( SCVar<T> ) )
+        return _eval( nRes, static_cast<SCVar<T>*>(vRes), nVar, static_cast<SCVar<T> const*>(vVar), mVar );
       else if( idU == typeid( SupVar<PWCU> ) )
         return _eval( nRes, static_cast<SupVar<PWCU>*>(vRes), nVar, static_cast<SupVar<PWCU> const*>(vVar), mVar );
       else if( idU == typeid( SupVar<PWLU> ) )
         return _eval( nRes, static_cast<SupVar<PWLU>*>(vRes), nVar, static_cast<SupVar<PWLU> const*>(vVar), mVar );
-      else if( idU == typeid( McCormick<SupVar<PWCU>> ) )
-        return _eval( nRes, static_cast<McCormick<SupVar<PWCU>>*>(vRes), nVar, static_cast<McCormick<SupVar<PWCU>> const*>(vVar), mVar );
-      else if( idU == typeid( McCormick<SupVar<PWLU>> ) )
-        return _eval( nRes, static_cast<McCormick<SupVar<PWLU>>*>(vRes), nVar, static_cast<McCormick<SupVar<PWLU>> const*>(vVar), mVar );
       else if( idU == typeid( PolVar<T> ) )
         return eval( nRes, static_cast<PolVar<T>*>(vRes), nVar, static_cast<PolVar<T> const*>(vVar), mVar );
       else if( idU == typeid( SLiftVar ) )
@@ -378,23 +385,23 @@ public:
     const;
 
   virtual bool reval
-    ( std::type_info const& idU, unsigned const nRes, void const* vRes, unsigned const nVar, void* vVar )
+    ( std::type_info const& idU, unsigned const nRes, void* vRes, unsigned const nVar, void* vVar )
     const
     {
       if( idU == typeid( T ) )
-        return reval( nRes, static_cast<T const*>(vRes), nVar, static_cast<T*>(vVar) );
+        return reval( nRes, static_cast<T*>(vRes), nVar, static_cast<T*>(vVar) );
       else if( idU == typeid( PolVar<T> ) )
-        return reval( nRes, static_cast<PolVar<T> const*>(vRes), nVar, static_cast<PolVar<T>*>(vVar) );
+        return reval( nRes, static_cast<PolVar<T>*>(vRes), nVar, static_cast<PolVar<T>*>(vVar) );
 
       throw std::runtime_error( "FFLin::reval ** No evaluation method for type"+std::string(idU.name())+"\n" );
     }
 
   bool reval
-    ( size_t const nRes, T const* vRes, size_t const nVar, T* vVar )
+    ( size_t const nRes, T* vRes, size_t const nVar, T* vVar )
     const;
 
   bool reval
-    ( size_t const nRes, PolVar<T> const* vRes, size_t const nVar, PolVar<T>* vVar )
+    ( size_t const nRes, PolVar<T>* vRes, size_t const nVar, PolVar<T>* vVar )
     const;
 
   // Derivatives
@@ -444,25 +451,7 @@ const
       vRes[0] += _ptrCoef[i] * vVar[i];
     }
 }
-/*
-template< typename T >
-inline void
-FFLin<T>::eval
-( size_t const nRes, FFDep* vRes, size_t const nVar, FFDep const* vVar,
-  unsigned const* mVar )
-const
-{
-#ifdef MC__FFLIN_TRACE
-  std::cout << "FFLin::eval: FFDep\n";
-#endif
-#ifdef MC__FFLIN_CHECK
-  assert( _nCoef && _ptrCoef && nRes == 1 );
-#endif
-  vRes[0] = 0;
-  for( size_t i=0; i<nVar; ++i ) vRes[0] += vVar[i];
-  vRes[0].update( FFDep::TYPE::L );
-}
-*/
+
 template< typename T >
 inline void
 FFLin<T>::eval
@@ -619,7 +608,7 @@ const
 template< typename T >
 inline bool
 FFLin<T>::reval
-( size_t const nRes, PolVar<T> const* vRes, size_t const nVar, PolVar<T>* vVar )
+( size_t const nRes, PolVar<T>* vRes, size_t const nVar, PolVar<T>* vVar )
 const
 {
 #ifdef MC__FFLIN_TRACE
@@ -659,7 +648,7 @@ const
 template< typename T >
 inline bool
 FFLin<T>::reval
-( size_t const nRes, T const* vRes, size_t const nVar, T* vVar )
+( size_t const nRes, T* vRes, size_t const nVar, T* vVar )
 const
 {
 #ifdef MC__FFLIN_TRACE

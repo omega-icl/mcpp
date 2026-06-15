@@ -5,7 +5,12 @@ include $(PATH_MC)/src/makeoptions.mk
 
 #####
 
+all : test_MLP test_Torch test_MLPREG
+
 test_MLP : test_MLP.o
+	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
+
+test_Torch : test_Torch.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
 
 test_MLPREG : test_MLPREG.o
@@ -31,6 +36,6 @@ gensvg :
 #####
 
 clean :
-	rm -f test_MLP test_MLPREG
+	rm -f test_MLP test_Torch test_MLPREG
 	-(rm -f *.o *.out *.eps *.dot *.png *.lp *~)
 

@@ -3,7 +3,8 @@
 #undef  MC__SCMODEL_TRACE
 #undef  MC__CMODEL_TRACE
 #undef  MC__USE_THREADLOCAL
-#undef MC__VEVAL_DEBUG
+#undef  MC__VEVAL_DEBUG
+#undef  MC__REVAL_DEBUG
 ////////////////////////////////////////////////////////////////////////
 
 #include <fstream>
@@ -12,6 +13,7 @@
 
 #include "mctime.hpp"
 #include "ffunc.hpp"
+#include "ffexpr.hpp"
 
 #ifdef MC__USE_PROFIL
  #include "mcprofil.hpp"
@@ -103,6 +105,40 @@ int test_eval1()
 
 ///////////////////////////////////////////////////////////////////////////////
 
+int test_eval2a()
+{
+  // Create DAG
+  const unsigned NX = 4;
+  mc::FFGraph DAG;
+  DAG.options.USEMOVE = true;//false;//true;
+  std::vector<mc::FFVar> X = DAG.add_vars( NX );
+  mc::FFVar F = X[2]*X[3]-2./(X[1]+X[2]);
+  std::cout << DAG;
+
+  auto F_op  = DAG.subgraph( {F} );
+  DAG.output( F_op );
+
+  // Evaluate in interval arithmetic
+  std::vector<I> IX{ I(-1.1,-0.9), I(-1.1, -0.9), I(1.6,2.4), I(2.5,3.5) }, IF;
+  for( unsigned i=0; i<NX; i++ ) std::cout << "X[" << i << "] = " << IX[i] << std::endl;
+
+  SCM modSCM( 7 );
+  modSCM.options.REMEZ_USE = false;
+  modSCM.options.MIXED_IA  = false;
+  std::vector<SCV> SCX{  SCV( &modSCM, 0, IX[0] ), SCV( &modSCM, 1, IX[1] ), SCV( &modSCM, 2, IX[2] ), SCV( &modSCM, 3, IX[3] ) }, SCF(1);
+
+  SCF[0] = SCX[2]*SCX[3]-2./(SCX[1]+SCX[2]);
+  std::cout << "F = " << SCF[0].P().B() << " +/- " << SCF[0].R() << std::endl;
+
+  std::vector<SCV> SCWK;
+  DAG.eval( F_op, SCWK, {F}, SCF, X, SCX );
+  std::cout << "F = " << SCF[0].P().B() << " +/- " << SCF[0].R() << std::endl;
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 int test_eval2()
 {
   std::cout << "\n==============================================\ntest_eval2:\n";
@@ -110,13 +146,11 @@ int test_eval2()
   // Create DAG
   const unsigned NX = 4, NF = 2;
   mc::FFGraph DAG;
-  DAG.options.USEMOVE = true;
+  DAG.options.USEMOVE = false;//true;
   std::vector<mc::FFVar> X(NX);
   for( auto& Xi : X ) Xi.set( &DAG );
   std::vector<mc::FFVar> F{ X[2]*X[3]-2./(X[1]+X[2]),
                             X[0]/pow(exp(X[2]*X[1])+3.,3)+tanh(X[3]) };
-//  std::vector<mc::FFVar> F{ sqrt(X[0])*exp(X[1])*X[0],
-//                            pow(X[1],3)*sqrt(X[0]) };
   std::cout << DAG;
 
   auto F_op  = DAG.subgraph( F );
@@ -126,7 +160,7 @@ int test_eval2()
   o_F.close();
 
   double cputime;
-  const unsigned NREP=1;//000;
+  const unsigned NREP=1000;
   const unsigned NTEMIN=1, NTEMAX=7;
 
   // Evaluate in interval arithmetic
@@ -666,12 +700,66 @@ int test_reval4()
 
 ///////////////////////////////////////////////////////////////////////////////
 
+int test_reval5()
+{
+  std::cout << "\n==============================================\ntest_reval5:\n";
+
+  // Example constraint propagation from MINLPLIB ex6_1_1 (https://www.minlplib.org/ex6_1_1.html)
+  mc::FFGraph DAG;
+  const unsigned NX = 8, NF = 6;
+  std::vector<mc::FFVar> X = DAG.add_vars( 8, "X" );
+  std::vector<mc::FFVar> F{ X[4]*(X[0]+0.159040857374844*X[2]) - X[0],
+                            X[5]*(X[1]+0.159040857374844*X[3]) - X[1],
+                            X[6]*(X[0]+0.307941026821595*X[2]) - X[2],
+                            X[7]*(X[1]+0.307941026821595*X[3]) - X[3],
+                            X[0] + X[1] - 0.5,
+                            X[2] + X[3] - 0.5 };
+  auto sgF  = DAG.subgraph( F );
+  auto exF = mc::FFExpr::subgraph( &DAG, sgF );
+  for( unsigned i=0; i<NF; ++i )
+    std::cout << "F[" << i << "] = " << exF[i] << std::endl;
+
+  // Evaluate in interval arithmetic, both forward and backward
+  double INF = 1e20;
+  std::vector<I> IwkF;
+  try{
+    std::vector<I> IX{ I(1e-7,0.5), I(1e-7,0.5), I(1e-7,0.5), I(1e-7,0.5), 
+                       I(-INF,INF), I(-INF,INF), I(-INF,INF), I(-INF,INF) };
+    std::vector<I> IF;
+    DAG.eval( sgF, IwkF, F, IF, X, IX );
+    std::cout << "\nDAG interval evaluation w/ forward pass only:\n";
+    for( unsigned i=0; i<NX; i++ ) std::cout << "X[" << i << "] = " << IX[i] << std::endl;
+    for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << IF[i] << std::endl;
+  }
+  catch(...){
+    std::cout << "\nDAG interval evaluation w/ forward pass only: FAILED\n";
+  }
+
+  try{
+    std::vector<I> IX{ I(1e-7,0.5), I(1e-7,0.5), I(1e-7,0.5), I(1e-7,0.5), 
+                       I(-INF,INF), I(-INF,INF), I(-INF,INF), I(-INF,INF) };
+    std::vector<I> IF{ I(0), I(0), I(0), I(0), I(0), I(0), I(0), I(0) };
+    int flag = DAG.reval( sgF, IwkF, F, IF, X, IX, IINF );
+    std::cout << "\nDAG interval evaluation w/ forward/backward passes:\n";
+    for( unsigned i=0; i<NX; i++ ) std::cout << "X[" << i << "] = " << IX[i] << std::endl;
+    for( unsigned i=0; i<NF; i++ ) std::cout << "F[" << i << "] = " << IF[i] << std::endl;
+    std::cout << "FLAG = " << flag << std::endl;
+  }
+  catch(...){
+    std::cout << "\nDAG interval evaluation w/ forward/backward passes: FAILED\n";
+  }
+
+  return 0;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 int test_veval1()
 {
   std::cout << "\n==============================================\ntest_veval1:\n";
 
   // Create DAG
-  const unsigned NX = 4, NF = 2;
+  const unsigned NX = 4;
   mc::FFGraph DAG;
   std::vector<mc::FFVar> X(NX);
   for( auto& Xi : X ) Xi.set( &DAG );
@@ -725,45 +813,52 @@ int test_veval1()
 
 int main()
 {
+  bool failed = true;
+
   try{
-//    test_eval1();
-//    test_eval2();
-//    test_eval3();
-//    test_reval1();
-//    test_reval2();
-//    test_reval3();
-//    test_reval4();
+    test_eval1();
+    test_eval2();
+    test_eval3();
+    test_reval1();
+    test_reval2();
+    test_reval3();
+    test_reval4();
+    test_reval5();
     test_veval1();
+    failed = false;
   }
   catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
               << " in factorable function manipulation:" << std::endl
               << eObj.what() << std::endl
-              << "Aborts." << std::endl;
-    return eObj.ierr();
+              << "Aborting." << std::endl;
   }
 #if !defined(MC__USE_PROFIL) && !defined(MC__USE_FILIB) && !defined(MC__USE_BOOST)
   catch( I::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
          << " in natural interval extension:" <<    std::endl
 	 << eObj.what() << std::endl
-         << "Aborts." << std::endl;
-    return eObj.ierr();
+         << "Aborting." << std::endl;
   }
 #endif
   catch( SCM::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
               << " in sparse Chebyshev model arithmetic:" << std::endl
               << eObj.what() << std::endl
-              << "Aborts." << std::endl;
-    return eObj.ierr();
+              << "Aborting." << std::endl;
   }
   catch( CM::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
               << " in dense Chebyshev model arithmetic:" << std::endl
               << eObj.what() << std::endl
-              << "Aborts." << std::endl;
-    return eObj.ierr();
+              << "Aborting." << std::endl;
   }
+  catch(...){
+    std::cerr << "Error during DAG evaluation\n"
+              << "Aborting." << std::endl;
+  }
+
+  std::cout << "\n=== Results: " << (failed? "failed": "passed") << " ===\n";
+  return failed;
 }
 

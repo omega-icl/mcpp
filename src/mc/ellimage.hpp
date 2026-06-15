@@ -20,7 +20,7 @@ As well as constructors and data access/manipulations functions, the class mc::E
 Ellipsoidal calculus includes:
 - applying a linear transformation to an ellipsoid (mc::mtimes)
 - taking the (exact) intersection of an ellipsoid with a hyperplane (mc::hpintersection)
-- computing a (minimum volume) external ellipsoidal approximation of the intersection between an ellipsoid and a halfspace (mc::intersection_ea)
+- computing a (minimum volume) external ellipsoidal approximation of the intersection between an ellipsoid and a halfspace, or between two ellipsoids (mc::intersection_ea)
 - computing an external ellipsoidal approximation of the geometric (Minkowski) sum of several ellipsoids along a given direction, or a (minimum trace) external ellipsoidal approximation of the geometric (Minkowski) sum of an ellipsoid with an interval box (mc::minksum_ea)
 .
 
@@ -30,9 +30,9 @@ Besides ellipsoidal calculus, the classes mc::EllImg and mc::EllVar provide an i
 \f}
 Notice that the exact image \f$\left\{ f(x) \,\mid\, x\in \mathcal{E}(c_{x},Q_x) \right\}\f$ is not an ellipsoid in general.
 
-The class mc::EllImg is derived from mc::Ellipsoid. The implementation of mc::EllImg and mc::EllVar relies on the operator/function overloading mechanism of C++. This makes the computation of the ellipsoidal enclosure for the image of an ellipsoid under a factorable function both simple and intuitive, similar to computing function values in real arithmetic or bounds based on interval, Taylor or Chebyshev model arithmetics (see \ref page_INTERVAL, \ref page_TAYLOR, \ref page_CHEBYSHEV). mc::EllImg stores a column vector CPPL::dcovector and a sparse symmetric matrix CPPL::dssmatrix provided by the LAPACK wrapper <A href="http://cpplapack.sourceforge.net/">CPPLAPACK</A>. The column vector stores the center and the sparse symmetric matrix the shape of a <i>lifted</i> ellipsoid, which is the result of adding extra dimension for each operation participating in the factorable function. Note that the implementation in mc::EllImg and mc::EllVar is <a>not verified</a> in the sense that rounding errors are not accounted for during the propagation.
+The class mc::EllImg is derived from mc::Ellipsoid. The implementation of mc::EllImg and mc::EllVar relies on the operator/function overloading mechanism of C++. This makes the computation of the ellipsoidal enclosure for the image of an ellipsoid under a factorable function both simple and intuitive, similar to computing function values in real arithmetic or bounds based on interval, Taylor or Chebyshev model arithmetics (see \ref page_INTERVAL, \ref page_TAYLOR, \ref page_CHEBYSHEV). mc::EllImg stores the center of a <i>lifted</i> ellipsoid as a column vector (arma::vec) and its shape as a symmetric matrix kept in a hashed, lower-triangular dictionary-of-keys (a <tt>std::unordered_map</tt> from packed (row,col) index to value), which supports O(1)-average incremental get/set as the lifting proceeds; an Armadillo sparse matrix (arma::sp_mat) is materialised on demand, e.g. via mc::EllImg::Q_lift or when the image is streamed to an output. The lifted ellipsoid is the result of adding an extra dimension for each elementary operation participating in the factorable function. The nonlinearity of each univariate elementary operation is enclosed by a linear term plus an interval remainder: by default a degree-1 Remez minimax line is used (option <tt>REMEZ_USE</tt>), with a secant-line fallback, and the remainder radius is obtained from a sampled (non-verified) residual bound. Note that the implementation in mc::EllImg and mc::EllVar is <a>not verified</a> in the sense that rounding errors are not accounted for during the propagation.
 
-The classes mc::EllImg and mc::EllVar are templated in the interval type used to bound the nonlinearity of the function, By default, mc::EllImg and mc::EllVar can be used with the non-verified interval type mc::Interval of MC++. For reliability, however, it is recommended to use verified interval arithmetic such as <A href="http://www.ti3.tu-harburg.de/Software/PROFILEnglisch.html">PROFIL</A> (header file <tt>mcprofil.hpp</tt>) or <A href="http://www.math.uni-wuppertal.de/~xsc/software/filib.html">FILIB++</A> (header file <tt>mcfilib.hpp</tt>). 
+The classes mc::EllImg and mc::EllVar are templated in the interval type used to bound the nonlinearity of the function. By default, mc::EllImg and mc::EllVar can be used with the non-verified interval type mc::Interval of MC++. For reliability, however, it is recommended to use verified interval arithmetic such as <A href="http://www.ti3.tu-harburg.de/Software/PROFILEnglisch.html">PROFIL</A> (header file <tt>mcprofil.hpp</tt>), <A href="http://www.math.uni-wuppertal.de/~xsc/software/filib.html">FILIB++</A> (header file <tt>mcfilib.hpp</tt>), or the Boost interval library (header file <tt>mcboost.hpp</tt>). 
 
 \section sec_ELLCALC How do I define an ellipsoid and apply ellipsoidal calculus?
 
@@ -46,9 +46,10 @@ we proceed as follows:
 
 \code
     const unsigned int n = 2;
-    CPPL::dcovector cx(n); CPPL::csymatrix Qx(n);
+    arma::vec cx(n);
+    arma::mat Qx(n,n,arma::fill::zeros);
     cx(0) = 3.;  Qx(0,0) = 5.;
-    cx(1) = 4.;  Qx(1,0) = 4.;  Qx(1,1) = 5. ;
+    cx(1) = 4.;  Qx(1,0) = 4.;  Qx(0,1) = 4.;  Qx(1,1) = 5.;
     mc::Ellipsoid Ex( Qx, cx ); 
 \endcode
 
@@ -62,19 +63,14 @@ In the present case, the following information is displayed:
 
 \verbatim
 center:
- 3.00000e+00
- 4.00000e+00
-
+   3.0000
+   4.0000
 shape:
- 5.00000e+00 {4.00000e+00}
- 4.00000e+00  5.00000e+00 
+   5.0000   4.0000
+   4.0000   5.0000
 \endverbatim
 
-In order to illustrate ellipsoidal calculus, suppose that we want to add the interval box \f$[0,0.1]^2\f$ to the foregoing ellispoid and determine an external ellispoidal approximation of this geometric sum. 
-
-\code
-   TBC
-\endcode
+In order to illustrate ellipsoidal calculus, suppose that we want to add the interval box \f$[0,0.1]^2\f$ to the foregoing ellispoid and determine an external ellispoidal approximation of this geometric sum, using mc::minksum_ea.
 
 \section sec_ELLIMG How do I compute an ellipsoidal enclosure for the image set of an ellipsoid under a factorable function?
 
@@ -97,84 +93,88 @@ x \in \left\{
 v^{\rm T}v\leq 1 \right\}.
 \f]
 
-For simplicity, the underlying interval bounds are propagated using the default interval type mc::Interval, the required header files 
+For simplicity, the underlying interval bounds are propagated using the default interval type mc::Interval. The required header files 
 are:
  
 \code
 #include "ellimage.hpp"
 #include "interval.hpp"
 
-typedef mc::Interval I		;
-typedef mc::EllImg<I> EI	;
-typedef mc::EllVar<I> EV	;
-typedef CPPL::dcovector dcv	;
-typedef CPPL::dsymatrix dsm	;
+typedef mc::Interval I;
+typedef mc::EllImg<I> EI;
+typedef mc::EllVar<I> EV;
+typedef arma::vec dcv;
+typedef arma::mat dsm;
 \endcode
 
 First, the host ellipsoidal set for the independent variables \f$x_{1}\f$ and \f$x_{2}\f$ is specified as:
 \code 
-dcv cx(2)	;     dsm Qx(2)		;
-cx(0) = 3.	;     Qx(0,0) = 5.	;
-cx(1) = 4.	;     Qx(1,0) = 4.	;	Qx(1,1) = 5.	;
-EI Ex( Qx, qx )	;
+dcv cx(2);
+dsm Qx(2,2,arma::fill::zeros);
+cx(0) = 3.;  Qx(0,0) = 5.;
+cx(1) = 4.;  Qx(1,0) = 4.;  Qx(0,1) = 4.;  Qx(1,1) = 5.;
+EI Ex( Qx, cx );
 \endcode
 
 Then, the independent variables themselves are specified as:
 \code
-EV X1( Ex, 0 ) ;
-EV X2( Ex, 1 ) ;
+EV X1( Ex, 0 );
+EV X2( Ex, 1 );
 \endcode
-If independent interval bounds are known for each variable they can be passed as an optional third argument to the set function.
+If independent interval bounds are known for a variable they can be passed as an optional third argument to the mc::EllVar constructor.
 
-The dependent variables \f$f_{1}(x)\f$ and \f$f_{2}(c)\f$ are propagated as:
+The dependent variables \f$f_{1}(x)\f$ and \f$f_{2}(x)\f$ are propagated as:
 \code
-EV F[2] = { log( X[0] ) + mc::sqr( X[1] ),
-            sin( X[0] ) - cos( X[1] ) } ;
+EV F[2] = { log( X1 ) + mc::sqr( X2 ),
+            sin( X1 ) - cos( X2 ) };
 \endcode
 
 and the lifted ellipsoid can be displayed as:
 
 \code
-std::cout << "lifted ellipsoidal image of f =";
-Ex.output();
+std::cout << "lifted ellipsoidal image of f =" << Ex << std::endl;
 \endcode
 
+The display reports the lifted center followed by the (sparse) lifted shape matrix.  Its center and shape can also be retrieved directly with mc::EllImg::c_lift and mc::EllImg::Q_lift.  For the function above the lifting introduces 6 auxiliary dimensions (one per elementary operation), giving an 8-dimensional lifted ellipsoid with center:
+
 \verbatim
-lifted ellipsoidal image of f = 
-center: 
- 3
- 4
- 18.5
- 0.913697
- 19.4137
- -0.0590929
- 0.012758
- 0.0718509
-Shape: 
- 9.46133 {7.56906}{60.5525}{4.07224}{64.6247}{2.82094}{-4.61268}{-7.43362}
- 7.56906  9.46133 {75.6906}{3.25779}{78.9484}{3.52618}{-3.69015}{-7.21632}
- 60.5525  75.6906  752.099 {26.0623}{778.161}{28.2094}{-29.5212}{-57.7306}
- 4.07224  3.25779  26.0623  2.52547 {28.5878}{1.21416}{-1.98534}{-3.1995}
- 64.6247  78.9484  778.161  28.5878  806.749 {29.4236}{-31.5065}{-60.9301}
- 2.82094  3.52618  28.2094  1.21416  29.4236  4.40317 {-1.37529}{-5.77847}
- -4.61268  -3.69015  -29.5212  -1.98534  -31.5065  -1.37529  4.34584 {5.72113}
- -7.43362  -7.21632  -57.7306  -3.1995  -60.9301  -5.77847  5.72113  11.4996 
+   3.00000e+00
+   4.00000e+00
+   1.85000e+01
+   9.13697e-01
+   1.94137e+01
+  -1.93826e-01
+   6.44906e-02
+   2.58154e-01
 \endverbatim
 
-Finally, the lifted ellipsoid can be projected in the space of dependent variables to obtain the desired image enclosure:
+and (dense) lifted shape matrix Ex.Q_lift():
+
+\verbatim
+   5.9494e+00   4.7595e+00   3.8076e+01   2.5607e+00   4.0637e+01   1.2945e+00  -2.7081e+00  -4.0026e+00
+   4.7595e+00   5.9494e+00   4.7595e+01   2.0485e+00   4.9644e+01   1.6181e+00  -2.1664e+00  -3.7846e+00
+   3.8076e+01   4.7595e+01   4.3522e+02   1.6388e+01   4.5161e+02   1.2945e+01  -1.7332e+01  -3.0277e+01
+   2.5607e+00   2.0485e+00   1.6388e+01   5.9579e+00   2.2346e+01   5.5716e-01  -1.1656e+00  -1.7227e+00
+   4.0637e+01   4.9644e+01   4.5161e+02   2.2346e+01   4.7395e+02   1.3502e+01  -1.8497e+01  -3.1999e+01
+   1.2945e+00   1.6181e+00   1.2945e+01   5.5716e-01   1.3502e+01   1.9497e+01  -5.8924e-01  -2.0087e+01
+  -2.7081e+00  -2.1664e+00  -1.7332e+01  -1.1656e+00  -1.8497e+01  -5.8924e-01   1.3491e+01   1.4081e+01
+  -4.0026e+00  -3.7846e+00  -3.0277e+01  -1.7227e+00  -3.1999e+01  -2.0087e+01   1.4081e+01   3.4167e+01
+\endverbatim
+
+Finally, the lifted ellipsoid is projected onto the space of the dependent variables to obtain the desired image enclosure (note that mc::EllImg::get returns a plain mc::Ellipsoid):
 \code
-EI Ef = Eflift.get( 2, F );
-std::cout << " Ellipsoidal enclosure Ef = " << Ef << std::endl;
+mc::Ellipsoid Ef = Ex.get( 2, F );
+std::cout << "Ellipsoidal enclosure Ef = " << Ef << std::endl;
 \endcode
 
 \verbatim
 Ellipsoidal enclosure Ef =
 center:
- 1.94137e+01
- 7.18509e-02
+   1.94137e+01
+   2.58154e-01
 shape:
- 8.06749e+02 {-6.09301e+01}
- -6.09301e+01  1.14996e+01 
+   4.7395e+02  -3.1999e+01
+  -3.1999e+01   3.4167e+01
 \endverbatim
 
 After this, the ellipsoid can be manipulated according to the rules of ellipsoidal calculus (see \ref page_ELLIPSOID).
@@ -188,10 +188,11 @@ A comparison between the exact image and the ellipsoidal enclosure is presented 
 
 \section sec_ELL_opt How are the options set for ellipsoidal calculus and ellipsoidal arithmetic?
 
-The class mc::EllImg and mc::Ellipsoid have public members called mc::EllImg::options and mc::Ellipsoid::options (static), respectively, that can be used to set/modify a number of options. Note that mc::EllImg::options is a superset of mc::Ellipsoid::options since mc::EllImg is derived from mc::Ellispoid. For instance, options can be set as follows:
+The classes mc::EllImg and mc::Ellipsoid have public members called mc::EllImg::options and mc::Ellipsoid::options (both static) that can be used to set/modify a number of options. Note that mc::EllImg::options and mc::Ellipsoid::options are distinct option sets (mc::EllImg is derived from mc::Ellipsoid but defines its own Options structure). For instance, options can be set as follows:
 \code
-	Ex.options.PREALLOC = 5; 
-	Ex.options.CHEBUSE  = false;
+	mc::EllImg<I>::options.PREALLOC  = 5;
+	mc::EllImg<I>::options.REMEZ_USE = true;
+	mc::Ellipsoid::options.PSDCHK    = false;
 \endcode
 
 The full set of available options is reported in the following tables.
@@ -200,12 +201,20 @@ The full set of available options is reported in the following tables.
 <CAPTION><EM>Options in mc::EllImg::Options: name, type and description</EM></CAPTION>
      <TR><TH><b>Name</b>  <TD><b>Type</b><TD><b>Default</b>
          <TD><b>Description</b>
-     <TR><TH><tt>PREALLOC</tt> <TD><tt>unsigned long</tt> <TD>0
-         <TD> Number of rows to preallocate in the shape matrix and center vector
-     <TR><TH><tt>CHEBUSE</tt> <TD><tt>bool</tt> <TD>false
-         <TD> Whether to use Chebyshev expansion to compute a linear approximation and bound the nonlinear dependencies of univariate terms
-     <TR><TH><tt>CHEBORDER</tt> <TD><tt>unsigned int</tt> <TD>5
-         <TD>Order of the Chebyshev expansion (only of <tt>CHEBUSE = true</tt>)
+     <TR><TH><tt>PREALLOC</tt> <TD><tt>long</tt> <TD>0
+         <TD> Number of rows to preallocate in the center vector when lifting; <tt>0</tt> uses geometric (doubling) growth
+     <TR><TH><tt>MINK_TOL</tt> <TD><tt>double</tt> <TD>1e-10
+         <TD> Tolerance used in the Minkowski-sum step that adds the linearisation remainder
+     <TR><TH><tt>REMEZ_USE</tt> <TD><tt>bool</tt> <TD>true
+         <TD> Whether to use a degree-1 Remez minimax line for univariate terms (otherwise a secant-line approximation is used)
+     <TR><TH><tt>REMEZ_MAXIT</tt> <TD><tt>unsigned</tt> <TD>5
+         <TD> Maximum number of iterations in the Remez exchange algorithm
+     <TR><TH><tt>REMEZ_TOL</tt> <TD><tt>double</tt> <TD>1e-5
+         <TD> Stopping tolerance in the Remez exchange algorithm
+     <TR><TH><tt>REMEZ_MIG</tt> <TD><tt>double</tt> <TD>1e-10
+         <TD> Minimum domain diameter for invoking Remez; smaller domains fall back to the secant-line approximation
+     <TR><TH><tt>DCPROD_USE</tt> <TD><tt>bool</tt> <TD>false
+         <TD> Whether to lift a bilinear product via a difference-of-convex decomposition rather than the midpoint linearisation
 </TABLE>
 
 <TABLE border="1">
@@ -218,14 +227,14 @@ The full set of available options is reported in the following tables.
          <TD>Absolute tolerance for positive semi-definiteness check of shape matrices
      <TR><TH><tt>RKTOLA</tt> <TD><tt>double</tt> <TD>MACHPREC
          <TD>Absolute tolerance for rank and regularization of shape matrices
-     <TR><TH><tt>RKTOLR</tt> <TD><tt>double</tt> <TD>MACHPREC*1e6
+     <TR><TH><tt>RKTOLR</tt> <TD><tt>double</tt> <TD>MACHPREC
          <TD>Relative tolerance for rank and regularization of shape matrices
      <TR><TH><tt>ROOTTOL</tt> <TD><tt>double</tt> <TD>1e-10
          <TD>Absolute stopping tolerance for root-finding method (objective function value less than ROOTTOL)
      <TR><TH><tt>ROOTSECANT</tt> <TD><tt>bool</tt> <TD>false
          <TD>Whether to use the secant method for root finding
-     <TR><TH><tt>ROOTMAXIT</tt> <TD><tt>bool</tt> <TD>0
-         <TD>Maximum number of iteration for root-finding method (no maximum when ROOTMAXIT=0)
+     <TR><TH><tt>ROOTMAXIT</tt> <TD><tt>unsigned</tt> <TD>0
+         <TD>Maximum number of iterations for root-finding method (no maximum when ROOTMAXIT=0)
 </TABLE>
 
 
@@ -236,21 +245,22 @@ Errors are managed based on the exception handling mechanism of the C++ language
 Possible errors encountered during application of ellipsoidal calculus and ellispoidal arithmetic are reported in the following tables.
 
 <TABLE border="1">
-<CAPTION><EM>Errors during the Computation of an Ellipsoidal Image</EM></CAPTION>
+<CAPTION><EM>Errors during the Computation of an Ellipsoidal Image (mc::EllImg::Exceptions)</EM></CAPTION>
      <TR><TH><b>Number</b> <TD><b>Description</b>
-     <TR><TH> <tt> 1 </tt>  <TD> Division by zero
+     <TR><TH> <tt> 1 </tt>  <TD> Division by zero scalar
      <TR><TH> <tt> 2 </tt>  <TD> Inverse operation with zero in domain
      <TR><TH> <tt> 3 </tt>  <TD> Log operation with non-positive numbers in domain
      <TR><TH> <tt> 4 </tt>  <TD> Square-root operation with negative numbers in domain
      <TR><TH> <tt> 5 </tt>  <TD> Tangent operation with zero in domain of cosine, tan(x) = sin(x)/cos(x)
-     <TR><TH> <tt> 6 </tt>  <TD> Sine/Cosine inverse operation with domain outside [-1,1]
+     <TR><TH> <tt> 6 </tt>  <TD> Inverse cosine (acos) operation with domain outside [-1,1]
+     <TR><TH> <tt> 7 </tt>  <TD> Inverse sine (asin) operation with domain outside [-1,1]
      <TR><TH> <tt>-1 </tt>  <TD> Failed to construct ellipsoidal variable
      <TR><TH> <tt>-3 </tt>  <TD> Operation between variables mc::EllVar linked to different images mc::EllImg
      <TR><TH> <tt>-33</tt>  <TD> Feature not yet implemented in mc::EllImg
 </TABLE>
 
 <TABLE border="1">
-<CAPTION><EM>Errors with mc::Ellipsoid</EM></CAPTION>
+<CAPTION><EM>Errors with mc::Ellipsoid (mc::Ellipsoid::Exceptions)</EM></CAPTION>
      <TR><TH><b>Number</b> <TD><b>Description</b>
      <TR><TH> <tt> 1 </tt> <TD> Non positive-semi definite shape matrix
      <TR><TH> <tt> 2 </tt> <TD> Failure in a LAPACK linear algebra routine
@@ -269,16 +279,17 @@ Moreover, exceptions may be thrown by the template parameter class itself.
 #define MC__ELLIMAGE_H
 
 #include <assert.h>
+#include <algorithm>
+#include <cmath>
 #include <exception>
 #include <fstream>
 #include <iomanip>
+#include <unordered_map>
+#include <vector>
 
 #include "mcfunc.hpp"
 #include "mcop.hpp"
-#include "mclapack.hpp"
 #include "ellipsoid.hpp"
-#include "cmodel.hpp"
-#include "remez.hpp"
 
 #undef  MC__ELLIMAGE_DEBUG
 
@@ -378,8 +389,10 @@ class EllImg
         ()
         : PREALLOC    ( 0     ),
           MINK_TOL    ( 1e-10 ),
+          REMEZ_USE   ( true  ),
           REMEZ_MAXIT ( 5     ),
           REMEZ_TOL   ( 1e-5  ),
+          REMEZ_MIG   ( 1e-10 ),
           DCPROD_USE  ( false )
         {}
       //! @brief Copy constructor of mc::EllImg::Options
@@ -387,8 +400,10 @@ class EllImg
         ( U&options )
         : PREALLOC    ( options.PREALLOC    ),
           MINK_TOL    ( options.MINK_TOL    ),
+          REMEZ_USE   ( options.REMEZ_USE   ),
           REMEZ_MAXIT ( options.REMEZ_MAXIT ),
           REMEZ_TOL   ( options.REMEZ_TOL   ),
+          REMEZ_MIG   ( options.REMEZ_MIG   ),
           DCPROD_USE  ( options.DCPROD_USE  )
         {}
       //! @brief Assignment of mc::EllImg::Options
@@ -397,8 +412,10 @@ class EllImg
         {
           PREALLOC    = options.PREALLOC   ;
           MINK_TOL    = options.MINK_TOL   ;
+          REMEZ_USE   = options.REMEZ_USE  ;
           REMEZ_MAXIT = options.REMEZ_MAXIT;
           REMEZ_TOL   = options.REMEZ_TOL  ;
+          REMEZ_MIG   = options.REMEZ_MIG  ;
           DCPROD_USE  = options.DCPROD_USE ;
           return *this;
         }
@@ -407,24 +424,105 @@ class EllImg
       long PREALLOC;
       //! @brief Tolerance in minkowski sum (Default: 1e-10)
       double MINK_TOL;
+      //! @brief Whether to use a degree-1 Remez linear approximation for univariate terms (Default: true). If false, use the secant-line sampled-residual fallback.
+      bool REMEZ_USE;
       //! @brief Maximal number of iterations in Remez algorithm for computing a minimax approximation for univariate terms
       unsigned REMEZ_MAXIT;
       //! @brief Stopping tolerance in Remez algorithm for computing a minimax approximation for univariate terms
       double REMEZ_TOL;
-      //! @brief Whether to DC decomposition to lift bilinear terms (Default: false)
+      //! @brief Minimum interval diameter for invoking Remez; smaller intervals use the secant-line sampled-residual fallback
+      double REMEZ_MIG;
+      //! @brief Whether to use DC decomposition to lift bilinear terms (Default: false)
       bool DCPROD_USE;
     } options;
     /** @} */
 
   private:
-    //! @brief Shape Matrix of the lifted Ellipsoid
-    CPPL::dssmatrix _Q;
+    //! @brief Lifted shape matrix, stored as a hashed dictionary-of-keys over
+    //! the lower triangle (row >= col).  The lifting algorithm reads/writes a
+    //! handful of entries per elementary operation and depends on them
+    //! immediately, so an incremental store with O(1) average get/set is
+    //! required.  arma::sp_mat (compressed-column) was previously used with
+    //! single-element operator()(r,c) writes -- Armadillo's documented slow
+    //! path, which reshuffles the CSC arrays on every insertion -- making
+    //! assembly quadratic in the number of stored entries.  We keep the data
+    //! in a std::unordered_map and materialise an arma::sp_mat only on demand
+    //! (Q_lift / streaming) via efficient batch construction.
+    std::unordered_map<unsigned long long,double> _Qmap;
+    //! @brief Allocated lifted dimension (row/column count of the shape matrix)
+    long _Qn;
     //! @brief Centre of the lifted Ellipsoid
-    CPPL::dcovector _q;
+    arma::vec _q;
     //! @brief Dimension of the dependent variables
     long _nx;
     //! @brief Map between pointers to EllVars (key) and row number
     long _curRow;
+
+    //! @brief Pack a lower-triangular (r,c) index pair into a 64-bit hash key
+    static unsigned long long _qkey( arma::uword const r, arma::uword const c )
+      { return ( static_cast<unsigned long long>(r) << 32 ) | static_cast<unsigned long long>(c); }
+
+    //! @brief Canonical lower-triangular sparse index
+    static void _lower_index( arma::uword& r, arma::uword& c, long const i, long const j )
+      {
+        if( i >= j ){ r = static_cast<arma::uword>(i); c = static_cast<arma::uword>(j); }
+        else{ r = static_cast<arma::uword>(j); c = static_cast<arma::uword>(i); }
+      }
+
+    //! @brief Symmetric getter from lower-triangular storage (0 if absent)
+    double qget( long const i, long const j ) const
+      {
+        arma::uword r, c; _lower_index( r, c, i, j );
+        auto const it = _Qmap.find( _qkey( r, c ) );
+        return it == _Qmap.end() ? 0. : it->second;
+      }
+
+    //! @brief Whether a symmetric entry is structurally nonzero
+    bool qlisted( long const i, long const j ) const
+      {
+        arma::uword r, c; _lower_index( r, c, i, j );
+        return _Qmap.find( _qkey( r, c ) ) != _Qmap.end();
+      }
+
+    //! @brief Symmetric setter into lower-triangular storage.  Writing an exact
+    //! zero erases the entry (so qlisted() stays meaningful) without the
+    //! O(nnz) full-matrix clean() that the sp_mat version performed per write.
+    void qput( long const i, long const j, double const& v )
+      {
+        arma::uword r, c; _lower_index( r, c, i, j );
+        unsigned long long const k = _qkey( r, c );
+        if( v == 0. ) _Qmap.erase( k );
+        else          _Qmap[k] = v;
+      }
+
+    //! @brief Scale every stored shape entry by a scalar (O(nnz))
+    void _scaleQ( double const s )
+      {
+        if( s == 0. ){ _Qmap.clear(); return; }
+        for( auto& kv : _Qmap ) kv.second *= s;
+      }
+
+    //! @brief Materialise the lower-triangular shape as a sparse matrix
+    arma::sp_mat _spQ() const
+      {
+        arma::uword const nnz = static_cast<arma::uword>( _Qmap.size() );
+        arma::uword const N   = static_cast<arma::uword>( _Qn > 0 ? _Qn : 0 );
+        if( !nnz || !N ) return arma::sp_mat( N, N );
+        arma::umat loc( 2, nnz );
+        arma::vec  val( nnz );
+        arma::uword p = 0;
+        for( auto const& kv : _Qmap ){
+          loc(0,p) = static_cast<arma::uword>( kv.first >> 32 );
+          loc(1,p) = static_cast<arma::uword>( kv.first & 0xffffffffULL );
+          val(p)   = kv.second;
+          ++p;
+        }
+        return arma::sp_mat( loc, val, N, N );  // batch construction
+      }
+
+    //! @brief Current lifted dimension
+    long qdim() const
+      { return _Qn; }
     
 #ifdef MC__ELLIMAGE_DEBUG
     //! @brief Output for debugging
@@ -436,12 +534,12 @@ class EllImg
      *  @{
      */
     //! @brief Returns the shape matrix of the lifted Ellipsoid
-    CPPL::dssmatrix Q_lift
+    arma::sp_mat Q_lift
       ()
-      { return _Q; }
+      { return arma::symmatl( _spQ() ); }
  
    //! @brief Returns the centre of the lifted Ellipsoid
-    CPPL::dcovector c_lift
+    arma::vec c_lift
       ()
       { return _q; }
   
@@ -451,7 +549,7 @@ class EllImg
 
     //! @brief Constructor for ellipsoid with shape matrix \f$Q\f$ and center \f$c\f$
     EllImg
-      ( CPPL::dsymatrix const& Q, CPPL::dcovector const& c=CPPL::dcovector() );
+      ( arma::mat const& Q, arma::vec const& c=arma::vec() );
 
     //! @brief Constructor for ellipsoid of dimension \f$n\f$ with shape matrix \f$Q\f$ (lower triangular part stored contiguously and columnwise) and center \f$c\f$
     EllImg
@@ -459,7 +557,7 @@ class EllImg
 
     //! @brief Constructor for ellipsoid enclosing interval vector of radius \f$r\f$ centered at \f$c\f$
     EllImg
-      ( CPPL::dcovector const& r, CPPL::dcovector const& c=CPPL::dcovector() );
+      ( arma::vec const& r, arma::vec const& c=arma::vec() );
 
     //! @brief Copy constructor
     EllImg
@@ -475,7 +573,7 @@ class EllImg
     
     //! @brief Set an ellipsoid with shape matrix \f$Q\f$ and center \f$c\f$
     EllImg<T>& set
-      ( CPPL::dsymatrix const& Q, CPPL::dcovector const& c=CPPL::dcovector() )
+      ( arma::mat const& Q, arma::vec const& c=arma::vec() )
       { Ellipsoid::set( Q, c ); return _reset(); }
     
     //! @brief Set an ellipsoid of dimension \f$n\f$ with shape matrix \f$Q\f$ (lower triangular part stored contiguously and columnwise) and center \f$c\f$
@@ -485,7 +583,7 @@ class EllImg
     
     //! @brief Set an ellipsoidal enclosing interval vector of radius \f$r\f$ centered at \f$c\f$
     EllImg<T>& set
-      ( CPPL::dcovector const& r, CPPL::dcovector const& c=CPPL::dcovector() )
+      ( arma::vec const& r, arma::vec const& c=arma::vec() )
       { Ellipsoid::set( r, c ); return _reset(); }
 
     //! @brief Reset ellipsoidal image to underlying defining ellipsoid
@@ -719,7 +817,7 @@ EllImg<T>::EllImg
 template <class T> 
 inline 
 EllImg<T>::EllImg
-( CPPL::dsymatrix const& Q, CPPL::dcovector const& c )
+( arma::mat const& Q, arma::vec const& c )
 : Ellipsoid( Q, c )
 {
 #ifdef MC__ELLIMAGE_DEBUG
@@ -755,7 +853,7 @@ EllImg<T>::EllImg
 template <class T> 
 inline 
 EllImg<T>::EllImg
-( CPPL::dcovector const& r, CPPL::dcovector const& c )
+( arma::vec const& r, arma::vec const& c )
 : Ellipsoid( r, c )
 {
 #ifdef MC__ELLIMAGE_DEBUG
@@ -781,8 +879,18 @@ EllImg<T>::_set
 ()
 {
   // set Ellipsoid to  E0(Q0,q0)
-  _nx = Q().n;
-  _Q  = Q().to_dssmatrix();
+  _nx = static_cast<long>( Q().n_cols );
+  // Initialise the hashed lower-triangular store from the base ellipsoid.
+  _Qmap.clear();
+  _Qn = _nx;
+  {
+    arma::mat const& Q0 = Q();
+    for( long j=0; j<_nx; ++j )
+      for( long i=j; i<_nx; ++i ){
+        double const v = Q0(i,j);
+        if( v != 0. ) _Qmap[ _qkey( static_cast<arma::uword>(i), static_cast<arma::uword>(j) ) ] = v;
+      }
+  }
   _q  = c();
   _curRow = _nx    ;  // resets _curRow to the number of dependent variables 
   return *this;
@@ -794,15 +902,15 @@ Ellipsoid
 EllImg<T>::_get
 ( unsigned const nvar, EllVar<T> const* var )
 {
-  CPPL::dsymatrix Q0( nvar ); Q0.zero();
-  CPPL::dcovector q0( nvar ); q0.zero();
-  for( long j=0; j<nvar; ++j  ){
+  arma::mat Q0( nvar, nvar, arma::fill::zeros );
+  arma::vec q0( nvar, arma::fill::zeros );
+  for( long j=0; j<static_cast<long>(nvar); ++j  ){
     long prev = var[j]._ndxRow; 
-    for( long i=j; i<nvar; ++i ){
-      Q0( i , j ) = _Q( var[i]._ndxRow , prev  ) ; 
-      q0( j )     = _q( var[j]._ndxRow ) ;
-    } 
+    q0( j ) = _q( prev );
+    for( long i=j; i<static_cast<long>(nvar); ++i )
+      Q0( i , j ) = qget( var[i]._ndxRow, prev ); 
   }
+  Q0 = arma::symmatl( Q0 );
   return Ellipsoid( Q0, q0 );
 }
 
@@ -813,9 +921,16 @@ EllImg<T>::_stretch
 ( long const ndxRow )
 {
   // Checks if reallocation is needed
-  if( _Q.n > ndxRow ) return;
-  _Q.stretch( options.PREALLOC>0? options.PREALLOC: 1 );
-  _q.stretch( options.PREALLOC>0? options.PREALLOC: 1 );
+  if( _Qn > ndxRow ) return;
+  // The shape matrix is dictionary-of-keys, so "growing" it is just bumping
+  // the logical dimension -- no storage reshuffle.  Only the dense centre
+  // vector needs reallocation, which we do geometrically (doubling) to keep
+  // the total cost over a sequence of lifts amortised O(1) rather than the
+  // previous +1-per-lift behaviour (linear reallocations, each O(nnz)).
+  long const inc  = ( options.PREALLOC>0 ? options.PREALLOC : std::max<long>( _Qn, 1 ) );
+  long const nnew = std::max<long>( ndxRow+1, _Qn + inc );
+  _Qn = nnew;
+  _q.resize( static_cast<arma::uword>(nnew) );
 }
 
 template <typename T>
@@ -826,12 +941,12 @@ EllImg<T>::_affcompose
   double const& coefl, long const l, double const& shift )
 {
 #ifdef MC__ELLIMAGE_DEBUG
-  img->_dbugout << std::scientific << std::setprecision(3) << std::right;
-  img->_dbugout << "affine starts: i= " << i <<" k= "<< k <<" l= "<< l <<std::endl;
-  img->_dbugout << "q \n";
-  img->_dbugout << img->_q <<std::endl;
-  img->_dbugout << "Q \n";
-  img->_dbugout << img->_Q <<std::endl;
+  _dbugout << std::scientific << std::setprecision(3) << std::right;
+  _dbugout << "affine starts: i= " << i <<" k= "<< k <<" l= "<< l <<std::endl;
+  _dbugout << "q \n";
+  _dbugout << _q <<std::endl;
+  _dbugout << "Q \n";
+  _dbugout << _spQ() <<std::endl;
 #endif
 
   // Update centre
@@ -841,25 +956,25 @@ EllImg<T>::_affcompose
 
   // Update shape matrix
   for( long j=0; j<i; ++j ){
-    if( (k<0 || !_Q.isListed(k,j)) && (l<0 || !_Q.isListed(l,j)) ) continue;
+    if( (k<0 || !qlisted(k,j)) && (l<0 || !qlisted(l,j)) ) continue;
     double cov = 0.;
-    if( k>=0 ) cov += coefk * _Q(k,j);
-    if( l>=0 ) cov += coefl * _Q(l,j);
-    _Q.put( i,j, cov );
+    if( k>=0 ) cov += coefk * qget(k,j);
+    if( l>=0 ) cov += coefl * qget(l,j);
+    qput( i,j, cov );
   }
   double cov = 0.;
-  if( k>=0 ) cov += coefk * coefk * _Q(k,k);
-  if( l>=0 ) cov += coefl * coefl * _Q(l,l);
-  if( k>=0 && l>=0 ) cov += 2 * coefk * coefl * _Q(k,l);
-  _Q.put( i,i, cov );
+  if( k>=0 ) cov += coefk * coefk * qget(k,k);
+  if( l>=0 ) cov += coefl * coefl * qget(l,l);
+  if( k>=0 && l>=0 ) cov += 2 * coefk * coefl * qget(k,l);
+  qput( i,i, cov );
 
 #ifdef MC__ELLIMAGE_DEBUG
-  img->_dbugout << std::scientific << std::setprecision(3) << std::right;
-  img->_dbugout << "affine ends: i= " << i <<" k= "<< k <<" l= "<< l <<std::endl;
-  img->_dbugout << "q \n" ;
-  img->_dbugout << img->_q <<std::endl;
-  img->_dbugout << "Q \n" ;
-  img->_dbugout << img->_Q <<std::endl;
+  _dbugout << std::scientific << std::setprecision(3) << std::right;
+  _dbugout << "affine ends: i= " << i <<" k= "<< k <<" l= "<< l <<std::endl;
+  _dbugout << "q \n" ;
+  _dbugout << _q <<std::endl;
+  _dbugout << "Q \n" ;
+  _dbugout << _spQ() <<std::endl;
 #endif
 }
 
@@ -872,31 +987,38 @@ EllImg<T>::_univcompose
 {
   long i = _curRow;
 #ifdef MC__ELLIMAGE_DEBUG
-  img->_dbugout << std::scientific << std::setprecision(3) << std::right;
-  img->_dbugout << "compose starts: curRow= " << i <<" ndxRow= "<< ndxRow <<std::endl;
-  img->_dbugout << "q \n" ;
-  img->_dbugout << _q <<std::endl;
-  img->_dbugout << "Q \n" ;
-  img->_dbugout << _Q <<std::endl;
+  _dbugout << std::scientific << std::setprecision(3) << std::right;
+  _dbugout << "compose starts: curRow= " << i <<" ndxRow= "<< ndxRow <<std::endl;
+  _dbugout << "q \n" ;
+  _dbugout << _q <<std::endl;
+  _dbugout << "Q \n" ;
+  _dbugout << _spQ() <<std::endl;
 #endif 
   // Construct new variable
   EllVar<T> var( *this );
   var._lift( i );
-  // Compute minimax linear approximation of atan on domain
+  // Minimax linear approximation c0 + c1*x of f over the domain, with
+  // linearisation-error radius eta
   auto const& [c0, c1, eta] = _minimax( f, domain );
   // Update centre and shape per linear transformation 
   _affcompose( i, c1, ndxRow, 0., -1, c0 );
   // Minkowski sum with an interval centered at 0 with radius eta
   _minksum( i, eta );
-  // Save range of Variable 
-  Op<T>::inter( var._range, _q(i)+EllVar<T>::TOne * std::sqrt(_Q(i,i)), range );
+  // Save range of Variable: intersect the ellipsoidal projection with the
+  // analytic range.  If the two enclosures are inconsistent (empty
+  // intersection), fall back to the analytic range rather than leaving
+  // var._range indeterminate (the inter() result was previously ignored here,
+  // unlike in EllVar::_set).
+  T const proj = _q(i) + EllVar<T>::TOne * std::sqrt( qget(i,i) );
+  if( !Op<T>::inter( var._range, proj, range ) )
+    var._range = range;
 #ifdef MC__ELLIMAGE_DEBUG
-  img->_dbugout << std::scientific << std::setprecision(3) << std::right;
-  img->_dbugout << "compose ends: curRow= " << i <<" ndxRow= "<< ndxRow <<std::endl;
-  img->_dbugout << "q \n" ;
-  img->_dbugout << _q <<std::endl;
-  img->_dbugout << "Q \n" ;
-  img->_dbugout << _Q <<std::endl;
+  _dbugout << std::scientific << std::setprecision(3) << std::right;
+  _dbugout << "compose ends: curRow= " << i <<" ndxRow= "<< ndxRow <<std::endl;
+  _dbugout << "q \n" ;
+  _dbugout << _q <<std::endl;
+  _dbugout << "Q \n" ;
+  _dbugout << _spQ() <<std::endl;
 #endif 
 
   return var;
@@ -910,28 +1032,166 @@ EllImg<T>::_minimax
 ( PUNIV const& f, T const& domain )
 //( PUNIV const& f ) // range of f assumed as [-1,1]
 {
-  double m( Op<T>::mid(domain) ), r( 0.5*Op<T>::diam(domain) );
-  boost::math::tools::remez_minimax<double> problem
-    ( [=]( const double& x ){ return f( r*x + m ); },
-      1, 0, -1., 1., false, false, 0, 64 );
-//  boost::math::tools::remez_minimax<double> problem
-//   ( f, 1, 0, Op<T>::l(domain), Op<T>::u(domain), false, false, 0, 64 );
-
-  for( unsigned iter=0; iter<options.REMEZ_MAXIT; ++iter ){
-    problem.iterate();
-#ifdef MC__ELLIMAGE_DEBUG
-    std::ostream& _dbugout = std::cout;
-    const boost::math::tools::polynomial<double> a = problem.numerator();
-    _dbugout << iter << ": [ " << std::right << std::scientific << std::setprecision(15);
-    for( unsigned k=0; k<a.size(); ++k ) std::cout << std::setw(23) << a[k];
-    _dbugout << " ] +/- " << std::setw(23) << problem.max_error() << std::endl;
-#endif
-    if( problem.max_change() < options.REMEZ_TOL ) break;
+  double const xL = Op<T>::l(domain);
+  double const xU = Op<T>::u(domain);
+  if( xU <= xL ){
+    return std::make_tuple( f(xL), 0.0, 0.0 );
   }
 
-  return std::make_tuple( problem.numerator()[0]-problem.numerator()[1]*m/r,
-                          problem.numerator()[1]/r,
-                          problem.max_error() );
+  // Given a candidate line c0 + c1*x, return a recentred intercept and a
+  // linearisation-error radius eta with f(x) in [line(x)-eta, line(x)+eta] for
+  // x in [xL,xU].  The residual is sampled on a dense grid; the line is
+  // recentred on the midpoint of the residual range (tighter than a one-sided
+  // chord band) and eta is inflated by the largest residual change between
+  // adjacent nodes.  That inter-sample term is a heuristic Lipschitz-style
+  // safeguard: for the smooth univariate terms handled here the residual is
+  // monotone between nodes away from its single interior extremum, so the
+  // node-to-node variation over-estimates any overshoot in between.  This is
+  // not a verified bound (the module is explicitly non-verified), but is
+  // materially safer than the previous near-zero (1+10*machprec) inflation,
+  // which ignored inter-sample error entirely.
+  auto bound_residual = [&]( double const c0, double const c1 )
+    -> std::tuple<double,double> {
+    unsigned const NG = 1024;
+    double lo = arma::datum::inf, hi = -arma::datum::inf, maxstep = 0.0, prev = 0.0;
+    for( unsigned k=0; k<=NG; ++k ){
+      double const x   = xL + ( xU-xL ) * double(k) / double(NG);
+      double const res = f(x) - ( c0 + c1*x );
+      lo = std::min( lo, res );
+      hi = std::max( hi, res );
+      if( k ) maxstep = std::max( maxstep, std::fabs( res - prev ) );
+      prev = res;
+    }
+    double const centre = 0.5 * ( lo + hi );
+    double       eta    = 0.5 * ( hi - lo ) + maxstep;
+    eta *= 1.0 + 10.0*machprec();
+    return std::make_tuple( c0 + centre, eta );
+  };
+
+  // Secant (chord) line plus the residual bound above.
+  auto secant_fallback = [&]() -> std::tuple<double, double, double> {
+    double const fL = f(xL), fU = f(xU);
+    double const c1 = ( fU - fL ) / ( xU - xL );
+    double const c0 = fL - c1*xL;
+    auto const [c0b, eta] = bound_residual( c0, c1 );
+    return std::make_tuple( c0b, c1, eta );
+  };
+
+  if( !options.REMEZ_USE || options.REMEZ_MIG > xU-xL )
+    return secant_fallback();
+
+  // Degree-1 Remez exchange adapted from SCModel::_minimax to the present
+  // EllImg context.  The approximation is constructed on t in [-1,1] for
+  // g(t)=f(m+r*t), then converted back to c0+c1*x in the original variable x.
+  double const m = 0.5 * ( xL + xU );
+  double const r = 0.5 * ( xU - xL );
+  auto const g = [&]( double const& t ) -> double { return f( m + r*t ); };
+
+  unsigned const n_points = 3; // linear polynomial + alternating error
+  arma::vec ref( n_points );
+  arma::mat mat( n_points, n_points );
+  arma::vec rhs( n_points );
+  arma::vec sol( n_points );
+
+  for( unsigned i=0; i<n_points; ++i )
+    ref(i) = -std::cos( PI * double(i) / double(n_points-1) );
+
+  double a0 = 0.0, a1 = 0.0;
+  double cur_err = 0.0;
+  double max_abs_err = 0.0;
+  bool have_solution = false;
+
+
+  for( unsigned iter=0; iter<options.REMEZ_MAXIT; ++iter ){
+
+    for( unsigned i=0; i<n_points; ++i ){
+      double const t = ref(i);
+      rhs(i) = g(t);
+      mat(i,0) = 1.0;
+      mat(i,1) = t;
+      mat(i,2) = ( i % 2 == 0 ) ? 1.0 : -1.0;
+    }
+
+    try{
+      sol = arma::solve( mat, rhs );
+      a0 = sol(0);
+      a1 = sol(1);
+      cur_err = sol(2);
+      have_solution = true;
+    }
+    catch(...){
+      return secant_fallback();
+    }
+
+    unsigned const n_grid = 256;
+    double t_at_max = -1.0;
+    max_abs_err = 0.0;
+    for( unsigned k=0; k<=n_grid; ++k ){
+      double const t = -1.0 + 2.0 * double(k) / double(n_grid);
+      double const err = g(t) - ( a0 + a1*t );
+      if( std::fabs(err) > max_abs_err ){
+        max_abs_err = std::fabs(err);
+        t_at_max = t;
+      }
+    }
+
+#ifdef MC__ELLIMAGE_DEBUG_MINIMAX
+    std::ostream& _dbugout = std::cout;
+    _dbugout << iter << ": [ " << std::right << std::scientific << std::setprecision(15)
+             << std::setw(23) << a0 << std::setw(23) << a1
+             << " ] +/- " << std::setw(23) << max_abs_err << std::endl;
+#endif
+
+    if( std::fabs( max_abs_err - std::fabs(cur_err) ) < options.REMEZ_TOL )
+      break;
+
+    std::vector<double> points;
+    points.reserve( n_points + 1 );
+    for( unsigned i=0; i<n_points; ++i ) points.push_back( ref(i) );
+
+    bool duplicate = false;
+    for( double const p : points ){
+      if( std::fabs( p - t_at_max ) < 1e-14 ){
+        duplicate = true;
+        break;
+      }
+    }
+    if( duplicate ) break;
+
+    points.push_back( t_at_max );
+    std::sort( points.begin(), points.end() );
+
+    std::vector<double> errs( points.size() );
+    for( unsigned i=0; i<points.size(); ++i )
+      errs[i] = g(points[i]) - ( a0 + a1*points[i] );
+
+    int remove_idx = -1;
+    for( unsigned i=0; i<n_points; ++i ){
+      double const s1 = ( errs[i] >= 0.0 ) ? 1.0 : -1.0;
+      double const s2 = ( errs[i+1] >= 0.0 ) ? 1.0 : -1.0;
+      if( s1 == s2 ){
+        remove_idx = ( std::fabs(errs[i]) < std::fabs(errs[i+1]) ) ? i : i+1;
+        break;
+      }
+    }
+    if( remove_idx == -1 )
+      remove_idx = ( std::fabs(errs[0]) < std::fabs(errs[n_points]) ) ? 0 : n_points;
+
+    unsigned cnt = 0;
+    for( unsigned i=0; i<n_points+1; ++i ){
+      if( int(i) == remove_idx ) continue;
+      ref(cnt++) = points[i];
+    }
+  }
+
+  if( !have_solution ) return secant_fallback();
+
+  // Convert the minimax line from t-space back to x-space, then bound its
+  // residual with the shared (recentred, inter-sample-inflated) estimator.
+  double const c1x = a1 / r;
+  double const c0x = a0 - a1*m/r;
+  auto const [c0b, eta] = bound_residual( c0x, c1x );
+  return std::make_tuple( c0b, c1x, eta );
 }
 
 template <class T>
@@ -947,26 +1207,26 @@ EllImg<T>::_minksum
   _dbugout << "q \n" ;
   _dbugout << _q <<std::endl;
   _dbugout << "Q \n" ;
-  _dbugout << _Q <<std::endl;
+  _dbugout << _spQ() <<std::endl;
 #endif
 
   double EPS = DBL_EPSILON, strQ = 0.0; 
   for( long j=0; j<=i ; ++j )
-    if( _Q.isListed(j,j) ) strQ += _Q(j,j); 
+    if( qlisted(j,j) ) strQ += qget(j,j); 
   strQ = std::sqrt(strQ) + EPS;
   double strD  =  rad + EPS;
-  _Q          *= 1. + strD / strQ;
-  _Q(i,i)     += std::pow(rad,2) * ( 1. + strQ / strD );
+  _scaleQ( 1. + strD / strQ );
+  qput( i, i, qget(i,i) + std::pow(rad,2) * ( 1. + strQ / strD ) );
 
 //  double TOL = options.MINK_TOL, EPS = DBL_EPSILON, strQ = 0.0; 
 //  for( long j=0; j<=i ; ++j ){
-//    if( _Q.isListed(j,j) ) strQ += _Q(j,j)/(_Q(j,j)+TOL); // for some reason this loops modifies the diagonal elements of the product block if the isListed is not used ... 
+//    if( qlisted(j,j) ) strQ += qget(j,j)/(qget(j,j)+TOL); // for some reason this loops modifies the diagonal elements of the product block if the isListed is not used ... 
 //  }
 //  strQ = std::sqrt(strQ);
-//  double sqrR  =  rad / std::sqrt(_Q(i,i)+TOL);
+//  double sqrR  =  rad / std::sqrt(qget(i,i)+TOL);
 //  double kappa = strQ + sqrR + EPS;
 //  _Q          *= kappa / (strQ+EPS);
-//  _Q(i,i)     += std::pow(rad,2) * kappa / (sqrR+EPS);
+//  qget(i,i)     += std::pow(rad,2) * kappa / (sqrR+EPS);
 
 #ifdef MC__ELLIMAGE_DEBUG
   _dbugout << std::scientific << std::setprecision(3) << std::right;
@@ -974,7 +1234,7 @@ EllImg<T>::_minksum
   _dbugout << "q \n" ;
   _dbugout << _q <<std::endl;
   _dbugout << "Q \n" ;
-  _dbugout << _Q <<std::endl;
+  _dbugout << _spQ() <<std::endl;
 #endif
 }  
 
@@ -984,10 +1244,10 @@ double
 EllImg<T>::_trQ
 ()
 {
-  if( !_Q.n ) return 0.;
-  double tr(_Q(0,0));
-  for( unsigned int i=1; i<_Q.n; i++ )
-    tr += _Q(i,i);
+  if( !_Qn ) return 0.;
+  double tr(qget(0,0));
+  for( long i=1; i<_Qn; i++ )
+    tr += qget(static_cast<long>(i),static_cast<long>(i));
   return tr;
 }
 
@@ -1063,7 +1323,7 @@ EllVar<T>::_set
   if( i >= img._nx ) throw typename EllImg<T>::Exceptions( EllImg<T>::Exceptions::INIT ); 
   _img    = &img;
   _ndxRow = i;
-  _range  = img._q(i) + TOne * std::sqrt(img._Q( i,i ));
+  _range  = img._q(i) + TOne * std::sqrt(img.qget( i,i ));
   return *this;
 }
 
@@ -1077,7 +1337,7 @@ EllVar<T>::_set
     throw typename EllImg<T>::Exceptions( EllImg<T>::Exceptions::INIT ); 
   _img    = &img;
   _ndxRow = i;
-  if( !Op<T>::inter( _range, img._q(i) + TOne * std::sqrt(img._Q( i,i )), range ) )
+  if( !Op<T>::inter( _range, img._q(i) + TOne * std::sqrt(img.qget( i,i )), range ) )
     throw typename EllImg<T>::Exceptions( EllImg<T>::Exceptions::INIT ); 
   return *this;
 }
@@ -1180,7 +1440,7 @@ EllVar<T>::operator+=
   _img->_affcompose( i, 1., k, 0., -1, scalar );
 
   // Set variable range 
-  _range = _img->_q(i) + TOne * std::sqrt(_img->_Q(i,i)); 
+  _range = _img->_q(i) + TOne * std::sqrt(_img->qget(i,i)); 
 
   return *this;
 }
@@ -1208,7 +1468,7 @@ EllVar<T>::operator+=
   double rad = 0.5*Op<T>::diam( range ); 
   if( rad < DBL_EPSILON ) return *this;
   _img->_minksum( i, rad );
-  _range = _img->_q(i) + TOne * std::sqrt(_img->_Q(i,i)); 
+  _range = _img->_q(i) + TOne * std::sqrt(_img->qget(i,i)); 
 
   return *this;
 }
@@ -1247,7 +1507,7 @@ EllVar<T>::operator+=
   _img->_affcompose( i, 1., k, 1., l, 0. );
 
   // Set variable range 
-  _range = _img->_q(i) + TOne * std::sqrt(_img->_Q(i,i)); 
+  _range = _img->_q(i) + TOne * std::sqrt(_img->qget(i,i)); 
 
   return *this;
 }
@@ -1272,7 +1532,7 @@ EllVar<T>::operator-=
     _img->_affcompose( i, -1., k, 0., -1, Op<T>::mid( range ) );
     double rad = 0.5*Op<T>::diam( range ); 
     if( rad > DBL_EPSILON ) _img->_minksum( i, rad );
-    _range = _img->_q(i) + TOne * std::sqrt(_img->_Q(i,i)); 
+    _range = _img->_q(i) + TOne * std::sqrt(_img->qget(i,i)); 
     return *this;
   }
 
@@ -1288,7 +1548,7 @@ EllVar<T>::operator-=
   _img->_affcompose( i, 1., k, -1., l, 0. );
 
   // Set variable range 
-  _range = _img->_q(i) + TOne * std::sqrt(_img->_Q(i,i)); 
+  _range = _img->_q(i) + TOne * std::sqrt(_img->qget(i,i)); 
 
   return *this;
 }
@@ -1310,7 +1570,7 @@ EllVar<T>::operator*=
   _img->_affcompose( i, scalar, k, 0., -1, 0. );
 
   // Set variable range 
-  _range = _img->_q(i) + TOne * std::sqrt(_img->_Q(i,i)); 
+  _range = _img->_q(i) + TOne * std::sqrt(_img->qget(i,i)); 
 
   return *this;
 }
@@ -1356,7 +1616,7 @@ EllVar<T>::operator*=
   _img->_minksum( i, Op<T>::diam( _range ) * Op<T>::diam( var._range ) / 4. );
   
   // Set variable range 
-  _range = _img->_q(i) + TOne * std::sqrt(_img->_Q(i,i)); 
+  _range = _img->_q(i) + TOne * std::sqrt(_img->qget(i,i)); 
 
   return *this;
 }
@@ -1749,7 +2009,11 @@ pow
 
   // var1 is a variable
   T const& domain = var1._range;
-  if( n < 0 && Op<T>::l(Op<T>::inv(domain)) <= 0. && Op<T>::u(Op<T>::inv(domain)) >= 0. )
+  // x^n with n<0 is singular iff 0 lies in the domain.  Test that directly
+  // (as inv() above does) rather than via 0 in inv(domain): the latter relies
+  // on Op<T>::inv of a zero-straddling interval being defined and itself
+  // containing 0, which is interval-library dependent and may throw or misfire.
+  if( n < 0 && Op<T>::l(domain) <= 0. && Op<T>::u(domain) >= 0. )
     throw typename EllImg<T>::Exceptions( EllImg<T>::Exceptions::INV );
   return var1._img->_univcompose( var1._ndxRow, domain, [=]( const double& x ){ return std::pow( x, n ); },
                                   Op<T>::pow(domain, n) );
@@ -1839,7 +2103,7 @@ acos
 
   // var1 is a variable
   T const& domain = var1._range;
-  if( Op<T>::l(domain) < -1. && Op<T>::u(domain) > 1. )
+  if( Op<T>::l(domain) < -1. || Op<T>::u(domain) > 1. )
     throw typename EllImg<T>::Exceptions( EllImg<T>::Exceptions::ACOS );
   return var1._img->_univcompose( var1._ndxRow, domain, [=]( const double& x ){ return std::acos(x); },
                                   Op<T>::acos(domain) );
@@ -1857,7 +2121,7 @@ asin
 
   // var1 is a variable
   T const& domain = var1._range;
-  if( Op<T>::l(domain) < -1. && Op<T>::u(domain) > 1. )
+  if( Op<T>::l(domain) < -1. || Op<T>::u(domain) > 1. )
     throw typename EllImg<T>::Exceptions( EllImg<T>::Exceptions::ASIN );
   return var1._img->_univcompose( var1._ndxRow, domain, [=]( const double& x ){ return std::asin(x); },
                                   Op<T>::asin(domain) );
@@ -1976,7 +2240,7 @@ operator<<
   const int iprec = 5;
   return os << std::scientific << std::setprecision(iprec)
             << "\ncenter:\n" << img._q
-            << "shape:\n" << img._Q;
+            << "shape:\n" << img._spQ();
   //return os << static_cast<const Ellipsoid&>( img );
 }
 

@@ -6,9 +6,9 @@ PATH_MC        = $(abspath $(PATH_MC_MK)../)
 PATH_3RD_PARTY = $(PATH_MC)/src/3rdparty
 PATH_EXTERN    = $(PATH_MC)/extern
 
-PATH_LAPACK = $(PATH_3RD_PARTY)/cpplapack-2015.05.11-1
+PATH_LAPACK = #$(PATH_3RD_PARTY)/cpplapack-2015.05.11-1
 LIB_LAPACK  = -larmadillo -llapack -lblas
-INC_LAPACK  = -I$(PATH_LAPACK)/include
+INC_LAPACK  = #-I$(PATH_LAPACK)/include
 FLAG_LAPACK = -DMC__USE_ARMADILLO
 
 PATH_FADBAD = $(PATH_3RD_PARTY)/fadbad++
@@ -26,26 +26,33 @@ LIB_FILIB   = -L$(PATH_FILIB)/lib -lprim
 INC_FILIB   = -I$(PATH_FILIB)/include -I$(PATH_FILIB)/include/interval
 FLAG_FILIB = -frounding-math #-DMC__USE_FILIB
 
-PATH_BOOST = $(PATH_3RD_PARTY)/boost
-LIB_BOOST  =
-INC_BOOST  = -I/usr/include -I$(PATH_BOOST)
-FLAG_BOOST = -DBOOST_UBLAS_NO_STD_CERR -DMC__USE_BOOST
+PATH_BOOST = #$(PATH_3RD_PARTY)/boost
+LIB_BOOST  = 
+INC_BOOST  = -I/usr/include #-I$(PATH_BOOST)
+#FLAG_BOOST = -DBOOST_UBLAS_NO_STD_CERR -DMC__USE_BOOST
+FLAG_BOOST = -DMC__USE_BOOST
 
 PATH_HSL =
 LIB_HSL  = -lmc13 -lmc21 -lmc33 -lgfortran
 INC_HSL  =
 FLAG_HSL = -DMC__USE_HSL
 
+PATH_TORCH = $(LIBTORCH_HOME)
+LIB_TORCH  = -L$(PATH_TORCH)/lib -ltorch_cpu -lc10 
+#-Wl,-rpath,$(LIBTORCH_HOME)/lib
+INC_TORCH  = -I$(PATH_TORCH)/include -I$(PATH_TORCH)/include/torch/csrc/api/include
+FLAG_TORCH = -DMC__USE_TORCH
+
 INC_PYTHON = $(shell python3 -c "from sysconfig import get_paths; print(get_paths()['include'])")
 INC_PYBIND11 = -I$(INC_PYTHON) -I$(PATH_EXTERN)/pybind11/include
-LIB_CPPUNIT = -lcppunit
+#LIB_CPPUNIT = -lcppunit
 
 # COMPILATION <<-- CHANGE AS APPROPRIATE -->>
 
 PROF = #-pg
 OPTIM = -O2
 DEBUG = #-g
-WARN  = -Wall -Wno-misleading-indentation -Wno-unknown-pragmas -Wno-parentheses
+WARN  = -Wall -Wno-misleading-indentation -Wno-unknown-pragmas -Wno-parentheses -Wno-return-type
 CPP17 = -std=c++17
 CC    = gcc
 CPP   = g++
@@ -77,6 +84,12 @@ ifneq (,$(findstring -DMC__USE_FILIB, $(FLAG_FILIB)))
  FLAG_MC += $(FLAG_FILIB)
  INC_MC  += $(INC_FILIB)
  LIB_MC  += $(LIB_FILIB)
+endif
+
+ifneq (,$(findstring -DMC__USE_TORCH, $(FLAG_TORCH)))
+ FLAG_MC += $(FLAG_TORCH)
+ INC_MC  += $(INC_TORCH)
+ LIB_MC  += $(LIB_TORCH)
 endif
 
 

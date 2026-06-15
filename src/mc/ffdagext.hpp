@@ -1,3 +1,7 @@
+// Copyright (C) Benoit Chachuat, Imperial College London.
+// All Rights Reserved.
+// This code is published under the Eclipse Public License.
+
 #ifndef MC__FFDAGEXT_HPP
 #define MC__FFDAGEXT_HPP
 
@@ -21,26 +25,26 @@ class DAGEXT
 private:
 
   //! @brief Expression tree
-  FFGraph*                               _dag;
+  FFGraph*                              _dag;
   //! @brief Variables
-  std::vector<FFVar>                     _varin;
+  std::vector<FFVar>                    _varin;
   //! @brief Dependents
-  std::vector<FFVar>                     _varout;
+  std::vector<FFVar>                    _varout;
   //! @brief Codelist
-  FFSubgraph                             _codelist;
+  FFSubgraph                            _codelist;
 
   //! @brief Intermediate storage for DAG evaluation
   std::vector<double>                   _wkD;
   std::vector<fadbad::F<double>>        _wkFD;
+  std::vector<fadbad::B<double>>        _wkBD;
   std::vector<T>                        _wkI;
   std::vector<T>                        _wkCPI;
   std::vector<McCormick<T>>             _wkMC;
-  std::vector<SupVar<PWCU>>             _wkPWCS;
-  std::vector<McCormick<SupVar<PWCU>>>  _wkMCPWCS;
-  std::vector<SupVar<PWLU>>             _wkPWLS;
-  std::vector<McCormick<SupVar<PWLU>>>  _wkMCPWLS;
-  std::vector<PolVar<T>>                _wkPOL;
+  std::vector<Specbnd<T>>               _wkSB;
   std::vector<SCVar<T>>                 _wkSC;
+  std::vector<SupVar<PWCU>>             _wkPWCS;
+  std::vector<SupVar<PWLU>>             _wkPWLS;
+  std::vector<PolVar<T>>                _wkPOL;
 
   //! @brief Set expression tree
   void _set
@@ -63,22 +67,115 @@ private:
 #endif
     }
 
+  //! @brief Set expression tree
+  void _set
+    ( FFGraph* dag, std::set<unsigned> const& ndxin, std::vector<FFVar> const& varin,
+      std::vector<FFVar> const& varout )
+    {
+      delete _dag; _dag = new FFGraph;
+#ifdef MC__DAGEXT_DEBUG
+      std::cout << "DAGEXT:: Original DAG: " <<  dag << std::endl;
+      std::cout << "DAGEXT:: Copied DAG:   " << _dag << std::endl;
+#endif
+      // Set inputs
+      _dag->insert( dag, ndxin, varin, _varin );
+      size_t i = 0;
+      for( auto const& j : ndxin ) _varin[i++] = _varin[j];
+      _varin.resize( i );
+
+      // Set outputs
+      _dag->insert( dag, varout, _varout );
+#ifdef MC__DAGEXT_DEBUG
+      _codelist = _dag->subgraph( _varout );
+      std::vector<FFExpr> strout = FFExpr::subgraph( _dag, _codelist );
+      for( size_t i=0; i<strout.size(); ++i )
+        std::cout << "F" << i << ": " << strout[i] << std::endl;
+#else
+      _codelist.clear();
+#endif
+    }
+
+  //! @brief Set expression tree
+  void _set
+    ( FFGraph* dag, std::vector<FFVar> const& varin,
+      std::set<unsigned> const& ndxout, std::vector<FFVar> const& varout )
+    {
+      delete _dag; _dag = new FFGraph;
+#ifdef MC__DAGEXT_DEBUG
+      std::cout << "DAGEXT:: Original DAG: " <<  dag << std::endl;
+      std::cout << "DAGEXT:: Copied DAG:   " << _dag << std::endl;
+#endif
+      // Set inputs
+      _dag->insert( dag, varin, _varin );
+
+      // Set outputs
+      _dag->insert( dag, ndxout, varout, _varout );
+      size_t i = 0;
+      for( auto const& j : ndxout ) _varout[i++] = _varout[j];
+      _varout.resize( i );
+#ifdef MC__DAGEXT_DEBUG
+      _codelist = _dag->subgraph( _varout );
+      std::vector<FFExpr> strout = FFExpr::subgraph( _dag, _codelist );
+      for( size_t i=0; i<strout.size(); ++i )
+        std::cout << "F" << i << ": " << strout[i] << std::endl;
+#else
+      _codelist.clear();
+#endif
+    }
+
+  //! @brief Set expression tree
+  void _set
+    ( FFGraph* dag, std::set<unsigned> const& ndxin, std::vector<FFVar> const& varin,
+      std::set<unsigned> const& ndxout, std::vector<FFVar> const& varout )
+    {
+      delete _dag; _dag = new FFGraph;
+#ifdef MC__DAGEXT_DEBUG
+      std::cout << "DAGEXT:: Original DAG: " <<  dag << std::endl;
+      std::cout << "DAGEXT:: Copied DAG:   " << _dag << std::endl;
+#endif
+      // Set inputs
+      _dag->insert( dag, ndxin, varin, _varin );
+      size_t i = 0;
+      for( auto const& j : ndxin ) _varin[i++] = _varin[j];
+      _varin.resize( i );
+
+      // Set outputs
+      _dag->insert( dag, ndxout, varout, _varout );
+      i = 0;
+      for( auto const& j : ndxout ) _varout[i++] = _varout[j];
+      _varout.resize( i );
+#ifdef MC__DAGEXT_DEBUG
+      _codelist = _dag->subgraph( _varout );
+      std::vector<FFExpr> strout = FFExpr::subgraph( _dag, _codelist );
+      for( size_t i=0; i<strout.size(); ++i )
+        std::cout << "F" << i << ": " << strout[i] << std::endl;
+#else
+      _codelist.clear();
+#endif
+    }
+
   //! @brief Evaluate expression tree
   template <typename U>
   void _eval
     ( U const* valin, U* valout, std::vector<U>& wk )
 //    const
     {
+#ifdef MC__DAGEXT_DEBUG
+      std::cout << std::endl;
+      auto exout = mc::FFExpr::subgraph( _dag, _codelist );
+      for( unsigned i=0; i<exout.size(); ++i )
+        std::cout << "_varout[" << i << "] = " << exout[i] << std::endl;
+#endif
       _dag->eval( _codelist, wk, _varout.size(), _varout.data(), valout, _varin.size(), _varin.data(), valin );
     }
 
   //! @brief Evaluate expression tree
   template <typename U>
   bool _reval
-    ( U* valin, U const* valout, std::vector<U>& wk, U const& inf )
+    ( U* valin, U * valout, std::vector<U>& wk, U const& inf )
 //    const
     {
-      int flag = _dag->reval( _codelist, wk, _varout.size(), _varout.data(), const_cast<U*>( valout ),
+      int flag = _dag->reval( _codelist, wk, _varout.size(), _varout.data(), valout,
                               _varin.size(), _varin.data(), valin, inf, options.CPMAX, options.CPTHRES );
 #ifdef MC__DAGEXT_DEBUG
       std::cout << "DAGEXT:: Work array: " << flag << " passes\n";
@@ -123,7 +220,7 @@ public:
       }
 
     //! @brief Enumeration type for AD strategy
-    enum AD{
+    enum AD_TYPE{
       F=0,	//!< Forward differentiation
       B		//!< Backward differentiation
     };
@@ -152,6 +249,15 @@ public:
       _set( dag, varin, varout );
     }
 
+  //! @brief Data constructor
+  DAGEXT
+    ( FFGraph* dag, std::set<unsigned> const& ndxin, std::vector<FFVar> const& varin,
+      std::set<unsigned> const& ndxout, std::vector<FFVar> const& varout ):
+    _dag( nullptr )
+    {
+      _set( dag, ndxin, varin, ndxout, varout );
+    }
+
   //! @brief Copy constructor
   DAGEXT
     ( DAGEXT const& other ):
@@ -173,6 +279,54 @@ public:
       _set( dag, varin, varout );
     }
 
+  //! @brief DAG automatic differentiation
+  void grad
+    ( double const* valin, double* gradout, double* const valout=nullptr )
+    {
+      size_t const nin  = _varin.size();
+      size_t const nout = _varout.size();
+      
+      switch( options.AUTODIFF ){
+       default:
+       case Options::AD_TYPE::F:{
+        std::vector<fadbad::F<double>> vFvalin( nin );
+        for( size_t i=0; i<nin; ++i ){
+          vFvalin[i] = valin[i];
+          vFvalin[i].diff(i,nin);
+        }
+        std::vector<fadbad::F<double>> vFvalout( nout ); 
+        _eval( vFvalin.data(), vFvalout.data(), _wkFD );
+        for( size_t k=0; k<nout; ++k ){
+          if( valout ) valout[k] = vFvalout[k].x();
+          for( size_t i=0; i<nin; ++i )
+            gradout[k*nin+i] = vFvalout[k].d(i);
+        }
+        break;
+       }
+
+       case Options::AD_TYPE::B:{
+        std::vector<fadbad::B<double>> vBvalin( nin );
+        for( size_t i=0; i<nin; ++i )
+          vBvalin[i] = valin[i];
+        std::vector<fadbad::B<double>> vBvalout( nout ); 
+        _eval( vBvalin.data(), vBvalout.data(), _wkBD );
+        for( size_t k=0; k<nout; ++k )
+          vBvalout[k].diff( k, nout );
+        // FADBAD++ reverse mode propagates adjoints when expression nodes
+        // are released. The persistent work array holds
+        // references to intermediatess, so release it before reading input
+        // derivatives.
+        _wkBD.clear();
+        for( size_t k=0; k<nout; ++k ){
+          if( valout ) valout[k] = vBvalout[k].x();
+          for( size_t i=0; i<nin; ++i )
+            gradout[k*nin+i] = vBvalin[i].d(k);
+        }
+        break;
+       }
+      }
+    }
+
   //! @brief DAG evaluation
   void eval
     ( double const* valin, double* valout )
@@ -192,7 +346,16 @@ public:
   void eval
     ( McCormick<T> const* valin, McCormick<T>* valout )
     {
+#ifdef MC__DAGEXT_DEBUG
+      for( unsigned i=0; i<_varin.size(); ++i )
+        std::cout << "valin[" << i << "] = " << valin[i] << std::endl;
+#endif
       _eval( valin, valout, _wkMC );
+    }
+  void eval
+    ( Specbnd<T> const* valin, Specbnd<T>* valout )
+    {
+      _eval( valin, valout, _wkSB );
     }
   void eval
     ( SCVar<T> const* valin, SCVar<T>* valout )
@@ -205,19 +368,9 @@ public:
       _eval( valin, valout, _wkPWCS );
     }
   void eval
-    ( McCormick<SupVar<PWCU>> const* valin, McCormick<SupVar<PWCU>>* valout )
-    {
-      _eval( valin, valout, _wkMCPWCS );
-    }
-  void eval
     ( SupVar<PWLU> const* valin, SupVar<PWLU>* valout )
     {
       _eval( valin, valout, _wkPWLS );
-    }
-  void eval
-    ( McCormick<SupVar<PWLU>> const* valin, McCormick<SupVar<PWLU>>* valout )
-    {
-      _eval( valin, valout, _wkMCPWLS );
     }
   void eval
     ( PolVar<T> const* valin, PolVar<T>* valout )
@@ -234,7 +387,7 @@ public:
 
   //! @brief DAG reverse evaluation
   bool reval
-    ( T* valin, T const* valout )
+    ( T* valin, T* valout )
     {
       return _reval( valin, valout, _wkCPI, options.CPINF*T(-1,1) );
     }
@@ -286,6 +439,34 @@ public:
     }
 };
 
+//! @brief C++ structure for ordering of operation defined by an expression tree
+template <typename T> 
+struct lt_DAGEXT
+{
+  bool operator()
+    ( DAGEXT<T> const* pDAGEXT1, DAGEXT<T> const* pDAGEXT2 )
+    const
+    {
+      // Order based on their number of input variables first
+      if( pDAGEXT1->nin() < pDAGEXT2->nin() ) return true;
+      if( pDAGEXT1->nin() > pDAGEXT2->nin() ) return false;
+      // Order based on their number of ougput variables second
+      if( pDAGEXT1->nout() < pDAGEXT2->nout() ) return true;
+      if( pDAGEXT1->nout() > pDAGEXT2->nout() ) return false;
+      // Order based on their input variables next 
+      for( unsigned i=0; i<pDAGEXT1->nin(); i++ ){
+        if( lt_FFVar()( pDAGEXT1->varin()[i], pDAGEXT2->varin()[i] ) ) return true;
+        if( lt_FFVar()( pDAGEXT2->varin()[i], pDAGEXT1->varin()[i] ) ) return false;
+      }
+      // Order based on their output variables last
+      for( unsigned i=0; i<pDAGEXT1->nout(); i++ ){
+        if( lt_FFVar()( pDAGEXT1->varout()[i], pDAGEXT2->varout()[i] ) ) return true;
+        if( lt_FFVar()( pDAGEXT2->varout()[i], pDAGEXT1->varout()[i] ) ) return false;
+      }
+      return false;
+    }
+};
+
 //! @brief C++ class defining expression tree as external DAG operations in MC++.
 ////////////////////////////////////////////////////////////////////////
 //! mc::FFDAGEXT is a C++ class for defining expression trees as
@@ -317,6 +498,41 @@ protected:
       //this->sparse = sparse;
 
       FFVar** ppRes = this->insert_external_operation( *this, pDAG->nout(), nVar, pVar );
+
+      _ownObj = false;
+      FFOp* pOp = (*ppRes)->opdef().first;
+      if( policy > 0 ){
+        _ptrObj = static_cast<FFDAGEXT<T>*>(pOp)->_ptrObj; // set pointer to DAGEXT copy
+      }
+      else if( policy < 0 ){
+        if( _ptrObj == static_cast<FFDAGEXT<T>*>(pOp)->_ptrObj )
+          static_cast<FFDAGEXT<T>*>(pOp)->_ownObj = true; // transfer ownership
+        else
+          delete _ptrObj; // clean-up since transfer did not occur - operation already exists
+      }
+      // nothing to do if policy = 0
+#ifdef MC__FFDAGEXT_DEBUG
+      std::cerr << "DAGEXT operation address: " << this << std::endl;
+      std::cerr << "DAGEXT address in DAG: " << _ptrObj << std::endl;
+#endif
+      return ppRes;
+    }
+
+  // set the object and related operation in DAG
+  FFVar** _set
+    ( std::set<unsigned> const& ndxVar, FFVar const* pVar, DAGEXT<T>* pDAG, int policy )
+    {
+#ifdef MC__FFDAGEXT_CHECK
+      assert( ndxVar.size() == pDAG->nin() );
+#endif
+      if( _ownObj && _ptrObj ) delete _ptrObj;
+      _ownObj = ( policy>0? true: false ); //copy;
+      //_ownObj = true;
+      this->owndata = false;
+      this->data = _ptrObj = pDAG;
+      //this->sparse = sparse;
+
+      FFVar** ppRes = this->insert_external_operation( *this, pDAG->nout(), ndxVar, pVar );
 
       _ownObj = false;
       FFOp* pOp = (*ppRes)->opdef().first;
@@ -361,15 +577,24 @@ public:
     {}
 
   // Define operation
-  //FFVar** operator()
+  std::vector<FFVar> operator()
+    ( std::set<unsigned> const& ndxVar, std::vector<FFVar> const& vVar, DAGEXT<T>* pDAG, int policy=COPY )
+    {
+      //return _set( vVar.size(), vVar.data(), pDAG, policy );
+      FFVar** ppDep = _set( ndxVar, vVar.data(), pDAG, policy );
+      std::vector<FFVar> vDep( pDAG->nout() );
+      for( size_t i=0; i<vDep.size(); ++i ) vDep[i] = *ppDep[i];
+      return vDep;//std::move( vDer );
+    }
+
   std::vector<FFVar> operator()
     ( std::vector<FFVar> const& vVar, DAGEXT<T>* pDAG, int policy=COPY )
     {
       //return _set( vVar.size(), vVar.data(), pDAG, policy );
-      FFVar** ppDer = _set( vVar.size(), vVar.data(), pDAG, policy );
-      std::vector<FFVar> vDer( vVar.size() );
-      for( size_t i=0; i<vVar.size(); ++i ) vDer[i] = *ppDer[i];
-      return std::move( vDer );
+      FFVar** ppDep = _set( vVar.size(), vVar.data(), pDAG, policy );
+      std::vector<FFVar> vDep( pDAG->nout() );
+      for( size_t i=0; i<vDep.size(); ++i ) vDep[i] = *ppDep[i];
+      return vDep;//std::move( vDer );
     }
 
   FFVar& operator()
@@ -385,6 +610,12 @@ public:
     ( size_t const nVar, FFVar const* pVar, DAGEXT<T>* pDAG, int policy=COPY )
     {
       return _set( nVar, pVar, pDAG, policy );
+    }
+
+  FFVar** operator()
+    ( std::set<unsigned> const& ndxVar, FFVar const* pVar, DAGEXT<T>* pDAG, int policy=COPY )
+    {
+      return _set( ndxVar, pVar, pDAG, policy );
     }
 
   FFVar& operator()
@@ -416,24 +647,26 @@ public:
         return eval( nRes, static_cast<fadbad::F<FFVar>*>(vRes), nVar, static_cast<fadbad::F<FFVar> const*>(vVar), mVar );
       else if( idU == typeid( FFDep ) )
         return eval( nRes, static_cast<FFDep*>(vRes), nVar, static_cast<FFDep const*>(vVar), mVar );
+      else if( idU == typeid( FFInv ) )
+        return eval( nRes, static_cast<FFInv*>(vRes), nVar, static_cast<FFInv const*>(vVar), mVar );
       else if( idU == typeid( double ) )
         return eval( nRes, static_cast<double*>(vRes), nVar, static_cast<double const*>(vVar), mVar );
       else if( idU == typeid( fadbad::F<double> ) )
         return eval( nRes, static_cast<fadbad::F<double>*>(vRes), nVar, static_cast<fadbad::F<double> const*>(vVar), mVar );
       else if( idU == typeid( T ) )
         return eval( nRes, static_cast<T*>(vRes), nVar, static_cast<T const*>(vVar), mVar );
-      else if( idU == typeid( PolVar<T> ) )
-        return eval( nRes, static_cast<PolVar<T>*>(vRes), nVar, static_cast<PolVar<T> const*>(vVar), mVar );
+      else if( idU == typeid( Specbnd<T> ) )
+        return eval( nRes, static_cast<Specbnd<T>*>(vRes), nVar, static_cast<Specbnd<T> const*>(vVar), mVar );
+      else if( idU == typeid( SCVar<T> ) )
+        return eval( nRes, static_cast<SCVar<T>*>(vRes), nVar, static_cast<SCVar<T> const*>(vVar), mVar );
       else if( idU == typeid( McCormick<T> ) )
         return eval( nRes, static_cast<McCormick<T>*>(vRes), nVar, static_cast<McCormick<T> const*>(vVar), mVar );
       else if( idU == typeid( SupVar<PWCU> ) )
         return eval( nRes, static_cast<SupVar<PWCU>*>(vRes), nVar, static_cast<SupVar<PWCU> const*>(vVar), mVar );
       else if( idU == typeid( SupVar<PWLU> ) )
         return eval( nRes, static_cast<SupVar<PWLU>*>(vRes), nVar, static_cast<SupVar<PWLU> const*>(vVar), mVar );
-      else if( idU == typeid( McCormick<SupVar<PWCU>> ) )
-        return eval( nRes, static_cast<McCormick<SupVar<PWCU>>*>(vRes), nVar, static_cast<McCormick<SupVar<PWCU>> const*>(vVar), mVar );
-      else if( idU == typeid( McCormick<SupVar<PWLU>> ) )
-        return eval( nRes, static_cast<McCormick<SupVar<PWLU>>*>(vRes), nVar, static_cast<McCormick<SupVar<PWLU>> const*>(vVar), mVar );
+      else if( idU == typeid( PolVar<T> ) )
+        return eval( nRes, static_cast<PolVar<T>*>(vRes), nVar, static_cast<PolVar<T> const*>(vVar), mVar );
       else if( idU == typeid( SLiftVar ) )
         return eval( nRes, static_cast<SLiftVar*>(vRes), nVar, static_cast<SLiftVar const*>(vVar), mVar );
       else if( idU == typeid( FFExpr ) )
@@ -446,11 +679,11 @@ public:
   void eval
     ( size_t const nRes, U* vRes, size_t const nVar, U const* vVar, unsigned const* mVar )
     const;
-/*
+
   void eval
-    ( size_t const nRes, FFDep* vRes, size_t const nVar, FFDep const* vVar, unsigned const* mVar )
+    ( size_t const nRes, FFInv* vRes, size_t const nVar, FFInv const* vVar, unsigned const* mVar )
     const;
-*/
+
   void eval
     ( size_t const nRes, FFVar* vRes, size_t const nVar, FFVar const* vVar, unsigned const* mVar )
     const;
@@ -469,23 +702,23 @@ public:
 
   // Backward evaluation overloads
   virtual bool reval
-    ( std::type_info const& idU, unsigned const nRes, void const* vRes, unsigned const nVar, void* vVar )
+    ( std::type_info const& idU, unsigned const nRes, void* vRes, unsigned const nVar, void* vVar )
     const
     {
       if( idU == typeid( T ) )
-        return reval( nRes, static_cast<T const*>(vRes), nVar, static_cast<T*>(vVar) );
+        return reval( nRes, static_cast<T*>(vRes), nVar, static_cast<T*>(vVar) );
       else if( idU == typeid( PolVar<T> ) )
-        return reval( nRes, static_cast<PolVar<T> const*>(vRes), nVar, static_cast<PolVar<T>*>(vVar) );
+        return reval( nRes, static_cast<PolVar<T>*>(vRes), nVar, static_cast<PolVar<T>*>(vVar) );
 
       throw std::runtime_error( "FFDAGEXT::reval: **ERROR** No evaluation method with type"+std::string(idU.name())+"\n" );
     }
 
   bool reval
-    ( size_t const nRes, T const* vRes, size_t const nVar, T* vVar )
+    ( size_t const nRes, T* vRes, size_t const nVar, T* vVar )
     const;
 
   bool reval
-    ( size_t const nRes, PolVar<T> const* vRes, size_t const nVar, PolVar<T>* vVar )
+    ( size_t const nRes, PolVar<T>* vRes, size_t const nVar, PolVar<T>* vVar )
     const;
 
   // Derivatives
@@ -497,6 +730,11 @@ public:
   void deriv
     ( unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar,
       FFVar** vDer, size_t* nnz, size_t** colnz )
+    const;
+
+  // Ordering
+  bool lt
+    ( FFOp const* op )
     const;
 
   // Properties
@@ -511,28 +749,7 @@ public:
     const
     { return false; }
 };
-/*
-template< typename T >
-inline void
-FFDAGEXT<T>::eval
-( size_t const nRes, FFDep* vRes, size_t const nVar, FFDep const* vVar,
-  unsigned const* mVar )
-const
-{
-#ifdef MC__FFDAGEXT_TRACE
-  std::cout << "FFDAGEXT::eval: FFDep\n";
-#endif
-#ifdef MC__FFDAGEXT_CHECK
-  assert( _ptrObj && nRes == _ptrObj->nout() && nVar == _ptrObj->nin() );
-#endif
 
-  // COULD THIS LEVERAGE _ptrObj->eval in FFDep?
-  vRes[0] = 0;
-  for( unsigned i=0; i<nVar; ++i ) vRes[0] += vVar[i];
-  vRes[0].update( FFDep::TYPE::N );
-  for( unsigned j=1; j<nRes; ++j ) vRes[j] = vRes[0];
-}
-*/
 template< typename T >
 inline void
 FFDAGEXT<T>::eval
@@ -552,6 +769,23 @@ const
   FFVar** ppRes = this->insert_external_operation( *this, nRes, nVar, vVar );
   for( unsigned j=0; j<nRes; ++j )
     vRes[j] = *(ppRes[j]);
+}
+
+template< typename T >
+inline void
+FFDAGEXT<T>::eval
+( size_t const nRes, FFInv* vRes, size_t const nVar, FFInv const* vVar,
+  unsigned const* mVar )
+const
+{
+#ifdef MC__FFDAGEXT_TRACE
+  std::cout << "FFDAGEXT::eval: FFInv\n";
+#endif
+
+  vRes[0] = 0;
+  for( unsigned i=0; i<nVar; ++i ) vRes[0] += vVar[i];
+  vRes[0].update( FFInv::TYPE::U ); // Not a candidate for inversion
+  for( unsigned j=1; j<nRes; ++j ) vRes[j] = vRes[0];
 }
 
 template< typename T >
@@ -625,13 +859,14 @@ FFDAGEXT<T>::deriv
 const
 {
 #ifdef MC__FFDAGEXT_TRACE
-  std::cout << "FFDAGEXT::deriv (sparse): FFVar\n";
+  std::cout << "FFDAGEXT::deriv (sparse)\n";
 #endif
 #ifdef MC__FFDAGEXT_CHECK
   assert( _ptrObj && nRes == _ptrObj->nout() && nVar == _ptrObj->nin() );
   assert( this->sparse && nnz && colnz );
 #endif
 
+  // std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar> > diff
   auto&& sdervarout = _ptrObj->diff();
   DAGEXT<T>* pDAGDer = new DAGEXT<T>( _ptrObj->dag(), _ptrObj->varin(), std::get<2>(sdervarout) );
   FFDAGEXT<T> ResDer;
@@ -671,13 +906,14 @@ FFDAGEXT<T>::deriv
   FFVar** vDer )
 const
 {
-//#ifdef MC__FFDAGEXT_TRACE
-  std::cout << "FFDAGEXT::deriv (dense): FFVar\n";
-//#endif
+#ifdef MC__FFDAGEXT_TRACE
+  std::cout << "FFDAGEXT::deriv (dense)\n";
+#endif
 #ifdef MC__FFDAGEXT_CHECK
   assert( !this->sparse && _ptrObj && nRes == _ptrObj->nout() && nVar == _ptrObj->nin() );
 #endif
 
+  // std::tuple< std::vector<unsigned>, std::vector<unsigned>, std::vector<FFVar> > diff
   auto&& sdervarout = _ptrObj->diff();
   DAGEXT<T>* pDAGDer = new DAGEXT<T>( _ptrObj->dag(), _ptrObj->varin(), std::get<2>(sdervarout) );
   FFDAGEXT<T> ResDer;
@@ -692,7 +928,7 @@ const
   for( size_t ie=0; ie<std::get<0>(sdervarout).size(); ++ie ){
     auto const& k = std::get<0>(sdervarout)[ie];
     auto const& i = std::get<1>(sdervarout)[ie];
-    vDer[k][i] = *vResDer[ie]; //[k+nRes*i];
+    vDer[k][i] = *vResDer[ie];
   }
 }
 
@@ -737,14 +973,17 @@ const
   assert( nRes == dag->curOp()->varout.size() );
 #endif
 
-  this->_resize_relax( img );
+  if( this->_reset ){
+    this->_resize_relax( img );
+    this->_reset = false;
+  }
   this->_propagate_relax( img, ppRes, vRes, vVar );
 }
 
 template< typename T >
 inline bool
 FFDAGEXT<T>::reval
-( size_t const nRes, PolVar<T> const* vRes, size_t const nVar, PolVar<T>* vVar )
+( size_t const nRes, PolVar<T>* vRes, size_t const nVar, PolVar<T>* vVar )
 const
 {
 #ifdef MC__FFDAGEXT_TRACE
@@ -767,7 +1006,7 @@ const
 template< typename T >
 inline bool
 FFDAGEXT<T>::reval
-( size_t const nRes, T const* vRes, size_t const nVar, T* vVar )
+( size_t const nRes, T* vRes, size_t const nVar, T* vVar )
 const
 {
 #ifdef MC__FFDAGEXT_TRACE
@@ -778,6 +1017,19 @@ const
 #endif
 
   return _ptrObj->reval( vVar, vRes );
+}
+
+template< typename T >
+inline bool
+FFDAGEXT<T>::lt
+( FFOp const* op )
+const
+{
+#ifdef MC__FFDAGEXT_TRACE
+  std::cout << "FFDAGEXT<T>::lt\n";
+#endif
+
+  return lt_DAGEXT<T>()( _ptrObj, dynamic_cast<FFDAGEXT<T> const*>(op)->_ptrObj );
 }
 
 } // end namespace mc

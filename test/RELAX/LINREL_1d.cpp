@@ -1,12 +1,12 @@
-#define TEST_EXP       // <-- select test function here
+#define TEST_MIN1       // <-- select test function here
 const int NX = 200;     // <-- select discretization here
 const int NE = 5;       // <-- select polynomial model expansion here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
 #undef  USE_POLYMOD     // <-- specify whether to use a Chebyshev expansion before relaxation
-#define  ADD_BREAKPOINT  // <-- specify whether to add breakpoints to the variables
+#undef  ADD_BREAKPOINT  // <-- specify whether to add breakpoints to the variables
 const int NDIV = 2;     // <-- select number of breakpoints
-#define USE_CMODEL	    // <-- Use Chebyshev models?
-#define USE_MIP         // <-- specify whether to use piecewise-linear cuts
+#undef USE_CMODEL	    // <-- Use Chebyshev models?
+#undef USE_MIP         // <-- specify whether to use piecewise-linear cuts
 
 ////////////////////////////////////////////////////////////////////////
 
@@ -217,11 +217,14 @@ T myfunc
 const double XL   = -2;	// <-- range lower bound
 const double XU   =  1;	// <-- range upper bound
 using std::min;
+using std::max;
 template <class T>
 T myfunc
 ( const T&x )
 {
-  return min(pow(x-1,2), 1.);
+  return min( max(x+1, 0.), 1.);
+  //return max( min(x+1, 1.), 0.);
+  //return max( min(pow(x-1,2), 1.), 0.5);
 }
 
 #elif defined( TEST_MIN2 )
@@ -450,8 +453,8 @@ int main()
     GRBmodel.getEnv().set( GRB_DoubleParam_OptimalityTol,  1e-9 );
     GRBmodel.getEnv().set( GRB_IntParam_OutputFlag,        0    );
 
-    auto itvar = PolEnv.Vars().find( &X_Pol.var() );
-    auto itobj = PolEnv.Vars().find( &F_Pol.var() );
+    auto itvar = PolEnv.Vars().find( X_Pol.var().id() );
+    auto itobj = PolEnv.Vars().find( F_Pol.var().id() );
     auto jtvar = DAGVars.end(), jtobj = DAGVars.end();
     for( auto itv=PolEnv.Vars().begin(); itv!=PolEnv.Vars().end(); ++itv ){
       //std::cout << itv->second->name() << ": " << itv->second->has_cuts() << std::endl;

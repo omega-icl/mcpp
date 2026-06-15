@@ -77,12 +77,12 @@ pyInterval
  .def( "__pow__", []( I const& i, double const& r ){ return mc::Op<I>::pow(i,r); } )
  .def( "__pow__", []( I const& i, I const& ii ){ return mc::Op<I>::pow(i,ii); } )
  .def( "__pow__", []( double const& r, I const& i ){ return mc::Op<I>::pow(r,i); } )
- .def( py::self == py::self ) 
- .def( py::self != py::self )
- .def( py::self <= py::self )
- .def( py::self >= py::self )
- .def( py::self < py::self )
- .def( py::self > py::self )
+ .def( "__le__",  [](I const& x, I const& y) { return mc::Op<I>::le(x,y); }, py::is_operator())
+ .def( "__lt__",  [](I const& x, I const& y) { return mc::Op<I>::lt(x,y); }, py::is_operator())
+ .def( "__ge__",  [](I const& x, I const& y) { return mc::Op<I>::ge(x,y); }, py::is_operator())
+ .def( "__gt__",  [](I const& x, I const& y) { return mc::Op<I>::gt(x,y); }, py::is_operator())
+ .def( "__eq__",  [](I const& x, I const& y) { return mc::Op<I>::eq(x,y); }, py::is_operator())
+ .def( "__ne__",  [](I const& x, I const& y) { return mc::Op<I>::ne(x,y); }, py::is_operator())
 ;
 
 #if !defined(MC__USE_PROFIL) && !defined(MC__USE_FILIB) && !defined(MC__USE_BOOST)
@@ -125,7 +125,7 @@ m.def( "rlmtd", []( I const& x, I const& y ){ return mc::rlmtd(x,y); } );
 m.def( "pow",   []( I const& x, int const n ){ return mc::Op<I>::pow(x,n); } );
 m.def( "pow",   []( I const& x, double const& r ){ return mc::Op<I>::pow(x,r); } );
 m.def( "pow",   []( I const& x, I const& y ){ return mc::Op<I>::pow(x,y); } );
-m.def( "pow",   []( double const& r, I const& y ){ return mc::Op<I>::pow(r,y); } );
+m.def( "pow",   []( double const& r, I const& y ){ return mc::Op<I>::exp(y*std::log(r)); } );
 m.def( "cheb",  []( I const& x, unsigned const n ){ return mc::Op<I>::cheb(x,n); } );
 m.def( "hull",  []( I const& x, I const& y ){ return mc::Op<I>::hull(x,y); } );
 m.def( "max",   []( I const& x, I const& y ){ return mc::Op<I>::max(x,y); } );

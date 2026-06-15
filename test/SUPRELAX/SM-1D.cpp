@@ -1,4 +1,4 @@
-#define TEST_ACOS	// <-- select test function here
+#define TEST_TANH	// <-- select test function here
 #undef  USE_DAG        // <-- specify to evaluate via a DAG of the function
 #define SAVE_RESULTS   // <-- specify whether to save results to file
 ////////////////////////////////////////////////////////////////////////
@@ -95,7 +95,7 @@ int main()
     pwlmod.options.PROD_CUT       = 0;
     pwlmod.options.REF_WEIGHT     = 0.5;
     pwlmod.options.MAX_SUBDIV     = 0;//8;//16;
-    pwlmod.options.USE_CVXCC      = 1;
+    pwlmod.options.USE_CVXCCV     = 1;
     pwlmod.options.USE_SHADOW     = 0;
     pwlmod.options.DISPLAY_SHADOW = 1;
     pwlmod.options.DISPLAY_DIGITS = 10;
@@ -107,8 +107,9 @@ int main()
     // Calculate superposition relaxations w/ piecewise constant univariates
     PWCSM pwcmod( NX );
     pwcmod.options = pwlmod.options;
+    mc::PWCU::options.SLOPEUSE = 2;
 
-    int const NPWC = 64;	// <-- select variable partition
+    int const NPWC = 16;	// <-- select variable partition
     vector<PWCSV> PWCSVX{ PWCSV( pwcmod, 0, I(XL,XU), NPWC ) },
                   PWCSVF( NX );
 

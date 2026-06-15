@@ -300,7 +300,7 @@ The available options are the following:
          <TD>Maximum number of iterations for determination function points in convex/concave envelopes of univariate terms.
      <TR><TH><tt>MVCOMP_USE</tt> <TD><tt>bool</tt> <TD>false
          <TD>Whether to use Tsoukalas & Mitsos's multivariate composition result for min/max, product, and division terms; see [Tsoukalas & Mitsos, 2012]. This provides tighter McCormick relaxations, but it is more time consuming.
-     <TR><TH><tt>MVCOMP_TOL</tt> <TD><tt>double</tt> <TD>1e1*machprec()
+     <TR><TH><tt>MVCOMP_TOL</tt> <TD><tt>double</tt> <TD>1e-10
          <TD>Tolerance for equality test in subgradient propagation for product terms with Tsoukalas & Mitsos's multivariate composition result; see [Tsoukalas & Mitsos, 2012].
      <TR><TH><tt>DISPLAY_DIGITS</tt> <TD><tt>unsigned int</tt> <TD>5
          <TD>Number of digits in output stream

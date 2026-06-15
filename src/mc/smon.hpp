@@ -50,24 +50,44 @@ struct SMon
   SMon
     ( KEY const& var, const unsigned ord=1 )
     : tord( ord )
-    { if( tord ) expr.insert( std::make_pair( var, ord ) ); }
+    { if( tord ) expr.insert( { var, ord } ); }
 
   //! @brief Constructor of monomial for map of variables with indices
   SMon
     ( std::pair<KEY,unsigned> const& expr_ )
-    : tord(expr_.second), expr( { expr_ } )
-    {}
+    : tord( expr_.second )
+    { if( tord ) expr.insert( expr_ ); }
 
   //! @brief Constructor of monomial for map of variables with indices
   SMon
     ( std::map<KEY,unsigned,COMP> const& expr_ )
-    : tord(0), expr( expr_ )
-    { for( auto const& [key,ord] : expr ) tord += ord; }
+    : tord(0), expr()
+    { //for( auto const& [key,ord] : expr ) tord += ord; }
+      for( auto it=expr_.cbegin(); it!=expr_.cend(); tord += it->second, ++it )
+        if( it->second ) expr.insert( *it ); }
 
   //! @brief Copy constructor of monomial
   SMon
     ( unsigned const tord_, std::map<KEY,unsigned,COMP> const& expr_ )
     : tord( tord_ ), expr( expr_ )
+    {}
+
+  //! @brief Move constructor of monomial
+  SMon
+    ( unsigned const tord_, std::map<KEY,unsigned,COMP> && expr_ )
+    : tord( tord_ ), expr( std::move(expr_) )
+    {}
+
+  //! @brief Copy constructor of monomial
+  SMon
+    ( SMon<KEY,COMP> const& mon )
+    : tord( mon.tord ), expr( mon.expr )
+    {}
+
+  //! @brief Move constructor of monomial
+  SMon
+    ( SMon<KEY,COMP> && mon )
+    : tord( mon.tord ), expr( std::move(mon.expr) )
     {}
 
   //! @brief Copy constructor of monomial with conversion
@@ -82,12 +102,22 @@ struct SMon
   SMon<KEY,COMP>& operator=
     ( SMon<KEY,COMP> const& mon )
     {
+      if( this == &mon ) return *this;   // self-assignment guard
       tord = mon.tord;
       expr.clear();
       for( auto const& [key,ord] : mon.expr )
         expr[key] = ord;
       return *this;
     }
+
+//  //! @brief Overloaded operator '=' for monomial move
+//  SMon<KEY,COMP>& operator=
+//    ( SMon<KEY,COMP> && mon )
+//    {
+//      tord = mon.tord;
+//      expr.swap( mon.expr );
+//      return *this;
+//    }
 
   //! @brief Overloaded operator '=' for monomial assigment
   SMon<KEY,COMP>& operator=

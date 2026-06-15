@@ -98,24 +98,24 @@ pyPWLSModel
 ;
 
 pyPWLSModelOptions
- .def( py::init<>(), "default constructor" )
- .def( py::init<PWLSM::Options const&>(), "copy constructor" )
- .def_readwrite( "PROD_METH",      &PWLSM::Options::PROD_METH,      "reformulation method used for product terms" )
- .def_readwrite( "PROD_CUT",       &PWLSM::Options::PROD_CUT,       "wwether to cut superposition relaxations for product terms" )
- .def_readwrite( "SUM_TOL",        &PWLSM::Options::SUM_TOL,        "tolerance on range for univariate estimator propagation"  )
+ .def( py::init<>(), "Default constructor" )
+ .def( py::init<PWLSM::Options const&>(), "Copy constructor" )
+ .def_readwrite( "PROD_METH",      &PWLSM::Options::PROD_METH,      "Reformulation method used for product terms" )
+ .def_readwrite( "PROD_CUT",       &PWLSM::Options::PROD_CUT,       "Wether to cut superposition relaxations for product terms" )
+ .def_readwrite( "SUM_TOL",        &PWLSM::Options::SUM_TOL,        "Tolerance on range for univariate estimator propagation"  )
  .def_readwrite( "REF_WEIGHT",     &PWLSM::Options::REF_WEIGHT,     "Weight in the overloaded functions mc::min and mc::max" )
  .def_readwrite( "MAX_SUBDIV",     &PWLSM::Options::MAX_SUBDIV,     "Maximal number of subdivisions, for univariate estimators on adaptive grids only" )
- .def_readwrite( "USE_SHADOW",     &PWLSM::Options::USE_SHADOW,     "whether to enable shadow estimators" )
- .def_readwrite( "DISPLAY_SHADOW", &PWLSM::Options::DISPLAY_SHADOW, "whether to display shadow estimators" )
- .def_readwrite( "DISPLAY_DIGITS", &PWLSM::Options::DISPLAY_DIGITS, "number of digits displayed" )
- .def( "reset", []( PWLSM::Options& self ){ return self.reset(); }, "reset options" )
+ .def_readwrite( "USE_SHADOW",     &PWLSM::Options::USE_SHADOW,     "Whether to enable shadow estimators" )
+ .def_readwrite( "DISPLAY_SHADOW", &PWLSM::Options::DISPLAY_SHADOW, "Whether to display shadow estimators" )
+ .def_readwrite( "DISPLAY_DIGITS", &PWLSM::Options::DISPLAY_DIGITS, "Number of digits displayed" )
+ .def( "reset", []( PWLSM::Options& self ){ return self.reset(); }, "Reset options to defaults" )
 ;
 
-py::enum_<PWLSM::Options::PROD_REF>(pyPWLSModelOptions, "reformulation method for product term")
+py::enum_<PWLSM::Options::PROD_REF>(pyPWLSModelOptions, "Reformulation method for product term")
  .value("NONE",    PWLSM::Options::PROD_REF::NONE,    "DC decomposition w/o rescaling")
  .value("PARTIAL", PWLSM::Options::PROD_REF::PARTIAL, "DC decomposition w/ range rescaling")
  .value("FULL",    PWLSM::Options::PROD_REF::FULL,    "DC decomposition w/ range and midpoint rescaling")
- .value("LOG",     PWLSM::Options::PROD_REF::LOG,     "log-transform w/ range and midpoint rescaling")
+ .value("LOG",     PWLSM::Options::PROD_REF::LOG,     "Log-transform w/ range and midpoint rescaling")
  .export_values()
 ;
 
@@ -267,10 +267,10 @@ pyPWLSVar
  .def( py::self / double() )
  .def( py::self / py::self )
 // .def( "__abs__", []( PWLSV const& m ){ return mc::Op<PWLSV>::abs(m); } )
- .def( "__pow__", []( PWLSV const& m, int const n ){ return mc::Op<PWLSV>::pow(m,n); } )
- .def( "__pow__", []( PWLSV const& m, double const& r ){ return mc::Op<PWLSV>::pow(m,r); } )
- .def( "__pow__", []( PWLSV const& m, PWLSV const& mm ){ return mc::Op<PWLSV>::pow(m,mm); } )
- .def( "__pow__", []( double const& r, PWLSV const& m ){ return mc::Op<PWLSV>::pow(r,m); } )
+ .def( "__pow__", []( PWLSV const& m, int const n ){ return mc::pow(m,n); } )
+ .def( "__pow__", []( PWLSV const& m, double const& r ){ return mc::pow(m,r); } )
+ .def( "__pow__", []( PWLSV const& m, PWLSV const& mm ){ return mc::pow(m,mm); } )
+ .def( "__pow__", []( double const& r, PWLSV const& m ){ return mc::pow(r,m); } )
 // .def( py::self == py::self ) 
 // .def( py::self != py::self )
 // .def( py::self <= py::self )
@@ -284,20 +284,20 @@ m.def( "sqr",    []( PWLSV const& x ){ return mc::sqr(x); } );
 m.def( "sqrt",   []( PWLSV const& x ){ return mc::sqrt(x); } );
 m.def( "exp",    []( PWLSV const& x ){ return mc::exp(x); } );
 m.def( "log",    []( PWLSV const& x ){ return mc::log(x); } );
-//m.def( "cos",    []( PWLSV const& x ){ return mc::cos(x); } );
-//m.def( "sin",    []( PWLSV const& x ){ return mc::sin(x); } );
-//m.def( "tan",    []( PWLSV const& x ){ return mc::tan(x); } );
-//m.def( "acos",   []( PWLSV const& x ){ return mc::acos(x); } );
-//m.def( "asin",   []( PWLSV const& x ){ return mc::asin(x); } );
-//m.def( "atan",   []( PWLSV const& x ){ return mc::atan(x); } );
-//m.def( "cosh",   []( PWLSV const& x ){ return mc::cosh(x); } );
-//m.def( "sinh",   []( PWLSV const& x ){ return mc::sinh(x); } );
+m.def( "cos",    []( PWLSV const& x ){ return mc::cos(x); } );
+m.def( "sin",    []( PWLSV const& x ){ return mc::sin(x); } );
+m.def( "tan",    []( PWLSV const& x ){ return mc::tan(x); } );
+m.def( "acos",   []( PWLSV const& x ){ return mc::acos(x); } );
+m.def( "asin",   []( PWLSV const& x ){ return mc::asin(x); } );
+m.def( "atan",   []( PWLSV const& x ){ return mc::atan(x); } );
+m.def( "cosh",   []( PWLSV const& x ){ return mc::cosh(x); } );
+m.def( "sinh",   []( PWLSV const& x ){ return mc::sinh(x); } );
 m.def( "tanh",   []( PWLSV const& x ){ return mc::tanh(x); } );
 m.def( "fabs",   []( PWLSV const& x ){ return mc::fabs(x); } );
 m.def( "relu",   []( PWLSV const& x ){ return mc::relu(x); } );
 m.def( "xlog",   []( PWLSV const& x ){ return mc::xlog(x); } );
-//m.def( "erf",    []( PWLSV const& x ){ return mc::erf(x); } );
-//m.def( "erfc",   []( PWLSV const& x ){ return mc::erfc(x); } );
+m.def( "erf",    []( PWLSV const& x ){ return mc::erf(x); } );
+m.def( "erfc",   []( PWLSV const& x ){ return mc::erfc(x); } );
 m.def( "pow",    []( PWLSV const& x, int const n ){ return mc::pow(x,n); } );
 m.def( "pow",    []( PWLSV const& x, double const& r ){ return mc::pow(x,r); } );
 m.def( "pow",    []( PWLSV const& x, PWLSV const& y ){ return mc::pow(x,y); } );
@@ -733,10 +733,10 @@ pyPWCSVar
  .def( py::self / double() )
  .def( py::self / py::self )
 // .def( "__abs__", []( PWCSV const& m ){ return mc::Op<PWCSV>::abs(m); } )
- .def( "__pow__", []( PWCSV const& m, int const n ){ return mc::Op<PWCSV>::pow(m,n); } )
- .def( "__pow__", []( PWCSV const& m, double const& r ){ return mc::Op<PWCSV>::pow(m,r); } )
- .def( "__pow__", []( PWCSV const& m, PWCSV const& mm ){ return mc::Op<PWCSV>::pow(m,mm); } )
- .def( "__pow__", []( double const& r, PWCSV const& m ){ return mc::Op<PWCSV>::pow(r,m); } )
+ .def( "__pow__", []( PWCSV const& m, int const n ){ return mc::pow(m,n); } )
+ .def( "__pow__", []( PWCSV const& m, double const& r ){ return mc::pow(m,r); } )
+ .def( "__pow__", []( PWCSV const& m, PWCSV const& mm ){ return mc::pow(m,mm); } )
+ .def( "__pow__", []( double const& r, PWCSV const& m ){ return mc::pow(r,m); } )
 // .def( py::self == py::self ) 
 // .def( py::self != py::self )
 // .def( py::self <= py::self )
@@ -750,20 +750,20 @@ m.def( "sqr",    []( PWCSV const& x ){ return mc::sqr(x); } );
 m.def( "sqrt",   []( PWCSV const& x ){ return mc::sqrt(x); } );
 m.def( "exp",    []( PWCSV const& x ){ return mc::exp(x); } );
 m.def( "log",    []( PWCSV const& x ){ return mc::log(x); } );
-//m.def( "cos",    []( PWCSV const& x ){ return mc::cos(x); } );
-//m.def( "sin",    []( PWCSV const& x ){ return mc::sin(x); } );
-//m.def( "tan",    []( PWCSV const& x ){ return mc::tan(x); } );
-//m.def( "acos",   []( PWCSV const& x ){ return mc::acos(x); } );
-//m.def( "asin",   []( PWCSV const& x ){ return mc::asin(x); } );
-//m.def( "atan",   []( PWCSV const& x ){ return mc::atan(x); } );
-//m.def( "cosh",   []( PWCSV const& x ){ return mc::cosh(x); } );
-//m.def( "sinh",   []( PWCSV const& x ){ return mc::sinh(x); } );
+m.def( "cos",    []( PWCSV const& x ){ return mc::cos(x); } );
+m.def( "sin",    []( PWCSV const& x ){ return mc::sin(x); } );
+m.def( "tan",    []( PWCSV const& x ){ return mc::tan(x); } );
+m.def( "acos",   []( PWCSV const& x ){ return mc::acos(x); } );
+m.def( "asin",   []( PWCSV const& x ){ return mc::asin(x); } );
+m.def( "atan",   []( PWCSV const& x ){ return mc::atan(x); } );
+m.def( "cosh",   []( PWCSV const& x ){ return mc::cosh(x); } );
+m.def( "sinh",   []( PWCSV const& x ){ return mc::sinh(x); } );
 m.def( "tanh",   []( PWCSV const& x ){ return mc::tanh(x); } );
 m.def( "fabs",   []( PWCSV const& x ){ return mc::fabs(x); } );
 m.def( "relu",   []( PWCSV const& x ){ return mc::relu(x); } );
 m.def( "xlog",   []( PWCSV const& x ){ return mc::xlog(x); } );
-//m.def( "erf",    []( PWCSV const& x ){ return mc::erf(x); } );
-//m.def( "erfc",   []( PWCSV const& x ){ return mc::erfc(x); } );
+m.def( "erf",    []( PWCSV const& x ){ return mc::erf(x); } );
+m.def( "erfc",   []( PWCSV const& x ){ return mc::erfc(x); } );
 m.def( "pow",    []( PWCSV const& x, int const n ){ return mc::pow(x,n); } );
 m.def( "pow",    []( PWCSV const& x, double const& r ){ return mc::pow(x,r); } );
 m.def( "pow",    []( PWCSV const& x, PWCSV const& y ){ return mc::pow(x,y); } );

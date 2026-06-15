@@ -24,7 +24,7 @@
 #include "mcop.hpp"
 
 #undef  MC__POLYMODEL_DEBUG
-#define MC__POLYMODEL_DEBUG_POLYBOUND
+#undef  MC__POLYMODEL_DEBUG_POLYBOUND
 #define MC__POLYMODEL_CHECK
 
 namespace mc
@@ -794,6 +794,11 @@ public:
       }
     }
 
+  //! @brief Retreive bound on multivariate polynomial using bounder <a>type</a>
+  T bndpol
+    ( const int type ) const
+    { return _polybound(type); }
+
   //! @brief Retreive bound on multivariate polynomial using default bounder
   T bndpol() const
     { if( !_bndpol ) _bndpol = new T( _polybound() );
@@ -862,12 +867,12 @@ public:
     const;
 
   //! @brief Assignment operator for polynomial model variables
-  virtual PolyVar<T>& operator=
-    ( const PolyVar<T>& );
+  PolyVar<T>& operator=
+    ( const PolyVar<T>& ) = delete;
 
   //! @brief Move operator for polynomial model variables
-  virtual PolyVar<T>& operator=
-    ( PolyVar<T>&& );
+  PolyVar<T>& operator=
+    ( PolyVar<T>&& ) = delete;
   /** @} */
 };
 
@@ -914,20 +919,6 @@ PolyVar<T>::_resize
     *_bndrem = 0.;
   }
 
-}
-
-template <typename T> inline PolyVar<T>&
-PolyVar<T>::operator=
-( const PolyVar<T>&var )
-{
-  return _set( var );
-}
-
-template <typename T> inline PolyVar<T>&
-PolyVar<T>::operator=
-( PolyVar<T>&&var )
-{
-  return _set( var );
 }
 
 template <typename T> inline PolyVar<T>&

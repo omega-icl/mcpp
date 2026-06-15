@@ -1,5 +1,5 @@
-#define TEST_TRIG      // <-- select test function here
-#define USE_DAG        // <-- specify to evaluate via a DAG of the function
+#define TEST_EXP0      // <-- select test function here
+#define  USE_DAG        // <-- specify to evaluate via a DAG of the function
 #undef  USE_BAD        // <-- specify to differentiate via backward AD
 #define SAVE_RESULTS   // <-- specify whether to save results to file
 const int NX = 40;	// <-- select X discretization here
@@ -65,10 +65,27 @@ template <class T>
 T myfunc
 ( const T&x, const T&y )
 {
+  //return pow(x+y,3);
+  //return x*y;
   return -pow(x+y,3)*x*y;
 }
 
-#elif defined( TEST_EXP )
+#elif defined( TEST_EXP0 )
+const double XL   =  -2.;	// <-- X range lower bound
+const double XU   =   1.;	// <-- X range upper bound
+const double XREF =   0.;	// <-- X ref point for McCormick
+const double YL   =  -1.;	// <-- Y range lower bound
+const double YU   =   2.;	// <-- Y range upper bound
+const double YREF =   0.;	// <-- Y ref point for McCormick
+template <class T>
+T myfunc
+( const T&x, const T&y )
+{
+  //return sqr(exp(x)-y);
+  return x*sqr(exp(x)-y);
+}
+
+#elif defined( TEST_EXP1 )
 const double XL   =  1.;	// <-- X range lower bound
 const double XU   =  2.;	// <-- X range upper bound
 const double XREF =  1.5;	// <-- X ref point for McCormick
@@ -79,6 +96,8 @@ template <class T>
 T myfunc
 ( const T&x, const T&y )
 {
+  //return x+pow(y,2);//-pow(y,2);
+  //return exp(x+pow(y,2));//-pow(y,2);
   return x*exp(x+pow(y,2))-pow(y,2);
 }
 
@@ -128,6 +147,20 @@ T myfunc
          +1./(pow(x-3.,3)+pow(y-2.,1)+0.2);
 }
 
+#elif defined( TEST_INV3 )
+const double XL   = -2.;	// <-- X range lower bound
+const double XU   =  0.;	// <-- X range upper bound
+const double XREF = -1.;	// <-- X ref point for McCormick
+const double YL   = -2.;	// <-- Y range lower bound
+const double YU   =  0.;	// <-- Y range upper bound
+const double YREF = -1.;	// <-- Y ref point for McCormick
+template <class T>
+T myfunc
+( const T&x, const T&y )
+{
+  return 1./(pow(x-2.,2)+pow(y-3.,2)+0.2);
+}
+
 #elif defined( TEST_CHEB )
 const double XL   = -1.;	// <-- range lower bound
 const double XU   =  1.;	// <-- range upper bound
@@ -153,6 +186,8 @@ template <class T>
 T myfunc
 ( const T&x, const T&y )
 {
+  //return cos( x+y );
+  //return erf( 2+x+y );
   return 1.+x-sin(2.*x+3.*y)-cos(3.*x-5.*y);
 }
 
@@ -167,6 +202,10 @@ template <class T>
 T myfunc
 ( const T&x, const T&y )
 {
+  return atan(x*y);
+  //return atan(sqr(x)+sqr(y));
+  //return tanh(x*y);
+  //return tanh(sqr(x)+sqr(y));
   return tan(x*y);
 }
 
@@ -181,6 +220,7 @@ template <class T>
 T myfunc
 ( const T&x, const T&y )
 {
+  //return acos(x*y)+asin(x*y);
   return asin(x)*acos(y);
 }
 
@@ -195,6 +235,7 @@ template <class T>
 T myfunc
 ( const T&x, const T&y )
 {
+  return sqrt(x+y);
   return sqrt(pow(x,2)+pow(y,2));
 }
 #endif
@@ -239,41 +280,45 @@ int main()
     ofdag.close();
 #endif
     // Construct DAG representation of Hessian matrix of factorable function
-    FFVar *DF = DAG.FAD( 1, &F, 1, &X, 1, &Y );
 #ifndef USE_BAD
-    FFVar *D2F= DAG.FAD( 2, DF, 1, &X, 1, &Y );
+    FFVar *DF = DAG.FAD( 1, &F, 1, &X, 1, &Y );
 #else
-    FFVar *D2F= DAG.BAD( 2, DF, 1, &X, 1, &Y );
+    FFVar *DF = DAG.BAD( 1, &F, 1, &X, 1, &Y );
 #endif
+    FFVar *D2F= DAG.FAD( 2, DF, 1, &X, 1, &Y );
     auto GD2F = DAG.subgraph( 2*2, D2F );
 #ifdef SAVE_RESULTS
     DAG.output( GD2F );
-    ofstream od2fdag( "SBD2F-2D.dot", ios_base::out );
-    DAG.dot_script( 2*2, D2F, od2fdag );
-    ofdag.close();
+    //ofstream od2fdag( "SBD2F-2D.dot", ios_base::out );
+    //DAG.dot_script( 2*2, D2F, od2fdag );
+    //ofdag.close();
 #endif
 #endif
 
     // Compute spectrum at reference point
-#ifdef USE_DAG
     double DD2F[2*2];
+#ifdef USE_DAG
     DAG.eval( 2*2, D2F, DD2F, 1, &X, &XREF, 1, &Y, &YREF );
-    pair<double,double> specF = SBI::spectrum( 2, DD2F );
 #else
-    FD FXREF = XREF; FXREF.diff(0,2);
-    FD FYREF = YREF; FYREF.diff(1,2);
+    FD  FXREF  = XREF; FXREF.diff(0,2);
+    FD  FYREF  = YREF; FYREF.diff(1,2);
 #ifndef USE_BAD
     FFD FFXREF = FXREF; FFXREF.diff(0,2);
     FFD FFYREF = FYREF; FFYREF.diff(1,2);
     FFD FFFREF = myfunc( FFXREF, FFYREF );
-    pair<double,double> specF = SBI::spectrum( FFFREF );
+    for( size_t i=0; i<2; ++i )
+      for( size_t j=0; j<2; ++j )
+        DD2F[i+2*j] = FFFREF.d(i).d(j);
 #else
-    BFD BFXYREF[2] = { FXREF, FYREF };
+    BFD BFXREF[2] = { FXREF, FYREF };
     BFD BFFREF = myfunc( BFXYREF[0], BFXYREF[1] );
     BFFREF.diff(0,1);
-    pair<double,double> specF = SBI::spectrum( BFXYREF );  
+    for( size_t i=0; i<2; ++i )
+      for( size_t j=0; j<2; ++j )
+        DD2F[i+2*j] = BFXYREF[i].deriv(0).deriv(j);
 #endif
 #endif
+    pair<double,double> specF = SBI::spectrum( 2, DD2F );
     cout << "\nSPECTRUM @REFERENCE POINT: " << I( specF.first, specF.second ) << endl;
 
     // Compute spectral interval inclusion using eigenvalue arithmetic
@@ -289,16 +334,10 @@ int main()
 #endif
     cout << "\nSPECTRAL BOUND (EIGENVALUE ARITHMETIC): " << SBF << endl;
 
-    // Compute spectral bounds from interval Hessian matrix (forward-forward)
-#ifdef USE_DAG
+    // Compute spectral bounds from interval Hessian matrix
     I ID2F[2*2];
+#ifdef USE_DAG
     DAG.eval( 2*2, D2F, ID2F, 1, &X, &IX, 1, &Y, &IY );
-
-    SBI::options.HESSBND = SBI::Options::GERSHGORIN;
-    pair<double,double> spbndG = SBI::spectral_bound( 2, ID2F );
-
-    SBI::options.HESSBND = SBI::Options::HERTZROHN;
-    pair<double,double> spbndHR = SBI::spectral_bound( 2, ID2F );
 #else
     FI FX = IX; FX.diff(0,2);
     FI FY = IY; FY.diff(1,2);
@@ -306,42 +345,33 @@ int main()
     FFI FFX = FX; FFX.diff(0,2);
     FFI FFY = FY; FFY.diff(1,2);
     FFI FFF = myfunc( FFX, FFY );
-
-    SBI::options.HESSBND = SBI::Options::GERSHGORIN;
-    std::pair<double,double> spbndG = SBI::spectral_bound( FFF );
-
-    SBI::options.HESSBND = SBI::Options::HERTZROHN;
-    std::pair<double,double> spbndHR = SBI::spectral_bound( FFF );
+    for( size_t i=0; i<2; ++i )
+      for( size_t j=0; j<2; ++j )
+        ID2F[i+2*j] = FFF.d(i).d(j);
 #else
     BFI BFXY[2] = { FX, FY };
     BFI BFF = myfunc( BFXY[0], BFXY[1] );
     BFF.diff(0,1);
-
-    SBI::options.HESSBND = SBI::Options::GERSHGORIN;
-    std::pair<double,double> spbndG = SBI::spectral_bound( BFXY );
-
-    SBI::options.HESSBND = SBI::Options::HERTZROHN;
-    std::pair<double,double> spbndHR = SBI::spectral_bound( BFXY );
+    for( size_t i=0; i<2; ++i )
+      for( size_t j=0; j<2; ++j )
+        ID2F[i+2*j] = BFXY[i].deriv(0).deriv(j);
 #endif
 #endif
+    cout << "\nINTERVAL HESSIAN MATRIX:";
+    for( size_t i=0; i<2; ++i ){
+      std::cout << (i?", [":" [");
+      for( size_t j=0; j<2; ++j ){
+        std::cout << (j?", ":" ") << ID2F[i+2*j];
+      }
+      std::cout << " ]";
+    }
+
+    pair<double,double> spbndG = SBI::spectral_bound_gershgorin( 2, ID2F );
+    pair<double,double> spbndR = SBI::spectral_bound_rohn( 2, ID2F );
+    pair<double,double> spbndH = SBI::spectral_bound_hertz( 2, ID2F );
     cout << "\nSPECTRAL BOUND (GERSHGORIN): " << I( spbndG.first, spbndG.second) << endl
-         << "\nSPECTRAL BOUND (HERTZ&ROHN): " << I( spbndHR.first, spbndHR.second) << endl;
-
-    // Compute spectral bounds of first derivatives using FADBAD++
-#ifdef USE_DAG
-    SBI SBDF[2];
-    DAG.eval( 2, DF, SBDF, 1, &X, &SBX, 1, &Y, &SBY );
-    cout << "\nSPECTRAL BOUND OF DF/DX (EIGENVALUE ARITHMETIC): " << SBDF[0] << endl
-         << "\nSPECTRAL BOUND OF DF/DY (EIGENVALUE ARITHMETIC): " << SBDF[1] << endl;
-#else
-    FSBI FSBX = SBX;
-    FSBX.diff(0,2);
-    FSBI FSBY = SBY;
-    FSBY.diff(1,2);
-    FSBI FSBF = myfunc( FSBX, FSBY );
-    cout << "\nSPECTRAL BOUND OF DF/DX (EIGENVALUE ARITHMETIC): " << FSBF.d(0) << endl
-         << "\nSPECTRAL BOUND OF DF/DY (EIGENVALUE ARITHMETIC): " << FSBF.d(1) << endl;
-#endif
+         << "\nSPECTRAL BOUND (ROHN):       " << I( spbndR.first, spbndR.second) << endl
+         << "\nSPECTRAL BOUND (HERTZ):      " << I( spbndH.first, spbndH.second) << endl;
 
     // Repeated calculations at grid points
 #ifdef SAVE_RESULTS
@@ -351,7 +381,6 @@ int main()
        double DY = YL+iY*(YU-YL)/(NY-1.);
 #ifdef USE_DAG
        DAG.eval( 2*2, D2F, DD2F, 1, &X, &DX, 1, &Y, &DY );
-       specF = SBI::spectrum( 2, DD2F );
 #else
        FD FX = DX; FX.diff(0,2);
        FD FY = DY; FY.diff(1,2);
@@ -359,19 +388,25 @@ int main()
        FFD FFX = FX; FFX.diff(0,2);
        FFD FFY = FY; FFY.diff(1,2);
        FFD FFF = myfunc( FFX, FFY );
-       specF = SBI::spectrum( FFF );
+       for( size_t i=0; i<2; ++i )
+         for( size_t j=0; j<2; ++j )
+           DD2F[i+2*j] = FFF.d(i).d(j);
 #else
        BFD BFXY[2] = { FX, FY };
        BFD BFF = myfunc( BFXY[0], BFXY[1] );
        BFF.diff(0,1);
-       specF = SBI::spectrum( BFXYREF );  
+       for( size_t i=0; i<2; ++i )
+         for( size_t j=0; j<2; ++j )
+           DD2F[i+2*j] = BFXY[i].deriv(0).deriv(j);
 #endif
 #endif
+       specF = SBI::spectrum( 2, DD2F );
        res << std::setw(14) << DX << std::setw(14) << DY
            << std::setw(14) << specF.first << std::setw(14) << specF.second
            << std::setw(14) << Op<I>::l(SBF.SI()) << std::setw(14) << Op<I>::u(SBF.SI())
            << std::setw(14) << spbndG.first << std::setw(14) << spbndG.second
-           << std::setw(14) << spbndHR.first << std::setw(14) << spbndHR.second
+           << std::setw(14) << spbndR.first << std::setw(14) << spbndR.second
+           << std::setw(14) << spbndH.first << std::setw(14) << spbndH.second
            << std::endl;
       }
       res << endl;

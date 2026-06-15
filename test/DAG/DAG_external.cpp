@@ -1,18 +1,18 @@
 #undef  MC__FFUNC_CPU_EVAL
 #undef  MC__FFUNC_EXTERN_DEBUG
 #undef  MC__FFUNC_SBAD_DEBUG
-#define MC__SELIM_DEBUG_PROCESS
-#define MC__SELIM_DEBUG_MIP
 ////////////////////////////////////////////////////////////////////////
 
 #include <fstream>
 #include <iomanip>
+#include <sstream>
+#include <cmath>
+#include <limits>
 
-#include "mctime.hpp"
-#include "mclapack.hpp"
+//#include "mctime.hpp"
+#include <armadillo>
 #include "ffunc.hpp"
 #include "slift.hpp"
-#include "selim.hpp"
 #include "fflin.hpp"
 #include "ffspol.hpp"
 #include "ffmlp.hpp"
@@ -397,18 +397,18 @@ public:
     }
 
   virtual bool reval
-    ( std::type_info const& idU, unsigned const nRes, void const* vRes, unsigned const nVar, void* vVar )
+    ( std::type_info const& idU, unsigned const nRes, void* vRes, unsigned const nVar, void* vVar )
     const
     {
       if( idU == typeid( PolVar<I> ) )
-        return reval( nRes, static_cast<PolVar<I> const*>(vRes), nVar, static_cast<PolVar<I>*>(vVar) );
+        return reval( nRes, static_cast<PolVar<I>*>(vRes), nVar, static_cast<PolVar<I>*>(vVar) );
 
       throw std::runtime_error( "Error: No evaluation method for FFXlog with type"+std::string(idU.name())+"\n" );
     }
 
   template <typename T>
   bool reval
-    ( unsigned const nRes, PolVar<T> const* vRes, unsigned const nVar, PolVar<T>* vVar )
+    ( unsigned const nRes, PolVar<T>* vRes, unsigned const nVar, PolVar<T>* vVar )
     const
     {
       assert( nVar == 1 && nRes == 1 );
@@ -508,12 +508,20 @@ public:
       assert( nRes == 1 );
       std::cout << "Det double instantiation\n"; 
       const unsigned nDim = std::sqrt(nVar);
-      CPPL::dgematrix Amat( nDim, nDim );
-      for( unsigned i=0; i<nDim; ++i )
-        for( unsigned j=0; j<nDim; ++j )
-          Amat(i,j) = vVar[i+j*nDim];
-      if( dgeqrf( Amat, vRes[0] ) )
+      if( nDim*nDim != nVar )
         throw FFBase::Exceptions( FFBase::Exceptions::EXTERN );
+      switch( nDim ){
+        case 0:  vRes[0] = 0.; break;
+        case 1:  vRes[0] = vVar[0]; break;
+        default:{
+          arma::mat Amat( nDim, nDim, arma::fill::none );
+          for( unsigned i=0; i<nDim; ++i )
+            for( unsigned j=0; j<nDim; ++j )
+              Amat(i,j) = vVar[i+j*nDim];
+          vRes[0] = arma::det( Amat );
+          break;
+        }
+      }
     }
   void eval
     ( unsigned const nRes, FFVar* vRes, unsigned const nVar, FFVar const* vVar, unsigned const* mVar )
@@ -554,44 +562,57 @@ public:
 struct FFDOptBase
 {
   // Vector of atom matrices
-  static std::vector< CPPL::dsymatrix > _A;
+  static std::vector< arma::mat > _A;
 
   // Read atom matrices from file
   static unsigned read
     ( unsigned const dim, std::string filename, bool const disp=false )
     {
-      CPPL::dsymatrix Ai( dim );
+      arma::mat Ai( dim, dim, arma::fill::zeros );
       _A.clear();
       std::ifstream file( filename );
       if( !file ) throw std::runtime_error("Error: Could not open input file\n");
+
+      auto push_atom = [&]() {
+        if( disp ) std::cout << "Atomic matrix #" << _A.size() << ":" << std::endl << Ai;
+        _A.push_back( Ai );
+        Ai.zeros();
+      };
+
       std::string line;
       unsigned i = 0;
-      bool empty = false;
       while( std::getline( file, line ) ){
         std::istringstream iss( line );
-        for( unsigned j=0; j<dim; j++ ){
-          if( !(iss >> Ai(i,j) ) ){
-            if( j ) throw std::runtime_error("Error: Could not read input file\n");
-            empty = true;
-            break;
+        double first = 0.;
+        if( !(iss >> first) ){
+          if( i ){
+            if( i != dim ) throw std::runtime_error("Error: Could not read input file\n");
+            push_atom();
+            i = 0;
           }
+          continue;
+        }
+
+        if( i >= dim ) throw std::runtime_error("Error: Could not read input file\n");
+        Ai(i,0) = first;
+        if( disp ) std::cout << "reading (" << i << ",0): " << Ai(i,0) << std::endl;
+        for( unsigned j=1; j<dim; j++ ){
+          if( !(iss >> Ai(i,j) ) )
+            throw std::runtime_error("Error: Could not read input file\n");
           if( disp ) std::cout << "reading (" << i << "," << j << "): " << Ai(i,j) << std::endl;
         }
         i++;
-        if( empty ){
-          if( disp ) std::cout << "Atomic matrix #" << _A.size() << ":" << std::endl << Ai;
-          _A.push_back( Ai );
-          i = 0;
-          empty = false;
-        }
-        if( i > dim ) throw std::runtime_error("Error: Could not read input file\n");
       }
-      if( i ) _A.push_back( Ai );
+
+      if( i ){
+        if( i != dim ) throw std::runtime_error("Error: Could not read input file\n");
+        push_atom();
+      }
       return _A.size();
     }
 };
 
-inline std::vector< CPPL::dsymatrix > FFDOptBase::_A;
+inline std::vector< arma::mat > FFDOptBase::_A;
 
 class FFDOpt
 : public FFOp,
@@ -636,15 +657,17 @@ public:
     {
       std::cout << "FFDOpt::eval: double\n"; 
       assert( nRes == 1 && nVar == _A.size() && _A.begin() != _A.end() );
-      CPPL::dsymatrix Amat( _A[0].n );
-      Amat.zero();
+      arma::mat Amat( _A[0].n_rows, _A[0].n_cols, arma::fill::zeros );
       for( unsigned i=0; i<nVar; ++i )
-        if( !i ) Amat  = vVar[0] * _A[0];
-        else     Amat += vVar[i] * _A[i];
+        Amat += vVar[i] * _A[i];
       //std::cout << Amat;
-      if( dgeqrf( Amat.to_dgematrix(), vRes[0] ) )
+      double sign = 0.;
+      if( !arma::log_det( vRes[0], sign, Amat ) )
         throw FFBase::Exceptions( FFBase::Exceptions::EXTERN );
-      vRes[0] = std::log( vRes[0] );
+      if( sign < 0. )
+        vRes[0] = std::numeric_limits<double>::quiet_NaN();
+      else if( sign == 0. )
+        vRes[0] = -std::numeric_limits<double>::infinity();
     }
 
   void eval
@@ -735,25 +758,16 @@ public:
     {
       std::cout << "FFDOptGrad::eval: double\n"; 
       assert( nRes == nVar && nVar == _A.size() && _A.begin() != _A.end() );
-      CPPL::dsymatrix Amat( _A[0].n );
-      Amat.zero();
+      arma::mat Amat( _A[0].n_rows, _A[0].n_cols, arma::fill::zeros );
       for( unsigned i=0; i<nVar; ++i )
-        if( !i ) Amat  = vVar[0] * _A[0];
-        else     Amat += vVar[i] * _A[i];
+        Amat += vVar[i] * _A[i];
       //std::cout << Amat;
-      // Perform LDL' decomposition
-      CPPL::dgematrix Lmat;
-      std::vector<int> IPIV;
-      if( dsytrf( Amat, Lmat, IPIV ) )
-        throw FFBase::Exceptions( FFBase::Exceptions::EXTERN );
-      CPPL::dgematrix Xmat;
       for( unsigned i=0; i<nVar; ++i ){
-        if( dsytrs( Lmat, IPIV, _A[i].to_dgematrix(), Xmat ) )
+        arma::mat Xmat;
+        if( !arma::solve( Xmat, Amat, _A[i] ) )
           throw FFBase::Exceptions( FFBase::Exceptions::EXTERN );
         //std::cout << Xmat;
-        for( int j=0; j<Xmat.n; ++j )
-          if( !j ) vRes[i]  = Xmat(0,0);
-          else     vRes[i] += Xmat(j,j);
+        vRes[i] = arma::trace( Xmat );
       }
     }
 
@@ -950,6 +964,109 @@ public:
     const
     { //std::cout << "data: " << data << std::endl;
       return "ARRH[" + std::to_string(*static_cast<double*>( data )) + "]"; }
+};
+
+
+///////////////////////////////////////////////////////////////////////////////
+
+class FFMonod
+: public FFOp
+{
+public:
+  // Constructors
+  FFMonod
+    ()
+    : FFOp( EXTERN )
+    {}
+
+  // Functor
+  FFVar& operator()
+    ( FFVar const& Var, FFVar const* Cst )
+    const
+    {
+      return **insert_external_operation( *this, 1, 1, &Var, 2, Cst );
+    }
+  FFVar& operator()
+    ( std::vector<FFVar> const& vVar )
+    {
+      assert( vVar.size() == 3 );
+      return **insert_external_operation( *this, 1, vVar.size(), vVar.data() );
+    }
+
+  // Evaluation overloads
+  virtual void feval
+    ( std::type_info const& idU, unsigned const nRes, void* vRes, unsigned const nVar,
+      void const* vVar, unsigned const* mVar )
+    const
+    {
+      if( idU == typeid( FFVar ) )
+        return eval( nRes, static_cast<FFVar*>(vRes), nVar, static_cast<FFVar const*>(vVar), mVar );
+      else if( idU == typeid( FFDep ) )
+        return eval( nRes, static_cast<FFDep*>(vRes), nVar, static_cast<FFDep const*>(vVar), mVar );
+      else if( idU == typeid( FFExpr ) )
+        return eval( nRes, static_cast<FFExpr*>(vRes), nVar, static_cast<FFExpr const*>(vVar), mVar );
+      else if( idU == typeid( double ) )
+        return eval( nRes, static_cast<double*>(vRes), nVar, static_cast<double const*>(vVar), mVar );
+      else if( idU == typeid( SLiftVar ) )
+        return eval( nRes, static_cast<SLiftVar*>(vRes), nVar, static_cast<SLiftVar const*>(vVar), mVar );
+      throw std::runtime_error( "Error: No evaluation method for FFMonod with type"+std::string(idU.name())+"\n" );
+    }
+
+  template< typename T >
+  void eval
+    ( unsigned const nRes, T* vRes, unsigned const nVar, T const* vVar, unsigned const* mVar )
+    const
+    {
+      assert( nRes == 1 && nVar == 3 );
+      auto const& X = vVar[0];
+      auto const& M = vVar[1];
+      auto const& K = vVar[2];
+      vRes[0] = M * X / ( K + X );
+    }
+
+  void eval
+    ( unsigned const nRes, FFVar* vRes, unsigned const nVar, FFVar const* vVar, unsigned const* mVar )
+    const
+    {
+      assert( nRes == 1 && nVar == 3 );
+      vRes[0] = **insert_external_operation( *this, 1, nVar, vVar );
+    }
+    
+  void eval
+    ( unsigned const nRes, FFDep* vRes, unsigned const nVar, FFDep const* vVar, unsigned const* mVar )
+    const
+    {
+      assert( nRes == 1 );
+      vRes[0] = 0;
+      for( unsigned i=0; i<nVar; ++i ) vRes[0] += vVar[i];
+      vRes[0].update( FFDep::TYPE::R );
+    }
+
+
+  virtual void deriv
+    ( unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar, FFVar** vDer )
+    const
+    {
+      assert( nRes == 1 && nVar == 3 );
+      auto const& X = vVar[0];
+      auto const& M = vVar[1];
+      auto const& K = vVar[2];
+      vDer[0][0] = M * K / sqr( K + X );
+      vDer[0][1] = X / ( K + X );
+      vDer[0][2] = - M * X / sqr( K + X );
+    }
+
+  // Properties
+  std::string name
+    ()
+    const
+    { return "Monod"; }
+
+  //! @brief Return whether or not operation is commutative
+  bool commutative
+    ()
+    const
+    { return false; }
 };
 
 }
@@ -1283,123 +1400,49 @@ int test_external7()
   return 0;
 }
 
+
 ///////////////////////////////////////////////////////////////////////////////
 
 int test_external8()
 {
   std::cout << "\n==============================================\ntest_external8:\n";
-/*
-  // Create MLP
-  mc::MLP<I> f;
-  f.options.RELAX     = mc::MLP<I>::Options::AUX;//MC;//AUX;//MCISM;
-  f.options.ISMDIV    = 16;
-  f.options.ASMBPS    = 8;
-  f.options.ISMCONT   = true;
-  f.options.ISMSLOPE  = true;
-  f.options.ISMSHADOW = false;//true;
-  f.options.CUTSHADOW = false;
 
-  //#include "ReLUANN_30L1.hpp"
-  #include "ReLUANN_40L4.hpp"
-  unsigned l=0;
-  for( auto const& layer : MLPCOEF )
-    f.append_data( layer, (++l)<MLPCOEF.size()? mc::MLP<I>::Options::RELU:
-                                                mc::MLP<I>::Options::LINEAR );
-
-  // Create DAG
   mc::FFGraph DAG;
-  size_t NX = 2;
-  mc::FFVar X[NX];
-  for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
-  mc::FFMLP<I> MLP;
-  mc::FFVar F = MLP( 0, NX, X, &f );
-  std::cout << DAG;
+  auto&& X = DAG.add_vars( 3 );
+  auto& S = X[0];
+  auto* P = &X[1];
+  mc::FFMonod Monod;
 
-  std::ofstream o_F( "external8_F.dot", std::ios_base::out );
-  DAG.dot_script( 1, &F, o_F );
-  o_F.close();
-
-  auto F_op  = DAG.subgraph( 1, &F );
-  DAG.output( F_op );
+  mc::FFVar F = Monod( S, P );
   std::cout << DAG;
+  auto opF  = DAG.subgraph( 1, &F );
+  DAG.output( opF, " F" );
+  auto strF = mc::FFExpr::subgraph( &DAG, opF );
+  std::cout << "F = " << strF[0] << std::endl;
 
   // Evaluation in real arithmetic
-  double dX[NX] = { 2., 2. }, dF;
-  DAG.eval( F_op, 1, &F, &dF, NX, X, dX );
+  double dS = 2.0, dP[2] = {0.5, 1.0}, dF;
+  std::vector<double> dwk;
+  DAG.eval( opF, dwk, 1, &F, &dF, 1, &S, &dS, 2, P, dP );
   std::cout << "F = " << dF << std::endl;
 
-  // Evaluation in McCormick arithmetic
-  MC mcX[NX] = { MC(I(-3.,3.),2.), MC(I(-3.,3.),2.) }, mcF;
-  DAG.eval( F_op, 1, &F, &mcF, NX, X, mcX );
-  std::cout << "F = " << mcF << std::endl;
+  // Forward AD
+  const mc::FFVar* dFdS = DAG.FAD( 1, &F, 1, &S );
+  auto opdFdS = DAG.subgraph( 1, dFdS );
+  DAG.output( opdFdS, " dFdS" );
+  auto strdFdS = mc::FFExpr::subgraph( &DAG, opdFdS );
+  std::cout << "dFdS = " << strdFdS[0] << std::endl;
 
-  // Polyhedral relaxation
-  mc::PolImg<I> IMG;
-  IMG.options.BREAKPOINT_TYPE = mc::PolImg<I>::Options::CONT;//BIN;//SOS2;
-  IMG.options.AGGREG_LQ       = true;
-  IMG.options.BREAKPOINT_RTOL =
-  IMG.options.BREAKPOINT_ATOL = 0e0;
-  IMG.options.ALLOW_DISJ      = { mc::FFOp::FABS, mc::FFOp::MAXF };
-  IMG.options.ALLOW_NLIN      = { mc::FFOp::TANH, mc::FFOp::EXP  };
-  I IX[NX] = { I(-3.,3.), I(-3.,3.) };
-  POLV polX[NX] = { POLV( &IMG, X[0], IX[0] ), POLV( &IMG, X[1], IX[1] ) }, polF;
-  DAG.eval( F_op, 1, &F, &polF, NX, X, polX );
-  IMG.generate_cuts( 1, &polF );
-  std::cout << "F =" << IMG << std::endl;
+  // Evaluation in real arithmetic
+  double ddFdS;
+  DAG.eval( opdFdS, dwk, 1, dFdS, &ddFdS, 1, &S, &dS, 2, P, dP );
+  std::cout << "dFdS = " << ddFdS << std::endl;
 
-  // Evaluation of forward symbolic derivatives in real arithmetic
-  const mc::FFVar* dFdX_F = DAG.FAD( 1, &F, NX, X );
-  std::ofstream o_dFdX_F( "external8_dFdX_F.dot", std::ios_base::out );
-  DAG.dot_script( NX, dFdX_F, o_dFdX_F );
-  o_dFdX_F.close();
 
-  auto op_dFdX_F = DAG.subgraph( NX, dFdX_F );
-  DAG.output( op_dFdX_F );
-  //std::cout << DAG;
-
-  double ddFdX_F[NX];
-  DAG.eval( op_dFdX_F, NX, dFdX_F, ddFdX_F, NX, X, dX );
-  for( unsigned i=0; i<NX; ++i )
-    std::cout << "dFdX_F[" << i << "] = " << ddFdX_F[i] << std::endl;
-  delete[] dFdX_F;
-
-  // Evaluation of forward automatic derivatives in real arithmetic
-  fadbad::F<double> fdX[NX], fdF;
-  for( unsigned i=0; i<NX; ++i ){
-    fdX[i] = dX[i];
-    fdX[i].diff(i,NX);
-  }
-  DAG.eval( F_op, 1, &F, &fdF, NX, X, fdX );
-  for( unsigned i=0; i<NX; ++i )
-    std::cout << "dFdX[" << i << "] = " << fdF.d(i) << std::endl;
-
-  // Evaluation of forward symbolic derivatives in real arithmetic
-  const mc::FFVar* dFdX_B = DAG.BAD( 1, &F, NX, X );
-  std::ofstream o_dFdX_B( "external8_dFdX_B.dot", std::ios_base::out );
-  DAG.dot_script( NX, dFdX_B, o_dFdX_B );
-  o_dFdX_B.close();
-
-  auto op_dFdX_B = DAG.subgraph( NX, dFdX_B );
-  DAG.output( op_dFdX_B );
-  //std::cout << DAG;
-
-  double ddFdX_B[NX];
-  DAG.eval( op_dFdX_B, NX, dFdX_B, ddFdX_B, NX, X, dX );
-  for( unsigned i=0; i<NX; ++i )
-    std::cout << "dFdX_B[" << i << "] = " << ddFdX_B[i] << std::endl;
-  delete[] dFdX_B;
-
-  // Evaluation of backward automatic derivatives in real arithmetic
-  fadbad::B<double> bdX[NX], bdF;
-  for( unsigned i=0; i<NX; ++i )
-    bdX[i] = dX[i];
-  DAG.eval( F_op, 1, &F, &bdF, NX, X, bdX );
-  bdF.diff(0,1);
-  for( unsigned i=0; i<NX; ++i )
-    std::cout << "dFdX[" << i << "] = " << bdX[i].d(0) << std::endl;
-*/
+  delete[] dFdS;
   return 0;
 }
+
 
 ///////////////////////////////////////////////////////////////////////////////
 
@@ -1632,17 +1675,6 @@ int test_external9_1()
   std::cout << "\nLifting of linear subexpression:\n";
   std::cout << SLE;
 
-  // Variable elimination
-  mc::SElimEnv SEE( &DAG );
-  SEE.options.SLIFT.KEEPFACT = false;
-  SEE.options.MIPDISPLEVEL   = 0;
-  SEE.options.MIPOUTPUTFILE  = "test_external9_1.lp";
-  SEE.options.DISPFULL       = false;
-  SEE.process( F );
-  std::cout << "\nVariable elimination in linear subexpression:\n";
-  std::cout << SEE;
-
-
   return 0;
 }
 
@@ -1807,9 +1839,7 @@ int test_external12()
 
   // Create DAG
   mc::FFGraph DAG;
-  size_t const NX = 4;
-  std::vector<mc::FFVar> X(NX);
-  for( auto& Xi : X ) Xi.set( &DAG );
+  std::vector<mc::FFVar>&& X = DAG.add_vars( 4, "X" );
   std::vector<mc::FFVar> Y{ pow( X[0] + sqr( X[1] ) - 2 * X[2], 3 ), sqrt( X[3] ) };
 
   mc::DAGEXT<I> DAGY0( &DAG, X, Y );
@@ -1817,17 +1847,16 @@ int test_external12()
   mc::FFDAGEXT<I> Expr( true ); //false );
   std::vector<mc::FFVar> F{ Expr( 0, X, &DAGY0, 1 ), Expr( 1, X, &DAGY0, 1 ) }; // with DAG copy
 
-  std::cout << DAG;
-
-  auto opF  = DAG.subgraph( F );
-  DAG.output( opF, " OF F" );
-  auto strout = mc::FFExpr::subgraph( &DAG, opF );
-  for( unsigned i=0; i<strout.size(); ++i )
-    std::cout << "F: " << strout[i] << std::endl;
+  auto sgF  = DAG.subgraph( F );
+  DAG.output( sgF, " OF F" );
+  auto exF = mc::FFExpr::subgraph( &DAG, sgF );
+  for( unsigned i=0; i<exF.size(); ++i )
+    std::cout << "\nF[" << i << "] = " << exF[i] << std::endl;
 
   // Evaluation in real arithmetic
   std::vector<double> dX{ 0.5, -0.5, 0.75, 4. }, dF;
-  DAG.eval( opF, F, dF, X, dX );
+  DAG.eval( sgF, F, dF, X, dX );
+
   std::cout << "\nFunction value: [ ";
   for( auto const& Fi : dF )
     std::cout << Fi << " ";
@@ -1835,15 +1864,15 @@ int test_external12()
 
   // Evaluation of symbolic derivatives in real arithmetic
   std::vector<mc::FFVar>&& dFdX = DAG.FAD( F, X );
-  auto opdFdX = DAG.subgraph( dFdX );
-  DAG.output( opdFdX, " OF dFdX" );
-  strout = mc::FFExpr::subgraph( &DAG, opdFdX );
-  for( unsigned i=0; i<strout.size(); ++i )
-    std::cout << "dFdX[" << i << "]: " << strout[i] << std::endl;
+  auto sgdFdX = DAG.subgraph( dFdX );
+  DAG.output( sgdFdX, " OF dFdX" );
+  auto exdFdX = mc::FFExpr::subgraph( &DAG, sgdFdX );
+  for( unsigned i=0; i<exdFdX.size(); ++i )
+    std::cout << "dFdX[" << i << "]: " << exdFdX[i] << std::endl;
 
   // Evaluation in real arithmetic
   std::vector<double> ddFdX;
-  DAG.eval( opdFdX, dFdX, ddFdX, X, dX );
+  DAG.eval( sgdFdX, dFdX, ddFdX, X, dX );
   std::cout << "\nFunction derivative: [ ";
   for( auto const& dFdXi : ddFdX )
     std::cout << dFdXi << " ";
@@ -1867,7 +1896,7 @@ int test_external13()
 
   mc::DAGEXT<I> DAGY0( &DAG, X, Y );
   mc::FFDAGEXT<I> Expr;
-  Expr.options.RELAX  = { Expr.options.MCPWCS };//AUX };//MC };//INT };
+  Expr.options.RELAX  = { Expr.options.PWCS };//AUX };//MC };//INT };
   Expr.options.PWLINI = 4;
   std::vector<mc::FFVar> F{ Expr( 0, X, &DAGY0, 1 ) }; // with DAG copy
 
@@ -1897,14 +1926,6 @@ int test_external13()
                             PWCSV( PWCSenv, 2, IX[2], 16 ) }, PWCSF;
   DAG.eval( opF, F, PWCSF, X, PWCSX );
   std::cout << "\nFunction enclosure: " << PWCSF[0] << std::endl;
-
-  // Evaluation in McCormick arithmetic with PWC support bounds
-  std::vector<MCPWCSV> MCPWCSX{ MCPWCSV( PWCSX[0], mc::Op<I>::mid(IX[0]) ).sub(NX,0),
-                                MCPWCSV( PWCSX[1], mc::Op<I>::mid(IX[1]) ).sub(NX,1),
-                                MCPWCSV( PWCSX[2], mc::Op<I>::mid(IX[2]) ).sub(NX,2) }, MCPWCSF;
-  DAG.eval( opF, F, MCPWCSF, X, MCPWCSX );
-  std::cout << "\nFunction enclosure: " << MCPWCSF[0] << std::endl;
-  //std::cout << "\nFunction enclosure: " << MCPWCSF[0].I() << std::endl;
   
   // Polyhedral relaxation
   mc::PolImg<I> IMG;
@@ -2108,71 +2129,74 @@ int test_slift_external1()
 
 int main()
 {
+  bool failed = true;
+  
   try{
-//    test_external0();
-//    test_external1();
-//    test_external2();
-//    test_external3();
-//    test_external4();
-//    test_external5();
-//    test_external6();
-//    test_external7();
-//    test_external8();
-//    test_external9_1();
-//    test_external9_2();
-//    test_external10();
-//    test_external11();
+    test_external0();
+    test_external1();
+    test_external2();
+    test_external3();
+    test_external4();
+    test_external5();
+    test_external6();
+    test_external7();
+    test_external8();
+    test_external9_1();
+    test_external9_2();
+    test_external10();
+    test_external11();
     test_external12();
-//    test_external13();
-//    test_external14();
-//    test_external15();
-//    test_slift_external0();
-//    test_slift_external1();
-
+    test_external13();
+    test_external14();
+    test_external15();
+    test_slift_external0();
+    test_slift_external1();
+    failed = false;
   }
   catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
               << " in factorable function manipulation:" << std::endl
               << eObj.what() << std::endl
-              << "Aborts." << std::endl;
-    return eObj.ierr();
+              << "Aborting." << std::endl;
   }
 #if !defined(MC__USE_PROFIL) && !defined(MC__USE_FILIB) && !defined(MC__USE_BOOST)
   catch( I::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
               << " in natural interval extension:" << std::endl
-	          << eObj.what() << std::endl
-              << "Aborts." << std::endl;
-    return eObj.ierr();
+              << eObj.what() << std::endl
+              << "Aborting." << std::endl;
   }
 #endif
   catch( MC::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
               << " in McCormick relaxation:" << std::endl
-	          << eObj.what() << std::endl
-              << "Aborts." << std::endl;
-    return eObj.ierr();
+              << eObj.what() << std::endl
+              << "Aborting." << std::endl;
   }
   catch( SCM::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
               << " in sparse Chebyshev model arithmetic:" << std::endl
               << eObj.what() << std::endl
-              << "Aborts." << std::endl;
-    return eObj.ierr();
+              << "Aborting." << std::endl;
   }
   catch( CM::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
               << " in dense Chebyshev model arithmetic:" << std::endl
               << eObj.what() << std::endl
-              << "Aborts." << std::endl;
-    return eObj.ierr();
+              << "Aborting." << std::endl;
   }
   catch( mc::PolImg<I>::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
               << " in polyhedral image arithmetic:" << std::endl
               << eObj.what() << std::endl
-              << "Aborts." << std::endl;
-    return eObj.ierr();
+              << "Aborting." << std::endl;
   }
+  catch(...){
+    std::cerr << "Error during test\n"
+              << "Aborting." << std::endl;
+  }
+
+  std::cout << "\n=== Results: " << (failed? "failed": "passed") << " ===\n";
+  return failed;
 }
 

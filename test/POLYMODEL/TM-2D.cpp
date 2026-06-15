@@ -168,7 +168,7 @@ int main()
     // <-- set options here -->
     MC::options.MVCOMP_USE = true;
     mod.options.BOUNDER_TYPE = TMMC::Options::BERNSTEIN;//LSB;//EIGEN;
-    mod.options.BOUNDER_ORDER = 0;
+    mod.options.BERNSTEIN_ORDER = 0;
     mod.options.BERNSTEIN_USE = true;
 
     // Define variables X and Y, and evaluate Taylor model

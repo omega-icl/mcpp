@@ -5,13 +5,10 @@ include $(PATH_MC)/src/makeoptions.mk
 
 #####
 
-all: SB-2D SB-C
+all: SB-2D
 
 SB-2D : SB-2D.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
-
-SB-C : SB-C.o
-	$(LINK) $(FLAGS_LINK) -o $@ $< $(LIB_MC)
 
 %.o: %.cpp 
 	$(CPP) -c $(FLAG_CPP) $(FLAG_MC) $(INC_MC) $< -o $@
@@ -32,5 +29,6 @@ gensvg :
 #####
 
 clean :
-	rm -f SB-2D SB-C *.o *.out *.eps *.dot *.svg *~
+	rm -f SB-2D
+	rm -f *.o *.out *.eps *.dot *.svg *~
 

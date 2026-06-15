@@ -121,7 +121,7 @@ The available options are the following:
          <TD>Threshold for interval width below which Remez algorithm is not useds.
      <TR><TH><tt>INTERP_EXTRA</tt> <TD><tt>unsigned int</tt> <TD>0
          <TD>Extra terms in Chebyshev interpolation of univariates: 0-Chebyshev interpolation of order NORD; extra terms allow approximation of Chebyshev truncated series.
-     <TR><TH><tt>INTERP_THRES</tt> <TD><tt>double</tt> <TD>1e2*machprec()
+     <TR><TH><tt>INTERP_THRES</tt> <TD><tt>double</tt> <TD>1e2*DBL_EPSILON
          <TD>Threshold for coefficient values in Chebyshev expansion for bounding of transcendental univariates.
      <TR><TH><tt>BOUNDER_TYPE</tt> <TD><tt>mc::SCModel::Options::BOUNDER</tt> <TD>mc::SCModel::Options::LSB
          <TD>Chebyshev model range bounder.
@@ -180,12 +180,14 @@ Further exceptions may be thrown by the template parameter class itself.
 #include <stdlib.h>
 #include <complex>
 #include <numeric>
+#include <armadillo>
 
 #include "mcfunc.hpp"
-//#include "mclapack.hpp"
 #include "mcop.hpp"
 #include "smon.hpp"
-#include "remez.hpp"
+#if defined( BOOST_UBLAS_NO_STD_CERR )
+ #include "remez.hpp"
+#endif
 
 #undef  MC__SCMODEL_DEBUG
 #undef  MC__SCMODEL_DEBUG_SCALE
@@ -227,6 +229,8 @@ class SCModel
     ( const SCVar<U,K,C>& );
   template <typename U, typename K, typename C> friend SCVar<U,K,C> exp
     ( const SCVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SCVar<U,K,C>&& exp
+    ( SCVar<U,K,C>&& );
   template <typename U, typename K, typename C> friend SCVar<U,K,C> log
     ( const SCVar<U,K,C>& );
   template <typename U, typename K, typename C> friend SCVar<U,K,C> xlog
@@ -306,16 +310,13 @@ protected:
       
   //! @brief Function values in Chebyshev interpolant of univariate functions
   std::vector<double> _finterp;
+  
+  //! @brief Maps Variable ID -> Degree -> Vector of Bernstein Coefficients; Stores basis functions (T_k or x^k) in their natural degree as Armadillo vectors
+  mutable std::map<KEY, std::vector<arma::vec>, COMP> _bernstein_cache;
 
   //! @brief Resize the model variable data containers
   void _set
     ( KEY const& id, T const& X );
-
-//  //! @brief Resize and return a pointer to the Chebyshev coefficient interpolant array
-//  std::vector<double>& _resize_coefuniv
-//    ()
-//    { _coefuniv.resize( _maxord + options.INTERP_EXTRA + 1 );
-//      return _coefuniv; }
 
   //! @brief Overloads returning a pointer of a new KEY
   template<typename K>
@@ -354,11 +355,15 @@ public:
     ()
     { reset_aux(); }
 
+  //! @brief Reset environment
+  void reset
+    ();
+
   //! @brief Append new auxiliary variable and return a reference
    KEY const& append_aux
      ();
 
-  //! @brief Maximal order of polynomial model
+  //! @brief Reset new auxiliary variables
   void reset_aux
     ();
 
@@ -410,6 +415,12 @@ public:
   void get_bndmon
     ( std::map<t_mon,U,lt_mon>& bndmon, std::map<KEY,U,COMP> const& bndvar,
       bool const scaled=false, bool const useprod=false )
+    const;
+
+  //! @brief Transform monomial-coefficient map 'coefmon' to Berstein basis representation
+  template <typename C>
+  std::pair< std::map<t_mon,C,lt_mon>, std::map<KEY, unsigned, COMP> > to_bernstein 
+    ( std::map<t_mon,C,lt_mon> const& coefmon, unsigned const ORDER=0 )
     const;
 
   //! @brief Exceptions of mc::SCModel
@@ -479,36 +490,55 @@ public:
   //! @brief Options of mc::SCModel
   struct Options
   {
-    //! @brief Constructor of mc::SCModel::Options
-    Options():
-      BASIS(CHEB),
-      LIFT_USE(false), LIFT_ATOL(1e-10), LIFT_RTOL(1e-3),
-      REMEZ_USE(true), REMEZ_MAXIT(10), REMEZ_TOL(1e-5), REMEZ_MIG(1e-10),
-      INTERP_EXTRA(0), INTERP_THRES(1e2*machprec()), BOUNDER_TYPE(LSB),
-      MIG_USE(false), MIG_ATOL(0e0), MIG_RTOL(machprec()), 
-      MIXED_IA(false), REF_POLY(0e0), DISPLAY_DIGITS(7)
-      {}
-    //! @brief Copy constructor of mc::SCModel::Options
+    //! @brief Reset options
+    void reset
+      ()
+      {
+        BASIS           = CHEB;
+        LIFT_USE        = false;
+        LIFT_ATOL       = 1e-10;
+        LIFT_RTOL       = 1e-3;
+        REMEZ_USE       = true;
+        REMEZ_MAXIT     = 10;
+        REMEZ_TOL       = 1e-5;
+        REMEZ_MIG       = 1e-10;
+        INTERP_EXTRA    = 0;
+        INTERP_THRES    = 1e2*DBL_EPSILON;
+        BOUNDER_TYPE    = LSB;
+        BERNSTEIN_ORDER = 0;
+        MIG_USE         = false;
+        MIG_ATOL        = 0e0;
+        MIG_RTOL        = DBL_EPSILON;
+        MIXED_IA        = false;
+        REF_POLY        = 0e0;
+        DISPLAY_DIGITS  = 7;
+      }
+    //! @brief Default constructor
+    Options()
+      { reset(); }
+    //! @brief Copy constructor
     template <typename U> Options
       ( U const& options )
       : BASIS( options.BASIS ),
-        LIFT_USE( options.LIFT_USE ),
-        LIFT_ATOL( options.LIFT_ATOL ),
-        LIFT_RTOL( options.LIFT_RTOL ),
-        REMEZ_MAXIT( options.REMEZ_MAXIT ),
-        REMEZ_TOL( options.REMEZ_TOL ),
-        REMEZ_MIG( options.REMEZ_MIG ),
-        INTERP_EXTRA( options.INTERP_EXTRA ),
-        INTERP_THRES( options.INTERP_THRES ),
-        BOUNDER_TYPE( options.BOUNDER_TYPE ),
-        MIG_USE( options.MIG_USE ),
-        MIG_ATOL( options.MIG_ATOL ),
-        MIG_RTOL( options.MIG_RTOL ),
-        MIXED_IA( options.MIXED_IA ),
-        REF_POLY(options.REF_POLY),
-        DISPLAY_DIGITS( options.DISPLAY_DIGITS )
+        LIFT_USE        ( options.LIFT_USE ),
+        LIFT_ATOL       ( options.LIFT_ATOL ),
+        LIFT_RTOL       ( options.LIFT_RTOL ),
+        REMEZ_USE       ( options.REMEZ_USE ),
+        REMEZ_MAXIT     ( options.REMEZ_MAXIT ),
+        REMEZ_TOL       ( options.REMEZ_TOL ),
+        REMEZ_MIG       ( options.REMEZ_MIG ),
+        INTERP_EXTRA    ( options.INTERP_EXTRA ),
+        INTERP_THRES    ( options.INTERP_THRES ),
+        BOUNDER_TYPE    ( options.BOUNDER_TYPE ),
+        BERNSTEIN_ORDER ( options.BERNSTEIN_ORDER ),
+        MIG_USE         ( options.MIG_USE ),
+        MIG_ATOL        ( options.MIG_ATOL ),
+        MIG_RTOL        ( options.MIG_RTOL ),
+        MIXED_IA        ( options.MIXED_IA ),
+        REF_POLY        ( options.REF_POLY ),
+        DISPLAY_DIGITS  ( options.DISPLAY_DIGITS )
       {}
-    //! @brief Assignment of mc::SCModel::Options
+    //! @brief Assignment operator
     template <typename U> Options& operator=
       ( U const& options ){
         BASIS            = options.BASIS;
@@ -522,6 +552,7 @@ public:
         INTERP_EXTRA     = options.INTERP_EXTRA;
         INTERP_THRES     = options.INTERP_THRES;
         BOUNDER_TYPE     = (BOUNDER)options.BOUNDER_TYPE;
+        BERNSTEIN_ORDER  = options.BERNSTEIN_ORDER;
         MIG_USE          = options.MIG_USE;
         MIG_ATOL         = options.MIG_ATOL;
         MIG_RTOL         = options.MIG_RTOL;
@@ -533,7 +564,8 @@ public:
     //! @brief Chebyshev model range bounder option
     enum BOUNDER{
       NAIVE=0,	//!< Naive polynomial range bounder
-      LSB	//!< Lin & Stadtherr range bounder
+      LSB,	//!< Lin & Stadtherr range bounder
+      BERNSTEIN //!< Bernstein range bounder
     };
     //! @brief Available basis representations
     enum MONBASIS{
@@ -562,8 +594,10 @@ public:
     double INTERP_THRES;
     //! @brief Chebyshev model range bounder - See \ref sec_CHEBYSHEV_SPARSE_opt
     BOUNDER BOUNDER_TYPE;
+    //! @brief Degree of the Bernstein basis when mc::CModel::options::BOUNDER_TYPE is set to mc::CModel::options::BERNSTEIN
+    unsigned BERNSTEIN_ORDER;
     //! @brief Array of Chebyshev model range bounder names (for display)
-    static const std::string BOUNDER_NAME[2];
+    static const std::string BOUNDER_NAME[3];
     //! @brief Whether to simplify the monomial terms with small magnitude in the model
     bool MIG_USE;
     //! @brief Absolute tolerance for simplifying monomial terms - only if MIG_USE == true
@@ -582,10 +616,18 @@ public:
   static T TOne;
   
   //!brief Zero-one in T arithmetic
-  static T TZerOne;
+  static T TZeroOne;
   /** @} */
 
 private:
+
+#if not defined( BOOST_UBLAS_NO_STD_CERR )
+  //! @brief Armadillo matrices and vectors for minimax Remez algorithm
+  arma::vec _minimax_ref;
+  arma::mat _minimax_mat;
+  arma::vec _minimax_rhs;
+  arma::vec _minimax_sol;
+#endif
 
   //! @brief Get Chebyshev basis functions in U arithmetic for variable <a>bndvar</a>
   template <typename U>
@@ -664,6 +706,12 @@ private:
 
   //! @brief Polynomial range bounder - Lin & Stadtherr approach
   template <typename C, typename U> U _polybound_LSB
+    ( std::map<t_mon,C,lt_mon> const& coefmon, 
+      std::map<KEY,std::vector<U>,COMP> const& bndbasis )
+    const;
+
+  //! @brief Polynomial range bounder - Bernstein approach with degree elevation
+  template <typename C, typename U> U _polybound_bernstein
     ( std::map<t_mon,C,lt_mon> const& coefmon, 
       std::map<KEY,std::vector<U>,COMP> const& bndbasis )
     const;
@@ -759,12 +807,12 @@ private:
 
 template <typename T, typename KEY, typename COMP>
 inline
-const std::string SCModel<T,KEY,COMP>::Options::BOUNDER_NAME[2]
-  = { "NAIVE", "LSB" };
+const std::string SCModel<T,KEY,COMP>::Options::BOUNDER_NAME[3]
+  = { "NAIVE", "LSB", "BERNSTEIN" };
 
 template <typename T, typename KEY, typename COMP>
 inline
-T SCModel<T,KEY,COMP>::TZerOne
+T SCModel<T,KEY,COMP>::TZeroOne
   = Op<T>::zeroone();
 
 template <typename T, typename KEY, typename COMP>
@@ -787,12 +835,6 @@ class SCVar
   template <typename U, typename K, typename C> friend class SCVar;
   template <typename U, typename K, typename C> friend class SCModel;
 
-  template <typename U, typename K, typename C> friend SCVar<U,K,C> operator-
-    ( const SCVar<U,K,C>& );
-  template <typename U, typename K, typename C> friend SCVar<U,K,C> operator-
-    ( SCVar<U,K,C>&& );
-  template <typename U, typename K, typename C> friend SCVar<U,K,C> operator*
-    ( const SCVar<U,K,C>&, const SCVar<U,K,C>& );
   template <typename U, typename K, typename C> friend std::ostream& operator<<
     ( std::ostream&, const SCVar<U,K,C>& );
 
@@ -811,6 +853,8 @@ class SCVar
     ( const SCVar<U,K,C>& );
   template <typename U, typename K, typename C> friend SCVar<U,K,C> exp
     ( const SCVar<U,K,C>& );
+  template <typename U, typename K, typename C> friend SCVar<U,K,C>&& exp
+    ( SCVar<U,K,C>&& );
   template <typename U, typename K, typename C> friend SCVar<U,K,C> log
     ( const SCVar<U,K,C>& );
   template <typename U, typename K, typename C> friend SCVar<U,K,C> xlog
@@ -968,9 +1012,8 @@ public:
    */
 
   //! @brief Display sparse polynomial
-  std::string display
-    ( t_poly coefmon, int const& BASIS=1, int const& IDISP=5 )
-    const;
+  static std::string display
+    ( t_poly coefmon, int const& BASIS=1, int const& IDISP=5 );
     
   //! @brief Get pointer to linked Chebyshev model environment
   SCModel<T,KEY,COMP>* env() const
@@ -1029,11 +1072,11 @@ public:
 
   //! @brief Constructor of Chebyshev variable for a real scalar
   SCVar
-    ( double const& d = 0., SCModel<T,KEY,COMP>* CM = nullptr );
+    ( double const& d=0., SCModel<T,KEY,COMP>* CM=nullptr );
 
   //! @brief Constructor of Chebyshev variable for a remainder bound
   SCVar
-    ( T const& B, SCModel<T,KEY,COMP>*CM = nullptr );
+    ( T const& B, SCModel<T,KEY,COMP>* CM=nullptr );
 
   //! @brief Constructor of Chebyshev variable <a>id</a> with domain <a>dom</a>
   SCVar
@@ -1043,7 +1086,7 @@ public:
   SCVar
     ( SCVar<T,KEY,COMP> const& CV );
 
-  //! @brief Copy constructor of Chebyshev variable
+  //! @brief Move constructor of Chebyshev variable
   SCVar
     ( SCVar<T,KEY,COMP> && CV );
 
@@ -1064,8 +1107,9 @@ public:
     
   //! @brief Set multivariate polynomial coefficients in variable as <tt>coefmon</tt>
   SCVar<T,KEY,COMP>& set
-    ( t_poly& coefmon )
+    ( t_poly const& coefmon, T const& bndrem=0. )
     { _coefmon = coefmon; _unset_bndT(); _unset_bndpol();
+      _bndrem = bndrem;
       return *this; } // this is assuming the same order and number of variables
 
   //! @brief Set remainder term in variable as <tt>bndrem</tt>
@@ -1073,13 +1117,17 @@ public:
     ( T const& bndrem )
     { _bndrem = bndrem; return *this; }
 
+  //! @brief Takes the negative of variable
+  SCVar<T,KEY,COMP>& neg
+    ();
+
   //! @brief Compute bound on variable using bounder <a>type</a>
-  T bound
-    ( int const type )
-    const
-    { if( !_bndT ) return _polybound(type) + _bndrem;
-      else{ T bndT; return Op<T>::inter( bndT, _polybound(type) + _bndrem, *_bndT )?
-                           bndT: _polybound(type) + _bndrem; } }
+  //T bound
+  //  ( int const type )
+  //  const
+  //  { if( !_bndT ) return _polybound(type) + _bndrem;
+  //    else{ T bndT; return Op<T>::inter( bndT, _polybound(type) + _bndrem, *_bndT )?
+  //                         bndT: _polybound(type) + _bndrem; } }
 
   //! @brief Retreive bound on variable using default bounder
   T bound
@@ -1106,6 +1154,12 @@ public:
 
   //! @brief Retreive bound on multivariate polynomial using default bounder
   T bndpol
+    ( int const type )
+    const
+    { return _polybound( type ); }
+
+  //! @brief Retreive bound on multivariate polynomial using default bounder
+  T bndpol
     ()
     const
     { if( !_bndpol ) _bndpol = new T( _polybound() );
@@ -1120,10 +1174,10 @@ public:
       return _CM->_polybound_naive( _coefmon, std::map<KEY,std::vector<T>,COMP>(), minord ); }
 
   //! @brief Shortcut to mc::SCVar::bound
-  T B
-    ( const int type )
-    const
-    { return bound( type ); }
+  //T B
+  //  ( const int type )
+  //  const
+  //  { return bound( type ); }
 
   //! @brief Shortcut to mc::SCVar::bound
   T B
@@ -1192,8 +1246,7 @@ public:
     
   //! @brief Unscale coefficients in Chebyshev variable for their original variable ranges
   t_poly unscale
-    ()
-    const;
+    ();
         
   //! @brief Return new coefficient map in monomial basis representation
   t_poly to_monomial
@@ -1203,6 +1256,16 @@ public:
   //! @brief Return new coefficient map in monomial basis representation after removing terms with coefficient less than TOL or order greater than or equal to ORD, and also return a bound on the removed terms
   std::pair<t_poly,T> to_monomial
     ( bool const scaled, double const& ATOL, double const& RTOL, int const TORD = -1 )
+    const;
+
+  //! @brief Return new coefficient map in Bernstein basis representation
+  std::pair< t_poly, std::map<KEY,unsigned,COMP> > to_bernstein
+    ( unsigned const ORDER = 0 )
+    const;
+
+  //! @brief Return bound based on transformed Bernstein basis
+  T bound_bernstein
+    ( t_poly const& coefbern )
     const;
  /** @} */
 
@@ -1320,6 +1383,20 @@ SCModel<T,KEY,COMP>::_set
   _bndvar[id] = X;
   _refvar[id] = Op<T>::mid(X);
   _scalvar[id] = 0.5*Op<T>::diam(X);
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
+void
+SCModel<T,KEY,COMP>::reset
+()
+{
+  reset_aux();
+  _setvar.clear();
+  _bndvar.clear();
+  _refvar.clear();
+  _scalvar.clear();
+  _bernstein_cache.clear();
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -1451,6 +1528,172 @@ const
   }
 }
 
+#if not defined( BOOST_UBLAS_NO_STD_CERR )
+template <typename T, typename KEY, typename COMP>
+template <typename PUNIV>
+inline
+double
+SCModel<T,KEY,COMP>::_minimax
+( PUNIV const& f )
+{
+  // 1. Resize Armadillo Matrices and Vector
+  unsigned const n_points = _maxord + 2;
+  _minimax_ref.resize( n_points );
+  _minimax_mat.resize( n_points, n_points );
+  _minimax_rhs.resize( n_points );
+  _minimax_sol.resize( n_points );
+
+  // 2. Initialize Reference Set
+  for( unsigned i=0; i<n_points; ++i )
+    _minimax_ref(i) = -std::cos( PI * double(i) / double(n_points-1) );
+
+  _coefuniv.assign( _maxord+1, 0.0 );
+  double cur_err = 0.0;
+  double max_abs_err = 0.0;
+
+  // Clenshaw recurrence lambda
+  auto eval_chebyshev = [&](double x) -> double {
+    if( _maxord == 0 ) return _coefuniv[0];
+    if( _maxord == 1 ) return _coefuniv[0] + _coefuniv[1]*x;
+    
+    double b_k, b_kp1 = 0.0, b_kp2 = 0.0;
+    double x2 = 2.0 * x;
+    
+    for( int k=_maxord; k>=1; --k ){
+        b_k = _coefuniv[k] + x2 * b_kp1 - b_kp2;
+        b_kp2 = b_kp1;
+        b_kp1 = b_k;
+    }
+    return _coefuniv[0] + x * b_kp1 - b_kp2;
+  };
+
+  for( unsigned iter=0; iter < options.REMEZ_MAXIT; ++iter ){
+
+    // 3. Build Linear System
+    for( unsigned i=0; i<n_points; ++i ){
+      double const x = _minimax_ref(i);
+      _minimax_rhs(i) = f(x);
+
+      _minimax_mat(i, 0) = 1.0;
+      if( _maxord >= 1 ) _minimax_mat(i, 1) = x;
+      for( unsigned j=2; j<=_maxord; ++j )
+        _minimax_mat(i, j) = 2.0 * x * _minimax_mat(i, j-1) - _minimax_mat(i, j-2);
+
+      _minimax_mat(i, n_points - 1) = ( i % 2 == 0 ) ? 1.0 : -1.0;
+    }
+
+    // 4. Solve System
+    try{
+      _minimax_sol = arma::solve( _minimax_mat, _minimax_rhs );
+      for( unsigned j=0; j<=_maxord; ++j ) _coefuniv[j] = _minimax_sol(j);
+      cur_err = _minimax_sol(n_points - 1);
+    } 
+    catch(...){
+      // Solver failed (singularity). Fallback to standard Chebyshev Interpolation.
+      // _chebinterp populates the member _coefuniv directly with valid coefficients.
+      unsigned nord = n_points;
+      double const tol = options.INTERP_THRES;
+      _chebinterp( f, tol, nord );
+      max_abs_err = 2*tol;
+      for( unsigned i=_maxord+1; i<=nord; i++ )
+        max_abs_err += std::fabs( _coefuniv[i] );
+      // Exit the Remez loop
+      break;
+    }
+
+    // 5. Grid Search for Global Max Error
+    unsigned const n_grid = 20 * _maxord + 200; 
+    double const grid_step = 2.0 / double(n_grid);
+    
+    max_abs_err = 0.0;
+    double x_at_max = 0.0;
+
+    for( unsigned k=0; k<=n_grid; ++k ){
+      double const x = -1.0 + double(k) * grid_step;
+      double const poly_val = eval_chebyshev(x);
+      double const err = f(x) - poly_val;
+      
+      if( std::abs(err) > max_abs_err ){
+        max_abs_err = std::abs(err);
+        x_at_max = x;
+      }
+    }
+
+    // 6. Convergence Check
+    if( std::abs(max_abs_err - std::abs(cur_err)) < options.REMEZ_TOL )
+      break;
+
+    // 7. Robust Exchange Step
+    std::vector<double> points;
+    points.reserve( n_points + 1 );
+    for( unsigned i=0; i<n_points; ++i ) points.push_back( _minimax_ref(i) );
+    
+    // Check for stagnation
+    bool duplicate = false;
+    for( double p : points ) 
+        if( std::abs(p - x_at_max) < 1e-14 ) { duplicate = true; break; }
+    if( duplicate ) break;
+
+    points.push_back( x_at_max );
+    std::sort( points.begin(), points.end() );
+
+    std::vector<double> errs( points.size() );
+    for( size_t i=0; i<points.size(); ++i ){
+       errs[i] = f(points[i]) - eval_chebyshev(points[i]);
+    }
+
+    int remove_idx = -1;
+    for( unsigned i=0; i<n_points; ++i ){
+      double const s1 = ( errs[i] > 0.0 ) ? 1.0 : -1.0;
+      double const s2 = ( errs[i+1] > 0.0 ) ? 1.0 : -1.0;
+      if( s1 == s2 ){
+        remove_idx = ( std::abs(errs[i]) < std::abs(errs[i+1]) ) ? i : i+1;
+        break;
+      }
+    }
+
+    if( remove_idx == -1 )
+       remove_idx = ( std::abs(errs[0]) < std::abs(errs[n_points]) ) ? 0 : n_points;
+
+    int cnt = 0;
+    for( int i=0; i<int(n_points+1); ++i ){
+      if( i == remove_idx ) continue;
+      _minimax_ref(cnt++) = points[i];
+    }
+  }
+
+  // 8. Output Basis Conversion
+  _coefuniv.resize( _maxord+1 );
+  
+  if( options.BASIS != Options::CHEB ){
+    // Convert Chebyshev -> Monomial basis 
+    arma::vec y_vals( _maxord+1 );
+    arma::mat V( _maxord+1, _maxord+1 );
+      
+    for( unsigned i=0; i<=_maxord; ++i ){
+      double const x = std::cos( PI * double(i) / double(_maxord) );
+      y_vals(i) = eval_chebyshev(x);
+
+      double xp = 1.0;
+      for( unsigned j=0; j<=_maxord; ++j ){
+        V(i, j) = xp;
+        xp *= x;
+      }
+    }
+      
+    try{
+      arma::vec c_mon = arma::solve( V, y_vals );
+      for( unsigned j=0; j<=_maxord; ++j ) _coefuniv[j] = c_mon(j);
+    }
+    catch(...) {
+      _coefuniv.assign( _maxord+1, 0.0 );
+    }
+  }
+
+  return max_abs_err;
+}
+
+#else
 template <typename T, typename KEY, typename COMP>
 template <typename PUNIV>
 inline
@@ -1471,6 +1714,9 @@ SCModel<T,KEY,COMP>::_minimax
 #endif
     if( problem.max_change() < options.REMEZ_TOL ) break;
   }
+#ifdef MC__SCMODEL_DEBUG_MINIMAX
+  std::cout << arma::vec( problem.numerator().data() ).t();
+#endif
 
   switch( options.BASIS ){
   case Options::CHEB:
@@ -1480,8 +1726,12 @@ SCModel<T,KEY,COMP>::_minimax
     _coefuniv = problem.numerator().data();
     break;
   }
+#ifdef MC__SCMODEL_DEBUG_MINIMAX
+  std::cout << arma::vec( _coefuniv ).t();
+#endif
   return problem.max_error();
 }
+#endif
 
 template <typename T, typename KEY, typename COMP>
 template <typename VEC>
@@ -1894,7 +2144,7 @@ const
     if( mon0.tord + ndxord > _maxord ){ // append to remainder coefficient if total order too large
       switch( options.BASIS ){
         case Options::CHEB:  rem += (coef0*dscal)*TOne; continue;
-        case Options::MONOM: rem += (coef0*dscal)*(ndxord%2 || mon0.gcexp()%2? TOne: TZerOne); continue;
+        case Options::MONOM: rem += (coef0*dscal)*(ndxord%2 || mon0.gcexp()%2? TOne: TZeroOne); continue;
       }
     }
     auto mon = mon0; // local copy for modification
@@ -1919,7 +2169,7 @@ const
   for( auto const& [mon0,coef0] : coefmon0 )
     switch( options.BASIS ){
       case Options::CHEB:  rem += (coef0*dscal)*TOne; continue;
-      case Options::MONOM: rem += (coef0*dscal)*(ndxord%2 || mon0.gcexp()%2? TOne: TZerOne); continue;
+      case Options::MONOM: rem += (coef0*dscal)*(ndxord%2 || mon0.gcexp()%2? TOne: TZeroOne); continue;
     }
 }
 
@@ -2118,6 +2368,198 @@ const
 }
 
 template <typename T, typename KEY, typename COMP>
+template <typename C>
+inline
+std::pair< std::map<typename SCModel<T,KEY,COMP>::t_mon, C, typename SCModel<T,KEY,COMP>::lt_mon>, std::map<KEY, unsigned, COMP> >
+SCModel<T,KEY,COMP>::to_bernstein
+( std::map<t_mon,C,lt_mon> const& coefmon, unsigned const ORDER )
+const
+{
+  // Create copy of monomial-coefficient map
+  std::map<t_mon, C, lt_mon> coefbern = coefmon;
+  std::map<KEY, unsigned, COMP> degreemax;
+  if( coefbern.empty() ) return std::make_pair( coefbern, degreemax );
+
+  // 1. Determine maximum degree for each variable in the polynomial
+  for( auto const& term : coefbern )
+    for( auto const& factor : term.first.expr )
+      if( factor.second > degreemax[factor.first] )
+        degreemax[factor.first] = factor.second;
+
+  // Elevate degree from n to n+1
+  auto elevate_one_degree = []( arma::vec const& src ) -> arma::vec
+  {
+    unsigned n = src.n_elem - 1;
+    arma::vec dest( n+2, arma::fill::zeros );
+        
+    // dest[i] = i/(n+1) * src[i-1] + (n+1-i)/(n+1) * src[i]
+    // We vectorise this using Armadillo element-wise operations
+    arma::vec idx = arma::regspace( 0, n+1 );     // 0, 1, ..., n+1
+    arma::vec alpha = idx / (double)(n+1);        // weights
+
+    // Contribution from src[i] (right term)
+    // Indices 0 to n in dest get (1-alpha) * src
+    dest.head(n+1) += (1.0 - alpha.head(n+1)) % src;
+
+    // Contribution from src[i-1] (left term)
+    // Indices 1 to n+1 in dest get alpha * src
+    dest.tail(n+1) += alpha.tail(n+1) % src;
+
+    return dest;
+  };
+
+  // Elevate recursively from src.size()-1 to target_N
+  auto elevate_to_target = [&]( arma::vec const& src, unsigned target_N ) -> arma::vec
+  {
+    arma::vec dest = src;
+    while( dest.n_elem < target_N + 1 )
+      dest = elevate_one_degree( dest );
+    return dest;
+  };
+
+  // Multiply Bernstein polynomial P(u) by x = 2u-1
+  // Used for Chebyshev recurrence: T_k = 2x T_{k-1} - T_{k-2}
+  auto mult_by_2u_minus_1 = []( arma::vec const& src ) -> arma::vec
+  {
+    unsigned n = src.n_elem - 1;
+    arma::vec dest( n+2, arma::fill::zeros );
+        
+    // Formula: coeff of B_{n+1, k} is:
+    // P[k-1] * k/(n+1)  -  P[k] * (n+1-k)/(n+1)
+        
+    // Vectorised calculation of term 1 (shifted right)
+    arma::vec reg1  = arma::regspace( 1, n+1 );
+    arma::vec term1 = src % (reg1 / (double)(n+1));
+    dest.tail(n+1) += term1;
+
+    // Vectorised calculation of term 2 (in place)
+    arma::vec reg2  = arma::regspace(0, n);
+    arma::vec term2 = src % ((n+1 - reg2) / (double)(n+1));
+    dest.head(n+1) -= term2;
+
+    return dest;
+  };
+
+  // 2. Prepare basis vectors (with caching)
+  std::map<KEY, std::vector<arma::vec>, COMP> basis_map;
+
+  for( auto& [var, max_deg] : degreemax ){
+    unsigned target_deg = (ORDER>max_deg? ORDER: max_deg);
+    basis_map[var].resize( max_deg + 1 );
+
+    // Access persistent cache for this variable
+    auto& var_cache = _bernstein_cache[var];
+
+    // Ensure cache is populated up to max_deg
+    if( var_cache.size() <= max_deg ){
+      unsigned start_deg = var_cache.size();
+      var_cache.resize( max_deg + 1 );
+
+      // Initial conditions
+      if( start_deg == 0 ) var_cache[0] = arma::vec( {1.0} );
+
+      switch( options.BASIS ){
+        // Chebyshev basis representation
+        case Options::CHEB:
+          // Chebyshev Recurrence
+          if( start_deg <= 1 && max_deg >= 1 )
+            var_cache[1] = arma::vec( {-1.0, 1.0} ); // 2u-1
+          for( unsigned k = std::max( start_deg, 2u ); k <= max_deg; ++k ){
+            // T_k = 2(2u-1)T_{k-1} - T_{k-2}
+            arma::vec term1 = mult_by_2u_minus_1( var_cache[k-1] ) * 2.0;
+            // Elevate T_{k-2} (deg k-2) to deg k to subtract
+            arma::vec term2 = elevate_to_target( var_cache[k-2], k ); 
+            var_cache[k] = term1 - term2;
+          }
+          break;
+	
+        // Monomial basis representation
+        case Options::MONOM:
+          // Monomial Recurrence: M_k = (2u-1) M_{k-1}
+          if( start_deg <= 1 && max_deg >= 1 )
+            var_cache[1] = arma::vec( {-1.0, 1.0} );
+          for( unsigned k = std::max( start_deg, 2u ); k <= max_deg; ++k ){
+            var_cache[k] = mult_by_2u_minus_1( var_cache[k-1] );
+          }
+      }
+    }
+
+    // Elevate cached natural basis vectors to the specific target degree required for this bound
+    for( unsigned k=0; k<=max_deg; ++k ){
+      basis_map[var][k] = elevate_to_target( var_cache[k], target_deg );
+    }
+    
+    // Update max_deg to account for elevation
+    max_deg = target_deg;
+  }
+
+  // 3. Tensor Product Expansion using Sparse Map
+  // We iterate variable by variable to expand the coefficients
+  for( auto const& [var_id, max_deg] : degreemax ){
+    std::map<t_mon, C, lt_mon> coefnext;
+    auto const& basis_var = basis_map[var_id];
+
+    for( auto const& [mon, val] : coefbern ) {
+      // Get degree of current variable in this monomial
+      unsigned k = 0;
+      auto it_deg = mon.expr.find(var_id);
+      if( it_deg != mon.expr.end() ) k = it_deg->second;
+
+      // Armadillo vector of coefficients for this basis function
+      arma::vec const& b_poly = basis_var[k];
+
+      // Distribute value
+      for( unsigned j=0; j<b_poly.n_elem; ++j ) {
+        if( b_poly[j] == 0.0 ) continue;
+
+        t_mon new_mon = mon;
+        new_mon.expr[var_id] = j; // This now represents Bernstein index, not degree
+        new_mon.tord = mon.tord - k + j; // Update total order heuristic
+
+        // Efficient map insertion/update
+        auto [it,ins] = coefnext.insert( std::make_pair( new_mon, val * b_poly[j] ) );
+        if( !ins ) it->second += val * b_poly[j];
+      }
+    }
+    coefbern = std::move( coefnext );
+  }
+
+  return std::make_pair( coefbern, degreemax );
+}
+
+template <typename T, typename KEY, typename COMP>
+template <typename C, typename U>
+inline U SCModel<T,KEY,COMP>::_polybound_bernstein
+( std::map<t_mon,C,lt_mon> const& coefmon, 
+  std::map<KEY,std::vector<U>,COMP> const& bndbasis )
+const
+{
+  // Constant or linear model
+  if( coefmon.empty() || coefmon.rbegin()->first.tord < 2 )
+    return _polybound_naive( coefmon, bndbasis );
+
+  // Transfom to Bernstein basis
+  auto const& [coefbern, degreemax] = to_bernstein( coefmon, options.BERNSTEIN_ORDER );
+
+  // Compute Berstein coefficient hull
+  bool first = true;
+  U bound_hull(0.);
+
+  for( auto const& term : coefbern ) {
+    // term.second is type C (double or Interval), implicitly convertible to U
+    if( first ){
+      bound_hull = U(term.second);
+      first = false;
+    }
+    else{
+      bound_hull = Op<U>::hull( bound_hull, U(term.second) );
+    }
+  }
+
+  return bound_hull;
+}
+
+template <typename T, typename KEY, typename COMP>
 template <typename C, typename U>
 inline
 U
@@ -2172,12 +2614,12 @@ const
           coeflin.erase( it1 );
         }
         else if( it1 != coeflin.end() ){
-          bndpol += it2->second * ( !bndbasis.empty()? bndbasis.at(ie2->first)[2]: TZerOne )
+          bndpol += it2->second * ( !bndbasis.empty()? bndbasis.at(ie2->first)[2]: TZeroOne )
                   + it1->second * ( !bndbasis.empty()? bndbasis.at(ie2->first)[1]: TOne );
            coeflin.erase( it1 );
         }
         else
-          bndpol += it2->second * ( !bndbasis.empty()? bndbasis.at(ie2->first)[2]: TZerOne );
+          bndpol += it2->second * ( !bndbasis.empty()? bndbasis.at(ie2->first)[2]: TZeroOne );
         break;
     }
   }
@@ -2224,7 +2666,7 @@ const
         T bndpol = 0.;
         if( !it->first.tord ){ bndpol = it->second; ++it; }
         for( ; it!=coefmon.end(); ++it )
-          bndpol += it->second * (it->first.gcexp()%2? TOne: TZerOne);
+          bndpol += it->second * (it->first.gcexp()%2? TOne: TZeroOne);
         return bndpol;
       }
     }
@@ -2256,6 +2698,8 @@ const
     return _polybound_LSB( coefmon, bndbasis );
   case Options::NAIVE: default:
     return _polybound_naive( coefmon, bndbasis );
+  case Options::BERNSTEIN:
+    return _polybound_bernstein( coefmon, bndbasis );
   }
 }
 
@@ -2271,7 +2715,7 @@ const
     case Options::CHEB:
       return TOne;
     case Options::MONOM: default:
-      return (mon.gcexp()%2? TOne: TZerOne);
+      return (mon.gcexp()%2? TOne: TZeroOne);
   }
 }
 
@@ -2441,6 +2885,7 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>::SCVar
 ( SCVar<T,KEY,COMP> const& CV )
+: _CM( nullptr )
 {
 #ifdef MC__SCMODEL_TRACE
     std::cerr << "-- SCVar<T,KEY,COMP>( SCVar<T,KEY,COMP> const& )\n";
@@ -2488,12 +2933,13 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>::SCVar
 ( SCVar<T,KEY,COMP> && CV )
+: _CM( nullptr )
 {
 #ifdef MC__SCMODEL_TRACE
     std::cerr << "-- SCVar<T,KEY,COMP>( SCVar<T,KEY,COMP> && )\n";
 #endif
   _init();
-  _set( CV );
+  _set( std::move(CV) );
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -2505,7 +2951,7 @@ SCVar<T,KEY,COMP>::operator=
 #ifdef MC__SCMODEL_TRACE
     std::cerr << "-- SCVar<T,KEY,COMP>& operator= ( SCVar<T,KEY,COMP> && )\n";
 #endif
-  _set( CV );
+  _set( std::move(CV) );
   return *this;
 }
 
@@ -2767,7 +3213,7 @@ SCVar<T,KEY,COMP>::scale
 {
   // Return *this if null pointer to model _CM or variable ranges X
   if( dom.empty() || !_CM ) return *this;
-  for( auto const& id : _ndxvar ) scale( id, dom[id] );
+  for( auto const& id : _ndxvar ) scale( id, dom.at(id) );
   if( _CM && _CM->options.MIG_USE ) simplify( _CM->options.MIG_ATOL, _CM->options.MIG_RTOL );
   return *this;
 }
@@ -2777,12 +3223,13 @@ inline
 typename SCVar<T,KEY,COMP>::t_poly
 SCVar<T,KEY,COMP>::unscale
 ()
-const
 {
   // Return *this if null pointer to model _CM or variable ranges X
   if( !_CM ) return _coefmon;
   t_poly coefmon = _coefmon;
-  for( auto const& id : _ndxvar ) _scale( id, T(-1,1), coefmon );
+  for( auto itvar = _ndxvar.begin(); itvar != _ndxvar.end(); ++itvar )
+    _scale( itvar, T(-1,1), coefmon );
+  //for( auto const& id : _ndxvar ) _scale( id, T(-1,1), coefmon );
   if( _CM && _CM->options.MIG_USE ) simplify( _CM->options.MIG_ATOL, _CM->options.MIG_RTOL );
   return coefmon;
 }
@@ -2794,13 +3241,13 @@ SCVar<T,KEY,COMP>::lift
 ( SCModel<T,KEY,COMP>* SCM, double const& ATOL, double const& RTOL )
 {
   double const remrad = 0.5*Op<T>::diam(_bndrem);
-//#ifdef MC__SCMODEL_DEBUG_LIFT
+#ifdef MC__SCMODEL_DEBUG_LIFT
   if( Op<T>::abs(_polybound()) < 1e-10 )
     std::cout << "polybound magnitude is: " << _polybound() << std::endl;
   std::cout << remrad << " < " << 0.5*RTOL*Op<T>::diam(_polybound()) + ATOL << " : "
             << ( remrad < 0.5*RTOL*Op<T>::diam(_polybound()) + ATOL ) << std::endl;
-//#endif
-  if( !_CM->_maxord || ( remrad < 0.5*RTOL*Op<T>::diam(_polybound()) + ATOL + machprec() ) ) return *this;
+#endif
+  if( !_CM->_maxord || ( remrad < 0.5*RTOL*Op<T>::diam(_polybound()) + ATOL + DBL_EPSILON ) ) return *this;
   _center();
 
   // Add auxiliary variable
@@ -2831,9 +3278,9 @@ SCVar<T,KEY,COMP>::project
     for( auto const& aux : _CM->_setaux ){
       auto itaux = mon.expr.find( aux );
       if( itaux == mon.expr.end() ) continue;
-      monaux += smon( itaux->first, itaux->second );
+      monaux += t_mon( itaux->first, itaux->second );
     }
-    if( monaux.empty() ){ ++it; continue; }
+    if( monaux.expr.empty() ){ ++it; continue; }
 
     // Insert reduced monomial
     t_mon const monred = mon - monaux;
@@ -2872,7 +3319,7 @@ SCVar<T,KEY,COMP>::project
     // Detect auxiliary variable in monomial
     auto itaux = mon.expr.find( id );
     if( itaux == mon.expr.end() ){ ++it; continue; }
-    t_mon const monaux = smon( itaux->first, itaux->second );
+    t_mon const monaux( itaux->first, itaux->second );
 
     // Insert reduced monomial
     t_mon const monred = mon - monaux;
@@ -3105,13 +3552,47 @@ const
 
 template <typename T, typename KEY, typename COMP>
 inline
+std::pair< typename SCVar<T,KEY,COMP>::t_poly, std::map<KEY,unsigned,COMP> >
+SCVar<T,KEY,COMP>::to_bernstein
+( unsigned const ORDER )
+const
+{
+  if( !_CM || _coefmon.empty() || !nord() )
+    return std::make_pair( _coefmon, std::map<KEY,unsigned,COMP>() );
+  return _CM->to_bernstein( _coefmon, ORDER );
+}
+
+template <typename T, typename KEY, typename COMP>
+inline T SCVar<T,KEY,COMP>::bound_bernstein
+( t_poly const& coefbern )
+const
+{
+  // Compute Berstein coefficient hull
+  bool first = true;
+  T bound_hull(0.);
+
+  for( auto const& term : coefbern ) {
+    // term.second is type C (double or Interval), implicitly convertible to U
+    if( first ){
+      bound_hull = T(term.second);
+      first = false;
+    }
+    else{
+      bound_hull = Op<T>::hull( bound_hull, T(term.second) );
+    }
+  }
+
+  return( bound_hull + _bndrem );
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
 std::string
 SCVar<T,KEY,COMP>::display
 ( t_poly coefmon, int const& BASIS, int const& IDISP )
-const
 {
   std::ostringstream out;
-  out << std::endl << std::scientific << std::setprecision(IDISP) ;
+  out << std::endl << std::scientific << std::setprecision(IDISP);
 
   // Sparse multivariate polynomial
   for( auto const& [mon,coef] : coefmon )
@@ -3209,49 +3690,37 @@ operator+
 {
   if( CV1.nmon() >= CV2.nmon() ){
     SCVar<T,KEY,COMP> CV3( CV1 );
-    CV3 += CV2;
-    return CV3;
+    return( CV3 += CV2 );
   }
   
   SCVar<T,KEY,COMP> CV3( CV2 );
-  CV3 += CV1;
-  return CV3;
+  return( CV3 += CV1 );
 }
 
 template <typename T, typename KEY, typename COMP>
-inline SCVar<T,KEY,COMP>
+inline SCVar<T,KEY,COMP> &&
 operator+
 ( SCVar<T,KEY,COMP> && CV1, SCVar<T,KEY,COMP> const& CV2 )
 {
-    SCVar<T,KEY,COMP> CV3( std::move( CV1 ) );
-    CV3 += CV2;
-    return CV3;
+  return( std::move( CV1 += CV2 ) );
 }
 
 template <typename T, typename KEY, typename COMP>
-inline SCVar<T,KEY,COMP>
+inline SCVar<T,KEY,COMP> &&
 operator+
 ( SCVar<T,KEY,COMP> const& CV1, SCVar<T,KEY,COMP> && CV2 )
 {
-    SCVar<T,KEY,COMP> CV3( std::move( CV2 ) );
-    CV3 += CV1;
-    return CV3;
+  return( std::move( CV2 += CV1 ) );
 }
 
 template <typename T, typename KEY, typename COMP>
-inline SCVar<T,KEY,COMP>
+inline SCVar<T,KEY,COMP> &&
 operator+
 ( SCVar<T,KEY,COMP> && CV1, SCVar<T,KEY,COMP> && CV2 )
 {
-  if( CV1.nmon() >= CV2.nmon() ){
-    SCVar<T,KEY,COMP> CV3( std::move( CV1 ) );
-    CV3 += CV2;
-    return CV3;
-  }
-  
-  SCVar<T,KEY,COMP> CV3( std::move( CV2 ) );
-  CV3 += CV1;
-  return CV3;
+  return( CV1.nmon() >= CV2.nmon() ?
+          std::move( CV1 += CV2 ):
+          std::move( CV2 += CV1 ) );
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -3281,8 +3750,7 @@ operator+
 ( SCVar<T,KEY,COMP> const& CV1, double const& c )
 {
   SCVar<T,KEY,COMP> CV3( CV1 );
-  CV3 += c;
-  return CV3;
+  return( CV3 += c );
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -3292,30 +3760,25 @@ operator+
 ( double const& c, SCVar<T,KEY,COMP> const& CV2 )
 {
   SCVar<T,KEY,COMP> CV3( CV2 );
-  CV3 += c;
-  return CV3;
+  return( CV3 += c );
 }
 
 template <typename T, typename KEY, typename COMP>
 inline
-SCVar<T,KEY,COMP>
+SCVar<T,KEY,COMP> &&
 operator+
 ( SCVar<T,KEY,COMP> && CV1, double const& c )
 {
-  SCVar<T,KEY,COMP> CV3( std::move( CV1 ) );
-  CV3 += c;
-  return CV3;
+  return( std::move( CV1 += c ) );
 }
 
 template <typename T, typename KEY, typename COMP>
 inline
-SCVar<T,KEY,COMP>
+SCVar<T,KEY,COMP> &&
 operator+
 ( double const& c, SCVar<T,KEY,COMP> && CV2 )
 {
-  SCVar<T,KEY,COMP> CV3( std::move( CV2 ) );
-  CV3 += c;
-  return CV3;
+  return( std::move( CV2 += c ) );
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -3342,8 +3805,7 @@ operator+
 ( SCVar<T,KEY,COMP> const& CV1, T const& B )
 {
   SCVar<T,KEY,COMP> CV3( CV1 );
-  CV3 += B;
-  return CV3;
+  return( CV3 += B );
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -3353,30 +3815,44 @@ operator+
 ( T const& B, SCVar<T,KEY,COMP> const& CV2 )
 {
   SCVar<T,KEY,COMP> CV3( CV2 );
-  CV3 += B;
-  return CV3;
+  return( CV3 += B );
 }
 
 template <typename T, typename KEY, typename COMP>
 inline
-SCVar<T,KEY,COMP>
+SCVar<T,KEY,COMP> &&
 operator+
 ( SCVar<T,KEY,COMP> && CV1, T const& B )
 {
-  SCVar<T,KEY,COMP> CV3( std::move( CV1 ) );
-  CV3 += B;
-  return CV3;
+  return( std::move( CV1 += B ) );
 }
 
 template <typename T, typename KEY, typename COMP>
 inline
-SCVar<T,KEY,COMP>
+SCVar<T,KEY,COMP> &&
 operator+
 ( T const& B, SCVar<T,KEY,COMP> && CV2 )
 {
-  SCVar<T,KEY,COMP> CV3( std::move( CV2 ) );
-  CV3 += B;
-  return CV3;
+  return( std::move( CV2 += B ) );
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
+SCVar<T,KEY,COMP>&
+SCVar<T,KEY,COMP>::neg
+()
+{
+#ifdef MC__SCMODEL_TRACE
+  std::cerr << "-- SCVar<T,KEY,COMP> neg()\n";
+#endif
+
+  for( auto& [mon,coef] : _coefmon )
+    coef *= -1;
+  _bndrem *= -1;
+
+  if( _bndpol ) *_bndpol = - *_bndpol;
+  if( _bndT )   *_bndT   = - *_bndT;
+  return *this;
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -3385,37 +3861,17 @@ SCVar<T,KEY,COMP>
 operator-
 ( SCVar<T,KEY,COMP> const& CV )
 {
-#ifdef MC__SCMODEL_TRACE
-    std::cerr << "-- SCVar<T,KEY,COMP> operator- ( SCVar<T,KEY,COMP> const& )\n";
-#endif
-  SCVar<T,KEY,COMP> CV2;
-  CV2.set( CV._CM );
-  CV2._ndxvar = CV._ndxvar;
-  for( auto& [mon,coef] : CV._coefmon )
-    CV2._coefmon.insert( std::make_pair( mon, -coef ) );
-  CV2._bndrem = - CV._bndrem;
-
-  if( CV._bndpol ) CV2._set_bndpol( - *CV._bndpol );
-  if( CV._bndT )   CV2._set_bndT( - *CV._bndT );
-  return CV2;
+  SCVar<T,KEY,COMP> CV2( CV );
+  return( CV2.neg() );
 }
 
 template <typename T, typename KEY, typename COMP>
 inline
-SCVar<T,KEY,COMP>
+SCVar<T,KEY,COMP> &&
 operator-
 ( SCVar<T,KEY,COMP> && CV )
 {
-#ifdef MC__SCMODEL_TRACE
-    std::cerr << "-- SCVar<T,KEY,COMP> operator- ( SCVar<T,KEY,COMP>&& )\n";
-#endif
-  for( auto& [mon,coef] : CV._coefmon )
-    coef = - coef;
-  CV._bndrem = - CV._bndrem;
-
-  if( CV._bndpol ) *CV._bndpol = - *CV._bndpol;
-  if( CV._bndT )   *CV._bndT   = - *CV._bndT;
-  return SCVar<T,KEY,COMP>( std::move( CV ) );
+  return( std::move( CV.neg() ) );
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -3456,51 +3912,37 @@ operator-
 {
   if( CV1.nmon() >= CV2.nmon() ){
     SCVar<T,KEY,COMP> CV3( CV1 );
-    CV3 -= CV2;
-    return CV3;
+    return( CV3 -= CV2 );
   }
 
   SCVar<T,KEY,COMP> CV3( -CV2 );
-  CV3 += CV1;
-  return CV3;
+  return( CV3 += CV1 );
 }
 
 template <typename T, typename KEY, typename COMP>
-inline SCVar<T,KEY,COMP>
+inline SCVar<T,KEY,COMP> &&
 operator-
 ( SCVar<T,KEY,COMP> && CV1, SCVar<T,KEY,COMP> const& CV2 )
 {
-    SCVar<T,KEY,COMP> CV3( std::move( CV1 ) );
-    CV3 -= CV2;
-    return CV3;
+  return( std::move( CV1 -= CV2 ) );
 }
 
 template <typename T, typename KEY, typename COMP>
-inline SCVar<T,KEY,COMP>
+inline SCVar<T,KEY,COMP> &&
 operator-
 ( SCVar<T,KEY,COMP> const& CV1, SCVar<T,KEY,COMP> && CV2 )
 {
-    SCVar<T,KEY,COMP> CV3( -CV2 );
-    //SCVar<T,KEY,COMP> CV3( std::move( -CV2 ) );
-    CV3 += CV1;
-    return CV3;
+  return( std::move( CV2.neg() += CV1 ) );
 }
 
 template <typename T, typename KEY, typename COMP>
-inline SCVar<T,KEY,COMP>
+inline SCVar<T,KEY,COMP> &&
 operator-
 ( SCVar<T,KEY,COMP> && CV1, SCVar<T,KEY,COMP> && CV2 )
 {
-  if( CV1.nmon() >= CV2.nmon() ){
-    SCVar<T,KEY,COMP> CV3( std::move( CV1 ) );
-    CV3 -= CV2;
-    return CV3;
-  }
-  
-  SCVar<T,KEY,COMP> CV3( -CV2 );
-  //SCVar<T,KEY,COMP> CV3( std::move( -CV2 ) );
-  CV3 += CV1;
-  return CV3;
+  return( CV1.nmon() >= CV2.nmon() ?
+          std::move( CV1 -= CV2 ):
+          std::move( CV2.neg() += CV1 ) );
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -3530,8 +3972,7 @@ operator-
 ( SCVar<T,KEY,COMP> const& CV1, double const& c )
 {
   SCVar<T,KEY,COMP> CV3( CV1 );
-  CV3 -= c;
-  return CV3;
+  return( CV3 -= c );
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -3540,32 +3981,26 @@ SCVar<T,KEY,COMP>
 operator-
 ( double const& c, SCVar<T,KEY,COMP> const& CV2 )
 {
-  SCVar<T,KEY,COMP> CV3( -CV2 );
-  CV3 += c;
-  return CV3;
+  SCVar<T,KEY,COMP> CV3( CV2 );
+  return( CV3.neg() += c );
 }
 
 template <typename T, typename KEY, typename COMP>
 inline
-SCVar<T,KEY,COMP>
+SCVar<T,KEY,COMP> &&
 operator-
 ( SCVar<T,KEY,COMP> && CV1, double const& c )
 {
-  SCVar<T,KEY,COMP> CV3( std::move( CV1 ) );
-  CV3 -= c;
-  return CV3;
+  return( std::move( CV1 -= c ) );
 }
 
 template <typename T, typename KEY, typename COMP>
 inline
-SCVar<T,KEY,COMP>
+SCVar<T,KEY,COMP> &&
 operator-
 ( double const& c, SCVar<T,KEY,COMP> && CV2 )
 {
-  SCVar<T,KEY,COMP> CV3( -CV2 );
-  //SCVar<T,KEY,COMP> CV3( std::move( -CV2 ) );
-  CV3 += c;
-  return CV3;
+  return( std::move( CV2.neg() += c ) );
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -3573,13 +4008,13 @@ template <typename U>
 inline
 SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::operator-=
-( U const& I )
+( U const& B )
 {
 #ifdef MC__SCMODEL_TRACE
     std::cerr << "-- SCVar<T,KEY,COMP>& operator-= ( U const& )\n";
 #endif
   if( Op<T>::abs(B) == 0. ) return *this;
-  *_bndrem -= B;
+  _bndrem -= B;
   _center();
   if( _bndT ) *_bndT -= B;
   return *this;
@@ -3591,8 +4026,7 @@ operator-
 ( SCVar<T,KEY,COMP> const& CV1, T const& B )
 {
   SCVar<T,KEY,COMP> CV3( CV1 );
-  CV3 -= B;
-  return CV3;
+  return( CV3 -= B );
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -3601,32 +4035,26 @@ SCVar<T,KEY,COMP>
 operator-
 ( T const& B, SCVar<T,KEY,COMP> const& CV2 )
 {
-  SCVar<T,KEY,COMP> CV3( -CV2 );
-  CV3 += B;
-  return CV3;
+  SCVar<T,KEY,COMP> CV3( CV2 );
+  return( CV3.neg() += B );
 }
 
 template <typename T, typename KEY, typename COMP>
 inline
-SCVar<T,KEY,COMP>
+SCVar<T,KEY,COMP> &&
 operator-
 ( SCVar<T,KEY,COMP> && CV1, T const& B )
 {
-  SCVar<T,KEY,COMP> CV3( std::move( CV1 ) );
-  CV3 -= B;
-  return CV3;
+  return( std::move( CV1 -= B ) );
 }
 
 template <typename T, typename KEY, typename COMP>
 inline
-SCVar<T,KEY,COMP>
+SCVar<T,KEY,COMP> &&
 operator-
 ( T const& B, SCVar<T,KEY,COMP> && CV2 )
 {
-  SCVar<T,KEY,COMP> CV3( -CV2 );
-  //SCVar<T,KEY,COMP> CV3( std::move( -CV2 ) );
-  CV3 += B;
-  return CV3;
+  return( std::move( CV2.neg() += B ) );
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -3700,53 +4128,42 @@ SCVar<T,KEY,COMP>
 operator*
 ( SCVar<T,KEY,COMP> const& CV1, SCVar<T,KEY,COMP> const& CV2 )
 {
-  if( &CV1 == &CV2 ) return sqr( CV1 );
-  
   if( CV1.nmon() >= CV2.nmon() ){
     SCVar<T,KEY,COMP> CV3( CV1 );
-    CV3 *= CV2;
-    return CV3;
+    return( CV3 *= CV2 );
   }
 
   SCVar<T,KEY,COMP> CV3( CV2 );
-  CV3 *= CV1;
-  return CV3;
+  return( CV3 *= CV1 );
 }
 
 template <typename T, typename KEY, typename COMP>
-inline SCVar<T,KEY,COMP>
+inline
+SCVar<T,KEY,COMP> &&
 operator*
 ( SCVar<T,KEY,COMP> && CV1, SCVar<T,KEY,COMP> const& CV2 )
 {
-    SCVar<T,KEY,COMP> CV3( std::move( CV1 ) );
-    CV3 *= CV2;
-    return CV3;
+  return std::move( CV1 *= CV2 );
 }
 
 template <typename T, typename KEY, typename COMP>
-inline SCVar<T,KEY,COMP>
+inline
+SCVar<T,KEY,COMP> &&
 operator*
 ( SCVar<T,KEY,COMP> const& CV1, SCVar<T,KEY,COMP> && CV2 )
 {
-    SCVar<T,KEY,COMP> CV3( std::move( CV2 ) );
-    CV3 *= CV1;
-    return CV3;
+  return std::move( CV2 *= CV1 );
 }
 
 template <typename T, typename KEY, typename COMP>
-inline SCVar<T,KEY,COMP>
+inline
+SCVar<T,KEY,COMP> &&
 operator*
 ( SCVar<T,KEY,COMP> && CV1, SCVar<T,KEY,COMP> && CV2 )
 {
-  if( CV1.nmon() >= CV2.nmon() ){
-    SCVar<T,KEY,COMP> CV3( std::move( CV1 ) );
-    CV3 *= CV2;
-    return CV3;
-  }
-  
-  SCVar<T,KEY,COMP> CV3( std::move( CV2 ) );
-  CV3 *= CV1;
-  return CV3;
+  return( CV1.nmon() >= CV2.nmon() ?
+          std::move( CV1 *= CV2 ) :
+          std::move( CV2 *= CV1 ) );
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -3791,24 +4208,20 @@ operator*
 
 template <typename T, typename KEY, typename COMP>
 inline
-SCVar<T,KEY,COMP>
+SCVar<T,KEY,COMP> &&
 operator*
 ( SCVar<T,KEY,COMP> && CV1, double const& c )
 {
-  SCVar<T,KEY,COMP> CV3( std::move( CV1 ) );
-  CV3 *= c;
-  return CV3;
+  return( std::move( CV1 *= c ) );
 }
 
 template <typename T, typename KEY, typename COMP>
 inline
-SCVar<T,KEY,COMP>
+SCVar<T,KEY,COMP> &&
 operator*
 ( double const& c, SCVar<T,KEY,COMP> && CV2 )
 {
-  SCVar<T,KEY,COMP> CV3( std::move( CV2 ) );
-  CV3 *= c;
-  return CV3;
+  return( std::move( CV2 *= c ) );
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -3855,13 +4268,11 @@ operator*
 
 template <typename T, typename KEY, typename COMP>
 inline
-SCVar<T,KEY,COMP>
+SCVar<T,KEY,COMP> &&
 operator*
 ( SCVar<T,KEY,COMP> && CV1, T const& B )
 {
-  SCVar<T,KEY,COMP> CV3( std::move( CV1 ) );
-  CV3 *= B;
-  return CV3;
+  return( std::move( CV1 *= B ) );
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -3925,8 +4336,7 @@ SCVar<T,KEY,COMP>&
 SCVar<T,KEY,COMP>::operator/=
 ( SCVar<T,KEY,COMP> const& CV )
 {
-  *this *= inv(CV);
-  return *this;
+  return( *this *= inv( CV ) );
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -3935,7 +4345,7 @@ SCVar<T,KEY,COMP>
 operator/
 ( SCVar<T,KEY,COMP> const& CV1, SCVar<T,KEY,COMP> const& CV2 )
 {
-  return CV1 * inv(CV2);
+  return( CV1 * inv( CV2 ) );
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -3943,15 +4353,7 @@ inline SCVar<T,KEY,COMP>
 operator/
 ( SCVar<T,KEY,COMP> && CV1, SCVar<T,KEY,COMP> const& CV2 )
 {
-  if( CV1.nmon() >= CV2.nmon() ){
-    SCVar<T,KEY,COMP> CV3( std::move( CV1 ) );
-    CV3 /= CV2;
-    return CV3;
-  }
-
-  SCVar<T,KEY,COMP> CV3( inv( CV2 ) );
-  CV3 *= CV1;
-  return CV3;
+  return( std::move( CV1 *= inv( CV2 ) ) );
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -3959,9 +4361,7 @@ inline SCVar<T,KEY,COMP>
 operator/
 ( SCVar<T,KEY,COMP> const& CV1, SCVar<T,KEY,COMP> && CV2 )
 {
-    SCVar<T,KEY,COMP> CV3( inv( CV2 ) );
-    CV3 *= CV1;
-    return CV3;
+  return( CV1 * inv( CV2 ) );
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -3969,15 +4369,7 @@ inline SCVar<T,KEY,COMP>
 operator/
 ( SCVar<T,KEY,COMP> && CV1, SCVar<T,KEY,COMP> && CV2 )
 {
-  if( CV1.nmon() >= CV2.nmon() ){
-    SCVar<T,KEY,COMP> CV3( std::move( CV1 ) );
-    CV3 /= CV2;
-    return CV3;
-  }
-
-  SCVar<T,KEY,COMP> CV3( inv( CV2 ) );
-  CV3 *= CV1;
-  return CV3;
+  return( std::move( CV1 *= inv( CV2 ) ) );
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -3997,12 +4389,10 @@ template <typename T, typename KEY, typename COMP>
 inline
 SCVar<T,KEY,COMP>
 operator/
-( SCVar<T,KEY,COMP> const& CV, double const& c )
+( SCVar<T,KEY,COMP> const& CV1, double const& c )
 {
-  if ( isequal( c, 0. ))
-    throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::DIV );
-  if( c == 1. ) return CV;
-  return CV * (1./c);
+  SCVar<T,KEY,COMP> CV3( CV1 );
+  return( CV3 /= c );
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -4011,9 +4401,7 @@ SCVar<T,KEY,COMP>
 operator/
 ( SCVar<T,KEY,COMP> && CV1, double const& c )
 {
-  SCVar<T,KEY,COMP> CV3( std::move( CV1 ) );
-  CV3 /= c;
-  return CV3;
+  return( std::move( CV1 /= c ) );
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -4104,6 +4492,36 @@ exp
   if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
   if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
   return CV2;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
+SCVar<T,KEY,COMP> &&
+exp
+( SCVar<T,KEY,COMP> && CV )
+{ 
+#ifdef MC__SCMODEL_TRACE
+    std::cerr << "-- SCVar<T,KEY,COMP> && exp( SCVar<T,KEY,COMP> && )\n";
+#endif
+  if( !CV._CM ){
+    CV = Op<T>::exp( CV.B() );
+    return std::move( CV );
+  }
+
+  SCVar<T,KEY,COMP> CV2( CV._CM );
+  auto const& f = [=]( const double& x ){ return std::exp( x ); };
+  if( ( !CV._CM->options.REMEZ_USE
+     || CV._CM->options.REMEZ_MIG > Op<T>::diam(CV.B())
+     || !CV._CM->_minimax( f, CV, CV2 ) )
+     && !CV._CM->_chebinterp( f, CV, CV2, true ) ) // with remainder at bound
+    throw typename SCModel<T,KEY,COMP>::Exceptions( SCModel<T,KEY,COMP>::Exceptions::COMPOSE );
+
+  if( CV._CM->options.MIXED_IA ) CV2._set_bndT( Op<T>::exp( CV.B() ) );
+  if( CV._CM->options.MIG_USE )  CV2.simplify( CV._CM->options.MIG_ATOL, CV._CM->options.MIG_RTOL );
+  if( CV._CM->options.LIFT_USE ) CV2.lift( CV._CM, CV._CM->options.LIFT_ATOL, CV._CM->options.LIFT_RTOL );
+
+  std::swap( CV, CV2 );
+  return std::move( CV );
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -4504,6 +4922,7 @@ tanh
   if( !CV._CM )
     return SCVar<T,KEY,COMP>( Op<T>::tanh( CV.B() ) );
 
+  //std::cout << CV;
   SCVar<T,KEY,COMP> CV2( CV._CM );
   auto const& f = [=]( const double& x ){ return std::tanh( x ); };
   if( ( !CV._CM->options.REMEZ_USE
@@ -4621,7 +5040,7 @@ hull
   // Second operand not associated to SCModel
   else if( !CV2._CM ){
     SCVar<T,KEY,COMP> CVR = CV1.P();
-    return CVR + Op<T>::hull( CV1.R(), CV2._coefmon[0]+CV2._bndrem-CVR.B() );
+    return CVR + Op<T>::hull( CV1.R(), CV2._coefmon.at(0)+CV2._bndrem-CVR.B() );
   }
 
   // SCModel for first and second operands are inconsistent
@@ -4638,7 +5057,7 @@ hull
   CVR = (1.-eta)*CV1C + eta*CV2C + Op<T>::hull( R1C+eta*BCVD, R2C+(eta-1.)*BCVD );
 
   if( CV1._CM->options.MIXED_IA ) CVR._set_bndT( Op<T>::hull( CV1.B(), CV2.B() ) );
-  if( CV1._CM->options.MIG_USE )  CV1.simplify(CV1. _CM->options.MIG_ATOL, CV1._CM->options.MIG_RTOL );
+  if( CV1._CM->options.MIG_USE )  CVR.simplify(CV1._CM->options.MIG_ATOL, CV1._CM->options.MIG_RTOL );
   if( CV1._CM->options.LIFT_USE ) CVR.lift( CV1._CM, CV1._CM->options.LIFT_ATOL, CV1._CM->options.LIFT_RTOL );
   return CVR;
 }

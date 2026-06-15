@@ -1,5 +1,8 @@
 #define PEAK_RELU_40L4       // <-- select test function here
-#undef SAVE_RESULTS    // <-- specify whether to save results to file
+//#define YANLIN_TANH_20L2       // <-- select test function here
+//#define YANLIN_TANH_48L4       // <-- select test function here
+//#define TEST_RELU       // <-- select test function here
+#define SAVE_RESULTS    // <-- specify whether to save results to file
 #undef ANALYSE_RATE    // <-- specify whether to analyse rate of convergence
 #undef ANALYSE_TIME    // <-- specify whether to analyse computational time
 
@@ -32,10 +35,15 @@
 #include "ffmlp.hpp"
 
 typedef mc::McCormick<I> MC;
+
 typedef mc::SupModel<mc::PWCU> PWCSM;
 typedef mc::SupVar<mc::PWCU> PWCSV;
+
 typedef mc::SupModel<mc::PWLU> PWLSM;
 typedef mc::SupVar<mc::PWLU> PWLSV;
+
+typedef mc::SCModel<I> SCM;
+typedef mc::SCVar<I> SCV;
 
 #if defined( TEST_RELU )
 size_t const NX = 2;
@@ -56,11 +64,27 @@ double const X2L = -3., X2U = 3.;
 
 #elif defined( PEAK_RELU_40L4 )
 size_t const NX = 2;
+double const X1L = -1., X1U = 1.;
+double const X2L = -1., X2U = 1.;
+//double const X1L = -3., X1U = 3.;
+//double const X2L = -3., X2U = 3.;
+#include "peak_ReLU_40L4.hpp"
+
+#elif defined( YANLIN_TANH_20L2 )
+size_t const NX = 2;
+double const X1L = -1., X1U = 1.;
+double const X2L = -1., X2U = 1.;
+#include "Yanlin_Tanh_20L2.hpp"
+
+#elif defined( YANLIN_TANH_48L4 )
+size_t const NX = 2;
 //double const X1L = -1., X1U = 1.;
 //double const X2L = -1., X2U = 1.;
-double const X1L = -3., X1U = 3.;
-double const X2L = -3., X2U = 3.;
-#include "peak_ReLU_40L4.hpp"
+double const X1L = -0.3, X1U = 0.3;
+double const X2L =  0.2, X2U = 0.8;
+//double const X1L = 7.4547984786497334e-01, X1U = 1.;
+//double const X2L = 6.1294156950599599e-01, X2U = 1.;
+#include "Yanlin_Tanh_48L4.hpp"
 #endif
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -73,22 +97,32 @@ int main()
     ANN.options.RELU2ABS  = false;
     unsigned l=0;
     for( auto const& layer : MLPCOEF )
+#if defined( YANLIN_TANH_20L2 ) || defined( YANLIN_TANH_48L4 ) || defined( TEST_RELU )
+      ANN.append_data( layer, (++l)<MLPCOEF.size()? ANN.TANH: ANN.LINEAR );
+#else
       ANN.append_data( layer, (++l)<MLPCOEF.size()? ANN.RELU: ANN.LINEAR );
-
+#endif
     // Create DAG
     mc::FFGraph DAG;
     DAG.options.MAXTHREAD = 0;
     std::vector<mc::FFVar> X = DAG.add_vars( NX, "X" );
+
     mc::FFMLP<I> OpMLP;
-    OpMLP.options.RELAX  = { OpMLP.options.AUX }; //PWLS PWCS MC AUX INT
-    OpMLP.options.PWCDIV = 32;
-    OpMLP.options.PWCREL = 1;
+    OpMLP.options.RELAX     = { OpMLP.options.AUX }; //SCM PWLS PWCS MC AUX INT
+    OpMLP.options.SCMODORD  = 3;
+    OpMLP.options.SCBERNORD = 0;
+    OpMLP.options.PWCDIV    = 64;
+    OpMLP.options.PWCREL    = 0;
+    OpMLP.options.PWCSLOPE  = 0;
+    mc::PWCU::options.SLOPEUSE = 2;
     OpMLP.options.PWCSUP.USE_SHADOW = 1;
     OpMLP.options.PWCSHADOW = 1;
-    OpMLP.options.PWLINI = 1;
-    OpMLP.options.PWLREL = 1;
+    OpMLP.options.PWLINI    = 8;
+    OpMLP.options.PWLREL    = 0;
     OpMLP.options.PWLSUP.USE_SHADOW = 1;
     OpMLP.options.PWLSHADOW = 1;
+    mc::PWLU::options.BKPTATOL = mc::PWLU::options.BKPTRTOL = 1e-14;
+    mc::PWLU::options.REDUCEMETH = 0;
     std::vector<mc::FFVar> Y{ OpMLP( 0, X, &ANN, OpMLP.COPY ) };
 
     // Create and display subgraph
@@ -109,7 +143,7 @@ int main()
     DAG.veval( SgY, Y, vDY, X, vDX );
     for( size_t i=0; i<vDX.size(); ++i )
       std::cout << "Y(" << vDX[i][0] << "," << vDX[i][1] << ") = " << vDY[i][0] << std::endl;
-
+/*
     // Differentiate and evaluate DAG
     std::vector<mc::FFVar> dYdX = DAG.FAD( Y, X );
     auto SgdYdX = DAG.subgraph( dYdX );
@@ -121,9 +155,17 @@ int main()
     DAG.eval( SgdYdX, dYdX, DdYdX, X, DX );
     for( unsigned i=0; i<StrdYdX.size(); ++i )
       std::cout << "dYdX[" << i << "](" << DX[0] << "," << DX[1] << ") = " << DdYdX[i] << std::endl;
+*/
+    // Interval range
+    std::vector<I> IX{ I(X1L,X1U), I(X2L,X2U) };
+    
+    // Sparse Chebyhev model
+    SCM scmod( OpMLP.options.SCMODORD );
+    std::vector<SCV> SCX{ SCV( &scmod, 0, IX[0] ), SCV( &scmod, 1, IX[1] ) }, SCY;
+    DAG.eval( SgY, Y, SCY, X, SCX );
+    std::cout << "Y = " << SCY[0] << std::endl;
 
     // McCormick relaxation
-    std::vector<I> IX{ I(X1L,X1U), I(X2L,X2U) };
     std::vector<MC> MCX{ MC( IX[0], DX[0] ), MC( IX[1], DX[1] ) }, MCY;
     DAG.eval( SgY, Y, MCY, X, MCX );
     std::cout << "Y = " << MCY[0] << std::endl;
@@ -152,7 +194,8 @@ int main()
     PWCSM pwcmod( NX );
     pwcmod.options.PROD_METH  = PWCSM::Options::PARTIAL;//FULL;//LOG;//NONE;
     pwcmod.options.PROD_CUT   = 0;
-    pwcmod.options.USE_SHADOW = 0;//OpMLP.options.PWCSHADOW;
+    pwcmod.options.USE_SHADOW = 1;//OpMLP.options.PWCSHADOW;
+    //pwcmod.options.USE_SLOPE  = 1;//OpMLP.options.PWCSLOPE;
     std::vector<PWCSV> PWCSVX{ PWCSV( pwcmod, 0, I(X1L,X1U), OpMLP.options.PWCDIV ),
                                PWCSV( pwcmod, 1, I(X2L,X2U), OpMLP.options.PWCDIV ) }, PWCSVY;
     DAG.eval( SgY, Y, PWCSVY, X, PWCSVX );
@@ -162,8 +205,9 @@ int main()
     PWLSM pwlmod( NX );
     pwlmod.options.PROD_METH  = PWLSM::Options::PARTIAL;//PARTIAL;//FULL;//LOG;//NONE;
     pwlmod.options.PROD_CUT   = 0;
-    pwlmod.options.USE_SHADOW = 0;//OpMLP.options.PWLSHADOW;
-    pwlmod.options.MAX_SUBDIV = 0;//16;
+    pwlmod.options.USE_SHADOW = 1;//OpMLP.options.PWLSHADOW;
+    pwlmod.options.OPT_SHADOW = 1;
+    pwlmod.options.MAX_SUBDIV = 16;//0;
     std::vector<PWLSV> PWLSVX{ PWLSV( pwlmod, 0, I(X1L,X1U), OpMLP.options.PWLINI ),
                                PWLSV( pwlmod, 1, I(X2L,X2U), OpMLP.options.PWLINI ) }, PWLSVY;
     DAG.eval( SgY, Y, PWLSVY, X, PWLSVX );
@@ -174,7 +218,7 @@ int main()
     std::ofstream resfile( "test_MLP.out", std::ios_base::out );
     resfile << std::scientific << std::setprecision(5) << std::right;
 
-    int const NPTS = 100;
+    int const NPTS = 40;
     for( int iX1=0; iX1<NPTS; iX1++ ){
      for( int iX2=0; iX2<NPTS; iX2++ ){
        std::vector<double> DX{ X1L+iX1*(X1U-X1L)/(NPTS-1.), X2L+iX2*(X2U-X2L)/(NPTS-1.) };
@@ -190,6 +234,8 @@ int main()
                << std::setw(14) << MCY[0].cv() << std::setw(14) << MCY[0].cc()
                << std::setw(14) << PWLSVY[0].l() << std::setw(14) << PWLSVY[0].u()
                << std::setw(14) << PWLSVY[0].uval({{0,DX[0]},{1,DX[1]}}) << std::setw(14) << PWLSVY[0].oval({{0,DX[0]},{1,DX[1]}})
+               << std::setw(14) << PWCSVY[0].l() << std::setw(14) << PWCSVY[0].u()
+               << std::setw(14) << PWCSVY[0].uval({{0,DX[0]},{1,DX[1]}}) << std::setw(14) << PWCSVY[0].oval({{0,DX[0]},{1,DX[1]}})
                << std::endl;
 
      }

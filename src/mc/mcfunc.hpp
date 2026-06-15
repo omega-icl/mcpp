@@ -8,6 +8,7 @@
 #include <cmath>
 #include <cfloat>
 #include <vector>
+#include <utility>
 #include <iostream>
 
 
@@ -256,6 +257,16 @@ inline double mid
   if(( b <= a && a <= c ) || ( c <= a && a <= b )) return a;
   if(( a <= b && b <= c ) || ( c <= b && b <= a )) return b;
   return c;
+}
+
+inline std::pair<double,double> extreme
+( const double& a, const double& b, const double& c )
+{
+  if( a <= b && a <= c )
+    return std::make_pair( a, b>=c? b: c );
+  if( b <= c )
+    return std::make_pair( b, a>=c? a: c );
+  return std::make_pair( c, a>=b? a: b );
 }
 
 inline double mid

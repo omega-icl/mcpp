@@ -267,6 +267,7 @@ void append_cut
       model.addSOS( VarSOS, WeiSOS, pCut->nvar(), TypSOS );
       delete [] VarSOS;
       delete [] WeiSOS;
+      break;
     case mc::PolCut<I>::EQ:
       DAGCuts.insert( std::make_pair( pCut, model.addConstr( lhs,
         GRB_EQUAL, pCut->rhs() ) ) );
@@ -341,9 +342,9 @@ int main()
     GRBmodel.getEnv().set( GRB_DoubleParam_OptimalityTol,  1e-9 );
     GRBmodel.getEnv().set( GRB_IntParam_OutputFlag,        0    );
     
-    auto itx0 = PolEnv.Vars().find( &X_Pol[0].var() );
-    auto itx1 = PolEnv.Vars().find( &X_Pol[1].var() );
-    auto itobj = PolEnv.Vars().find( &F_Pol.var() );
+    auto itx0 = PolEnv.Vars().find( X_Pol[0].var().id() );
+    auto itx1 = PolEnv.Vars().find( X_Pol[1].var().id() );
+    auto itobj = PolEnv.Vars().find( F_Pol.var().id() );
     auto jtx0 = DAGVars.end(), jtx1 = DAGVars.end(), jtobj = DAGVars.end();
 
     for( auto itv=PolEnv.Vars().begin(); itv!=PolEnv.Vars().end(); ++itv ){

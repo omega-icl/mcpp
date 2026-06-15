@@ -139,7 +139,7 @@ public:
         _ostr << "(" << _d2s(c) << ")"; }
 
   //! @brief Constructor from FFVar
-  FFExpr
+  explicit FFExpr
     ( FFVar const& X )
     : _prec( 0 )
     { switch( options.LANG ){
@@ -204,6 +204,12 @@ public:
       else if( c < 0 )
         _ostr << "(" << _d2s(c) << ")";
       return *this; }
+
+  //! @brief Retrieve length of string expression
+  size_t len
+    ()
+    const
+    { return _ostr.str().size(); }
 
   //! @brief Retrieve string expression
   std::ostringstream const& ostr
@@ -381,7 +387,9 @@ std::ostream&
 operator<<
 ( std::ostream& out, FFExpr const& E )
 {
+  if( !E.len() ) return out << "0 ";
   return out << E.ostr().str();
+  
 }
 
 inline
@@ -574,9 +582,9 @@ FFExpr
 FFExpr::compose
 ( std::string const& UNIV, FFExpr const& E )
 {
-  assert( E._ostr.tellp() );
+  //assert( E._ostr.tellp() );
   FFExpr _E; // sets _E._prec = 0 by default
-  _E.ostr() << UNIV << "( " << E._ostr.str() << " )";
+  _E.ostr() << UNIV << "( " << (E._ostr.tellp()?E._ostr.str():"") << " )";
   return _E;
 }
 

@@ -34,7 +34,8 @@ void mc_mccormick(py::module &m)
 py::class_<MC> pyMcCormick(m,"McCormick");
 pyMcCormick
  .def(
-   py::init<>()
+   py::init<>(),
+   "default constructor"
  )
  .def(
    py::init<double const&>(),
@@ -42,7 +43,7 @@ pyMcCormick
  )
  .def(
    py::init<I const&>(),
-   "constructor for constant bounds"
+   "constructor for constant interval"
  )
  .def(
    py::init<I const&, double const&>(),

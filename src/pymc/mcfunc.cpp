@@ -1,3 +1,7 @@
+// Copyright (C) Benoit Chachuat, Imperial College London.
+// All Rights Reserved.
+// This code is published under the Eclipse Public License.
+
 #include <pybind11/pybind11.h>
 #include <pybind11/operators.h>
 #include <pybind11/stl.h>

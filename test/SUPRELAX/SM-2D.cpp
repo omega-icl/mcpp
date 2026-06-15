@@ -1,5 +1,5 @@
-#define TEST_PEAK	// <-- select test function here
-#undef  USE_DAG        // <-- specify to evaluate via a DAG of the function
+#define TEST_TANH0	// <-- select test function here
+#define USE_DAG        // <-- specify to evaluate via a DAG of the function
 #define SAVE_RESULTS   // <-- specify whether to save results to file
 #undef  ANALYSE_RATE    // <-- specify whether to analyse rate of convergence
 #undef  ANALYSE_TIME    // <-- specify whether to analyse computational time
@@ -37,7 +37,7 @@ using namespace mc;
 
 #if defined( TEST_FABS )
 const double XL   = -2.;	// <-- X range lower bound
-const double XU   =  1.;	// <-- X range upper bound
+
 const double YL   = -1.;	// <-- Y range lower bound
 const double YU   =  2.;	// <-- Y range upper bound
 template <class T>
@@ -49,6 +49,22 @@ T myfunc
   //return pow(x+y,2);
   //return x*y;
   return sqrt(fabs(x-y));
+}
+
+#elif defined( TEST_SHEKEL0 )
+const double XL   =   0;	// <-- X range lower bound
+const double XU   =  10;	// <-- X range upper bound
+const double YL   =   0;	// <-- Y range lower bound
+const double YU   =  10;	// <-- Y range upper bound
+
+template <class T>
+T myfunc
+( const T&x, const T&y ){
+  return pow(x-4.0,2) + pow(y-4.0,2) + 0.1;
+  //return 1./(pow(x-4.0,2) + pow(y-4.0,2) + 0.1);
+  //return exp(x + y);
+  //return sqrt(x + y);
+  //return 1./(pow(x-4.0,2) + 0.1);
 }
 
 #elif defined( TEST_SHEKEL )
@@ -86,21 +102,33 @@ template <class T>
 T myfunc
 ( const T&x, const T&y )
 {
+/*
+  double const XW = XU-XL, YW = YU-YL;
+  static double const a = 0.5, b = 1.0;
+  T e = exp(y)-exp(-y);
+  double const EL = std::exp(XL)-std::exp(-XL),
+               EU = std::exp(XU)-std::exp(-XU);
+  double const EW = EU-EL;
+  T s = 0;//(YL-a/b*YW) * e + (EL-a/b*EW) * y + (a/b*(EW*YL+YW*EL-a/b*EW*YW)-EL*YL);
+  //return s += log((e-EL)*b/EW+a) + log((y-YL)*b/YW+a);
+  return s += exp( log((e-EL)*b/EW+a) + log((y-YL)*b/YW+a) ) * EW/b*YW/b;
+*/
   //return pow(x+exp(x)+2,2);
   //return x*exp(x);
+  //return (exp(y)-exp(-y));
   //return x*(exp(x)-exp(-x))-y*(exp(y)-exp(-y));
-  return x*y*(x*(exp(x)-exp(-x))-y*(exp(y)-exp(-y)));
+  return (x*y)*(x*(exp(x)-exp(-x))-y*(exp(y)-exp(-y)));
 }
 
 #elif defined( TEST_PEAK )
-const double XL   = -0.5; // <-- X range lower bound
-const double XU   =  0.5; // <-- X range upper bound
-const double YL   = 1.; // <-- Y range lower bound
-const double YU   =  2.; // <-- Y range upper bound
-//const double XL   = -3.; // <-- X range lower bound
-//const double XU   =  3.; // <-- X range upper bound
-//const double YL   = -3.; // <-- Y range lower bound
-//const double YU   =  3.; // <-- Y range upper bound
+//const double XL   = -0.5; // <-- X range lower bound
+//const double XU   =  0.5; // <-- X range upper bound
+//const double YL   = 1.; // <-- Y range lower bound
+//const double YU   =  2.; // <-- Y range upper bound
+const double XL   = -3.; // <-- X range lower bound
+const double XU   =  3.; // <-- X range upper bound
+const double YL   = -3.; // <-- Y range lower bound
+const double YU   =  3.; // <-- Y range upper bound
 template <class T>
 T myfunc
 ( const T&x, const T&y )
@@ -132,16 +160,52 @@ T myfunc
 }
 
 #elif defined( TEST_EXP1 )
-const double XL   = 1.;	// <-- X range lower bound
-const double XU   = 2.;	// <-- X range upper bound
-const double YL   = 0.;	// <-- Y range lower bound
+const double XL   = -2.;	// <-- X range lower bound
+const double XU   = 1.;	// <-- X range upper bound
+const double YL   = -1.;	// <-- Y range lower bound
 const double YU   = 2.;	// <-- Y range upper bound
 template <class T>
 T myfunc
 ( const T&x, const T&y )
 {
-  return exp(x+y);
-  //return x*exp(x+sqr(y))-sqr(y);
+  //return 0.25*sqr(x+y)-0.25*sqr(x-y);
+  //return 0.25*sqr(x+y);
+  //return x*y;
+  //return sqrt(sqr(x+y));
+  //return exp(x+y);
+  return x*exp(x+sqr(y))-sqr(y);
+}
+
+#elif defined( TEST_LOG )
+const double XL   = -2.;	// <-- X range lower bound
+const double XU   = 1.;	// <-- X range upper bound
+const double YL   = -1.;	// <-- Y range lower bound
+const double YU   = 2.;	// <-- Y range upper bound
+template <class T>
+T myfunc
+( const T&x, const T&y )
+{
+  double const XW = XU-XL, YW = YU-YL;
+  static double const a = 0.5, b = 1.0;
+  T s = (XL-a/b*XW) * y + (YL-a/b*YW) * x + (a/b*(XW*YL+YW*XL-a/b*XW*YW)-XL*YL);
+  //return s += log((x-XL)*b/XW+a) + log((y-YL)*b/YW+a);
+  return s += exp( log((x-XL)*b/XW+a) + log((y-YL)*b/YW+a) ) * XW/b*YW/b;
+}
+
+#elif defined( TEST_LOG2 )
+const double XL   = 1e-6;	// <-- X range lower bound
+const double XU   = 1e0;	// <-- X range upper bound
+const double YL   = 1e-6;	// <-- Y range lower bound
+const double YU   = 1e0;	// <-- Y range upper bound
+template <class T>
+T myfunc
+( const T&x, const T&y )
+{
+  T w = min( max( 1 - x - y, 1e-06 ), 1 );
+  T z = x * ( log( x ) + 0.28809 ) + y * ( log( y ) - 0.29158 ) + w * ( log( w ) + 0.59336 );
+  return z;
+  //T z = min( max( 1 - x - y, 1e-06 ), 1 );
+  //return log( z );
 }
 
 #elif defined( TEST_EXP2 )
@@ -154,6 +218,24 @@ T myfunc
 ( const T&x, const T&y )
 {
   return fabs(x)*exp(-fabs(x)/y);
+}
+
+#elif defined( TEST_EXP3 )
+const double XL   = -.5; // <-- range lower bound
+const double XU   =  .5; // <-- range upper bound
+const double YL   =  0.4; // <-- range lower bound
+const double YU   =  1.2; // <-- range upper bound
+template <class T>
+T myfunc
+( const T&x, const T&y )
+{
+  //return x*y;
+  //return (x*(exp(x)-exp(-x))-y*(exp(y)-exp(-y)));
+  //return 0.25*sqr((x*y)+(x*(exp(x)-exp(-x))-y*(exp(y)-exp(-y))));
+  //return 0.25*sqr((x*y)-(x*(exp(x)-exp(-x))-y*(exp(y)-exp(-y))));
+  //return 0.25*sqr((x*y)+(x*(exp(x)-exp(-x))-y*(exp(y)-exp(-y))))
+  //     - 0.25*sqr((x*y)-(x*(exp(x)-exp(-x))-y*(exp(y)-exp(-y))));
+  return (x*y)*(x*(exp(x)-exp(-x))-y*(exp(y)-exp(-y)));
 }
 
 #elif defined( TEST_DIV )
@@ -199,7 +281,7 @@ T myfunc
   //return cosh(x+y);// + pow(cosh(x+y),2);
   //return sinh(pow(x,2)+pow(y,2)-1.0);
   //return atan(x+y);
-  //return atan(pow(x,2)+pow(y,2)-1);
+  return atan(pow(x,2)+pow(y,2)-1);
   //return acos(x+y);
   //return acos(tanh(x+y));
   //return tanh(acos(x+y)-1);
@@ -224,7 +306,6 @@ T myfunc
 ( const T&x, const T&y )
 {
   return exp(sin(x)+sin(y)*cos(y));
-
 }
 
 #elif defined( TEST_RELU )
@@ -239,18 +320,53 @@ T myfunc
   return relu(0.2*x+0.3*y) - relu(0.5*x-0.2*y-3) + relu(0.2*x-0.4*y) + relu(-0.5*x);
 }
 
-#elif defined( TEST_TANH )
-const double XL   =  -1.;	// <-- X range lower bound
+#elif defined( TEST_TANH0 )
+const double XL   =  -2.;	// <-- X range lower bound
 const double XU   =   2.;	// <-- X range upper bound
-const double YL   =  -2.;	// <-- Y range lower bound
-const double YU   =   1.;	// <-- Y range upper bound
+const double YL   =  -1.;	// <-- Y range lower bound
+const double YU   =   2.;	// <-- Y range upper bound
 template <class T>
 T myfunc
 ( const T&x, const T&y )
 {
+  return tanh(x+y);
+}
+
+#elif defined( TEST_TANH )
+const double XL   =  -3.;	// <-- X range lower bound
+const double XU   =   3.;	// <-- X range upper bound
+const double YL   =  -3.;	// <-- Y range lower bound
+const double YU   =   3.;	// <-- Y range upper bound
+template <class T>
+T myfunc
+( const T&x, const T&y )
+{
+  //return tanh(0.5*x-0.2*y+3);
+  //return tanh(0.5*x-0.2*y-3);
+  return tanh(0.2*x+0.3*y) - tanh(0.5*x-0.2*y-3) + tanh(0.2*x-0.4*y) + tanh(-0.5*x);
   //return pow(x+y,2);
   //return pow(x+y,3);
-  return erfc(x+y);
+  //return erfc(x+y);
+  //return atan(x+y);
+  //return tanh(x+y);
+  //return tanh(pow(x+y,2));
+}
+
+#elif defined( TEST_TANH2 )
+const double XL   =  -3.;	// <-- X range lower bound
+const double XU   =   3.;	// <-- X range upper bound
+const double YL   =  -3.;	// <-- Y range lower bound
+const double YU   =   3.;	// <-- Y range upper bound
+template <class T>
+T myfunc
+( const T&x, const T&y )
+{
+  //return tanh(0.5*x-0.2*y+3);
+  //return tanh(0.5*x-0.2*y-3);
+  return tanh( tanh(0.2*x+0.3*y) - tanh(0.5*x-0.2*y-3) ) + tanh( tanh(0.2*x-0.4*y) + tanh(-0.5*x) );
+  //return pow(x+y,2);
+  //return pow(x+y,3);
+  //return erfc(x+y);
   //return atan(x+y);
   //return tanh(x+y);
   //return tanh(pow(x+y,2));
@@ -275,6 +391,22 @@ int main()
 ////////////////////////////////////////////////////////////////////////
 {
   try{
+#ifdef USE_DAG
+    // Construct DAG representation of the factorable function
+    FFGraph DAG;
+    vector<mc::FFVar> X( 2 );
+    for( unsigned int i=0; i<2; i++ ) X[i].set( &DAG );
+    FFVar F = myfunc( X[0], X[1] );
+    auto GF = DAG.subgraph( 1, &F );
+#ifdef SAVE_RESULTS
+    DAG.output( GF );
+    ofstream ofdag( "SM-2D.dot", ios_base::out );
+    DAG.dot_script( 1, &F, ofdag );
+    ofdag.close();
+#endif
+#endif
+    vector<double> DF( 1 );
+
     MC::options.ENVEL_USE   = 1;
     MC::options.ENVEL_MAXIT = 100;
     MC::options.ENVEL_TOL   = 1e-12;
@@ -285,47 +417,49 @@ int main()
     pwlmod.options.PROD_CUT       = 0;
     pwlmod.options.REF_WEIGHT     = 0.5;
     pwlmod.options.MAX_SUBDIV     = 0;//8;//16;
-    pwlmod.options.USE_CVXCC      = 1;
-    pwlmod.options.USE_ENDRAY     = 0;
-    pwlmod.options.USE_SHADOW     = 1;
+    pwlmod.options.USE_CVXCCV     = 0;//1;
+    pwlmod.options.USE_CVXMAX     = 0;//1;
+    pwlmod.options.USE_ENDRAY     = 0;//1;
+    pwlmod.options.USE_SHADOW     = 0;
     pwlmod.options.DISPLAY_SHADOW = 1;
     pwlmod.options.DISPLAY_DIGITS = 10;
+    mc::PWLU::options.REDUCEMETH  = 0;
 
     PWCSM pwcmod( 2 );
     pwcmod.options = pwlmod.options;
-
-    // Calculate superposition relaxations
-    int const NPWL = 16;	// <-- select initial variable partition >=1
+    mc::PWCU::options.SLOPEUSE = 0;
+    
+    // Calculate piecewise linear superposition relaxation
+    int const NPWL = 8;	// <-- select initial variable partition >=1
     vector<PWLSV> PWLSVX{ PWLSV( pwlmod, 0, I(XL,XU), NPWL ), PWLSV( pwlmod, 1, I(YL,YU), NPWL ) },
                   PWLSVF( 1 );
-    vector<double> DF( 1 );
 
 #ifdef USE_DAG
-    // Construct DAG representation of the factorable function
-    FFGraph DAG;
-    vector<mc::FFVar> X( 2 );
-    for( unsigned int i=0; i<2; i++ ) X[i].set( &dag );
-    FFVar F = myfunc( X[0], X[1] );
-    auto GF = DAG.subgraph( 1, &F );
-#ifdef SAVE_RESULTS
-    DAG.output( GF );
-    ofstream ofdag( "SM-2D.dot", ios_base::out );
-    DAG.dot_script( 1, &F, ofdag );
-    ofdag.close();
-#endif
     DAG.eval( GF, {F}, PWLSVF, X, PWLSVX );
-
 #else
     PWLSVF[0] = myfunc( PWLSVX[0], PWLSVX[1] );
 #endif
+    cout << "\nPIECEWISE-LINEAR SUPERPOSITION:\n";
     cout << PWLSVF[0];
+
+    // Calculate piecewise constant superposition relaxation
+    int const NPWC = 32;	// <-- select fixed partition
+    vector<PWCSV> PWCSVX{ PWCSV( pwcmod, 0, I(XL,XU), NPWC ), PWCSV( pwcmod, 1, I(YL,YU), NPWC ) },
+                  PWCSVF( 1 );
+#ifdef USE_DAG
+    DAG.eval( GF, {F}, PWCSVF, X, PWCSVX );
+#else
+    PWCSVF[0] = myfunc( PWCSVX[0], PWCSVX[1] );
+#endif
+    cout << "\nPIECEWISE-CONSTANT SUPERPOSITION:\n";
+    cout << PWCSVF[0];
 
 #ifdef SAVE_RESULTS
     ofstream resfile( "SM-2D.out", ios_base::out );
     resfile << scientific << setprecision(5) << right;
 
     // Repeated calculations at grid points
-    int const NPTS = 32;
+    int const NPTS = 17;
     for( int iX=0; iX<NPTS; iX++ ){
      for( int iY=0; iY<NPTS; iY++ ){
        vector<double> DX{ XL+iX*(XU-XL)/(NPTS-1.), YL+iY*(YU-YL)/(NPTS-1.) };
@@ -340,6 +474,9 @@ int main()
                << setw(14) << PWLSVF[0].l() << setw(14) << PWLSVF[0].u()
                << setw(14) << PWLSVF[0].uval({{0,DX[0]},{1,DX[1]}})
                << setw(14) << PWLSVF[0].oval({{0,DX[0]},{1,DX[1]}})
+               << setw(14) << PWCSVF[0].l() << setw(14) << PWCSVF[0].u()
+               << setw(14) << PWCSVF[0].uval({{0,DX[0]},{1,DX[1]}})
+               << setw(14) << PWCSVF[0].oval({{0,DX[0]},{1,DX[1]}})
                << endl;
      }
      resfile << endl;
@@ -350,8 +487,8 @@ int main()
 
     vector<I> const XBND0{ I(XL,XU), I(YL,YU) };
 #if defined( TEST_PEAK )
-    map<unsigned,double> XREF{ {0,-1.059997e-02}, {1,1.580344e+00} }; // peak maximum point
-    //map<unsigned,double> XREF{ {0,2.288469e-01}, {1,-1.626050e+00} }; // peak minimum point
+    //map<unsigned,double> XREF{ {0,-1.059997e-02}, {1,1.580344e+00} }; // peak maximum point
+    map<unsigned,double> XREF{ {0,2.288469e-01}, {1,-1.626050e+00} }; // peak minimum point
 #elif defined( TEST_SHEKEL )
     map<unsigned,double> XREF{ {0,4}, {1,4} }; // Shekel function maximum
 #else
@@ -548,6 +685,161 @@ int main()
 #ifdef ANALYSE_TIME
     std::chrono::time_point<std::chrono::system_clock> start;
     std::chrono::microseconds walltime;
+    
+    size_t NREPEAT = 100000;
+
+    //std::vector<I> XBND = XBND0;
+    std::vector<I> XBND{ XREF[0]+I(-0.1,0.1), XREF[1]+I(-0.1,0.1) };
+
+    vector<MC> MCX{ MC( I(XL,XU), XREF[0] ), MC( I(YL,YU), XREF[1] ) }, MCF( 1 );
+
+    start = std::chrono::system_clock::now();
+    for( unsigned i=0; i<NREPEAT; ++i )
+       MCF[0] = myfunc( MCX[0], MCX[1] );
+    walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - start );
+    std::cout << "McCormick walltime: " << (walltime.count() * 1e-6) / (double)NREPEAT << std::endl;
+
+    std::vector<MC> MCsubX{ MC( I(XL,XU), XREF[0] ), MC( I(YL,YU), XREF[1] ) }, MCsubF( 1 );
+    MCsubX[0].sub( 2, 0 );
+    MCsubX[1].sub( 2, 1 );
+
+    start = std::chrono::system_clock::now();
+    for( unsigned i=0; i<NREPEAT; ++i )
+      MCsubF[0] = myfunc( MCsubX[0], MCsubX[1] );
+    walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - start );
+    std::cout << "McCormick subgradient walltime: " << (walltime.count() * 1e-6) / (double)NREPEAT << std::endl;
+
+    NREPEAT = 50000;
+    
+    std::vector<PWCSV> PWC16SVX(2), PWC16SVY(1), PWCwk;
+    PWC16SVX[0].set( pwcmod, 0, XBND[0], 16 );
+    PWC16SVX[1].set( pwcmod, 1, XBND[1], 16 );
+
+    start = std::chrono::system_clock::now();
+    for( unsigned i=0; i<NREPEAT; ++i )
+      PWC16SVY[0] = myfunc( PWC16SVX[0], PWC16SVX[1] );
+      //DAG.eval( SgY, Y, PWC16SVY, X, PWC16SVX );
+    walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - start );
+    std::cout << "Superposition PWC16 walltime: " << (walltime.count() * 1e-6) / (double)NREPEAT << std::endl;
+
+    std::vector<PWCSV> PWC32SVX(2), PWC32SVY(1);
+    PWC32SVX[0].set( pwcmod, 0, XBND[0], 32 );
+    PWC32SVX[1].set( pwcmod, 1, XBND[1], 32 );
+
+    start = std::chrono::system_clock::now();
+    for( unsigned i=0; i<NREPEAT; ++i )
+      PWC32SVY[0] = myfunc( PWC32SVX[0], PWC32SVX[1] );
+      //DAG.eval( SgY, Y, PWC32SVY, X, PWC32SVX );
+    walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - start );
+    std::cout << "Superposition PWC32 walltime: " << (walltime.count() * 1e-6) / (double)NREPEAT << std::endl;
+
+    std::vector<PWCSV> PWC64SVX(2), PWC64SVY(1);
+    PWC64SVX[0].set( pwcmod, 0, XBND[0], 64 );
+    PWC64SVX[1].set( pwcmod, 1, XBND[1], 64 );
+
+    start = std::chrono::system_clock::now();
+    for( unsigned i=0; i<NREPEAT; ++i )
+      PWC64SVY[0] = myfunc( PWC64SVX[0], PWC64SVX[1] );
+      //DAG.eval( SgY, Y, PWC64SVY, X, PWC64SVX );
+    walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - start );
+    std::cout << "Superposition PWC64 walltime: " << (walltime.count() * 1e-6) / (double)NREPEAT << std::endl;
+
+    std::vector<PWCSV> PWC128SVX(2), PWC128SVY(1);
+    PWC128SVX[0].set( pwcmod, 0, XBND[0], 128 );
+    PWC128SVX[1].set( pwcmod, 1, XBND[1], 128 );
+
+    start = std::chrono::system_clock::now();
+    for( unsigned i=0; i<NREPEAT; ++i )
+      PWC128SVY[0] = myfunc( PWC128SVX[0], PWC128SVX[1] );
+      //DAG.eval( SgY, PWCwk, Y, PWC128SVY, X, PWC128SVX );
+    walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - start );
+    std::cout << "Superposition PWC128 walltime: " << (walltime.count() * 1e-6) / (double)NREPEAT << std::endl;
+
+
+    mc::PWCU::options.SLOPEUSE = 2;
+    std::vector<PWCSV> PWCS4SVX(2), PWCS4SVY(1);
+    PWCS4SVX[0].set( pwcmod, 0, XBND[0], 4 );
+    PWCS4SVX[1].set( pwcmod, 1, XBND[1], 4 );
+
+    start = std::chrono::system_clock::now();
+    for( unsigned i=0; i<NREPEAT; ++i )
+      PWCS4SVY[0] = myfunc( PWCS4SVX[0], PWCS4SVX[1] );
+      //DAG.eval( SgY, Y, PWC4SVY, X, PWC4SVX );
+    walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - start );
+    std::cout << "Superposition PWCS4 walltime: " << (walltime.count() * 1e-6) / (double)NREPEAT << std::endl;
+
+    std::vector<PWCSV> PWCS8SVX(2), PWCS8SVY(1);
+    PWCS8SVX[0].set( pwcmod, 0, XBND[0], 8 );
+    PWCS8SVX[1].set( pwcmod, 1, XBND[1], 8 );
+
+    start = std::chrono::system_clock::now();
+    for( unsigned i=0; i<NREPEAT; ++i )
+      PWCS8SVY[0] = myfunc( PWCS8SVX[0], PWCS8SVX[1] );
+      //DAG.eval( SgY, Y, PWCS8SVY, X, PWCS8SVX );
+    walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - start );
+    std::cout << "Superposition PWCS8 walltime: " << (walltime.count() * 1e-6) / (double)NREPEAT << std::endl;
+
+    std::vector<PWCSV> PWCS16SVX(2), PWCS16SVY(1);
+    PWCS16SVX[0].set( pwcmod, 0, XBND[0], 16 );
+    PWCS16SVX[1].set( pwcmod, 1, XBND[1], 16 );
+
+    start = std::chrono::system_clock::now();
+    for( unsigned i=0; i<NREPEAT; ++i )
+      PWCS16SVY[0] = myfunc( PWCS16SVX[0], PWCS16SVX[1] );
+      //DAG.eval( SgY, Y, PWCS16SVY, X, PWCS16SVX );
+    walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - start );
+    std::cout << "Superposition PWCS16 walltime: " << (walltime.count() * 1e-6) / (double)NREPEAT << std::endl;
+
+
+    //NREPEAT = 200;
+    std::vector<PWLSV> PWL1SVX(2), PWL1SVY(1), PWLwk;
+    PWL1SVX[0].set( pwlmod, 0, XBND[0], 1 );
+    PWL1SVX[1].set( pwlmod, 1, XBND[1], 1 );
+
+    start = std::chrono::system_clock::now();
+    for( unsigned i=0; i<NREPEAT; ++i )
+      PWL1SVY[0] = myfunc( PWL1SVX[0], PWL1SVX[1] );
+      //DAG.eval( SgY, PWLwk, Y, PWL1SVY, X, PWL1SVX );
+    walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - start );
+    std::cout << "Superposition PWL1 walltime: " << (walltime.count() * 1e-6) / (double)NREPEAT << std::endl;
+
+    std::vector<PWLSV> PWL2SVX(2), PWL2SVY(1);
+    PWL2SVX[0].set( pwlmod, 0, XBND[0], 2 );
+    PWL2SVX[1].set( pwlmod, 1, XBND[1], 2 );
+
+    start = std::chrono::system_clock::now();
+    for( unsigned i=0; i<NREPEAT; ++i )
+      PWL2SVY[0] = myfunc( PWL2SVX[0], PWL2SVX[1] );
+      //DAG.eval( SgY, PWLwk, Y, PWL2SVY, X, PWL2SVX );
+    walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - start );
+    std::cout << "Superposition PWL2 walltime: " << (walltime.count() * 1e-6) / (double)NREPEAT << std::endl;
+
+    std::vector<PWLSV> PWL4SVX(2), PWL4SVY(1);
+    PWL4SVX[0].set( pwlmod, 0, XBND[0], 4 );
+    PWL4SVX[1].set( pwlmod, 1, XBND[1], 4 );
+
+    start = std::chrono::system_clock::now();
+    for( unsigned i=0; i<NREPEAT; ++i )
+      PWL4SVY[0] = myfunc( PWL4SVX[0], PWL4SVX[1] );
+      //DAG.eval( SgY, PWLwk, Y, PWL4SVY, X, PWL4SVX );
+    walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - start );
+    std::cout << "Superposition PWL4 walltime: " << (walltime.count() * 1e-6) / (double)NREPEAT << std::endl;
+
+    std::vector<PWLSV> PWL8SVX(2), PWL8SVY(1);
+    PWL8SVX[0].set( pwlmod, 0, XBND[0], 8 );
+    PWL8SVX[1].set( pwlmod, 1, XBND[1], 8 );
+
+    start = std::chrono::system_clock::now();
+    for( unsigned i=0; i<NREPEAT; ++i )
+      PWL8SVY[0] = myfunc( PWL8SVX[0], PWL8SVX[1] );
+      //DAG.eval( SgY, PWLwk, Y, PWL8SVY, X, PWL8SVX );
+    walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - start );
+    std::cout << "Superposition PWL8 walltime: " << (walltime.count() * 1e-6) / (double)NREPEAT << std::endl;
+#endif
+/*
+#ifdef ANALYSE_TIME
+    std::chrono::time_point<std::chrono::system_clock> start;
+    std::chrono::microseconds walltime;
     size_t NREPEAT = 100000;
 
     vector<MC> MCX{ MC( I(XL,XU), XREF[0] ), MC( I(YL,YU), XREF[1] ) }, MCF( 1 );
@@ -652,6 +944,7 @@ int main()
     walltime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - start );
     std::cout << "Superposition PWL8 walltime: " << (walltime.count() * 1e-6) / (double)NREPEAT << std::endl;
 #endif
+*/
   }
 
 #ifdef USE_DAG

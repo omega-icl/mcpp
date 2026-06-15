@@ -15,7 +15,7 @@ rep
 set term qt
 !ps2eps -B -f -l SICM-2D_pred.eps
 !mv SICM-2D_pred.eps.eps SICM-2D_pred.eps
-!gv SICM-2D_pred.eps &
+
 
 splot 'SICM-2D.out' u 1:2:3 tit 'Function' w l lc -1, \
       'SICM-2D.out' u 1:2:5 tit 'Interval Chebyshev range' w l lc 7, \
@@ -29,7 +29,7 @@ rep
 set term qt
 !ps2eps -B -f -l SICM-2D_mod.eps
 !mv SICM-2D_mod.eps.eps SICM-2D_mod.eps
-!gv SICM-2D_mod.eps &
+
 
 splot 'SCM-2D.out' u 1:2:3 tit 'Function' w l lc -1, \
       'SCM-2D.out' u 1:2:5 tit 'Standard Chebyshev range' w l lc 7, \
@@ -43,7 +43,7 @@ rep
 set term qt
 !ps2eps -B -f -l SCM-2D_mod.eps
 !mv SCM-2D_mod.eps.eps SCM-2D_mod.eps
-!gv SCM-2D_mod.eps &
+
 
 set zlabel 'max{ P(x,y) - f(x,y) }' rotate parallel
 set zrange [0:]
@@ -59,5 +59,4 @@ rep
 set term qt
 !ps2eps -B -f -l SCM-SICM-2D_err.eps
 !mv SCM-SICM-2D_err.eps.eps SCM-SICM-2D_err.eps
-!gv SCM-SICM-2D_err.eps &
 

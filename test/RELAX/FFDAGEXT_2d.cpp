@@ -1,4 +1,4 @@
-#define TEST_EXP2	    // <-- select test function here
+#define TEST_PEAK	    // <-- select test function here
 const int NGRID = 40;	    // <-- select discretization here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
 
@@ -135,6 +135,10 @@ const double X0L   = -.5; // <-- range lower bound
 const double X0U   =  .5; // <-- range upper bound
 const double X1L   =  0.5; // <-- range lower bound
 const double X1U   =  1.2; // <-- range upper bound
+//const double X0L   = -2.0; // <-- range lower bound
+//const double X0U   =  2.0; // <-- range upper bound
+//const double X1L   = -1.0; // <-- range lower bound
+//const double X1U   =  1.0; // <-- range upper bound
 template <class T>
 T myfunc
 ( const T*x )
@@ -229,6 +233,24 @@ T myfunc
   return mc::Op<T>::max( x[0], x[1] ) + mc::Op<T>::min( 2*x[0], x[1] ) + fstep( x[0] - x[1] );
 }
 
+#elif defined( TEST_PEAK )
+const double X0L   = -0.5; // <-- X range lower bound
+const double X0U   =  0.5; // <-- X range upper bound
+const double X1L   = 1.; // <-- Y range lower bound
+const double X1U   =  2.; // <-- Y range upper bound
+//const double X0L   = -3.; // <-- X range lower bound
+//const double X0U   =  3.; // <-- X range upper bound
+//const double X1L   = -3.; // <-- Y range lower bound
+//const double X1U   =  3.; // <-- Y range upper bound
+template <class T>
+T myfunc
+( const T*x )
+{
+  return 3.*pow(1-x[0],2)*exp(-pow(x[0],2)-pow(x[1]+1,2))-10.*(x[0]/5.-pow(x[0],3)-pow(x[1],5))*exp(-pow(x[0],2)-pow(x[1],2))-(1./3.)*exp(-pow(x[0]+1,2)-pow(x[1],2));
+  //gnuplot> splot 'test_MLP.out' u 1:2:(3*(1-$1)**2*exp(-$1**2-($2+1)**2)-10*($1/5-$1**3-$2**5)*exp(-$1**2-$2**2)-(1/3)*exp(-($1+1)**2-$2**2)-$3) w l  
+
+}
+
 #endif
 
 ////////////////////////////////////////////////////////////////////////
@@ -264,6 +286,7 @@ void append_cut
       model.addSOS( VarSOS, WeiSOS, pCut->nvar(), TypSOS );
       delete [] VarSOS;
       delete [] WeiSOS;
+      break;
     case mc::PolCut<I>::EQ:
       DAGCuts.insert( std::make_pair( pCut, model.addConstr( lhs,
         GRB_EQUAL, pCut->rhs() ) ) );
@@ -299,15 +322,21 @@ int main()
   mc::FFVar F = myfunc( X.data() );
   mc::DAGEXT<I> DAGF( &DAG, X, {F} );
   mc::FFDAGEXT<I> OpF;
-  OpF.options.RELAX  = { OpF.options.PWCS, OpF.options.AUX };//MC };//INT };
-  OpF.options.PWCDIV = 32;
-  OpF.options.PWCREL = 1;
+  OpF.options.RELAX      = { OpF.options.PWCS };//SCM };//SB };//PWLS };//AUX }://MC };//INT };
+  OpF.options.SBLIN      = 0;
+  OpF.options.SCMODORD   = 4;
+  OpF.options.SCBERNORD  = 4;
+  OpF.options.PWCDIV     = 16;
+  OpF.options.PWCREL     = 1;
+  OpF.options.PWCSLOPE   = 1;
+  mc::PWCU::options.SLOPEUSE = 2;
+  OpF.options.PWCSHADOW  = 1;
   OpF.options.PWCSUP.USE_SHADOW = 1;
-  OpF.options.PWCSHADOW = 1;
-  OpF.options.PWLINI = 4;
-  OpF.options.PWLREL = 1;
+  OpF.options.PWLINI     = 16;
+  OpF.options.PWLMAX     = 16;
+  OpF.options.PWLREL     = 1;
+  OpF.options.PWLSHADOW  = 1;
   OpF.options.PWLSUP.USE_SHADOW = 1;
-  OpF.options.PWLSHADOW = 1;
   std::vector<mc::FFVar> FF{ OpF( 0, X, &DAGF, 1 ) }; // with DAG copy
 
   auto SgF = DAG.subgraph( FF );
@@ -331,7 +360,7 @@ int main()
   PolEnv.generate_cuts( PolF );
   std::cout << "\n Polyhedral relaxation:" << PolEnv << std::endl;
 
-  return 0;
+  //return 0;
   
 #if defined( MC__USE_GUROBI )
   try{ 
@@ -341,9 +370,9 @@ int main()
     GRBmodel.getEnv().set( GRB_DoubleParam_OptimalityTol,  1e-9 );
     GRBmodel.getEnv().set( GRB_IntParam_OutputFlag,        0    );
     
-    auto itx0 = PolEnv.Vars().find( &PolX[0].var() );
-    auto itx1 = PolEnv.Vars().find( &PolX[1].var() );
-    auto itobj = PolEnv.Vars().find( &PolF[0].var() );
+    auto itx0 = PolEnv.Vars().find( PolX[0].var().id() );
+    auto itx1 = PolEnv.Vars().find( PolX[1].var().id() );
+    auto itobj = PolEnv.Vars().find( PolF[0].var().id() );
     auto jtx0 = DAGVars.end(), jtx1 = DAGVars.end(), jtobj = DAGVars.end();
 
     for( auto itv=PolEnv.Vars().begin(); itv!=PolEnv.Vars().end(); ++itv ){

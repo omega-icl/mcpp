@@ -1,21 +1,12 @@
-//#define TEST_MOVE
-//#define MC__INTERVAL_TRACE
-//#define MC__FFUNC_EVAL_MOVEVAR
-////////////////////////////////////////////////////////////////////////
-
 #include <fstream>
 #include <iomanip>
 
 #include "ffunc.hpp"
 #include "interval.hpp"
-#include "ismodel.hpp"
 #include "scmodel.hpp"
 
 typedef mc::Interval I;
 I IINF = 1e20 * I(-1,1);
-
-typedef mc::ISModel<I> ISM;
-typedef mc::ISVar<I> ISV;
 
 typedef mc::SCModel<I,mc::FFVar*,mc::lt_FFVar> SCM;
 typedef mc::SCVar<I,mc::FFVar*,mc::lt_FFVar> SCV;
@@ -110,22 +101,6 @@ int test_eval()
     std::cout << "\nInterval forward propagation failed\n";
   }
 
-  // Evaluation in interval superposition arithmetic
-  try{
-    const unsigned DIV = 16;
-    ISM ISenv( NX, DIV );
-    ISV ISX[NX], ISdFdXdir[NF];
-    I IX[NX] = { I(0,0.5), I(1,2), I(-1,-0.8), I(0.5,1) };
-    for( unsigned i=0; i<NX; i++ ) ISX[i].set( &ISenv, i, IX[i] );
-    DAG.eval( NF, dFdXdir, ISdFdXdir, NX, X, ISX );
-    // Display results
-    for( unsigned i=0; i<NF; i++ )
-      std::cout << "  dF("<< i << ")dX·D = " << ISdFdXdir[i] << std::endl;
-  }
-  catch(...){
-    std::cout << "\nInterval superposition forward propagation failed\n";
-  }
-  
   // Evaluation in 3rd-order Chebyshev model arithmetic
   try{
     const unsigned ORD = 3;
@@ -159,59 +134,6 @@ int test_eval()
   }
 
   delete[] dFdXdir;
-  return 0;
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-int test_move()
-{
-  std::cout << "\n==============================================\ntest_move:\n";
-
-  // DAG environment
-  mc::FFGraph DAG;
-  // Independent variables and derivative direction
-  const unsigned int NX = 1;
-  mc::FFVar X[NX];
-  for( unsigned int i=0; i<NX; i++ ) X[i].set( &DAG );
-  // Dependent variables
-  const unsigned int NF = 1;
-  mc::FFVar F[NF]
-    = { tanh( 0.8*tanh( 0.8*tanh( 0.8*X[0] + 0.1 ) + 0.1 ) + 0.1 ) };
-
-  auto sgF = DAG.subgraph( 1, F );
-  DAG.output( sgF, " OF F" );
-
-  // Evaluation in interval arithmetic
-  try{
-    I IX[NX] = { I(-0.5,0.5) }, IF[NF];
-    DAG.eval( sgF, NF, F, IF, NX, X, IX );
-    // Display results
-    for( unsigned i=0; i<NF; i++ )
-      std::cout << "  F("<< i << ") = " << IF[i] << std::endl;
-  }
-  catch(...){
-    std::cout << "\nInterval propagation failed\n";
-  }
-
-  // Evaluation in interval superposition arithmetic
-  try{
-    const unsigned DIV = 16;
-    ISM ISenv( NX, DIV );
-    ISV ISX[NX], ISF[NF];
-    I IX[NX] = { I(-0.5,0.5) };
-    for( unsigned i=0; i<NX; i++ ) ISX[i].set( &ISenv, i, IX[i] );
-    DAG.eval( NF, F, ISF, NX, X, ISX );
-    // Display results
-    for( unsigned i=0; i<NF; i++ ){
-      std::cout << "  F(" << i << ") = " << ISF[i] << std::endl;
-      std::cout << "  F(" << i << ") = " << tanh( 0.8*tanh( 0.8*tanh( 0.8*ISX[0] + 0.1 ) + 0.1 ) + 0.1 ) << std::endl;
-    }
-  }
-  catch(...){
-    std::cout << "\nInterval superposition propagation failed\n";
-  }
-
   return 0;
 }
 
@@ -359,18 +281,34 @@ int test_extern()
 
 int main()
 {
+  bool failed = true;
+
   try{
     test_build();
     test_eval();
-    test_move();
     test_extern();
+    failed = false;
   }
+  
   catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
               << " in factorable function manipulation:" << std::endl
               << eObj.what() << std::endl
-              << "Aborts." << std::endl;
-    return eObj.ierr();
+              << "Aborting." << std::endl;
   }
+  catch( SCM::Exceptions &eObj ){
+    std::cerr << "Error " << eObj.ierr()
+              << " in sparse Chebyshev model arithmetic:" << std::endl
+              << eObj.what() << std::endl
+              << "Aborting." << std::endl;
+  }
+  catch(...){
+    std::cerr << "Error in factorable function operations\n"
+              << "Aborting." << std::endl;
+  }
+
+  std::cout << "\n=== Results: " << (failed? "failed": "passed") << " ===\n";
+  return failed;
+
 }
 

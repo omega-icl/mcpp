@@ -14,6 +14,10 @@
 #include "slift.hpp"
 #include "spoly.hpp"
 #include "mccormick.hpp"
+#include "specbnd.hpp"
+#include "tmodel.hpp"
+#include "cmodel.hpp"
+#include "scmodel.hpp"
 #include "pwlu.hpp"
 #include "pwcu.hpp"
 #include "supmodel.hpp"
@@ -43,11 +47,29 @@ private:
   // real-valued evaluation
   std::function<std::vector<double>( std::vector<double> const& )>              _DEval;
 
-  // interval-valued evaluation
+  // interval evaluation
   std::function<std::vector<T>( std::vector<T> const& )>                        _IEval;
 
-  // McCormick-valued evaluation
+  // McCormick evaluation
   std::function<std::vector<McCormick<T>>( std::vector<McCormick<T>> const& )>  _MCEval;
+
+  // spectral bound evaluation
+  std::function<std::vector<Specbnd<T>>( std::vector<Specbnd<T>> const& )>      _SBEval;
+
+  // Taylor model evaluation
+  std::function<std::vector<TVar<T>>( std::vector<TVar<T>> const& )>            _TMEval;
+
+  // Chebyshev model evaluation
+  std::function<std::vector<CVar<T>>( std::vector<CVar<T>> const& )>            _CMEval;
+
+  // sparse Chebyshev model evaluation
+  std::function<std::vector<SCVar<T>>( std::vector<SCVar<T>> const& )>          _SCMEval;
+
+  // piecewise-constant superposition model evaluation
+  std::function<std::vector<SupVar<PWCU>>( std::vector<SupVar<PWCU>> const& )>  _PWCSMEval;
+
+  // piecewise-linear superposition model evaluation
+  std::function<std::vector<SupVar<PWLU>>( std::vector<SupVar<PWLU>> const& )>  _PWLSMEval;
 
   // default evaluation returning empty vector
   template <typename U>
@@ -60,22 +82,34 @@ public:
   // Default constructor
   FFCustom
     ()
-    : FFOp     ( EXTERN ),
-      _uid     ( 0 ),
-      _Deriv   ( nullptr ),
-      _DEval   ( _Error<double> ),
-      _IEval   ( _Error<T> ),
-      _MCEval   ( _Error<McCormick<T>> )
+    : FFOp         ( EXTERN ),
+      _uid         ( 0 ),
+      _Deriv       ( nullptr ),
+      _DEval       ( _Error<double> ),
+      _IEval       ( _Error<T> ),
+      _MCEval      ( _Error<McCormick<T>> ),
+      _SBEval      ( _Error<Specbnd<T>> ),
+      _TMEval      ( _Error<TVar<T>> ),
+      _CMEval      ( _Error<CVar<T>> ),
+      _SCMEval     ( _Error<SCVar<T>> ),
+      _PWCSMEval   ( _Error<SupVar<PWCU>> ),
+      _PWLSMEval   ( _Error<SupVar<PWLU>> )
     {}
 
   // Copy constructor
   FFCustom
     ( FFCustom const& other )
-    : FFOp     ( other ),
-      _uid     ( other._uid ),
-      _DEval   ( other._DEval ),
-      _IEval   ( other._IEval ),
-      _MCEval   ( other._MCEval )
+    : FFOp         ( other ),
+      _uid         ( other._uid ),
+      _DEval       ( other._DEval ),
+      _IEval       ( other._IEval ),
+      _MCEval      ( other._MCEval ),
+      _SBEval      ( other._SBEval ),
+      _TMEval      ( other._TMEval ),
+      _CMEval      ( other._CMEval ),
+      _SCMEval     ( other._SCMEval ),
+      _PWCSMEval   ( other._PWCSMEval ),
+      _PWLSMEval   ( other._PWLSMEval )
     {
 #ifdef MC__FFCUSTOM_TRACE
       std::cout << "FFCustom::copy constructor\n";
@@ -139,6 +173,48 @@ public:
       _MCEval = MCEval;
     }
 
+  // Set custom evaluation functions in spectral bound arithmetic
+  void set_eval
+    ( std::function<std::vector<Specbnd<T>>( std::vector<Specbnd<T>> const& )> const& SBEval )
+    {
+      _SBEval = SBEval;
+    }
+
+  // Set custom evaluation functions in Taylor model arithmetic
+  void set_eval
+    ( std::function<std::vector<TVar<T>>( std::vector<TVar<T>> const& )> const& TMEval )
+    {
+      _TMEval = TMEval;
+    }
+
+  // Set custom evaluation functions in Chebyshev model arithmetic
+  void set_eval
+    ( std::function<std::vector<CVar<T>>( std::vector<CVar<T>> const& )> const& CMEval )
+    {
+      _CMEval = CMEval;
+    }
+
+  // Set custom evaluation functions in sparse Chebyshev model arithmetic
+  void set_eval
+    ( std::function<std::vector<SCVar<T>>( std::vector<SCVar<T>> const& )> const& SCMEval )
+    {
+      _SCMEval = SCMEval;
+    }
+
+  // Set custom evaluation functions in piecewise-constant superposition model arithmetic
+  void set_eval
+    ( std::function<std::vector<SupVar<PWCU>>( std::vector<SupVar<PWCU>> const& )> const& PWCSMEval )
+    {
+      _PWCSMEval = PWCSMEval;
+    }
+
+  // Set custom evaluation functions in piecewise-linear superposition model arithmetic
+  void set_eval
+    ( std::function<std::vector<SupVar<PWLU>>( std::vector<SupVar<PWLU>> const& )> const& PWLSMEval )
+    {
+      _PWLSMEval = PWLSMEval;
+    }
+
   // Set custom derivative function
   void set_deriv
     ( FFCustom<T> const& Deriv, int const uid )
@@ -159,26 +235,30 @@ public:
 //        return eval( nRes, static_cast<fadbad::F<FFVar>*>(vRes), nVar, static_cast<fadbad::F<FFVar> const*>(vVar), mVar );
       else if( idU == typeid( FFDep ) )
         return eval( nRes, static_cast<FFDep*>(vRes), nVar, static_cast<FFDep const*>(vVar), mVar );
-//      else if( idU == typeid( FFInv ) )
-//        return _eval( nRes, static_cast<FFInv*>(vRes), nVar, static_cast<FFInv const*>(vVar), mVar );
+      else if( idU == typeid( FFInv ) )
+        return eval( nRes, static_cast<FFInv*>(vRes), nVar, static_cast<FFInv const*>(vVar), mVar );
       else if( idU == typeid( double ) )
         return eval( nRes, static_cast<double*>(vRes), nVar, static_cast<double const*>(vVar), mVar );
 //      else if( idU == typeid( fadbad::F<double> ) )
 //        return eval( nRes, static_cast<fadbad::F<double>*>(vRes), nVar, static_cast<fadbad::F<double> const*>(vVar), mVar );
       else if( idU == typeid( T ) )
         return eval( nRes, static_cast<T*>(vRes), nVar, static_cast<T const*>(vVar), mVar );
-//      else if( idU == typeid( McCormick<T> ) )
-//        return _eval( nRes, static_cast<McCormick<T>*>(vRes), nVar, static_cast<McCormick<T> const*>(vVar), mVar );
-//      else if( idU == typeid( SupVar<PWCU> ) )
-//        return _eval( nRes, static_cast<SupVar<PWCU>*>(vRes), nVar, static_cast<SupVar<PWCU> const*>(vVar), mVar );
-//      else if( idU == typeid( SupVar<PWLU> ) )
-//        return _eval( nRes, static_cast<SupVar<PWLU>*>(vRes), nVar, static_cast<SupVar<PWLU> const*>(vVar), mVar );
-//      else if( idU == typeid( McCormick<SupVar<PWCU>> ) )
-//        return _eval( nRes, static_cast<McCormick<SupVar<PWCU>>*>(vRes), nVar, static_cast<McCormick<SupVar<PWCU>> const*>(vVar), mVar );
-//      else if( idU == typeid( McCormick<SupVar<PWLU>> ) )
-//        return _eval( nRes, static_cast<McCormick<SupVar<PWLU>>*>(vRes), nVar, static_cast<McCormick<SupVar<PWLU>> const*>(vVar), mVar );
-//      else if( idU == typeid( PolVar<T> ) )
-//        return eval( nRes, static_cast<PolVar<T>*>(vRes), nVar, static_cast<PolVar<T> const*>(vVar), mVar );
+      else if( idU == typeid( McCormick<T> ) )
+        return eval( nRes, static_cast<McCormick<T>*>(vRes), nVar, static_cast<McCormick<T> const*>(vVar), mVar );
+      else if( idU == typeid( Specbnd<T> ) )
+        return eval( nRes, static_cast<Specbnd<T>*>(vRes), nVar, static_cast<Specbnd<T> const*>(vVar), mVar );
+      else if( idU == typeid( TVar<T> ) )
+        return eval( nRes, static_cast<TVar<T>*>(vRes), nVar, static_cast<TVar<T> const*>(vVar), mVar );
+      else if( idU == typeid( CVar<T> ) )
+        return eval( nRes, static_cast<CVar<T>*>(vRes), nVar, static_cast<CVar<T> const*>(vVar), mVar );
+      else if( idU == typeid( SCVar<T> ) )
+        return eval( nRes, static_cast<SCVar<T>*>(vRes), nVar, static_cast<SCVar<T> const*>(vVar), mVar );
+      else if( idU == typeid( SupVar<PWCU> ) )
+        return eval( nRes, static_cast<SupVar<PWCU>*>(vRes), nVar, static_cast<SupVar<PWCU> const*>(vVar), mVar );
+      else if( idU == typeid( SupVar<PWLU> ) )
+        return eval( nRes, static_cast<SupVar<PWLU>*>(vRes), nVar, static_cast<SupVar<PWLU> const*>(vVar), mVar );
+      //else if( idU == typeid( PolVar<T> ) )
+      //  return eval( nRes, static_cast<PolVar<T>*>(vRes), nVar, static_cast<PolVar<T> const*>(vVar), mVar );
       else if( idU == typeid( SLiftVar ) )
         return eval( nRes, static_cast<SLiftVar*>(vRes), nVar, static_cast<SLiftVar const*>(vVar), mVar );
       else if( idU == typeid( FFExpr ) )
@@ -196,6 +276,10 @@ public:
     const;
 
   void eval
+    ( size_t const nRes, FFInv* vRes, size_t const nVar, FFInv const* vVar, unsigned const* mVar )
+    const;
+
+  void eval
     ( size_t const nRes, FFVar* vRes, size_t const nVar, FFVar const* vVar, unsigned const* mVar )
     const;
 
@@ -209,6 +293,30 @@ public:
 
   void eval
     ( size_t const nRes, McCormick<T>* vRes, size_t const nVar, McCormick<T> const* vVar, unsigned const* mVar )
+    const;
+
+  void eval
+    ( size_t const nRes, Specbnd<T>* vRes, size_t const nVar, Specbnd<T> const* vVar, unsigned const* mVar )
+    const;
+
+  void eval
+    ( size_t const nRes, TVar<T>* vRes, size_t const nVar, TVar<T> const* vVar, unsigned const* mVar )
+    const;
+
+  void eval
+    ( size_t const nRes, CVar<T>* vRes, size_t const nVar, CVar<T> const* vVar, unsigned const* mVar )
+    const;
+
+  void eval
+    ( size_t const nRes, SCVar<T>* vRes, size_t const nVar, SCVar<T> const* vVar, unsigned const* mVar )
+    const;
+
+  void eval
+    ( size_t const nRes, SupVar<PWCU>* vRes, size_t const nVar, SupVar<PWCU> const* vVar, unsigned const* mVar )
+    const;
+
+  void eval
+    ( size_t const nRes, SupVar<PWLU>* vRes, size_t const nVar, SupVar<PWLU> const* vVar, unsigned const* mVar )
     const;
 
 //  void eval
@@ -228,23 +336,23 @@ public:
 //    const;
 
   virtual bool reval
-    ( std::type_info const& idU, unsigned const nRes, void const* vRes, unsigned const nVar, void* vVar )
+    ( std::type_info const& idU, unsigned const nRes, void* vRes, unsigned const nVar, void* vVar )
     const
     {
 //      if( idU == typeid( T ) )
-//        return reval( nRes, static_cast<T const*>(vRes), nVar, static_cast<T*>(vVar) );
+//        return reval( nRes, static_cast<T*>(vRes), nVar, static_cast<T*>(vVar) );
 //      else if( idU == typeid( PolVar<T> ) )
-//        return reval( nRes, static_cast<PolVar<T> const*>(vRes), nVar, static_cast<PolVar<T>*>(vVar) );
+//        return reval( nRes, static_cast<PolVar<T>*>(vRes), nVar, static_cast<PolVar<T>*>(vVar) );
 
       throw std::runtime_error( "FFCustom::reval ** No evaluation method for type"+std::string(idU.name())+"\n" );
     }
 
 //  bool reval
-//    ( size_t const nRes, T const* vRes, size_t const nVar, T* vVar )
+//    ( size_t const nRes, T* vRes, size_t const nVar, T* vVar )
 //    const;
 
 //  bool reval
-//    ( size_t const nRes, PolVar<T> const* vRes, size_t const nVar, PolVar<T>* vVar )
+//    ( size_t const nRes, PolVar<T>* vRes, size_t const nVar, PolVar<T>* vVar )
 //    const;
 
   // Derivatives
@@ -324,6 +432,108 @@ const
 template< typename T >
 inline void
 FFCustom<T>::eval
+( size_t const nRes, Specbnd<T>* pRes, size_t const nVar, Specbnd<T> const* pVar,
+  unsigned const* mVar )
+const
+{
+#ifdef MC__FFCUSTOM_TRACE
+  std::cout << "FFCustom::eval: Specbnd<T>\n";
+#endif
+
+  std::vector<Specbnd<T>> const& vRes = _SBEval( std::vector<Specbnd<T>>(pVar,pVar+nVar) );
+  if( vRes.empty() ) //throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
+    throw std::runtime_error( "FFCustom::eval ** No evaluation method for type "+std::string(typeid(*pRes).name())+"\n" );
+  for( unsigned j=0; j<nRes; ++j ) pRes[j] = vRes[j];  
+}
+
+template< typename T >
+inline void
+FFCustom<T>::eval
+( size_t const nRes, TVar<T>* pRes, size_t const nVar, TVar<T> const* pVar,
+  unsigned const* mVar )
+const
+{
+#ifdef MC__FFCUSTOM_TRACE
+  std::cout << "FFCustom::eval: TVar<T>\n";
+#endif
+
+  std::vector<TVar<T>> const& vRes = _TMEval( std::vector<TVar<T>>(pVar,pVar+nVar) );
+  if( vRes.empty() ) //throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
+    throw std::runtime_error( "FFCustom::eval ** No evaluation method for type "+std::string(typeid(*pRes).name())+"\n" );
+  for( unsigned j=0; j<nRes; ++j ) pRes[j] = vRes[j];  
+}
+
+template< typename T >
+inline void
+FFCustom<T>::eval
+( size_t const nRes, CVar<T>* pRes, size_t const nVar, CVar<T> const* pVar,
+  unsigned const* mVar )
+const
+{
+#ifdef MC__FFCUSTOM_TRACE
+  std::cout << "FFCustom::eval: CVar<T>\n";
+#endif
+
+  std::vector<CVar<T>> const& vRes = _CMEval( std::vector<CVar<T>>(pVar,pVar+nVar) );
+  if( vRes.empty() ) //throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
+    throw std::runtime_error( "FFCustom::eval ** No evaluation method for type "+std::string(typeid(*pRes).name())+"\n" );
+  for( unsigned j=0; j<nRes; ++j ) pRes[j] = vRes[j];  
+}
+
+template< typename T >
+inline void
+FFCustom<T>::eval
+( size_t const nRes, SCVar<T>* pRes, size_t const nVar, SCVar<T> const* pVar,
+  unsigned const* mVar )
+const
+{
+#ifdef MC__FFCUSTOM_TRACE
+  std::cout << "FFCustom::eval: SCVar<T>\n";
+#endif
+
+  std::vector<SCVar<T>> const& vRes = _SCMEval( std::vector<SCVar<T>>(pVar,pVar+nVar) );
+  if( vRes.empty() ) //throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
+    throw std::runtime_error( "FFCustom::eval ** No evaluation method for type "+std::string(typeid(*pRes).name())+"\n" );
+  for( unsigned j=0; j<nRes; ++j ) pRes[j] = vRes[j];  
+}
+
+template< typename T >
+inline void
+FFCustom<T>::eval
+( size_t const nRes, SupVar<PWCU>* pRes, size_t const nVar, SupVar<PWCU> const* pVar,
+  unsigned const* mVar )
+const
+{
+#ifdef MC__FFCUSTOM_TRACE
+  std::cout << "FFCustom::eval: SupVar<PWCU>\n";
+#endif
+
+  std::vector<SupVar<PWCU>> const& vRes = _PWCSMEval( std::vector<SupVar<PWCU>>(pVar,pVar+nVar) );
+  if( vRes.empty() ) //throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
+    throw std::runtime_error( "FFCustom::eval ** No evaluation method for type "+std::string(typeid(*pRes).name())+"\n" );
+  for( unsigned j=0; j<nRes; ++j ) pRes[j] = vRes[j];
+}
+
+template< typename T >
+inline void
+FFCustom<T>::eval
+( size_t const nRes, SupVar<PWLU>* pRes, size_t const nVar, SupVar<PWLU> const* pVar,
+  unsigned const* mVar )
+const
+{
+#ifdef MC__FFCUSTOM_TRACE
+  std::cout << "FFCustom::eval: SupVar<PWLU>\n";
+#endif
+
+  std::vector<SupVar<PWLU>> const& vRes = _PWLSMEval( std::vector<SupVar<PWLU>>(pVar,pVar+nVar) );
+  if( vRes.empty() ) //throw typename FFBase::Exceptions( FFBase::Exceptions::EXTERN );
+    throw std::runtime_error( "FFCustom::eval ** No evaluation method for type "+std::string(typeid(*pRes).name())+"\n" );
+  for( unsigned j=0; j<nRes; ++j ) pRes[j] = vRes[j];
+}
+
+template< typename T >
+inline void
+FFCustom<T>::eval
 ( size_t const nRes, FFDep* vRes, size_t const nVar, FFDep const* vVar,
   unsigned const* mVar )
 const
@@ -335,6 +545,23 @@ const
   vRes[0] = 0;
   for( unsigned i=0; i<nVar; ++i ) vRes[0] += vVar[i];
   vRes[0].update( FFDep::TYPE::N );
+  for( unsigned j=1; j<nRes; ++j ) vRes[j] = vRes[0];
+}
+
+template< typename T >
+inline void
+FFCustom<T>::eval
+( size_t const nRes, FFInv* vRes, size_t const nVar, FFInv const* vVar,
+  unsigned const* mVar )
+const
+{
+#ifdef MC__FFCUSTOM_TRACE
+  std::cout << "FFCustom::eval: FFInv\n";
+#endif
+
+  vRes[0] = 0;
+  for( unsigned i=0; i<nVar; ++i ) vRes[0] += vVar[i];
+  vRes[0].update( FFInv::TYPE::U );
   for( unsigned j=1; j<nRes; ++j ) vRes[j] = vRes[0];
 }
 

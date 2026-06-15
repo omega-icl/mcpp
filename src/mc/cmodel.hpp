@@ -170,12 +170,12 @@ The available options are the following:
          <TD><b>Description</b>
      <TR><TH><tt>INTERP_EXTRA</tt> <TD><tt>unsigned int</tt> <TD>0
          <TD>Extra terms in Chebyshev interpolation of univariates: 0-Chebyshev interpolation of order NORD; extra terms allow approximation of Chebyshev truncated series.
-     <TR><TH><tt>INTERP_THRES</tt> <TD><tt>double</tt> <TD>1e2*machprec()
+     <TR><TH><tt>INTERP_THRES</tt> <TD><tt>double</tt> <TD>1e2*DBL_EPSILON
          <TD>Threshold for coefficient values in Chebyshev expansion for bounding of transcendental univariates.
      <TR><TH><tt>BOUNDER_TYPE</tt> <TD><tt>mc::CModel::Options::BOUNDER</tt> <TD>mc::CModel::Options::LSB
          <TD>Chebyshev model range bounder.
-     <TR><TH><tt>BOUNDER_ORDER</tt> <TD><tt>unsigned int</tt> <TD>0
-         <TD>Order of Bernstein polynomial for Chebyshev model range bounding, when mc::CModel::options::BOUNDER_TYPE = mc::CModel::options::BERNSTEIN is selected. Only values greater than the actual Chebyshev model order are accounted for; see [Lin & Rokne, 1996].
+     <TR><TH><tt>BERNSTEIN_ORDER</tt> <TD><tt>unsigned int</tt> <TD>0
+         <TD>Degree of Bernstein polynomial for Chebyshev model range bounding, when mc::CModel::options::BOUNDER_TYPE = mc::CModel::options::BERNSTEIN is selected; see [Lin & Rokne, 1996].
      <TR><TH><tt>MIXED_IA</tt> <TD><tt>bool</tt> <TD>false
          <TD>Whether to intersect internal bounds with underlying bounds in the templated arithmetics.
      <TR><TH><tt>REF_POLY</tt> <TD><tt>double</tt> <TD>0.
@@ -220,6 +220,9 @@ Further exceptions may be thrown by the template parameter class itself.
 
 #ifndef MC__CMODEL_H
 #define MC__CMODEL_H
+
+#include <memory>
+#include <vector>
 
 #ifdef MC__USE_ARMADILLO
  #include <armadillo>
@@ -374,21 +377,31 @@ public:
   //! @brief Options of mc::CModel
   struct Options
   {
-    //! @brief Constructor of mc::CModel::Options
-    Options():
-      INTERP_EXTRA(0), INTERP_THRES(1e2*machprec()), BOUNDER_TYPE(LSB),
-      BOUNDER_ORDER(0), MIXED_IA(false), REF_POLY(0.), DISPLAY_DIGITS(7)
-      {}
+    //! @brief Reset options
+    void reset
+      ()
+      {
+        INTERP_EXTRA    = 0;
+        INTERP_THRES    = 1e2*DBL_EPSILON;
+        BOUNDER_TYPE    = LSB;
+        BERNSTEIN_ORDER = 0;
+        MIXED_IA        = false;
+        REF_POLY        = 0.;
+        DISPLAY_DIGITS  = 7;
+      }
+    //! @brief Default constructor
+    Options()
+      { reset(); }
     //! @brief Copy constructor of mc::CModel::Options
     template <typename U> Options
-      ( const U&options )
-      : INTERP_EXTRA( options.INTERP_EXTRA ),
-        INTERP_THRES( options.INTERP_THRES ),
-        BOUNDER_TYPE( options.BOUNDER_TYPE ),
-        BOUNDER_ORDER( options.BOUNDER_ORDER ),
-        MIXED_IA( options.MIXED_IA ),
-        REF_POLY(options.REF_POLY),
-	DISPLAY_DIGITS(options.DISPLAY_DIGITS)
+      ( U const& options )
+      : INTERP_EXTRA    ( options.INTERP_EXTRA ),
+        INTERP_THRES    ( options.INTERP_THRES ),
+        BOUNDER_TYPE    ( options.BOUNDER_TYPE ),
+        BERNSTEIN_ORDER ( options.BERNSTEIN_ORDER ),
+        MIXED_IA        ( options.MIXED_IA ),
+        REF_POLY        ( options.REF_POLY ),
+	DISPLAY_DIGITS  ( options.DISPLAY_DIGITS )
       {}
     //! @brief Assignment of mc::CModel::Options
     template <typename U> Options& operator =
@@ -396,7 +409,7 @@ public:
         INTERP_EXTRA     = options.INTERP_EXTRA;
         INTERP_THRES     = options.INTERP_THRES;
         BOUNDER_TYPE     = (BOUNDER)options.BOUNDER_TYPE;
-        BOUNDER_ORDER    = options.BOUNDER_ORDER;
+        BERNSTEIN_ORDER  = options.BERNSTEIN_ORDER;
         MIXED_IA         = options.MIXED_IA;
         REF_POLY         = options.REF_POLY;
         DISPLAY_DIGITS   = options.DISPLAY_DIGITS;
@@ -416,8 +429,8 @@ public:
     double INTERP_THRES;
     //! @brief Chebyshev model range bounder - See \ref sec_CHEBYSHEV_DENSE_opt
     BOUNDER BOUNDER_TYPE;
-    //! @brief Order of Bernstein polynomial for Chebyshev model range bounding (no less than Chebyshev model order!). Only if mc::CModel::options::BOUNDER_TYPE is set to mc::CModel::options::BERNSTEIN.
-    unsigned BOUNDER_ORDER;
+    //! @brief Degree of the Bernstein basis when mc::CModel::options::BOUNDER_TYPE is set to mc::CModel::options::BERNSTEIN
+    unsigned BERNSTEIN_ORDER;
     //! @brief Array of Chebyshev model range bounder names (for display)
     static const std::string BOUNDER_NAME[5];
     //! @brief Whether to intersect internal bounds with underlying bounds in T arithmetics
@@ -427,7 +440,6 @@ public:
     //! @brief Number of digits in output stream for Chebyshev model coefficients.
     unsigned DISPLAY_DIGITS;
   } options;
-  /** @} */
 
   //! @brief Original bounds on variable <tt>ivar</tt>
   const T& bndvar
@@ -443,6 +455,7 @@ public:
   double scalvar
     ( const unsigned ivar ) const
     { return _scalvar[ivar]; };
+  /** @} */
 
 private:  
   //! @brief Triple array of size <tt>(_nmon+1,<=_nmon,2^_nvar)</tt> with indices of terms from product of two monomial terms <tt>imon=1,...,_nmon</tt> and <tt>jmon=1,...,_nmon</tt> in Chebyshev model
@@ -485,11 +498,11 @@ private:
 
   //! @brief Populate array <tt>_bndpow</tt> for variable <tt>i</tt>
   void _set_bndpow
-    ( const unsigned i, const T&X, const double ref, const double scal );
+    ( const unsigned i, const T&X, const double& ref, const double& scal );
 
   //! @brief Get Chebyshev basis functions in U arithmetic for variable <a>X</a>
   template <typename U> static U* _get_bndpow
-    ( const unsigned nord, const U&X, const double ref, const double scal );
+    ( const unsigned nord, const U&X, const double& ref, const double& scal );
 
   //! @brief Get Chebyshev basis functions in U arithmetic for [-1,1] scaled variable <a>X</a>
   template <typename U> static U* _get_bndpow
@@ -512,7 +525,7 @@ private:
 
   //! @brief Construct Chebyshev interpolating polynomial coefficient <a>coefmon</a> for univariate <a>f</a>
   static void _interpolation
-    ( std::vector<double>&coefmon, const double TOL, unsigned& nord,
+    ( std::vector<double>& coefmon, const double& TOL, unsigned& nord,
       const T&X, puniv f );
 
   //! @brief Apply Chebyshev composition to variable <a>CVI</a> using the coefficients <a>coefmon</a> of the outer function
@@ -563,12 +576,12 @@ private:
 
   //! @brief Lifting of Chebyshev coefficient maps
   void _slift1D
-    ( const std::map<unsigned,double>&CVmap, const double dscal,
+    ( const std::map<unsigned,double>&CVmap, const double& dscal,
       std::map<unsigned,double>&CVRmap ) const;
 
   //! @brief Lifting of Chebyshev coefficient maps
   void _slift1D
-    ( const std::map<unsigned,double>&CVmap, const double dscal,
+    ( const std::map<unsigned,double>&CVmap, const double& dscal,
       std::map<unsigned,double>&CVRmap, double&coefrem,
       const unsigned ndxvar, const unsigned ndxord, unsigned*iexp ) const;
 
@@ -645,9 +658,9 @@ class CVar: public PolyVar<T>
   template <typename U> friend CVar<U> pow
     ( const CVar<U>&, const int );
   template <typename U> friend CVar<U> pow
-    ( const CVar<U>&, const double );
+    ( const CVar<U>&, const double& );
   template <typename U> friend CVar<U> pow
-    ( const double, const CVar<U>& );
+    ( const double&, const CVar<U>& );
   template <typename U> friend CVar<U> pow
     ( const CVar<U>&, const CVar<U>& );
   template <typename U> friend CVar<U> prod
@@ -772,7 +785,7 @@ public:
 
   //! @brief Constructor of Chebyshev variable for a real scalar
   CVar
-    ( const double d=0. );
+    ( const double& d=0. );
 
   //! @brief Constructor of Chebyshev variable for a remainder bound
   CVar
@@ -795,7 +808,7 @@ public:
 
   //! @brief Copy constructor of Chebyshev variable
   CVar
-    ( const CVar<T>&CV )
+    ( CVar<T> const& CV )
     : PolyVar<T>( CV ), _CM( CV._CM )
     {
 #ifdef MC__CMODEL_TRACE
@@ -808,11 +821,12 @@ public:
 
   //! @brief Move constructor of Chebyshev variable
   CVar
-    ( CVar<T>&&CV )
+    ( CVar<T> && CV )
     : PolyVar<T>( std::move(CV) ), _CM( CV._CM )
     {
+      CV._CM = nullptr;
 #ifdef MC__CMODEL_TRACE
-    std::cerr << "-- CVar<T>( CVar<T> && )\n";
+      std::cerr << "-- CVar<T>( CVar<T> && )\n";
 #endif
 #ifdef  MC__CMODEL_CHECK_PMODEL
       if( _CM != dynamic_cast< CModel<T>* >( PolyVar<T>::_CM ) ) assert( false );
@@ -827,7 +841,7 @@ public:
 private:
   //! @brief Private constructor for real scalar in Chebyshev model environment <tt>CM</tt>
   CVar
-    ( CModel<T>*CM, const double d=0. );
+    ( CModel<T>*CM, const double& d=0. );
 
   //! @brief Private constructor for remainder bound in Chebyshev model environment <tt>CM</tt>
   CVar
@@ -872,10 +886,10 @@ public:
 
   //! @brief Return new Chebyshev variable corresponding to the derivative model with respect to variable <a>i</a> and a zero remainder
 // dTn/dx = 2*n* sum'(k=0,...,n-1 w/ n-p-k even:  
-  CVar<T> polydiff
-    ( const unsigned i )
-    const
-    { CVar<T> var = *this; *(var._bndrem) = 0.; return var; }
+  //CVar<T> polydiff
+  //  ( const unsigned i )
+  //  const
+  //  { CVar<T> var = *this; *(var._bndrem) = 0.; return var; }
 
   //! @brief Return new Chebyshev variable with same multivariate polynomial part but zero remainder
   CVar<T> polynomial
@@ -917,40 +931,44 @@ public:
   //  ( const unsigned ivar, const T&Xvar, const bool reset );
 
   //! @brief Scale coefficients in Chebyshev variable for the reduced variable <a>X</a>
-  CVar<T> scale
-    ( const T*X ) const;
+  //CVar<T> scale
+  //  ( const T*X ) const;
  /** @} */
-
+    
   CVar<T>& operator =
     ( CVar<T> && );
   CVar<T>& operator =
     ( const CVar<T>& );
   CVar<T>& operator =
-    ( const double );
+    ( const double& );
   CVar<T>& operator =
     ( const T& );
+
   template <typename U> CVar<T>& operator +=
     ( const CVar<U>& );
   template <typename U> CVar<T>& operator +=
     ( const U& );
   CVar<T>& operator +=
-    ( const double );
+    ( const double& );
+
   template <typename U> CVar<T>& operator -=
     ( const CVar<U>& );
   template <typename U> CVar<T>& operator -=
     ( const U& );
   CVar<T>& operator -=
-    ( const double );
+    ( const double& );
+
   CVar<T>& operator *=
     ( const CVar<T>& );
   CVar<T>& operator *=
-    ( const double );
+    ( const double& );
   CVar<T>& operator *=
     ( const T& );
+
   CVar<T>& operator /=
     ( const CVar<T>& );
   CVar<T>& operator /=
-    ( const double );
+    ( const double& );
 
 private:
   //! @brief Update bounds for all terms of degrees <tt>iord=0,...,_nord</tt> in <tt>_bndord</tt>
@@ -986,7 +1004,7 @@ private:
 
   //! @brief Construct Chebyshev interpolating polynomial coefficient <a>coefmon</a> for univariate <a>f</a>
   void _interpolation
-    ( std::vector<double>&coefmon, const double TOL, unsigned& nord, puniv f ) const
+    ( std::vector<double>& coefmon, const double& TOL, unsigned& nord, puniv f ) const
     { CModel<T>::_interpolation( coefmon, TOL, nord, bound(), f ); }
 
   //! @brief Apply Chebyshev composition to variable <a>CVI</a> using the coefficients <a>coefmon</a> of the outer function
@@ -996,7 +1014,7 @@ private:
 
   //! @brief Scale current variable in order for its range to be within [-1,1], with <a>c</a> and <a>w</a> respectively the center and width, respectively, of the orginal variable range
   CVar<T> _rescale
-    ( const double w, const double c ) const
+    ( const double& w, const double& c ) const
     { return( !isequal(w,0.)? (*this-c)/w: c ); }
 
   //! @brief Return an array of Chebyshev variables representing the coefficients in the univariate polynomial for variable <a>ivar</a> only
@@ -1198,7 +1216,7 @@ CModel<T>::_set_bndmon()
 
 template <typename T> inline void
 CModel<T>::_set_bndpow
-( const unsigned i, const T&X, const double ref, const double scal )
+( const unsigned i, const T&X, const double& ref, const double& scal )
 {
   if( i>=_nvar ) throw Exceptions( Exceptions::INIT );
 
@@ -1216,7 +1234,7 @@ CModel<T>::_set_bndpow
 
 template <typename T> template <typename U> inline U*
 CModel<T>::_get_bndpow
-( const unsigned nord, const U&X, const double ref, const double scal )
+( const unsigned nord, const U&X, const double& ref, const double& scal )
 {
   U *Xrcheb = new U[nord+1];
   Xrcheb[0] = 1.;
@@ -1396,7 +1414,7 @@ CModel<T>::_interpolation
 
 template <typename T> inline void
 CModel<T>::_interpolation
-( std::vector<double>&coefmon, const double TOL, unsigned& nord,
+( std::vector<double>&coefmon, const double& TOL, unsigned& nord,
   const T&X, puniv f )
 {
   coefmon.resize( nord+1 );
@@ -1467,7 +1485,7 @@ const
 
 template <typename T> inline void
 CModel<T>::_slift1D
-( const std::map<unsigned,double>&CVmap, const double dscal,
+( const std::map<unsigned,double>&CVmap, const double& dscal,
   std::map<unsigned,double>&CVRmap )
 const
 {
@@ -1480,7 +1498,7 @@ const
 
 template <typename T> inline void
 CModel<T>::_slift1D
-( const std::map<unsigned,double>&CVmap, const double dscal,
+( const std::map<unsigned,double>&CVmap, const double& dscal,
   std::map<unsigned,double>&CVRmap, double&coefrem,
   const unsigned ndxvar, const unsigned ndxord, unsigned*iexp )
 const
@@ -1734,7 +1752,7 @@ CModel<T>::_polybound_eigen
     }
 
 #else
-    double*Umat = new double[_nvar*_nvar];
+    std::vector<double> Umat( _nvar*_nvar, 0. );   // value-initialised (was uninitialised new[])
     for( unsigned i=_posord[2]; i<_posord[3]; i++ ){
       unsigned i1=0, i2=_nvar;
       C Ci = (ndxmon.empty() || ndxmon.find(i)!=ndxmon.end())? coefmon[i]: 0.;
@@ -1747,17 +1765,14 @@ CModel<T>::_polybound_eigen
       }
       for( i2=i1+1; i2<_nvar; i2++ )
         if( iexp[i2] ) break;
-      Umat[_nvar*i1+i2] = 0.;
-      Umat[_nvar*i2+i1] = Ci/2.;
+      Umat[_nvar*i1+i2] = Umat[_nvar*i2+i1] = Ci/2.;   // symmetric (do not rely on UPLO/layout)
     }
 #ifdef MC__CMODEL_DEBUG_POLYBOUND
-    display( _nvar, _nvar, Umat, _nvar, "Matrix U", std::cout );
+    display( _nvar, _nvar, Umat.data(), _nvar, "Matrix U", std::cout );
 #endif
-    double*Dmat = mc::dsyev_wrapper( _nvar, Umat, true );
-    if( !Dmat ){
-      delete[] Umat;
+    std::unique_ptr<double[]> Dmat( mc::dsyev_wrapper( _nvar, Umat.data(), true ) );
+    if( !Dmat )
       return _polybound_LSB( coefmon, bndord, bndbasis );
-    }
 
     for( unsigned i=0; i<_nvar; i++ ){
       double linaux = 0.;
@@ -1779,13 +1794,8 @@ CModel<T>::_polybound_eigen
         std::cout << "BNDPOL: " << bndpol << std::endl;
 #endif
     }
-    delete[] Umat;
-    delete[] Dmat;
 #endif
   }
-#ifdef MC__POLYMODEL_DEBUG_POLYBOUND
-  int tmp; std::cin >> tmp;
-#endif
 
   for( unsigned i=3; i<=_nord; i++ ) bndpol += bndord[i];
   return bndpol;
@@ -1843,8 +1853,7 @@ CModel<T>::_polybound_bernstein
   std::cout << "binom max: " << _binom_size.first << "  "
             << _binom_size.second << std::endl;
 #endif
-  const unsigned maxord = (options.BOUNDER_ORDER>_nord? 
-    options.BOUNDER_ORDER: _nord );
+  const unsigned maxord = (options.BERNSTEIN_ORDER>_nord? options.BERNSTEIN_ORDER: _nord);
   const poly_size maxmon = std::pow(maxord+1,_nvar);
   _ext_expmon( maxord, true );
   _ext_binom( 2*_nord );
@@ -2022,7 +2031,7 @@ CVar<T>::operator=
 
 template <typename T> inline
 CVar<T>::CVar
-( const double d )
+( const double& d )
 : PolyVar<T>(), _CM( 0 )
 {
   _coefmon[0] = d;
@@ -2032,7 +2041,7 @@ CVar<T>::CVar
 
 template <typename T> inline CVar<T>&
 CVar<T>::operator =
-( const double d )
+( const double& d )
 {
   if( _CM ){ _CM = 0; _resize( _CM ); }
   _coefmon[0] = d;
@@ -2066,7 +2075,7 @@ CVar<T>::operator =
 
 template <typename T> inline
 CVar<T>::CVar
-( CModel<T>*CM, const double d )
+( CModel<T>*CM, const double& d )
 : PolyVar<T>( CM ), _CM( CM )
 {
   if( !_CM ) throw typename CModel<T>::Exceptions( CModel<T>::Exceptions::INIT );
@@ -2371,7 +2380,7 @@ CVar<T>::_single
 
   return CVcoef;
 }
-
+/*
 template <typename T> inline CVar<T>
 CVar<T>::scale
 ( const T*X ) const
@@ -2381,19 +2390,19 @@ CVar<T>::scale
   for( unsigned i=0; _CM && X && i<nvar(); i++ ){
     // Nothing to do for variable i if X[i] = [-1,1]
     if( Op<T>::l(X[i]) == -1 && Op<T>::u(X[i]) == 1 ) continue;
-    // Perform caling for variable i
+    // Perform scaling for variable i
     CVar<T> CVinner( _CM ); CVinner._set( i, X[i] );
     //std::cout << "CVinner[" << i << ":" << CVinner;
     CVinner = CVinner._rescale( _scalvar(i), _refvar(i) );
     //std::cout << "CVinner[" << i << "]:" << CVinner;
-    CVar<T>*CVcoefi = CVscal._single( i );
-    CVscal = CVinner._composition( CVcoefi );
+    CVar<T>* CVcoefi = CVscal._single( i );
+    CVscal = CVinner._composition( CVcoefi->_coefmon );
     CVscal += *_bndrem;
     delete[] CVcoefi;
   }
   return CVscal;
 }
-
+*/
 template <typename T> inline std::ostream&
 operator<<
 ( std::ostream&out, const CVar<T>&CV )
@@ -2505,7 +2514,7 @@ operator+
 
 template <typename T> inline CVar<T>&
 CVar<T>::operator +=
-( const double c )
+( const double& c )
 {
   if( _ndxmon.empty() || !_ndxmon.insert(0).second )
     _coefmon[0] += c; // update
@@ -2519,7 +2528,7 @@ CVar<T>::operator +=
 
 template <typename T> inline CVar<T>
 operator+
-( const CVar<T>&CV1, const double c )
+( const CVar<T>&CV1, const double& c )
 {
   CVar<T> CV3( CV1 );
   CV3 += c;
@@ -2528,7 +2537,7 @@ operator+
 
 template <typename T> inline CVar<T>
 operator+
-( const double c, const CVar<T>&CV2 )
+( const double& c, const CVar<T>&CV2 )
 {
   CVar<T> CV3( CV2 );
   CV3 += c;
@@ -2651,7 +2660,7 @@ operator-
 
 template <typename T> inline CVar<T>&
 CVar<T>::operator-=
-( const double c )
+( const double& c )
 {
   if( _ndxmon.empty() || !_ndxmon.insert(0).second )
     _coefmon[0] -= c; // update
@@ -2665,7 +2674,7 @@ CVar<T>::operator-=
 
 template <typename T> inline CVar<T>
 operator-
-( const CVar<T>&CV1, const double c )
+( const CVar<T>&CV1, const double& c )
 {
   CVar<T> CV3( CV1 );
   CV3 -= c;
@@ -2674,7 +2683,7 @@ operator-
 
 template <typename T> inline CVar<T>
 operator-
-( const double c, const CVar<T>&CV2 )
+( const double& c, const CVar<T>&CV2 )
 {
   CVar<T> CV3( -CV2 );
   CV3 += c;
@@ -2892,7 +2901,7 @@ sqr
 
 template <typename T> inline CVar<T>&
 CVar<T>::operator*=
-( const double c )
+( const double& c )
 {
   if( !_CM ){
     _coefmon[0] *= c;
@@ -2916,7 +2925,7 @@ CVar<T>::operator*=
 
 template <typename T> inline CVar<T>
 operator*
-( const CVar<T>&CV1, const double c )
+( const CVar<T>&CV1, const double& c )
 {
   CVar<T> CV3( CV1 );
   CV3 *= c;
@@ -2925,7 +2934,7 @@ operator*
 
 template <typename T> inline CVar<T>
 operator*
-( const double c, const CVar<T>&CV2 )
+( const double& c, const CVar<T>&CV2 )
 {
   CVar<T> CV3( CV2 );
   CV3 *= c;
@@ -2995,7 +3004,7 @@ operator /
 
 template <typename T> inline CVar<T>&
 CVar<T>::operator /=
-( const double c )
+( const double& c )
 {
   if( isequal( c, 0. ) )
     throw typename CModel<T>::Exceptions( CModel<T>::Exceptions::DIV );
@@ -3005,7 +3014,7 @@ CVar<T>::operator /=
 
 template <typename T> inline CVar<T>
 operator /
-( const CVar<T>&CV, const double c )
+( const CVar<T>&CV, const double& c )
 {
   if ( isequal( c, 0. ))
     throw typename CModel<T>::Exceptions( CModel<T>::Exceptions::DIV );
@@ -3014,7 +3023,7 @@ operator /
 
 template <typename T> inline CVar<T>
 operator /
-( const double c, const CVar<T>&CV )
+( const double& c, const CVar<T>&CV )
 {
   return inv(CV) * c;
 }
@@ -3259,7 +3268,7 @@ pow
 
 template <typename T> inline CVar<T>
 pow
-( const CVar<T> &CV, const double a )
+( const CVar<T> &CV, const double& a )
 {
   return exp( a * log( CV ) );
 }
@@ -3273,7 +3282,7 @@ pow
 
 template <typename T> inline CVar<T>
 pow
-( const double a, const CVar<T> &CV )
+( const double& a, const CVar<T> &CV )
 {
   return exp( CV * std::log( a ) );
 }
@@ -3838,7 +3847,7 @@ namespace mc
 template<typename T> struct Op< mc::CVar<T> >
 {
   typedef mc::CVar<T> CV;
-  static CV point( const double c ) { return CV(c); }
+  static CV point( const double& c ) { return CV(c); }
   static CV zeroone() { return CV( mc::Op<T>::zeroone() ); }
   static void I(CV& x, const CV&y) { x = y; }
   static double l(const CV& x) { return mc::Op<T>::l(x.B()); }
@@ -3871,7 +3880,7 @@ template<typename T> struct Op< mc::CVar<T> >
   static CV hull(const CV& x, const CV& y) { return mc::hull(x,y); }
   static CV min (const CV& x, const CV& y) { return mc::Op<T>::min(x.B(),y.B());  }
   static CV max (const CV& x, const CV& y) { return mc::Op<T>::max(x.B(),y.B());  }
-  static CV arh (const CV& x, const double k) { return mc::exp(-k/x); }
+  static CV arh (const CV& x, const double& k) { return mc::exp(-k/x); }
   template <typename X, typename Y> static CV pow(const X& x, const Y& y) { return mc::pow(x,y); }
   static CV cheb(const CV& x, const unsigned n) { return mc::cheb(x,n); }
   static CV prod (const unsigned n, const CV* x) { return mc::prod(n,x); }

@@ -1,4 +1,4 @@
-Main author:
+Main developer:
 
 - Benoit Chachuat, project lead (Imperial College London)
 
@@ -8,16 +8,12 @@ Contributors:
 
   Coding, testing, debugging of Taylor model
 
-- Jai Rajyaguru, Nikola Peric, Akshay Shah (Imperial College London)
+- Jai Rajyaguru, Nikola Peric, Akshay Shah (Imperial)
   Mario Eduardo Villanueva (Imperial College London, ShanghaiTech, IMT Lucca)
 
   Coding, testing, debugging of spectral bound, ellipsoidal bound, Chebyshev model
 
-- Tanuj Karia (Imperial College London)
-
-  Testing, debugging of quadratization, lifting and elimination in DAG
-
-- Yanlin Zha (Imperial College London)
+- Yanlin Zha (Imperial)
 
   Coding, testing, debugging of interval superposition arithmetic
   
@@ -31,6 +27,8 @@ Contributors:
   Testing, installation
 
 - Mario Eduardo Villanueva (ShanghaiTech, IMT Lucca)
+  Marco Sandrin (Imperial)
+  Kai Ruth (ETH Zurich, Imperial) 
 
   Releasing MC++ in GitHub and mantaining the GitHub site
 

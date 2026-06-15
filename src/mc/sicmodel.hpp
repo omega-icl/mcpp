@@ -82,7 +82,7 @@ See the documentations of mc::SICModel and mc::SICVar for a complete list of mem
 
 \section sec_CHEBYSHEV_SPARSEINT_fct Which functions are overloaded for sparse interval Chebyshev model arithmetic?
 
-mc::SICVar overloads the usual functions <tt>exp</tt>, <tt>log</tt>, <tt>sqr</tt>, <tt>sqrt</tt>, <tt>pow</tt>, <tt>inv</tt>, <tt>cos</tt>, <tt>sin</tt>, <tt>tan</tt>, <tt>acos</tt>, <tt>asin</tt>, <tt>atan</tt>, <tt>cosh</tt>, <tt>sinh</tt>, <tt>tanh</tt>, <tt>erf</tt>, <tt>erfc</tt>, <tt>fabs</tt>. The functions <tt>min</tt>, <tt>max</tt>, <tt>fstep</tt>, <tt>bstep</tt>, <tt>inter</tt>, and <tt>hull</tt> are not currently overloaded in mc::SICVar.
+mc::SICVar overloads the usual functions <tt>exp</tt>, <tt>log</tt>, <tt>sqr</tt>, <tt>sqrt</tt>, <tt>pow</tt>, <tt>inv</tt>, <tt>cos</tt>, <tt>sin</tt>, <tt>tan</tt>, <tt>acos</tt>, <tt>asin</tt>, <tt>atan</tt>, <tt>cosh</tt>, <tt>sinh</tt>, <tt>tanh</tt>, <tt>erf</tt>, <tt>erfc</tt>, <tt>fabs</tt>. The functions <tt>min</tt>, <tt>max</tt>, <tt>fstep</tt>, and <tt>bstep</tt> are not currently overloaded in mc::SICVar. The functions <tt>inter</tt> and <tt>hull</tt> are overloaded, using the midpoint polynomial as the reference (centred) polynomial part and the interval-coefficient radii as the remainder (see \ref sec_CHEBYSHEV_SPARSEINT_opt for the role of REF_POLY).
 
 \section sec_CHEBYSHEV_SPARSEINT_opt How are the options set for the computation of a sparse interval Chebyshev model?
 
@@ -105,7 +105,7 @@ The available options are the following:
          <TD>Strategy for allocating higher-order terms to monomials in sparse product terms.
      <TR><TH><tt>PRODBND_SPLIT</tt> <TD><tt>bool</tt> <TD>false
          <TD>Whether to distribute uncertainty in product with interval bound.
-     <TR><TH><tt>REMEZ_USE</tt> <TD><tt>bool</tt> <TD>false
+     <TR><TH><tt>REMEZ_USE</tt> <TD><tt>bool</tt> <TD>true
          <TD>Whether to use the Remez algorithm for computing a minimax approximation for univariate terms.
      <TR><TH><tt>REMEZ_MAXIT</tt> <TD><tt>unsigned int</tt> <TD>10
          <TD>Maximal number of iterations in Remez algorithm for computing a minimax approximation for univariate terms.
@@ -119,13 +119,15 @@ The available options are the following:
          <TD>Threshold for coefficient values in Chebyshev expansion for bounding of transcendental univariates.
      <TR><TH><tt>BOUNDER_TYPE</tt> <TD><tt>mc::SICModel::Options::BOUNDER</tt> <TD>mc::SICModel::Options::LSB
          <TD>Chebyshev model range bounder.
+     <TR><TH><tt>BERNSTEIN_ORDER</tt> <TD><tt>unsigned int</tt> <TD>0
+         <TD>Degree of the Bernstein basis when BOUNDER_TYPE is set to mc::SICModel::Options::BERNSTEIN.
      <TR><TH><tt>MIXED_IA</tt> <TD><tt>bool</tt> <TD>false
          <TD>Whether to intersect internal bounds with underlying bounds in the templated arithmetics.
      <TR><TH><tt>MIN_FACTOR</tt> <TD><tt>double</tt> <TD>0e0
          <TD>Threshold for monomial coefficients below which the term is removed and appended to the remainder term.
      <TR><TH><tt>REF_POLY</tt> <TD><tt>double</tt> <TD>0.
          <TD>Scalar in \f$[0,1]\f$ related to the choice of the polynomial part in the overloaded functions mc::inter and mc::hull (see \ref sec_CHEBYSHEV_SPARSE_fct). A value of 0. amounts to selecting the polynomial part of the left operand, whereas a value of 1. selects the right operand.
-     <TR><TH><tt>DISPLAY_DIGITS</tt> <TD><tt>unsigned int</tt> <TD>5
+     <TR><TH><tt>DISPLAY_DIGITS</tt> <TD><tt>unsigned int</tt> <TD>7
          <TD>Number of digits in output stream for Chebyshev model coefficients.
 </TABLE>
 
@@ -180,7 +182,10 @@ Further exceptions may be thrown by the template parameter class itself.
 //#include "mclapack.hpp"
 #include "mcop.hpp"
 #include "smon.hpp"
-#include "remez.hpp"
+#include <armadillo>
+#if defined( BOOST_UBLAS_NO_STD_CERR )
+ #include "remez.hpp"
+#endif
 
 #undef  MC__SICMODEL_DEBUG
 #undef  MC__SICMODEL_DEBUG_SCALE
@@ -307,6 +312,17 @@ protected:
   //! @brief Interval coefficients in Chebyshev interpolant of univariate functions
   std::vector<T> _coefuniv;
 
+  //! @brief Maps Variable ID -> Degree -> Vector of Bernstein coefficients; stores basis functions (T_k or x^k) in their natural degree as Armadillo vectors
+  mutable std::map<KEY, std::vector<arma::vec>, COMP> _bernstein_cache;
+
+#if not defined( BOOST_UBLAS_NO_STD_CERR )
+  //! @brief Armadillo matrices and vectors for minimax Remez algorithm
+  arma::vec _minimax_ref;
+  arma::mat _minimax_mat;
+  arma::vec _minimax_rhs;
+  arma::vec _minimax_sol;
+#endif
+
 //  //! @brief Resize and return a pointer to the Chebyshev coefficient interpolant array
 //  std::vector<double>& _resize_coefuniv
 //    ()
@@ -349,19 +365,24 @@ public:
     : _maxord( maxord )
     { _coefuniv.reserve( _maxord + options.INTERP_EXTRA + 1 ); }
 
-  //! @brief Copy constructor of Sparse Chebyshev model environment
+  //! @brief Copy constructor of Sparse Interval Chebyshev model environment
   SICModel
     ( SICModel<T,KEY,COMP> const& mod )
     : _maxord( mod._maxord ), _setvar( mod._setvar ),
       _bndvar( mod._bndvar ), _refvar( mod._refvar ), _scalvar( mod._scalvar )
     { _coefuniv.reserve( _maxord + options.INTERP_EXTRA + 1 ); }
 
-  //! @brief Copy constructor of Sparse Chebyshev model environment
+#ifdef MC__SCMODEL_H
+  //! @brief Conversion constructor from a (non-interval) sparse Chebyshev model environment.
+  //! @note Only available when scmodel.hpp has been included beforehand, so that
+  //!       mc::SCModel is a complete type. This keeps sicmodel.hpp standalone and
+  //!       avoids re-introducing the armadillo dependency that scmodel.hpp pulls in.
   SICModel
     ( SCModel<T,KEY,COMP> const& mod )
     : _maxord( mod.maxord() ), _setvar( mod.setvar() ),
       _bndvar( mod.bndvar() ), _refvar( mod.refvar() ), _scalvar( mod.scalvar() )
     { _coefuniv.reserve( _maxord + options.INTERP_EXTRA + 1 ); }
+#endif
 
   //! @brief Destructor of Sparse Chebyshev model environment
   ~SICModel
@@ -425,6 +446,12 @@ public:
   void get_bndmon
     ( std::map<t_mon,U,lt_mon>& bndmon, std::map<KEY,U,COMP> const& bndvar,
       bool const scaled=false )
+    const;
+
+  //! @brief Transform monomial-coefficient map 'coefmon' to Bernstein basis representation
+  template <typename C>
+  std::pair< std::map<t_mon,C,lt_mon>, std::map<KEY, unsigned, COMP> > to_bernstein
+    ( std::map<t_mon,C,lt_mon> const& coefmon, unsigned const ORDER=0 )
     const;
 
   //! @brief Exceptions of mc::SICModel
@@ -494,19 +521,36 @@ public:
   //! @brief Options of mc::SICModel
   struct Options
   {
+    //! @brief Reset options to default values
+    void reset()
+      {
+        BASIS           = CHEB;
+        HOT_SPLIT       = FULL;
+        PRODBND_SPLIT   = false;
+        LIFT_USE        = false;
+        LIFT_ATOL       = 1e-10;
+        LIFT_RTOL       = 1e-3;
+        REMEZ_USE       = true;
+        REMEZ_MAXIT     = 10;
+        REMEZ_TOL       = 1e-5;
+        REMEZ_MIG       = 1e-10;
+        INTERP_EXTRA    = 0;
+        INTERP_THRES    = 1e2*machprec();
+        BOUNDER_TYPE    = LSB;
+        BERNSTEIN_ORDER = 0;
+        MIG_USE         = false;
+        MIG_ATOL        = 0e0;
+        MIG_RTOL        = machprec();
+        MIXED_IA        = false;
+        REF_POLY        = 0e0;
+        DISPLAY_DIGITS  = 7;
+      }
     //! @brief Constructor of mc::SICModel::Options
-    Options():
-      BASIS(CHEB),
-      HOT_SPLIT(FULL), PRODBND_SPLIT(false), 
-      LIFT_USE(false), LIFT_ATOL(1e-10), LIFT_RTOL(1e-3),
-      REMEZ_USE(true), REMEZ_MAXIT(10), REMEZ_TOL(1e-5), REMEZ_MIG(1e-10),
-      INTERP_EXTRA(0), INTERP_THRES(1e2*machprec()), BOUNDER_TYPE(LSB),
-      MIG_USE(false), MIG_ATOL(0e0), MIG_RTOL(machprec()), 
-      MIXED_IA(false), REF_POLY(0e0), DISPLAY_DIGITS(7)
-      {}
+    Options()
+      { reset(); }
     //! @brief Copy constructor of mc::SICModel::Options
     template <typename U> Options
-      ( U&options )
+      ( U const& options )
       : BASIS( options.BASIS ),
         HOT_SPLIT( options.HOT_SPLIT ),
         PRODBND_SPLIT( options.PRODBND_SPLIT ),
@@ -520,6 +564,7 @@ public:
         INTERP_EXTRA( options.INTERP_EXTRA ),
         INTERP_THRES( options.INTERP_THRES ),
         BOUNDER_TYPE( options.BOUNDER_TYPE ),
+        BERNSTEIN_ORDER( options.BERNSTEIN_ORDER ),
         MIG_USE( options.MIG_USE ),
         MIG_ATOL( options.MIG_ATOL ),
         MIG_RTOL( options.MIG_RTOL ),
@@ -529,7 +574,7 @@ public:
       {}
     //! @brief Assignment of mc::SICModel::Options
     template <typename U> Options& operator =
-      ( U&options ){
+      ( U const& options ){
         BASIS            = options.BASIS;
         HOT_SPLIT        = options.HOT_SPLIT;
         PRODBND_SPLIT    = options.PRODBND_SPLIT;
@@ -543,6 +588,7 @@ public:
         INTERP_EXTRA     = options.INTERP_EXTRA;
         INTERP_THRES     = options.INTERP_THRES;
         BOUNDER_TYPE     = (BOUNDER)options.BOUNDER_TYPE;
+        BERNSTEIN_ORDER  = options.BERNSTEIN_ORDER;
         MIG_USE          = options.MIG_USE;
         MIG_ATOL         = options.MIG_ATOL;
         MIG_RTOL         = options.MIG_RTOL;
@@ -554,7 +600,8 @@ public:
     //! @brief Chebyshev model range bounder option
     enum BOUNDER{
       NAIVE=0,	//!< Naive polynomial range bounder
-      LSB 	//!< Lin & Stadtherr range bounder
+      LSB,	//!< Lin & Stadtherr range bounder
+      BERNSTEIN //!< Bernstein range bounder
     };
     //! @brief Strategies for allocating higher-order terms to monomials in sparse product terms
     enum ALLOCATION{
@@ -593,8 +640,10 @@ public:
     double INTERP_THRES;
     //! @brief Chebyshev model range bounder
     BOUNDER BOUNDER_TYPE;
+    //! @brief Degree of the Bernstein basis when mc::SICModel::Options::BOUNDER_TYPE is set to mc::SICModel::Options::BERNSTEIN
+    unsigned BERNSTEIN_ORDER;
     //! @brief Array of Chebyshev model range bounder names (for display)
-    static const std::string BOUNDER_NAME[2];
+    static const std::string BOUNDER_NAME[3];
     //! @brief Whether to simplify the monomial terms with small magnitude in the model
     bool MIG_USE;
     //! @brief Absolute tolerance for simplifying monomial terms - only if MIG_USE == true
@@ -613,7 +662,7 @@ public:
   static T TOne;
   
   //!brief Zero-one in T arithmetic
-  static T TZerOne;
+  static T TZeroOne;
 
   /** @} */
 
@@ -696,6 +745,12 @@ private:
 
   //! @brief Polynomial range bounder - Lin & Stadtherr approach
   template <typename C, typename U> U _polybound_LSB
+    ( std::map<t_mon,C,lt_mon> const& coefmon, 
+      std::map<KEY,std::vector<U>,COMP> const& bndbasis )
+    const;
+
+  //! @brief Polynomial range bounder - Bernstein approach with degree elevation
+  template <typename C, typename U> U _polybound_bernstein
     ( std::map<t_mon,C,lt_mon> const& coefmon, 
       std::map<KEY,std::vector<U>,COMP> const& bndbasis )
     const;
@@ -785,12 +840,12 @@ private:
 
 template <typename T, typename KEY, typename COMP>
 inline
-const std::string SICModel<T,KEY,COMP>::Options::BOUNDER_NAME[2]
-  = { "NAIVE", "LSB" };
+const std::string SICModel<T,KEY,COMP>::Options::BOUNDER_NAME[3]
+  = { "NAIVE", "LSB", "BERNSTEIN" };
 
 template <typename T, typename KEY, typename COMP>
 inline
-T SICModel<T,KEY,COMP>::TZerOne
+T SICModel<T,KEY,COMP>::TZeroOne
   = Op<T>::zeroone();
 
 template <typename T, typename KEY, typename COMP>
@@ -1071,6 +1126,15 @@ public:
   SICVar<T,KEY,COMP>& set
     ( SICModel<T,KEY,COMP>* CM )
     { _CM = CM; return *this; }
+
+  //! @brief Set as interval-valued constant <a>bnd</a>
+  SICVar<T,KEY,COMP>& set
+    ( T const& bnd )
+    { return operator=( bnd ); }
+
+  //! @brief Takes the negative of the variable in place
+  SICVar<T,KEY,COMP>& neg
+    ();
     
   //! @brief Set multivariate polynomial coefficients in variable as <tt>coefmon</tt>
   SICVar<T,KEY,COMP>& set
@@ -1197,8 +1261,7 @@ public:
     
   //! @brief Unscale coefficients in Chebyshev variable for their original variable ranges
   SICVar<T,KEY,COMP>::t_poly unscale
-    ()
-    const;
+    ();
         
   //! @brief Return new coefficient map in monomial basis representation
   t_poly to_monomial
@@ -1208,6 +1271,16 @@ public:
   //! @brief Return new coefficient map in monomial basis representation after removing terms with coefficient less than TOL or order greater than or equal to ORD, and also return a bound on the removed terms
   std::pair<t_poly,T> to_monomial
     ( bool const scaled, double const& ATOL, double const& RTOL, int const TORD = -1 )
+    const;
+
+  //! @brief Return new coefficient map in Bernstein basis representation
+  std::pair< t_poly, std::map<KEY,unsigned,COMP> > to_bernstein
+    ( unsigned const ORDER = 0 )
+    const;
+
+  //! @brief Return bound based on transformed Bernstein basis
+  T bound_bernstein
+    ( t_poly const& coefbern )
     const;
  /** @} */
 
@@ -1447,6 +1520,172 @@ const
 #endif
 }
 
+#if not defined( BOOST_UBLAS_NO_STD_CERR )
+template <typename T, typename KEY, typename COMP>
+template <typename PUNIV>
+inline
+double
+SICModel<T,KEY,COMP>::_minimax
+( PUNIV const& f, unsigned const maxord ) // range of f assumed as [-1,1]
+{
+  // 1. Resize Armadillo Matrices and Vector
+  unsigned const n_points = maxord + 2;
+  _minimax_ref.resize( n_points );
+  _minimax_mat.resize( n_points, n_points );
+  _minimax_rhs.resize( n_points );
+  _minimax_sol.resize( n_points );
+
+  // 2. Initialize Reference Set
+  for( unsigned i=0; i<n_points; ++i )
+    _minimax_ref(i) = -std::cos( PI * double(i) / double(n_points-1) );
+
+  _ainterp.assign( maxord+1, 0.0 );
+  double cur_err = 0.0;
+  double max_abs_err = 0.0;
+
+  // Clenshaw recurrence lambda
+  auto eval_chebyshev = [&](double x) -> double {
+    if( maxord == 0 ) return _ainterp[0];
+    if( maxord == 1 ) return _ainterp[0] + _ainterp[1]*x;
+
+    double b_k, b_kp1 = 0.0, b_kp2 = 0.0;
+    double x2 = 2.0 * x;
+
+    for( int k=maxord; k>=1; --k ){
+        b_k = _ainterp[k] + x2 * b_kp1 - b_kp2;
+        b_kp2 = b_kp1;
+        b_kp1 = b_k;
+    }
+    return _ainterp[0] + x * b_kp1 - b_kp2;
+  };
+
+  for( unsigned iter=0; iter < options.REMEZ_MAXIT; ++iter ){
+
+    // 3. Build Linear System
+    for( unsigned i=0; i<n_points; ++i ){
+      double const x = _minimax_ref(i);
+      _minimax_rhs(i) = f(x);
+
+      _minimax_mat(i, 0) = 1.0;
+      if( maxord >= 1 ) _minimax_mat(i, 1) = x;
+      for( unsigned j=2; j<=maxord; ++j )
+        _minimax_mat(i, j) = 2.0 * x * _minimax_mat(i, j-1) - _minimax_mat(i, j-2);
+
+      _minimax_mat(i, n_points - 1) = ( i % 2 == 0 ) ? 1.0 : -1.0;
+    }
+
+    // 4. Solve System
+    try{
+      _minimax_sol = arma::solve( _minimax_mat, _minimax_rhs );
+      for( unsigned j=0; j<=maxord; ++j ) _ainterp[j] = _minimax_sol(j);
+      cur_err = _minimax_sol(n_points - 1);
+    }
+    catch(...){
+      // Solver failed (singularity). Fallback to standard Chebyshev Interpolation.
+      // _chebinterp populates the member _ainterp directly with valid coefficients.
+      unsigned nord = n_points;
+      double const tol = options.INTERP_THRES;
+      _chebinterp( f, tol, nord );
+      max_abs_err = 2*tol;
+      for( unsigned i=maxord+1; i<=nord; i++ )
+        max_abs_err += std::fabs( _ainterp[i] );
+      // Exit the Remez loop
+      break;
+    }
+
+    // 5. Grid Search for Global Max Error
+    unsigned const n_grid = 20 * maxord + 200;
+    double const grid_step = 2.0 / double(n_grid);
+
+    max_abs_err = 0.0;
+    double x_at_max = 0.0;
+
+    for( unsigned k=0; k<=n_grid; ++k ){
+      double const x = -1.0 + double(k) * grid_step;
+      double const poly_val = eval_chebyshev(x);
+      double const err = f(x) - poly_val;
+
+      if( std::abs(err) > max_abs_err ){
+        max_abs_err = std::abs(err);
+        x_at_max = x;
+      }
+    }
+
+    // 6. Convergence Check
+    if( std::abs(max_abs_err - std::abs(cur_err)) < options.REMEZ_TOL )
+      break;
+
+    // 7. Robust Exchange Step
+    std::vector<double> points;
+    points.reserve( n_points + 1 );
+    for( unsigned i=0; i<n_points; ++i ) points.push_back( _minimax_ref(i) );
+
+    // Check for stagnation
+    bool duplicate = false;
+    for( double p : points )
+        if( std::abs(p - x_at_max) < 1e-14 ) { duplicate = true; break; }
+    if( duplicate ) break;
+
+    points.push_back( x_at_max );
+    std::sort( points.begin(), points.end() );
+
+    std::vector<double> errs( points.size() );
+    for( size_t i=0; i<points.size(); ++i ){
+       errs[i] = f(points[i]) - eval_chebyshev(points[i]);
+    }
+
+    int remove_idx = -1;
+    for( unsigned i=0; i<n_points; ++i ){
+      double const s1 = ( errs[i] > 0.0 ) ? 1.0 : -1.0;
+      double const s2 = ( errs[i+1] > 0.0 ) ? 1.0 : -1.0;
+      if( s1 == s2 ){
+        remove_idx = ( std::abs(errs[i]) < std::abs(errs[i+1]) ) ? i : i+1;
+        break;
+      }
+    }
+
+    if( remove_idx == -1 )
+       remove_idx = ( std::abs(errs[0]) < std::abs(errs[n_points]) ) ? 0 : n_points;
+
+    int cnt = 0;
+    for( int i=0; i<int(n_points+1); ++i ){
+      if( i == remove_idx ) continue;
+      _minimax_ref(cnt++) = points[i];
+    }
+  }
+
+  // 8. Output Basis Conversion
+  _ainterp.resize( maxord+1 );
+
+  if( options.BASIS != Options::CHEB ){
+    // Convert Chebyshev -> Monomial basis
+    arma::vec y_vals( maxord+1 );
+    arma::mat V( maxord+1, maxord+1 );
+
+    for( unsigned i=0; i<=maxord; ++i ){
+      double const x = std::cos( PI * double(i) / double(maxord) );
+      y_vals(i) = eval_chebyshev(x);
+
+      double xp = 1.0;
+      for( unsigned j=0; j<=maxord; ++j ){
+        V(i, j) = xp;
+        xp *= x;
+      }
+    }
+
+    try{
+      arma::vec c_mon = arma::solve( V, y_vals );
+      for( unsigned j=0; j<=maxord; ++j ) _ainterp[j] = c_mon(j);
+    }
+    catch(...) {
+      _ainterp.assign( maxord+1, 0.0 );
+    }
+  }
+
+  return max_abs_err;
+}
+
+#else
 template <typename T, typename KEY, typename COMP>
 template <typename PUNIV>
 inline
@@ -1478,6 +1717,7 @@ SICModel<T,KEY,COMP>::_minimax
   }
   return problem.max_error();
 }
+#endif
 
 template <typename T, typename KEY, typename COMP>
 template <typename VEC>
@@ -1975,12 +2215,12 @@ const
         switch( options.HOT_SPLIT ){ 
         case Options::FULL:
         {
-          T add2mon1 = (0.5*dscal)*coef0*(ndxord%2? TOne: TZerOne);
+          T add2mon1 = (0.5*dscal)*coef0*(ndxord%2? TOne: TZeroOne);
           for( auto const& [ivar,iord] : mon0.expr ){
             auto [itmon1,ins1] = coefmon.insert( std::make_pair( t_mon(ivar,iord), add2mon1 ) );
             if( !ins1 ) itmon1->second += add2mon1;
           }
-          T add2mon2 = (0.5*dscal)*coef0*(mon0.gcexp()%2? TOne: TZerOne);         
+          T add2mon2 = (0.5*dscal)*coef0*(mon0.gcexp()%2? TOne: TZeroOne);         
           if( ndxord <= _maxord ){
             auto [itmon2,ins2] = coefmon.insert( std::make_pair( t_mon(*itvar,ndxord), add2mon2 ) );
             if( !ins2 ) itmon2->second += add2mon2;
@@ -1993,10 +2233,10 @@ const
         }
         case Options::SIMPLE:
         {
-          T add2mon1 = (0.5*dscal)*coef0*(ndxord%2? TOne: TZerOne);
+          T add2mon1 = (0.5*dscal)*coef0*(ndxord%2? TOne: TZeroOne);
           auto [itmon1,ins1] = coefmon.insert( std::make_pair( mon0, add2mon1 ) );
           if( !ins1 ) itmon1->second += add2mon1;
-          T add2mon2 = (0.5*dscal)*coef0*(mon0.gcexp()%2? TOne: TZerOne);         
+          T add2mon2 = (0.5*dscal)*coef0*(mon0.gcexp()%2? TOne: TZeroOne);         
           if( ndxord <= _maxord ){
             auto [itmon2,ins2] = coefmon.insert( std::make_pair( t_mon(*itvar,ndxord), add2mon2 ) );
             if( !ins2 ) itmon2->second += add2mon2;
@@ -2009,7 +2249,7 @@ const
         }
         case Options::NONE:
         {
-          T add2mon = dscal*coef0*(ndxord%2 || mon0.gcexp()%2? TOne: TZerOne); continue;
+          T add2mon = dscal*coef0*(ndxord%2 || mon0.gcexp()%2? TOne: TZeroOne); continue;
           auto [itmon,ins] = coefmon.insert( std::make_pair( t_mon(), add2mon ) );
           if( !ins ) itmon->second += add2mon;           
           continue;
@@ -2271,19 +2511,19 @@ const
         if( it1 != coeflin.end() && std::fabs( Op<C>::l(it2->second) ) > TOL ){ // WHY Op<C>::l NOT Op<C>::mid??
           double const ai  = Op<C>::mid( it1->second );
 	  double const aii = Op<C>::mid( it2->second );
-          bndpol += ( it2->second - aii ) * ( !bndbasis.empty()? bndbasis.at(ie2->first)[2]: TZerOne )
+          bndpol += ( it2->second - aii ) * ( !bndbasis.empty()? bndbasis.at(ie2->first)[2]: TZeroOne )
                   + ( it1->second - ai  ) * ( !bndbasis.empty()? bndbasis.at(ie2->first)[1]: TOne )
                   + aii * Op<U>::sqr( (!bndbasis.empty()? bndbasis.at(ie2->first)[1]: TOne) + ai/(aii*2.) )
                   - ai*ai/(aii*4.);
           coeflin.erase( it1 );
         }
         else if( it1 != coeflin.end() ){
-          bndpol += it2->second * ( !bndbasis.empty()? bndbasis.at(ie2->first)[2]: TZerOne )
+          bndpol += it2->second * ( !bndbasis.empty()? bndbasis.at(ie2->first)[2]: TZeroOne )
                   + it1->second * ( !bndbasis.empty()? bndbasis.at(ie2->first)[1]: TOne );
           coeflin.erase( it1 );
         }
         else
-          bndpol += it2->second * ( !bndbasis.empty()? bndbasis.at(ie2->first)[2]: TZerOne );
+          bndpol += it2->second * ( !bndbasis.empty()? bndbasis.at(ie2->first)[2]: TZeroOne );
         break;
     }
   }
@@ -2331,7 +2571,7 @@ const
         T bndpol = 0.;
         if( !it->first.tord ){ bndpol = it->second; ++it; }
         for( ; it!=coefmon.end(); ++it )
-          bndpol += it->second * (it->first.gcexp()%2? TOne: TZerOne);
+          bndpol += it->second * (it->first.gcexp()%2? TOne: TZeroOne);
         return bndpol;
       }
     }
@@ -2363,7 +2603,201 @@ const
     return _polybound_LSB( coefmon, bndbasis );
   case Options::NAIVE: default:
     return _polybound_naive( coefmon, bndbasis );
+  case Options::BERNSTEIN:
+    return _polybound_bernstein( coefmon, bndbasis );
   }
+}
+
+template <typename T, typename KEY, typename COMP>
+template <typename C>
+inline
+std::pair< std::map<typename SICModel<T,KEY,COMP>::t_mon, C, typename SICModel<T,KEY,COMP>::lt_mon>, std::map<KEY, unsigned, COMP> >
+SICModel<T,KEY,COMP>::to_bernstein
+( std::map<t_mon,C,lt_mon> const& coefmon, unsigned const ORDER )
+const
+{
+  // Create copy of monomial-coefficient map
+  std::map<t_mon, C, lt_mon> coefbern = coefmon;
+  std::map<KEY, unsigned, COMP> degreemax;
+  if( coefbern.empty() ) return std::make_pair( coefbern, degreemax );
+
+  // 1. Determine maximum degree for each variable in the polynomial
+  for( auto const& term : coefbern )
+    for( auto const& factor : term.first.expr )
+      if( factor.second > degreemax[factor.first] )
+        degreemax[factor.first] = factor.second;
+
+  // Elevate degree from n to n+1
+  auto elevate_one_degree = []( arma::vec const& src ) -> arma::vec
+  {
+    unsigned n = src.n_elem - 1;
+    arma::vec dest( n+2, arma::fill::zeros );
+
+    // dest[i] = i/(n+1) * src[i-1] + (n+1-i)/(n+1) * src[i]
+    // We vectorise this using Armadillo element-wise operations
+    arma::vec idx = arma::regspace( 0, n+1 );     // 0, 1, ..., n+1
+    arma::vec alpha = idx / (double)(n+1);        // weights
+
+    // Contribution from src[i] (right term)
+    // Indices 0 to n in dest get (1-alpha) * src
+    dest.head(n+1) += (1.0 - alpha.head(n+1)) % src;
+
+    // Contribution from src[i-1] (left term)
+    // Indices 1 to n+1 in dest get alpha * src
+    dest.tail(n+1) += alpha.tail(n+1) % src;
+
+    return dest;
+  };
+
+  // Elevate recursively from src.size()-1 to target_N
+  auto elevate_to_target = [&]( arma::vec const& src, unsigned target_N ) -> arma::vec
+  {
+    arma::vec dest = src;
+    while( dest.n_elem < target_N + 1 )
+      dest = elevate_one_degree( dest );
+    return dest;
+  };
+
+  // Multiply Bernstein polynomial P(u) by x = 2u-1
+  // Used for Chebyshev recurrence: T_k = 2x T_{k-1} - T_{k-2}
+  auto mult_by_2u_minus_1 = []( arma::vec const& src ) -> arma::vec
+  {
+    unsigned n = src.n_elem - 1;
+    arma::vec dest( n+2, arma::fill::zeros );
+
+    // Formula: coeff of B_{n+1, k} is:
+    // P[k-1] * k/(n+1)  -  P[k] * (n+1-k)/(n+1)
+
+    // Vectorised calculation of term 1 (shifted right)
+    arma::vec reg1  = arma::regspace( 1, n+1 );
+    arma::vec term1 = src % (reg1 / (double)(n+1));
+    dest.tail(n+1) += term1;
+
+    // Vectorised calculation of term 2 (in place)
+    arma::vec reg2  = arma::regspace(0, n);
+    arma::vec term2 = src % ((n+1 - reg2) / (double)(n+1));
+    dest.head(n+1) -= term2;
+
+    return dest;
+  };
+
+  // 2. Prepare basis vectors (with caching)
+  std::map<KEY, std::vector<arma::vec>, COMP> basis_map;
+
+  for( auto& [var, max_deg] : degreemax ){
+    unsigned target_deg = (ORDER>max_deg? ORDER: max_deg);
+    basis_map[var].resize( max_deg + 1 );
+
+    // Access persistent cache for this variable
+    auto& var_cache = _bernstein_cache[var];
+
+    // Ensure cache is populated up to max_deg
+    if( var_cache.size() <= max_deg ){
+      unsigned start_deg = var_cache.size();
+      var_cache.resize( max_deg + 1 );
+
+      // Initial conditions
+      if( start_deg == 0 ) var_cache[0] = arma::vec( {1.0} );
+
+      switch( options.BASIS ){
+        // Chebyshev basis representation
+        case Options::CHEB:
+          // Chebyshev Recurrence
+          if( start_deg <= 1 && max_deg >= 1 )
+            var_cache[1] = arma::vec( {-1.0, 1.0} ); // 2u-1
+          for( unsigned k = std::max( start_deg, 2u ); k <= max_deg; ++k ){
+            // T_k = 2(2u-1)T_{k-1} - T_{k-2}
+            arma::vec term1 = mult_by_2u_minus_1( var_cache[k-1] ) * 2.0;
+            // Elevate T_{k-2} (deg k-2) to deg k to subtract
+            arma::vec term2 = elevate_to_target( var_cache[k-2], k );
+            var_cache[k] = term1 - term2;
+          }
+          break;
+
+        // Monomial basis representation
+        case Options::MONOM:
+          // Monomial Recurrence: M_k = (2u-1) M_{k-1}
+          if( start_deg <= 1 && max_deg >= 1 )
+            var_cache[1] = arma::vec( {-1.0, 1.0} );
+          for( unsigned k = std::max( start_deg, 2u ); k <= max_deg; ++k ){
+            var_cache[k] = mult_by_2u_minus_1( var_cache[k-1] );
+          }
+      }
+    }
+
+    // Elevate cached natural basis vectors to the specific target degree required for this bound
+    for( unsigned k=0; k<=max_deg; ++k ){
+      basis_map[var][k] = elevate_to_target( var_cache[k], target_deg );
+    }
+
+    // Update max_deg to account for elevation
+    max_deg = target_deg;
+  }
+
+  // 3. Tensor Product Expansion using Sparse Map
+  // We iterate variable by variable to expand the coefficients
+  for( auto const& [var_id, max_deg] : degreemax ){
+    std::map<t_mon, C, lt_mon> coefnext;
+    auto const& basis_var = basis_map[var_id];
+
+    for( auto const& [mon, val] : coefbern ) {
+      // Get degree of current variable in this monomial
+      unsigned k = 0;
+      auto it_deg = mon.expr.find(var_id);
+      if( it_deg != mon.expr.end() ) k = it_deg->second;
+
+      // Armadillo vector of coefficients for this basis function
+      arma::vec const& b_poly = basis_var[k];
+
+      // Distribute value
+      for( unsigned j=0; j<b_poly.n_elem; ++j ) {
+        if( b_poly[j] == 0.0 ) continue;
+
+        t_mon new_mon = mon;
+        new_mon.expr[var_id] = j; // This now represents Bernstein index, not degree
+        new_mon.tord = mon.tord - k + j; // Update total order heuristic
+
+        // Efficient map insertion/update
+        auto [it,ins] = coefnext.insert( std::make_pair( new_mon, val * b_poly[j] ) );
+        if( !ins ) it->second += val * b_poly[j];
+      }
+    }
+    coefbern = std::move( coefnext );
+  }
+
+  return std::make_pair( coefbern, degreemax );
+}
+
+template <typename T, typename KEY, typename COMP>
+template <typename C, typename U>
+inline U SICModel<T,KEY,COMP>::_polybound_bernstein
+( std::map<t_mon,C,lt_mon> const& coefmon,
+  std::map<KEY,std::vector<U>,COMP> const& bndbasis )
+const
+{
+  // Constant or linear model
+  if( coefmon.empty() || coefmon.rbegin()->first.tord < 2 )
+    return _polybound_naive( coefmon, bndbasis );
+
+  // Transform to Bernstein basis
+  auto const& [coefbern, degreemax] = to_bernstein( coefmon, options.BERNSTEIN_ORDER );
+
+  // Compute Bernstein coefficient hull
+  bool first = true;
+  U bound_hull(0.);
+
+  for( auto const& term : coefbern ) {
+    // term.second is type C (interval), implicitly convertible to U
+    if( first ){
+      bound_hull = U(term.second);
+      first = false;
+    }
+    else{
+      bound_hull = Op<U>::hull( bound_hull, U(term.second) );
+    }
+  }
+
+  return bound_hull;
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -2378,7 +2812,7 @@ const
     case Options::CHEB:
       return TOne;
     case Options::MONOM: default:
-      return (mon.gcexp()%2? TOne: TZerOne);
+      return (mon.gcexp()%2? TOne: TZeroOne);
   }
 }
 
@@ -2865,7 +3299,7 @@ SICVar<T,KEY,COMP>::scale
 {
   // Return *this if null pointer to model _CM or variable ranges X
   if( dom.empty() || !_CM ) return *this;
-  for( auto const& id : _ndxvar ) scale( id, dom[id] );
+  for( auto const& id : _ndxvar ) scale( id, dom.at(id) );
   if( _CM && _CM->options.MIG_USE ) simplify( _CM->options.MIG_ATOL, _CM->options.MIG_RTOL );
   return *this;
 }
@@ -2875,12 +3309,12 @@ inline
 typename SICVar<T,KEY,COMP>::t_poly
 SICVar<T,KEY,COMP>::unscale
 ()
-const
 {
   // Return *this if null pointer to model _CM or variable ranges X
   if( !_CM ) return _coefmon;
   t_poly coefmon = _coefmon;
-  for( auto const& id : _ndxvar ) _scale( id, T(-1,1), coefmon );
+  for( auto itvar = _ndxvar.begin(); itvar != _ndxvar.end(); ++itvar )
+    _scale( itvar, T(-1,1), coefmon );
   if( _CM && _CM->options.MIG_USE ) simplify( _CM->options.MIG_ATOL, _CM->options.MIG_RTOL );
   return coefmon;
 }
@@ -2932,7 +3366,7 @@ SICVar<T,KEY,COMP>::project
   
   // Detect auxiliary variables and eliminate
   for( auto it=_coefmon.begin(); it!=_coefmon.end(); ){
-    if( !_coefmon.begin()->first.tord ) continue;
+    if( !it->first.tord ){ ++it; continue; }
     auto& [mon,coef] = *it;
     
     // Detect auxiliary variable in monomial
@@ -2940,9 +3374,9 @@ SICVar<T,KEY,COMP>::project
     for( auto const& aux : _CM->_setaux ){
       auto itaux = mon.expr.find( aux );
       if( itaux == mon.expr.end() ) continue;
-      monaux += smon( itaux->first, itaux->second );
+      monaux += t_mon( itaux->first, itaux->second );
     }
-    if( monaux.empty() ){ ++it; continue; }
+    if( monaux.expr.empty() ){ ++it; continue; }
 
     // Insert reduced monomial
     t_mon const monred = mon - monaux;
@@ -2970,13 +3404,13 @@ SICVar<T,KEY,COMP>::project
   
   // Detect auxiliary variables and eliminate
   for( auto it=_coefmon.begin(); it!=_coefmon.end(); ){
-    if( !_coefmon.begin()->first.tord ) continue;
+    if( !it->first.tord ){ ++it; continue; }
     auto& [mon,coef] = *it;
     
     // Detect auxiliary variable id in monomial
     auto itaux = mon.expr.find( id );
     if( itaux == mon.expr.end() ){ ++it; continue; }
-    t_mon const monaux = smon( itaux->first, itaux->second );
+    t_mon const monaux = t_mon( itaux->first, itaux->second );
 
     // Insert reduced monomial
     t_mon const monred = mon - monaux;
@@ -3180,8 +3614,8 @@ const
   // Convert to monomial form
   t_poly coefmon = _coefmon;
   if( !scaled ){
-    for( auto const& id : _ndxvar )
-      _scale( id, SICModel<T,KEY,COMP>::TOne, coefmon );
+    for( auto itvar=_ndxvar.cbegin(); itvar!=_ndxvar.cend(); ++itvar )
+      _scale( itvar, SICModel<T,KEY,COMP>::TOne, coefmon );
   }
   
   for( auto const& id : _ndxvar ){
@@ -3202,6 +3636,41 @@ const
   auto&& coefmon = to_monomial( scaled );
   auto&& bndrem  = _simplify_monomial( coefmon, scaled, ATOL, RTOL, TORD );
   return std::make_pair( coefmon, bndrem );
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
+std::pair< typename SICVar<T,KEY,COMP>::t_poly, std::map<KEY,unsigned,COMP> >
+SICVar<T,KEY,COMP>::to_bernstein
+( unsigned const ORDER )
+const
+{
+  if( !_CM || _coefmon.empty() || !nord() )
+    return std::make_pair( _coefmon, std::map<KEY,unsigned,COMP>() );
+  return _CM->to_bernstein( _coefmon, ORDER );
+}
+
+template <typename T, typename KEY, typename COMP>
+inline T SICVar<T,KEY,COMP>::bound_bernstein
+( t_poly const& coefbern )
+const
+{
+  // Compute Bernstein coefficient hull
+  bool first = true;
+  T bound_hull(0.);
+
+  for( auto const& term : coefbern ) {
+    // term.second is type T (interval), implicitly convertible
+    if( first ){
+      bound_hull = T(term.second);
+      first = false;
+    }
+    else{
+      bound_hull = Op<T>::hull( bound_hull, T(term.second) );
+    }
+  }
+
+  return bound_hull;
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -3383,20 +3852,25 @@ operator+
 
 template <typename T, typename KEY, typename COMP>
 inline
+SICVar<T,KEY,COMP>&
+SICVar<T,KEY,COMP>::neg
+()
+{
+  for( auto& [mon,coef] : _coefmon )
+    coef *= -1;
+  if( _bndpol ) *_bndpol = - *_bndpol;
+  if( _bndT )   *_bndT   = - *_bndT;
+  return *this;
+}
+
+template <typename T, typename KEY, typename COMP>
+inline
 SICVar<T,KEY,COMP>
 operator-
 ( SICVar<T,KEY,COMP> const& CV )
 {
-  //std::cout << "CV:" << CV;
-  SICVar<T,KEY,COMP> CV2;
-  CV2.set( CV._CM );
-  CV2._ndxvar = CV._ndxvar;
-  for( auto& [mon,coef] : CV._coefmon )
-    CV2._coefmon.insert( std::make_pair( mon, -coef ) );
-  if( CV._bndpol ) CV2._set_bndpol( - *CV._bndpol );
-  if( CV._bndT )   CV2._set_bndT( - *CV._bndT );
-  //std::cout << "-CV:" << CV2;
-  return CV2;
+  SICVar<T,KEY,COMP> CV2( CV );
+  return CV2.neg();
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -3476,8 +3950,8 @@ SICVar<T,KEY,COMP>
 operator-
 ( double const& c, SICVar<T,KEY,COMP> const& CV2 )
 {
-  SICVar<T,KEY,COMP> CV3( -CV2 );
-  CV3 += c;
+  SICVar<T,KEY,COMP> CV3( CV2 );
+  CV3.neg() += c;
   return CV3;
 }
 
@@ -3515,8 +3989,8 @@ SICVar<T,KEY,COMP>
 operator-
 ( T const& B, SICVar<T,KEY,COMP> const& CV2 )
 {
-  SICVar<T,KEY,COMP> CV3( -CV2 );
-  CV3 += B;
+  SICVar<T,KEY,COMP> CV3( CV2 );
+  CV3.neg() += B;
   return CV3;
 }
 
@@ -4349,23 +4823,34 @@ SICVar<T,KEY,COMP>
 hull
 ( SICVar<T,KEY,COMP> const& CV1, SICVar<T,KEY,COMP> const& CV2 )
 {
-  throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::UNDEF );
-#if 0 
-  // Neither operands associated to SICModel -- Make intersection in T type     
-  if( !CV1._CM && !CV2._CM ){
-    T R1 = CV1.B();
-    T R2 = CV2.B();
-    return Op<T>::hull(R1, R2);
-  }
+  // Inspired by mc::hull for mc::SCVar. For a sparse interval Chebyshev model
+  // the (centred) polynomial part is taken as the midpoint polynomial - the
+  // model obtained by replacing every interval coefficient with its midpoint -
+  // and the coefficient radii play the role of the scalar remainder used in the
+  // dense model. A reference polynomial is selected as a REF_POLY-weighted
+  // combination of the two midpoint polynomials, and the combined uncertainty
+  // is hulled and lumped onto the constant coefficient. The result is a valid
+  // (superset) sparse interval Chebyshev model enclosing both operands.
+  auto midpoly = []( SICVar<T,KEY,COMP> CV ) -> SICVar<T,KEY,COMP> {
+    for( auto& [mon,coef] : CV._coefmon ) coef = Op<T>::mid( coef );
+    CV._unset_bndpol(); CV._unset_bndT();
+    return CV;
+  };
 
-  // First operand not associated to SICModel
+  // Neither operand associated to a SICModel -- hull in T arithmetic
+  if( !CV1._CM && !CV2._CM )
+    return SICVar<T,KEY,COMP>( Op<T>::hull( CV1.B(), CV2.B() ) );
+
+  // First operand not associated to a SICModel
   else if( !CV1._CM )
     return hull( CV2, CV1 );
 
-  // Second operand not associated to SICModel
+  // Second operand not associated to a SICModel (a bare constant/interval)
   else if( !CV2._CM ){
-    SICVar<T,KEY,COMP> CVR = CV1.P();
-    return CVR + Op<T>::hull( CV1.R(), CV2._coefmon[0]+CV2._bndrem-CVR.B() );
+    SICVar<T,KEY,COMP> CVR = midpoly( CV1 );
+    T const R1 = ( CV1 - CVR ).B();
+    CVR += Op<T>::hull( R1, CV2.B() - CVR.B() );
+    return CVR;
   }
 
   // SICModel for first and second operands are inconsistent
@@ -4373,14 +4858,18 @@ hull
     throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::MODEL );
 
   // Perform union
-  SICVar<T,KEY,COMP> CV1C( CV1 ), CV2C( CV2 );
   double const eta = CV1._CM->options.REF_POLY;
-  T R1C = CV1C.C().R(), R2C = CV2C.C().R(); 
-  CV1C.set(T(0.));
-  CV2C.set(T(0.));
-  T BCVD = (CV1C-CV2C).B();
-  return (1.-eta)*CV1C + eta*CV2C + Op<T>::hull( R1C+eta*BCVD, R2C+(eta-1.)*BCVD );
-#endif
+  SICVar<T,KEY,COMP> CV1mid = midpoly( CV1 ), CV2mid = midpoly( CV2 );
+  T const R1   = ( CV1 - CV1mid ).B();
+  T const R2   = ( CV2 - CV2mid ).B();
+  T const BCVD = ( CV1mid - CV2mid ).B();
+  SICVar<T,KEY,COMP> CVR = ( 1. - eta ) * CV1mid + eta * CV2mid;
+  CVR += Op<T>::hull( R1 + eta*BCVD, R2 + (eta-1.)*BCVD );
+
+  if( CV1._CM->options.MIXED_IA ) CVR._set_bndT( Op<T>::hull( CV1.B(), CV2.B() ) );
+  if( CV1._CM->options.MIG_USE )  CVR.simplify( CV1._CM->options.MIG_ATOL, CV1._CM->options.MIG_RTOL );
+  if( CV1._CM->options.LIFT_USE ) CVR.lift( CV1._CM, CV1._CM->options.LIFT_ATOL, CV1._CM->options.LIFT_RTOL );
+  return CVR;
 }
 
 template <typename T, typename KEY, typename COMP>
@@ -4389,38 +4878,46 @@ bool
 inter
 ( SICVar<T,KEY,COMP>&CVR, SICVar<T,KEY,COMP> const& CV1, SICVar<T,KEY,COMP> const& CV2 )
 {
-    throw typename SICModel<T,KEY,COMP>::Exceptions( SICModel<T,KEY,COMP>::Exceptions::UNDEF );
-#if 0 
-  // Neither operands associated to SICModel -- Make intersection in T type     
+  // Inspired by mc::inter for mc::SCVar (see mc::hull above for the treatment of
+  // interval coefficients). Returns false if the intersection is found to be
+  // empty; otherwise CVR is a sparse interval Chebyshev model enclosing the
+  // intersection of CV1 and CV2.
+  auto midpoly = []( SICVar<T,KEY,COMP> CV ) -> SICVar<T,KEY,COMP> {
+    for( auto& [mon,coef] : CV._coefmon ) coef = Op<T>::mid( coef );
+    CV._unset_bndpol(); CV._unset_bndT();
+    return CV;
+  };
+
+  // Neither operand associated to a SICModel -- intersect in T arithmetic
   if( !CV1._CM && !CV2._CM ){
-    T R1 = CV1.B();
-    T R2 = CV2.B();
     T RR( 0. );
-    bool flag = Op<T>::inter(RR, R1, R2);
+    bool flag = Op<T>::inter( RR, CV1.B(), CV2.B() );
     CVR = RR;
     return flag;
   }
 
-  // First operand not associated to SICModel
+  // First operand not associated to a SICModel
   else if( !CV1._CM )
     return inter( CVR, CV2, CV1 );
 
-  // Second operand not associated to SICModel
+  // Second operand not associated to a SICModel (a bare constant/interval)
   else if( !CV2._CM ){
     // First intersect in T arithmetic
     T B2 = CV2.B(), BR;
     if( CV1._CM->options.MIXED_IA && !Op<T>::inter( BR, CV1.B(), B2 ) )
       return false;
 
-    // Perform intersection in PM arithmetic
-    T R1 = CV1.R();
-    CVR = CV1.P();
-    if( !Op<T>::inter(CVR._bndrem, R1, B2-CVR.B()) )
+    // Perform intersection in interval-coefficient arithmetic
+    SICVar<T,KEY,COMP> CVmid = midpoly( CV1 );
+    T const R1 = ( CV1 - CVmid ).B();
+    T Rint;
+    if( !Op<T>::inter( Rint, R1, B2 - CVmid.B() ) )
       return false;
-//    CVR._center();
+    CVR  = CVmid;
+    CVR += Rint;
 
     if( CVR._CM->options.MIXED_IA ) CVR._set_bndT( BR );
-    else CVR._unset_bndT();
+    else                            CVR._unset_bndT();
     return true;
   }
 
@@ -4433,24 +4930,23 @@ inter
   if( CV1._CM->options.MIXED_IA && !Op<T>::inter( BR, CV1.B(), CV2.B() ) )
     return false;
 
-  // Perform intersection in PM arithmetic
-  SICVar<T,KEY,COMP> CV1C( CV1 ), CV2C( CV2 );
+  // Perform intersection in interval-coefficient arithmetic
   double const eta = CV1._CM->options.REF_POLY;
-  T R1C = CV1C.C().R(), R2C = CV2C.C().R(); 
-  CV1C.set(T(0.));
-  CV2C.set(T(0.));
-  CVR = (1.-eta)*CV1C + eta*CV2C;
-  CV1C -= CV2C;
-  T BCVD = CV1C.B();
-  if( !Op<T>::inter( CVR._bndrem, R1C+eta*BCVD, R2C+(eta-1.)*BCVD ) )
+  SICVar<T,KEY,COMP> CV1mid = midpoly( CV1 ), CV2mid = midpoly( CV2 );
+  T const R1   = ( CV1 - CV1mid ).B();
+  T const R2   = ( CV2 - CV2mid ).B();
+  T const BCVD = ( CV1mid - CV2mid ).B();
+  CVR = ( 1. - eta ) * CV1mid + eta * CV2mid;
+  T Rint;
+  if( !Op<T>::inter( Rint, R1 + eta*BCVD, R2 + (eta-1.)*BCVD ) )
     return false;
+  CVR += Rint;
 
   if( CV1._CM->options.MIXED_IA ) CVR._set_bndT( BR );
   else                            CVR._unset_bndT();
-  if( CV1._CM->options.MIG_USE )  CVR.simplify(CV1. _CM->options.MIG_ATOL, CV1._CM->options.MIG_RTOL );
+  if( CV1._CM->options.MIG_USE )  CVR.simplify( CV1._CM->options.MIG_ATOL, CV1._CM->options.MIG_RTOL );
   if( CV1._CM->options.LIFT_USE ) CVR.lift( CV1._CM, CV1._CM->options.LIFT_ATOL, CV1._CM->options.LIFT_RTOL );
   return true;
-#endif
 }
 
 //! @brief C++ structure for specialization of the mc::Op templated structure for use of mc::SICVar in DAG evaluation and as template parameter in other MC++ types

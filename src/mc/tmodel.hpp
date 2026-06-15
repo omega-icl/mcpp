@@ -311,7 +311,7 @@ The available options are the following:
          <TD><b>Description</b>
      <TR><TH><tt>BOUNDER_TYPE</tt> <TD><tt>mc::TModel::Options::BOUNDER</tt> <TD>mc::TModel::Options::LSB
          <TD>Taylor model range bounder.
-     <TR><TH><tt>BOUNDER_ORDER</tt> <TD><tt>unsigned int</tt> <TD>0
+     <TR><TH><tt>BERNSTEIN_ORDER</tt> <TD><tt>unsigned int</tt> <TD>0
          <TD>Order of Bernstein polynomial for Taylor model range bounding, when mc::TModel::options::BOUNDER_TYPE = mc::TModel::options::BERNSTEIN is selected. Only values greater than the actual Taylor model order are accounted for; see [Lin & Rokne, 1996].
      <TR><TH><tt>SCALE_VARIABLES</tt> <TD><tt>bool</tt> <TD>false
          <TD>Whether to scale the variable ranges to [-1,1] internally.
@@ -374,6 +374,9 @@ Moreover, exceptions may be thrown by the template parameter class itself.
 
 #ifndef MC__TMODEL_H
 #define MC__TMODEL_H
+
+#include <memory>
+#include <vector>
 
 #ifdef MC__USE_ARMADILLO
  #include <armadillo>
@@ -521,33 +524,45 @@ public:
   //! @brief Options of mc::TModel
   struct Options
   {
+    //! @brief Reset options
+    void reset
+      ()
+      {
+        BOUNDER_TYPE     = LSB;
+        BERNSTEIN_ORDER  = 0;
+        SCALE_VARIABLES  = false;
+        CENTER_REMAINDER = false;
+        REF_MIDPOINT     = false;
+        REF_POLY         = 0.;
+        BERNSTEIN_USE    = false;
+        BERNSTEIN_OPT    = true;
+        BERNSTEIN_MAXIT  = 100;
+        BERNSTEIN_TOL    = 1e-10;
+        DISPLAY_DIGITS   = 7;
+      }
     //! @brief Constructor of mc::TModel::Options
-    Options():
-      BOUNDER_TYPE(LSB), BOUNDER_ORDER(0), SCALE_VARIABLES(false),
-      CENTER_REMAINDER(false), REF_MIDPOINT(false), REF_POLY(0.),
-      BERNSTEIN_USE(false), BERNSTEIN_OPT(true), BERNSTEIN_MAXIT(100),
-      BERNSTEIN_TOL(1e-10), DISPLAY_DIGITS(5)
-      {}
+    Options()
+      { reset(); }
     //! @brief Copy constructor of mc::TModel::Options
     template <typename U> Options
-      ( U&options )
-      : BOUNDER_TYPE( options.BOUNDER_TYPE ),
-        BOUNDER_ORDER( options.BOUNDER_ORDER ),
-        SCALE_VARIABLES( options.SCALE_VARIABLES ),
-        CENTER_REMAINDER( options.CENTER_REMAINDER ),
-        REF_MIDPOINT( options.REF_MIDPOINT ),
-        REF_POLY(options.REF_POLY),
-	BERNSTEIN_USE(options.BERNSTEIN_USE),
-	BERNSTEIN_OPT(options.BERNSTEIN_OPT),
-        BERNSTEIN_MAXIT(options.BERNSTEIN_MAXIT),
-	BERNSTEIN_TOL(options.BERNSTEIN_TOL),
-	DISPLAY_DIGITS(options.DISPLAY_DIGITS)
+      ( U const& options )
+      : BOUNDER_TYPE     ( options.BOUNDER_TYPE ),
+        BERNSTEIN_ORDER  ( options.BERNSTEIN_ORDER ),
+        SCALE_VARIABLES  ( options.SCALE_VARIABLES ),
+        CENTER_REMAINDER ( options.CENTER_REMAINDER ),
+        REF_MIDPOINT     ( options.REF_MIDPOINT ),
+        REF_POLY         ( options.REF_POLY ),
+	BERNSTEIN_USE    ( options.BERNSTEIN_USE ),
+	BERNSTEIN_OPT    ( options.BERNSTEIN_OPT ),
+        BERNSTEIN_MAXIT  ( options.BERNSTEIN_MAXIT ),
+	BERNSTEIN_TOL    ( options.BERNSTEIN_TOL ),
+	DISPLAY_DIGITS   ( options.DISPLAY_DIGITS )
       {}
     //! @brief Assignment of mc::TModel::Options
     template <typename U> Options& operator =
-      ( U&options ){
+      ( U const& options ){
         BOUNDER_TYPE     = (BOUNDER)options.BOUNDER_TYPE;
-        BOUNDER_ORDER    = options.BOUNDER_ORDER;
+        BERNSTEIN_ORDER  = options.BERNSTEIN_ORDER;
         SCALE_VARIABLES  = options.SCALE_VARIABLES;
         CENTER_REMAINDER = options.CENTER_REMAINDER;
         REF_MIDPOINT     = options.REF_MIDPOINT,
@@ -561,16 +576,16 @@ public:
       }
     //! @brief Taylor model range bounder option
     enum BOUNDER{
-      NAIVE=0,	//!< Naive polynomial range bounder
-      LSB,	//!< Lin & Stadtherr range bounder
-      EIGEN,	//!< Eigenvalue decomposition-based bounder
-      BERNSTEIN,//!< Bernstein range bounder
-      HYBRID	//!< Hybrid LSB + EIGEN range bounder
+      NAIVE=0,	 //!< Naive polynomial range bounder
+      LSB,	 //!< Lin & Stadtherr range bounder
+      EIGEN,	 //!< Eigenvalue decomposition-based bounder
+      BERNSTEIN, //!< Bernstein range bounder
+      HYBRID	 //!< Hybrid LSB + EIGEN range bounder
     };
     //! @brief Taylor model range bounder - See \ref sec_TAYLOR_opt
     int BOUNDER_TYPE;
     //! @brief Order of Bernstein polynomial for Taylor model range bounding (no less than Taylor model order!). Only if mc::TModel::options::BOUNDER_TYPE is set to mc::TModel::options::BERNSTEIN.
-    unsigned BOUNDER_ORDER;
+    unsigned BERNSTEIN_ORDER;
     //! @brief Array of Taylor model range bounder names (for display)
     static const std::string BOUNDER_NAME[5];
     //! @brief Whether to scale the variable ranges to [-1,1] internally
@@ -592,6 +607,21 @@ public:
     //! @brief Number of digits in output stream for Taylor model coefficients.
     unsigned DISPLAY_DIGITS;
   } options;
+
+  //! @brief Original bounds on variable <tt>ivar</tt>
+  const T& bndvar
+    ( const unsigned ivar ) const
+    { return _bndvar[ivar]; };
+
+  //! @brief Reference point for variable <tt>ivar</tt> in Chebyshev model
+  double refvar
+    ( const unsigned ivar ) const
+    { return _refvar[ivar]; };
+
+  //! @brief Scaling for variable <tt>ivar</tt> in Cheyshev model
+  double scalvar
+    ( const unsigned ivar ) const
+    { return _scalvar[ivar]; };
   /** @} */
 
 private:  
@@ -630,11 +660,11 @@ private:
 
   //! @brief Populate array <tt>_bndpow</tt> for variable <tt>ivar</tt> with range <tt>X</tt>, reference <tt>Xref</tt> and scaling <tt>scalvar</tt>
   void _set_bndpow
-    ( const unsigned i, const T&X, const double ref, const double scal );
+    ( const unsigned i, const T&X, const double& ref, const double& scal );
 
   //! @brief Get Monomial basis functions in U arithmetic for variable <a>X</a>
   template <typename U> U* _get_bndpow
-    ( const U&X, const double ref, const double scal ) const;
+    ( const U&X, const double& ref, const double& scal ) const;
 
   //! @brief Polynomial range bounder - Lin & Stadtherr approach
   template <typename C, typename U> U _polybound_LSB
@@ -663,11 +693,11 @@ private:
 
   //! @brief Prototype real-valued function for univariate terms
   typedef double (puniv)
-    ( const double x, const double*rusr, const int*iusr );
+    ( const double& x, const double*rusr, const int*iusr );
     
   //! @brief Prototype real-valued function for univariate terms
   typedef double (punivopt)
-    ( const double x, const double*rusr, const int*iusr, puniv df,
+    ( const double& x, const double*rusr, const int*iusr, puniv df,
       const T&I,  const std::pair<unsigned int,const double*>&bern );
 
   //! @brief Prototype interval-valued function for univariate terms
@@ -681,24 +711,24 @@ private:
 
   //! @brief Compute gap between a univariate term and its Berstein polynomial at point <a>x</a>
   static double _gap_bernstein
-    ( const double x, const double*rusr, const int*iusr, puniv df,
+    ( const double& x, const double*rusr, const int*iusr, puniv df,
       const T&I, const std::pair<unsigned int,const double*>&bern );
 
   //! @brief Compute gap derivative between a univariate term and its Berstein polynomial at point <a>x</a>
   static double _dgap_bernstein
-    ( const double x, const double*rusr, const int*iusr, puniv df,
+    ( const double& x, const double*rusr, const int*iusr, puniv df,
       const T&I, const std::pair<unsigned int,const double*>&bern );
 
   //! @brief Golden section search method for root finding 
   double _goldsect
-    ( const double xL, const double xU, punivopt fopt, const double*rusr,
+    ( const double& xL, const double& xU, punivopt fopt, const double*rusr,
       const int*iusr, puniv df,  const T&Ix,
       const std::pair<unsigned int,const double*>&bern );
 
   //! @brief Golden section search iterations 
   double _goldsect_iter
-    ( const bool init, const double a, const double fa, const double b,
-      const double fb, const double c, const double fc, punivopt fopt,
+    ( const bool init, const double& a, const double& fa, const double& b,
+      const double& fb, const double& c, const double& fc, punivopt fopt,
       const double*rusr, const int*iusr, puniv df, const T&Ix,
       const std::pair<unsigned int,const double*>&bern );
 
@@ -765,9 +795,9 @@ class TVar: public PolyVar<T>
   template <typename U> friend TVar<U> operator+
     ( const U&, const TVar<U>& );
   template <typename U> friend TVar<U> operator+
-    ( const double, const TVar<U>& );
+    ( const double&, const TVar<U>& );
   template <typename U> friend TVar<U> operator+
-    ( const TVar<U>&, const double );
+    ( const TVar<U>&, const double& );
   template <typename U> friend TVar<U> operator-
     ( const TVar<U>& );
   template <typename U, typename V> friend TVar<U> operator-
@@ -777,15 +807,15 @@ class TVar: public PolyVar<T>
   template <typename U> friend TVar<U> operator-
     ( const U&, const TVar<U>& );
   template <typename U> friend TVar<U> operator-
-    ( const double, const TVar<U>& );
+    ( const double&, const TVar<U>& );
   template <typename U> friend TVar<U> operator-
-    ( const TVar<U>&, const double );
+    ( const TVar<U>&, const double& );
   template <typename U> friend TVar<U> operator*
     ( const TVar<U>&, const TVar<U>& );
   template <typename U> friend TVar<U> operator*
-    ( const double, const TVar<U>& );
+    ( const double&, const TVar<U>& );
   template <typename U> friend TVar<U> operator*
-    ( const TVar<U>&, const double );
+    ( const TVar<U>&, const double& );
   template <typename U> friend TVar<U> operator*
     ( const U&, const TVar<U>& );
   template <typename U> friend TVar<U> operator*
@@ -793,9 +823,9 @@ class TVar: public PolyVar<T>
   template <typename U> friend TVar<U> operator/
     ( const TVar<U>&, const TVar<U>& );
   template <typename U> friend TVar<U> operator/
-    ( const double, const TVar<U>& );
+    ( const double&, const TVar<U>& );
   template <typename U> friend TVar<U> operator/
-    ( const TVar<U>&, const double );
+    ( const TVar<U>&, const double& );
   template <typename U> friend std::ostream& operator<<
     ( std::ostream&, const TVar<U>& );
 
@@ -814,9 +844,9 @@ class TVar: public PolyVar<T>
   template <typename U> friend TVar<U> pow
     ( const TVar<U>&, const int );
   template <typename U> friend TVar<U> pow
-    ( const TVar<U>&, const double );
+    ( const TVar<U>&, const double& );
   template <typename U> friend TVar<U> pow
-    ( const double, const TVar<U>& );
+    ( const double&, const TVar<U>& );
   template <typename U> friend TVar<U> pow
     ( const TVar<U>&, const TVar<U>& );
   template <typename U> friend TVar<U> prod
@@ -926,7 +956,7 @@ public:
 
   //! @brief Constructor of Taylor variable for a real scalar
   TVar
-    ( const double d=0. );
+    ( const double& d=0. );
 
   //! @brief Constructor of Taylor variable for a remainder bound
   TVar
@@ -934,7 +964,7 @@ public:
 
   //! @brief Constructor of Taylor variable with index <a>ix</a> (starting from 0),  bounded by <a>X</a>, and with reference point <a>Xref</a>
   TVar
-    ( TModel<T>*TM, const unsigned ix, const T&X, const double Xref );
+    ( TModel<T>*TM, const unsigned ix, const T&X, const double& Xref );
 
   //! @brief Constructor of Taylor variable with index <a>ix</a> (starting from 0),  bounded by <a>X</a>, and with reference point at mid-point <a>Op<T>::mid(X)</a>
   TVar
@@ -980,7 +1010,7 @@ public:
 private:
   //! @brief Private constructor for real scalar in Taylor model environment <tt>TM</tt>
   TVar
-    ( TModel<T>*TM, const double d=0. );
+    ( TModel<T>*TM, const double& d=0. );
 
   //! @brief Private constructor for remainder bound in Taylor model environment <tt>TM</tt>
   TVar
@@ -988,7 +1018,7 @@ private:
 
   //! @brief Set Taylor variable with index <tt>ix</tt> (starting from 0),  bounded by <tt>X</tt> and with reference point <tt>Xref</tt>
   TVar<T>& _set
-    ( const unsigned ivar, const T&X, const double ref );
+    ( const unsigned ivar, const T&X, const double& ref );
 
 public:
   /** @addtogroup TAYLOR Taylor Model Arithmetic for Factorable Functions
@@ -996,7 +1026,7 @@ public:
    */
   //! @brief Set Taylor variable with index <tt>ix</tt> (starting from 0),  bounded by <tt>X</tt> and with reference point <tt>Xref</tt>, in Taylor model environment <a>TM</a>
   TVar<T>& set
-    ( TModel<T>*TM, const unsigned ix, const T&X, const double ref )
+    ( TModel<T>*TM, const unsigned ix, const T& X, const double& ref )
     { set( TM ); _TM = TM; _set( ix, X, ref ); return *this; }
 
   //! @brief Set Taylor variable with index <a>ix</a> (starting from 0),  bounded by <a>X</a> and with reference point at <a>mid(X)</a>, in Taylor model environment <a>TM</a>
@@ -1065,7 +1095,7 @@ public:
   TVar<T>& operator =
     ( TVar<T>&& );
   TVar<T>& operator =
-    ( const double );
+    ( const double& );
   TVar<T>& operator =
     ( const T& );
   template <typename U> TVar<T>& operator +=
@@ -1073,23 +1103,23 @@ public:
   template <typename U> TVar<T>& operator +=
     ( const U& );
   TVar<T>& operator +=
-    ( const double );
+    ( const double& );
   template <typename U> TVar<T>& operator -=
     ( const TVar<U>& );
   template <typename U> TVar<T>& operator -=
     ( const U& );
   TVar<T>& operator -=
-    ( const double );
+    ( const double& );
   TVar<T>& operator *=
     ( const TVar<T>& );
   TVar<T>& operator *=
-    ( const double );
+    ( const double& );
   TVar<T>& operator *=
     ( const T& );
   TVar<T>& operator /=
     ( const TVar<T>& );
   TVar<T>& operator /=
-    ( const double );
+    ( const double& );
 
 private:
   //! @brief Update bounds for all terms of degrees <tt>iord=0,...,_nord</tt> in <tt>_bndord</tt>
@@ -1241,7 +1271,7 @@ TModel<T>::_set_bndmon()
 
 template <typename T> inline void
 TModel<T>::_set_bndpow
-( const unsigned i, const T&X, const double ref, const double scal )
+( const unsigned i, const T&X, const double& ref, const double& scal )
 {
   if( i>=_nvar ) throw Exceptions( Exceptions::INIT );
 
@@ -1255,7 +1285,7 @@ TModel<T>::_set_bndpow
 
 template <typename T> template <typename U> inline U*
 TModel<T>::_get_bndpow
-( const U&X, const double ref, const double scal ) const
+( const U&X, const double& ref, const double& scal ) const
 {
   U *Xrmon = new U[_nord+1];
   Xrmon[0] = 1.;
@@ -1329,7 +1359,7 @@ TModel<T>::_polybound_eigen
     }
 
 #else
-    double*Umat = new double[_nvar*_nvar];
+    std::vector<double> Umat( _nvar*_nvar, 0. );   // value-initialised (was uninitialised new[])
     for( unsigned i=_posord[2]; i<_posord[3]; i++ ){
       unsigned i1=0, i2=_nvar;
       const unsigned*iexp=_expmon+i*_nvar;
@@ -1340,17 +1370,14 @@ TModel<T>::_polybound_eigen
       }
       for( i2=i1+1; i2<_nvar; i2++ )
         if( iexp[i2] ) break;
-      Umat[_nvar*i1+i2] = 0.;
-      Umat[_nvar*i2+i1] = coefmon[i]/2.;
+      Umat[_nvar*i1+i2] = Umat[_nvar*i2+i1] = coefmon[i]/2.;   // symmetric (do not rely on UPLO/layout)
     }
 #ifdef MC__TMODEL_DEBUG_POLYBOUND
-    display( _nvar, _nvar, Umat, _nvar, "Matrix U", std::cout );
+    display( _nvar, _nvar, Umat.data(), _nvar, "Matrix U", std::cout );
 #endif
-    double*Dmat = mc::dsyev_wrapper( _nvar, Umat, true );
-    if( !Dmat ){
-      delete[] Umat;
+    std::unique_ptr<double[]> Dmat( mc::dsyev_wrapper( _nvar, Umat.data(), true ) );
+    if( !Dmat )
       return _polybound_LSB( coefmon, bndord, bndbasis );
-    }
 
     for( unsigned i=0; i<_nvar; i++ ){
       double linaux = 0.;
@@ -1371,13 +1398,8 @@ TModel<T>::_polybound_eigen
         std::cout << "BNDPOL: " << bndpol << std::endl;
 #endif
     }
-    delete[] Umat;
-    delete[] Dmat;
 #endif
   }
-#ifdef MC__TMODEL_DEBUG_POLYBOUND
-  int tmp; std::cin >> tmp;
-#endif
 
   for( unsigned i=3; i<=_nord; i++ ) bndpol += bndord[i];
   return bndpol;
@@ -1460,8 +1482,8 @@ TModel<T>::_polybound_bernstein
   std::cout << "binom max: " << _binom_size.first << "  "
             << _binom_size.second << std::endl;
 #endif
-  const unsigned maxord = (options.BOUNDER_ORDER>_nord? 
-    options.BOUNDER_ORDER: _nord );
+  const unsigned maxord = (options.BERNSTEIN_ORDER>_nord? 
+    options.BERNSTEIN_ORDER: _nord );
   const poly_size maxmon = std::pow(maxord+1,_nvar);
   _ext_expmon( maxord, true );
   //_ext_binom( 2*_nord );
@@ -1583,7 +1605,7 @@ TModel<T>::_univ_bernstein
     MON *= TVs;
   }
 
-  T R( - d2If( B, rusr, iusr ) * sqr(Op<T>::diam(B)) / 2. / _nord );
+  T R( - d2If( B, rusr, iusr ) * sqr(Op<T>::diam(B)) / (double)(2*_nord ) );
   if( Op<T>::l( R ) * Op<T>::u( R ) < 0 )
     return TV2 + Op<T>::zeroone() * R;
 
@@ -1603,7 +1625,7 @@ TModel<T>::_univ_bernstein
 
 template <typename T> inline double
 TModel<T>::_dgap_bernstein
-( const double x, const double*rusr, const int*iusr, puniv df,
+( const double& x, const double*rusr, const int*iusr, puniv df,
   const T&B, const std::pair<unsigned int,const double*>&bern )
 {
   double phi = df(Op<T>::l(B)+x*Op<T>::diam(B),rusr,iusr)*Op<T>::diam(B);
@@ -1614,7 +1636,7 @@ TModel<T>::_dgap_bernstein
 
 template <typename T> inline double
 TModel<T>::_gap_bernstein
-( const double x, const double*rusr, const int*iusr, puniv f,
+( const double& x, const double*rusr, const int*iusr, puniv f,
   const T&B, const std::pair<unsigned int,const double*>&bern )
 {
   double phi = f(Op<T>::l(B)+x*Op<T>::diam(B),rusr,iusr);
@@ -1625,7 +1647,7 @@ TModel<T>::_gap_bernstein
 
 template <typename T> inline double
 TModel<T>::_goldsect
-( const double xL, const double xU, punivopt fopt, const double*rusr,
+( const double& xL, const double& xU, punivopt fopt, const double*rusr,
   const int*iusr, puniv df,  const T&Ix,
   const std::pair<unsigned int,const double*>&bern )
 {
@@ -1641,8 +1663,8 @@ TModel<T>::_goldsect
 
 template <typename T> inline double
 TModel<T>::_goldsect_iter
-( const bool init, const double a, const double fa, const double b,
-  const double fb, const double c, const double fc, punivopt fopt,
+( const bool init, const double& a, const double& fa, const double& b,
+  const double& fb, const double& c, const double& fc, punivopt fopt,
   const double*rusr, const int*iusr, puniv df, const T&Ix,
   const std::pair<unsigned int,const double*>&bern )
 // a and c are the current bounds; the minimum is between them.
@@ -1693,7 +1715,7 @@ TVar<T>::operator =
 
 template <typename T> inline
 TVar<T>::TVar
-( const double d )
+( const double& d )
 : PolyVar<T>(), _TM( 0 )
 {
   _coefmon[0] = d;
@@ -1703,7 +1725,7 @@ TVar<T>::TVar
 
 template <typename T> inline TVar<T>&
 TVar<T>::operator =
-( const double d )
+( const double& d )
 {
   if( _TM ){ _TM = 0; _resize( _TM ); }
   _coefmon[0] = d;
@@ -1735,7 +1757,7 @@ TVar<T>::operator =
 
 template <typename T> inline
 TVar<T>::TVar
-( TModel<T>*TM, const double d )
+( TModel<T>*TM, const double& d )
 : PolyVar<T>( TM ), _TM( TM )
 {
   if( !_TM ) throw typename TModel<T>::Exceptions( TModel<T>::Exceptions::INIT );
@@ -1845,7 +1867,7 @@ TVar<T>::TVar
 
 template <typename T> inline
 TVar<T>::TVar
-( TModel<T>*TM, const unsigned ivar, const T&X, const double Xref )
+( TModel<T>*TM, const unsigned ivar, const T&X, const double& Xref )
 : PolyVar<T>( TM ), _TM( TM )
 {
   _set( ivar, X, Xref );
@@ -1853,7 +1875,7 @@ TVar<T>::TVar
 
 template <typename T> inline TVar<T>&
 TVar<T>::_set
-( const unsigned ivar, const T&X, const double ref )
+( const unsigned ivar, const T&X, const double& ref )
 {
   if( !_TM ) throw typename TModel<T>::Exceptions( TModel<T>::Exceptions::INIT );
 
@@ -2077,7 +2099,7 @@ operator +
 
 template <typename T> inline TVar<T>&
 TVar<T>::operator +=
-( const double c )
+( const double& c )
 {
   _coefmon[0] += c;
   if( _TM && _bndord_uptd ) _bndord[0] += c;
@@ -2088,7 +2110,7 @@ TVar<T>::operator +=
 
 template <typename T> inline TVar<T>
 operator +
-( const TVar<T>&TV1, const double c )
+( const TVar<T>&TV1, const double& c )
 {
   TVar<T> TV3( TV1 );
   TV3 += c;
@@ -2097,7 +2119,7 @@ operator +
 
 template <typename T> inline TVar<T>
 operator +
-( const double c, const TVar<T>&TV2 )
+( const double& c, const TVar<T>&TV2 )
 {
   TVar<T> TV3( TV2 );
   TV3 += c;
@@ -2197,7 +2219,7 @@ operator-
 
 template <typename T> inline TVar<T>&
 TVar<T>::operator -=
-( const double c )
+( const double& c )
 {
   _coefmon[0] -= c;
   if( _TM && _bndord_uptd ) _bndord[0] -= c;
@@ -2208,7 +2230,7 @@ TVar<T>::operator -=
 
 template <typename T> inline TVar<T>
 operator -
-( const TVar<T>&TV1, const double c )
+( const TVar<T>&TV1, const double& c )
 {
   TVar<T> TV3( TV1 );
   TV3 -= c;
@@ -2217,7 +2239,7 @@ operator -
 
 template <typename T> inline TVar<T>
 operator -
-( const double c, const TVar<T>&TV2 )
+( const double& c, const TVar<T>&TV2 )
 {
   TVar<T> TV3( -TV2 );
   TV3 += c;
@@ -2348,7 +2370,7 @@ sqr
 
 template <typename T> inline TVar<T>&
 TVar<T>::operator *=
-( const double c )
+( const double& c )
 {
   if( !_TM ){
     _coefmon[0] *= c;
@@ -2365,7 +2387,7 @@ TVar<T>::operator *=
 
 template <typename T> inline TVar<T>
 operator *
-( const TVar<T>&TV1, const double c )
+( const TVar<T>&TV1, const double& c )
 {
   TVar<T> TV3( TV1 );
   TV3 *= c;
@@ -2374,7 +2396,7 @@ operator *
 
 template <typename T> inline TVar<T>
 operator *
-( const double c, const TVar<T>&TV2 )
+( const double& c, const TVar<T>&TV2 )
 {
   TVar<T> TV3( TV2 );
   TV3 *= c;
@@ -2439,7 +2461,7 @@ operator /
 
 template <typename T> inline TVar<T>&
 TVar<T>::operator /=
-( const double c )
+( const double& c )
 {
   if ( isequal( c, 0. ))
     throw typename TModel<T>::Exceptions( TModel<T>::Exceptions::DIV );
@@ -2449,7 +2471,7 @@ TVar<T>::operator /=
 
 template <typename T> inline TVar<T>
 operator /
-( const TVar<T>&TV, const double c )
+( const TVar<T>&TV, const double& c )
 {
   if ( isequal( c, 0. ))
     throw typename TModel<T>::Exceptions( TModel<T>::Exceptions::DIV );
@@ -2458,7 +2480,7 @@ operator /
 
 template <typename T> inline TVar<T>
 operator /
-( const double c, const TVar<T>&TV )
+( const double& c, const TVar<T>&TV )
 {
   return inv(TV) * c;
 }
@@ -2529,10 +2551,10 @@ TModel<T>::_inv_bernstein
     throw typename TModel<T>::Exceptions( TModel<T>::Exceptions::INV );
   struct loc{
     static double inv
-      ( const double x, const double*rusr, const int*iusr )
+      ( const double& x, const double*rusr, const int*iusr )
       { return 1./x; }
     static double dinv
-      ( const double x, const double*rusr, const int*iusr )
+      ( const double& x, const double*rusr, const int*iusr )
       { return -1./mc::sqr(x); }
     static T Iinv
       ( const T&x, const double*rusr, const int*iusr )
@@ -2613,10 +2635,10 @@ TModel<T>::_sqrt_bernstein
     throw typename TModel<T>::Exceptions( TModel<T>::Exceptions::SQRT );
   struct loc{
     static double sqrt
-      ( const double x, const double*rusr, const int*iusr )
+      ( const double& x, const double*rusr, const int*iusr )
       { return std::sqrt(x); }
     static double dsqrt
-      ( const double x, const double*rusr, const int*iusr )
+      ( const double& x, const double*rusr, const int*iusr )
       { return 1./(2.*std::sqrt(x)); }
     static T Isqrt
       ( const T&x, const double*rusr, const int*iusr )
@@ -2694,10 +2716,10 @@ TModel<T>::_exp_bernstein
 {
   struct loc{
     static double exp
-      ( const double x, const double*rusr, const int*iusr )
+      ( const double& x, const double*rusr, const int*iusr )
       { return std::exp(x); }
     static double dexp
-      ( const double x, const double*rusr, const int*iusr )
+      ( const double& x, const double*rusr, const int*iusr )
       { return std::exp(x); }
     static T Iexp
       ( const T&x, const double*rusr, const int*iusr )
@@ -2776,10 +2798,10 @@ TModel<T>::_log_bernstein
     throw typename TModel<T>::Exceptions( TModel<T>::Exceptions::LOG );
   struct loc{
     static double log
-      ( const double x, const double*rusr, const int*iusr )
+      ( const double& x, const double*rusr, const int*iusr )
       { return std::log(x); }
     static double dlog
-      ( const double x, const double*rusr, const int*iusr )
+      ( const double& x, const double*rusr, const int*iusr )
       { return 1./x; }
     static T Ilog
       ( const T&x, const double*rusr, const int*iusr )
@@ -2823,7 +2845,7 @@ TModel<T>::_intpow
 
 template <typename T> inline TVar<T>
 pow
-( const TVar<T> &TV, const double a )
+( const TVar<T> &TV, const double& a )
 {
   return exp( a * log( TV ) );
 }
@@ -2837,7 +2859,7 @@ pow
 
 template <typename T> inline TVar<T>
 pow
-( const double a, const TVar<T> &TV )
+( const double& a, const TVar<T> &TV )
 {
   return exp( TV * std::log( a ) );
 }
@@ -2955,15 +2977,15 @@ asin
   TVar<T> G = TV * std::sqrt(1-x0*x0) - x0 * sqrt(1.-sqr(TV));
   TVar<T> TV2( G ), MON( G ), sqrG( sqr(G) );
   T IG( G.B() ), IG0( IG*Op<T>::zeroone() ), sqrIG0( Op<T>::sqr(IG0) ) ;
-  T ASIN1, ASIN2( 1./Op<T>::sqrt(1-sqrIG0) ),
-    ASIN3( IG0*Op<T>::pow(Op<T>::sqrt(1-sqrIG0),-3) );
+  T ASIN1, ASIN2( 1./Op<T>::sqrt(1.-sqrIG0) ),
+    ASIN3( IG0*Op<T>::pow(Op<T>::sqrt(1.-sqrIG0),-3) );
   for( unsigned i=1; i<=TV.nord(); i++ ){
     MON *= sqrG;
     s *= (double)(2*i-1)*(double)(2*i-1)/(double)(2*i)/(double)(2*i+1);
     TV2 += MON * s;
     t *= double(i+1);
     ASIN1 = ASIN2; ASIN2 = ASIN3;
-    ASIN3 = ((2*i-1)*IG0*ASIN2+(i-1)*(i-1)*ASIN1)/(1-sqrIG0);
+    ASIN3 = ((double)(2*i-1)*IG0*ASIN2+(double)((i-1)*(i-1))*ASIN1)/(1.-sqrIG0);
   }
   TV2._coefmon[0] += std::asin(x0);
   TV2 += Op<T>::pow( IG, (int)TV2.nord()+1 ) / t * ASIN2;
@@ -3000,7 +3022,7 @@ atan
   TV2._coefmon[0] += std::atan(x0);
   TV2 += Op<T>::pow( IG * Op<T>::cos( Op<T>::atan(IG0) ),
          (int)TV2.nord()+1 ) / (double)(TV2.nord()+1)
-         * sin( (TV2.nord()+1) * (atan(IG0)+PI/2.) );
+         * sin( (double)(TV2.nord()+1) * (atan(IG0)+PI/2.) );
 
   TV2._bndord_uptd = false;
   TV2._unset_bndpol();
@@ -3181,7 +3203,7 @@ namespace mc
 template< typename T > struct Op< mc::TVar<T> >
 {
   typedef mc::TVar<T> TV;
-  static TV point( const double c ) { return TV(c); }
+  static TV point( const double& c ) { return TV(c); }
   static TV zeroone() { return TV( mc::Op<T>::zeroone() ); }
   static void I(TV& x, const TV&y) { x = y; }
   static double l(const TV& x) { return mc::Op<T>::l(x.B()); }
@@ -3214,7 +3236,7 @@ template< typename T > struct Op< mc::TVar<T> >
   static TV hull(const TV& x, const TV& y) { return mc::hull(x,y); }
   static TV min (const TV& x, const TV& y) { return mc::Op<T>::min(x.B(),y.B());  }
   static TV max (const TV& x, const TV& y) { return mc::Op<T>::max(x.B(),y.B());  }
-  static TV arh (const TV& x, const double k) { return mc::exp(-k/x); }
+  static TV arh (const TV& x, const double& k) { return mc::exp(-k/x); }
   template <typename X, typename Y> static TV pow(const X& x, const Y& y) { return mc::pow(x,y); }
   static TV cheb(const TV& x, const unsigned n) { return mc::cheb(x,n); }
   static TV prod (const unsigned n, const TV* x) { return mc::prod(n,x); }

@@ -1,5 +1,8 @@
+// Copyright (C) Benoit Chachuat, Imperial College London.
+// All Rights Reserved.
+// This code is published under the Eclipse Public License.
+
 #include <pybind11/pybind11.h>
-//#include <pybind11/operators.h>
 #include <pybind11/functional.h>
 #include <pybind11/stl.h>
 
@@ -94,11 +97,59 @@ pyFFCustom
  )
  .def(
    "set_MC_eval",
-   []( mc::FFCustom<mc::McCormick<I>>& self, std::function<std::vector<mc::McCormick<I>>( std::vector<mc::McCormick<I>> const& )> const& MCEval )
+   []( mc::FFCustom<I>& self, std::function<std::vector<mc::McCormick<I>>( std::vector<mc::McCormick<I>> const& )> const& MCEval )
    {
      self.set_eval( MCEval );
    },
    "set custom evaluation function in McCormick arithmetic"
+ )
+ .def(
+   "set_SB_eval",
+   []( mc::FFCustom<I>& self, std::function<std::vector<mc::Specbnd<I>>( std::vector<mc::Specbnd<I>> const& )> const& SBEval )
+   {
+     self.set_eval( SBEval );
+   },
+   "set custom evaluation function in Spectral bound arithmetic"
+ )
+ .def(
+   "set_TM_eval",
+   []( mc::FFCustom<I>& self, std::function<std::vector<mc::TVar<I>>( std::vector<mc::TVar<I>> const& )> const& TMEval )
+   {
+     self.set_eval( TMEval );
+   },
+   "set custom evaluation function in Taylor model arithmetic"
+ )
+ .def(
+   "set_CM_eval",
+   []( mc::FFCustom<I>& self, std::function<std::vector<mc::CVar<I>>( std::vector<mc::CVar<I>> const& )> const& CMEval )
+   {
+     self.set_eval( CMEval );
+   },
+   "set custom evaluation function in Chebyshev model arithmetic"
+ )
+ .def(
+   "set_SCM_eval",
+   []( mc::FFCustom<I>& self, std::function<std::vector<mc::SCVar<I>>( std::vector<mc::SCVar<I>> const& )> const& SCMEval )
+   {
+     self.set_eval( SCMEval );
+   },
+   "set custom evaluation function in sparse Chebyshev model arithmetic"
+ )
+ .def(
+   "set_PWCSM_eval",
+   []( mc::FFCustom<I>& self, std::function<std::vector<mc::SupVar<mc::PWCU>>( std::vector<mc::SupVar<mc::PWCU>> const& )> const& PWCSMEval )
+   {
+     self.set_eval( PWCSMEval );
+   },
+   "set custom evaluation function in piecewise-constant superposition model arithmetic"
+ )
+ .def(
+   "set_PWLSM_eval",
+   []( mc::FFCustom<I>& self, std::function<std::vector<mc::SupVar<mc::PWLU>>( std::vector<mc::SupVar<mc::PWLU>> const& )> const& PWLSMEval )
+   {
+     self.set_eval( PWLSMEval );
+   },
+   "set custom evaluation function in piecewise-linear superposition model arithmetic"
  )
  .def(
    "set_deriv",

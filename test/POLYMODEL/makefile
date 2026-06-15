@@ -5,7 +5,7 @@ include $(PATH_MC)/src/makeoptions.mk
 
 #####
 
-all: TM-1D TM-2D CM-1D CM-2D CM-SCM-2D SCM-SICM-2D SCM-QUAD-2D
+all: TM-1D TM-2D CM-1D CM-2D CM-SCM-2D SCM-Bernstein SCM-SICM-2D
 
 TM-1D : TM-1D.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
@@ -22,10 +22,10 @@ CM-2D : CM-2D.o
 CM-SCM-2D : CM-SCM-2D.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
 
-SCM-SICM-2D : SCM-SICM-2D.o
+SCM-Bernstein : SCM-Bernstein.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
 
-SCM-QUAD-2D : SCM-QUAD-2D.o
+SCM-SICM-2D : SCM-SICM-2D.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
 
 %.o: %.cpp 
@@ -34,6 +34,6 @@ SCM-QUAD-2D : SCM-QUAD-2D.o
 #####
 
 clean :
-	rm -f TM-1D TM-2D CM-1D CM-2D CM-SCM-2D SCM-SICM-2D SCM-QUAD-2D
+	rm -f TM-1D TM-2D CM-1D CM-2D CM-SCM-2D SCM-Bernstein SCM-SICM-2D
 	rm -f *.o *.out *.eps *.dot *.svg *~
 

@@ -1,3 +1,7 @@
+// Copyright (C) Benoit Chachuat, Imperial College London.
+// All Rights Reserved.
+// This code is published under the Eclipse Public License.
+
 #ifndef MC__FFMLPREG_HPP
 #define MC__FFMLPREG_HPP
 
@@ -11,6 +15,8 @@
 
 namespace mc
 {
+
+// ENABLE TORCH FOR ANN FORWARD EVUATION AND BACKPROPAGATION
 
 //! @brief C++ class for training of multilayer perceptrons
 ////////////////////////////////////////////////////////////////////////
@@ -164,7 +170,7 @@ public:
     { _eval( y, x, w, _FDhid ); }
   void eval
     ( fadbad::B<double>* y, fadbad::B<double> const* x, fadbad::B<double> const* w )
-    { _eval( y, x, w, _BDhid ); _BDhid.clear(); }
+    { _eval( y, x, w, _BDhid ); _BDhid.clear(); } // Would be better to assign 0.
 
 private:
 
@@ -181,7 +187,7 @@ private:
       return options.RELU2ABS?
              ( x + Op<U>::fabs(x) ) * 0.5:
              Op<U>::max( x, U(0.) );
-    }    
+    }
   template <typename U>
   fadbad::F<U> ReLU
     ( fadbad::F<U> const& x )
@@ -193,6 +199,12 @@ private:
         z[j] = Op<U>::fstep( x.val() ) * x[j];
       return z;
     }
+//  template <typename U>
+//  fadbad::B<U> ReLU
+//    ( fadbad::B<U> const& x )
+//    const
+//    {
+//    }
 };
 
 
@@ -510,17 +522,17 @@ public:
 
   // Backward evaluation overloads
   virtual bool reval
-    ( std::type_info const& idU, unsigned const nRes, void const* vRes, unsigned const nVar, void* vVar )
+    ( std::type_info const& idU, unsigned const nRes, void* vRes, unsigned const nVar, void* vVar )
     const
     {
 //      if( idU == typeid( PolVar<T> ) )
-//        return reval( nRes, static_cast<PolVar<T> const*>(vRes), nVar, static_cast<PolVar<T>*>(vVar) );
+//        return reval( nRes, static_cast<PolVar<T>*>(vRes), nVar, static_cast<PolVar<T>*>(vVar) );
 
       throw std::runtime_error( "FFMLPREG::reval: **ERROR** No evaluation method with type"+std::string(idU.name())+"\n" );
     }
 
 //  bool reval
-//    ( unsigned const nRes, PolVar<T> const* vRes, unsigned const nVar, PolVar<T>* vVar )
+//    ( unsigned const nRes, PolVar<T>* vRes, unsigned const nVar, PolVar<T>* vVar )
 //    const;
 
   // Derivatives
@@ -671,7 +683,7 @@ public:
 
   // Backward evaluation overloads
   virtual bool reval
-    ( std::type_info const& idU, unsigned const nRes, void const* vRes, unsigned const nVar, void* vVar )
+    ( std::type_info const& idU, unsigned const nRes, void* vRes, unsigned const nVar, void* vVar )
     const
     {
       throw std::runtime_error( "FFGRADMLP::feval: **ERROR** No evaluation method with type"+std::string(idU.name())+"\n" );

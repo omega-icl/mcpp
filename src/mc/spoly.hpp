@@ -8,7 +8,6 @@
 #include <vector>
 #include <set>
 #include "smon.hpp"
-//#include "mcfunc.hpp"
 
 #undef  MC__SPOLY_DEBUG_SPROD
 
@@ -166,9 +165,9 @@ public:
     { _init(); _set( d ); }
 
   //! @brief Constructor of sparse polynomial expression as variable
-  //SPoly
-  //  ( KEY const& x )
-  //  { _init(); _set( x ); }
+  SPoly
+    ( KEY const& x, double const& coef=1. )
+    { _init(); _set( x ); if( coef != 1. ) operator*=( coef ); }
 
   //! @brief Constructor of sparse polynomial expression as monomial
   SPoly
@@ -199,10 +198,9 @@ public:
     ( SPoly<KEY,COMP>& spoly );
 
   //! @brief Display sparse coefficient map
-  std::string display
-    ( t_poly spoly, int const& BASIS=options.BASIS, int const& DISPLEN=options.DISPLEN,
-      bool const ONELINE=options.DISPLINE )
-    const;
+  static std::string display
+    ( t_poly spoly, int const& BASIS=SPoly<KEY,COMP>::options.BASIS, int const& DISPLEN=SPoly<KEY,COMP>::options.DISPLEN,
+      bool const ONELINE=SPoly<KEY,COMP>::options.DISPLINE );
     
   //! @brief Clean sparse polynomial by removing entries below threshold <a>tol</a>
   void clean
@@ -236,10 +234,11 @@ public:
     {
       if( _mapmon.empty() || !minord() ) return 0;
       unsigned ord = maxord();
-      for( auto const& [mon,coef] : mapmon ){
+      for( auto const& [mon,coef] : _mapmon ){
         unsigned const exp = mon.exp(x);
         if( exp < ord ) ord = exp;
       }
+      return ord;
     }
 
   //! @brief Total number of monomial terms in polynomial variable
@@ -249,7 +248,7 @@ public:
     { return _mapmon.size(); };
 
   //! @brief Get coefficient of monomial mon
-  double coefmon
+  double coef
     ( t_mon const& mon = t_mon() )
     const
     { auto it = _mapmon.find( mon ); 
@@ -317,6 +316,11 @@ public:
   //! @brief Overloaded operator '=' for monomial
   SPoly<KEY,COMP>& operator=
     ( std::pair< t_mon, double > const& mon )
+    { _set( mon ); return *this; }
+
+  //! @brief Overloaded operator '=' for monomial
+  SPoly<KEY,COMP>& operator=
+    ( std::pair< KEY, double > const& mon )
     { _set( mon ); return *this; }
 
   //! @brief Overloaded operator '=' for monomial map
@@ -420,7 +424,7 @@ public:
     //! @brief Available basis representations
     enum BASIS_TYPE{
       MONOM=0,	//!< Monomial basis
-      CHEB	    //!< Chebyshev basis
+      CHEB	//!< Chebyshev basis
     };
     //! @brief Basis representation of sparse polynomial
     int BASIS;
@@ -800,7 +804,6 @@ inline
 std::string
 SPoly<KEY,COMP>::display
 ( t_poly mapmon, int const& BASIS, int const& DISPLEN, bool const DISPLINE )
-const
 {
   std::ostringstream out;
   if( !DISPLINE ) out << std::endl; 

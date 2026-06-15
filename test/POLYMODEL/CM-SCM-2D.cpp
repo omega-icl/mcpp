@@ -1,10 +1,10 @@
-#define TEST_EXP0        // <-- select test function here
-const int NTE = 9;      // <-- select Taylor expansion order here
+#define TEST_EXP2        // <-- select test function here
+const int NTE = 5;      // <-- select Taylor expansion order here
 #define SAVE_RESULTS    // <-- specify whether to save results to file
 #undef USE_PROFIL       // <-- specify to use PROFIL for interval arithmetic
 #define USE_BOOST       // <-- specify to use PROFIL for interval arithmetic
 #undef USE_FILIB        // <-- specify to use FILIB++ for interval arithmetic
-#define USE_DAG         // <-- specify to use DAG evaluation or operator overloading
+#undef USE_DAG         // <-- specify to use DAG evaluation or operator overloading
 ////////////////////////////////////////////////////////////////////////
 //#define MC__SCMODEL_DEBUG_SPROD
 //#define MC__SICMODEL_DEBUG_SPROD
@@ -89,7 +89,6 @@ const double YL   =  -1.;	// <-- Y range lower bound
 const double YU   =  1.;	// <-- Y range upper bound
 template <class T>
 T myfunc
-( const T&x, const T&y )
 {
   //return exp(sqrt(x+y));
   return cos(exp(x+y));
@@ -117,6 +116,7 @@ template <class T>
 T myfunc
 ( const T&x, const T&y )
 {
+  //return (x*(exp(x)-exp(-x))-y*(exp(y)-exp(-y)));
   return x*y*(x*(exp(x)-exp(-x))-y*(exp(y)-exp(-y)));
 }
 
@@ -201,7 +201,7 @@ int main()
   const unsigned NREP = 1; //10000; 
  {
   CM modCM( 2, NTE );
-  modCM.options.BOUNDER_TYPE = CM::Options::NAIVE;//LSB;
+  modCM.options.BOUNDER_TYPE = CM::Options::LSB; //BERNSTEIN; //NAIVE;
   modCM.options.MIXED_IA = 0;//true;//false;
 
   double tStart = mc::userclock();
@@ -221,7 +221,7 @@ int main()
  {
   SCM modSCM( NTE );
   modSCM.options.REMEZ_USE = true;//false;
-  modSCM.options.BOUNDER_TYPE = SCM::Options::NAIVE;//LSB; //NAIVE;
+  modSCM.options.BOUNDER_TYPE = SCM::Options::LSB; //BERNSTEIN; //NAIVE;
   modSCM.options.MIXED_IA = 0;//true;//false;
 
   double tStart = mc::userclock();
@@ -250,9 +250,10 @@ int main()
       double DXY[2] = { XL+iX*(XU-XL)/(NX-1.), YL+iY*(YU-YL)/(NY-1.) };
       double DF = myfunc( DXY[0], DXY[1] );
       double PF = F.P( std::map<unsigned,double>({std::make_pair(0,DXY[0]),std::make_pair(1,DXY[1])}) );
-      I IF = PF + F.R();
+      I RF = F.R(), IF = F.B();
       res << std::setw(14) << DXY[0] << std::setw(14) << DXY[1]
           << std::setw(14) << DF << std::setw(14) << PF
+          << std::setw(14) << Op<I>::l(RF) << std::setw(14) << Op<I>::u(RF)
           << std::setw(14) << Op<I>::l(IF) << std::setw(14) << Op<I>::u(IF)
           << std::endl;
     }
@@ -264,7 +265,7 @@ int main()
   SICM modSICM( NTE );
   modSICM.options.REMEZ_USE    = true;
   modSICM.options.INTERP_EXTRA = 0;//NTE;
-  modSICM.options.BOUNDER_TYPE = SICM::Options::NAIVE;//LSB; //NAIVE;
+  modSICM.options.BOUNDER_TYPE = SICM::Options::LSB; //BERNSTEIN; //NAIVE;
   modSICM.options.HOT_SPLIT    = SICM::Options::NONE;//NONE;//FULL;
   modSICM.options.MIXED_IA     = 0;//true;//false;
 
@@ -288,7 +289,7 @@ int main()
   
   modSICM.options.REMEZ_USE    = true;
   modSICM.options.INTERP_EXTRA = 0;//2*NTE;
-  modSICM.options.BOUNDER_TYPE = SICM::Options::NAIVE;//LSB; //NAIVE;
+  modSICM.options.BOUNDER_TYPE = SICM::Options::LSB;//BERNSTEIN; //NAIVE;
   modSICM.options.HOT_SPLIT    = SICM::Options::FULL;
   modSICM.options.MIXED_IA     = 0;//true;//false;
 

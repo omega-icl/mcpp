@@ -26,6 +26,36 @@
 #include "mccormick.hpp"
 typedef mc::McCormick<I> MC;
 
+#include "specbnd.hpp"
+typedef mc::Specbnd<I> SB;
+
+#include "tmodel.hpp"
+typedef mc::TVar<I> T;
+
+#include "cmodel.hpp"
+typedef mc::CVar<I> C;
+
+#include "scmodel.hpp"
+typedef mc::SCVar<I> SC;
+
+#include "supmodel.hpp"
+#include "pwlu.hpp"
+typedef mc::SupVar<mc::PWLU> PWLS;
+#include "pwcu.hpp"
+typedef mc::SupVar<mc::PWCU> PWCS;
+
+#include "polimage.hpp"
+typedef mc::PolVar<I> PV;
+
+#include "ellimage.hpp"
+typedef mc::EllVar<I> EV;
+
+#include "ffdep.hpp"
+typedef mc::FFDep FD;
+
+#include "ffinv.hpp"
+typedef mc::FFInv FI;
+
 #include <chrono>
 #include <fstream>
 #include "ffunc.hpp" 
@@ -324,7 +354,33 @@ pyFFGraph
        {
          return G.compose( vDepOut, vDepIn );
        },
-       "apply compostion"
+       py::arg("vDepOut"),
+       py::arg("vDepIn"),
+       py::return_value_policy::reference_internal,
+       "apply composition"
+     )
+ .def( "insert",
+       []( mc::FFGraph& G, mc::FFGraph& dag, std::vector<mc::FFVar> const& vDepIn,
+           std::vector<mc::FFVar> vDepOut )
+       {
+         G.insert( &dag, vDepIn, vDepOut );
+         return vDepOut;
+       },
+       py::arg("dag"),
+       py::arg("vDepIn"),
+       py::arg("vDepOut") = std::vector<mc::FFVar>(),
+       "insert dependents from dag into current graph"
+     )
+ .def( "substitute",
+       []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDepOut,
+           std::vector<mc::FFVar> const& vAuxTarg, std::vector<mc::FFVar> const& vAuxSubst )
+       {
+         return G.substitute( vDepOut, vAuxTarg, vAuxSubst );
+       },
+       py::arg("vDepOut"),
+       py::arg("vAuxTarg"),
+       py::arg("vAuxSubst"),
+       "substitute variables or auxiliaries in dependents"
      )
  .def( "__str__",
        []( mc::FFGraph const& G ){ std::ostringstream Gss; Gss << G; return Gss.str(); }
@@ -390,7 +446,7 @@ pyFFGraph
          return MCDep;
        },
        py::return_value_policy::take_ownership,
-       "evaluate subgraph in McCormick arithmetic"
+       "evaluate subgraph in McCormick relaxation arithmetic"
      )
  .def( "eval",
        []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep, std::vector<mc::FFVar> const& vVar,
@@ -402,7 +458,247 @@ pyFFGraph
          return MCDep;
        },
        py::return_value_policy::take_ownership,
-       "evaluate subgraph in McCormick arithmetic"
+       "evaluate subgraph in McCormick relaxation arithmetic"
+     )
+ .def( "eval",
+       []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar, std::vector<SB> const& SBVar )
+       {
+         size_t const nDep = vDep.size();
+         std::vector<SB> SBDep( nDep );
+         G.eval( SgDep, vDep, SBDep, vVar, SBVar );
+         return SBDep;
+       },
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in spectral bound arithmetic"
+     )
+ .def( "eval",
+       []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep, std::vector<mc::FFVar> const& vVar,
+           std::vector<SB> const& SBVar )
+       {
+         size_t const nDep = vDep.size();
+         std::vector<SB> SBDep( nDep );
+         G.eval( vDep, SBDep, vVar, SBVar );
+         return SBDep;
+       },
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in spectral bound arithmetic"
+     )
+ .def( "eval",
+       []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar, std::vector<T> const& TVar )
+       {
+         size_t const nDep = vDep.size();
+         std::vector<T> TDep( nDep );
+         G.eval( SgDep, vDep, TDep, vVar, TVar );
+         return TDep;
+       },
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in sparse Chebyshev model arithmetic"
+     )
+ .def( "eval",
+       []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep, std::vector<mc::FFVar> const& vVar,
+           std::vector<T> const& TVar )
+       {
+         size_t const nDep = vDep.size();
+         std::vector<T> TDep( nDep );
+         G.eval( vDep, TDep, vVar, TVar );
+         return TDep;
+       },
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in sparse Chebyshev model arithmetic"
+     )
+ .def( "eval",
+       []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar, std::vector<C> const& CVar )
+       {
+         size_t const nDep = vDep.size();
+         std::vector<C> CDep( nDep );
+         G.eval( SgDep, vDep, CDep, vVar, CVar );
+         return CDep;
+       },
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in dense Chebyshev model arithmetic"
+     )
+ .def( "eval",
+       []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep, std::vector<mc::FFVar> const& vVar,
+           std::vector<C> const& CVar )
+       {
+         size_t const nDep = vDep.size();
+         std::vector<C> CDep( nDep );
+         G.eval( vDep, CDep, vVar, CVar );
+         return CDep;
+       },
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in dense Chebyshev model arithmetic"
+     )
+ .def( "eval",
+       []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar, std::vector<SC> const& SCVar )
+       {
+         size_t const nDep = vDep.size();
+         std::vector<SC> SCDep( nDep );
+         G.eval( SgDep, vDep, SCDep, vVar, SCVar );
+         return SCDep;
+       },
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in sparse Chebyshev model arithmetic"
+     )
+ .def( "eval",
+       []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep, std::vector<mc::FFVar> const& vVar,
+           std::vector<SC> const& SCVar )
+       {
+         size_t const nDep = vDep.size();
+         std::vector<SC> SCDep( nDep );
+         G.eval( vDep, SCDep, vVar, SCVar );
+         return SCDep;
+       },
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in sparse Chebyshev model arithmetic"
+     )
+ .def( "eval",
+       []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar, std::vector<PWLS> const& PWLSVar )
+       {
+         size_t const nDep = vDep.size();
+         std::vector<PWLS> PWLSDep( nDep );
+         G.eval( SgDep, vDep, PWLSDep, vVar, PWLSVar );
+         return PWLSDep;
+       },
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in superposition relaxation arithmetic with piecewise linear univariates"
+     )
+ .def( "eval",
+       []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep, std::vector<mc::FFVar> const& vVar,
+           std::vector<PWLS> const& PWLSVar )
+       {
+         size_t const nDep = vDep.size();
+         std::vector<PWLS> PWLSDep( nDep );
+         G.eval( vDep, PWLSDep, vVar, PWLSVar );
+         return PWLSDep;
+       },
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in superposition relaxation arithmetic with piecewise linear univariates"
+     )
+ .def( "eval",
+       []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar, std::vector<PWCS> const& PWCSVar )
+       {
+         size_t const nDep = vDep.size();
+         std::vector<PWCS> PWCSDep( nDep );
+         G.eval( SgDep, vDep, PWCSDep, vVar, PWCSVar );
+         return PWCSDep;
+       },
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in superposition relaxation arithmetic with piecewise constant univariates"
+     )
+ .def( "eval",
+       []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep, std::vector<mc::FFVar> const& vVar,
+           std::vector<PWCS> const& PWCSVar )
+       {
+         size_t const nDep = vDep.size();
+         std::vector<PWCS> PWCSDep( nDep );
+         G.eval( vDep, PWCSDep, vVar, PWCSVar );
+         return PWCSDep;
+       },
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in superposition relaxation arithmetic with piecewise constant univariates"
+     )
+ .def( "eval",
+       []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar, std::vector<PV> const& PVVar )
+       {
+         size_t const nDep = vDep.size();
+         std::vector<PV> PVDep( nDep );
+         G.eval( SgDep, vDep, PVDep, vVar, PVVar );
+         return PVDep;
+       },
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in polyhedral image arithmetic"
+     )
+ .def( "eval",
+       []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep, std::vector<mc::FFVar> const& vVar,
+           std::vector<PV> const& PVVar )
+       {
+         size_t const nDep = vDep.size();
+         std::vector<PV> PVDep( nDep );
+         G.eval( vDep, PVDep, vVar, PVVar );
+         return PVDep;
+       },
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in polyhedral image arithmetic"
+     )
+ .def( "eval",
+       []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar, std::vector<EV> const& EVVar )
+       {
+         size_t const nDep = vDep.size();
+         std::vector<EV> EVDep( nDep );
+         G.eval( SgDep, vDep, EVDep, vVar, EVVar );
+         return EVDep;
+       },
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in polyhedral image arithmetic"
+     )
+ .def( "eval",
+       []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep, std::vector<mc::FFVar> const& vVar,
+           std::vector<EV> const& EVVar )
+       {
+         size_t const nDep = vDep.size();
+         std::vector<EV> EVDep( nDep );
+         G.eval( vDep, EVDep, vVar, EVVar );
+         return EVDep;
+       },
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in polyhedral image arithmetic"
+     )
+ .def( "eval",
+       []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar, std::vector<FD> const& FDVar )
+       {
+         size_t const nDep = vDep.size();
+         std::vector<FD> FDDep( nDep );
+         G.eval( SgDep, vDep, FDDep, vVar, FDVar );
+         return FDDep;
+       },
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in polyhedral image arithmetic"
+     )
+ .def( "eval",
+       []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep, std::vector<mc::FFVar> const& vVar,
+           std::vector<FD> const& FDVar )
+       {
+         size_t const nDep = vDep.size();
+         std::vector<FD> FDDep( nDep );
+         G.eval( vDep, FDDep, vVar, FDVar );
+         return FDDep;
+       },
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in polyhedral image arithmetic"
+     )
+ .def( "eval",
+       []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar, std::vector<FI> const& FIVar )
+       {
+         size_t const nDep = vDep.size();
+         std::vector<FI> FIDep( nDep );
+         G.eval( SgDep, vDep, FIDep, vVar, FIVar );
+         return FIDep;
+       },
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in polyhedral image arithmetic"
+     )
+ .def( "eval",
+       []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep, std::vector<mc::FFVar> const& vVar,
+           std::vector<FI> const& FIVar )
+       {
+         size_t const nDep = vDep.size();
+         std::vector<FI> FIDep( nDep );
+         G.eval( vDep, FIDep, vVar, FIVar );
+         return FIDep;
+       },
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in polyhedral image arithmetic"
      )
  .def( "reval",
        []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep,
@@ -562,7 +858,7 @@ pyFFGraph
        py::arg("MCVar2") = std::vector<MC>(),
        py::arg("walltime") = false,
        py::return_value_policy::take_ownership,
-       "evaluate subgraph in McCormick arithmetic for multiple scenarios"
+       "evaluate subgraph in McCormick relaxation arithmetic for multiple scenarios"
      )
  .def( "veval",
        []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep,
@@ -586,7 +882,497 @@ pyFFGraph
        py::arg("MCVar2") = std::vector<MC>(),
        py::arg("walltime") = false,
        py::return_value_policy::take_ownership,
-       "evaluate subgraph in McCormick arithmetic for multiple scenarios"
+       "evaluate subgraph in McCormick relaxation arithmetic for multiple scenarios"
+     )
+ .def( "veval",
+       []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar1, std::vector<std::vector<SB>>& SBVar1,
+           std::vector<mc::FFVar> const& vVar2, std::vector<SB>& SBVar2, bool const walltime )
+       {
+         auto starttime = std::chrono::system_clock::now();
+         size_t const nDep = vDep.size(), nSam = SBVar1.size();
+         std::vector<std::vector<SB>> SBDep( nSam, std::vector<SB>( nDep ) );
+         G.veval( SgDep, vDep, SBDep, vVar1, SBVar1, vVar2, SBVar2 );
+         if( walltime ){
+           auto wtime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+           std::cerr << "vectorized DAG evaluation on " << G.options.MAXTHREAD << " threads: " << wtime.count()*1e-6 << " sec\n";
+         }
+         return SBDep;
+       },
+       py::arg("SgDep"),
+       py::arg("vDep"),
+       py::arg("vVar1"),
+       py::arg("SBVar1"),
+       py::arg("vVar2") = std::vector<mc::FFVar>(),
+       py::arg("SBVar2") = std::vector<SB>(),
+       py::arg("walltime") = false,
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in spectral bound arithmetic for multiple scenarios"
+     )
+ .def( "veval",
+       []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar1, std::vector<std::vector<SB>>& SBVar1,
+           std::vector<mc::FFVar> const& vVar2, std::vector<SB>& SBVar2, bool const walltime )
+       {
+         auto starttime = std::chrono::system_clock::now();
+         size_t const nDep = vDep.size(), nSam = SBVar1.size();
+         std::vector<std::vector<SB>> SBDep( nSam, std::vector<SB>( nDep ) );
+         G.veval( vDep, SBDep, vVar1, SBVar1, vVar2, SBVar2 );
+         if( walltime ){
+           auto wtime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+           std::cerr << "vectorized DAG evaluation on " << G.options.MAXTHREAD << " threads: " << wtime.count()*1e-6 << " sec\n";
+         }
+         return SBDep;
+       },
+       py::arg("vDep"),
+       py::arg("vVar1"),
+       py::arg("SBVar1"),
+       py::arg("vVar2") = std::vector<mc::FFVar>(),
+       py::arg("SBVar2") = std::vector<SB>(),
+       py::arg("walltime") = false,
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in spectral bound arithmetic for multiple scenarios"
+     )
+ .def( "veval",
+       []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar1, std::vector<std::vector<T>>& TVar1,
+           std::vector<mc::FFVar> const& vVar2, std::vector<T>& TVar2, bool const walltime )
+       {
+         auto starttime = std::chrono::system_clock::now();
+         size_t const nDep = vDep.size(), nSam = TVar1.size();
+         std::vector<std::vector<T>> TDep( nSam, std::vector<T>( nDep ) );
+         G.veval( SgDep, vDep, TDep, vVar1, TVar1, vVar2, TVar2 );
+         if( walltime ){
+           auto wtime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+           std::cerr << "vectorized DAG evaluation on " << G.options.MAXTHREAD << " threads: " << wtime.count()*1e-6 << " sec\n";
+         }
+         return TDep;
+       },
+       py::arg("SgDep"),
+       py::arg("vDep"),
+       py::arg("vVar1"),
+       py::arg("TVar1"),
+       py::arg("vVar2") = std::vector<mc::FFVar>(),
+       py::arg("TVar2") = std::vector<T>(),
+       py::arg("walltime") = false,
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in sparse Chebyshev model arithmetic for multiple scenarios"
+     )
+ .def( "veval",
+       []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar1, std::vector<std::vector<T>>& TVar1,
+           std::vector<mc::FFVar> const& vVar2, std::vector<T>& TVar2, bool const walltime )
+       {
+         auto starttime = std::chrono::system_clock::now();
+         size_t const nDep = vDep.size(), nSam = TVar1.size();
+         std::vector<std::vector<T>> TDep( nSam, std::vector<T>( nDep ) );
+         G.veval( vDep, TDep, vVar1, TVar1, vVar2, TVar2 );
+         if( walltime ){
+           auto wtime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+           std::cerr << "vectorized DAG evaluation on " << G.options.MAXTHREAD << " threads: " << wtime.count()*1e-6 << " sec\n";
+         }
+         return TDep;
+       },
+       py::arg("vDep"),
+       py::arg("vVar1"),
+       py::arg("TVar1"),
+       py::arg("vVar2") = std::vector<mc::FFVar>(),
+       py::arg("TVar2") = std::vector<T>(),
+       py::arg("walltime") = false,
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in sparse Chebyshev model arithmetic for multiple scenarios"
+     )
+ .def( "veval",
+       []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar1, std::vector<std::vector<C>>& CVar1,
+           std::vector<mc::FFVar> const& vVar2, std::vector<C>& CVar2, bool const walltime )
+       {
+         auto starttime = std::chrono::system_clock::now();
+         size_t const nDep = vDep.size(), nSam = CVar1.size();
+         std::vector<std::vector<C>> CDep( nSam, std::vector<C>( nDep ) );
+         G.veval( SgDep, vDep, CDep, vVar1, CVar1, vVar2, CVar2 );
+         if( walltime ){
+           auto wtime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+           std::cerr << "vectorized DAG evaluation on " << G.options.MAXTHREAD << " threads: " << wtime.count()*1e-6 << " sec\n";
+         }
+         return CDep;
+       },
+       py::arg("SgDep"),
+       py::arg("vDep"),
+       py::arg("vVar1"),
+       py::arg("CVar1"),
+       py::arg("vVar2") = std::vector<mc::FFVar>(),
+       py::arg("CVar2") = std::vector<C>(),
+       py::arg("walltime") = false,
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in dense Chebyshev model arithmetic for multiple scenarios"
+     )
+ .def( "veval",
+       []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar1, std::vector<std::vector<C>>& CVar1,
+           std::vector<mc::FFVar> const& vVar2, std::vector<C>& CVar2, bool const walltime )
+       {
+         auto starttime = std::chrono::system_clock::now();
+         size_t const nDep = vDep.size(), nSam = CVar1.size();
+         std::vector<std::vector<C>> CDep( nSam, std::vector<C>( nDep ) );
+         G.veval( vDep, CDep, vVar1, CVar1, vVar2, CVar2 );
+         if( walltime ){
+           auto wtime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+           std::cerr << "vectorized DAG evaluation on " << G.options.MAXTHREAD << " threads: " << wtime.count()*1e-6 << " sec\n";
+         }
+         return CDep;
+       },
+       py::arg("vDep"),
+       py::arg("vVar1"),
+       py::arg("CVar1"),
+       py::arg("vVar2") = std::vector<mc::FFVar>(),
+       py::arg("CVar2") = std::vector<C>(),
+       py::arg("walltime") = false,
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in dense Chebyshev model arithmetic for multiple scenarios"
+     )
+ .def( "veval",
+       []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar1, std::vector<std::vector<SC>>& SCVar1,
+           std::vector<mc::FFVar> const& vVar2, std::vector<SC>& SCVar2, bool const walltime )
+       {
+         auto starttime = std::chrono::system_clock::now();
+         size_t const nDep = vDep.size(), nSam = SCVar1.size();
+         std::vector<std::vector<SC>> SCDep( nSam, std::vector<SC>( nDep ) );
+         G.veval( SgDep, vDep, SCDep, vVar1, SCVar1, vVar2, SCVar2 );
+         if( walltime ){
+           auto wtime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+           std::cerr << "vectorized DAG evaluation on " << G.options.MAXTHREAD << " threads: " << wtime.count()*1e-6 << " sec\n";
+         }
+         return SCDep;
+       },
+       py::arg("SgDep"),
+       py::arg("vDep"),
+       py::arg("vVar1"),
+       py::arg("SCVar1"),
+       py::arg("vVar2") = std::vector<mc::FFVar>(),
+       py::arg("SCVar2") = std::vector<SC>(),
+       py::arg("walltime") = false,
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in sparse Chebyshev model arithmetic for multiple scenarios"
+     )
+ .def( "veval",
+       []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar1, std::vector<std::vector<SC>>& SCVar1,
+           std::vector<mc::FFVar> const& vVar2, std::vector<SC>& SCVar2, bool const walltime )
+       {
+         auto starttime = std::chrono::system_clock::now();
+         size_t const nDep = vDep.size(), nSam = SCVar1.size();
+         std::vector<std::vector<SC>> SCDep( nSam, std::vector<SC>( nDep ) );
+         G.veval( vDep, SCDep, vVar1, SCVar1, vVar2, SCVar2 );
+         if( walltime ){
+           auto wtime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+           std::cerr << "vectorized DAG evaluation on " << G.options.MAXTHREAD << " threads: " << wtime.count()*1e-6 << " sec\n";
+         }
+         return SCDep;
+       },
+       py::arg("vDep"),
+       py::arg("vVar1"),
+       py::arg("SCVar1"),
+       py::arg("vVar2") = std::vector<mc::FFVar>(),
+       py::arg("SCVar2") = std::vector<SC>(),
+       py::arg("walltime") = false,
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in sparse Chebyshev model arithmetic for multiple scenarios"
+     )
+ .def( "veval",
+       []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar1, std::vector<std::vector<PWLS>>& PWLSVar1,
+           std::vector<mc::FFVar> const& vVar2, std::vector<PWLS>& PWLSVar2, bool const walltime )
+       {
+         auto starttime = std::chrono::system_clock::now();
+         size_t const nDep = vDep.size(), nSam = PWLSVar1.size();
+         std::vector<std::vector<PWLS>> PWLSDep( nSam, std::vector<PWLS>( nDep ) );
+         G.veval( SgDep, vDep, PWLSDep, vVar1, PWLSVar1, vVar2, PWLSVar2 );
+         if( walltime ){
+           auto wtime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+           std::cerr << "vectorized DAG evaluation on " << G.options.MAXTHREAD << " threads: " << wtime.count()*1e-6 << " sec\n";
+         }
+         return PWLSDep;
+       },
+       py::arg("SgDep"),
+       py::arg("vDep"),
+       py::arg("vVar1"),
+       py::arg("PWLSVar1"),
+       py::arg("vVar2") = std::vector<mc::FFVar>(),
+       py::arg("PWLSVar2") = std::vector<PWLS>(),
+       py::arg("walltime") = false,
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in superposition relaxation arithmetic with piecewise linear univariates for multiple scenarios"
+     )
+ .def( "veval",
+       []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar1, std::vector<std::vector<PWLS>>& PWLSVar1,
+           std::vector<mc::FFVar> const& vVar2, std::vector<PWLS>& PWLSVar2, bool const walltime )
+       {
+         auto starttime = std::chrono::system_clock::now();
+         size_t const nDep = vDep.size(), nSam = PWLSVar1.size();
+         std::vector<std::vector<PWLS>> PWLSDep( nSam, std::vector<PWLS>( nDep ) );
+         G.veval( vDep, PWLSDep, vVar1, PWLSVar1, vVar2, PWLSVar2 );
+         if( walltime ){
+           auto wtime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+           std::cerr << "vectorized DAG evaluation on " << G.options.MAXTHREAD << " threads: " << wtime.count()*1e-6 << " sec\n";
+         }
+         return PWLSDep;
+       },
+       py::arg("vDep"),
+       py::arg("vVar1"),
+       py::arg("PWLSVar1"),
+       py::arg("vVar2") = std::vector<mc::FFVar>(),
+       py::arg("PWLSVar2") = std::vector<PWLS>(),
+       py::arg("walltime") = false,
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in superposition relaxation arithmetic with piecewise linear univariates for multiple scenarios"
+     )
+ .def( "veval",
+       []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar1, std::vector<std::vector<PWCS>>& PWCSVar1,
+           std::vector<mc::FFVar> const& vVar2, std::vector<PWCS>& PWCSVar2, bool const walltime )
+       {
+         auto starttime = std::chrono::system_clock::now();
+         size_t const nDep = vDep.size(), nSam = PWCSVar1.size();
+         std::vector<std::vector<PWCS>> PWCSDep( nSam, std::vector<PWCS>( nDep ) );
+         G.veval( SgDep, vDep, PWCSDep, vVar1, PWCSVar1, vVar2, PWCSVar2 );
+         if( walltime ){
+           auto wtime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+           std::cerr << "vectorized DAG evaluation on " << G.options.MAXTHREAD << " threads: " << wtime.count()*1e-6 << " sec\n";
+         }
+         return PWCSDep;
+       },
+       py::arg("SgDep"),
+       py::arg("vDep"),
+       py::arg("vVar1"),
+       py::arg("PWCSVar1"),
+       py::arg("vVar2") = std::vector<mc::FFVar>(),
+       py::arg("PWCSVar2") = std::vector<PWCS>(),
+       py::arg("walltime") = false,
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in superposition relaxation arithmetic with piecewise constant univariates for multiple scenarios"
+     )
+ .def( "veval",
+       []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar1, std::vector<std::vector<PWCS>>& PWCSVar1,
+           std::vector<mc::FFVar> const& vVar2, std::vector<PWCS>& PWCSVar2, bool const walltime )
+       {
+         auto starttime = std::chrono::system_clock::now();
+         size_t const nDep = vDep.size(), nSam = PWCSVar1.size();
+         std::vector<std::vector<PWCS>> PWCSDep( nSam, std::vector<PWCS>( nDep ) );
+         G.veval( vDep, PWCSDep, vVar1, PWCSVar1, vVar2, PWCSVar2 );
+         if( walltime ){
+           auto wtime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+           std::cerr << "vectorized DAG evaluation on " << G.options.MAXTHREAD << " threads: " << wtime.count()*1e-6 << " sec\n";
+         }
+         return PWCSDep;
+       },
+       py::arg("vDep"),
+       py::arg("vVar1"),
+       py::arg("PWCSVar1"),
+       py::arg("vVar2") = std::vector<mc::FFVar>(),
+       py::arg("PWCSVar2") = std::vector<PWCS>(),
+       py::arg("walltime") = false,
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in superposition relaxation arithmetic with piecewise constant univariates for multiple scenarios"
+     )
+ .def( "veval",
+       []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar1, std::vector<std::vector<PV>>& PVVar1,
+           std::vector<mc::FFVar> const& vVar2, std::vector<PV>& PVVar2, bool const walltime )
+       {
+         auto starttime = std::chrono::system_clock::now();
+         size_t const nDep = vDep.size(), nSam = PVVar1.size();
+         std::vector<std::vector<PV>> PVDep( nSam, std::vector<PV>( nDep ) );
+         G.veval( SgDep, vDep, PVDep, vVar1, PVVar1, vVar2, PVVar2 );
+         if( walltime ){
+           auto wtime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+           std::cerr << "vectorized DAG evaluation on " << G.options.MAXTHREAD << " threads: " << wtime.count()*1e-6 << " sec\n";
+         }
+         return PVDep;
+       },
+       py::arg("SgDep"),
+       py::arg("vDep"),
+       py::arg("vVar1"),
+       py::arg("PVVar1"),
+       py::arg("vVar2") = std::vector<mc::FFVar>(),
+       py::arg("PVVar2") = std::vector<PV>(),
+       py::arg("walltime") = false,
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in polyhedral image arithmetic for multiple scenarios"
+     )
+ .def( "veval",
+       []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar1, std::vector<std::vector<PV>>& PVVar1,
+           std::vector<mc::FFVar> const& vVar2, std::vector<PV>& PVVar2, bool const walltime )
+       {
+         auto starttime = std::chrono::system_clock::now();
+         size_t const nDep = vDep.size(), nSam = PVVar1.size();
+         std::vector<std::vector<PV>> PVDep( nSam, std::vector<PV>( nDep ) );
+         G.veval( vDep, PVDep, vVar1, PVVar1, vVar2, PVVar2 );
+         if( walltime ){
+           auto wtime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+           std::cerr << "vectorized DAG evaluation on " << G.options.MAXTHREAD << " threads: " << wtime.count()*1e-6 << " sec\n";
+         }
+         return PVDep;
+       },
+       py::arg("vDep"),
+       py::arg("vVar1"),
+       py::arg("PVVar1"),
+       py::arg("vVar2") = std::vector<mc::FFVar>(),
+       py::arg("PVVar2") = std::vector<PV>(),
+       py::arg("walltime") = false,
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in polyhedral image arithmetic for multiple scenarios"
+     )
+ .def( "veval",
+       []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar1, std::vector<std::vector<EV>>& EVVar1,
+           std::vector<mc::FFVar> const& vVar2, std::vector<EV>& EVVar2, bool const walltime )
+       {
+         auto starttime = std::chrono::system_clock::now();
+         size_t const nDep = vDep.size(), nSam = EVVar1.size();
+         std::vector<std::vector<EV>> EVDep( nSam, std::vector<EV>( nDep ) );
+         G.veval( SgDep, vDep, EVDep, vVar1, EVVar1, vVar2, EVVar2 );
+         if( walltime ){
+           auto wtime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+           std::cerr << "vectorized DAG evaluation on " << G.options.MAXTHREAD << " threads: " << wtime.count()*1e-6 << " sec\n";
+         }
+         return EVDep;
+       },
+       py::arg("SgDep"),
+       py::arg("vDep"),
+       py::arg("vVar1"),
+       py::arg("EVVar1"),
+       py::arg("vVar2") = std::vector<mc::FFVar>(),
+       py::arg("EVVar2") = std::vector<EV>(),
+       py::arg("walltime") = false,
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in polyhedral image arithmetic for multiple scenarios"
+     )
+ .def( "veval",
+       []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar1, std::vector<std::vector<EV>>& EVVar1,
+           std::vector<mc::FFVar> const& vVar2, std::vector<EV>& EVVar2, bool const walltime )
+       {
+         auto starttime = std::chrono::system_clock::now();
+         size_t const nDep = vDep.size(), nSam = EVVar1.size();
+         std::vector<std::vector<EV>> EVDep( nSam, std::vector<EV>( nDep ) );
+         G.veval( vDep, EVDep, vVar1, EVVar1, vVar2, EVVar2 );
+         if( walltime ){
+           auto wtime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+           std::cerr << "vectorized DAG evaluation on " << G.options.MAXTHREAD << " threads: " << wtime.count()*1e-6 << " sec\n";
+         }
+         return EVDep;
+       },
+       py::arg("vDep"),
+       py::arg("vVar1"),
+       py::arg("EVVar1"),
+       py::arg("vVar2") = std::vector<mc::FFVar>(),
+       py::arg("EVVar2") = std::vector<EV>(),
+       py::arg("walltime") = false,
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in polyhedral image arithmetic for multiple scenarios"
+     )
+ .def( "veval",
+       []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar1, std::vector<std::vector<FD>>& FDVar1,
+           std::vector<mc::FFVar> const& vVar2, std::vector<FD>& FDVar2, bool const walltime )
+       {
+         auto starttime = std::chrono::system_clock::now();
+         size_t const nDep = vDep.size(), nSam = FDVar1.size();
+         std::vector<std::vector<FD>> FDDep( nSam, std::vector<FD>( nDep ) );
+         G.veval( SgDep, vDep, FDDep, vVar1, FDVar1, vVar2, FDVar2 );
+         if( walltime ){
+           auto wtime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+           std::cerr << "vectorized DAG evaluation on " << G.options.MAXTHREAD << " threads: " << wtime.count()*1e-6 << " sec\n";
+         }
+         return FDDep;
+       },
+       py::arg("SgDep"),
+       py::arg("vDep"),
+       py::arg("vVar1"),
+       py::arg("FDVar1"),
+       py::arg("vVar2") = std::vector<mc::FFVar>(),
+       py::arg("FDVar2") = std::vector<FD>(),
+       py::arg("walltime") = false,
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in polyhedral image arithmetic for multiple scenarios"
+     )
+ .def( "veval",
+       []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar1, std::vector<std::vector<FD>>& FDVar1,
+           std::vector<mc::FFVar> const& vVar2, std::vector<FD>& FDVar2, bool const walltime )
+       {
+         auto starttime = std::chrono::system_clock::now();
+         size_t const nDep = vDep.size(), nSam = FDVar1.size();
+         std::vector<std::vector<FD>> FDDep( nSam, std::vector<FD>( nDep ) );
+         G.veval( vDep, FDDep, vVar1, FDVar1, vVar2, FDVar2 );
+         if( walltime ){
+           auto wtime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+           std::cerr << "vectorized DAG evaluation on " << G.options.MAXTHREAD << " threads: " << wtime.count()*1e-6 << " sec\n";
+         }
+         return FDDep;
+       },
+       py::arg("vDep"),
+       py::arg("vVar1"),
+       py::arg("FDVar1"),
+       py::arg("vVar2") = std::vector<mc::FFVar>(),
+       py::arg("FDVar2") = std::vector<FD>(),
+       py::arg("walltime") = false,
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in polyhedral image arithmetic for multiple scenarios"
+     )
+ .def( "veval",
+       []( mc::FFGraph& G, mc::FFSubgraph& SgDep, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar1, std::vector<std::vector<FI>>& FIVar1,
+           std::vector<mc::FFVar> const& vVar2, std::vector<FI>& FIVar2, bool const walltime )
+       {
+         auto starttime = std::chrono::system_clock::now();
+         size_t const nDep = vDep.size(), nSam = FIVar1.size();
+         std::vector<std::vector<FI>> FIDep( nSam, std::vector<FI>( nDep ) );
+         G.veval( SgDep, vDep, FIDep, vVar1, FIVar1, vVar2, FIVar2 );
+         if( walltime ){
+           auto wtime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+           std::cerr << "vectorized DAG evaluation on " << G.options.MAXTHREAD << " threads: " << wtime.count()*1e-6 << " sec\n";
+         }
+         return FIDep;
+       },
+       py::arg("SgDep"),
+       py::arg("vDep"),
+       py::arg("vVar1"),
+       py::arg("FIVar1"),
+       py::arg("vVar2") = std::vector<mc::FFVar>(),
+       py::arg("FIVar2") = std::vector<FI>(),
+       py::arg("walltime") = false,
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in polyhedral image arithmetic for multiple scenarios"
+     )
+ .def( "veval",
+       []( mc::FFGraph& G, std::vector<mc::FFVar> const& vDep,
+           std::vector<mc::FFVar> const& vVar1, std::vector<std::vector<FI>>& FIVar1,
+           std::vector<mc::FFVar> const& vVar2, std::vector<FI>& FIVar2, bool const walltime )
+       {
+         auto starttime = std::chrono::system_clock::now();
+         size_t const nDep = vDep.size(), nSam = FIVar1.size();
+         std::vector<std::vector<FI>> FIDep( nSam, std::vector<FI>( nDep ) );
+         G.veval( vDep, FIDep, vVar1, FIVar1, vVar2, FIVar2 );
+         if( walltime ){
+           auto wtime = std::chrono::duration_cast<std::chrono::microseconds>( std::chrono::system_clock::now() - starttime );
+           std::cerr << "vectorized DAG evaluation on " << G.options.MAXTHREAD << " threads: " << wtime.count()*1e-6 << " sec\n";
+         }
+         return FIDep;
+       },
+       py::arg("vDep"),
+       py::arg("vVar1"),
+       py::arg("FIVar1"),
+       py::arg("vVar2") = std::vector<mc::FFVar>(),
+       py::arg("FIVar2") = std::vector<FI>(),
+       py::arg("walltime") = false,
+       py::return_value_policy::take_ownership,
+       "evaluate subgraph in polyhedral image arithmetic for multiple scenarios"
      )
 ;
 
@@ -595,6 +1381,7 @@ pyFFGraphOptions
  .def( py::init<>() )
  .def( py::init<mc::FFGraph::Options const&>() )
  .def_readwrite( "DETECTSIGNOM",   &mc::FFGraph::Options::DETECTSIGNOM,   "Whether to detect signomial terms as exp(d.log(x)) and handle them as x^d signomial terms [Default: True]" )
+ .def_readwrite( "CHEBRECURS",     &mc::FFGraph::Options::CHEBRECURS,     "Whether to intersect Chebyshev variables with their recursive expressions [Default: False]" )
  .def_readwrite( "USEMOVE",        &mc::FFGraph::Options::USEMOVE,        "Whether to enable the move semantic during DAG evaluation [Default: False]" )
  .def_readwrite( "MAXTHREAD",      &mc::FFGraph::Options::MAXTHREAD,      "Maximum number of threads in vectorized DAG evaluation [Default: 1]" )
 ;

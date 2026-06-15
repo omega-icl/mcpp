@@ -3,7 +3,6 @@
 #include <fstream>
 #include <iomanip>
 
-#include "mctime.hpp"
 #include "ffunc.hpp"
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -626,6 +625,8 @@ int test_tadiff3()
 
 int main()
 {
+  bool failed = true;
+  
   try{
     test_fadiff0();
     test_fadiff1();
@@ -640,13 +641,20 @@ int main()
     test_tadiff1();
     test_tadiff2();
     test_tadiff3();
+    failed = false;
   }
   catch( mc::FFBase::Exceptions &eObj ){
     std::cerr << "Error " << eObj.ierr()
               << " in factorable function manipulation:" << std::endl
               << eObj.what() << std::endl
-              << "Aborts." << std::endl;
-    return eObj.ierr();
+              << "Aborting." << std::endl;
   }
+  catch(...){
+    std::cerr << "Error during DAG evaluation\n"
+              << "Aborting." << std::endl;
+  }
+
+  std::cout << "\n=== Results: " << (failed? "failed": "passed") << " ===\n";
+  return failed;
 }
 

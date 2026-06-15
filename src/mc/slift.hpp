@@ -5,7 +5,7 @@
 /*!
 \page page_SLIFT Recursive Decomposition in Factorable Expressions 
 \author Benoit Chachuat
-\date 2023
+\date 2026
 \bug No known bugs.
 
 The classes mc::SLiftEnv and mc::SLiftVar defined in <tt>slift.hpp</tt> enable the recursive decomposition of factorable expressions as a collection of polynomial/rational and transcendental subexpressions via the introduction of auxiliary variables.
@@ -179,7 +179,6 @@ Finally, the original vector-valued function \f${\bf f}\f$ is now given by:
 #ifndef MC__SLIFT_H
 #define MC__SLIFT_H
 
-#include <list>
 #include "ffunc.hpp"
 #include "ffexpr.hpp"
 #include "spoly.hpp"
@@ -247,7 +246,7 @@ public:
 
   //! @brief Constructor of sparse rational expression as DAG variable
   SLiftVar
-    ( SLiftEnv* env, FFVar const& x);
+    ( SLiftEnv* env, FFVar const& x );
     
   //! @brief Copy constructor of sparse rational expression
   SLiftVar
@@ -351,8 +350,8 @@ class SLiftEnv
 
 public:
 
-  typedef std::list< std::pair< FFOp const*, std::vector<SLiftVar const*> > > t_OpLift;
-  typedef std::list< std::pair< FFVar const*, SLiftVar const* > > t_AuxLift;
+  typedef std::vector< std::pair< FFOp const*, std::vector<SLiftVar const*> > > t_OpLift;
+  typedef std::vector< std::pair< FFVar const*, SLiftVar const* > > t_AuxLift;
   typedef std::map< FFVar const*, FFVar const*, lt_FFVar > t_Aux;
   typedef std::vector< FFVar const* > t_Expr;
   
@@ -389,6 +388,10 @@ public:
   //! @brief Process the dependents in vector <a>vDep</a>
   void process
     ( std::vector<FFVar> const& vDep, const bool add2dag=true );
+
+  //! @brief Process the dependents in set <a>sDep</a>
+  void process
+    ( std::set<unsigned> const& ndxDep, std::vector<FFVar> const& vDep, bool const add2dag=true );
 
   //! @brief Set DAG environment
   void set
@@ -484,15 +487,34 @@ public:
   struct Options
   {
     //! @brief Constructor
-    Options():
-      KEEPFACT( true ), LIFTDIV( false ), LIFTIPOW( false ), //LIFTUPOL( true )
-      LOG2EXP( true ), SQRT2SQR( true ), ACOS2COS( true ), ASIN2SIN( true ),
-      ATAN2TAN( false ), TAN2ATAN( true ), DISPFULL( false )
-      {}
+    Options()
+      {
+        reset();
+      }
+
+    //! @brief Reset options
+    void reset
+      ()
+      {
+        KEEPFACT  = true;
+        NOAUXIL   = false;
+        LIFTDIV   = false;
+        LIFTIPOW  = false;
+        //LIFTUPOL  = true;
+        LOG2EXP   = true;
+        SQRT2SQR  = true;
+        ACOS2COS  = true;
+        ASIN2SIN  = true;
+        ATAN2TAN  = false;
+        TAN2ATAN  = true;
+        DISPFULL  = false;
+      }
+
     //! @brief Assignment of mc::SLiftEnv::Options
     Options& operator=
       ( Options const& opt ){
         KEEPFACT = opt.KEEPFACT;
+	NOAUXIL  = opt.NOAUXIL;
         LIFTDIV  = opt.LIFTDIV;
         LIFTIPOW = opt.LIFTIPOW;
 	LOG2EXP  = opt.LOG2EXP;
@@ -504,9 +526,12 @@ public:
         DISPFULL = opt.DISPFULL;
         return *this;
       }
+      
     //! @brief Whether to keep existing factorisations, e.g. the product between polynomial subexpressions; otherwise, the polynomials are expanded (default: true)
     bool KEEPFACT;
-    //! @brief Whether to lift division terms using auxiliary variables (default: true)
+    //! @brief Whether to reformulate expressions without introducing auxiliary variables or lifting constraints (default: false)
+    bool NOAUXIL;
+    //! @brief Whether to lift division terms using auxiliary variables (default: false)
     bool LIFTDIV;
     //! @brief Whether to lift integral power terms using auxiliary variables (default: false)
     bool LIFTIPOW;
@@ -604,7 +629,7 @@ operator<<
 ( std::ostream& out, SLiftVar const& var )
 {
   out << std::endl
-      << "NUMERATOR:"   << var.numer()
+      << "NUMERATOR:"   << var.numer() << std::endl
       << "DENOMINATOR:" << var.denom();
   return out;
 }
@@ -702,6 +727,13 @@ SLiftEnv::process
 
 inline void
 SLiftEnv::process
+( std::set<unsigned> const& ndxDep, std::vector<FFVar> const& vDep, bool const add2dag )
+{
+  process( ndxDep, vDep.data(), add2dag );
+}
+
+inline void
+SLiftEnv::process
 ( std::set<unsigned> const& ndxDep, FFVar const* pDep, bool const add2dag )
 {
   if( ndxDep.empty() ) return; // Nothing to do!
@@ -777,6 +809,11 @@ SLiftEnv::process
     // Insert operation result and defining expression
     _Dep.push_back( *_insert_expr( pDep+i, &_SPDep.at(i), true ) );
 
+  // In NOAUXIL mode, _Aux is used only as a temporary substitution map from
+  // original intermediate DAG nodes to their rewritten DAG expressions.  It
+  // should not be reported as a collection of lifted auxiliary variables.
+  if( options.NOAUXIL ) _Aux.clear();
+
 #ifdef MC__SLIFT_DEBUG_PROCESS
   std::cout << std::endl << _Aux.size() << " Auxiliary Variables: ";
   for( auto const& aux : _Aux ) std::cout << *aux.first << "->" << *aux.second << " ";
@@ -796,44 +833,73 @@ inline FFVar const*
 SLiftEnv::_insert_expr
 ( FFVar const* var, SLiftVar const* expr, bool const isdep )
 { 
-  auto itdagvar = _dag->Vars().find( const_cast<FFVar*>(var) );
+  // O(1) lookup via _varById shadow map instead of O(log N) set search.
+  FFVar* pDagVar = _dag->find_var( *var );
 #ifdef MC__SLIFT_CHECK
-  assert( itdagvar != _dag->Vars().end() );
+  assert( pDagVar != nullptr );
 #endif
 
   // Nothing to do if operand is a DAG constant or leaf variable
   if( var->opdef().first->type == FFOp::VAR || var->opdef().first->type == FFOp::CNST )
-    return *itdagvar;
+    return pDagVar;
 
   // Nothing to do if DAG auxiliary was already made a DAG variable
-  auto itv = _Aux.find( *itdagvar );
+  auto itv = _Aux.find( pDagVar );
   if( itv != _Aux.end() )
     return itv->second;
 
-  // If polynomial subexpression, add subexpression to DAG without defining new polynomial constraint in _Poly 
-  if( isdep && !expr->denom().maxord() ){
-    FFVar polyexpr = insert_dag( expr->numer() * expr->denom().coefmon() );
+  // NOAUXIL mode: transcribe the sparse rational expression directly back into
+  // the DAG and use it as a substitution for this intermediate node.  No new
+  // DAG variable and no defining polynomial/rational constraint are created.
+  if( options.NOAUXIL ){
+    FFVar dagexpr;
+    if( !expr->denom().maxord() ){
+      double const denom_cst = expr->denom().mapmon().begin()->second;
+      t_poly scaled_numer = ( denom_cst == 1. )? expr->numer()
+                                               : expr->numer() * ( 1./denom_cst );
+      dagexpr = insert_dag( scaled_numer );
+    }
+    else
+      dagexpr = insert_dag( expr->numer() ) / insert_dag( expr->denom() );
+
+    FFVar* pDagExpr = _dag->find_var( dagexpr );
 #ifdef MC__SLIFT_CHECK
-    auto itdagaux = _dag->Vars().find( &polyexpr );
-    assert( itdagvar != _dag->Vars().end() );
-    return *itdagaux;
-#else
-    return _dag->Vars().find( &polyexpr );
+    assert( pDagExpr != nullptr );
 #endif
+    if( !isdep ) _Aux.insert( std::make_pair( pDagVar, pDagExpr ) );
+    return pDagExpr;
+  }
+
+  // If polynomial subexpression (constant denominator), transcribe into DAG directly
+  // without introducing a new auxiliary variable or polynomial constraint.
+  // The rational value is numer/c where c = denom (a constant scalar poly), so
+  // the DAG expression is insert_dag(numer) scaled by 1/c.  When c==1 (the common
+  // case) insert_dag(numer) is returned as-is.
+  if( isdep && !expr->denom().maxord() ){
+    // Scale numerator by 1/c; if c==1 the poly is unchanged.
+    double const denom_cst = expr->denom().mapmon().begin()->second;//first;//.coef;
+    t_poly scaled_numer = ( denom_cst == 1. )? expr->numer()
+                                             : expr->numer() * ( 1./denom_cst );
+    FFVar polyexpr = insert_dag( scaled_numer );
+    FFVar* pDagAux = _dag->find_var( polyexpr );
+#ifdef MC__SLIFT_CHECK
+    assert( pDagAux != nullptr );  // guard pDagAux, not pDagVar
+#endif
+    return pDagAux;
   }
 
   // Otherwise rational subexpression, append new DAG variable in _Aux and define new polynomial constraint in _Poly 
-  FFVar const* newvar = _insert_aux( *itdagvar, true );
+  FFVar const* newvar = _insert_aux( pDagVar, true );
   FFVar polyctr = *newvar * insert_dag( expr->denom() ) - insert_dag( expr->numer() );
-  auto itpolyctr = _dag->Vars().find( &polyctr );
+  FFVar* pPolyCtr = _dag->find_var( polyctr );
 #ifdef MC__SLIFT_CHECK
-  assert( itpolyctr != _dag->Vars().end() );
+  assert( pPolyCtr != nullptr );
 #endif
 #ifdef MC__SLIFT_DEBUG_PROCESS
   std::cout << "defined by DAG subexpression: ";
-  _dag->output( _dag->subgraph( 1, *itpolyctr ) );
+  _dag->output( _dag->subgraph( 1, pPolyCtr ) );
 #endif
-  _Poly.push_back( **itpolyctr );
+  _Poly.push_back( *pPolyCtr );
   return newvar;
 }
 
@@ -841,6 +907,67 @@ inline void
 SLiftEnv::_insert_expr
 ( FFOp const* pOp, std::vector<FFVar const*>& vAux )
 {
+  // In NOAUXIL mode, inline the operation result itself into the rewritten DAG.
+  // Inverse reformulations such as LOG2EXP/SQRT2SQR/TAN2ATAN are deliberately
+  // bypassed here because they require an auxiliary result variable.
+  if( options.NOAUXIL ){
+    assert( pOp->varout.size() == 1 );
+    FFVar dagexpr;
+    switch( pOp->type ){
+     case FFOp::SHIFT: dagexpr = *vAux.at(0) + pOp->varin.at(1)->num().val(); break;
+     case FFOp::PLUS:  dagexpr = *vAux.at(0) + *vAux.at(1); break;
+     case FFOp::NEG:   dagexpr = - *vAux.at(0); break;
+     case FFOp::MINUS: dagexpr = *vAux.at(0) - *vAux.at(1); break;
+     case FFOp::SCALE: dagexpr = *vAux.at(0) * pOp->varin.at(1)->num().val(); break;
+     case FFOp::TIMES: dagexpr = *vAux.at(0) * *vAux.at(1); break;
+     case FFOp::DIV:   dagexpr = *vAux.at(0) / *vAux.at(1); break;
+     case FFOp::INV:   dagexpr = pOp->varin.at(0)->num().val() / *vAux.at(1); break;
+     case FFOp::PROD:{
+       std::vector<FFVar> vVar;
+       vVar.reserve( vAux.size() );
+       for( auto const& pVar : vAux ) vVar.push_back( *pVar );
+       dagexpr = prod( vVar.size(), vVar.data() );
+       break;
+     }
+     case FFOp::SQR:   dagexpr = sqr( *vAux.at(0) ); break;
+     case FFOp::IPOW:  dagexpr = pow( *vAux.at(0), pOp->varin.at(1)->num().n ); break;
+     case FFOp::CHEB:  dagexpr = cheb( *vAux.at(0), pOp->varin.at(1)->num().n ); break;
+     case FFOp::SQRT:  dagexpr = sqrt( *vAux.at(0) ); break;
+     case FFOp::EXP:   dagexpr = exp( *vAux.at(0) ); break;
+     case FFOp::LOG:   dagexpr = log( *vAux.at(0) ); break;
+     case FFOp::XLOG:  dagexpr = xlog( *vAux.at(0) ); break;
+     case FFOp::DPOW:  dagexpr = pow( *vAux.at(0), pOp->varin.at(1)->num().val() ); break;
+     case FFOp::COS:   dagexpr = cos( *vAux.at(0) ); break;
+     case FFOp::SIN:   dagexpr = sin( *vAux.at(0) ); break;
+     case FFOp::TAN:   dagexpr = tan( *vAux.at(0) ); break;
+     case FFOp::ACOS:  dagexpr = acos( *vAux.at(0) ); break;
+     case FFOp::ASIN:  dagexpr = asin( *vAux.at(0) ); break;
+     case FFOp::ATAN:  dagexpr = atan( *vAux.at(0) ); break;
+     case FFOp::COSH:  dagexpr = cosh( *vAux.at(0) ); break;
+     case FFOp::SINH:  dagexpr = sinh( *vAux.at(0) ); break;
+     case FFOp::TANH:  dagexpr = tanh( *vAux.at(0) ); break;
+     case FFOp::ERF:   dagexpr = erf( *vAux.at(0) ); break;
+     case FFOp::FABS:  dagexpr = fabs( *vAux.at(0) ); break;
+     case FFOp::FSTEP: dagexpr = fstep( *vAux.at(0) ); break;
+     case FFOp::MINF:  dagexpr = min( *vAux.at(0), *vAux.at(1) ); break;
+     case FFOp::MAXF:  dagexpr = max( *vAux.at(0), *vAux.at(1) ); break;
+     case FFOp::INTER: dagexpr = inter( *vAux.at(0), *vAux.at(1) ); break;
+     case FFOp::VAR:
+     case FFOp::CNST:
+     default:
+                       throw Exceptions( Exceptions::INTERNAL );
+    }
+
+    FFVar* pDagRes = _dag->find_var( dagexpr );
+    FFVar* pDagOut = _dag->find_var( *pOp->varout[0] );
+#ifdef MC__SLIFT_CHECK
+    assert( pDagRes != nullptr );
+    assert( pDagOut != nullptr );
+#endif
+    _Aux.insert( std::make_pair( pDagOut, pDagRes ) );
+    return;
+  }
+
   // Append new DAG variable in _Aux for unique operand
   assert( pOp->varout.size() == 1 );
   FFVar const* pres = pOp->varout[0];
@@ -900,17 +1027,31 @@ SLiftEnv::_insert_expr_external
   if( !pOp || pOp->type < FFOp::EXTERN )
     throw Exceptions( Exceptions::INTERNAL );
 
+  std::vector<FFVar> vVar( vAux.size() ), vRes(pOp->varout.size());
+  std::vector<unsigned> mVar( vAux.size(), 0 );
+  for( unsigned i=0; i<vAux.size(); ++i )
+    vVar[i] = *vAux.at(i);
+  pOp->feval( typeid( FFVar ), vRes.size(), vRes.data(), vVar.size(), vVar.data(), mVar.data() );
+
+  if( options.NOAUXIL ){
+    for( unsigned j=0; j<vRes.size(); ++j ){
+      FFVar* pDagRes = _dag->find_var( vRes[j] );
+      FFVar* pDagOut = _dag->find_var( *pOp->varout[j] );
+#ifdef MC__SLIFT_CHECK
+      assert( pDagRes != nullptr );
+      assert( pDagOut != nullptr );
+#endif
+      _Aux.insert( std::make_pair( pDagOut, pDagRes ) );
+    }
+    return;
+  }
+
   // Append new DAG variables in _Aux for all operands
   std::vector<FFVar> pVarOut;
   pVarOut.reserve( pOp->varout.size() );
   for( auto const& pres : pOp->varout )
     pVarOut.push_back( *_insert_aux( pres, true ) );
 
-  std::vector<FFVar> vVar( vAux.size() ), vRes(pOp->varout.size());
-  std::vector<unsigned> mVar( vAux.size(), 0 );
-  for( unsigned i=0; i<vAux.size(); ++i )
-    vVar[i] = *vAux.at(i);
-  pOp->feval( typeid( FFVar ), vRes.size(), vRes.data(), vVar.size(), vVar.data(), mVar.data() );
   for( unsigned j=0; j<vRes.size(); ++j )
     _Trans.push_back( pVarOut[j] - vRes[j] );
   return;
@@ -927,20 +1068,31 @@ SLiftEnv::_insert_aux
   if( aux->opdef().first->type == FFOp::VAR ) return aux;
   auto itaux = _Aux.find( aux );
   if( itaux != _Aux.end() ) return itaux->second;
+
+  // In NOAUXIL mode, never manufacture a fresh DAG variable.  If no rewritten
+  // expression has been registered for this intermediate yet, fall back to the
+  // original DAG node itself, which is still an expression node rather than a
+  // new auxiliary variable.
+  if( options.NOAUXIL ){
+    FFVar* pDagAux = _dag->find_var( *aux );
+    return pDagAux;
+  }
+
   if( !ins ) return (FFVar*)nullptr;
 
-  // Otherwise, insert it
+  // Otherwise, insert it — create a fresh DAG variable and look it up via
+  // the O(1) _varById map rather than an O(log N) set search.
   FFVar newvar( _dag );
-  auto itnewvar = _dag->Vars().find( &newvar );
+  FFVar* pNewVar = _dag->find_var( newvar );
 #ifdef MC__SLIFT_CHECK
-  assert( itnewvar != _dag->Vars().end() );
+  assert( pNewVar != nullptr );
 #endif
 #ifdef MC__SLIFT_DEBUG_PROCESS
-  std::cout << "paired with new DAG variable: " << **itnewvar << std::endl;
+  std::cout << "paired with new DAG variable: " << *pNewVar << std::endl;
 #endif
-  _Aux.insert( std::make_pair( aux, *itnewvar ) );
-  _Var.push_back( **itnewvar );
-  return *itnewvar;
+  _Aux.insert( std::make_pair( aux, pNewVar ) );
+  _Var.push_back( *pNewVar );
+  return pNewVar;
 }
 
 inline FFVar
@@ -973,7 +1125,7 @@ SLiftEnv::insert_dag
     pvar.reserve( mon.expr.size() );
   for( auto const& [var,ord] : mon.expr ){
       FFVar const* oper = nullptr;
-      if( dagaux ) oper = *_dag->Vars().find( const_cast<FFVar*>(var) );
+      if( dagaux ) oper = _dag->find_var( *var );
       else         oper = _insert_aux( var, true );
       if( oper == nullptr )
         throw Exceptions( Exceptions::INTERNAL );
@@ -993,7 +1145,7 @@ SLiftEnv::insert_dag
   for( auto const& [var,ord] : mon.expr ){
     //std::cout << "[var,ord] = " << *var << "^" << ord << std::endl;
     FFVar const* oper = nullptr;
-    if( dagaux ) oper = *_dag->Vars().find( const_cast<FFVar*>(var) );
+    if( dagaux ) oper = _dag->find_var( *var );
     else         oper = _insert_aux( var, true );
     if( oper == nullptr )
       throw Exceptions( Exceptions::INTERNAL );
@@ -1490,29 +1642,38 @@ cheb
     || ( var.env()->options.KEEPFACT && ( var.numer().nmon() > 1 || var.denom().nmon() > 1 ) ) )
     return var.env()->_lift_bivariate_term( var.env()->dag()->curOp(), var, n );
 
-  return var * cheb( var, n-1 ) * 2. - cheb( var, n-2 );  
+  // Iterative three-term recurrence: T_k = 2·x·T_{k-1} - T_{k-2}
+  // Avoids the O(2^n) cost of the previous doubly-recursive implementation.
+  SLiftVar Tkm2 = 1.;           // T_0
+  SLiftVar Tkm1 = var;          // T_1
+  SLiftVar Tk;
+  for( unsigned k=2; k<=n; ++k ){
+    Tk   = var * Tkm1 * 2. - Tkm2;
+    Tkm2 = std::move( Tkm1 );
+    Tkm1 = std::move( Tk );
+  }
+  return Tkm1;
 }
 
 inline SLiftVar
 prod
 ( unsigned int const nvars, SLiftVar const* pvars )
 {
-  switch( nvars ){
-   case 0:  return 1.;
-   case 1:  return pvars[0];
-   default: return pvars[0] * prod( nvars-1, pvars+1 );
-  }
+  if( !nvars ) return 1.;
+  SLiftVar result = pvars[0];
+  for( unsigned int i=1; i<nvars; ++i ) result *= pvars[i];
+  return result;
 }
 
 inline SLiftVar
 monom
 ( unsigned int const nvars, SLiftVar const* pvars, unsigned const* k, bool const chebbasis=false )
 {
-  switch( nvars ){
-   case 0:  return 1.;
-   case 1:  return chebbasis? cheb( pvars[0], k[0] ): pow( pvars[0], (int)k[0] );
-   default: return ( chebbasis? cheb( pvars[0], k[0] ): pow( pvars[0], (int)k[0] ) ) * monom( nvars-1, pvars+1, k+1 );
-  }
+  if( !nvars ) return 1.;
+  SLiftVar result = chebbasis? cheb( pvars[0], k[0] ): pow( pvars[0], (int)k[0] );
+  for( unsigned int i=1; i<nvars; ++i )
+    result *= chebbasis? cheb( pvars[i], k[i] ): pow( pvars[i], (int)k[i] );
+  return result;
 }
 
 inline SLiftVar

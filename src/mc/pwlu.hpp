@@ -75,8 +75,8 @@ public:
     void reset
       ()
       {
-        BKPTATOL   = 1e3*DBL_EPSILON;
-        BKPTRTOL   = 1e3*DBL_EPSILON;
+        BKPTATOL   = 1e4*DBL_EPSILON;
+        BKPTRTOL   = 1e4*DBL_EPSILON;
         REDUCEMETH = 0;
         DISPNUM    = 5;
       }
@@ -425,12 +425,24 @@ public:
       if( _dx.size() != _dy.size() )
         throw Exceptions( Exceptions::SIZE );
 #endif
+
+      os << std::setprecision(16);
+      os << "\nx0: " << _x0 << "  y0: " << _y0;
+      os << "\ndx:";
+      for( auto idx=_dx.cbegin(); idx!=_dx.cend(); ++idx )
+        os << " " << *idx;
+      os << "\ndy:";
+      for( auto idy=_dy.cbegin(); idy!=_dy.cend(); ++idy )
+        os << " " << *idy;
+      return os << std::endl;
+/*
       double xi = _x0, yi = _y0;
       os << "{" << std::scientific << std::setprecision(dispnum) << std::right
          << std::setw(dispnum+8) << xi << ":" << std::setw(dispnum+8) << yi;
       for( auto idx=_dx.cbegin(), idy=_dy.cbegin(); idx!=_dx.cend(); ++idx, ++idy )
         os << ", " << std::setw(dispnum+8) << (xi += *idx) << ":" << std::setw(dispnum+8) << (yi += *idx * *idy);
       return os << " }";
+*/
     }
 
   //! @brief Retreive number of segments
@@ -846,11 +858,14 @@ public:
   PWLU& clean
     ( bool const under )
     {
-      // Initial stage
+      //std::cout << "**PWLU::clean _dx.size() = " << _dx.size() << std::endl;
+      //display();
+      // Initial stage - Merge leading negligible segments, if any, with subsequent ones
       auto idx=_dx.begin(), idy=_dy.begin();
       for( ; ; ){
         if( isequal( *idx, 0., options.BKPTATOL, options.BKPTRTOL ) ){
           double dx = *idx, dy = *idy;
+          //std::cout << "**PWLU::clean dx = " << dx << "  dy = " << dy << std::endl;
           idx = _dx.erase( idx );
           idy = _dy.erase( idy );
           if( ( under && dy > *idy ) || ( !under && dy < *idy ) )
@@ -871,42 +886,46 @@ public:
           idx = _dx.erase( idx );
           idy = _dy.erase( idy );
           // Final stage
-          if( idy == _dy.end() ){
+          //if( idy == _dy.end() ){
             --idx; 
             --idy;
             if( ( under && dy < *idy ) || ( !under && dy > *idy ) )
               _average( *idx, *idy, dx, dy);
             else
               *idx += dx;
-            break;
-          }
+          //  break;
+          //}
           // Intermediate stage
-          if( ( under && dy > *idy ) || ( !under && dy < *idy ) )
-            _average( *idx, *idy, dx, dy);
-          else{
-            --idx;
-            --idy;
-            if( ( under && *idy < dy ) || ( !under && *idy > dy ) ){
-              *idx += dx;
-              double oy = dx *( dy - *idy );
-              ++idx;
-              ++idy;
-              *(idy) += oy / *idx;
-            }
-            else{
-              _average( *idx, *idy, dx, dy);
-              ++idx;
-              ++idy;
-            }
-          }
+          //if( ( under && dy > *idy ) || ( !under && dy < *idy ) )
+          //  _average( *idx, *idy, dx, dy);
+          //else{
+          //  --idx;
+          //  --idy;
+          //  if( ( under && *idy < dy ) || ( !under && *idy > dy ) ){
+          //    *idx += dx;
+          //    double oy = dx *( dy - *idy );
+          //    ++idx;
+          //    ++idy;
+          //    *(idy) += oy / *idx;
+          //  }
+          //  else{
+          //    _average( *idx, *idy, dx, dy);
+          //    ++idx;
+          //    ++idy;
+          //  }
+          //}
           continue;
         }
         else{
           ++idx;
           ++idy;
-          if( idy == _dy.end() ) break;
+          //if( idy == _dy.end() ) break;
         }
+        if( idy == _dy.end() ) break;
       }
+      
+      // Sanity check
+      assert( *(std::min_element(_dx.cbegin(), _dx.cend())) > options.BKPTATOL );
       
       return *this;
     }
@@ -938,9 +957,13 @@ public:
 
   PWLU& reduce
     ( bool const under, size_t const nseg ){
+      //std::cout << "**PWLU::reduce _dx.size() = " << _dx.size() << std::endl;
+      //display();
       clean( under );
       if( !nseg || _dx.size() <= nseg || _dx.size() < 3 )
         return *this;
+      //std::cout << "After clean()" << std::endl;
+      //display();
 
       // use standard library methods std::erase with std::min_element
       if( options.REDUCEMETH <= 0 || _dx.size() <= nseg + options.REDUCEMETH )

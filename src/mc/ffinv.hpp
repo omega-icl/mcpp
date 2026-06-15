@@ -102,6 +102,7 @@ Possible errors encountered in determining the structure of a factorable functio
 #define MC__FFINV_HPP
 
 #include <iostream>
+#include <set>
 #include <map>
 
 namespace mc
@@ -191,8 +192,6 @@ public:
 
     //! @brief Inline function returning the error flag
     int ierr(){ return _ierr; }
-  private:
-    TYPE _ierr;
     //! @brief Error description
     std::string what(){
       switch( _ierr ){
@@ -204,6 +203,8 @@ public:
         return "mc::FFInv\t Undocumented error";
       }
     }
+  private:
+    TYPE _ierr;
   };
   
   //! @brief Options of FFInv
@@ -218,10 +219,19 @@ public:
       IPOW,  //!< Integer power
       RPOW   //!< Real power
     };
-    //! @brief Constructor
-    Options():
-      INVOP( {INV,SQRT,EXP,LOG,RPOW} )
-      {}
+    //! @brief Reset options
+    void reset
+      ()
+      { INVOP = { INV, SQRT, EXP, LOG, RPOW }; }
+    //! @brief Default constructor
+    Options()
+      { reset(); }
+    //! @brief Assignment operator
+    Options& operator=
+      ( Options const& options )
+      { INVOP = options.INVOP;
+        return *this; }
+
     //! @brief Set of allowed invertible operations
     std::set<NLINV> INVOP;
   } options;
@@ -262,6 +272,7 @@ public:
   //! @brief Determine if current expression is invertible in the variable of index <a>ind</a>
   std::pair<bool,TYPE> inv
     ( int const ind )
+    const
     {
       auto it = _inv.find( ind );
       return( it == _inv.end()? std::make_pair( false, TYPE::U )

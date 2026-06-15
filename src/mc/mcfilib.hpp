@@ -195,6 +195,7 @@ template <> struct Op< filib::interval<double,filib::native_switched,filib::i_mo
   static T arh (const T& x, const double k) { return filib::exp(-x/k); }
   static T cheb (const T& x, const unsigned n) { return T(-1.,1.); }
   template <typename X> static T pow(const X& x, const int n) { return filib::power(x,n); }
+  template <typename X> static T pow(const double& c, const X& x) { return filib::exp(x*std::log(c)); }
   template <typename X, typename Y> static T pow(const X& x, const Y& y) { return filib::power(x,y); }
   static T prod (const unsigned int n, const T* x) { return n? x[0] * prod(n-1, x+1): 1.; }
   static T monom (const unsigned int n, const T* x, const unsigned* k) { return n? filib::power(x[0], k[0]) * monom(n-1, x+1, k+1): 1.; }

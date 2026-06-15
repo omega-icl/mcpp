@@ -65,7 +65,7 @@ template <class T>
 T myfunc
 ( const T&x )
 {
-  return x*exp(-pow(x,2)+1);
+  return x*exp(-pow(x,2)+1.);
 }
 
 #elif defined( TEST_EXP2 )
@@ -180,8 +180,8 @@ template <class T>
 T myfunc
 ( const T&x )
 {
-  return fstep(4-x)*(fstep(x-3)*(exp(4-x)+3-(fstep(3-x)*(-sqr(x-2.5)+4)))
-                   +(fstep(3-x)*(-sqr(x-2.5)+4))-(2*x-7))+(2*x-7);
+  return fstep(4.-x)*(fstep(x-3.)*(exp(4.-x)+3.-(fstep(3.-x)*(-sqr(x-2.5)+4.)))
+        +(fstep(3.-x)*(-sqr(x-2.5)+4.))-(2.*x-7.))+(2.*x-7.);
 }
 
 #elif defined( TEST_CHEB )

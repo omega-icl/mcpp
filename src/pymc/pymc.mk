@@ -5,8 +5,12 @@ include $(srcpath)/makeoptions.mk
 
 #####
 
-libobjs = mcfunc.o interval.o mccormick.o supmodel.o \
-          ffunc.o fflin.o ffvect.o ffcustom.o \
+libobjs = mcfunc.o interval.o mccormick.o specbnd.o \
+          tmodel.o cmodel.o scmodel.o sicmodel.o \
+          supmodel.o polimage.o ellimage.o \
+          smon.o spoly.o \
+          ffdep.o ffinv.o ffunc.o ffmon.o ffpoly.o slift.o \
+          fflin.o ffmlp.o ffdagext.o ffvect.o ffcustom.o \
           pymc.o
 libname = pymc.so
 
@@ -20,10 +24,10 @@ install: dispBuild $(libname) dispInstall
 	@echo
 
 $(libname): $(libobjs)
-	$(CPP) -shared -Wl,--export-dynamic $(libobjs) -o $(libname)
+	$(CPP) -shared -Wl,--export-dynamic $(libobjs) $(LIB_MC) -o $(libname)
 
 %.o : %.cpp
-	$(CPP) $(INC_MC) $(INC_PYBIND11) $(FLAG_CPP) $(FLAG_MC) -fPIC -c $< -o $@
+	$(CPP) $(INC_PYBIND11) $(INC_MC) $(FLAG_CPP) $(FLAG_MC) -fPIC -c $< -o $@
 
 dispBuild:
 	@echo

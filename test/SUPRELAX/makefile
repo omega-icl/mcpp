@@ -13,6 +13,8 @@ FLAG_GAMS  = -DMC__WITH_GAMS=\"$(PATH_GAMS)\"
 
 #####
 
+all : SM-1D SM-2D testpwlu testpwcu
+
 SM-2D : SM-2D.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
 
@@ -50,5 +52,6 @@ gensvg :
 #####
 
 clean :
-	rm -f SM-1D SM-2D testpwlu testpwcu *.o *.out *.eps *.dot *.svg *~
+	rm -f SM-1D SM-2D testpwlu testpwcu
+	rm -f *.o *.out *.eps *.dot *.svg *~
 

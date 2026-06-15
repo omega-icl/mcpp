@@ -1,0 +1,19 @@
+[project]
+name = "mcpp"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "graphviz>=0.21",
+    "matplotlib>=3.11.0",
+    "scipy>=1.17.1",
+    "torch>=2.11",
+    "torchaudio>=2.11.0",
+    "torchvision>=0.27.0",
+]
+
+[dependency-groups]
+dev = [
+    "ipykernel>=7.3.0",
+]
