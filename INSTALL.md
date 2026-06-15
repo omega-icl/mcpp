@@ -1,6 +1,6 @@
-# Installation instructions for MC++/CRONOS/CANON/MAGNUS (last updated 2025-09-26)
+# Installation instructions for MC++/CRONOS/CANON/MAGNUS (last updated 2026-06-15)
 
-## Windows: install WSL2 with default distribution (Ubuntu 24.04 LTS)
+## Windows: install WSL2 with default distribution (Ubuntu 26.04 LTS)
 - from Powershell or Command Prompt run `wsl --install`, then follow the instructions to set up a user account (a system restart might be required)
 - all subsequent commands are to be run from the **Ubuntu terminal** (use it via Windows Terminal)
 - `sudo apt update && sudo apt full-upgrade`
@@ -24,19 +24,31 @@
 - Boost: `sudo apt install libboost-all-dev`, then verify that the boost libraries have been installed correctly with `cat /usr/include/boost/version.hpp | grep "BOOST_LIB_VERSION"`
 - obtain the HSL libraries [MC13](https://www.hsl.rl.ac.uk/catalogue/mc13.html), [MC21](https://www.hsl.rl.ac.uk/catalogue/mc21.html), [MC33](https://www.hsl.rl.ac.uk/catalogue/mc33.html); then `tar -xzf mc13-1.0.0.tar.gz`, `cd mc13-1.0.0`, `./configure` and `sudo make install` (repeat for MC21 and MC33)
 - Armadillo dependencies: `sudo apt install libopenblas-dev libarpack2-dev libsuperlu-dev`
-- Armadillo: download the latest release (currently [v15.0.3](https://sourceforge.net/projects/arma/files/armadillo-15.0.3.tar.xz)), extract it with `tar -xJf armadillo-15.0.3.tar.xz`, `cd armadillo-15.0.3` then `./configure` and `sudo make install`
+- Armadillo: download the latest release (currently [v15.2.7](https://sourceforge.net/projects/arma/files/armadillo-15.2.7.tar.xz)), extract it with `tar -xJf armadillo-15.2.7.tar.xz`, `cd armadillo-15.2.7` then `./configure` and `sudo make install`
 
-## MC++
-- `cd /opt`
+## MC++ downloads
 - clone the repository `git clone git@github.com:omega-icl/mcpp.git`
 - `cd mcpp/src`
 - `git submodule init && git submodule update`
-- `sudo make install`
 
-## Environment variables
+## MC++ install via CMake
+- `sudo apt install cmake build-essential ninja-build pkg-config`
+- With a python package manager such as [uv](https://docs.astral.sh/uv/) and pytorch installed, the recommended configuration command is:
+```bash
+cmake -S . -B build \
+  -DMC_INTERVAL_LIBRARY=BOOST \
+  -DENABLE_HSL=ON \
+  -DCUSTOM_PYTHON_PATH=/home/bchachua/Programs/uv/mcpp/.venv/bin/python \
+  -DENABLE_TORCH=ON \
+  -DTORCH_PYTHON_PREFIX=/home/bchachua/Programs/uv/mcpp/.venv/lib/python3.14/site-packages/torch \
+  -DENABLE_EXAMPLES=ON
+```
+
+## MC++ install via Make
+- `make install`
 - append the following lines to `~/.bashrc` using a text editor
 ```
-export PYTHONPATH="${PYTHONPATH}:/opt/mcpp/src/pymc"
+export PYTHONPATH="${PYTHONPATH}: [...]/mcpp/src/pymc"
 ```
 - restart the terminal for changes to take effect, or run `source ~/.bashrc`
 
