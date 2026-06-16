@@ -49,11 +49,33 @@ cmake -S . -B build \
 cmake --build build --parallel $(nproc)
 ```
 That compiles the pymc Python extension.
-- Then install only the Python module into your selected uv environment:
+- To install only the Python module into your selected uv environment run:
 ```bash
 cmake --install build --component python_modules
 ```
-Do not run plain `cmake --install build` unless you also want the C++ headers installed, because that may try to write headers under `/usr/local/include`.
+- To install the Python module, for instance in /opt/mcpp, specify:
+```bash
+cmake -S . -B build \
+  -DCMAKE_INSTALL_PREFIX=/opt/mcpp \
+  -DMC_INTERVAL_LIBRARY=BOOST \
+  -DENABLE_HSL=ON \
+  -DCUSTOM_PYTHON_PATH=/home/bchachua/Programs/uv/mcpp/.venv/bin/python \
+  -DENABLE_TORCH=ON \
+  -DTORCH_PYTHON_PREFIX=/home/bchachua/Programs/uv/mcpp/.venv/lib/python3.14/site-packages/torch \
+  -DENABLE_EXAMPLES=OFF
+```
+followed by:
+```bash
+cmake --build build --parallel $(nproc)
+sudo cmake --install build
+```
+which will install to:
+This should install to:
+```
+/opt/mcpp/include/
+/opt/mcpp/lib/
+/opt/mcpp/notebook/
+```
 
 ## MC++ install via Make
 - `cd src && make install`

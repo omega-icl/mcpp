@@ -27,8 +27,11 @@ message(STATUS "--------------------------------------------------------")
 # Set specific flags if needed, although standard CMake flags are usually sufficient.
 # Debug: -g is standard. -O0 is often default for Debug but we can ensure it.
 # Release: -O2 is standard. User asked for high optimization.
-set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -O0 -g")
-set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O2 -DNDEBUG")
+# Match the classical Make setup: Debug uses -O0 -g; Release uses -O2
+# without defining NDEBUG. CMake's default Release flags often include
+# -O3 -DNDEBUG, so set the cache entries explicitly.
+set(CMAKE_CXX_FLAGS_DEBUG "-O0 -g" CACHE STRING "Debug flags" FORCE)
+set(CMAKE_CXX_FLAGS_RELEASE "-O2" CACHE STRING "Release flags" FORCE)
 
 # Options
 option(ENABLE_HSL "Enable HSL libraries" OFF)
@@ -272,6 +275,7 @@ message(STATUS "--------------------------------------------------------")
 set(INTERVAL_LIBRARIES "")
 set(INTERVAL_INCLUDE_DIRS "")
 set(INTERVAL_DEFINITIONS "")
+set(INTERVAL_COMPILE_OPTIONS "")
 
 if(MC_INTERVAL_LIBRARY STREQUAL "BOOST")
     list(APPEND INTERVAL_DEFINITIONS MC__USE_BOOST)
@@ -298,7 +302,7 @@ elseif(MC_INTERVAL_LIBRARY STREQUAL "FILIB")
     list(APPEND INTERVAL_INCLUDE_DIRS ${FILIB_HOME}/include ${FILIB_HOME}/include/interval)
     list(APPEND INTERVAL_LIBRARIES -L${FILIB_HOME}/lib prim)
     list(APPEND INTERVAL_DEFINITIONS MC__USE_FILIB)
-    add_compile_options(-frounding-math)
+    list(APPEND INTERVAL_COMPILE_OPTIONS -frounding-math)
 elseif(MC_INTERVAL_LIBRARY STREQUAL "NONVERIFIED")
     # No interval library
 else()
@@ -329,6 +333,17 @@ target_compile_definitions(mc INTERFACE
     ${INTERVAL_DEFINITIONS}
 )
 
+# Match the classical Make warning flags and add backend-specific compile
+# options such as -frounding-math only when required, e.g. with FILIB.
+target_compile_options(mc INTERFACE
+    -Wall
+    -Wno-misleading-indentation
+    -Wno-unknown-pragmas
+    -Wno-parentheses
+    -Wno-return-type
+    ${INTERVAL_COMPILE_OPTIONS}
+)
+
 # Link libraries
 target_link_libraries(mc INTERFACE
     ${ARMADILLO_LIBRARIES}
@@ -347,7 +362,6 @@ if(ENABLE_TORCH)
         MC__USE_TORCH
         ${MC_TORCH_COMPILE_DEFINITIONS}
     )
-    target_compile_options(mc INTERFACE -frounding-math)
     target_link_libraries(mc INTERFACE
         ${TORCH_CPU_LIBRARY}
         ${C10_LIBRARY}
@@ -399,11 +413,22 @@ endif()
 
 # Installation
 
+# Direct CMake installs default to:
+#   ${CMAKE_INSTALL_PREFIX}/include   for MC++ headers
+#   ${CMAKE_INSTALL_PREFIX}/lib       for the compiled pymc extension module
+#   ${CMAKE_INSTALL_PREFIX}/notebook  for notebooks and Python scripts
+#
+# For wheel builds with scikit-build-core, override PYMC_INSTALL_DIR with
+# -DPYMC_INSTALL_DIR=. and select only the python_modules component.
+set(PYMC_INSTALL_DIR "lib" CACHE PATH "Installation directory for pymc module")
+set(MCPP_NOTEBOOK_INSTALL_DIR "notebook" CACHE PATH "Installation directory for notebooks and Python scripts")
+
 # Display the computed installation path for user confirmation
 message(STATUS "--------------------------------------------------------")
 message(STATUS "Installation Prefix (CMAKE_INSTALL_PREFIX): ${CMAKE_INSTALL_PREFIX}")
 message(STATUS "Headers will be installed to: ${CMAKE_INSTALL_PREFIX}/include")
-message(STATUS "Libraries will be installed to: ${CMAKE_INSTALL_PREFIX}/lib")
+message(STATUS "pymc module will be installed to: ${CMAKE_INSTALL_PREFIX}/${PYMC_INSTALL_DIR}")
+message(STATUS "Notebooks/scripts will be installed to: ${CMAKE_INSTALL_PREFIX}/${MCPP_NOTEBOOK_INSTALL_DIR}")
 message(STATUS "--------------------------------------------------------")
 
 # Install headers
@@ -460,16 +485,24 @@ endforeach()
 
 install(FILES ${MC_HEADERS_FULL} DESTINATION include COMPONENT headers)
 
-# Install pymc. For direct CMake installs, default to the selected Python
-# environment's site-packages directory when available. For wheel builds with
-# scikit-build-core, override this with -DPYMC_INSTALL_DIR=. and select only
-# the python_modules component.
-if(Python3_SITEARCH)
-    set(PYMC_INSTALL_DIR "${Python3_SITEARCH}" CACHE PATH "Installation directory for pymc module")
-else()
-    set(PYMC_INSTALL_DIR "lib" CACHE PATH "Installation directory for pymc module")
-endif()
+# Install pymc into ${CMAKE_INSTALL_PREFIX}/${PYMC_INSTALL_DIR}.
 install(TARGETS pymc DESTINATION ${PYMC_INSTALL_DIR} COMPONENT python_modules)
+
+# Install notebooks and Python scripts, if the notebook/ directory exists.
+install(
+    DIRECTORY notebook/
+    DESTINATION ${MCPP_NOTEBOOK_INSTALL_DIR}
+    COMPONENT notebooks
+    OPTIONAL
+    FILES_MATCHING
+        PATTERN "*.ipynb"
+        PATTERN "*.py"
+        PATTERN "*.md"
+        PATTERN "*.pt"
+        PATTERN "*.toml"
+        PATTERN "*.lock"
+        PATTERN "*.python-version"
+)
 
 # Examples
 if(ENABLE_EXAMPLES)
