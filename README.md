@@ -20,7 +20,7 @@ The main bounding components in version 5.0 of MC++ include:
 * Polyhedral relaxations
 * Superposition relaxations
 
-A range of python notebooks are provided in `src/pymc` to illustrate these capabilities.
+A range of python scripts and notebooks are provided in `notebook` subdirectory to illustrate these capabilities.
 
 ---
 ### Setting up MC++ ###
