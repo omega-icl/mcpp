@@ -10,6 +10,10 @@
 
 #include "ffextern.hpp"
 
+#include <new>      // std::bad_alloc
+#include <limits>   // std::numeric_limits
+#include <cstddef>  // std::ptrdiff_t
+
 namespace mc
 {
 
@@ -880,11 +884,20 @@ const
   // resize each derivative and component arrays
   for( size_t k=0; k<nRes; ++k ){
     assert( !vDer[k] && !colnz[k] );
-    if( !nnz[k] ) continue;
-    vDer[k]  = new FFVar[nnz[k]];
-    colnz[k] = new size_t[nnz[k]];
+    size_t const n = nnz[k];
+    if( !n ) continue;
+    // n is bounded by the number of nonzero Jacobian entries; this assert
+    // documents the real semantic bound (active only in debug builds).
+    assert( n <= std::get<0>(sdervarout).size() );
+    // Explicit cap against a compile-time limit: hardens the allocation and
+    // gives the compiler a provable upper bound so that n*sizeof(T) cannot
+    // exceed the maximum object size (silences -Walloc-size-larger-than=).
+    if( n > std::numeric_limits<std::ptrdiff_t>::max() / sizeof(FFVar) )
+      throw std::bad_alloc();
+    vDer[k]  = new FFVar[n];
+    colnz[k] = new size_t[n];
 #ifdef MC__FFDAGEXT_DEBUG
-    std::cout << "NNZ[" << k << "] = " << nnz[k] << std::endl;
+    std::cout << "NNZ[" << k << "] = " << n << std::endl;
 #endif
   }
 

@@ -1,6 +1,11 @@
 cmake_minimum_required(VERSION 3.18)
 project(mcpp LANGUAGES CXX)
 
+# Prefer BoostConfig.cmake with newer CMake/Boost versions.
+if(POLICY CMP0167)
+  cmake_policy(SET CMP0167 NEW)
+endif()
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -96,7 +101,7 @@ add_subdirectory(extern/pybind11)
 
 # Boost
 # Always find Boost because it might be used for other things or by default
-find_package(Boost REQUIRED)
+find_package(Boost CONFIG REQUIRED)
 
 # Armadillo
 find_package(Armadillo REQUIRED)
@@ -106,80 +111,121 @@ find_package(BLAS REQUIRED)
 find_package(LAPACK REQUIRED)
 
 # Torch (Optional)
-# TORCH_PYTHON_PREFIX may be any of the following:
-#   * the Python package directory, e.g. /path/to/.venv/lib/python3.14/site-packages/torch
-#   * the CMake prefix returned by torch.utils.cmake_prefix_path
-#   * the TorchConfig directory, e.g. .../share/cmake/Torch
-set(TORCH_PYTHON_PREFIX "" CACHE PATH "Optional Torch Python package directory, CMake prefix, or TorchConfig directory")
+#
+# Important: do not call find_package(Torch) here.  PyTorch's TorchConfig.cmake
+# can enable CUDA and force CMake to identify nvcc even when MC++ only needs
+# CPU-side libtorch symbols.  For MC++ we only link against torch_cpu and c10.
+#
+# TORCH_PYTHON_PREFIX may be:
+#   * the torch Python package directory, e.g.
+#       /path/to/.venv/lib/python3.14/site-packages/torch
+#   * the CMake prefix inside that package, e.g.
+#       /path/to/.../site-packages/torch/share/cmake
+#   * the TorchConfig directory, e.g.
+#       /path/to/.../site-packages/torch/share/cmake/Torch
+# Leave empty to import torch from Python3_EXECUTABLE and discover the package.
+set(TORCH_PYTHON_PREFIX "" CACHE PATH
+    "Optional Torch Python package directory, CMake prefix, or TorchConfig directory")
 
 if(ENABLE_TORCH)
     message(STATUS "Enabling Torch interface")
 
-    set(MC_TORCH_CMAKE_PREFIX "")
-    set(MC_TORCH_DIR "")
-    set(MC_TORCH_PYTHON_LIB_DIR "")
+    set(MC_TORCH_PACKAGE_DIR "")
+    set(MC_TORCH_LIB_DIR "")
+    set(MC_TORCH_INCLUDE_DIRS "")
+    set(MC_TORCH_COMPILE_DEFINITIONS "")
 
     if(TORCH_PYTHON_PREFIX)
-        if(EXISTS "${TORCH_PYTHON_PREFIX}/TorchConfig.cmake")
-            # User supplied .../share/cmake/Torch directly.
-            set(MC_TORCH_DIR "${TORCH_PYTHON_PREFIX}")
+        if(EXISTS "${TORCH_PYTHON_PREFIX}/include" AND EXISTS "${TORCH_PYTHON_PREFIX}/lib")
+            # User supplied the torch Python package directory.
+            set(MC_TORCH_PACKAGE_DIR "${TORCH_PYTHON_PREFIX}")
+        elseif(EXISTS "${TORCH_PYTHON_PREFIX}/TorchConfig.cmake")
+            # User supplied .../share/cmake/Torch.
+            get_filename_component(_MC_TORCH_CMAKE_DIR "${TORCH_PYTHON_PREFIX}" DIRECTORY)
+            get_filename_component(_MC_TORCH_SHARE_DIR "${_MC_TORCH_CMAKE_DIR}" DIRECTORY)
+            get_filename_component(MC_TORCH_PACKAGE_DIR "${_MC_TORCH_SHARE_DIR}" DIRECTORY)
         elseif(EXISTS "${TORCH_PYTHON_PREFIX}/Torch/TorchConfig.cmake")
             # User supplied .../share/cmake.
-            set(MC_TORCH_CMAKE_PREFIX "${TORCH_PYTHON_PREFIX}")
-        elseif(EXISTS "${TORCH_PYTHON_PREFIX}/share/cmake/Torch/TorchConfig.cmake")
-            # User supplied the torch Python package directory.
-            set(MC_TORCH_CMAKE_PREFIX "${TORCH_PYTHON_PREFIX}/share/cmake")
-            if(EXISTS "${TORCH_PYTHON_PREFIX}/lib")
-                set(MC_TORCH_PYTHON_LIB_DIR "${TORCH_PYTHON_PREFIX}/lib")
-            endif()
+            get_filename_component(_MC_TORCH_SHARE_DIR "${TORCH_PYTHON_PREFIX}" DIRECTORY)
+            get_filename_component(MC_TORCH_PACKAGE_DIR "${_MC_TORCH_SHARE_DIR}" DIRECTORY)
         else()
             message(FATAL_ERROR
-                "TORCH_PYTHON_PREFIX='${TORCH_PYTHON_PREFIX}' was provided, but no TorchConfig.cmake was found. "
-                "Use the torch package directory, torch.utils.cmake_prefix_path, or .../share/cmake/Torch.")
+                "TORCH_PYTHON_PREFIX='${TORCH_PYTHON_PREFIX}' was provided, but it does not look like a Torch Python package directory, "
+                "a Torch CMake prefix, or a TorchConfig directory.")
         endif()
     else()
         execute_process(
-            COMMAND "${Python3_EXECUTABLE}" -c "import torch; print(torch.utils.cmake_prefix_path)"
+            COMMAND "${Python3_EXECUTABLE}" -c "import os, torch; print(os.path.dirname(torch.__file__))"
             RESULT_VARIABLE MC_TORCH_DETECT_RESULT
-            OUTPUT_VARIABLE MC_TORCH_CMAKE_PREFIX
+            OUTPUT_VARIABLE MC_TORCH_PACKAGE_DIR
             OUTPUT_STRIP_TRAILING_WHITESPACE
             ERROR_VARIABLE MC_TORCH_DETECT_ERROR
         )
-        if(NOT MC_TORCH_DETECT_RESULT EQUAL 0 OR NOT MC_TORCH_CMAKE_PREFIX)
+        if(NOT MC_TORCH_DETECT_RESULT EQUAL 0 OR NOT MC_TORCH_PACKAGE_DIR)
             message(FATAL_ERROR
-                "ENABLE_TORCH=ON, but Torch could not be imported from '${Python3_EXECUTABLE}'.\n"
-                "Either install torch in that uv environment, or pass -DTORCH_PYTHON_PREFIX=/path/to/site-packages/torch.")
+                "ENABLE_TORCH=ON, but torch could not be imported from '${Python3_EXECUTABLE}'.\n"
+                "Install torch in that uv environment or pass -DTORCH_PYTHON_PREFIX=/path/to/site-packages/torch.")
         endif()
-
-        execute_process(
-            COMMAND "${Python3_EXECUTABLE}" -c "import os, torch; print(os.path.join(os.path.dirname(torch.__file__), 'lib'))"
-            OUTPUT_VARIABLE MC_TORCH_PYTHON_LIB_DIR
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-            ERROR_QUIET
-        )
     endif()
 
-    if(MC_TORCH_DIR)
-        set(Torch_DIR "${MC_TORCH_DIR}" CACHE PATH "Directory containing TorchConfig.cmake" FORCE)
-        message(STATUS "Using explicit Torch_DIR: ${Torch_DIR}")
+    if(NOT EXISTS "${MC_TORCH_PACKAGE_DIR}/include" OR NOT EXISTS "${MC_TORCH_PACKAGE_DIR}/lib")
+        message(FATAL_ERROR
+            "Resolved Torch package directory '${MC_TORCH_PACKAGE_DIR}' does not contain both include/ and lib/ directories.")
     endif()
 
-    if(MC_TORCH_CMAKE_PREFIX)
-        list(PREPEND CMAKE_PREFIX_PATH "${MC_TORCH_CMAKE_PREFIX}")
-        message(STATUS "Using Torch CMake prefix: ${MC_TORCH_CMAKE_PREFIX}")
+    set(MC_TORCH_LIB_DIR "${MC_TORCH_PACKAGE_DIR}/lib")
+
+    list(APPEND MC_TORCH_INCLUDE_DIRS
+        "${MC_TORCH_PACKAGE_DIR}/include"
+        "${MC_TORCH_PACKAGE_DIR}/include/torch/csrc/api/include"
+    )
+
+    foreach(_MC_TORCH_OPTIONAL_INCLUDE_DIR
+            "${MC_TORCH_PACKAGE_DIR}/include/TH"
+            "${MC_TORCH_PACKAGE_DIR}/include/THC")
+        if(EXISTS "${_MC_TORCH_OPTIONAL_INCLUDE_DIR}")
+            list(APPEND MC_TORCH_INCLUDE_DIRS "${_MC_TORCH_OPTIONAL_INCLUDE_DIR}")
+        endif()
+    endforeach()
+
+    find_library(TORCH_CPU_LIBRARY
+        NAMES torch_cpu
+        PATHS "${MC_TORCH_LIB_DIR}"
+        NO_DEFAULT_PATH
+    )
+    if(NOT TORCH_CPU_LIBRARY)
+        message(FATAL_ERROR "Could not find libtorch_cpu in '${MC_TORCH_LIB_DIR}'")
     endif()
 
-    find_package(Torch REQUIRED)
-
-    set(TORCH_CXX_FLAGS_LIST "")
-    if(TORCH_CXX_FLAGS)
-        separate_arguments(TORCH_CXX_FLAGS_LIST NATIVE_COMMAND "${TORCH_CXX_FLAGS}")
+    find_library(C10_LIBRARY
+        NAMES c10
+        PATHS "${MC_TORCH_LIB_DIR}"
+        NO_DEFAULT_PATH
+    )
+    if(NOT C10_LIBRARY)
+        message(FATAL_ERROR "Could not find libc10 in '${MC_TORCH_LIB_DIR}'")
     endif()
 
-    message(STATUS "Torch include dirs: ${TORCH_INCLUDE_DIRS}")
-    message(STATUS "Torch libraries:    ${TORCH_LIBRARIES}")
-    message(STATUS "Torch CXX flags:    ${TORCH_CXX_FLAGS}")
-    message(STATUS "Torch Python lib:   ${MC_TORCH_PYTHON_LIB_DIR}")
+    # Mirror PyTorch's libstdc++ ABI setting without using TorchConfig.cmake.
+    execute_process(
+        COMMAND "${Python3_EXECUTABLE}" -c "import torch; print(int(torch._C._GLIBCXX_USE_CXX11_ABI))"
+        RESULT_VARIABLE MC_TORCH_ABI_RESULT
+        OUTPUT_VARIABLE MC_TORCH_CXX11_ABI
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        ERROR_QUIET
+    )
+    if(MC_TORCH_ABI_RESULT EQUAL 0 AND MC_TORCH_CXX11_ABI MATCHES "^[01]$")
+        list(APPEND MC_TORCH_COMPILE_DEFINITIONS "_GLIBCXX_USE_CXX11_ABI=${MC_TORCH_CXX11_ABI}")
+    else()
+        message(WARNING "Could not determine PyTorch _GLIBCXX_USE_CXX11_ABI setting; using compiler default")
+    endif()
+
+    message(STATUS "Torch package dir: ${MC_TORCH_PACKAGE_DIR}")
+    message(STATUS "Torch include dirs: ${MC_TORCH_INCLUDE_DIRS}")
+    message(STATUS "Torch lib dir:      ${MC_TORCH_LIB_DIR}")
+    message(STATUS "Torch CPU library:  ${TORCH_CPU_LIBRARY}")
+    message(STATUS "C10 library:        ${C10_LIBRARY}")
+    message(STATUS "Torch ABI defs:     ${MC_TORCH_COMPILE_DEFINITIONS}")
 endif()
 
 # HSL (Optional)
@@ -296,10 +342,16 @@ if(ENABLE_HSL)
 endif()
 
 if(ENABLE_TORCH)
-    target_include_directories(mc INTERFACE ${TORCH_INCLUDE_DIRS})
-    target_compile_definitions(mc INTERFACE MC__USE_TORCH)
-    target_compile_options(mc INTERFACE -frounding-math ${TORCH_CXX_FLAGS_LIST})
-    target_link_libraries(mc INTERFACE ${TORCH_LIBRARIES})
+    target_include_directories(mc INTERFACE ${MC_TORCH_INCLUDE_DIRS})
+    target_compile_definitions(mc INTERFACE
+        MC__USE_TORCH
+        ${MC_TORCH_COMPILE_DEFINITIONS}
+    )
+    target_compile_options(mc INTERFACE -frounding-math)
+    target_link_libraries(mc INTERFACE
+        ${TORCH_CPU_LIBRARY}
+        ${C10_LIBRARY}
+    )
 endif()
 
 # PyMC Library
@@ -337,11 +389,12 @@ pybind11_add_module(pymc ${PYMC_SOURCES})
 
 # Keep the vendored pybind11 include directory ahead of Torch's bundled copy.
 target_include_directories(pymc BEFORE PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/extern/pybind11/include")
+
 target_link_libraries(pymc PRIVATE mc)
 
-if(ENABLE_TORCH AND MC_TORCH_PYTHON_LIB_DIR AND EXISTS "${MC_TORCH_PYTHON_LIB_DIR}")
-    set_property(TARGET pymc APPEND PROPERTY BUILD_RPATH "${MC_TORCH_PYTHON_LIB_DIR}")
-    set_property(TARGET pymc APPEND PROPERTY INSTALL_RPATH "${MC_TORCH_PYTHON_LIB_DIR}")
+if(ENABLE_TORCH AND MC_TORCH_LIB_DIR AND EXISTS "${MC_TORCH_LIB_DIR}")
+    set_property(TARGET pymc APPEND PROPERTY BUILD_RPATH "${MC_TORCH_LIB_DIR}")
+    set_property(TARGET pymc APPEND PROPERTY INSTALL_RPATH "${MC_TORCH_LIB_DIR}")
 endif()
 
 # Installation
@@ -407,8 +460,10 @@ endforeach()
 
 install(FILES ${MC_HEADERS_FULL} DESTINATION include COMPONENT headers)
 
-# Install pymc.  For uv builds, default to the selected environment's site-packages
-# directory when it is available; otherwise fall back to ${CMAKE_INSTALL_PREFIX}/lib.
+# Install pymc. For direct CMake installs, default to the selected Python
+# environment's site-packages directory when available. For wheel builds with
+# scikit-build-core, override this with -DPYMC_INSTALL_DIR=. and select only
+# the python_modules component.
 if(Python3_SITEARCH)
     set(PYMC_INSTALL_DIR "${Python3_SITEARCH}" CACHE PATH "Installation directory for pymc module")
 else()
