@@ -1,0 +1,27 @@
+# Build artifacts
+/build
+
+# Generated Doxygen documentation
+/doc/html
+
+# IDE config directories
+.idea/
+.vscode/
+.zed/
+
+# Compiled Python files
+*.py[cod]
+__pycache__/
+
+# Python virtual environment
+.venv/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Log files
+*.log
+
+# OS-specific generated files
+.DS_Store
+Thumbs.db
