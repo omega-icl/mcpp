@@ -1,0 +1,13 @@
+# MC++ project C/C++ style.
+---
+Language: Cpp
+BasedOnStyle: Google
+ColumnLimit: 80
+BreakBeforeBraces: Allman
+AlwaysBreakAfterReturnType: AllDefinitions
+# "if (x)" not "if(x)"; function calls keep no space: "foo(x)".
+SpaceBeforeParens: ControlStatements
+PointerAlignment: Left
+ReferenceAlignment: Left
+DerivePointerAlignment: false
+AlignConsecutiveAssignments: Consecutive
