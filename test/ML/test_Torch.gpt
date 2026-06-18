@@ -6,13 +6,13 @@ set view 65,330
 #splot 'test_Torch.out' u 1:2:3 tit 'function' w l lt 1 lc 8, \
 #  '' u 1:2:4 tit 'lower bound' w l lt 1 lc 4, \
 #  '' u 1:2:5 tit 'upper bound' w l lt 1 lc 7
-  
+
 #pause -1 "<ENTER> TO CONTINUE"
 
 splot 'test_Torch.out' u 1:2:3 tit 'function' w l lt 1 lc 8, \
   '' u 1:2:6 tit 'McCormick underst.' w l lt 1 lc 4, \
   '' u 1:2:7 tit 'McCormick overest.' w l lt 1 lc 7
-  
+
 pause -1 "<ENTER> TO CONTINUE"
 
 splot 'test_Torch.out' u 1:2:3 tit 'function' w l lt 1 lc 8, \
@@ -27,7 +27,7 @@ rep
 set term qt
 
 splot 'test_Torch.out' u 1:2:($3-$10) tit 'underestimation error' w l lt 1 lc 4
-  
+
 pause -1 "<ENTER> TO CONTINUE"
 
 splot 'test_Torch.out' u 1:2:($11-$3) tit 'overestimation error' w l lt 1 lc 7
@@ -53,4 +53,3 @@ pause -1 "<ENTER> TO CONTINUE"
 # X[0]:  LEVEL =  2.288469e-01  MARGINAL =  3.805839e-09
 # X[1]:  LEVEL = -1.626050e+00  MARGINAL =  2.077765e-09
 # F[0]:  LEVEL = -6.545892e+00  MARGINAL = -1.000000e+00
-

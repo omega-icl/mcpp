@@ -6,20 +6,43 @@
 \page page_SUPREL Superposition Relaxation Arithmetic for Factorable Functions
 \author Yanlin Zha, Beno&icirc;t Chachuat
 
-A superposition relaxation is any estimator that brackets the range of an estimated function between an underestimator and an overestimator that are both separable functions. Formally, given the function \f$f:\mathcal{X}\to\mathbb{R}\f$ defined on the domain \f$\mathcal{X}\subseteq \mathbb{R}^n\f$, a <I>superposition relaxation</I> of \f$f\f$ on \f${\bf X}\subseteq \mathcal{X}\f$, \f${\bf X}\in\mathbb{IR}^n\f$ is any pair of separable functions \f$f^{\rm u},f^{\rm o}:{\bf X}\to \mathbb{R}\f$ that bracket the variations of \f$f\f$ on \f${\bf X}\f$,
-\f{align*}
-\forall {\bf x}\in{\bf X}, \quad f^{\rm u}({\bf x}) =: \sum_{i=1}^n f^{\rm u}_i(x_i) \leq f({\bf x}) \leq f^{\rm o}({\bf x}) =: \sum_{i=1}^n f^{\rm o}_i(x_i),
-\f}
-for some univariate real-valued functions \f$f^{\rm u}_i,f^{\rm o}_i:X_i\to\mathbb{R}\f$. We thus call the separable function \f$f^{\rm u}\f$ a </I>superposition underestimator</I> and \f$f^{\rm o}\f$, a <I>superposition overestimator</I>.
+A superposition relaxation is any estimator that brackets the range of an
+estimated function between an underestimator and an overestimator that are both
+separable functions. Formally, given the function
+\f$f:\mathcal{X}\to\mathbb{R}\f$ defined on the domain \f$\mathcal{X}\subseteq
+\mathbb{R}^n\f$, a <I>superposition relaxation</I> of \f$f\f$ on \f${\bf
+X}\subseteq \mathcal{X}\f$, \f${\bf X}\in\mathbb{IR}^n\f$ is any pair of
+separable functions \f$f^{\rm u},f^{\rm o}:{\bf X}\to \mathbb{R}\f$ that bracket
+the variations of \f$f\f$ on \f${\bf X}\f$, \f{align*} \forall {\bf x}\in{\bf
+X}, \quad f^{\rm u}({\bf x}) =: \sum_{i=1}^n f^{\rm u}_i(x_i) \leq f({\bf x})
+\leq f^{\rm o}({\bf x}) =: \sum_{i=1}^n f^{\rm o}_i(x_i), \f} for some
+univariate real-valued functions \f$f^{\rm u}_i,f^{\rm o}_i:X_i\to\mathbb{R}\f$.
+We thus call the separable function \f$f^{\rm u}\f$ a </I>superposition
+underestimator</I> and \f$f^{\rm o}\f$, a <I>superposition overestimator</I>.
 
-The classes mc::SupModel and mc::SupVar provide an implementation of superposition relaxation arithmetic based on the operator/function overloading mechanism of C++. This makes superposition relaxations both simple and intuitive to compute, similar to computing function values in real arithmetics or function bounds in interval arithmetic (see \ref page_INTERVAL). mc::SupModel and mc::SupVar are templated in the type used to propagate the univariate (under- and over-)estimators. Available types include mc::PWLU for piecewise linear univariate estimators (on adaptive partitions) and mc:PWCU for piecewise constant univariate estimators (on grid partitions). In addition, mc::SupVar can be used as the template parameter of other available types in MC++; as well as types in <A href="http://www.fadbad.com/fadbad.html">FADBAD++</A> for computing superposition relaxations for a factorable function's derivatives or Taylor coefficients.
+The classes mc::SupModel and mc::SupVar provide an implementation of
+superposition relaxation arithmetic based on the operator/function overloading
+mechanism of C++. This makes superposition relaxations both simple and intuitive
+to compute, similar to computing function values in real arithmetics or function
+bounds in interval arithmetic (see \ref page_INTERVAL). mc::SupModel and
+mc::SupVar are templated in the type used to propagate the univariate (under-
+and over-)estimators. Available types include mc::PWLU for piecewise linear
+univariate estimators (on adaptive partitions) and mc:PWCU for piecewise
+constant univariate estimators (on grid partitions). In addition, mc::SupVar can
+be used as the template parameter of other available types in MC++; as well as
+types in <A href="http://www.fadbad.com/fadbad.html">FADBAD++</A> for computing
+superposition relaxations for a factorable function's derivatives or Taylor
+coefficients.
 
 - \subpage page_PWCU
 - \subpage page_PWLU
 
-\section sec_SUPREL_use How do I compute a superposition relaxation of a factorable function?
+\section sec_SUPREL_use How do I compute a superposition relaxation of a
+factorable function?
 
-Suppose we want to compute a superposition relaxation for the real-valued function \f$f(x,y)=x\exp(x+y^2)-y^2\f$ with \f$(x,y)\in [1,2]\times[0,1]\f$, using piecewise linear univariate estimators:
+Suppose we want to compute a superposition relaxation for the real-valued
+function \f$f(x,y)=x\exp(x+y^2)-y^2\f$ with \f$(x,y)\in [1,2]\times[0,1]\f$,
+using piecewise linear univariate estimators:
 
 \code
       #include "interval.hpp"
@@ -29,7 +52,8 @@ Suppose we want to compute a superposition relaxation for the real-valued functi
       typedef mc::SupVar<mc::PWLU> SV;
 \endcode
 
-First, the number of independent variables in the factorable function (\f$x\f$ and \f$y\f$ here) is specified by defining the superposition model mc::SupModel:
+First, the number of independent variables in the factorable function (\f$x\f$
+and \f$y\f$ here) is specified by defining the superposition model mc::SupModel:
 
 \code
       SM mod( 2 );
@@ -42,9 +66,14 @@ Next, the variables \f$x\f$ and \f$y\f$ are defined as follows:
       SV Y( mod, 1, mc::Interval(0.,1.), 8 );
 \endcode
 
-Essentially, the first line means that <tt>X</tt> is a variable of class mc::SupVar, participating in the superposition model <tt>mod</tt>, with index 0 (using C-style index) and range \f$[1,2]\f$ with 8 equal-size partition. The same holds for the variable <tt>Y</tt>, participating in the superposition model <tt>mod</tt>, with index 1 and range \f$[0,1]\f$ with 8 equal-size partition.
+Essentially, the first line means that <tt>X</tt> is a variable of class
+mc::SupVar, participating in the superposition model <tt>mod</tt>, with index 0
+(using C-style index) and range \f$[1,2]\f$ with 8 equal-size partition. The
+same holds for the variable <tt>Y</tt>, participating in the superposition model
+<tt>mod</tt>, with index 1 and range \f$[0,1]\f$ with 8 equal-size partition.
 
-Having defined both variables, a superposition relaxation of \f$f(x,y)=x\exp(x+y^2)-y^2\f$ on \f$[1,2]\times[0,1]\f$ is simply computed as:
+Having defined both variables, a superposition relaxation of
+\f$f(x,y)=x\exp(x+y^2)-y^2\f$ on \f$[1,2]\times[0,1]\f$ is simply computed as:
 
 \code
       SV F = X*exp(X+pow(Y,2))-pow(Y,2);
@@ -60,62 +89,105 @@ which produces the following output:
 
 \verbatim
 Superposition relaxation of f:
-   U[0]: {  1.00000e+00:  3.74398e+00,   1.03190e+00:  3.97165e+00,   1.06380e+00:  4.22296e+00,   1.09440e+00:  4.45864e+00,
-            1.12500e+00:  4.71687e+00,   1.15690e+00:  4.97005e+00,   1.18880e+00:  5.24773e+00,   1.21940e+00:  5.51272e+00,
-            1.25000e+00:  5.80117e+00,   1.28190e+00:  6.08677e+00,   1.31380e+00:  6.39786e+00,   1.34440e+00:  6.69967e+00,
-            1.37500e+00:  7.02598e+00,   1.40690e+00:  7.35205e+00,   1.43880e+00:  7.70477e+00,   1.46940e+00:  8.05211e+00,
-            1.50000e+00:  8.42520e+00,   1.53190e+00:  8.80111e+00,   1.56380e+00:  9.20500e+00,   1.59440e+00:  9.60806e+00, 
-            1.62500e+00:  1.00383e+01,   1.65690e+00:  1.04749e+01,   1.68880e+00:  1.09411e+01,   1.71940e+00:  1.14117e+01,
-            1.75000e+00:  1.19111e+01,   1.78190e+00:  1.24211e+01,   1.81380e+00:  1.29625e+01,   1.84440e+00:  1.35143e+01,
-            1.87500e+00:  1.40969e+01,   1.90690e+00:  1.46950e+01,   1.93880e+00:  1.53266e+01,   1.96940e+00:  1.59755e+01,
-            2.00000e+00:  1.66575e+01 }
-   U[1]: {  0.00000e+00: -1.87935e+00,   6.25000e-02: -1.88716e+00,   7.81657e-02: -1.87460e+00,   9.38314e-02: -1.86202e+00,
-            1.09416e-01: -1.84931e+00,   1.25000e-01: -1.83659e+00,   1.40666e-01: -1.82775e+00,   1.56331e-01: -1.81890e+00, 
-            1.71916e-01: -1.80989e+00,   1.87500e-01: -1.80088e+00,   2.03206e-01: -1.77689e+00,   2.18913e-01: -1.75288e+00,
-            2.34456e-01: -1.72828e+00,   2.50000e-01: -1.70366e+00,   2.65706e-01: -1.68281e+00,   2.81413e-01: -1.66193e+00,
-            2.96956e-01: -1.64042e+00,   3.12500e-01: -1.61888e+00,   3.28247e-01: -1.58145e+00,   3.43994e-01: -1.54394e+00,
-            3.59497e-01: -1.50506e+00,   3.75000e-01: -1.46610e+00,   3.90747e-01: -1.43075e+00,   4.06494e-01: -1.39533e+00,
-            4.21997e-01: -1.35843e+00,   4.37500e-01: -1.32146e+00,   4.53288e-01: -1.26714e+00,   4.69075e-01: -1.21267e+00,
-            4.84538e-01: -1.15562e+00,   5.00000e-01: -1.09840e+00,   5.15788e-01: -1.04457e+00,   5.31575e-01: -9.90566e-01,
-            5.47038e-01: -9.33832e-01,   5.62500e-01: -8.76908e-01,   5.78328e-01: -8.00647e-01,   5.94157e-01: -7.24075e-01,
-            6.09578e-01: -6.43251e-01,   6.25000e-01: -5.62081e-01,   6.40828e-01: -4.84063e-01,   6.56657e-01: -4.05680e-01,
-            6.72078e-01: -3.22847e-01,   6.87500e-01: -2.39610e-01,   7.03369e-01: -1.34535e-01,   7.19238e-01: -2.88435e-02,
-            7.34619e-01:  8.32278e-02,   7.50000e-01:  1.95997e-01,   7.65869e-01:  3.05659e-01,   7.81738e-01:  4.16064e-01,
-            7.97119e-01:  5.33013e-01,   8.12500e-01:  6.50803e-01,   8.28410e-01:  7.93092e-01,   8.44320e-01:  9.36608e-01,
-            8.59660e-01:  1.08877e+00,   8.75000e-01:  1.24236e+00,   8.90910e-01:  1.39210e+00,   9.06820e-01:  1.54336e+00,
-            9.22160e-01:  1.70306e+00,   9.37500e-01:  1.86453e+00,   9.53450e-01:  2.05214e+00,   9.69401e-01:  2.24225e+00,
+   U[0]:
+{  1.00000e+00:  3.74398e+00,   1.03190e+00:  3.97165e+00,   1.06380e+00:  4.22296e+00,
+1.09440e+00:  4.45864e+00,
+            1.12500e+00:  4.71687e+00,   1.15690e+00:  4.97005e+00,   1.18880e+00:
+5.24773e+00,   1.21940e+00:  5.51272e+00,
+            1.25000e+00:  5.80117e+00,   1.28190e+00:  6.08677e+00,   1.31380e+00:
+6.39786e+00,   1.34440e+00:  6.69967e+00,
+            1.37500e+00:  7.02598e+00,   1.40690e+00:  7.35205e+00,   1.43880e+00:
+7.70477e+00,   1.46940e+00:  8.05211e+00,
+            1.50000e+00:  8.42520e+00,   1.53190e+00:  8.80111e+00,   1.56380e+00:
+9.20500e+00,   1.59440e+00:  9.60806e+00,
+            1.62500e+00:  1.00383e+01,   1.65690e+00:  1.04749e+01,   1.68880e+00:
+1.09411e+01,   1.71940e+00:  1.14117e+01,
+            1.75000e+00:  1.19111e+01,   1.78190e+00:  1.24211e+01,   1.81380e+00:
+1.29625e+01,   1.84440e+00:  1.35143e+01,
+            1.87500e+00:  1.40969e+01,   1.90690e+00:  1.46950e+01,   1.93880e+00:
+1.53266e+01,   1.96940e+00:  1.59755e+01, 2.00000e+00:  1.66575e+01 } U[1]: {
+0.00000e+00: -1.87935e+00,   6.25000e-02: -1.88716e+00,   7.81657e-02:
+-1.87460e+00,   9.38314e-02: -1.86202e+00, 1.09416e-01:
+-1.84931e+00,   1.25000e-01: -1.83659e+00,   1.40666e-01:
+-1.82775e+00,   1.56331e-01: -1.81890e+00, 1.71916e-01:
+-1.80989e+00,   1.87500e-01: -1.80088e+00,   2.03206e-01:
+-1.77689e+00,   2.18913e-01: -1.75288e+00, 2.34456e-01:
+-1.72828e+00,   2.50000e-01: -1.70366e+00,   2.65706e-01:
+-1.68281e+00,   2.81413e-01: -1.66193e+00, 2.96956e-01:
+-1.64042e+00,   3.12500e-01: -1.61888e+00,   3.28247e-01:
+-1.58145e+00,   3.43994e-01: -1.54394e+00, 3.59497e-01:
+-1.50506e+00,   3.75000e-01: -1.46610e+00,   3.90747e-01:
+-1.43075e+00,   4.06494e-01: -1.39533e+00, 4.21997e-01:
+-1.35843e+00,   4.37500e-01: -1.32146e+00,   4.53288e-01:
+-1.26714e+00,   4.69075e-01: -1.21267e+00, 4.84538e-01:
+-1.15562e+00,   5.00000e-01: -1.09840e+00,   5.15788e-01:
+-1.04457e+00,   5.31575e-01: -9.90566e-01, 5.47038e-01:
+-9.33832e-01,   5.62500e-01: -8.76908e-01,   5.78328e-01:
+-8.00647e-01,   5.94157e-01: -7.24075e-01, 6.09578e-01:
+-6.43251e-01,   6.25000e-01: -5.62081e-01,   6.40828e-01:
+-4.84063e-01,   6.56657e-01: -4.05680e-01, 6.72078e-01:
+-3.22847e-01,   6.87500e-01: -2.39610e-01,   7.03369e-01:
+-1.34535e-01,   7.19238e-01: -2.88435e-02,
+            7.34619e-01:  8.32278e-02,   7.50000e-01:  1.95997e-01,   7.65869e-01:
+3.05659e-01,   7.81738e-01:  4.16064e-01,
+            7.97119e-01:  5.33013e-01,   8.12500e-01:  6.50803e-01,   8.28410e-01:
+7.93092e-01,   8.44320e-01:  9.36608e-01,
+            8.59660e-01:  1.08877e+00,   8.75000e-01:  1.24236e+00,   8.90910e-01:
+1.39210e+00,   9.06820e-01:  1.54336e+00,
+            9.22160e-01:  1.70306e+00,   9.37500e-01:  1.86453e+00,   9.53450e-01:
+2.05214e+00,   9.69401e-01:  2.24225e+00,
             9.84700e-01:  2.44219e+00,   1.00000e+00:  2.64508e+00 }
-   O[0]: {  1.00000e+00:  4.09862e+00,   1.06250e+00:  4.74738e+00,   1.12500e+00:  5.35028e+00,   1.18750e+00:  6.13348e+00,
-            1.25000e+00:  6.87627e+00,   1.31250e+00:  7.83686e+00,   1.37500e+00:  8.76356e+00,   1.43750e+00:  9.96022e+00,
-            1.50000e+00:  1.11305e+01,   1.56250e+00:  1.26433e+01,   1.62500e+00:  1.41381e+01,   1.68750e+00:  1.60764e+01,
-            1.75000e+00:  1.80049e+01,   1.81250e+00:  2.05179e+01,   1.87500e+00:  2.30281e+01,   1.93750e+00:  2.63198e+01,
-            2.00000e+00:  2.96114e+01 }
-   O[1]: {  0.00000e+00: -1.38034e+00,   6.25000e-02: -1.35872e+00,   6.25000e-02: -1.35872e+00,   1.25000e-01: -1.35274e+00,
-            1.87500e-01: -1.29865e+00,   2.50000e-01: -1.26046e+00,   3.12500e-01: -1.15749e+00,   3.12500e-01: -1.15749e+00,
-            3.75000e-01: -1.07112e+00,   4.37500e-01: -8.83886e-01,   5.00000e-01: -7.15065e-01,   5.62500e-01: -3.70708e-01,
-            6.25000e-01: -4.96009e-02,   6.87500e-01:  6.08522e-01,   7.50000e-01:  1.22967e+00,   8.12500e-01:  2.56792e+00,
-            8.75000e-01:  3.82717e+00,   9.37500e-01:  6.80287e+00,   1.00000e+00:  9.55965e+00 }
-   RNG:  [  1.85682e+00 :  3.91711e+01 ]
-\endverbatim
+   O[0]:
+{  1.00000e+00:  4.09862e+00,   1.06250e+00:  4.74738e+00,   1.12500e+00:  5.35028e+00,
+1.18750e+00:  6.13348e+00,
+            1.25000e+00:  6.87627e+00,   1.31250e+00:  7.83686e+00,   1.37500e+00:
+8.76356e+00,   1.43750e+00:  9.96022e+00,
+            1.50000e+00:  1.11305e+01,   1.56250e+00:  1.26433e+01,   1.62500e+00:
+1.41381e+01,   1.68750e+00:  1.60764e+01,
+            1.75000e+00:  1.80049e+01,   1.81250e+00:  2.05179e+01,   1.87500e+00:
+2.30281e+01,   1.93750e+00:  2.63198e+01, 2.00000e+00:  2.96114e+01 } O[1]: {
+0.00000e+00: -1.38034e+00,   6.25000e-02: -1.35872e+00,   6.25000e-02:
+-1.35872e+00,   1.25000e-01: -1.35274e+00, 1.87500e-01:
+-1.29865e+00,   2.50000e-01: -1.26046e+00,   3.12500e-01:
+-1.15749e+00,   3.12500e-01: -1.15749e+00, 3.75000e-01:
+-1.07112e+00,   4.37500e-01: -8.83886e-01,   5.00000e-01:
+-7.15065e-01,   5.62500e-01: -3.70708e-01, 6.25000e-01:
+-4.96009e-02,   6.87500e-01:  6.08522e-01,   7.50000e-01:  1.22967e+00,   8.12500e-01:
+2.56792e+00,
+            8.75000e-01:  3.82717e+00,   9.37500e-01:  6.80287e+00,   1.00000e+00:
+9.55965e+00 } RNG:  [  1.85682e+00 :  3.91711e+01 ] \endverbatim
 
-A plot of the resulting superposition relaxation for the function \f$f\f$ is shown on the left plot in the figure below. Similarly, a superposition relaxation could be computed using piecewise constant univariate estimators (class mc::PWCU available from the header file pwcu.hpp), now producing the following output and illustrated on the right plot below.
+A plot of the resulting superposition relaxation for the function \f$f\f$ is
+shown on the left plot in the figure below. Similarly, a superposition
+relaxation could be computed using piecewise constant univariate estimators
+(class mc::PWCU available from the header file pwcu.hpp), now producing the
+following output and illustrated on the right plot below.
 
 \verbatim
 Superposition relaxation of f:
-   U[0]: { 1.00000e+00 <  2.97039e+00 :  5.35192e+00 >  1.12500e+00 <  3.78751e+00 :  6.58146e+00 >  1.25000e+00 <  4.72313e+00 :  7.94976e+00 >
-           1.37500e+00 <  5.80664e+00 :  9.48985e+00 >  1.50000e+00 <  7.07226e+00 :  1.12402e+01 >  1.62500e+00 <  8.55980e+00 :  1.32454e+01 >
-           1.75000e+00 <  1.03156e+01 :  1.55576e+01 >  1.87500e+00 <  1.23933e+01 :  1.82370e+01 >  2.00000e+00 }
-   U[1]: { 0.00000e+00 < -1.87788e+00 : -1.80281e+00 >  1.25000e-01 < -1.86531e+00 : -1.63542e+00 >  2.50000e-01 < -1.76042e+00 : -1.36126e+00 > 
-           3.75000e-01 < -1.54876e+00 : -9.54894e-01 >  5.00000e-01 < -1.20489e+00 : -3.78288e-01 >  6.25000e-01 < -6.90788e-01 :  4.20299e-01 >
-           7.50000e-01 <  4.52993e-02 :  1.50367e+00 >  8.75000e-01 <  1.06617e+00 :  2.93059e+00 >  1.00000e+00 }
-   O[0]: { 1.00000e+00 <  3.59737e+00 :  5.70625e+00 >  1.12500e+00 <  4.73747e+00 :  7.33694e+00 >  1.25000e+00 <  6.15876e+00 :  9.32013e+00 >
-           1.37500e+00 <  7.95014e+00 :  1.17717e+01 >  1.50000e+00 <  1.02325e+01 :  1.48493e+01 >  1.62500e+00 <  1.31700e+01 :  1.87677e+01 >
-           1.75000e+00 <  1.69853e+01 :  2.38184e+01 >  1.87500e+00 <  2.19809e+01 :  3.03986e+01 >  2.00000e+00 }
-   O[1]: { 0.00000e+00 < -1.23888e+00 : -1.18051e+00 >  1.25000e-01 < -1.24301e+00 : -1.05851e+00 >  2.50000e-01 < -1.18351e+00 : -8.40816e-01 >
-           3.75000e-01 < -1.02832e+00 : -4.58402e-01 >  5.00000e-01 < -7.08402e-01 :  2.30224e-01 >  6.25000e-01 < -8.22759e-02 :  1.52721e+00 >
-           7.50000e-01 <  1.15221e+00 :  4.13264e+00 >  8.75000e-01 <  3.69514e+00 :  9.85460e+00 >  1.00000e+00 }
-   RNG:  [  1.09251e+00 :  4.02532e+01 ]
-\endverbatim
+   U[0]: { 1.00000e+00 <  2.97039e+00 :  5.35192e+00 >  1.12500e+00
+<  3.78751e+00 :  6.58146e+00 >  1.25000e+00 <  4.72313e+00 :  7.94976e+00 >
+           1.37500e+00 <  5.80664e+00 :  9.48985e+00 >  1.50000e+00
+<  7.07226e+00 :  1.12402e+01 >  1.62500e+00 <  8.55980e+00 :  1.32454e+01 >
+           1.75000e+00 <  1.03156e+01 :  1.55576e+01 >  1.87500e+00
+<  1.23933e+01 :  1.82370e+01 >  2.00000e+00 } U[1]: { 0.00000e+00 <
+-1.87788e+00 : -1.80281e+00 >  1.25000e-01 < -1.86531e+00 : -1.63542e+00
+>  2.50000e-01 < -1.76042e+00 : -1.36126e+00 > 3.75000e-01 < -1.54876e+00 :
+-9.54894e-01 >  5.00000e-01 < -1.20489e+00 : -3.78288e-01 >  6.25000e-01 <
+-6.90788e-01 :  4.20299e-01 > 7.50000e-01 <  4.52993e-02 :  1.50367e+00
+>  8.75000e-01 <  1.06617e+00 :  2.93059e+00 >  1.00000e+00 } O[0]:
+{ 1.00000e+00 <  3.59737e+00 :  5.70625e+00 >  1.12500e+00 <  4.73747e+00
+:  7.33694e+00 >  1.25000e+00 <  6.15876e+00 :  9.32013e+00 > 1.37500e+00
+<  7.95014e+00 :  1.17717e+01 >  1.50000e+00 <  1.02325e+01 :  1.48493e+01
+>  1.62500e+00 <  1.31700e+01 :  1.87677e+01 > 1.75000e+00 <  1.69853e+01
+:  2.38184e+01 >  1.87500e+00 <  2.19809e+01 :  3.03986e+01 >  2.00000e+00 }
+   O[1]: { 0.00000e+00 < -1.23888e+00 : -1.18051e+00 >  1.25000e-01 <
+-1.24301e+00 : -1.05851e+00 >  2.50000e-01 < -1.18351e+00 : -8.40816e-01 >
+           3.75000e-01 < -1.02832e+00 : -4.58402e-01 >  5.00000e-01 <
+-7.08402e-01 :  2.30224e-01 >  6.25000e-01 < -8.22759e-02 :  1.52721e+00 >
+           7.50000e-01 <  1.15221e+00 :  4.13264e+00 >  8.75000e-01
+<  3.69514e+00 :  9.85460e+00 >  1.00000e+00 } RNG:  [  1.09251e+00
+:  4.02532e+01 ] \endverbatim
 
 <CENTER><TABLE BORDER=0>
 <TR>
@@ -124,7 +196,8 @@ Superposition relaxation of f:
 </TR>
 </TABLE></CENTER>
 
-Other operations involve retreiving the piecewise linear univariate under- and over-estimators for each participating variable:
+Other operations involve retreiving the piecewise linear univariate under- and
+over-estimators for each participating variable:
 
 \code
       std::vector<mc::PWLU> const& Fuest = F.uest();
@@ -138,7 +211,8 @@ or retrieving lower and upper bounds from the superposition relaxation:
       double const& Fu = F.u();
 \endcode
 
-The piecewise linear univariate under- and over-estimators can also be evaluated at given points:
+The piecewise linear univariate under- and over-estimators can also be evaluated
+at given points:
 
 \code
       std::cout << "uest(1.5,0.5) = " << F.uval({{0,1.5},{1,0.5}}) << std::endl;
@@ -152,47 +226,59 @@ The piecewise linear univariate under- and over-estimators can also be evaluated
 \endverbatim
 
 
-See the documentations of mc::SupModel and mc::SupVar for a complete list of member functions. 
+See the documentations of mc::SupModel and mc::SupVar for a complete list of
+member functions.
 
 
-\section sec_SUPREL_err Errors Errors encountered during computation of a superposition relaxation
+\section sec_SUPREL_err Errors Errors encountered during computation of a
+superposition relaxation
 
-Errors are managed based on the exception handling mechanism of the C++ language. Each time an error is encountered, a class object of type mc::SupModel::Exceptions is thrown, which contains the type of error. It is the user's responsibility to test whether an exception was thrown during the computation of a superposition relaxation, and then make the appropriate changes. Should an exception be thrown and not caught by the calling program, the execution will abort.
+Errors are managed based on the exception handling mechanism of the C++
+language. Each time an error is encountered, a class object of type
+mc::SupModel::Exceptions is thrown, which contains the type of error. It is the
+user's responsibility to test whether an exception was thrown during the
+computation of a superposition relaxation, and then make the appropriate
+changes. Should an exception be thrown and not caught by the calling program,
+the execution will abort.
 
 Further exceptions may be thrown by the template class itself.
 
 
 \section sec_SUPREL_refs References
 
-- Y. Zha, M.E. Villanueva, B. Houska. <A HREF="https://arxiv.org/abs/1610.05862">Interval superposition arithmetic</A>, <I>ArXiv</I>, 1610.05862v2, 2018.
+- Y. Zha, M.E. Villanueva, B. Houska. <A
+HREF="https://arxiv.org/abs/1610.05862">Interval superposition arithmetic</A>,
+<I>ArXiv</I>, 1610.05862v2, 2018.
 .
 */
 
 #ifndef MC__SUPMODEL_HPP
 #define MC__SUPMODEL_HPP
 
-#include <iostream>
-#include <iomanip> 
-#include <vector>
-#include <set>
-#include <map>
 #include <algorithm>
-#include <cmath>
-#include <limits>
 #include <bitset>
 #include <cassert>
+#include <cmath>
+#include <iomanip>
+#include <iostream>
+#include <limits>
+#include <map>
+#include <set>
+#include <vector>
 
-#include "mcop.hpp"
 #include "mcfunc.hpp"
+#include "mcop.hpp"
 
-//#define MC__SUPMODEL_TRACE
+// #define MC__SUPMODEL_TRACE
 
 namespace mc
 {
 
-template <typename Summand> class SupVar;
+template <typename Summand>
+class SupVar;
 
-//! @brief C++ class for superposition models of factorable functions: environment
+//! @brief C++ class for superposition models of factorable functions:
+//! environment
 ////////////////////////////////////////////////////////////////////////
 //! mc::SupModel is a C++ class for definition of the environment of a
 //! superposition model. Superposition model propagation in factorable
@@ -204,13 +290,13 @@ template <typename Summand>
 class SupModel
 ////////////////////////////////////////////////////////////////////////
 {
-  template <typename S> friend std::ostream& operator<<
-    ( std::ostream&, const SupModel<S>& );
+  template <typename S>
+  friend std::ostream& operator<<(std::ostream&, const SupModel<S>&);
 
-  template <typename S> friend class SupVar;
+  template <typename S>
+  friend class SupVar;
 
  private:
-
   //! @brief Number of variables
   unsigned int _nvar;
   //! @brief Whether variables are defined or not
@@ -221,112 +307,119 @@ class SupModel
   std::vector<double> _ubdvar;
 
  public:
-
   //! @brief Constructor of superposition model with <a>nvar</a> variables
-  SupModel
-  ( size_t const& nvar )
-  : _nvar(nvar)
+  SupModel(size_t const& nvar) : _nvar(nvar)
   {
-    _lbdvar.resize( _nvar );
-    _ubdvar.resize( _nvar );
-    _defvar.resize( _nvar, false );
+    _lbdvar.resize(_nvar);
+    _ubdvar.resize(_nvar);
+    _defvar.resize(_nvar, false);
   }
 
-  ~SupModel() 
-  {}
+  ~SupModel() {}
 
   //! @brief Retrieve number of variables in superposition model
-  unsigned nvar
-  ()
-  const
-  { return _nvar; };
+  unsigned
+  nvar() const
+  {
+    return _nvar;
+  };
 
   //! @brief Retrieve variable lower bounds in superposition model
-  std::vector<double> lbdvar
-  ()
-  const
-  { return _lbdvar; };
+  std::vector<double>
+  lbdvar() const
+  {
+    return _lbdvar;
+  };
 
   //! @brief Retrieve variable upper bounds in superposition model
-  std::vector<double> ubdvar
-  ()
-  const
-  { return _ubdvar; };
+  std::vector<double>
+  ubdvar() const
+  {
+    return _ubdvar;
+  };
 
- //! @brief Options of mc::SupModel
+  //! @brief Options of mc::SupModel
   struct Options
   {
     //! @brief Constructor
-    Options()
-      { reset(); }
+    Options() { reset(); }
     //! @brief Assign options
     template <typename OPTIONS>
-    Options& operator=
-      ( OPTIONS const& opt )
-      {
-        PROD_METH         = opt.PROD_METH;
-        PROD_CUT          = opt.PROD_CUT;
-        SUM_TOL           = opt.SUM_TOL;
-        REF_WEIGHT        = opt.REF_WEIGHT;
-        MAX_SUBDIV        = opt.MAX_SUBDIV;
-        USE_CVXCCV        = opt.USE_CVXCCV;
-        USE_CVXMAX        = opt.USE_CVXMAX;
-        USE_ENDRAY        = opt.USE_ENDRAY;
-        USE_SHADOW        = opt.USE_SHADOW;
-        OPT_SHADOW        = opt.OPT_SHADOW;
-        DISPLAY_SHADOW    = opt.DISPLAY_SHADOW;
-        DISPLAY_DIGITS    = opt.DISPLAY_DIGITS;
-        return *this;
-      }
+    Options&
+    operator=(OPTIONS const& opt)
+    {
+      PROD_METH      = opt.PROD_METH;
+      PROD_CUT       = opt.PROD_CUT;
+      SUM_TOL        = opt.SUM_TOL;
+      REF_WEIGHT     = opt.REF_WEIGHT;
+      MAX_SUBDIV     = opt.MAX_SUBDIV;
+      USE_CVXCCV     = opt.USE_CVXCCV;
+      USE_CVXMAX     = opt.USE_CVXMAX;
+      USE_ENDRAY     = opt.USE_ENDRAY;
+      USE_SHADOW     = opt.USE_SHADOW;
+      OPT_SHADOW     = opt.OPT_SHADOW;
+      DISPLAY_SHADOW = opt.DISPLAY_SHADOW;
+      DISPLAY_DIGITS = opt.DISPLAY_DIGITS;
+      return *this;
+    }
     //! @brief Reset options
-    void reset
-      ()
-      {
-        PROD_METH         = PARTIAL;
-        PROD_CUT          = 0;
-        SUM_TOL           = 1e2*DBL_EPSILON;
-        REF_WEIGHT        = 0.5,
-        MAX_SUBDIV        = 0;
-        USE_CVXCCV        = true;
-        USE_CVXMAX        = true;
-        USE_ENDRAY        = 1;
-        USE_SHADOW        = false;
-        OPT_SHADOW        = true;
-        DISPLAY_SHADOW    = true;
-        DISPLAY_DIGITS    = 5;
-      }
+    void
+    reset()
+    {
+      PROD_METH  = PARTIAL;
+      PROD_CUT   = 0;
+      SUM_TOL    = 1e2 * DBL_EPSILON;
+      REF_WEIGHT = 0.5, MAX_SUBDIV = 0;
+      USE_CVXCCV     = true;
+      USE_CVXMAX     = true;
+      USE_ENDRAY     = 1;
+      USE_SHADOW     = false;
+      OPT_SHADOW     = true;
+      DISPLAY_SHADOW = true;
+      DISPLAY_DIGITS = 5;
+    }
 
     //! @brief Reformulation method for product term
-    enum PROD_REF{
-      NONE=0,	//!< DC decomposition w/o rescaling
-      PARTIAL,	//!< DC decomposition w/ range rescaling
-      FULL,	//!< DC decomposition w/ range and midpoint rescaling
-      LOG,	//!< log-transform w/ range and midpoint rescaling
-      ENVEL	//!< combination w/ convex/concave envelopes
+    enum PROD_REF
+    {
+      NONE = 0,  //!< DC decomposition w/o rescaling
+      PARTIAL,   //!< DC decomposition w/ range rescaling
+      FULL,      //!< DC decomposition w/ range and midpoint rescaling
+      LOG,       //!< log-transform w/ range and midpoint rescaling
+      ENVEL      //!< combination w/ convex/concave envelopes
     };
     //! @brief Reformulation method used for product terms - Default: PARTIAL
-    int PROD_METH; 
-    //! @brief Whether to cut superposition relaxations for product terms - Default: false
-    bool PROD_CUT; 
-    //! @brief Tolerance on range for univariate estimator propagation - Default: 1e2*DBL_EPSILON
+    int PROD_METH;
+    //! @brief Whether to cut superposition relaxations for product terms -
+    //! Default: false
+    bool PROD_CUT;
+    //! @brief Tolerance on range for univariate estimator propagation -
+    //! Default: 1e2*DBL_EPSILON
     double SUM_TOL;
-    //! @brief Weight in \f$[0,1]\f$ used in the overloaded functions mc::min and mc::max, where a value of 0 amounts to choosing the first operand as reference, a value >=1 the second operand, or a weighted intermediate between the first and second operands - Default: 0.5
+    //! @brief Weight in \f$[0,1]\f$ used in the overloaded functions mc::min
+    //! and mc::max, where a value of 0 amounts to choosing the first operand as
+    //! reference, a value >=1 the second operand, or a weighted intermediate
+    //! between the first and second operands - Default: 0.5
     double REF_WEIGHT;
-    //! @brief Maximal number of subdivisions, for univariate estimators on adaptive grids - Default: 0 (no restriction)
-    size_t MAX_SUBDIV; 
+    //! @brief Maximal number of subdivisions, for univariate estimators on
+    //! adaptive grids - Default: 0 (no restriction)
+    size_t MAX_SUBDIV;
     //! @brief Whether to enable convexoconcave estimators - Default: true
-    bool USE_CVXCCV; 
-    //! @brief Whether to enable max operation in non-monotonic convex/concave estimators - Default: true
-    bool USE_CVXMAX; 
-    //! @brief Whether to enable end-raying convex/concave shadow estimators - Default: 1
-    int USE_ENDRAY; 
+    bool USE_CVXCCV;
+    //! @brief Whether to enable max operation in non-monotonic convex/concave
+    //! estimators - Default: true
+    bool USE_CVXMAX;
+    //! @brief Whether to enable end-raying convex/concave shadow estimators -
+    //! Default: 1
+    int USE_ENDRAY;
     //! @brief Whether to enable shadow estimators - Default: false
-    bool USE_SHADOW; 
-    //! @brief Whether to optimise shadow estimators during addition - Default: true
-    bool OPT_SHADOW; 
+    bool USE_SHADOW;
+    //! @brief Whether to optimise shadow estimators during addition - Default:
+    //! true
+    bool OPT_SHADOW;
     //! @brief Whether to display shadow estimators - Default: true
-    bool DISPLAY_SHADOW; 
-    //! @brief Number of digits displayed with << operator - Default: 5   
+    bool DISPLAY_SHADOW;
+    //! @brief Number of digits displayed with << operator - Default: 5
     unsigned int DISPLAY_DIGITS;
   } options;
 
@@ -335,1060 +428,1262 @@ class SupModel
   {
    public:
     //! @brief Enumeration type for SCModel exception handling
-    enum TYPE{
-      DIV=1,	  //!< Division by zero scalar
-      INV,	  //!< Inverse operation with zero in range
-      LOG,	  //!< Log operation with non-positive numbers in range
-      SQRT,	  //!< Square-root operation with negative numbers in range
-      RPOW,	  //!< real power operation with negative numbers in range
-      TAN,	  //!< Tangent operation with (k+1/2)·PI in range
-      ACOS,	  //!< Arccosine operation outside [-1,1] range
-      ASIN,	  //!< Arcsine operation outside [-1,1] range
-      INTERN=-1,  //!< Internal error
-      INDEX=-2,   //!< Variable index out of range
-      MODEL=-3,	  //!< Operation between variables linked to different models
-      UNDEF=-33   //!< Feature not yet implemented
+    enum TYPE
+    {
+      DIV = 1,      //!< Division by zero scalar
+      INV,          //!< Inverse operation with zero in range
+      LOG,          //!< Log operation with non-positive numbers in range
+      SQRT,         //!< Square-root operation with negative numbers in range
+      RPOW,         //!< real power operation with negative numbers in range
+      TAN,          //!< Tangent operation with (k+1/2)·PI in range
+      ACOS,         //!< Arccosine operation outside [-1,1] range
+      ASIN,         //!< Arcsine operation outside [-1,1] range
+      INTERN = -1,  //!< Internal error
+      INDEX  = -2,  //!< Variable index out of range
+      MODEL  = -3,  //!< Operation between variables linked to different models
+      UNDEF  = -33  //!< Feature not yet implemented
     };
     //! @brief Constructor for error <a>ierr</a>
-    Exceptions( TYPE ierr ) : _ierr( ierr ){}
+    Exceptions(TYPE ierr) : _ierr(ierr) {}
     //! @brief Error flag
-    int ierr(){ return _ierr; }
+    int
+    ierr()
+    {
+      return _ierr;
+    }
     //! @brief Error description
-    std::string what(){
-      switch( _ierr ){
-      case DIV:
-        return "mc::SupModel\t Division by zero scalar";
-      case INV:
-        return "mc::SupModel\t Inverse operation with zero in range";
-      case LOG:
-        return "mc::SupModel\t Log operation with non-positive numbers in range";
-      case SQRT:
-        return "mc::SupModel\t Square-root operation with negative numbers in range";
-      case RPOW:
-        return "mc::SupModel\t Real power operation with negative numbers in range";
-      case TAN:
-        return "mc::SupModel\t Tangent operation with (k+1/2)·PI in range";
-      case ACOS:
-        return "mc::SupModel\t Arccosine operation outside [1-,1] range";
-      case ASIN:
-        return "mc::SupModel\t Arcsine operation outside [1-,1] range";
-      case INDEX:
-        return "mc::SupModel\t Variable index out of range";
-      case MODEL:
-        return "mc::SupModel\t Operation between variables linked to different superposition models";
-      case UNDEF:
-        return "mc::SupModel\t Feature not yet implemented";
-      case INTERN:
-      default:
-        return "mc::SupModel\t Internal error";
+    std::string
+    what()
+    {
+      switch (_ierr)
+      {
+        case DIV:
+          return "mc::SupModel\t Division by zero scalar";
+        case INV:
+          return "mc::SupModel\t Inverse operation with zero in range";
+        case LOG:
+          return "mc::SupModel\t Log operation with non-positive numbers in "
+                 "range";
+        case SQRT:
+          return "mc::SupModel\t Square-root operation with negative numbers "
+                 "in range";
+        case RPOW:
+          return "mc::SupModel\t Real power operation with negative numbers in "
+                 "range";
+        case TAN:
+          return "mc::SupModel\t Tangent operation with (k+1/2)·PI in range";
+        case ACOS:
+          return "mc::SupModel\t Arccosine operation outside [1-,1] range";
+        case ASIN:
+          return "mc::SupModel\t Arcsine operation outside [1-,1] range";
+        case INDEX:
+          return "mc::SupModel\t Variable index out of range";
+        case MODEL:
+          return "mc::SupModel\t Operation between variables linked to "
+                 "different superposition models";
+        case UNDEF:
+          return "mc::SupModel\t Feature not yet implemented";
+        case INTERN:
+        default:
+          return "mc::SupModel\t Internal error";
       }
     }
+
    private:
     TYPE _ierr;
   };
 
   //! @brief Add variable <a>var</a> with bias <a>cst</a>
-  void bias
-    ( SupVar<Summand>& var, double const& cst )
-    const
+  void
+  bias(SupVar<Summand>& var, double const& cst) const
+  {
+    double const& offset = cst / (double)var._sdep.size();
+    for (auto& i : var._sdep)
     {
-      double const& offset = cst / (double)var._sdep.size();
-      for( auto& i : var._sdep ){
-        var._uest[i] += offset;
-        var._oest[i] += offset;
-        if( !var._uest2.empty() ) var._uest2[i] += offset;
-        if( !var._oest2.empty() ) var._oest2[i] += offset;
-      }
-      if( var._lbd.second )  var._lbd.first  += cst;
-      if( var._ubd.second )  var._ubd.first  += cst;
-      if( var._lbd2.second ) var._lbd2.first += cst;
-      if( var._ubd2.second ) var._ubd2.first += cst;
-      if( var._lbd0.second ) var._lbd0.first += cst;
-      if( var._ubd0.second ) var._ubd0.first += cst;
+      var._uest[i] += offset;
+      var._oest[i] += offset;
+      if (!var._uest2.empty()) var._uest2[i] += offset;
+      if (!var._oest2.empty()) var._oest2[i] += offset;
     }
-    
-  //! @brief Add variable <a>var</a> with variable <a>var2</a>. opt = 1: cross; opt = 0: straight; opt = -1: optimise
-  void add
-    ( SupVar<Summand>& var, SupVar<Summand> const& var2, int const opt )
-    const
+    if (var._lbd.second) var._lbd.first += cst;
+    if (var._ubd.second) var._ubd.first += cst;
+    if (var._lbd2.second) var._lbd2.first += cst;
+    if (var._ubd2.second) var._ubd2.first += cst;
+    if (var._lbd0.second) var._lbd0.first += cst;
+    if (var._ubd0.second) var._ubd0.first += cst;
+  }
+
+  //! @brief Add variable <a>var</a> with variable <a>var2</a>. opt = 1: cross;
+  //! opt = 0: straight; opt = -1: optimise
+  void
+  add(SupVar<Summand>& var, SupVar<Summand> const& var2, int const opt) const
+  {
+    // Updated dependency set
+    auto sumdep = var._sdep;
+    for (auto const& i : var2._sdep)
     {
-      // Updated dependency set
-      auto sumdep = var._sdep;
-      for( auto const& i : var2._sdep ){
-        if( sumdep.count(i) ) continue;
-        sumdep.insert(i);
-      }
-
-      // Updated constant bounds
-      if( var._lbd0.second || var2._lbd0.second ){
-        var._lbd0.first = var.l() + var2.l();
-        var._lbd0.second = true;
-      }
-      if( var._ubd0.second || var2._ubd0.second ){
-        var._ubd0.first  = var.u() + var2.u();
-        var._ubd0.second = true;
-      }
-
-      // Cross primary and shadow underestimators
-      if( opt > 0 && !var._uest2.empty() && !var2._uest2.empty() ){
-        _add( var._sdep, var._uest, var2._sdep, var2._uest2, 1 );
-        _add( var._sdep, var._uest2, var2._sdep, var2._uest, 1 );
-        SupVar<Summand>::_lb( var._lbd.first,  sumdep, var._uest  );
-        SupVar<Summand>::_lb( var._lbd2.first, sumdep, var._uest2 );
-        var._lbd.second = var._lbd2.second = true;
-        if( var._lbd.first < var._lbd2.first ){
-          std::swap( var._uest, var._uest2 );
-          std::swap( var._lbd.first, var._lbd2.first );
-        }
-      }
-
-      // No shadow underestimator
-      else if( var._uest2.empty() && var2._uest2.empty() ){
-        _add( var._sdep, var._uest, var2._sdep, var2._uest, 1 );
-        var._lbd.second = var._lbd2.second = false;
-      }
-
-      // Other operand has shadow underestimator
-      else if( var._uest2.empty() ){
-        var._uest2 = var._uest; // Duplicate current primal underestimator
-        _add( var._sdep, var._uest,  var2._sdep, var2._uest,  1 );
-        _add( var._sdep, var._uest2, var2._sdep, var2._uest2, 1 );
-        SupVar<Summand>::_lb( var._lbd.first,  sumdep, var._uest  );
-        SupVar<Summand>::_lb( var._lbd2.first, sumdep, var._uest2 );
-        var._lbd.second = var._lbd2.second = true;
-        if( var._lbd.first < var._lbd2.first ){
-          std::swap( var._uest, var._uest2 );
-          std::swap( var._lbd.first, var._lbd2.first );
-        }
-      }
-
-      // Current operand has shadow underestimator
-      else if( var2._uest2.empty() ){
-        _add( var._sdep, var._uest,  var2._sdep, var2._uest, 1 );
-        _add( var._sdep, var._uest2, var2._sdep, var2._uest, 1 );
-        SupVar<Summand>::_lb( var._lbd.first,  sumdep, var._uest  );
-        SupVar<Summand>::_lb( var._lbd2.first, sumdep, var._uest2 );
-        var._lbd.second = var._lbd2.second = true;
-        if( var._lbd.first < var._lbd2.first ){
-          std::swap( var._uest, var._uest2 );
-          std::swap( var._lbd.first, var._lbd2.first );
-        }
-      }
-
-      // Add primary and shadow underestimators separately
-      else if( opt >= 0 ){
-        _add( var._sdep, var._uest,  var2._sdep, var2._uest,  1 );
-        _add( var._sdep, var._uest2, var2._sdep, var2._uest2, 1 );
-        // var._lbd.second = var._lbd2.second = false;
-        SupVar<Summand>::_lb( var._lbd.first,  sumdep, var._uest  );
-        SupVar<Summand>::_lb( var._lbd2.first, sumdep, var._uest2 );
-        var._lbd.second = var._lbd2.second = true;
-        if( var._lbd.first < var._lbd2.first ){
-          std::swap( var._uest, var._uest2 );
-          std::swap( var._lbd.first, var._lbd2.first );
-        }
-      }
-
-      // Both operands have shadow underestimators
-      else/* if( opt < 0 )*/{
-        _est3 = var._uest;  // Duplicate current primal underestimator
-        _est4 = var._uest2; // Duplicate current shadow underestimator
-        _add( var._sdep, var._uest,  var2._sdep, var2._uest,  1 );
-        _add( var._sdep, var._uest2, var2._sdep, var2._uest2, 1 );
-        _add( var._sdep, _est3, var2._sdep, var2._uest2, 1 );
-        _add( var._sdep, _est4, var2._sdep, var2._uest,  1 );
-
-        SupVar<Summand>::_lb( var._lbd.first,  sumdep, var._uest  );
-        SupVar<Summand>::_lb( var._lbd2.first, sumdep, var._uest2 );
-        var._lbd.second = var._lbd2.second = true;
-        if( var._lbd.first < var._lbd2.first ){
-          std::swap( var._uest, var._uest2 );
-          std::swap( var._lbd.first, var._lbd2.first );
-        }
-
-        // Check if better primal underestimator
-        SupVar<Summand>::_lb( _lbd3, sumdep, _est3 );
-        SupVar<Summand>::_lb( _lbd4, sumdep, _est4 );
-        if( _lbd4 < _lbd3 && var._lbd.first < _lbd3 ){
-          std::swap( var._uest, _est3 );
-          std::swap( var._lbd.first, _lbd3 );
-        }
-        else if( var._lbd.first < _lbd4 ){
-          std::swap( var._uest, _est4 );
-          std::swap( var._lbd.first, _lbd4 );
-        }
-
-        // Check if better shadow underestimator
-        SupVar<Summand>::_ub( _ubd3, sumdep, _est3 );
-        SupVar<Summand>::_ub( _ubd4, sumdep, _est4 );
-        SupVar<Summand>::_ub( _ubd2, sumdep, var._uest2 );
-        if( _ubd4 < _ubd3 && _ubd2 < _ubd3 ){
-          std::swap( var._uest2, _est3 );
-          std::swap( var._lbd2.first, _lbd3 );
-        }
-        else if( _ubd2 < _ubd4 ){
-          std::swap( var._uest2, _est4 );
-          std::swap( var._lbd2.first, _lbd4 );
-        }
-      }
-
-      // Is constant lower bound needed?
-      if( var._lbd0.second && ( ( var._lbd.second  && ( var._lbd0.first < var._lbd.first  ) )
-                             || ( var._lbd2.second && ( var._lbd0.first < var._lbd2.first ) ) ) )
-        var._lbd0.second = false;
-
-      // Cross primary and shadow overestimators
-      if( opt > 0 && !var._oest2.empty() && !var2._oest2.empty() ){
-        _add( var._sdep, var._oest, var2._sdep, var2._oest2, 0 );
-        _add( var._sdep, var._oest2, var2._sdep, var2._oest, 0 );
-        SupVar<Summand>::_ub( var._ubd.first,  sumdep, var._oest  );
-        SupVar<Summand>::_ub( var._ubd2.first, sumdep, var._oest2 );
-        var._ubd.second = var._ubd2.second = true;
-        if( var._ubd.first > var._ubd2.first ){
-          std::swap( var._oest, var._oest2 );
-          std::swap( var._ubd.first, var._ubd2.first );
-        }
-      }
-
-      // No shadow overestimator
-      else if( var._oest2.empty() && var2._oest2.empty() ){
-        _add( var._sdep, var._oest, var2._sdep, var2._oest, 0 );
-        var._ubd.second = var._ubd2.second = false;
-      }
-
-      // Other operand has shadow overestimator
-      else if( var._oest2.empty() ){
-        var._oest2 = var._oest; // Duplicate current primal overestimator
-        _add( var._sdep, var._oest,  var2._sdep, var2._oest,  0 );
-        _add( var._sdep, var._oest2, var2._sdep, var2._oest2, 0 );
-        SupVar<Summand>::_ub( var._ubd.first,  sumdep, var._oest  );
-        SupVar<Summand>::_ub( var._ubd2.first, sumdep, var._oest2 );
-        var._ubd.second = var._ubd2.second = true;
-        if( var._ubd.first > var._ubd2.first ){
-          std::swap( var._oest, var._oest2 );
-          std::swap( var._ubd.first, var._ubd2.first );
-        }
-      }
-
-      // Current operand has shadow overestimator
-      else if( var2._oest2.empty() ){
-        _add( var._sdep, var._oest,  var2._sdep, var2._oest, 0 );
-        _add( var._sdep, var._oest2, var2._sdep, var2._oest, 0 );
-        SupVar<Summand>::_ub( var._ubd.first,  sumdep, var._oest  );
-        SupVar<Summand>::_ub( var._ubd2.first, sumdep, var._oest2 );
-        var._ubd.second = var._ubd2.second = true;
-        if( var._ubd.first > var._ubd2.first ){
-          std::swap( var._oest, var._oest2 );
-          std::swap( var._ubd.first, var._ubd2.first );
-        }
-      }
-
-      // Add primary and shadow overestimators separately
-      else if( opt >= 0 ){
-        _add( var._sdep, var._oest,  var2._sdep, var2._oest,  0 );
-        _add( var._sdep, var._oest2, var2._sdep, var2._oest2, 0 );
-        //var._ubd.second = var._ubd2.second = false;
-        SupVar<Summand>::_ub( var._ubd.first,  sumdep, var._oest  );
-        SupVar<Summand>::_ub( var._ubd2.first, sumdep, var._oest2 );
-        var._ubd.second = var._ubd2.second = true;
-        if( var._ubd.first > var._ubd2.first ){
-          std::swap( var._oest, var._oest2 );
-          std::swap( var._ubd.first, var._ubd2.first );
-        }
-      }
-
-      // Both operands have shadow overestimators
-      else/* if( opt < 0 )*/{
-        _est3 = var._oest;  // Duplicate current primal overestimator
-        _est4 = var._oest2; // Duplicate current shadow overestimator
-        _add( var._sdep, var._oest,  var2._sdep, var2._oest,  0 );
-        _add( var._sdep, var._oest2, var2._sdep, var2._oest2, 0 );
-        _add( var._sdep, _est3, var2._sdep, var2._oest2, 0 );
-        _add( var._sdep, _est4, var2._sdep, var2._oest,  0 );
-
-        SupVar<Summand>::_ub( var._ubd.first,  sumdep, var._oest  );
-        SupVar<Summand>::_ub( var._ubd2.first, sumdep, var._oest2 );
-        var._ubd.second = var._ubd2.second = true;
-        if( var._ubd.first > var._ubd2.first ){
-          std::swap( var._oest, var._oest2 );
-          std::swap( var._ubd.first, var._ubd2.first );
-        }
-
-        // Check if better primal overestimator
-        SupVar<Summand>::_ub( _ubd3, sumdep, _est3 );
-        SupVar<Summand>::_ub( _ubd4, sumdep, _est4 );
-        if( _ubd4 > _ubd3 && var._ubd.first > _ubd3 ){
-          std::swap( var._oest, _est3 );
-          std::swap( var._ubd.first, _ubd3 );
-        }
-        else if( var._ubd.first > _ubd4 ){
-          std::swap( var._oest, _est4 );
-          std::swap( var._ubd.first, _ubd4 );
-        }
-
-        // Check if better shadow overestimator
-        SupVar<Summand>::_lb( _lbd3, sumdep, _est3 );
-        SupVar<Summand>::_lb( _lbd4, sumdep, _est4 );
-        SupVar<Summand>::_lb( _lbd2, sumdep, var._oest2 );
-        if( _lbd4 > _lbd3 && _lbd2 > _lbd3 ){
-          std::swap( var._oest2, _est3 );
-          std::swap( var._ubd2.first, _ubd3 );
-        }
-        else if( _lbd2 > _lbd4 ){
-          std::swap( var._oest2, _est4 );
-          std::swap( var._ubd2.first, _ubd4 );
-        }
-      }
-
-      // Is constant upper bound needed?
-      if( var._ubd0.second && ( ( var._ubd.second  && ( var._ubd0.first > var._ubd.first  ) )
-                             || ( var._ubd2.second && ( var._ubd0.first > var._ubd2.first ) ) ) )
-        var._ubd0.second = false;
-
-      // Update dependencies in current operand
-      std::swap( var._sdep, sumdep );
+      if (sumdep.count(i)) continue;
+      sumdep.insert(i);
     }
+
+    // Updated constant bounds
+    if (var._lbd0.second || var2._lbd0.second)
+    {
+      var._lbd0.first  = var.l() + var2.l();
+      var._lbd0.second = true;
+    }
+    if (var._ubd0.second || var2._ubd0.second)
+    {
+      var._ubd0.first  = var.u() + var2.u();
+      var._ubd0.second = true;
+    }
+
+    // Cross primary and shadow underestimators
+    if (opt > 0 && !var._uest2.empty() && !var2._uest2.empty())
+    {
+      _add(var._sdep, var._uest, var2._sdep, var2._uest2, 1);
+      _add(var._sdep, var._uest2, var2._sdep, var2._uest, 1);
+      SupVar<Summand>::_lb(var._lbd.first, sumdep, var._uest);
+      SupVar<Summand>::_lb(var._lbd2.first, sumdep, var._uest2);
+      var._lbd.second = var._lbd2.second = true;
+      if (var._lbd.first < var._lbd2.first)
+      {
+        std::swap(var._uest, var._uest2);
+        std::swap(var._lbd.first, var._lbd2.first);
+      }
+    }
+
+    // No shadow underestimator
+    else if (var._uest2.empty() && var2._uest2.empty())
+    {
+      _add(var._sdep, var._uest, var2._sdep, var2._uest, 1);
+      var._lbd.second = var._lbd2.second = false;
+    }
+
+    // Other operand has shadow underestimator
+    else if (var._uest2.empty())
+    {
+      var._uest2 = var._uest;  // Duplicate current primal underestimator
+      _add(var._sdep, var._uest, var2._sdep, var2._uest, 1);
+      _add(var._sdep, var._uest2, var2._sdep, var2._uest2, 1);
+      SupVar<Summand>::_lb(var._lbd.first, sumdep, var._uest);
+      SupVar<Summand>::_lb(var._lbd2.first, sumdep, var._uest2);
+      var._lbd.second = var._lbd2.second = true;
+      if (var._lbd.first < var._lbd2.first)
+      {
+        std::swap(var._uest, var._uest2);
+        std::swap(var._lbd.first, var._lbd2.first);
+      }
+    }
+
+    // Current operand has shadow underestimator
+    else if (var2._uest2.empty())
+    {
+      _add(var._sdep, var._uest, var2._sdep, var2._uest, 1);
+      _add(var._sdep, var._uest2, var2._sdep, var2._uest, 1);
+      SupVar<Summand>::_lb(var._lbd.first, sumdep, var._uest);
+      SupVar<Summand>::_lb(var._lbd2.first, sumdep, var._uest2);
+      var._lbd.second = var._lbd2.second = true;
+      if (var._lbd.first < var._lbd2.first)
+      {
+        std::swap(var._uest, var._uest2);
+        std::swap(var._lbd.first, var._lbd2.first);
+      }
+    }
+
+    // Add primary and shadow underestimators separately
+    else if (opt >= 0)
+    {
+      _add(var._sdep, var._uest, var2._sdep, var2._uest, 1);
+      _add(var._sdep, var._uest2, var2._sdep, var2._uest2, 1);
+      // var._lbd.second = var._lbd2.second = false;
+      SupVar<Summand>::_lb(var._lbd.first, sumdep, var._uest);
+      SupVar<Summand>::_lb(var._lbd2.first, sumdep, var._uest2);
+      var._lbd.second = var._lbd2.second = true;
+      if (var._lbd.first < var._lbd2.first)
+      {
+        std::swap(var._uest, var._uest2);
+        std::swap(var._lbd.first, var._lbd2.first);
+      }
+    }
+
+    // Both operands have shadow underestimators
+    else /* if( opt < 0 )*/
+    {
+      _est3 = var._uest;   // Duplicate current primal underestimator
+      _est4 = var._uest2;  // Duplicate current shadow underestimator
+      _add(var._sdep, var._uest, var2._sdep, var2._uest, 1);
+      _add(var._sdep, var._uest2, var2._sdep, var2._uest2, 1);
+      _add(var._sdep, _est3, var2._sdep, var2._uest2, 1);
+      _add(var._sdep, _est4, var2._sdep, var2._uest, 1);
+
+      SupVar<Summand>::_lb(var._lbd.first, sumdep, var._uest);
+      SupVar<Summand>::_lb(var._lbd2.first, sumdep, var._uest2);
+      var._lbd.second = var._lbd2.second = true;
+      if (var._lbd.first < var._lbd2.first)
+      {
+        std::swap(var._uest, var._uest2);
+        std::swap(var._lbd.first, var._lbd2.first);
+      }
+
+      // Check if better primal underestimator
+      SupVar<Summand>::_lb(_lbd3, sumdep, _est3);
+      SupVar<Summand>::_lb(_lbd4, sumdep, _est4);
+      if (_lbd4 < _lbd3 && var._lbd.first < _lbd3)
+      {
+        std::swap(var._uest, _est3);
+        std::swap(var._lbd.first, _lbd3);
+      }
+      else if (var._lbd.first < _lbd4)
+      {
+        std::swap(var._uest, _est4);
+        std::swap(var._lbd.first, _lbd4);
+      }
+
+      // Check if better shadow underestimator
+      SupVar<Summand>::_ub(_ubd3, sumdep, _est3);
+      SupVar<Summand>::_ub(_ubd4, sumdep, _est4);
+      SupVar<Summand>::_ub(_ubd2, sumdep, var._uest2);
+      if (_ubd4 < _ubd3 && _ubd2 < _ubd3)
+      {
+        std::swap(var._uest2, _est3);
+        std::swap(var._lbd2.first, _lbd3);
+      }
+      else if (_ubd2 < _ubd4)
+      {
+        std::swap(var._uest2, _est4);
+        std::swap(var._lbd2.first, _lbd4);
+      }
+    }
+
+    // Is constant lower bound needed?
+    if (var._lbd0.second &&
+        ((var._lbd.second && (var._lbd0.first < var._lbd.first)) ||
+         (var._lbd2.second && (var._lbd0.first < var._lbd2.first))))
+      var._lbd0.second = false;
+
+    // Cross primary and shadow overestimators
+    if (opt > 0 && !var._oest2.empty() && !var2._oest2.empty())
+    {
+      _add(var._sdep, var._oest, var2._sdep, var2._oest2, 0);
+      _add(var._sdep, var._oest2, var2._sdep, var2._oest, 0);
+      SupVar<Summand>::_ub(var._ubd.first, sumdep, var._oest);
+      SupVar<Summand>::_ub(var._ubd2.first, sumdep, var._oest2);
+      var._ubd.second = var._ubd2.second = true;
+      if (var._ubd.first > var._ubd2.first)
+      {
+        std::swap(var._oest, var._oest2);
+        std::swap(var._ubd.first, var._ubd2.first);
+      }
+    }
+
+    // No shadow overestimator
+    else if (var._oest2.empty() && var2._oest2.empty())
+    {
+      _add(var._sdep, var._oest, var2._sdep, var2._oest, 0);
+      var._ubd.second = var._ubd2.second = false;
+    }
+
+    // Other operand has shadow overestimator
+    else if (var._oest2.empty())
+    {
+      var._oest2 = var._oest;  // Duplicate current primal overestimator
+      _add(var._sdep, var._oest, var2._sdep, var2._oest, 0);
+      _add(var._sdep, var._oest2, var2._sdep, var2._oest2, 0);
+      SupVar<Summand>::_ub(var._ubd.first, sumdep, var._oest);
+      SupVar<Summand>::_ub(var._ubd2.first, sumdep, var._oest2);
+      var._ubd.second = var._ubd2.second = true;
+      if (var._ubd.first > var._ubd2.first)
+      {
+        std::swap(var._oest, var._oest2);
+        std::swap(var._ubd.first, var._ubd2.first);
+      }
+    }
+
+    // Current operand has shadow overestimator
+    else if (var2._oest2.empty())
+    {
+      _add(var._sdep, var._oest, var2._sdep, var2._oest, 0);
+      _add(var._sdep, var._oest2, var2._sdep, var2._oest, 0);
+      SupVar<Summand>::_ub(var._ubd.first, sumdep, var._oest);
+      SupVar<Summand>::_ub(var._ubd2.first, sumdep, var._oest2);
+      var._ubd.second = var._ubd2.second = true;
+      if (var._ubd.first > var._ubd2.first)
+      {
+        std::swap(var._oest, var._oest2);
+        std::swap(var._ubd.first, var._ubd2.first);
+      }
+    }
+
+    // Add primary and shadow overestimators separately
+    else if (opt >= 0)
+    {
+      _add(var._sdep, var._oest, var2._sdep, var2._oest, 0);
+      _add(var._sdep, var._oest2, var2._sdep, var2._oest2, 0);
+      // var._ubd.second = var._ubd2.second = false;
+      SupVar<Summand>::_ub(var._ubd.first, sumdep, var._oest);
+      SupVar<Summand>::_ub(var._ubd2.first, sumdep, var._oest2);
+      var._ubd.second = var._ubd2.second = true;
+      if (var._ubd.first > var._ubd2.first)
+      {
+        std::swap(var._oest, var._oest2);
+        std::swap(var._ubd.first, var._ubd2.first);
+      }
+    }
+
+    // Both operands have shadow overestimators
+    else /* if( opt < 0 )*/
+    {
+      _est3 = var._oest;   // Duplicate current primal overestimator
+      _est4 = var._oest2;  // Duplicate current shadow overestimator
+      _add(var._sdep, var._oest, var2._sdep, var2._oest, 0);
+      _add(var._sdep, var._oest2, var2._sdep, var2._oest2, 0);
+      _add(var._sdep, _est3, var2._sdep, var2._oest2, 0);
+      _add(var._sdep, _est4, var2._sdep, var2._oest, 0);
+
+      SupVar<Summand>::_ub(var._ubd.first, sumdep, var._oest);
+      SupVar<Summand>::_ub(var._ubd2.first, sumdep, var._oest2);
+      var._ubd.second = var._ubd2.second = true;
+      if (var._ubd.first > var._ubd2.first)
+      {
+        std::swap(var._oest, var._oest2);
+        std::swap(var._ubd.first, var._ubd2.first);
+      }
+
+      // Check if better primal overestimator
+      SupVar<Summand>::_ub(_ubd3, sumdep, _est3);
+      SupVar<Summand>::_ub(_ubd4, sumdep, _est4);
+      if (_ubd4 > _ubd3 && var._ubd.first > _ubd3)
+      {
+        std::swap(var._oest, _est3);
+        std::swap(var._ubd.first, _ubd3);
+      }
+      else if (var._ubd.first > _ubd4)
+      {
+        std::swap(var._oest, _est4);
+        std::swap(var._ubd.first, _ubd4);
+      }
+
+      // Check if better shadow overestimator
+      SupVar<Summand>::_lb(_lbd3, sumdep, _est3);
+      SupVar<Summand>::_lb(_lbd4, sumdep, _est4);
+      SupVar<Summand>::_lb(_lbd2, sumdep, var._oest2);
+      if (_lbd4 > _lbd3 && _lbd2 > _lbd3)
+      {
+        std::swap(var._oest2, _est3);
+        std::swap(var._ubd2.first, _ubd3);
+      }
+      else if (_lbd2 > _lbd4)
+      {
+        std::swap(var._oest2, _est4);
+        std::swap(var._ubd2.first, _ubd4);
+      }
+    }
+
+    // Is constant upper bound needed?
+    if (var._ubd0.second &&
+        ((var._ubd.second && (var._ubd0.first > var._ubd.first)) ||
+         (var._ubd2.second && (var._ubd0.first > var._ubd2.first))))
+      var._ubd0.second = false;
+
+    // Update dependencies in current operand
+    std::swap(var._sdep, sumdep);
+  }
 
   //! @brief Scale variable <a>var</a> by <a>cst</a>
-  void scale
-    ( SupVar<Summand>& var, double const& cst )
-    const
+  void
+  scale(SupVar<Summand>& var, double const& cst) const
+  {
+    if (cst < 0.)
     {
-      if( cst < 0. ){
-        std::swap( var._uest, var._oest ); 
-        std::swap( var._lbd, var._ubd );
-        if( !var._uest2.empty() || !var._oest2.empty() ){
-          std::swap( var._uest2, var._oest2 ); 
-          std::swap( var._lbd2, var._ubd2 ); 
-        }
-        std::swap( var._lbd0, var._ubd0 );
+      std::swap(var._uest, var._oest);
+      std::swap(var._lbd, var._ubd);
+      if (!var._uest2.empty() || !var._oest2.empty())
+      {
+        std::swap(var._uest2, var._oest2);
+        std::swap(var._lbd2, var._ubd2);
       }
-  
-      for( auto& i : var._sdep ){
-        var._uest[i] *= cst;
-        var._oest[i] *= cst;
-        if( !var._uest2.empty() ) var._uest2[i] *= cst;
-        if( !var._oest2.empty() ) var._oest2[i] *= cst;
-      }
-      
-      if( var._lbd.second ) var._lbd.first *= cst;
-      if( var._ubd.second ) var._ubd.first *= cst;
-      if( var._lbd2.second ) var._lbd2.first *= cst;
-      if( var._ubd2.second ) var._ubd2.first *= cst;
-      if( var._lbd0.second ) var._lbd0.first *= cst;
-      if( var._ubd0.second ) var._ubd0.first *= cst;
+      std::swap(var._lbd0, var._ubd0);
     }
+
+    for (auto& i : var._sdep)
+    {
+      var._uest[i] *= cst;
+      var._oest[i] *= cst;
+      if (!var._uest2.empty()) var._uest2[i] *= cst;
+      if (!var._oest2.empty()) var._oest2[i] *= cst;
+    }
+
+    if (var._lbd.second) var._lbd.first *= cst;
+    if (var._ubd.second) var._ubd.first *= cst;
+    if (var._lbd2.second) var._lbd2.first *= cst;
+    if (var._ubd2.second) var._ubd2.first *= cst;
+    if (var._lbd0.second) var._lbd0.first *= cst;
+    if (var._ubd0.second) var._ubd0.first *= cst;
+  }
 
   //! @brief Multiply variable <a>var</a> with variable <a>var2</a>
-  void multiply
-    ( SupVar<Summand>& var0, SupVar<Summand>& var1 )
-    //const
+  void
+  multiply(SupVar<Summand>& var0, SupVar<Summand>& var1)
+  // const
+  {
+    double u0 = var0.u(), l0 = var0.l(), u1 = var1.u(), l1 = var1.l();
+#ifdef MC__SUPMODEL_DEBUG_PROD
+    std::cout << "variable bounds: " << "[ " << l0 << " : " << u0 << " ] x [ "
+              << l1 << " : " << u1 << " ]" << std::endl;
+#endif
+
+    switch (options.PROD_METH)
     {
-      double u0 = var0.u(), l0 = var0.l(), u1 =  var1.u(), l1 =  var1.l();
-#ifdef MC__SUPMODEL_DEBUG_PROD
-      std::cout << "variable bounds: " << "[ " << l0 << " : " << u0 << " ] x [ " << l1 << " : " << u1 << " ]" << std::endl;
-#endif
-
-      switch( options.PROD_METH ){
-        case SupModel<Summand>::Options::ENVEL:
+      case SupModel<Summand>::Options::ENVEL:
+      {
+        // Updated dependency set
+        auto sumdep = var0._sdep;
+        for (auto const& i : var1._sdep)
         {
-          // Updated dependency set
-          auto sumdep = var0._sdep;
-          for( auto const& i : var1._sdep ){
-            if( sumdep.count(i) ) continue;
-            sumdep.insert(i);
-          }
-
-          if( sumdep.size() > 1 ){
-            double var0l = var0.l(0), var0u = var0.u(0), var1l = var1.l(0), var1u = var1.u(0);
-            var0._uest2.clear();
-            var0._oest2.clear();
-            var1._uest2.clear();
-            var1._oest2.clear();
-
-            auto var00 = var0 * var1u;
-            auto var10 = var1 * var0u;
-            var00 += var1 * var0u - var0u * var1u;
-            var10 += var0 * var1l - var0u * var1l;
-
-            auto var01 = var0 * var1l;
-            auto var11 = var1 * var0l;
-            var01 += var1 * var0l - var0l * var1l;
-            var11 += var0 * var1u - var0l * var1u;
-
-            std::swap( var00._sdep, var0._sdep );
-            std::swap( var00._uest, var0._uest );
-            std::swap( var10._oest, var0._oest );
-            std::swap( var01._uest, var0._uest2 );
-            std::swap( var11._oest, var0._oest2 );
-
-            break;
-          }
+          if (sumdep.count(i)) continue;
+          sumdep.insert(i);
         }
 
-        case SupModel<Summand>::Options::NONE:
+        if (sumdep.size() > 1)
         {
-          int USE_CVXMAX = options.USE_CVXMAX;
-          int USE_ENDRAY = options.USE_ENDRAY;
-          if( options.USE_SHADOW ){
-            options.USE_ENDRAY = 1;
-            options.USE_CVXMAX = 1;
-          }
-          SupVar<Summand> var2( var1 );
-          var1 -= var0;
-          pow( std::move( var1 ), 2 );
-          var0 += var2;
-          pow( std::move( var0 ), 2 );
-          add( var0, operator-( std::move( var1 ) ), 1 );
-          scale( var0, 0.25 );
-          options.USE_CVXMAX = USE_CVXMAX;
-          options.USE_ENDRAY = USE_ENDRAY;
-          break;
-        }
+          double var0l = var0.l(0), var0u = var0.u(0), var1l = var1.l(0),
+                 var1u = var1.u(0);
+          var0._uest2.clear();
+          var0._oest2.clear();
+          var1._uest2.clear();
+          var1._oest2.clear();
 
-        default:
-        case SupModel<Summand>::Options::PARTIAL:
-        {
-          int USE_CVXMAX = options.USE_CVXMAX;
-          int USE_ENDRAY = options.USE_ENDRAY;
-          if( options.USE_SHADOW ){
-            options.USE_ENDRAY = 1;
-            options.USE_CVXMAX = 1;
-          }
-          double const wid0 = u0-l0, wid1 = u1-l1;
-          var1 /= wid1;
-          SupVar<Summand> var2( var1 );
-          var0 /= wid0;
-          var1 -= var0;
-          pow( std::move( var1 ), 2 );
-          var0 += var2;
-          pow( std::move( var0 ), 2 );
-          add( var0, operator-( std::move( var1 ) ), 1 );
-          scale( var0, 0.25*wid0*wid1 );
-          options.USE_CVXMAX = USE_CVXMAX;
-          options.USE_ENDRAY = USE_ENDRAY;
-          break;
-        }
+          auto var00 = var0 * var1u;
+          auto var10 = var1 * var0u;
+          var00 += var1 * var0u - var0u * var1u;
+          var10 += var0 * var1l - var0u * var1l;
 
-        case SupModel<Summand>::Options::FULL:
-        {
-          int USE_CVXMAX = options.USE_CVXMAX;
-          int USE_ENDRAY = options.USE_ENDRAY;
-          if( options.USE_SHADOW ){
-            options.USE_ENDRAY = 1;
-            options.USE_CVXMAX = 1;
-          }
-          double const wid0 = u0-l0, wid1 = u1-l1,
-                       mid0 = 0.5*(u0+l0), mid1 = 0.5*(u1+l1);
-          SupVar<Summand> sub( mid0 * var1 + mid1 * var0 - mid0*mid1 );
-          (var1 -= mid1) /= wid1;
-          SupVar<Summand> var2( var1 );
-          (var0 -= mid0) /= wid0;
-          var1 -= var0;
-          pow( std::move( var1 ), 2 );
-          var0 += var2;
-          pow( std::move( var0 ), 2 );
-          add( var0, operator-( std::move( var1 ) ), 1 );
-          scale( var0, 0.25*wid0*wid1 );
-          add( var0, sub, 1 );
-          options.USE_CVXMAX = USE_CVXMAX;
-          options.USE_ENDRAY = USE_ENDRAY;
-          break;
-        }
+          auto var01 = var0 * var1l;
+          auto var11 = var1 * var0l;
+          var01 += var1 * var0l - var0l * var1l;
+          var11 += var0 * var1u - var0l * var1u;
 
-        case SupModel<Summand>::Options::LOG:
-        {
-          int USE_ENDRAY = options.USE_ENDRAY;
-          if( options.USE_SHADOW ){
-            options.USE_ENDRAY = 2;
-            //l0 = std::min(var0.l(0),var0.l(1)), l1 = std::min(var1.l(0),var1.l(1));
-          }
-          double const wid0 = u0-l0, wid1 = u1-l1;
-          static double const a = 0.5, b = 1.0;
-          SupVar<Summand> sub( (l0-a/b*wid0) * var1 + (l1-a/b*wid1) * var0
-                             + (a/b*(wid0*l1+wid1*l0-a/b*wid0*wid1)-l0*l1) );
-          ((var1 -= l1) *= b/wid1) += a;
-          ((var0 -= l0) *= b/wid0) += a;
-          log( std::move( var1 ) );
-          log( std::move( var0 ) );
-          add( var0, std::move( var1 ), 1 );//-1 );
-          exp( std::move( var0 ) );
-          scale( var0, wid0/b*wid1/b );
-          add( var0, sub, 1 );
-          options.USE_ENDRAY = USE_ENDRAY;
+          std::swap(var00._sdep, var0._sdep);
+          std::swap(var00._uest, var0._uest);
+          std::swap(var10._oest, var0._oest);
+          std::swap(var01._uest, var0._uest2);
+          std::swap(var11._oest, var0._oest2);
+
           break;
         }
       }
 
-      var0._lbd.second = var0._ubd.second = false;
-      var0._lbd2.second = var0._ubd2.second = false;
-      var0._lbd0.second = var0._ubd0.second = false;
-      //if( !options.PROD_CUT ) return;
-
-      // Bounds refinement
-      auto const& fmin2 = [&]( const double& x1, const double& x2 )
-                          { return x1<x2? x1: x2; };
-      auto const& fmin4 = [&]( const double& x1, const double& x2, const double& x3, const double& x4 )
-                          { return fmin2(fmin2(x1,x2),fmin2(x3,x4)); };
-      auto const& fmax2 = [&]( const double& x1, const double& x2 )
-                          { return x1>x2? x1: x2; };
-      auto const& fmax4 = [&]( const double& x1, const double& x2, const double& x3, const double& x4 )
-                          { return fmax2(fmax2(x1,x2),fmax2(x3,x4)); };
-
-      double const& lnat = fmin4( l0*l1, l0*u1, u0*l1, u0*u1 );
-#ifdef MC__SUPMODEL_DEBUG_PROD
-      std::cout << "Natural lower bound: " << "[ " << l0 << " : " << u0 << " ] x [ " << l1 << " : " << u1 << " ] -> "
-                << lnat << std::endl;
-#endif
-      if( var0.l() < lnat ){
-        var0._lbd0 = std::make_pair( lnat, true );
-        if( options.PROD_CUT ) uref( var0, lnat );
+      case SupModel<Summand>::Options::NONE:
+      {
+        int USE_CVXMAX = options.USE_CVXMAX;
+        int USE_ENDRAY = options.USE_ENDRAY;
+        if (options.USE_SHADOW)
+        {
+          options.USE_ENDRAY = 1;
+          options.USE_CVXMAX = 1;
+        }
+        SupVar<Summand> var2(var1);
+        var1 -= var0;
+        pow(std::move(var1), 2);
+        var0 += var2;
+        pow(std::move(var0), 2);
+        add(var0, operator-(std::move(var1)), 1);
+        scale(var0, 0.25);
+        options.USE_CVXMAX = USE_CVXMAX;
+        options.USE_ENDRAY = USE_ENDRAY;
+        break;
       }
-      else
-        var0._lbd0.second = false;
-      
-      double const& unat = fmax4( l0*l1, l0*u1, u0*l1, u0*u1 );
-#ifdef MC__SUPMODEL_DEBUG_PROD
-      std::cout << "Natural upper bound: " << "[ " << l0 << " : " << u0 << " ] x [ " << l1 << " : " << u1 << " ] -> "
-                << unat << std::endl;
-#endif
-      if( var0.u() > unat ){
-        var0._ubd0 = std::make_pair( unat, true );
-        if( options.PROD_CUT ) oref( var0, unat );
-      }
-      else
-        var0._ubd0.second = false;
 
-      // Reorder primary and shadow estimators
-      if( var0._lbd2.second && var0._lbd.first < var0._lbd2.first ){
-        std::swap( var0._uest, var0._uest2 );
-        std::swap( var0._lbd.first, var0._lbd2.first );
+      default:
+      case SupModel<Summand>::Options::PARTIAL:
+      {
+        int USE_CVXMAX = options.USE_CVXMAX;
+        int USE_ENDRAY = options.USE_ENDRAY;
+        if (options.USE_SHADOW)
+        {
+          options.USE_ENDRAY = 1;
+          options.USE_CVXMAX = 1;
+        }
+        double const wid0 = u0 - l0, wid1 = u1 - l1;
+        var1 /= wid1;
+        SupVar<Summand> var2(var1);
+        var0 /= wid0;
+        var1 -= var0;
+        pow(std::move(var1), 2);
+        var0 += var2;
+        pow(std::move(var0), 2);
+        add(var0, operator-(std::move(var1)), 1);
+        scale(var0, 0.25 * wid0 * wid1);
+        options.USE_CVXMAX = USE_CVXMAX;
+        options.USE_ENDRAY = USE_ENDRAY;
+        break;
       }
-      if( var0._ubd2.second && var0._ubd.first > var0._ubd2.first ){
-        std::swap( var0._oest, var0._oest2 );
-        std::swap( var0._ubd.first, var0._ubd2.first );
+
+      case SupModel<Summand>::Options::FULL:
+      {
+        int USE_CVXMAX = options.USE_CVXMAX;
+        int USE_ENDRAY = options.USE_ENDRAY;
+        if (options.USE_SHADOW)
+        {
+          options.USE_ENDRAY = 1;
+          options.USE_CVXMAX = 1;
+        }
+        double const wid0 = u0 - l0, wid1 = u1 - l1, mid0 = 0.5 * (u0 + l0),
+                     mid1 = 0.5 * (u1 + l1);
+        SupVar<Summand> sub(mid0 * var1 + mid1 * var0 - mid0 * mid1);
+        (var1 -= mid1) /= wid1;
+        SupVar<Summand> var2(var1);
+        (var0 -= mid0) /= wid0;
+        var1 -= var0;
+        pow(std::move(var1), 2);
+        var0 += var2;
+        pow(std::move(var0), 2);
+        add(var0, operator-(std::move(var1)), 1);
+        scale(var0, 0.25 * wid0 * wid1);
+        add(var0, sub, 1);
+        options.USE_CVXMAX = USE_CVXMAX;
+        options.USE_ENDRAY = USE_ENDRAY;
+        break;
+      }
+
+      case SupModel<Summand>::Options::LOG:
+      {
+        int USE_ENDRAY = options.USE_ENDRAY;
+        if (options.USE_SHADOW)
+        {
+          options.USE_ENDRAY = 2;
+          // l0 = std::min(var0.l(0),var0.l(1)), l1 =
+          // std::min(var1.l(0),var1.l(1));
+        }
+        double const wid0 = u0 - l0, wid1 = u1 - l1;
+        static double const a = 0.5, b = 1.0;
+        SupVar<Summand> sub(
+            (l0 - a / b * wid0) * var1 + (l1 - a / b * wid1) * var0 +
+            (a / b * (wid0 * l1 + wid1 * l0 - a / b * wid0 * wid1) - l0 * l1));
+        ((var1 -= l1) *= b / wid1) += a;
+        ((var0 -= l0) *= b / wid0) += a;
+        log(std::move(var1));
+        log(std::move(var0));
+        add(var0, std::move(var1), 1);  //-1 );
+        exp(std::move(var0));
+        scale(var0, wid0 / b * wid1 / b);
+        add(var0, sub, 1);
+        options.USE_ENDRAY = USE_ENDRAY;
+        break;
       }
     }
 
-  //! @brief Compose variable <a>var</a> with a univariate outer function <a>f</a> with derivative <a>Df</a> and given convexity <a>cvx</a> and monotonicity <a>inc</a>
-  template <typename UNIV, typename DUNIV>
-  void compose1
-    ( SupVar<Summand>& var, UNIV const& f, DUNIV const& Df, int const cvx, bool const inc,
-      std::pair<bool,double> domlb={0,0.}, std::pair<bool,double> domub={0,0.} )
-    const
+    var0._lbd.second = var0._ubd.second = false;
+    var0._lbd2.second = var0._ubd2.second = false;
+    var0._lbd0.second = var0._ubd0.second = false;
+    // if( !options.PROD_CUT ) return;
+
+    // Bounds refinement
+    auto const& fmin2 = [&](const double& x1, const double& x2)
+    { return x1 < x2 ? x1 : x2; };
+    auto const& fmin4 = [&](const double& x1, const double& x2,
+                            const double& x3, const double& x4)
+    { return fmin2(fmin2(x1, x2), fmin2(x3, x4)); };
+    auto const& fmax2 = [&](const double& x1, const double& x2)
+    { return x1 > x2 ? x1 : x2; };
+    auto const& fmax4 = [&](const double& x1, const double& x2,
+                            const double& x3, const double& x4)
+    { return fmax2(fmax2(x1, x2), fmax2(x3, x4)); };
+
+    double const& lnat = fmin4(l0 * l1, l0 * u1, u0 * l1, u0 * u1);
+#ifdef MC__SUPMODEL_DEBUG_PROD
+    std::cout << "Natural lower bound: " << "[ " << l0 << " : " << u0
+              << " ] x [ " << l1 << " : " << u1 << " ] -> " << lnat
+              << std::endl;
+#endif
+    if (var0.l() < lnat)
     {
-      if( cvx != 0 && cvx != 1 ) throw Exceptions( Exceptions::INTERN );
+      var0._lbd0 = std::make_pair(lnat, true);
+      if (options.PROD_CUT) uref(var0, lnat);
+    }
+    else
+      var0._lbd0.second = false;
 
-      double const fl = f( var.l() ), fu = f( var.u() );
-      
-      // No need to propagate secondary estimators in single dependency case
-      if( options.USE_SHADOW && var._sdep.size() > 1 ){
-        // Initialize secondary underestimator
-        double uestlb, uestub;
-        if( var._uest2.empty() && ( options.USE_ENDRAY || ( cvx==1 && inc ) || ( cvx==0 && !inc ) ) ){
-          var._uest2 = var._uest; // duplicate primary underestimator
-          var._lbd2  = var._lbd;  // duplicate primary underestimator bounds
-        }
-        else if( !var._uest2.empty() && domlb.first && var.l(1) < domlb.second ){
-          if( var.l(0) < domlb.second ){
-            var._uest2.clear(); // reset secondary underestimator
-            var._lbd2.second = false;
-          }
-          else{
-            var._uest2 = var._uest; // overwrite secondary underestimator with primary one to comply with domain definition
-            var._lbd2  = var._lbd;  // duplicate primary underestimator bounds
-          }
-        }
-        // Bounds on secondary underestimator
-        if( !var._uest2.empty() ){
-          uestlb = var.l(1);
-          SupVar<Summand>::_ub( uestub, var._sdep, var._uest2 );
-        }
+    double const& unat = fmax4(l0 * l1, l0 * u1, u0 * l1, u0 * u1);
+#ifdef MC__SUPMODEL_DEBUG_PROD
+    std::cout << "Natural upper bound: " << "[ " << l0 << " : " << u0
+              << " ] x [ " << l1 << " : " << u1 << " ] -> " << unat
+              << std::endl;
+#endif
+    if (var0.u() > unat)
+    {
+      var0._ubd0 = std::make_pair(unat, true);
+      if (options.PROD_CUT) oref(var0, unat);
+    }
+    else
+      var0._ubd0.second = false;
 
-        // Initialize secondary overestimator
-        double oestlb, oestub;
-        if( var._oest2.empty() && ( options.USE_ENDRAY || ( cvx==1 && !inc ) || ( cvx==0 && inc ) ) ){
-          var._oest2 = var._oest; // duplicate primary overestimator
-          var._ubd2  = var._ubd;  // duplicate primary overestimator bounds
-        }
-        else if( !var._oest2.empty() && domub.first && var.u(1) > domub.second ){
-          if( var.u(0) > domub.second ){
-            var._oest2.clear(); // reset secondary underestimator
-            var._ubd2.second = false;
-          }
-          else{
-            var._oest2 = var._oest; // overwrite secondary overestimator with primary one to comply with domain definition
-            var._ubd2  = var._ubd;  // duplicate primary overestimator bounds
-          }
-        }
-        // Bounds on secondary overestimator
-        if( !var._oest2.empty() ){
-          oestub = var.u(1);
-          SupVar<Summand>::_lb( oestlb, var._sdep, var._oest2 );
-        }
-        
-        // Secondary estimator composition
-        _compose1( var._sdep, var._uest2, var._oest2, uestlb, uestub, oestlb, oestub, 1, f, Df, cvx, inc );
+    // Reorder primary and shadow estimators
+    if (var0._lbd2.second && var0._lbd.first < var0._lbd2.first)
+    {
+      std::swap(var0._uest, var0._uest2);
+      std::swap(var0._lbd.first, var0._lbd2.first);
+    }
+    if (var0._ubd2.second && var0._ubd.first > var0._ubd2.first)
+    {
+      std::swap(var0._oest, var0._oest2);
+      std::swap(var0._ubd.first, var0._ubd2.first);
+    }
+  }
 
-        // reset secondary estimator bounds
-        var._lbd2.second = var._ubd2.second = false; 
+  //! @brief Compose variable <a>var</a> with a univariate outer function
+  //! <a>f</a> with derivative <a>Df</a> and given convexity <a>cvx</a> and
+  //! monotonicity <a>inc</a>
+  template <typename UNIV, typename DUNIV>
+  void
+  compose1(SupVar<Summand>& var, UNIV const& f, DUNIV const& Df, int const cvx,
+           bool const inc, std::pair<bool, double> domlb = {0, 0.},
+           std::pair<bool, double> domub = {0, 0.}) const
+  {
+    if (cvx != 0 && cvx != 1) throw Exceptions(Exceptions::INTERN);
+
+    double const fl = f(var.l()), fu = f(var.u());
+
+    // No need to propagate secondary estimators in single dependency case
+    if (options.USE_SHADOW && var._sdep.size() > 1)
+    {
+      // Initialize secondary underestimator
+      double uestlb, uestub;
+      if (var._uest2.empty() &&
+          (options.USE_ENDRAY || (cvx == 1 && inc) || (cvx == 0 && !inc)))
+      {
+        var._uest2 = var._uest;  // duplicate primary underestimator
+        var._lbd2  = var._lbd;   // duplicate primary underestimator bounds
       }
-
-      // Compliance with domain definition
-      double uestlb = var.l(0), oestub = var.u(0);
-      std::vector<Summand> dumest;
-      if( domlb.first && var.l(0) < domlb.second ){
-        if( var._uest2.empty() ){
-          assert( var._lbd0.second );
-          _max( var._sdep, var._uest, dumest, uestlb, oestub, 0, var._lbd0.first );
-          var._lbd.second = false; // reset primary underestimator bound
+      else if (!var._uest2.empty() && domlb.first && var.l(1) < domlb.second)
+      {
+        if (var.l(0) < domlb.second)
+        {
+          var._uest2.clear();  // reset secondary underestimator
+          var._lbd2.second = false;
         }
-        else{
-          var._uest = var._uest2; // overwrite primary underestimator with secondary one to comply with domain definition
-          var._lbd  = var._lbd2;  // duplicate secondary underestimator bounds
-        }
-      }
-      if( domub.first && var.u(0) > domub.second ){
-        if( var._oest2.empty() ){
-          assert( var._ubd0.second );
-          _min( var._sdep, dumest, var._oest, uestlb, oestub, 0, var._ubd0.first );
-          var._ubd.second = false; // reset primary overestimator bound
-        }
-        else{
-          var._oest = var._oest2; // overwrite primary overestimator with secondary one to comply with domain definition
-          var._ubd  = var._ubd2;  // duplicate secondary overestimator bounds
+        else
+        {
+          var._uest2 =
+              var._uest;  // overwrite secondary underestimator with primary one
+                          // to comply with domain definition
+          var._lbd2 = var._lbd;  // duplicate primary underestimator bounds
         }
       }
-      
-      // Primary estimator bounds
-      uestlb = var.l(0), oestub = var.u(0);
-      double uestub, oestlb;
-      SupVar<Summand>::_ub( uestub, var._sdep, var._uest );           
-      SupVar<Summand>::_lb( oestlb, var._sdep, var._oest );           
-
-      // Primary estimator composition
-      _compose1( var._sdep, var._uest, var._oest, uestlb, uestub, oestlb, oestub, 0, f, Df, cvx, inc );
-
-      // Reset primary estimator bounds
-      var._lbd.second = var._ubd.second = false; 
-
-      // Reorder primary and shadow estimators
-      if( !var._uest2.empty() && var.l(0) < var.l(1) ){
-        std::swap( var._uest, var._uest2 );
-        std::swap( var._lbd.first, var._lbd2.first );
+      // Bounds on secondary underestimator
+      if (!var._uest2.empty())
+      {
+        uestlb = var.l(1);
+        SupVar<Summand>::_ub(uestub, var._sdep, var._uest2);
       }
-      if( !var._oest2.empty() && var.u(0) > var.u(1) ){
-        std::swap( var._oest, var._oest2 );
-        std::swap( var._ubd.first, var._ubd2.first );
+
+      // Initialize secondary overestimator
+      double oestlb, oestub;
+      if (var._oest2.empty() &&
+          (options.USE_ENDRAY || (cvx == 1 && !inc) || (cvx == 0 && inc)))
+      {
+        var._oest2 = var._oest;  // duplicate primary overestimator
+        var._ubd2  = var._ubd;   // duplicate primary overestimator bounds
+      }
+      else if (!var._oest2.empty() && domub.first && var.u(1) > domub.second)
+      {
+        if (var.u(0) > domub.second)
+        {
+          var._oest2.clear();  // reset secondary underestimator
+          var._ubd2.second = false;
+        }
+        else
+        {
+          var._oest2 =
+              var._oest;  // overwrite secondary overestimator with primary one
+                          // to comply with domain definition
+          var._ubd2 = var._ubd;  // duplicate primary overestimator bounds
+        }
+      }
+      // Bounds on secondary overestimator
+      if (!var._oest2.empty())
+      {
+        oestub = var.u(1);
+        SupVar<Summand>::_lb(oestlb, var._sdep, var._oest2);
+      }
+
+      // Secondary estimator composition
+      _compose1(var._sdep, var._uest2, var._oest2, uestlb, uestub, oestlb,
+                oestub, 1, f, Df, cvx, inc);
+
+      // reset secondary estimator bounds
+      var._lbd2.second = var._ubd2.second = false;
+    }
+
+    // Compliance with domain definition
+    double uestlb = var.l(0), oestub = var.u(0);
+    std::vector<Summand> dumest;
+    if (domlb.first && var.l(0) < domlb.second)
+    {
+      if (var._uest2.empty())
+      {
+        assert(var._lbd0.second);
+        _max(var._sdep, var._uest, dumest, uestlb, oestub, 0, var._lbd0.first);
+        var._lbd.second = false;  // reset primary underestimator bound
+      }
+      else
+      {
+        var._uest =
+            var._uest2;  // overwrite primary underestimator with secondary one
+                         // to comply with domain definition
+        var._lbd = var._lbd2;  // duplicate secondary underestimator bounds
+      }
+    }
+    if (domub.first && var.u(0) > domub.second)
+    {
+      if (var._oest2.empty())
+      {
+        assert(var._ubd0.second);
+        _min(var._sdep, dumest, var._oest, uestlb, oestub, 0, var._ubd0.first);
+        var._ubd.second = false;  // reset primary overestimator bound
+      }
+      else
+      {
+        var._oest =
+            var._oest2;  // overwrite primary overestimator with secondary one
+                         // to comply with domain definition
+        var._ubd = var._ubd2;  // duplicate secondary overestimator bounds
+      }
+    }
+
+    // Primary estimator bounds
+    uestlb = var.l(0), oestub = var.u(0);
+    double uestub, oestlb;
+    SupVar<Summand>::_ub(uestub, var._sdep, var._uest);
+    SupVar<Summand>::_lb(oestlb, var._sdep, var._oest);
+
+    // Primary estimator composition
+    _compose1(var._sdep, var._uest, var._oest, uestlb, uestub, oestlb, oestub,
+              0, f, Df, cvx, inc);
+
+    // Reset primary estimator bounds
+    var._lbd.second = var._ubd.second = false;
+
+    // Reorder primary and shadow estimators
+    if (!var._uest2.empty() && var.l(0) < var.l(1))
+    {
+      std::swap(var._uest, var._uest2);
+      std::swap(var._lbd.first, var._lbd2.first);
+    }
+    if (!var._oest2.empty() && var.u(0) > var.u(1))
+    {
+      std::swap(var._oest, var._oest2);
+      std::swap(var._ubd.first, var._ubd2.first);
+    }
+
+    // Propagate constant bounds
+    if (var._lbd0.second)
+    {
+      var._lbd0.first = (inc ? fl : fu);
+      if (var.l(0) > var._lbd0.first) var._lbd0.second = false;
+    }
+    if (var._ubd0.second)
+    {
+      var._ubd0.first = (inc ? fu : fl);
+      if (var.u(0) < var._ubd0.first) var._ubd0.second = false;
+    }
+  }
+
+  //! @brief Compose variable <a>var</a> with a univariate outer function
+  //! <a>f</a> with derivative <a>Df</a> and given convexoconcavity <a>cvx</a>
+  //! and monotonicity <a>inc</a>
+  template <typename UNIV, typename DUNIV>
+  void
+  compose2(SupVar<Summand>& var, UNIV const& f, DUNIV const& Df, int const cvx,
+           bool const inc, double const& xinfl,
+           std::pair<bool, double> domlb = {0, 0.},
+           std::pair<bool, double> domub = {0, 0.}) const
+  {
+    if (cvx != 2 && cvx != 3) throw Exceptions(Exceptions::INTERN);
+
+    // Detect convex/concave and monotonic
+    if (var.l() >= xinfl)
+    {
+      double const finfl = f(xinfl), Dfinfl = Df(xinfl);
+      auto const& f2 = [&](const double& x)
+      { return x > xinfl ? f(x) : finfl + Dfinfl * (x - xinfl); };
+      auto const& Df2 = [&](const double& x)
+      { return x > xinfl ? Df(x) : Dfinfl; };
+      return compose1(var, f2, Df2, !(cvx % 2), inc, {0, 0.},
+                      domub);  // convex or concave
+    }
+
+    if (var.u() <= xinfl)
+    {
+      double const finfl = f(xinfl), Dfinfl = Df(xinfl);
+      auto const& f1 = [&](const double& x)
+      { return x < xinfl ? f(x) : finfl + Dfinfl * (x - xinfl); };
+      auto const& Df1 = [&](const double& x)
+      { return x < xinfl ? Df(x) : Dfinfl; };
+      return compose1(var, f1, Df1, cvx % 2, inc, domlb,
+                      {0, 0.});  // convex or concave
+    }
+
+    // Use of DC-decomposition
+    if (!options.USE_CVXCCV)
+    {
+      double const finfl = f(xinfl), Dfinfl = Df(xinfl);
+      auto const& f1 = [&](const double& x)
+      {
+        double const z = f(x), t = finfl + Dfinfl * (x - xinfl);
+        return z > t ? z : t;
+      };
+      auto const& Df1 = [&](const double& x)
+      {
+        double const z = f(x), t = finfl + Dfinfl * (x - xinfl);
+        return z > t ? Df(x) : Dfinfl;
+      };
+      auto const& f2 = [&](const double& x)
+      {
+        double const z = f(x), t = finfl + Dfinfl * (x - xinfl);
+        return z < t ? z - t : 0;
+      };
+      auto const& Df2 = [&](const double& x)
+      {
+        double const z = f(x), t = finfl + Dfinfl * (x - xinfl);
+        return z < t ? Df(x) - Dfinfl : 0;
+      };
+
+      SupVar<Summand> var2(var);
+      if (cvx == 3 && inc)
+      {
+        compose1(var, f1, Df1, 1, 1, {0, 0.},
+                 domub);  // convex & non-decreasing
+        compose1(var2, f2, Df2, 0, 0, domlb,
+                 {0, 0.});  // convex & non-increasing
+      }
+      else if (cvx == 3 && !inc)
+      {
+        compose1(var, f1, Df1, 1, 0, {0, 0.},
+                 domub);  // convex & non-increasing
+        compose1(var2, f2, Df2, 0, 0, domlb,
+                 {0, 0.});  // concave & non-increasing
+      }
+      else if (cvx == 2 && inc)
+      {
+        compose1(var, f1, Df1, 1, 1, {0, 0.},
+                 domub);  // convex & non-decreasing
+        compose1(var2, f2, Df2, 0, 1, domlb,
+                 {0, 0.});  // concave & non-decreasing
+      }
+      else /* if( cvx == 2 && !inc )*/
+      {
+        compose1(var, f1, Df1, 1, 0, {0, 0.},
+                 domub);  // convex & non-increasing
+        compose1(var2, f2, Df2, 0, 1, domlb,
+                 {0, 0.});  // concave & non-decreasing
+      }
+      var += var2;
+      return;
+    }
+
+    // No need to propagate shadow estimators in single dependency case
+    if (options.USE_SHADOW && var._sdep.size() > 1)
+    {
+      // Initialize secondary underestimator
+      double uestlb, uestub;
+      if (var._uest2.empty() || (domlb.first && var.l(1) < domlb.second))
+      {
+        var._uest2 = var._uest;  // overwrite secondary underestimator with
+                                 // primary one to comply with domain definition
+        var._lbd2 = var._lbd;    // duplicate primary underestimator bounds
+      }
+      uestlb = var.l(1);
+      SupVar<Summand>::_ub(uestub, var._sdep, var._uest2);
+
+      // Initialize secondary overestimator
+      double oestlb, oestub;
+      if (var._oest2.empty() || (domub.first && var.u(1) > domub.second))
+      {
+        var._oest2 = var._oest;  // overwrite secondary overestimator with
+                                 // primary one to comply with domain definition
+        var._ubd2 = var._ubd;    // duplicate primary overestimator bounds
+      }
+      oestub = var.u(1);
+      SupVar<Summand>::_lb(oestlb, var._sdep, var._oest2);
+
+      // Secondary estimator composition
+      _compose2(var._sdep, var._uest2, var._oest2, uestlb, uestub, oestlb,
+                oestub, 1, f, Df, cvx, inc, xinfl);
+
+      // reset secondary estimator bounds
+      var._lbd2.second = var._ubd2.second = false;
+    }
+
+    // Compliance with domain definition
+    if (domlb.first && var.l(0) < domlb.second)
+    {
+      assert(
+          !var._uest2.empty());  // domain violation should already be detected
+      var._uest = var._uest2;    // overwrite primary underestimator with
+                               // secondary one to comply with domain definition
+      var._lbd = var._lbd2;  // duplicate secondary underestimator bounds
+    }
+    if (domub.first && var.u(0) > domub.second)
+    {
+      assert(
+          !var._oest2.empty());  // domain violation should already be detected
+      var._oest = var._oest2;  // overwrite primary overestimator with secondary
+                               // one to comply with domain definition
+      var._ubd = var._ubd2;    // duplicate secondary overestimator bounds
+    }
+
+    // Primary estimator bounds
+    double const uestlb = var.l(0), oestub = var.u(0);
+    double uestub, oestlb;
+    SupVar<Summand>::_ub(uestub, var._sdep, var._uest);
+    SupVar<Summand>::_lb(oestlb, var._sdep, var._oest);
+
+    // Primary estimator composition
+    _compose2(var._sdep, var._uest, var._oest, uestlb, uestub, oestlb, oestub,
+              0, f, Df, cvx, inc, xinfl);
+
+    // Reset primary estimator bounds
+    var._lbd.second = var._ubd.second = false;
+
+    // Reorder primary and shadow estimators
+    if (!var._uest2.empty() && var.l(0) < var.l(1))
+    {
+      std::swap(var._uest, var._uest2);
+      std::swap(var._lbd.first, var._lbd2.first);
+    }
+    if (!var._oest2.empty() && var.u(0) > var.u(1))
+    {
+      std::swap(var._oest, var._oest2);
+      std::swap(var._ubd.first, var._ubd2.first);
+    }
+
+    // Update constant bounds
+    if (var._lbd0.second && var.l(0) > var._lbd0.first)
+      var._lbd0.second = false;
+    if (var._ubd0.second && var.u(0) < var._ubd0.first)
+      var._ubd0.second = false;
+  }
+
+  //! @brief Compose variable <a>var</a> with a univariate outer function
+  //! <a>f</a> with derivative <a>Df</a> and given convexity <a>cvx</a> but
+  //! non-monotonicity with minimum/maximum at xinfl
+  template <typename UNIV, typename DUNIV>
+  void
+  compose3(SupVar<Summand>& var, UNIV const& f, DUNIV const& Df, int const cvx,
+           double const& xopt, std::pair<bool, double> domlb = {0, 0.},
+           std::pair<bool, double> domub = {0, 0.}) const
+  {
+    if (cvx != 4 && cvx != 5) throw Exceptions(Exceptions::INTERN);
+
+    double const fopt = f(xopt), fl = f(var.l()), fu = f(var.u());
+
+    // Detect convex/concave and monotonic
+    if (var.l() >= xopt)
+    {
+      // Functions with extended monotonicity
+      auto const& f1  = [&](const double& x) { return x > xopt ? f(x) : fopt; };
+      auto const& Df1 = [&](const double& x) { return x > xopt ? Df(x) : 0.; };
+      return compose1(var, f1, Df1, cvx % 2, cvx % 2, {0, 0.},
+                      domub);  // convex inc or concave dec
+    }
+
+    if (var.u() <= xopt)
+    {
+      // Functions with extended monotonicity
+      auto const& f2  = [&](const double& x) { return x < xopt ? f(x) : fopt; };
+      auto const& Df2 = [&](const double& x) { return x < xopt ? Df(x) : 0.; };
+      return compose1(var, f2, Df2, cvx % 2, !(cvx % 2), domlb,
+                      {0, 0.});  // convex dec or concave inc
+    }
+
+    // Use DC-decomposition if non-monotonic
+    auto const& f1  = [&](const double& x) { return x > xopt ? f(x) : fopt; };
+    auto const& Df1 = [&](const double& x) { return x > xopt ? Df(x) : 0; };
+    auto const& f2  = [&](const double& x)
+    { return x < xopt ? f(x) - fopt : 0; };
+    auto const& Df2 = [&](const double& x) { return x < xopt ? Df(x) : 0; };
+
+    SupVar<Summand> var2(var);
+    if (cvx == 5)
+    {
+      compose1(var, f1, Df1, 1, 1, {0, 0.}, domub);   // convex & non-decreasing
+      compose1(var2, f2, Df2, 1, 0, domlb, {0, 0.});  // convex & non-increasing
+    }
+    else /* if( cvx == 4 )*/
+    {
+      compose1(var, f1, Df1, 0, 0, {0, 0.}, domub);  // concave & non-increasing
+      compose1(var2, f2, Df2, 0, 1, domlb,
+               {0, 0.});  // concave & non-decreasing
+    }
+
+    if (!options.USE_CVXMAX || !options.USE_SHADOW || var._uest2.empty() ||
+        var2._uest2.empty() || var._sdep.size() == 1)
+    {
+      var += var2;
+      return;
+    }
+
+    // Use mix-matched primary and shadow estimators
+    if (cvx % 2)
+    {
+      if (!var._uest2.empty() && !var2._uest2.empty())
+      {
+        _add(var._sdep, var._uest, var2._sdep, var2._uest2, 1);
+        _add(var._sdep, var._uest2, var2._sdep, var2._uest, 1);
+        var._lbd.second = var._lbd2.second =
+            false;  // reset primary and shadow underestimator bounds
+      }
+      else
+      {
+        _add(var._sdep, var._uest, var2._sdep, var2._uest, 1);
+        var._lbd.second = false;  // reset primary underestimator bound
+      }
+
+      //        _add( var._sdep, var._oest, var2._sdep, var2._oest, 0 );
+      //        var._ubd.second = false; // reset primary overestimator bound
+      //        if( !var._oest2.empty() && !var2._oest2.empty() ){
+      //          _add( var._sdep, var._oest2, var2._sdep, var2._oest2, 0 );
+      //          var._ubd2.second = false; // reset shadow overestimator bound
+      //        }
+      if (!var._oest2.empty() && !var2._oest2.empty())
+      {
+        _add(var._sdep, var._oest, var2._sdep, var2._oest2, 0);
+        _add(var._sdep, var._oest2, var2._sdep, var2._oest, 0);
+        var._ubd.second = var._ubd2.second =
+            false;  // reset primary and shadow overestimator bounds
+      }
+      else
+      {
+        _add(var._sdep, var._oest, var2._sdep, var2._oest, 0);
+        var._ubd.second = false;  // reset primary overestimator bound
       }
 
       // Propagate constant bounds
-      if( var._lbd0.second ){
-        var._lbd0.first = (inc? fl: fu);
-        if( var.l(0) > var._lbd0.first ) var._lbd0.second = false;
-      }
-      if( var._ubd0.second ){
-        var._ubd0.first = (inc? fu: fl);
-        if( var.u(0) < var._ubd0.first ) var._ubd0.second = false;
-      }
+      var._lbd0 = std::make_pair(fopt, true);
+      var._ubd0 = std::make_pair(std::max(fl, fu), true);
     }
 
-  //! @brief Compose variable <a>var</a> with a univariate outer function <a>f</a> with derivative <a>Df</a> and given convexoconcavity <a>cvx</a> and monotonicity <a>inc</a>
-  template <typename UNIV, typename DUNIV>
-  void compose2
-    ( SupVar<Summand>& var, UNIV const& f, DUNIV const& Df, int const cvx, bool const inc,
-      double const& xinfl, std::pair<bool,double> domlb={0,0.}, std::pair<bool,double> domub={0,0.} )
-    const
+    else if (!(cvx % 2))
     {
-      if( cvx != 2 && cvx != 3 ) throw Exceptions( Exceptions::INTERN );
-
-      // Detect convex/concave and monotonic 
-      if( var.l() >= xinfl ){
-        double const finfl = f( xinfl ), Dfinfl = Df( xinfl );
-        auto const& f2  = [&]( const double& x )
-                             { return x>xinfl? f(x): finfl+Dfinfl*(x-xinfl); };
-        auto const& Df2 = [&]( const double& x )
-                             { return x>xinfl? Df(x): Dfinfl; };
-        return compose1( var, f2, Df2, !(cvx%2), inc, {0,0.}, domub ); // convex or concave
+      if (!var._oest2.empty() && !var2._oest2.empty())
+      {
+        _add(var._sdep, var._oest, var2._sdep, var2._oest2, 0);
+        _add(var._sdep, var._oest2, var2._sdep, var2._oest, 0);
+        var._ubd.second = var._ubd2.second =
+            false;  // reset primary and shadow overestimator bounds
       }
-      
-      if( var.u() <= xinfl ){
-        double const finfl = f( xinfl ), Dfinfl = Df( xinfl );
-        auto const& f1  = [&]( const double& x )
-                             { return x<xinfl? f(x): finfl+Dfinfl*(x-xinfl); };
-        auto const& Df1 = [&]( const double& x )
-                             { return x<xinfl? Df(x): Dfinfl; };
-        return compose1( var, f1, Df1, cvx%2, inc, domlb, {0,0.} ); // convex or concave
+      else
+      {
+        _add(var._sdep, var._oest, var2._sdep, var2._oest, 0);
+        var._ubd.second = false;  // reset overestimator bound
       }
 
-      // Use of DC-decomposition
-      if( !options.USE_CVXCCV ){
-        double const finfl = f( xinfl ), Dfinfl = Df( xinfl );
-        auto const& f1  = [&]( const double& x )
-                             { double const z = f(x), t = finfl+Dfinfl*(x-xinfl); return z>t?z:t; };
-        auto const& Df1 = [&]( const double& x )
-                             { double const z = f(x), t = finfl+Dfinfl*(x-xinfl); return z>t?Df(x):Dfinfl; };
-        auto const& f2  = [&]( const double& x )
-                             { double const z = f(x), t = finfl+Dfinfl*(x-xinfl); return z<t?z-t:0; };
-        auto const& Df2 = [&]( const double& x )
-                             { double const z = f(x), t = finfl+Dfinfl*(x-xinfl); return z<t?Df(x)-Dfinfl:0; };
-
-        SupVar<Summand> var2( var );
-        if( cvx == 3 && inc ){
-          compose1( var,  f1, Df1, 1, 1, {0,0.}, domub ); // convex & non-decreasing
-          compose1( var2, f2, Df2, 0, 0, domlb, {0,0.} ); // convex & non-increasing
-        }
-        else if( cvx == 3 && !inc ){
-          compose1( var,  f1, Df1, 1, 0, {0,0.}, domub ); // convex & non-increasing
-          compose1( var2, f2, Df2, 0, 0, domlb, {0,0.} ); // concave & non-increasing
-        }
-        else if( cvx == 2 && inc ){
-          compose1( var,  f1, Df1, 1, 1, {0,0.}, domub ); // convex & non-decreasing
-          compose1( var2, f2, Df2, 0, 1, domlb, {0,0.} ); // concave & non-decreasing
-        }
-        else/* if( cvx == 2 && !inc )*/{
-          compose1( var,  f1, Df1, 1, 0, {0,0.}, domub ); // convex & non-increasing
-          compose1( var2, f2, Df2, 0, 1, domlb, {0,0.} ); // concave & non-decreasing        
-        }
-        var += var2;
-        return;
+      //        _add( var._sdep, var._uest, var2._sdep, var2._uest, 1 );
+      //        var._lbd.second = false; // reset primary underestimator bound
+      //        if( !var._uest2.empty() && !var2._uest2.empty() ){
+      //          _add( var._sdep, var._uest2, var2._sdep, var2._uest2, 1 );
+      //          var._lbd2.second = false; // reset shadow underestimator bound
+      //        }
+      if (!var._uest2.empty() && !var2._uest2.empty())
+      {
+        _add(var._sdep, var._uest, var2._sdep, var2._uest2, 1);
+        _add(var._sdep, var._uest2, var2._sdep, var2._uest, 1);
+        var._lbd.second = var._lbd2.second =
+            false;  // reset primary and shadow overestimator bounds
+      }
+      else
+      {
+        _add(var._sdep, var._uest, var2._sdep, var2._uest, 1);
+        var._lbd.second = false;  // reset primary overestimator bound
       }
 
-      // No need to propagate shadow estimators in single dependency case
-      if( options.USE_SHADOW && var._sdep.size() > 1 ){
-        // Initialize secondary underestimator
-        double uestlb, uestub;
-        if( var._uest2.empty() || ( domlb.first && var.l(1) < domlb.second ) ){
-          var._uest2 = var._uest; // overwrite secondary underestimator with primary one to comply with domain definition
-          var._lbd2  = var._lbd;  // duplicate primary underestimator bounds
-        }
-        uestlb = var.l(1);
-        SupVar<Summand>::_ub( uestub, var._sdep, var._uest2 );
-
-        // Initialize secondary overestimator
-        double oestlb, oestub;
-        if( var._oest2.empty() || ( domub.first && var.u(1) > domub.second ) ){
-          var._oest2 = var._oest; // overwrite secondary overestimator with primary one to comply with domain definition
-          var._ubd2  = var._ubd;  // duplicate primary overestimator bounds
-        }
-        oestub = var.u(1);
-        SupVar<Summand>::_lb( oestlb, var._sdep, var._oest2 );
-        
-        // Secondary estimator composition
-        _compose2( var._sdep, var._uest2, var._oest2, uestlb, uestub, oestlb, oestub, 1, f, Df, cvx, inc, xinfl );
-
-        // reset secondary estimator bounds
-        var._lbd2.second = var._ubd2.second = false; 
-      }
-
-      // Compliance with domain definition 
-      if( domlb.first && var.l(0) < domlb.second ){
-        assert( !var._uest2.empty() ); // domain violation should already be detected
-        var._uest = var._uest2; // overwrite primary underestimator with secondary one to comply with domain definition
-        var._lbd  = var._lbd2;  // duplicate secondary underestimator bounds
-        
-      }
-      if( domub.first && var.u(0) > domub.second ){
-        assert( !var._oest2.empty() ); // domain violation should already be detected
-        var._oest = var._oest2; // overwrite primary overestimator with secondary one to comply with domain definition
-        var._ubd  = var._ubd2;  // duplicate secondary overestimator bounds
-      }
-
-      // Primary estimator bounds
-      double const uestlb = var.l(0), oestub = var.u(0);
-      double uestub, oestlb;
-      SupVar<Summand>::_ub( uestub, var._sdep, var._uest );           
-      SupVar<Summand>::_lb( oestlb, var._sdep, var._oest );           
-
-      // Primary estimator composition
-      _compose2( var._sdep, var._uest, var._oest, uestlb, uestub, oestlb, oestub, 0, f, Df, cvx, inc, xinfl );
-
-      // Reset primary estimator bounds
-      var._lbd.second = var._ubd.second = false; 
-
-      // Reorder primary and shadow estimators
-      if( !var._uest2.empty() && var.l(0) < var.l(1) ){
-        std::swap( var._uest, var._uest2 );
-        std::swap( var._lbd.first, var._lbd2.first );
-      }
-      if( !var._oest2.empty() && var.u(0) > var.u(1) ){
-        std::swap( var._oest, var._oest2 );
-        std::swap( var._ubd.first, var._ubd2.first );
-      }
-
-      // Update constant bounds
-      if( var._lbd0.second && var.l(0) > var._lbd0.first )
-        var._lbd0.second = false;
-      if( var._ubd0.second && var.u(0) < var._ubd0.first )
-        var._ubd0.second = false;
+      // Propagate constant bounds
+      var._lbd0 = std::make_pair(std::min(fl, fu), true);
+      var._ubd0 = std::make_pair(fopt, true);
     }
 
-  //! @brief Compose variable <a>var</a> with a univariate outer function <a>f</a> with derivative <a>Df</a> and given convexity <a>cvx</a> but non-monotonicity with minimum/maximum at xinfl
-  template <typename UNIV, typename DUNIV>
-  void compose3
-    ( SupVar<Summand>& var, UNIV const& f, DUNIV const& Df, int const cvx, double const& xopt,
-      std::pair<bool,double> domlb={0,0.}, std::pair<bool,double> domub={0,0.} )
-    const
+    // Reorder primary and shadow estimators
+    if (!var._uest2.empty() && var.l(0) < var.l(1))
     {
-      if( cvx != 4 && cvx != 5 ) throw Exceptions( Exceptions::INTERN );
-
-      double const fopt = f( xopt ), fl = f( var.l() ), fu = f( var.u() );
-
-      // Detect convex/concave and monotonic 
-      if( var.l() >= xopt ){
-        // Functions with extended monotonicity
-        auto const& f1  = [&]( const double& x ){ return x>xopt? f(x): fopt; };
-        auto const& Df1 = [&]( const double& x ){ return x>xopt? Df(x): 0.; };
-        return compose1( var, f1, Df1, cvx%2, cvx%2, {0,0.}, domub ); // convex inc or concave dec
-      }
-
-      if( var.u() <= xopt ){
-        // Functions with extended monotonicity
-        auto const& f2  = [&]( const double& x ){ return x<xopt? f(x): fopt; };
-        auto const& Df2 = [&]( const double& x ){ return x<xopt? Df(x): 0.; };
-        return compose1( var, f2, Df2, cvx%2, !(cvx%2), domlb, {0,0.} ); // convex dec or concave inc
-      }
-      
-      // Use DC-decomposition if non-monotonic
-      auto const& f1  = [&]( const double& x ){ return x>xopt? f(x): fopt; };
-      auto const& Df1 = [&]( const double& x ){ return x>xopt? Df(x): 0; };
-      auto const& f2  = [&]( const double& x ){ return x<xopt? f(x)-fopt: 0; };
-      auto const& Df2 = [&]( const double& x ){ return x<xopt? Df(x): 0; };
-
-      SupVar<Summand> var2( var );
-      if( cvx == 5 ){
-        compose1( var,  f1, Df1, 1, 1, {0,0.}, domub ); // convex & non-decreasing
-        compose1( var2, f2, Df2, 1, 0, domlb, {0,0.} ); // convex & non-increasing
-      }
-      else/* if( cvx == 4 )*/{
-        compose1( var,  f1, Df1, 0, 0, {0,0.}, domub ); // concave & non-increasing
-        compose1( var2, f2, Df2, 0, 1, domlb, {0,0.} ); // concave & non-decreasing        
-      }
-
-      if( !options.USE_CVXMAX || !options.USE_SHADOW || var._uest2.empty() || var2._uest2.empty()
-       || var._sdep.size() == 1 ){
-        var += var2;
-        return;
-      }
-
-      // Use mix-matched primary and shadow estimators
-      if( cvx%2 ){
-        if( !var._uest2.empty() && !var2._uest2.empty() ){
-          _add( var._sdep, var._uest, var2._sdep, var2._uest2, 1 );
-          _add( var._sdep, var._uest2, var2._sdep, var2._uest, 1 );
-          var._lbd.second = var._lbd2.second = false; // reset primary and shadow underestimator bounds
-        }
-        else{
-          _add( var._sdep, var._uest, var2._sdep, var2._uest, 1 );
-          var._lbd.second = false; // reset primary underestimator bound
-        }
-
-//        _add( var._sdep, var._oest, var2._sdep, var2._oest, 0 );
-//        var._ubd.second = false; // reset primary overestimator bound
-//        if( !var._oest2.empty() && !var2._oest2.empty() ){
-//          _add( var._sdep, var._oest2, var2._sdep, var2._oest2, 0 );
-//          var._ubd2.second = false; // reset shadow overestimator bound
-//        }
-        if( !var._oest2.empty() && !var2._oest2.empty() ){
-          _add( var._sdep, var._oest, var2._sdep, var2._oest2, 0 );
-          _add( var._sdep, var._oest2, var2._sdep, var2._oest, 0 );
-          var._ubd.second = var._ubd2.second = false; // reset primary and shadow overestimator bounds
-        }
-        else{
-          _add( var._sdep, var._oest, var2._sdep, var2._oest, 0 );
-          var._ubd.second = false; // reset primary overestimator bound
-        }
-
-        // Propagate constant bounds
-        var._lbd0 = std::make_pair( fopt, true );
-        var._ubd0 = std::make_pair( std::max( fl, fu ), true );
-      }
-
-      else if( !(cvx%2) ){
-        if( !var._oest2.empty() && !var2._oest2.empty() ){
-          _add( var._sdep, var._oest, var2._sdep, var2._oest2, 0 );
-          _add( var._sdep, var._oest2, var2._sdep, var2._oest, 0 );
-          var._ubd.second = var._ubd2.second = false; // reset primary and shadow overestimator bounds
-        }
-        else{
-          _add( var._sdep, var._oest, var2._sdep, var2._oest, 0 );
-          var._ubd.second = false; // reset overestimator bound
-        }
-
-//        _add( var._sdep, var._uest, var2._sdep, var2._uest, 1 );
-//        var._lbd.second = false; // reset primary underestimator bound
-//        if( !var._uest2.empty() && !var2._uest2.empty() ){
-//          _add( var._sdep, var._uest2, var2._sdep, var2._uest2, 1 );
-//          var._lbd2.second = false; // reset shadow underestimator bound
-//        }
-        if( !var._uest2.empty() && !var2._uest2.empty() ){
-          _add( var._sdep, var._uest, var2._sdep, var2._uest2, 1 );
-          _add( var._sdep, var._uest2, var2._sdep, var2._uest, 1 );
-          var._lbd.second = var._lbd2.second = false; // reset primary and shadow overestimator bounds
-        }
-        else{
-          _add( var._sdep, var._uest, var2._sdep, var2._uest, 1 );
-          var._lbd.second = false; // reset primary overestimator bound
-        }
-
-        // Propagate constant bounds
-        var._lbd0 = std::make_pair( std::min( fl, fu ), true );
-        var._ubd0 = std::make_pair( fopt, true );
-      }
-
-      // Reorder primary and shadow estimators
-      if( !var._uest2.empty() && var.l(0) < var.l(1) ){
-        std::swap( var._uest, var._uest2 );
-        std::swap( var._lbd.first, var._lbd2.first );
-      }
-      if( !var._oest2.empty() && var.u(0) > var.u(1) ){
-        std::swap( var._oest, var._oest2 );
-        std::swap( var._ubd.first, var._ubd2.first );
-      }
-
-      // Update constant bounds
-      if( var._lbd0.second && var.l(0) > var._lbd0.first )
-        var._lbd0.second = false;
-      if( var._ubd0.second && var.u(0) < var._ubd0.first )
-        var._ubd0.second = false;
+      std::swap(var._uest, var._uest2);
+      std::swap(var._lbd.first, var._lbd2.first);
     }
-
-  //! @brief Compose variable <a>var</a> with a univariate outer function <a>f</a> with derivative <a>Df</a>, initial convexity/concavity <a>cvx</a>, initial minimum/maximum at <a>xopt0</a> (possibly less than var.l()), and inflection points in vector <a>xinfl</a>
-  template <typename UNIV, typename DUNIV>
-  void compose4
-    ( SupVar<Summand>& var, UNIV const& f, DUNIV const& Df, bool const cvx, double const xopt0,
-      std::vector<double> const& xinfl, std::pair<bool,double> domlb={0,0.}, std::pair<bool,double> domub={0,0.} )
-    const
+    if (!var._oest2.empty() && var.u(0) > var.u(1))
     {
-      double const xlb = var.l(), xub = var.u();
-      
-      // No inflection point in range
-      if( xinfl.empty() ){
-        // case: convex/concave, possibly non-monotonic w/ extremum at xopt
-        compose3( var, f, Df, 4+cvx, xopt0, domlb, domub );
-      }
-
-      // One or more inflection points in range
-      else{
-        size_t k = 0;
-        assert( xinfl[0] > xlb && xinfl[0] < xub && xinfl[0] > xopt0 );
-        bool cvx0 = cvx;
-        double finfl0 = f(xinfl[0]), dfinfl0 = Df(xinfl[0]);
-        auto const& f0  = [&]( const double& x ){ return x<xinfl[0]? f(x): finfl0+dfinfl0*(x-xinfl[0]); };
-        auto const& Df0 = [&]( const double& x ){ return x<xinfl[0]? Df(x): dfinfl0; };
-        SupVar<Summand> var0( var );
-        compose3( var0, f0, Df0, 4+cvx, xopt0, domlb, {0,0.} );
-
-        //bool inc0 = xopt0<=xlb? cvx0: !cvx0;
-        double finfl1, dfinfl1;
-        bool cvx1 = !cvx0, inc1 = cvx1, inc0 = !inc1;
-        for( ++k; k<xinfl.size(); ++k ){
-          assert( xinfl[k] > xinfl[k-1] && xinfl[k] < xub );
-          finfl1 = f(xinfl[k]), dfinfl1 = Df(xinfl[k]);
-          auto const& f1  = [&]( const double& x )
-                               { return x<xinfl[k-1]? 0: (x<xinfl[k]? f(x):finfl1+dfinfl1*(x-xinfl[k]))-finfl0-dfinfl0*(x-xinfl[k-1]); };
-          auto const& Df1 = [&]( const double& x )
-                               { return x<xinfl[k-1]? 0: (x<xinfl[k]? Df(x): dfinfl1)-dfinfl0; };
-          SupVar<Summand> var1( var );
-          compose1( var1, f1, Df1, cvx1, inc1 ); // defined everywhere beyond [xinfl[k-1],xinfl[k]]
-          var0 += var1;
-        
-          std::swap( cvx0,    cvx1    );
-          std::swap( inc0,    inc1    );
-          std::swap( finfl0,  finfl1  );
-          std::swap( dfinfl0, dfinfl1 );
-        }
-
-        assert( xinfl[k-1] < xub );
-        auto const& f2  = [&]( const double& x ){ return x<xinfl[k-1]? 0: f(x)-finfl0-dfinfl0*(x-xinfl[k-1]); };
-        auto const& Df2 = [&]( const double& x ){ return x<xinfl[k-1]? 0: Df(x)-dfinfl0; };
-        compose1( var, f2, Df2, cvx1, inc1, {0,0.}, domub );
-        var += var0;
-      }
+      std::swap(var._oest, var._oest2);
+      std::swap(var._ubd.first, var._ubd2.first);
     }
+
+    // Update constant bounds
+    if (var._lbd0.second && var.l(0) > var._lbd0.first)
+      var._lbd0.second = false;
+    if (var._ubd0.second && var.u(0) < var._ubd0.first)
+      var._ubd0.second = false;
+  }
+
+  //! @brief Compose variable <a>var</a> with a univariate outer function
+  //! <a>f</a> with derivative <a>Df</a>, initial convexity/concavity
+  //! <a>cvx</a>, initial minimum/maximum at <a>xopt0</a> (possibly less than
+  //! var.l()), and inflection points in vector <a>xinfl</a>
+  template <typename UNIV, typename DUNIV>
+  void
+  compose4(SupVar<Summand>& var, UNIV const& f, DUNIV const& Df, bool const cvx,
+           double const xopt0, std::vector<double> const& xinfl,
+           std::pair<bool, double> domlb = {0, 0.},
+           std::pair<bool, double> domub = {0, 0.}) const
+  {
+    double const xlb = var.l(), xub = var.u();
+
+    // No inflection point in range
+    if (xinfl.empty())
+    {
+      // case: convex/concave, possibly non-monotonic w/ extremum at xopt
+      compose3(var, f, Df, 4 + cvx, xopt0, domlb, domub);
+    }
+
+    // One or more inflection points in range
+    else
+    {
+      size_t k = 0;
+      assert(xinfl[0] > xlb && xinfl[0] < xub && xinfl[0] > xopt0);
+      bool cvx0     = cvx;
+      double finfl0 = f(xinfl[0]), dfinfl0 = Df(xinfl[0]);
+      auto const& f0 = [&](const double& x)
+      { return x < xinfl[0] ? f(x) : finfl0 + dfinfl0 * (x - xinfl[0]); };
+      auto const& Df0 = [&](const double& x)
+      { return x < xinfl[0] ? Df(x) : dfinfl0; };
+      SupVar<Summand> var0(var);
+      compose3(var0, f0, Df0, 4 + cvx, xopt0, domlb, {0, 0.});
+
+      // bool inc0 = xopt0<=xlb? cvx0: !cvx0;
+      double finfl1, dfinfl1;
+      bool cvx1 = !cvx0, inc1 = cvx1, inc0 = !inc1;
+      for (++k; k < xinfl.size(); ++k)
+      {
+        assert(xinfl[k] > xinfl[k - 1] && xinfl[k] < xub);
+        finfl1 = f(xinfl[k]), dfinfl1 = Df(xinfl[k]);
+        auto const& f1 = [&](const double& x)
+        {
+          return x < xinfl[k - 1]
+                     ? 0
+                     : (x < xinfl[k] ? f(x)
+                                     : finfl1 + dfinfl1 * (x - xinfl[k])) -
+                           finfl0 - dfinfl0 * (x - xinfl[k - 1]);
+        };
+        auto const& Df1 = [&](const double& x) {
+          return x < xinfl[k - 1] ? 0
+                                  : (x < xinfl[k] ? Df(x) : dfinfl1) - dfinfl0;
+        };
+        SupVar<Summand> var1(var);
+        compose1(var1, f1, Df1, cvx1,
+                 inc1);  // defined everywhere beyond [xinfl[k-1],xinfl[k]]
+        var0 += var1;
+
+        std::swap(cvx0, cvx1);
+        std::swap(inc0, inc1);
+        std::swap(finfl0, finfl1);
+        std::swap(dfinfl0, dfinfl1);
+      }
+
+      assert(xinfl[k - 1] < xub);
+      auto const& f2 = [&](const double& x) {
+        return x < xinfl[k - 1] ? 0
+                                : f(x) - finfl0 - dfinfl0 * (x - xinfl[k - 1]);
+      };
+      auto const& Df2 = [&](const double& x)
+      { return x < xinfl[k - 1] ? 0 : Df(x) - dfinfl0; };
+      compose1(var, f2, Df2, cvx1, inc1, {0, 0.}, domub);
+      var += var0;
+    }
+  }
 
   //! @brief Intersect variable <a>var</a> with upper bound value <a>val</a>
-  void max
-    ( SupVar<Summand>& var, double const& val )
-    const
+  void
+  max(SupVar<Summand>& var, double const& val) const
+  {
+    // No need to propagate shadow estimators in single dependency case
+    if (options.USE_SHADOW && var._sdep.size() > 1)
     {
-      // No need to propagate shadow estimators in single dependency case
-      if( options.USE_SHADOW && var._sdep.size() > 1 ){
-        if( var._uest2.empty() )
-          var._uest2 = var._uest; // duplicate current underestimator
-        SupVar<Summand>::_ub( _ubd2, var._sdep, var._uest2 );
-        if( !var._oest2.empty() )
-          SupVar<Summand>::_lb( _lbd2, var._sdep, var._oest2 );
-        _max( var._sdep, var._uest2, var._oest2, _ubd2, _lbd2, 1, val );
-        var._lbd2.second = var._ubd2.second = false; // reset shadow estimator bounds
-      }
-
-      _max( var._sdep, var._uest, var._oest, var.l(0), var.u(0), 0, val );
-      var._lbd.second = var._ubd.second = false; // reset primal estimator bounds
+      if (var._uest2.empty())
+        var._uest2 = var._uest;  // duplicate current underestimator
+      SupVar<Summand>::_ub(_ubd2, var._sdep, var._uest2);
+      if (!var._oest2.empty())
+        SupVar<Summand>::_lb(_lbd2, var._sdep, var._oest2);
+      _max(var._sdep, var._uest2, var._oest2, _ubd2, _lbd2, 1, val);
+      var._lbd2.second = var._ubd2.second =
+          false;  // reset shadow estimator bounds
     }
+
+    _max(var._sdep, var._uest, var._oest, var.l(0), var.u(0), 0, val);
+    var._lbd.second = var._ubd.second = false;  // reset primal estimator bounds
+  }
 
   //! @brief Intersect variable <a>var</a> with lower bound value <a>val</a>
-  void min
-    ( SupVar<Summand>& var, double const& val )
-    const
+  void
+  min(SupVar<Summand>& var, double const& val) const
+  {
+    // No need to propagate shadow estimators in single dependency case
+    if (options.USE_SHADOW && var._sdep.size() > 1)
     {
-      // No need to propagate shadow estimators in single dependency case
-      if( options.USE_SHADOW && var._sdep.size() > 1 ){
-        if( !var._uest2.empty() )
-          SupVar<Summand>::_ub( _ubd2, var._sdep, var._uest2 );
-        if( var._oest2.empty() )
-          var._oest2 = var._oest; // duplicate current overestimator
-        SupVar<Summand>::_lb( _lbd2, var._sdep, var._oest2 );
-        _min( var._sdep, var._uest2, var._oest2, _ubd2, _lbd2, 1, val );
-        var._lbd2.second = var._ubd2.second = false; // reset shadow estimator bounds
-      }
-
-      _min( var._sdep, var._uest, var._oest, var.l(0), var.u(0), 0, val );
-      var._lbd.second = var._ubd.second = false; // reset primal estimator bounds
+      if (!var._uest2.empty())
+        SupVar<Summand>::_ub(_ubd2, var._sdep, var._uest2);
+      if (var._oest2.empty())
+        var._oest2 = var._oest;  // duplicate current overestimator
+      SupVar<Summand>::_lb(_lbd2, var._sdep, var._oest2);
+      _min(var._sdep, var._uest2, var._oest2, _ubd2, _lbd2, 1, val);
+      var._lbd2.second = var._ubd2.second =
+          false;  // reset shadow estimator bounds
     }
 
-  //! @brief Intersect underestimator in variable <a>var</a> with the natural lower bound value <a>val</a>
-  void uref
-    ( SupVar<Summand>& var, double const& val )
-    const
+    _min(var._sdep, var._uest, var._oest, var.l(0), var.u(0), 0, val);
+    var._lbd.second = var._ubd.second = false;  // reset primal estimator bounds
+  }
+
+  //! @brief Intersect underestimator in variable <a>var</a> with the natural
+  //! lower bound value <a>val</a>
+  void
+  uref(SupVar<Summand>& var, double const& val) const
+  {
+    static std::vector<Summand> est0 = std::vector<Summand>();
+
+    // No need to propagate shadow estimators in single dependency case
+    if (options.USE_SHADOW && var._sdep.size() > 1)
     {
-      static std::vector<Summand> est0 = std::vector<Summand>();
-
-      // No need to propagate shadow estimators in single dependency case
-      if( options.USE_SHADOW && var._sdep.size() > 1 ){
-        if( var._uest2.empty() )
-          var._uest2 = var._uest; // duplicate current underestimator
-        SupVar<Summand>::_ub( _ubd2, var._sdep, var._uest2 );
-        _max( var._sdep, var._uest2, est0, _ubd2, _lbd2, 1, val );
-        var._lbd2.second = false; // reset shadow underestimator bounds
-      }
-
-      _max( var._sdep, var._uest, est0, var.l(0), 0., 0, val );
-      var._lbd.second = false; // reset primal underestimator bounds
+      if (var._uest2.empty())
+        var._uest2 = var._uest;  // duplicate current underestimator
+      SupVar<Summand>::_ub(_ubd2, var._sdep, var._uest2);
+      _max(var._sdep, var._uest2, est0, _ubd2, _lbd2, 1, val);
+      var._lbd2.second = false;  // reset shadow underestimator bounds
     }
 
-  //! @brief Intersect overestimator in variable <a>var</a> with the natural upper bound value <a>val</a>
-  void oref
-    ( SupVar<Summand>& var, double const& val )
-    const
+    _max(var._sdep, var._uest, est0, var.l(0), 0., 0, val);
+    var._lbd.second = false;  // reset primal underestimator bounds
+  }
+
+  //! @brief Intersect overestimator in variable <a>var</a> with the natural
+  //! upper bound value <a>val</a>
+  void
+  oref(SupVar<Summand>& var, double const& val) const
+  {
+    static std::vector<Summand> est0 = std::vector<Summand>();
+
+    // No need to propagate shadow estimators in single dependency case
+    if (options.USE_SHADOW && var._sdep.size() > 1)
     {
-      static std::vector<Summand> est0 = std::vector<Summand>();
-
-      // No need to propagate shadow estimators in single dependency case
-      if( options.USE_SHADOW && var._sdep.size() > 1 ){
-        if( var._oest2.empty() )
-          var._oest2 = var._oest; // duplicate current overestimator
-        SupVar<Summand>::_lb( _lbd2, var._sdep, var._oest2 );
-        _min( var._sdep, est0, var._oest2, _ubd2, _lbd2, 1, val );
-        var._ubd2.second = false; // reset shadow overestimator bounds
-      }
-
-      _min( var._sdep, est0, var._oest, 0., var.u(0), 0, val );
-      var._ubd.second = false; // reset primal overestimator bounds
+      if (var._oest2.empty())
+        var._oest2 = var._oest;  // duplicate current overestimator
+      SupVar<Summand>::_lb(_lbd2, var._sdep, var._oest2);
+      _min(var._sdep, est0, var._oest2, _ubd2, _lbd2, 1, val);
+      var._ubd2.second = false;  // reset shadow overestimator bounds
     }
+
+    _min(var._sdep, est0, var._oest, 0., var.u(0), 0, val);
+    var._ubd.second = false;  // reset primal overestimator bounds
+  }
 
  private:
-
   //! @brief Intermediate storage
   mutable std::vector<Summand> _est3;
   mutable std::vector<Summand> _est4;
@@ -1399,978 +1694,1219 @@ class SupModel
   mutable double _lbd4;
   mutable double _ubd4;
 
-  void _max
-    ( std::set<unsigned> const& sdep, std::vector<Summand>& uest, std::vector<Summand>& oest,
-       double const& ubnd, double const& obnd, bool const shadow, double const& val )
-    const
+  void
+  _max(std::set<unsigned> const& sdep, std::vector<Summand>& uest,
+       std::vector<Summand>& oest, double const& ubnd, double const& obnd,
+       bool const shadow, double const& val) const
+  {
+    auto const& fmax = [&](const double& x) { return x > val ? x : val; };
+
+    // Single dependency case
+    if (sdep.size() == 1)
     {
-      auto const& fmax = [&]( const double& x ){ return x > val? x: val; };
+      auto const& i = *sdep.cbegin();
 
-      // Single dependency case
-      if( sdep.size() == 1 ){
-        auto const& i = *sdep.cbegin();
+      if (!uest.empty() && uest[i].w() > options.SUM_TOL)
+        uest[i].max(val).reduce(1, options.MAX_SUBDIV);
+      else if (!uest.empty())
+        uest[i].set(fmax(uest[i].l()));
 
-        if( !uest.empty() && uest[i].w() > options.SUM_TOL )
-          uest[i].max( val ).reduce( 1, options.MAX_SUBDIV );
-        else if( !uest.empty() )
-          uest[i].set( fmax( uest[i].l() ) );
-          
-        if( !oest.empty() && oest[i].w() > options.SUM_TOL )
-          oest[i].max( val ).reduce( 0, options.MAX_SUBDIV );
-        else if( !oest.empty() )
-          oest[i].set( fmax( oest[i].u() ) );
+      if (!oest.empty() && oest[i].w() > options.SUM_TOL)
+        oest[i].max(val).reduce(0, options.MAX_SUBDIV);
+      else if (!oest.empty())
+        oest[i].set(fmax(oest[i].u()));
 
-        return;
-      }
-
-      // Multiple dependency case
-      double wu( 0. ), wo( 0. );
-      for( auto const& i: sdep ){
-        if( !_defvar[i] )
-          throw Exceptions( Exceptions::INTERN );
-
-        if( !uest.empty() && uest[i].w() > options.SUM_TOL )
-          wu += uest[i].w();
-
-        if( !oest.empty() && oest[i].w() > options.SUM_TOL )
-          wo += oest[i].w();
-      }
-        
-      for( auto const& i: sdep ){
-
-        if( !uest.empty() && uest[i].w() > options.SUM_TOL ){
-          double const qu = uest[i].w() / wu;
-          uest[i] += ubnd - (shadow? uest[i].u(): uest[i].l());
-          uest[i].max( val ).reduce( 1, options.MAX_SUBDIV );
-          uest[i] -= ( 1 - qu ) * fmax( ubnd );
-        }
-        else if( !uest.empty() )
-          uest[i].set( fmax( uest[i].l() ) );
-          
-        if( !oest.empty() && oest[i].w() > options.SUM_TOL ){
-          double const qo = oest[i].w() / wo;
-          oest[i] -= (shadow? oest[i].l(): oest[i].u()); //oest[i].u() 
-          oest[i] /= qo;
-          oest[i] += obnd;
-          oest[i].max( val ).reduce( 0, options.MAX_SUBDIV );
-          oest[i] *= qo;
-        }
-        else if( !oest.empty() )
-          oest[i].set( fmax( oest[i].u() ) );
-      }
-    }
-
-  void _min
-    ( std::set<unsigned> const& sdep, std::vector<Summand>& uest, std::vector<Summand>& oest,
-       double const& ubnd, double const& obnd, bool const shadow, double const& val )
-    const
-    {
-      auto const& fmin = [&]( const double& x ){ return x < val? x: val; };
-
-      // Single dependency case
-      if( sdep.size() == 1 ){
-        auto const& i = *sdep.cbegin();
-
-        if( !oest.empty() && oest[i].w() > options.SUM_TOL )
-          oest[i].min( val ).reduce( 0, options.MAX_SUBDIV );
-        else if( !oest.empty() )
-          oest[i].set( fmin( oest[i].u() ) );
-
-        if( !uest.empty() && uest[i].w() > options.SUM_TOL )
-          uest[i].min( val ).reduce( 1, options.MAX_SUBDIV );
-        else if( !uest.empty() )
-          uest[i].set( fmin( uest[i].l() ) );
-
-        return;
-      }
-      
-      // Multiple dependency case
-      double wu( 0. ), wo( 0. );
-      for( auto const& i: sdep ){
-        if( !_defvar[i] )
-          throw Exceptions( Exceptions::INTERN );
-
-        if( !uest.empty() && uest[i].w() > options.SUM_TOL )
-          wu += uest[i].w();
-
-        if( !oest.empty() && oest[i].w() > options.SUM_TOL )
-          wo += oest[i].w();
-      }
-        
-      for( auto const& i: sdep ){
-
-        if( !oest.empty() && oest[i].w() > options.SUM_TOL ){
-          double const qo = oest[i].w() / wo;
-          oest[i] += obnd - (shadow? oest[i].l(): oest[i].u());
-          oest[i].min( val ).reduce( 0, options.MAX_SUBDIV );
-          oest[i] -= ( 1 - qo ) * fmin( obnd );
-        }
-        else if( !oest.empty() )
-          oest[i].set( fmin( oest[i].u() ) );
-
-        if( !uest.empty() && uest[i].w() > options.SUM_TOL ){
-          double const qu = uest[i].w() / wu;
-          uest[i] -= (shadow? uest[i].u(): uest[i].l()); //uest[i].l();
-          uest[i] /= qu;
-          uest[i] += ubnd;
-          uest[i].min( val ).reduce( 1, options.MAX_SUBDIV );
-          uest[i] *= qu;
-        }
-        else if( !uest.empty() )
-          uest[i].set( fmin( uest[i].l() ) );
-      }
-    }
-
-  // Univariate composition - !(cvx%2): concave  cvx%2: convex
-  template <typename UNIV, typename DUNIV>
-  void _compose0
-    ( unsigned const idep, std::vector<Summand>& uest, std::vector<Summand>& oest,
-      UNIV const& f, DUNIV const& Df, int const cvx, bool const inc, double const& xmid=0.0 )
-    const
-    {
-      if( cvx <= 0 && cvx >= 5 ) throw Exceptions( Exceptions::INTERN );
-
-#ifdef MC__SUPMODEL_DEBUG_COMPOSE0
-      std::cerr << "\nuest0[" << idep << "]: ";
-      uest[idep].display( std::cerr, 8 );
-      std::cerr << "\noest0[" << idep << "]: ";
-      oest[idep].display( std::cerr, 8 );
-#endif
-
-      if( ( (cvx%2) && inc ) || ( !(cvx%2) && !inc ) ){
-        if( !uest.empty() && uest[idep].w() > options.SUM_TOL )
-          uest[idep].compose( f, Df, (cvx%2)?1:0, cvx, inc, xmid ).reduce( (cvx%2)?1:0, options.MAX_SUBDIV );
-        else if( !uest.empty() )
-          uest[idep].set( f( uest[idep].l() ) );
-
-        if( !oest.empty() && oest[idep].w() > options.SUM_TOL )
-          oest[idep].compose( f, Df, (cvx%2)?0:1, cvx, inc, xmid ).reduce( (cvx%2)?0:1, options.MAX_SUBDIV );
-        else if( !oest.empty() )
-          oest[idep].set( f( oest[idep].u() ) );
-      }
-        
-      else{
-        if( !oest.empty() && oest[idep].w() > options.SUM_TOL )
-          oest[idep].compose( f, Df, (cvx%2)?1:0, cvx, inc, xmid ).reduce( (cvx%2)?1:0, options.MAX_SUBDIV );
-        else if( !oest.empty() )
-          oest[idep].set( f( oest[idep].u() ) );
-
-        if( !uest.empty() && uest[idep].w() > options.SUM_TOL )
-          uest[idep].compose( f, Df, (cvx%2)?0:1, cvx, inc, xmid ).reduce( (cvx%2)?0:1, options.MAX_SUBDIV );
-        else if( !uest.empty() )
-          uest[idep].set( f( uest[idep].l() ) );
-      }
-
-      if( !inc ) std::swap( uest, oest );
-
-#ifdef MC__SUPMODEL_DEBUG_COMPOSE0
-      std::cerr << "\nuest[" << idep << "]: ";
-      uest[idep].display( std::cerr, 8 );
-      std::cerr << "\noest[" << idep << "]: ";
-      oest[idep].display( std::cerr, 8 );
-#endif
       return;
     }
 
+    // Multiple dependency case
+    double wu(0.), wo(0.);
+    for (auto const& i : sdep)
+    {
+      if (!_defvar[i]) throw Exceptions(Exceptions::INTERN);
+
+      if (!uest.empty() && uest[i].w() > options.SUM_TOL) wu += uest[i].w();
+
+      if (!oest.empty() && oest[i].w() > options.SUM_TOL) wo += oest[i].w();
+    }
+
+    for (auto const& i : sdep)
+    {
+      if (!uest.empty() && uest[i].w() > options.SUM_TOL)
+      {
+        double const qu = uest[i].w() / wu;
+        uest[i] += ubnd - (shadow ? uest[i].u() : uest[i].l());
+        uest[i].max(val).reduce(1, options.MAX_SUBDIV);
+        uest[i] -= (1 - qu) * fmax(ubnd);
+      }
+      else if (!uest.empty())
+        uest[i].set(fmax(uest[i].l()));
+
+      if (!oest.empty() && oest[i].w() > options.SUM_TOL)
+      {
+        double const qo = oest[i].w() / wo;
+        oest[i] -= (shadow ? oest[i].l() : oest[i].u());  // oest[i].u()
+        oest[i] /= qo;
+        oest[i] += obnd;
+        oest[i].max(val).reduce(0, options.MAX_SUBDIV);
+        oest[i] *= qo;
+      }
+      else if (!oest.empty())
+        oest[i].set(fmax(oest[i].u()));
+    }
+  }
+
+  void
+  _min(std::set<unsigned> const& sdep, std::vector<Summand>& uest,
+       std::vector<Summand>& oest, double const& ubnd, double const& obnd,
+       bool const shadow, double const& val) const
+  {
+    auto const& fmin = [&](const double& x) { return x < val ? x : val; };
+
+    // Single dependency case
+    if (sdep.size() == 1)
+    {
+      auto const& i = *sdep.cbegin();
+
+      if (!oest.empty() && oest[i].w() > options.SUM_TOL)
+        oest[i].min(val).reduce(0, options.MAX_SUBDIV);
+      else if (!oest.empty())
+        oest[i].set(fmin(oest[i].u()));
+
+      if (!uest.empty() && uest[i].w() > options.SUM_TOL)
+        uest[i].min(val).reduce(1, options.MAX_SUBDIV);
+      else if (!uest.empty())
+        uest[i].set(fmin(uest[i].l()));
+
+      return;
+    }
+
+    // Multiple dependency case
+    double wu(0.), wo(0.);
+    for (auto const& i : sdep)
+    {
+      if (!_defvar[i]) throw Exceptions(Exceptions::INTERN);
+
+      if (!uest.empty() && uest[i].w() > options.SUM_TOL) wu += uest[i].w();
+
+      if (!oest.empty() && oest[i].w() > options.SUM_TOL) wo += oest[i].w();
+    }
+
+    for (auto const& i : sdep)
+    {
+      if (!oest.empty() && oest[i].w() > options.SUM_TOL)
+      {
+        double const qo = oest[i].w() / wo;
+        oest[i] += obnd - (shadow ? oest[i].l() : oest[i].u());
+        oest[i].min(val).reduce(0, options.MAX_SUBDIV);
+        oest[i] -= (1 - qo) * fmin(obnd);
+      }
+      else if (!oest.empty())
+        oest[i].set(fmin(oest[i].u()));
+
+      if (!uest.empty() && uest[i].w() > options.SUM_TOL)
+      {
+        double const qu = uest[i].w() / wu;
+        uest[i] -= (shadow ? uest[i].u() : uest[i].l());  // uest[i].l();
+        uest[i] /= qu;
+        uest[i] += ubnd;
+        uest[i].min(val).reduce(1, options.MAX_SUBDIV);
+        uest[i] *= qu;
+      }
+      else if (!uest.empty())
+        uest[i].set(fmin(uest[i].l()));
+    }
+  }
+
+  // Univariate composition - !(cvx%2): concave  cvx%2: convex
+  template <typename UNIV, typename DUNIV>
+  void
+  _compose0(unsigned const idep, std::vector<Summand>& uest,
+            std::vector<Summand>& oest, UNIV const& f, DUNIV const& Df,
+            int const cvx, bool const inc, double const& xmid = 0.0) const
+  {
+    if (cvx <= 0 && cvx >= 5) throw Exceptions(Exceptions::INTERN);
+
+#ifdef MC__SUPMODEL_DEBUG_COMPOSE0
+    std::cerr << "\nuest0[" << idep << "]: ";
+    uest[idep].display(std::cerr, 8);
+    std::cerr << "\noest0[" << idep << "]: ";
+    oest[idep].display(std::cerr, 8);
+#endif
+
+    if (((cvx % 2) && inc) || (!(cvx % 2) && !inc))
+    {
+      if (!uest.empty() && uest[idep].w() > options.SUM_TOL)
+        uest[idep]
+            .compose(f, Df, (cvx % 2) ? 1 : 0, cvx, inc, xmid)
+            .reduce((cvx % 2) ? 1 : 0, options.MAX_SUBDIV);
+      else if (!uest.empty())
+        uest[idep].set(f(uest[idep].l()));
+
+      if (!oest.empty() && oest[idep].w() > options.SUM_TOL)
+        oest[idep]
+            .compose(f, Df, (cvx % 2) ? 0 : 1, cvx, inc, xmid)
+            .reduce((cvx % 2) ? 0 : 1, options.MAX_SUBDIV);
+      else if (!oest.empty())
+        oest[idep].set(f(oest[idep].u()));
+    }
+
+    else
+    {
+      if (!oest.empty() && oest[idep].w() > options.SUM_TOL)
+        oest[idep]
+            .compose(f, Df, (cvx % 2) ? 1 : 0, cvx, inc, xmid)
+            .reduce((cvx % 2) ? 1 : 0, options.MAX_SUBDIV);
+      else if (!oest.empty())
+        oest[idep].set(f(oest[idep].u()));
+
+      if (!uest.empty() && uest[idep].w() > options.SUM_TOL)
+        uest[idep]
+            .compose(f, Df, (cvx % 2) ? 0 : 1, cvx, inc, xmid)
+            .reduce((cvx % 2) ? 0 : 1, options.MAX_SUBDIV);
+      else if (!uest.empty())
+        uest[idep].set(f(uest[idep].l()));
+    }
+
+    if (!inc) std::swap(uest, oest);
+
+#ifdef MC__SUPMODEL_DEBUG_COMPOSE0
+    std::cerr << "\nuest[" << idep << "]: ";
+    uest[idep].display(std::cerr, 8);
+    std::cerr << "\noest[" << idep << "]: ";
+    oest[idep].display(std::cerr, 8);
+#endif
+    return;
+  }
+
   // cvx=0: concave  cvx=1: convex
   template <typename UNIV, typename DUNIV>
-  void _compose1
-    ( std::set<unsigned> const& sdep, std::vector<Summand>& uest, std::vector<Summand>& oest,
-       double const& uestlb, double const& uestub, double const& oestlb, double const& oestub,
-       bool const shadow, UNIV const& f, DUNIV const& Df, bool const cvx, bool const inc )
-    const
+  void
+  _compose1(std::set<unsigned> const& sdep, std::vector<Summand>& uest,
+            std::vector<Summand>& oest, double const& uestlb,
+            double const& uestub, double const& oestlb, double const& oestub,
+            bool const shadow, UNIV const& f, DUNIV const& Df, bool const cvx,
+            bool const inc) const
+  {
+    // Single dependency case
+    if (sdep.size() == 1)
+      return _compose0(*sdep.cbegin(), uest, oest, f, Df, cvx, inc);
+
+    // Multiple dependency case
+    double wu(0.), wo(0.);
+    unsigned nu(0), no(0);
+    std::multimap<double, unsigned> wpr;
+    for (auto const& i : sdep)
     {
-      // Single dependency case
-      if( sdep.size() == 1 )
-        return _compose0( *sdep.cbegin(), uest, oest, f, Df, cvx, inc );
+      if (!_defvar[i]) throw Exceptions(Exceptions::INTERN);
 
-      // Multiple dependency case
-      double wu( 0. ), wo( 0. );
-      unsigned nu( 0 ), no( 0 );
-      std::multimap<double,unsigned> wpr;
-      for( auto const& i: sdep ){
-        if( !_defvar[i] )
-          throw Exceptions( Exceptions::INTERN );
-
-        if( !uest.empty() ){
-          //if( uest[i].w() > options.SUM_TOL ) 
-          wu += uest[i].w();
-          nu++;
-          if( options.USE_ENDRAY && (cvx && !inc) || (!cvx && inc) ) wpr.insert( { uest[i].w(), i } );
-        }
-        
-        if( !oest.empty() ){
-          //if( oest[i].w() > options.SUM_TOL ) 
-          wo += oest[i].w();
-          no++;
-          if( options.USE_ENDRAY && (cvx && inc) || (!cvx && !inc) ) wpr.insert( { oest[i].w(), i } );
-        }
-      }
-      
-      auto ritpr = wpr.rbegin();
-      double westsum = 0.;
-      for( auto const& i: sdep ){
-
-        if( cvx && inc ){
-          if( !uest.empty() ){
-            double const qu = ( wu>options.SUM_TOL? uest[i].w()/wu: 1./(double)nu );
-            //double const qu = uest[i].w() / wu;
-            //if( qu > options.SUM_TOL ){
-              if( shadow ){
-                uest[i] += uestub - uest[i].u();
-                uest[i].compose( f, Df, 1, 1, 1 ).reduce( 1, options.MAX_SUBDIV );
-                uest[i] -= ( 1 - qu ) * f( uestub );
-              }
-              else{
-                uest[i] += uestlb - uest[i].l();
-                uest[i].compose( f, Df, 1, 1, 1 ).reduce( cvx?1:0, options.MAX_SUBDIV );
-                uest[i] -= ( 1 - qu ) * f( uestlb );
-              }
-            //}
-            //else
-            //  uest[i].set( qu * f( uestlb ) );
-          }
-          
-          if( !oest.empty() ){
-            if( shadow && options.USE_ENDRAY ){
-              unsigned const& j   = ritpr->second;
-              double const qo = ( wo>options.SUM_TOL? oest[j].w()/wo: 1./(double)no );
-              //double const qo     = oest[j].w() / wo;
-              //if( wo > options.SUM_TOL && qo > options.SUM_TOL && options.USE_ENDRAY == 1 ){
-              if( options.USE_ENDRAY == 1 ){
-                double const oetaub = oestub - westsum;
-                westsum += oest[j].w();
-                oest[j] += oetaub - oest[j].u();
-                oest[j].compose( f, Df, 0, 1, 1 ).reduce( 0, options.MAX_SUBDIV );
-                oest[j] += qo * f( oestub ) - f( oetaub );
-                ++ritpr;
-              }
-              else{ //if( wo > options.SUM_TOL && qo > options.SUM_TOL/* && options.USE_ENDRAY > 1*/ ){
-                double const oetalb = oestlb + westsum;
-                westsum += oest[j].w();
-                oest[j] += oetalb - oest[j].l();
-                oest[j].compose( f, Df, 0, 1, 1 ).reduce( 0, options.MAX_SUBDIV );
-                oest[j] += qo * f( oestlb ) - f( oetalb );
-                ++ritpr;
-              }
-              //else
-              //  oest[j].set( qo * f( oestub ) );
-            }
-            else if( shadow/* && !options.USE_ENDRAY*/ ){
-              double const qo = ( wo>options.SUM_TOL? oest[i].w()/wo: 1./(double)no );
-              //double const qo = oest[i].w() / wo;
-              if( qo > options.SUM_TOL ){
-                oest[i] -= oest[i].l(); 
-                oest[i] /= qo;
-                oest[i] += oestlb;
-                oest[i].compose( f, Df, 0, 1, 1 ).reduce( 0, options.MAX_SUBDIV );
-                oest[i] *= qo;
-              }
-              else
-                oest[i].set( qo * f( oestub ) );              
-            }
-            //else if( options.USE_ENDRAY > 1 ){
-            else if( options.USE_SHADOW && options.USE_ENDRAY > 1 ){
-              unsigned const& j   = ritpr->second;
-              double const qo = ( wo>options.SUM_TOL? oest[j].w()/wo: 1./(double)no );
-              //double const qo     = oest[j].w() / wo;
-              //if( wo > options.SUM_TOL && qo > options.SUM_TOL ){
-                double const oetaub = oestub - westsum;
-                westsum += oest[j].w();
-                oest[j] += oetaub - oest[j].u();
-                oest[j].compose( f, Df, 0, 1, 1 ).reduce( 0, options.MAX_SUBDIV );
-                oest[j] += qo * f( oestub ) - f( oetaub );
-                ++ritpr;
-              //}
-              //else
-              //  oest[j].set( qo * f( oestub ) );
-            }
-            else{
-              double const qo = ( wo>options.SUM_TOL? oest[i].w()/wo: 1./(double)no );
-              //double const qo = oest[i].w() / wo;
-              if( qo > options.SUM_TOL ){
-                oest[i] -= oest[i].u(); 
-                oest[i] /= qo;
-                oest[i] += oestub;
-                oest[i].compose( f, Df, 0, 1, 1 ).reduce( 0, options.MAX_SUBDIV );
-                oest[i] *= qo;
-              }
-              else
-                oest[i].set( qo * f( oestub ) );              
-            }
-          }
-        }
-        
-        else if( !cvx && !inc ){
-          if( !uest.empty() ){ //&& uest[i].w() > options.SUM_TOL ){
-            double const qu = ( wu>options.SUM_TOL? uest[i].w()/wu: 1./(double)nu );
-            //double const qu = uest[i].w() / wu;
-            //if( wu > options.SUM_TOL && qu > options.SUM_TOL ){
-              if( shadow ){
-                uest[i] += uestub - uest[i].u();
-                uest[i].compose( f, Df, 0, 0, 0 ).reduce( 0, options.MAX_SUBDIV );
-                uest[i] -= ( 1 - qu ) * f( uestub );
-              }
-              else{
-                uest[i] += uestlb - uest[i].l();
-                uest[i].compose( f, Df, 0, 0, 0 ).reduce( 0, options.MAX_SUBDIV );
-                uest[i] -= ( 1 - qu ) * f( uestlb );
-              }
-            //}
-            //else
-            //  uest[i].set( qu * f( uestlb ) );
-          }
-          
-          if( !oest.empty() ){
-            if( shadow && options.USE_ENDRAY ){
-              unsigned const& j   = ritpr->second;
-              double const qo = ( wo>options.SUM_TOL? oest[j].w()/wo: 1./(double)no );
-              //double const qo     = oest[j].w() / wo;
-              //if( wo > options.SUM_TOL && qo > options.SUM_TOL && options.USE_ENDRAY == 1 ){
-              if( options.USE_ENDRAY == 1 ){
-                double const oetaub = oestub - westsum;
-                westsum += oest[j].w();
-                oest[j] += oetaub - oest[j].u();
-                oest[j].compose( f, Df, 1, 0, 0 ).reduce( 1, options.MAX_SUBDIV );
-                oest[j] += qo * f( oestub ) - f( oetaub );
-                ++ritpr;
-              }
-              else{ //if( wo > options.SUM_TOL && qo > options.SUM_TOL/* && options.USE_ENDRAY > 1*/ ){
-                double const oetalb = oestlb + westsum;
-                westsum += oest[j].w();
-                oest[j] += oetalb - oest[j].l();
-                oest[j].compose( f, Df, 1, 0, 0 ).reduce( 1, options.MAX_SUBDIV );
-                oest[j] += qo * f( oestlb ) - f( oetalb );
-                ++ritpr;
-              }
-              //else
-              //  oest[j].set( qo * f( oestub ) );
-            }
-            else if( shadow/* && !options.USE_ENDRAY*/ ){
-              double const qo = ( wo>options.SUM_TOL? oest[i].w()/wo: 1./(double)no );
-              //double const qo = oest[i].w() / wo;
-              if( qo > options.SUM_TOL ){
-                oest[i] -= oest[i].l(); 
-                oest[i] /= qo;
-                oest[i] += oestlb;
-                oest[i].compose( f, Df, 1, 0, 0 ).reduce( 1, options.MAX_SUBDIV );
-                oest[i] *= qo;
-              }
-              else
-                oest[i].set( qo * f( oestub ) );
-            }
-            else if( options.USE_SHADOW && options.USE_ENDRAY > 1 ){
-              unsigned const& j   = ritpr->second;
-              double const qo = ( wo>options.SUM_TOL? oest[j].w()/wo: 1./(double)no );
-              //double const qo     = oest[j].w() / wo;
-              //if( wo > options.SUM_TOL && qo > options.SUM_TOL ){
-                double const oetaub = oestub - westsum;
-                westsum += oest[j].w();
-                oest[j] += oetaub - oest[j].u();
-                oest[j].compose( f, Df, 1, 0, 0 ).reduce( 1, options.MAX_SUBDIV );
-                oest[j] += qo * f( oestub ) - f( oetaub );
-                ++ritpr;
-              //}
-              //else
-              //  oest[j].set( qo * f( oestub ) );
-            }
-            else{
-              double const qo = ( wo>options.SUM_TOL? oest[i].w()/wo: 1./(double)no );
-              //double const qo = oest[i].w() / wo;
-              if( qo > options.SUM_TOL ){
-                oest[i] -= oest[i].u(); 
-                oest[i] /= qo;
-                oest[i] += oestub;
-                oest[i].compose( f, Df, 1, 0, 0 ).reduce( 1, options.MAX_SUBDIV );
-                oest[i] *= qo;
-              }
-              else
-                oest[i].set( qo * f( oestub ) );
-            }
-          }
-        }
-
-        else if( cvx && !inc ){
-          if( !oest.empty() ){
-              double const qo = ( wo>options.SUM_TOL? oest[i].w()/wo: 1./(double)no );
-            //double const qo = oest[i].w() / wo;
-            //if( wo > options.SUM_TOL && qo > options.SUM_TOL ){
-              if( shadow ){
-                oest[i] += oestlb - oest[i].l();
-                oest[i].compose( f, Df, 1, 1, 0 ).reduce( 1, options.MAX_SUBDIV );
-                oest[i] -= ( 1 - qo ) * f( oestlb );
-              }
-              else{
-                oest[i] += oestub - oest[i].u();
-                oest[i].compose( f, Df, 1, 1, 0 ).reduce( 1, options.MAX_SUBDIV );
-                oest[i] -= ( 1 - qo ) * f( oestub );
-              }
-            //}
-            //else
-            //  oest[i].set( qo * f( oestub ) );
-          }
-          
-          if( !uest.empty() ){
-            if( shadow && options.USE_ENDRAY ){
-              unsigned const& j   = ritpr->second;
-              double const qu = ( wu>options.SUM_TOL? uest[j].w()/wu: 1./(double)nu );
-              //double const qu     = uest[j].w() / wu;
-              //if( wu > options.SUM_TOL && qu > options.SUM_TOL && options.USE_ENDRAY == 1 ){
-              if( options.USE_ENDRAY == 1 ){
-                double const uetalb = uestlb + westsum;
-                westsum += uest[j].w();
-                uest[j] += uetalb - uest[j].l();
-                uest[j].compose( f, Df, 0, 1, 0 ).reduce( 0, options.MAX_SUBDIV );
-                uest[j] += qu * f( uestlb ) - f( uetalb );
-                ++ritpr;
-              }
-              else{ // if( wu > options.SUM_TOL && qu > options.SUM_TOL/* && options.USE_ENDRAY > 1*/ ){
-                double const uetaub = uestub - westsum;
-                westsum += uest[j].w();
-                uest[j] += uetaub - uest[j].u();
-                uest[j].compose( f, Df, 0, 1, 0 ).reduce( 0, options.MAX_SUBDIV );
-                uest[j] += qu * f( uestub ) - f( uetaub );
-                ++ritpr;
-              }
-              //else
-              //  uest[j].set( qu * f( uestlb ) );
-            }
-            else if( shadow/* && !options.USE_ENDRAY*/ ){
-              double const qu = ( wu>options.SUM_TOL? uest[i].w()/wu: 1./(double)nu );
-              //double const qu = uest[i].w() / wu;
-              if( qu > options.SUM_TOL ){
-                uest[i] -= uest[i].u();
-                uest[i] /= qu;
-                uest[i] += uestub;
-                uest[i].compose( f, Df, 0, 1, 0 ).reduce( 0, options.MAX_SUBDIV );
-                uest[i] *= qu;
-              }
-              else
-                uest[i].set( qu * f( uestlb ) );
-            }
-            //else if( options.USE_ENDRAY > 1 ){
-            else if( options.USE_SHADOW && options.USE_ENDRAY > 1 ){
-              unsigned const& j   = ritpr->second;
-              double const qu = ( wu>options.SUM_TOL? uest[j].w()/wu: 1./(double)nu );
-              //double const qu     = uest[j].w() / wu;
-              //if( wu > options.SUM_TOL && qu > options.SUM_TOL ){
-                double const uetalb = uestlb + westsum;
-                westsum += uest[j].w();
-                uest[j] += uetalb - uest[j].l();
-                uest[j].compose( f, Df, 0, 1, 0 ).reduce( 0, options.MAX_SUBDIV );
-                uest[j] += qu * f( uestlb ) - f( uetalb );
-                ++ritpr;
-              //}
-              //else
-              //  uest[j].set( qu * f( uestlb ) );
-            }
-            else{
-              double const qu = ( wu>options.SUM_TOL? uest[i].w()/wu: 1./(double)nu );
-              //double const qu = uest[i].w() / wu;
-              if( qu > options.SUM_TOL ){
-                uest[i] -= uest[i].l();
-                uest[i] /= qu;
-                uest[i] += uestlb;
-                uest[i].compose( f, Df, 0, 1, 0 ).reduce( 0, options.MAX_SUBDIV );
-                uest[i] *= qu;
-              }
-              else
-                uest[i].set( qu * f( uestlb ) );              
-            }
-          }
-        }
-
-        else/* if( !cvx && inc )*/{
-          if( !oest.empty() ){//&& oest[i].w() > options.SUM_TOL ){
-              double const qo = ( wo>options.SUM_TOL? oest[i].w()/wo: 1./(double)no );
-            //double const qo = oest[i].w() / wo;
-            //if( wo > options.SUM_TOL && qo > options.SUM_TOL ){
-              if( shadow ){
-                oest[i] += oestlb - oest[i].l();
-                oest[i].compose( f, Df, 0, 0, 1 ).reduce( 0, options.MAX_SUBDIV );
-                oest[i] -= ( 1 - qo ) * f( oestlb );
-              }
-              else{
-                oest[i] += oestub - oest[i].u();
-                oest[i].compose( f, Df, 0, 0, 1 ).reduce( 0, options.MAX_SUBDIV );
-                oest[i] -= ( 1 - qo ) * f( oestub );
-              }
-            //}
-            //else
-            //  oest[i].set( qo * f( oestub ) );
-          }
-          
-          if( !uest.empty() ){//&& uest[i].w() > options.SUM_TOL ){
-            if( shadow && options.USE_ENDRAY ){
-              unsigned const& j   = ritpr->second;
-              double const qu = ( wu>options.SUM_TOL? uest[j].w()/wu: 1./(double)nu );
-              //double const qu     = uest[j].w() / wu;
-              //if( wu > options.SUM_TOL && qu > options.SUM_TOL && options.USE_ENDRAY == 1 ){
-              if( options.USE_ENDRAY == 1 ){
-                double const uetalb = uestlb + westsum;
-                westsum += uest[j].w();
-                uest[j] += uetalb - uest[j].l();
-                uest[j].compose( f, Df, 1, 0, 1 ).reduce( 1, options.MAX_SUBDIV );
-                uest[j] += qu * f( uestlb ) - f( uetalb );
-                ++ritpr;
-              }
-              else{// if( wu > options.SUM_TOL && qu > options.SUM_TOL/* && options.USE_ENDRAY > 1*/ ){
-                double const uetaub = uestub - westsum;
-                westsum += uest[j].w();
-                uest[j] += uetaub - uest[j].u();
-                uest[j].compose( f, Df, 1, 0, 1 ).reduce( 1, options.MAX_SUBDIV );
-                uest[j] += qu * f( uestub ) - f( uetaub );
-                ++ritpr;
-              }
-              //else
-              //  uest[j].set( qu * f( uestlb ) );
-            }
-            else if( shadow/* && !options.USE_ENDRAY*/ ){
-              double const qu = ( wu>options.SUM_TOL? uest[i].w()/wu: 1./(double)nu );
-              //double const qu = uest[i].w() / wu;
-              if( qu > options.SUM_TOL ){
-                uest[i] -= uest[i].u();
-                uest[i] /= qu;
-                uest[i] += uestub;
-                uest[i].compose( f, Df, 1, 0, 1 ).reduce( 1, options.MAX_SUBDIV );
-                uest[i] *= qu;
-              }
-              else
-                uest[i].set( qu * f( uestlb ) );
-            }
-            else if( options.USE_SHADOW && options.USE_ENDRAY > 1 ){
-            //else if( options.USE_ENDRAY > 1 ){
-              unsigned const& j   = ritpr->second;
-              double const qu = ( wu>options.SUM_TOL? uest[j].w()/wu: 1./(double)nu );
-              //double const qu     = uest[j].w() / wu;
-              //if( wu > options.SUM_TOL && qu > options.SUM_TOL ){
-                double const uetalb = uestlb + westsum;
-                westsum += uest[j].w();
-                uest[j] += uetalb - uest[j].l();
-                uest[j].compose( f, Df, 1, 0, 1 ).reduce( 1, options.MAX_SUBDIV );
-                uest[j] += qu * f( uestlb ) - f( uetalb );
-                ++ritpr;
-              //}
-              //else
-              //  uest[j].set( qu * f( uestlb ) );
-            }
-            else{
-              double const qu = ( wu>options.SUM_TOL? uest[i].w()/wu: 1./(double)nu );
-              //double const qu = uest[i].w() / wu;
-              if( qu > options.SUM_TOL ){
-                uest[i] -= uest[i].l();
-                uest[i] /= qu;
-                uest[i] += uestlb;
-                uest[i].compose( f, Df, 1, 0, 1 ).reduce( 1, options.MAX_SUBDIV );
-                uest[i] *= qu;
-              }
-              else
-                uest[i].set( qu * f( uestlb ) );
-            }
-          }
-        }
+      if (!uest.empty())
+      {
+        // if( uest[i].w() > options.SUM_TOL )
+        wu += uest[i].w();
+        nu++;
+        if (options.USE_ENDRAY && (cvx && !inc) || (!cvx && inc))
+          wpr.insert({uest[i].w(), i});
       }
 
-      if( !inc ) std::swap( uest, oest );
+      if (!oest.empty())
+      {
+        // if( oest[i].w() > options.SUM_TOL )
+        wo += oest[i].w();
+        no++;
+        if (options.USE_ENDRAY && (cvx && inc) || (!cvx && !inc))
+          wpr.insert({oest[i].w(), i});
+      }
     }
+
+    auto ritpr     = wpr.rbegin();
+    double westsum = 0.;
+    for (auto const& i : sdep)
+    {
+      if (cvx && inc)
+      {
+        if (!uest.empty())
+        {
+          double const qu =
+              (wu > options.SUM_TOL ? uest[i].w() / wu : 1. / (double)nu);
+          // double const qu = uest[i].w() / wu;
+          // if( qu > options.SUM_TOL ){
+          if (shadow)
+          {
+            uest[i] += uestub - uest[i].u();
+            uest[i].compose(f, Df, 1, 1, 1).reduce(1, options.MAX_SUBDIV);
+            uest[i] -= (1 - qu) * f(uestub);
+          }
+          else
+          {
+            uest[i] += uestlb - uest[i].l();
+            uest[i]
+                .compose(f, Df, 1, 1, 1)
+                .reduce(cvx ? 1 : 0, options.MAX_SUBDIV);
+            uest[i] -= (1 - qu) * f(uestlb);
+          }
+          //}
+          // else
+          //  uest[i].set( qu * f( uestlb ) );
+        }
+
+        if (!oest.empty())
+        {
+          if (shadow && options.USE_ENDRAY)
+          {
+            unsigned const& j = ritpr->second;
+            double const qo =
+                (wo > options.SUM_TOL ? oest[j].w() / wo : 1. / (double)no);
+            // double const qo     = oest[j].w() / wo;
+            // if( wo > options.SUM_TOL && qo > options.SUM_TOL &&
+            // options.USE_ENDRAY == 1 ){
+            if (options.USE_ENDRAY == 1)
+            {
+              double const oetaub = oestub - westsum;
+              westsum += oest[j].w();
+              oest[j] += oetaub - oest[j].u();
+              oest[j].compose(f, Df, 0, 1, 1).reduce(0, options.MAX_SUBDIV);
+              oest[j] += qo * f(oestub) - f(oetaub);
+              ++ritpr;
+            }
+            else
+            {  // if( wo > options.SUM_TOL && qo > options.SUM_TOL/* &&
+               // options.USE_ENDRAY > 1*/ ){
+              double const oetalb = oestlb + westsum;
+              westsum += oest[j].w();
+              oest[j] += oetalb - oest[j].l();
+              oest[j].compose(f, Df, 0, 1, 1).reduce(0, options.MAX_SUBDIV);
+              oest[j] += qo * f(oestlb) - f(oetalb);
+              ++ritpr;
+            }
+            // else
+            //   oest[j].set( qo * f( oestub ) );
+          }
+          else if (shadow /* && !options.USE_ENDRAY*/)
+          {
+            double const qo =
+                (wo > options.SUM_TOL ? oest[i].w() / wo : 1. / (double)no);
+            // double const qo = oest[i].w() / wo;
+            if (qo > options.SUM_TOL)
+            {
+              oest[i] -= oest[i].l();
+              oest[i] /= qo;
+              oest[i] += oestlb;
+              oest[i].compose(f, Df, 0, 1, 1).reduce(0, options.MAX_SUBDIV);
+              oest[i] *= qo;
+            }
+            else
+              oest[i].set(qo * f(oestub));
+          }
+          // else if( options.USE_ENDRAY > 1 ){
+          else if (options.USE_SHADOW && options.USE_ENDRAY > 1)
+          {
+            unsigned const& j = ritpr->second;
+            double const qo =
+                (wo > options.SUM_TOL ? oest[j].w() / wo : 1. / (double)no);
+            // double const qo     = oest[j].w() / wo;
+            // if( wo > options.SUM_TOL && qo > options.SUM_TOL ){
+            double const oetaub = oestub - westsum;
+            westsum += oest[j].w();
+            oest[j] += oetaub - oest[j].u();
+            oest[j].compose(f, Df, 0, 1, 1).reduce(0, options.MAX_SUBDIV);
+            oest[j] += qo * f(oestub) - f(oetaub);
+            ++ritpr;
+            //}
+            // else
+            //  oest[j].set( qo * f( oestub ) );
+          }
+          else
+          {
+            double const qo =
+                (wo > options.SUM_TOL ? oest[i].w() / wo : 1. / (double)no);
+            // double const qo = oest[i].w() / wo;
+            if (qo > options.SUM_TOL)
+            {
+              oest[i] -= oest[i].u();
+              oest[i] /= qo;
+              oest[i] += oestub;
+              oest[i].compose(f, Df, 0, 1, 1).reduce(0, options.MAX_SUBDIV);
+              oest[i] *= qo;
+            }
+            else
+              oest[i].set(qo * f(oestub));
+          }
+        }
+      }
+
+      else if (!cvx && !inc)
+      {
+        if (!uest.empty())
+        {  //&& uest[i].w() > options.SUM_TOL ){
+          double const qu =
+              (wu > options.SUM_TOL ? uest[i].w() / wu : 1. / (double)nu);
+          // double const qu = uest[i].w() / wu;
+          // if( wu > options.SUM_TOL && qu > options.SUM_TOL ){
+          if (shadow)
+          {
+            uest[i] += uestub - uest[i].u();
+            uest[i].compose(f, Df, 0, 0, 0).reduce(0, options.MAX_SUBDIV);
+            uest[i] -= (1 - qu) * f(uestub);
+          }
+          else
+          {
+            uest[i] += uestlb - uest[i].l();
+            uest[i].compose(f, Df, 0, 0, 0).reduce(0, options.MAX_SUBDIV);
+            uest[i] -= (1 - qu) * f(uestlb);
+          }
+          //}
+          // else
+          //  uest[i].set( qu * f( uestlb ) );
+        }
+
+        if (!oest.empty())
+        {
+          if (shadow && options.USE_ENDRAY)
+          {
+            unsigned const& j = ritpr->second;
+            double const qo =
+                (wo > options.SUM_TOL ? oest[j].w() / wo : 1. / (double)no);
+            // double const qo     = oest[j].w() / wo;
+            // if( wo > options.SUM_TOL && qo > options.SUM_TOL &&
+            // options.USE_ENDRAY == 1 ){
+            if (options.USE_ENDRAY == 1)
+            {
+              double const oetaub = oestub - westsum;
+              westsum += oest[j].w();
+              oest[j] += oetaub - oest[j].u();
+              oest[j].compose(f, Df, 1, 0, 0).reduce(1, options.MAX_SUBDIV);
+              oest[j] += qo * f(oestub) - f(oetaub);
+              ++ritpr;
+            }
+            else
+            {  // if( wo > options.SUM_TOL && qo > options.SUM_TOL/* &&
+               // options.USE_ENDRAY > 1*/ ){
+              double const oetalb = oestlb + westsum;
+              westsum += oest[j].w();
+              oest[j] += oetalb - oest[j].l();
+              oest[j].compose(f, Df, 1, 0, 0).reduce(1, options.MAX_SUBDIV);
+              oest[j] += qo * f(oestlb) - f(oetalb);
+              ++ritpr;
+            }
+            // else
+            //   oest[j].set( qo * f( oestub ) );
+          }
+          else if (shadow /* && !options.USE_ENDRAY*/)
+          {
+            double const qo =
+                (wo > options.SUM_TOL ? oest[i].w() / wo : 1. / (double)no);
+            // double const qo = oest[i].w() / wo;
+            if (qo > options.SUM_TOL)
+            {
+              oest[i] -= oest[i].l();
+              oest[i] /= qo;
+              oest[i] += oestlb;
+              oest[i].compose(f, Df, 1, 0, 0).reduce(1, options.MAX_SUBDIV);
+              oest[i] *= qo;
+            }
+            else
+              oest[i].set(qo * f(oestub));
+          }
+          else if (options.USE_SHADOW && options.USE_ENDRAY > 1)
+          {
+            unsigned const& j = ritpr->second;
+            double const qo =
+                (wo > options.SUM_TOL ? oest[j].w() / wo : 1. / (double)no);
+            // double const qo     = oest[j].w() / wo;
+            // if( wo > options.SUM_TOL && qo > options.SUM_TOL ){
+            double const oetaub = oestub - westsum;
+            westsum += oest[j].w();
+            oest[j] += oetaub - oest[j].u();
+            oest[j].compose(f, Df, 1, 0, 0).reduce(1, options.MAX_SUBDIV);
+            oest[j] += qo * f(oestub) - f(oetaub);
+            ++ritpr;
+            //}
+            // else
+            //  oest[j].set( qo * f( oestub ) );
+          }
+          else
+          {
+            double const qo =
+                (wo > options.SUM_TOL ? oest[i].w() / wo : 1. / (double)no);
+            // double const qo = oest[i].w() / wo;
+            if (qo > options.SUM_TOL)
+            {
+              oest[i] -= oest[i].u();
+              oest[i] /= qo;
+              oest[i] += oestub;
+              oest[i].compose(f, Df, 1, 0, 0).reduce(1, options.MAX_SUBDIV);
+              oest[i] *= qo;
+            }
+            else
+              oest[i].set(qo * f(oestub));
+          }
+        }
+      }
+
+      else if (cvx && !inc)
+      {
+        if (!oest.empty())
+        {
+          double const qo =
+              (wo > options.SUM_TOL ? oest[i].w() / wo : 1. / (double)no);
+          // double const qo = oest[i].w() / wo;
+          // if( wo > options.SUM_TOL && qo > options.SUM_TOL ){
+          if (shadow)
+          {
+            oest[i] += oestlb - oest[i].l();
+            oest[i].compose(f, Df, 1, 1, 0).reduce(1, options.MAX_SUBDIV);
+            oest[i] -= (1 - qo) * f(oestlb);
+          }
+          else
+          {
+            oest[i] += oestub - oest[i].u();
+            oest[i].compose(f, Df, 1, 1, 0).reduce(1, options.MAX_SUBDIV);
+            oest[i] -= (1 - qo) * f(oestub);
+          }
+          //}
+          // else
+          //  oest[i].set( qo * f( oestub ) );
+        }
+
+        if (!uest.empty())
+        {
+          if (shadow && options.USE_ENDRAY)
+          {
+            unsigned const& j = ritpr->second;
+            double const qu =
+                (wu > options.SUM_TOL ? uest[j].w() / wu : 1. / (double)nu);
+            // double const qu     = uest[j].w() / wu;
+            // if( wu > options.SUM_TOL && qu > options.SUM_TOL &&
+            // options.USE_ENDRAY == 1 ){
+            if (options.USE_ENDRAY == 1)
+            {
+              double const uetalb = uestlb + westsum;
+              westsum += uest[j].w();
+              uest[j] += uetalb - uest[j].l();
+              uest[j].compose(f, Df, 0, 1, 0).reduce(0, options.MAX_SUBDIV);
+              uest[j] += qu * f(uestlb) - f(uetalb);
+              ++ritpr;
+            }
+            else
+            {  // if( wu > options.SUM_TOL && qu > options.SUM_TOL/* &&
+               // options.USE_ENDRAY > 1*/ ){
+              double const uetaub = uestub - westsum;
+              westsum += uest[j].w();
+              uest[j] += uetaub - uest[j].u();
+              uest[j].compose(f, Df, 0, 1, 0).reduce(0, options.MAX_SUBDIV);
+              uest[j] += qu * f(uestub) - f(uetaub);
+              ++ritpr;
+            }
+            // else
+            //   uest[j].set( qu * f( uestlb ) );
+          }
+          else if (shadow /* && !options.USE_ENDRAY*/)
+          {
+            double const qu =
+                (wu > options.SUM_TOL ? uest[i].w() / wu : 1. / (double)nu);
+            // double const qu = uest[i].w() / wu;
+            if (qu > options.SUM_TOL)
+            {
+              uest[i] -= uest[i].u();
+              uest[i] /= qu;
+              uest[i] += uestub;
+              uest[i].compose(f, Df, 0, 1, 0).reduce(0, options.MAX_SUBDIV);
+              uest[i] *= qu;
+            }
+            else
+              uest[i].set(qu * f(uestlb));
+          }
+          // else if( options.USE_ENDRAY > 1 ){
+          else if (options.USE_SHADOW && options.USE_ENDRAY > 1)
+          {
+            unsigned const& j = ritpr->second;
+            double const qu =
+                (wu > options.SUM_TOL ? uest[j].w() / wu : 1. / (double)nu);
+            // double const qu     = uest[j].w() / wu;
+            // if( wu > options.SUM_TOL && qu > options.SUM_TOL ){
+            double const uetalb = uestlb + westsum;
+            westsum += uest[j].w();
+            uest[j] += uetalb - uest[j].l();
+            uest[j].compose(f, Df, 0, 1, 0).reduce(0, options.MAX_SUBDIV);
+            uest[j] += qu * f(uestlb) - f(uetalb);
+            ++ritpr;
+            //}
+            // else
+            //  uest[j].set( qu * f( uestlb ) );
+          }
+          else
+          {
+            double const qu =
+                (wu > options.SUM_TOL ? uest[i].w() / wu : 1. / (double)nu);
+            // double const qu = uest[i].w() / wu;
+            if (qu > options.SUM_TOL)
+            {
+              uest[i] -= uest[i].l();
+              uest[i] /= qu;
+              uest[i] += uestlb;
+              uest[i].compose(f, Df, 0, 1, 0).reduce(0, options.MAX_SUBDIV);
+              uest[i] *= qu;
+            }
+            else
+              uest[i].set(qu * f(uestlb));
+          }
+        }
+      }
+
+      else /* if( !cvx && inc )*/
+      {
+        if (!oest.empty())
+        {  //&& oest[i].w() > options.SUM_TOL ){
+          double const qo =
+              (wo > options.SUM_TOL ? oest[i].w() / wo : 1. / (double)no);
+          // double const qo = oest[i].w() / wo;
+          // if( wo > options.SUM_TOL && qo > options.SUM_TOL ){
+          if (shadow)
+          {
+            oest[i] += oestlb - oest[i].l();
+            oest[i].compose(f, Df, 0, 0, 1).reduce(0, options.MAX_SUBDIV);
+            oest[i] -= (1 - qo) * f(oestlb);
+          }
+          else
+          {
+            oest[i] += oestub - oest[i].u();
+            oest[i].compose(f, Df, 0, 0, 1).reduce(0, options.MAX_SUBDIV);
+            oest[i] -= (1 - qo) * f(oestub);
+          }
+          //}
+          // else
+          //  oest[i].set( qo * f( oestub ) );
+        }
+
+        if (!uest.empty())
+        {  //&& uest[i].w() > options.SUM_TOL ){
+          if (shadow && options.USE_ENDRAY)
+          {
+            unsigned const& j = ritpr->second;
+            double const qu =
+                (wu > options.SUM_TOL ? uest[j].w() / wu : 1. / (double)nu);
+            // double const qu     = uest[j].w() / wu;
+            // if( wu > options.SUM_TOL && qu > options.SUM_TOL &&
+            // options.USE_ENDRAY == 1 ){
+            if (options.USE_ENDRAY == 1)
+            {
+              double const uetalb = uestlb + westsum;
+              westsum += uest[j].w();
+              uest[j] += uetalb - uest[j].l();
+              uest[j].compose(f, Df, 1, 0, 1).reduce(1, options.MAX_SUBDIV);
+              uest[j] += qu * f(uestlb) - f(uetalb);
+              ++ritpr;
+            }
+            else
+            {  // if( wu > options.SUM_TOL && qu > options.SUM_TOL/* &&
+               // options.USE_ENDRAY > 1*/ ){
+              double const uetaub = uestub - westsum;
+              westsum += uest[j].w();
+              uest[j] += uetaub - uest[j].u();
+              uest[j].compose(f, Df, 1, 0, 1).reduce(1, options.MAX_SUBDIV);
+              uest[j] += qu * f(uestub) - f(uetaub);
+              ++ritpr;
+            }
+            // else
+            //   uest[j].set( qu * f( uestlb ) );
+          }
+          else if (shadow /* && !options.USE_ENDRAY*/)
+          {
+            double const qu =
+                (wu > options.SUM_TOL ? uest[i].w() / wu : 1. / (double)nu);
+            // double const qu = uest[i].w() / wu;
+            if (qu > options.SUM_TOL)
+            {
+              uest[i] -= uest[i].u();
+              uest[i] /= qu;
+              uest[i] += uestub;
+              uest[i].compose(f, Df, 1, 0, 1).reduce(1, options.MAX_SUBDIV);
+              uest[i] *= qu;
+            }
+            else
+              uest[i].set(qu * f(uestlb));
+          }
+          else if (options.USE_SHADOW && options.USE_ENDRAY > 1)
+          {
+            // else if( options.USE_ENDRAY > 1 ){
+            unsigned const& j = ritpr->second;
+            double const qu =
+                (wu > options.SUM_TOL ? uest[j].w() / wu : 1. / (double)nu);
+            // double const qu     = uest[j].w() / wu;
+            // if( wu > options.SUM_TOL && qu > options.SUM_TOL ){
+            double const uetalb = uestlb + westsum;
+            westsum += uest[j].w();
+            uest[j] += uetalb - uest[j].l();
+            uest[j].compose(f, Df, 1, 0, 1).reduce(1, options.MAX_SUBDIV);
+            uest[j] += qu * f(uestlb) - f(uetalb);
+            ++ritpr;
+            //}
+            // else
+            //  uest[j].set( qu * f( uestlb ) );
+          }
+          else
+          {
+            double const qu =
+                (wu > options.SUM_TOL ? uest[i].w() / wu : 1. / (double)nu);
+            // double const qu = uest[i].w() / wu;
+            if (qu > options.SUM_TOL)
+            {
+              uest[i] -= uest[i].l();
+              uest[i] /= qu;
+              uest[i] += uestlb;
+              uest[i].compose(f, Df, 1, 0, 1).reduce(1, options.MAX_SUBDIV);
+              uest[i] *= qu;
+            }
+            else
+              uest[i].set(qu * f(uestlb));
+          }
+        }
+      }
+    }
+
+    if (!inc) std::swap(uest, oest);
+  }
 
   // cvx=2: concavoconvex  cvx=3: convexoconcave
   template <typename UNIV, typename DUNIV>
-  void _compose2
-    ( std::set<unsigned> const& sdep, std::vector<Summand>& uest, std::vector<Summand>& oest,
-       double const& uestlb, double const& uestub, double const& oestlb, double const& oestub,
-       bool const shadow, UNIV const& f, DUNIV const& Df, int const cvx, bool const inc,
-       double const& xinfl )
-    const
+  void
+  _compose2(std::set<unsigned> const& sdep, std::vector<Summand>& uest,
+            std::vector<Summand>& oest, double const& uestlb,
+            double const& uestub, double const& oestlb, double const& oestub,
+            bool const shadow, UNIV const& f, DUNIV const& Df, int const cvx,
+            bool const inc, double const& xinfl) const
+  {
+    if (cvx != 2 && cvx != 3) throw Exceptions(Exceptions::INTERN);
+    // std::cerr << "Entering PWLU::_compose2\n";
+    //  Single dependency case
+    if (sdep.size() == 1)
+      return _compose0(*sdep.cbegin(), uest, oest, f, Df, cvx, inc, xinfl);
+
+    // Multiple dependency case
+    double wu(0.), wo(0.);
+    unsigned nu(0), no(0);
+    for (auto const& i : sdep)
     {
-      if( cvx != 2 && cvx != 3 ) throw Exceptions( Exceptions::INTERN );
-      //std::cerr << "Entering PWLU::_compose2\n";
-      // Single dependency case
-      if( sdep.size() == 1 )
-        return _compose0( *sdep.cbegin(), uest, oest, f, Df, cvx, inc, xinfl );
+      // std::cerr << "uest0[" << i << "]: ";
+      // uest[i].display( std::cerr, 8 );
+      // std::cerr << "oest0[" << i << "]: ";
+      // oest[i].display( std::cerr, 8 );
 
-      // Multiple dependency case
-      double wu( 0. ), wo( 0. );
-      unsigned nu( 0 ), no( 0 );
-      for( auto const& i: sdep ){
-        //std::cerr << "uest0[" << i << "]: ";
-        //uest[i].display( std::cerr, 8 );
-        //std::cerr << "oest0[" << i << "]: ";
-        //oest[i].display( std::cerr, 8 );
+      if (!_defvar[i]) throw Exceptions(Exceptions::INTERN);
 
-        if( !_defvar[i] )
-          throw Exceptions( Exceptions::INTERN );
-
-        if( !uest.empty() && uest[i].w() > options.SUM_TOL ){
-          wu += uest[i].w();
-          nu++;
-        }
-        
-        if( !oest.empty() && oest[i].w() > options.SUM_TOL ){
-          wo += oest[i].w();
-          no++;
-        }
+      if (!uest.empty() && uest[i].w() > options.SUM_TOL)
+      {
+        wu += uest[i].w();
+        nu++;
       }
-  
-      for( auto const& i: sdep ){
-        double const qu = ( wu>options.SUM_TOL? uest[i].w()/wu: 1./(double)nu );
-        double const qo = ( wo>options.SUM_TOL? oest[i].w()/wo: 1./(double)no );
 
-        if( cvx==3 && inc ){
-          //std::cout << "CONVEXOCONCAVE NONDECREASING!\n";
-
-          if( !uest.empty() ){//&& uest[i].w() > options.SUM_TOL ){
-            auto duesti = uest[i]; 
-            //double const qu = uest[i].w() / wu;
-            if( shadow && qu > options.SUM_TOL ){
-              double const finfl = f( xinfl ), Dfinfl = Df( xinfl );
-              auto const& flcc  = [&]( const double& x )
-                                     { double const z = f(x), t = finfl+Dfinfl*(x-xinfl); return z<t?z:t; };
-              auto const& Dflcc = [&]( const double& x )
-                                     { double const z = f(x), t = finfl+Dfinfl*(x-xinfl); return z<t?Df(x):Dfinfl; };
-              uest[i] -= uest[i].u();
-              uest[i] /= qu;
-              uest[i] += uestub;
-              uest[i].compose( flcc, Dflcc, 1, 0, inc ).reduce( 1, options.MAX_SUBDIV );
-              uest[i] *= qu;
-            }
-            else if( qu > options.SUM_TOL ){
-              duesti -= uest[i].l();
-              duesti /= qu;
-              duesti += uestlb;
-              duesti.compose( f, Df, 1, cvx, inc, xinfl ).reduce( 1, options.MAX_SUBDIV );
-              duesti *= qu;
-              uest[i] += uestlb - uest[i].l();
-              uest[i].compose( f, Df, 1, cvx, inc, xinfl ).reduce( 1, options.MAX_SUBDIV );
-              uest[i] -= ( 1 - qu ) * f( uestlb );
-              duesti -= uest[i]; // computing min{uest[i],duesti} as uest[i]+min{0,duesti-uest[i]}
-              duesti.min( 0 );
-              uest[i] += duesti;
-            }
-            else{
-              uest[i].set( qu * f( uestlb ) );
-            }
-          }
-          //else if( !uest.empty() ){
-          //  uest[i].set( f( uest[i].l() ) );
-          //}
-          
-          if( !oest.empty() ){//&& oest[i].w() > options.SUM_TOL ){
-            auto doesti = oest[i]; 
-            //double const qo = oest[i].w() / wo;
-            if( shadow && qo > options.SUM_TOL ){
-              double const finfl = f( xinfl ), Dfinfl = Df( xinfl );
-              auto const& fucv  = [&]( const double& x )
-                                     { double const z = f(x), t = finfl+Dfinfl*(x-xinfl); return z>t?z:t; };
-              auto const& Dfucv = [&]( const double& x )
-                                     { double const z = f(x), t = finfl+Dfinfl*(x-xinfl); return z>t?Df(x):Dfinfl; };
-              oest[i] -= oest[i].l();
-              oest[i] /= qo;
-              oest[i] += oestlb;
-              oest[i].compose( fucv, Dfucv, 0, 1, inc ).reduce( 0, options.MAX_SUBDIV );
-              oest[i] *= qo;
-            }
-            else if( qo > options.SUM_TOL ){
-              doesti -= oest[i].u();
-              doesti /= qo;
-              doesti += oestub;
-              doesti.compose( f, Df, 0, cvx, inc, xinfl ).reduce( 0, options.MAX_SUBDIV );
-              doesti *= qo;
-              oest[i] += oestub - oest[i].u();
-              oest[i].compose( f, Df, 0, cvx, inc, xinfl ).reduce( 0, options.MAX_SUBDIV );
-              oest[i] -= ( 1 - qo ) * f( oestub );
-              doesti -= oest[i]; // computing max{oest[i],doesti} as oest[i]+max{0,doesti-oest[i]}
-              doesti.max( 0 );
-              oest[i] += doesti;
-            }
-            else{
-              oest[i].set( qo * f( oestub ) );
-            }
-          }
-          //else if( !oest.empty() ){
-          //  oest[i].set( f( oest[i].u() ) );
-          //}
-        }
-
-        else if( cvx==3 && !inc ){
-          //std::cout << "CONVEXOCONCAVE NONINCREASING!\n";
-
-          if( !uest.empty() ){//&& uest[i].w() > options.SUM_TOL ){
-            auto duesti = uest[i]; 
-            //double const qu = uest[i].w() / wu;
-            if( shadow && qu > options.SUM_TOL ){
-              double const finfl = f( xinfl ), Dfinfl = Df( xinfl );
-              auto const& flcv  = [&]( const double& x )
-                                     { double const z = f(x), t = finfl+Dfinfl*(x-xinfl); return z>t?z:t; };
-              auto const& Dflcv = [&]( const double& x )
-                                     { double const z = f(x), t = finfl+Dfinfl*(x-xinfl); return z>t?Df(x):Dfinfl; };
-              uest[i] -= uest[i].l();
-              uest[i] /= qu;
-              uest[i] += uestlb;
-              uest[i].compose( flcv, Dflcv, 0, 1, inc ).reduce( 0, options.MAX_SUBDIV );
-              uest[i] *= qu;
-            }
-            else if( qu > options.SUM_TOL ){
-              duesti -= uest[i].u();
-              duesti /= qu;
-              duesti += uestub;
-              duesti.compose( f, Df, 0, cvx, inc, xinfl ).reduce( 0, options.MAX_SUBDIV );
-              duesti *= qu;
-              uest[i] += uestub - uest[i].u();
-              uest[i].compose( f, Df, 0, cvx, inc, xinfl ).reduce( 0, options.MAX_SUBDIV );
-              uest[i] -= ( 1 - qu ) * f( uestub );
-              duesti -= uest[i]; // computing min{uest[i],duesti} as uest[i]+min{0,duesti-uest[i]}
-              duesti.max( 0 );
-              uest[i] += duesti;
-            }
-            else{
-              uest[i].set( qu * f( uestub ) );
-            }
-          }
-          //else if( !uest.empty() ){
-          //  uest[i].set( f( uest[i].l() ) );
-          //}
-          
-          if( !oest.empty() ){//&& oest[i].w() > options.SUM_TOL ){
-            auto doesti = oest[i]; 
-            //double const qo = oest[i].w() / wo;
-            if( shadow && qo > options.SUM_TOL ){
-              double const finfl = f( xinfl ), Dfinfl = Df( xinfl );
-              auto const& fucc  = [&]( const double& x )
-                                     { double const z = f(x), t = finfl+Dfinfl*(x-xinfl); return z<t?z:t; };
-              auto const& Dfucc = [&]( const double& x )
-                                     { double const z = f(x), t = finfl+Dfinfl*(x-xinfl); return z<t?Df(x):Dfinfl; };
-              oest[i] -= oest[i].u();
-              oest[i] /= qo;
-              oest[i] += oestub;
-              oest[i].compose( fucc, Dfucc, 1, 0, inc ).reduce( 1, options.MAX_SUBDIV );
-              oest[i] *= qo;
-            }
-            else if( qo > options.SUM_TOL ){
-              doesti -= oest[i].l();
-              doesti /= qo;
-              doesti += oestlb;
-              doesti.compose( f, Df, 1, cvx, inc, xinfl ).reduce( 1, options.MAX_SUBDIV );
-              doesti *= qo;
-              oest[i] += oestlb - oest[i].l();
-              oest[i].compose( f, Df, 1, cvx, inc, xinfl ).reduce( 1, options.MAX_SUBDIV );
-              oest[i] -= ( 1 - qo ) * f( oestlb );
-              doesti -= oest[i]; // computing max{oest[i],doesti} as oest[i]+max{0,doesti-oest[i]}
-              doesti.min( 0 );
-              oest[i] += doesti;
-            }
-            else{
-              oest[i].set( qo * f( oestlb ) );
-            }
-          }
-          //else if( !oest.empty() ){
-          //  oest[i].set( f( oest[i].u() ) );
-          //}
-
-          std::swap( uest[i], oest[i] );
-        }
-        
-        else if( cvx==2 && inc ){
-          //std::cout << "CONCAVOCONVEX NONDECREASING!\n";
-          
-          if( !uest.empty() ){//&& uest[i].w() > options.SUM_TOL ){
-            auto duesti = uest[i]; 
-            //double const qu = uest[i].w() / wu;
-            if( shadow && qu > options.SUM_TOL ){
-              double const finfl = f( xinfl ), Dfinfl = Df( xinfl );
-              auto const& flcc  = [&]( const double& x )
-                                     { double const z = f(x), t = finfl+Dfinfl*(x-xinfl); return z<t?z:t; };
-              auto const& Dflcc = [&]( const double& x )
-                                     { double const z = f(x), t = finfl+Dfinfl*(x-xinfl); return z<t?Df(x):Dfinfl; };
-              uest[i] -= uest[i].l();
-              uest[i] /= qu;
-              uest[i] += uestlb;
-              uest[i].compose( flcc, Dflcc, 0, 1, inc ).reduce( 0, options.MAX_SUBDIV );
-              uest[i] *= qu;
-            }
-            else if( qu > options.SUM_TOL ){
-              duesti -= uest[i].u();
-              duesti /= qu;
-              duesti += uestub;
-              duesti.compose( f, Df, 1, cvx, inc, xinfl ).reduce( 1, options.MAX_SUBDIV );
-              duesti *= qu;
-              uest[i] += uestub - uest[i].u();
-              uest[i].compose( f, Df, 1, cvx, inc, xinfl ).reduce( 1, options.MAX_SUBDIV );
-              uest[i] -= ( 1 - qu ) * f( uestub );
-              duesti -= uest[i]; // computing min{uest[i],duesti} as uest[i]+min{0,duesti-uest[i]}
-              duesti.min( 0 );
-              uest[i] += duesti;
-            }
-            else{
-              uest[i].set( qu * f( uestub ) );
-            }
-          }
-          //else if( !uest.empty() ){
-          //  uest[i].set( f( uest[i].l() ) );
-          //}
-          
-          if( !oest.empty() ){//&& oest[i].w() > options.SUM_TOL ){
-            auto doesti = oest[i]; 
-            //double const qo = oest[i].w() / wo;
-            if( shadow && qo > options.SUM_TOL ){
-              double const finfl = f( xinfl ), Dfinfl = Df( xinfl );
-              auto const& fucv  = [&]( const double& x )
-                                     { double const z = f(x), t = finfl+Dfinfl*(x-xinfl); return z>t?z:t; };
-              auto const& Dfucv = [&]( const double& x )
-                                     { double const z = f(x), t = finfl+Dfinfl*(x-xinfl); return z>t?Df(x):Dfinfl; };
-              oest[i] -= oest[i].u();
-              oest[i] /= qo;
-              oest[i] += oestub;
-              oest[i].compose( fucv, Dfucv, 1, 0, inc ).reduce( 1, options.MAX_SUBDIV );
-              oest[i] *= qo;
-            }
-            else if( qo > options.SUM_TOL ){
-              doesti -= oest[i].l();
-              doesti /= qo;
-              doesti += oestlb;
-              doesti.compose( f, Df, 0, cvx, inc, xinfl ).reduce( 0, options.MAX_SUBDIV );
-              doesti *= qo;
-              oest[i] += oestlb - oest[i].l();
-              oest[i].compose( f, Df, 0, cvx, inc, xinfl ).reduce( 0, options.MAX_SUBDIV );
-              oest[i] -= ( 1 - qo ) * f( oestlb );
-              doesti -= oest[i]; // computing max{oest[i],doesti} as oest[i]+max{0,doesti-oest[i]}
-              doesti.max( 0 );
-              oest[i] += doesti;
-            }
-            else{
-              oest[i].set( qo * f( oestlb ) );
-            }
-          }
-          //else if( !oest.empty() ){
-          //  oest[i].set( f( oest[i].u() ) );
-          //}
-        }
-
-        else{ //if ( cvx==2 && !inc ){
-          //std::cout << "CONCAVOCONVEX NONINCREASING!\n";
-
-          if( !uest.empty() ){//&& uest[i].w() > options.SUM_TOL ){
-            auto duesti = uest[i]; 
-            //double const qu = uest[i].w() / wu;
-            if( shadow && qu > options.SUM_TOL ){
-              double const finfl = f( xinfl ), Dfinfl = Df( xinfl );
-              auto const& flcv  = [&]( const double& x )
-                                     { double const z = f(x), t = finfl+Dfinfl*(x-xinfl); return z>t?z:t; };
-              auto const& Dflcv = [&]( const double& x )
-                                     { double const z = f(x), t = finfl+Dfinfl*(x-xinfl); return z>t?Df(x):Dfinfl; };
-              uest[i] -= uest[i].u();
-              uest[i] /= qu;
-              uest[i] += uestub;
-              uest[i].compose( flcv, Dflcv, 1, 0, inc ).reduce( 1, options.MAX_SUBDIV );
-              uest[i] *= qu;
-            }
-            else if( qu > options.SUM_TOL ){
-              duesti -= uest[i].l();
-              duesti /= qu;
-              duesti += uestlb;
-              duesti.compose( f, Df, 0, cvx, inc, xinfl ).reduce( 0, options.MAX_SUBDIV );
-              duesti *= qu;
-              uest[i] += uestlb - uest[i].l();
-              uest[i].compose( f, Df, 0, cvx, inc, xinfl ).reduce( 0, options.MAX_SUBDIV );
-              uest[i] -= ( 1 - qu ) * f( uestlb );
-              duesti -= uest[i]; // computing min{uest[i],duesti} as uest[i]+min{0,duesti-uest[i]}
-              duesti.max( 0 );
-              uest[i] += duesti;
-            }
-            else{
-              uest[i].set( qu * f( uestlb ) );
-            }
-          }
-          //else if( !uest.empty() ){
-          //  uest[i].set( f( uest[i].l() ) );
-          //}
-          
-          if( !oest.empty() ){//&& oest[i].w() > options.SUM_TOL ){
-            auto doesti = oest[i]; 
-            //double const qo = oest[i].w() / wo;
-            if( shadow && qo > options.SUM_TOL ){
-              double const finfl = f( xinfl ), Dfinfl = Df( xinfl );
-              auto const& fucc  = [&]( const double& x )
-                                     { double const z = f(x), t = finfl+Dfinfl*(x-xinfl); return z<t?z:t; };
-              auto const& Dfucc = [&]( const double& x )
-                                     { double const z = f(x), t = finfl+Dfinfl*(x-xinfl); return z<t?Df(x):Dfinfl; };
-              oest[i] -= oest[i].l();
-              oest[i] /= qo;
-              oest[i] += oestlb;
-              oest[i].compose( fucc, Dfucc, 0, 1, inc ).reduce( 0, options.MAX_SUBDIV );
-              oest[i] *= qo;
-            }
-            else if( qo > options.SUM_TOL ){
-              doesti -= oest[i].u();
-              doesti /= qo;
-              doesti += oestub;
-              doesti.compose( f, Df, 1, cvx, inc, xinfl ).reduce( 1, options.MAX_SUBDIV );
-              doesti *= qo;
-              oest[i] += oestub - oest[i].u();
-              oest[i].compose( f, Df, 1, cvx, inc, xinfl ).reduce( 1, options.MAX_SUBDIV );
-              oest[i] -= ( 1 - qo ) * f( oestub );
-              doesti -= oest[i]; // computing max{oest[i],doesti} as oest[i]+max{0,doesti-oest[i]}
-              doesti.min( 0 );
-              oest[i] += doesti;
-            }
-            else{
-              oest[i].set( qo * f( oestub ) );
-            }
-          }
-          //else if( !oest.empty() ){
-          //  oest[i].set( f( oest[i].u() ) );
-          //}
-
-          std::swap( uest[i], oest[i] );
-        }
-        
-        //std::cerr << "uest[" << i << "]: ";
-        //uest[i].display( std::cerr, 8 );
-        //std::cerr << "oest[" << i << "]: ";
-        //oest[i].display( std::cerr, 8 );
-
+      if (!oest.empty() && oest[i].w() > options.SUM_TOL)
+      {
+        wo += oest[i].w();
+        no++;
       }
-      //std::cerr << "Exiting PWLU::_compose2\n";
     }
 
-  void _add
-    ( std::set<unsigned> const& sdep,  std::vector<Summand>& est, 
-      std::set<unsigned> const& sdep2, std::vector<Summand> const& est2,
-      bool const under )
-    const
+    for (auto const& i : sdep)
     {
-      //std::cerr << "Entering PWLU::_add\n";
-      for( auto& i : sdep2 ){
-        //std::cerr << "est[" << i << "]: ";
-        //est[i].display( std::cerr, 8 );
-        //std::cerr << "est2[" << i << "]: ";
-        //est2[i].display( std::cerr, 8 );
-        if( !sdep.count(i) ) est[i]  = est2[i];
-        else                 est[i] += est2[i];
-        //std::cerr << "estsum[" << i << "]: ";
-        //est[i].display( std::cerr, 8 );
-        est[i].reduce( under, options.MAX_SUBDIV );
-        //std::cerr << "estsumred[" << i << "]: ";
-        //est[i].display( std::cerr, 8 );
+      double const qu =
+          (wu > options.SUM_TOL ? uest[i].w() / wu : 1. / (double)nu);
+      double const qo =
+          (wo > options.SUM_TOL ? oest[i].w() / wo : 1. / (double)no);
+
+      if (cvx == 3 && inc)
+      {
+        // std::cout << "CONVEXOCONCAVE NONDECREASING!\n";
+
+        if (!uest.empty())
+        {  //&& uest[i].w() > options.SUM_TOL ){
+          auto duesti = uest[i];
+          // double const qu = uest[i].w() / wu;
+          if (shadow && qu > options.SUM_TOL)
+          {
+            double const finfl = f(xinfl), Dfinfl = Df(xinfl);
+            auto const& flcc = [&](const double& x)
+            {
+              double const z = f(x), t = finfl + Dfinfl * (x - xinfl);
+              return z < t ? z : t;
+            };
+            auto const& Dflcc = [&](const double& x)
+            {
+              double const z = f(x), t = finfl + Dfinfl * (x - xinfl);
+              return z < t ? Df(x) : Dfinfl;
+            };
+            uest[i] -= uest[i].u();
+            uest[i] /= qu;
+            uest[i] += uestub;
+            uest[i]
+                .compose(flcc, Dflcc, 1, 0, inc)
+                .reduce(1, options.MAX_SUBDIV);
+            uest[i] *= qu;
+          }
+          else if (qu > options.SUM_TOL)
+          {
+            duesti -= uest[i].l();
+            duesti /= qu;
+            duesti += uestlb;
+            duesti.compose(f, Df, 1, cvx, inc, xinfl)
+                .reduce(1, options.MAX_SUBDIV);
+            duesti *= qu;
+            uest[i] += uestlb - uest[i].l();
+            uest[i]
+                .compose(f, Df, 1, cvx, inc, xinfl)
+                .reduce(1, options.MAX_SUBDIV);
+            uest[i] -= (1 - qu) * f(uestlb);
+            duesti -= uest[i];  // computing min{uest[i],duesti} as
+                                // uest[i]+min{0,duesti-uest[i]}
+            duesti.min(0);
+            uest[i] += duesti;
+          }
+          else
+          {
+            uest[i].set(qu * f(uestlb));
+          }
+        }
+        // else if( !uest.empty() ){
+        //   uest[i].set( f( uest[i].l() ) );
+        // }
+
+        if (!oest.empty())
+        {  //&& oest[i].w() > options.SUM_TOL ){
+          auto doesti = oest[i];
+          // double const qo = oest[i].w() / wo;
+          if (shadow && qo > options.SUM_TOL)
+          {
+            double const finfl = f(xinfl), Dfinfl = Df(xinfl);
+            auto const& fucv = [&](const double& x)
+            {
+              double const z = f(x), t = finfl + Dfinfl * (x - xinfl);
+              return z > t ? z : t;
+            };
+            auto const& Dfucv = [&](const double& x)
+            {
+              double const z = f(x), t = finfl + Dfinfl * (x - xinfl);
+              return z > t ? Df(x) : Dfinfl;
+            };
+            oest[i] -= oest[i].l();
+            oest[i] /= qo;
+            oest[i] += oestlb;
+            oest[i]
+                .compose(fucv, Dfucv, 0, 1, inc)
+                .reduce(0, options.MAX_SUBDIV);
+            oest[i] *= qo;
+          }
+          else if (qo > options.SUM_TOL)
+          {
+            doesti -= oest[i].u();
+            doesti /= qo;
+            doesti += oestub;
+            doesti.compose(f, Df, 0, cvx, inc, xinfl)
+                .reduce(0, options.MAX_SUBDIV);
+            doesti *= qo;
+            oest[i] += oestub - oest[i].u();
+            oest[i]
+                .compose(f, Df, 0, cvx, inc, xinfl)
+                .reduce(0, options.MAX_SUBDIV);
+            oest[i] -= (1 - qo) * f(oestub);
+            doesti -= oest[i];  // computing max{oest[i],doesti} as
+                                // oest[i]+max{0,doesti-oest[i]}
+            doesti.max(0);
+            oest[i] += doesti;
+          }
+          else
+          {
+            oest[i].set(qo * f(oestub));
+          }
+        }
+        // else if( !oest.empty() ){
+        //   oest[i].set( f( oest[i].u() ) );
+        // }
       }
-      //std::cerr << "Exiting PWLU::_add\n";
+
+      else if (cvx == 3 && !inc)
+      {
+        // std::cout << "CONVEXOCONCAVE NONINCREASING!\n";
+
+        if (!uest.empty())
+        {  //&& uest[i].w() > options.SUM_TOL ){
+          auto duesti = uest[i];
+          // double const qu = uest[i].w() / wu;
+          if (shadow && qu > options.SUM_TOL)
+          {
+            double const finfl = f(xinfl), Dfinfl = Df(xinfl);
+            auto const& flcv = [&](const double& x)
+            {
+              double const z = f(x), t = finfl + Dfinfl * (x - xinfl);
+              return z > t ? z : t;
+            };
+            auto const& Dflcv = [&](const double& x)
+            {
+              double const z = f(x), t = finfl + Dfinfl * (x - xinfl);
+              return z > t ? Df(x) : Dfinfl;
+            };
+            uest[i] -= uest[i].l();
+            uest[i] /= qu;
+            uest[i] += uestlb;
+            uest[i]
+                .compose(flcv, Dflcv, 0, 1, inc)
+                .reduce(0, options.MAX_SUBDIV);
+            uest[i] *= qu;
+          }
+          else if (qu > options.SUM_TOL)
+          {
+            duesti -= uest[i].u();
+            duesti /= qu;
+            duesti += uestub;
+            duesti.compose(f, Df, 0, cvx, inc, xinfl)
+                .reduce(0, options.MAX_SUBDIV);
+            duesti *= qu;
+            uest[i] += uestub - uest[i].u();
+            uest[i]
+                .compose(f, Df, 0, cvx, inc, xinfl)
+                .reduce(0, options.MAX_SUBDIV);
+            uest[i] -= (1 - qu) * f(uestub);
+            duesti -= uest[i];  // computing min{uest[i],duesti} as
+                                // uest[i]+min{0,duesti-uest[i]}
+            duesti.max(0);
+            uest[i] += duesti;
+          }
+          else
+          {
+            uest[i].set(qu * f(uestub));
+          }
+        }
+        // else if( !uest.empty() ){
+        //   uest[i].set( f( uest[i].l() ) );
+        // }
+
+        if (!oest.empty())
+        {  //&& oest[i].w() > options.SUM_TOL ){
+          auto doesti = oest[i];
+          // double const qo = oest[i].w() / wo;
+          if (shadow && qo > options.SUM_TOL)
+          {
+            double const finfl = f(xinfl), Dfinfl = Df(xinfl);
+            auto const& fucc = [&](const double& x)
+            {
+              double const z = f(x), t = finfl + Dfinfl * (x - xinfl);
+              return z < t ? z : t;
+            };
+            auto const& Dfucc = [&](const double& x)
+            {
+              double const z = f(x), t = finfl + Dfinfl * (x - xinfl);
+              return z < t ? Df(x) : Dfinfl;
+            };
+            oest[i] -= oest[i].u();
+            oest[i] /= qo;
+            oest[i] += oestub;
+            oest[i]
+                .compose(fucc, Dfucc, 1, 0, inc)
+                .reduce(1, options.MAX_SUBDIV);
+            oest[i] *= qo;
+          }
+          else if (qo > options.SUM_TOL)
+          {
+            doesti -= oest[i].l();
+            doesti /= qo;
+            doesti += oestlb;
+            doesti.compose(f, Df, 1, cvx, inc, xinfl)
+                .reduce(1, options.MAX_SUBDIV);
+            doesti *= qo;
+            oest[i] += oestlb - oest[i].l();
+            oest[i]
+                .compose(f, Df, 1, cvx, inc, xinfl)
+                .reduce(1, options.MAX_SUBDIV);
+            oest[i] -= (1 - qo) * f(oestlb);
+            doesti -= oest[i];  // computing max{oest[i],doesti} as
+                                // oest[i]+max{0,doesti-oest[i]}
+            doesti.min(0);
+            oest[i] += doesti;
+          }
+          else
+          {
+            oest[i].set(qo * f(oestlb));
+          }
+        }
+        // else if( !oest.empty() ){
+        //   oest[i].set( f( oest[i].u() ) );
+        // }
+
+        std::swap(uest[i], oest[i]);
+      }
+
+      else if (cvx == 2 && inc)
+      {
+        // std::cout << "CONCAVOCONVEX NONDECREASING!\n";
+
+        if (!uest.empty())
+        {  //&& uest[i].w() > options.SUM_TOL ){
+          auto duesti = uest[i];
+          // double const qu = uest[i].w() / wu;
+          if (shadow && qu > options.SUM_TOL)
+          {
+            double const finfl = f(xinfl), Dfinfl = Df(xinfl);
+            auto const& flcc = [&](const double& x)
+            {
+              double const z = f(x), t = finfl + Dfinfl * (x - xinfl);
+              return z < t ? z : t;
+            };
+            auto const& Dflcc = [&](const double& x)
+            {
+              double const z = f(x), t = finfl + Dfinfl * (x - xinfl);
+              return z < t ? Df(x) : Dfinfl;
+            };
+            uest[i] -= uest[i].l();
+            uest[i] /= qu;
+            uest[i] += uestlb;
+            uest[i]
+                .compose(flcc, Dflcc, 0, 1, inc)
+                .reduce(0, options.MAX_SUBDIV);
+            uest[i] *= qu;
+          }
+          else if (qu > options.SUM_TOL)
+          {
+            duesti -= uest[i].u();
+            duesti /= qu;
+            duesti += uestub;
+            duesti.compose(f, Df, 1, cvx, inc, xinfl)
+                .reduce(1, options.MAX_SUBDIV);
+            duesti *= qu;
+            uest[i] += uestub - uest[i].u();
+            uest[i]
+                .compose(f, Df, 1, cvx, inc, xinfl)
+                .reduce(1, options.MAX_SUBDIV);
+            uest[i] -= (1 - qu) * f(uestub);
+            duesti -= uest[i];  // computing min{uest[i],duesti} as
+                                // uest[i]+min{0,duesti-uest[i]}
+            duesti.min(0);
+            uest[i] += duesti;
+          }
+          else
+          {
+            uest[i].set(qu * f(uestub));
+          }
+        }
+        // else if( !uest.empty() ){
+        //   uest[i].set( f( uest[i].l() ) );
+        // }
+
+        if (!oest.empty())
+        {  //&& oest[i].w() > options.SUM_TOL ){
+          auto doesti = oest[i];
+          // double const qo = oest[i].w() / wo;
+          if (shadow && qo > options.SUM_TOL)
+          {
+            double const finfl = f(xinfl), Dfinfl = Df(xinfl);
+            auto const& fucv = [&](const double& x)
+            {
+              double const z = f(x), t = finfl + Dfinfl * (x - xinfl);
+              return z > t ? z : t;
+            };
+            auto const& Dfucv = [&](const double& x)
+            {
+              double const z = f(x), t = finfl + Dfinfl * (x - xinfl);
+              return z > t ? Df(x) : Dfinfl;
+            };
+            oest[i] -= oest[i].u();
+            oest[i] /= qo;
+            oest[i] += oestub;
+            oest[i]
+                .compose(fucv, Dfucv, 1, 0, inc)
+                .reduce(1, options.MAX_SUBDIV);
+            oest[i] *= qo;
+          }
+          else if (qo > options.SUM_TOL)
+          {
+            doesti -= oest[i].l();
+            doesti /= qo;
+            doesti += oestlb;
+            doesti.compose(f, Df, 0, cvx, inc, xinfl)
+                .reduce(0, options.MAX_SUBDIV);
+            doesti *= qo;
+            oest[i] += oestlb - oest[i].l();
+            oest[i]
+                .compose(f, Df, 0, cvx, inc, xinfl)
+                .reduce(0, options.MAX_SUBDIV);
+            oest[i] -= (1 - qo) * f(oestlb);
+            doesti -= oest[i];  // computing max{oest[i],doesti} as
+                                // oest[i]+max{0,doesti-oest[i]}
+            doesti.max(0);
+            oest[i] += doesti;
+          }
+          else
+          {
+            oest[i].set(qo * f(oestlb));
+          }
+        }
+        // else if( !oest.empty() ){
+        //   oest[i].set( f( oest[i].u() ) );
+        // }
+      }
+
+      else
+      {  // if ( cvx==2 && !inc ){
+        // std::cout << "CONCAVOCONVEX NONINCREASING!\n";
+
+        if (!uest.empty())
+        {  //&& uest[i].w() > options.SUM_TOL ){
+          auto duesti = uest[i];
+          // double const qu = uest[i].w() / wu;
+          if (shadow && qu > options.SUM_TOL)
+          {
+            double const finfl = f(xinfl), Dfinfl = Df(xinfl);
+            auto const& flcv = [&](const double& x)
+            {
+              double const z = f(x), t = finfl + Dfinfl * (x - xinfl);
+              return z > t ? z : t;
+            };
+            auto const& Dflcv = [&](const double& x)
+            {
+              double const z = f(x), t = finfl + Dfinfl * (x - xinfl);
+              return z > t ? Df(x) : Dfinfl;
+            };
+            uest[i] -= uest[i].u();
+            uest[i] /= qu;
+            uest[i] += uestub;
+            uest[i]
+                .compose(flcv, Dflcv, 1, 0, inc)
+                .reduce(1, options.MAX_SUBDIV);
+            uest[i] *= qu;
+          }
+          else if (qu > options.SUM_TOL)
+          {
+            duesti -= uest[i].l();
+            duesti /= qu;
+            duesti += uestlb;
+            duesti.compose(f, Df, 0, cvx, inc, xinfl)
+                .reduce(0, options.MAX_SUBDIV);
+            duesti *= qu;
+            uest[i] += uestlb - uest[i].l();
+            uest[i]
+                .compose(f, Df, 0, cvx, inc, xinfl)
+                .reduce(0, options.MAX_SUBDIV);
+            uest[i] -= (1 - qu) * f(uestlb);
+            duesti -= uest[i];  // computing min{uest[i],duesti} as
+                                // uest[i]+min{0,duesti-uest[i]}
+            duesti.max(0);
+            uest[i] += duesti;
+          }
+          else
+          {
+            uest[i].set(qu * f(uestlb));
+          }
+        }
+        // else if( !uest.empty() ){
+        //   uest[i].set( f( uest[i].l() ) );
+        // }
+
+        if (!oest.empty())
+        {  //&& oest[i].w() > options.SUM_TOL ){
+          auto doesti = oest[i];
+          // double const qo = oest[i].w() / wo;
+          if (shadow && qo > options.SUM_TOL)
+          {
+            double const finfl = f(xinfl), Dfinfl = Df(xinfl);
+            auto const& fucc = [&](const double& x)
+            {
+              double const z = f(x), t = finfl + Dfinfl * (x - xinfl);
+              return z < t ? z : t;
+            };
+            auto const& Dfucc = [&](const double& x)
+            {
+              double const z = f(x), t = finfl + Dfinfl * (x - xinfl);
+              return z < t ? Df(x) : Dfinfl;
+            };
+            oest[i] -= oest[i].l();
+            oest[i] /= qo;
+            oest[i] += oestlb;
+            oest[i]
+                .compose(fucc, Dfucc, 0, 1, inc)
+                .reduce(0, options.MAX_SUBDIV);
+            oest[i] *= qo;
+          }
+          else if (qo > options.SUM_TOL)
+          {
+            doesti -= oest[i].u();
+            doesti /= qo;
+            doesti += oestub;
+            doesti.compose(f, Df, 1, cvx, inc, xinfl)
+                .reduce(1, options.MAX_SUBDIV);
+            doesti *= qo;
+            oest[i] += oestub - oest[i].u();
+            oest[i]
+                .compose(f, Df, 1, cvx, inc, xinfl)
+                .reduce(1, options.MAX_SUBDIV);
+            oest[i] -= (1 - qo) * f(oestub);
+            doesti -= oest[i];  // computing max{oest[i],doesti} as
+                                // oest[i]+max{0,doesti-oest[i]}
+            doesti.min(0);
+            oest[i] += doesti;
+          }
+          else
+          {
+            oest[i].set(qo * f(oestub));
+          }
+        }
+        // else if( !oest.empty() ){
+        //   oest[i].set( f( oest[i].u() ) );
+        // }
+
+        std::swap(uest[i], oest[i]);
+      }
+
+      // std::cerr << "uest[" << i << "]: ";
+      // uest[i].display( std::cerr, 8 );
+      // std::cerr << "oest[" << i << "]: ";
+      // oest[i].display( std::cerr, 8 );
     }
+    // std::cerr << "Exiting PWLU::_compose2\n";
+  }
+
+  void
+  _add(std::set<unsigned> const& sdep, std::vector<Summand>& est,
+       std::set<unsigned> const& sdep2, std::vector<Summand> const& est2,
+       bool const under) const
+  {
+    // std::cerr << "Entering PWLU::_add\n";
+    for (auto& i : sdep2)
+    {
+      // std::cerr << "est[" << i << "]: ";
+      // est[i].display( std::cerr, 8 );
+      // std::cerr << "est2[" << i << "]: ";
+      // est2[i].display( std::cerr, 8 );
+      if (!sdep.count(i))
+        est[i] = est2[i];
+      else
+        est[i] += est2[i];
+      // std::cerr << "estsum[" << i << "]: ";
+      // est[i].display( std::cerr, 8 );
+      est[i].reduce(under, options.MAX_SUBDIV);
+      // std::cerr << "estsumred[" << i << "]: ";
+      // est[i].display( std::cerr, 8 );
+    }
+    // std::cerr << "Exiting PWLU::_add\n";
+  }
 };
 
 template <typename Summand>
-std::ostream& operator<<
-( std::ostream& out, const SupModel<Summand>& mod )
+std::ostream&
+operator<<(std::ostream& out, const SupModel<Summand>& mod)
 {
   out << std::endl;
   out << "Superposition model:" << std::endl;
   out << "   " << "No. variables:  " << mod._nvar << std::endl;
   out << "   " << "Variable bounds: " << std::endl;
-  for( unsigned int i=0; i<mod._nvar; i++ ){
+  for (unsigned int i = 0; i < mod._nvar; i++)
+  {
     out << "       " << i << ":";
-    if( mod._defvar[i] ){
-      out << std::right << std::scientific << std::setprecision(mod.options.DISPLAY_DIGITS);
-      out << "[ "  << std::setw(mod.options.DISPLAY_DIGITS+7) << mod._lbdvar[i]
-          << " : " << std::setw(mod.options.DISPLAY_DIGITS+7) << mod._ubdvar[i] << " ]";
+    if (mod._defvar[i])
+    {
+      out << std::right << std::scientific
+          << std::setprecision(mod.options.DISPLAY_DIGITS);
+      out << "[ " << std::setw(mod.options.DISPLAY_DIGITS + 7) << mod._lbdvar[i]
+          << " : " << std::setw(mod.options.DISPLAY_DIGITS + 7)
+          << mod._ubdvar[i] << " ]";
     }
     else
       out << "-";
@@ -2386,196 +2922,196 @@ std::ostream& operator<<
 //! model. The template parameters correspond to 1) the type of the
 //! range enclosures and 2) the type of the summands.
 ////////////////////////////////////////////////////////////////////////
-template <typename Summand> 
+template <typename Summand>
 class SupVar
 {
-  template <typename S> friend class SupModel;
+  template <typename S>
+  friend class SupModel;
 
-  template <typename S> friend std::ostream& operator<<
-    ( std::ostream &, SupVar<S> const& );
+  template <typename S>
+  friend std::ostream& operator<<(std::ostream&, SupVar<S> const&);
 
-  template <typename S> friend SupVar<S> operator+
-    ( SupVar<S> const& );
-  template <typename S> friend SupVar<S> && operator+
-    ( SupVar<S> && );
+  template <typename S>
+  friend SupVar<S> operator+(SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S>&& operator+(SupVar<S>&&);
 
-  template <typename S> friend SupVar<S> operator+
-    ( SupVar<S> const&, SupVar<S> const& );
-  template <typename S> friend SupVar<S> && operator+
-    ( SupVar<S> const&, SupVar<S> && );
-  template <typename S> friend SupVar<S> && operator+
-    ( SupVar<S> &&, SupVar<S> const& );    
-  template <typename S> friend SupVar<S> && operator+
-    ( SupVar<S> &&, SupVar<S> && );    
+  template <typename S>
+  friend SupVar<S> operator+(SupVar<S> const&, SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S>&& operator+(SupVar<S> const&, SupVar<S>&&);
+  template <typename S>
+  friend SupVar<S>&& operator+(SupVar<S>&&, SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S>&& operator+(SupVar<S>&&, SupVar<S>&&);
 
-  template <typename S> friend SupVar<S> operator+
-    ( double const&, SupVar<S> const& );
-  template <typename S> friend SupVar<S> && operator+
-    ( double const&, SupVar<S> && );
+  template <typename S>
+  friend SupVar<S> operator+(double const&, SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S>&& operator+(double const&, SupVar<S>&&);
 
-  template <typename S> friend SupVar<S> operator+
-    ( SupVar<S> const&, double const& );
-  template <typename S> friend SupVar<S> && operator+
-    ( SupVar<S> &&, double const& );
+  template <typename S>
+  friend SupVar<S> operator+(SupVar<S> const&, double const&);
+  template <typename S>
+  friend SupVar<S>&& operator+(SupVar<S>&&, double const&);
 
-  template <typename S> friend SupVar<S> operator-
-    ( SupVar<S> const& );
-  template <typename S> friend SupVar<S> && operator-
-    ( SupVar<S> && );
+  template <typename S>
+  friend SupVar<S> operator-(SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S>&& operator-(SupVar<S>&&);
 
-  template <typename S> friend SupVar<S> operator-
-    ( SupVar<S> const&, SupVar<S> const& );
-  template <typename S> friend SupVar<S> && operator-
-    ( SupVar<S> const&, SupVar<S> && );
-  template <typename S> friend SupVar<S> && operator-
-    ( SupVar<S> &&, SupVar<S> const& );
-  template <typename S> friend SupVar<S> && operator-
-    ( SupVar<S> &&, SupVar<S> && );
+  template <typename S>
+  friend SupVar<S> operator-(SupVar<S> const&, SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S>&& operator-(SupVar<S> const&, SupVar<S>&&);
+  template <typename S>
+  friend SupVar<S>&& operator-(SupVar<S>&&, SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S>&& operator-(SupVar<S>&&, SupVar<S>&&);
 
-  template <typename S> friend SupVar<S> operator-
-    ( double const&, SupVar<S> const& );
-  template <typename S> friend SupVar<S> && operator-
-    ( double const&, SupVar<S> && );
+  template <typename S>
+  friend SupVar<S> operator-(double const&, SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S>&& operator-(double const&, SupVar<S>&&);
 
-  template <typename S> friend SupVar<S> operator-
-    ( SupVar<S> const&, double const& );
-  template <typename S> friend SupVar<S> && operator-
-    ( SupVar<S> &&, double const& );
+  template <typename S>
+  friend SupVar<S> operator-(SupVar<S> const&, double const&);
+  template <typename S>
+  friend SupVar<S>&& operator-(SupVar<S>&&, double const&);
 
-  template <typename S> friend SupVar<S> operator*
-    ( SupVar<S> const&, SupVar<S> const& );
-  template <typename S> friend SupVar<S> && operator*
-    ( SupVar<S> const&, SupVar<S> && );
-  template <typename S> friend SupVar<S> && operator*
-    ( SupVar<S> &&, SupVar<S> const& );
-  template <typename S> friend SupVar<S> && operator*
-    ( SupVar<S> &&, SupVar<S> && );
+  template <typename S>
+  friend SupVar<S> operator*(SupVar<S> const&, SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S>&& operator*(SupVar<S> const&, SupVar<S>&&);
+  template <typename S>
+  friend SupVar<S>&& operator*(SupVar<S>&&, SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S>&& operator*(SupVar<S>&&, SupVar<S>&&);
 
-  template <typename S> friend SupVar<S> operator*
-    ( double const&, SupVar<S> const& );
-  template <typename S> friend SupVar<S> && operator*
-    ( double const&, SupVar<S> && );
+  template <typename S>
+  friend SupVar<S> operator*(double const&, SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S>&& operator*(double const&, SupVar<S>&&);
 
-  template <typename S> friend SupVar<S> operator*
-    ( SupVar<S> const&, double const& );
-  template <typename S> friend SupVar<S> && operator*
-    ( SupVar<S> &&, double const& );
+  template <typename S>
+  friend SupVar<S> operator*(SupVar<S> const&, double const&);
+  template <typename S>
+  friend SupVar<S>&& operator*(SupVar<S>&&, double const&);
 
-  template <typename S> friend SupVar<S> operator/
-    ( SupVar<S> const&, SupVar<S> const& );
-  template <typename S> friend SupVar<S> && operator/
-    ( SupVar<S> const&, SupVar<S> && );
-  template <typename S> friend SupVar<S> && operator/
-    ( SupVar<S> &&, SupVar<S> const& );
-  template <typename S> friend SupVar<S> && operator/
-    ( SupVar<S> &&, SupVar<S> && );
+  template <typename S>
+  friend SupVar<S> operator/(SupVar<S> const&, SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S>&& operator/(SupVar<S> const&, SupVar<S>&&);
+  template <typename S>
+  friend SupVar<S>&& operator/(SupVar<S>&&, SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S>&& operator/(SupVar<S>&&, SupVar<S>&&);
 
-  template <typename S> friend SupVar<S> operator/
-    ( double const&, SupVar<S> const& );
-  template <typename S> friend SupVar<S> && operator/
-    ( double const&, SupVar<S> && );
+  template <typename S>
+  friend SupVar<S> operator/(double const&, SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S>&& operator/(double const&, SupVar<S>&&);
 
-  template <typename S> friend SupVar<S> operator/
-    ( SupVar<S> const&, double const& );
-  template <typename S> friend SupVar<S> && operator/
-    ( SupVar<S> &&, double const& );
+  template <typename S>
+  friend SupVar<S> operator/(SupVar<S> const&, double const&);
+  template <typename S>
+  friend SupVar<S>&& operator/(SupVar<S>&&, double const&);
 
-  template <typename S> friend SupVar<S> max
-    ( SupVar<S> const&, SupVar<S> const& );
-  template <typename S> friend SupVar<S> max
-    ( SupVar<S> const&, double const& );
-  template <typename S> friend SupVar<S> && max
-    ( SupVar<S> &&, double const& );
-  template <typename S> friend SupVar<S> min
-    ( SupVar<S> const&, SupVar<S> const& );
-  template <typename S> friend SupVar<S> min
-    ( SupVar<S> const&, double const& );
-  template <typename S> friend SupVar<S> && min
-    ( SupVar<S> &&, double const& );
+  template <typename S>
+  friend SupVar<S> max(SupVar<S> const&, SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S> max(SupVar<S> const&, double const&);
+  template <typename S>
+  friend SupVar<S>&& max(SupVar<S>&&, double const&);
+  template <typename S>
+  friend SupVar<S> min(SupVar<S> const&, SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S> min(SupVar<S> const&, double const&);
+  template <typename S>
+  friend SupVar<S>&& min(SupVar<S>&&, double const&);
 
-  template <typename S> friend SupVar<S> sqrt
-    ( SupVar<S> const& );
-  template <typename S> friend SupVar<S> && sqrt
-    ( SupVar<S> && );
-  template <typename S> friend SupVar<S> fabs
-    ( SupVar<S> const& );
-  template <typename S> friend SupVar<S> && fabs
-    ( SupVar<S> && );  
-  template <typename S> friend SupVar<S> exp
-    ( SupVar<S> const& );
-  template <typename S> friend SupVar<S> && exp
-    ( SupVar<S> && );
-  template <typename S> friend SupVar<S> log
-    ( SupVar<S> const& );
-  template <typename S> friend SupVar<S> && log
-    ( SupVar<S> && );
-  template <typename S> friend SupVar<S> xlog
-    ( SupVar<S> const& );
-  template <typename S> friend SupVar<S> && xlog
-    ( SupVar<S> && );
-  template <typename S> friend SupVar<S> cos
-    ( SupVar<S> const& );
-  template <typename S> friend SupVar<S> && cos
-    ( SupVar<S> && );
-  template <typename S> friend SupVar<S> sin
-    ( SupVar<S> const& );
-//  template <typename S> friend SupVar<S> && sin
-//    ( SupVar<S> && );
-  template <typename S> friend SupVar<S> tan
-    ( SupVar<S> const& );
-  template <typename S> friend SupVar<S> && tan
-    ( SupVar<S> && );
-  template <typename S> friend SupVar<S> asin
-    ( SupVar<S> const& );
-  template <typename S> friend SupVar<S> && asin
-    ( SupVar<S> && );
-  template <typename S> friend SupVar<S> acos
-    ( SupVar<S> const& );
-  template <typename S> friend SupVar<S> && acos
-    ( SupVar<S> && );
-  template <typename S> friend SupVar<S> atan
-    ( SupVar<S> const& );
-  template <typename S> friend SupVar<S> && atan
-    ( SupVar<S> && );
-  template <typename S> friend SupVar<S> sinh
-    ( SupVar<S> const& );
-  template <typename S> friend SupVar<S> && sinh
-    ( SupVar<S> && );
-  template <typename S> friend SupVar<S> cosh
-    ( SupVar<S> const& );
-  template <typename S> friend SupVar<S> && cosh
-    ( SupVar<S> && );
-  template <typename S> friend SupVar<S> tanh
-    ( SupVar<S> const& );
-  template <typename S> friend SupVar<S> && tanh
-    ( SupVar<S> && );
-  template <typename S> friend SupVar<S> erf
-    ( SupVar<S> const& );
-  template <typename S> friend SupVar<S> && erf
-    ( SupVar<S> && );
-  template <typename S> friend SupVar<S> erfc
-    ( SupVar<S> const& );
-  template <typename S> friend SupVar<S> && erfc
-    ( SupVar<S> && );
-  template <typename S> friend SupVar<S> pow
-    ( SupVar<S> const&, int const& );
-  template <typename S> friend SupVar<S> && pow
-    ( SupVar<S> &&, int const& );
-  template <typename S> friend SupVar<S> pow
-    ( SupVar<S> const&, double const& );
-  template <typename S> friend SupVar<S> && pow
-    ( SupVar<S> &&, double const& );
-  template <typename S> friend SupVar<S> intersect
-    ( SupVar<S> const& , double const& );
-  template <typename S> friend SupVar<S> && intersect
-    ( SupVar<S> && , double const& );  
-  template <typename S> friend SupVar<S> cheb
-    ( SupVar<S> const&, unsigned int const& n );
-  template <typename S> friend SupVar<S> && cheb
-    ( SupVar<S> &&, unsigned int const& n );
+  template <typename S>
+  friend SupVar<S> sqrt(SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S>&& sqrt(SupVar<S>&&);
+  template <typename S>
+  friend SupVar<S> fabs(SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S>&& fabs(SupVar<S>&&);
+  template <typename S>
+  friend SupVar<S> exp(SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S>&& exp(SupVar<S>&&);
+  template <typename S>
+  friend SupVar<S> log(SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S>&& log(SupVar<S>&&);
+  template <typename S>
+  friend SupVar<S> xlog(SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S>&& xlog(SupVar<S>&&);
+  template <typename S>
+  friend SupVar<S> cos(SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S>&& cos(SupVar<S>&&);
+  template <typename S>
+  friend SupVar<S> sin(SupVar<S> const&);
+  //  template <typename S> friend SupVar<S> && sin
+  //    ( SupVar<S> && );
+  template <typename S>
+  friend SupVar<S> tan(SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S>&& tan(SupVar<S>&&);
+  template <typename S>
+  friend SupVar<S> asin(SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S>&& asin(SupVar<S>&&);
+  template <typename S>
+  friend SupVar<S> acos(SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S>&& acos(SupVar<S>&&);
+  template <typename S>
+  friend SupVar<S> atan(SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S>&& atan(SupVar<S>&&);
+  template <typename S>
+  friend SupVar<S> sinh(SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S>&& sinh(SupVar<S>&&);
+  template <typename S>
+  friend SupVar<S> cosh(SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S>&& cosh(SupVar<S>&&);
+  template <typename S>
+  friend SupVar<S> tanh(SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S>&& tanh(SupVar<S>&&);
+  template <typename S>
+  friend SupVar<S> erf(SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S>&& erf(SupVar<S>&&);
+  template <typename S>
+  friend SupVar<S> erfc(SupVar<S> const&);
+  template <typename S>
+  friend SupVar<S>&& erfc(SupVar<S>&&);
+  template <typename S>
+  friend SupVar<S> pow(SupVar<S> const&, int const&);
+  template <typename S>
+  friend SupVar<S>&& pow(SupVar<S>&&, int const&);
+  template <typename S>
+  friend SupVar<S> pow(SupVar<S> const&, double const&);
+  template <typename S>
+  friend SupVar<S>&& pow(SupVar<S>&&, double const&);
+  template <typename S>
+  friend SupVar<S> intersect(SupVar<S> const&, double const&);
+  template <typename S>
+  friend SupVar<S>&& intersect(SupVar<S>&&, double const&);
+  template <typename S>
+  friend SupVar<S> cheb(SupVar<S> const&, unsigned int const& n);
+  template <typename S>
+  friend SupVar<S>&& cheb(SupVar<S>&&, unsigned int const& n);
 
  private:
- 
   //! @brief Pointer to superposition model
   SupModel<Summand>* _mod;
   //! @brief Constant estimator (in which case both _uest and _oest are empty)
@@ -2587,57 +3123,46 @@ class SupVar
   std::vector<Summand> _uest;
   //! @brief Vector of overestimator summands
   std::vector<Summand> _oest;
-  
+
   //! @brief lower bound on primal underestimator
-  mutable std::pair<double,bool> _lbd;
+  mutable std::pair<double, bool> _lbd;
   //! @brief upper bound on primal overestimator
-  mutable std::pair<double,bool> _ubd;
+  mutable std::pair<double, bool> _ubd;
 
   //! @brief Vector of shadow underestimator summands
   std::vector<Summand> _uest2;
   //! @brief Vector of shadow overestimator summands
   std::vector<Summand> _oest2;
-  
+
   //! @brief lower bound on shadow underestimator
-  mutable std::pair<double,bool> _lbd2;
+  mutable std::pair<double, bool> _lbd2;
   //! @brief upper bound on shadow overestimator
-  mutable std::pair<double,bool> _ubd2;
-  
+  mutable std::pair<double, bool> _ubd2;
+
   //! @brief lower bound on overall underestimator
-  mutable std::pair<double,bool> _lbd0;
+  mutable std::pair<double, bool> _lbd0;
   //! @brief upper bound on overall overestimator
-  mutable std::pair<double,bool> _ubd0;
+  mutable std::pair<double, bool> _ubd0;
 
  public:
+  SupVar<Summand>& operator+=(SupVar<Summand> const&);
+  // SupVar<Summand>& operator+=
+  //   ( SupVar<Summand> && );
+  SupVar<Summand>& operator+=(double const&);
 
-  SupVar<Summand>& operator+=
-    ( SupVar<Summand> const& );
-  //SupVar<Summand>& operator+=
-  //  ( SupVar<Summand> && );
-  SupVar<Summand>& operator+=
-    ( double const& );
+  SupVar<Summand>& operator-=(SupVar<Summand> const&);
+  SupVar<Summand>& operator-=(double const&);
 
-  SupVar<Summand>& operator-=
-    ( SupVar<Summand> const& );
-  SupVar<Summand>& operator-=
-    ( double const& );
- 
-  SupVar<Summand>& operator*=
-    ( SupVar<Summand> const& );
-  SupVar<Summand>& operator*=
-    ( SupVar<Summand> && );
-  SupVar<Summand>& operator*=
-    ( double const& );
+  SupVar<Summand>& operator*=(SupVar<Summand> const&);
+  SupVar<Summand>& operator*=(SupVar<Summand>&&);
+  SupVar<Summand>& operator*=(double const&);
 
-  SupVar<Summand>& operator/=
-    ( SupVar<Summand> const& );
-  SupVar<Summand>& operator/=
-    ( SupVar<Summand> && );
-  SupVar<Summand>& operator/=
-    ( double const& );
+  SupVar<Summand>& operator/=(SupVar<Summand> const&);
+  SupVar<Summand>& operator/=(SupVar<Summand>&&);
+  SupVar<Summand>& operator/=(double const&);
 
-  SupVar<Summand>& operator=
-  ( double const& cst )
+  SupVar<Summand>&
+  operator=(double const& cst)
   {
     _mod = nullptr;
     _cst = cst;
@@ -2646,311 +3171,303 @@ class SupVar
     _uest.clear();
     _oest.clear();
 
-    _lbd = std::make_pair( 0., false );
-    _ubd = std::make_pair( 0., false );
+    _lbd = std::make_pair(0., false);
+    _ubd = std::make_pair(0., false);
 
     _uest2.clear();
     _oest2.clear();
 
-    _lbd0 = _lbd2 = std::make_pair( 0., false );
-    _ubd0 = _ubd2 = std::make_pair( 0., false );
+    _lbd0 = _lbd2 = std::make_pair(0., false);
+    _ubd0 = _ubd2 = std::make_pair(0., false);
 
     return *this;
   }
 
-  SupVar<Summand>& operator=
-  ( SupVar<Summand> const& var )
+  SupVar<Summand>&
+  operator=(SupVar<Summand> const& var)
   {
 #ifdef MC__SUPMODEL_TRACE
     std::cerr << "-- SupVar<Summand>& operator= ( SupVar<Summand> const& )\n";
 #endif
-    if( this == &var )
-      return *this;
+    if (this == &var) return *this;
 
     _mod = var._mod;
-    if( !_mod || var._sdep.empty() )
-      _cst = var._cst;
+    if (!_mod || var._sdep.empty()) _cst = var._cst;
     _sdep = var._sdep;
 
     _uest = var._uest;
     _oest = var._oest;
 
-    _lbd  = var._lbd;
-    _ubd  = var._ubd;
+    _lbd = var._lbd;
+    _ubd = var._ubd;
 
     _uest2 = var._uest2;
     _oest2 = var._oest2;
 
-    _lbd2  = var._lbd2;
-    _ubd2  = var._ubd2;
+    _lbd2 = var._lbd2;
+    _ubd2 = var._ubd2;
 
     _lbd0 = var._lbd2;
     _ubd0 = var._ubd2;
 
     return *this;
-  } 
+  }
 
-  SupVar<Summand>& operator=
-  ( SupVar<Summand> && var )
+  SupVar<Summand>&
+  operator=(SupVar<Summand>&& var)
   {
 #ifdef MC__SUPMODEL_TRACE
     std::cerr << "-- SupVar<Summand>& operator= ( SupVar<Summand> && )\n";
 #endif
-    if( this == &var )
-      return *this;
+    if (this == &var) return *this;
 
     _mod = var._mod;
-    if( !_mod || var._sdep.empty() )
-      _cst = std::move( var._cst );
-    _sdep = std::move( var._sdep );
+    if (!_mod || var._sdep.empty()) _cst = std::move(var._cst);
+    _sdep = std::move(var._sdep);
 
-    _uest = std::move( var._uest );
-    _oest = std::move( var._oest );
+    _uest = std::move(var._uest);
+    _oest = std::move(var._oest);
 
-    _lbd  = std::move( var._lbd );
-    _ubd  = std::move( var._ubd );
+    _lbd = std::move(var._lbd);
+    _ubd = std::move(var._ubd);
 
-    _uest2 = std::move( var._uest2 );
-    _oest2 = std::move( var._oest2 );
+    _uest2 = std::move(var._uest2);
+    _oest2 = std::move(var._oest2);
 
-    _lbd2  = std::move( var._lbd2 );
-    _ubd2  = std::move( var._ubd2 );
+    _lbd2 = std::move(var._lbd2);
+    _ubd2 = std::move(var._ubd2);
 
-    _lbd0 = std::move( var._lbd0 );
-    _ubd0 = std::move( var._ubd0 );
+    _lbd0 = std::move(var._lbd0);
+    _ubd0 = std::move(var._ubd0);
 
     return *this;
   }
 
-  SupVar
-  ( SupModel<Summand>& mod )
-  : _mod( &mod ),
-    _cst( 0. ),
-    _uest( mod._nvar ),
-    _oest( mod._nvar ),
-    _lbd( 0., false ),
-    _ubd( 0., false ),
-    // do not presize shadow estimators
-    _lbd2( 0., false ),
-    _ubd2( 0., false ),
-    _lbd0( 0., false ),
-    _ubd0( 0., false )
-  {}
+  SupVar(SupModel<Summand>& mod)
+      : _mod(&mod),
+        _cst(0.),
+        _uest(mod._nvar),
+        _oest(mod._nvar),
+        _lbd(0., false),
+        _ubd(0., false),
+        // do not presize shadow estimators
+        _lbd2(0., false),
+        _ubd2(0., false),
+        _lbd0(0., false),
+        _ubd0(0., false)
+  {
+  }
 
   template <typename Range>
-  SupVar
-  ( SupModel<Summand>& mod, unsigned int ndx, Range const& bnd, size_t const ndiv=1 )
-  : _mod( &mod ),
-    _cst( 0. ),
-    _lbd( Op<Range>::l(bnd), true ),
-    _ubd( Op<Range>::u(bnd), true ),
-    // do not presize shadow estimators
-    _lbd2( 0., false ),
-    _ubd2( 0., false ),
-    _lbd0( 0., false ),
-    _ubd0( 0., false )
+  SupVar(SupModel<Summand>& mod, unsigned int ndx, Range const& bnd,
+         size_t const ndiv = 1)
+      : _mod(&mod),
+        _cst(0.),
+        _lbd(Op<Range>::l(bnd), true),
+        _ubd(Op<Range>::u(bnd), true),
+        // do not presize shadow estimators
+        _lbd2(0., false),
+        _ubd2(0., false),
+        _lbd0(0., false),
+        _ubd0(0., false)
   {
-    if( ndx >= mod._nvar )
-      throw typename SupModel<Summand>::Exceptions( SupModel<Summand>::Exceptions::INDEX );
+    if (ndx >= mod._nvar)
+      throw typename SupModel<Summand>::Exceptions(
+          SupModel<Summand>::Exceptions::INDEX);
 
     _mod->_defvar[ndx] = true;
     _mod->_lbdvar[ndx] = _lbd.first;
     _mod->_ubdvar[ndx] = _ubd.first;
 
-    _sdep = { ndx };
-    _uest.resize( mod._nvar );
-    _oest.resize( mod._nvar );
-    _uest[ndx].set( _lbd.first, _ubd.first, ndiv );
-    _oest[ndx].set( _lbd.first, _ubd.first, ndiv );
+    _sdep = {ndx};
+    _uest.resize(mod._nvar);
+    _oest.resize(mod._nvar);
+    _uest[ndx].set(_lbd.first, _ubd.first, ndiv);
+    _oest[ndx].set(_lbd.first, _ubd.first, ndiv);
   }
 
-  SupVar
-  ( SupModel<Summand>& mod, unsigned int ndx, Summand const& est )
-  : _mod( &mod ),
-    _cst( 0. ),
-    // do not presize shadow estimators
-    _lbd2( 0., false ),
-    _ubd2( 0., false ),
-    _lbd0( 0., false ),
-    _ubd0( 0., false )
+  SupVar(SupModel<Summand>& mod, unsigned int ndx, Summand const& est)
+      : _mod(&mod),
+        _cst(0.),
+        // do not presize shadow estimators
+        _lbd2(0., false),
+        _ubd2(0., false),
+        _lbd0(0., false),
+        _ubd0(0., false)
   {
-    if( ndx >= mod._nvar )
-      throw typename SupModel<Summand>::Exceptions( SupModel<Summand>::Exceptions::INDEX );
+    if (ndx >= mod._nvar)
+      throw typename SupModel<Summand>::Exceptions(
+          SupModel<Summand>::Exceptions::INDEX);
 
     _mod->_defvar[ndx] = true;
     _mod->_lbdvar[ndx] = est.l();
     _mod->_ubdvar[ndx] = est.u();
 
-    _sdep = { ndx };
-    _uest.resize( mod._nvar );
-    _oest.resize( mod._nvar );
+    _sdep = {ndx};
+    _uest.resize(mod._nvar);
+    _oest.resize(mod._nvar);
     _uest[ndx] = _oest[ndx] = est;
 
-    _lbd = std::make_pair( _mod->_lbdvar[ndx], true );
-    _ubd = std::make_pair( _mod->_ubdvar[ndx], true );
+    _lbd = std::make_pair(_mod->_lbdvar[ndx], true);
+    _ubd = std::make_pair(_mod->_ubdvar[ndx], true);
   }
 
-  SupVar
-  ( double const& cst=0. )
-  : _mod( nullptr ),
-    _cst( cst ),
-    _lbd( 0., false ),
-    _ubd( 0., false ),
-    _lbd2( 0., false ),
-    _ubd2( 0., false )
-  {}
+  SupVar(double const& cst = 0.)
+      : _mod(nullptr),
+        _cst(cst),
+        _lbd(0., false),
+        _ubd(0., false),
+        _lbd2(0., false),
+        _ubd2(0., false)
+  {
+  }
 
-  SupVar
-  ( SupVar<Summand> const& var )
-  : _mod( var._mod )
+  SupVar(SupVar<Summand> const& var) : _mod(var._mod)
   {
 #ifdef MC__SUPMODEL_TRACE
     std::cerr << "-- SupVar( SupVar<Summand> const& )\n";
 #endif
-    if( this == &var ) return;
+    if (this == &var) return;
 
-    if( !_mod || var._sdep.empty() )
-      _cst = var._cst;
+    if (!_mod || var._sdep.empty()) _cst = var._cst;
     _sdep = var._sdep;
 
     _uest = var._uest;
     _oest = var._oest;
 
-    _lbd  = var._lbd;
-    _ubd  = var._ubd;
+    _lbd = var._lbd;
+    _ubd = var._ubd;
 
     _uest2 = var._uest2;
     _oest2 = var._oest2;
 
-    _lbd2  = var._lbd2;
-    _ubd2  = var._ubd2;
+    _lbd2 = var._lbd2;
+    _ubd2 = var._ubd2;
 
-    _lbd0  = var._lbd0;
-    _ubd0  = var._ubd0;
+    _lbd0 = var._lbd0;
+    _ubd0 = var._ubd0;
   }
 
-  SupVar
-  ( SupVar<Summand> && var )
-  : _mod( var._mod )
+  SupVar(SupVar<Summand>&& var) : _mod(var._mod)
   {
 #ifdef MC__SUPMODEL_TRACE
     std::cerr << "-- SupVar( SupVar<Summand> && var )\n";
 #endif
-    if( this == &var ) return;
+    if (this == &var) return;
 
-    _cst  = std::move( var._cst );
-    _sdep = std::move( var._sdep );
+    _cst  = std::move(var._cst);
+    _sdep = std::move(var._sdep);
 
-    _uest = std::move( var._uest );
-    _oest = std::move( var._oest );
+    _uest = std::move(var._uest);
+    _oest = std::move(var._oest);
 
-    _lbd  = std::move( var._lbd );
-    _ubd  = std::move( var._ubd );
+    _lbd = std::move(var._lbd);
+    _ubd = std::move(var._ubd);
 
-    _uest2 = std::move( var._uest2 );
-    _oest2 = std::move( var._oest2 );
+    _uest2 = std::move(var._uest2);
+    _oest2 = std::move(var._oest2);
 
-    _lbd2  = std::move( var._lbd2 );
-    _ubd2  = std::move( var._ubd2 );
+    _lbd2 = std::move(var._lbd2);
+    _ubd2 = std::move(var._ubd2);
 
-    _lbd0  = std::move( var._lbd0 );
-    _ubd0  = std::move( var._ubd0 );
+    _lbd0 = std::move(var._lbd0);
+    _ubd0 = std::move(var._ubd0);
   }
 
-  ~SupVar
-  () 
-  {}
+  ~SupVar() {}
 
-  SupVar<Summand>& set
-  ( SupModel<Summand>& mod )
+  SupVar<Summand>&
+  set(SupModel<Summand>& mod)
   {
-    if( _mod == &mod )
-      return *this;
+    if (_mod == &mod) return *this;
 
     _mod = &mod;
     _sdep.clear();
     _cst = 0.;
-    
-    _uest.resize( mod._nvar );
-    _oest.resize( mod._nvar );
 
-    _lbd = std::make_pair( 0., false );
-    _ubd = std::make_pair( 0., false );
+    _uest.resize(mod._nvar);
+    _oest.resize(mod._nvar);
+
+    _lbd = std::make_pair(0., false);
+    _ubd = std::make_pair(0., false);
 
     _uest2.clear();
     _oest2.clear();
 
-    _lbd0 = _lbd2 = std::make_pair( 0., false );
-    _ubd0 = _ubd2 = std::make_pair( 0., false );
+    _lbd0 = _lbd2 = std::make_pair(0., false);
+    _ubd0 = _ubd2 = std::make_pair(0., false);
 
     return *this;
   }
 
   template <typename Range>
-  SupVar<Summand>& set
-  ( SupModel<Summand>& mod, unsigned int ndx, Range const& bnd, size_t const ndiv=1 )
+  SupVar<Summand>&
+  set(SupModel<Summand>& mod, unsigned int ndx, Range const& bnd,
+      size_t const ndiv = 1)
   {
-    if( ndx >= mod._nvar )
-      throw typename SupModel<Summand>::Exceptions( SupModel<Summand>::Exceptions::INDEX );
+    if (ndx >= mod._nvar)
+      throw typename SupModel<Summand>::Exceptions(
+          SupModel<Summand>::Exceptions::INDEX);
 
     _mod = &mod;
     _cst = 0.;
 
-    _uest.resize( mod._nvar );
-    _oest.resize( mod._nvar );
+    _uest.resize(mod._nvar);
+    _oest.resize(mod._nvar);
 
-    _lbd = std::make_pair( Op<Range>::l(bnd), true ),
-    _ubd = std::make_pair( Op<Range>::u(bnd), true ),
+    _lbd = std::make_pair(Op<Range>::l(bnd), true),
+    _ubd = std::make_pair(Op<Range>::u(bnd), true),
 
-    _sdep = { ndx };
+    _sdep              = {ndx};
     _mod->_defvar[ndx] = true;
     _mod->_lbdvar[ndx] = _lbd.first;
     _mod->_ubdvar[ndx] = _ubd.first;
 
-    _uest[ndx].set( _lbd.first, _ubd.first, ndiv );
-    _oest[ndx].set( _lbd.first, _ubd.first, ndiv );
+    _uest[ndx].set(_lbd.first, _ubd.first, ndiv);
+    _oest[ndx].set(_lbd.first, _ubd.first, ndiv);
 
     _uest2.clear();
     _oest2.clear();
 
-    _lbd0 = _lbd2 = std::make_pair( 0., false );
-    _ubd0 = _ubd2 = std::make_pair( 0., false );
- 
+    _lbd0 = _lbd2 = std::make_pair(0., false);
+    _ubd0 = _ubd2 = std::make_pair(0., false);
+
     return *this;
   }
 
-  SupVar<Summand>& set
-  ( SupModel<Summand>& mod, unsigned int ndx, Summand const& est )
+  SupVar<Summand>&
+  set(SupModel<Summand>& mod, unsigned int ndx, Summand const& est)
   {
-    if( ndx >= mod._nvar )
-      throw typename SupModel<Summand>::Exceptions( SupModel<Summand>::Exceptions::INDEX );
+    if (ndx >= mod._nvar)
+      throw typename SupModel<Summand>::Exceptions(
+          SupModel<Summand>::Exceptions::INDEX);
 
     _mod = &mod;
     _cst = 0.;
 
-    _sdep = { ndx };
+    _sdep              = {ndx};
     _mod->_defvar[ndx] = true;
     _mod->_lbdvar[ndx] = est.l();
     _mod->_ubdvar[ndx] = est.u();
 
-    _uest.resize( mod._nvar );
-    _oest.resize( mod._nvar );
+    _uest.resize(mod._nvar);
+    _oest.resize(mod._nvar);
     _uest[ndx] = _oest[ndx] = est;
 
-    _lbd = std::make_pair( _mod->_lbdvar[ndx], true );
-    _ubd = std::make_pair( _mod->_ubdvar[ndx], true );
- 
+    _lbd = std::make_pair(_mod->_lbdvar[ndx], true);
+    _ubd = std::make_pair(_mod->_ubdvar[ndx], true);
+
     _uest2.clear();
     _oest2.clear();
 
-    _lbd0 = _lbd2 = std::make_pair( 0., false );
-    _ubd0 = _ubd2 = std::make_pair( 0., false );
-   
+    _lbd0 = _lbd2 = std::make_pair(0., false);
+    _ubd0 = _ubd2 = std::make_pair(0., false);
+
     return *this;
   }
 
-  SupVar<Summand>& set
-  ( double const& cst=0. )
+  SupVar<Summand>&
+  set(double const& cst = 0.)
   {
     _mod = nullptr;
     _cst = cst;
@@ -2958,2129 +3475,2223 @@ class SupVar
 
     _uest.clear();
     _oest.clear();
- 
-    _lbd = std::make_pair( 0., false );
-    _ubd = std::make_pair( 0., false );
+
+    _lbd = std::make_pair(0., false);
+    _ubd = std::make_pair(0., false);
 
     _uest2.clear();
     _oest2.clear();
 
-    _lbd0 = _lbd2 = std::make_pair( 0., false );
-    _ubd0 = _ubd2 = std::make_pair( 0., false );
- 
+    _lbd0 = _lbd2 = std::make_pair(0., false);
+    _ubd0 = _ubd2 = std::make_pair(0., false);
+
     return *this;
   }
 
-  bool swap
-    ( bool const under )
+  bool
+  swap(bool const under)
+  {
+    if ((under && _uest2.empty()) || (!under && _oest2.empty())) return false;
+
+    for (auto const& i : _sdep)
     {
-      if( (under && _uest2.empty()) || (!under && _oest2.empty()) )
-        return false;
-      
-      for( auto const& i: _sdep ){
-        if( under ) std::swap( _uest[i], _uest2[i] );
-        else        std::swap( _oest[i], _oest2[i] );
-      }
-      return true;
+      if (under)
+        std::swap(_uest[i], _uest2[i]);
+      else
+        std::swap(_oest[i], _oest2[i]);
     }
+    return true;
+  }
 
-  std::vector<Summand>& uest
-  ( unsigned int opt=0 )
-  { return opt? _uest2: _uest; }
+  std::vector<Summand>&
+  uest(unsigned int opt = 0)
+  {
+    return opt ? _uest2 : _uest;
+  }
 
-  std::vector<Summand>& oest
-  ( unsigned int opt=0 )
-  { return opt? _oest2: _oest; }
+  std::vector<Summand>&
+  oest(unsigned int opt = 0)
+  {
+    return opt ? _oest2 : _oest;
+  }
 
-  std::vector<Summand> const& uest
-  ( unsigned int opt=0 )
-  const
-  { return opt? _uest2: _uest; }
+  std::vector<Summand> const&
+  uest(unsigned int opt = 0) const
+  {
+    return opt ? _uest2 : _uest;
+  }
 
-  std::vector<Summand> const& oest
-  ( unsigned int opt=0 )
-  const
-  { return opt? _oest2: _oest; }
+  std::vector<Summand> const&
+  oest(unsigned int opt = 0) const
+  {
+    return opt ? _oest2 : _oest;
+  }
 
   //! @brief Retrieve constant field - relevant only when dependent set is empty
-  double const& cst
-  ()
-  const
-  { return _cst; }
+  double const&
+  cst() const
+  {
+    return _cst;
+  }
 
   //! @brief Retrieve number of dependents
-  unsigned int ndep
-  ()
-  const
-  { return _sdep.size(); }
+  unsigned int
+  ndep() const
+  {
+    return _sdep.size();
+  }
 
   //! @brief Retrieve set of dependents
-  std::set<unsigned int> const& sdep
-  ()
-  const
-  { return _sdep; }
- 
-   //! @brief Lower bound on superposition underestimator. 0: primal estimator only; 1: shadow estimator only; 2: best estimator (default); >=3: best estimator recomputed
-  double const& l
-  ( unsigned int opt=2 )
-  const
+  std::set<unsigned int> const&
+  sdep() const
   {
-    if( !_mod || _sdep.empty() )
-      return _cst;
+    return _sdep;
+  }
 
-    switch( opt ){
+  //! @brief Lower bound on superposition underestimator. 0: primal estimator
+  //! only; 1: shadow estimator only; 2: best estimator (default); >=3: best
+  //! estimator recomputed
+  double const&
+  l(unsigned int opt = 2) const
+  {
+    if (!_mod || _sdep.empty()) return _cst;
+
+    switch (opt)
+    {
       default:
       // lower bound on primary underestimator
       case 0:
-        if( !_lbd.second || opt > 2 ){
+        if (!_lbd.second || opt > 2)
+        {
           _lbd.second = true;
           _lbd.first  = 0.;
-          for( auto const& i : _sdep )
-            _lbd.first += _uest[i].l();
+          for (auto const& i : _sdep) _lbd.first += _uest[i].l();
         }
-        if( _lbd0.second && _lbd0.first <= _lbd.first )
-          _lbd0.second = false; // Disregard constant bound
-        if( opt == 0 || _uest2.empty() )
-          return _lbd.first;
+        if (_lbd0.second && _lbd0.first <= _lbd.first)
+          _lbd0.second = false;  // Disregard constant bound
+        if (opt == 0 || _uest2.empty()) return _lbd.first;
 
       // lower bound on shadow underestimator
       case 1:
-        if( _uest2.empty() ) return -DBL_MAX; // -infinity
-        if( !_lbd2.second || opt > 2 ){
+        if (_uest2.empty()) return -DBL_MAX;  // -infinity
+        if (!_lbd2.second || opt > 2)
+        {
           _lbd2.second = true;
           _lbd2.first  = 0.;
-          for( auto const& i : _sdep )
-            _lbd2.first += _uest2[i].l();
+          for (auto const& i : _sdep) _lbd2.first += _uest2[i].l();
         }
-        if( _lbd0.second && _lbd0.first <= _lbd2.first )
-          _lbd0.second = false; // Disregard constant bound
-        if( opt == 1 )
-          return _lbd2.first;
+        if (_lbd0.second && _lbd0.first <= _lbd2.first)
+          _lbd0.second = false;  // Disregard constant bound
+        if (opt == 1) return _lbd2.first;
     }
 
     // best lower bound between primary and shadow underestimator
-    return( _lbd0.second? _lbd0.first: ( _lbd.first > _lbd2.first? _lbd.first: _lbd2.first ) );
+    return (_lbd0.second
+                ? _lbd0.first
+                : (_lbd.first > _lbd2.first ? _lbd.first : _lbd2.first));
   }
 
-   //! @brief Upper bound on superposition overestimator. 0: primal estimator only; 1: shadow estimator only; 2: best estimator (default); >=3: best estimator recomputed
-  double const& u
-  ( unsigned int opt=2 )
-  const
+  //! @brief Upper bound on superposition overestimator. 0: primal estimator
+  //! only; 1: shadow estimator only; 2: best estimator (default); >=3: best
+  //! estimator recomputed
+  double const&
+  u(unsigned int opt = 2) const
   {
-    if( !_mod || _sdep.empty() )
-      return _cst;
+    if (!_mod || _sdep.empty()) return _cst;
 
-    switch( opt ){
+    switch (opt)
+    {
       default:
       // lower bound on primal underestimator
       case 0:
-        if( !_ubd.second || opt > 2 ){
+        if (!_ubd.second || opt > 2)
+        {
           _ubd.second = true;
           _ubd.first  = 0.;
-          for( auto const& i : _sdep )
-            _ubd.first += _oest[i].u();
+          for (auto const& i : _sdep) _ubd.first += _oest[i].u();
         }
-        if( _ubd0.second && _ubd0.first >= _ubd.first )
-          _ubd0.second = false; // Disregard constant bound
-        if( opt == 0 || _oest2.empty() )
-          return _ubd.first;
+        if (_ubd0.second && _ubd0.first >= _ubd.first)
+          _ubd0.second = false;  // Disregard constant bound
+        if (opt == 0 || _oest2.empty()) return _ubd.first;
 
       // lower bound on shadow underestimator
       case 1:
-        if( _oest2.empty() ) return DBL_MAX; // +infinity
-        if( !_ubd2.second || opt > 2 ){
+        if (_oest2.empty()) return DBL_MAX;  // +infinity
+        if (!_ubd2.second || opt > 2)
+        {
           _ubd2.second = true;
           _ubd2.first  = 0.;
-          for( auto const& i : _sdep )
-            _ubd2.first += _oest2[i].u();
+          for (auto const& i : _sdep) _ubd2.first += _oest2[i].u();
         }
-        if( _ubd0.second && _ubd0.first >= _ubd2.first )
-          _ubd0.second = false; // Disregard constant bound
-        if( opt == 1 )
-          return _ubd2.first;
+        if (_ubd0.second && _ubd0.first >= _ubd2.first)
+          _ubd0.second = false;  // Disregard constant bound
+        if (opt == 1) return _ubd2.first;
     }
 
     // best lower bound between primary and shadow underestimator
-    return( _ubd0.second? _ubd0.first: ( _ubd.first < _ubd2.first? _ubd.first: _ubd2.first ) );
+    return (_ubd0.second
+                ? _ubd0.first
+                : (_ubd.first < _ubd2.first ? _ubd.first : _ubd2.first));
   }
-  
-   //! @brief Evaluate superposition underestimator at point. 0: primal estimator only; 1: shadow estimator only; >=2: best estimator (default)
-  double uval
-  ( std::map<unsigned int,double> const& x, unsigned int opt=2 )
-  const
+
+  //! @brief Evaluate superposition underestimator at point. 0: primal estimator
+  //! only; 1: shadow estimator only; >=2: best estimator (default)
+  double
+  uval(std::map<unsigned int, double> const& x, unsigned int opt = 2) const
   {
-    if( !_mod || _sdep.empty() )
-      return _cst;
+    if (!_mod || _sdep.empty()) return _cst;
 
     double y(0.), y2(0.);
-    switch( opt ){
+    switch (opt)
+    {
       default:
       // value of primal underestimator
       case 0:
-        for( auto it=_sdep.cbegin(); it!=_sdep.cend(); ++it )
-          if( it == _sdep.cbegin() ) y  = _uest.at(*it).l( x.at(*it) );
-          else                       y += _uest.at(*it).l( x.at(*it) );
-        if( opt == 0 || _uest2.empty() ) return y;
+        for (auto it = _sdep.cbegin(); it != _sdep.cend(); ++it)
+          if (it == _sdep.cbegin())
+            y = _uest.at(*it).l(x.at(*it));
+          else
+            y += _uest.at(*it).l(x.at(*it));
+        if (opt == 0 || _uest2.empty()) return y;
 
       // value of shadow underestimator
       case 1:
-        if( _uest2.empty() ) return -DBL_MAX; // -infinity
-        for( auto it=_sdep.cbegin(); it!=_sdep.cend(); ++it )
-          if( it == _sdep.cbegin() ) y2  = _uest2.at(*it).l( x.at(*it) );
-          else                       y2 += _uest2.at(*it).l( x.at(*it) );
-        if( opt == 1 ) return y2;
+        if (_uest2.empty()) return -DBL_MAX;  // -infinity
+        for (auto it = _sdep.cbegin(); it != _sdep.cend(); ++it)
+          if (it == _sdep.cbegin())
+            y2 = _uest2.at(*it).l(x.at(*it));
+          else
+            y2 += _uest2.at(*it).l(x.at(*it));
+        if (opt == 1) return y2;
     }
 
     // best (max) value between primal and shadow underestimator
-    if( !_lbd0.second )
-      return( y > y2? y: y2 );
-      
-    return( y > y2? ( _lbd0.first > y?  _lbd0.first: y  )
-                  : ( _lbd0.first > y2? _lbd0.first: y2 ) ); 
+    if (!_lbd0.second) return (y > y2 ? y : y2);
+
+    return (y > y2 ? (_lbd0.first > y ? _lbd0.first : y)
+                   : (_lbd0.first > y2 ? _lbd0.first : y2));
   }
-  
-   //! @brief Evaluate superposition overestimator at point. 0: primal estimator only; 1: shadow estimator only; >=2: best estimator (default)
-  double oval
-  ( std::map<unsigned int,double> const& x, unsigned int opt=2 )
-  const
+
+  //! @brief Evaluate superposition overestimator at point. 0: primal estimator
+  //! only; 1: shadow estimator only; >=2: best estimator (default)
+  double
+  oval(std::map<unsigned int, double> const& x, unsigned int opt = 2) const
   {
-    if( !_mod || _sdep.empty() )
-      return _cst;
+    if (!_mod || _sdep.empty()) return _cst;
 
     double y(0.), y2(0.);
-    switch( opt ){
+    switch (opt)
+    {
       default:
       // value of primal underestimator
       case 0:
-        for( auto it=_sdep.cbegin(); it!=_sdep.cend(); ++it )
-          y += _oest.at(*it).u( x.at(*it) );
-        if( opt == 0 || _oest2.empty() ) return y;
+        for (auto it = _sdep.cbegin(); it != _sdep.cend(); ++it)
+          y += _oest.at(*it).u(x.at(*it));
+        if (opt == 0 || _oest2.empty()) return y;
 
       // value of shadow underestimator
       case 1:
-        if( _oest2.empty() ) return DBL_MAX; // +infinity
-        for( auto it=_sdep.cbegin(); it!=_sdep.cend(); ++it )
-          y2 += _oest2.at(*it).u( x.at(*it) );
-        if( opt == 1 ) return y2;
+        if (_oest2.empty()) return DBL_MAX;  // +infinity
+        for (auto it = _sdep.cbegin(); it != _sdep.cend(); ++it)
+          y2 += _oest2.at(*it).u(x.at(*it));
+        if (opt == 1) return y2;
     }
 
     // best (min) value between primal and shadow underestimator
-    if( !_ubd0.second )
-      return( y < y2? y: y2 );
-      
-    return( y < y2? ( _ubd0.first < y?  _ubd0.first: y  )
-                  : ( _ubd0.first < y2? _ubd0.first: y2 ) ); 
+    if (!_ubd0.second) return (y < y2 ? y : y2);
+
+    return (y < y2 ? (_ubd0.first < y ? _ubd0.first : y)
+                   : (_ubd0.first < y2 ? _ubd0.first : y2));
   }
 
  private:
-
-  static void _lb
-  ( double& lb, std::set<unsigned> const& sdep,  std::vector<Summand> const& est )
+  static void
+  _lb(double& lb, std::set<unsigned> const& sdep,
+      std::vector<Summand> const& est)
   {
     lb = 0.;
-    for( auto const& i : sdep )
-      lb += est[i].l();
+    for (auto const& i : sdep) lb += est[i].l();
   }
 
-  static void _ub
-  ( double& ub, std::set<unsigned> const& sdep,  std::vector<Summand> const& est )
+  static void
+  _ub(double& ub, std::set<unsigned> const& sdep,
+      std::vector<Summand> const& est)
   {
     ub = 0.;
-    for( auto const& i : sdep )
-      ub += est[i].u();
+    for (auto const& i : sdep) ub += est[i].u();
   }
 };
 
-template <typename Summand> 
-std::ostream& operator<<
-( std::ostream& out, SupVar<Summand> const& var )
+template <typename Summand>
+std::ostream&
+operator<<(std::ostream& out, SupVar<Summand> const& var)
 {
-  if( !var._mod || var._sdep.empty() ){
-    out << std::right << std::scientific << std::setprecision(5)
-        << "[ "  << std::setw(12) << var._cst
-        << std::endl;
+  if (!var._mod || var._sdep.empty())
+  {
+    out << std::right << std::scientific << std::setprecision(5) << "[ "
+        << std::setw(12) << var._cst << std::endl;
     return out;
   }
-  
-  for( auto const& i : var._sdep )
-    out << std::right << std::setw(5) << "U[" << i << "]: " << var._uest[i] << " (" << var._uest[i].size() << ")" << std::endl;
-  for( auto const& i : var._sdep )
-    out << std::right << std::setw(5) << "O[" << i << "]: " << var._oest[i] << " (" << var._oest[i].size() << ")" << std::endl;
 
-  if( var._mod->options.DISPLAY_SHADOW && !var._uest2.empty() )
-    for( auto const& i : var._sdep )
-      out << std::right << std::setw(5) << "U2[" << i << "]: " << var._uest2[i] << " (" << var._uest2[i].size() << ")" << std::endl;
-  if( var._mod->options.DISPLAY_SHADOW && !var._oest2.empty() )
-    for( auto const& i : var._sdep )
-      out << std::right << std::setw(5) << "O2[" << i << "]: " << var._oest2[i] << " (" << var._oest2[i].size() << ")" << std::endl;
+  for (auto const& i : var._sdep)
+    out << std::right << std::setw(5) << "U[" << i << "]: " << var._uest[i]
+        << " (" << var._uest[i].size() << ")" << std::endl;
+  for (auto const& i : var._sdep)
+    out << std::right << std::setw(5) << "O[" << i << "]: " << var._oest[i]
+        << " (" << var._oest[i].size() << ")" << std::endl;
+
+  if (var._mod->options.DISPLAY_SHADOW && !var._uest2.empty())
+    for (auto const& i : var._sdep)
+      out << std::right << std::setw(5) << "U2[" << i << "]: " << var._uest2[i]
+          << " (" << var._uest2[i].size() << ")" << std::endl;
+  if (var._mod->options.DISPLAY_SHADOW && !var._oest2.empty())
+    for (auto const& i : var._sdep)
+      out << std::right << std::setw(5) << "O2[" << i << "]: " << var._oest2[i]
+          << " (" << var._oest2[i].size() << ")" << std::endl;
 
   out << std::right << "   RNG:  ";
-  out << std::right << std::scientific << std::setprecision(var._mod->options.DISPLAY_DIGITS);
-  out << "[ "  << std::setw(var._mod->options.DISPLAY_DIGITS+7) << var.l()
-      << " : " << std::setw(var._mod->options.DISPLAY_DIGITS+7) << var.u() << " ]"
-      << std::endl;
+  out << std::right << std::scientific
+      << std::setprecision(var._mod->options.DISPLAY_DIGITS);
+  out << "[ " << std::setw(var._mod->options.DISPLAY_DIGITS + 7) << var.l()
+      << " : " << std::setw(var._mod->options.DISPLAY_DIGITS + 7) << var.u()
+      << " ]" << std::endl;
 
   return out;
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> operator+
-( SupVar<Summand> const& var )
+inline SupVar<Summand>
+operator+(SupVar<Summand> const& var)
 {
   return var;
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> && operator+
-( SupVar<Summand> && var )
+inline SupVar<Summand>&&
+operator+(SupVar<Summand>&& var)
 {
-  return( std::move(var) );  
+  return (std::move(var));
 }
 
 template <typename Summand>
-inline
-SupVar<Summand>& SupVar<Summand>::operator+=
-( double const& cst )
+inline SupVar<Summand>&
+SupVar<Summand>::operator+=(double const& cst)
 {
-  if( cst == 0. ){
+  if (cst == 0.)
+  {
     return *this;
   }
-  
-  if( !_mod || _sdep.empty() ){
+
+  if (!_mod || _sdep.empty())
+  {
     _cst += cst;
     return *this;
   }
 
-  _mod->bias( *this, cst );
+  _mod->bias(*this, cst);
   return *this;
 }
 
 template <typename Summand>
-inline
-SupVar<Summand>& SupVar<Summand>::operator+=
-( SupVar<Summand> const& var )
+inline SupVar<Summand>&
+SupVar<Summand>::operator+=(SupVar<Summand> const& var)
 {
-  if( !_mod && !var._mod ){
+  if (!_mod && !var._mod)
+  {
     _cst += var._cst;
     return *this;
   }
 
-  if( !var._mod || var._sdep.empty() ){
+  if (!var._mod || var._sdep.empty())
+  {
     *this += var._cst;
     return *this;
   }
 
-  if( !_mod || _sdep.empty() ){
+  if (!_mod || _sdep.empty())
+  {
     double copy_cst = _cst;
-    *this = var;
+    *this           = var;
     *this += copy_cst;
     return *this;
   }
 
-  if( _mod != var._mod )
-    throw typename SupModel<Summand>::Exceptions( SupModel<Summand>::Exceptions::MODEL );
+  if (_mod != var._mod)
+    throw typename SupModel<Summand>::Exceptions(
+        SupModel<Summand>::Exceptions::MODEL);
 
 #ifdef MC__SUPMODEL_TRACE
-    std::cerr << "-- SupVar<Summand>& operator+=( SupVar<Summand> const& )\n";
+  std::cerr << "-- SupVar<Summand>& operator+=( SupVar<Summand> const& )\n";
 #endif
 
-  _mod->add( *this, var, (_mod->options.OPT_SHADOW? -1: 0) );
+  _mod->add(*this, var, (_mod->options.OPT_SHADOW ? -1 : 0));
   return *this;
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> operator+
-( SupVar<Summand> const& var1, SupVar<Summand> const& var2 )
+inline SupVar<Summand>
+operator+(SupVar<Summand> const& var1, SupVar<Summand> const& var2)
 {
-  if( !var1._mod && !var2._mod ) 
-    return( var1._cst + var2._cst );
-  if( var1._mod ){
-    SupVar<Summand> var3( var1 );
+  if (!var1._mod && !var2._mod) return (var1._cst + var2._cst);
+  if (var1._mod)
+  {
+    SupVar<Summand> var3(var1);
     var3 += var2;
     return var3;
   }
-  SupVar<Summand> var3( var2 );
-    var3 += var1;
-    return var3;
+  SupVar<Summand> var3(var2);
+  var3 += var1;
+  return var3;
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> && operator+
-( SupVar<Summand> const& var1, SupVar<Summand> && var2 )
+inline SupVar<Summand>&&
+operator+(SupVar<Summand> const& var1, SupVar<Summand>&& var2)
 {
-  if( !var1._mod && !var2._mod ){
-    var2._cst += var1._cst; 
-    return std::move( var2 );
+  if (!var1._mod && !var2._mod)
+  {
+    var2._cst += var1._cst;
+    return std::move(var2);
   }
 
   var2 += var1;
-  return std::move( var2 );
+  return std::move(var2);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> && operator+
-( SupVar<Summand> && var1, SupVar<Summand> const& var2 )
+inline SupVar<Summand>&&
+operator+(SupVar<Summand>&& var1, SupVar<Summand> const& var2)
 {
-  if( !var1._mod && !var2._mod ){
-    var1._cst += var2._cst; 
-    return std::move( var1 );
+  if (!var1._mod && !var2._mod)
+  {
+    var1._cst += var2._cst;
+    return std::move(var1);
   }
-   
+
   var1 += var2;
-  return std::move( var1 );
+  return std::move(var1);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> && operator+
-( SupVar<Summand> && var1, SupVar<Summand> && var2 )
+inline SupVar<Summand>&&
+operator+(SupVar<Summand>&& var1, SupVar<Summand>&& var2)
 {
-  if( !var1._mod && !var2._mod ){
-    var1._cst += var2._cst; 
-    return std::move( var1 );
+  if (!var1._mod && !var2._mod)
+  {
+    var1._cst += var2._cst;
+    return std::move(var1);
   }
 
-  if( var1._mod || !var2._mod ){
+  if (var1._mod || !var2._mod)
+  {
     var1 += var2;
-    return std::move( var1 );
+    return std::move(var1);
   }
 
   var2 += var1;
-  return std::move( var2 );
+  return std::move(var2);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> operator+
-( SupVar<Summand> const& var1, double const& cst2 )
+inline SupVar<Summand>
+operator+(SupVar<Summand> const& var1, double const& cst2)
 {
-  if( !var1._mod )
-    return( var1._cst + cst2 );
+  if (!var1._mod) return (var1._cst + cst2);
 
-  SupVar<Summand> var3( var1 );
+  SupVar<Summand> var3(var1);
   var3 += cst2;
   return var3;
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> && operator+
-( SupVar<Summand> && var1, double const& cst2 )
+inline SupVar<Summand>&&
+operator+(SupVar<Summand>&& var1, double const& cst2)
 {
   var1 += cst2;
-  return std::move( var1 );
+  return std::move(var1);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> operator+
-( double const& cst1, SupVar<Summand> const& var2 )
+inline SupVar<Summand>
+operator+(double const& cst1, SupVar<Summand> const& var2)
 {
-  if( !var2._mod ) 
-    return( cst1 + var2._cst );
+  if (!var2._mod) return (cst1 + var2._cst);
 
-  SupVar<Summand> var3( var2 );
+  SupVar<Summand> var3(var2);
   var3 += cst1;
   return var3;
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> && operator+
-( double const& cst1, SupVar<Summand> && var2 )
+inline SupVar<Summand>&&
+operator+(double const& cst1, SupVar<Summand>&& var2)
 {
   var2 += cst1;
-  return std::move( var2 );
+  return std::move(var2);
 }
 
-template <typename Summand> 
-inline
-SupVar<Summand> operator-
-( SupVar<Summand> const& var )
+template <typename Summand>
+inline SupVar<Summand>
+operator-(SupVar<Summand> const& var)
 {
-  SupVar<Summand> var2( var );
-  return operator-( std::move( var2 ) );
+  SupVar<Summand> var2(var);
+  return operator-(std::move(var2));
 }
 
-
-template <typename Summand> 
-inline
-SupVar<Summand> && operator-
-( SupVar<Summand> && var )
+template <typename Summand>
+inline SupVar<Summand>&&
+operator-(SupVar<Summand>&& var)
 {
-  if( !var._mod || var._sdep.empty() ){
+  if (!var._mod || var._sdep.empty())
+  {
     var._cst *= -1;
-    return std::move( var );
+    return std::move(var);
   }
 
-  std::swap( var._uest, var._oest );
-  for( auto& i : var._sdep ){
+  std::swap(var._uest, var._oest);
+  for (auto& i : var._sdep)
+  {
     var._uest[i] *= -1;
     var._oest[i] *= -1;
   }
 
-  std::swap( var._lbd, var._ubd );
-  if( var._lbd.second ) var._lbd.first *= -1;
-  if( var._ubd.second ) var._ubd.first *= -1;
+  std::swap(var._lbd, var._ubd);
+  if (var._lbd.second) var._lbd.first *= -1;
+  if (var._ubd.second) var._ubd.first *= -1;
 
-  if( !var._uest2.empty() || !var._oest2.empty() ){
-    std::swap( var._uest2, var._oest2 );
-    for( auto& i : var._sdep ){
-      if( !var._uest2.empty() ) var._uest2[i] *= -1;
-      if( !var._oest2.empty() ) var._oest2[i] *= -1;
+  if (!var._uest2.empty() || !var._oest2.empty())
+  {
+    std::swap(var._uest2, var._oest2);
+    for (auto& i : var._sdep)
+    {
+      if (!var._uest2.empty()) var._uest2[i] *= -1;
+      if (!var._oest2.empty()) var._oest2[i] *= -1;
     }
 
-    std::swap( var._lbd2, var._ubd2 );
-    if( var._lbd2.second ) var._lbd2.first *= -1;
-    if( var._ubd2.second ) var._ubd2.first *= -1;
+    std::swap(var._lbd2, var._ubd2);
+    if (var._lbd2.second) var._lbd2.first *= -1;
+    if (var._ubd2.second) var._ubd2.first *= -1;
   }
 
-  std::swap( var._lbd0, var._ubd0 );
-  if( var._lbd0.second ) var._lbd0.first *= -1;
-  if( var._ubd0.second ) var._ubd0.first *= -1;
+  std::swap(var._lbd0, var._ubd0);
+  if (var._lbd0.second) var._lbd0.first *= -1;
+  if (var._ubd0.second) var._ubd0.first *= -1;
 
-  return std::move( var );
+  return std::move(var);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand>& SupVar<Summand>::operator-=
-( double const& cst )
+inline SupVar<Summand>&
+SupVar<Summand>::operator-=(double const& cst)
 {
   *this += -cst;
   return *this;
 }
 
 template <typename Summand>
-inline
-SupVar<Summand>& SupVar<Summand>::operator-=
-( SupVar<Summand> const& var )
+inline SupVar<Summand>&
+SupVar<Summand>::operator-=(SupVar<Summand> const& var)
 {
-  SupVar<Summand> var2( var );
-  return operator+=( operator-( std::move( var2 ) ) );
+  SupVar<Summand> var2(var);
+  return operator+=(operator-(std::move(var2)));
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> operator-
-( SupVar<Summand> const& var1, SupVar<Summand> const& var2 )
+inline SupVar<Summand>
+operator-(SupVar<Summand> const& var1, SupVar<Summand> const& var2)
 {
-  if( !var1._mod && !var2._mod ) 
-    return( var1._cst - var2._cst );
+  if (!var1._mod && !var2._mod) return (var1._cst - var2._cst);
 
-  if( var1._mod ){
-    SupVar<Summand> var3( var1 );
-    var3 -= var2;    
+  if (var1._mod)
+  {
+    SupVar<Summand> var3(var1);
+    var3 -= var2;
     return var3;
   }
 
-  SupVar<Summand> var3( -var2 );
+  SupVar<Summand> var3(-var2);
   var3 += var1;
   return var3;
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> && operator-
-( SupVar<Summand> const& var1, SupVar<Summand> && var2 )
+inline SupVar<Summand>&&
+operator-(SupVar<Summand> const& var1, SupVar<Summand>&& var2)
 {
-  if( !var1._mod && !var2._mod ){
+  if (!var1._mod && !var2._mod)
+  {
     var2._cst = var1._cst - var2._cst;
-    return std::move( var2 );
+    return std::move(var2);
   }
-  
+
   var2 -= var1;
-  return operator-( std::move( var2 ) );
+  return operator-(std::move(var2));
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> && operator-
-( SupVar<Summand> && var1, SupVar<Summand> const& var2 )
+inline SupVar<Summand>&&
+operator-(SupVar<Summand>&& var1, SupVar<Summand> const& var2)
 {
-  if( !var1._mod && !var2._mod ){
-    var1._cst -= var2._cst; 
-    return std::move( var1 );
-  }
-   
-  var1 -= var2;
-  return std::move( var1 );
-}
-
-template <typename Summand>
-inline
-SupVar<Summand> && operator-
-( SupVar<Summand> && var1, SupVar<Summand> && var2 )
-{
-  if( !var1._mod && !var2._mod ){
+  if (!var1._mod && !var2._mod)
+  {
     var1._cst -= var2._cst;
-    return std::move( var1 );
+    return std::move(var1);
   }
-  
-  var1 -= std::move( var2 );
-  return std::move( var1 );
+
+  var1 -= var2;
+  return std::move(var1);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> operator-
-( SupVar<Summand> const& var1, double const& cst2 )
+inline SupVar<Summand>&&
+operator-(SupVar<Summand>&& var1, SupVar<Summand>&& var2)
 {
-  if( !var1._mod ) 
-    return( var1._cst - cst2 );
-    
-  SupVar<Summand> var3( var1 );
+  if (!var1._mod && !var2._mod)
+  {
+    var1._cst -= var2._cst;
+    return std::move(var1);
+  }
+
+  var1 -= std::move(var2);
+  return std::move(var1);
+}
+
+template <typename Summand>
+inline SupVar<Summand>
+operator-(SupVar<Summand> const& var1, double const& cst2)
+{
+  if (!var1._mod) return (var1._cst - cst2);
+
+  SupVar<Summand> var3(var1);
   var3 += -cst2;
   return var3;
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> && operator-
-( SupVar<Summand> && var1, double const& cst2 )
+inline SupVar<Summand>&&
+operator-(SupVar<Summand>&& var1, double const& cst2)
 {
   var1 -= cst2;
-  return std::move( var1 );
+  return std::move(var1);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> operator-
-( double const& cst1, SupVar<Summand> const& var2 )
+inline SupVar<Summand>
+operator-(double const& cst1, SupVar<Summand> const& var2)
 {
-  if( !var2._mod ) 
-    return( cst1 - var2._cst );
+  if (!var2._mod) return (cst1 - var2._cst);
 
-  SupVar<Summand> var3( -var2 );
+  SupVar<Summand> var3(-var2);
   var3 += cst1;
   return var3;
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> && operator-
-( double const& cst1, SupVar<Summand> && var2 )
+inline SupVar<Summand>&&
+operator-(double const& cst1, SupVar<Summand>&& var2)
 {
   var2 -= cst1;
-  return operator-( std::move( var2 ) );
+  return operator-(std::move(var2));
 }
 
 template <typename Summand>
-inline
-SupVar<Summand>& SupVar<Summand>::operator*=
-( double const& cst )
+inline SupVar<Summand>&
+SupVar<Summand>::operator*=(double const& cst)
 {
-  if( cst == 0. ){
+  if (cst == 0.)
+  {
     *this = 0.;
     return *this;
   }
 
-  if( cst == 1. ){
+  if (cst == 1.)
+  {
     return *this;
   }
 
-  if( !_mod || _sdep.empty() ){
+  if (!_mod || _sdep.empty())
+  {
     _cst *= cst;
     return *this;
   }
 
-  if( _sdep.empty() )
-    throw typename SupModel<Summand>::Exceptions( SupModel<Summand>::Exceptions::INTERN );
-    
+  if (_sdep.empty())
+    throw typename SupModel<Summand>::Exceptions(
+        SupModel<Summand>::Exceptions::INTERN);
+
 #ifdef MC__SUPMODEL_TRACE
-    std::cerr << "-- SupVar<Summand>& operator*=( double const& )\n";
+  std::cerr << "-- SupVar<Summand>& operator*=( double const& )\n";
 #endif
 
-  _mod->scale( *this, cst );
+  _mod->scale(*this, cst);
   return *this;
 }
 
 template <typename Summand>
-inline
-SupVar<Summand>& SupVar<Summand>::operator*=
-( SupVar<Summand> const& var )
+inline SupVar<Summand>&
+SupVar<Summand>::operator*=(SupVar<Summand> const& var)
 {
-  if( !_mod && !var._mod ){
+  if (!_mod && !var._mod)
+  {
     _cst *= var._cst;
     return *this;
   }
 
-  if( !var._mod || var._sdep.empty() ){
+  if (!var._mod || var._sdep.empty())
+  {
     *this *= var._cst;
     return *this;
   }
 
-  if( !_mod || _sdep.empty() ){
+  if (!_mod || _sdep.empty())
+  {
     double copy_cst = _cst;
-    *this = var;
+    *this           = var;
     *this *= copy_cst;
     return *this;
   }
 
-  if( &var == this ){
-    pow( std::move(*this), 2 );
+  if (&var == this)
+  {
+    pow(std::move(*this), 2);
     return *this;
   }
-  
-  if( _mod != var._mod )
-    throw typename SupModel<Summand>::Exceptions( SupModel<Summand>::Exceptions::MODEL );
+
+  if (_mod != var._mod)
+    throw typename SupModel<Summand>::Exceptions(
+        SupModel<Summand>::Exceptions::MODEL);
 
 #ifdef MC__SUPMODEL_TRACE
-    std::cerr << "-- SupVar<Summand>& operator*=( SupVar<Summand> const& )\n";
+  std::cerr << "-- SupVar<Summand>& operator*=( SupVar<Summand> const& )\n";
 #endif
 
-  SupVar<Summand> var1( var );
-  _mod->multiply( *this, var1 );
+  SupVar<Summand> var1(var);
+  _mod->multiply(*this, var1);
   return *this;
 }
 
 template <typename Summand>
-inline
-SupVar<Summand>& SupVar<Summand>::operator*=
-( SupVar<Summand> && var )
+inline SupVar<Summand>&
+SupVar<Summand>::operator*=(SupVar<Summand>&& var)
 {
-  if( !_mod && !var._mod ){
+  if (!_mod && !var._mod)
+  {
     _cst *= var._cst;
     return *this;
   }
 
-  if( !var._mod || var._sdep.empty() ){
+  if (!var._mod || var._sdep.empty())
+  {
     *this *= var._cst;
     return *this;
   }
 
-  if( !_mod || _sdep.empty() ){
+  if (!_mod || _sdep.empty())
+  {
     var *= _cst;
-    std::swap( *this, var );
+    std::swap(*this, var);
     return *this;
   }
 
-  if( &var == this ){
-    pow( std::move(*this), 2 );
+  if (&var == this)
+  {
+    pow(std::move(*this), 2);
     return *this;
   }
-  
-  if( _mod != var._mod )
-    throw typename SupModel<Summand>::Exceptions( SupModel<Summand>::Exceptions::MODEL );
+
+  if (_mod != var._mod)
+    throw typename SupModel<Summand>::Exceptions(
+        SupModel<Summand>::Exceptions::MODEL);
 
 #ifdef MC__SUPMODEL_TRACE
-    std::cerr << "-- SupVar<Summand>& operator*=( SupVar<Summand> && )\n";
+  std::cerr << "-- SupVar<Summand>& operator*=( SupVar<Summand> && )\n";
 #endif
 
-  _mod->multiply( *this, var );
+  _mod->multiply(*this, var);
   return *this;
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> operator*
-( SupVar<Summand> const& var1, SupVar<Summand> const& var2 )
+inline SupVar<Summand>
+operator*(SupVar<Summand> const& var1, SupVar<Summand> const& var2)
 {
-  if( !var1._mod && !var2._mod ) 
-    return( var1._cst * var2._cst );
-  if( var1._mod ){
-    SupVar<Summand> var3( var1 );
+  if (!var1._mod && !var2._mod) return (var1._cst * var2._cst);
+  if (var1._mod)
+  {
+    SupVar<Summand> var3(var1);
     var3 *= var2;
     return var3;
   }
-  SupVar<Summand> var3( var2 );
-    var3 *= var1;
-    return var3;
+  SupVar<Summand> var3(var2);
+  var3 *= var1;
+  return var3;
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> && operator*
-( SupVar<Summand> && var1, SupVar<Summand> const& var2 )
+inline SupVar<Summand>&&
+operator*(SupVar<Summand>&& var1, SupVar<Summand> const& var2)
 {
   var1 *= var2;
-  return std::move( var1 );
+  return std::move(var1);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> && operator*
-( SupVar<Summand> const& var1, SupVar<Summand> && var2 )
+inline SupVar<Summand>&&
+operator*(SupVar<Summand> const& var1, SupVar<Summand>&& var2)
 {
   var2 *= var1;
-  return std::move( var2 );
+  return std::move(var2);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> && operator*
-( SupVar<Summand> && var1, SupVar<Summand> && var2 )
+inline SupVar<Summand>&&
+operator*(SupVar<Summand>&& var1, SupVar<Summand>&& var2)
 {
-  if( !var1._mod && var2._mod ){
-    var2 *= std::move( var1 );
-    return std::move( var2 );
+  if (!var1._mod && var2._mod)
+  {
+    var2 *= std::move(var1);
+    return std::move(var2);
   }
 
-  var1 *= std::move( var2 );
-  return std::move( var1 );
+  var1 *= std::move(var2);
+  return std::move(var1);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> operator*
-( SupVar<Summand> const& var1, double const& cst2 )
+inline SupVar<Summand>
+operator*(SupVar<Summand> const& var1, double const& cst2)
 {
-  if( !var1._mod ) 
-    return( var1._cst * cst2 );
+  if (!var1._mod) return (var1._cst * cst2);
 
-  SupVar<Summand> var3( var1 );
+  SupVar<Summand> var3(var1);
   var3 *= cst2;
   return var3;
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> && operator*
-( SupVar<Summand> && var1, double const& cst2 )
+inline SupVar<Summand>&&
+operator*(SupVar<Summand>&& var1, double const& cst2)
 {
   var1 *= cst2;
-  return std::move( var1 );
+  return std::move(var1);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> operator*
-( double const& cst1, SupVar<Summand> const& var2 )
+inline SupVar<Summand>
+operator*(double const& cst1, SupVar<Summand> const& var2)
 {
-  if( !var2._mod ) 
-    return( cst1 * var2._cst );
+  if (!var2._mod) return (cst1 * var2._cst);
 
-  SupVar<Summand> var3( var2 );
+  SupVar<Summand> var3(var2);
   var3 *= cst1;
   return var3;
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> && operator*
-( double const& cst1, SupVar<Summand> && var2 )
+inline SupVar<Summand>&&
+operator*(double const& cst1, SupVar<Summand>&& var2)
 {
   var2 *= cst1;
-  return std::move( var2 );
+  return std::move(var2);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand>& SupVar<Summand>::operator/=
-( double const& cst )
+inline SupVar<Summand>&
+SupVar<Summand>::operator/=(double const& cst)
 {
-  if( cst == 0. )
-    throw typename SupModel<Summand>::Exceptions( SupModel<Summand>::Exceptions::DIV );
-  return( operator*=( 1/cst ) );
+  if (cst == 0.)
+    throw typename SupModel<Summand>::Exceptions(
+        SupModel<Summand>::Exceptions::DIV);
+  return (operator*=(1 / cst));
 }
 
 template <typename Summand>
-inline
-SupVar<Summand>& SupVar<Summand>::operator/=
-( SupVar<Summand> const& var )
+inline SupVar<Summand>&
+SupVar<Summand>::operator/=(SupVar<Summand> const& var)
 {
-  return( operator*=( pow( var, -1 ) ) );
+  return (operator*=(pow(var, -1)));
 }
 
 template <typename Summand>
-inline
-SupVar<Summand>& SupVar<Summand>::operator/=
-( SupVar<Summand> && var )
+inline SupVar<Summand>&
+SupVar<Summand>::operator/=(SupVar<Summand>&& var)
 {
-  return( operator*=( pow( std::move(var), -1 ) ) );
+  return (operator*=(pow(std::move(var), -1)));
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> operator/
-( SupVar<Summand> const& var1, SupVar<Summand> const& var2 )
+inline SupVar<Summand>
+operator/(SupVar<Summand> const& var1, SupVar<Summand> const& var2)
 {
-  SupVar<Summand> var3( var1 );
+  SupVar<Summand> var3(var1);
   var3 /= var2;
   return var3;
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> && operator/
-( SupVar<Summand> const& var1, SupVar<Summand> && var2 )
+inline SupVar<Summand>&&
+operator/(SupVar<Summand> const& var1, SupVar<Summand>&& var2)
 {
-  SupVar<Summand> var3( var1 );
-  var3 /= std::move( var2 );
+  SupVar<Summand> var3(var1);
+  var3 /= std::move(var2);
   return var3;
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> && operator/
-( SupVar<Summand> && var1, SupVar<Summand> const& var2 )
+inline SupVar<Summand>&&
+operator/(SupVar<Summand>&& var1, SupVar<Summand> const& var2)
 {
   var1 /= var2;
-  return std::move( var1 );
+  return std::move(var1);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> && operator/
-( SupVar<Summand> && var1, SupVar<Summand> && var2 )
+inline SupVar<Summand>&&
+operator/(SupVar<Summand>&& var1, SupVar<Summand>&& var2)
 {
-  var1 /= std::move( var2 );
-  return std::move( var1 );
+  var1 /= std::move(var2);
+  return std::move(var1);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> operator/
-( SupVar<Summand> const& var1, double const& cst2 )
+inline SupVar<Summand>
+operator/(SupVar<Summand> const& var1, double const& cst2)
 {
-  SupVar<Summand> var3( var1 );
+  SupVar<Summand> var3(var1);
   var3 /= cst2;
   return var3;
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> && operator/
-( SupVar<Summand> && var1, double const& cst2 )
+inline SupVar<Summand>&&
+operator/(SupVar<Summand>&& var1, double const& cst2)
 {
   var1 /= cst2;
-  return std::move( var1 );
+  return std::move(var1);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> operator/
-( double const& cst1, SupVar<Summand> const& var2 )
+inline SupVar<Summand>
+operator/(double const& cst1, SupVar<Summand> const& var2)
 {
-  SupVar<Summand> var3( pow( var2, -1 ) );
+  SupVar<Summand> var3(pow(var2, -1));
   var3 *= cst1;
   return var3;
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> && operator/
-( double const& cst1, SupVar<Summand> && var2 )
+inline SupVar<Summand>&&
+operator/(double const& cst1, SupVar<Summand>&& var2)
 {
-  pow( std::move( var2 ), -1 );
+  pow(std::move(var2), -1);
   var2 *= cst1;
-  return std::move( var2 );
+  return std::move(var2);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> inv
-( SupVar<Summand> const& var )
+inline SupVar<Summand>
+inv(SupVar<Summand> const& var)
 {
-  return pow( var, -1 );
+  return pow(var, -1);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> && inv
-( SupVar<Summand> && var )
+inline SupVar<Summand>&&
+inv(SupVar<Summand>&& var)
 {
-  return pow( std::move( var ), -1 );
+  return pow(std::move(var), -1);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> sqr
-( SupVar<Summand> const& var )
+inline SupVar<Summand>
+sqr(SupVar<Summand> const& var)
 {
-  return pow( var, 2 );
+  return pow(var, 2);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> && sqr
-( SupVar<Summand> && var )
+inline SupVar<Summand>&&
+sqr(SupVar<Summand>&& var)
 {
-  return pow( std::move( var ), 2 );
+  return pow(std::move(var), 2);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> sqrt
-( SupVar<Summand> const& var )
+inline SupVar<Summand>
+sqrt(SupVar<Summand> const& var)
 {
-  if ( var.l() < -1e2*DBL_EPSILON ){//0. )
+  if (var.l() < -1e2 * DBL_EPSILON)
+  {  // 0. )
     std::cout << "**SupVar::sqrt: var.l = " << var.l() << std::endl;
-    throw typename mc::SupModel<Summand>::Exceptions( mc::SupModel<Summand>::Exceptions::SQRT ); 
+    throw typename mc::SupModel<Summand>::Exceptions(
+        mc::SupModel<Summand>::Exceptions::SQRT);
   }
-  
-  if( !var._mod )
-    return std::sqrt( var._cst );
+
+  if (!var._mod) return std::sqrt(var._cst);
 
 #ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> sqrt: copy" << std::endl;
+  std::cout << "SupVar<Summand> sqrt: copy" << std::endl;
 #endif
 
-  auto const& f  = [&]( const double& x ){ return x>0.? std::sqrt(x): 0.; };
-  auto const& df = [&]( const double& x ){ return x>0.? 0.5/std::sqrt(x): DBL_MAX; };
-  SupVar<Summand> var2( var );
+  auto const& f  = [&](const double& x) { return x > 0. ? std::sqrt(x) : 0.; };
+  auto const& df = [&](const double& x)
+  { return x > 0. ? 0.5 / std::sqrt(x) : DBL_MAX; };
+  SupVar<Summand> var2(var);
 
-  var2._mod->compose1( var2, f, df, 0, 1, {1,-1e2*DBL_EPSILON} ); // concave & non-decreasing
+  var2._mod->compose1(var2, f, df, 0, 1,
+                      {1, -1e2 * DBL_EPSILON});  // concave & non-decreasing
 
   return var2;
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> && sqrt
-( SupVar<Summand> && var )
+inline SupVar<Summand>&&
+sqrt(SupVar<Summand>&& var)
 {
-  if ( var.l() < -1e2*DBL_EPSILON ){//0. )
+  if (var.l() < -1e2 * DBL_EPSILON)
+  {  // 0. )
     std::cout << "**SupVar::sqrt: var.l = " << var.l() << std::endl;
-    throw typename mc::SupModel<Summand>::Exceptions( mc::SupModel<Summand>::Exceptions::SQRT ); 
+    throw typename mc::SupModel<Summand>::Exceptions(
+        mc::SupModel<Summand>::Exceptions::SQRT);
   }
 
-  if( !var._mod ){
-    var._cst = std::sqrt( var._cst );
-    return std::move( var );
-  }
-
-#ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> sqrt: move" << std::endl;
-#endif
-
-  auto const& f  = [&]( const double& x ){ return x>0.? std::sqrt(x): 0.; };
-  auto const& df = [&]( const double& x ){ return x>0.? 0.5/std::sqrt(x): DBL_MAX; };
-
-  var._mod->compose1( var, f, df, 0, 1, {1,-1e2*DBL_EPSILON} ); // concave & non-decreasing
-
-  return std::move( var );
-}
-
-template <typename Summand>
-inline
-SupVar<Summand> exp
-( SupVar<Summand> const& var )
-{
-  if( !var._mod )
-    return std::exp( var._cst );
-
-#ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> exp: copy" << std::endl;
-#endif
-
-  auto const& f = [&]( const double& x ){ return std::exp(x); };
-  SupVar<Summand> var2( var );
-
-  var2._mod->compose1( var2, f, f, 1, 1 ); // convex & non-decreasing
-
-  return var2;
-}
-
-template <typename Summand>
-inline
-SupVar<Summand> && exp
-( SupVar<Summand> && var )
-{
-  if( !var._mod ){
-    var._cst = std::exp( var._cst );
-    return std::move( var );
-  }
-
-#ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> exp: move" << std::endl;
-#endif
-
-  auto const& f = [&]( const double& x ){ return std::exp(x); };
-
-  var._mod->compose1( var, f, f, 1, 1 ); // convex & non-decreasing
-
-  return std::move( var );
-}
-
-template <typename Summand>
-inline
-SupVar<Summand> log
-( SupVar<Summand> const& var )
-{
-  if ( var.l() < DBL_EPSILON ){
-    std::cout << "**SupVar::log: var.l = " << var.l() << std::endl;
-    throw typename mc::SupModel<Summand>::Exceptions( mc::SupModel<Summand>::Exceptions::LOG ); 
-  }
-  
-  if( !var._mod )
-    return std::log( var._cst );
-
-#ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> log: copy" << std::endl;
-#endif
-
-  auto const& f  = [&]( const double& x ){ return std::log(x); };
-  auto const& df = [&]( const double& x ){ return 1./x; };
-  SupVar<Summand> var2( var );
-
-  var2._mod->compose1( var2, f, df, 0, 1, {1,DBL_EPSILON} ); // concave & non-decreasing
-
-  return var2;
-}
-
-template <typename Summand>
-inline
-SupVar<Summand> && log
-( SupVar<Summand> && var )
-{
-  if ( var.l() <= DBL_EPSILON ){
-    std::cout << "**SupVar::log: var.l = " << var.l() << std::endl;
-    throw typename mc::SupModel<Summand>::Exceptions( mc::SupModel<Summand>::Exceptions::LOG ); 
-  }
-  
-  if( !var._mod ){
-    var._cst = std::log( var._cst );
+  if (!var._mod)
+  {
+    var._cst = std::sqrt(var._cst);
     return std::move(var);
   }
 
 #ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> log: move" << std::endl;
+  std::cout << "SupVar<Summand> sqrt: move" << std::endl;
 #endif
 
-  auto const& f  = [&]( const double& x ){ return std::log(x); };
-  auto const& df = [&]( const double& x ){ return 1./x; };
+  auto const& f  = [&](const double& x) { return x > 0. ? std::sqrt(x) : 0.; };
+  auto const& df = [&](const double& x)
+  { return x > 0. ? 0.5 / std::sqrt(x) : DBL_MAX; };
 
-  var._mod->compose1( var, f, df, 0, 1, {1,DBL_EPSILON} ); // concave & non-decreasing
+  var._mod->compose1(var, f, df, 0, 1,
+                     {1, -1e2 * DBL_EPSILON});  // concave & non-decreasing
 
   return std::move(var);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> xlog
-( SupVar<Summand> const& var )
+inline SupVar<Summand>
+exp(SupVar<Summand> const& var)
 {
-  if ( var.l() < -1e2*DBL_EPSILON ){//0. )
-    std::cout << "var.l = " << var.l() << std::endl;
-    throw typename mc::SupModel<Summand>::Exceptions( mc::SupModel<Summand>::Exceptions::LOG ); 
-  }
-  
-  if( !var._mod )
-    return var._cst>0.? var._cst*std::log( var._cst ): 0.;
+  if (!var._mod) return std::exp(var._cst);
 
 #ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> xlog: copy" << std::endl;
+  std::cout << "SupVar<Summand> exp: copy" << std::endl;
 #endif
 
-  double const xopt = std::exp(-1.);
-  auto const& f  = [&]( const double& x ){ return x>0.? x*std::log(x): 0.; };
-  auto const& df = [&]( const double& x ){ return x>0.? std::log(x)+1.: std::log(DBL_MIN)+1.; };
-  SupVar<Summand> var2( var );
+  auto const& f = [&](const double& x) { return std::exp(x); };
+  SupVar<Summand> var2(var);
 
-  var2._mod->compose3( var2, f, df, 5, xopt, {1,-1e2*DBL_EPSILON} ); // convex & non-monotonic w/ extremum at xopt
-  
+  var2._mod->compose1(var2, f, f, 1, 1);  // convex & non-decreasing
+
   return var2;
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> && xlog
-( SupVar<Summand> && var )
+inline SupVar<Summand>&&
+exp(SupVar<Summand>&& var)
 {
-  if ( var.l() < -1e2*DBL_EPSILON ){//0. )
-    std::cout << "var.l = " << var.l() << std::endl;
-    throw typename mc::SupModel<Summand>::Exceptions( mc::SupModel<Summand>::Exceptions::LOG ); 
+  if (!var._mod)
+  {
+    var._cst = std::exp(var._cst);
+    return std::move(var);
   }
-  
-  if( !var._mod ){
-    if( var._cst > 0. ){
-      var._cst *= std::log( var._cst );
-      return std::move( var );
+
+#ifdef MC__SUPMODEL_TRACE
+  std::cout << "SupVar<Summand> exp: move" << std::endl;
+#endif
+
+  auto const& f = [&](const double& x) { return std::exp(x); };
+
+  var._mod->compose1(var, f, f, 1, 1);  // convex & non-decreasing
+
+  return std::move(var);
+}
+
+template <typename Summand>
+inline SupVar<Summand>
+log(SupVar<Summand> const& var)
+{
+  if (var.l() < DBL_EPSILON)
+  {
+    std::cout << "**SupVar::log: var.l = " << var.l() << std::endl;
+    throw typename mc::SupModel<Summand>::Exceptions(
+        mc::SupModel<Summand>::Exceptions::LOG);
+  }
+
+  if (!var._mod) return std::log(var._cst);
+
+#ifdef MC__SUPMODEL_TRACE
+  std::cout << "SupVar<Summand> log: copy" << std::endl;
+#endif
+
+  auto const& f  = [&](const double& x) { return std::log(x); };
+  auto const& df = [&](const double& x) { return 1. / x; };
+  SupVar<Summand> var2(var);
+
+  var2._mod->compose1(var2, f, df, 0, 1,
+                      {1, DBL_EPSILON});  // concave & non-decreasing
+
+  return var2;
+}
+
+template <typename Summand>
+inline SupVar<Summand>&&
+log(SupVar<Summand>&& var)
+{
+  if (var.l() <= DBL_EPSILON)
+  {
+    std::cout << "**SupVar::log: var.l = " << var.l() << std::endl;
+    throw typename mc::SupModel<Summand>::Exceptions(
+        mc::SupModel<Summand>::Exceptions::LOG);
+  }
+
+  if (!var._mod)
+  {
+    var._cst = std::log(var._cst);
+    return std::move(var);
+  }
+
+#ifdef MC__SUPMODEL_TRACE
+  std::cout << "SupVar<Summand> log: move" << std::endl;
+#endif
+
+  auto const& f  = [&](const double& x) { return std::log(x); };
+  auto const& df = [&](const double& x) { return 1. / x; };
+
+  var._mod->compose1(var, f, df, 0, 1,
+                     {1, DBL_EPSILON});  // concave & non-decreasing
+
+  return std::move(var);
+}
+
+template <typename Summand>
+inline SupVar<Summand>
+xlog(SupVar<Summand> const& var)
+{
+  if (var.l() < -1e2 * DBL_EPSILON)
+  {  // 0. )
+    std::cout << "var.l = " << var.l() << std::endl;
+    throw typename mc::SupModel<Summand>::Exceptions(
+        mc::SupModel<Summand>::Exceptions::LOG);
+  }
+
+  if (!var._mod) return var._cst > 0. ? var._cst * std::log(var._cst) : 0.;
+
+#ifdef MC__SUPMODEL_TRACE
+  std::cout << "SupVar<Summand> xlog: copy" << std::endl;
+#endif
+
+  double const xopt = std::exp(-1.);
+  auto const& f     = [&](const double& x)
+  { return x > 0. ? x * std::log(x) : 0.; };
+  auto const& df = [&](const double& x)
+  { return x > 0. ? std::log(x) + 1. : std::log(DBL_MIN) + 1.; };
+  SupVar<Summand> var2(var);
+
+  var2._mod->compose3(
+      var2, f, df, 5, xopt,
+      {1, -1e2 * DBL_EPSILON});  // convex & non-monotonic w/ extremum at xopt
+
+  return var2;
+}
+
+template <typename Summand>
+inline SupVar<Summand>&&
+xlog(SupVar<Summand>&& var)
+{
+  if (var.l() < -1e2 * DBL_EPSILON)
+  {  // 0. )
+    std::cout << "var.l = " << var.l() << std::endl;
+    throw typename mc::SupModel<Summand>::Exceptions(
+        mc::SupModel<Summand>::Exceptions::LOG);
+  }
+
+  if (!var._mod)
+  {
+    if (var._cst > 0.)
+    {
+      var._cst *= std::log(var._cst);
+      return std::move(var);
     }
   }
-  
+
 #ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> xlog: move" << std::endl;
+  std::cout << "SupVar<Summand> xlog: move" << std::endl;
 #endif
 
   double const xopt = std::exp(-1.);
-  auto const& f  = [&]( const double& x ){ return x>0.? x*std::log(x): 0.; };
-  auto const& df = [&]( const double& x ){ return x>0.? std::log(x)+1.: std::log(DBL_MIN)+1.; };
-
-  var._mod->compose3( var, f, df, 5, xopt, {1,-1e2*DBL_EPSILON} ); // convex & non-monotonic w/ extremum at xopt
-
-  return std::move( var );
-}
-
-template <typename Summand>
-inline
-SupVar<Summand> cos
-( SupVar<Summand> const& var )
-{
-  if( !var._mod )
-    return std::cos( var._cst );
-
-  // Finding number of inflection points
-  double const xL = var.l(), xU = var.u();
-  int const kL = std::ceil(xL/PI-0.5+1e2*DBL_EPSILON),
-            kU = std::floor(xU/PI+0.5-1e2*DBL_EPSILON);
-  //std::cout << "xL=" << xL << "  xU=" << xU << std::endl;
-  //std::cout << "kL=" << kL << "  kU=" << kU << std::endl;
-  assert( kU >= kL );
-
-  bool cvx0 = kL%2;
-  double const xopt0 = kL*PI;
-  std::vector<double> xinfl( kU-kL );
-  for( int k=0; kL+k<kU; ++k ) xinfl[k] = (kL+k+0.5)*PI;
-  //std::cout << "initial convexity: " << cvx0 << std::endl;
-  //std::cout << "initial extremum: " << xopt0 << std::endl;
-  //std::cout << "inflection points: {";
-  //for( auto const& xi : xinfl ) std::cout << " " << xi;
-  //std::cout << " }" << std::endl;
-
-  auto const& f  = [&]( const double& x ){ return std::cos(x); };
-  auto const& df = [&]( const double& x ){ return -std::sin(x); };
-  SupVar<Summand> var2( var );
-
-  var._mod->compose4( var2, f, df, cvx0, xopt0, xinfl );
-
-  return var2;
-}
-
-template <typename Summand>
-inline
-SupVar<Summand> && cos
-( SupVar<Summand> && var )
-{
-  if( !var._mod ){
-    var._cst = std::cos( var._cst );
-    return std::move( var );
-  }
-
-  // Finding number of inflection points
-  double const xL = var.l(), xU = var.u();
-  int const kL = std::ceil(xL/PI-0.5+1e2*DBL_EPSILON),
-            kU = std::floor(xU/PI+0.5-1e2*DBL_EPSILON);
-  //std::cout << "xL=" << xL << "  xU=" << xU << std::endl;
-  //std::cout << "kL=" << kL << "  kU=" << kU << std::endl;
-  assert( kU >= kL );
-
-  bool cvx0 = kL%2;
-  double const xopt0 = kL*PI;
-  std::vector<double> xinfl( kU-kL );
-  for( int k=0; kL+k<kU; ++k ) xinfl[k] = (kL+k+0.5)*PI;
-  //std::cout << "initial convexity: " << cvx0 << std::endl;
-  //std::cout << "initial extremum: " << xopt0 << std::endl;
-  //std::cout << "inflection points: {";
-  //for( auto const& xi : xinfl ) std::cout << " " << xi;
-  //std::cout << " }" << std::endl;
-
-  auto const& f  = [&]( const double& x ){ return std::cos(x); };
-  auto const& df = [&]( const double& x ){ return -std::sin(x); };
-
-  var._mod->compose4( var, f, df, cvx0, xopt0, xinfl );
-
-  return std::move( var );
-}
-
-template <typename Summand>
-inline
-SupVar<Summand> sin
-( SupVar<Summand> const& var )
-{
-  return cos( var - PI/2. );
-}
-
-template <typename Summand>
-inline
-SupVar<Summand> && sin
-( SupVar<Summand> && var )
-{
-  return cos( std::move( var ) - PI/2. );
-}
-
-template <typename Summand>
-inline
-SupVar<Summand> tan
-( SupVar<Summand> const& var )
-{
-  // Checking range and translating into [-PI/2,PI/2]
-  if ( var.u() >= PI + var.l() ){
-    std::cout << "**SupVar::tan: var.l = " << var.l() << " var.u = " << var.u() << std::endl;
-    throw typename mc::SupModel<Summand>::Exceptions( mc::SupModel<Summand>::Exceptions::TAN );
-  }
-  const double xS = PI*std::ceil(-var.l()/PI-0.5);
-  const double xL = var.l()+xS, xU = var.u()+xS;
-  if ( xL < -PI/2.+DBL_EPSILON || xU > PI/2.-DBL_EPSILON ){
-    std::cout << "**SupVar::tan: var.l = " << var.l() << " var.u = " << var.u() << std::endl;
-    throw typename mc::SupModel<Summand>::Exceptions( mc::SupModel<Summand>::Exceptions::TAN ); 
-  }
-
-  if( !var._mod )
-    return std::tan( var._cst );
-
-#ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> tan: copy" << std::endl;
-#endif
-
-  auto const& f  = [&]( const double& x ){ return std::tan(x); };
-  auto const& df = [&]( const double& x ){ double z=std::tan(x); return 1.+z*z; };
-  SupVar<Summand> var2( var );
-
-  var2._mod->compose2( var2, f, df, 2, 1, -xS ); //, {1,-PI/2.+DBL_EPSILON}, {1,PI/2.-DBL_EPSILON} ); concavoconcex & non-decreasing w/ inflection at -xS and domain within [-PI/2,PI/2]
-
-  return var2;
-}
-
-template <typename Summand>
-inline
-SupVar<Summand> && tan
-( SupVar<Summand> && var )
-{
-  // Checking range and translating into [-PI/2,PI/2]
-  if ( var.u() >= PI + var.l() ){
-    std::cout << "**SupVar::tan: var.l = " << var.l() << " var.u = " << var.u() << std::endl;
-    throw typename mc::SupModel<Summand>::Exceptions( mc::SupModel<Summand>::Exceptions::TAN );
-  }
-  const double xS = PI*std::ceil(-var.l()/PI-0.5);
-  const double xL = var.l()+xS, xU = var.u()+xS;
-  if ( xL < -PI/2.+DBL_EPSILON || xU > PI/2.-DBL_EPSILON ){
-    std::cout << "**SupVar::tan: var.l = " << var.l() << " var.u = " << var.u() << std::endl;
-    throw typename mc::SupModel<Summand>::Exceptions( mc::SupModel<Summand>::Exceptions::TAN ); 
-  }
-
-  if( !var._mod ){
-    var._cst = std::tan( var._cst );
-    return std::move( var );
-  }
-
-#ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> tan: move" << std::endl;
-#endif
-
-  auto const& f  = [&]( const double& x ){ return std::tan(x); };
-  auto const& df = [&]( const double& x ){ double z=std::tan(x); return 1.+z*z; };
-
-  var._mod->compose2( var, f, df, 2, 1, -xS ); //, {1,-PI/2.+DBL_EPSILON}, {1,PI/2.-DBL_EPSILON} ); concavoconcex & non-decreasing w/ inflection at -xS and domain within [-PI/2,PI/2]
-
-  return std::move( var );
-}
-
-template <typename Summand>
-inline
-SupVar<Summand> tanh
-( SupVar<Summand> const& var )
-{
-  if( !var._mod )
-    return std::tanh( var._cst );
-
-#ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> tanh: copy" << std::endl;
-#endif
-
-  auto const& f  = [&]( const double& x ){ return std::tanh(x); };
-  auto const& df = [&]( const double& x ){ double z=std::tanh(x); return 1.-z*z; };
-  SupVar<Summand> var2( var );
-
-  var2._mod->compose2( var2, f, df, 3, 1, 0.0 ); // convexoconcave & non-decreasing w/ inflection at 0
-
-  return var2;  
-}
-
-template <typename Summand>
-inline
-SupVar<Summand> && tanh
-( SupVar<Summand> && var )
-{
-  if( !var._mod ){
-    var._cst = std::tanh( var._cst );
-    return std::move( var );
-  }
-  
-#ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> tanh: move" << std::endl;
-#endif
-
-  auto const& f  = [&]( const double& x ){ return std::tanh(x); };
-  auto const& df = [&]( const double& x ){ double z=std::tanh(x); return 1.-z*z; };
-
-  var._mod->compose2( var, f, df, 3, 1, 0.0 ); // convexoconcave & non-decreasing w/ inflection at 0 
-
-  return std::move( var );
-}
-
-template <typename Summand>
-inline
-SupVar<Summand> atan
-( SupVar<Summand> const& var )
-{
-  if( !var._mod )
-    return std::atan( var._cst );
-
-#ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> atan: copy" << std::endl;
-#endif
-
-  auto const& f  = [&]( const double& x ){ return std::atan(x); };
-  auto const& df = [&]( const double& x ){ return 1./(1.+x*x); };
-  SupVar<Summand> var2( var );
-
-  var2._mod->compose2( var2, f, df, 3, 1, 0.0 ); // convexoconcave & non-decreasing w/ inflection at 0
-
-  return var2;  
-}
-
-template <typename Summand>
-inline
-SupVar<Summand> && atan
-( SupVar<Summand> && var )
-{
-  if( !var._mod ){
-    var._cst = std::atan( var._cst );
-    return std::move( var );
-  }
-  
-#ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> atan: move" << std::endl;
-#endif
-
-  auto const& f  = [&]( const double& x ){ return std::atan(x); };
-  auto const& df = [&]( const double& x ){ return 1./(1.+x*x); };
-
-  var._mod->compose2( var, f, df, 3, 1, 0.0 ); // convexoconcave & non-decreasing w/ inflection at 0
-
-  return std::move( var );
-}
-
-template <typename Summand>
-inline
-SupVar<Summand> acos
-( SupVar<Summand> const& var )
-{
-  if ( var.l() <= -1.-1e2*DBL_EPSILON || var.u() >= 1.+1e2*DBL_EPSILON){
-    std::cout << "**SupVar::acos: var.l = " << var.l() << " var.u = " << var.u() << std::endl;
-    throw typename mc::SupModel<Summand>::Exceptions( mc::SupModel<Summand>::Exceptions::ACOS ); 
-  }
-
-  if( !var._mod )
-    return std::acos( var._cst );
-
-#ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> acos: copy" << std::endl;
-#endif
-
-  auto const& f  = [&]( const double& x ){ return x>-1.? (x<1.? std::acos(x): 0.): PI; };
-  auto const& df = [&]( const double& x ){ return x>-1.? (x<1.? -1./std::sqrt(1.-x*x): -DBL_MAX): -DBL_MAX; };
-  SupVar<Summand> var2( var );
-
-  var2._mod->compose2( var2, f, df, 3, 0, 0.0 ); //, {1,-1.-1e2*DBL_EPSILON}, {1,1.+1e2*DBL_EPSILON} ); convexoconcave & non-increasing w/ inflection at 0 and domain within [-1,1]
-
-  return var2;  
-}
-
-template <typename Summand>
-inline
-SupVar<Summand> && acos
-( SupVar<Summand> && var )
-{
-  if ( var.l() <= -1.-1e2*DBL_EPSILON || var.u() >= 1.+1e2*DBL_EPSILON){
-    std::cout << "**SupVar::acos: var.l = " << var.l() << " var.u = " << var.u() << std::endl;
-    throw typename mc::SupModel<Summand>::Exceptions( mc::SupModel<Summand>::Exceptions::ACOS ); 
-  }
-
-  if( !var._mod ){
-    var._cst = std::acos( var._cst );
-    return std::move( var );
-  }
-  
-#ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> acos: move" << std::endl;
-#endif
-
-  auto const& f  = [&]( const double& x ){ return x>-1.? (x<1.? std::acos(x): 0.): PI; };
-  auto const& df = [&]( const double& x ){ return x>-1.? (x<1.? -1./std::sqrt(1.-x*x): -DBL_MAX): -DBL_MAX; };
-
-  var._mod->compose2( var, f, df, 3, 0, 0.0 ); //, {1,-1.-1e2*DBL_EPSILON}, {1,1.+1e2*DBL_EPSILON} ); convexoconcave & non-increasing w/ inflection at 0 and domain within [-1,1]
-
-  return std::move( var );
-}
-
-template <typename Summand>
-inline
-SupVar<Summand> asin
-( SupVar<Summand> const& var )
-{
-  if ( var.l() <= -1.-1e2*DBL_EPSILON || var.u() >= 1.+1e2*DBL_EPSILON){
-    std::cout << "**SupVar::asin: var.l = " << var.l() << " var.u = " << var.u() << std::endl;
-    throw typename mc::SupModel<Summand>::Exceptions( mc::SupModel<Summand>::Exceptions::ASIN ); 
-  }
-
-  if( !var._mod )
-    return std::asin( var._cst );
-
-#ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> asin: copy" << std::endl;
-#endif
-
-  auto const& f  = [&]( const double& x ){ return x>-1.? (x<1.? std::asin(x): -PI/2.): PI/2.; };
-  auto const& df = [&]( const double& x ){ return x>-1.? (x<1.? 1./std::sqrt(1.-x*x): DBL_MAX): DBL_MAX; };
-  SupVar<Summand> var2( var );
-
-  var2._mod->compose2( var2, f, df, 2, 1, 0.0 ); //, {1,-1.-1e2*DBL_EPSILON}, {1,1.+1e2*DBL_EPSILON} ); concavoconvex & non-decreasing w/ inflection at 0 and domain within [-1,1]
-
-  return var2;  
-}
-
-template <typename Summand>
-inline
-SupVar<Summand> && asin
-( SupVar<Summand> && var )
-{
-  if ( var.l() <= -1.-1e2*DBL_EPSILON || var.u() >= 1.+1e2*DBL_EPSILON){
-    std::cout << "**SupVar::asin: var.l = " << var.l() << " var.u = " << var.u() << std::endl;
-    throw typename mc::SupModel<Summand>::Exceptions( mc::SupModel<Summand>::Exceptions::ASIN ); 
-  }
-
-  if( !var._mod ){
-    var._cst = std::asin( var._cst );
-    return std::move( var );
-  }
-  
-#ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> asin: move" << std::endl;
-#endif
-
-  auto const& f  = [&]( const double& x ){ return x>-1.? (x<1.? std::asin(x): -PI/2.): PI/2.; };
-  auto const& df = [&]( const double& x ){ return x>-1.? (x<1.? 1./std::sqrt(1.-x*x): DBL_MAX): DBL_MAX; };
-
-  var._mod->compose2( var, f, df, 2, 1, 0.0 ); //, {1,-1.-1e2*DBL_EPSILON}, {1,1.+1e2*DBL_EPSILON} ); concavoconvex & non-decreasing w/ inflection at 0 and domain within [-1,1]
-
-  return std::move( var );
-}
-
-template <typename Summand>
-inline
-SupVar<Summand> erf
-( SupVar<Summand> const& var )
-{
-  if( !var._mod )
-    return std::erf( var._cst );
-
-#ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> erf: copy" << std::endl;
-#endif
-
-  auto const& f  = [&]( const double& x ){ return std::erf(x); };
-  auto const& df = [&]( const double& x ){ return 2./std::sqrt(PI)*std::exp(-x*x); };
-  SupVar<Summand> var2( var );
-
-  var2._mod->compose2( var2, f, df, 3, 1, 0.0 ); // convexoconcave & non-decreasing w/ inflection at 0
-
-  return var2;  
-}
-
-template <typename Summand>
-inline
-SupVar<Summand> && erf
-( SupVar<Summand> && var )
-{
-  if( !var._mod ){
-    var._cst = std::erf( var._cst );
-    return std::move( var );
-  }
-  
-#ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> erf: move" << std::endl;
-#endif
-
-  auto const& f  = [&]( const double& x ){ return std::erf(x); };
-  auto const& df = [&]( const double& x ){ return 2./std::sqrt(PI)*std::exp(-x*x); };
-
-  var._mod->compose2( var, f, df, 3, 1, 0.0 ); // convexoconcave & non-decreasing w/ inflection at 0
-
-  return std::move( var );
-}
-
-template <typename Summand>
-inline
-SupVar<Summand> erfc
-( SupVar<Summand> const& var )
-{
-  if( !var._mod )
-    return std::erfc( var._cst );
-
-#ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> erfc: copy" << std::endl;
-#endif
-
-  auto const& f  = [&]( const double& x ){ return std::erfc(x); };
-  auto const& df = [&]( const double& x ){ return -2./std::sqrt(PI)*std::exp(-x*x); };
-  SupVar<Summand> var2( var );
-
-  var2._mod->compose2( var2, f, df, 2, 0, 0.0 ); // convexoconcave & non-decreasing w/ inflection at 0
-
-  return var2;  
-}
-
-template <typename Summand>
-inline
-SupVar<Summand> && erfc
-( SupVar<Summand> && var )
-{
-  if( !var._mod ){
-    var._cst = std::erfc( var._cst );
-    return std::move( var );
-  }
-  
-#ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> erfc: move" << std::endl;
-#endif
-
-  auto const& f  = [&]( const double& x ){ return std::erfc(x); };
-  auto const& df = [&]( const double& x ){ return -2./std::sqrt(PI)*std::exp(-x*x); };
-
-  var._mod->compose2( var, f, df, 2, 0, 0.0 ); // concavoconvex & non-increasing w/ inflection at 0
-
-  return std::move( var );
-}
-
-template <typename Summand>
-inline
-SupVar<Summand>
-sinh
-( SupVar<Summand> const& var )
-{
-  if( !var._mod )
-    return std::sinh( var._cst );
-
-#ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> sinh: copy" << std::endl;
-#endif
-
-  auto const& f  = [&]( const double& x ){ return std::sinh(x); };
-  auto const& df = [&]( const double& x ){ return std::cosh(x); };
-  SupVar<Summand> var2( var );
-
-  var2._mod->compose2( var2, f, df, 2, 1, 0.0 ); // concavoconvex & non-decreasing w/ inflection at 0
-
-  return var2;
-}
-
-template <typename Summand>
-inline
-SupVar<Summand> &&
-sinh
-( SupVar<Summand> && var )
-{
-  if( !var._mod ){
-    var._cst = std::sinh( var._cst );
-    return std::move( var );
-  }
-
-#ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> sinh: move" << std::endl;
-#endif
-
-  auto const& f  = [&]( const double& x ){ return std::sinh(x); };
-  auto const& df = [&]( const double& x ){ return std::cosh(x); };
-  
-  var._mod->compose2( var, f, df, 2, 1, 0.0 ); // concavoconvex & non-decreasing w/ inflection at 0
-
-  return std::move( var );
-}
-
-template <typename Summand>
-inline
-SupVar<Summand>
-cosh
-( SupVar<Summand> const& var )
-{
-  if( !var._mod )
-    return std::cosh( var._cst );
-
-#ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> cosh: copy" << std::endl;
-#endif
-
-  auto const& f  = []( const double& x ){ return std::cosh(x); };
-  auto const& df = []( const double& x ){ return std::sinh(x); };
-  SupVar<Summand> var2( var );
-
-  var2._mod->compose3( var2, f, df, 5, 0.0 ); // convex & non-monotonic w/ extremum at 0
-
-  return var2;
-}
-
-template <typename Summand>
-inline
-SupVar<Summand> &&
-cosh
-( SupVar<Summand> && var )
-{
-  if( !var._mod ){
-    var._cst = std::cosh( var._cst );
-    return std::move( var );
-  }
-
-#ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> cosh: move" << std::endl;
-#endif
-
-  auto const& f  = []( const double& x ){ return std::cosh(x); };
-  auto const& df = []( const double& x ){ return std::sinh(x); };
-  
-  var._mod->compose3( var, f, df, 5, 0.0 ); // convex & non-monotonic w/ extremum at 0
-
-  return std::move( var );
-}
-
-template <typename Summand>
-inline
-SupVar<Summand>
-pow
-( SupVar<Summand> const& var, int const& n )
-{
-  if( !n )
-    return 1.; 
-
-  if( n == 1 )
-    return var; 
-
-  if( !var._mod )
-    return std::pow( var._cst, n );
-
-#ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> pow: copy" << std::endl;
-#endif
-
-  auto const& f  = [&]( const double& x ){ return std::pow(x,n); };
-  auto const& df = [&]( const double& x ){ return (double)n*std::pow(x,n-1); };
-  SupVar<Summand> var2( var );
-
-  if( n < 0 ){
-    if( var.l() * var.u() <= 0. )
-      throw typename mc::SupModel<Summand>::Exceptions( mc::SupModel<Summand>::Exceptions::INV ); 
-
-    if( var.l() > 0 )
-      var2._mod->compose1( var2, f, df, 1, 0, {1,DBL_EPSILON}, {0,0.} ); // convex & non-increasing
-    else
-      var2._mod->compose1( var2, f, df, n%2?0:1, n%2?0:1, {0,0.}, {1,-DBL_EPSILON} ); // concave/convex & non-in/decreasing
-  }
-
-  else if( n%2 )
-    var2._mod->compose2( var2, f, df, 2, 1, 0.0 ); // concavoconvex & non-decreasing w/ inflection at 0
-
-  else
-    var2._mod->compose3( var2, f, df, 5, 0.0 ); // convex & non-monotonic w/ extremum at 0
-
-  return var2;
-}
-
-template <typename Summand>
-inline
-SupVar<Summand> &&
-pow
-( SupVar<Summand> && var, int const& n )
-{
-  if( !n ){
-    var._cst = 1.;
-    return std::move( var );
-  }
-  
-  if( n == 1 )
-    return std::move( var );
-
-  if( !var._mod ){
-    var._cst = std::pow( var._cst, n );
-    return std::move( var );
-  }
-
-#ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> pow: move" << std::endl;
-#endif
-
-  auto const& f  = [&]( const double& x ){ return std::pow(x,n); };
-  auto const& df = [&]( const double& x ){ return (double)n*std::pow(x,n-1); };
-
-  if( n < 0 ){
-    if( var.l() * var.u() <= 0. )
-      throw typename mc::SupModel<Summand>::Exceptions( mc::SupModel<Summand>::Exceptions::INV ); 
-
-    if( var.l() > 0 )
-      var._mod->compose1( var, f, df, 1, 0, {1,DBL_EPSILON}, {0,0.} ); // convex & non-increasing
-    else
-      var._mod->compose1( var, f, df, n%2?0:1, n%2?0:1, {0,0.}, {1,-DBL_EPSILON} ); // concave/convex & non-in/decreasing
-  }
-  
-  else if( n%2 )
-    var._mod->compose2( var, f, df, 2, 1, 0.0 ); // concavoconvex & non-decreasing w/ inflection at 0
-
-  else
-    var._mod->compose3( var, f, df, 5, 0.0 ); // convex & non-monotonic w/ extremum at 0
-
-  return std::move( var );
-}
-
-template <typename Summand>
-inline
-SupVar<Summand> pow
-( SupVar<Summand> const& var, double const& d )
-{
-  if( d == 0. )
-    return 1.; 
-
-  if( d == 1. )
-    return var;
-
-  if( var.l() < -1e2*DBL_EPSILON || ( var.l() < DBL_EPSILON && d < 0. ) )
-    throw typename mc::SupModel<Summand>::Exceptions( mc::SupModel<Summand>::Exceptions::RPOW ); 
-
-  if( !var._mod )
-    return std::pow( var._cst, d );
-
-#ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> pow( SupVar<Summand> const&, double const& )" << std::endl;
-#endif
-
-  auto const& f  = [&]( const double& x ){ return x>0.? std::pow(x,d): (d>0.? 0.: DBL_MAX); };
-  auto const& df = [&]( const double& x ){ return x>0.? d*std::pow(x,d-1.): (d>1.? 0.: (d>0.? DBL_MAX: -DBL_MAX)); };
-  SupVar<Summand> var2( var );
-
-  if( d > 1. )
-    var2._mod->compose1( var2, f, df, 1, 1, {1,0.} ); // convex & non-decreasing
-
-  else if( d > 0. )
-    var2._mod->compose1( var2, f, df, 0, 1, {1,0.} ); // concave & non-decreasing
-
-  else/*( d < 0. )*/
-    var2._mod->compose1( var2, f, df, 1, 0, {1,DBL_EPSILON} ); // convex & non-increasing
-
-  return var2;
-}
-
-template <typename Summand>
-inline
-SupVar<Summand> && pow
-( SupVar<Summand> && var, double const& d )
-{
-  if( d == 0. ){
-    var._cst = 1.;
-    return std::move( var );
-  }
-  
-  if( d == 1 )
-    return std::move( var );
-
-  if( var.l() < 0. || ( var.l() == 0. && d < 0. ) )
-    throw typename mc::SupModel<Summand>::Exceptions( mc::SupModel<Summand>::Exceptions::RPOW ); 
-
-  if( !var._mod ){
-    var._cst = std::pow( var._cst, d );
-    return std::move( var );
-  }
-
-#ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> && pow( SupVar<Summand> &&, double const& )" << std::endl;
-#endif
-
-  auto const& f  = [&]( const double& x ){ return x>0.? std::pow(x,d): (d>0.? 0.: DBL_MAX); };
-  auto const& df = [&]( const double& x ){ return x>0.? d*std::pow(x,d-1.): (d>1.? 0.: (d>0.? DBL_MAX: -DBL_MAX)); };
-
-  if( d > 1. )
-    var._mod->compose1( var, f, df, 1, 1, {1,0.} ); // convex & non-decreasing
-
-  else if( d > 0. )
-    var._mod->compose1( var, f, df, 0, 1, {1,0.} ); // concave & non-decreasing
-
-  else/*( d < 0. )*/
-    var._mod->compose1( var, f, df, 1, 0, {1,DBL_EPSILON} ); // convex & non-increasing
+  auto const& f     = [&](const double& x)
+  { return x > 0. ? x * std::log(x) : 0.; };
+  auto const& df = [&](const double& x)
+  { return x > 0. ? std::log(x) + 1. : std::log(DBL_MIN) + 1.; };
+
+  var._mod->compose3(
+      var, f, df, 5, xopt,
+      {1, -1e2 * DBL_EPSILON});  // convex & non-monotonic w/ extremum at xopt
 
   return std::move(var);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand>
-pow
-( double const& d, SupVar<Summand> const& var )
+inline SupVar<Summand>
+cos(SupVar<Summand> const& var)
 {
-  return exp( var * std::log( d ) );
-}
+  if (!var._mod) return std::cos(var._cst);
 
-template <typename Summand>
-inline
-SupVar<Summand>
-pow
-( double const& d, SupVar<Summand> && var )
-{
-  return exp( var * std::log( d ) );
-}
+  // Finding number of inflection points
+  double const xL = var.l(), xU = var.u();
+  int const kL = std::ceil(xL / PI - 0.5 + 1e2 * DBL_EPSILON),
+            kU = std::floor(xU / PI + 0.5 - 1e2 * DBL_EPSILON);
+  // std::cout << "xL=" << xL << "  xU=" << xU << std::endl;
+  // std::cout << "kL=" << kL << "  kU=" << kU << std::endl;
+  assert(kU >= kL);
 
-template <typename Summand>
-inline
-SupVar<Summand>
-pow
-( SupVar<Summand> const& var, SupVar<Summand> const& vexp )
-{
-  return exp( vexp * log( var ) );
-}
+  bool cvx0          = kL % 2;
+  double const xopt0 = kL * PI;
+  std::vector<double> xinfl(kU - kL);
+  for (int k = 0; kL + k < kU; ++k) xinfl[k] = (kL + k + 0.5) * PI;
+  // std::cout << "initial convexity: " << cvx0 << std::endl;
+  // std::cout << "initial extremum: " << xopt0 << std::endl;
+  // std::cout << "inflection points: {";
+  // for( auto const& xi : xinfl ) std::cout << " " << xi;
+  // std::cout << " }" << std::endl;
 
-template <typename Summand>
-inline
-SupVar<Summand>
-pow
-( SupVar<Summand> && var, SupVar<Summand> const& vexp )
-{
-  return exp( vexp * log( var ) );
-}
+  auto const& f  = [&](const double& x) { return std::cos(x); };
+  auto const& df = [&](const double& x) { return -std::sin(x); };
+  SupVar<Summand> var2(var);
 
-template <typename Summand>
-inline
-SupVar<Summand>
-prod
-( unsigned int const& n, SupVar<Summand> const* var )
-{
-  switch( n ){
-   case 0:  return 1.;
-   case 1:  return var[0];
-   default: return var[0] * prod( n-1, var+1 );
-  }
-}
+  var._mod->compose4(var2, f, df, cvx0, xopt0, xinfl);
 
-template <typename Summand>
-inline
-SupVar<Summand>
-monom
-( unsigned int const& n, SupVar<Summand> const* var, unsigned int const* exp )
-{
-  switch( n ){
-   case 0:  return 1.;
-   case 1:  return pow( var[0], (int)exp[0] );
-   default: return pow( var[0], (int)exp[0] ) * monom( n-1, var+1, exp+1 );
-  }
-}
-
-template <typename Summand>
-inline
-SupVar<Summand>
-cheb
-( SupVar<Summand> const& var, unsigned int const& n )
-{
-  if( !var._mod )
-    return cheb( var._cst, n );
-
-  switch( n ){
-    case 0:  return 1.;
-    case 1:  return var;
-    default: break;
-  }
-
-  SupVar<Summand> var2( 2.*var*cheb(var,n-1) - cheb(var,n-2) );
   return var2;
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> fabs
-( SupVar<Summand> const& var )
+inline SupVar<Summand>&&
+cos(SupVar<Summand>&& var)
 {
-  if( var.l() >= 0 ){
+  if (!var._mod)
+  {
+    var._cst = std::cos(var._cst);
+    return std::move(var);
+  }
+
+  // Finding number of inflection points
+  double const xL = var.l(), xU = var.u();
+  int const kL = std::ceil(xL / PI - 0.5 + 1e2 * DBL_EPSILON),
+            kU = std::floor(xU / PI + 0.5 - 1e2 * DBL_EPSILON);
+  // std::cout << "xL=" << xL << "  xU=" << xU << std::endl;
+  // std::cout << "kL=" << kL << "  kU=" << kU << std::endl;
+  assert(kU >= kL);
+
+  bool cvx0          = kL % 2;
+  double const xopt0 = kL * PI;
+  std::vector<double> xinfl(kU - kL);
+  for (int k = 0; kL + k < kU; ++k) xinfl[k] = (kL + k + 0.5) * PI;
+  // std::cout << "initial convexity: " << cvx0 << std::endl;
+  // std::cout << "initial extremum: " << xopt0 << std::endl;
+  // std::cout << "inflection points: {";
+  // for( auto const& xi : xinfl ) std::cout << " " << xi;
+  // std::cout << " }" << std::endl;
+
+  auto const& f  = [&](const double& x) { return std::cos(x); };
+  auto const& df = [&](const double& x) { return -std::sin(x); };
+
+  var._mod->compose4(var, f, df, cvx0, xopt0, xinfl);
+
+  return std::move(var);
+}
+
+template <typename Summand>
+inline SupVar<Summand>
+sin(SupVar<Summand> const& var)
+{
+  return cos(var - PI / 2.);
+}
+
+template <typename Summand>
+inline SupVar<Summand>&&
+sin(SupVar<Summand>&& var)
+{
+  return cos(std::move(var) - PI / 2.);
+}
+
+template <typename Summand>
+inline SupVar<Summand>
+tan(SupVar<Summand> const& var)
+{
+  // Checking range and translating into [-PI/2,PI/2]
+  if (var.u() >= PI + var.l())
+  {
+    std::cout << "**SupVar::tan: var.l = " << var.l() << " var.u = " << var.u()
+              << std::endl;
+    throw typename mc::SupModel<Summand>::Exceptions(
+        mc::SupModel<Summand>::Exceptions::TAN);
+  }
+  const double xS = PI * std::ceil(-var.l() / PI - 0.5);
+  const double xL = var.l() + xS, xU = var.u() + xS;
+  if (xL < -PI / 2. + DBL_EPSILON || xU > PI / 2. - DBL_EPSILON)
+  {
+    std::cout << "**SupVar::tan: var.l = " << var.l() << " var.u = " << var.u()
+              << std::endl;
+    throw typename mc::SupModel<Summand>::Exceptions(
+        mc::SupModel<Summand>::Exceptions::TAN);
+  }
+
+  if (!var._mod) return std::tan(var._cst);
+
+#ifdef MC__SUPMODEL_TRACE
+  std::cout << "SupVar<Summand> tan: copy" << std::endl;
+#endif
+
+  auto const& f  = [&](const double& x) { return std::tan(x); };
+  auto const& df = [&](const double& x)
+  {
+    double z = std::tan(x);
+    return 1. + z * z;
+  };
+  SupVar<Summand> var2(var);
+
+  var2._mod->compose2(var2, f, df, 2, 1,
+                      -xS);  //, {1,-PI/2.+DBL_EPSILON}, {1,PI/2.-DBL_EPSILON}
+                             //); concavoconcex & non-decreasing w/ inflection
+                             // at -xS and domain within [-PI/2,PI/2]
+
+  return var2;
+}
+
+template <typename Summand>
+inline SupVar<Summand>&&
+tan(SupVar<Summand>&& var)
+{
+  // Checking range and translating into [-PI/2,PI/2]
+  if (var.u() >= PI + var.l())
+  {
+    std::cout << "**SupVar::tan: var.l = " << var.l() << " var.u = " << var.u()
+              << std::endl;
+    throw typename mc::SupModel<Summand>::Exceptions(
+        mc::SupModel<Summand>::Exceptions::TAN);
+  }
+  const double xS = PI * std::ceil(-var.l() / PI - 0.5);
+  const double xL = var.l() + xS, xU = var.u() + xS;
+  if (xL < -PI / 2. + DBL_EPSILON || xU > PI / 2. - DBL_EPSILON)
+  {
+    std::cout << "**SupVar::tan: var.l = " << var.l() << " var.u = " << var.u()
+              << std::endl;
+    throw typename mc::SupModel<Summand>::Exceptions(
+        mc::SupModel<Summand>::Exceptions::TAN);
+  }
+
+  if (!var._mod)
+  {
+    var._cst = std::tan(var._cst);
+    return std::move(var);
+  }
+
+#ifdef MC__SUPMODEL_TRACE
+  std::cout << "SupVar<Summand> tan: move" << std::endl;
+#endif
+
+  auto const& f  = [&](const double& x) { return std::tan(x); };
+  auto const& df = [&](const double& x)
+  {
+    double z = std::tan(x);
+    return 1. + z * z;
+  };
+
+  var._mod->compose2(var, f, df, 2, 1,
+                     -xS);  //, {1,-PI/2.+DBL_EPSILON}, {1,PI/2.-DBL_EPSILON} );
+                            // concavoconcex & non-decreasing w/ inflection at
+                            //-xS and domain within [-PI/2,PI/2]
+
+  return std::move(var);
+}
+
+template <typename Summand>
+inline SupVar<Summand>
+tanh(SupVar<Summand> const& var)
+{
+  if (!var._mod) return std::tanh(var._cst);
+
+#ifdef MC__SUPMODEL_TRACE
+  std::cout << "SupVar<Summand> tanh: copy" << std::endl;
+#endif
+
+  auto const& f  = [&](const double& x) { return std::tanh(x); };
+  auto const& df = [&](const double& x)
+  {
+    double z = std::tanh(x);
+    return 1. - z * z;
+  };
+  SupVar<Summand> var2(var);
+
+  var2._mod->compose2(
+      var2, f, df, 3, 1,
+      0.0);  // convexoconcave & non-decreasing w/ inflection at 0
+
+  return var2;
+}
+
+template <typename Summand>
+inline SupVar<Summand>&&
+tanh(SupVar<Summand>&& var)
+{
+  if (!var._mod)
+  {
+    var._cst = std::tanh(var._cst);
+    return std::move(var);
+  }
+
+#ifdef MC__SUPMODEL_TRACE
+  std::cout << "SupVar<Summand> tanh: move" << std::endl;
+#endif
+
+  auto const& f  = [&](const double& x) { return std::tanh(x); };
+  auto const& df = [&](const double& x)
+  {
+    double z = std::tanh(x);
+    return 1. - z * z;
+  };
+
+  var._mod->compose2(
+      var, f, df, 3, 1,
+      0.0);  // convexoconcave & non-decreasing w/ inflection at 0
+
+  return std::move(var);
+}
+
+template <typename Summand>
+inline SupVar<Summand>
+atan(SupVar<Summand> const& var)
+{
+  if (!var._mod) return std::atan(var._cst);
+
+#ifdef MC__SUPMODEL_TRACE
+  std::cout << "SupVar<Summand> atan: copy" << std::endl;
+#endif
+
+  auto const& f  = [&](const double& x) { return std::atan(x); };
+  auto const& df = [&](const double& x) { return 1. / (1. + x * x); };
+  SupVar<Summand> var2(var);
+
+  var2._mod->compose2(
+      var2, f, df, 3, 1,
+      0.0);  // convexoconcave & non-decreasing w/ inflection at 0
+
+  return var2;
+}
+
+template <typename Summand>
+inline SupVar<Summand>&&
+atan(SupVar<Summand>&& var)
+{
+  if (!var._mod)
+  {
+    var._cst = std::atan(var._cst);
+    return std::move(var);
+  }
+
+#ifdef MC__SUPMODEL_TRACE
+  std::cout << "SupVar<Summand> atan: move" << std::endl;
+#endif
+
+  auto const& f  = [&](const double& x) { return std::atan(x); };
+  auto const& df = [&](const double& x) { return 1. / (1. + x * x); };
+
+  var._mod->compose2(
+      var, f, df, 3, 1,
+      0.0);  // convexoconcave & non-decreasing w/ inflection at 0
+
+  return std::move(var);
+}
+
+template <typename Summand>
+inline SupVar<Summand>
+acos(SupVar<Summand> const& var)
+{
+  if (var.l() <= -1. - 1e2 * DBL_EPSILON || var.u() >= 1. + 1e2 * DBL_EPSILON)
+  {
+    std::cout << "**SupVar::acos: var.l = " << var.l() << " var.u = " << var.u()
+              << std::endl;
+    throw typename mc::SupModel<Summand>::Exceptions(
+        mc::SupModel<Summand>::Exceptions::ACOS);
+  }
+
+  if (!var._mod) return std::acos(var._cst);
+
+#ifdef MC__SUPMODEL_TRACE
+  std::cout << "SupVar<Summand> acos: copy" << std::endl;
+#endif
+
+  auto const& f = [&](const double& x)
+  { return x > -1. ? (x < 1. ? std::acos(x) : 0.) : PI; };
+  auto const& df = [&](const double& x)
+  {
+    return x > -1. ? (x < 1. ? -1. / std::sqrt(1. - x * x) : -DBL_MAX)
+                   : -DBL_MAX;
+  };
+  SupVar<Summand> var2(var);
+
+  var2._mod->compose2(var2, f, df, 3, 0,
+                      0.0);  //, {1,-1.-1e2*DBL_EPSILON}, {1,1.+1e2*DBL_EPSILON}
+                             //); convexoconcave & non-increasing w/ inflection
+                             // at 0 and domain within [-1,1]
+
+  return var2;
+}
+
+template <typename Summand>
+inline SupVar<Summand>&&
+acos(SupVar<Summand>&& var)
+{
+  if (var.l() <= -1. - 1e2 * DBL_EPSILON || var.u() >= 1. + 1e2 * DBL_EPSILON)
+  {
+    std::cout << "**SupVar::acos: var.l = " << var.l() << " var.u = " << var.u()
+              << std::endl;
+    throw typename mc::SupModel<Summand>::Exceptions(
+        mc::SupModel<Summand>::Exceptions::ACOS);
+  }
+
+  if (!var._mod)
+  {
+    var._cst = std::acos(var._cst);
+    return std::move(var);
+  }
+
+#ifdef MC__SUPMODEL_TRACE
+  std::cout << "SupVar<Summand> acos: move" << std::endl;
+#endif
+
+  auto const& f = [&](const double& x)
+  { return x > -1. ? (x < 1. ? std::acos(x) : 0.) : PI; };
+  auto const& df = [&](const double& x)
+  {
+    return x > -1. ? (x < 1. ? -1. / std::sqrt(1. - x * x) : -DBL_MAX)
+                   : -DBL_MAX;
+  };
+
+  var._mod->compose2(var, f, df, 3, 0,
+                     0.0);  //, {1,-1.-1e2*DBL_EPSILON}, {1,1.+1e2*DBL_EPSILON}
+                            //); convexoconcave & non-increasing w/ inflection
+                            // at 0 and domain within [-1,1]
+
+  return std::move(var);
+}
+
+template <typename Summand>
+inline SupVar<Summand>
+asin(SupVar<Summand> const& var)
+{
+  if (var.l() <= -1. - 1e2 * DBL_EPSILON || var.u() >= 1. + 1e2 * DBL_EPSILON)
+  {
+    std::cout << "**SupVar::asin: var.l = " << var.l() << " var.u = " << var.u()
+              << std::endl;
+    throw typename mc::SupModel<Summand>::Exceptions(
+        mc::SupModel<Summand>::Exceptions::ASIN);
+  }
+
+  if (!var._mod) return std::asin(var._cst);
+
+#ifdef MC__SUPMODEL_TRACE
+  std::cout << "SupVar<Summand> asin: copy" << std::endl;
+#endif
+
+  auto const& f = [&](const double& x)
+  { return x > -1. ? (x < 1. ? std::asin(x) : -PI / 2.) : PI / 2.; };
+  auto const& df = [&](const double& x) {
+    return x > -1. ? (x < 1. ? 1. / std::sqrt(1. - x * x) : DBL_MAX) : DBL_MAX;
+  };
+  SupVar<Summand> var2(var);
+
+  var2._mod->compose2(var2, f, df, 2, 1,
+                      0.0);  //, {1,-1.-1e2*DBL_EPSILON}, {1,1.+1e2*DBL_EPSILON}
+                             //); concavoconvex & non-decreasing w/ inflection
+                             // at 0 and domain within [-1,1]
+
+  return var2;
+}
+
+template <typename Summand>
+inline SupVar<Summand>&&
+asin(SupVar<Summand>&& var)
+{
+  if (var.l() <= -1. - 1e2 * DBL_EPSILON || var.u() >= 1. + 1e2 * DBL_EPSILON)
+  {
+    std::cout << "**SupVar::asin: var.l = " << var.l() << " var.u = " << var.u()
+              << std::endl;
+    throw typename mc::SupModel<Summand>::Exceptions(
+        mc::SupModel<Summand>::Exceptions::ASIN);
+  }
+
+  if (!var._mod)
+  {
+    var._cst = std::asin(var._cst);
+    return std::move(var);
+  }
+
+#ifdef MC__SUPMODEL_TRACE
+  std::cout << "SupVar<Summand> asin: move" << std::endl;
+#endif
+
+  auto const& f = [&](const double& x)
+  { return x > -1. ? (x < 1. ? std::asin(x) : -PI / 2.) : PI / 2.; };
+  auto const& df = [&](const double& x) {
+    return x > -1. ? (x < 1. ? 1. / std::sqrt(1. - x * x) : DBL_MAX) : DBL_MAX;
+  };
+
+  var._mod->compose2(var, f, df, 2, 1,
+                     0.0);  //, {1,-1.-1e2*DBL_EPSILON}, {1,1.+1e2*DBL_EPSILON}
+                            //); concavoconvex & non-decreasing w/ inflection at
+                            // 0 and domain within [-1,1]
+
+  return std::move(var);
+}
+
+template <typename Summand>
+inline SupVar<Summand>
+erf(SupVar<Summand> const& var)
+{
+  if (!var._mod) return std::erf(var._cst);
+
+#ifdef MC__SUPMODEL_TRACE
+  std::cout << "SupVar<Summand> erf: copy" << std::endl;
+#endif
+
+  auto const& f  = [&](const double& x) { return std::erf(x); };
+  auto const& df = [&](const double& x)
+  { return 2. / std::sqrt(PI) * std::exp(-x * x); };
+  SupVar<Summand> var2(var);
+
+  var2._mod->compose2(
+      var2, f, df, 3, 1,
+      0.0);  // convexoconcave & non-decreasing w/ inflection at 0
+
+  return var2;
+}
+
+template <typename Summand>
+inline SupVar<Summand>&&
+erf(SupVar<Summand>&& var)
+{
+  if (!var._mod)
+  {
+    var._cst = std::erf(var._cst);
+    return std::move(var);
+  }
+
+#ifdef MC__SUPMODEL_TRACE
+  std::cout << "SupVar<Summand> erf: move" << std::endl;
+#endif
+
+  auto const& f  = [&](const double& x) { return std::erf(x); };
+  auto const& df = [&](const double& x)
+  { return 2. / std::sqrt(PI) * std::exp(-x * x); };
+
+  var._mod->compose2(
+      var, f, df, 3, 1,
+      0.0);  // convexoconcave & non-decreasing w/ inflection at 0
+
+  return std::move(var);
+}
+
+template <typename Summand>
+inline SupVar<Summand>
+erfc(SupVar<Summand> const& var)
+{
+  if (!var._mod) return std::erfc(var._cst);
+
+#ifdef MC__SUPMODEL_TRACE
+  std::cout << "SupVar<Summand> erfc: copy" << std::endl;
+#endif
+
+  auto const& f  = [&](const double& x) { return std::erfc(x); };
+  auto const& df = [&](const double& x)
+  { return -2. / std::sqrt(PI) * std::exp(-x * x); };
+  SupVar<Summand> var2(var);
+
+  var2._mod->compose2(
+      var2, f, df, 2, 0,
+      0.0);  // convexoconcave & non-decreasing w/ inflection at 0
+
+  return var2;
+}
+
+template <typename Summand>
+inline SupVar<Summand>&&
+erfc(SupVar<Summand>&& var)
+{
+  if (!var._mod)
+  {
+    var._cst = std::erfc(var._cst);
+    return std::move(var);
+  }
+
+#ifdef MC__SUPMODEL_TRACE
+  std::cout << "SupVar<Summand> erfc: move" << std::endl;
+#endif
+
+  auto const& f  = [&](const double& x) { return std::erfc(x); };
+  auto const& df = [&](const double& x)
+  { return -2. / std::sqrt(PI) * std::exp(-x * x); };
+
+  var._mod->compose2(var, f, df, 2, 0,
+                     0.0);  // concavoconvex & non-increasing w/ inflection at 0
+
+  return std::move(var);
+}
+
+template <typename Summand>
+inline SupVar<Summand>
+sinh(SupVar<Summand> const& var)
+{
+  if (!var._mod) return std::sinh(var._cst);
+
+#ifdef MC__SUPMODEL_TRACE
+  std::cout << "SupVar<Summand> sinh: copy" << std::endl;
+#endif
+
+  auto const& f  = [&](const double& x) { return std::sinh(x); };
+  auto const& df = [&](const double& x) { return std::cosh(x); };
+  SupVar<Summand> var2(var);
+
+  var2._mod->compose2(
+      var2, f, df, 2, 1,
+      0.0);  // concavoconvex & non-decreasing w/ inflection at 0
+
+  return var2;
+}
+
+template <typename Summand>
+inline SupVar<Summand>&&
+sinh(SupVar<Summand>&& var)
+{
+  if (!var._mod)
+  {
+    var._cst = std::sinh(var._cst);
+    return std::move(var);
+  }
+
+#ifdef MC__SUPMODEL_TRACE
+  std::cout << "SupVar<Summand> sinh: move" << std::endl;
+#endif
+
+  auto const& f  = [&](const double& x) { return std::sinh(x); };
+  auto const& df = [&](const double& x) { return std::cosh(x); };
+
+  var._mod->compose2(var, f, df, 2, 1,
+                     0.0);  // concavoconvex & non-decreasing w/ inflection at 0
+
+  return std::move(var);
+}
+
+template <typename Summand>
+inline SupVar<Summand>
+cosh(SupVar<Summand> const& var)
+{
+  if (!var._mod) return std::cosh(var._cst);
+
+#ifdef MC__SUPMODEL_TRACE
+  std::cout << "SupVar<Summand> cosh: copy" << std::endl;
+#endif
+
+  auto const& f  = [](const double& x) { return std::cosh(x); };
+  auto const& df = [](const double& x) { return std::sinh(x); };
+  SupVar<Summand> var2(var);
+
+  var2._mod->compose3(var2, f, df, 5,
+                      0.0);  // convex & non-monotonic w/ extremum at 0
+
+  return var2;
+}
+
+template <typename Summand>
+inline SupVar<Summand>&&
+cosh(SupVar<Summand>&& var)
+{
+  if (!var._mod)
+  {
+    var._cst = std::cosh(var._cst);
+    return std::move(var);
+  }
+
+#ifdef MC__SUPMODEL_TRACE
+  std::cout << "SupVar<Summand> cosh: move" << std::endl;
+#endif
+
+  auto const& f  = [](const double& x) { return std::cosh(x); };
+  auto const& df = [](const double& x) { return std::sinh(x); };
+
+  var._mod->compose3(var, f, df, 5,
+                     0.0);  // convex & non-monotonic w/ extremum at 0
+
+  return std::move(var);
+}
+
+template <typename Summand>
+inline SupVar<Summand>
+pow(SupVar<Summand> const& var, int const& n)
+{
+  if (!n) return 1.;
+
+  if (n == 1) return var;
+
+  if (!var._mod) return std::pow(var._cst, n);
+
+#ifdef MC__SUPMODEL_TRACE
+  std::cout << "SupVar<Summand> pow: copy" << std::endl;
+#endif
+
+  auto const& f  = [&](const double& x) { return std::pow(x, n); };
+  auto const& df = [&](const double& x)
+  { return (double)n * std::pow(x, n - 1); };
+  SupVar<Summand> var2(var);
+
+  if (n < 0)
+  {
+    if (var.l() * var.u() <= 0.)
+      throw typename mc::SupModel<Summand>::Exceptions(
+          mc::SupModel<Summand>::Exceptions::INV);
+
+    if (var.l() > 0)
+      var2._mod->compose1(var2, f, df, 1, 0, {1, DBL_EPSILON},
+                          {0, 0.});  // convex & non-increasing
+    else
+      var2._mod->compose1(
+          var2, f, df, n % 2 ? 0 : 1, n % 2 ? 0 : 1, {0, 0.},
+          {1, -DBL_EPSILON});  // concave/convex & non-in/decreasing
+  }
+
+  else if (n % 2)
+    var2._mod->compose2(
+        var2, f, df, 2, 1,
+        0.0);  // concavoconvex & non-decreasing w/ inflection at 0
+
+  else
+    var2._mod->compose3(var2, f, df, 5,
+                        0.0);  // convex & non-monotonic w/ extremum at 0
+
+  return var2;
+}
+
+template <typename Summand>
+inline SupVar<Summand>&&
+pow(SupVar<Summand>&& var, int const& n)
+{
+  if (!n)
+  {
+    var._cst = 1.;
+    return std::move(var);
+  }
+
+  if (n == 1) return std::move(var);
+
+  if (!var._mod)
+  {
+    var._cst = std::pow(var._cst, n);
+    return std::move(var);
+  }
+
+#ifdef MC__SUPMODEL_TRACE
+  std::cout << "SupVar<Summand> pow: move" << std::endl;
+#endif
+
+  auto const& f  = [&](const double& x) { return std::pow(x, n); };
+  auto const& df = [&](const double& x)
+  { return (double)n * std::pow(x, n - 1); };
+
+  if (n < 0)
+  {
+    if (var.l() * var.u() <= 0.)
+      throw typename mc::SupModel<Summand>::Exceptions(
+          mc::SupModel<Summand>::Exceptions::INV);
+
+    if (var.l() > 0)
+      var._mod->compose1(var, f, df, 1, 0, {1, DBL_EPSILON},
+                         {0, 0.});  // convex & non-increasing
+    else
+      var._mod->compose1(
+          var, f, df, n % 2 ? 0 : 1, n % 2 ? 0 : 1, {0, 0.},
+          {1, -DBL_EPSILON});  // concave/convex & non-in/decreasing
+  }
+
+  else if (n % 2)
+    var._mod->compose2(
+        var, f, df, 2, 1,
+        0.0);  // concavoconvex & non-decreasing w/ inflection at 0
+
+  else
+    var._mod->compose3(var, f, df, 5,
+                       0.0);  // convex & non-monotonic w/ extremum at 0
+
+  return std::move(var);
+}
+
+template <typename Summand>
+inline SupVar<Summand>
+pow(SupVar<Summand> const& var, double const& d)
+{
+  if (d == 0.) return 1.;
+
+  if (d == 1.) return var;
+
+  if (var.l() < -1e2 * DBL_EPSILON || (var.l() < DBL_EPSILON && d < 0.))
+    throw typename mc::SupModel<Summand>::Exceptions(
+        mc::SupModel<Summand>::Exceptions::RPOW);
+
+  if (!var._mod) return std::pow(var._cst, d);
+
+#ifdef MC__SUPMODEL_TRACE
+  std::cout << "SupVar<Summand> pow( SupVar<Summand> const&, double const& )"
+            << std::endl;
+#endif
+
+  auto const& f = [&](const double& x)
+  { return x > 0. ? std::pow(x, d) : (d > 0. ? 0. : DBL_MAX); };
+  auto const& df = [&](const double& x)
+  {
+    return x > 0. ? d * std::pow(x, d - 1.)
+                  : (d > 1. ? 0. : (d > 0. ? DBL_MAX : -DBL_MAX));
+  };
+  SupVar<Summand> var2(var);
+
+  if (d > 1.)
+    var2._mod->compose1(var2, f, df, 1, 1, {1, 0.});  // convex & non-decreasing
+
+  else if (d > 0.)
+    var2._mod->compose1(var2, f, df, 0, 1,
+                        {1, 0.});  // concave & non-decreasing
+
+  else /*( d < 0. )*/
+    var2._mod->compose1(var2, f, df, 1, 0,
+                        {1, DBL_EPSILON});  // convex & non-increasing
+
+  return var2;
+}
+
+template <typename Summand>
+inline SupVar<Summand>&&
+pow(SupVar<Summand>&& var, double const& d)
+{
+  if (d == 0.)
+  {
+    var._cst = 1.;
+    return std::move(var);
+  }
+
+  if (d == 1) return std::move(var);
+
+  if (var.l() < 0. || (var.l() == 0. && d < 0.))
+    throw typename mc::SupModel<Summand>::Exceptions(
+        mc::SupModel<Summand>::Exceptions::RPOW);
+
+  if (!var._mod)
+  {
+    var._cst = std::pow(var._cst, d);
+    return std::move(var);
+  }
+
+#ifdef MC__SUPMODEL_TRACE
+  std::cout << "SupVar<Summand> && pow( SupVar<Summand> &&, double const& )"
+            << std::endl;
+#endif
+
+  auto const& f = [&](const double& x)
+  { return x > 0. ? std::pow(x, d) : (d > 0. ? 0. : DBL_MAX); };
+  auto const& df = [&](const double& x)
+  {
+    return x > 0. ? d * std::pow(x, d - 1.)
+                  : (d > 1. ? 0. : (d > 0. ? DBL_MAX : -DBL_MAX));
+  };
+
+  if (d > 1.)
+    var._mod->compose1(var, f, df, 1, 1, {1, 0.});  // convex & non-decreasing
+
+  else if (d > 0.)
+    var._mod->compose1(var, f, df, 0, 1, {1, 0.});  // concave & non-decreasing
+
+  else /*( d < 0. )*/
+    var._mod->compose1(var, f, df, 1, 0,
+                       {1, DBL_EPSILON});  // convex & non-increasing
+
+  return std::move(var);
+}
+
+template <typename Summand>
+inline SupVar<Summand>
+pow(double const& d, SupVar<Summand> const& var)
+{
+  return exp(var * std::log(d));
+}
+
+template <typename Summand>
+inline SupVar<Summand>
+pow(double const& d, SupVar<Summand>&& var)
+{
+  return exp(var * std::log(d));
+}
+
+template <typename Summand>
+inline SupVar<Summand>
+pow(SupVar<Summand> const& var, SupVar<Summand> const& vexp)
+{
+  return exp(vexp * log(var));
+}
+
+template <typename Summand>
+inline SupVar<Summand>
+pow(SupVar<Summand>&& var, SupVar<Summand> const& vexp)
+{
+  return exp(vexp * log(var));
+}
+
+template <typename Summand>
+inline SupVar<Summand>
+prod(unsigned int const& n, SupVar<Summand> const* var)
+{
+  switch (n)
+  {
+    case 0:
+      return 1.;
+    case 1:
+      return var[0];
+    default:
+      return var[0] * prod(n - 1, var + 1);
+  }
+}
+
+template <typename Summand>
+inline SupVar<Summand>
+monom(unsigned int const& n, SupVar<Summand> const* var,
+      unsigned int const* exp)
+{
+  switch (n)
+  {
+    case 0:
+      return 1.;
+    case 1:
+      return pow(var[0], (int)exp[0]);
+    default:
+      return pow(var[0], (int)exp[0]) * monom(n - 1, var + 1, exp + 1);
+  }
+}
+
+template <typename Summand>
+inline SupVar<Summand>
+cheb(SupVar<Summand> const& var, unsigned int const& n)
+{
+  if (!var._mod) return cheb(var._cst, n);
+
+  switch (n)
+  {
+    case 0:
+      return 1.;
+    case 1:
+      return var;
+    default:
+      break;
+  }
+
+  SupVar<Summand> var2(2. * var * cheb(var, n - 1) - cheb(var, n - 2));
+  return var2;
+}
+
+template <typename Summand>
+inline SupVar<Summand>
+fabs(SupVar<Summand> const& var)
+{
+  if (var.l() >= 0)
+  {
     return var;
   }
 
-  if( var.u() <= 0 ){
+  if (var.u() <= 0)
+  {
     return -var;
   }
 
-  auto const& f  = [&]( const double& x ){ return x>0?x:-x; };
-  auto const& df = [&]( const double& x ){ return x>0?1:(x<0?-1:0); };
+  auto const& f  = [&](const double& x) { return x > 0 ? x : -x; };
+  auto const& df = [&](const double& x)
+  { return x > 0 ? 1 : (x < 0 ? -1 : 0); };
 
-  SupVar<Summand> var2( var );
-  var._mod->compose3( var2, f, df, 5, 0.0 ); // convex & non-monotonic w/ extremum at 0
+  SupVar<Summand> var2(var);
+  var._mod->compose3(var2, f, df, 5,
+                     0.0);  // convex & non-monotonic w/ extremum at 0
   return var2;
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> && fabs
-( SupVar<Summand> && var )
+inline SupVar<Summand>&&
+fabs(SupVar<Summand>&& var)
 {
-  if( var.l() >= 0 ){
-    return std::move( var );
+  if (var.l() >= 0)
+  {
+    return std::move(var);
   }
 
-  if( var.u() <= 0 ){
-    return operator-( std::move( var ) );
+  if (var.u() <= 0)
+  {
+    return operator-(std::move(var));
   }
 
-  auto const& f  = [&]( const double& x ){ return x>0?x:-x; };
-  auto const& df = [&]( const double& x ){ return x>0?1:(x<0?-1:0); };
+  auto const& f  = [&](const double& x) { return x > 0 ? x : -x; };
+  auto const& df = [&](const double& x)
+  { return x > 0 ? 1 : (x < 0 ? -1 : 0); };
 
-  var._mod->compose3( var, f, df, 5, 0.0 ); // convex & non-monotonic w/ extremum at 0
-  return std::move( var );
+  var._mod->compose3(var, f, df, 5,
+                     0.0);  // convex & non-monotonic w/ extremum at 0
+  return std::move(var);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand>
-max
-( SupVar<Summand> const& var1, SupVar<Summand> const& var2 )
+inline SupVar<Summand>
+max(SupVar<Summand> const& var1, SupVar<Summand> const& var2)
 {
-  if( !var1._mod && !var2._mod )
-    return var1._cst > var2._cst? var1._cst: var2._cst;
+  if (!var1._mod && !var2._mod)
+    return var1._cst > var2._cst ? var1._cst : var2._cst;
 
-  if( !var2._mod )
-    return max( var1, var2._cst );
+  if (!var2._mod) return max(var1, var2._cst);
 
-  if( !var1._mod )
-    return max( var2, var1._cst );
+  if (!var1._mod) return max(var2, var1._cst);
 
   double const& w = var1._mod->options.REF_WEIGHT;
-  if( w <= 0. )
-    return max( var2 - var1, 0. ) + var1;
-  else if( w >= 1. )
-    return max( var1 - var2, 0. ) + var2;
+  if (w <= 0.)
+    return max(var2 - var1, 0.) + var1;
+  else if (w >= 1.)
+    return max(var1 - var2, 0.) + var2;
   else
-    return (1 - w ) * ( max( var2 - var1, 0. ) + var1 ) + w * ( max( var1 - var2, 0. ) + var2 );
+    return (1 - w) * (max(var2 - var1, 0.) + var1) +
+           w * (max(var1 - var2, 0.) + var2);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand>
-max
-( SupVar<Summand> const& var1, double const& cst2 )
+inline SupVar<Summand>
+max(SupVar<Summand> const& var1, double const& cst2)
 {
-  SupVar<Summand> var2( var1 );
-  return max( std::move( var2 ), cst2 ); 
+  SupVar<Summand> var2(var1);
+  return max(std::move(var2), cst2);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> &&
-max
-( SupVar<Summand> && var1, double const& cst2 )
+inline SupVar<Summand>&&
+max(SupVar<Summand>&& var1, double const& cst2)
 {
-  if( !var1._mod ){
-    if( var1._cst < cst2 ) var1._cst = cst2;
-    return std::move( var1 );
+  if (!var1._mod)
+  {
+    if (var1._cst < cst2) var1._cst = cst2;
+    return std::move(var1);
   }
 
 #ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> && max( SupVar<Summand> &&, double const& )" << std::endl;
+  std::cout << "SupVar<Summand> && max( SupVar<Summand> &&, double const& )"
+            << std::endl;
 #endif
 
-  var1._mod->max( var1, cst2 );
-  return std::move( var1 );
+  var1._mod->max(var1, cst2);
+  return std::move(var1);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand>
-max
-( double const& cst1, SupVar<Summand> const& var2 )
+inline SupVar<Summand>
+max(double const& cst1, SupVar<Summand> const& var2)
 {
-  return max( var2, cst1 );
+  return max(var2, cst1);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> &&
-max
-( double const& cst1, SupVar<Summand> && var2 )
+inline SupVar<Summand>&&
+max(double const& cst1, SupVar<Summand>&& var2)
 {
-  return max( std::move( var2 ), cst1 );
+  return max(std::move(var2), cst1);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand>
-relu
-( SupVar<Summand> const& var )
+inline SupVar<Summand>
+relu(SupVar<Summand> const& var)
 {
-  return max( var, 0. );
+  return max(var, 0.);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> &&
-relu
-( SupVar<Summand> && var )
+inline SupVar<Summand>&&
+relu(SupVar<Summand>&& var)
 {
-  return max( std::move( var ), 0. );
+  return max(std::move(var), 0.);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand>
-min
-( SupVar<Summand> const& var1, SupVar<Summand> const& var2 )
+inline SupVar<Summand>
+min(SupVar<Summand> const& var1, SupVar<Summand> const& var2)
 {
-  if( !var1._mod && !var2._mod )
-    return var1._cst < var2._cst? var1._cst: var2._cst;
+  if (!var1._mod && !var2._mod)
+    return var1._cst < var2._cst ? var1._cst : var2._cst;
 
-  if( !var2._mod )
-    return min( var1, var2._cst );
+  if (!var2._mod) return min(var1, var2._cst);
 
-  if( !var1._mod )
-    return min( var2, var1._cst );
+  if (!var1._mod) return min(var2, var1._cst);
 
   double const& w = var1._mod->options.REF_WEIGHT;
-  if( w <= 0. )
-    return min( var2 - var1, 0. ) + var1;
-  else if( w >= 1. )
-    return min( var1 - var2, 0. ) + var2;
+  if (w <= 0.)
+    return min(var2 - var1, 0.) + var1;
+  else if (w >= 1.)
+    return min(var1 - var2, 0.) + var2;
   else
-    return (1 - w ) * ( min( var2 - var1, 0. ) + var1 ) + w * ( min( var1 - var2, 0. ) + var2 );
+    return (1 - w) * (min(var2 - var1, 0.) + var1) +
+           w * (min(var1 - var2, 0.) + var2);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand>
-min
-( SupVar<Summand> const& var1, double const& cst2 )
+inline SupVar<Summand>
+min(SupVar<Summand> const& var1, double const& cst2)
 {
-  SupVar<Summand> var2( var1 );
-  return min( std::move( var2 ), cst2 ); 
+  SupVar<Summand> var2(var1);
+  return min(std::move(var2), cst2);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> &&
-min
-( SupVar<Summand> && var1, double const& cst2 )
+inline SupVar<Summand>&&
+min(SupVar<Summand>&& var1, double const& cst2)
 {
-  if( !var1._mod ){
-    if( var1._cst > cst2 ) var1._cst = cst2;
-    return std::move( var1 );
-}
+  if (!var1._mod)
+  {
+    if (var1._cst > cst2) var1._cst = cst2;
+    return std::move(var1);
+  }
 
 #ifdef MC__SUPMODEL_TRACE
-std::cout << "SupVar<Summand> && min( SupVar<Summand> &&, double const& )" << std::endl;
+  std::cout << "SupVar<Summand> && min( SupVar<Summand> &&, double const& )"
+            << std::endl;
 #endif
 
-  var1._mod->min( var1,  cst2 );
-  return std::move( var1 );
+  var1._mod->min(var1, cst2);
+  return std::move(var1);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand>
-min
-( double const& cst1, SupVar<Summand> const& var2 )
+inline SupVar<Summand>
+min(double const& cst1, SupVar<Summand> const& var2)
 {
-  SupVar<Summand> var1( var2 );
-  return min( std::move( var1 ), cst1 );
+  SupVar<Summand> var1(var2);
+  return min(std::move(var1), cst1);
 }
 
 template <typename Summand>
-inline
-SupVar<Summand> &&
-min
-( double const& cst1, SupVar<Summand> && var2 )
+inline SupVar<Summand>&&
+min(double const& cst1, SupVar<Summand>&& var2)
 {
-  return min( std::move( var2 ), cst1 );
+  return min(std::move(var2), cst1);
 }
 /*
 template <typename Summand>
 inline
 bool inter
-( SupVar<Summand>& var12, SupVar<Summand> const& var1, SupVar<Summand> const& var2 )
+( SupVar<Summand>& var12, SupVar<Summand> const& var1, SupVar<Summand> const&
+var2 )
 {
 
 }
@@ -5093,108 +5704,444 @@ SupVar<Summand> hull
 
 }
 */
-} // namespace mc
-
+}  // namespace mc
 
 #include "mcfadbad.hpp"
 
 namespace fadbad
 {
 
-//! @brief Specialization of the structure fadbad::Op for use of the type mc::SupVar of MC++ as a template parameter of the classes fadbad::F, fadbad::B and fadbad::T of FADBAD++
-template <typename Summand> struct Op<mc::SupVar<Summand>>
+//! @brief Specialization of the structure fadbad::Op for use of the type
+//! mc::SupVar of MC++ as a template parameter of the classes fadbad::F,
+//! fadbad::B and fadbad::T of FADBAD++
+template <typename Summand>
+struct Op<mc::SupVar<Summand>>
 {
   typedef mc::SupVar<Summand> SV;
   typedef double Base;
-  static Base myInteger( int const i ) { return Base(i); }
-  static Base myZero() { return myInteger(0); }
-  static Base myOne()  { return myInteger(1);}
-  static Base myTwo()  { return myInteger(2); }
-  static double myPI() { return mc::PI; }
-  static SV myPos( SV const& x ) { return  x; }
-  static SV myNeg( SV const& x ) { return -x; }
-  template <typename U> static SV& myCadd( SV& x, U const& y ) { return x += y; }
-  template <typename U> static SV& myCsub( SV& x, U const& y ) { return x -= y; }
-  template <typename U> static SV& myCmul( SV& x, U const& y ) { return x *= y; }
-  template <typename U> static SV& myCdiv( SV& x, U const& y ) { return x /= y; }
-  static SV myInv( SV const& x ) { return mc::inv( x ); }
-  static SV mySqr( SV const& x ) { return mc::sqr( x ); }
-  template <typename X, typename Y> static SV myPow( X const& x, Y const& y ) { return mc::pow( x, y ); }
-  static SV mySqrt( SV const& x ){ return mc::sqrt(x); }
-  static SV myLog( SV const& x ) { return mc::log( x ); }
-  static SV myExp( SV const& x ) { return mc::exp( x ); }
-  static SV mySin( SV const& x ) { return mc::sin( x ); }
-  static SV myCos( SV const& x ) { return mc::cos( x ); }
-  static SV myTan( SV const& x )  { return mc::tan( x ); }
-  static SV myAsin( SV const& x ) { return mc::asin( x ); }
-  static SV myAcos( SV const& x ) { return mc::acos( x ); }
-  static SV myAtan( SV const& x ) { return mc::atan( x ); }
-  static SV mySinh( SV const& x ) { return mc::sinh( x ); }
-  static SV myCosh( SV const& x ) { return mc::cosh( x ); }
-  static SV myTanh( SV const& x ) { return mc::tanh( x ); }
-  static bool myEq( SV const& x, SV const& y ) { throw typename mc::SupModel<Summand>::Exceptions( mc::SupModel<Summand>::Exceptions::UNDEF ); }
-  static bool myNe( SV const& x, SV const& y ) { throw typename mc::SupModel<Summand>::Exceptions( mc::SupModel<Summand>::Exceptions::UNDEF ); }
-  static bool myLt( SV const& x, SV const& y ) { throw typename mc::SupModel<Summand>::Exceptions( mc::SupModel<Summand>::Exceptions::UNDEF ); }
-  static bool myLe( SV const& x, SV const& y ) { throw typename mc::SupModel<Summand>::Exceptions( mc::SupModel<Summand>::Exceptions::UNDEF ); }
-  static bool myGt( SV const& x, SV const& y ) { throw typename mc::SupModel<Summand>::Exceptions( mc::SupModel<Summand>::Exceptions::UNDEF ); }
-  static bool myGe( SV const& x, SV const& y ) { throw typename mc::SupModel<Summand>::Exceptions( mc::SupModel<Summand>::Exceptions::UNDEF ); }
+  static Base
+  myInteger(int const i)
+  {
+    return Base(i);
+  }
+  static Base
+  myZero()
+  {
+    return myInteger(0);
+  }
+  static Base
+  myOne()
+  {
+    return myInteger(1);
+  }
+  static Base
+  myTwo()
+  {
+    return myInteger(2);
+  }
+  static double
+  myPI()
+  {
+    return mc::PI;
+  }
+  static SV
+  myPos(SV const& x)
+  {
+    return x;
+  }
+  static SV
+  myNeg(SV const& x)
+  {
+    return -x;
+  }
+  template <typename U>
+  static SV&
+  myCadd(SV& x, U const& y)
+  {
+    return x += y;
+  }
+  template <typename U>
+  static SV&
+  myCsub(SV& x, U const& y)
+  {
+    return x -= y;
+  }
+  template <typename U>
+  static SV&
+  myCmul(SV& x, U const& y)
+  {
+    return x *= y;
+  }
+  template <typename U>
+  static SV&
+  myCdiv(SV& x, U const& y)
+  {
+    return x /= y;
+  }
+  static SV
+  myInv(SV const& x)
+  {
+    return mc::inv(x);
+  }
+  static SV
+  mySqr(SV const& x)
+  {
+    return mc::sqr(x);
+  }
+  template <typename X, typename Y>
+  static SV
+  myPow(X const& x, Y const& y)
+  {
+    return mc::pow(x, y);
+  }
+  static SV
+  mySqrt(SV const& x)
+  {
+    return mc::sqrt(x);
+  }
+  static SV
+  myLog(SV const& x)
+  {
+    return mc::log(x);
+  }
+  static SV
+  myExp(SV const& x)
+  {
+    return mc::exp(x);
+  }
+  static SV
+  mySin(SV const& x)
+  {
+    return mc::sin(x);
+  }
+  static SV
+  myCos(SV const& x)
+  {
+    return mc::cos(x);
+  }
+  static SV
+  myTan(SV const& x)
+  {
+    return mc::tan(x);
+  }
+  static SV
+  myAsin(SV const& x)
+  {
+    return mc::asin(x);
+  }
+  static SV
+  myAcos(SV const& x)
+  {
+    return mc::acos(x);
+  }
+  static SV
+  myAtan(SV const& x)
+  {
+    return mc::atan(x);
+  }
+  static SV
+  mySinh(SV const& x)
+  {
+    return mc::sinh(x);
+  }
+  static SV
+  myCosh(SV const& x)
+  {
+    return mc::cosh(x);
+  }
+  static SV
+  myTanh(SV const& x)
+  {
+    return mc::tanh(x);
+  }
+  static bool
+  myEq(SV const& x, SV const& y)
+  {
+    throw typename mc::SupModel<Summand>::Exceptions(
+        mc::SupModel<Summand>::Exceptions::UNDEF);
+  }
+  static bool
+  myNe(SV const& x, SV const& y)
+  {
+    throw typename mc::SupModel<Summand>::Exceptions(
+        mc::SupModel<Summand>::Exceptions::UNDEF);
+  }
+  static bool
+  myLt(SV const& x, SV const& y)
+  {
+    throw typename mc::SupModel<Summand>::Exceptions(
+        mc::SupModel<Summand>::Exceptions::UNDEF);
+  }
+  static bool
+  myLe(SV const& x, SV const& y)
+  {
+    throw typename mc::SupModel<Summand>::Exceptions(
+        mc::SupModel<Summand>::Exceptions::UNDEF);
+  }
+  static bool
+  myGt(SV const& x, SV const& y)
+  {
+    throw typename mc::SupModel<Summand>::Exceptions(
+        mc::SupModel<Summand>::Exceptions::UNDEF);
+  }
+  static bool
+  myGe(SV const& x, SV const& y)
+  {
+    throw typename mc::SupModel<Summand>::Exceptions(
+        mc::SupModel<Summand>::Exceptions::UNDEF);
+  }
 };
 
-} // end namespace fadbad
+}  // end namespace fadbad
 
 namespace mc
 {
 
-//! @brief C++ structure for specialization of the mc::Op templated structure for use of mc::SupVar in DAG evaluation and as template parameter in other MC++ types
-template <typename Summand> struct Op<mc::SupVar<Summand>>
+//! @brief C++ structure for specialization of the mc::Op templated structure
+//! for use of mc::SupVar in DAG evaluation and as template parameter in other
+//! MC++ types
+template <typename Summand>
+struct Op<mc::SupVar<Summand>>
 {
   typedef mc::SupVar<Summand> SV;
-  static SV point( const double c ) { throw typename SupModel<Summand>::Exceptions( SupModel<Summand>::Exceptions::UNDEF ); }
-  static SV zeroone() { throw typename SupModel<Summand>::Exceptions( SupModel<Summand>::Exceptions::UNDEF ); }
-  static void I(SV& x, SV const&y) { x = y; }
-  static double l(SV const& x) { return x.l(); }
-  static double u(SV const& x) { return x.u(); }
-  static double abs (SV const& x) { return std::fabs(x.u())>std::fabs(x.l())? std::fabs(x.u()): std::fabs(x.l()); }
-  static double mid (SV const& x) { return 0.5*(std::fabs(x.l())+std::fabs(x.u())); }
-  static double diam(SV const& x) { return x.u()-x.l(); }
-  static SV inv (SV const& x) { return mc::inv(x);  }
-  static SV sqr (SV const& x) { return mc::sqr(x);  }
-  static SV sqrt(SV const& x) { return mc::sqrt(x); }
-  static SV exp (SV const& x) { return mc::exp(x);  }
-  static SV log (SV const& x) { return mc::log(x);  }
-  static SV xlog(SV const& x) { return mc::xlog(x); }
-  static SV lmtd(SV const& x, SV const& y) { return (x-y)/(mc::log(x)-mc::log(y)); }
-  static SV rlmtd(SV const& x, SV const& y) { return (mc::log(x)-mc::log(y))/(x-y); }
-  static SV fabs(SV const& x) { return mc::fabs(x); }
-  static SV sin (SV const& x) { return mc::sin(x); }
-  static SV cos (SV const& x) { return mc::cos(x); }
-  static SV tan (SV const& x) { return mc::tan(x); }
-  static SV asin(SV const& x) { return mc::asin(x); }
-  static SV acos(SV const& x) { return mc::acos(x); }
-  static SV atan(SV const& x) { return mc::atan(x); }
-  static SV sinh(SV const& x) { return mc::sinh(x); }
-  static SV cosh(SV const& x) { return mc::cosh(x); }
-  static SV tanh(SV const& x) { return mc::tanh(x); }
-  static SV erf (SV const& x) { return mc::erf(x); }
-  static SV erfc(SV const& x) { return mc::erfc(x); }
-  static SV fstep(SV const& x) { throw typename SupModel<Summand>::Exceptions( SupModel<Summand>::Exceptions::UNDEF ); }
-  static SV bstep(SV const& x) { throw typename SupModel<Summand>::Exceptions( SupModel<Summand>::Exceptions::UNDEF ); }
-  template <typename Y> static SV min (SV const& x, Y const& y) { return mc::min(x,y); }
-  template <typename Y> static SV max (SV const& x, Y const& y) { return mc::max(x,y); }
-  template <typename X, typename Y> static SV pow(const X& x, const Y& y) { return mc::pow(x,y); }
-  static SV cheb(SV const& x, const unsigned n) { return mc::cheb(x,n); }
-  static SV prod (const unsigned n, const SV* x) { return mc::prod(n,x); }
-  static SV monom (const unsigned n, const SV* x, const unsigned* k) { return mc::monom(n,x,k); }
-  static bool inter(SV& xIy, SV const& x, SV const& y) { throw typename SupModel<Summand>::Exceptions( SupModel<Summand>::Exceptions::UNDEF ); } //{ return mc::inter(xIy,x,y); }
-  static SV hull(SV const& x, SV const& y) { throw typename SupModel<Summand>::Exceptions( SupModel<Summand>::Exceptions::UNDEF ); } //{ return mc::hull(x,y); }
-  static bool eq(SV const& x, SV const& y) { throw typename mc::SupModel<Summand>::Exceptions( mc::SupModel<Summand>::Exceptions::UNDEF ); }
-  static bool ne(SV const& x, SV const& y) { throw typename mc::SupModel<Summand>::Exceptions( mc::SupModel<Summand>::Exceptions::UNDEF ); }
-  static bool lt(SV const& x, SV const& y) { throw typename mc::SupModel<Summand>::Exceptions( mc::SupModel<Summand>::Exceptions::UNDEF ); }
-  static bool le(SV const& x, SV const& y) { throw typename mc::SupModel<Summand>::Exceptions( mc::SupModel<Summand>::Exceptions::UNDEF ); }
-  static bool gt(SV const& x, SV const& y) { throw typename mc::SupModel<Summand>::Exceptions( mc::SupModel<Summand>::Exceptions::UNDEF ); }
-  static bool ge(SV const& x, SV const& y) { throw typename mc::SupModel<Summand>::Exceptions( mc::SupModel<Summand>::Exceptions::UNDEF ); }
+  static SV
+  point(const double c)
+  {
+    throw typename SupModel<Summand>::Exceptions(
+        SupModel<Summand>::Exceptions::UNDEF);
+  }
+  static SV
+  zeroone()
+  {
+    throw typename SupModel<Summand>::Exceptions(
+        SupModel<Summand>::Exceptions::UNDEF);
+  }
+  static void
+  I(SV& x, SV const& y)
+  {
+    x = y;
+  }
+  static double
+  l(SV const& x)
+  {
+    return x.l();
+  }
+  static double
+  u(SV const& x)
+  {
+    return x.u();
+  }
+  static double
+  abs(SV const& x)
+  {
+    return std::fabs(x.u()) > std::fabs(x.l()) ? std::fabs(x.u())
+                                               : std::fabs(x.l());
+  }
+  static double
+  mid(SV const& x)
+  {
+    return 0.5 * (std::fabs(x.l()) + std::fabs(x.u()));
+  }
+  static double
+  diam(SV const& x)
+  {
+    return x.u() - x.l();
+  }
+  static SV
+  inv(SV const& x)
+  {
+    return mc::inv(x);
+  }
+  static SV
+  sqr(SV const& x)
+  {
+    return mc::sqr(x);
+  }
+  static SV
+  sqrt(SV const& x)
+  {
+    return mc::sqrt(x);
+  }
+  static SV
+  exp(SV const& x)
+  {
+    return mc::exp(x);
+  }
+  static SV
+  log(SV const& x)
+  {
+    return mc::log(x);
+  }
+  static SV
+  xlog(SV const& x)
+  {
+    return mc::xlog(x);
+  }
+  static SV
+  lmtd(SV const& x, SV const& y)
+  {
+    return (x - y) / (mc::log(x) - mc::log(y));
+  }
+  static SV
+  rlmtd(SV const& x, SV const& y)
+  {
+    return (mc::log(x) - mc::log(y)) / (x - y);
+  }
+  static SV
+  fabs(SV const& x)
+  {
+    return mc::fabs(x);
+  }
+  static SV
+  sin(SV const& x)
+  {
+    return mc::sin(x);
+  }
+  static SV
+  cos(SV const& x)
+  {
+    return mc::cos(x);
+  }
+  static SV
+  tan(SV const& x)
+  {
+    return mc::tan(x);
+  }
+  static SV
+  asin(SV const& x)
+  {
+    return mc::asin(x);
+  }
+  static SV
+  acos(SV const& x)
+  {
+    return mc::acos(x);
+  }
+  static SV
+  atan(SV const& x)
+  {
+    return mc::atan(x);
+  }
+  static SV
+  sinh(SV const& x)
+  {
+    return mc::sinh(x);
+  }
+  static SV
+  cosh(SV const& x)
+  {
+    return mc::cosh(x);
+  }
+  static SV
+  tanh(SV const& x)
+  {
+    return mc::tanh(x);
+  }
+  static SV
+  erf(SV const& x)
+  {
+    return mc::erf(x);
+  }
+  static SV
+  erfc(SV const& x)
+  {
+    return mc::erfc(x);
+  }
+  static SV
+  fstep(SV const& x)
+  {
+    throw typename SupModel<Summand>::Exceptions(
+        SupModel<Summand>::Exceptions::UNDEF);
+  }
+  static SV
+  bstep(SV const& x)
+  {
+    throw typename SupModel<Summand>::Exceptions(
+        SupModel<Summand>::Exceptions::UNDEF);
+  }
+  template <typename Y>
+  static SV
+  min(SV const& x, Y const& y)
+  {
+    return mc::min(x, y);
+  }
+  template <typename Y>
+  static SV
+  max(SV const& x, Y const& y)
+  {
+    return mc::max(x, y);
+  }
+  template <typename X, typename Y>
+  static SV
+  pow(const X& x, const Y& y)
+  {
+    return mc::pow(x, y);
+  }
+  static SV
+  cheb(SV const& x, const unsigned n)
+  {
+    return mc::cheb(x, n);
+  }
+  static SV
+  prod(const unsigned n, const SV* x)
+  {
+    return mc::prod(n, x);
+  }
+  static SV
+  monom(const unsigned n, const SV* x, const unsigned* k)
+  {
+    return mc::monom(n, x, k);
+  }
+  static bool
+  inter(SV& xIy, SV const& x, SV const& y)
+  {
+    throw typename SupModel<Summand>::Exceptions(
+        SupModel<Summand>::Exceptions::UNDEF);
+  }  //{ return mc::inter(xIy,x,y); }
+  static SV
+  hull(SV const& x, SV const& y)
+  {
+    throw typename SupModel<Summand>::Exceptions(
+        SupModel<Summand>::Exceptions::UNDEF);
+  }  //{ return mc::hull(x,y); }
+  static bool
+  eq(SV const& x, SV const& y)
+  {
+    throw typename mc::SupModel<Summand>::Exceptions(
+        mc::SupModel<Summand>::Exceptions::UNDEF);
+  }
+  static bool
+  ne(SV const& x, SV const& y)
+  {
+    throw typename mc::SupModel<Summand>::Exceptions(
+        mc::SupModel<Summand>::Exceptions::UNDEF);
+  }
+  static bool
+  lt(SV const& x, SV const& y)
+  {
+    throw typename mc::SupModel<Summand>::Exceptions(
+        mc::SupModel<Summand>::Exceptions::UNDEF);
+  }
+  static bool
+  le(SV const& x, SV const& y)
+  {
+    throw typename mc::SupModel<Summand>::Exceptions(
+        mc::SupModel<Summand>::Exceptions::UNDEF);
+  }
+  static bool
+  gt(SV const& x, SV const& y)
+  {
+    throw typename mc::SupModel<Summand>::Exceptions(
+        mc::SupModel<Summand>::Exceptions::UNDEF);
+  }
+  static bool
+  ge(SV const& x, SV const& y)
+  {
+    throw typename mc::SupModel<Summand>::Exceptions(
+        mc::SupModel<Summand>::Exceptions::UNDEF);
+  }
 };
 
-} // namespace mc
+}  // namespace mc
 
 #endif

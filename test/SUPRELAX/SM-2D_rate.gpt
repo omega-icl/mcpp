@@ -79,4 +79,3 @@ rep
 !ps2eps -B -f -l SM-2D_rate_hausdorff.eps
 !mv SM-2D_rate_hausdorff.eps.eps SM-2D_rate_hausdorff.eps
 set term qt
-

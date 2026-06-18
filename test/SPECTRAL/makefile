@@ -10,7 +10,7 @@ all: SB-2D
 SB-2D : SB-2D.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
 
-%.o: %.cpp 
+%.o: %.cpp
 	$(CPP) -c $(FLAG_CPP) $(FLAG_MC) $(INC_MC) $< -o $@
 
 #####
@@ -31,4 +31,3 @@ gensvg :
 clean :
 	rm -f SB-2D
 	rm -f *.o *.out *.eps *.dot *.svg *~
-

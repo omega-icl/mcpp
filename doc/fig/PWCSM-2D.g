@@ -15,4 +15,3 @@ pause -1 "<ENTER> TO CONTINUE"
 set terminal pngcairo size 490,367 enhanced font 'Verdana,9'
 set out "PWCSM-2D.png"
 rep
-

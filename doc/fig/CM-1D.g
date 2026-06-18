@@ -21,7 +21,3 @@ set terminal pngcairo size 350,262 enhanced font 'Verdana,10'
 set out 'CM-1D.png'
 rep
 set term wxt
-
-
-
-

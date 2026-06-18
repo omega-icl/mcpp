@@ -26,4 +26,3 @@ Sum1 = Sum( X, -1. );
 print( Sum1.str() )
 
 print( G )
-

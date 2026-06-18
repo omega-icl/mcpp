@@ -31,7 +31,7 @@ DAG_external : DAG_external.o
 DAG_store : DAG_store.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
 
-%.o: %.cpp 
+%.o: %.cpp
 	$(CPP) -c $(FLAG_CPP) $(FLAG_MC) $(INC_MC) $< -o $@
 
 #####
@@ -53,4 +53,3 @@ gensvg :
 clean :
 	rm -f DAG_doxygen DAG_unittests DAG_compose DAG_differentiate DAG_evaluate DAG_analyze DAG_external DAG_store
 	rm -f *.o *.out *.eps *.dot *.png *.lp *~
-

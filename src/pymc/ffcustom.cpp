@@ -2,42 +2,45 @@
 // All Rights Reserved.
 // This code is published under the Eclipse Public License.
 
-#include <pybind11/pybind11.h>
 #include <pybind11/functional.h>
+#include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
 #ifdef MC__USE_PROFIL
- #include "mcprofil.hpp"
- typedef INTERVAL I;
+#include "mcprofil.hpp"
+typedef INTERVAL I;
 #else
- #ifdef MC__USE_FILIB
-  #include "mcfilib.hpp"
-  typedef filib::interval<double,filib::native_switched,filib::i_mode_extended> I;
- #else
-  #ifdef MC__USE_BOOST
-   #include "mcboost.hpp"
-   typedef boost::numeric::interval_lib::save_state<boost::numeric::interval_lib::rounded_transc_opp<double>> T_boost_round;
-   typedef boost::numeric::interval_lib::checking_base<double> T_boost_check;
-   typedef boost::numeric::interval_lib::policies<T_boost_round,T_boost_check> T_boost_policy;
-   typedef boost::numeric::interval<double,T_boost_policy> I;
-  #else
-   #include "interval.hpp"
-   typedef mc::Interval I;
-  #endif
- #endif
+#ifdef MC__USE_FILIB
+#include "mcfilib.hpp"
+typedef filib::interval<double, filib::native_switched, filib::i_mode_extended>
+    I;
+#else
+#ifdef MC__USE_BOOST
+#include "mcboost.hpp"
+typedef boost::numeric::interval_lib::save_state<
+    boost::numeric::interval_lib::rounded_transc_opp<double>>
+    T_boost_round;
+typedef boost::numeric::interval_lib::checking_base<double> T_boost_check;
+typedef boost::numeric::interval_lib::policies<T_boost_round, T_boost_check>
+    T_boost_policy;
+typedef boost::numeric::interval<double, T_boost_policy> I;
+#else
+#include "interval.hpp"
+typedef mc::Interval I;
+#endif
+#endif
 #endif
 
-#include "ffcustom.hpp" 
+#include "ffcustom.hpp"
 
 namespace py = pybind11;
 
-
-void mc_ffcustom( py::module_ &m )
+void
+mc_ffcustom(py::module_& m)
 {
+  py::class_<mc::FFCustom<I>, mc::FFOp> pyFFCustom(m, "FFCustom");
 
-py::class_<mc::FFCustom<I>, mc::FFOp> pyFFCustom( m, "FFCustom" );
-
-pyFFCustom
+  pyFFCustom
  .def(
    py::init<>(),
    "default constructor"
@@ -191,6 +194,4 @@ pyFFCustom
    }
  )
 ;
-
 }
-

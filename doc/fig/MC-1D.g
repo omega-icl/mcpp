@@ -20,7 +20,7 @@ plot 'MC-1D.out' u 1:2 tit '' w l lt 1 lw 2, \
   '' u 1:6 tit '' w l lt 3 lw 2, \
   '' u 1:9 tit 'affine relaxations' w l lt -1 lw 2, \
   '' u 1:10 tit '' w l lt -1 lw 2
-  
+
 set terminal pngcairo size 253,189 enhanced font 'Verdana,7'
 #set term png small enhanced
 set out "MC-1D_linearize.png"

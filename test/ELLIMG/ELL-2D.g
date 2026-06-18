@@ -6,7 +6,7 @@ file1 = 'Esam.out'
 file2 = 'Isam.out'
 
 set grid front
-set key below 
+set key below
 set size ratio 1
 
 set autoscale yfix
@@ -14,7 +14,7 @@ set autoscale yfix
 plot  file1  tit "" w l lt 1 lc 3 lw 3, \
       file2  tit "" w l lt 1 lc 1 lw 3, \
       file0  tit "" w p ps .2 pt 6 lt 1 lc rgb "#FFA346"
-      
+
 pause -1 "PRESS <ENTER> TO CONTINUE"
 
 set term post eps enh solid color 18
@@ -24,4 +24,3 @@ set term x11
 set out
 !ps2eps -B -l -f ELL-2D.eps
 !mv ELL-2D.eps.eps ELL-2D.eps
-

@@ -40,4 +40,3 @@ plot file u 1:($2-$9) tit 'underestimation error' w l lt 1 lc 4, \
      file u 1:($10-$2) tit 'overestimation error' w l lt 1 lc 7
 
 pause -1 "<ENTER> TO CONTINUE"
-

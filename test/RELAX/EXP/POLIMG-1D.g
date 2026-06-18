@@ -2,6 +2,7 @@ resfile1  = 'POLIMG-1D.out'
 resfile2 = 'POLIMG-PM2-1D.out'
 resfile3 = 'POLIMG-PM3-1D.out'
 resfile4 = 'POLIMG-PM10-1D.out'
+# resfile4 = 'POLIMG-PM5-1D.out' restored from POLIMG-1D.g~
 
 set term post eps enh solid color 12
 set out 'POLIMG-1D.eps'
@@ -50,4 +51,3 @@ set out
 !ps2eps -B -f -l POLIMG-1D.eps
 !mv POLIMG-1D.eps.eps POLIMG-1D.eps
 !gv POLIMG-1D.eps
-
