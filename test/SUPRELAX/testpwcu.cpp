@@ -5,24 +5,28 @@
 #include <iostream>
 
 #ifdef MC__USE_PROFIL
- #include "mcprofil.hpp"
- typedef INTERVAL I;
+#include "mcprofil.hpp"
+typedef INTERVAL I;
 #else
- #ifdef MC__USE_FILIB
-  #include "mcfilib.hpp"
-  typedef filib::interval<double,filib::native_switched,filib::i_mode_extended> I;
- #else
-  #ifdef MC__USE_BOOST
-   #include "mcboost.hpp"
-   typedef boost::numeric::interval_lib::save_state<boost::numeric::interval_lib::rounded_transc_opp<double>> T_boost_round;
-   typedef boost::numeric::interval_lib::checking_base<double> T_boost_check;
-   typedef boost::numeric::interval_lib::policies<T_boost_round,T_boost_check> T_boost_policy;
-   typedef boost::numeric::interval<double,T_boost_policy> I;
-  #else
-   #include "interval.hpp"
-   typedef mc::Interval I;
-  #endif
- #endif
+#ifdef MC__USE_FILIB
+#include "mcfilib.hpp"
+typedef filib::interval<double, filib::native_switched, filib::i_mode_extended>
+    I;
+#else
+#ifdef MC__USE_BOOST
+#include "mcboost.hpp"
+typedef boost::numeric::interval_lib::save_state<
+    boost::numeric::interval_lib::rounded_transc_opp<double> >
+    T_boost_round;
+typedef boost::numeric::interval_lib::checking_base<double> T_boost_check;
+typedef boost::numeric::interval_lib::policies<T_boost_round, T_boost_check>
+    T_boost_policy;
+typedef boost::numeric::interval<double, T_boost_policy> I;
+#else
+#include "interval.hpp"
+typedef mc::Interval I;
+#endif
+#endif
 #endif
 
 #include "pwcu.hpp"
@@ -33,15 +37,14 @@ typedef mc::SupVar<mc::PWCU> SV;
 using namespace mc;
 
 void
-doxygen_supmodel
-()
+doxygen_supmodel()
 {
   size_t const N = 8;
-  SM mod( 2 );
-  SV X( mod, 0, I(1.,2.), N );
-  SV Y( mod, 1, I(0.,1.), N );
+  SM mod(2);
+  SV X(mod, 0, I(1., 2.), N);
+  SV Y(mod, 1, I(0., 1.), N);
 
-  SV F = X*exp(X+pow(Y,2))-pow(Y,2);
+  SV F = X * exp(X + pow(Y, 2)) - pow(Y, 2);
 
   std::cout << "Superposition relaxation of f:\n" << F;
 
@@ -51,67 +54,60 @@ doxygen_supmodel
   double const& Fl = F.l();
   double const& Fu = F.u();
 
-  std::cout << "uest(1.5,0.5) = " << F.uval({{0,1.5},{1,0.5}}) << std::endl;
-  std::cout << "oest(1.5,0.5) = " << F.oval({{0,1.5},{1,0.5}}) << std::endl;
+  std::cout << "uest(1.5,0.5) = " << F.uval({{0, 1.5}, {1, 0.5}}) << std::endl;
+  std::cout << "oest(1.5,0.5) = " << F.oval({{0, 1.5}, {1, 0.5}}) << std::endl;
 
   std::cout << std::scientific << std::setprecision(5) << std::endl;
-  for( double x=1.; x<=2.; x+=1./20.-DBL_EPSILON*10. ){
-   for( double y=0.; y<=1.; y+=1./20.-DBL_EPSILON*10. )
-    std::cout << std::setw(13) << x
-              << std::setw(13) << y
-              << std::setw(13) << x*std::exp(x+std::pow(y,2))-std::pow(y,2)
-              << std::setw(13) << F.uval({{0,x},{1,y}})
-              << std::setw(13) << F.oval({{0,x},{1,y}})
-              << std::endl; 
-   std::cout << std::endl;
+  for (double x = 1.; x <= 2.; x += 1. / 20. - DBL_EPSILON * 10.)
+  {
+    for (double y = 0.; y <= 1.; y += 1. / 20. - DBL_EPSILON * 10.)
+      std::cout << std::setw(13) << x << std::setw(13) << y << std::setw(13)
+                << x * std::exp(x + std::pow(y, 2)) - std::pow(y, 2)
+                << std::setw(13) << F.uval({{0, x}, {1, y}}) << std::setw(13)
+                << F.oval({{0, x}, {1, y}}) << std::endl;
+    std::cout << std::endl;
   }
   std::cout << std::endl;
 
   double const tol = 1e-5;
-  for( size_t i=0; i<=N; ++i ){
+  for (size_t i = 0; i <= N; ++i)
+  {
+    double x = i ? 1. + i / (double)N * (2. - 1.) - tol : 1.;
 
-   double x = i? 1.+i/(double)N*(2.-1.)-tol: 1.;
+    for (size_t j = 0; j <= N; ++j)
+    {
+      double y = j ? 0. + j / (double)N * (1. - 0.) - tol : 0.;
+      std::cout << std::setw(13) << x << std::setw(13) << y << std::setw(13)
+                << F.uval({{0, x}, {1, y}}) << std::setw(13)
+                << F.oval({{0, x}, {1, y}}) << std::endl;
+      if (j == N || j == 0) continue;
 
-   for( size_t j=0; j<=N; ++j ){
-    double y = j? 0.+j/(double)N*(1.-0.)-tol: 0.;
-    std::cout << std::setw(13) << x
-              << std::setw(13) << y
-              << std::setw(13) << F.uval({{0,x},{1,y}})
-              << std::setw(13) << F.oval({{0,x},{1,y}})
-              << std::endl;
-    if( j == N || j == 0 ) continue;
-    
-    y = 0.+j/(double)N*(1.-0.)+tol;
-    std::cout << std::setw(13) << x
-              << std::setw(13) << y
-              << std::setw(13) << F.uval({{0,x},{1,y}})
-              << std::setw(13) << F.oval({{0,x},{1,y}})
-              << std::endl;
-   }
+      y = 0. + j / (double)N * (1. - 0.) + tol;
+      std::cout << std::setw(13) << x << std::setw(13) << y << std::setw(13)
+                << F.uval({{0, x}, {1, y}}) << std::setw(13)
+                << F.oval({{0, x}, {1, y}}) << std::endl;
+    }
 
-   std::cout << std::endl;
-   if( i == N || i == 0 ) continue;
+    std::cout << std::endl;
+    if (i == N || i == 0) continue;
 
-   x = 1.+i/(double)N*(2.-1.)+tol;
-   
-   for( size_t j=0; j<=N; ++j ){
-    double y = j? 0.+j/(double)N*(1.-0.)-tol: 0.;
-    std::cout << std::setw(13) << x
-              << std::setw(13) << y
-              << std::setw(13) << F.uval({{0,x},{1,y}})
-              << std::setw(13) << F.oval({{0,x},{1,y}})
-              << std::endl;
-    if( j == N || j == 0 ) continue;
-    
-    y = 0.+j/(double)N*(1.-0.)+tol;
-    std::cout << std::setw(13) << x
-              << std::setw(13) << y
-              << std::setw(13) << F.uval({{0,x},{1,y}})
-              << std::setw(13) << F.oval({{0,x},{1,y}})
-              << std::endl;
-   }
+    x = 1. + i / (double)N * (2. - 1.) + tol;
 
-   std::cout << std::endl;
+    for (size_t j = 0; j <= N; ++j)
+    {
+      double y = j ? 0. + j / (double)N * (1. - 0.) - tol : 0.;
+      std::cout << std::setw(13) << x << std::setw(13) << y << std::setw(13)
+                << F.uval({{0, x}, {1, y}}) << std::setw(13)
+                << F.oval({{0, x}, {1, y}}) << std::endl;
+      if (j == N || j == 0) continue;
+
+      y = 0. + j / (double)N * (1. - 0.) + tol;
+      std::cout << std::setw(13) << x << std::setw(13) << y << std::setw(13)
+                << F.uval({{0, x}, {1, y}}) << std::setw(13)
+                << F.oval({{0, x}, {1, y}}) << std::endl;
+    }
+
+    std::cout << std::endl;
   }
 }
 /*
@@ -120,7 +116,7 @@ test_supmodel
 ()
 {
   SM mod( 2 );
-  
+
   SV C( 2. );
   SV X( mod, 0, I(0.,1.) );
   SV Y( mod, 1, mc::PWCU( 0., {0.2,0.6,0.2} ) );
@@ -162,14 +158,14 @@ test_supmodel_1d
 
   auto Z = f_1d(X);
   std::cout << Z;
- 
+
   std::cout << std::scientific << std::setprecision(5) << std::endl;
   for( double x=XL; x<=XU; x+=(XU-XL)/100-DBL_EPSILON*10. )
     std::cout << std::setw(13) << x
               << std::setw(13) << f_1d(x)
               << std::setw(13) << Z.l({{0,x}})
-              << std::setw(13) << Z.u({{0,x}}) 
-              << std::endl; 
+              << std::setw(13) << Z.u({{0,x}})
+              << std::endl;
 }
 
 //const double XL   = -2.;	// <-- X range lower bound
@@ -291,312 +287,285 @@ test_supmodel_2d
               << std::setw(13) << f_2d(x,y)
               << std::setw(13) << Z.l({{0,x},{1,y}})
               << std::setw(13) << Z.u({{0,x},{1,y}})
-              << std::endl; 
+              << std::endl;
    std::cout << std::endl;
  }
 }
 */
 void
-test_linear
-()
+test_linear()
 {
   size_t const N = 8;
-  PWCU X( -1., 1., N, 1 );
+  PWCU X(-1., 1., N, 1);
   std::cout << "X:" << X << std::endl;
 
   PWCU Y = X;
   Y += X;
-  std::cout << "Y+X:" << Y+X << std::endl;
+  std::cout << "Y+X:" << Y + X << std::endl;
 
   PWCU Z = X;
-  std::cout << "Z+Y:" << Z+Y << std::endl;
-  std::cout << "Z/2.-1:" << Z/2.-1. << std::endl;
+  std::cout << "Z+Y:" << Z + Y << std::endl;
+  std::cout << "Z/2.-1:" << Z / 2. - 1. << std::endl;
 
   return;
 }
 
 void
-test_inv
-()
+test_inv()
 {
   size_t const N = 3;
   double XL = 0.3, XU = 2.;
-  PWCU invX( XL, XU, N );
+  PWCU invX(XL, XU, N);
   std::cout << "X:" << invX << std::endl;
 
-  auto const& f = [=]( const double& x ){ return 1./x; };
-  auto const& df = [=]( const double& x ){ return -1./(x*x); };
+  auto const& f  = [=](const double& x) { return 1. / x; };
+  auto const& df = [=](const double& x) { return -1. / (x * x); };
 
-  std::cout << "inv(X):" << invX.compose( f, df, 1, 1, 0 ) << std::endl;
+  std::cout << "inv(X):" << invX.compose(f, df, 1, 1, 0) << std::endl;
 
   size_t const M = 1000;
   std::cout << std::scientific << std::setprecision(5) << std::endl;
-  for( double x=XL; x<=XU; x+=(XU-XL)/M-DBL_EPSILON*10. )
-    std::cout << std::setw(13) << x
-              << std::setw(13) << f(x)
-              << std::setw(13) << invX.l(x,0)
-              << std::setw(13) << invX.u(x,0)
-              << std::setw(13) << invX.l(x)
-              << std::setw(13) << invX.u(x)
-              << std::endl;
+  for (double x = XL; x <= XU; x += (XU - XL) / M - DBL_EPSILON * 10.)
+    std::cout << std::setw(13) << x << std::setw(13) << f(x) << std::setw(13)
+              << invX.l(x, 0) << std::setw(13) << invX.u(x, 0) << std::setw(13)
+              << invX.l(x) << std::setw(13) << invX.u(x) << std::endl;
 
   return;
 }
 
 void
-test_exp
-()
+test_exp()
 {
-   size_t const N = 3;
+  size_t const N = 3;
   double XL = -1., XU = 1.;
-  PWCU expX( XL, XU, N );
+  PWCU expX(XL, XU, N);
   std::cout << "X:" << expX << std::endl;
 
-  auto const& f = [=]( const double& x ){ return std::exp(x); };
-  auto const& df = [=]( const double& x ){ return std::exp(x); };
+  auto const& f  = [=](const double& x) { return std::exp(x); };
+  auto const& df = [=](const double& x) { return std::exp(x); };
 
-  std::cout << "exp(X):" << expX.compose( f, df, 1, 1, 1 ) << std::endl;
+  std::cout << "exp(X):" << expX.compose(f, df, 1, 1, 1) << std::endl;
 
-  auto const& f2 = [=]( const double& x ){ return 1./x; };
-  auto const& df2 = [=]( const double& x ){ return -1./(x*x); };
+  auto const& f2  = [=](const double& x) { return 1. / x; };
+  auto const& df2 = [=](const double& x) { return -1. / (x * x); };
 
-  std::cout << "1/exp(X):" << expX.compose( f2, df2, 1, 1, 0 ) << std::endl;
+  std::cout << "1/exp(X):" << expX.compose(f2, df2, 1, 1, 0) << std::endl;
 
   size_t const M = 1000;
   std::cout << std::scientific << std::setprecision(5) << std::endl;
-  for( double x=XL; x<=XU; x+=(XU-XL)/M-DBL_EPSILON*10. )
-    std::cout << std::setw(13) << x
-              << std::setw(13) << f2(f(x))
-              << std::setw(13) << expX.l(x,0)
-              << std::setw(13) << expX.u(x,0)
-              << std::setw(13) << expX.l(x)
-              << std::setw(13) << expX.u(x)
+  for (double x = XL; x <= XU; x += (XU - XL) / M - DBL_EPSILON * 10.)
+    std::cout << std::setw(13) << x << std::setw(13) << f2(f(x))
+              << std::setw(13) << expX.l(x, 0) << std::setw(13) << expX.u(x, 0)
+              << std::setw(13) << expX.l(x) << std::setw(13) << expX.u(x)
               << std::endl;
 
   return;
 }
 
 void
-test_log
-()
+test_log()
 {
   size_t const N = 4;
   double XL = 0.5, XU = 5.;
-  PWCU X( XL, XU, N );
+  PWCU X(XL, XU, N);
   std::cout << "X:" << X << std::endl;
 
-  auto const& f = [=]( const double& x ){ return std::log(x); };
-  auto const& df = [=]( const double& x ){ return 1./x; };
+  auto const& f  = [=](const double& x) { return std::log(x); };
+  auto const& df = [=](const double& x) { return 1. / x; };
 
-  auto const& f2 = [=]( const double& x ){ return -std::exp(x); };
-  auto const& df2 = [=]( const double& x ){ return -std::exp(x); };
+  auto const& f2  = [=](const double& x) { return -std::exp(x); };
+  auto const& df2 = [=](const double& x) { return -std::exp(x); };
 
-  std::cout << "log(X):" << X.compose( f, df, 1, 0, 1 ) << std::endl;
-  std::cout << "-exp(log(X)):" << X.compose( f2, df2, 1, 0, 0 ) << std::endl;
+  std::cout << "log(X):" << X.compose(f, df, 1, 0, 1) << std::endl;
+  std::cout << "-exp(log(X)):" << X.compose(f2, df2, 1, 0, 0) << std::endl;
 
   size_t const M = 1000;
   std::cout << std::scientific << std::setprecision(5) << std::endl;
-  for( double x=XL; x<=XU; x+=(XU-XL)/M-DBL_EPSILON*M )
-    std::cout << std::setw(13) << x
-              << std::setw(13) << f2(f(x))
-              << std::setw(13) << X.l(x,0)
-              << std::setw(13) << X.u(x,0)
-              << std::setw(13) << X.l(x)
-              << std::setw(13) << X.u(x)
+  for (double x = XL; x <= XU; x += (XU - XL) / M - DBL_EPSILON * M)
+    std::cout << std::setw(13) << x << std::setw(13) << f2(f(x))
+              << std::setw(13) << X.l(x, 0) << std::setw(13) << X.u(x, 0)
+              << std::setw(13) << X.l(x) << std::setw(13) << X.u(x)
               << std::endl;
 
   return;
 }
 
 void
-test_sqr
-()
+test_sqr()
 {
   size_t const N = 10;
   double XL = -0.8, XU = 1., xmin = 0.;
-  PWCU sqrX( XL, XU, N );
+  PWCU sqrX(XL, XU, N);
   std::cout << "X:" << sqrX << std::endl;
 
-  auto const& sq  = [=]( const double& x ){ return std::pow(x,2); };
-  auto const& dsq = [=]( const double& x ){ return 2*x; };
+  auto const& sq  = [=](const double& x) { return std::pow(x, 2); };
+  auto const& dsq = [=](const double& x) { return 2 * x; };
 
-  std::cout << "sqr(X):" << sqrX.compose( sq, dsq, 1, 5, 1, xmin ) << std::endl;
+  std::cout << "sqr(X):" << sqrX.compose(sq, dsq, 1, 5, 1, xmin) << std::endl;
   std::cout << "sqr(X):" << sqrX.max(0.5) << std::endl;
 
   std::cout << std::scientific << std::setprecision(5) << std::endl;
   size_t const M = 1000;
-  for( double x=XL; x<=XU; x+=(XU-XL)/M-DBL_EPSILON*M )
-    std::cout << std::setw(13) << x
-              << std::setw(13) << std::max(sq(x),0.5)
-              << std::setw(13) << sqrX.l(x,0)
-              << std::setw(13) << sqrX.u(x,0)
-              << std::setw(13) << sqrX.l(x)
-              << std::setw(13) << sqrX.u(x)
+  for (double x = XL; x <= XU; x += (XU - XL) / M - DBL_EPSILON * M)
+    std::cout << std::setw(13) << x << std::setw(13) << std::max(sq(x), 0.5)
+              << std::setw(13) << sqrX.l(x, 0) << std::setw(13) << sqrX.u(x, 0)
+              << std::setw(13) << sqrX.l(x) << std::setw(13) << sqrX.u(x)
               << std::endl;
 
   return;
 }
 
 void
-test_invsqr
-()
+test_invsqr()
 {
   size_t const N = 1;
   double XL = -4.0, XU = 6.0, xmin = 0.;
-  PWCU invsqrX( XL, XU, N );
+  PWCU invsqrX(XL, XU, N);
   std::cout << "X:" << invsqrX << std::endl;
 
-  auto const& sq  = [=]( const double& x ){ return std::pow(x,2)+0.1; };
-  auto const& dsq = [=]( const double& x ){ return 2*x; };
+  auto const& sq  = [=](const double& x) { return std::pow(x, 2) + 0.1; };
+  auto const& dsq = [=](const double& x) { return 2 * x; };
 
-  std::cout << "sqr(X):" << invsqrX.compose( sq, dsq, 1, 5, 1, xmin ) << std::endl;
+  std::cout << "sqr(X):" << invsqrX.compose(sq, dsq, 1, 5, 1, xmin)
+            << std::endl;
 
-//  auto const& inv  = [=]( const double& x ){ return std::exp(x); };
-//  auto const& dinv = [=]( const double& x ){ return std::exp(x); };
-  auto const& inv  = [=]( const double& x ){ return 1./x; };
-  auto const& dinv = [=]( const double& x ){ return -1./(x*x); };
+  //  auto const& inv  = [=]( const double& x ){ return std::exp(x); };
+  //  auto const& dinv = [=]( const double& x ){ return std::exp(x); };
+  auto const& inv  = [=](const double& x) { return 1. / x; };
+  auto const& dinv = [=](const double& x) { return -1. / (x * x); };
 
-  //std::cout << "inv(sqr(X)):" << invsqrX.compose( inv, dinv, 1, 1, 0 ) << std::endl;
-  //return;
-  
+  // std::cout << "inv(sqr(X)):" << invsqrX.compose( inv, dinv, 1, 1, 0 ) <<
+  // std::endl; return;
+
   std::cout << std::scientific << std::setprecision(5) << std::endl;
   size_t const M = 1000;
-  for( double x=XL; x<=XU; x+=(XU-XL)/M-DBL_EPSILON*M )
-    std::cout << std::setw(13) << x
-              << std::setw(13) << sq(x)
-//              << std::setw(13) << inv(sq(x))
-              << std::setw(13) << invsqrX.l(x,0)
-              << std::setw(13) << invsqrX.u(x,0)
-              << std::setw(13) << invsqrX.l(x)
-              << std::setw(13) << invsqrX.u(x)
-              << std::endl;
+  for (double x = XL; x <= XU; x += (XU - XL) / M - DBL_EPSILON * M)
+    std::cout << std::setw(13) << x << std::setw(13)
+              << sq(x)
+              //              << std::setw(13) << inv(sq(x))
+              << std::setw(13) << invsqrX.l(x, 0) << std::setw(13)
+              << invsqrX.u(x, 0) << std::setw(13) << invsqrX.l(x)
+              << std::setw(13) << invsqrX.u(x) << std::endl;
 
   return;
 }
 
 void
-test_cub
-()
+test_cub()
 {
   size_t const N = 8;
   double XL = -1.5, XU = 1.;
-  PWCU cubX( XL, XU, N );
+  PWCU cubX(XL, XU, N);
   std::cout << "X:" << cubX << std::endl;
 
-  auto const& f  = [=]( const double& x ){ return std::pow(x,3); };
-  auto const& df = [=]( const double& x ){ return 3*std::pow(x,2); };
-  
-  std::cout << "cub(X):" << cubX.compose( f, df, 1, 2, 1 ) << std::endl;
+  auto const& f  = [=](const double& x) { return std::pow(x, 3); };
+  auto const& df = [=](const double& x) { return 3 * std::pow(x, 2); };
+
+  std::cout << "cub(X):" << cubX.compose(f, df, 1, 2, 1) << std::endl;
 
   std::cout << std::scientific << std::setprecision(5) << std::endl;
   size_t const M = 1000;
-  for( double x=XL; x<=XU; x+=(XU-XL)/M-DBL_EPSILON*M )
-    std::cout << std::setw(13) << x
-              << std::setw(13) << f(x)
-              << std::setw(13) << cubX.l(x,0)
-              << std::setw(13) << cubX.u(x,0)
-              << std::setw(13) << cubX.l(x)
-              << std::setw(13) << cubX.u(x)
-              << std::endl;
+  for (double x = XL; x <= XU; x += (XU - XL) / M - DBL_EPSILON * M)
+    std::cout << std::setw(13) << x << std::setw(13) << f(x) << std::setw(13)
+              << cubX.l(x, 0) << std::setw(13) << cubX.u(x, 0) << std::setw(13)
+              << cubX.l(x) << std::setw(13) << cubX.u(x) << std::endl;
 
   return;
 }
 
 void
-test_tanh
-()
+test_tanh()
 {
-  //PWCU::options.SLOPEUSE = 1;
+  // PWCU::options.SLOPEUSE = 1;
 
   size_t const N = 32;
   double XL = -2, XU = 2.;
-  PWCU Xp1( XL, XU, N ); Xp1 += 1;
-  PWCU Xm1( XL, XU, N ); Xm1 -= 1;
+  PWCU Xp1(XL, XU, N);
+  Xp1 += 1;
+  PWCU Xm1(XL, XU, N);
+  Xm1 -= 1;
 
-  auto const& f  = [=]( const double& x ){ return std::tanh(x); };
-  auto const& df = [=]( const double& x ){ return 1-std::pow(std::tanh(x),2); };
+  auto const& f  = [=](const double& x) { return std::tanh(x); };
+  auto const& df = [=](const double& x)
+  { return 1 - std::pow(std::tanh(x), 2); };
 
-  PWCU Y = Xp1.compose( f, df, 1, 3, 1 ) - Xm1.compose( f, df, 1, 3, 1 );
+  PWCU Y = Xp1.compose(f, df, 1, 3, 1) - Xm1.compose(f, df, 1, 3, 1);
   std::cout << "min(tanh(X+1)-tanh(X-1),1):" << Y.min(1) << std::endl;
 
   std::cout << std::scientific << std::setprecision(5) << std::endl;
   size_t const M = 1000;
-  for( double x=XL; x<=XU; x+=(XU-XL)/M-DBL_EPSILON*M )
-    std::cout << std::setw(13) << x
-              << std::setw(13) << std::min(f(x+1)-f(x-1),1.)
-              << std::setw(13) << Y.l(x,0)
-              << std::setw(13) << Y.u(x,0)
-              << std::setw(13) << Y.l(x)
-              << std::setw(13) << Y.u(x)
-              << std::endl;
+  for (double x = XL; x <= XU; x += (XU - XL) / M - DBL_EPSILON * M)
+    std::cout << std::setw(13) << x << std::setw(13)
+              << std::min(f(x + 1) - f(x - 1), 1.) << std::setw(13) << Y.l(x, 0)
+              << std::setw(13) << Y.u(x, 0) << std::setw(13) << Y.l(x)
+              << std::setw(13) << Y.u(x) << std::endl;
 
   return;
 }
 
 void
-test_combi
-()
+test_combi()
 {
-  //PWCU::options.SLOPEUSE = 1;
+  // PWCU::options.SLOPEUSE = 1;
 
   size_t const N = 32;
   double XL = -1.5, XU = 1.;
-  PWCU X( XL, XU, N );
+  PWCU X(XL, XU, N);
   PWCU Y = X;
   std::cout << "X:" << Y << std::endl;
 
-  auto const& f  = [=]( const double& x ){ return std::pow(x,3); };
-  auto const& df = [=]( const double& x ){ return 3*std::pow(x,2); };
-  
-  auto const& f2 = [=]( const double& x ){ return std::exp(x); };
-  auto const& df2 = [=]( const double& x ){ return std::exp(x); };
+  auto const& f  = [=](const double& x) { return std::pow(x, 3); };
+  auto const& df = [=](const double& x) { return 3 * std::pow(x, 2); };
 
-  auto const& f3 = [=]( const double& x ){ return 1./x; };
-  auto const& df3 = [=]( const double& x ){ return -1./(x*x); };
+  auto const& f2  = [=](const double& x) { return std::exp(x); };
+  auto const& df2 = [=](const double& x) { return std::exp(x); };
 
-  auto const& f4 = [=]( const double& x ){ return -1./x; };
-  auto const& df4 = [=]( const double& x ){ return 1./(x*x); };
+  auto const& f3  = [=](const double& x) { return 1. / x; };
+  auto const& df3 = [=](const double& x) { return -1. / (x * x); };
 
-  std::cout << "X^3:" << Y.compose( f, df, 1, 2, 1 ) << std::endl;
-  std::cout << "exp(X^3):" << Y.compose( f2, df2, 1, 1, 1 ) << std::endl;
-  std::cout << "1/exp(X^3):" << Y.compose( f3, df3, 1, 1, 0 ) << std::endl;
-  //std::cout << "-1/exp(X^3):" << Y.compose( f4, df4, 1, 0, 1 ) << std::endl;
-  //std::cout << "1/exp(X^3):" << Y.neg() << std::endl;
-  std::cout << "1/exp(X^3)-X^3:" << (Y += -2. * X.compose( f, df, 1, 2, 1 )) << std::endl;
+  auto const& f4  = [=](const double& x) { return -1. / x; };
+  auto const& df4 = [=](const double& x) { return 1. / (x * x); };
+
+  std::cout << "X^3:" << Y.compose(f, df, 1, 2, 1) << std::endl;
+  std::cout << "exp(X^3):" << Y.compose(f2, df2, 1, 1, 1) << std::endl;
+  std::cout << "1/exp(X^3):" << Y.compose(f3, df3, 1, 1, 0) << std::endl;
+  // std::cout << "-1/exp(X^3):" << Y.compose( f4, df4, 1, 0, 1 ) << std::endl;
+  // std::cout << "1/exp(X^3):" << Y.neg() << std::endl;
+  std::cout << "1/exp(X^3)-X^3:" << (Y += -2. * X.compose(f, df, 1, 2, 1))
+            << std::endl;
 
   std::cout << std::scientific << std::setprecision(5) << std::endl;
   size_t const M = 1000;
-  for( double x=XL; x<=XU; x+=(XU-XL)/M-DBL_EPSILON*M )
-    std::cout << std::setw(13) << x
+  for (double x = XL; x <= XU; x += (XU - XL) / M - DBL_EPSILON * M)
+    std::cout << std::setw(13)
+              << x
               //<< std::setw(13) << f2(f(x)) //- f(x)
-              << std::setw(13) << f3(f2(f(x))) - 2*f(x)
+              << std::setw(13)
+              << f3(f2(f(x))) - 2 * f(x)
               //<< std::setw(13) << -f4(f2(f(x))) //- 2*f(x)
-              << std::setw(13) << Y.l(x,0)
-              << std::setw(13) << Y.u(x,0)
-              << std::setw(13) << Y.l(x)
-              << std::setw(13) << Y.u(x)
+              << std::setw(13) << Y.l(x, 0) << std::setw(13) << Y.u(x, 0)
+              << std::setw(13) << Y.l(x) << std::setw(13) << Y.u(x)
               << std::endl;
 
   return;
 }
 
 int
-main
-( int argc, char* argv[] )
+main(int argc, char* argv[])
 {
-  //doxygen_supmodel();
-  //test_supmodel();
-  //test_supmodel_1d();
-  //test_supmodel_2d();
-  //test_linear();
-  //test_inv();
-  //test_exp();
-  //test_log();
-  //test_sqr();
+  // doxygen_supmodel();
+  // test_supmodel();
+  // test_supmodel_1d();
+  // test_supmodel_2d();
+  // test_linear();
+  // test_inv();
+  // test_exp();
+  // test_log();
+  // test_sqr();
   test_invsqr();
-  //test_cub();
-  //test_tanh();
-  //test_combi();
+  // test_cub();
+  // test_tanh();
+  // test_combi();
 
   return 0;
 }

@@ -28,7 +28,7 @@ SCM-Bernstein : SCM-Bernstein.o
 SCM-SICM-2D : SCM-SICM-2D.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
 
-%.o: %.cpp 
+%.o: %.cpp
 	$(CPP) -c $(FLAG_CPP) $(FLAG_MC) $(INC_MC) $< -o $@
 
 #####
@@ -36,4 +36,3 @@ SCM-SICM-2D : SCM-SICM-2D.o
 clean :
 	rm -f TM-1D TM-2D CM-1D CM-2D CM-SCM-2D SCM-Bernstein SCM-SICM-2D
 	rm -f *.o *.out *.eps *.dot *.svg *~
-

@@ -59,4 +59,3 @@ rep
 set term qt
 !ps2eps -B -f -l SCM-SICM-2D_err.eps
 !mv SCM-SICM-2D_err.eps.eps SCM-SICM-2D_err.eps
-

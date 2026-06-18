@@ -34,4 +34,3 @@ set terminal pngcairo size 490,367 enhanced font 'Verdana,9'
 set out "SB-2D_function.png"
 rep
 set term qt
-

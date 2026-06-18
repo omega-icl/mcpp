@@ -3,7 +3,7 @@ Change in MC++ 5.0 [from MC++ 4.0]
 - Updated sparse Chebyshev model class (scmodel.hpp, sicmodel.hpp) with tailored Remez algorithm
 - Updated ellipsoidal calculus and image classes (ellipsoid.hpp, ellimage.gpp) with tailored Remez algorithm
 - Updated superposition relaxation class (supmodel.hpp) with new capability
-- Updated DAG class (ffunc.hpp) and polyhedral relaxation (polimage.hpp) with hash maps 
+- Updated DAG class (ffunc.hpp) and polyhedral relaxation (polimage.hpp) with hash maps
 - Added an external operation for DAG embeddings (ffdagext.hpp)
 - Moved quadratisation (squad.hpp), variable elimination (selim.hpp) and reduction constraint (sred.hpp) to sister project CANON
 - All linear algebra support based on Armadillo library, kept cpplapack as legacy code
@@ -42,4 +42,3 @@ Change in MC++ 2.1 [from MC++ 2.0]
 - Support of n-ary operations in DAG (prod)
 - Variadic templates for flexible composition, differentiation and evaluation methods in DAG
 - Detection of quadratic, polynomial and rational dependence in DAG, in addition to linear and nonlinear dependence
-

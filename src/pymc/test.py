@@ -11,7 +11,7 @@ def dag_test1():
   C = pymc.FFVar(3)
   F = pymc.exp(X*Y)-2*X**2+C
   F.set( "F" )
-  
+
   # Subgraph and dot script
   SGF = DAG.subgraph( [F] )
   DAG.output( SGF )
@@ -54,7 +54,7 @@ def dag_test2():
   G = pymc.exp(Y*Z)
   F.set( "F" )
   G.set( "G" )
-  
+
   # Subgraph and dot script
   SG = DAG.subgraph( [F,G] )
   DAG.output( SG )
@@ -83,7 +83,7 @@ def dag_test3():
   IX, IY = pymc.Interval(-0.8,-0.3), pymc.Interval(6.,9.)
   [IF] = DAG.eval( [F], [X,Y], [IX,IY] )
   print( "IX: ", IX, "IY: ", IY, "IF: ", IF )
-  
+
   # Constraint propagation in interval arithmetic
   IF = pymc.Interval(0.)
   [IX,IY], [IF] = DAG.reval( [F], [IF], [X,Y], [IX,IY], pymc.Interval(-1,1)*1e20 )

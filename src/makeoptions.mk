@@ -27,7 +27,7 @@ INC_FILIB   = -I$(PATH_FILIB)/include -I$(PATH_FILIB)/include/interval
 FLAG_FILIB = -frounding-math #-DMC__USE_FILIB
 
 PATH_BOOST = #$(PATH_3RD_PARTY)/boost
-LIB_BOOST  = 
+LIB_BOOST  =
 INC_BOOST  = -I/usr/include #-I$(PATH_BOOST)
 #FLAG_BOOST = -DBOOST_UBLAS_NO_STD_CERR -DMC__USE_BOOST
 FLAG_BOOST = -DMC__USE_BOOST
@@ -38,7 +38,7 @@ INC_HSL  =
 FLAG_HSL = -DMC__USE_HSL
 
 PATH_TORCH = $(LIBTORCH_HOME)
-LIB_TORCH  = -L$(PATH_TORCH)/lib -ltorch_cpu -lc10 
+LIB_TORCH  = -L$(PATH_TORCH)/lib -ltorch_cpu -lc10
 #-Wl,-rpath,$(LIBTORCH_HOME)/lib
 INC_TORCH  = -I$(PATH_TORCH)/include -I$(PATH_TORCH)/include/torch/csrc/api/include
 FLAG_TORCH = -DMC__USE_TORCH
@@ -91,5 +91,3 @@ ifneq (,$(findstring -DMC__USE_TORCH, $(FLAG_TORCH)))
  INC_MC  += $(INC_TORCH)
  LIB_MC  += $(LIB_TORCH)
 endif
-
-

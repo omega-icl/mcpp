@@ -13,7 +13,7 @@ MC-1D : MC-1D.o
 MC-2D : MC-2D.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
 
-%.o: %.cpp 
+%.o: %.cpp
 	$(CPP) -c $(FLAG_CPP) $(FLAG_MC) $(INC_MC) $< -o $@
 
 #####
@@ -33,4 +33,3 @@ gensvg :
 
 clean :
 	rm -f MC-1D MC-2D *.o *.out *.eps *.dot *.svg *~
-

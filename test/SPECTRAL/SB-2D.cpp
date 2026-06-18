@@ -1,52 +1,56 @@
-#define TEST_EXP0      // <-- select test function here
-#define  USE_DAG        // <-- specify to evaluate via a DAG of the function
-#undef  USE_BAD        // <-- specify to differentiate via backward AD
-#define SAVE_RESULTS   // <-- specify whether to save results to file
-const int NX = 40;	// <-- select X discretization here
-const int NY = 40;	// <-- select Y discretization here
+#define TEST_EXP0     // <-- select test function here
+#define USE_DAG       // <-- specify to evaluate via a DAG of the function
+#undef USE_BAD        // <-- specify to differentiate via backward AD
+#define SAVE_RESULTS  // <-- specify whether to save results to file
+const int NX = 40;    // <-- select X discretization here
+const int NY = 40;    // <-- select Y discretization here
 ////////////////////////////////////////////////////////////////////////
 
 #include <fstream>
 #include <iomanip>
 
 #ifdef MC__USE_PROFIL
- #include "mcprofil.hpp"
- typedef INTERVAL I;
+#include "mcprofil.hpp"
+typedef INTERVAL I;
 #else
- #ifdef MC__USE_FILIB
-  #include "mcfilib.hpp"
-  typedef filib::interval<double,filib::native_switched,filib::i_mode_extended> I;
- #else
-  #ifdef MC__USE_BOOST
-   #include "mcboost.hpp"
-   typedef boost::numeric::interval_lib::save_state<boost::numeric::interval_lib::rounded_transc_opp<double>> T_boost_round;
-   typedef boost::numeric::interval_lib::checking_base<double> T_boost_check;
-   typedef boost::numeric::interval_lib::policies<T_boost_round,T_boost_check> T_boost_policy;
-   typedef boost::numeric::interval<double,T_boost_policy> I;
-  #else
-   #include "interval.hpp"
-   typedef mc::Interval I;
-  #endif
- #endif
+#ifdef MC__USE_FILIB
+#include "mcfilib.hpp"
+typedef filib::interval<double, filib::native_switched, filib::i_mode_extended>
+    I;
+#else
+#ifdef MC__USE_BOOST
+#include "mcboost.hpp"
+typedef boost::numeric::interval_lib::save_state<
+    boost::numeric::interval_lib::rounded_transc_opp<double> >
+    T_boost_round;
+typedef boost::numeric::interval_lib::checking_base<double> T_boost_check;
+typedef boost::numeric::interval_lib::policies<T_boost_round, T_boost_check>
+    T_boost_policy;
+typedef boost::numeric::interval<double, T_boost_policy> I;
+#else
+#include "interval.hpp"
+typedef mc::Interval I;
+#endif
+#endif
 #endif
 
 #include "specbnd.hpp"
 typedef mc::Specbnd<I> SBI;
 
 #ifdef USE_DAG
- #include "ffunc.hpp"
+#include "ffunc.hpp"
 #else
 #include "mcfadbad.hpp"
- typedef fadbad::F<double> FD;
- typedef fadbad::F<I> FI;
- #ifndef USE_BAD
-  typedef fadbad::F<FD> FFD;
-  typedef fadbad::F<FI> FFI;
- #else
-  typedef fadbad::B<FD> BFD;
-  typedef fadbad::B<FI> BFI;
- #endif
- typedef fadbad::F<SBI> FSBI;
+typedef fadbad::F<double> FD;
+typedef fadbad::F<I> FI;
+#ifndef USE_BAD
+typedef fadbad::F<FD> FFD;
+typedef fadbad::F<FI> FFI;
+#else
+typedef fadbad::B<FD> BFD;
+typedef fadbad::B<FI> BFI;
+#endif
+typedef fadbad::F<SBI> FSBI;
 #endif
 
 using namespace std;
@@ -54,360 +58,379 @@ using namespace mc;
 
 ////////////////////////////////////////////////////////////////////////
 
-#if defined( TEST_POLY )
-const double XL   = -1.;	// <-- X range lower bound
-const double XU   =  2.;	// <-- X range upper bound
-const double XREF =  0.;	// <-- X ref point for McCormick
-const double YL   = -2.;	// <-- Y range lower bound
-const double YU   =  1.;	// <-- Y range upper bound
-const double YREF =  0.;	// <-- Y ref point for McCormick
+#if defined(TEST_POLY)
+const double XL   = -1.;  // <-- X range lower bound
+const double XU   = 2.;   // <-- X range upper bound
+const double XREF = 0.;   // <-- X ref point for McCormick
+const double YL   = -2.;  // <-- Y range lower bound
+const double YU   = 1.;   // <-- Y range upper bound
+const double YREF = 0.;   // <-- Y ref point for McCormick
 template <class T>
-T myfunc
-( const T&x, const T&y )
+T
+myfunc(const T& x, const T& y)
 {
-  //return pow(x+y,3);
-  //return x*y;
-  return -pow(x+y,3)*x*y;
+  // return pow(x+y,3);
+  // return x*y;
+  return -pow(x + y, 3) * x * y;
 }
 
-#elif defined( TEST_EXP0 )
-const double XL   =  -2.;	// <-- X range lower bound
-const double XU   =   1.;	// <-- X range upper bound
-const double XREF =   0.;	// <-- X ref point for McCormick
-const double YL   =  -1.;	// <-- Y range lower bound
-const double YU   =   2.;	// <-- Y range upper bound
-const double YREF =   0.;	// <-- Y ref point for McCormick
+#elif defined(TEST_EXP0)
+const double XL   = -2.;  // <-- X range lower bound
+const double XU   = 1.;   // <-- X range upper bound
+const double XREF = 0.;   // <-- X ref point for McCormick
+const double YL   = -1.;  // <-- Y range lower bound
+const double YU   = 2.;   // <-- Y range upper bound
+const double YREF = 0.;   // <-- Y ref point for McCormick
 template <class T>
-T myfunc
-( const T&x, const T&y )
+T
+myfunc(const T& x, const T& y)
 {
-  //return sqr(exp(x)-y);
-  return x*sqr(exp(x)-y);
+  // return sqr(exp(x)-y);
+  return x * sqr(exp(x) - y);
 }
 
-#elif defined( TEST_EXP1 )
-const double XL   =  1.;	// <-- X range lower bound
-const double XU   =  2.;	// <-- X range upper bound
-const double XREF =  1.5;	// <-- X ref point for McCormick
-const double YL   =  0.;	// <-- Y range lower bound
-const double YU   =  1.;	// <-- Y range upper bound
-const double YREF =  0.5;	// <-- Y ref point for McCormick
+#elif defined(TEST_EXP1)
+const double XL   = 1.;   // <-- X range lower bound
+const double XU   = 2.;   // <-- X range upper bound
+const double XREF = 1.5;  // <-- X ref point for McCormick
+const double YL   = 0.;   // <-- Y range lower bound
+const double YU   = 1.;   // <-- Y range upper bound
+const double YREF = 0.5;  // <-- Y ref point for McCormick
 template <class T>
-T myfunc
-( const T&x, const T&y )
+T
+myfunc(const T& x, const T& y)
 {
-  //return x+pow(y,2);//-pow(y,2);
-  //return exp(x+pow(y,2));//-pow(y,2);
-  return x*exp(x+pow(y,2))-pow(y,2);
+  // return x+pow(y,2);//-pow(y,2);
+  // return exp(x+pow(y,2));//-pow(y,2);
+  return x * exp(x + pow(y, 2)) - pow(y, 2);
 }
 
-#elif defined( TEST_EXP2 )
-const double XL   = -2.;	// <-- X range lower bound
-const double XU   =  2.;	// <-- X range upper bound
-const double XREF =  0.;	// <-- X ref point for McCormick
-const double YL   = -1.;	// <-- Y range lower bound
-const double YU   =  1.;	// <-- Y range upper bound
-const double YREF =  0.;	// <-- Y ref point for McCormick
+#elif defined(TEST_EXP2)
+const double XL   = -2.;  // <-- X range lower bound
+const double XU   = 2.;   // <-- X range upper bound
+const double XREF = 0.;   // <-- X ref point for McCormick
+const double YL   = -1.;  // <-- Y range lower bound
+const double YU   = 1.;   // <-- Y range upper bound
+const double YREF = 0.;   // <-- Y ref point for McCormick
 template <class T>
-T myfunc
-( const T&x, const T&y )
+T
+myfunc(const T& x, const T& y)
 {
-  return x*y*(x*(exp(x)-exp(-x))-y*(exp(y)-exp(-y)));
+  return x * y * (x * (exp(x) - exp(-x)) - y * (exp(y) - exp(-y)));
 }
 
-#elif defined( TEST_INV )
-const double XL   = -2.;	// <-- X range lower bound
-const double XU   =  0.;	// <-- X range upper bound
-const double XREF = -1.;	// <-- X ref point for McCormick
-const double YL   =  1.;	// <-- Y range lower bound
-const double YU   =  3.;	// <-- Y range upper bound
-const double YREF =  2.;	// <-- Y ref point for McCormick
+#elif defined(TEST_INV)
+const double XL   = -2.;  // <-- X range lower bound
+const double XU   = 0.;   // <-- X range upper bound
+const double XREF = -1.;  // <-- X ref point for McCormick
+const double YL   = 1.;   // <-- Y range lower bound
+const double YU   = 3.;   // <-- Y range upper bound
+const double YREF = 2.;   // <-- Y ref point for McCormick
 template <class T>
-T myfunc
-( const T&x, const T&y )
+T
+myfunc(const T& x, const T& y)
 {
-  return -1./(pow(x-4.,2)+pow(y-4.,2)+0.1)
-         -1./(pow(x-1.,2)+pow(y-1.,2)+0.2)
-         -1./(pow(x-8.,2)+pow(y-8.,2)+0.2);
+  return -1. / (pow(x - 4., 2) + pow(y - 4., 2) + 0.1) -
+         1. / (pow(x - 1., 2) + pow(y - 1., 2) + 0.2) -
+         1. / (pow(x - 8., 2) + pow(y - 8., 2) + 0.2);
 }
 
-#elif defined( TEST_INV2 )
-const double XL   = -2.;	// <-- X range lower bound
-const double XU   =  0.;	// <-- X range upper bound
-const double XREF = -1.;	// <-- X ref point for McCormick
-const double YL   = -2.;	// <-- Y range lower bound
-const double YU   =  0.;	// <-- Y range upper bound
-const double YREF = -1.;	// <-- Y ref point for McCormick
+#elif defined(TEST_INV2)
+const double XL   = -2.;  // <-- X range lower bound
+const double XU   = 0.;   // <-- X range upper bound
+const double XREF = -1.;  // <-- X ref point for McCormick
+const double YL   = -2.;  // <-- Y range lower bound
+const double YU   = 0.;   // <-- Y range upper bound
+const double YREF = -1.;  // <-- Y ref point for McCormick
 template <class T>
-T myfunc
-( const T&x, const T&y )
+T
+myfunc(const T& x, const T& y)
 {
-  return +1./(pow(x-1.,3)+pow(y-1.,3)+0.1)
-         -1./(pow(x-2.,2)+pow(y-3.,4)+0.2)
-         +1./(pow(x-3.,3)+pow(y-2.,1)+0.2);
+  return +1. / (pow(x - 1., 3) + pow(y - 1., 3) + 0.1) -
+         1. / (pow(x - 2., 2) + pow(y - 3., 4) + 0.2) +
+         1. / (pow(x - 3., 3) + pow(y - 2., 1) + 0.2);
 }
 
-#elif defined( TEST_INV3 )
-const double XL   = -2.;	// <-- X range lower bound
-const double XU   =  0.;	// <-- X range upper bound
-const double XREF = -1.;	// <-- X ref point for McCormick
-const double YL   = -2.;	// <-- Y range lower bound
-const double YU   =  0.;	// <-- Y range upper bound
-const double YREF = -1.;	// <-- Y ref point for McCormick
+#elif defined(TEST_INV3)
+const double XL   = -2.;  // <-- X range lower bound
+const double XU   = 0.;   // <-- X range upper bound
+const double XREF = -1.;  // <-- X ref point for McCormick
+const double YL   = -2.;  // <-- Y range lower bound
+const double YU   = 0.;   // <-- Y range upper bound
+const double YREF = -1.;  // <-- Y ref point for McCormick
 template <class T>
-T myfunc
-( const T&x, const T&y )
+T
+myfunc(const T& x, const T& y)
 {
-  return 1./(pow(x-2.,2)+pow(y-3.,2)+0.2);
+  return 1. / (pow(x - 2., 2) + pow(y - 3., 2) + 0.2);
 }
 
-#elif defined( TEST_CHEB )
-const double XL   = -1.;	// <-- range lower bound
-const double XU   =  1.;	// <-- range upper bound
-const double XREF =  0.;	// <-- X ref point for McCormick
-const double YL   = -1.;	// <-- Y range lower bound
-const double YU   =  1.;	// <-- Y range upper bound
-const double YREF =  0.;	// <-- Y ref point for McCormick
+#elif defined(TEST_CHEB)
+const double XL   = -1.;  // <-- range lower bound
+const double XU   = 1.;   // <-- range upper bound
+const double XREF = 0.;   // <-- X ref point for McCormick
+const double YL   = -1.;  // <-- Y range lower bound
+const double YU   = 1.;   // <-- Y range upper bound
+const double YREF = 0.;   // <-- Y ref point for McCormick
 template <class T>
-T myfunc
-( const T&x, const T&y )
+T
+myfunc(const T& x, const T& y)
 {
-  return cheb(x+y,2)+cheb(x+y,3);
+  return cheb(x + y, 2) + cheb(x + y, 3);
 }
 
-#elif defined( TEST_TRIG )
-const double XL   = -0.5;	// <-- X range lower bound
-const double XU   =  0.5;	// <-- X range upper bound
-const double XREF =  0.;	// <-- X ref point for McCormick
-const double YL   = -0.5;	// <-- Y range lower bound
-const double YU   =  0.5;	// <-- Y range upper bound
-const double YREF =  0.;	// <-- Y ref point for McCormick
+#elif defined(TEST_TRIG)
+const double XL   = -0.5;  // <-- X range lower bound
+const double XU   = 0.5;   // <-- X range upper bound
+const double XREF = 0.;    // <-- X ref point for McCormick
+const double YL   = -0.5;  // <-- Y range lower bound
+const double YU   = 0.5;   // <-- Y range upper bound
+const double YREF = 0.;    // <-- Y ref point for McCormick
 template <class T>
-T myfunc
-( const T&x, const T&y )
+T
+myfunc(const T& x, const T& y)
 {
-  //return cos( x+y );
-  //return erf( 2+x+y );
-  return 1.+x-sin(2.*x+3.*y)-cos(3.*x-5.*y);
+  // return cos( x+y );
+  // return erf( 2+x+y );
+  return 1. + x - sin(2. * x + 3. * y) - cos(3. * x - 5. * y);
 }
 
-#elif defined( TEST_TRIG2 )
-const double XL   = -0.5;	// <-- X range lower bound
-const double XU   =  0.5;	// <-- X range upper bound
-const double XREF =  0.;	// <-- X ref point for McCormick
-const double YL   = -0.5;	// <-- Y range lower bound
-const double YU   =  0.5;	// <-- Y range upper bound
-const double YREF =  0.;	// <-- Y ref point for McCormick
+#elif defined(TEST_TRIG2)
+const double XL   = -0.5;  // <-- X range lower bound
+const double XU   = 0.5;   // <-- X range upper bound
+const double XREF = 0.;    // <-- X ref point for McCormick
+const double YL   = -0.5;  // <-- Y range lower bound
+const double YU   = 0.5;   // <-- Y range upper bound
+const double YREF = 0.;    // <-- Y ref point for McCormick
 template <class T>
-T myfunc
-( const T&x, const T&y )
+T
+myfunc(const T& x, const T& y)
 {
-  return atan(x*y);
-  //return atan(sqr(x)+sqr(y));
-  //return tanh(x*y);
-  //return tanh(sqr(x)+sqr(y));
-  return tan(x*y);
+  return atan(x * y);
+  // return atan(sqr(x)+sqr(y));
+  // return tanh(x*y);
+  // return tanh(sqr(x)+sqr(y));
+  return tan(x * y);
 }
 
-#elif defined( TEST_TRIG3 )
-const double XL   = -0.5;	// <-- X range lower bound
-const double XU   =  0.5;	// <-- X range upper bound
-const double XREF =  0.;	// <-- X ref point for McCormick
-const double YL   = -0.5;	// <-- Y range lower bound
-const double YU   =  0.5;	// <-- Y range upper bound
-const double YREF =  0.;	// <-- Y ref point for McCormick
+#elif defined(TEST_TRIG3)
+const double XL   = -0.5;  // <-- X range lower bound
+const double XU   = 0.5;   // <-- X range upper bound
+const double XREF = 0.;    // <-- X ref point for McCormick
+const double YL   = -0.5;  // <-- Y range lower bound
+const double YU   = 0.5;   // <-- Y range upper bound
+const double YREF = 0.;    // <-- Y ref point for McCormick
 template <class T>
-T myfunc
-( const T&x, const T&y )
+T
+myfunc(const T& x, const T& y)
 {
-  //return acos(x*y)+asin(x*y);
-  return asin(x)*acos(y);
+  // return acos(x*y)+asin(x*y);
+  return asin(x) * acos(y);
 }
 
-#elif defined( TEST_NORM )
-const double XL   =  0.5;	// <-- X range lower bound
-const double XU   =  2.;	// <-- X range upper bound
-const double XREF =  1.;	// <-- X ref point for McCormick
-const double YL   =  0.5;	// <-- Y range lower bound
-const double YU   =  2.;	// <-- Y range upper bound
-const double YREF =  1.;	// <-- Y ref point for McCormick
+#elif defined(TEST_NORM)
+const double XL   = 0.5;  // <-- X range lower bound
+const double XU   = 2.;   // <-- X range upper bound
+const double XREF = 1.;   // <-- X ref point for McCormick
+const double YL   = 0.5;  // <-- Y range lower bound
+const double YU   = 2.;   // <-- Y range upper bound
+const double YREF = 1.;   // <-- Y ref point for McCormick
 template <class T>
-T myfunc
-( const T&x, const T&y )
+T
+myfunc(const T& x, const T& y)
 {
-  return sqrt(x+y);
-  return sqrt(pow(x,2)+pow(y,2));
+  return sqrt(x + y);
+  return sqrt(pow(x, 2) + pow(y, 2));
 }
 #endif
 
 ////////////////////////////////////////////////////////////////////////
-int main()
+int
+main()
 ////////////////////////////////////////////////////////////////////////
-{  
-  cout << "INTERVAL LIBRARY: "; 
+{
+  cout << "INTERVAL LIBRARY: ";
 #ifdef MC__USE_PROFIL
   cout << "PROFIL/BIAS" << endl;
 #else
- #ifdef MC__USE_FILIB
+#ifdef MC__USE_FILIB
   cout << "FILIB++" << endl;
- #else
-  #ifdef MC__USE_BOOST
+#else
+#ifdef MC__USE_BOOST
   cout << "BOOST" << endl;
-  #else
+#else
   cout << "MC++ NON-VERIFIED" << endl;
-  #endif
- #endif
+#endif
+#endif
 #endif
 
 #ifdef SAVE_RESULTS
   ofstream res;
-  res.open( "SB-2D.out", ios_base::out );
+  res.open("SB-2D.out", ios_base::out);
   res << std::scientific << std::setprecision(5) << std::right;
 #endif
 
-  try{ 
+  try
+  {
 #ifdef USE_DAG
     // Construct DAG representation of factorable function
     FFGraph DAG;
-    FFVar X( &DAG );
-    FFVar Y( &DAG );
-    FFVar F = myfunc( X, Y );
-    auto GF = DAG.subgraph( 1, &F );
+    FFVar X(&DAG);
+    FFVar Y(&DAG);
+    FFVar F = myfunc(X, Y);
+    auto GF = DAG.subgraph(1, &F);
 #ifdef SAVE_RESULTS
-    DAG.output( GF );
-    ofstream ofdag( "SBF-2D.dot", ios_base::out );
-    DAG.dot_script( 1, &F, ofdag );
+    DAG.output(GF);
+    ofstream ofdag("SBF-2D.dot", ios_base::out);
+    DAG.dot_script(1, &F, ofdag);
     ofdag.close();
 #endif
     // Construct DAG representation of Hessian matrix of factorable function
 #ifndef USE_BAD
-    FFVar *DF = DAG.FAD( 1, &F, 1, &X, 1, &Y );
+    FFVar* DF = DAG.FAD(1, &F, 1, &X, 1, &Y);
 #else
-    FFVar *DF = DAG.BAD( 1, &F, 1, &X, 1, &Y );
+    FFVar* DF = DAG.BAD(1, &F, 1, &X, 1, &Y);
 #endif
-    FFVar *D2F= DAG.FAD( 2, DF, 1, &X, 1, &Y );
-    auto GD2F = DAG.subgraph( 2*2, D2F );
+    FFVar* D2F = DAG.FAD(2, DF, 1, &X, 1, &Y);
+    auto GD2F  = DAG.subgraph(2 * 2, D2F);
 #ifdef SAVE_RESULTS
-    DAG.output( GD2F );
-    //ofstream od2fdag( "SBD2F-2D.dot", ios_base::out );
-    //DAG.dot_script( 2*2, D2F, od2fdag );
-    //ofdag.close();
+    DAG.output(GD2F);
+    // ofstream od2fdag( "SBD2F-2D.dot", ios_base::out );
+    // DAG.dot_script( 2*2, D2F, od2fdag );
+    // ofdag.close();
 #endif
 #endif
 
     // Compute spectrum at reference point
-    double DD2F[2*2];
+    double DD2F[2 * 2];
 #ifdef USE_DAG
-    DAG.eval( 2*2, D2F, DD2F, 1, &X, &XREF, 1, &Y, &YREF );
+    DAG.eval(2 * 2, D2F, DD2F, 1, &X, &XREF, 1, &Y, &YREF);
 #else
-    FD  FXREF  = XREF; FXREF.diff(0,2);
-    FD  FYREF  = YREF; FYREF.diff(1,2);
+    FD FXREF = XREF;
+    FXREF.diff(0, 2);
+    FD FYREF = YREF;
+    FYREF.diff(1, 2);
 #ifndef USE_BAD
-    FFD FFXREF = FXREF; FFXREF.diff(0,2);
-    FFD FFYREF = FYREF; FFYREF.diff(1,2);
-    FFD FFFREF = myfunc( FFXREF, FFYREF );
-    for( size_t i=0; i<2; ++i )
-      for( size_t j=0; j<2; ++j )
-        DD2F[i+2*j] = FFFREF.d(i).d(j);
+    FFD FFXREF = FXREF;
+    FFXREF.diff(0, 2);
+    FFD FFYREF = FYREF;
+    FFYREF.diff(1, 2);
+    FFD FFFREF = myfunc(FFXREF, FFYREF);
+    for (size_t i = 0; i < 2; ++i)
+      for (size_t j = 0; j < 2; ++j) DD2F[i + 2 * j] = FFFREF.d(i).d(j);
 #else
-    BFD BFXREF[2] = { FXREF, FYREF };
-    BFD BFFREF = myfunc( BFXYREF[0], BFXYREF[1] );
-    BFFREF.diff(0,1);
-    for( size_t i=0; i<2; ++i )
-      for( size_t j=0; j<2; ++j )
-        DD2F[i+2*j] = BFXYREF[i].deriv(0).deriv(j);
+    BFD BFXREF[2] = {FXREF, FYREF};
+    BFD BFFREF    = myfunc(BFXYREF[0], BFXYREF[1]);
+    BFFREF.diff(0, 1);
+    for (size_t i = 0; i < 2; ++i)
+      for (size_t j = 0; j < 2; ++j)
+        DD2F[i + 2 * j] = BFXYREF[i].deriv(0).deriv(j);
 #endif
 #endif
-    pair<double,double> specF = SBI::spectrum( 2, DD2F );
-    cout << "\nSPECTRUM @REFERENCE POINT: " << I( specF.first, specF.second ) << endl;
+    pair<double, double> specF = SBI::spectrum(2, DD2F);
+    cout << "\nSPECTRUM @REFERENCE POINT: " << I(specF.first, specF.second)
+         << endl;
 
     // Compute spectral interval inclusion using eigenvalue arithmetic
-    I IX( XL, XU );
-    I IY( YL, YU );
-    SBI SBX( IX, 0, 2 );
-    SBI SBY( IY, 1, 2 );
+    I IX(XL, XU);
+    I IY(YL, YU);
+    SBI SBX(IX, 0, 2);
+    SBI SBY(IY, 1, 2);
 #ifdef USE_DAG
     SBI SBF;
-    DAG.eval( 1, &F, &SBF, 1, &X, &SBX, 1, &Y, &SBY );
+    DAG.eval(1, &F, &SBF, 1, &X, &SBX, 1, &Y, &SBY);
 #else
-    SBI SBF = myfunc( SBX, SBY );
+    SBI SBF = myfunc(SBX, SBY);
 #endif
     cout << "\nSPECTRAL BOUND (EIGENVALUE ARITHMETIC): " << SBF << endl;
 
     // Compute spectral bounds from interval Hessian matrix
-    I ID2F[2*2];
+    I ID2F[2 * 2];
 #ifdef USE_DAG
-    DAG.eval( 2*2, D2F, ID2F, 1, &X, &IX, 1, &Y, &IY );
+    DAG.eval(2 * 2, D2F, ID2F, 1, &X, &IX, 1, &Y, &IY);
 #else
-    FI FX = IX; FX.diff(0,2);
-    FI FY = IY; FY.diff(1,2);
+    FI FX = IX;
+    FX.diff(0, 2);
+    FI FY = IY;
+    FY.diff(1, 2);
 #ifndef USE_BAD
-    FFI FFX = FX; FFX.diff(0,2);
-    FFI FFY = FY; FFY.diff(1,2);
-    FFI FFF = myfunc( FFX, FFY );
-    for( size_t i=0; i<2; ++i )
-      for( size_t j=0; j<2; ++j )
-        ID2F[i+2*j] = FFF.d(i).d(j);
+    FFI FFX = FX;
+    FFX.diff(0, 2);
+    FFI FFY = FY;
+    FFY.diff(1, 2);
+    FFI FFF = myfunc(FFX, FFY);
+    for (size_t i = 0; i < 2; ++i)
+      for (size_t j = 0; j < 2; ++j) ID2F[i + 2 * j] = FFF.d(i).d(j);
 #else
-    BFI BFXY[2] = { FX, FY };
-    BFI BFF = myfunc( BFXY[0], BFXY[1] );
-    BFF.diff(0,1);
-    for( size_t i=0; i<2; ++i )
-      for( size_t j=0; j<2; ++j )
-        ID2F[i+2*j] = BFXY[i].deriv(0).deriv(j);
+    BFI BFXY[2] = {FX, FY};
+    BFI BFF     = myfunc(BFXY[0], BFXY[1]);
+    BFF.diff(0, 1);
+    for (size_t i = 0; i < 2; ++i)
+      for (size_t j = 0; j < 2; ++j)
+        ID2F[i + 2 * j] = BFXY[i].deriv(0).deriv(j);
 #endif
 #endif
     cout << "\nINTERVAL HESSIAN MATRIX:";
-    for( size_t i=0; i<2; ++i ){
-      std::cout << (i?", [":" [");
-      for( size_t j=0; j<2; ++j ){
-        std::cout << (j?", ":" ") << ID2F[i+2*j];
+    for (size_t i = 0; i < 2; ++i)
+    {
+      std::cout << (i ? ", [" : " [");
+      for (size_t j = 0; j < 2; ++j)
+      {
+        std::cout << (j ? ", " : " ") << ID2F[i + 2 * j];
       }
       std::cout << " ]";
     }
 
-    pair<double,double> spbndG = SBI::spectral_bound_gershgorin( 2, ID2F );
-    pair<double,double> spbndR = SBI::spectral_bound_rohn( 2, ID2F );
-    pair<double,double> spbndH = SBI::spectral_bound_hertz( 2, ID2F );
-    cout << "\nSPECTRAL BOUND (GERSHGORIN): " << I( spbndG.first, spbndG.second) << endl
-         << "\nSPECTRAL BOUND (ROHN):       " << I( spbndR.first, spbndR.second) << endl
-         << "\nSPECTRAL BOUND (HERTZ):      " << I( spbndH.first, spbndH.second) << endl;
+    pair<double, double> spbndG = SBI::spectral_bound_gershgorin(2, ID2F);
+    pair<double, double> spbndR = SBI::spectral_bound_rohn(2, ID2F);
+    pair<double, double> spbndH = SBI::spectral_bound_hertz(2, ID2F);
+    cout << "\nSPECTRAL BOUND (GERSHGORIN): " << I(spbndG.first, spbndG.second)
+         << endl
+         << "\nSPECTRAL BOUND (ROHN):       " << I(spbndR.first, spbndR.second)
+         << endl
+         << "\nSPECTRAL BOUND (HERTZ):      " << I(spbndH.first, spbndH.second)
+         << endl;
 
     // Repeated calculations at grid points
 #ifdef SAVE_RESULTS
-    for( int iX=0; iX<NX; iX++ ){
-     for( int iY=0; iY<NY; iY++ ){
-       double DX = XL+iX*(XU-XL)/(NX-1.);
-       double DY = YL+iY*(YU-YL)/(NY-1.);
+    for (int iX = 0; iX < NX; iX++)
+    {
+      for (int iY = 0; iY < NY; iY++)
+      {
+        double DX = XL + iX * (XU - XL) / (NX - 1.);
+        double DY = YL + iY * (YU - YL) / (NY - 1.);
 #ifdef USE_DAG
-       DAG.eval( 2*2, D2F, DD2F, 1, &X, &DX, 1, &Y, &DY );
+        DAG.eval(2 * 2, D2F, DD2F, 1, &X, &DX, 1, &Y, &DY);
 #else
-       FD FX = DX; FX.diff(0,2);
-       FD FY = DY; FY.diff(1,2);
+        FD FX = DX;
+        FX.diff(0, 2);
+        FD FY = DY;
+        FY.diff(1, 2);
 #ifndef USE_BAD
-       FFD FFX = FX; FFX.diff(0,2);
-       FFD FFY = FY; FFY.diff(1,2);
-       FFD FFF = myfunc( FFX, FFY );
-       for( size_t i=0; i<2; ++i )
-         for( size_t j=0; j<2; ++j )
-           DD2F[i+2*j] = FFF.d(i).d(j);
+        FFD FFX = FX;
+        FFX.diff(0, 2);
+        FFD FFY = FY;
+        FFY.diff(1, 2);
+        FFD FFF = myfunc(FFX, FFY);
+        for (size_t i = 0; i < 2; ++i)
+          for (size_t j = 0; j < 2; ++j) DD2F[i + 2 * j] = FFF.d(i).d(j);
 #else
-       BFD BFXY[2] = { FX, FY };
-       BFD BFF = myfunc( BFXY[0], BFXY[1] );
-       BFF.diff(0,1);
-       for( size_t i=0; i<2; ++i )
-         for( size_t j=0; j<2; ++j )
-           DD2F[i+2*j] = BFXY[i].deriv(0).deriv(j);
+        BFD BFXY[2] = {FX, FY};
+        BFD BFF     = myfunc(BFXY[0], BFXY[1]);
+        BFF.diff(0, 1);
+        for (size_t i = 0; i < 2; ++i)
+          for (size_t j = 0; j < 2; ++j)
+            DD2F[i + 2 * j] = BFXY[i].deriv(0).deriv(j);
 #endif
 #endif
-       specF = SBI::spectrum( 2, DD2F );
-       res << std::setw(14) << DX << std::setw(14) << DY
-           << std::setw(14) << specF.first << std::setw(14) << specF.second
-           << std::setw(14) << Op<I>::l(SBF.SI()) << std::setw(14) << Op<I>::u(SBF.SI())
-           << std::setw(14) << spbndG.first << std::setw(14) << spbndG.second
-           << std::setw(14) << spbndR.first << std::setw(14) << spbndR.second
-           << std::setw(14) << spbndH.first << std::setw(14) << spbndH.second
-           << std::endl;
+        specF = SBI::spectrum(2, DD2F);
+        res << std::setw(14) << DX << std::setw(14) << DY << std::setw(14)
+            << specF.first << std::setw(14) << specF.second << std::setw(14)
+            << Op<I>::l(SBF.SI()) << std::setw(14) << Op<I>::u(SBF.SI())
+            << std::setw(14) << spbndG.first << std::setw(14) << spbndG.second
+            << std::setw(14) << spbndR.first << std::setw(14) << spbndR.second
+            << std::setw(14) << spbndH.first << std::setw(14) << spbndH.second
+            << std::endl;
       }
       res << endl;
     }
@@ -419,19 +442,20 @@ int main()
 #endif
   }
 
-#if !defined(MC__USE_PROFIL) && !defined(MC__USE_FILIB) && !defined(MC__USE_BOOST)
-  catch( I::Exceptions &eObj ){
-    cerr << "Error " << eObj.ierr()
-         << " in natural interval extension:" << endl
-	 << eObj.what() << endl
+#if !defined(MC__USE_PROFIL) && !defined(MC__USE_FILIB) && \
+    !defined(MC__USE_BOOST)
+  catch (I::Exceptions& eObj)
+  {
+    cerr << "Error " << eObj.ierr() << " in natural interval extension:" << endl
+         << eObj.what() << endl
          << "Aborts." << endl;
     return eObj.ierr();
   }
 #endif
-  catch( SBI::Exceptions &eObj ){
-    cerr << "Error " << eObj.ierr()
-         << " in spectral bound computation:" << endl
-	 << eObj.what() << endl
+  catch (SBI::Exceptions& eObj)
+  {
+    cerr << "Error " << eObj.ierr() << " in spectral bound computation:" << endl
+         << eObj.what() << endl
          << "Aborts." << endl;
     return eObj.ierr();
   }

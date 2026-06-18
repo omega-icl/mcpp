@@ -13,7 +13,7 @@ INT-1D : INT-1D.o
 INT-2D : INT-2D.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
 
-%.o: %.cpp 
+%.o: %.cpp
 	$(CPP) -c $(FLAG_CPP) $(FLAG_MC) $(INC_MC) $< -o $@
 
 #####
@@ -33,4 +33,3 @@ gensvg :
 
 clean :
 	rm -f INT-1D INT-2D *.o *.out *.eps *.dot *.svg *~
-

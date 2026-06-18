@@ -34,4 +34,3 @@ print( PF.coefmon )
 PF.convert( pymc.FFPoly.options.MONOM )
 pymc.FFPoly.options.BASIS = pymc.FFPoly.options.MONOM;
 print( PF )
-

@@ -39,7 +39,7 @@ plot resfile u 1:2 tit 'function' w l lc 1 lt 1, \
   '' u 1:10 tit 'McCormick-Chebyshev-derived bounds' w l lt 1 lc 2, \
   '' u 1:11 tit '' w l lt 1 lc 2
 
-pause -1 "<ENTER> TO CONTINUE"  
+pause -1 "<ENTER> TO CONTINUE"
 
 plot resfile u 1:2 tit 'function' w l lc 1 lt 1, \
   '' u 1:12 tit 'Chebyshev-derived affine bounds' w l lt 1 lc 3, \

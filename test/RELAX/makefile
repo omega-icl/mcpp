@@ -21,7 +21,7 @@ PWLREL_% : PWLREL_%.o
 FFDAGEXT_% : FFDAGEXT_%.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC) $(LIB_MIP)
 
-%.o: %.cpp 
+%.o: %.cpp
 	$(CPP) -c $(FLAG_CPP) $(FLAG_MC) $(INC_MC) $(FLAG_MIP) $(INC_MIP) $< -o $@
 
 #####
@@ -42,4 +42,3 @@ gensvg :
 clean :
 	rm -f LINREL_Doxygen LINREL_build LINREL_build2 LINREL_build3 LINREL_?d PWLREL_?d FFDAGEXT_?d
 	rm -f *.o *~ *.eps *.lp *.dot *.svg *.out
-

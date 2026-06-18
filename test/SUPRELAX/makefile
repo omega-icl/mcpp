@@ -54,4 +54,3 @@ gensvg :
 clean :
 	rm -f SM-1D SM-2D testpwlu testpwcu
 	rm -f *.o *.out *.eps *.dot *.svg *~
-
