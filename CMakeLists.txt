@@ -43,6 +43,7 @@ set(CMAKE_CXX_FLAGS_RELEASE
 option(ENABLE_HSL "Enable HSL libraries" OFF)
 option(ENABLE_EXAMPLES "Build examples" OFF)
 option(ENABLE_TORCH "Enable Torch interface" OFF)
+option(MC__USE_FADBAD "Use the FADBAD++ forward-AD implementation" OFF)
 
 set(MC_INTERVAL_LIBRARY
     "BOOST"
@@ -393,6 +394,10 @@ target_compile_definitions(
   mc INTERFACE MC__USE_THREAD MC__USE_TADIFF MC__USE_ARMADILLO
                ${INTERVAL_DEFINITIONS})
 
+if(MC__USE_FADBAD)
+  target_compile_definitions(mc INTERFACE MC__USE_FADBAD)
+endif()
+
 # Match the classical Make warning flags and add backend-specific compile
 # options such as -frounding-math only when required, e.g. with FILIB.
 target_compile_options(
@@ -574,10 +579,21 @@ install(
 
 # Examples
 if(ENABLE_EXAMPLES)
-  file(GLOB_RECURSE EXAMPLE_SOURCES "test/*.cpp")
-  foreach(SOURCE_FILE ${EXAMPLE_SOURCES})
-    get_filename_component(EXEC_NAME ${SOURCE_FILE} NAME_WE)
-    add_executable(${EXEC_NAME} ${SOURCE_FILE})
-    target_link_libraries(${EXEC_NAME} PRIVATE mc)
+  file(
+    GLOB_RECURSE EXAMPLE_SOURCES
+    CONFIGURE_DEPENDS
+    "${CMAKE_CURRENT_SOURCE_DIR}/test/*.cpp"
+  )
+
+  foreach(SOURCE_FILE IN LISTS EXAMPLE_SOURCES)
+
+    # FADBAD-specific examples require MC__USE_FADBAD.
+    if(SOURCE_FILE MATCHES "/test/FADBAD/" AND NOT MC__USE_FADBAD)
+      continue()
+    endif()
+
+    get_filename_component(EXEC_NAME "${SOURCE_FILE}" NAME_WE)
+    add_executable("${EXEC_NAME}" "${SOURCE_FILE}")
+    target_link_libraries("${EXEC_NAME}" PRIVATE mc)
   endforeach()
 endif()
