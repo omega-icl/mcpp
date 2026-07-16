@@ -11,6 +11,8 @@
 #include "ffunc.hpp"
 #include "slift.hpp"
 // #include "spoly.hpp"
+#include "interval.hpp"
+#include "tmodel.hpp"
 #include "cmodel.hpp"
 #include "mccormick.hpp"
 #include "polimage.hpp"
@@ -19,7 +21,7 @@
 #include "scmodel.hpp"
 #include "specbnd.hpp"
 #include "supmodel.hpp"
-#include "tmodel.hpp"
+#include "ocbase.hpp"
 
 namespace mc
 {
@@ -31,7 +33,7 @@ namespace mc
 //! external DAG operation in MC++. The template parameter specifies the
 //! type for interval arithmetic.
 ////////////////////////////////////////////////////////////////////////
-template <typename T = void>
+template <typename T = mc::Interval>
 class FFLin : public FFOp
 {
  private:
@@ -328,9 +330,9 @@ class FFLin : public FFOp
     if (idU == typeid(FFVar))
       return eval(nRes, static_cast<FFVar*>(vRes), nVar,
                   static_cast<FFVar const*>(vVar), mVar);
-    else if (idU == typeid(fadbad::F<FFVar>))
-      return _eval(nRes, static_cast<fadbad::F<FFVar>*>(vRes), nVar,
-                   static_cast<fadbad::F<FFVar> const*>(vVar), mVar);
+    else if (idU == typeid(FADType<FFVar>))
+      return _eval(nRes, static_cast<FADType<FFVar>*>(vRes), nVar,
+                   static_cast<FADType<FFVar> const*>(vVar), mVar);
     else if (idU == typeid(FFDep))
       return _eval(nRes, static_cast<FFDep*>(vRes), nVar,
                    static_cast<FFDep const*>(vVar), mVar);
@@ -340,9 +342,9 @@ class FFLin : public FFOp
     else if (idU == typeid(double))
       return _eval(nRes, static_cast<double*>(vRes), nVar,
                    static_cast<double const*>(vVar), mVar);
-    else if (idU == typeid(fadbad::F<double>))
-      return _eval(nRes, static_cast<fadbad::F<double>*>(vRes), nVar,
-                   static_cast<fadbad::F<double> const*>(vVar), mVar);
+    else if (idU == typeid(FADType<double>))
+      return _eval(nRes, static_cast<FADType<double>*>(vRes), nVar,
+                   static_cast<FADType<double> const*>(vVar), mVar);
     else if (idU == typeid(T))
       return _eval(nRes, static_cast<T*>(vRes), nVar,
                    static_cast<T const*>(vVar), mVar);
@@ -370,6 +372,15 @@ class FFLin : public FFOp
     else if (idU == typeid(PolVar<T>))
       return eval(nRes, static_cast<PolVar<T>*>(vRes), nVar,
                   static_cast<PolVar<T> const*>(vVar), mVar);
+    else if (idU == typeid(OCVar<double>))
+      return _eval(nRes, static_cast<OCVar<double>*>(vRes), nVar,
+                  static_cast<OCVar<double> const*>(vVar), mVar);
+    else if (idU == typeid(OCVar<FADType<double>>))
+      return _eval(nRes, static_cast<OCVar<FADType<double>>*>(vRes), nVar,
+                  static_cast<OCVar<FADType<double>> const*>(vVar), mVar);
+    else if (idU == typeid(OCVar<FFDep>))
+      return _eval(nRes, static_cast<OCVar<FFDep>*>(vRes), nVar,
+                  static_cast<OCVar<FFDep> const*>(vVar), mVar);
     else if (idU == typeid(SLiftVar))
       return eval(nRes, static_cast<SLiftVar*>(vRes), nVar,
                   static_cast<SLiftVar const*>(vVar), mVar);
@@ -389,12 +400,12 @@ class FFLin : public FFOp
             FFVar const* vVar, unsigned const* mVar) const;
 
   //  void eval
-  //    ( size_t const nRes, fadbad::F<FFVar>* vRes, size_t const nVar,
-  //    fadbad::F<FFVar> const* vVar, unsigned const* mVar ) const;
+  //    ( size_t const nRes, FADType<FFVar>* vRes, size_t const nVar,
+  //    FADType<FFVar> const* vVar, unsigned const* mVar ) const;
 
   //  void eval
-  //    ( size_t const nRes, fadbad::F<double>* vRes, size_t const nVar,
-  //    fadbad::F<double> const* vVar, unsigned const* mVar ) const;
+  //    ( size_t const nRes, FADType<double>* vRes, size_t const nVar,
+  //    FADType<double> const* vVar, unsigned const* mVar ) const;
 
   void eval(size_t const nRes, SLiftVar* vRes, size_t const nVar,
             SLiftVar const* vVar, unsigned const* mVar) const;
@@ -490,11 +501,11 @@ FFLin<T>::eval(size_t const nRes, FFVar* vRes, size_t const nVar,
 template< typename T >
 inline void
 FFLin<T>::eval
-( size_t const nRes, fadbad::F<double>* vRes, size_t const nVar,
-fadbad::F<double> const* vVar, unsigned const* mVar ) const
+( size_t const nRes, FADType<double>* vRes, size_t const nVar,
+FADType<double> const* vVar, unsigned const* mVar ) const
 {
 #ifdef MC__FFLIN_TRACE
-  std::cout << "FFLin::eval: fadbad::F<double>\n";
+  std::cout << "FFLin::eval: FADType<double>\n";
 #endif
 #ifdef MC__FFLIN_CHECK
   assert( _nCoef && _ptrCoef && nRes == 1 );
@@ -523,11 +534,11 @@ _ptrCoef[i]*vVar[i][j]);
 template< typename T >
 inline void
 FFLin<T>::eval
-( size_t const nRes, fadbad::F<FFVar>* vRes, size_t const nVar, fadbad::F<FFVar>
+( size_t const nRes, FADType<FFVar>* vRes, size_t const nVar, FADType<FFVar>
 const* vVar, unsigned const* mVar ) const
 {
 #ifdef MC__FFLIN_TRACE
-  std::cout << "FFLin::eval: fadbad::F<FFVar>\n";
+  std::cout << "FFLin::eval: FADType<FFVar>\n";
 #endif
 #ifdef MC__FFLIN_CHECK
   assert( _nCoef && _ptrCoef && nRes == 1 );

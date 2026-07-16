@@ -11,10 +11,10 @@ LIB_LAPACK  = -larmadillo -llapack -lblas
 INC_LAPACK  = #-I$(PATH_LAPACK)/include
 FLAG_LAPACK = -DMC__USE_ARMADILLO
 
-PATH_FADBAD = $(PATH_3RD_PARTY)/fadbad++
+PATH_FADBAD = #$(PATH_3RD_PARTY)/fadbad++
 LIB_FADBAD  =
-INC_FADBAD  = -I$(PATH_FADBAD)
-FLAG_FADBAD = -DMC__USE_TADIFF #-DMC__USE_FADIFF
+INC_FADBAD  = #-I$(PATH_FADBAD)
+FLAG_FADBAD = #-DMC__USE_FADBAD #-DMC__DAG_FADIFF -DMC__DAG_BADIFF #-DMC__USE_FADBAD 
 
 PATH_PROFIL = $(PROFIL_HOME)
 LIB_PROFIL  = -L$(PATH_PROFIL)/lib -lProfilPackages -lProfil -lBias -llr
@@ -50,8 +50,8 @@ INC_PYBIND11 = -I$(INC_PYTHON) -I$(PATH_EXTERN)/pybind11/include
 # COMPILATION <<-- CHANGE AS APPROPRIATE -->>
 
 PROF = #-pg
-OPTIM = -O2
-DEBUG = #-g
+OPTIM = #-O2
+DEBUG = -g
 WARN  = -Wall -Wno-misleading-indentation -Wno-unknown-pragmas -Wno-parentheses -Wno-return-type
 CPP17 = -std=c++17
 CC    = gcc
@@ -84,6 +84,12 @@ ifneq (,$(findstring -DMC__USE_FILIB, $(FLAG_FILIB)))
  FLAG_MC += $(FLAG_FILIB)
  INC_MC  += $(INC_FILIB)
  LIB_MC  += $(LIB_FILIB)
+endif
+
+ifneq (,$(findstring -DMC__WITH_SPQR, $(FLAG_SUITESPARSE)))
+ FLAG_MC += $(FLAG_SUITESPARSE)
+ INC_MC  += $(INC_SUITESPARSE)
+ LIB_MC  += $(LIB_SUITESPARSE)
 endif
 
 ifneq (,$(findstring -DMC__USE_TORCH, $(FLAG_TORCH)))

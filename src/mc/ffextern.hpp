@@ -24,6 +24,7 @@
 #include "slift.hpp"
 #include "specbnd.hpp"
 #include "supmodel.hpp"
+#include "ocbase.hpp"
 
 namespace mc
 {

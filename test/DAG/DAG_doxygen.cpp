@@ -220,7 +220,7 @@ class FFnorm2 : public FFOp
   {
     assert(nRes == 1);
     std::cout << "NORM2 FFVar differentiation\n";
-    fadbad::F<FFVar> vFVar[nVar], vFRes[nRes];
+    FADType<FFVar> vFVar[nVar], vFRes[nRes];
     for (unsigned i = 0; i < nVar; ++i)
     {
       vFVar[i] = vVar[i];

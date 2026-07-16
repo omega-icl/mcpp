@@ -5706,6 +5706,9 @@ SupVar<Summand> hull
 */
 }  // namespace mc
 
+
+#ifdef MC__USE_FADBAD
+
 #include "mcfadbad.hpp"
 
 namespace fadbad
@@ -5893,6 +5896,9 @@ struct Op<mc::SupVar<Summand>>
 };
 
 }  // end namespace fadbad
+
+#endif // MC__USE_FADBAD
+
 
 namespace mc
 {

@@ -5,14 +5,15 @@ include $(srcpath)/makeoptions.mk
 #####
 
 incobjs = mcfunc.hpp mctime.hpp mclapack.hpp \
-          mcop.hpp mcboost.hpp mcprofil.hpp mcfilib.hpp mcfadbad.hpp \
+          mcop.hpp mcboost.hpp mcprofil.hpp mcfilib.hpp \
+          fdiff.hpp bdiff.hpp tdiff.hpp mcfadbad.hpp ocbase.hpp \
 	  interval.hpp mccormick.hpp specbnd.hpp \
 	  supmodel.hpp pwcu.hpp pwlu.hpp \
 	  ellipsoid.hpp ellimage.hpp polimage.hpp \
 	  polymodel.hpp tmodel.hpp cmodel.hpp smon.hpp scmodel.hpp sicmodel.hpp \
 	  ffdep.hpp ffinv.hpp ffunc.hpp ffexpr.hpp mchsl.hpp slift.hpp spoly.hpp \
-	  ocbase.hpp ocenv.hpp ffipdae.hpp \
-	  fflin.hpp ffspol.hpp ffvect.hpp ffextern.hpp ffdagext.hpp ffmlp.hpp ffmlpreg.hpp ffcustom.hpp
+	  fflin.hpp ffspol.hpp ffvect.hpp ffcustom.hpp \
+	  ffextern.hpp ffdagext.hpp ffmlp.hpp ffmlpreg.hpp 
 
 #####
 

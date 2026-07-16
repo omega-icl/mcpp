@@ -3649,6 +3649,9 @@ inter(TVar<T>& TVR, const TVar<T>& TV1, const TVar<T>& TV2)
 
 }  // namespace mc
 
+
+#ifdef MC__USE_FADBAD
+
 #include "mcfadbad.hpp"
 // #include "fadbad.h"
 
@@ -3839,6 +3842,9 @@ struct Op<mc::TVar<T> >
 };
 
 }  // end namespace fadbad
+
+#endif // MC__USE_FADBAD
+
 
 // #include "mcop.hpp"
 

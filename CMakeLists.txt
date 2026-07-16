@@ -382,7 +382,7 @@ target_include_directories(
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/mc>
     $<INSTALL_INTERFACE:include>
     # ${CMAKE_CURRENT_SOURCE_DIR}/src/3rdparty/boost
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/3rdparty/fadbad++
+    #${CMAKE_CURRENT_SOURCE_DIR}/src/3rdparty/fadbad++
     # ${CMAKE_CURRENT_SOURCE_DIR}/src/3rdparty/cpplapack-2015.05.11-1/include
     ${Boost_INCLUDE_DIRS}
     ${ARMADILLO_INCLUDE_DIRS}
@@ -504,7 +504,11 @@ set(MC_HEADERS
     mcboost.hpp
     mcprofil.hpp
     mcfilib.hpp
+    fdiff.hpp
+    bdiff.hpp
+    tdiff.hpp
     mcfadbad.hpp
+    ocbase.hpp
     interval.hpp
     mccormick.hpp
     specbnd.hpp
@@ -527,7 +531,7 @@ set(MC_HEADERS
     mchsl.hpp
     slift.hpp
     spoly.hpp
-    # ocbase.hpp ocenv.hpp ffipdae.hpp
+    ocbase.hpp
     fflin.hpp
     ffspol.hpp
     ffvect.hpp

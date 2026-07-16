@@ -1057,6 +1057,9 @@ operator>(Interval const& I1, Interval const& I2)
 
 }  // namespace mc
 
+
+#ifdef MC__USE_FADBAD
+
 #include "mcfadbad.hpp"
 // #include "fadbad.h"
 
@@ -1242,7 +1245,10 @@ struct Op<mc::Interval>
 
 }  // end namespace fadbad
 
-// #include "mcop.hpp"
+#endif // MC__USE_FADBAD
+
+
+#include "mcop.hpp"
 
 namespace mc
 {

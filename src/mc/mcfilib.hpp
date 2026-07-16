@@ -5,9 +5,14 @@
 #ifndef MC__MCFILIB_HPP
 #define MC__MCFILIB_HPP
 
-#include "fadbad.h"
 #include "interval/interval.hpp"
 #include "mcfunc.hpp"
+
+/////////////////
+
+#ifdef MC__USE_FADBAD
+
+#include "fadbad.h"
 
 namespace fadbad
 {
@@ -382,6 +387,10 @@ struct Op<
 };
 
 }  // end namespace fadbad
+
+#endif  // MC__USE_FADBAD
+
+/////////////////
 
 #include "mcop.hpp"
 

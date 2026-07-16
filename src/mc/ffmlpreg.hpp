@@ -44,9 +44,9 @@ class MLPREG
   //! @brief Intermediate storage
   std::vector<std::vector<double>> _Dhid;
   //! @brief Intermediate storage
-  std::vector<std::vector<fadbad::F<double>>> _FDhid;
+  std::vector<std::vector<FADType<double>>> _FDhid;
   //! @brief Intermediate storage
-  std::vector<std::vector<fadbad::B<double>>> _BDhid;
+  std::vector<std::vector<BADType<double>>> _BDhid;
 
  public:
   //! @brief Default constructor
@@ -175,14 +175,14 @@ class MLPREG
     _eval(y, x, w, _Dhid);
   }
   void
-  eval(fadbad::F<double>* y, fadbad::F<double> const* x,
-       fadbad::F<double> const* w)
+  eval(FADType<double>* y, FADType<double> const* x,
+       FADType<double> const* w)
   {
     _eval(y, x, w, _FDhid);
   }
   void
-  eval(fadbad::B<double>* y, fadbad::B<double> const* x,
-       fadbad::B<double> const* w)
+  eval(BADType<double>* y, BADType<double> const* x,
+       BADType<double> const* w)
   {
     _eval(y, x, w, _BDhid);
     _BDhid.clear();
@@ -200,17 +200,17 @@ class MLPREG
     return options.RELU2ABS ? (x + Op<U>::fabs(x)) * 0.5 : Op<U>::max(x, U(0.));
   }
   template <typename U>
-  fadbad::F<U>
-  ReLU(fadbad::F<U> const& x) const
+  FADType<U>
+  ReLU(FADType<U> const& x) const
   {
-    fadbad::F<U> z = ReLU(x.val());
+    FADType<U> z = ReLU(x.val());
     z.setDepend(x);
     for (unsigned j = 0; j < z.size(); ++j) z[j] = Op<U>::fstep(x.val()) * x[j];
     return z;
   }
   //  template <typename U>
-  //  fadbad::B<U> ReLU
-  //    ( fadbad::B<U> const& x )
+  //  BADType<U> ReLU
+  //    ( BADType<U> const& x )
   //    const
   //    {
   //    }
@@ -493,18 +493,18 @@ class FFMLPREG
     if (idU == typeid(FFVar))
       return eval(nRes, static_cast<FFVar*>(vRes), nVar,
                   static_cast<FFVar const*>(vVar), mVar);
-    else if (idU == typeid(fadbad::F<FFVar>))
-      return eval(nRes, static_cast<fadbad::F<FFVar>*>(vRes), nVar,
-                  static_cast<fadbad::F<FFVar> const*>(vVar), mVar);
+    else if (idU == typeid(FADType<FFVar>))
+      return eval(nRes, static_cast<FADType<FFVar>*>(vRes), nVar,
+                  static_cast<FADType<FFVar> const*>(vVar), mVar);
     else if (idU == typeid(FFDep))
       return eval(nRes, static_cast<FFDep*>(vRes), nVar,
                   static_cast<FFDep const*>(vVar), mVar);
     else if (idU == typeid(double))
       return eval(nRes, static_cast<double*>(vRes), nVar,
                   static_cast<double const*>(vVar), mVar);
-    else if (idU == typeid(fadbad::F<double>))
-      return eval(nRes, static_cast<fadbad::F<double>*>(vRes), nVar,
-                  static_cast<fadbad::F<double> const*>(vVar), mVar);
+    else if (idU == typeid(FADType<double>))
+      return eval(nRes, static_cast<FADType<double>*>(vRes), nVar,
+                  static_cast<FADType<double> const*>(vVar), mVar);
     //      else if( idU == typeid( T ) )
     //        return eval( nRes, static_cast<T*>(vRes), nVar, static_cast<T
     //        const*>(vVar), mVar );
@@ -539,8 +539,8 @@ class FFMLPREG
   void eval(unsigned const nRes, FFVar* vRes, unsigned const nVar,
             FFVar const* vVar, unsigned const* mVar) const;
 
-  void eval(unsigned const nRes, fadbad::F<FFVar>* vRes, unsigned const nVar,
-            fadbad::F<FFVar> const* vVar, unsigned const* mVar) const;
+  void eval(unsigned const nRes, FADType<FFVar>* vRes, unsigned const nVar,
+            FADType<FFVar> const* vVar, unsigned const* mVar) const;
 
   void eval(unsigned const nRes, SLiftVar* vRes, unsigned const nVar,
             SLiftVar const* vVar, unsigned const* mVar) const;
@@ -792,12 +792,12 @@ FFMLPREG<T>::eval(unsigned const nRes, FFVar* vRes, unsigned const nVar,
 
 template <typename T>
 inline void
-FFMLPREG<T>::eval(unsigned const nRes, fadbad::F<FFVar>* vRes,
-                  unsigned const nVar, fadbad::F<FFVar> const* vVar,
+FFMLPREG<T>::eval(unsigned const nRes, FADType<FFVar>* vRes,
+                  unsigned const nVar, FADType<FFVar> const* vVar,
                   unsigned const* mVar) const
 {
 #ifdef MC__FFMLPREG_TRACE
-  std::cout << "FFMLPREG::eval: fadbad::F<FFVar>\n";
+  std::cout << "FFMLPREG::eval: FADType<FFVar>\n";
 #endif
 #ifdef MC__FFMLPREG_CHECK
   assert(_pMLP && nVar == _pMLP->nin() + _pMLP->nwei() &&
@@ -884,13 +884,13 @@ FFGRADMLPREG<T>::eval(unsigned const nRes, double* vRes, unsigned const nVar,
     default:
     case MLPREG<T>::Options::AD::F:
     {
-      std::vector<fadbad::F<double>> vFVar(nIndep);
+      std::vector<FADType<double>> vFVar(nIndep);
       for (unsigned i = 0; i < nIndep; ++i)
       {
         vFVar[i] = vVar[i];
         vFVar[i].diff(i, nIndep);
       }
-      std::vector<fadbad::F<double>> vFRes(_pMLP->nout());
+      std::vector<FADType<double>> vFRes(_pMLP->nout());
       _pMLP->eval(vFRes.data(), vFVar.data(), vFVar.data() + _pMLP->nin());
       for (unsigned k = 0; k < _pMLP->nout(); ++k)
         for (unsigned i = 0; i < nIndep; ++i)
@@ -900,9 +900,9 @@ FFGRADMLPREG<T>::eval(unsigned const nRes, double* vRes, unsigned const nVar,
 
     case MLPREG<T>::Options::AD::B:
     {
-      std::vector<fadbad::B<double>> vBVar(nIndep);
+      std::vector<BADType<double>> vBVar(nIndep);
       for (unsigned i = 0; i < nIndep; ++i) vBVar[i] = vVar[i];
-      std::vector<fadbad::B<double>> vBRes(_pMLP->nout());
+      std::vector<BADType<double>> vBRes(_pMLP->nout());
       _pMLP->eval(vBRes.data(), vBVar.data(), vBVar.data() + _pMLP->nin());
       for (unsigned k = 0; k < _pMLP->nout(); ++k)
         vBRes[k].diff(k, _pMLP->nout());

@@ -6,8 +6,6 @@
 #define MC__MCBOOST_HPP
 
 #include <boost/numeric/interval.hpp>
-
-#include "fadbad.h"
 #include "mcfunc.hpp"
 
 // namespace mc
@@ -19,6 +17,12 @@
 // boost::numeric::interval<double,boost::numeric::interval_lib::policies<T_boost_round,T_boost_check>>
 // T_policy;
 // }
+
+/////////////////
+
+#ifdef MC__USE_FADBAD
+
+#include "fadbad.h"
 
 namespace fadbad
 {
@@ -216,6 +220,10 @@ struct Op<boost::numeric::interval<
 };
 
 }  // end namespace fadbad
+
+#endif  // MC__USE_FADBAD
+
+/////////////////
 
 #include "mcop.hpp"
 

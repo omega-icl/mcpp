@@ -28,8 +28,9 @@ function values in real arithmetics. Moreover, mc::Specbnd can be used as the
 template parameter of other available types in MC++; for instance, mc::Specbnd
 can be used in order to propagate spectral bounds on the remainder term of
 polynomial models in mc::TVar, mc::CVar or mc::SCVar. Likewise, mc::Specbnd can
-be used as the template parameter of the types fadbad::F, fadbad::B and
-fadbad::T of <A href="http://www.fadbad.com/fadbad.html">FADBAD++</A> for
+be used as the template parameter of the types mc::F, mc::B, mc::T (or their
+FADBAD counterparts, fadbad::F, fadbad::B and
+fadbad::T of <A href="http://www.fadbad.com/fadbad.html">FADBAD++</A>) for
 computing spectral bounds of either the partial derivatives or the Taylor
 coefficients of a factorable function too (see \ref sec_SPECBND_fadbad).
 
@@ -132,14 +133,13 @@ As noted earlier, other methods are available for bounding the spectrum of
 interval Hessian matrices, such as Gershgorin's circle criterion and Hertz &
 Rohn's method. mc::Specbnd also provides a means for computing these bounds,
 e.g. for comparison with the M&ouml;nnigmann's eigenvalue arithmetic. Interval
-Hessian matrices can be computed using the forward and/or reverse AD types of <A
-href="http://www.fadbad.com/fadbad.html">FADBAD++</A>:
+Hessian matrices can be computed using forward and/or reverse AD types:
 
 \code
       #include "mcfadbad.hpp"
-      typedef fadbad::F<I> FI;
-      typedef fadbad::F<FI> FFI;
-      typedef fadbad::B<FI> BFI;
+      typedef mc::F<I> FI;
+      typedef mc::F<FI> FFI;
+      typedef mc::B<FI> BFI;
 \endcode
 
 Then, in order to compute spectral bounds for
@@ -278,19 +278,19 @@ differentiable.
 \section sec_SPECBND_fadbad How do I compute spectral bounds of the partial
 derivatives or the Taylor coefficients of a factorable function using FADBAD++?
 
-The combination of mc::Specbnd with the classes fadbad::F, fadbad::B and
-fadbad::T of <A href="http://www.fadbad.com/fadbad.html">FADBAD++</A> to compute
-a spectral bound for the Hessian matrix of either the partial derivatives or the
-Taylor coefficients of a factorable function is essentially the same as with
-mc::McCormick (see \ref sec_MCCORMICK_fadbad).
+The combination of mc::Specbnd with AD classes (e.g. mc::F, mc::B and mc::T or
+their <A href="http://www.fadbad.com/fadbad.html">FADBAD++</A> counterpats) to
+compute a spectral bound for the Hessian matrix of either the partial
+derivatives or the Taylor coefficients of a factorable function is essentially
+the same as with mc::McCormick (see \ref sec_MCCORMICK_fadbad).
 
-Next, we present the case of fadbad::F only. Continuing the previous example,
+Next, we present the case of mc::F only. Continuing the previous example,
 spectral bounds of the partial derivatvies of
 \f$f(x_1,x_2,x_3)=\exp(x_1-2x_2^2+3x_3^3)\f$ for \f$(x_1,x_2,x_3)\in
 [-0.3,0.2]\times[-0.1,0.6]\times[-0.4,0.5]\f$ can be computed as follows:
 
 \code
-      typedef fadbad::F<SB> FSB;
+      typedef mc::F<SB> FSB;
 \endcode
 
 \code
@@ -423,6 +423,14 @@ class Specbnd
   template <class U>
   friend std::ostream& operator<<(std::ostream&, Specbnd<U> const&);
 
+ public:
+  using FT = FADType<T>;
+//#ifndef MC__USE_FADBAD
+//  typedef mc::F<T> FT;
+//#else
+//  typedef fadbad::F<T> FT;
+//#endif
+
  private:
   //! @brief Number of independent variables
   unsigned _n;
@@ -431,7 +439,7 @@ class Specbnd
   //! @brief Set of nonlinear variable dependencies
   std::set<unsigned> _N;
   //! @brief Gradient bounds
-  fadbad::F<T> _FI;
+  FT _FI;
   //! @brief Spectral bound
   T _SI;
 
@@ -593,7 +601,7 @@ class Specbnd
 
   //! @brief Set function and first derivative bounds as well as spectral bounds
   //! to, respectively, <tt>FB</tt> and <tt>SB</tt>
-  Specbnd<T>& set(std::set<unsigned> const& D, fadbad::F<T> const& FB,
+  Specbnd<T>& set(std::set<unsigned> const& D, FT const& FB,
                   T const& SB);
 
   //! @brief Set the index of a variable (and total number of variables)
@@ -973,7 +981,7 @@ class Specbnd
                x._FI.val() * Op<T>::inv(1. - Op<T>::sqr(x._FI.val()));
       x._SI *= -Op<T>::inv(Op<T>::sqrt(1. - Op<T>::sqr(x._FI.val())));
     }
-    x._FI = fadbad::acos(x._FI);
+    x._FI = mc::Op<FT>::acos(x._FI);
     // Linear dependencies become nonlinear after nonlinear composition
     if (x._N.size() < x._D.size()) x._N.insert(x._D.cbegin(), x._D.cend());
   }
@@ -999,7 +1007,7 @@ class Specbnd
                x._FI.val() * Op<T>::inv(1. - Op<T>::sqr(x._FI.val()));
       x._SI *= Op<T>::inv(Op<T>::sqrt(1. - Op<T>::sqr(x._FI.val())));
     }
-    x._FI = fadbad::asin(x._FI);
+    x._FI = mc::Op<FT>::asin(x._FI);
     // Linear dependencies become nonlinear after nonlinear composition
     if (x._N.size() < x._D.size()) x._N.insert(x._D.cbegin(), x._D.cend());
   }
@@ -1024,7 +1032,7 @@ class Specbnd
                x._FI.val() * Op<T>::inv(1. + Op<T>::sqr(x._FI.val()));
       x._SI *= Op<T>::inv(1. + Op<T>::sqr(x._FI.val()));
     }
-    x._FI = fadbad::atan(x._FI);
+    x._FI = mc::Op<FT>::atan(x._FI);
     // Linear dependencies become nonlinear after nonlinear composition
     if (x._N.size() < x._D.size()) x._N.insert(x._D.cbegin(), x._D.cend());
   }
@@ -1036,7 +1044,8 @@ class Specbnd
     // Case 1 in Schultze Darup & Monnigmann (2015), Table 4.3
     if (x._N.empty())
     {
-      fadbad::F<T> z_FI = fadbad::tan(x._FI);
+      FT z_FI = mc::Op<FT>::tan(x._FI);
+      //fadbad::F<T> z_FI = fadbad::tan(x._FI);
       x._SI = _LambdaS((x._FI.size() ? &x._FI[0] : nullptr), x._D) * 2. *
               z_FI.val() * (1. + Op<T>::sqr(z_FI.val()));
       std::swap(z_FI, x._FI);
@@ -1047,7 +1056,8 @@ class Specbnd
       if (x._N.size() < x._D.size()) x._SI = Op<T>::hull(x._SI, T(0.));
       // Case 2 in Schultze Darup & Monnigmann (2015), Table 4.3
       /* Use x._SI as is */
-      fadbad::F<T> z_FI = fadbad::tan(x._FI);
+      FT z_FI = mc::Op<FT>::tan(x._FI);
+      //fadbad::F<T> z_FI = fadbad::tan(x._FI);
       x._SI += 2. * _LambdaS((x._FI.size() ? &x._FI[0] : nullptr), x._D) *
                z_FI.val();
       x._SI *= (1. + Op<T>::sqr(z_FI.val()));
@@ -1064,7 +1074,8 @@ class Specbnd
     // Case 1 in Schultze Darup & Monnigmann (2015), Table 4.3
     if (x._N.empty())
     {
-      fadbad::F<T> z_FI = fadbad::tanh(x._FI);
+      FT z_FI = mc::Op<FT>::tanh(x._FI);
+      //fadbad::F<T> z_FI = fadbad::tanh(x._FI);
       x._SI = _LambdaS((x._FI.size() ? &x._FI[0] : nullptr), x._D) * (-2.) *
               z_FI.val() * (1. - Op<T>::sqr(z_FI.val()));
       std::swap(z_FI, x._FI);
@@ -1075,7 +1086,8 @@ class Specbnd
       if (x._N.size() < x._D.size()) x._SI = Op<T>::hull(x._SI, T(0.));
       // Case 2 in Schultze Darup & Monnigmann (2015), Table 4.3
       /* Use x._SI as is */
-      fadbad::F<T> z_FI = fadbad::tanh(x._FI);
+      FT z_FI = mc::Op<FT>::tanh(x._FI);
+      //fadbad::F<T> z_FI = fadbad::tanh(x._FI);
       x._SI += (-2.) * _LambdaS((x._FI.size() ? &x._FI[0] : nullptr), x._D) *
                z_FI.val();
       x._SI *= (1. - Op<T>::sqr(z_FI.val()));
@@ -1104,7 +1116,7 @@ class Specbnd
       x._SI += _LambdaS((x._FI.size() ? &x._FI[0] : nullptr), x._D);
       x._SI *= Op<T>::exp(x._FI.val());
     }
-    x._FI = fadbad::exp(x._FI);
+    x._FI = mc::Op<FT>::exp(x._FI);
     // Linear dependencies become nonlinear after nonlinear composition
     if (x._N.size() < x._D.size()) x._N.insert(x._D.cbegin(), x._D.cend());
   }
@@ -1129,7 +1141,7 @@ class Specbnd
           _LambdaS((x._FI.size() ? &x._FI[0] : nullptr), x._D) / x._FI.val();
       x._SI /= x._FI.val();
     }
-    x._FI = fadbad::log(x._FI);
+    x._FI = mc::Op<FT>::log(x._FI);
     // Linear dependencies become nonlinear after nonlinear composition
     if (x._N.size() < x._D.size()) x._N.insert(x._D.cbegin(), x._D.cend());
   }
@@ -1154,7 +1166,7 @@ class Specbnd
                (-2. * x._FI.val());
       x._SI /= 2. * Op<T>::sqrt(x._FI.val());
     }
-    x._FI = fadbad::sqrt(x._FI);
+    x._FI = mc::Op<FT>::sqrt(x._FI);
     // Linear dependencies become nonlinear after nonlinear composition
     if (x._N.size() < x._D.size()) x._N.insert(x._D.cbegin(), x._D.cend());
   }
@@ -1220,7 +1232,7 @@ class Specbnd
       x._SI += _LambdaS((x._FI.size() ? &x._FI[0] : nullptr), x._D) * (m - 1.);
       x._SI *= Op<T>::pow(x._FI.val(), m - 2) * (double)m;
     }
-    x._FI = fadbad::pow2(x._FI, m);
+    x._FI = mc::Op<FT>::pow(x._FI, m);
     // Linear dependencies become nonlinear after nonlinear composition
     if (x._N.size() < x._D.size()) x._N.insert(x._D.cbegin(), x._D.cend());
   }
@@ -1244,7 +1256,7 @@ class Specbnd
       x._SI += _LambdaS((x._FI.size() ? &x._FI[0] : nullptr), x._D);
       x._SI *= 2.;
     }
-    x._FI = fadbad::sqr(x._FI);
+    x._FI = mc::Op<FT>::sqr(x._FI);
     // Linear dependencies become nonlinear after nonlinear composition
     if (x._N.size() < x._D.size()) x._N.insert(x._D.cbegin(), x._D.cend());
   }
@@ -1715,7 +1727,7 @@ Specbnd<T>::operator=(T const& I)
 /*
 template <class T> inline Specbnd<T>&
 Specbnd<T>::set
-( std::set<unsigned> const& D, fadbad::F<T> const& FB, T const& SB )
+( std::set<unsigned> const& D, Specbnd<T>::FT const& FB, T const& SB )
 {
   _n  = FB.size();
   _D  = D;
@@ -2202,10 +2214,11 @@ template <class T>
 inline Specbnd<T>&&
 xlog(Specbnd<T>&& y)
 {
-  auto const& f = [&](fadbad::F<T> const& x)
-  { return x * mc::Op<fadbad::F<T>>::log(x); };
-  auto const& Df  = [&](T const& x) { return 1. + Op<T>::log(x); };
-  auto const& D2f = [&](T const& x) { return Op<T>::inv(x); };
+  using FT = typename Specbnd<T>::FT;
+  auto const f = [](FT const& x)
+  { return x * mc::Op<FT>::log(x); };
+  auto const Df  = [](T const& x) { return 1. + Op<T>::log(x); };
+  auto const D2f = [](T const& x) { return Op<T>::inv(x); };
   Specbnd<T>::compose(y, f, Df, D2f);
   return std::move(y);
 }
@@ -2317,10 +2330,11 @@ template <class T>
 inline Specbnd<T>&&
 cos(Specbnd<T>&& y)
 {
-  auto const& f = [&](fadbad::F<T> const& x)
-  { return Op<fadbad::F<T>>::cos(x); };
-  auto const& Df  = [&](T const& x) -> T { return -Op<T>::sin(x); };
-  auto const& D2f = [&](T const& x) -> T { return -Op<T>::cos(x); };
+  using FT = typename Specbnd<T>::FT;
+  auto const f = [](FT const& x)
+  { return Op<FT>::cos(x); };
+  auto const Df  = [](T const& x) -> T { return -Op<T>::sin(x); };
+  auto const D2f = [](T const& x) -> T { return -Op<T>::cos(x); };
   Specbnd<T>::compose(y, f, Df, D2f);
   return std::move(y);
 }
@@ -2337,10 +2351,11 @@ template <class T>
 inline Specbnd<T>&&
 sin(Specbnd<T>&& y)
 {
-  auto const& f = [&](fadbad::F<T> const& x)
-  { return Op<fadbad::F<T>>::sin(x); };
-  auto const& Df  = [&](T const& x) -> T { return Op<T>::cos(x); };
-  auto const& D2f = [&](T const& x) -> T { return -Op<T>::sin(x); };
+  using FT = typename Specbnd<T>::FT;
+  auto const f = [](FT const& x)
+  { return Op<FT>::sin(x); };
+  auto const Df  = [](T const& x) -> T { return Op<T>::cos(x); };
+  auto const D2f = [](T const& x) -> T { return -Op<T>::sin(x); };
   Specbnd<T>::compose(y, f, Df, D2f);
   return std::move(y);
 }
@@ -2425,10 +2440,11 @@ template <class T>
 inline Specbnd<T>&&
 cosh(Specbnd<T>&& y)
 {
-  auto const& f = [&](fadbad::F<T> const& x)
-  { return Op<fadbad::F<T>>::cosh(x); };
-  auto const& Df  = [&](T const& x) { return Op<T>::sinh(x); };
-  auto const& D2f = [&](T const& x) { return Op<T>::cosh(x); };
+  using FT = typename Specbnd<T>::FT;
+  auto const f = [](FT const& x)
+  { return Op<FT>::cosh(x); };
+  auto const Df  = [](T const& x) { return Op<T>::sinh(x); };
+  auto const D2f = [](T const& x) { return Op<T>::cosh(x); };
   Specbnd<T>::compose(y, f, Df, D2f);
   return std::move(y);
 }
@@ -2445,10 +2461,11 @@ template <class T>
 inline Specbnd<T>&&
 sinh(Specbnd<T>&& y)
 {
-  auto const& f = [&](fadbad::F<T> const& x)
-  { return Op<fadbad::F<T>>::sinh(x); };
-  auto const& Df  = [&](T const& x) { return Op<T>::cosh(x); };
-  auto const& D2f = [&](T const& x) { return Op<T>::sinh(x); };
+  using FT = typename Specbnd<T>::FT;
+  auto const f = [](FT const& x)
+  { return Op<FT>::sinh(x); };
+  auto const Df  = [](T const& x) { return Op<T>::cosh(x); };
+  auto const D2f = [](T const& x) { return Op<T>::sinh(x); };
   Specbnd<T>::compose(y, f, Df, D2f);
   return std::move(y);
 }
@@ -2482,11 +2499,12 @@ template <class T>
 inline Specbnd<T>&&
 erf(Specbnd<T>&& y)
 {
-  auto const& f = [&](fadbad::F<T> const& x)
-  { return mc::Op<fadbad::F<T>>::erf(x); };
-  auto const& Df = [&](T const& x)
+  using FT = typename Specbnd<T>::FT;
+  auto const f = [](FT const& x)
+  { return mc::Op<FT>::erf(x); };
+  auto const Df = [](T const& x)
   { return (2. / std::sqrt(PI)) * Op<T>::exp(-Op<T>::sqr(x)); };
-  auto const& D2f = [&](T const& x)
+  auto const D2f = [](T const& x)
   { return (-4. / std::sqrt(PI)) * x * Op<T>::exp(-Op<T>::sqr(x)); };
   Specbnd<T>::compose(y, f, Df, D2f);
   return std::move(y);
@@ -2516,6 +2534,8 @@ erfc(Specbnd<T> const& y)
 
 }  // namespace mc
 
+
+#ifdef MC__USE_FADBAD
 namespace fadbad
 {
 
@@ -2700,6 +2720,9 @@ struct Op<mc::Specbnd<T>>
 };
 
 }  // end namespace fadbad
+
+#endif // #ifdef MC__USE_FADBAD
+
 
 // #include "mcop.hpp"
 

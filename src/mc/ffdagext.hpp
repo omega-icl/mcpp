@@ -12,6 +12,7 @@
 #include <limits>   // std::numeric_limits
 #include <new>      // std::bad_alloc
 
+#include "interval.hpp"
 #include "ffextern.hpp"
 
 namespace mc
@@ -23,7 +24,7 @@ namespace mc
 //! mc::DAGEXT is a C++ class for evaluation and relaxation of an
 //! operation defined by an expression tree using MC++
 ////////////////////////////////////////////////////////////////////////
-template <typename T>
+template <typename T = mc::Interval>
 class DAGEXT
 ////////////////////////////////////////////////////////////////////////
 {
@@ -38,17 +39,19 @@ class DAGEXT
   FFSubgraph _codelist;
 
   //! @brief Intermediate storage for DAG evaluation
-  std::vector<double> _wkD;
-  std::vector<fadbad::F<double>> _wkFD;
-  std::vector<fadbad::B<double>> _wkBD;
-  std::vector<T> _wkI;
-  std::vector<T> _wkCPI;
-  std::vector<McCormick<T>> _wkMC;
-  std::vector<Specbnd<T>> _wkSB;
-  std::vector<SCVar<T>> _wkSC;
-  std::vector<SupVar<PWCU>> _wkPWCS;
-  std::vector<SupVar<PWLU>> _wkPWLS;
-  std::vector<PolVar<T>> _wkPOL;
+  std::vector<double>                    _wkD;
+  std::vector<FADType<double>>           _wkFD;
+  std::vector<BADType<double>>           _wkBD;
+  std::vector<T>                         _wkI;
+  std::vector<T>                         _wkCPI;
+  std::vector<McCormick<T>>              _wkMC;
+  std::vector<Specbnd<T>>                _wkSB;
+  std::vector<SCVar<T>>                  _wkSC;
+  std::vector<SupVar<PWCU>>              _wkPWCS;
+  std::vector<SupVar<PWLU>>              _wkPWLS;
+  std::vector<PolVar<T>>                 _wkPOL;
+  std::vector<OCVar<double>>             _wkOCD;
+  std::vector<OCVar<FADType<double>>>    _wkOCFD;
 
   //! @brief Set expression tree
   void
@@ -296,13 +299,13 @@ class DAGEXT
       default:
       case Options::AD_TYPE::F:
       {
-        std::vector<fadbad::F<double>> vFvalin(nin);
+        std::vector<FADType<double>> vFvalin(nin);
         for (size_t i = 0; i < nin; ++i)
         {
           vFvalin[i] = valin[i];
           vFvalin[i].diff(i, nin);
         }
-        std::vector<fadbad::F<double>> vFvalout(nout);
+        std::vector<FADType<double>> vFvalout(nout);
         _eval(vFvalin.data(), vFvalout.data(), _wkFD);
         for (size_t k = 0; k < nout; ++k)
         {
@@ -315,12 +318,12 @@ class DAGEXT
 
       case Options::AD_TYPE::B:
       {
-        std::vector<fadbad::B<double>> vBvalin(nin);
+        std::vector<BADType<double>> vBvalin(nin);
         for (size_t i = 0; i < nin; ++i) vBvalin[i] = valin[i];
-        std::vector<fadbad::B<double>> vBvalout(nout);
+        std::vector<BADType<double>> vBvalout(nout);
         _eval(vBvalin.data(), vBvalout.data(), _wkBD);
         for (size_t k = 0; k < nout; ++k) vBvalout[k].diff(k, nout);
-        // FADBAD++ reverse mode propagates adjoints when expression nodes
+        // AD reverse mode propagates adjoints when expression nodes
         // are released. The persistent work array holds
         // references to intermediatess, so release it before reading input
         // derivatives.
@@ -343,7 +346,7 @@ class DAGEXT
     _eval(valin, valout, _wkD);
   }
   void
-  eval(fadbad::F<double> const* valin, fadbad::F<double>* valout)
+  eval(FADType<double> const* valin, FADType<double>* valout)
   {
     _eval(valin, valout, _wkFD);
   }
@@ -385,6 +388,16 @@ class DAGEXT
   eval(PolVar<T> const* valin, PolVar<T>* valout)
   {
     _eval(valin, valout, _wkPOL);
+  }
+  void
+  eval(OCVar<double> const* valin, OCVar<double>* valout)
+  {
+    _eval(valin, valout, _wkOCD);
+  }
+  void
+  eval(OCVar<FADType<double>> const* valin, OCVar<FADType<double>>* valout)
+  {
+    _eval(valin, valout, _wkOCFD);
   }
   template <typename U>
   void
@@ -479,7 +492,7 @@ struct lt_DAGEXT
 //! mc::FFDAGEXT is a C++ class for defining expression trees as
 //! external DAG operations in MC++.
 ////////////////////////////////////////////////////////////////////////
-template <typename T>
+template <typename T = mc::Interval>
 class FFDAGEXT
     ////////////////////////////////////////////////////////////////////////
     : public FFEXTERN<T, DAGEXT<T>>
@@ -655,9 +668,9 @@ class FFDAGEXT
     if (idU == typeid(FFVar))
       return eval(nRes, static_cast<FFVar*>(vRes), nVar,
                   static_cast<FFVar const*>(vVar), mVar);
-    else if (idU == typeid(fadbad::F<FFVar>))
-      return eval(nRes, static_cast<fadbad::F<FFVar>*>(vRes), nVar,
-                  static_cast<fadbad::F<FFVar> const*>(vVar), mVar);
+    else if (idU == typeid(FADType<FFVar>))
+      return eval(nRes, static_cast<FADType<FFVar>*>(vRes), nVar,
+                  static_cast<FADType<FFVar> const*>(vVar), mVar);
     else if (idU == typeid(FFDep))
       return eval(nRes, static_cast<FFDep*>(vRes), nVar,
                   static_cast<FFDep const*>(vVar), mVar);
@@ -667,9 +680,9 @@ class FFDAGEXT
     else if (idU == typeid(double))
       return eval(nRes, static_cast<double*>(vRes), nVar,
                   static_cast<double const*>(vVar), mVar);
-    else if (idU == typeid(fadbad::F<double>))
-      return eval(nRes, static_cast<fadbad::F<double>*>(vRes), nVar,
-                  static_cast<fadbad::F<double> const*>(vVar), mVar);
+    else if (idU == typeid(FADType<double>))
+      return eval(nRes, static_cast<FADType<double>*>(vRes), nVar,
+                  static_cast<FADType<double> const*>(vVar), mVar);
     else if (idU == typeid(T))
       return eval(nRes, static_cast<T*>(vRes), nVar,
                   static_cast<T const*>(vVar), mVar);
@@ -691,6 +704,15 @@ class FFDAGEXT
     else if (idU == typeid(PolVar<T>))
       return eval(nRes, static_cast<PolVar<T>*>(vRes), nVar,
                   static_cast<PolVar<T> const*>(vVar), mVar);
+    else if (idU == typeid(OCVar<double>))
+      return eval(nRes, static_cast<OCVar<double>*>(vRes), nVar,
+                  static_cast<OCVar<double> const*>(vVar), mVar);
+    else if (idU == typeid(OCVar<FADType<double>>))
+      return eval(nRes, static_cast<OCVar<FADType<double>>*>(vRes), nVar,
+                  static_cast<OCVar<FADType<double>> const*>(vVar), mVar);
+    else if (idU == typeid(OCVar<FFDep>))
+      return eval(nRes, static_cast<OCVar<FFDep>*>(vRes), nVar,
+                  static_cast<OCVar<FFDep> const*>(vVar), mVar);
     else if (idU == typeid(SLiftVar))
       return eval(nRes, static_cast<SLiftVar*>(vRes), nVar,
                   static_cast<SLiftVar const*>(vVar), mVar);
@@ -713,8 +735,8 @@ class FFDAGEXT
   void eval(size_t const nRes, FFVar* vRes, size_t const nVar,
             FFVar const* vVar, unsigned const* mVar) const;
 
-  void eval(size_t const nRes, fadbad::F<FFVar>* vRes, size_t const nVar,
-            fadbad::F<FFVar> const* vVar, unsigned const* mVar) const;
+  void eval(size_t const nRes, FADType<FFVar>* vRes, size_t const nVar,
+            FADType<FFVar> const* vVar, unsigned const* mVar) const;
 
   void eval(size_t const nRes, SLiftVar* vRes, size_t const nVar,
             SLiftVar const* vVar, unsigned const* mVar) const;
@@ -822,11 +844,11 @@ FFDAGEXT<T>::eval(size_t const nRes, U* vRes, size_t const nVar, U const* vVar,
 
 template <typename T>
 inline void
-FFDAGEXT<T>::eval(size_t const nRes, fadbad::F<FFVar>* vRes, size_t const nVar,
-                  fadbad::F<FFVar> const* vVar, unsigned const* mVar) const
+FFDAGEXT<T>::eval(size_t const nRes, FADType<FFVar>* vRes, size_t const nVar,
+                  FADType<FFVar> const* vVar, unsigned const* mVar) const
 {
 #ifdef MC__FFDAGEXT_TRACE
-  std::cout << "FFDAGEXT::eval: fadbad::F<FFVar>\n";
+  std::cout << "FFDAGEXT::eval: FADType<FFVar>\n";
 #endif
 #ifdef MC__FFDAGEXT_CHECK
   assert(_ptrObj && nRes == _ptrObj->nout() && nVar == _ptrObj->nin());

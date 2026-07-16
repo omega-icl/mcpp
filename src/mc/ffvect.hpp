@@ -22,6 +22,7 @@
 #include "specbnd.hpp"
 #include "supmodel.hpp"
 #include "tmodel.hpp"
+#include "ocbase.hpp"
 // #include "polimage.hpp"
 
 namespace mc
@@ -506,9 +507,9 @@ class FFVect
     if (idU == typeid(FFVar))
       return eval(nRes, static_cast<FFVar*>(vRes), nVar,
                   static_cast<FFVar const*>(vVar), mVar);
-    //      else if( idU == typeid( fadbad::F<FFVar> ) )
-    //        return eval( nRes, static_cast<fadbad::F<FFVar>*>(vRes), nVar,
-    //        static_cast<fadbad::F<FFVar> const*>(vVar), mVar );
+    //      else if( idU == typeid( FADType<FFVar> ) )
+    //        return eval( nRes, static_cast<FADType<FFVar>*>(vRes), nVar,
+    //        static_cast<FADType<FFVar> const*>(vVar), mVar );
     else if (idU == typeid(FFDep))
       return eval_serial(nRes, static_cast<FFDep*>(vRes), nVar,
                          static_cast<FFDep const*>(vVar), mVar);
@@ -518,9 +519,9 @@ class FFVect
     else if (idU == typeid(double))
       return eval_parallel(nRes, static_cast<double*>(vRes), nVar,
                            static_cast<double const*>(vVar), mVar);
-    else if (idU == typeid(fadbad::F<double>))
-      return eval_parallel(nRes, static_cast<fadbad::F<double>*>(vRes), nVar,
-                           static_cast<fadbad::F<double> const*>(vVar), mVar);
+    else if (idU == typeid(FADType<double>))
+      return eval_parallel(nRes, static_cast<FADType<double>*>(vRes), nVar,
+                           static_cast<FADType<double> const*>(vVar), mVar);
     else if (idU == typeid(T))
       return eval_parallel(nRes, static_cast<T*>(vRes), nVar,
                            static_cast<T const*>(vVar), mVar);
@@ -539,6 +540,15 @@ class FFVect
     else if (idU == typeid(SCVar<T>))
       return eval_parallel(nRes, static_cast<SCVar<T>*>(vRes), nVar,
                            static_cast<SCVar<T> const*>(vVar), mVar);
+    else if (idU == typeid(OCVar<double>))
+      return eval_parallel(nRes, static_cast<OCVar<double>*>(vRes), nVar,
+                           static_cast<OCVar<double> const*>(vVar), mVar);
+    else if (idU == typeid(OCVar<FADType<double>>))
+      return eval_parallel(nRes, static_cast<OCVar<FADType<double>>*>(vRes), nVar,
+                           static_cast<OCVar<FADType<double>> const*>(vVar), mVar);
+    else if (idU == typeid(OCVar<FFDep>))
+      return eval_parallel(nRes, static_cast<OCVar<FFDep>*>(vRes), nVar,
+                           static_cast<OCVar<FFDep> const*>(vVar), mVar);
     else if (idU == typeid(SupVar<PWCU>))
       return eval_parallel(nRes, static_cast<SupVar<PWCU>*>(vRes), nVar,
                            static_cast<SupVar<PWCU> const*>(vVar), mVar);
@@ -577,8 +587,8 @@ class FFVect
             FFVar const* vVar, unsigned const* mVar) const;
 
   //  void eval
-  //    ( unsigned const nRes, fadbad::F<FFVar>* vRes, unsigned const nVar,
-  //    fadbad::F<FFVar> const* vVar, unsigned const* mVar ) const;
+  //    ( unsigned const nRes, FADType<FFVar>* vRes, unsigned const nVar,
+  //    FADType<FFVar> const* vVar, unsigned const* mVar ) const;
 
   void eval(unsigned const nRes, SLiftVar* vRes, unsigned const nVar,
             SLiftVar const* vVar, unsigned const* mVar) const;
@@ -704,11 +714,11 @@ FFVect<T>::eval(unsigned const nRes, FFVar* vRes, unsigned const nVar,
 template< typename T >
 inline void
 FFVect<T>::eval
-( unsigned const nRes, fadbad::F<FFVar>* vRes, unsigned const nVar,
-fadbad::F<FFVar> const* vVar, unsigned const* mVar ) const
+( unsigned const nRes, FADType<FFVar>* vRes, unsigned const nVar,
+FADType<FFVar> const* vVar, unsigned const* mVar ) const
 {
 #ifdef MC__FFVECT_TRACE
-  std::cout << "FFVect::eval: fadbad::F<FFVar>\n";
+  std::cout << "FFVect::eval: FADType<FFVar>\n";
 #endif
 #ifdef MC__FFVECT_CHECK
   assert( _pFun && nVar == _pFun->nVar() && nRes == _pFun->nFun() &&

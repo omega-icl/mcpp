@@ -5560,6 +5560,9 @@ struct Op<mc::SICVar<T, KEY, COMP>>
 
 }  // namespace mc
 
+
+#ifdef MC__USE_FADBAD
+
 #include "mcfadbad.hpp"
 
 namespace fadbad
@@ -5749,5 +5752,7 @@ struct Op<mc::SICVar<T, KEY, COMP>>
 };
 
 }  // end namespace fadbad
+
+#endif // MC__USE_FADBAD
 
 #endif

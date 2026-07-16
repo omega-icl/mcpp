@@ -7,6 +7,7 @@
 
 #include <functional>
 
+#include "tmodel.hpp"
 #include "cmodel.hpp"
 #include "ffdep.hpp"
 #include "ffexpr.hpp"
@@ -21,7 +22,6 @@
 #include "specbnd.hpp"
 #include "spoly.hpp"
 #include "supmodel.hpp"
-#include "tmodel.hpp"
 
 namespace mc
 {
@@ -247,9 +247,9 @@ class FFCustom : public FFOp
     if (idU == typeid(FFVar))
       return eval(nRes, static_cast<FFVar*>(vRes), nVar,
                   static_cast<FFVar const*>(vVar), mVar);
-    //      else if( idU == typeid( fadbad::F<FFVar> ) )
-    //        return eval( nRes, static_cast<fadbad::F<FFVar>*>(vRes), nVar,
-    //        static_cast<fadbad::F<FFVar> const*>(vVar), mVar );
+    //      else if( idU == typeid( FADType<FFVar> ) )
+    //        return eval( nRes, static_cast<FADType<FFVar>*>(vRes), nVar,
+    //        static_cast<FADType<FFVar> const*>(vVar), mVar );
     else if (idU == typeid(FFDep))
       return eval(nRes, static_cast<FFDep*>(vRes), nVar,
                   static_cast<FFDep const*>(vVar), mVar);
@@ -259,9 +259,9 @@ class FFCustom : public FFOp
     else if (idU == typeid(double))
       return eval(nRes, static_cast<double*>(vRes), nVar,
                   static_cast<double const*>(vVar), mVar);
-    //      else if( idU == typeid( fadbad::F<double> ) )
-    //        return eval( nRes, static_cast<fadbad::F<double>*>(vRes), nVar,
-    //        static_cast<fadbad::F<double> const*>(vVar), mVar );
+    //      else if( idU == typeid( FADType<double> ) )
+    //        return eval( nRes, static_cast<FADType<double>*>(vRes), nVar,
+    //        static_cast<FADType<double> const*>(vVar), mVar );
     else if (idU == typeid(T))
       return eval(nRes, static_cast<T*>(vRes), nVar,
                   static_cast<T const*>(vVar), mVar);
@@ -341,12 +341,12 @@ class FFCustom : public FFOp
             SupVar<PWLU> const* vVar, unsigned const* mVar) const;
 
   //  void eval
-  //    ( size_t const nRes, fadbad::F<FFVar>* vRes, size_t const nVar,
-  //    fadbad::F<FFVar> const* vVar, unsigned const* mVar ) const;
+  //    ( size_t const nRes, FADType<FFVar>* vRes, size_t const nVar,
+  //    FADType<FFVar> const* vVar, unsigned const* mVar ) const;
 
   //  void eval
-  //    ( size_t const nRes, fadbad::F<double>* vRes, size_t const nVar,
-  //    fadbad::F<double> const* vVar, unsigned const* mVar ) const;
+  //    ( size_t const nRes, FADType<double>* vRes, size_t const nVar,
+  //    FADType<double> const* vVar, unsigned const* mVar ) const;
 
   void eval(size_t const nRes, SLiftVar* vRes, size_t const nVar,
             SLiftVar const* vVar, unsigned const* mVar) const;
@@ -641,11 +641,11 @@ FFCustom<T>::eval(size_t const nRes, FFVar* vRes, size_t const nVar,
 template< typename T >
 inline void
 FFCustom<T>::eval
-( size_t const nRes, fadbad::F<double>* vRes, size_t const nVar,
-fadbad::F<double> const* vVar, unsigned const* mVar ) const
+( size_t const nRes, FADType<double>* vRes, size_t const nVar,
+FADType<double> const* vVar, unsigned const* mVar ) const
 {
 #ifdef MC__FFCUSTOM_TRACE
-  std::cout << "FFCustom::eval: fadbad::F<double>\n";
+  std::cout << "FFCustom::eval: FADType<double>\n";
 #endif
 #ifdef MC__FFCUSTOM_CHECK
   assert( _nCoef && _ptrCoef && nRes == 1 );
@@ -674,11 +674,11 @@ _ptrCoef[i]*vVar[i][j]);
 template< typename T >
 inline void
 FFCustom<T>::eval
-( size_t const nRes, fadbad::F<FFVar>* vRes, size_t const nVar, fadbad::F<FFVar>
+( size_t const nRes, FADType<FFVar>* vRes, size_t const nVar, FADType<FFVar>
 const* vVar, unsigned const* mVar ) const
 {
 #ifdef MC__FFCUSTOM_TRACE
-  std::cout << "FFCustom::eval: fadbad::F<FFVar>\n";
+  std::cout << "FFCustom::eval: FADType<FFVar>\n";
 #endif
 #ifdef MC__FFCUSTOM_CHECK
   assert( _nCoef && _ptrCoef && nRes == 1 );

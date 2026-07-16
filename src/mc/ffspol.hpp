@@ -8,9 +8,11 @@
 #include "ffdep.hpp"
 #include "ffexpr.hpp"
 #include "ffinv.hpp"
+#include "interval.hpp"
 #include "mccormick.hpp"
 #include "mcfadbad.hpp"
 #include "slift.hpp"
+#include "ocbase.hpp"
 #include "spoly.hpp"
 
 namespace mc
@@ -23,7 +25,7 @@ namespace mc
 //! external DAG operation in MC++. The template parameter specifies the
 //! type for interval arithmetic.
 ////////////////////////////////////////////////////////////////////////
-template <typename T = void>
+template <typename T = mc::Interval>
 class FFSPoly : public FFOp
 {
   typedef SPoly<FFVar const*, lt_FFVar> t_SPoly;
@@ -72,9 +74,9 @@ class FFSPoly : public FFOp
     if (idU == typeid(FFVar))
       return eval(nRes, static_cast<FFVar*>(vRes), nVar,
                   static_cast<FFVar const*>(vVar), mVar);
-    else if (idU == typeid(fadbad::F<FFVar>))
-      return eval(nRes, static_cast<fadbad::F<FFVar>*>(vRes), nVar,
-                  static_cast<fadbad::F<FFVar> const*>(vVar), mVar);
+    else if (idU == typeid(FADType<FFVar>))
+      return eval(nRes, static_cast<FADType<FFVar>*>(vRes), nVar,
+                  static_cast<FADType<FFVar> const*>(vVar), mVar);
     else if (idU == typeid(FFDep))
       return eval(nRes, static_cast<FFDep*>(vRes), nVar,
                   static_cast<FFDep const*>(vVar), mVar);
@@ -84,12 +86,12 @@ class FFSPoly : public FFOp
     else if (idU == typeid(double))
       return eval(nRes, static_cast<double*>(vRes), nVar,
                   static_cast<double const*>(vVar), mVar);
-    else if (idU == typeid(fadbad::F<double>))
-      return eval(nRes, static_cast<fadbad::F<double>*>(vRes), nVar,
-                  static_cast<fadbad::F<double> const*>(vVar), mVar);
-    else if (idU == typeid(fadbad::B<double>))
-      return eval(nRes, static_cast<fadbad::B<double>*>(vRes), nVar,
-                  static_cast<fadbad::B<double> const*>(vVar), mVar);
+    else if (idU == typeid(FADType<double>))
+      return eval(nRes, static_cast<FADType<double>*>(vRes), nVar,
+                  static_cast<FADType<double> const*>(vVar), mVar);
+    else if (idU == typeid(BADType<double>))
+      return eval(nRes, static_cast<BADType<double>*>(vRes), nVar,
+                  static_cast<BADType<double> const*>(vVar), mVar);
     else if (idU == typeid(SLiftVar))
       return eval(nRes, static_cast<SLiftVar*>(vRes), nVar,
                   static_cast<SLiftVar const*>(vVar), mVar);
@@ -102,6 +104,15 @@ class FFSPoly : public FFOp
     else if (idU == typeid(McCormick<T>))
       return eval(nRes, static_cast<McCormick<T>*>(vRes), nVar,
                   static_cast<McCormick<T> const*>(vVar), mVar);
+    else if (idU == typeid(OCVar<double>))
+      return eval(nRes, static_cast<OCVar<double>*>(vRes), nVar,
+                  static_cast<OCVar<double> const*>(vVar), mVar);
+    else if (idU == typeid(OCVar<FADType<double>>))
+      return eval(nRes, static_cast<OCVar<FADType<double>>*>(vRes), nVar,
+                  static_cast<OCVar<FADType<double>> const*>(vVar), mVar);
+    else if (idU == typeid(OCVar<FFDep>))
+      return eval(nRes, static_cast<OCVar<FFDep>*>(vRes), nVar,
+                  static_cast<OCVar<FFDep> const*>(vVar), mVar);
 
     throw std::runtime_error("FFSPoly::feval ** No evaluation method for type" +
                              std::string(idU.name()) + "\n");
@@ -114,8 +125,8 @@ class FFSPoly : public FFOp
   void eval(unsigned const nRes, FFVar* vRes, unsigned const nVar,
             FFVar const* vVar, unsigned const* mVar) const;
 
-  void eval(unsigned const nRes, fadbad::F<FFVar>* vRes, unsigned const nVar,
-            fadbad::F<FFVar> const* vVar, unsigned const* mVar) const;
+  void eval(unsigned const nRes, FADType<FFVar>* vRes, unsigned const nVar,
+            FADType<FFVar> const* vVar, unsigned const* mVar) const;
 
   void eval(unsigned const nRes, SLiftVar* vRes, unsigned const nVar,
             SLiftVar const* vVar, unsigned const* mVar) const;
@@ -210,12 +221,12 @@ FFSPoly<T>::eval(unsigned const nRes, FFVar* vRes, unsigned const nVar,
 
 template <typename T>
 inline void
-FFSPoly<T>::eval(unsigned const nRes, fadbad::F<FFVar>* vRes,
-                 unsigned const nVar, fadbad::F<FFVar> const* vVar,
+FFSPoly<T>::eval(unsigned const nRes, FADType<FFVar>* vRes,
+                 unsigned const nVar, FADType<FFVar> const* vVar,
                  unsigned const* mVar) const
 {
 #ifdef MC__FFSPOLY_TRACE
-  std::cout << "FFSPoly<T>::eval: fadbad::F<FFVar>\n";
+  std::cout << "FFSPoly<T>::eval: FADType<FFVar>\n";
 #endif
 #ifdef CRONOS__FFODE_CHECK
   assert(nRes == 1 && nVar == _SPoly.nvar());

@@ -12,6 +12,7 @@
 #endif
 
 #include "ffextern.hpp"
+#include "interval.hpp"
 #include "fflin.hpp"
 
 // #define MC__FFMLP_DEBUG
@@ -26,7 +27,7 @@ namespace mc
 //! multilayer perceptrons (MLP) that leverages expression trees and
 //! arithmetics available through MC++
 ////////////////////////////////////////////////////////////////////////
-template <typename T>
+template <typename T = mc::Interval>
 class MLP
 ////////////////////////////////////////////////////////////////////////
 {
@@ -159,18 +160,20 @@ class MLP
   std::vector<std::pair<std::vector<std::vector<double>>, int>> _data;
 
   //! @brief Intermediate storage for DAG evaluation
-  std::vector<std::vector<FFVar>> _wkFF;
-  std::vector<std::vector<double>> _wkD;
-  std::vector<std::vector<fadbad::F<double>>> _wkFD;
-  std::vector<std::vector<fadbad::B<double>>> _wkBD;
-  std::vector<std::vector<T>> _wkI;
-  std::vector<std::vector<McCormick<T>>> _wkMC;
-  std::vector<std::vector<Specbnd<T>>> _wkSB;
-  std::vector<std::vector<SupVar<PWCU>>> _wkPWCS;
-  std::vector<std::vector<SupVar<PWLU>>> _wkPWLS;
-  std::vector<std::vector<SCVar<T>>> _wkSC;
-  std::vector<PolVar<T>> _wkPOL;
-  std::vector<T> _wkCPI;
+  std::vector<std::vector<FFVar>>                     _wkFF;
+  std::vector<std::vector<double>>                    _wkD;
+  std::vector<std::vector<FADType<double>>>         _wkFD;
+  std::vector<std::vector<BADType<double>>>         _wkBD;
+  std::vector<std::vector<T>>                         _wkI;
+  std::vector<std::vector<McCormick<T>>>              _wkMC;
+  std::vector<std::vector<Specbnd<T>>>                _wkSB;
+  std::vector<std::vector<SupVar<PWCU>>>              _wkPWCS;
+  std::vector<std::vector<SupVar<PWLU>>>              _wkPWLS;
+  std::vector<std::vector<SCVar<T>>>                  _wkSC;
+  std::vector<std::vector<OCVar<double>>>             _wkOCD;
+  std::vector<std::vector<OCVar<FADType<double>>>>  _wkOCFD;
+  std::vector<PolVar<T>>                              _wkPOL;
+  std::vector<T>                                      _wkCPI;
 
   //! @brief ReLU activation
   template <typename U>
@@ -180,10 +183,10 @@ class MLP
     return options.RELU2ABS ? (x + Op<U>::fabs(x)) * 0.5 : Op<U>::max(x, 0.);
   }
   template <typename U>
-  fadbad::F<U>
-  ReLU(fadbad::F<U> const& x) const
+  FADType<U>
+  ReLU(FADType<U> const& x) const
   {
-    fadbad::F<U> z = ReLU(x.val());
+    FADType<U> z = ReLU(x.val());
     z.setDepend(x);
     for (unsigned j = 0; j < z.size(); ++j) z[j] = Op<U>::fstep(x.val()) * x[j];
     return z;
@@ -336,13 +339,13 @@ class MLP
       default:
       case Options::AD_TYPE::F:
       {
-        std::vector<fadbad::F<double>> vFvalin(_nin);
+        std::vector<FADType<double>> vFvalin(_nin);
         for (size_t i = 0; i < _nin; ++i)
         {
           vFvalin[i] = valin[i];
           vFvalin[i].diff(i, _nin);
         }
-        std::vector<fadbad::F<double>> vFvalout(_nout);
+        std::vector<FADType<double>> vFvalout(_nout);
         _eval(vFvalin.data(), vFvalout.data(), _wkFD);
         for (size_t k = 0; k < _nout; ++k)
         {
@@ -356,9 +359,9 @@ class MLP
 
       case Options::AD_TYPE::B:
       {
-        std::vector<fadbad::B<double>> vBvalin(_nin);
+        std::vector<BADType<double>> vBvalin(_nin);
         for (size_t i = 0; i < _nin; ++i) vBvalin[i] = valin[i];
-        std::vector<fadbad::B<double>> vBvalout(_nout);
+        std::vector<BADType<double>> vBvalout(_nout);
         _eval(vBvalin.data(), vBvalout.data(), _wkBD);
         for (size_t k = 0; k < _nout; ++k) vBvalout[k].diff(k, _nout);
         // FADBAD++ reverse mode propagates adjoints when expression nodes
@@ -398,14 +401,14 @@ class MLP
       default:
       case Options::AD_TYPE::F:
       {
-        static thread_local std::vector<std::vector<fadbad::F<U>>> wkFU;
-        std::vector<fadbad::F<U>> vFvalin(_nin);
+        static thread_local std::vector<std::vector<FADType<U>>> wkFU;
+        std::vector<FADType<U>> vFvalin(_nin);
         for (size_t i = 0; i < _nin; ++i)
         {
           vFvalin[i] = valin[i];
           vFvalin[i].diff(i, _nin);
         }
-        std::vector<fadbad::F<U>> vFvalout(_nout);
+        std::vector<FADType<U>> vFvalout(_nout);
         _eval(vFvalin.data(), vFvalout.data(), wkFU);
         for (size_t k = 0; k < _nout; ++k)
         {
@@ -419,10 +422,10 @@ class MLP
 
       case Options::AD_TYPE::B:
       {
-        static thread_local std::vector<std::vector<fadbad::B<U>>> wkBU;
-        std::vector<fadbad::B<U>> vBvalin(_nin);
+        static thread_local std::vector<std::vector<BADType<U>>> wkBU;
+        std::vector<BADType<U>> vBvalin(_nin);
         for (size_t i = 0; i < _nin; ++i) vBvalin[i] = valin[i];
-        std::vector<fadbad::B<U>> vBvalout(_nout);
+        std::vector<BADType<U>> vBvalout(_nout);
         _eval(vBvalin.data(), vBvalout.data(), wkBU);
         for (size_t k = 0; k < _nout; ++k) vBvalout[k].diff(k, _nout);
         // Release hidden-layer reverse-AD nodes before reading input adjoints.
@@ -484,12 +487,12 @@ class MLP
 #endif
   }
   void
-  eval(fadbad::F<double> const* valin, fadbad::F<double>* valout)
+  eval(FADType<double> const* valin, FADType<double>* valout)
   {
     _eval(valin, valout, _wkFD);
   }
   void
-  eval(fadbad::B<double> const* valin, fadbad::B<double>* valout)
+  eval(BADType<double> const* valin, BADType<double>* valout)
   {
     _eval(valin, valout, _wkBD);
   }
@@ -529,6 +532,16 @@ class MLP
     // Update MLP DAG first
     _set_dag(_wkFF);
     _eval(valin, valout, _wkPOL);
+  }
+  void
+  eval(OCVar<double> const* valin, OCVar<double>* valout)
+  {
+    _eval(valin, valout, _wkOCD);
+  }
+  void
+  eval(OCVar<FADType<double>> const* valin, OCVar<FADType<double>>* valout)
+  {
+    _eval(valin, valout, _wkOCFD);
   }
   template <typename U>
   void
@@ -1163,7 +1176,7 @@ MLP<T>::_reval(U* valin, U* valout, std::vector<U>& wk, U const& inf)
 //! mc::FFMLP is a C++ class for defining neural networks as external
 //! DAG operations in MC++.
 ////////////////////////////////////////////////////////////////////////
-template <typename T>
+template <typename T = mc::Interval>
 class FFMLP
     ////////////////////////////////////////////////////////////////////////
     : public FFEXTERN<T, MLP<T>>
@@ -1283,9 +1296,9 @@ class FFMLP
     if (idU == typeid(FFVar))
       return eval(nRes, static_cast<FFVar*>(vRes), nVar,
                   static_cast<FFVar const*>(vVar), mVar);
-    else if (idU == typeid(fadbad::F<FFVar>))
-      return eval(nRes, static_cast<fadbad::F<FFVar>*>(vRes), nVar,
-                  static_cast<fadbad::F<FFVar> const*>(vVar), mVar);
+    else if (idU == typeid(FADType<FFVar>))
+      return eval(nRes, static_cast<FADType<FFVar>*>(vRes), nVar,
+                  static_cast<FADType<FFVar> const*>(vVar), mVar);
     else if (idU == typeid(FFDep))
       return eval(nRes, static_cast<FFDep*>(vRes), nVar,
                   static_cast<FFDep const*>(vVar), mVar);
@@ -1295,9 +1308,9 @@ class FFMLP
     else if (idU == typeid(double))
       return eval(nRes, static_cast<double*>(vRes), nVar,
                   static_cast<double const*>(vVar), mVar);
-    else if (idU == typeid(fadbad::F<double>))
-      return eval(nRes, static_cast<fadbad::F<double>*>(vRes), nVar,
-                  static_cast<fadbad::F<double> const*>(vVar), mVar);
+    else if (idU == typeid(FADType<double>))
+      return eval(nRes, static_cast<FADType<double>*>(vRes), nVar,
+                  static_cast<FADType<double> const*>(vVar), mVar);
     else if (idU == typeid(T))
       return eval(nRes, static_cast<T*>(vRes), nVar,
                   static_cast<T const*>(vVar), mVar);
@@ -1319,6 +1332,15 @@ class FFMLP
     else if (idU == typeid(PolVar<T>))
       return eval(nRes, static_cast<PolVar<T>*>(vRes), nVar,
                   static_cast<PolVar<T> const*>(vVar), mVar);
+    else if (idU == typeid(OCVar<double>))
+      return eval(nRes, static_cast<OCVar<double>*>(vRes), nVar,
+                  static_cast<OCVar<double> const*>(vVar), mVar);
+    else if (idU == typeid(OCVar<FADType<double>>))
+      return eval(nRes, static_cast<OCVar<FADType<double>>*>(vRes), nVar,
+                  static_cast<OCVar<FADType<double>> const*>(vVar), mVar);
+    else if (idU == typeid(OCVar<FFDep>))
+      return eval(nRes, static_cast<OCVar<FFDep>*>(vRes), nVar,
+                  static_cast<OCVar<FFDep> const*>(vVar), mVar);
     else if (idU == typeid(SLiftVar))
       return eval(nRes, static_cast<SLiftVar*>(vRes), nVar,
                   static_cast<SLiftVar const*>(vVar), mVar);
@@ -1347,8 +1369,8 @@ class FFMLP
   void eval(size_t const nRes, FFVar* vRes, size_t const nVar,
             FFVar const* vVar, unsigned const* mVar) const;
 
-  void eval(size_t const nRes, fadbad::F<FFVar>* vRes, size_t const nVar,
-            fadbad::F<FFVar> const* vVar, unsigned const* mVar) const;
+  void eval(size_t const nRes, FADType<FFVar>* vRes, size_t const nVar,
+            FADType<FFVar> const* vVar, unsigned const* mVar) const;
 
   void eval(size_t const nRes, SLiftVar* vRes, size_t const nVar,
             SLiftVar const* vVar, unsigned const* mVar) const;
@@ -1548,6 +1570,15 @@ class FFGradMLP
     else if (idU == typeid(SupVar<PWLU>))
       return eval(nRes, static_cast<SupVar<PWLU>*>(vRes), nVar,
                   static_cast<SupVar<PWLU> const*>(vVar), mVar);
+    else if (idU == typeid(OCVar<double>))
+      return eval(nRes, static_cast<OCVar<double>*>(vRes), nVar,
+                  static_cast<OCVar<double> const*>(vVar), mVar);
+    else if (idU == typeid(OCVar<FADType<double>>))
+      return eval(nRes, static_cast<OCVar<FADType<double>>*>(vRes), nVar,
+                  static_cast<OCVar<FADType<double>> const*>(vVar), mVar);
+    else if (idU == typeid(OCVar<FFDep>))
+      return eval(nRes, static_cast<OCVar<FFDep>*>(vRes), nVar,
+                  static_cast<OCVar<FFDep> const*>(vVar), mVar);
     else if (idU == typeid(SLiftVar))
       return eval(nRes, static_cast<SLiftVar*>(vRes), nVar,
                   static_cast<SLiftVar const*>(vVar), mVar);
@@ -1752,11 +1783,11 @@ FFGradMLP<T>::eval(size_t const nRes, U* vRes, size_t const nVar, U const* vVar,
 
 template <typename T>
 inline void
-FFMLP<T>::eval(size_t const nRes, fadbad::F<FFVar>* vRes, size_t const nVar,
-               fadbad::F<FFVar> const* vVar, unsigned const* mVar) const
+FFMLP<T>::eval(size_t const nRes, FADType<FFVar>* vRes, size_t const nVar,
+               FADType<FFVar> const* vVar, unsigned const* mVar) const
 {
 #ifdef MC__FFMLP_TRACE
-  std::cout << "FFMLP::eval: fadbad::F<FFVar>\n";
+  std::cout << "FFMLP::eval: FADType<FFVar>\n";
 #endif
 #ifdef MC__FFMLP_CHECK
   assert(_ptrObj && nRes == _ptrObj->nout() && nVar == _ptrObj->nin());

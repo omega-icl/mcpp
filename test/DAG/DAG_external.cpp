@@ -160,7 +160,7 @@ class FFnorm2 : public FFOp
   {
     assert(nRes == 1);
     std::cout << "NORM2 FFVar differentiation\n";
-    fadbad::F<FFVar> vFVar[nVar], vFRes[nRes];
+    FADType<FFVar> vFVar[nVar], vFRes[nRes];
     for (unsigned i = 0; i < nVar; ++i)
     {
       vFVar[i] = vVar[i];
@@ -288,7 +288,7 @@ class FFnorm12 : public FFOp
   {
     assert(nRes == 2);
     std::cout << "NORM12 FFVar differentiation\n";
-    fadbad::F<FFVar> vFVar[nVar], vFRes[nRes];
+    FADType<FFVar> vFVar[nVar], vFRes[nRes];
     for (unsigned i = 0; i < nVar; ++i)
     {
       vFVar[i] = vVar[i];
@@ -351,9 +351,9 @@ class FFxlog : public FFOp
     else if (idU == typeid(McCormick<I>))
       return eval(nRes, static_cast<McCormick<I>*>(vRes), nVar,
                   static_cast<McCormick<I> const*>(vVar), mVar);
-    else if (idU == typeid(fadbad::F<FFVar>))
-      return eval(nRes, static_cast<fadbad::F<FFVar>*>(vRes), nVar,
-                  static_cast<fadbad::F<FFVar> const*>(vVar), mVar);
+    else if (idU == typeid(FADType<FFVar>))
+      return eval(nRes, static_cast<FADType<FFVar>*>(vRes), nVar,
+                  static_cast<FADType<FFVar> const*>(vVar), mVar);
     else if (idU == typeid(PolVar<I>))
       return eval(nRes, static_cast<PolVar<I>*>(vRes), nVar,
                   static_cast<PolVar<I> const*>(vVar), mVar);
@@ -384,11 +384,11 @@ class FFxlog : public FFOp
   }
 
   void
-  eval(unsigned const nRes, fadbad::F<FFVar>* vRes, unsigned const nVar,
-       fadbad::F<FFVar> const* vVar, unsigned const* mVar) const
+  eval(unsigned const nRes, FADType<FFVar>* vRes, unsigned const nVar,
+       FADType<FFVar> const* vVar, unsigned const* mVar) const
   {
     assert(nVar == 1 && nRes == 1);
-    std::cout << "xlog fadbad::F<FFVar> instantiation\n";
+    std::cout << "xlog FADType<FFVar> instantiation\n";
     vRes[0] = operator()(vVar[0].val());
     if (!vVar[0].depend()) return;
     FFVar dxlog(log(vVar[0].val()) + 1);
@@ -708,9 +708,9 @@ class FFDOpt : public FFOp, public FFDOptBase
     if (idU == typeid(FFVar))
       return eval(nRes, static_cast<FFVar*>(vRes), nVar,
                   static_cast<FFVar const*>(vVar), mVar);
-    else if (idU == typeid(fadbad::F<FFVar>))
-      return eval(nRes, static_cast<fadbad::F<FFVar>*>(vRes), nVar,
-                  static_cast<fadbad::F<FFVar> const*>(vVar), mVar);
+    else if (idU == typeid(FADType<FFVar>))
+      return eval(nRes, static_cast<FADType<FFVar>*>(vRes), nVar,
+                  static_cast<FADType<FFVar> const*>(vVar), mVar);
     else if (idU == typeid(FFDep))
       return eval(nRes, static_cast<FFDep*>(vRes), nVar,
                   static_cast<FFDep const*>(vVar), mVar);
@@ -761,8 +761,8 @@ class FFDOpt : public FFOp, public FFDOptBase
     vRes[0].update(FFDep::TYPE::N);
   }
 
-  void eval(unsigned const nRes, fadbad::F<FFVar>* vRes, unsigned const nVar,
-            fadbad::F<FFVar> const* vVar, unsigned const* mVar) const;
+  void eval(unsigned const nRes, FADType<FFVar>* vRes, unsigned const nVar,
+            FADType<FFVar> const* vVar, unsigned const* mVar) const;
 
   void deriv(unsigned const nRes, FFVar const* vRes, unsigned const nVar,
              FFVar const* vVar, FFVar** vDer) const;
@@ -875,11 +875,11 @@ class FFDOptGrad : public FFOp, public FFDOptBase
 };
 
 inline void
-FFDOpt::eval(unsigned const nRes, fadbad::F<FFVar>* vRes, unsigned const nVar,
-             fadbad::F<FFVar> const* vVar, unsigned const* mVar) const
+FFDOpt::eval(unsigned const nRes, FADType<FFVar>* vRes, unsigned const nVar,
+             FADType<FFVar> const* vVar, unsigned const* mVar) const
 {
   assert(nRes == 1 && nVar == _A.size() && _A.begin() != _A.end());
-  std::cout << "FFDOpt::eval: fadbad::F<FFVar>\n";
+  std::cout << "FFDOpt::eval: FADType<FFVar>\n";
   std::vector<FFVar> vVarVal(nVar);
   for (unsigned i = 0; i < nVar; ++i) vVarVal[i] = vVar[i].val();
   vRes[0] = operator()(nVar, vVarVal.data());
@@ -1623,7 +1623,7 @@ test_external9()
   delete[] DAGdPdX_FAD;
 
   // Evaluation of forward automatic derivatives in real arithmetic
-  fadbad::F<double> fdX[NX], fdP;
+  mc::FADType<double> fdX[NX], fdP;
   for (unsigned i = 0; i < NX; ++i)
   {
     fdX[i] = dX[i];
@@ -1655,7 +1655,7 @@ test_external9()
   // Evaluation of backward automatic derivatives in real arithmetic
   if (t_SPoly::options.BASIS == t_SPoly::Options::MONOM)
   {
-    fadbad::B<double> bdX[NX], bdF;
+    mc::BADType<double> bdX[NX], bdF;
     for (unsigned i = 0; i < NX; ++i) bdX[i] = dX[i];
     DAG.eval(P_op, 1, &DAGP, &bdF, NX, DAGX, bdX);
     bdF.diff(0, 1);

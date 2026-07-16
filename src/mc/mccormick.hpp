@@ -5380,6 +5380,9 @@ operator>(const McCormick<T>& MC1, const McCormick<T>& MC2)
 
 }  // namespace mc
 
+
+#ifdef MC__USE_FADBAD
+
 #include "mcfadbad.hpp"
 // #include "fadbad.h"
 
@@ -5564,6 +5567,9 @@ struct Op<mc::McCormick<T> >
 };
 
 }  // end namespace fadbad
+
+#endif // MC__USE_FADBAD
+
 
 // #include "mcop.hpp"
 

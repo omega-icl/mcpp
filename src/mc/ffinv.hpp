@@ -761,8 +761,8 @@ pow(FFInv const& S, double const& a)
   if (a == 1.) return S;
   if (a == 2.) return sqr(S);
   if (a == -1.) return inv(S);
-  if (a == std::rint(a) && a > 2.) return FFInv::copy(S, FFInv::TYPE::U);
-  if (a == std::rint(a) && a < -1.) return FFInv::copy(S, FFInv::TYPE::U);
+  //if (a == std::rint(a) && a > 2.) return FFInv::copy(S, FFInv::TYPE::U);
+  //if (a == std::rint(a) && a < -1.) return FFInv::copy(S, FFInv::TYPE::U);
   return FFInv::copy(S, FFInv::_nlop(FFInv::Options::RPOW));
 }
 

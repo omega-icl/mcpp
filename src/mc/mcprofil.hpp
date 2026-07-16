@@ -8,9 +8,13 @@
 #include <Constants.h>
 #include <Functions.h>
 #include <Interval.h>
+#include "mcfunc.hpp"
+
+/////////////////
+
+#ifdef MC__USE_FADBAD
 
 #include "fadbad.h"
-#include "mcfunc.hpp"
 
 namespace fadbad
 {
@@ -200,6 +204,10 @@ struct Op< ::INTERVAL>
 };
 
 }  // end namespace fadbad
+
+#endif  // MC__USE_FADBAD
+
+/////////////////
 
 #include "mcop.hpp"
 

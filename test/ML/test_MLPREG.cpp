@@ -57,26 +57,26 @@ test_MLP0()
   std::cout << std::endl;
 
   // Evaluate MLP derivatives
-  std::vector<fadbad::F<double>> Fvin(NN.nin());
+  std::vector<mc::FADType<double>> Fvin(NN.nin());
   for (unsigned i = 0; i < NN.nin(); ++i)
   {
     Fvin[i] = vin[i];
     Fvin[i].diff(i, NN.nin() + NN.nwei());
   }
-  std::vector<fadbad::F<double>> Fvwei(NN.nwei());
+  std::vector<mc::FADType<double>> Fvwei(NN.nwei());
   for (unsigned i = 0; i < NN.nwei(); ++i)
   {
     Fvwei[i] = vwei[i];
     Fvwei[i].diff(NN.nin() + i, NN.nin() + NN.nwei());
   }
-  std::vector<fadbad::F<double>> Fvout(NN.nout());
+  std::vector<mc::FADType<double>> Fvout(NN.nout());
   NN.eval(Fvout.data(), Fvin.data(), Fvwei.data());
 
-  std::vector<fadbad::B<double>> Bvin(NN.nin());
+  std::vector<mc::BADType<double>> Bvin(NN.nin());
   for (unsigned i = 0; i < NN.nin(); ++i) Bvin[i] = vin[i];
-  std::vector<fadbad::B<double>> Bvwei(NN.nwei());
+  std::vector<mc::BADType<double>> Bvwei(NN.nwei());
   for (unsigned i = 0; i < NN.nwei(); ++i) Bvwei[i] = vwei[i];
-  std::vector<fadbad::B<double>> Bvout(NN.nout());
+  std::vector<mc::BADType<double>> Bvout(NN.nout());
   NN.eval(Bvout.data(), Bvin.data(), Bvwei.data());
   for (unsigned j = 0; j < NN.nout(); ++j) Bvout[j].diff(j, NN.nout());
 
@@ -165,7 +165,7 @@ test_MLP0()
     delete[] dFdX_F;
 
     // Evaluation of forward automatic derivatives in real arithmetic
-    fadbad::F<double> fdX[NX], fdF;
+    mc::FADType<double> fdX[NX], fdF;
     for( unsigned i=0; i<NX; ++i ){
       fdX[i] = dX[i];
       fdX[i].diff(i,NX);
@@ -191,7 +191,7 @@ test_MLP0()
     delete[] dFdX_B;
 
     // Evaluation of backward automatic derivatives in real arithmetic
-    fadbad::B<double> bdX[NX], bdF;
+    mc::BADType<double> bdX[NX], bdF;
     for( unsigned i=0; i<NX; ++i )
       bdX[i] = dX[i];
     DAG.eval( F_op, 1, &F, &bdF, NX, X, bdX );

@@ -4383,6 +4383,9 @@ inter(CVar<T>& CVR, const CVar<T>& CV1, const CVar<T>& CV2)
 
 }  // namespace mc
 
+
+#ifdef MC__USE_FADBAD
+
 #include "mcfadbad.hpp"
 // #include "fadbad.h"
 
@@ -4573,6 +4576,9 @@ struct Op<mc::CVar<T>>
 };
 
 }  // end namespace fadbad
+
+#endif // MC__USE_FADBAD
+
 
 // #include "mcop.hpp"
 

@@ -179,7 +179,7 @@ line as:
 </TABLE></CENTER>
 
 
-\section sec_FFUNC_FADBAD How do I obtain the DAG of a factorable function's
+\section sec_FFUNC_AD How do I obtain the DAG of a factorable function's
 derivatives?
 
 Derivatives of a factorable function in mc::FFGraph can be obtained with the
@@ -326,7 +326,7 @@ coefficients of the solution, defined recursively as \f{align*}
 \frac{\partial{\boldsymbol\phi}_{i-1}}{\partial {\bf x}}({\bf x},{\bf p})\, {\bf
 f}({\bf x},{\bf p}) \quad\text{for $i\geq 1$} \,. \f} DAGs for these Taylor
 coefficients can be generated using the method mc::FFGraph::TAD, which relies
-upon the class fadbad::T of <A
+upon the class mc::T in header <tt>tdiff.hpp</tt>, or fadbad::T of <A
 href="http://www.fadbad.com/fadbad.html">FADBAD++</A>.
 
 As a simple illustrative example, consider the scalar linear ODE \f$\dot{x}(t) =
@@ -785,7 +785,6 @@ McCormick relaxations</A>, <i>Journal of Global Optimization</i>,
 #ifdef MC__USE_THREAD
 #include <thread>
 #endif
-
 #include "mcfadbad.hpp"
 #include "mcfunc.hpp"
 #include "mcop.hpp"
@@ -2830,7 +2829,7 @@ class FFGraph : public FFBase
 
   //! @brief Expand DAG with derivatives of <a>nDep</a> dependents in array
   //! <a>pDep</a> with respect to <a>nIndep</a> independents in array
-  //! <a>pIndep</a> for the direction in array <a>pDir</a> using fadbad::B. The
+  //! <a>pIndep</a> for the direction in array <a>pDir</a>. The
   //! return value is an array with entries of the Jacobian matrix-vector
   //! product. The function parameter pack <a>args</a> can be any number of
   //! extra pairs {const unsigned nIndep, const FFVar* const pIndep}.
@@ -2940,7 +2939,7 @@ class FFGraph : public FFBase
         std::vector<FFVar const*> const& vIndep);
 
   //! @brief Expand DAG with Taylor coefficients of dependents <a>vDep</a> with
-  //! respect to independents <a>vIndep</a> using fadbad::T -- Same number of
+  //! respect to independents <a>vIndep</a> -- Same number of
   //! dependents and independent is required, e.g. for expansion of ODE
   //! solutions -- Return a vector with the 0th, 1st, ..., ordermax'th order
   //! Taylor coefficients ordered sequentially
@@ -2948,7 +2947,7 @@ class FFGraph : public FFBase
                          std::vector<FFVar> const& vVar);
 
   //! @brief Expand DAG with Taylor coefficients of dependents <a>vDep</a> with
-  //! respect to independents <a>vIndep</a> using fadbad::T -- Same number of
+  //! respect to independents <a>vIndep</a> -- Same number of
   //! dependents and independent is required, e.g. for expansion of ODE
   //! solutions -- Return a vector with the 0th, 1st, ..., ordermax'th order
   //! Taylor coefficients ordered sequentially
@@ -2956,7 +2955,7 @@ class FFGraph : public FFBase
                          std::vector<FFVar> const& vVar, FFVar const& Indep);
 
   //! @brief Expand DAG with Taylor coefficients of dependents <a>vDep</a> with
-  //! respect to independents <a>vIndep</a> using fadbad::T -- Same number of
+  //! respect to independents <a>vIndep</a> -- Same number of
   //! dependents and independent is required, e.g. for expansion of ODE
   //! solutions -- Return a vector with the 0th, 1st, ..., ordermax'th order
   //! Taylor coefficients ordered sequentially
@@ -2967,7 +2966,7 @@ class FFGraph : public FFBase
 
   //! @brief Expand DAG with Taylor coefficients of <a>nDep</a> dependents in
   //! array <a>pDep</a> with respect to <a>nIndep</a> independents in array
-  //! <a>pIndep</a> using fadbad::T -- Same number of dependents and independent
+  //! <a>pIndep</a> -- Same number of dependents and independent
   //! is required, e.g. for expansion of ODE solutions -- Returns an array with
   //! the 0th, 1st, ..., ordermax'th order Taylor coefficients ordered
   //! sequentially
@@ -10598,7 +10597,7 @@ FFGraph::SFAD(std::vector<FFVar const*> const& vDep,
   return vDep_F;
 }
 
-#ifndef MC__USE_FADIFF
+#ifndef MC__DAG_FADIFF
 inline std::tuple<std::vector<unsigned>, std::vector<unsigned>,
                   std::vector<FFVar const*>>
 FFGraph::SDFAD(std::vector<FFVar const*> const& vDep,
@@ -10810,120 +10809,137 @@ FFGraph::SDFAD(std::vector<FFVar const*> const& vDep,
 }
 
 #else
-assert(!vDir.size() || vIndep.size() == vDir.size());
-
-// Vector holding the results in sparse format
-std::tuple<std::vector<unsigned>, std::vector<unsigned>,
-           std::vector<FFVar const*>>
-    vDep_F;
-
-// Repeat forward differentiation for each dependent
-for (unsigned int i = 0; i < vDep.size(); ++i)
+inline std::tuple<std::vector<unsigned>, std::vector<unsigned>,
+                  std::vector<FFVar const*>>
+FFGraph::SDFAD(std::vector<FFVar const*> const& vDep,
+               std::vector<FFVar const*> const& vIndep,
+               std::vector<FFVar const*> const& vDir)
 {
-  if (vDep[i]->cst()) continue;
+  using F_FFVar = FADType<FFVar>;
+//#ifndef MC__USE_FADBAD
+//  typedef mc::F<FFVar> F_FFVar;
+//#else
+//  typedef fadbad::F<FFVar> F_FFVar;
+//#endif
 
-  // Populate subgraph if empty
-  auto sgDep = subgraph(1, vDep[i]);
-#ifdef MC__FFUNC_SFAD_DEBUG
-  output(sgDep);
-#endif
-  std::vector<fadbad::F<FFVar>> wkAD(sgDep.len_tap);
-  auto pwkSFAD =
-      (sgDep.len_wrk ? &wkAD[sgDep.len_tap - sgDep.len_wrk] : nullptr);
-  unsigned* pwkmov =
-      (sgDep.len_wrk ? &sgDep.v_mov[sgDep.len_tap - sgDep.len_wrk] : nullptr);
-  std::map<unsigned, unsigned> mapIndep;
+  // Nothing to do!
+  if (!vIndep.size() || !vDep.size())
+    return std::make_tuple(std::vector<unsigned>(), std::vector<unsigned>(),
+                           std::vector<FFVar const*>());  // Nothing to do!
+  assert(!vDir.size() || vIndep.size() == vDir.size());
 
-  // Count dependencies
-  unsigned nIndep = 0;
-  for (auto const& op : sgDep.l_op)
+  // Vector holding the results in sparse format
+  std::tuple<std::vector<unsigned>, std::vector<unsigned>,
+             std::vector<FFVar const*>>
+      vDep_F;
+
+  // Repeat forward differentiation for each dependent
+  for (unsigned int i = 0; i < vDep.size(); ++i)
   {
-    if (op->type != FFOp::VAR) continue;
-    ++nIndep;
-  }
-#ifdef MC__FFUNC_SFAD_DEBUG
-  std::cerr << "#independents " << nIndep << std::endl;
-#endif
+    if (vDep[i]->cst()) continue;
 
-  // Propagate values in fadbad::F arithmetic through subgraph
-#ifdef MC__FFUNC_CPU_EVAL
-  double cputime = -cpuclock();
-  std::cerr << "#operations " << sgDep.l_op.size() << std::endl;
+    // Populate subgraph if empty
+    auto sgDep = subgraph(1, vDep[i]);
+#ifdef MC__FFUNC_SFAD_DEBUG
+    output(sgDep);
 #endif
-  unsigned iwk = 0, idiff = 0;
-  for (auto const& op : sgDep.l_op)
-  {
-    // Initialize variable using values in l_vVar
-    if (op->type == FFOp::VAR)
+    std::vector<F_FFVar> wkAD(sgDep.len_tap);
+    auto pwkSFAD =
+        (sgDep.len_wrk ? &wkAD[sgDep.len_tap - sgDep.len_wrk] : nullptr);
+    unsigned* pwkmov =
+        (sgDep.len_wrk ? &sgDep.v_mov[sgDep.len_tap - sgDep.len_wrk] : nullptr);
+    std::map<unsigned, unsigned> mapIndep;
+
+    // Count dependencies
+    unsigned nIndep = 0;
+    for (auto const& op : sgDep.l_op)
     {
-      auto pvar = op->varout[0];
-      wkAD[iwk] = *pvar;
-      auto iti  = vIndep.begin();
-      auto itd  = vDir.begin();
-      for (unsigned int ii = 0; iti != vIndep.end(); ++iti, ++itd, ++ii)
-      {
-        if (pvar->id() != (*iti)->id()) continue;
+      if (op->type != FFOp::VAR) continue;
+      ++nIndep;
+    }
 #ifdef MC__FFUNC_SFAD_DEBUG
-        std::cerr << "independent " << idiff << ": " << wkAD[iwk].val()
-                  << std::endl;
+    std::cerr << "#independents " << nIndep << std::endl;
 #endif
-        if (vDir.size())
+
+    // Propagate values in F_FFVar arithmetic through subgraph
+#ifdef MC__FFUNC_CPU_EVAL
+    double cputime = -cpuclock();
+    std::cerr << "#operations " << sgDep.l_op.size() << std::endl;
+#endif
+    unsigned iwk = 0, idiff = 0;
+    for (auto const& op : sgDep.l_op)
+    {
+      // Initialize variable using values in l_vVar
+      if (op->type == FFOp::VAR)
+      {
+        auto pvar = op->varout[0];
+        wkAD[iwk] = *pvar;
+        auto iti  = vIndep.begin();
+        auto itd  = vDir.begin();
+        for (unsigned int ii = 0; iti != vIndep.end(); ++iti, ++itd, ++ii)
         {
-          mapIndep[idiff]      = 0;
-          wkAD[iwk].diff(0, 1) = **itd;
-        }
-        else
-        {
-          mapIndep[idiff] = ii;
-          wkAD[iwk].diff(idiff++, nIndep);
+          if (pvar->id() != (*iti)->id()) continue;
+#ifdef MC__FFUNC_SFAD_DEBUG
+          std::cerr << "independent " << idiff << ": " << wkAD[iwk].val()
+                    << std::endl;
+#endif
+          if (vDir.size())
+          {
+            mapIndep[idiff]      = 0;
+            wkAD[iwk].diff(0, 1) = **itd;
+          }
+          else
+          {
+            mapIndep[idiff] = ii;
+            wkAD[iwk].diff(idiff++, nIndep);
+          }
         }
       }
+
+      // Evaluate current operation
+      _curOp = op;
+      if (op->type < FFOp::EXTERN)
+        op->evaluate(&wkAD[iwk], 0, pwkSFAD, pwkmov);
+      else
+        op->evaluate_external(&wkAD[iwk], nullptr, pwkSFAD, pwkmov);
+      // Increment tape
+      iwk += op->varout.size();
     }
 
-    // Evaluate current operation
-    _curOp = op;
-    if (op->type < FFOp::EXTERN)
-      op->evaluate(&wkAD[iwk], 0, pwkSFAD, pwkmov);
-    else
-      op->evaluate_external(&wkAD[iwk], nullptr, pwkSFAD, pwkmov);
-    // Increment tape
-    iwk += op->varout.size();
-  }
-
-  // Copy dependent values in vDep
-  auto const& pdep = *sgDep.v_dep.begin();
-  for (unsigned j = 0; j < nIndep; j++)
-  {
-    auto pF_F  = static_cast<fadbad::F<FFVar>*>(pdep->val());
-    auto pdFdX = _find_var(pF_F->deriv(j).id());
-    if (pdFdX == nullptr)
+    // Copy dependent values in vDep
+    auto const& pdep = *sgDep.v_dep.begin();
+    for (unsigned j = 0; j < nIndep; j++)
     {
-      auto const& num = pF_F->deriv(j).num();
-      switch (num.t)
+      auto pF_F  = static_cast<F_FFVar*>(pdep->val());
+      auto pdFdX = _find_var(pF_F->deriv(j).id());
+      if (pdFdX == nullptr)
       {
-        case FFNum::INT:
-          if (num.n != 0) pdFdX = _add_constant(num.n);
-          break;
-        case FFNum::REAL:
-          if (num.x != 0.) pdFdX = _add_constant(num.x);
-          break;
+        auto const& num = pF_F->deriv(j).num();
+        switch (num.t)
+        {
+          case FFNum::INT:
+            if (num.n != 0) pdFdX = _add_constant(num.n);
+            break;
+          case FFNum::REAL:
+            if (num.x != 0.) pdFdX = _add_constant(num.x);
+            break;
+        }
       }
+      if (pdFdX == nullptr) continue;
+      std::get<0>(vDep_F).push_back(i);  // add row index (dependent)
+      std::get<1>(vDep_F).push_back(
+          mapIndep[j]);                      // add column index (independent)
+      std::get<2>(vDep_F).push_back(pdFdX);  // add Jacobian element
+      if (vDir.size()) break;  // interrupt if directional derivatives requested
     }
-    if (pdFdX == nullptr) continue;
-    std::get<0>(vDep_F).push_back(i);  // add row index (dependent)
-    std::get<1>(vDep_F).push_back(
-        mapIndep[j]);                      // add column index (independent)
-    std::get<2>(vDep_F).push_back(pdFdX);  // add Jacobian element
-    if (vDir.size()) break;  // interrupt if directional derivatives requested
   }
-}
 
 #ifdef MC__FFUNC_CPU_EVAL
-cputime += cpuclock();
-std::cout << "\nEvaluation time: " << std::fixed << cputime << std::endl;
+  cputime += cpuclock();
+  std::cout << "\nEvaluation time: " << std::fixed << cputime << std::endl;
 #endif
 
-return vDep_F;
+  return vDep_F;
 }
 #endif
 
@@ -11080,8 +11096,11 @@ FFGraph::DBAD(std::vector<FFVar const*> const& vDep,
   auto&& sDep_B = SDBAD(vDep, vDir, vIndep);
 
   FFVar const* pZero = _add_constant(0.);
+  // Directional (adjoint) backward yields vDir^T . J, one entry per independent
+  // (SDBAD emits it with collapsed row index 0); the plain layout is one entry
+  // per (dependent, independent) pair.
   std::vector<FFVar const*> vDep_B(
-      (vDir.size() ? 1 : vIndep.size()) * vDep.size(), pZero);
+      vDir.size() ? vIndep.size() : vIndep.size() * vDep.size(), pZero);
   for (unsigned ie(0); ie < std::get<2>(sDep_B).size(); ie++)
   {
     unsigned pDep_B =
@@ -11348,7 +11367,7 @@ FFGraph::SBAD(std::vector<FFVar const*> const& vDep,
   return vDep_B;
 }
 
-#ifndef MC__USE_BADIFF
+#ifndef MC__DAG_BADIFF
 inline std::tuple<std::vector<unsigned>, std::vector<unsigned>,
                   std::vector<FFVar const*>>
 FFGraph::SDBAD(std::vector<FFVar const*> const& vDep,
@@ -11610,6 +11629,13 @@ FFGraph::SDBAD(std::vector<FFVar const*> const& vDep,
                std::vector<FFVar const*> const& vDir,
                std::vector<FFVar const*> const& vIndep)
 {
+  using B_FFVar = BADType<FFVar>;
+//#ifndef MC__USE_FADBAD
+//  typedef mc::B<FFVar> B_FFVar;
+//#else
+//  typedef fadbad::B<FFVar> B_FFVar;
+//#endif
+
   // Nothing to do!
   if (!vIndep.size() || !vDep.size())
     return std::make_tuple(std::vector<unsigned>(), std::vector<unsigned>(),
@@ -11619,6 +11645,14 @@ FFGraph::SDBAD(std::vector<FFVar const*> const& vDep,
   std::tuple<std::vector<unsigned>, std::vector<unsigned>,
              std::vector<FFVar const*>>
       vDep_B;
+  std::vector<B_FFVar> wkAD;
+
+  // Directional (adjoint) mode contracts vDir^T . J into per-independent sums,
+  // matching the sparse layout emitted by the default (non-MC__DAG_BADIFF)
+  // SDBAD so that the shared DBAD/SDBAD post-processing behaves identically.
+  bool const directional = !vDir.empty();
+  assert(!directional || vDep.size() == vDir.size());
+  std::map<unsigned, FFVar> acc;  // independent index -> accumulated vDir^T . J
 
   // Repeat backward differentiation for each dependent
   for (unsigned int i = 0; i < vDep.size(); ++i)
@@ -11638,9 +11672,9 @@ FFGraph::SDBAD(std::vector<FFVar const*> const& vDep,
         (sgDep.len_wrk ? &wkAD[sgDep.len_tap - sgDep.len_wrk] : nullptr);
     unsigned* pwkmov =
         (sgDep.len_wrk ? &sgDep.v_mov[sgDep.len_tap - sgDep.len_wrk] : nullptr);
-    std::map<unsigned, std::pair<unsigned, fadbad::B<FFVar>*>> mapIndep;
+    std::map<unsigned, std::pair<unsigned, B_FFVar*>> mapIndep;
 
-    // Propagate values in fadbad::F arithmetic through subgraph
+    // Propagate values in B_FFVar arithmetic through subgraph
 #ifdef MC__FFUNC_CPU_EVAL
     double cputime = -cpuclock();
     std::cerr << "#operations " << sgDep.l_op.size() << std::endl;
@@ -11680,8 +11714,8 @@ FFGraph::SDBAD(std::vector<FFVar const*> const& vDep,
     }
 
     // Copy values in DepB, IndepB
-    fadbad::B<FFVar> DepB = wkAD[sgDep.l_op.size() - 1];
-    std::vector<fadbad::B<FFVar>> IndepB(nIndep);
+    B_FFVar DepB = wkAD[sgDep.l_op.size() - 1];
+    std::vector<B_FFVar> IndepB(nIndep);
     for (unsigned j = 0; j < nIndep; j++) IndepB[j] = *mapIndep[j].second;
     // Increment tape
     wkAD.clear();
@@ -11692,7 +11726,22 @@ FFGraph::SDBAD(std::vector<FFVar const*> const& vDep,
 #ifdef MC__FFUNC_SBAD_DEBUG
       std::cerr << "independent " << j << ": " << IndepB[j].val() << std::endl;
 #endif
-      FFVar dXj  = IndepB[j].d(0);
+      unsigned const col = mapIndep[j].first;
+      FFVar dXj          = IndepB[j].d(0);
+
+      // Directional mode: accumulate  vDir[i] * dF_i/dX_col  over dependents i
+      if (directional)
+      {
+        FFVar term = (*vDir[i]) * dXj;
+        auto it    = acc.find(col);
+        if (it == acc.end())
+          acc.emplace(col, term);
+        else
+          it->second = it->second + term;
+        continue;
+      }
+
+      // Full-Jacobian mode (vDir empty): emit dF_i/dX_col as before
       auto pdFdX = _find_var(dXj.id());
       if (pdFdX == nullptr)
       {
@@ -11708,9 +11757,37 @@ FFGraph::SDBAD(std::vector<FFVar const*> const& vDep,
         }
       }
       if (pdFdX == nullptr) continue;
-      std::get<0>(vDep_B).push_back(i);                  // add row index
-      std::get<1>(vDep_B).push_back(mapIndep[j].first);  // add column index
-      std::get<2>(vDep_B).push_back(pdFdX);              // add Jacobian element
+      std::get<0>(vDep_B).push_back(i);      // add row index (dependent)
+      std::get<1>(vDep_B).push_back(col);    // add column index (independent)
+      std::get<2>(vDep_B).push_back(pdFdX);  // add Jacobian element
+    }
+  }
+
+  // Directional mode: emit the contracted vDir^T . J, one entry per contributing
+  // independent, with the collapsed row index 0 (single directional result).
+  if (directional)
+  {
+    for (auto& kv : acc)
+    {
+      FFVar const& val = kv.second;
+      auto p           = _find_var(val.id());
+      if (p == nullptr)
+      {
+        auto const& num = val.num();
+        switch (num.t)
+        {
+          case FFNum::INT:
+            if (num.n != 0) p = _add_constant(num.n);
+            break;
+          case FFNum::REAL:
+            if (num.x != 0.) p = _add_constant(num.x);
+            break;
+        }
+      }
+      if (p == nullptr) continue;
+      std::get<0>(vDep_B).push_back(0);         // collapsed row (directional)
+      std::get<1>(vDep_B).push_back(kv.first);  // independent index
+      std::get<2>(vDep_B).push_back(p);         // vDir^T . J entry
     }
   }
 
@@ -11793,17 +11870,20 @@ inline std::vector<FFVar const*>
 FFGraph::TAD(size_t const ordermax, std::vector<FFVar const*> const& vDep,
              std::vector<FFVar const*> const& vVar, FFVar const* const pIndep)
 {
-#ifndef MC__USE_TADIFF
-  throw Exceptions(Exceptions::MISSTADIFF);
+  using T_FFVar = TADType<FFVar>;
+//#ifndef MC__USE_FADBAD
+//  typedef mc::T<FFVar> T_FFVar;
+//#else
+//  typedef fadbad::T<FFVar> T_FFVar;
+//#endif
 
-#else
   // Check dependent and independent vector sizes
   if (!vVar.size() || !vDep.size()) return std::vector<FFVar const*>();
   assert(vVar.size() == vDep.size());
 
   // Obtain subgraph
   auto sgDep = subgraph(vDep);
-  std::vector<fadbad::T<FFVar>> wkAD(sgDep.len_tap);
+  std::vector<T_FFVar> wkAD(sgDep.len_tap);
   auto pwkTAD =
       (sgDep.len_wrk ? &wkAD[sgDep.len_tap - sgDep.len_wrk] : nullptr);
   unsigned* pwkmov =
@@ -11811,10 +11891,10 @@ FFGraph::TAD(size_t const ordermax, std::vector<FFVar const*> const& vDep,
 
   // Vector holding the results
   std::vector<FFVar const*> vDep_T;  // <- vector holding the results
-  fadbad::T<FFVar>** pX_T = new fadbad::T<FFVar>*[vVar.size()];
-  fadbad::T<FFVar>** pF_T = new fadbad::T<FFVar>*[vDep.size()];
+  T_FFVar** pX_T = new T_FFVar*[vVar.size()];
+  T_FFVar** pF_T = new T_FFVar*[vDep.size()];
 
-  // Propagate values in fadbad::T type arithmetic through subgraph
+  // Propagate values in T_FFVar type arithmetic through subgraph
 #ifdef MC__FFUNC_CPU_EVAL
   double cputime = -cpuclock();
   std::cerr << "#operations " << sgDep.l_op.size() << std::endl;
@@ -11842,7 +11922,7 @@ FFGraph::TAD(size_t const ordermax, std::vector<FFVar const*> const& vDep,
                   << pXi << ")\n";
 #endif
       }
-      // Attach fadbad::T<FFVar>* variable to corresponding variable
+      // Attach T_FFVar* variable to corresponding variable
       pXi->val() = &wkAD[iwk];
     }
 
@@ -11861,7 +11941,7 @@ FFGraph::TAD(size_t const ordermax, std::vector<FFVar const*> const& vDep,
   for (unsigned j = 0; itd != vDep.end(); ++itd, j++)
   {
     FFVar* pFj = _find_var((*itd)->id());
-    pF_T[j]    = (pFj ? static_cast<fadbad::T<FFVar>*>(pFj->val()) : nullptr);
+    pF_T[j]    = (pFj ? static_cast<T_FFVar*>(pFj->val()) : nullptr);
   }
 
   // Evaluate Taylor coefficients recursively
@@ -11910,7 +11990,7 @@ FFGraph::TAD(size_t const ordermax, std::vector<FFVar const*> const& vDep,
   delete[] pF_T;
 
   // Null out all _val pointers set during the Taylor propagation pass before
-  // wkAD (a local fadbad::T<FFVar> vector) goes out of scope.
+  // wkAD (a local T_FFVar vector) goes out of scope.
   for (auto const& op : sgDep.l_op)
     for (auto const& pvar : op->varout) pvar->val() = nullptr;
 
@@ -11920,7 +12000,6 @@ FFGraph::TAD(size_t const ordermax, std::vector<FFVar const*> const& vDep,
 #endif
 
   return vDep_T;
-#endif
 }
 
 template <typename DAG, typename KEY, typename COMP>
@@ -13034,7 +13113,9 @@ FFGraph::eval(FFSubgraph& sgDep, std::vector<U>& wkDep, unsigned const nDep,
       if (it == varValMap.end())
       {
         std::cerr << "Subgraph evaluation failed -- missing variable " << *pvar
-                  << std::endl;
+                  << " [nDep=" << nDep << ", vargroups=" << l_nVar.size()
+                  << ", states_provided=" << ( l_nVar.empty() ? 0 : l_nVar[0] )
+                  << ", subgraph_ops=" << sgDep.l_op.size() << "]" << std::endl;
         throw Exceptions(Exceptions::MISSVAR);
       }
       wkDep[iwk] = *it->second;
@@ -13163,7 +13244,9 @@ FFGraph::eval(FFSubgraph& sgDep,
       if (it == varValMap.end())
       {
         std::cerr << "Subgraph evaluation failed -- missing variable " << *pvar
-                  << std::endl;
+                  << " [nDep=" << nDep << ", vargroups=" << l_nVar.size()
+                  << ", states_provided=" << ( l_nVar.empty() ? 0 : l_nVar[0] )
+                  << ", subgraph_ops=" << sgDep.l_op.size() << "]" << std::endl;
         throw Exceptions(Exceptions::MISSVAR);
       }
       wkDep[iwk] = *it->second;
@@ -14424,6 +14507,7 @@ struct Op<mc::FFVar>
 
 }  // namespace mc
 
+#ifdef MC__USE_FADBAD
 namespace fadbad
 {
 
@@ -14611,5 +14695,6 @@ struct Op<mc::FFVar>
 };
 
 }  // end namespace fadbad
+#endif // #ifdef MC__USE_FADBAD
 
 #endif

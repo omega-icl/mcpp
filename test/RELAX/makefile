@@ -10,7 +10,7 @@ FLAG_MIP    = -DMC__USE_GUROBI
 
 #####
 
-all: LINREL_Doxygen LINREL_build LINREL_build2 LINREL_build3 LINREL_1d LINREL_2d FFDAGEXT_2d
+all: LINREL_Doxygen LINREL_build LINREL_build2 LINREL_build3 LINREL_1d LINREL_2d FFDAGEXT_2d PWLREL_1d
 
 LINREL_% : LINREL_%.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC) $(LIB_MIP)

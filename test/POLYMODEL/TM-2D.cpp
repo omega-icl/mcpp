@@ -44,7 +44,7 @@ typedef mc::TModel<MC> TMMC;
 typedef mc::TVar<MC> TVMC;
 
 #include "mcfadbad.hpp"
-typedef fadbad::F<TVMC> FTVMC;
+typedef mc::FADType<TVMC> FTVMC;
 
 using namespace std;
 using namespace mc;

@@ -1,5 +1,5 @@
-#define TEST_EXP2     // <-- select test function here
-const int NTE = 5;    // <-- select Taylor expansion order here
+#define TEST_EXP     // <-- select test function here
+const int NTE = 4;    // <-- select Taylor expansion order here
 const int NX  = 500;  // <-- select X discretization here
 #define SAVE_RESULTS  // <-- specify whether to save results to file
 #undef USE_PROFIL     // <-- specify to use PROFIL for interval arithmetic
@@ -44,7 +44,7 @@ typedef mc::TModel<MC> TMMC;
 typedef mc::TVar<MC> TVMC;
 
 #include "mcfadbad.hpp"
-typedef fadbad::F<TVMC> FTVMC;
+typedef mc::FADType<TVMC> FTVMC;
 
 using namespace std;
 using namespace mc;

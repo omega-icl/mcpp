@@ -5,8 +5,32 @@
 #ifndef MC__MCFADBAD_HPP
 #define MC__MCFADBAD_HPP
 
-#include "fadiff.h"
 #include "mcop.hpp"
+
+// Use built-in MC++ classes for forward/backward AD and Taylor expansion
+#ifndef MC__USE_FADBAD
+
+#include "fdiff.hpp"
+#include "bdiff.hpp"
+#include "tdiff.hpp"
+
+namespace mc
+{
+  template <typename U> using FADType = mc::F<U>;
+  template <typename U> using BADType = mc::B<U>;
+  template <typename U> using TADType = mc::T<U>;
+} // namespace mc
+
+// Use FADBAD classes for forward/backward AD and Taylor expansion
+// Please note the license restriction for commercial use of FADBAD
+#else
+
+#include "fadiff.h"
+
+namespace mc
+{
+  template <typename U> using FADType = fadbad::F<U>;
+} // namespace mc
 
 namespace fadbad
 {
@@ -329,6 +353,11 @@ erf(const FTypeName<T, 0>& a)
 
 #include "badiff.h"
 
+namespace mc
+{
+  template <typename U> using BADType = fadbad::B<U>;
+} // namespace mc
+
 namespace fadbad
 {
 //@ICL: 26.04.2026
@@ -590,6 +619,11 @@ cheb(const BTypeName<U>& x, const unsigned n)
 }  // namespace fadbad
 
 #include "tadiff.h"
+
+namespace mc
+{
+  template <typename U> using TADType = fadbad::T<U>;
+} // namespace mc
 
 namespace fadbad
 {
@@ -1550,3 +1584,5 @@ struct Op<fadbad::T<U> >
 }  // namespace mc
 
 #endif
+
+#endif // USE_FADBAD
