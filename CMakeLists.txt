@@ -480,10 +480,10 @@ endif()
 # -DPYMCPP_INSTALL_DIR=. and select only the python_modules component.
 set(PYMCPP_INSTALL_DIR
     "lib"
-    CACHE PATH "Installation directory for pymcpp module")
+    CACHE STRING "Installation directory for pymcpp module")
 set(MCPP_NOTEBOOK_INSTALL_DIR
     "notebook"
-    CACHE PATH "Installation directory for notebooks and Python scripts")
+    CACHE STRING "Installation directory for notebooks and Python scripts")
 
 # Display the computed installation path for user confirmation
 message(STATUS "--------------------------------------------------------")
