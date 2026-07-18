@@ -25,3 +25,6 @@ __pycache__/
 # OS-specific generated files
 .DS_Store
 Thumbs.db
+
+# test generated files
+test/DAG/*.dot
