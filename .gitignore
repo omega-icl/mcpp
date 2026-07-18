@@ -28,3 +28,7 @@ Thumbs.db
 
 # test generated files
 test/DAG/*.dot
+
+# python wheel builds
+dist/
+*.dot
