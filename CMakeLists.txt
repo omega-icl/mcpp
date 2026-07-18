@@ -470,6 +470,29 @@ if(ENABLE_TORCH
     PROPERTY INSTALL_RPATH "${MC_TORCH_LIB_DIR}")
 endif()
 
+# Type stub: auto-generated at build time (not tracked in git). A compiled .so
+# is opaque to editors, so after the module is linked we run pybind11-stubgen
+# against the freshly-built extension to emit pymcpp.pyi and install it next to
+# the .so, giving autocomplete/hover docs that always match the current
+# bindings. pybind11-stubgen must be importable by the build interpreter.
+#
+# This step IMPORTS the freshly-built module, so it cannot run when
+# cross-compiling. Pass -DPYMCPP_STUBS=OFF in that case.
+option(PYMCPP_STUBS "Generate and install the .pyi type stub" ON)
+if(PYMCPP_STUBS)
+  set(_stub_out ${CMAKE_CURRENT_BINARY_DIR}/stubs)
+  add_custom_command(
+    TARGET pymcpp
+    POST_BUILD
+    COMMAND
+      ${CMAKE_COMMAND} -E env
+      "PYTHONPATH=$<TARGET_FILE_DIR:pymcpp>:$ENV{PYTHONPATH}"
+      ${Python3_EXECUTABLE} -m pybind11_stubgen pymcpp -o ${_stub_out}
+    BYPRODUCTS ${_stub_out}/pymcpp.pyi
+    COMMENT "Generating pymcpp.pyi type stub"
+    VERBATIM)
+endif()
+
 # Installation
 
 # Direct CMake installs default to: ${CMAKE_INSTALL_PREFIX}/include   for MC++
@@ -562,6 +585,14 @@ install(
   TARGETS pymcpp
   DESTINATION ${PYMCPP_INSTALL_DIR}
   COMPONENT python_modules)
+
+# Install the type stub next to the module so editors pick it up.
+if(PYMCPP_STUBS)
+  install(
+    FILES ${CMAKE_CURRENT_BINARY_DIR}/stubs/pymcpp.pyi
+    DESTINATION ${PYMCPP_INSTALL_DIR}
+    COMPONENT python_modules)
+endif()
 
 # Install notebooks and Python scripts, if the notebook/ directory exists.
 install(
