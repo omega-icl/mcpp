@@ -12,8 +12,8 @@
 #endif
 
 #include "ffextern.hpp"
-#include "interval.hpp"
 #include "fflin.hpp"
+#include "interval.hpp"
 
 // #define MC__FFMLP_DEBUG
 #define MC__FFMLP_CHECK
@@ -160,20 +160,20 @@ class MLP
   std::vector<std::pair<std::vector<std::vector<double>>, int>> _data;
 
   //! @brief Intermediate storage for DAG evaluation
-  std::vector<std::vector<FFVar>>                     _wkFF;
-  std::vector<std::vector<double>>                    _wkD;
-  std::vector<std::vector<FADType<double>>>         _wkFD;
-  std::vector<std::vector<BADType<double>>>         _wkBD;
-  std::vector<std::vector<T>>                         _wkI;
-  std::vector<std::vector<McCormick<T>>>              _wkMC;
-  std::vector<std::vector<Specbnd<T>>>                _wkSB;
-  std::vector<std::vector<SupVar<PWCU>>>              _wkPWCS;
-  std::vector<std::vector<SupVar<PWLU>>>              _wkPWLS;
-  std::vector<std::vector<SCVar<T>>>                  _wkSC;
-  std::vector<std::vector<OCVar<double>>>             _wkOCD;
-  std::vector<std::vector<OCVar<FADType<double>>>>  _wkOCFD;
-  std::vector<PolVar<T>>                              _wkPOL;
-  std::vector<T>                                      _wkCPI;
+  std::vector<std::vector<FFVar>> _wkFF;
+  std::vector<std::vector<double>> _wkD;
+  std::vector<std::vector<FADType<double>>> _wkFD;
+  std::vector<std::vector<BADType<double>>> _wkBD;
+  std::vector<std::vector<T>> _wkI;
+  std::vector<std::vector<McCormick<T>>> _wkMC;
+  std::vector<std::vector<Specbnd<T>>> _wkSB;
+  std::vector<std::vector<SupVar<PWCU>>> _wkPWCS;
+  std::vector<std::vector<SupVar<PWLU>>> _wkPWLS;
+  std::vector<std::vector<SCVar<T>>> _wkSC;
+  std::vector<std::vector<OCVar<double>>> _wkOCD;
+  std::vector<std::vector<OCVar<FADType<double>>>> _wkOCFD;
+  std::vector<PolVar<T>> _wkPOL;
+  std::vector<T> _wkCPI;
 
   //! @brief ReLU activation
   template <typename U>
@@ -224,8 +224,9 @@ class MLP
         _nin(0),
         _nout(0),
         _nhid(0),
-        _hasmodule(false),
+        _hasmodule(false)
 #if defined(MC__USE_TORCH)
+        ,
         _device(torch::kCPU),
         _dtype(torch::kFloat32)
 #endif
