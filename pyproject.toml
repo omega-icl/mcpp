@@ -20,8 +20,8 @@ install.components = ["python_modules"] # Only install the python module compone
 wheel.packages = []
 
 [tool.scikit-build.cmake.define]
-ENABLE_TORCH = "ON"
-ENABLE_HSL = "ON"
-ENABLE_EXAMPLES = "ON"
+ENABLE_TORCH = "OFF"
+ENABLE_HSL = "OFF"
+ENABLE_EXAMPLES = "OFF"
 MC_INTERVAL_LIBRARY = "BOOST"
 PYMCPP_INSTALL_DIR = "."
