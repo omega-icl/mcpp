@@ -1,7 +1,7 @@
-import pymc
-G = pymc.FFGraph()
+import pymcpp
+G = pymcpp.FFGraph()
 X = G.add_vars( 3 )
-Sum = pymc.FFLin()
+Sum = pymcpp.FFLin()
 
 Sum1 = Sum( X, 1. )
 print( Sum1.str() )

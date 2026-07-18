@@ -98,7 +98,7 @@ if(CUSTOM_PYTHON_PATH)
 endif()
 
 # Find Python with the selected executable locked in. Development.Module is the
-# appropriate component for building extension modules such as pymc; it avoids
+# appropriate component for building extension modules such as pymcpp; it avoids
 # unnecessarily requesting the embedding library.
 set(Python3_FIND_VIRTUALENV FIRST)
 find_package(
@@ -383,7 +383,7 @@ target_include_directories(
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src/mc>
     $<INSTALL_INTERFACE:include>
     # ${CMAKE_CURRENT_SOURCE_DIR}/src/3rdparty/boost
-    #${CMAKE_CURRENT_SOURCE_DIR}/src/3rdparty/fadbad++
+    # ${CMAKE_CURRENT_SOURCE_DIR}/src/3rdparty/fadbad++
     # ${CMAKE_CURRENT_SOURCE_DIR}/src/3rdparty/cpplapack-2015.05.11-1/include
     ${Boost_INCLUDE_DIRS}
     ${ARMADILLO_INCLUDE_DIRS}
@@ -419,53 +419,53 @@ if(ENABLE_TORCH)
   target_link_libraries(mc INTERFACE ${TORCH_CPU_LIBRARY} ${C10_LIBRARY})
 endif()
 
-# PyMC Library
+# PyMC++ Library
 
-# Explicitly list sources as per pymc.mk
-set(PYMC_SOURCES
-    src/pymc/mcfunc.cpp
-    src/pymc/interval.cpp
-    src/pymc/mccormick.cpp
-    src/pymc/specbnd.cpp
-    src/pymc/tmodel.cpp
-    src/pymc/cmodel.cpp
-    src/pymc/scmodel.cpp
-    src/pymc/sicmodel.cpp
-    src/pymc/supmodel.cpp
-    src/pymc/polimage.cpp
-    src/pymc/ellimage.cpp
-    src/pymc/smon.cpp
-    src/pymc/spoly.cpp
-    src/pymc/ffdep.cpp
-    src/pymc/ffinv.cpp
-    src/pymc/ffunc.cpp
-    src/pymc/ffmon.cpp
-    src/pymc/ffpoly.cpp
-    src/pymc/slift.cpp
-    src/pymc/fflin.cpp
-    src/pymc/ffmlp.cpp
-    src/pymc/ffdagext.cpp
-    src/pymc/ffvect.cpp
-    src/pymc/ffcustom.cpp
-    src/pymc/pymc.cpp)
+# Explicitly list sources as per pymcpp.mk
+set(PYMCPP_SOURCES
+    src/pymcpp/mcfunc.cpp
+    src/pymcpp/interval.cpp
+    src/pymcpp/mccormick.cpp
+    src/pymcpp/specbnd.cpp
+    src/pymcpp/tmodel.cpp
+    src/pymcpp/cmodel.cpp
+    src/pymcpp/scmodel.cpp
+    src/pymcpp/sicmodel.cpp
+    src/pymcpp/supmodel.cpp
+    src/pymcpp/polimage.cpp
+    src/pymcpp/ellimage.cpp
+    src/pymcpp/smon.cpp
+    src/pymcpp/spoly.cpp
+    src/pymcpp/ffdep.cpp
+    src/pymcpp/ffinv.cpp
+    src/pymcpp/ffunc.cpp
+    src/pymcpp/ffmon.cpp
+    src/pymcpp/ffpoly.cpp
+    src/pymcpp/slift.cpp
+    src/pymcpp/fflin.cpp
+    src/pymcpp/ffmlp.cpp
+    src/pymcpp/ffdagext.cpp
+    src/pymcpp/ffvect.cpp
+    src/pymcpp/ffcustom.cpp
+    src/pymcpp/pymcpp.cpp)
 
-pybind11_add_module(pymc ${PYMC_SOURCES})
+pybind11_add_module(pymcpp ${PYMCPP_SOURCES})
 
 # Keep the vendored pybind11 include directory ahead of Torch's bundled copy.
 target_include_directories(
-  pymc BEFORE PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/extern/pybind11/include")
+  pymcpp BEFORE PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/extern/pybind11/include")
 
-target_link_libraries(pymc PRIVATE mc)
+target_link_libraries(pymcpp PRIVATE mc)
 
 if(ENABLE_TORCH
    AND MC_TORCH_LIB_DIR
    AND EXISTS "${MC_TORCH_LIB_DIR}")
   set_property(
-    TARGET pymc
+    TARGET pymcpp
     APPEND
     PROPERTY BUILD_RPATH "${MC_TORCH_LIB_DIR}")
   set_property(
-    TARGET pymc
+    TARGET pymcpp
     APPEND
     PROPERTY INSTALL_RPATH "${MC_TORCH_LIB_DIR}")
 endif()
@@ -473,14 +473,14 @@ endif()
 # Installation
 
 # Direct CMake installs default to: ${CMAKE_INSTALL_PREFIX}/include   for MC++
-# headers ${CMAKE_INSTALL_PREFIX}/lib       for the compiled pymc extension
+# headers ${CMAKE_INSTALL_PREFIX}/lib       for the compiled pymcpp extension
 # module ${CMAKE_INSTALL_PREFIX}/notebook  for notebooks and Python scripts
 #
-# For wheel builds with scikit-build-core, override PYMC_INSTALL_DIR with
-# -DPYMC_INSTALL_DIR=. and select only the python_modules component.
-set(PYMC_INSTALL_DIR
+# For wheel builds with scikit-build-core, override PYMCPP_INSTALL_DIR with
+# -DPYMCPP_INSTALL_DIR=. and select only the python_modules component.
+set(PYMCPP_INSTALL_DIR
     "lib"
-    CACHE PATH "Installation directory for pymc module")
+    CACHE PATH "Installation directory for pymcpp module")
 set(MCPP_NOTEBOOK_INSTALL_DIR
     "notebook"
     CACHE PATH "Installation directory for notebooks and Python scripts")
@@ -492,7 +492,7 @@ message(
 message(STATUS "Headers will be installed to: ${CMAKE_INSTALL_PREFIX}/include")
 message(
   STATUS
-    "pymc module will be installed to: ${CMAKE_INSTALL_PREFIX}/${PYMC_INSTALL_DIR}"
+    "pymcpp module will be installed to: ${CMAKE_INSTALL_PREFIX}/${PYMCPP_INSTALL_DIR}"
 )
 message(
   STATUS
@@ -557,10 +557,10 @@ install(
   DESTINATION include
   COMPONENT headers)
 
-# Install pymc into ${CMAKE_INSTALL_PREFIX}/${PYMC_INSTALL_DIR}.
+# Install pymcpp into ${CMAKE_INSTALL_PREFIX}/${PYMCPP_INSTALL_DIR}.
 install(
-  TARGETS pymc
-  DESTINATION ${PYMC_INSTALL_DIR}
+  TARGETS pymcpp
+  DESTINATION ${PYMCPP_INSTALL_DIR}
   COMPONENT python_modules)
 
 # Install notebooks and Python scripts, if the notebook/ directory exists.
@@ -579,11 +579,8 @@ install(
 
 # Examples
 if(ENABLE_EXAMPLES)
-  file(
-    GLOB_RECURSE EXAMPLE_SOURCES
-    CONFIGURE_DEPENDS
-    "${CMAKE_CURRENT_SOURCE_DIR}/test/*.cpp"
-  )
+  file(GLOB_RECURSE EXAMPLE_SOURCES CONFIGURE_DEPENDS
+       "${CMAKE_CURRENT_SOURCE_DIR}/test/*.cpp")
 
   foreach(SOURCE_FILE IN LISTS EXAMPLE_SOURCES)
 

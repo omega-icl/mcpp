@@ -72,7 +72,7 @@ void mc_ffdagext(py::module_&);
 void mc_ffcustom(py::module_&);
 void mc_ffvect(py::module_&);
 
-PYBIND11_MODULE(pymc, m)
+PYBIND11_MODULE(pymcpp, m)
 {
   m.doc() = "Python interface of library MC++";
 

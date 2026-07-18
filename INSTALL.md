@@ -48,7 +48,7 @@ cmake -S . -B build \
 ```bash
 cmake --build build --parallel $(nproc)
 ```
-That compiles the pymc Python extension.
+That compiles the pymcpp Python extension.
 - To install only the Python module into your selected uv environment run:
 ```bash
 cmake --install build --component python_modules
@@ -81,7 +81,7 @@ This should install to:
 - `cd src && make install`
 - append the following lines to `~/.bashrc` using a text editor
 ```
-export PYTHONPATH="${PYTHONPATH}: [...]/mcpp/src/pymc"
+export PYTHONPATH="${PYTHONPATH}: [...]/mcpp/src/pymcpp"
 ```
 - restart the terminal for changes to take effect, or run `source ~/.bashrc`
 

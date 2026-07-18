@@ -24,7 +24,7 @@ A description of the main bounding components of MC++ can also be found under <A
 - \ref page_SUPREL
 .
 
-A range of python notebooks are provided in \link src/pymc \endlink to illustrate these capabilities.
+A range of python notebooks are provided in \link src/pymcpp \endlink to illustrate these capabilities.
 
 
 \section sec_MC_install Setting up MC++

@@ -6,7 +6,7 @@ requires = [
 build-backend = "scikit_build_core.build"
 
 [project]
-name = "pymc"
+name = "pymcpp"
 version = "5.0.0"
 description = "Python interface to MC++"
 readme = "README.md"
@@ -24,4 +24,4 @@ ENABLE_TORCH = "ON"
 ENABLE_HSL = "ON"
 ENABLE_EXAMPLES = "ON"
 MC_INTERVAL_LIBRARY = "BOOST"
-PYMC_INSTALL_DIR = "."
+PYMCPP_INSTALL_DIR = "."

@@ -1,6 +1,6 @@
-import pymc
+import pymcpp
 
-G = pymc.FFGraph()
+G = pymcpp.FFGraph()
 X = G.add_vars( 2 )
 
 def prod( x ):
@@ -9,10 +9,10 @@ def prod( x ):
 def dprod( x ):
   return [ x[1], x[0] ]
 
-OpDY = pymc.FFCustom()
+OpDY = pymcpp.FFCustom()
 OpDY.set_D_eval( dprod )
 
-OpY = pymc.FFCustom()
+OpY = pymcpp.FFCustom()
 OpY.set_D_eval( prod )
 OpY.set_I_eval( prod )
 OpY.set_deriv( OpDY, 0 )
@@ -25,7 +25,7 @@ print( G )
 [DY] = G.eval( [Y], X, [2,3] )
 print( "DY = ", DY )
 
-[IY] = G.eval( [Y], X, [pymc.Interval(1,3), pymc.Interval(2,4)] )
+[IY] = G.eval( [Y], X, [pymcpp.Interval(1,3), pymcpp.Interval(2,4)] )
 print( "IY = ", IY )
 
 dYdX = G.fdiff( [Y], X )

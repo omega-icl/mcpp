@@ -8,11 +8,11 @@ export srcpath  = $(rootpath)/src
 export incpath  = $(rootpath)/include
 export libpath  = $(rootpath)/lib
 export mcpath   = $(srcpath)/mc
-export pymcpath = $(srcpath)/pymc
+export pymcpppath = $(srcpath)/pymcpp
 
 #####
 
-install: dirs_create mc_install pymc_install
+install: dirs_create mc_install pymcpp_install
 
 dirs_create:
 	@if test ! -e $(incpath)/; then \
@@ -27,25 +27,25 @@ dirs_create:
 mc_install:
 	-(cd $(mcpath); make -f mc.mk install)
 
-pymc_install:
-	-(cd $(pymcpath); make -f pymc.mk install)
+pymcpp_install:
+	-(cd $(pymcpppath); make -f pymcpp.mk install)
 
 #####
 
-clean: pymc_clean
+clean: pymcpp_clean
 
-pymc_clean:
-	-(cd $(pymcpath); make -f pymc.mk clean)
+pymcpp_clean:
+	-(cd $(pymcpppath); make -f pymcpp.mk clean)
 
 #####
 
-uninstall: mc_uninstall pymc_uninstall
+uninstall: mc_uninstall pymcpp_uninstall
 
 mc_uninstall:
 	-(cd $(mcpath); make -f mc.mk uninstall)
 
-pymc_uninstall:
-	-(cd $(pymcpath); make -f pymc.mk uninstall)
+pymcpp_uninstall:
+	-(cd $(pymcpppath); make -f pymcpp.mk uninstall)
 
 #####
 

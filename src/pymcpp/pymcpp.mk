@@ -11,15 +11,15 @@ libobjs = mcfunc.o interval.o mccormick.o specbnd.o \
           smon.o spoly.o \
           ffdep.o ffinv.o ffunc.o ffmon.o ffpoly.o slift.o \
           fflin.o ffmlp.o ffdagext.o ffvect.o ffcustom.o \
-          pymc.o
-libname = pymc.so
+          pymcpp.o
+libname = pymcpp.so
 
 #####
 
 install: dispBuild $(libname) dispInstall
 	@if test ! -e $(libpath)/$(libname); then \
 		echo creating symolic link to shared library $(libname); \
-		cd $(libpath); ln -s $(pymcpath)/$(libname) $(libname); \
+		cd $(libpath); ln -s $(pymcpppath)/$(libname) $(libname); \
 	fi
 	@echo
 
@@ -31,12 +31,12 @@ $(libname): $(libobjs)
 
 dispBuild:
 	@echo
-	@(echo '***Compiling PYMC library (ver.' $(version)')***')
+	@(echo '***Compiling PYMCPP library (ver.' $(version)')***')
 	@echo
 
 dispInstall:
 	@echo
-	@(echo '***Installing PYMC library (ver.' $(version)')***')
+	@(echo '***Installing PYMCPP library (ver.' $(version)')***')
 	@echo
 
 #####
@@ -46,7 +46,7 @@ clean: dispClean
 
 dispClean:
 	@echo
-	@(echo '***Cleaning PYMC directory (ver.' $(version)')***')
+	@(echo '***Cleaning PYMCPP directory (ver.' $(version)')***')
 	@echo
 
 #####
@@ -57,5 +57,5 @@ uninstall: dispUninstall
 
 dispUninstall:
 	@echo
-	@(echo '***Uninstalling PYMC library (ver.' $(version)')***')
+	@(echo '***Uninstalling PYMCPP library (ver.' $(version)')***')
 	@echo
