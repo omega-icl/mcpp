@@ -1,0 +1,92 @@
+name: wheels
+
+on:
+  push:
+    branches: [version-5.0]
+    tags: ["v*"]
+  pull_request:
+    branches: [version-5.0]
+  workflow_dispatch:
+
+jobs:
+  build_wheels:
+    name: Build wheels (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        # windows-latest left out for now: vcpkg dep builds are slow and MC++
+        # is untested with MSVC. Re-add it to the list to try.
+        os: [ubuntu-latest, macos-14]
+        # ubuntu-latest -> manylinux x86_64, macos-13 -> x86_64,
+        # macos-14 -> arm64, windows-latest -> AMD64 (all via ARCHS auto64)
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: pypa/cibuildwheel@v4.1
+        env:
+          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-*"
+          # musllinux (Alpine) skipped: no EPEL, Armadillo would need a source build
+          CIBW_SKIP: "*-musllinux*"
+          CIBW_ARCHS: auto64
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
+          CIBW_TEST_COMMAND: python {project}/src/pymcpp/test.py
+          CIBW_BUILD_VERBOSITY: 1
+
+          # --- Linux ---
+          # manylinux_2_28 is AlmaLinux 8: Armadillo comes from EPEL (needs
+          # powertools for its deps). The distro Boost (1.66) has no CMake
+          # config files, which find_package(Boost CONFIG) requires, so install
+          # recent Boost from source; --with-system builds one tiny library but
+          # installs all headers plus BoostConfig.cmake.
+          CIBW_BEFORE_ALL_LINUX: >
+            dnf install -y epel-release &&
+            dnf config-manager --set-enabled powertools &&
+            dnf install -y armadillo-devel openblas-devel &&
+            curl -sL https://archives.boost.io/release/1.86.0/source/boost_1_86_0.tar.gz | tar xz -C /tmp &&
+            cd /tmp/boost_1_86_0 &&
+            ./bootstrap.sh --prefix=/usr/local &&
+            ./b2 install --with-system -j4
+
+          # --- macOS ---
+          # Homebrew libs are built for the runner's OS version, so the wheel
+          # must target at least that; without this delocate rejects the wheel.
+          CIBW_BEFORE_ALL_MACOS: brew install boost armadillo
+          CIBW_ENVIRONMENT_MACOS: >
+            MACOSX_DEPLOYMENT_TARGET=14.0
+
+          # --- Windows ---
+          # vcpkg is preinstalled on the runner; the toolchain file makes
+          # find_package resolve to vcpkg-built Boost/Armadillo. delvewheel
+          # bundles their DLLs into the wheel (cibuildwheel has no default
+          # repair step on Windows).
+          CIBW_BEFORE_ALL_WINDOWS: vcpkg install --triplet x64-windows armadillo boost
+          CIBW_ENVIRONMENT_WINDOWS: >
+            CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows"
+          CIBW_BEFORE_BUILD_WINDOWS: pip install delvewheel
+          CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >
+            delvewheel repair --add-path C:/vcpkg/installed/x64-windows/bin -w {dest_dir} {wheel}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-${{ matrix.os }}
+          path: wheelhouse/*.whl
+
+  publish:
+    name: Publish to PyPI
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build_wheels
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      id-token: write # trusted publishing
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: wheels-*
+          path: dist
+          merge-multiple: true
+
+      - uses: pypa/gh-action-pypi-publish@release/v1
