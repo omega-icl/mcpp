@@ -226,6 +226,7 @@ protected:
 class OCBase;
 class OCEnv;
 class FFIntegral;
+class FFEval;
 class FFPartial;
 
 //! @brief Definition of domain and options for orthogonal collocation of distributed subexpressions
@@ -553,7 +554,8 @@ public:
       ENV,         //!< Environment mismatch in collocation operation
       CSTVAL,      //!< Undefined constant values
       UNDEF,       //!< Undefined collocation operation
-      INTERNAL     //!< Internal error
+      INTERNAL,    //!< Internal error
+      NOSTORE      //!< No stored solution available for a buffer-free read (enable SOLVE_REUSE / MARCH_STORE_TRAJECTORY)
     };
     Exceptions( TYPE ierr=UNDEF ) : _ierr( ierr ){}
     int ierr(){ return _ierr; }
@@ -571,6 +573,8 @@ public:
         return "OCBase::Exceptions  Undefined constant values";
       case UNDEF:
         return "OCBase::Exceptions  Undefined collocation operation";
+      case NOSTORE:
+        return "OCBase::Exceptions  No stored solution for a buffer-free read (enable SOLVE_REUSE / MARCH_STORE_TRAJECTORY)";
       case INTERNAL:
       default:
         return "OCBase::Exceptions  Internal error";
@@ -619,6 +623,7 @@ class OCVar
 {
   friend FFPartial;
   friend FFIntegral;
+  friend FFEval;
 
   template <typename U> friend std::ostream& operator<<
     ( std::ostream &, OCVar<U> const& );
@@ -1802,6 +1807,394 @@ const
 
     // Set resulting collocation variable; retain element indices for the
     // remaining, non-integrated domains.
+    vRes[i]._set( env, dout, std::move( yin ) );
+    vRes[i]._elem = vVar[i]._elem;
+    for( auto const& [var,ord] : _Indep.expr )
+      vRes[i]._elem.erase( &var );
+  }
+}
+
+////////////////////////////////////////////////////////////////////////
+//! mc::FFEval is a C++ class for defining pointwise-evaluation operations
+//! as external DAG operations in MC++.  It mirrors mc::FFIntegral but, instead
+//! of integrating a variable over an independent direction, it CONSUMES the
+//! direction by evaluating the Lagrange interpolant at a fixed physical
+//! coordinate within the resident finite element (eval_lagrange at the
+//! reference coordinate xi).  Like integration, point evaluation is linear in
+//! the operand, so the FFDep pass is a pass-through.  The resident element must
+//! contain the target coordinate (the collocation environment pins it); the
+//! reference coordinate is xi = 2*(z0 - elem_lo)/(elem_up - elem_lo) - 1.
+////////////////////////////////////////////////////////////////////////
+class FFEval
+: public FFOp
+{
+  typedef SMon<FFVar,lt_FFVar> t_SMon;
+
+protected:
+
+  //! @brief Vector of operand variables
+  mutable std::vector<FFVar>                _Var;
+
+  //! @brief Map of independent variables (directions consumed by the evaluation)
+  mutable t_SMon                            _Indep;
+
+  //! @brief Target physical coordinate per consumed direction
+  mutable std::map<FFVar,double,lt_FFVar>   _Coord;
+
+  FFVar** _set
+    ( size_t nVar, FFVar const* pVar, t_SMon const& Indep,
+      std::map<FFVar,double,lt_FFVar> const& Coord )
+    const
+    {
+      _Var.assign( pVar, pVar+nVar );
+      _Indep  = Indep;
+      _Coord  = Coord;
+      data    = nullptr;
+      owndata = false;
+      return insert_external_operation( *this, nVar, nVar, pVar );
+    }
+
+public:
+
+  //! @brief Default constructor
+  FFEval
+    ( bool const sparse=true )
+    : FFOp( EXTERN )
+    {}
+
+  //! @brief Destructor
+  virtual ~FFEval
+    ()
+    {
+      this->sparse = sparse;
+    }
+
+  //! @brief Copy constructor
+  FFEval
+    ( FFEval const& other )
+    : FFOp   ( other ),
+      _Var   ( other._Var ),
+      _Indep ( other._Indep ),
+      _Coord ( other._Coord )
+    {}
+
+  // Define operation
+  std::vector<FFVar> operator()
+    ( std::vector<FFVar> const& Var, FFVar const& Indep, double const& Coord )
+    {
+#ifdef MC__FFEVAL_CHECK
+      assert( !Var.empty() );
+#endif
+      std::map<FFVar,double,lt_FFVar> C{ { Indep, Coord } };
+      FFVar** ppDer = _set( Var.size(), Var.data(), { Indep }, C );
+      std::vector<FFVar> Der( Var.size() );
+      for( size_t i=0; i<Var.size(); ++i ) Der[i] = *ppDer[i];
+      return Der;
+    }
+
+  FFVar operator()
+    ( FFVar const& Var, FFVar const& Indep, double const& Coord )
+    {
+      std::map<FFVar,double,lt_FFVar> C{ { Indep, Coord } };
+      return *(_set( 1, &Var, { Indep }, C )[0]);
+    }
+
+  std::vector<FFVar> operator()
+    ( std::vector<FFVar> const& Var, t_SMon const& Indep,
+      std::map<FFVar,double,lt_FFVar> const& Coord )
+    {
+#ifdef MC__FFEVAL_CHECK
+      assert( !Var.empty() && !Indep.empty() );
+#endif
+      FFVar** ppDer = _set( Var.size(), Var.data(), Indep, Coord );
+      std::vector<FFVar> Der( Var.size() );
+      for( size_t i=0; i<Var.size(); ++i ) Der[i] = *ppDer[i];
+      return Der;
+    }
+
+  FFVar operator()
+    ( FFVar const& Var, t_SMon const& Indep,
+      std::map<FFVar,double,lt_FFVar> const& Coord )
+    {
+#ifdef MC__FFEVAL_CHECK
+      assert( Indep.tord );
+#endif
+      return *(_set( 1, &Var, Indep, Coord )[0]);
+    }
+
+  t_SMon const& Indep
+    ()
+    const
+    {
+      return _Indep;
+    }
+
+  std::map<FFVar,double,lt_FFVar> const& Coord
+    ()
+    const
+    {
+      return _Coord;
+    }
+
+  std::vector<FFVar> const& Var
+    ()
+    const
+    {
+      return _Var;
+    }
+
+  // Evaluation overloads
+  virtual void feval
+    ( std::type_info const& idU, unsigned const nRes, void* vRes, unsigned const nVar,
+      void const* vVar, unsigned const* mVar )
+    const;
+
+  void eval
+    ( size_t const nRes, FFVar* vRes, size_t const nVar, FFVar const* vVar, unsigned const* mVar )
+    const;
+
+  void eval
+    ( size_t const nRes, FFDep* vRes, size_t const nVar, FFDep const* vVar, unsigned const* mVar )
+    const;
+
+  void eval
+    ( size_t const nRes, SLiftVar* vRes, size_t const nVar, SLiftVar const* vVar, unsigned const* mVar )
+    const;
+
+  void eval
+    ( size_t const nRes, FFExpr* vRes, size_t const nVar, FFExpr const* vVar, unsigned const* mVar )
+    const;
+
+  template <typename U>
+  void eval
+    ( size_t const nRes, OCVar<U>* vRes, size_t const nVar, OCVar<U> const* vVar, unsigned const* mVar )
+    const;
+
+  // Ordering
+  bool lt
+    ( FFOp const* other )
+    const;
+
+  // Properties
+  std::string name
+    ()
+    const
+    {
+      std::ostringstream os;
+      os << "Eval";
+      for( auto const& [v,c] : _Coord )
+        os << "(" << v << "=" << c << ")";
+      return os.str();
+    }
+
+  // Commutativity
+  bool commutative
+    ()
+    const
+    {
+      return false;
+    }
+};
+
+inline bool
+FFEval::lt
+( FFOp const* other )
+const
+{
+#ifdef MC__FFEVAL_TRACE
+  std::cout << "FFEval::lt\n";
+#endif
+  FFEval const* op = dynamic_cast<FFEval const*>(other);
+
+  // Compare independent directions first
+  if( lt_SMon<lt_FFVar>()( _Indep, op->_Indep ) ) return true;
+  if( lt_SMon<lt_FFVar>()( op->_Indep, _Indep ) ) return false;
+
+  // Same directions: compare target coordinates in order (same key set)
+  auto it1 = _Coord.cbegin();
+  auto it2 = op->_Coord.cbegin();
+  for( ; it1 != _Coord.cend() && it2 != op->_Coord.cend(); ++it1, ++it2 ){
+    if( it1->second < it2->second ) return true;
+    if( it2->second < it1->second ) return false;
+  }
+  return false;
+}
+
+inline void
+FFEval::feval
+( std::type_info const& idU, unsigned const nRes, void* vRes, unsigned const nVar,
+  void const* vVar, unsigned const* mVar )
+const
+{
+  if( idU == typeid( FFVar ) )
+    return eval( nRes, static_cast<FFVar*>(vRes), nVar, static_cast<FFVar const*>(vVar), mVar );
+  else if( idU == typeid( FFDep ) )
+    return eval( nRes, static_cast<FFDep*>(vRes), nVar, static_cast<FFDep const*>(vVar), mVar );
+  else if( idU == typeid( SLiftVar ) )
+    return eval( nRes, static_cast<SLiftVar*>(vRes), nVar, static_cast<SLiftVar const*>(vVar), mVar );
+  else if( idU == typeid( FFExpr ) )
+    return eval( nRes, static_cast<FFExpr*>(vRes), nVar, static_cast<FFExpr const*>(vVar), mVar );
+  else if( idU == typeid( OCVar<double> ) )
+    return eval( nRes, static_cast<OCVar<double>*>(vRes), nVar, static_cast<OCVar<double> const*>(vVar), mVar );
+  else if( idU == typeid( OCVar<FFDep> ) )
+    return eval( nRes, static_cast<OCVar<FFDep>*>(vRes), nVar, static_cast<OCVar<FFDep> const*>(vVar), mVar );
+  else if( idU == typeid( OCVar< FADType<double> > ) )
+    return eval( nRes, static_cast<OCVar< FADType<double> >*>(vRes), nVar, static_cast<OCVar< FADType<double> > const*>(vVar), mVar );
+
+  throw std::runtime_error( "FFEval::feval ** No evaluation method for type"+std::string(idU.name())+"\n" );
+}
+
+inline void
+FFEval::eval
+( size_t const nRes, FFExpr* vRes, size_t const nVar, FFExpr const* vVar,
+  unsigned const* mVar )
+const
+{
+#ifdef MC__FFEVAL_TRACE
+  std::cout << "FFEval::eval: FFExpr\n";
+#endif
+
+  switch( FFExpr::options.LANG ){
+   case FFExpr::Options::DAG:
+    for( unsigned j=0; j<nRes; ++j ){
+      std::ostringstream os; os << name();
+      if( nRes > 1 ) os << "[" << j << "]";
+      vRes[j] = FFExpr::compose( os.str(), nVar, vVar );
+    }
+    break;
+   case FFExpr::Options::GAMS:
+   default:
+    throw typename FFExpr::Exceptions( FFExpr::Exceptions::UNDEF );
+  }
+}
+
+inline void
+FFEval::eval
+( size_t const nRes, SLiftVar* vRes, size_t const nVar, SLiftVar const* vVar,
+  unsigned const* mVar )
+const
+{
+#ifdef MC__FFEVAL_TRACE
+  std::cout << "FFEval::eval: SLiftVar\n";
+#endif
+
+  // Lift evaluation operation
+  vVar->env()->lift( nRes, vRes, nVar, vVar );
+}
+
+inline void
+FFEval::eval
+( size_t const nRes, FFDep* vRes, size_t const nVar, FFDep const* vVar,
+  unsigned const* mVar )
+const
+{
+#ifdef MC__FFEVAL_TRACE
+  std::cout << "FFEval::eval: FFDep\n";
+#endif
+#ifdef MC__FFEVAL_CHECK
+  assert( nRes == nVar );
+#endif
+
+  // Pointwise evaluation is a linear operator
+  for( size_t i=0; i<nVar; ++i )
+    vRes[i] = vVar[i];
+}
+
+inline void
+FFEval::eval
+( size_t const nRes, FFVar* vRes, size_t const nVar, FFVar const* vVar,
+  unsigned const* mVar )
+const
+{
+#ifdef MC__FFEVAL_TRACE
+  std::cout << "FFEval::eval: FFVar\n";
+#endif
+#ifdef MC__FFEVAL_CHECK
+  assert( nRes == nVar );
+#endif
+
+  FFVar** ppRes = _set( nVar, vVar, _Indep, _Coord );
+  for( unsigned j=0; j<nRes; ++j )
+    vRes[j] = *(ppRes[j]);
+}
+
+template <typename U>
+inline void
+FFEval::eval
+( size_t const nRes, OCVar<U>* vRes, size_t const nVar, OCVar<U> const* vVar,
+  unsigned const* mVar )
+const
+{
+#ifdef MC__FFEVAL_TRACE
+  std::cout << "FFEval::eval: OCVar<U>\n";
+#endif
+#ifdef MC__FFEVAL_CHECK
+  assert( nRes == nVar );
+  bool const check = true;
+#else
+  bool const check = false;
+#endif
+
+  for( size_t i=0; i<nVar; ++i ){
+    if( !_Indep.tord ){
+      vRes[i] = vVar[i];
+      continue;
+    }
+
+    auto env = vVar[i].env();
+    if( !env )
+      throw std::runtime_error( "FFEval::eval<OCVar<U>> ** No collocation environment\n" );
+
+    auto const& din = vVar[i].dom();   // std::map<FFVar const*, OCDom const*, lt_FFVar>
+    auto dout = din;
+    std::vector<U> yin, yout;
+    std::vector<U> const* pin = &vVar[i].coef();
+
+    // Loop over independent directions and evaluate at the target coordinate
+    for( auto const& [var, ord] : _Indep.expr ){
+      if( ord > 1 )
+        throw std::runtime_error( "FFEval::eval<OCVar<U>> ** Evaluation order larger than one\n" );
+
+      // Retrieve independent variable and domain
+      auto itd = dout.find( &var );
+      if( itd == dout.end() )
+        throw std::runtime_error( "FFEval::eval<OCVar<U>> ** Independent variable not in domain\n" );
+      auto const& [pvar, pdom] = *itd;
+
+      // Get the stride for current independent variable
+      auto [stride,outer] = env->stride( dout, pvar, check );
+      if( !stride || !outer )
+        throw std::runtime_error( "FFEval::eval<OCVar<U>> ** Stride calculation was unsuccessful\n" );
+
+      // Target coordinate and resident element (pinned to contain it by the environment)
+      auto itc = _Coord.find( var );
+      if( itc == _Coord.end() )
+        throw std::runtime_error( "FFEval::eval<OCVar<U>> ** No target coordinate for direction\n" );
+      double const z0 = itc->second;
+
+      auto ite = vVar[i]._elem.find( pvar );
+      if( ite == vVar[i]._elem.end() )
+        throw std::runtime_error( "FFEval::eval<OCVar<U>> ** Resident element index not available\n" );
+      size_t const iel = ite->second;
+
+      double const lo = pdom->elem_lo( iel );
+      double const hi = pdom->elem_up( iel );
+      double const xi = 2. * ( z0 - lo ) / ( hi - lo ) - 1.;
+
+      // Evaluate the Lagrange interpolant (ORD=0) at the reference coordinate xi
+      if( !pdom->eval_lagrange( yout, xi, 0, *pin, stride, outer ) )
+        throw std::runtime_error( "FFEval::eval<OCVar<U>> ** Evaluation was unsuccessful\n" );
+
+      // Drop evaluated variable from dependency set
+      dout.erase( itd );
+
+      // Swap coefficient vectors for next round of evaluation
+      yout.swap( yin );
+      pin = &yin;
+    }
+
+    // Set resulting collocation variable; retain element indices for the
+    // remaining, non-evaluated domains.
     vRes[i]._set( env, dout, std::move( yin ) );
     vRes[i]._elem = vVar[i]._elem;
     for( auto const& [var,ord] : _Indep.expr )
