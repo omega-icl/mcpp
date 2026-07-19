@@ -109,9 +109,14 @@ jobs:
             cd /tmp/boost_1_86_0 &&
             ./bootstrap.sh --prefix=/usr/local &&
             ./b2 install --with-system -j4
-          # CPU-only torch wheel in the isolated build env; CMakeLists resolves
-          # torch from the build interpreter and mirrors its CXX11 ABI flag.
-          CIBW_BEFORE_BUILD_LINUX: pip install torch --index-url https://download.pytorch.org/whl/cpu
+          # CMakeLists resolves torch from the *build* interpreter, so torch
+          # must be visible there: disable pip's build isolation and install
+          # the build requirements (plus CPU-only torch) into the environment
+          # ourselves.
+          CIBW_BUILD_FRONTEND: "build; args: --no-isolation"
+          CIBW_BEFORE_BUILD_LINUX: >
+            pip install torch --index-url https://download.pytorch.org/whl/cpu &&
+            pip install "scikit-build-core>=0.10" "pybind11>=2.13" "pybind11-stubgen>=2.5" ninja cmake
           # Override the pyproject default (ENABLE_TORCH=OFF) for this job only.
           CIBW_ENVIRONMENT_LINUX: SKBUILD_CMAKE_DEFINE="ENABLE_TORCH=ON"
           # Do NOT vendor libtorch into the wheel: it must come from the
