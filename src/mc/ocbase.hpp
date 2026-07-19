@@ -32,6 +32,12 @@
 #include "slift.hpp"
 #include "smon.hpp"
 
+// macOS <math.h> defines macro DOMAIN, clashes with the
+// DOMAIN enum below.
+#ifdef DOMAIN
+#undef DOMAIN
+#endif
+
 namespace mc
 {
 
