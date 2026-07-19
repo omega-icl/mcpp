@@ -420,7 +420,7 @@ if(ENABLE_TORCH)
   target_link_libraries(mc INTERFACE ${TORCH_CPU_LIBRARY} ${C10_LIBRARY})
 endif()
 
-# PyMC++ Library
+# PyMC Library
 
 # Explicitly list sources as per pymcpp.mk
 set(PYMCPP_SOURCES
