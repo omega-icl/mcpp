@@ -1634,7 +1634,7 @@ SCModel<T, KEY, COMP>::get_bndmon(std::map<t_mon, U, lt_mon>& bndmon,
   if (bndmon.empty()) return;
 
   unsigned const nord = bndmon.rbegin()->first.tord;
-  std::map<KEY, std::vector<U>, COMP>& bndbasis;
+  std::map<KEY, std::vector<U>, COMP> bndbasis;
   get_basis(nord, bndvar, bndbasis, scaled);
 
   auto it = bndmon.begin();

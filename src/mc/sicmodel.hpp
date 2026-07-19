@@ -1642,7 +1642,7 @@ SICModel<T, KEY, COMP>::get_bndmon(std::map<t_mon, U, lt_mon>& bndmon,
   if (bndmon.empty()) return;
 
   unsigned const nord = bndmon.rbegin()->first.tord;
-  std::map<KEY, std::vector<U>, COMP>& bndbasis;
+  std::map<KEY, std::vector<U>, COMP> bndbasis;
   get_basis(nord, bndvar, bndbasis, scaled);
 
   auto it = bndmon.begin();
@@ -4337,7 +4337,8 @@ SICVar<T, KEY, COMP>::operator*=(SICVar<T, KEY, COMP> const& CV)
     it1->second = Op<T>::mid(it0->second);
   tmpCV0._unset_bndpol();
 
-  auto it2 = CV._coefmon.begin(), it3 = tmpCV._coefmon.begin();
+  auto it2 = CV._coefmon.begin();
+  auto it3 = tmpCV._coefmon.begin();
   for (; it2 != CV._coefmon.end(); ++it2, ++it3)
     it3->second = Op<T>::mid(it2->second);
   tmpCV._unset_bndpol();
@@ -4499,7 +4500,8 @@ sqr(SICVar<T, KEY, COMP> const& CV)
 #endif
 
   // Uncertainty propagation
-  auto it0 = CV._coefmon.begin(), it1 = tmpCV._coefmon.begin();
+  auto it0 = CV._coefmon.begin();
+  auto it1 = tmpCV._coefmon.begin();
   for (; it0 != CV._coefmon.end(); ++it0, ++it1)
     it1->second = Op<T>::mid(it0->second);
   tmpCV._unset_bndpol();
