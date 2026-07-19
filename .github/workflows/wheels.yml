@@ -12,14 +12,19 @@ jobs:
   build_wheels:
     name: Build wheels (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
+    # Windows is experimental: let it fail without failing the workflow, so a
+    # tagged release still publishes the Linux/macOS wheels.
+    continue-on-error: ${{ matrix.os == 'windows-latest' }}
     strategy:
       fail-fast: false
       matrix:
-        # windows-latest left out for now: vcpkg dep builds are slow and MC++
-        # is untested with MSVC. Re-add it to the list to try.
-        os: [ubuntu-latest, macos-14]
-        # ubuntu-latest -> manylinux x86_64, macos-13 -> x86_64,
-        # macos-14 -> arm64, windows-latest -> AMD64 (all via ARCHS auto64)
+        # macos pinned (not -latest): brew libs target the runner's OS version,
+        # which must match MACOSX_DEPLOYMENT_TARGET below or delocate refuses.
+        # macos-13 (Intel) was retired by GitHub; macos-15-intel is the only
+        # remaining Intel label if x86_64 macOS wheels are ever wanted again.
+        os: [ubuntu-latest, macos-14, windows-latest]
+        # ubuntu-latest -> manylinux x86_64, macos-14 -> arm64,
+        # windows-latest -> AMD64 (all via ARCHS auto64)
     steps:
       - uses: actions/checkout@v4
         with:
@@ -59,12 +64,14 @@ jobs:
 
           # --- Windows ---
           # vcpkg is preinstalled on the runner; the toolchain file makes
-          # find_package resolve to vcpkg-built Boost/Armadillo. delvewheel
-          # bundles their DLLs into the wheel (cibuildwheel has no default
-          # repair step on Windows).
+          # find_package resolve to vcpkg-built Boost/Armadillo. The compiler
+          # is forced to clang-cl (MSVC-compatible ABI, but accepts the C99
+          # VLAs that MC++ uses and that cl.exe hard-rejects). delvewheel
+          # bundles the dependency DLLs into the wheel (cibuildwheel has no
+          # default repair step on Windows).
           CIBW_BEFORE_ALL_WINDOWS: vcpkg install --triplet x64-windows armadillo boost
           CIBW_ENVIRONMENT_WINDOWS: >
-            CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows"
+            CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows -DCMAKE_CXX_COMPILER=clang-cl"
           CIBW_BEFORE_BUILD_WINDOWS: pip install delvewheel
           CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >
             delvewheel repair --add-path C:/vcpkg/installed/x64-windows/bin -w {dest_dir} {wheel}
@@ -74,10 +81,81 @@ jobs:
           name: wheels-${{ matrix.os }}
           path: wheelhouse/*.whl
 
+  # Experimental: torch-enabled Linux wheel, built against the CPU torch wheel
+  # installed in the build environment. NOT published to PyPI: the module links
+  # against libtorch, so `import torch` must happen before `import pymcpp`, and
+  # the wheel is coupled to the torch version it was built against. The
+  # artifact name deliberately does not match wheels-* so the publish job
+  # ignores it.
+  build_torch_wheel:
+    name: Build torch-enabled wheel (experimental, Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - uses: pypa/cibuildwheel@v4.1
+        env:
+          CIBW_BUILD: "cp312-manylinux_x86_64"
+          CIBW_ARCHS: x86_64
+          CIBW_MANYLINUX_X86_64_IMAGE: manylinux_2_28
+          CIBW_BUILD_VERBOSITY: 1
+          CIBW_BEFORE_ALL_LINUX: >
+            dnf install -y epel-release &&
+            dnf config-manager --set-enabled powertools &&
+            dnf install -y armadillo-devel openblas-devel &&
+            curl -sL https://archives.boost.io/release/1.86.0/source/boost_1_86_0.tar.gz | tar xz -C /tmp &&
+            cd /tmp/boost_1_86_0 &&
+            ./bootstrap.sh --prefix=/usr/local &&
+            ./b2 install --with-system -j4
+          # CPU-only torch wheel in the isolated build env; CMakeLists resolves
+          # torch from the build interpreter and mirrors its CXX11 ABI flag.
+          CIBW_BEFORE_BUILD_LINUX: pip install torch --index-url https://download.pytorch.org/whl/cpu
+          # Override the pyproject default (ENABLE_TORCH=OFF) for this job only.
+          CIBW_ENVIRONMENT_LINUX: SKBUILD_CMAKE_DEFINE="ENABLE_TORCH=ON"
+          # Do NOT vendor libtorch into the wheel: it must come from the
+          # user-installed torch package at runtime.
+          CIBW_REPAIR_WHEEL_COMMAND_LINUX: >
+            auditwheel repair
+            --exclude libtorch_cpu.so --exclude libtorch.so
+            --exclude libc10.so
+            -w {dest_dir} {wheel}
+          CIBW_BEFORE_TEST: pip install torch --index-url https://download.pytorch.org/whl/cpu
+          # torch must be imported first: importing it loads libtorch into the
+          # process, which is where the pymcpp module resolves its symbols.
+          CIBW_TEST_COMMAND: python -c "import torch, pymcpp; print(pymcpp.FFGraph())"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: torch-wheel-experimental
+          path: wheelhouse/*.whl
+
+  # Source distribution: lets users build locally against their own
+  # dependencies, notably `pip install pymcpp --no-binary pymcpp
+  # -C cmake.define.ENABLE_TORCH=ON` to get a torch-enabled module compiled
+  # against exactly their installed torch version.
+  build_sdist:
+    name: Build sdist
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - run: pipx run build --sdist
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: wheels-sdist # matches the publish job's wheels-* pattern
+          path: dist/*.tar.gz
+
   publish:
     name: Publish to PyPI
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: build_wheels
+    # The torch-enabled build must succeed for a release, even though its
+    # wheel artifact is not published.
+    needs: [build_wheels, build_sdist, build_torch_wheel]
     runs-on: ubuntu-latest
     environment: pypi
     permissions:

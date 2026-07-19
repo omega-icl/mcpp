@@ -119,15 +119,16 @@ message(STATUS "Python3 Includes:    ${Python3_INCLUDE_DIRS}")
 message(STATUS "Python3 site-packages: ${Python3_SITEARCH}")
 message(STATUS "--------------------------------------------------------")
 
-# pybind11 Check if extern/pybind11 is populated
-if(NOT EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/extern/pybind11/CMakeLists.txt")
-  message(
-    FATAL_ERROR
-      "pybind11 submodule not found. Please run 'git submodule update --init --recursive'"
-  )
-endif()
+# pybind11: prefer the vendored submodule; fall back to an installed pybind11
+# package (e.g. from pip, as in sdist builds where the submodule is absent).
 set(PYBIND11_FINDPYTHON ON)
-add_subdirectory(extern/pybind11)
+if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/extern/pybind11/CMakeLists.txt")
+  add_subdirectory(extern/pybind11)
+  set(PYMCPP_VENDORED_PYBIND11 ON)
+else()
+  find_package(pybind11 CONFIG REQUIRED)
+  set(PYMCPP_VENDORED_PYBIND11 OFF)
+endif()
 
 # Boost Always find Boost because it might be used for other things or by
 # default
@@ -452,8 +453,10 @@ set(PYMCPP_SOURCES
 pybind11_add_module(pymcpp ${PYMCPP_SOURCES})
 
 # Keep the vendored pybind11 include directory ahead of Torch's bundled copy.
-target_include_directories(
-  pymcpp BEFORE PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/extern/pybind11/include")
+if(PYMCPP_VENDORED_PYBIND11)
+  target_include_directories(
+    pymcpp BEFORE PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/extern/pybind11/include")
+endif()
 
 target_link_libraries(pymcpp PRIVATE mc)
 

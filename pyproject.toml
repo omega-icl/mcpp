@@ -19,6 +19,9 @@ cmake.version = ">=3.18"
 build.verbose = true
 install.components = ["python_modules"] # Only install the python module component, not headers
 wheel.packages = []
+# Keep restrictively-licensed vendored sources (fadbad++, cpplapack) and local
+# junk out of the published source tarball.
+sdist.exclude = ["src/3rdparty", "build", "dist", ".cache"]
 
 [tool.scikit-build.cmake.define]
 ENABLE_TORCH = "OFF"
