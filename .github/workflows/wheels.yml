@@ -32,7 +32,7 @@ jobs:
 
       - uses: pypa/cibuildwheel@v4.1
         env:
-          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-*"
+          CIBW_BUILD: "cp310-* cp311-* cp312-* cp313-* cp314-*"
           # musllinux (Alpine) skipped: no EPEL, Armadillo would need a source build
           CIBW_SKIP: "*-musllinux*"
           CIBW_ARCHS: auto64
