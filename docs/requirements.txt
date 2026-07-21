@@ -1,3 +1,4 @@
 sphinx>=7
 pydata-sphinx-theme
 myst-nb
+sphinx-copybutton

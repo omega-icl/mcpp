@@ -18,6 +18,7 @@ extensions = [
     "sphinx.ext.autodoc",
     "sphinx.ext.napoleon",
     "myst_nb",
+    "sphinx_copybutton",
 ]
 
 # The tutorial notebooks live in notebook/ at the repository root; they are
