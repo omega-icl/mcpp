@@ -103,7 +103,7 @@ mc_supmodel(py::module& m)
           "reset", [](PWLSM::Options& self) { return self.reset(); },
           "Reset options to defaults");
 
-  py::enum_<PWLSM::Options::PROD_REF>(pyPWLSModelOptions,
+  py::enum_<PWLSM::Options::PROD_REF>(pyPWLSModelOptions, "PROD_REF",
                                       "Reformulation method for product term")
       .value("NONE", PWLSM::Options::PROD_REF::NONE,
              "DC decomposition w/o rescaling")
@@ -452,8 +452,8 @@ mc_supmodel(py::module& m)
           "reset", [](PWCSM::Options& self) { return self.reset(); },
           "reset options");
 
-  py::enum_<PWCSM::Options::PROD_REF>(pyPWCSModelOptions,
-                                      "reformulation method for product term")
+  py::enum_<PWCSM::Options::PROD_REF>(pyPWCSModelOptions, "PROD_REF",
+                                      "Reformulation method for product term")
       .value("NONE", PWCSM::Options::PROD_REF::NONE,
              "DC decomposition w/o rescaling")
       .value("PARTIAL", PWCSM::Options::PROD_REF::PARTIAL,

@@ -36,6 +36,8 @@ mc_ffvect(py::module_& m)
 {
   py::class_<mc::Vect> pyVect(m, "Vect");
 
+  py::class_<mc::Vect::Options> pyVectOptions(pyVect, "Options");
+
   pyVect.def(py::init<>(), "default constructor")
       .def(py::init<mc::FFGraph*, std::vector<mc::FFVar> const&,
                     std::vector<std::vector<mc::FFVar>> const&>(),
@@ -75,7 +77,6 @@ mc_ffvect(py::module_& m)
           "Dep", [](mc::Vect& self) { return self.vFun(); },
           "Vectorized dependents");
 
-  py::class_<mc::Vect::Options> pyVectOptions(pyVect, "Options");
 
   pyVectOptions.def(py::init<>())
       .def(py::init<mc::Vect::Options const&>())

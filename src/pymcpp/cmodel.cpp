@@ -39,6 +39,20 @@ mc_cmodel(py::module& m)
 
   py::class_<CM> pyCModel(m, "CModel");
 
+  py::class_<CM::Options> pyCModelOptions(pyCModel, "Options");
+
+  py::enum_<CM::Options::BOUNDER>(pyCModelOptions, "BOUNDER")
+      .value("NAIVE", CM::Options::BOUNDER::NAIVE,
+             "Naive polynomial range bounder")
+      .value("LSB", CM::Options::BOUNDER::LSB, "Lin & Stadtherr range bounder")
+      .value("EIGEN", CM::Options::BOUNDER::EIGEN,
+             "Eigenvalue decomposition-based bounder")
+      .value("BERNSTEIN", CM::Options::BOUNDER::BERNSTEIN,
+             "Bernstein range bounder")
+      .value("HYBRID", CM::Options::BOUNDER::HYBRID,
+             "Hybrid LSB + EIGEN range bounder")
+      .export_values();
+
   pyCModel
       // Constructors
       .def(py::init<unsigned const, unsigned const, bool const>(),
@@ -275,7 +289,7 @@ mc_cmodel(py::module& m)
         [](CV& xy, CV const& x, CV const& y) { return mc::inter(xy, x, y); });
 
   // Nested class Options
-  py::class_<CM::Options> pyCModelOptions(pyCModel, "Options");
+
 
   pyCModelOptions.def(py::init<>())
       .def(py::init<CM::Options const&>())
@@ -306,24 +320,9 @@ mc_cmodel(py::module& m)
                      "Number of digits in output stream for Chebyshev model "
                      "coefficients [Default: 7]");
 
-  py::enum_<CM::Options::BOUNDER>(pyCModelOptions, "BOUNDER")
-      .value("NAIVE", CM::Options::BOUNDER::NAIVE,
-             "Naive polynomial range bounder")
-      .value("LSB", CM::Options::BOUNDER::LSB, "Lin & Stadtherr range bounder")
-      .value("EIGEN", CM::Options::BOUNDER::EIGEN,
-             "Eigenvalue decomposition-based bounder")
-      .value("BERNSTEIN", CM::Options::BOUNDER::BERNSTEIN,
-             "Bernstein range bounder")
-      .value("HYBRID", CM::Options::BOUNDER::HYBRID,
-             "Hybrid LSB + EIGEN range bounder")
-      .export_values();
 
   // Nested class Exceptions
   py::class_<CM::Exceptions> pyCModelExceptions(pyCModel, "Exceptions");
-
-  pyCModelExceptions.def(py::init<CM::Exceptions::TYPE>())
-      .def("ierr", &CM::Exceptions::ierr, "Error flag")
-      .def("what", &CM::Exceptions::what, "Error description");
 
   py::enum_<CM::Exceptions::TYPE>(pyCModelExceptions, "TYPE")
       .value("DIV", CM::Exceptions::TYPE::DIV, "Division by zero scalar")
@@ -352,4 +351,8 @@ mc_cmodel(py::module& m)
       .value("UNDEF", CM::Exceptions::TYPE::UNDEF,
              "Feature not yet implemented in module")
       .export_values();
+
+  pyCModelExceptions.def(py::init<CM::Exceptions::TYPE>())
+      .def("ierr", &CM::Exceptions::ierr, "Error flag")
+      .def("what", &CM::Exceptions::what, "Error description");
 }

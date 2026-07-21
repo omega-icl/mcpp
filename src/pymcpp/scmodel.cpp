@@ -39,6 +39,14 @@ mc_scmodel(py::module& m)
 
   py::class_<SCM> pySCModel(m, "SCModel");
 
+  py::class_<SCM::Options> pySCModelOptions(pySCModel, "Options");
+
+  py::enum_<SCM::Options::BOUNDER>(pySCModelOptions, "BOUNDER")
+      .value("NAIVE", SCM::Options::BOUNDER::NAIVE,
+             "Naive polynomial range bounder")
+      .value("LSB", SCM::Options::BOUNDER::LSB, "Lin & Stadtherr range bounder")
+      .export_values();
+
   pySCModel
       // Constructors
       .def(py::init<unsigned const>(), py::arg("maxord") = 3,
@@ -269,7 +277,6 @@ mc_scmodel(py::module& m)
         { return mc::inter(xy, x, y); });
 
   // Nested class Options
-  py::class_<SCM::Options> pySCModelOptions(pySCModel, "Options");
 
   pySCModelOptions.def(py::init<>())
       .def(py::init<SCM::Options const&>())
@@ -335,11 +342,6 @@ mc_scmodel(py::module& m)
                      "Number of digits in output stream for Chebyshev model "
                      "coefficients [Default: 7]");
 
-  py::enum_<SCM::Options::BOUNDER>(pySCModelOptions, "BOUNDER")
-      .value("NAIVE", SCM::Options::BOUNDER::NAIVE,
-             "Naive polynomial range bounder")
-      .value("LSB", SCM::Options::BOUNDER::LSB, "Lin & Stadtherr range bounder")
-      .export_values();
 
   py::enum_<SCM::Options::MONBASIS>(pySCModelOptions, "MONBASIS")
       .value("MONOM", SCM::Options::MONBASIS::MONOM, "Monomial basis")
@@ -348,10 +350,6 @@ mc_scmodel(py::module& m)
 
   // Nested class Exceptions
   py::class_<SCM::Exceptions> pySCModelExceptions(pySCModel, "Exceptions");
-
-  pySCModelExceptions.def(py::init<SCM::Exceptions::TYPE>())
-      .def("ierr", &SCM::Exceptions::ierr, "Error flag")
-      .def("what", &SCM::Exceptions::what, "Error description");
 
   py::enum_<SCM::Exceptions::TYPE>(pySCModelExceptions, "TYPE")
       .value("DIV", SCM::Exceptions::TYPE::DIV, "Division by zero scalar")
@@ -381,4 +379,8 @@ mc_scmodel(py::module& m)
       .value("UNDEF", SCM::Exceptions::TYPE::UNDEF,
              "Feature not yet implemented")
       .export_values();
+
+  pySCModelExceptions.def(py::init<SCM::Exceptions::TYPE>())
+      .def("ierr", &SCM::Exceptions::ierr, "Error flag")
+      .def("what", &SCM::Exceptions::what, "Error description");
 }

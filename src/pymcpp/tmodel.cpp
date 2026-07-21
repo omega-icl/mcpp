@@ -39,6 +39,20 @@ mc_tmodel(py::module& m)
 
   py::class_<TM> pyTModel(m, "TModel");
 
+  py::class_<TM::Options> pyTModelOptions(pyTModel, "Options");
+
+  py::enum_<TM::Options::BOUNDER>(pyTModelOptions, "BOUNDER")
+      .value("NAIVE", TM::Options::BOUNDER::NAIVE,
+             "Naive polynomial range bounder")
+      .value("LSB", TM::Options::BOUNDER::LSB, "Lin & Stadtherr range bounder")
+      .value("EIGEN", TM::Options::BOUNDER::EIGEN,
+             "Eigenvalue decomposition-based bounder")
+      .value("BERNSTEIN", TM::Options::BOUNDER::BERNSTEIN,
+             "Bernstein range bounder")
+      .value("HYBRID", TM::Options::BOUNDER::HYBRID,
+             "Hybrid LSB + EIGEN range bounder")
+      .export_values();
+
   pyTModel
       // Constructors
       .def(py::init<unsigned const, unsigned const>(), py::arg("nvar"),
@@ -285,7 +299,6 @@ mc_tmodel(py::module& m)
   m.def("inter",
         [](TV& xy, TV const& x, TV const& y) { return mc::inter(xy, x, y); });
 
-  py::class_<TM::Options> pyTModelOptions(pyTModel, "Options");
 
   pyTModelOptions.def(py::init<>())
       .def(py::init<TM::Options const&>())
@@ -327,24 +340,9 @@ mc_tmodel(py::module& m)
                      "Number of digits in output stream for Taylor model "
                      "coefficients [Default: 5]");
 
-  py::enum_<TM::Options::BOUNDER>(pyTModelOptions, "BOUNDER")
-      .value("NAIVE", TM::Options::BOUNDER::NAIVE,
-             "Naive polynomial range bounder")
-      .value("LSB", TM::Options::BOUNDER::LSB, "Lin & Stadtherr range bounder")
-      .value("EIGEN", TM::Options::BOUNDER::EIGEN,
-             "Eigenvalue decomposition-based bounder")
-      .value("BERNSTEIN", TM::Options::BOUNDER::BERNSTEIN,
-             "Bernstein range bounder")
-      .value("HYBRID", TM::Options::BOUNDER::HYBRID,
-             "Hybrid LSB + EIGEN range bounder")
-      .export_values();
 
   // Nested class Exceptions
   py::class_<TM::Exceptions> pyTModelExceptions(pyTModel, "Exceptions");
-
-  pyTModelExceptions.def(py::init<TM::Exceptions::TYPE>())
-      .def("ierr", &TM::Exceptions::ierr, "Error flag")
-      .def("what", &TM::Exceptions::what, "Error description");
 
   py::enum_<TM::Exceptions::TYPE>(pyTModelExceptions, "TYPE")
       .value("DIV", TM::Exceptions::TYPE::DIV, "Division by zero scalar")
@@ -373,4 +371,8 @@ mc_tmodel(py::module& m)
       .value("UNDEF", TM::Exceptions::TYPE::UNDEF,
              "Feature not yet implemented in mc::TModel")
       .export_values();
+
+  pyTModelExceptions.def(py::init<TM::Exceptions::TYPE>())
+      .def("ierr", &TM::Exceptions::ierr, "Error flag")
+      .def("what", &TM::Exceptions::what, "Error description");
 }

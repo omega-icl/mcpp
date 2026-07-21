@@ -333,6 +333,8 @@ mc_ffunc(py::module_& m)
            });
 
   py::class_<mc::FFGraph, mc::FFBase> pyFFGraph(m, "FFGraph");
+  py::class_<mc::FFGraph::Options> pyFFGraphOptions(pyFFGraph, "Options");
+
   pyFFGraph.def(py::init<>())
       .def_readwrite("options", &mc::FFGraph::options)
       .def(
@@ -1548,7 +1550,6 @@ mc_ffunc(py::module_& m)
           "evaluate subgraph in polyhedral image arithmetic for multiple "
           "scenarios");
 
-  py::class_<mc::FFGraph::Options> pyFFGraphOptions(pyFFGraph, "Options");
   pyFFGraphOptions.def(py::init<>())
       .def(py::init<mc::FFGraph::Options const&>())
       .def_readwrite("DETECTSIGNOM", &mc::FFGraph::Options::DETECTSIGNOM,

@@ -53,6 +53,9 @@ mc_ffmlp(py::module_& m)
              "Sigmoid activation function")
       .export_values();
 
+  py::class_<mc::MLP<I>::Options> pyMLPOptions(
+      pyMLP, "Options");  //, py::module_local() );
+
   pyMLP.def(py::init<>(), "default constructor")
       .def_readwrite("options", &mc::MLP<I>::options)
       .def(
@@ -106,8 +109,6 @@ mc_ffmlp(py::module_& m)
           py::return_value_policy::reference_internal,
           "MLP number of hidden layers");
 
-  py::class_<mc::MLP<I>::Options> pyMLPOptions(
-      pyMLP, "Options");  //, py::module_local() );
 
   pyMLPOptions.def(py::init<>())
       .def(py::init<mc::MLP<I>::Options const&>())
@@ -145,6 +146,8 @@ mc_ffmlp(py::module_& m)
 
   py::class_<mc::FFMLP<I>, mc::FFOp> pyFFMLP(m, "FFMLP");
 
+  py::class_<mc::FFMLP<I>::Options> pyFFMLPOptions(pyFFMLP, "Options");
+
   pyFFMLP.def(py::init<>(), "default constructor")
       .def(py::init<mc::FFMLP<I> const&>(), "copy constructor")
       .def(
@@ -179,7 +182,6 @@ mc_ffmlp(py::module_& m)
            })
       .def_readwrite("options", &mc::FFMLP<I>::options);
 
-  py::class_<mc::FFMLP<I>::Options> pyFFMLPOptions(pyFFMLP, "Options");
 
   py::enum_<mc::FFMLP<I>::Options::RELAX_TYPE>(pyFFMLPOptions, "RELAX_TYPE")
       .value("INT", mc::FFMLP<I>::Options::RELAX_TYPE::INT, "Interval bounds")

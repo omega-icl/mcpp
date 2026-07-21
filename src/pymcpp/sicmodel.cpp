@@ -39,6 +39,17 @@ mc_sicmodel(py::module& m)
 
   py::class_<SICM> pySICModel(m, "SICModel");
 
+  py::class_<SICM::Options> pySICModelOptions(pySICModel, "Options");
+
+  py::enum_<SICM::Options::BOUNDER>(pySICModelOptions, "BOUNDER")
+      .value("NAIVE", SICM::Options::BOUNDER::NAIVE,
+             "Naive polynomial range bounder")
+      .value("LSB", SICM::Options::BOUNDER::LSB,
+             "Lin & Stadtherr range bounder")
+      .value("BERNSTEIN", SICM::Options::BOUNDER::BERNSTEIN,
+             "Bernstein range bounder")
+      .export_values();
+
   pySICModel
       // Constructors
       .def(py::init<unsigned const>(), py::arg("maxord") = 3,
@@ -260,7 +271,6 @@ mc_sicmodel(py::module& m)
         { return mc::inter(xy, x, y); });
 
   // Nested class Options
-  py::class_<SICM::Options> pySICModelOptions(pySICModel, "Options");
 
   pySICModelOptions.def(py::init<>())
       .def(py::init<SICM::Options const&>())
@@ -325,14 +335,6 @@ mc_sicmodel(py::module& m)
                      "Number of digits in output stream for Chebyshev model "
                      "coefficients [Default: 7]");
 
-  py::enum_<SICM::Options::BOUNDER>(pySICModelOptions, "BOUNDER")
-      .value("NAIVE", SICM::Options::BOUNDER::NAIVE,
-             "Naive polynomial range bounder")
-      .value("LSB", SICM::Options::BOUNDER::LSB,
-             "Lin & Stadtherr range bounder")
-      .value("BERNSTEIN", SICM::Options::BOUNDER::BERNSTEIN,
-             "Bernstein range bounder")
-      .export_values();
 
   py::enum_<SICM::Options::ALLOCATION>(pySICModelOptions, "ALLOCATION")
       .value("NONE", SICM::Options::ALLOCATION::NONE,
@@ -350,10 +352,6 @@ mc_sicmodel(py::module& m)
 
   // Nested class Exceptions
   py::class_<SICM::Exceptions> pySICModelExceptions(pySICModel, "Exceptions");
-
-  pySICModelExceptions.def(py::init<SICM::Exceptions::TYPE>())
-      .def("ierr", &SICM::Exceptions::ierr, "Error flag")
-      .def("what", &SICM::Exceptions::what, "Error description");
 
   py::enum_<SICM::Exceptions::TYPE>(pySICModelExceptions, "TYPE")
       .value("DIV", SICM::Exceptions::TYPE::DIV, "Division by zero scalar")
@@ -383,4 +381,8 @@ mc_sicmodel(py::module& m)
       .value("UNDEF", SICM::Exceptions::TYPE::UNDEF,
              "Feature not yet implemented")
       .export_values();
+
+  pySICModelExceptions.def(py::init<SICM::Exceptions::TYPE>())
+      .def("ierr", &SICM::Exceptions::ierr, "Error flag")
+      .def("what", &SICM::Exceptions::what, "Error description");
 }

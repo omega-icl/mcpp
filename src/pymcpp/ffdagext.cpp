@@ -44,6 +44,9 @@ mc_ffdagext(py::module_& m)
 {
   py::class_<mc::DAGEXT<I>> pyDAGEXT(m, "DAGEXT");
 
+  py::class_<mc::DAGEXT<I>::Options> pyDAGEXTOptions(
+      pyDAGEXT, "Options");  //, py::module_local() );
+
   pyDAGEXT.def(py::init<>(), "default constructor")
       .def(py::init<mc::FFGraph*, std::vector<mc::FFVar> const&,
                     std::vector<mc::FFVar> const&>(),
@@ -76,8 +79,6 @@ mc_ffdagext(py::module_& m)
           py::return_value_policy::reference_internal,
           "DAGEXT output variables");
 
-  py::class_<mc::DAGEXT<I>::Options> pyDAGEXTOptions(
-      pyDAGEXT, "Options");  //, py::module_local() );
 
   pyDAGEXTOptions.def(py::init<>())
       .def(py::init<mc::DAGEXT<I>::Options const&>())
@@ -103,6 +104,8 @@ mc_ffdagext(py::module_& m)
       .export_values();
 
   py::class_<mc::FFDAGEXT<I>, mc::FFOp> pyFFDAGEXT(m, "FFDAGEXT");
+
+  py::class_<mc::FFDAGEXT<I>::Options> pyFFDAGEXTOptions(pyFFDAGEXT, "Options");
 
   pyFFDAGEXT
       .def(py::init<bool const>(), py::arg("sparse") = true,
@@ -141,7 +144,6 @@ mc_ffdagext(py::module_& m)
            })
       .def_readwrite("options", &mc::FFDAGEXT<I>::options);
 
-  py::class_<mc::FFDAGEXT<I>::Options> pyFFDAGEXTOptions(pyFFDAGEXT, "Options");
 
   py::enum_<mc::FFDAGEXT<I>::Options::RELAX_TYPE>(pyFFDAGEXTOptions,
                                                   "RELAX_TYPE")

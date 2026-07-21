@@ -457,10 +457,6 @@ mc_ellimage(py::module& m)
 
   // Nested Ellipsoid::Exceptions
   py::class_<ELL::Exceptions> pyEllipsoidExceptions(pyEllipsoid, "Exceptions");
-  pyEllipsoidExceptions.def(py::init<ELL::Exceptions::TYPE>())
-      .def("ierr", &ELL::Exceptions::ierr, "error flag")
-      .def("what", &ELL::Exceptions::what, "error description");
-
   py::enum_<ELL::Exceptions::TYPE>(pyEllipsoidExceptions, "TYPE")
       .value("NONPSD", ELL::Exceptions::TYPE::NONPSD,
              "non-positive-semidefinite shape matrix")
@@ -468,6 +464,10 @@ mc_ellimage(py::module& m)
              "linear algebra routine failed")
       .value("ROOT", ELL::Exceptions::TYPE::ROOT, "root-finding routine failed")
       .export_values();
+
+  pyEllipsoidExceptions.def(py::init<ELL::Exceptions::TYPE>())
+      .def("ierr", &ELL::Exceptions::ierr, "error flag")
+      .def("what", &ELL::Exceptions::what, "error description");
 
   py::class_<EI, ELL> pyEllImg(m, "EllImg");
 
@@ -587,10 +587,6 @@ mc_ellimage(py::module& m)
 
   // Nested EllImg::Exceptions
   py::class_<EI::Exceptions> pyEllImgExceptions(pyEllImg, "Exceptions");
-  pyEllImgExceptions.def(py::init<EI::Exceptions::TYPE>())
-      .def("ierr", &EI::Exceptions::ierr, "error flag")
-      .def("what", &EI::Exceptions::what, "error description");
-
   py::enum_<EI::Exceptions::TYPE>(pyEllImgExceptions, "TYPE")
       .value("DIV", EI::Exceptions::TYPE::DIV, "division by zero scalar")
       .value("INV", EI::Exceptions::TYPE::INV,
@@ -612,6 +608,10 @@ mc_ellimage(py::module& m)
       .value("UNDEF", EI::Exceptions::TYPE::UNDEF,
              "feature not yet implemented")
       .export_values();
+
+  pyEllImgExceptions.def(py::init<EI::Exceptions::TYPE>())
+      .def("ierr", &EI::Exceptions::ierr, "error flag")
+      .def("what", &EI::Exceptions::what, "error description");
 
   py::class_<EV> pyEllVar(m, "EllVar");
 

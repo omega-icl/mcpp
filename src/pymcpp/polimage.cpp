@@ -48,6 +48,8 @@ mc_polimage(py::module_& m)
       .value("AUXCST", PV::TYPE::AUXCST, "Auxiliary constant")
       .export_values();
 
+  py::class_<PI> pyPolImg(m, "PolImg");
+
   pyPolVar
       // --- Static Constants ---
       .def_property_static(
@@ -390,7 +392,24 @@ mc_polimage(py::module_& m)
              return Css.str();
            });
 
-  py::class_<PI> pyPolImg(m, "PolImg");
+
+  py::class_<PI::Options> pyPolImgOptions(pyPolImg, "Options");
+
+  py::enum_<PI::Options::SANDWICH>(pyPolImgOptions, "SANDWICH_TYPE")
+      .value("BISECT", PI::Options::SANDWICH::BISECT, "Range bisection")
+      .value("MAXERR", PI::Options::SANDWICH::MAXERR, "Maximum error rule")
+      .export_values();
+
+  py::enum_<PI::Options::REFINE>(pyPolImgOptions, "REFINE_TYPE")
+      .value("NONE", PI::Options::REFINE::NONE,
+             "No semi-linear cuts (use secant approximation)")
+      .value("CONT", PI::Options::REFINE::CONT,
+             "Semilinear cuts with linear relaxed (continuous) reformulation")
+      .value("BIN", PI::Options::REFINE::BIN,
+             "Semilinear cuts with linear binary reformulation")
+      .value("SOS2", PI::Options::REFINE::SOS2,
+             "Semilinear cuts with SOS2 reformulation")
+      .export_values();
 
   pyPolImg.def(py::init<>())
       .def_readwrite("options", &PI::options,
@@ -444,7 +463,6 @@ mc_polimage(py::module_& m)
              return Pss.str();
            });
 
-  py::class_<PI::Options> pyPolImgOptions(pyPolImg, "Options");
 
   pyPolImgOptions.def(py::init<>(), "Default constructor")
       .def(py::init<PI::Options const&>(), "Copy constructor")
@@ -495,19 +513,5 @@ mc_polimage(py::module_& m)
                      "Set of disjunctive terms to retain in polyhedral "
                      "relaxation [Default: {}]");
 
-  py::enum_<PI::Options::SANDWICH>(pyPolImgOptions, "SANDWICH_TYPE")
-      .value("BISECT", PI::Options::SANDWICH::BISECT, "Range bisection")
-      .value("MAXERR", PI::Options::SANDWICH::MAXERR, "Maximum error rule")
-      .export_values();
 
-  py::enum_<PI::Options::REFINE>(pyPolImgOptions, "REFINE_TYPE")
-      .value("NONE", PI::Options::REFINE::NONE,
-             "No semi-linear cuts (use secant approximation)")
-      .value("CONT", PI::Options::REFINE::CONT,
-             "Semilinear cuts with linear relaxed (continuous) reformulation")
-      .value("BIN", PI::Options::REFINE::BIN,
-             "Semilinear cuts with linear binary reformulation")
-      .value("SOS2", PI::Options::REFINE::SOS2,
-             "Semilinear cuts with SOS2 reformulation")
-      .export_values();
 }
