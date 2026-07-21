@@ -16,6 +16,7 @@ author = "OMEGA Research Group, Imperial College London"
 
 extensions = [
     "sphinx.ext.autodoc",
+    "sphinx.ext.autosummary",
     "sphinx.ext.napoleon",
     "myst_nb",
     "sphinx_copybutton",
@@ -28,6 +29,19 @@ extensions = [
 # Render the outputs stored in the notebooks; never execute them (some, like
 # ffmlp, need a torch-enabled build).
 nb_execution_mode = "off"
+
+# Render $...$ / $$...$$ LaTeX in the notebooks' markdown cells, and bare
+# \begin{align} environments.
+myst_enable_extensions = ["dollarmath", "amsmath"]
+
+# MathJax: load the mathtools extension for macros like \coloneqq used in the
+# notebooks.
+mathjax3_config = {
+    "loader": {"load": ["[tex]/mathtools"]},
+    "tex": {"packages": {"[+]": ["mathtools"]}},
+}
+
+autosummary_generate = True
 
 autodoc_default_options = {
     "members": True,

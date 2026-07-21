@@ -32,3 +32,4 @@ test/DAG/*.dot
 # python wheel builds
 dist/
 *.dot
+docs/generated/
