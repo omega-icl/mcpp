@@ -1,0 +1,25 @@
+# Read the Docs configuration. The API reference is generated from the
+# docstrings of the compiled module, so pymcpp is built from this checkout
+# (torch-free) before the docs build; the C++ dependencies come from apt.
+version: 2
+
+build:
+  os: ubuntu-24.04
+  tools:
+    python: "3.13"
+  apt_packages:
+    - libboost-dev
+    - libarmadillo-dev
+    - libopenblas-dev
+
+sphinx:
+  configuration: docs/conf.py
+
+python:
+  install:
+    - requirements: docs/requirements.txt
+    - method: pip
+      path: .
+
+submodules:
+  include: all
