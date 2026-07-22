@@ -12,9 +12,6 @@ jobs:
   build_wheels:
     name: Build wheels (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
-    # Windows is experimental: let it fail without failing the workflow, so a
-    # tagged release still publishes the Linux/macOS wheels.
-    continue-on-error: ${{ matrix.os == 'windows-latest' }}
     strategy:
       fail-fast: false
       matrix:
