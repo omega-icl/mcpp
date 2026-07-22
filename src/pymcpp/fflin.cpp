@@ -65,12 +65,12 @@ mc_fflin(py::module_& m)
       // .def_readwrite(
       //   "type",
       //   &mc::FFLin<I>::type,
-      //   "retreive operation type"
+      //   "retrieve operation type"
       // )
       // .def_readwrite(
       //   "info",
       //   &mc::FFLin<I>::info,
-      //   "retreive operation id"
+      //   "retrieve operation id"
       // )
       // .def_readwrite(
       //   "varin",
@@ -80,7 +80,7 @@ mc_fflin(py::module_& m)
       //   "varout",
       //   &mc::FFLin<I>::varout
       // )
-      .def("name", &mc::FFLin<I>::name, "retreive operation name")
+      .def("name", &mc::FFLin<I>::name, "retrieve operation name")
       .def("__str__",
            [](mc::FFLin<I> const& O)
            {

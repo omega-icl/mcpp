@@ -78,7 +78,7 @@ mc_ffunc(py::module_& m)
            py::arg("i") = 0)
       .def(py::init<double const&>(), "constructor for a real constant")
       .def(py::init<mc::FFNum const&>(), "copy constructor for DAG constant")
-      .def_property_readonly("val", &mc::FFNum::val, "retreive DAG constant")
+      .def_property_readonly("val", &mc::FFNum::val, "retrieve DAG constant")
       .def("__str__",
            [](mc::FFNum const& V)
            {
@@ -114,17 +114,17 @@ mc_ffunc(py::module_& m)
            py::overload_cast<std::string const&>(&mc::FFVar::set, py::const_),
            "set variable name")
       .def("unset", &mc::FFVar::unset, "unset constness")
-      .def("num", &mc::FFVar::num, "retreive constant value")
-      .def("cst", &mc::FFVar::cst, "retreive constness")
-      .def("dag", &mc::FFVar::dag, "retreive DAG")
+      .def("num", &mc::FFVar::num, "retrieve constant value")
+      .def("cst", &mc::FFVar::cst, "retrieve constness")
+      .def("dag", &mc::FFVar::dag, "retrieve DAG")
       .def("str",
            [](mc::FFVar const& V) { return mc::FFExpr::dep(V).ostr().str(); })
       .def_property_readonly("opdef",
                              py::overload_cast<>(&mc::FFVar::opdef, py::const_),
-                             "retreive DAG defining operation")
+                             "retrieve DAG defining operation")
       .def_property_readonly("id",
                              py::overload_cast<>(&mc::FFVar::id, py::const_),
-                             "retreive identifier")
+                             "retrieve identifier")
       .def("__str__",
            [](mc::FFVar const& V)
            {
@@ -219,10 +219,10 @@ mc_ffunc(py::module_& m)
       .export_values();
 
   py::class_<mc::FFOp> pyFFOp(m, "FFOp");
-  pyFFOp.def_readwrite("type", &mc::FFOp::type, "retreive operation type")
+  pyFFOp.def_readwrite("type", &mc::FFOp::type, "retrieve operation type")
       .def_readwrite("varin", &mc::FFOp::varin)
       .def_readwrite("varout", &mc::FFOp::varout)
-      .def("name", &mc::FFOp::name, "retreive operation name")
+      .def("name", &mc::FFOp::name, "retrieve operation name")
       .def("__str__",
            [](mc::FFOp const& O)
            {

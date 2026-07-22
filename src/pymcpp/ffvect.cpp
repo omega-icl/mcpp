@@ -101,11 +101,11 @@ mc_ffvect(py::module_& m)
           },
           py::return_value_policy::reference_internal,
           "define vector operation in DAG")
-      .def_readwrite("type", &mc::FFVect<I>::type, "retreive operation type")
-      .def_readwrite("info", &mc::FFVect<I>::info, "retreive operation id")
+      .def_readwrite("type", &mc::FFVect<I>::type, "retrieve operation type")
+      .def_readwrite("info", &mc::FFVect<I>::info, "retrieve operation id")
       .def_readwrite("varin", &mc::FFVect<I>::varin)
       .def_readwrite("varout", &mc::FFVect<I>::varout)
-      .def("name", &mc::FFVect<I>::name, "retreive operation name")
+      .def("name", &mc::FFVect<I>::name, "retrieve operation name")
       .def("__str__",
            [](mc::FFVect<I> const& O)
            {

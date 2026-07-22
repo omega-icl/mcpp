@@ -195,11 +195,11 @@ mc_tmodel(py::module& m)
           "bound on model using selected bounder in option 'BOUNDER_TYPE'")
       .def(
           "bndpol", [](TV const& self) { return self.bndpol(); },
-          "Retreive bound on multivariate polynomial using default bounder")
+          "Retrieve bound on multivariate polynomial using default bounder")
       .def(
           "bndpol", [](TV const& self, int const type)
           { return self.bndpol(type); }, py::arg("type"),
-          "Retreive bound on multivariate polynomial using bounder 'type'")
+          "Retrieve bound on multivariate polynomial using bounder 'type'")
       .def("bndord", &TV::bndord, py::arg("minord"),
            "compute bound on all monomials with (total) order no less than "
            "'minord'")

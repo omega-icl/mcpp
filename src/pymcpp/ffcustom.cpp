@@ -168,12 +168,12 @@ mc_ffcustom(py::module_& m)
    {
      return self.type;
    },
-   "retreive operation unique identifier"
+   "retrieve operation unique identifier"
  )
  .def(
    "name",
    &mc::FFCustom<I>::name,
-   "retreive operation name"
+   "retrieve operation name"
  )
  .def(
    "__str__",

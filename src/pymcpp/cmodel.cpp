@@ -183,11 +183,11 @@ mc_cmodel(py::module& m)
           "bound on model using selected bounder in option 'BOUNDER_TYPE'")
       .def(
           "bndpol", [](CV const& self) { return self.bndpol(); },
-          "Retreive bound on multivariate polynomial using default bounder")
+          "Retrieve bound on multivariate polynomial using default bounder")
       .def(
           "bndpol", [](CV const& self, int const type)
           { return self.bndpol(type); }, py::arg("type"),
-          "Retreive bound on multivariate polynomial using bounder 'type'")
+          "Retrieve bound on multivariate polynomial using bounder 'type'")
       .def("bndord", &CV::bndord, py::arg("minord"),
            "compute bound on all monomials with (total) order no less than "
            "'minord'")

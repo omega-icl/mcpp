@@ -85,7 +85,7 @@ mc_supmodel(py::module& m)
                      "Reformulation method used for product terms")
       .def_readwrite(
           "PROD_CUT", &PWLSM::Options::PROD_CUT,
-          "Wether to cut superposition relaxations for product terms")
+          "Whether to cut superposition relaxations for product terms")
       .def_readwrite("SUM_TOL", &PWLSM::Options::SUM_TOL,
                      "Tolerance on range for univariate estimator propagation")
       .def_readwrite("REF_WEIGHT", &PWLSM::Options::REF_WEIGHT,
