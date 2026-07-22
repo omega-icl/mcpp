@@ -401,9 +401,14 @@ endif()
 
 # Match the classical Make warning flags and add backend-specific compile
 # options such as -frounding-math only when required, e.g. with FILIB.
-target_compile_options(
-  mc INTERFACE -Wall -Wno-misleading-indentation -Wno-unknown-pragmas
-               -Wno-parentheses -Wno-return-type ${INTERVAL_COMPILE_OPTIONS})
+# MSVC compilers flood the build log;
+if(MSVC)
+  target_compile_options(mc INTERFACE ${INTERVAL_COMPILE_OPTIONS})
+else()
+  target_compile_options(
+    mc INTERFACE -Wall -Wno-misleading-indentation -Wno-unknown-pragmas
+                 -Wno-parentheses -Wno-return-type ${INTERVAL_COMPILE_OPTIONS})
+endif()
 
 # Link libraries
 target_link_libraries(mc INTERFACE ${ARMADILLO_LIBRARIES} ${BLAS_LIBRARIES}
@@ -484,12 +489,18 @@ endif()
 option(PYMCPP_STUBS "Generate and install the .pyi type stub" ON)
 if(PYMCPP_STUBS)
   set(_stub_out ${CMAKE_CURRENT_BINARY_DIR}/stubs)
+  # PYTHONPATH entries are joined with ";" on Windows and ":" elsewhere.
+  if(WIN32)
+    set(_stub_pathsep "$<SEMICOLON>")
+  else()
+    set(_stub_pathsep ":")
+  endif()
   add_custom_command(
     TARGET pymcpp
     POST_BUILD
     COMMAND
       ${CMAKE_COMMAND} -E env
-      "PYTHONPATH=$<TARGET_FILE_DIR:pymcpp>:$ENV{PYTHONPATH}"
+      "PYTHONPATH=$<TARGET_FILE_DIR:pymcpp>${_stub_pathsep}$ENV{PYTHONPATH}"
       ${Python3_EXECUTABLE} -m pybind11_stubgen pymcpp -o ${_stub_out}
     BYPRODUCTS ${_stub_out}/pymcpp.pyi
     COMMENT "Generating pymcpp.pyi type stub"

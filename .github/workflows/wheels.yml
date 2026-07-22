@@ -63,18 +63,34 @@ jobs:
             MACOSX_DEPLOYMENT_TARGET=14.0
 
           # --- Windows ---
-          # vcpkg is preinstalled on the runner; the toolchain file makes
-          # find_package resolve to vcpkg-built Boost/Armadillo. The compiler
-          # is forced to clang-cl (MSVC-compatible ABI, but accepts the C99
-          # VLAs that MC++ uses and that cl.exe hard-rejects). delvewheel
-          # bundles the dependency DLLs into the wheel (cibuildwheel has no
-          # default repair step on Windows).
-          CIBW_BEFORE_ALL_WINDOWS: vcpkg install --triplet x64-windows armadillo boost
+          # No Fortran anywhere: vcpkg's armadillo port drags in
+          # lapack-reference, whose Fortran build breaks on the runner (VS
+          # flang cannot find its own intrinsic modules under CMake). Instead:
+          # prebuilt OpenBLAS (upstream cross-compiles LAPACK into the DLL,
+          # MSVC import lib included), Armadillo as headers (its default
+          # config has the wrapper library off and BLAS/LAPACK on), and vcpkg
+          # only for header-only Boost.Interval. The compiler is forced to
+          # clang-cl (MSVC-compatible ABI, but accepts the C99 VLAs and -Wno-*
+          # flags that cl.exe hard-rejects); scikit-build-core uses the Visual
+          # Studio generator, which ignores CMAKE_CXX_COMPILER, so the -T
+          # ClangCL toolset is the way to select it. delvewheel bundles
+          # libopenblas.dll into the wheel (cibuildwheel has no default
+          # repair step on Windows). The DLL is also copied into System32:
+          # CPython does not search PATH for extension-module dependencies,
+          # and both the post-build stubgen and the wheel test import the
+          # module before delvewheel has vendored the DLL.
+          CIBW_BEFORE_ALL_WINDOWS: >
+            vcpkg install --triplet x64-windows boost-interval &&
+            curl -sSL -o C:/openblas.zip https://github.com/OpenMathLib/OpenBLAS/releases/download/v0.3.28/OpenBLAS-0.3.28-x64.zip &&
+            mkdir C:\openblas && tar -xf C:/openblas.zip -C C:/openblas &&
+            copy C:\openblas\bin\libopenblas.dll C:\Windows\System32\ &&
+            curl -sSL -o C:/arma.tar.xz https://sourceforge.net/projects/arma/files/armadillo-14.2.2.tar.xz/download &&
+            mkdir C:\armadillo && tar -xf C:/arma.tar.xz -C C:/armadillo --strip-components=1
           CIBW_ENVIRONMENT_WINDOWS: >
-            CMAKE_ARGS="-DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows -DCMAKE_CXX_COMPILER=clang-cl"
+            CMAKE_ARGS="-T ClangCL -DCMAKE_TOOLCHAIN_FILE=C:/vcpkg/scripts/buildsystems/vcpkg.cmake -DVCPKG_TARGET_TRIPLET=x64-windows -DARMADILLO_INCLUDE_DIR=C:/armadillo/include -DBLAS_LIBRARIES=C:/openblas/libopenblas.lib -DLAPACK_LIBRARIES=C:/openblas/libopenblas.lib"
           CIBW_BEFORE_BUILD_WINDOWS: pip install delvewheel
           CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >
-            delvewheel repair --add-path C:/vcpkg/installed/x64-windows/bin -w {dest_dir} {wheel}
+            delvewheel repair --add-path C:/openblas/bin -w {dest_dir} {wheel}
 
       - uses: actions/upload-artifact@v4
         with:
