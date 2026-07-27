@@ -11,6 +11,7 @@ name = "pymcpp"
 version = "5.0.1"
 description = "Python interface to MC++"
 readme = "README.md"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.txt"]
 requires-python = ">=3.10"
 dependencies = []
 
