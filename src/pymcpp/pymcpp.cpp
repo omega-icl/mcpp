@@ -74,7 +74,38 @@ void mc_ffvect(py::module_&);
 
 PYBIND11_MODULE(pymcpp, m)
 {
-  m.doc() = "Python interface of library MC++";
+  m.doc() = R"doc(
+Python bindings of MC++: guaranteed bounds and convex/concave
+relaxations of factorable functions, for global and robust
+optimization.
+
+A factorable function can be represented as a directed acyclic graph
+(``FFGraph``/``FFVar``) and evaluated in different arithmetics, or the
+arithmetics can be used directly via operator overloading. The main
+types are:
+
+- ``Interval``: interval bounds on the range of a function;
+- ``McCormick``: McCormick convex/concave relaxations with subgradient
+  propagation;
+- ``TModel``/``CModel``/``SCModel``/``SICModel``: Taylor and Chebyshev
+  models; ``Specbnd``: spectral bounds; ``SupModel``: superposition
+  relaxations; ``PolImg``: polyhedral relaxations; ``EllImg``:
+  ellipsoidal calculus;
+- ``FFGraph``/``FFVar``: expression DAGs supporting evaluation in all
+  of the above, symbolic differentiation and Taylor expansion.
+
+Example: bound f(x,y) = x*(exp(x)-y)**2 on [-2,1] x [-1,2]:
+
+>>> import pymcpp
+>>> x, y = pymcpp.Interval(-2, 1), pymcpp.Interval(-1, 2)
+>>> f = x * (pymcpp.exp(x) - y)**2
+>>> print(f)
+[ -2.76512e+01 :  1.38256e+01 ]
+
+See the Jupyter notebooks in the ``notebook/`` directory of the MC++
+distribution (interval.ipynb, mccormick.ipynb, ffunc.ipynb, ...) for
+worked examples of each arithmetic.
+)doc";
 
   mc_mcfunc(m);
   mc_interval(m);
