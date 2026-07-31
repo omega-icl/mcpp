@@ -4,6 +4,7 @@
 
 #include "mcfunc.hpp"
 
+#include <algorithm>
 #include <pybind11/operators.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -149,22 +150,14 @@ float overload: Chebyshev polynomial of the first kind T_n(x),
 evaluated by the recurrence T_n = 2*x*T_{n-1} - T_{n-2}.
 )doc");
   m.def(
-      "max", [](double const& x, double const& y) { return mc::max(x, y); },
+      "max", [](double const& x, double const& y) { return std::max(x, y); },
       py::arg("x"), py::arg("y"), R"doc(
 float overload: maximum of x and y.
-
-Note: the underlying C++ function converts its arguments to unsigned
-integers, so the result is truncated (e.g. max(2.7, 3.9) returns 3).
-Prefer Python's built-in ``max`` for float arguments.
 )doc");
   m.def(
-      "min", [](double const& x, double const& y) { return mc::min(x, y); },
+      "min", [](double const& x, double const& y) { return std::min(x, y); },
       py::arg("x"), py::arg("y"), R"doc(
 float overload: minimum of x and y.
-
-Note: the underlying C++ function converts its arguments to unsigned
-integers, so the result is truncated (e.g. min(2.7, 3.9) returns 2).
-Prefer Python's built-in ``min`` for float arguments.
 )doc");
 
   m.def("machprec", []() { return mc::machprec(); }, R"doc(

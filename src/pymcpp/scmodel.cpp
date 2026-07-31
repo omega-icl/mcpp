@@ -137,10 +137,10 @@ variable index (int) to the domain half-diameter (float) used for
 scaling to [-1,1].
 )doc")
       .def_property_readonly(
-          "setaux", [](SCM const& self) { return self.setvar(); },
+          "setaux", [](SCM const& self) { return self.setaux(); },
           R"doc(
-Currently an alias for ``setvar``: returns the indices of the
-registered model variables (set of int).
+Indices of the auxiliary variables registered in the environment
+(set of int); see ``append_aux``.
 )doc")
       .def(
           "append_aux", [](SCM& self) { return self.append_aux(); },
@@ -247,7 +247,7 @@ leaving the polynomial part unchanged. Returns this object.
 )doc")
       .def(
           "set", [](SCV& self, SCV::t_poly const& coefmon, I const& rem) -> SCV&
-          { return self.set(coefmon); }, py::arg("coefmon") = 0.,
+          { return self.set(coefmon, rem); }, py::arg("coefmon") = 0.,
           py::arg("rem") = 0., py::return_value_policy::reference_internal,
           R"doc(
 Set the sparse polynomial part of this variable from a monomial
@@ -258,8 +258,7 @@ Parameters
 coefmon : dict of SMon to float
     New monomial-coefficient map of the polynomial part.
 rem : Interval, optional
-    Currently ignored: the remainder bound is reset to [0,0]
-    regardless of this argument.
+    New remainder bound. Default is [0,0].
 )doc")
       .def(
           "set",

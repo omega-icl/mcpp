@@ -175,15 +175,18 @@ reset : bool, optional
       .def(
           "read_data",
           [](mc::MLP<I>& self, std::string const& filename, bool const disp)
-          { self.read_data(filename, disp); }, py::arg("filename"),
-          py::arg("disp") = false, R"doc(
+          {
+            if (!self.read_data(filename, disp))
+              throw std::runtime_error(
+                  "MLP.read_data: failed to load network data (was pymcpp "
+                  "compiled with Torch support?)");
+          },
+          py::arg("filename"), py::arg("disp") = false, R"doc(
 Load the network data from a TorchScript file.
 
 Reads the weights, biases and activation functions of a feedforward
 network saved with PyTorch (``torch.jit.script(model).save(...)``); the
-supported activations are ReLU, Tanh, Sigmoid and Linear. Requires pymcpp
-to be compiled with Torch support; otherwise the network data is left
-unchanged.
+supported activations are ReLU, Tanh, Sigmoid and Linear.
 
 Parameters
 ----------
@@ -192,6 +195,12 @@ filename : str
 disp : bool, optional
     Whether to print information about the loaded modules and tensors.
     Default is False.
+
+Raises
+------
+RuntimeError
+    If the file cannot be read, or if pymcpp was compiled without
+    Torch support.
 )doc")
       .def_property_readonly(
           "dag", [](mc::MLP<I>& self) { return self.dag(); },
@@ -330,7 +339,17 @@ Copy constructor.
       .def(
           "__call__",
           [](mc::FFMLP<I>& self, std::vector<mc::FFVar> const& vVar,
-             mc::MLP<I>* pMLP) { return self(vVar, pMLP, mc::FFMLP<I>::COPY); },
+             mc::MLP<I>* pMLP)
+          {
+            if (!pMLP || !pMLP->nin())
+              throw std::runtime_error(
+                  "FFMLP.__call__: empty network (populate the MLP with "
+                  "read_data, set_data or append_data first)");
+            if (vVar.size() != pMLP->nin())
+              throw std::invalid_argument(
+                  "FFMLP.__call__: var must have length mlp.nin");
+            return self(vVar, pMLP, mc::FFMLP<I>::COPY);
+          },
           py::return_value_policy::reference_internal, py::arg("var"),
           py::arg("mlp"), R"doc(
 Insert the MLP operation into the DAG and return all network outputs.
@@ -350,12 +369,31 @@ Returns
 -------
 dep : list of FFVar
     Dependent DAG variables of the ``mlp.nout`` network outputs.
+
+Raises
+------
+RuntimeError
+    If `mlp` is empty (no layers loaded).
+ValueError
+    If the length of `var` differs from ``mlp.nin``.
 )doc")
       .def(
           "__call__",
           [](mc::FFMLP<I>& self, unsigned const idep,
              std::vector<mc::FFVar> const& vVar, mc::MLP<I>* pMLP)
-          { return self(idep, vVar, pMLP, mc::FFMLP<I>::COPY); },
+          {
+            if (!pMLP || !pMLP->nin())
+              throw std::runtime_error(
+                  "FFMLP.__call__: empty network (populate the MLP with "
+                  "read_data, set_data or append_data first)");
+            if (vVar.size() != pMLP->nin())
+              throw std::invalid_argument(
+                  "FFMLP.__call__: var must have length mlp.nin");
+            if (idep >= pMLP->nout())
+              throw std::invalid_argument(
+                  "FFMLP.__call__: dep must be smaller than mlp.nout");
+            return self(idep, vVar, pMLP, mc::FFMLP<I>::COPY);
+          },
           py::return_value_policy::reference_internal, py::arg("dep"),
           py::arg("var"), py::arg("mlp"), R"doc(
 Insert the MLP operation into the DAG and return output `dep` only.
@@ -376,6 +414,14 @@ Returns
 -------
 dep : FFVar
     Dependent DAG variable of network output `dep`.
+
+Raises
+------
+RuntimeError
+    If `mlp` is empty (no layers loaded).
+ValueError
+    If the length of `var` differs from ``mlp.nin``, or if `dep` is
+    not smaller than ``mlp.nout``.
 )doc")
       .def_property_readonly(
           "name", [](mc::FFMLP<I> const& self) { return self.name(); },

@@ -731,14 +731,14 @@ McCormick overload: relaxation of the conditional
 )doc");
   m.def(
       "gtcond", [](I const& z, MC const& x, MC const& y)
-      { return mc::ltcond(z, x, y); }, py::arg("z"), py::arg("x"),
+      { return mc::gtcond(z, x, y); }, py::arg("z"), py::arg("x"),
       py::arg("y"), R"doc(
 McCormick overload: relaxation of the conditional
 { x if z >= 0; y otherwise } for an Interval condition z.
 )doc");
   m.def(
       "gtcond", [](MC const& z, MC const& x, MC const& y)
-      { return mc::ltcond(z, x, y); }, py::arg("z"), py::arg("x"),
+      { return mc::gtcond(z, x, y); }, py::arg("z"), py::arg("x"),
       py::arg("y"), R"doc(
 McCormick overload: relaxation of the conditional
 { x if z >= 0; y otherwise } for a McCormick condition z.

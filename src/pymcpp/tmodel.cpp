@@ -567,6 +567,7 @@ reset : bool, optional
           [](TV const& self)
           {
             double* p = self.linear();
+            if (!p) return std::vector<double>(self.nvar(), 0.);
             std::vector<double> res(p, p + self.nvar());
             delete[] p;
             return res;
@@ -579,7 +580,7 @@ Returns
 lin : list of float
     New list of length ``nvar``; ``lin[k]`` is the coefficient of the
     linear term in variable ``k``, expressed in the original
-    (unscaled) variables.
+    (unscaled) variables. All zeros if the model order is 0.
 )doc")
       .def("__str__",
            [](TV const& self)

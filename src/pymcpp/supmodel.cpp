@@ -207,7 +207,7 @@ maxval : float
 )doc")
       .def(
           "uref", [](PWLSM& self, PWLSV& var, double const& lbd)
-          { return self.min(var, lbd); }, py::arg("var"), py::arg("lbd"), R"doc(
+          { return self.uref(var, lbd); }, py::arg("var"), py::arg("lbd"), R"doc(
 Refine the superposition underestimator with a natural lower bound.
 
 Tightens the underestimator of `var` so that it is consistent with the
@@ -877,7 +877,7 @@ RuntimeError
     If x lies outside the estimator range.
 )doc")
       .def(
-          "uval", [](PWLU& self, double const& x) { return self.l(x); },
+          "uval", [](PWLU& self, double const& x) { return self.u(x); },
           py::arg("x"), R"doc(
 Evaluate the piecewise-linear function at abscissa x.
 
@@ -997,7 +997,7 @@ est : PWLU
 )doc")
       .def(
           "merge",
-          [](PWLU& self, bool const under) { return self.clean(under); },
+          [](PWLU& self, bool const under) { return self.merge(under); },
           py::arg("under"), R"doc(
 Merge adjacent partition segments with identical slope.
 
@@ -1018,7 +1018,7 @@ est : PWLU
 )doc")
       .def(
           "reduce", [](PWLU& self, bool const under, size_t const nseg)
-          { return self.clean(under); }, py::arg("under"), py::arg("nseg"),
+          { return self.reduce(under, nseg); }, py::arg("under"), py::arg("nseg"),
           R"doc(
 Reduce the partition to at most `nseg` segments by successive relaxation.
 
@@ -1196,7 +1196,7 @@ maxval : float
 )doc")
       .def(
           "uref", [](PWCSM& self, PWCSV& var, double const& lbd)
-          { return self.min(var, lbd); }, py::arg("var"), py::arg("lbd"), R"doc(
+          { return self.uref(var, lbd); }, py::arg("var"), py::arg("lbd"), R"doc(
 Refine the superposition underestimator with a natural lower bound.
 
 Tightens the underestimator of `var` so that it is consistent with the
@@ -1804,7 +1804,7 @@ y : float
     information when available).
 )doc")
       .def(
-          "uval", [](PWCU& self, double const& x) { return self.l(x); },
+          "uval", [](PWCU& self, double const& x) { return self.u(x); },
           py::arg("x"), R"doc(
 Evaluate the piecewise-constant overestimator at abscissa x.
 

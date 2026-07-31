@@ -373,15 +373,24 @@ lmax : float
                 col.empty() ? nullptr
                             : reinterpret_cast<unsigned const*>(col.data()));
           },
-          py::arg("hess"), py::arg("ndim"), py::arg("row") = std::vector<int>(),
+          py::arg("ndim"), py::arg("hess"), py::arg("row") = std::vector<int>(),
           py::arg("col") = std::vector<int>(), R"doc(
 Bound the spectrum of a sparse symmetric interval matrix (Rohn).
 
 Same as the dense overload, with the interval matrix given in
-coordinate format. Arguments are positional, in the order (ndim, hess,
-row, col): first the matrix dimension N, then the nonzero interval
-entries, then their row and column indices; if `row` is empty (default)
-the entries are interpreted as a dense row-major matrix of size N*N.
+coordinate format.
+
+Parameters
+----------
+ndim : int
+    Matrix dimension N.
+hess : list of Interval
+    Nonzero interval entries.
+row : list of int, optional
+    Row indices of the entries; if empty (default), `hess` is
+    interpreted as a dense row-major matrix of size N*N.
+col : list of int, optional
+    Column indices of the entries.
 
 Returns
 -------
@@ -432,15 +441,24 @@ lmax : float
                 col.empty() ? nullptr
                             : reinterpret_cast<unsigned const*>(col.data()));
           },
-          py::arg("hess"), py::arg("ndim"), py::arg("row") = std::vector<int>(),
+          py::arg("ndim"), py::arg("hess"), py::arg("row") = std::vector<int>(),
           py::arg("col") = std::vector<int>(), R"doc(
 Bound the spectrum of a sparse symmetric interval matrix (Hertz).
 
 Same as the dense overload, with the interval matrix given in
-coordinate format. Arguments are positional, in the order (ndim, hess,
-row, col): first the matrix dimension N, then the nonzero interval
-entries, then their row and column indices; if `row` is empty (default)
-the entries are interpreted as a dense row-major matrix of size N*N.
+coordinate format.
+
+Parameters
+----------
+ndim : int
+    Matrix dimension N.
+hess : list of Interval
+    Nonzero interval entries.
+row : list of int, optional
+    Row indices of the entries; if empty (default), `hess` is
+    interpreted as a dense row-major matrix of size N*N.
+col : list of int, optional
+    Column indices of the entries.
 
 Returns
 -------
