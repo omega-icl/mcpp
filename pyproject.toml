@@ -8,7 +8,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "pymcpp"
-version = "5.0.1"
+version = "5.0.2"
 description = "Python interface to MC++"
 readme = "README.md"
 license-files = ["LICENSE", "THIRD_PARTY_NOTICES.txt"]
