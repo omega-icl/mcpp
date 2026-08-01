@@ -627,10 +627,15 @@ sgDep : FFSubgraph
       .def(
           "output",
           [](mc::FFBase& G, std::vector<mc::FFVar const*> const& V,
-             std::string const& S) { mc::FFBase::output(G.subgraph(V), S); },
+             std::string const& S)
+          {
+            std::ostringstream oss;
+            mc::FFBase::output(G.subgraph(V), S, oss);
+            py::print(oss.str(), py::arg("end") = "");
+          },
           py::arg("vDep"), py::arg("str") = "",
           R"doc(
-Print the subgraph of the dependents ``vDep`` to standard output.
+Print the subgraph of the dependents ``vDep`` to ``sys.stdout``.
 
 Parameters
 ----------
@@ -642,10 +647,15 @@ str : str, optional
       .def(
           "output",
           [](mc::FFBase const& G, mc::FFSubgraph const& SG,
-             std::string const& S) { mc::FFBase::output(SG, S); },
+             std::string const& S)
+          {
+            std::ostringstream oss;
+            mc::FFBase::output(SG, S, oss);
+            py::print(oss.str(), py::arg("end") = "");
+          },
           py::arg("sgDep"), py::arg("str") = "",
           R"doc(
-Print a precomputed subgraph to standard output.
+Print a precomputed subgraph to ``sys.stdout``.
 
 Parameters
 ----------
@@ -659,7 +669,13 @@ str : str, optional
           [](mc::FFBase const& G, std::vector<mc::FFVar const*> const& V,
              std::string const& fname)
           {
-            if (fname == "") return G.dot_script(V);
+            if (fname == "")
+            {
+              std::ostringstream oss;
+              G.dot_script(V, oss);
+              py::print(oss.str(), py::arg("end") = "");
+              return;
+            }
             std::ofstream ofs(fname);
             return G.dot_script(V, ofs);
           },
@@ -672,8 +688,8 @@ Parameters
 vDep : list of FFVar
     Dependents whose subgraph is exported.
 fname : str
-    Output file name. If empty, the script is printed to standard
-    output instead.
+    Output file name. If empty, the script is printed to ``sys.stdout``
+    instead.
 )doc")
       .def("__str__",
            [](mc::FFBase const& G)
@@ -1727,9 +1743,11 @@ IDep : list of Interval
               auto wtime =
                   std::chrono::duration_cast<std::chrono::microseconds>(
                       std::chrono::system_clock::now() - starttime);
-              std::cerr << "vectorized DAG evaluation on "
-                        << G.options.MAXTHREAD
-                        << " threads: " << wtime.count() * 1e-6 << " sec\n";
+              std::ostringstream oss;
+              oss << "vectorized DAG evaluation on " << G.options.MAXTHREAD
+                  << " threads: " << wtime.count() * 1e-6 << " sec";
+              py::print(oss.str(), py::arg("file") = py::module_::import("sys")
+                                                         .attr("stderr"));
             }
             return DDep;
           },
@@ -1788,9 +1806,11 @@ DDep : list of list of float
               auto wtime =
                   std::chrono::duration_cast<std::chrono::microseconds>(
                       std::chrono::system_clock::now() - starttime);
-              std::cerr << "vectorized DAG evaluation on "
-                        << G.options.MAXTHREAD
-                        << " threads: " << wtime.count() * 1e-6 << " sec\n";
+              std::ostringstream oss;
+              oss << "vectorized DAG evaluation on " << G.options.MAXTHREAD
+                  << " threads: " << wtime.count() * 1e-6 << " sec";
+              py::print(oss.str(), py::arg("file") = py::module_::import("sys")
+                                                         .attr("stderr"));
             }
             return DDep;
           },
@@ -1834,9 +1854,11 @@ Examples
               auto wtime =
                   std::chrono::duration_cast<std::chrono::microseconds>(
                       std::chrono::system_clock::now() - starttime);
-              std::cerr << "vectorized DAG evaluation on "
-                        << G.options.MAXTHREAD
-                        << " threads: " << wtime.count() * 1e-6 << " sec\n";
+              std::ostringstream oss;
+              oss << "vectorized DAG evaluation on " << G.options.MAXTHREAD
+                  << " threads: " << wtime.count() * 1e-6 << " sec";
+              py::print(oss.str(), py::arg("file") = py::module_::import("sys")
+                                                         .attr("stderr"));
             }
             return IDep;
           },
@@ -1870,9 +1892,11 @@ list of `Interval` enclosures of the dependents per scenario, in
               auto wtime =
                   std::chrono::duration_cast<std::chrono::microseconds>(
                       std::chrono::system_clock::now() - starttime);
-              std::cerr << "vectorized DAG evaluation on "
-                        << G.options.MAXTHREAD
-                        << " threads: " << wtime.count() * 1e-6 << " sec\n";
+              std::ostringstream oss;
+              oss << "vectorized DAG evaluation on " << G.options.MAXTHREAD
+                  << " threads: " << wtime.count() * 1e-6 << " sec";
+              py::print(oss.str(), py::arg("file") = py::module_::import("sys")
+                                                         .attr("stderr"));
             }
             return IDep;
           },
@@ -1905,9 +1929,11 @@ call.
               auto wtime =
                   std::chrono::duration_cast<std::chrono::microseconds>(
                       std::chrono::system_clock::now() - starttime);
-              std::cerr << "vectorized DAG evaluation on "
-                        << G.options.MAXTHREAD
-                        << " threads: " << wtime.count() * 1e-6 << " sec\n";
+              std::ostringstream oss;
+              oss << "vectorized DAG evaluation on " << G.options.MAXTHREAD
+                  << " threads: " << wtime.count() * 1e-6 << " sec";
+              py::print(oss.str(), py::arg("file") = py::module_::import("sys")
+                                                         .attr("stderr"));
             }
             return MCDep;
           },
@@ -1941,9 +1967,11 @@ order.
               auto wtime =
                   std::chrono::duration_cast<std::chrono::microseconds>(
                       std::chrono::system_clock::now() - starttime);
-              std::cerr << "vectorized DAG evaluation on "
-                        << G.options.MAXTHREAD
-                        << " threads: " << wtime.count() * 1e-6 << " sec\n";
+              std::ostringstream oss;
+              oss << "vectorized DAG evaluation on " << G.options.MAXTHREAD
+                  << " threads: " << wtime.count() * 1e-6 << " sec";
+              py::print(oss.str(), py::arg("file") = py::module_::import("sys")
+                                                         .attr("stderr"));
             }
             return MCDep;
           },
@@ -1976,9 +2004,11 @@ call.
               auto wtime =
                   std::chrono::duration_cast<std::chrono::microseconds>(
                       std::chrono::system_clock::now() - starttime);
-              std::cerr << "vectorized DAG evaluation on "
-                        << G.options.MAXTHREAD
-                        << " threads: " << wtime.count() * 1e-6 << " sec\n";
+              std::ostringstream oss;
+              oss << "vectorized DAG evaluation on " << G.options.MAXTHREAD
+                  << " threads: " << wtime.count() * 1e-6 << " sec";
+              py::print(oss.str(), py::arg("file") = py::module_::import("sys")
+                                                         .attr("stderr"));
             }
             return SBDep;
           },
@@ -2011,9 +2041,11 @@ Evaluate dependents in spectral bound arithmetic for multiple scenarios
               auto wtime =
                   std::chrono::duration_cast<std::chrono::microseconds>(
                       std::chrono::system_clock::now() - starttime);
-              std::cerr << "vectorized DAG evaluation on "
-                        << G.options.MAXTHREAD
-                        << " threads: " << wtime.count() * 1e-6 << " sec\n";
+              std::ostringstream oss;
+              oss << "vectorized DAG evaluation on " << G.options.MAXTHREAD
+                  << " threads: " << wtime.count() * 1e-6 << " sec";
+              py::print(oss.str(), py::arg("file") = py::module_::import("sys")
+                                                         .attr("stderr"));
             }
             return SBDep;
           },
@@ -2046,9 +2078,11 @@ call.
               auto wtime =
                   std::chrono::duration_cast<std::chrono::microseconds>(
                       std::chrono::system_clock::now() - starttime);
-              std::cerr << "vectorized DAG evaluation on "
-                        << G.options.MAXTHREAD
-                        << " threads: " << wtime.count() * 1e-6 << " sec\n";
+              std::ostringstream oss;
+              oss << "vectorized DAG evaluation on " << G.options.MAXTHREAD
+                  << " threads: " << wtime.count() * 1e-6 << " sec";
+              py::print(oss.str(), py::arg("file") = py::module_::import("sys")
+                                                         .attr("stderr"));
             }
             return TDep;
           },
@@ -2081,9 +2115,11 @@ Evaluate dependents in Taylor model arithmetic for multiple scenarios
               auto wtime =
                   std::chrono::duration_cast<std::chrono::microseconds>(
                       std::chrono::system_clock::now() - starttime);
-              std::cerr << "vectorized DAG evaluation on "
-                        << G.options.MAXTHREAD
-                        << " threads: " << wtime.count() * 1e-6 << " sec\n";
+              std::ostringstream oss;
+              oss << "vectorized DAG evaluation on " << G.options.MAXTHREAD
+                  << " threads: " << wtime.count() * 1e-6 << " sec";
+              py::print(oss.str(), py::arg("file") = py::module_::import("sys")
+                                                         .attr("stderr"));
             }
             return TDep;
           },
@@ -2116,9 +2152,11 @@ call.
               auto wtime =
                   std::chrono::duration_cast<std::chrono::microseconds>(
                       std::chrono::system_clock::now() - starttime);
-              std::cerr << "vectorized DAG evaluation on "
-                        << G.options.MAXTHREAD
-                        << " threads: " << wtime.count() * 1e-6 << " sec\n";
+              std::ostringstream oss;
+              oss << "vectorized DAG evaluation on " << G.options.MAXTHREAD
+                  << " threads: " << wtime.count() * 1e-6 << " sec";
+              py::print(oss.str(), py::arg("file") = py::module_::import("sys")
+                                                         .attr("stderr"));
             }
             return CDep;
           },
@@ -2151,9 +2189,11 @@ scenarios (vectorized), using a precomputed subgraph.
               auto wtime =
                   std::chrono::duration_cast<std::chrono::microseconds>(
                       std::chrono::system_clock::now() - starttime);
-              std::cerr << "vectorized DAG evaluation on "
-                        << G.options.MAXTHREAD
-                        << " threads: " << wtime.count() * 1e-6 << " sec\n";
+              std::ostringstream oss;
+              oss << "vectorized DAG evaluation on " << G.options.MAXTHREAD
+                  << " threads: " << wtime.count() * 1e-6 << " sec";
+              py::print(oss.str(), py::arg("file") = py::module_::import("sys")
+                                                         .attr("stderr"));
             }
             return CDep;
           },
@@ -2186,9 +2226,11 @@ call.
               auto wtime =
                   std::chrono::duration_cast<std::chrono::microseconds>(
                       std::chrono::system_clock::now() - starttime);
-              std::cerr << "vectorized DAG evaluation on "
-                        << G.options.MAXTHREAD
-                        << " threads: " << wtime.count() * 1e-6 << " sec\n";
+              std::ostringstream oss;
+              oss << "vectorized DAG evaluation on " << G.options.MAXTHREAD
+                  << " threads: " << wtime.count() * 1e-6 << " sec";
+              py::print(oss.str(), py::arg("file") = py::module_::import("sys")
+                                                         .attr("stderr"));
             }
             return SCDep;
           },
@@ -2221,9 +2263,11 @@ scenarios (vectorized), using a precomputed subgraph.
               auto wtime =
                   std::chrono::duration_cast<std::chrono::microseconds>(
                       std::chrono::system_clock::now() - starttime);
-              std::cerr << "vectorized DAG evaluation on "
-                        << G.options.MAXTHREAD
-                        << " threads: " << wtime.count() * 1e-6 << " sec\n";
+              std::ostringstream oss;
+              oss << "vectorized DAG evaluation on " << G.options.MAXTHREAD
+                  << " threads: " << wtime.count() * 1e-6 << " sec";
+              py::print(oss.str(), py::arg("file") = py::module_::import("sys")
+                                                         .attr("stderr"));
             }
             return SCDep;
           },
@@ -2257,9 +2301,11 @@ call.
               auto wtime =
                   std::chrono::duration_cast<std::chrono::microseconds>(
                       std::chrono::system_clock::now() - starttime);
-              std::cerr << "vectorized DAG evaluation on "
-                        << G.options.MAXTHREAD
-                        << " threads: " << wtime.count() * 1e-6 << " sec\n";
+              std::ostringstream oss;
+              oss << "vectorized DAG evaluation on " << G.options.MAXTHREAD
+                  << " threads: " << wtime.count() * 1e-6 << " sec";
+              py::print(oss.str(), py::arg("file") = py::module_::import("sys")
+                                                         .attr("stderr"));
             }
             return PWLSDep;
           },
@@ -2295,9 +2341,11 @@ order.
               auto wtime =
                   std::chrono::duration_cast<std::chrono::microseconds>(
                       std::chrono::system_clock::now() - starttime);
-              std::cerr << "vectorized DAG evaluation on "
-                        << G.options.MAXTHREAD
-                        << " threads: " << wtime.count() * 1e-6 << " sec\n";
+              std::ostringstream oss;
+              oss << "vectorized DAG evaluation on " << G.options.MAXTHREAD
+                  << " threads: " << wtime.count() * 1e-6 << " sec";
+              py::print(oss.str(), py::arg("file") = py::module_::import("sys")
+                                                         .attr("stderr"));
             }
             return PWLSDep;
           },
@@ -2332,9 +2380,11 @@ call.
               auto wtime =
                   std::chrono::duration_cast<std::chrono::microseconds>(
                       std::chrono::system_clock::now() - starttime);
-              std::cerr << "vectorized DAG evaluation on "
-                        << G.options.MAXTHREAD
-                        << " threads: " << wtime.count() * 1e-6 << " sec\n";
+              std::ostringstream oss;
+              oss << "vectorized DAG evaluation on " << G.options.MAXTHREAD
+                  << " threads: " << wtime.count() * 1e-6 << " sec";
+              py::print(oss.str(), py::arg("file") = py::module_::import("sys")
+                                                         .attr("stderr"));
             }
             return PWCSDep;
           },
@@ -2370,9 +2420,11 @@ order.
               auto wtime =
                   std::chrono::duration_cast<std::chrono::microseconds>(
                       std::chrono::system_clock::now() - starttime);
-              std::cerr << "vectorized DAG evaluation on "
-                        << G.options.MAXTHREAD
-                        << " threads: " << wtime.count() * 1e-6 << " sec\n";
+              std::ostringstream oss;
+              oss << "vectorized DAG evaluation on " << G.options.MAXTHREAD
+                  << " threads: " << wtime.count() * 1e-6 << " sec";
+              py::print(oss.str(), py::arg("file") = py::module_::import("sys")
+                                                         .attr("stderr"));
             }
             return PWCSDep;
           },
@@ -2406,9 +2458,11 @@ call.
               auto wtime =
                   std::chrono::duration_cast<std::chrono::microseconds>(
                       std::chrono::system_clock::now() - starttime);
-              std::cerr << "vectorized DAG evaluation on "
-                        << G.options.MAXTHREAD
-                        << " threads: " << wtime.count() * 1e-6 << " sec\n";
+              std::ostringstream oss;
+              oss << "vectorized DAG evaluation on " << G.options.MAXTHREAD
+                  << " threads: " << wtime.count() * 1e-6 << " sec";
+              py::print(oss.str(), py::arg("file") = py::module_::import("sys")
+                                                         .attr("stderr"));
             }
             return PVDep;
           },
@@ -2441,9 +2495,11 @@ scenarios (vectorized), using a precomputed subgraph.
               auto wtime =
                   std::chrono::duration_cast<std::chrono::microseconds>(
                       std::chrono::system_clock::now() - starttime);
-              std::cerr << "vectorized DAG evaluation on "
-                        << G.options.MAXTHREAD
-                        << " threads: " << wtime.count() * 1e-6 << " sec\n";
+              std::ostringstream oss;
+              oss << "vectorized DAG evaluation on " << G.options.MAXTHREAD
+                  << " threads: " << wtime.count() * 1e-6 << " sec";
+              py::print(oss.str(), py::arg("file") = py::module_::import("sys")
+                                                         .attr("stderr"));
             }
             return PVDep;
           },
@@ -2476,9 +2532,11 @@ call.
               auto wtime =
                   std::chrono::duration_cast<std::chrono::microseconds>(
                       std::chrono::system_clock::now() - starttime);
-              std::cerr << "vectorized DAG evaluation on "
-                        << G.options.MAXTHREAD
-                        << " threads: " << wtime.count() * 1e-6 << " sec\n";
+              std::ostringstream oss;
+              oss << "vectorized DAG evaluation on " << G.options.MAXTHREAD
+                  << " threads: " << wtime.count() * 1e-6 << " sec";
+              py::print(oss.str(), py::arg("file") = py::module_::import("sys")
+                                                         .attr("stderr"));
             }
             return EVDep;
           },
@@ -2511,9 +2569,11 @@ scenarios (vectorized), using a precomputed subgraph.
               auto wtime =
                   std::chrono::duration_cast<std::chrono::microseconds>(
                       std::chrono::system_clock::now() - starttime);
-              std::cerr << "vectorized DAG evaluation on "
-                        << G.options.MAXTHREAD
-                        << " threads: " << wtime.count() * 1e-6 << " sec\n";
+              std::ostringstream oss;
+              oss << "vectorized DAG evaluation on " << G.options.MAXTHREAD
+                  << " threads: " << wtime.count() * 1e-6 << " sec";
+              py::print(oss.str(), py::arg("file") = py::module_::import("sys")
+                                                         .attr("stderr"));
             }
             return EVDep;
           },
@@ -2546,9 +2606,11 @@ call.
               auto wtime =
                   std::chrono::duration_cast<std::chrono::microseconds>(
                       std::chrono::system_clock::now() - starttime);
-              std::cerr << "vectorized DAG evaluation on "
-                        << G.options.MAXTHREAD
-                        << " threads: " << wtime.count() * 1e-6 << " sec\n";
+              std::ostringstream oss;
+              oss << "vectorized DAG evaluation on " << G.options.MAXTHREAD
+                  << " threads: " << wtime.count() * 1e-6 << " sec";
+              py::print(oss.str(), py::arg("file") = py::module_::import("sys")
+                                                         .attr("stderr"));
             }
             return FDDep;
           },
@@ -2581,9 +2643,11 @@ multiple scenarios (vectorized), using a precomputed subgraph.
               auto wtime =
                   std::chrono::duration_cast<std::chrono::microseconds>(
                       std::chrono::system_clock::now() - starttime);
-              std::cerr << "vectorized DAG evaluation on "
-                        << G.options.MAXTHREAD
-                        << " threads: " << wtime.count() * 1e-6 << " sec\n";
+              std::ostringstream oss;
+              oss << "vectorized DAG evaluation on " << G.options.MAXTHREAD
+                  << " threads: " << wtime.count() * 1e-6 << " sec";
+              py::print(oss.str(), py::arg("file") = py::module_::import("sys")
+                                                         .attr("stderr"));
             }
             return FDDep;
           },
@@ -2616,9 +2680,11 @@ call.
               auto wtime =
                   std::chrono::duration_cast<std::chrono::microseconds>(
                       std::chrono::system_clock::now() - starttime);
-              std::cerr << "vectorized DAG evaluation on "
-                        << G.options.MAXTHREAD
-                        << " threads: " << wtime.count() * 1e-6 << " sec\n";
+              std::ostringstream oss;
+              oss << "vectorized DAG evaluation on " << G.options.MAXTHREAD
+                  << " threads: " << wtime.count() * 1e-6 << " sec";
+              py::print(oss.str(), py::arg("file") = py::module_::import("sys")
+                                                         .attr("stderr"));
             }
             return FIDep;
           },
@@ -2652,9 +2718,11 @@ subgraph.
               auto wtime =
                   std::chrono::duration_cast<std::chrono::microseconds>(
                       std::chrono::system_clock::now() - starttime);
-              std::cerr << "vectorized DAG evaluation on "
-                        << G.options.MAXTHREAD
-                        << " threads: " << wtime.count() * 1e-6 << " sec\n";
+              std::ostringstream oss;
+              oss << "vectorized DAG evaluation on " << G.options.MAXTHREAD
+                  << " threads: " << wtime.count() * 1e-6 << " sec";
+              py::print(oss.str(), py::arg("file") = py::module_::import("sys")
+                                                         .attr("stderr"));
             }
             return FIDep;
           },
