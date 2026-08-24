@@ -3007,47 +3007,23 @@ PolBase<T>::_add_cuts_DIV
   else{
     auto itVar1 = _Vars.find( pVar1 );
     auto itVar2 = _Vars.find( pVar2 );
-#ifndef MC__POLIMG_PWMCCORMICK_1D
-    if( options.BREAKPOINT_TYPE == Options::NONE 
-     || !_pwmccormick_cuts( VarR->_var.opdef().first, *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
-                            *itVar2->second, Op<T>::l(itVar2->second->_range), Op<T>::u(itVar2->second->_range),
-			    *itVar1->second ) ){
-      add_cut( VarR->_var.opdef().first, PolCut<T>::GE, -Op<T>::u(VarR->_range)*Op<T>::u(itVar2->second->_range),
-        *itVar1->second, 1., *VarR, -Op<T>::u(itVar2->second->_range), *itVar2->second, -Op<T>::u(VarR->_range) );
-      add_cut( VarR->_var.opdef().first, PolCut<T>::GE, -Op<T>::l(VarR->_range)*Op<T>::l(itVar2->second->_range),
-        *itVar1->second, 1., *VarR, -Op<T>::l(itVar2->second->_range), *itVar2->second, -Op<T>::l(VarR->_range) );
-      add_cut( VarR->_var.opdef().first, PolCut<T>::LE, -Op<T>::u(VarR->_range)*Op<T>::l(itVar2->second->_range),
-        *itVar1->second, 1., *VarR, -Op<T>::l(itVar2->second->_range), *itVar2->second, -Op<T>::u(VarR->_range) );
-      add_cut( VarR->_var.opdef().first, PolCut<T>::LE, -Op<T>::l(VarR->_range)*Op<T>::u(itVar2->second->_range),
-        *itVar1->second, 1., *VarR, -Op<T>::u(itVar2->second->_range), *itVar2->second, -Op<T>::l(VarR->_range) );
-    }
-#else
-    switch( options.BREAKPOINT_TYPE ){
-      case PolBase<T>::Options::BIN:
-      case PolBase<T>::Options::SOS2:{
-        const unsigned NKNOTSR = VarR->create_subdiv( Op<T>::l(VarR->_range), Op<T>::u(VarR->_range) ).size();
-        if( NKNOTSR > 2 )
-          _pwmccormick_cuts( VarR->_var.opdef().first, *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
-            *itVar2->second, Op<T>::l(itVar2->second->_range), Op<T>::u(itVar2->second->_range), *itVar1->second );
-        const unsigned NKNOTS2 = itVar2->second->create_subdiv( Op<T>::l(itVar2->second->_range), Op<T>::u(itVar2->second->_range) ).size();
-        if( NKNOTS2 > 2 )
-          _pwmccormick_cuts( VarR->_var.opdef().first, *itVar2->second, Op<T>::l(itVar2->second->_range),
-            Op<T>::u(itVar2->second->_range), *VarR, Op<T>::l(VarR->_range), Op<T>::u(VarR->_range), *itVar1->second );
-        if( NKNOTSR > 2 || NKNOTS2 > 2 ) break; // The standard McCormick cuts are implied
-      }
-      case PolBase<T>::Options::NONE:
-      case PolBase<T>::Options::CONT:
-      default:
-        add_cut( VarR->_var.opdef().first, PolCut<T>::GE, -Op<T>::u(VarR->_range)*Op<T>::u(itVar2->second->_range),
-          *itVar1->second, 1., *VarR, -Op<T>::u(itVar2->second->_range), *itVar2->second, -Op<T>::u(VarR->_range) );
-        add_cut( VarR->_var.opdef().first, PolCut<T>::GE, -Op<T>::l(VarR->_range)*Op<T>::l(itVar2->second->_range),
-          *itVar1->second, 1., *VarR, -Op<T>::l(itVar2->second->_range), *itVar2->second, -Op<T>::l(VarR->_range) );
-        add_cut( VarR->_var.opdef().first, PolCut<T>::LE, -Op<T>::u(VarR->_range)*Op<T>::l(itVar2->second->_range),
-          *itVar1->second, 1., *VarR, -Op<T>::l(itVar2->second->_range), *itVar2->second, -Op<T>::u(VarR->_range) );
-        add_cut( VarR->_var.opdef().first, PolCut<T>::LE, -Op<T>::l(VarR->_range)*Op<T>::u(itVar2->second->_range),
-          *itVar1->second, 1., *VarR, -Op<T>::u(itVar2->second->_range), *itVar2->second, -Op<T>::l(VarR->_range) );
-    }
-#endif
+
+    // -- Step 1: create v2 = 1/v1 as a new DAG variable and relax it (this reuses the
+    //    Cst1/y branch above, since the INV op's first operand is the constant 1).
+    FFVar VarInvExpr = inv( *pVar2 );
+    FFOp* pOpInv = VarInvExpr.opdef().first;
+    PolVar<T>* VarInv = _append_var( pOpInv->varout[0], Op<T>::inv( itVar2->second->_range ), true );
+    _add_cuts_DIV( VarInv, pOpInv->varin[0], pOpInv->varin[1] );
+
+    // -- Step 2: create v3 = v0 * v2 as a new DAG variable and relax it (bilinear McCormick,
+    //    reusing the same relaxation as any other product of two variables).
+    FFVar VarProdExpr = (*pVar1) * VarInvExpr;
+    FFOp* pOpProd = VarProdExpr.opdef().first;
+    PolVar<T>* VarProd = _append_var( pOpProd->varout[0], itVar1->second->_range * VarInv->_range, true );
+    _add_cuts_TIMES( VarProd, pOpProd->varin[0], pOpProd->varin[1] );
+
+    // -- Link z = v0/v1 to v3 = v0*v2
+    add_cut( VarR->_var.opdef().first, PolCut<T>::EQ, 0., *VarR, 1., *VarProd, -1. );
   }
 }
 

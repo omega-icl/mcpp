@@ -1,7 +1,0 @@
-# ninja log v7
-0	21	1787600106024665465	/Users/jyang872/Desktop/mcpp/build/CMakeFiles/cmake.verify_globs	62765dd37fe09a61
-12	115	1787599914989275320	CMakeFiles/CrappySolver.dir/test.cpp.o	8f7489d336328418
-0	11	1787600145309802176	/Users/jyang872/Desktop/mcpp/build/CMakeFiles/cmake.verify_globs	62765dd37fe09a61
-11	2499	1787600145320756601	CMakeFiles/CrappySolver.dir/test.cpp.o	fa8c987c7ee81429
-2502	2736	1787600147811580749	CrappySolver	cfdcb4a7a87ebf81
-1	15	1787600149922677749	/Users/jyang872/Desktop/mcpp/build/CMakeFiles/cmake.verify_globs	62765dd37fe09a61

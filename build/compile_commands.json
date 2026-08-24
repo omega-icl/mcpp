@@ -1,8 +1,0 @@
-[
-{
-  "directory": "/Users/jyang872/Desktop/mcpp/build",
-  "command": "/usr/bin/clang++ -I/Users/jyang872/Desktop/mcpp -I/Users/jyang872/Desktop/mcpp/src/3rdparty/fadbad++ -I/Users/jyang872/Desktop/mcpp/include -I/Users/jyang872/Desktop/mcpp/src/3rdparty/cpplapack-2015.05.11-1/include -g -std=c++17 -arch arm64 -w -g -O0 -o CMakeFiles/CrappySolver.dir/test.cpp.o -c /Users/jyang872/Desktop/mcpp/test.cpp",
-  "file": "/Users/jyang872/Desktop/mcpp/test.cpp",
-  "output": "/Users/jyang872/Desktop/mcpp/build/CMakeFiles/CrappySolver.dir/test.cpp.o"
-}
-]
