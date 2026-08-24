@@ -1,0 +1,13 @@
+<map id="mc::SPoly::display" name="mc::SPoly::display">
+<area shape="rect" id="Node000001" title="Extract univariate polynomials from a multivariate polynomial." alt="" coords="750,31,881,56"/>
+<area shape="rect" id="Node000002" href="$classmc_1_1SPoly.html#a0c6fec66fe8eacfb22620dc5c60161ed" title="Convert univariate polynomial from Chebyshev to monomial basis." alt="" coords="561,31,702,56"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="731,44,702,46,702,41,737,43"/>
+<area shape="rect" id="Node000003" href="$classmc_1_1SPoly.html#a69e5fb7e9d057ea79f1997ff5533f4db" title="Convert coefficient map to desired BASIS." alt="" coords="380,31,513,56"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="543,44,514,46,514,41,548,43"/>
+<area shape="rect" id="Node000004" href="$classmc_1_1SQuad.html#a13fef7d73230c0d4840bc6a54478701f" title="Check quadratic form expressions by comparing with Chebyshev model." alt="" coords="195,31,332,56"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="362,44,333,46,332,41,367,43"/>
+<area shape="rect" id="Node000005" href="$classmc_1_1SQuad.html#a3f942dc7c7e6f117181d070216cce7e8" title="Check quadratic form expressions by comparing with Chebyshev model." alt="" coords="11,5,141,31"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="177,33,141,30,141,24,182,32"/>
+<area shape="rect" id="Node000006" href="$classmc_1_1SQuad.html#a13cbcdd4cd2d95bef2090b29bf009ae5" title="Process the nPol sparse polynomials in array pPol." alt="" coords="5,55,147,80"/>
+<area shape="poly" id="edge5_Node000004_Node000006" title=" " alt="" coords="177,55,147,61,147,56,182,54"/>
+</map>

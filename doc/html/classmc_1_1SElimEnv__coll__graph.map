@@ -1,0 +1,32 @@
+<map id="mc::SElimEnv&lt; ExtOps &gt;" name="mc::SElimEnv&lt; ExtOps &gt;">
+<area shape="rect" id="Node000001" title="Environment for variable elimination in factorable equality constraints." alt="" coords="136,579,310,604"/>
+<area shape="rect" id="Node000002" href="$classmc_1_1SElimBase.html" title="Base class for variable elimination in factorable equality constraints." alt="" coords="5,474,118,500"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="94,506,206,577,201,580,93,511"/>
+<area shape="rect" id="Node000003" href="$structmc_1_1SElimBase_1_1Options.html" title="Options of mc::SElimBase." alt="" coords="42,370,207,396"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="108,412,71,475,67,473,110,407"/>
+<area shape="rect" id="Node000014" href="$structmc_1_1SElimEnv_1_1Options.html" title="Options of mc::SElimEnv." alt="" coords="142,467,304,508"/>
+<area shape="poly" id="edge16_Node000014_Node000003" title=" " alt="" coords="147,405,207,466,201,467,146,410"/>
+<area shape="rect" id="Node000004" href="$classmc_1_1SLiftEnv.html" title=" " alt="" coords="328,474,505,500"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="382,508,247,581,245,576,377,508"/>
+<area shape="rect" id="Node000005" href="$classmc_1_1SLiftBase.html" title="C++ base class for recursive decomposition of factorable expressions into polynomial/rational and tra..." alt="" coords="392,274,496,299"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="444,313,428,443,421,476,417,472,423,443,440,317"/>
+<area shape="rect" id="Node000007" href="$classmc_1_1SLiftEnv.html" title=" " alt="" coords="242,370,407,396"/>
+<area shape="poly" id="edge7_Node000007_Node000005" title=" " alt="" coords="420,307,341,372,338,368,415,310"/>
+<area shape="rect" id="Node000006" href="$structmc_1_1SLiftBase_1_1Options.html" title="Options of mc::SLiftBase." alt="" coords="375,177,532,203"/>
+<area shape="poly" id="edge5_Node000005_Node000006" title=" " alt="" coords="452,216,448,274,443,272,449,220"/>
+<area shape="poly" id="edge6_Node000004_Node000007" title=" " alt="" coords="327,409,332,427,340,441,359,459,383,474,377,474,355,463,335,445,327,429,324,414"/>
+<area shape="rect" id="Node000008" href="$classmc_1_1FFGraph.html" title=" " alt="" coords="179,274,357,299"/>
+<area shape="poly" id="edge8_Node000007_Node000008" title=" " alt="" coords="281,311,301,345,318,371,313,370,297,348,280,316"/>
+<area shape="rect" id="Node000009" href="$classmc_1_1FFBase.html" title="C++ class representing the DAG of factorable functions." alt="" coords="118,102,211,128"/>
+<area shape="poly" id="edge9_Node000008_Node000009" title=" " alt="" coords="163,141,167,172,176,202,191,223,210,243,249,272,244,274,206,247,187,227,171,204,162,173,162,146"/>
+<area shape="rect" id="Node000013" href="$classmc_1_1FFGraph.html" title="C++ class representing the DAG of factorable functions with external operations." alt="" coords="185,177,351,203"/>
+<area shape="poly" id="edge14_Node000013_Node000009" title=" " alt="" coords="193,134,253,176,248,177,194,139"/>
+<area shape="rect" id="Node000010" href="$classmc_1_1FFVar.html" title="Class defining variables in a factorable function." alt="" coords="15,5,97,31"/>
+<area shape="poly" id="edge10_Node000009_Node000010" title=" " alt="" coords="63,43,73,61,84,76,101,89,122,100,118,103,98,94,80,80,68,64,63,48"/>
+<area shape="rect" id="Node000011" href="$classmc_1_1FFOp.html" title="Class defining operations in a factorable function." alt="" coords="124,5,204,31"/>
+<area shape="poly" id="edge11_Node000009_Node000011" title=" " alt="" coords="165,44,167,102,162,101,164,49"/>
+<area shape="rect" id="Node000012" href="$structmc_1_1FFBase_1_1Options.html" title="DAG Options." alt="" coords="228,5,375,31"/>
+<area shape="poly" id="edge12_Node000009_Node000012" title=" " alt="" coords="271,42,220,80,185,103,181,100,217,76,275,38"/>
+<area shape="poly" id="edge13_Node000008_Node000013" title=" " alt="" coords="269,215,271,274,266,272,267,220"/>
+<area shape="poly" id="edge15_Node000001_Node000014" title=" " alt="" coords="225,521,225,580,221,577,221,525"/>
+</map>

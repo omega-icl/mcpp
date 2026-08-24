@@ -1,0 +1,5 @@
+<map id="mc::SElimBase" name="mc::SElimBase">
+<area shape="rect" id="Node000001" title="Base class for variable elimination in factorable equality constraints." alt="" coords="32,102,144,128"/>
+<area shape="rect" id="Node000002" href="$structmc_1_1SElimBase_1_1Options.html" title="Options of mc::SElimBase." alt="" coords="5,5,171,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="90,45,91,102,85,101,86,48"/>
+</map>

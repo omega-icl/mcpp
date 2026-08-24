@@ -1,0 +1,12 @@
+<map id="mc::SElimEnv&lt; ExtOps &gt;" name="mc::SElimEnv&lt; ExtOps &gt;">
+<area shape="rect" id="Node000001" title="Environment for variable elimination in factorable equality constraints." alt="" coords="5,252,179,278"/>
+<area shape="rect" id="Node000002" href="$classmc_1_1SElimBase.html" title="Base class for variable elimination in factorable equality constraints." alt="" coords="20,177,132,203"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="84,216,92,252,87,251,80,220"/>
+<area shape="rect" id="Node000003" href="$classmc_1_1SLiftEnv.html" title=" " alt="" coords="157,177,334,203"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="209,210,119,254,117,249,203,210"/>
+<area shape="rect" id="Node000004" href="$classmc_1_1SLiftBase.html" title="C++ base class for recursive decomposition of factorable expressions into polynomial/rational and tra..." alt="" coords="168,5,272,31"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="224,44,232,106,245,178,240,176,227,106,221,49"/>
+<area shape="rect" id="Node000005" href="$classmc_1_1SLiftEnv.html" title=" " alt="" coords="241,80,407,106"/>
+<area shape="poly" id="edge5_Node000005_Node000004" title=" " alt="" coords="250,37,309,79,304,80,249,43"/>
+<area shape="poly" id="edge4_Node000003_Node000005" title=" " alt="" coords="307,117,257,178,254,174,302,119"/>
+</map>

@@ -1,0 +1,5 @@
+<map id="mc::SPoly::display" name="mc::SPoly::display">
+<area shape="rect" id="Node000001" title="Extract univariate polynomials from a multivariate polynomial." alt="" coords="5,5,137,31"/>
+<area shape="rect" id="Node000002" href="$classmc_1_1SPoly.html#a24e1e04192e95afda5e2d22e7404c407" title="Get const map of monomial coefficients." alt="" coords="185,5,325,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="137,16,172,18,166,18,137,21"/>
+</map>

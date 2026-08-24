@@ -1,0 +1,20 @@
+<map id="mc::SLiftEnv&lt; ExtOps &gt;" name="mc::SLiftEnv&lt; ExtOps &gt;">
+<area shape="rect" id="Node000001" title=" " alt="" coords="83,370,248,396"/>
+<area shape="rect" id="Node000002" href="$classmc_1_1SLiftBase.html" title="C++ base class for recursive decomposition of factorable expressions into polynomial/rational and tra..." alt="" coords="32,274,136,299"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="106,309,157,369,152,370,103,314"/>
+<area shape="rect" id="Node000003" href="$structmc_1_1SLiftBase_1_1Options.html" title="Options of mc::SLiftBase." alt="" coords="5,177,163,203"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="85,216,87,273,81,273,83,220"/>
+<area shape="rect" id="Node000004" href="$classmc_1_1FFGraph.html" title=" " alt="" coords="160,274,338,299"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="231,310,178,372,175,368,226,312"/>
+<area shape="rect" id="Node000005" href="$classmc_1_1FFBase.html" title="C++ class representing the DAG of factorable functions." alt="" coords="195,102,288,128"/>
+<area shape="poly" id="edge4_Node000004_Node000005" title=" " alt="" coords="244,141,251,274,246,272,241,145"/>
+<area shape="rect" id="Node000009" href="$classmc_1_1FFGraph.html" title="C++ class representing the DAG of factorable functions with external operations." alt="" coords="262,177,428,203"/>
+<area shape="poly" id="edge9_Node000009_Node000005" title=" " alt="" coords="271,134,331,176,326,177,271,139"/>
+<area shape="rect" id="Node000006" href="$classmc_1_1FFVar.html" title="Class defining variables in a factorable function." alt="" coords="92,5,174,31"/>
+<area shape="poly" id="edge5_Node000005_Node000006" title=" " alt="" coords="140,43,150,61,161,76,178,89,200,101,195,102,175,94,157,80,145,64,140,48"/>
+<area shape="rect" id="Node000007" href="$classmc_1_1FFOp.html" title="Class defining operations in a factorable function." alt="" coords="201,5,282,31"/>
+<area shape="poly" id="edge6_Node000005_Node000007" title=" " alt="" coords="242,44,244,102,239,101,240,49"/>
+<area shape="rect" id="Node000008" href="$structmc_1_1FFBase_1_1Options.html" title="DAG Options." alt="" coords="306,5,452,31"/>
+<area shape="poly" id="edge7_Node000005_Node000008" title=" " alt="" coords="349,42,299,80,262,104,259,100,296,76,353,38"/>
+<area shape="poly" id="edge8_Node000004_Node000009" title=" " alt="" coords="325,212,263,275,260,271,320,215"/>
+</map>

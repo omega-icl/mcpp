@@ -1,0 +1,11 @@
+<map id="Graphical Class Hierarchy" name="Graphical Class Hierarchy">
+<area shape="rect" id="Node000000" href="$classmc_1_1SElimBase.html" title="Base class for variable elimination in factorable equality constraints." alt="" coords="190,5,302,31"/>
+<area shape="rect" id="Node000001" href="$classmc_1_1SElimEnv.html" title="Environment for variable elimination in factorable equality constraints." alt="" coords="383,31,556,56"/>
+<area shape="poly" id="edge9_Node000000_Node000001" title=" " alt="" coords="318,24,385,33,380,34,318,29"/>
+<area shape="rect" id="Node000003" href="$classmc_1_1SLiftBase.html" title="C++ base class for recursive decomposition of factorable expressions into polynomial/rational and tra..." alt="" coords="5,80,110,106"/>
+<area shape="rect" id="Node000002" href="$classmc_1_1SLiftEnv.html" title=" " alt="" coords="158,55,335,80"/>
+<area shape="poly" id="edge10_Node000003_Node000002" title=" " alt="" coords="125,81,160,79,154,80,126,86"/>
+<area shape="rect" id="Node000004" href="$classmc_1_1SLiftEnv.html" title=" " alt="" coords="164,104,329,130"/>
+<area shape="poly" id="edge12_Node000003_Node000004" title=" " alt="" coords="125,99,166,106,160,107,125,104"/>
+<area shape="poly" id="edge11_Node000002_Node000001" title=" " alt="" coords="350,54,385,52,380,53,351,59"/>
+</map>

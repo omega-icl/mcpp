@@ -1,0 +1,9 @@
+<map id="mc::EllImg&lt; T &gt;" name="mc::EllImg&lt; T &gt;">
+<area shape="rect" id="Node000001" title="C++ class for ellipsoidal arithmetic &#45; Ellipsoidal image environment." alt="" coords="100,199,217,224"/>
+<area shape="rect" id="Node000002" href="$classmc_1_1Ellipsoid.html" title="C++ class for ellipsoidal calculus." alt="" coords="32,102,128,128"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="101,137,151,198,146,199,98,142"/>
+<area shape="rect" id="Node000003" href="$structmc_1_1Ellipsoid_1_1Options.html" title="Ellipsoid options." alt="" coords="5,5,155,31"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="81,44,83,102,77,101,79,49"/>
+<area shape="rect" id="Node000004" href="$structmc_1_1EllImg_1_1Options.html" title="Structure containing the options for EllImg." alt="" coords="153,102,322,128"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="220,139,170,200,167,196,215,140"/>
+</map>

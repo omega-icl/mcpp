@@ -1,0 +1,9 @@
+<map id="mc::SLiftVar" name="mc::SLiftVar">
+<area shape="rect" id="Node000001" title="Arithmetic for recursive decomposition of factorable expressions into polynomial/rational and transce..." alt="" coords="48,366,142,392"/>
+<area shape="rect" id="Node000002" href="$classmc_1_1SPoly.html" title=" " alt="" coords="12,234,178,275"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="97,289,98,366,92,365,93,292"/>
+<area shape="rect" id="Node000003" href="$classmc_1_1SPoly.html" title="C++ class for sparse polynomial representation and arithmetic." alt="" coords="5,117,185,143"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="96,156,98,234,92,233,94,161"/>
+<area shape="rect" id="Node000004" href="$structmc_1_1SPoly_1_1Options.html" title="Options of mc::SPoly." alt="" coords="11,5,179,46"/>
+<area shape="poly" id="edge3_Node000003_Node000004" title=" " alt="" coords="96,59,98,117,92,116,94,64"/>
+</map>

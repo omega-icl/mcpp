@@ -1,0 +1,5 @@
+<map id="mc::CVar::scale" name="mc::CVar::scale">
+<area shape="rect" id="Node000001" title="Get coefficients of linear term for variable ivar in Chebyshev variable. The value of this coefficien..." alt="" coords="5,5,121,31"/>
+<area shape="rect" id="Node000002" href="$classmc_1_1PolyVar.html#a7b0d935a3c98a627137165014b29fc99" title="Number of variables in polynomial model." alt="" coords="169,5,294,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="121,16,156,18,150,18,121,21"/>
+</map>

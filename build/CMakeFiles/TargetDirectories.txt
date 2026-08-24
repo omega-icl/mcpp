@@ -1,0 +1,3 @@
+/Users/jyang872/Desktop/mcpp/build/CMakeFiles/CrappySolver.dir
+/Users/jyang872/Desktop/mcpp/build/CMakeFiles/edit_cache.dir
+/Users/jyang872/Desktop/mcpp/build/CMakeFiles/rebuild_cache.dir

@@ -1,0 +1,10 @@
+<map id="mc::CModel::get_bndmon" name="mc::CModel::get_bndmon">
+<area shape="rect" id="Node000001" title="Get Chebyshev monomial bounds in U arithmetic for variable array X." alt="" coords="5,56,177,82"/>
+<area shape="rect" id="Node000002" href="$group__CHEBYSHEV.html#gaeb17d5f6187ef9c8e57eac90e67cc23e" title="Get Chebyshev basis functions in U arithmetic for variable array X." alt="" coords="225,5,381,31"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="147,53,234,34,229,36,149,58"/>
+<area shape="rect" id="Node000003" href="$group__POLYMOD.html#ga307eff2c8ddd57f1bbe4ecfabbca0e06" title="Order of polynomial model environment." alt="" coords="429,31,570,56"/>
+<area shape="poly" id="edge4_Node000001_Node000003" title=" " alt="" coords="177,61,414,46,413,51,177,66"/>
+<area shape="rect" id="Node000004" href="$group__POLYMOD.html#ga4f1c8a09eeb850b5d54bf210ed5ab93f" title="Total number of monomial terms in polynomial model." alt="" coords="229,107,377,132"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="148,80,234,102,229,103,148,85"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="381,26,416,32,411,33,382,31"/>
+</map>

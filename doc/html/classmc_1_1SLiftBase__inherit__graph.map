@@ -1,0 +1,10 @@
+<map id="mc::SLiftBase" name="mc::SLiftBase">
+<area shape="rect" id="Node000001" title="C++ base class for recursive decomposition of factorable expressions into polynomial/rational and tra..." alt="" coords="58,5,162,31"/>
+<area shape="rect" id="Node000002" href="$classmc_1_1SLiftEnv.html" title=" " alt="" coords="5,177,183,203"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="105,44,101,81,96,177,91,176,95,80,103,49"/>
+<area shape="rect" id="Node000004" href="$classmc_1_1SLiftEnv.html" title=" " alt="" coords="110,80,275,106"/>
+<area shape="poly" id="edge3_Node000001_Node000004" title=" " alt="" coords="135,39,182,79,177,81,135,44"/>
+<area shape="rect" id="Node000003" href="$classmc_1_1SElimEnv.html" title="Environment for variable elimination in factorable equality constraints." alt="" coords="7,252,181,278"/>
+<area shape="poly" id="edge2_Node000002_Node000003" title=" " alt="" coords="96,216,96,253,92,251,92,220"/>
+<area shape="poly" id="edge4_Node000004_Node000002" title=" " alt="" coords="167,119,109,178,105,174,171,115"/>
+</map>

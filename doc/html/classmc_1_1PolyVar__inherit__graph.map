@@ -1,0 +1,7 @@
+<map id="mc::PolyVar&lt; T &gt;" name="mc::PolyVar&lt; T &gt;">
+<area shape="rect" id="Node000001" title="C++ base class for the computation of polynomial models for factorable functions: Variable." alt="" coords="63,5,187,31"/>
+<area shape="rect" id="Node000002" href="$classmc_1_1CVar.html" title="C++ class for Chebyshev model computation of factorable function &#45; Chebyshev model propagation." alt="" coords="5,79,114,105"/>
+<area shape="poly" id="edge1_Node000001_Node000002" title=" " alt="" coords="106,42,72,81,69,77,101,43"/>
+<area shape="rect" id="Node000003" href="$classmc_1_1TVar.html" title="C++ class for Taylor model computation of factorable function &#45; Taylor model propagation." alt="" coords="138,79,245,105"/>
+<area shape="poly" id="edge2_Node000001_Node000003" title=" " alt="" coords="147,40,183,79,178,78,145,45"/>
+</map>
