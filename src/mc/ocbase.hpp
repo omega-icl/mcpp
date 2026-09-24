@@ -29,14 +29,10 @@
 #include "mcfunc.hpp" // for mc::PI
 #include "ffexpr.hpp"
 #include "ffdep.hpp"
+#include "ffinv.hpp"   // FFInv overloads for FFPartial/FFIntegral/FFEval (below): these
+                       // operations are not invertible, so their FFInv pass returns U.
 #include "slift.hpp"
 #include "smon.hpp"
-
-// macOS <math.h> defines macro DOMAIN, clashes with the
-// DOMAIN enum below.
-#ifdef DOMAIN
-#undef DOMAIN
-#endif
 
 namespace mc
 {
@@ -230,7 +226,7 @@ protected:
 };
 
 class OCBase;
-class OCEnv;
+class OCFESLV;
 class FFIntegral;
 class FFEval;
 class FFPartial;
@@ -244,12 +240,12 @@ class OCDom
 ////////////////////////////////////////////////////////////////////////
 : public virtual BASE_OC
 {
-  friend OCEnv;
+  friend OCFESLV;
 
 public:
 
   //! @brief Exceptions
-  class Exceptions
+  class Exceptions : public std::runtime_error
   {
   public:
     //! @brief Enumeration type for exception handling
@@ -260,12 +256,14 @@ public:
       UNDEF = -33 	//!< Undefined
     };
     //! @brief Constructor for error <a>ierr</a>
-    Exceptions( TYPE ierr=UNDEF ) : _ierr( ierr ){}
+    Exceptions( TYPE ierr=UNDEF ) : std::runtime_error( _message( ierr ) ), _ierr( ierr ){}
     //! @brief Inline function returning the error flag
     int ierr(){ return _ierr; }
     //! @brief Error description
-    std::string what(){
-      switch( _ierr ){
+    std::string what(){ return _message( _ierr ); }
+    //! @brief The message for a code; also what std::exception::what() reports.
+    static std::string _message( TYPE ierr ){
+      switch( ierr ){
       case BOUNDS:
         return "OCDom::Exceptions  Invalid domain bounds";
       case ELEMENTS:
@@ -328,33 +326,33 @@ public:
   //! @brief Uniform finite-element constructor
   OCDom
     ( double const& lo_dom, double const& up_dom,
-      size_t n_elem, TYPE const& type, size_t n_node )
+      size_t n_elem, TYPE const& type=LG, size_t n_node=4 )
     : type   ( type   ),
       n_node ( n_node )
     {
       _set_uniform( lo_dom, up_dom, n_elem );
-      if( !n_node ) throw Exceptions::NODES;
+      if( !n_node ) throw Exceptions( Exceptions::NODES );
     }
 
   //! @brief Nonuniform finite-element constructor from element boundaries
   OCDom
-    ( std::vector<double> const& elem_bnd, TYPE const& type, size_t n_node )
+    ( std::vector<double> const& elem_bnd, TYPE const& type=LG, size_t n_node=4 )
     : type   ( type   ),
       n_node ( n_node )
     {
       _set_boundaries( elem_bnd );
-      if( !n_node ) throw Exceptions::NODES;
+      if( !n_node ) throw Exceptions( Exceptions::NODES );
     }
 
   //! @brief Nonuniform finite-element constructor from lower bound and element lengths
   OCDom
     ( double const& lo_dom, std::vector<double> const& elem_len,
-      TYPE const& type, size_t n_node )
+      TYPE const& type=LG, size_t n_node=4 )
     : type   ( type   ),
       n_node ( n_node )
     {
       _set_lengths( lo_dom, elem_len );
-      if( !n_node ) throw Exceptions::NODES;
+      if( !n_node ) throw Exceptions( Exceptions::NODES );
     }
 
   //! @brief Copy constructor
@@ -407,19 +405,19 @@ public:
   double elem_lo
     ( size_t const iel )
     const
-    { if( iel >= n_elem ) throw Exceptions::ELEMENTS; return elem_bnd[iel]; }
+    { if( iel >= n_elem ) throw Exceptions( Exceptions::ELEMENTS ); return elem_bnd[iel]; }
 
   //! @brief Upper bound of finite element <a>iel</a>
   double elem_up
     ( size_t const iel )
     const
-    { if( iel >= n_elem ) throw Exceptions::ELEMENTS; return elem_bnd[iel+1]; }
+    { if( iel >= n_elem ) throw Exceptions( Exceptions::ELEMENTS ); return elem_bnd[iel+1]; }
 
   //! @brief Length of finite element <a>iel</a>
   double elem_width
     ( size_t const iel )
     const
-    { if( iel >= n_elem ) throw Exceptions::ELEMENTS; return elem_len[iel]; }
+    { if( iel >= n_elem ) throw Exceptions( Exceptions::ELEMENTS ); return elem_len[iel]; }
 
 protected:
 
@@ -428,21 +426,21 @@ protected:
     ()
     const
     {
-      if( lo_dom >= up_dom ) throw Exceptions::BOUNDS;
-      if( !n_elem )          throw Exceptions::ELEMENTS;
-      if( !n_node )          throw Exceptions::NODES;
+      if( lo_dom >= up_dom ) throw Exceptions( Exceptions::BOUNDS );
+      if( !n_elem )          throw Exceptions( Exceptions::ELEMENTS );
+      if( !n_node )          throw Exceptions( Exceptions::NODES );
       if( elem_bnd.size() != n_elem + 1 || elem_len.size() != n_elem )
-        throw Exceptions::ELEMENTS;
+        throw Exceptions( Exceptions::ELEMENTS );
       double const tol = 64. * DBL_EPSILON
                        * std::max( 1., std::max( std::fabs(lo_dom), std::fabs(up_dom) ) );
       if( std::fabs( elem_bnd.front() - lo_dom ) > tol
        || std::fabs( elem_bnd.back () - up_dom ) > tol )
-        throw Exceptions::BOUNDS;
+        throw Exceptions( Exceptions::BOUNDS );
       for( size_t i=0; i<n_elem; ++i ){
-        if( elem_bnd[i+1] <= elem_bnd[i] ) throw Exceptions::BOUNDS;
-        if( elem_len[i] <= 0. )            throw Exceptions::ELEMENTS;
+        if( elem_bnd[i+1] <= elem_bnd[i] ) throw Exceptions( Exceptions::BOUNDS );
+        if( elem_len[i] <= 0. )            throw Exceptions( Exceptions::ELEMENTS );
         if( std::fabs( elem_len[i] - ( elem_bnd[i+1] - elem_bnd[i] ) ) > tol )
-          throw Exceptions::ELEMENTS;
+          throw Exceptions( Exceptions::ELEMENTS );
       }
     }
 
@@ -451,8 +449,8 @@ protected:
     ( double const& lo, double const& up, size_t const ne )
     {
       lo_dom = lo; up_dom = up; n_elem = ne;
-      if( lo_dom >= up_dom ) throw Exceptions::BOUNDS;
-      if( !n_elem )          throw Exceptions::ELEMENTS;
+      if( lo_dom >= up_dom ) throw Exceptions( Exceptions::BOUNDS );
+      if( !n_elem )          throw Exceptions( Exceptions::ELEMENTS );
       w_elem = ( up_dom - lo_dom ) / static_cast<double>( n_elem );
       elem_bnd.resize( n_elem + 1 );
       elem_len.assign( n_elem, w_elem );
@@ -465,7 +463,7 @@ protected:
   void _set_boundaries
     ( std::vector<double> const& bnd )
     {
-      if( bnd.size() < 2 ) throw Exceptions::ELEMENTS;
+      if( bnd.size() < 2 ) throw Exceptions( Exceptions::ELEMENTS );
       elem_bnd = bnd;
       lo_dom = elem_bnd.front();
       up_dom = elem_bnd.back();
@@ -481,12 +479,12 @@ protected:
   void _set_lengths
     ( double const& lo, std::vector<double> const& len )
     {
-      if( len.empty() ) throw Exceptions::ELEMENTS;
+      if( len.empty() ) throw Exceptions( Exceptions::ELEMENTS );
       elem_len = len;
       elem_bnd.resize( elem_len.size() + 1 );
       elem_bnd[0] = lo;
       for( size_t i=0; i<elem_len.size(); ++i ){
-        if( elem_len[i] <= 0. ) throw Exceptions::ELEMENTS;
+        if( elem_len[i] <= 0. ) throw Exceptions( Exceptions::ELEMENTS );
         elem_bnd[i+1] = elem_bnd[i] + elem_len[i];
       }
       lo_dom = elem_bnd.front();
@@ -549,8 +547,8 @@ public:
     CONSTANT     //!< Constant
   };
 
-  //! @brief Exceptions shared by OCBase and derived OCEnv.
-  class Exceptions
+  //! @brief Exceptions shared by OCBase and derived OCFESLV (formerly OCEnv).
+  class Exceptions : public std::runtime_error
   {
   public:
     enum TYPE{
@@ -561,12 +559,14 @@ public:
       CSTVAL,      //!< Undefined constant values
       UNDEF,       //!< Undefined collocation operation
       INTERNAL,    //!< Internal error
-      NOSTORE      //!< No stored solution available for a buffer-free read (enable SOLVE_REUSE / MARCH_STORE_TRAJECTORY)
+      NOSTORE      //!< No stored solution available for a buffer-free read (enable SOLVE.REUSE / OUTPUT.MARCH_STORE)
     };
-    Exceptions( TYPE ierr=UNDEF ) : _ierr( ierr ){}
+    Exceptions( TYPE ierr=UNDEF ) : std::runtime_error( _message( ierr ) ), _ierr( ierr ){}
     int ierr(){ return _ierr; }
-    std::string what(){
-      switch( _ierr ){
+    std::string what(){ return _message( _ierr ); }
+    //! @brief The message for a code; also what std::exception::what() reports.
+    static std::string _message( TYPE ierr ){
+      switch( ierr ){
       case SETUP:
         return "OCBase::Exceptions  Incomplete setup before evaluation";
       case INDEX:
@@ -580,7 +580,7 @@ public:
       case UNDEF:
         return "OCBase::Exceptions  Undefined collocation operation";
       case NOSTORE:
-        return "OCBase::Exceptions  No stored solution for a buffer-free read (enable SOLVE_REUSE / MARCH_STORE_TRAJECTORY)";
+        return "OCBase::Exceptions  No stored solution for a buffer-free read (enable SOLVE.REUSE / OUTPUT.MARCH_STORE)";
       case INTERNAL:
       default:
         return "OCBase::Exceptions  Internal error";
@@ -596,7 +596,11 @@ public:
   virtual ~OCBase() {}
 
   //! @brief Return the active local domain map.
-  t_Dom const& var_domain() const { return _mDom; }
+  //! @brief The WORKING domain map, as the collocation layer needs it: owned by the model layer (mc::FFModel)
+  //! and reached through this accessor, so there is ONE source and no copy to keep in step.
+  //! Distinct from the public var_domain(), which reports the DECLARED map until setup() succeeds -- the
+  //! collocation layer runs DURING setup and must always see the working map.
+  virtual t_Dom const& _dom_colloc() const = 0;
 
   //! @brief Compute the stride for evaluating collocated expressions within multidimensional stacked arrays.
   static std::pair<size_t, size_t> stride
@@ -613,7 +617,6 @@ public:
 
 protected:
   //! @brief map of active local domain variables.
-  t_Dom _mDom;
 };
 
 //! @brief Arithmetic for propagation of collocation coefficients in distributed subexpressions through a DAG using MC++
@@ -1142,10 +1145,69 @@ protected:
   //! @brief Map of independent variables
   mutable t_SMon              _Indep;
 
+public:
+
+  //! @brief fold nested differentiation at insertion; see _set below for what it does and assumes.
+  //! Default from CRONOS_FOLD_PARTIALS, settable in code.  SET IT BEFORE BUILDING EXPRESSIONS: nodes already
+  //! inserted keep their identity, so toggling mid-session leaves a DAG holding both spellings.  Read directly
+  //! by FFIntegral and FFEval for their own folds.
+  //! DEFAULT TRUE.  Chained differentiation is folded at insertion because that is the natural
+  //! representation -- d/dy(d/dx u) IS d2u/(dx dy), and the DAG should say so once rather than carry two
+  //! spellings of it.  The corpus does not NEED it (the P-fold sweep of 20260919_233005 was 152/152 with only
+  //! machine-precision movement in the two drivers that nest OpI/OpEval, and _reduce_order shares auxiliaries
+  //! unconditionally since this same revision, so identity no longer decides the auxiliary count).  It is
+  //! adopted as the better structure, not as a repair.  CRONOS_FOLD_PARTIALS=0 restores the unfolded DAG.
+  inline static bool FOLD_NESTED = []{ char const* e = std::getenv( "CRONOS_FOLD_PARTIALS" );
+                                       return ( e && *e && !std::atoi( e ) ) ? false : true; }();
+
+  //! @brief FOLD NESTED DIFFERENTIATION AT INSERTION (CRONOS_FOLD_PARTIALS=1; off by default).
+  //!
+  //! d/dy( d/dx u ) is inserted as ONE node, d^2u/(dx dy), by replacing the operand with the inner operand and
+  //! ADDING the two independent monomials.  The DAG hash-conses external operations on (operand, _Indep), so
+  //! every spelling of the same derivative -- nested, direct, or with the mixed orders written in either order
+  //! -- becomes the SAME node.  Two consequences beyond tidiness:
+  //!   - order reduction mints ONE auxiliary per distinct derivative, whatever the spelling and however many
+  //!     equations contain it (its reuse map is keyed by node id);
+  //!   - scans that require a BARE STATE operand (the non-linear-partial detector, the principal symbol) see a
+  //!     nested node's outer operand as a derivative and skip it; folded, the operand IS the state with tord>1,
+  //!     which the peel path already handles.
+  //! ASSUMES the mixed partials commute (Clairaut) -- true for the smooth models this library differentiates,
+  //! and made explicit here because the folded node no longer records the order the user wrote.
+  //! The INTERMEDIATE node is not created, so an expression that relies on d/dx u existing as its own node must
+  //! write it separately (it then exists, and the folded second derivative references the state, not it).
+  //! Folding applies only to a single-operand FFPartial whose operand is a single-operand FFPartial.
+protected:
+
   FFVar** _set
     ( size_t nVar, FFVar const* pVar, t_SMon const& Indep )
     const
     {
+      // rev297: nVar == 1, and the UNIFORM vector case (nVar > 1 with every operand a single-input FFPartial
+      // sharing one inner monomial).  A single FFOp carries ONE _Indep for all its outputs, so a vector whose
+      // components nest DIFFERENT derivatives cannot be folded into one operation -- it falls through.
+      if( FOLD_NESTED && nVar && pVar && Indep.tord ){
+        std::vector<FFVar> inner_operands;
+        t_SMon inner_indep;
+        bool foldable = true;
+        for( size_t i = 0; i < nVar && foldable; ++i ){
+          auto const& [pOp, ndx] = pVar[i].opdef();
+          if( !pOp || !pOp->sameid( typeid(FFPartial) ) || pOp->varin.size() != 1 || !pOp->varin[0] ){ foldable = false; break; }
+          auto const* inner = dynamic_cast<FFPartial const*>( pOp );
+          if( !inner || !inner->Indep().tord ){ foldable = false; break; }
+          if( i == 0 ) inner_indep = inner->Indep();
+          else if( !( inner->Indep() == inner_indep ) ){ foldable = false; break; }   // not uniform
+          inner_operands.push_back( *pOp->varin[0] );
+        }
+        if( foldable && inner_operands.size() == nVar ){
+          t_SMon merged = inner_indep;
+          for( auto const& [var, ord] : Indep.expr ) merged += t_SMon( var, ord );
+          _Var = inner_operands;
+          _Indep = merged;
+          data = nullptr;
+          owndata = false;
+          return insert_external_operation( *this, nVar, nVar, inner_operands.data() );
+        }
+      }
       _Var.assign( pVar, pVar+nVar );
       _Indep = Indep;
       data = nullptr;
@@ -1251,6 +1313,13 @@ public:
     ( size_t const nRes, FFDep* vRes, size_t const nVar, FFDep const* vVar, unsigned const* mVar )
     const;
 
+  //! @brief Invertible-structure pass.  Differentiation, integration and point-evaluation
+  //! are NOT invertible operations in the FFInv sense, so every output is UNDETERMINED --
+  //! see the definition for why U rather than a pass-through.
+  void eval
+    ( size_t const nRes, FFInv* vRes, size_t const nVar, FFInv const* vVar, unsigned const* mVar )
+    const;
+
   void eval
     ( size_t const nRes, FADType<FFVar>* vRes, size_t const nVar, FADType<FFVar> const* vVar,
       unsigned const* mVar )
@@ -1320,6 +1389,8 @@ const
     return eval( nRes, static_cast<FFVar*>(vRes), nVar, static_cast<FFVar const*>(vVar), mVar );
   else if( idU == typeid( FFDep ) )
     return eval( nRes, static_cast<FFDep*>(vRes), nVar, static_cast<FFDep const*>(vVar), mVar );
+  else if( idU == typeid( FFInv ) )
+    return eval( nRes, static_cast<FFInv*>(vRes), nVar, static_cast<FFInv const*>(vVar), mVar );
   else if( idU == typeid( SLiftVar ) )
     return eval( nRes, static_cast<SLiftVar*>(vRes), nVar, static_cast<SLiftVar const*>(vVar), mVar );
   else if( idU == typeid( FFExpr ) )
@@ -1371,6 +1442,42 @@ const
 
   // Lift partial differentiation operation
   vVar->env()->lift( nRes, vRes, nVar, vVar );
+}
+
+inline void
+FFPartial::eval
+( size_t const nRes, FFInv* vRes, size_t const nVar, FFInv const* vVar,
+  unsigned const* mVar )
+const
+{
+#ifdef MC__FFPARTIAL_TRACE
+  std::cout << "FFPartial::eval: FFInv\n";
+#endif
+#ifdef MC__FFPARTIAL_CHECK
+  assert( nRes == nVar );
+#endif
+
+  // Differentiation is a LINEAR operator but NOT an invertible one: d/dx cannot be undone
+  // pointwise, so no variable is recoverable from the result.
+  //
+  // NOTE the contrast with the FFDep pass just above, which is a PASS-THROUGH because
+  // dependence is preserved by these operations.  INVERTIBILITY is not: FFInv answers
+  // "can this variable be solved for from this expression", and differentiation destroys that
+  // even though the dependence survives.  Returning vVar[i] here would report a linear
+  // or separable structure that does not exist, which is worse than reporting nothing.
+  //
+  // U is ABSORBING by construction: any expression built from an undetermined
+  // subexpression is itself undetermined, so callers must treat U as "not invertible"
+  // rather than "unknown but probably fine".  The claim-inheritance test in ocenv
+  // accepts only L and S for exactly this reason.
+  for( size_t i=0; i<nRes; ++i ){
+    vRes[i] = FFInv();
+    for( size_t j=0; j<nVar; ++j )
+      for( auto const& [ind,ty] : vVar[j].inv() ){
+        (void)ty;
+        vRes[i].inv()[ind] = FFInv::TYPE::U;
+      }
+  }
 }
 
 inline void
@@ -1489,10 +1596,35 @@ protected:
   //! @brief Map of independent variables
   mutable t_SMon               _Indep;
 
+  //! @brief fold a nested INTEGRAL into one node when the two variable sets are DISJOINT.
+  //! INT_y( INT_x f ) is INT_{x,y} f by Fubini for the continuous integrands this library quadratures.
+  //! A REPEATED variable is NOT folded: the inner definite integral no longer depends on that variable, so the
+  //! outer integration is a domain-width factor, not a second-order quadrature -- a different object from
+  //! SMon order 2.  Same knob as the FFPartial fold (CRONOS_FOLD_PARTIALS).
   FFVar** _set
     ( size_t nVar, FFVar const* pVar, t_SMon const& Indep )
     const
     {
+      if( FFPartial::FOLD_NESTED && nVar == 1 && pVar && Indep.tord ){
+        auto const& [pOp, ndx] = pVar->opdef();
+        if( pOp && pOp->sameid( typeid(FFIntegral) ) && pOp->varin.size() == 1 && pOp->varin[0] ){
+          auto const* inner = dynamic_cast<FFIntegral const*>( pOp );
+          bool disjoint = ( inner && inner->Indep().tord );
+          if( disjoint )
+            for( auto const& [var, ord] : Indep.expr )
+              if( inner->Indep().expr.find( var ) != inner->Indep().expr.end() ) disjoint = false;
+          if( disjoint ){
+            t_SMon merged = inner->Indep();
+            for( auto const& [var, ord] : Indep.expr ) merged += t_SMon( var, ord );
+            FFVar const operand = *pOp->varin[0];
+            _Var.assign( 1, operand );
+            _Indep = merged;
+            data = nullptr;
+            owndata = false;
+            return insert_external_operation( *this, 1, 1, &operand );
+          }
+        }
+      }
       _Var.assign( pVar, pVar+nVar );
       _Indep = Indep;
       data = nullptr;
@@ -1592,6 +1724,13 @@ public:
     ( size_t const nRes, FFDep* vRes, size_t const nVar, FFDep const* vVar, unsigned const* mVar )
     const;
 
+  //! @brief Invertible-structure pass.  Differentiation, integration and point-evaluation
+  //! are NOT invertible operations in the FFInv sense, so every output is UNDETERMINED --
+  //! see the definition for why U rather than a pass-through.
+  void eval
+    ( size_t const nRes, FFInv* vRes, size_t const nVar, FFInv const* vVar, unsigned const* mVar )
+    const;
+
   //void eval
   //  ( size_t const nRes, FADType<FFVar>* vRes, size_t const nVar, FADType<FFVar> const* vVar,
   //    unsigned const* mVar )
@@ -1661,6 +1800,8 @@ const
     return eval( nRes, static_cast<FFVar*>(vRes), nVar, static_cast<FFVar const*>(vVar), mVar );
   else if( idU == typeid( FFDep ) )
     return eval( nRes, static_cast<FFDep*>(vRes), nVar, static_cast<FFDep const*>(vVar), mVar );
+  else if( idU == typeid( FFInv ) )
+    return eval( nRes, static_cast<FFInv*>(vRes), nVar, static_cast<FFInv const*>(vVar), mVar );
   else if( idU == typeid( SLiftVar ) )
     return eval( nRes, static_cast<SLiftVar*>(vRes), nVar, static_cast<SLiftVar const*>(vVar), mVar );
   else if( idU == typeid( FFExpr ) )
@@ -1711,6 +1852,42 @@ const
 
   // Lift integration operation
   vVar->env()->lift( nRes, vRes, nVar, vVar );
+}
+
+inline void
+FFIntegral::eval
+( size_t const nRes, FFInv* vRes, size_t const nVar, FFInv const* vVar,
+  unsigned const* mVar )
+const
+{
+#ifdef MC__FFINTEGRAL_TRACE
+  std::cout << "FFIntegral::eval: FFInv\n";
+#endif
+#ifdef MC__FFINTEGRAL_CHECK
+  assert( nRes == nVar );
+#endif
+
+  // Integration collapses the integrand over the integration domain, so a variable that
+  // entered separably is no longer recoverable pointwise from the result.
+  //
+  // NOTE the contrast with the FFDep pass just above, which is a PASS-THROUGH because
+  // dependence is preserved by these operations.  INVERTIBILITY is not: FFInv answers
+  // "can this variable be solved for from this expression", and integration destroys that
+  // even though the dependence survives.  Returning vVar[i] here would report a linear
+  // or separable structure that does not exist, which is worse than reporting nothing.
+  //
+  // U is ABSORBING by construction: any expression built from an undetermined
+  // subexpression is itself undetermined, so callers must treat U as "not invertible"
+  // rather than "unknown but probably fine".  The claim-inheritance test in ocenv
+  // accepts only L and S for exactly this reason.
+  for( size_t i=0; i<nRes; ++i ){
+    vRes[i] = FFInv();
+    for( size_t j=0; j<nVar; ++j )
+      for( auto const& [ind,ty] : vVar[j].inv() ){
+        (void)ty;
+        vRes[i].inv()[ind] = FFInv::TYPE::U;
+      }
+  }
 }
 
 inline void
@@ -1847,11 +2024,39 @@ protected:
   //! @brief Target physical coordinate per consumed direction
   mutable std::map<FFVar,double,lt_FFVar>   _Coord;
 
+  //! @brief fold a nested point EVALUATION into one node when the two coordinate sets are DISJOINT.
+  //! EVAL_{y=b}( EVAL_{x=a} f ) is EVAL_{x=a,y=b} f: the evaluations are independent coordinates of the same
+  //! collocated expression.  A REPEATED variable is NOT folded: the inner evaluation already removed that
+  //! dependence, so the outer one is a no-op and folding would have to decide which coordinate wins -- left
+  //! as two nodes, which is what it means.  Same knob as the FFPartial fold (CRONOS_FOLD_PARTIALS).
   FFVar** _set
     ( size_t nVar, FFVar const* pVar, t_SMon const& Indep,
       std::map<FFVar,double,lt_FFVar> const& Coord )
     const
     {
+      if( FFPartial::FOLD_NESTED && nVar == 1 && pVar && Indep.tord ){
+        auto const& [pOp, ndx] = pVar->opdef();
+        if( pOp && pOp->sameid( typeid(FFEval) ) && pOp->varin.size() == 1 && pOp->varin[0] ){
+          auto const* inner = dynamic_cast<FFEval const*>( pOp );
+          bool disjoint = ( inner && inner->Indep().tord );
+          if( disjoint )
+            for( auto const& [var, ord] : Indep.expr )
+              if( inner->Indep().expr.find( var ) != inner->Indep().expr.end() ) disjoint = false;
+          if( disjoint ){
+            t_SMon merged = inner->Indep();
+            for( auto const& [var, ord] : Indep.expr ) merged += t_SMon( var, ord );
+            std::map<FFVar,double,lt_FFVar> coord = inner->Coord();
+            for( auto const& [var, val] : Coord ) coord[ var ] = val;
+            FFVar const operand = *pOp->varin[0];
+            _Var.assign( 1, operand );
+            _Indep  = merged;
+            _Coord  = coord;
+            data    = nullptr;
+            owndata = false;
+            return insert_external_operation( *this, 1, 1, &operand );
+          }
+        }
+      }
       _Var.assign( pVar, pVar+nVar );
       _Indep  = Indep;
       _Coord  = Coord;
@@ -1963,6 +2168,13 @@ public:
     ( size_t const nRes, FFDep* vRes, size_t const nVar, FFDep const* vVar, unsigned const* mVar )
     const;
 
+  //! @brief Invertible-structure pass.  Differentiation, integration and point-evaluation
+  //! are NOT invertible operations in the FFInv sense, so every output is UNDETERMINED --
+  //! see the definition for why U rather than a pass-through.
+  void eval
+    ( size_t const nRes, FFInv* vRes, size_t const nVar, FFInv const* vVar, unsigned const* mVar )
+    const;
+
   void eval
     ( size_t const nRes, SLiftVar* vRes, size_t const nVar, SLiftVar const* vVar, unsigned const* mVar )
     const;
@@ -2036,6 +2248,8 @@ const
     return eval( nRes, static_cast<FFVar*>(vRes), nVar, static_cast<FFVar const*>(vVar), mVar );
   else if( idU == typeid( FFDep ) )
     return eval( nRes, static_cast<FFDep*>(vRes), nVar, static_cast<FFDep const*>(vVar), mVar );
+  else if( idU == typeid( FFInv ) )
+    return eval( nRes, static_cast<FFInv*>(vRes), nVar, static_cast<FFInv const*>(vVar), mVar );
   else if( idU == typeid( SLiftVar ) )
     return eval( nRes, static_cast<SLiftVar*>(vRes), nVar, static_cast<SLiftVar const*>(vVar), mVar );
   else if( idU == typeid( FFExpr ) )
@@ -2086,6 +2300,42 @@ const
 
   // Lift evaluation operation
   vVar->env()->lift( nRes, vRes, nVar, vVar );
+}
+
+inline void
+FFEval::eval
+( size_t const nRes, FFInv* vRes, size_t const nVar, FFInv const* vVar,
+  unsigned const* mVar )
+const
+{
+#ifdef MC__FFEVAL_TRACE
+  std::cout << "FFEval::eval: FFInv\n";
+#endif
+#ifdef MC__FFEVAL_CHECK
+  assert( nRes == nVar );
+#endif
+
+  // Point evaluation samples the operand at fixed coordinates; the functional dependence
+  // that invertibility is about does not survive.
+  //
+  // NOTE the contrast with the FFDep pass just above, which is a PASS-THROUGH because
+  // dependence is preserved by these operations.  INVERTIBILITY is not: FFInv answers
+  // "can this variable be solved for from this expression", and point evaluation destroys that
+  // even though the dependence survives.  Returning vVar[i] here would report a linear
+  // or separable structure that does not exist, which is worse than reporting nothing.
+  //
+  // U is ABSORBING by construction: any expression built from an undetermined
+  // subexpression is itself undetermined, so callers must treat U as "not invertible"
+  // rather than "unknown but probably fine".  The claim-inheritance test in ocenv
+  // accepts only L and S for exactly this reason.
+  for( size_t i=0; i<nRes; ++i ){
+    vRes[i] = FFInv();
+    for( size_t j=0; j<nVar; ++j )
+      for( auto const& [ind,ty] : vVar[j].inv() ){
+        (void)ty;
+        vRes[i].inv()[ind] = FFInv::TYPE::U;
+      }
+  }
 }
 
 inline void
@@ -3248,8 +3498,8 @@ OCVar<T>::_set
   _dom.clear();
   size_t ncoef = 1;
   for( auto const& var : dep ){
-    auto itvar = _env->_mDom.find( var );
-    assert( itvar != _env->_mDom.end() );
+    auto itvar = _env->_dom_colloc().find( var );
+    assert( itvar != _env->_dom_colloc().end() );
     _dom[&itvar->first] = &itvar->second; 
     ncoef *= itvar->second.n_node;
   }
@@ -3294,8 +3544,8 @@ OCVar<T>::lift
   t_Dom dom_out = _dom;
   for( auto const& var : dep ){
     if( dom_out.find( &var ) != dom_out.end() ) continue;
-    auto itvar = _env->_mDom.find( var );
-    if( itvar == _env->_mDom.end() ) return false;
+    auto itvar = _env->_dom_colloc().find( var );
+    if( itvar == _env->_dom_colloc().end() ) return false;
     dom_out[&itvar->first] = &itvar->second;
   }
       
