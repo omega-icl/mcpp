@@ -9777,7 +9777,9 @@ FFBase::_find_extop(std::type_info const& id) const
   for (auto ritop = _Ops.rbegin();
        ritop != _Ops.rend() && (*ritop)->type == FFOp::TYPE::EXTERN; ++ritop)
   {
-    if (typeid(**ritop) != id) continue;
+    FFOp const& op = **ritop;
+    if( typeid(op) != id ) continue;
+    //if (typeid(**ritop) != id) continue;
     pOp = *ritop;
     break;
   }

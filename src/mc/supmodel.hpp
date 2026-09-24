@@ -1825,7 +1825,7 @@ class SupModel
             std::vector<Summand>& oest, UNIV const& f, DUNIV const& Df,
             int const cvx, bool const inc, double const& xmid = 0.0) const
   {
-    if (cvx <= 0 && cvx >= 5) throw Exceptions(Exceptions::INTERN);
+    if (cvx < 0 || cvx > 5) throw Exceptions(Exceptions::INTERN);
 
 #ifdef MC__SUPMODEL_DEBUG_COMPOSE0
     std::cerr << "\nuest0[" << idep << "]: ";
@@ -3551,7 +3551,7 @@ class SupVar
   //! @brief Lower bound on superposition underestimator. 0: primal estimator
   //! only; 1: shadow estimator only; 2: best estimator (default); >=3: best
   //! estimator recomputed
-  double const&
+  double
   l(unsigned int opt = 2) const
   {
     if (!_mod || _sdep.empty()) return _cst;
@@ -3594,7 +3594,7 @@ class SupVar
   //! @brief Upper bound on superposition overestimator. 0: primal estimator
   //! only; 1: shadow estimator only; 2: best estimator (default); >=3: best
   //! estimator recomputed
-  double const&
+  double
   u(unsigned int opt = 2) const
   {
     if (!_mod || _sdep.empty()) return _cst;

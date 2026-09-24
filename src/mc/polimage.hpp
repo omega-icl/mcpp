@@ -377,7 +377,7 @@ class PolLQExpr;
 template <class T>
 class PolCut;
 template <class T>
-class lt_PolVar;
+struct lt_PolVar;
 
 //! @brief C++ class for defining polytopic image variables
 ////////////////////////////////////////////////////////////////////////
@@ -390,7 +390,7 @@ class PolVar
 ////////////////////////////////////////////////////////////////////////
 {
   friend class PolImg<T>;
-  friend class lt_PolVar<T>;
+  friend struct lt_PolVar<T>;
 
   template <class U>
   friend PolVar<U> operator+(const PolVar<U>&, const PolVar<U>&);

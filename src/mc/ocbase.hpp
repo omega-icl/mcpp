@@ -34,6 +34,13 @@
 #include "slift.hpp"
 #include "smon.hpp"
 
+// Apple's <math.h> defines the legacy SVID matherr constant `DOMAIN` (and SING, OVERFLOW, UNDERFLOW, TLOSS,
+// PLOSS).  glibc dropped them, but on macOS the macro rewrites the DOMAIN enumerators below to `1` before the
+// parser sees them, which is a hard error.  <cmath> above has already pulled in <math.h>, so its include guard
+// is set and nothing later in the translation unit can re-define the macro: one #undef here is enough.  Add
+// the siblings to this line if an enumerator ever collides with one of them.
+#undef DOMAIN
+
 namespace mc
 {
 
@@ -258,10 +265,11 @@ public:
     //! @brief Constructor for error <a>ierr</a>
     Exceptions( TYPE ierr=UNDEF ) : std::runtime_error( _message( ierr ) ), _ierr( ierr ){}
     //! @brief Inline function returning the error flag
-    int ierr(){ return _ierr; }
-    //! @brief Error description
-    std::string what(){ return _message( _ierr ); }
-    //! @brief The message for a code; also what std::exception::what() reports.
+    int ierr() const { return _ierr; }
+    //! @brief The message for a code, and what the INHERITED std::exception::what() reports -- the constructor
+    //! passes it to the std::runtime_error base.  Do not redeclare what() here returning std::string: it would
+    //! HIDE the base's virtual rather than override it (-Woverloaded-virtual), could not be called on a const
+    //! Exceptions, and would give the same call two different types depending on the static type.
     static std::string _message( TYPE ierr ){
       switch( ierr ){
       case BOUNDS:
@@ -562,9 +570,10 @@ public:
       NOSTORE      //!< No stored solution available for a buffer-free read (enable SOLVE.REUSE / OUTPUT.MARCH_STORE)
     };
     Exceptions( TYPE ierr=UNDEF ) : std::runtime_error( _message( ierr ) ), _ierr( ierr ){}
-    int ierr(){ return _ierr; }
-    std::string what(){ return _message( _ierr ); }
-    //! @brief The message for a code; also what std::exception::what() reports.
+    int ierr() const { return _ierr; }
+    //! @brief The message for a code, and what the INHERITED std::exception::what() reports -- the constructor
+    //! passes it to the std::runtime_error base.  See the note on OCDom::Exceptions above: a std::string what()
+    //! here HIDES the base virtual instead of overriding it.
     static std::string _message( TYPE ierr ){
       switch( ierr ){
       case SETUP:

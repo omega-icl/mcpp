@@ -2100,12 +2100,12 @@ struct Op<mc::SLiftVar>
   static T
   lmtd(const T& x, const T& y)
   {
-    return lmtd(x, y);
+    return mc::lmtd(x, y);
   }
   static T
   rlmtd(const T& x, const T& y)
   {
-    return rlmtd(x, y);
+    return mc::rlmtd(x, y);
   }
   static T
   fabs(const T& x)

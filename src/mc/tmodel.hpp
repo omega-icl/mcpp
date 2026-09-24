@@ -2942,7 +2942,9 @@ TModel<T>::_inv_taylor(const TVar<T>& TV)
     throw typename TModel<T>::Exceptions(TModel<T>::Exceptions::INV);
   double x0 = (TV._TM->options.REF_MIDPOINT ? Op<T>::mid(I) : TV._coefmon[0]);
   const TVar<T> TVmx0(TV - x0);
+#ifndef MC__TMODEL_TIGHT_REMAINDER
   const T Imx0(I - x0);
+#endif
 
   TVar<T> TV2(TV._TM, 1.), MON(1.);
 #ifdef MC__TMODEL_TIGHT_REMAINDER
@@ -2974,7 +2976,7 @@ template <typename T>
 inline TVar<T>
 TModel<T>::_inv_bernstein(const TVar<T>& TV)
 {
-  const T I(TV.B());
+  //const T I(TV.B());
   if (Op<T>::l(TV.B()) <= 0. && Op<T>::u(TV.B()) >= 0.)
     throw typename TModel<T>::Exceptions(TModel<T>::Exceptions::INV);
   struct loc
@@ -3032,7 +3034,9 @@ TModel<T>::_sqrt_taylor(const TVar<T>& TV)
     throw typename TModel<T>::Exceptions(TModel<T>::Exceptions::SQRT);
   double x0 = (TV._TM->options.REF_MIDPOINT ? Op<T>::mid(I) : TV._coefmon[0]);
   const TVar<T> TVmx0(TV - x0);
+#ifndef MC__TMODEL_TIGHT_REMAINDER
   const T Imx0(I - x0);
+#endif
 
   double s = 0.5;
   TVar<T> TV2(TV._TM, 1.), MON(1.);
@@ -3124,7 +3128,9 @@ TModel<T>::_exp_taylor(const TVar<T>& TV)
   const T I(TV.B());
   double x0 = (TV._TM->options.REF_MIDPOINT ? Op<T>::mid(I) : TV._coefmon[0]);
   const TVar<T> TVmx0(TV - x0);
+#ifndef MC__TMODEL_TIGHT_REMAINDER
   const T Imx0(I - x0);
+#endif
 
   double s = 1.;
   TVar<T> TV2(TV._TM, 1.), MON(1.);
@@ -3215,7 +3221,9 @@ TModel<T>::_log_taylor(const TVar<T>& TV)
     throw typename TModel<T>::Exceptions(TModel<T>::Exceptions::LOG);
   double x0 = (TV._TM->options.REF_MIDPOINT ? Op<T>::mid(I) : TV._coefmon[0]);
   const TVar<T> TVmx0(TV - x0);
+#ifndef MC__TMODEL_TIGHT_REMAINDER
   const T Imx0(I - x0);
+#endif
 
   TVar<T> TV2(TV._TM, 0.), MON(-1.);
 #ifdef MC__TMODEL_TIGHT_REMAINDER
