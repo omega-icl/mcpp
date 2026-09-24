@@ -6,7 +6,7 @@ if(POLICY CMP0167)
   cmake_policy(SET CMP0167 NEW)
 endif()
 
-set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
 
@@ -487,7 +487,31 @@ endif()
 # This step IMPORTS the freshly-built module, so it cannot run when
 # cross-compiling. Pass -DPYMCPP_STUBS=OFF in that case.
 option(PYMCPP_STUBS "Generate and install the .pyi type stub" ON)
+
+# PYMCPP_STUBS is a cached option: it records what the user ASKED for, not whether it can be done.  Probe the
+# build interpreter here, at configure time, and keep the verdict in a separate normal variable.  Without this
+# probe a missing pybind11-stubgen only shows up as a POST_BUILD failure AFTER pymcpp has linked, and because a
+# failed POST_BUILD command fails the target, make then DELETES the freshly-built module -- a hard build
+# failure at 100% for an artefact that has no effect at run time.
+set(_pymcpp_stubs_ok ${PYMCPP_STUBS})
 if(PYMCPP_STUBS)
+  execute_process(
+    COMMAND "${Python3_EXECUTABLE}" -c "import pybind11_stubgen"
+    RESULT_VARIABLE _pymcpp_stubgen_rc
+    OUTPUT_QUIET ERROR_QUIET)
+  if(NOT _pymcpp_stubgen_rc EQUAL 0)
+    set(_pymcpp_stubs_ok OFF)
+    message(WARNING
+      "pybind11-stubgen is not importable by ${Python3_EXECUTABLE} -- the pymcpp.pyi type stub will not be "
+      "generated or installed.  The extension module itself is unaffected: the stub only gives editors and "
+      "type checkers something to read, since a compiled .so is opaque to them.  To enable it:\n"
+      "    pip install pybind11-stubgen\n"
+      "    uv pip install --python ${Python3_EXECUTABLE} pybind11-stubgen\n"
+      "Pass -DPYMCPP_STUBS=OFF to silence this warning.")
+  endif()
+endif()
+
+if(_pymcpp_stubs_ok)
   set(_stub_out ${CMAKE_CURRENT_BINARY_DIR}/stubs)
   # PYTHONPATH entries are joined with ";" on Windows and ":" elsewhere.
   if(WIN32)
@@ -600,8 +624,9 @@ install(
   DESTINATION ${PYMCPP_INSTALL_DIR}
   COMPONENT python_modules)
 
-# Install the type stub next to the module so editors pick it up.
-if(PYMCPP_STUBS)
+# Install the type stub next to the module so editors pick it up.  Tests the configure-time verdict, not the
+# option, so a missing pybind11-stubgen does not leave install() looking for a stub that was never generated.
+if(_pymcpp_stubs_ok)
   install(
     FILES ${CMAKE_CURRENT_BINARY_DIR}/stubs/pymcpp.pyi
     DESTINATION ${PYMCPP_INSTALL_DIR}
