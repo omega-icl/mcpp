@@ -228,7 +228,7 @@ FFSPoly<T>::eval(unsigned const nRes, FADType<FFVar>* vRes,
 #ifdef MC__FFSPOLY_TRACE
   std::cout << "FFSPoly<T>::eval: FADType<FFVar>\n";
 #endif
-#ifdef CRONOS__FFODE_CHECK
+#ifdef MC__FFSPOLY_CHECK
   assert(nRes == 1 && nVar == _SPoly.nvar());
 #endif
 

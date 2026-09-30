@@ -5,7 +5,7 @@ include $(PATH_MC)/src/makeoptions.mk
 
 #####
 
-all: DAG_doxygen DAG_unittests DAG_compose DAG_differentiate DAG_evaluate DAG_analyze DAG_external DAG_store
+all: DAG_doxygen DAG_unittests DAG_compose DAG_differentiate DAG_evaluate DAG_analyze DAG_external DAG_store DAG_linear_operator
 
 DAG_doxygen : DAG_doxygen.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
@@ -31,6 +31,9 @@ DAG_external : DAG_external.o
 DAG_store : DAG_store.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
 
+DAG_linear_operator : DAG_linear_operator.o
+	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
+
 %.o: %.cpp
 	$(CPP) -c $(FLAG_CPP) $(FLAG_MC) $(INC_MC) $< -o $@
 
@@ -51,5 +54,5 @@ gensvg :
 #####
 
 clean :
-	rm -f DAG_doxygen DAG_unittests DAG_compose DAG_differentiate DAG_evaluate DAG_analyze DAG_external DAG_store
+	rm -f DAG_doxygen DAG_unittests DAG_compose DAG_differentiate DAG_evaluate DAG_analyze DAG_external DAG_store DAG_linear_operator
 	rm -f *.o *.out *.eps *.dot *.png *.lp *~

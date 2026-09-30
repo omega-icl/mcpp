@@ -1621,6 +1621,28 @@ class FFOp
   virtual void deriv(unsigned const nRes, FFVar const* vRes,
                      unsigned const nVar, FFVar const* vVar, FFVar** vDer,
                      size_t* nnz, size_t** colnz) const;
+  //! @brief Whether output @p iout is LINEAR in input @p iin -- the operation is a linear OPERATOR in that
+  //! argument (a derivative, an integral, a point evaluation), so its tangent along a tangent in that input is
+  //! the operation itself APPLIED to the tangent, not a coefficient multiplying it.  The FAD/DFAD engines
+  //! consult this before deriv() and, when true, insert apply() in place of the product.  Default false:
+  //! a pointwise external operation differentiates through deriv() as before.
+  virtual bool linear(unsigned const iout, unsigned const iin) const
+  {
+    return false;
+  }
+  //! @brief For a linear (iout,iin) pair: the operation re-applied with @p tangent in place of input iin
+  //! (every other captured datum unchanged), returning output iout.  Only called when linear() is true.
+  virtual FFVar apply(unsigned const iout, unsigned const iin,
+                      FFVar const& tangent) const;
+  //! @brief Whether any (iout,iin) pair is linear -- the backward engine refuses such an operation, since
+  //! its adjoint needs the operator's transpose, which is not an operation on this DAG.
+  bool has_linear() const
+  {
+    for (unsigned io = 0; io < varout.size(); ++io)
+      for (unsigned ii = 0; ii < varin.size(); ++ii)
+        if (linear(io, ii)) return true;
+    return false;
+  }
   //! @brief Virtual forward evaluation function for external operations
   virtual void feval(std::type_info const& idU, unsigned const nRes, void* vRes,
                      unsigned const nVar, void const* vVar,
@@ -6419,6 +6441,12 @@ FFOp::deriv(unsigned const nRes, FFVar const* vRes, unsigned const nVar,
   throw typename FFBase::Exceptions(FFBase::Exceptions::EXTERN);
 }
 
+inline FFVar
+FFOp::apply(unsigned const iout, unsigned const iin, FFVar const& tangent) const
+{
+  throw typename FFBase::Exceptions(FFBase::Exceptions::EXTERN);
+}
+
 inline void
 FFOp::deriv(unsigned const nRes, FFVar const* vRes, unsigned const nVar,
             FFVar const* vVar, FFVar** vDer, size_t* nnz, size_t** colnz) const
@@ -10733,6 +10761,14 @@ FFGraph::SDFAD(std::vector<FFVar const*> const& vDep,
               for (size_t jin = 0; jin < vDim_deriv[iwk + iout]; ++jin)
               {
                 size_t const iin = vCol_deriv[iwk + iout][jin];
+                if (op->type >= FFOp::EXTERN && op->linear(iout, iin))
+                {
+                  // a linear OPERATOR: its tangent is the operator applied to the input's tangent
+                  if (op->varin[iin]->val() == &FFZero) continue;
+                  wkAD[iwk + iout] += op->apply(
+                      iout, iin, *static_cast<FFVar*>(op->varin[iin]->val()));
+                  continue;
+                }
                 if (op->varin[iin]->val() == &FFZero ||
                     ((vDep_deriv[iwk + iout][jin].id().first == FFVar::CREAL ||
                       vDep_deriv[iwk + iout][jin].id().first == FFVar::CINT) &&
@@ -10752,6 +10788,14 @@ FFGraph::SDFAD(std::vector<FFVar const*> const& vDep,
             {
               for (size_t iin = 0; iin < op->varin.size(); ++iin)
               {
+                if (op->type >= FFOp::EXTERN && op->linear(iout, iin))
+                {
+                  // a linear OPERATOR: its tangent is the operator applied to the input's tangent
+                  if (op->varin[iin]->val() == &FFZero) continue;
+                  wkAD[iwk + iout] += op->apply(
+                      iout, iin, *static_cast<FFVar*>(op->varin[iin]->val()));
+                  continue;
+                }
                 if (op->varin[iin]->val() == &FFZero ||
                     ((vDep_deriv[iwk + iout][iin].id().first == FFVar::CREAL ||
                       vDep_deriv[iwk + iout][iin].id().first == FFVar::CINT) &&
@@ -11454,11 +11498,17 @@ FFGraph::SDBAD(std::vector<FFVar const*> const& vDep,
       if (op->type < FFOp::EXTERN)
         op->differentiate(vDep_deriv[iwk]);
       else
+      {
+        // Backward mode through a linear OPERATOR needs its transpose, which is not an
+        // operation on this DAG: refuse rather than silently drop the contribution.
+        if (op->has_linear())
+          throw typename FFBase::Exceptions(FFBase::Exceptions::EXTERN);
         // vDep/vCol/vDim need to be sized/set by external operation if sparse
         // operation
         op->differentiate_external(vDep_deriv.data() + iwk,
                                    vDim_deriv.data() + iwk,
                                    vCol_deriv.data() + iwk);
+      }
       // op->differentiate_external( vDep_deriv.data()+iwk );
 
       // Track dependencies
@@ -11711,7 +11761,13 @@ FFGraph::SDBAD(std::vector<FFVar const*> const& vDep,
       if (op->type < FFOp::EXTERN)
         op->evaluate(&wkAD[iwk], 0, pwkSBAD, pwkmov);
       else
+      {
+        // Backward mode through a linear OPERATOR needs its transpose, which is not an
+        // operation on this DAG: refuse rather than silently drop the contribution.
+        if (op->has_linear())
+          throw typename FFBase::Exceptions(FFBase::Exceptions::EXTERN);
         op->evaluate_external(&wkAD[iwk], nullptr, pwkSBAD, pwkmov);
+      }
       iwk += op->varout.size();
     }
 

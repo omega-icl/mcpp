@@ -294,6 +294,16 @@ public:
     UB  = -2  //!< b
   };
 
+  //! @brief Side of a point evaluation at a coordinate where the value may differ on either side -- an element
+  //! boundary (discontinuous inputs; weakly continuous states) or a transition.  MINUS: the limit from below,
+  //! tau^-, the end of the element ENDING at tau (the default).  PLUS: the limit from above, tau^+, the start of
+  //! the element STARTING at tau.  Immaterial away from such points; at the domain bounds the one limit that
+  //! exists is used whatever the side.
+  enum SIDE{
+    MINUS = 0, //!< tau^-  (default)
+    PLUS  = 1  //!< tau^+
+  };
+
   //! @brief Enumeration for collocation type
   enum TYPE{
     LG  = 0, //!< Legendre-Gauss
@@ -604,6 +614,14 @@ public:
 
   virtual ~OCBase() {}
 
+  //! @brief The COLLOCATION grid of direction @p dir, or nullptr (no environment grid).  A nonlinear operation lifts
+  //! a multi-node operand that is coarser onto it first (OCVar::_nl_lift), so nonlinear functions of inputs are formed
+  //! at the collocation nodes; linear operations keep operands on their own grids (2026-09-28).
+  virtual OCDom const* colloc_dom
+    ( FFVar const& dir )
+    const
+    { (void)dir; return nullptr; }
+
   //! @brief Return the active local domain map.
   //! @brief The WORKING domain map, as the collocation layer needs it: owned by the model layer (mc::FFModel)
   //! and reached through this accessor, so there is ONE source and no copy to keep in step.
@@ -858,6 +876,49 @@ private:
 
   //! @brief Array of collocation coefficients
   std::vector<T>      _coef;
+
+public:
+  //! @brief Lift the coefficients onto FINER grids, direction by direction: @p target maps a direction to the grid to
+  //! use where it has more nodes than this variable's own.
+  OCVar& lift_to
+    ( std::map<FFVar const*, OCDom const*, lt_FFVar> const& target )
+    {
+      auto domlift = _dom;  bool any = false;
+      for( auto& [d, od] : domlift ){
+        auto const it = target.find( d );
+        if( it != target.end() && it->second && od && it->second->n_node > od->n_node ){ od = it->second; any = true; }
+      }
+      if( !any ) return *this;
+      std::vector<T> cl;
+      if( OCBase::lift_colloc( cl, _coef, domlift, _dom, true ) ){ _coef.swap( cl ); _dom.swap( domlift ); }
+      return *this;
+    }
+
+private:
+  //! @brief The collocation grids this variable must be lifted to BEFORE a nonlinear operation: directions where it
+  //! has several nodes (a piecewise-constant value, n_node = 1, is exact under any function) but fewer than the
+  //! environment's collocation grid.  Empty: nothing to do.
+  std::map<FFVar const*, OCDom const*, lt_FFVar> _nl_target
+    ()
+    const
+    {
+      std::map<FFVar const*, OCDom const*, lt_FFVar> tgt;
+      if( !_env ) return tgt;
+      for( auto const& [pd, od] : _dom ){
+        if( !pd || !od || od->n_node <= 1 ) continue;
+        OCDom const* cd = _env->colloc_dom( *pd );
+        if( cd && cd->n_node > od->n_node ) tgt[pd] = cd;
+      }
+      return tgt;
+    }
+  //! @brief Lift onto the collocation grid where needed -- called by EVERY nonlinear operation on its operands
+  OCVar& _nl_lift
+    ()
+    { auto const tgt = _nl_target();  if( !tgt.empty() ) lift_to( tgt );  return *this; }
+  bool _nl_needs_lift
+    ()
+    const
+    { return !_nl_target().empty(); }
 
   //! @brief Update coefficients in distributed variable
   template <typename U>
@@ -1244,6 +1305,17 @@ public:
       _Var   ( other._Var ),
       _Indep ( other._Indep )
     {}
+
+  //! @brief Output i is LINEAR in operand i and independent of every other operand, so its tangent along a
+  //! tangent in operand i is this operator APPLIED to it; the FAD/DFAD engines insert it as such.  The domain
+  //! is not a DAG input (it is captured in _Indep), so differentiation is never w.r.t. it.
+  bool linear( unsigned const iout, unsigned const iin ) const override
+    { return iout == iin; }
+  //! @brief Coefficients for the non-linear pairs: all zero, output i depends on operand i alone.
+  void deriv( unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar, FFVar** vDer ) const override
+    { for( unsigned i=0; i<nRes; ++i ) for( unsigned j=0; j<nVar; ++j ) vDer[i][j] = FFVar( 0. ); }
+  FFVar apply( unsigned const iout, unsigned const iin, FFVar const& tangent ) const override
+    { FFPartial op( *this ); return op( tangent, _Indep ); }
 
   // Define operation
   std::vector<FFVar> operator()
@@ -1665,6 +1737,17 @@ public:
       _Indep ( other._Indep )
     {}
 
+  //! @brief Output i is LINEAR in operand i and independent of every other operand, so its tangent along a
+  //! tangent in operand i is this operator APPLIED to it; the FAD/DFAD engines insert it as such.  The domain
+  //! is not a DAG input (it is captured in _Indep), so differentiation is never w.r.t. it.
+  bool linear( unsigned const iout, unsigned const iin ) const override
+    { return iout == iin; }
+  //! @brief Coefficients for the non-linear pairs: all zero, output i depends on operand i alone.
+  void deriv( unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar, FFVar** vDer ) const override
+    { for( unsigned i=0; i<nRes; ++i ) for( unsigned j=0; j<nVar; ++j ) vDer[i][j] = FFVar( 0. ); }
+  FFVar apply( unsigned const iout, unsigned const iin, FFVar const& tangent ) const override
+    { FFIntegral op( *this ); return op( tangent, _Indep ); }
+
   // Define operation
   std::vector<FFVar> operator()
     ( std::vector<FFVar> const& Var, t_SMon const& Indep )
@@ -2033,6 +2116,9 @@ protected:
   //! @brief Target physical coordinate per consumed direction
   mutable std::map<FFVar,double,lt_FFVar>   _Coord;
 
+  //! @brief Side per consumed direction (OCDom::MINUS or OCDom::PLUS); a direction absent from the map is MINUS
+  mutable std::map<FFVar,int,lt_FFVar>      _Side;
+
   //! @brief fold a nested point EVALUATION into one node when the two coordinate sets are DISJOINT.
   //! EVAL_{y=b}( EVAL_{x=a} f ) is EVAL_{x=a,y=b} f: the evaluations are independent coordinates of the same
   //! collocated expression.  A REPEATED variable is NOT folded: the inner evaluation already removed that
@@ -2040,9 +2126,12 @@ protected:
   //! as two nodes, which is what it means.  Same knob as the FFPartial fold (CRONOS_FOLD_PARTIALS).
   FFVar** _set
     ( size_t nVar, FFVar const* pVar, t_SMon const& Indep,
-      std::map<FFVar,double,lt_FFVar> const& Coord )
+      std::map<FFVar,double,lt_FFVar> const& Coord,
+      std::map<FFVar,int,lt_FFVar> const& Side = std::map<FFVar,int,lt_FFVar>() )
     const
     {
+      std::map<FFVar,int,lt_FFVar> side;                  // only PLUS is stored: MINUS is the default
+      for( auto const& [var, sd] : Side ) if( sd == OCDom::PLUS ) side[ var ] = OCDom::PLUS;
       if( FFPartial::FOLD_NESTED && nVar == 1 && pVar && Indep.tord ){
         auto const& [pOp, ndx] = pVar->opdef();
         if( pOp && pOp->sameid( typeid(FFEval) ) && pOp->varin.size() == 1 && pOp->varin[0] ){
@@ -2056,10 +2145,13 @@ protected:
             for( auto const& [var, ord] : Indep.expr ) merged += t_SMon( var, ord );
             std::map<FFVar,double,lt_FFVar> coord = inner->Coord();
             for( auto const& [var, val] : Coord ) coord[ var ] = val;
+            std::map<FFVar,int,lt_FFVar> merged_side = inner->Side();          // disjoint directions: no clash
+            for( auto const& [var, sd] : side ) merged_side[ var ] = sd;
             FFVar const operand = *pOp->varin[0];
             _Var.assign( 1, operand );
             _Indep  = merged;
             _Coord  = coord;
+            _Side   = merged_side;
             data    = nullptr;
             owndata = false;
             return insert_external_operation( *this, 1, 1, &operand );
@@ -2069,6 +2161,7 @@ protected:
       _Var.assign( pVar, pVar+nVar );
       _Indep  = Indep;
       _Coord  = Coord;
+      _Side   = side;
       data    = nullptr;
       owndata = false;
       return insert_external_operation( *this, nVar, nVar, pVar );
@@ -2095,38 +2188,53 @@ public:
     : FFOp   ( other ),
       _Var   ( other._Var ),
       _Indep ( other._Indep ),
-      _Coord ( other._Coord )
+      _Coord ( other._Coord ),
+      _Side  ( other._Side )           // the DAG stores a COPY: without this every stored node was MINUS
     {}
+
+  //! @brief Output i is LINEAR in operand i and independent of every other operand, so its tangent along a
+  //! tangent in operand i is this operator APPLIED to it; the FAD/DFAD engines insert it as such.  The domain
+  //! is not a DAG input (it is captured in _Indep), so differentiation is never w.r.t. it.
+  bool linear( unsigned const iout, unsigned const iin ) const override
+    { return iout == iin; }
+  //! @brief Coefficients for the non-linear pairs: all zero, output i depends on operand i alone.
+  void deriv( unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar, FFVar** vDer ) const override
+    { for( unsigned i=0; i<nRes; ++i ) for( unsigned j=0; j<nVar; ++j ) vDer[i][j] = FFVar( 0. ); }
+  FFVar apply( unsigned const iout, unsigned const iin, FFVar const& tangent ) const override
+    { FFEval op( *this ); return op( tangent, _Indep, _Coord, _Side ); }
 
   // Define operation
   std::vector<FFVar> operator()
-    ( std::vector<FFVar> const& Var, FFVar const& Indep, double const& Coord )
+    ( std::vector<FFVar> const& Var, FFVar const& Indep, double const& Coord, int const side = OCDom::MINUS )
     {
 #ifdef MC__FFEVAL_CHECK
       assert( !Var.empty() );
 #endif
       std::map<FFVar,double,lt_FFVar> C{ { Indep, Coord } };
-      FFVar** ppDer = _set( Var.size(), Var.data(), { Indep }, C );
+      std::map<FFVar,int,lt_FFVar> S{ { Indep, side } };
+      FFVar** ppDer = _set( Var.size(), Var.data(), { Indep }, C, S );
       std::vector<FFVar> Der( Var.size() );
       for( size_t i=0; i<Var.size(); ++i ) Der[i] = *ppDer[i];
       return Der;
     }
 
   FFVar operator()
-    ( FFVar const& Var, FFVar const& Indep, double const& Coord )
+    ( FFVar const& Var, FFVar const& Indep, double const& Coord, int const side = OCDom::MINUS )
     {
       std::map<FFVar,double,lt_FFVar> C{ { Indep, Coord } };
-      return *(_set( 1, &Var, { Indep }, C )[0]);
+      std::map<FFVar,int,lt_FFVar> S{ { Indep, side } };
+      return *(_set( 1, &Var, { Indep }, C, S )[0]);
     }
 
   std::vector<FFVar> operator()
     ( std::vector<FFVar> const& Var, t_SMon const& Indep,
-      std::map<FFVar,double,lt_FFVar> const& Coord )
+      std::map<FFVar,double,lt_FFVar> const& Coord,
+      std::map<FFVar,int,lt_FFVar> const& Side = std::map<FFVar,int,lt_FFVar>() )
     {
 #ifdef MC__FFEVAL_CHECK
       assert( !Var.empty() && !Indep.empty() );
 #endif
-      FFVar** ppDer = _set( Var.size(), Var.data(), Indep, Coord );
+      FFVar** ppDer = _set( Var.size(), Var.data(), Indep, Coord, Side );
       std::vector<FFVar> Der( Var.size() );
       for( size_t i=0; i<Var.size(); ++i ) Der[i] = *ppDer[i];
       return Der;
@@ -2134,13 +2242,38 @@ public:
 
   FFVar operator()
     ( FFVar const& Var, t_SMon const& Indep,
-      std::map<FFVar,double,lt_FFVar> const& Coord )
+      std::map<FFVar,double,lt_FFVar> const& Coord,
+      std::map<FFVar,int,lt_FFVar> const& Side = std::map<FFVar,int,lt_FFVar>() )
     {
 #ifdef MC__FFEVAL_CHECK
       assert( Indep.tord );
 #endif
-      return *(_set( 1, &Var, Indep, Coord )[0]);
+      return *(_set( 1, &Var, Indep, Coord, Side )[0]);
     }
+
+  //! @brief Side per consumed direction: OCDom::PLUS where given, OCDom::MINUS otherwise
+  std::map<FFVar,int,lt_FFVar> const& Side
+    ()
+    const
+    { return _Side; }
+  int side
+    ( FFVar const& dir )
+    const
+    { auto const it = _Side.find( dir ); return it == _Side.end()? (int)OCDom::MINUS: it->second; }
+
+  //! @brief STRIP mode (thread-local): while a StripGuard is alive, a symbolic replay (eval on FFVar) of an evaluation
+  //! returns its OPERANDS instead of building a new evaluation node -- how FFModel turns a transition declared through
+  //! evaluations into its explicit form (add_transition( left, right ), 2026-09-29).  compose() cannot do it: it only
+  //! substitutes variables, and an evaluation's result is an intermediate node.
+  static bool& _strip_mode
+    ()
+    { static thread_local bool on = false; return on; }
+  struct StripGuard
+  {
+    bool const prev;
+    StripGuard() : prev( _strip_mode() ) { _strip_mode() = true; }
+    ~StripGuard() { _strip_mode() = prev; }
+  };
 
   t_SMon const& Indep
     ()
@@ -2243,6 +2376,11 @@ const
   for( ; it1 != _Coord.cend() && it2 != op->_Coord.cend(); ++it1, ++it2 ){
     if( it1->second < it2->second ) return true;
     if( it2->second < it1->second ) return false;
+  }
+  // Same point: the SIDE distinguishes tau^- from tau^+ (never merge the two into one node)
+  for( auto const& [dir, ord] : _Indep.expr ){
+    int const s1 = side( dir ), s2 = op->side( dir );
+    if( s1 != s2 ) return s1 < s2;
   }
   return false;
 }
@@ -2378,7 +2516,11 @@ const
   assert( nRes == nVar );
 #endif
 
-  FFVar** ppRes = _set( nVar, vVar, _Indep, _Coord );
+  if( _strip_mode() ){                                           // see StripGuard: the evaluation -> its operands
+    for( unsigned j=0; j<nRes && j<nVar; ++j ) vRes[j] = vVar[j];
+    return;
+  }
+  FFVar** ppRes = _set( nVar, vVar, _Indep, _Coord, _Side );   // symbolic replay keeps the SIDE
   for( unsigned j=0; j<nRes; ++j )
     vRes[j] = *(ppRes[j]);
 }
@@ -3999,6 +4141,13 @@ OCVar<T>& OCVar<T>::operator*=
 
   if( _env != var._env )
     throw OCBase::Exceptions( OCBase::Exceptions::ENV );
+  // NONLINEAR: a multi-node operand coarser than the collocation grid is lifted onto it first, so the product is
+  // formed at the collocation nodes (not at the operands' own nodes, which made u*u a trapezoidal rule).  Once
+  // lifted, neither needs lifting again: the recursion ends at once.
+  if( _nl_needs_lift() || var._nl_needs_lift() ){
+    OCVar<T> b( var );  b._nl_lift();  _nl_lift();
+    return *this *= b;
+  }
   // Fast path: identical domains and grids (the common case) -> coefficient-wise
   // product, no domain copy and no Lagrange lift.  (lift_colloc has no identity
   // short-circuit, so without this it runs a full interpolation pass per operand even
@@ -4270,9 +4419,9 @@ inline
 OCVar<T> inv
 ( OCVar<T> const& var )
 {
-  OCVar<T> var2( var );
-  for( size_t i=0; i<var._coef.size(); ++i )
-    var2._coef[i] = 1. / var._coef[i];  
+  OCVar<T> var2( var );  var2._nl_lift();   // nonlinear: on the collocation grid first
+  for( size_t i=0; i<var2._coef.size(); ++i )
+    var2._coef[i] = 1. / var2._coef[i];  
   return var2;  
 }
 
@@ -4281,6 +4430,7 @@ inline
 OCVar<T> && inv
 ( OCVar<T> && var )
 {
+  var._nl_lift();   // nonlinear: on the collocation grid first
   for( size_t i=0; i<var._coef.size(); ++i )
     var._coef[i] = 1. / var._coef[i];  
   return std::move( var );
@@ -4300,6 +4450,7 @@ inline
 OCVar<T> && max
 ( OCVar<T> && var1, double const& cst2 )
 {
+  var1._nl_lift();   // nonlinear (a kink): on the collocation grid first
   for( size_t i=0; i<var1._coef.size(); ++i )
     var1._coef[i] = Op<T>::max( var1._coef[i], cst2 );
   return std::move( var1 );
@@ -4330,6 +4481,7 @@ inline
 OCVar<T> && min
 ( OCVar<T> && var1, double const& cst2 )
 {
+  var1._nl_lift();   // nonlinear (a kink): on the collocation grid first
   for( size_t i=0; i<var1._coef.size(); ++i )
     var1._coef[i] = Op<T>::min( var1._coef[i], cst2 );
   return std::move( var1 );
@@ -4362,9 +4514,9 @@ inline
 OCVar<T> cheb
 ( OCVar<T> const& var, unsigned int const& n )
 {
-  OCVar<T> var2( var );
-  for( size_t i=0; i<var._coef.size(); ++i )
-    var2._coef[i] = Op<T>::cheb( var._coef[i], n );  
+  OCVar<T> var2( var );  var2._nl_lift();   // nonlinear: on the collocation grid first
+  for( size_t i=0; i<var2._coef.size(); ++i )
+    var2._coef[i] = Op<T>::cheb( var2._coef[i], n );  
   return var2;  
 }
 
@@ -4373,6 +4525,7 @@ inline
 OCVar<T> && cheb
 ( OCVar<T> && var, unsigned int const& n )
 {
+  var._nl_lift();   // nonlinear: on the collocation grid first
   for( size_t i=0; i<var._coef.size(); ++i )
     var._coef[i] = Op<T>::cheb( var._coef[i], n );  
   return std::move( var );
@@ -4383,9 +4536,9 @@ inline
 OCVar<T> pow
 ( OCVar<T> const& var, int const& n )
 {
-  OCVar<T> var2( var );
-  for( size_t i=0; i<var._coef.size(); ++i )
-    var2._coef[i] = Op<T>::pow( var._coef[i], n );  
+  OCVar<T> var2( var );  var2._nl_lift();   // nonlinear: on the collocation grid first
+  for( size_t i=0; i<var2._coef.size(); ++i )
+    var2._coef[i] = Op<T>::pow( var2._coef[i], n );  
   return var2;  
 }
 
@@ -4394,6 +4547,7 @@ inline
 OCVar<T> && pow
 ( OCVar<T> && var, int const& n )
 {
+  var._nl_lift();   // nonlinear: on the collocation grid first
   for( size_t i=0; i<var._coef.size(); ++i )
     var._coef[i] = Op<T>::pow( var._coef[i], n );  
   return std::move( var );
@@ -4404,9 +4558,9 @@ inline
 OCVar<T> pow
 ( OCVar<T> const& var, E const& e )
 {
-  OCVar<T> var2( var );
-  for( size_t i=0; i<var._coef.size(); ++i )
-    var2._coef[i] = Op<T>::pow( var._coef[i], e );  
+  OCVar<T> var2( var );  var2._nl_lift();   // nonlinear: on the collocation grid first
+  for( size_t i=0; i<var2._coef.size(); ++i )
+    var2._coef[i] = Op<T>::pow( var2._coef[i], e );  
   return var2;  
 }
 
@@ -4415,6 +4569,7 @@ inline
 OCVar<T> && pow
 ( OCVar<T> && var, E const& e )
 {
+  var._nl_lift();   // nonlinear: on the collocation grid first
   for( size_t i=0; i<var._coef.size(); ++i )
     var._coef[i] = Op<T>::pow( var._coef[i], e );  
   return std::move( var );
@@ -4425,9 +4580,9 @@ inline
 OCVar<T> exp
 ( OCVar<T> const& var )
 {
-  OCVar<T> var2( var );
-  for( size_t i=0; i<var._coef.size(); ++i )
-    var2._coef[i] = Op<T>::exp( var._coef[i] );  
+  OCVar<T> var2( var );  var2._nl_lift();   // nonlinear: on the collocation grid first
+  for( size_t i=0; i<var2._coef.size(); ++i )
+    var2._coef[i] = Op<T>::exp( var2._coef[i] );  
   return var2;  
 }
 
@@ -4436,6 +4591,7 @@ inline
 OCVar<T> && exp
 ( OCVar<T> && var )
 {
+  var._nl_lift();   // nonlinear: on the collocation grid first
   for( size_t i=0; i<var._coef.size(); ++i )
     var._coef[i] = Op<T>::exp( var._coef[i] );  
   return std::move( var );
@@ -4446,9 +4602,9 @@ inline
 OCVar<T> log
 ( OCVar<T> const& var )
 {
-  OCVar<T> var2( var );
-  for( size_t i=0; i<var._coef.size(); ++i )
-    var2._coef[i] = Op<T>::log( var._coef[i] );  
+  OCVar<T> var2( var );  var2._nl_lift();   // nonlinear: on the collocation grid first
+  for( size_t i=0; i<var2._coef.size(); ++i )
+    var2._coef[i] = Op<T>::log( var2._coef[i] );  
   return var2;  
 }
 
@@ -4457,6 +4613,7 @@ inline
 OCVar<T> && log
 ( OCVar<T> && var )
 {
+  var._nl_lift();   // nonlinear: on the collocation grid first
   for( size_t i=0; i<var._coef.size(); ++i )
     var._coef[i] = Op<T>::log( var._coef[i] );  
   return std::move( var );
@@ -4467,9 +4624,9 @@ inline
 OCVar<T> sqr
 ( OCVar<T> const& var )
 {
-  OCVar<T> var2( var );
-  for( size_t i=0; i<var._coef.size(); ++i )
-    var2._coef[i] = Op<T>::sqr( var._coef[i] );  
+  OCVar<T> var2( var );  var2._nl_lift();   // nonlinear: on the collocation grid first
+  for( size_t i=0; i<var2._coef.size(); ++i )
+    var2._coef[i] = Op<T>::sqr( var2._coef[i] );  
   return var2;  
 }
 
@@ -4478,6 +4635,7 @@ inline
 OCVar<T> && sqr
 ( OCVar<T> && var )
 {
+  var._nl_lift();   // nonlinear: on the collocation grid first
   for( size_t i=0; i<var._coef.size(); ++i )
     var._coef[i] = Op<T>::sqr( var._coef[i] );  
   return std::move( var );
@@ -4488,9 +4646,9 @@ inline
 OCVar<T> sqrt
 ( OCVar<T> const& var )
 {
-  OCVar<T> var2( var );
-  for( size_t i=0; i<var._coef.size(); ++i )
-    var2._coef[i] = Op<T>::sqrt( var._coef[i] );  
+  OCVar<T> var2( var );  var2._nl_lift();   // nonlinear: on the collocation grid first
+  for( size_t i=0; i<var2._coef.size(); ++i )
+    var2._coef[i] = Op<T>::sqrt( var2._coef[i] );  
   return var2;  
 }
 
@@ -4499,6 +4657,7 @@ inline
 OCVar<T> && sqrt
 ( OCVar<T> && var )
 {
+  var._nl_lift();   // nonlinear: on the collocation grid first
   for( size_t i=0; i<var._coef.size(); ++i )
     var._coef[i] = Op<T>::sqrt( var._coef[i] );  
   return std::move( var );
@@ -4509,9 +4668,9 @@ inline
 OCVar<T> sin
 ( OCVar<T> const& var )
 {
-  OCVar<T> var2( var );
-  for( size_t i=0; i<var._coef.size(); ++i )
-    var2._coef[i] = Op<T>::sin( var._coef[i] );  
+  OCVar<T> var2( var );  var2._nl_lift();   // nonlinear: on the collocation grid first
+  for( size_t i=0; i<var2._coef.size(); ++i )
+    var2._coef[i] = Op<T>::sin( var2._coef[i] );  
   return var2;  
 }
 
@@ -4520,6 +4679,7 @@ inline
 OCVar<T> && sin
 ( OCVar<T> && var )
 {
+  var._nl_lift();   // nonlinear: on the collocation grid first
   for( size_t i=0; i<var._coef.size(); ++i )
     var._coef[i] = Op<T>::sin( var._coef[i] );  
   return std::move( var );
@@ -4530,9 +4690,9 @@ inline
 OCVar<T> cos
 ( OCVar<T> const& var )
 {
-  OCVar<T> var2( var );
-  for( size_t i=0; i<var._coef.size(); ++i )
-    var2._coef[i] = Op<T>::cos( var._coef[i] );  
+  OCVar<T> var2( var );  var2._nl_lift();   // nonlinear: on the collocation grid first
+  for( size_t i=0; i<var2._coef.size(); ++i )
+    var2._coef[i] = Op<T>::cos( var2._coef[i] );  
   return var2;  
 }
 
@@ -4541,6 +4701,7 @@ inline
 OCVar<T> && cos
 ( OCVar<T> && var )
 {
+  var._nl_lift();   // nonlinear: on the collocation grid first
   for( size_t i=0; i<var._coef.size(); ++i )
     var._coef[i] = Op<T>::cos( var._coef[i] );  
   return std::move( var );
@@ -4551,9 +4712,9 @@ inline
 OCVar<T> tan
 ( OCVar<T> const& var )
 {
-  OCVar<T> var2( var );
-  for( size_t i=0; i<var._coef.size(); ++i )
-    var2._coef[i] = Op<T>::tan( var._coef[i] );  
+  OCVar<T> var2( var );  var2._nl_lift();   // nonlinear: on the collocation grid first
+  for( size_t i=0; i<var2._coef.size(); ++i )
+    var2._coef[i] = Op<T>::tan( var2._coef[i] );  
   return var2;  
 }
 
@@ -4562,6 +4723,7 @@ inline
 OCVar<T> && tan
 ( OCVar<T> && var )
 {
+  var._nl_lift();   // nonlinear: on the collocation grid first
   for( size_t i=0; i<var._coef.size(); ++i )
     var._coef[i] = Op<T>::tan( var._coef[i] );  
   return std::move( var );
@@ -4572,9 +4734,9 @@ inline
 OCVar<T> asin
 ( OCVar<T> const& var )
 {
-  OCVar<T> var2( var );
-  for( size_t i=0; i<var._coef.size(); ++i )
-    var2._coef[i] = Op<T>::asin( var._coef[i] );  
+  OCVar<T> var2( var );  var2._nl_lift();   // nonlinear: on the collocation grid first
+  for( size_t i=0; i<var2._coef.size(); ++i )
+    var2._coef[i] = Op<T>::asin( var2._coef[i] );  
   return var2;  
 }
 
@@ -4583,6 +4745,7 @@ inline
 OCVar<T> && asin
 ( OCVar<T> && var )
 {
+  var._nl_lift();   // nonlinear: on the collocation grid first
   for( size_t i=0; i<var._coef.size(); ++i )
     var._coef[i] = Op<T>::asin( var._coef[i] );  
   return std::move( var );
@@ -4593,9 +4756,9 @@ inline
 OCVar<T> acos
 ( OCVar<T> const& var )
 {
-  OCVar<T> var2( var );
-  for( size_t i=0; i<var._coef.size(); ++i )
-    var2._coef[i] = Op<T>::acos( var._coef[i] );  
+  OCVar<T> var2( var );  var2._nl_lift();   // nonlinear: on the collocation grid first
+  for( size_t i=0; i<var2._coef.size(); ++i )
+    var2._coef[i] = Op<T>::acos( var2._coef[i] );  
   return var2;  
 }
 
@@ -4604,6 +4767,7 @@ inline
 OCVar<T> && acos
 ( OCVar<T> && var )
 {
+  var._nl_lift();   // nonlinear: on the collocation grid first
   for( size_t i=0; i<var._coef.size(); ++i )
     var._coef[i] = Op<T>::acos( var._coef[i] );  
   return std::move( var );
@@ -4614,9 +4778,9 @@ inline
 OCVar<T> atan
 ( OCVar<T> const& var )
 {
-  OCVar<T> var2( var );
-  for( size_t i=0; i<var._coef.size(); ++i )
-    var2._coef[i] = Op<T>::atan( var._coef[i] );  
+  OCVar<T> var2( var );  var2._nl_lift();   // nonlinear: on the collocation grid first
+  for( size_t i=0; i<var2._coef.size(); ++i )
+    var2._coef[i] = Op<T>::atan( var2._coef[i] );  
   return var2;  
 }
 
@@ -4625,6 +4789,7 @@ inline
 OCVar<T> && atan
 ( OCVar<T> && var )
 {
+  var._nl_lift();   // nonlinear: on the collocation grid first
   for( size_t i=0; i<var._coef.size(); ++i )
     var._coef[i] = Op<T>::atan( var._coef[i] );  
   return std::move( var );
@@ -4635,9 +4800,9 @@ inline
 OCVar<T> sinh
 ( OCVar<T> const& var )
 {
-  OCVar<T> var2( var );
-  for( size_t i=0; i<var._coef.size(); ++i )
-    var2._coef[i] = Op<T>::sinh( var._coef[i] );  
+  OCVar<T> var2( var );  var2._nl_lift();   // nonlinear: on the collocation grid first
+  for( size_t i=0; i<var2._coef.size(); ++i )
+    var2._coef[i] = Op<T>::sinh( var2._coef[i] );  
   return var2;  
 }
 
@@ -4646,6 +4811,7 @@ inline
 OCVar<T> && sinh
 ( OCVar<T> && var )
 {
+  var._nl_lift();   // nonlinear: on the collocation grid first
   for( size_t i=0; i<var._coef.size(); ++i )
     var._coef[i] = Op<T>::sinh( var._coef[i] );  
   return std::move( var );
@@ -4656,9 +4822,9 @@ inline
 OCVar<T> cosh
 ( OCVar<T> const& var )
 {
-  OCVar<T> var2( var );
-  for( size_t i=0; i<var._coef.size(); ++i )
-    var2._coef[i] = Op<T>::cosh( var._coef[i] );  
+  OCVar<T> var2( var );  var2._nl_lift();   // nonlinear: on the collocation grid first
+  for( size_t i=0; i<var2._coef.size(); ++i )
+    var2._coef[i] = Op<T>::cosh( var2._coef[i] );  
   return var2;  
 }
 
@@ -4667,6 +4833,7 @@ inline
 OCVar<T> && cosh
 ( OCVar<T> && var )
 {
+  var._nl_lift();   // nonlinear: on the collocation grid first
   for( size_t i=0; i<var._coef.size(); ++i )
     var._coef[i] = Op<T>::cosh( var._coef[i] );  
   return std::move( var );
@@ -4677,9 +4844,9 @@ inline
 OCVar<T> tanh
 ( OCVar<T> const& var )
 {
-  OCVar<T> var2( var );
-  for( size_t i=0; i<var._coef.size(); ++i )
-    var2._coef[i] = Op<T>::tanh( var._coef[i] );  
+  OCVar<T> var2( var );  var2._nl_lift();   // nonlinear: on the collocation grid first
+  for( size_t i=0; i<var2._coef.size(); ++i )
+    var2._coef[i] = Op<T>::tanh( var2._coef[i] );  
   return var2;  
 }
 
@@ -4688,6 +4855,7 @@ inline
 OCVar<T> && tanh
 ( OCVar<T> && var )
 {
+  var._nl_lift();   // nonlinear: on the collocation grid first
   for( size_t i=0; i<var._coef.size(); ++i )
     var._coef[i] = Op<T>::tanh( var._coef[i] );  
   return std::move( var );
@@ -4698,9 +4866,9 @@ inline
 OCVar<T> xlog
 ( OCVar<T> const& var )
 {
-  OCVar<T> var2( var );
-  for( size_t i=0; i<var._coef.size(); ++i )
-    var2._coef[i] = Op<T>::xlog( var._coef[i] );  
+  OCVar<T> var2( var );  var2._nl_lift();   // nonlinear: on the collocation grid first
+  for( size_t i=0; i<var2._coef.size(); ++i )
+    var2._coef[i] = Op<T>::xlog( var2._coef[i] );  
   return var2;  
 }
 
@@ -4709,6 +4877,7 @@ inline
 OCVar<T> && xlog
 ( OCVar<T> && var )
 {
+  var._nl_lift();   // nonlinear: on the collocation grid first
   for( size_t i=0; i<var._coef.size(); ++i )
     var._coef[i] = Op<T>::xlog( var._coef[i] );  
   return std::move( var );
@@ -4719,9 +4888,9 @@ inline
 OCVar<T> fabs
 ( OCVar<T> const& var )
 {
-  OCVar<T> var2( var );
-  for( size_t i=0; i<var._coef.size(); ++i )
-    var2._coef[i] = Op<T>::fabs( var._coef[i] );  
+  OCVar<T> var2( var );  var2._nl_lift();   // nonlinear: on the collocation grid first
+  for( size_t i=0; i<var2._coef.size(); ++i )
+    var2._coef[i] = Op<T>::fabs( var2._coef[i] );  
   return var2;  
 }
 
@@ -4730,6 +4899,7 @@ inline
 OCVar<T> && fabs
 ( OCVar<T> && var )
 {
+  var._nl_lift();   // nonlinear: on the collocation grid first
   for( size_t i=0; i<var._coef.size(); ++i )
     var._coef[i] = Op<T>::fabs( var._coef[i] );  
   return std::move( var );
@@ -4740,9 +4910,9 @@ inline
 OCVar<T> erf
 ( OCVar<T> const& var )
 {
-  OCVar<T> var2( var );
-  for( size_t i=0; i<var._coef.size(); ++i )
-    var2._coef[i] = Op<T>::erf( var._coef[i] );  
+  OCVar<T> var2( var );  var2._nl_lift();   // nonlinear: on the collocation grid first
+  for( size_t i=0; i<var2._coef.size(); ++i )
+    var2._coef[i] = Op<T>::erf( var2._coef[i] );  
   return var2;  
 }
 
@@ -4751,6 +4921,7 @@ inline
 OCVar<T> && erf
 ( OCVar<T> && var )
 {
+  var._nl_lift();   // nonlinear: on the collocation grid first
   for( size_t i=0; i<var._coef.size(); ++i )
     var._coef[i] = Op<T>::erf( var._coef[i] );  
   return std::move( var );
@@ -4761,9 +4932,9 @@ inline
 OCVar<T> erfc
 ( OCVar<T> const& var )
 {
-  OCVar<T> var2( var );
-  for( size_t i=0; i<var._coef.size(); ++i )
-    var2._coef[i] = Op<T>::erfc( var._coef[i] );  
+  OCVar<T> var2( var );  var2._nl_lift();   // nonlinear: on the collocation grid first
+  for( size_t i=0; i<var2._coef.size(); ++i )
+    var2._coef[i] = Op<T>::erfc( var2._coef[i] );  
   return var2;  
 }
 
@@ -4772,6 +4943,7 @@ inline
 OCVar<T> && erfc
 ( OCVar<T> && var )
 {
+  var._nl_lift();   // nonlinear: on the collocation grid first
   for( size_t i=0; i<var._coef.size(); ++i )
     var._coef[i] = Op<T>::erfc( var._coef[i] );  
   return std::move( var );
@@ -4782,9 +4954,9 @@ inline
 OCVar<T> fstep
 ( OCVar<T> const& var )
 {
-  OCVar<T> var2( var );
-  for( size_t i=0; i<var._coef.size(); ++i )
-    var2._coef[i] = Op<T>::fstep( var._coef[i] );  
+  OCVar<T> var2( var );  var2._nl_lift();   // nonlinear: on the collocation grid first
+  for( size_t i=0; i<var2._coef.size(); ++i )
+    var2._coef[i] = Op<T>::fstep( var2._coef[i] );  
   return var2;  
 }
 
@@ -4793,6 +4965,7 @@ inline
 OCVar<T> && fstep
 ( OCVar<T> && var )
 {
+  var._nl_lift();   // nonlinear: on the collocation grid first
   for( size_t i=0; i<var._coef.size(); ++i )
     var._coef[i] = Op<T>::fstep( var._coef[i] );  
   return std::move( var );
@@ -4803,9 +4976,9 @@ inline
 OCVar<T> bstep
 ( OCVar<T> const& var )
 {
-  OCVar<T> var2( var );
-  for( size_t i=0; i<var._coef.size(); ++i )
-    var2._coef[i] = Op<T>::bstep( var._coef[i] );  
+  OCVar<T> var2( var );  var2._nl_lift();   // nonlinear: on the collocation grid first
+  for( size_t i=0; i<var2._coef.size(); ++i )
+    var2._coef[i] = Op<T>::bstep( var2._coef[i] );  
   return var2;  
 }
 
@@ -4814,6 +4987,7 @@ inline
 OCVar<T> && bstep
 ( OCVar<T> && var )
 {
+  var._nl_lift();   // nonlinear: on the collocation grid first
   for( size_t i=0; i<var._coef.size(); ++i )
     var._coef[i] = Op<T>::bstep( var._coef[i] );  
   return std::move( var );
