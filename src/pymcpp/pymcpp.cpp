@@ -1,3 +1,7 @@
+// Copyright (C) Benoit Chachuat, Imperial College London.
+// All Rights Reserved.
+// This code is published under the Eclipse Public License.
+
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
 
@@ -60,7 +64,9 @@ void mc_polimage(py::module_&);
 void mc_ellimage(py::module_&);
 void mc_ffdep(py::module_&);
 void mc_ffinv(py::module_&);
+void mc_ffunc_declare(py::module_&);
 void mc_ffunc(py::module_&);
+void mc_ocbase(py::module_&);
 void mc_ffmon(py::module_&);
 void mc_ffpoly(py::module_&);
 void mc_smon(py::module_&);
@@ -107,23 +113,25 @@ distribution (interval.ipynb, mccormick.ipynb, ffunc.ipynb, ...) for
 worked examples of each arithmetic.
 )doc";
 
+  mc_ffunc_declare(m);  // DAG classes first: signatures elsewhere name them (stubgen)
   mc_mcfunc(m);
   mc_interval(m);
   mc_mccormick(m);
   mc_specbnd(m);
   mc_tmodel(m);
   mc_cmodel(m);
+  mc_smon(m);   // before scmodel/sicmodel, whose signatures use SMon
+  mc_spoly(m);
   mc_scmodel(m);
   mc_sicmodel(m);
   mc_supmodel(m);
   mc_polimage(m);
   mc_ellimage(m);
-  mc_smon(m);
-  mc_spoly(m);
   mc_ffdep(m);
   mc_ffinv(m);
   mc_ffunc(m);
   mc_ffmon(m);
+  mc_ocbase(m);  // after mc_ffmon: dict -> FFMon conversion
   mc_ffpoly(m);
   mc_slift(m);
   mc_fflin(m);

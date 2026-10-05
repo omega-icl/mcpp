@@ -1,3 +1,7 @@
+// Copyright (C) Benoit Chachuat, Imperial College London.
+// All Rights Reserved.
+// This code is published under the Eclipse Public License.
+
 // tdiff.hpp -- Taylor-mode automatic differentiation for MC++.
 //
 // Provides mc::T<U> : forward Taylor-coefficient type templated on the

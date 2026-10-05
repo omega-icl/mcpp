@@ -41,7 +41,7 @@ PATH_TORCH = $(LIBTORCH_HOME)
 LIB_TORCH  = -L$(PATH_TORCH)/lib -ltorch_cpu -lc10
 #-Wl,-rpath,$(LIBTORCH_HOME)/lib
 INC_TORCH  = -I$(PATH_TORCH)/include -I$(PATH_TORCH)/include/torch/csrc/api/include
-FLAG_TORCH = -DMC__USE_TORCH
+FLAG_TORCH = #-DMC__USE_TORCH
 
 INC_PYTHON = $(shell python3 -c "from sysconfig import get_paths; print(get_paths()['include'])")
 INC_PYBIND11 = -I$(INC_PYTHON) -I$(PATH_EXTERN)/pybind11/include
@@ -50,8 +50,8 @@ INC_PYBIND11 = -I$(INC_PYTHON) -I$(PATH_EXTERN)/pybind11/include
 # COMPILATION <<-- CHANGE AS APPROPRIATE -->>
 
 PROF = #-pg
-OPTIM = #-O2
-DEBUG = -g
+OPTIM = -O2
+DEBUG = #-g
 WARN  = -Wall -Wno-misleading-indentation -Wno-unknown-pragmas -Wno-parentheses -Wno-return-type
 CPP17 = -std=c++17
 CC    = gcc

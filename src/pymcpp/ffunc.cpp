@@ -1,3 +1,8 @@
+// Copyright (C) Benoit Chachuat, Imperial College London.
+// All Rights Reserved.
+// This code is published under the Eclipse Public License.
+
+#include <cstdint>
 #include <pybind11/operators.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -69,8 +74,12 @@ typedef mc::FFInv FI;
 namespace py = pybind11;
 
 void
-mc_ffunc(py::module_& m)
+mc_ffunc_declare(py::module_& m)
 {
+  // Registers the core DAG classes and their enums BEFORE any other module, so that every
+  // signature using FFVar, FFOp, FFBase or their TYPE enums -- in this file and in the modules
+  // registered before mc_ffunc (e.g. polimage.cpp) -- names the Python types (pybind11-stubgen).
+  // mc_ffunc() adds the methods.
   py::class_<mc::FFNum> pyFFNum(m, "FFNum", R"doc(
 Numeric field of a DAG constant, holding an integer or real value.
 
@@ -78,6 +87,152 @@ Numeric field of a DAG constant, holding an integer or real value.
 function DAG (`FFVar` nodes of type `CINT` or `CREAL`). It is normally
 obtained from `FFVar.num()` rather than constructed directly.
 )doc");
+  py::class_<mc::FFVar> pyFFVar(m, "FFVar", R"doc(
+Variable node in the DAG of a factorable function.
+
+An `FFVar` is a handle to a node of a directed acyclic graph (DAG)
+recorded in an `FFGraph` environment: an original variable, an auxiliary
+variable (the result of an operation), or an integer/real constant.
+Applying the overloaded arithmetic operators ``+``, ``-``, ``*``, ``/``,
+``**`` or the module functions (`pymcpp.exp`, `pymcpp.sqrt`, ...) to
+`FFVar` operands does not compute numerical values; it appends new
+auxiliary nodes to the DAG and returns `FFVar` handles to them. Common
+subexpressions are detected and reused automatically.
+
+Variables are typically created attached to a DAG with
+``pymcpp.FFVar(DAG, name)`` or via `FFGraph.add_var`. The resulting
+dependent expressions can then be differentiated symbolically
+(`FFGraph.fdiff`, `FFGraph.bdiff`, `FFGraph.tdiff`) and evaluated in a
+variety of arithmetics (`FFGraph.eval`).
+
+Examples
+--------
+>>> import pymcpp
+>>> DAG = pymcpp.FFGraph()
+>>> X = [pymcpp.FFVar(DAG, "X" + str(i)) for i in range(2)]
+>>> F = X[0] * pymcpp.exp(X[0] * X[1]) + X[1] ** 2  # adds nodes to DAG
+>>> DAG.eval([F], X, [1.0, 2.0])  # evaluate at X0=1, X1=2
+[11.38905609893065]
+)doc");
+  py::enum_<mc::FFVar::TYPE>(pyFFVar, "TYPE",
+                             "Kind of a DAG node (see `FFVar.id`).")
+      .value("VAR", mc::FFVar::TYPE::VAR, "Original (independent) variable.")
+      .value("AUX", mc::FFVar::TYPE::AUX,
+             "Auxiliary variable, defined as the result of an operation.")
+      .value("CINT", mc::FFVar::TYPE::CINT, "Integer constant.")
+      .value("CREAL", mc::FFVar::TYPE::CREAL, "Real constant.")
+      .export_values();
+  py::class_<mc::FFOp> pyFFOp(m, "FFOp", R"doc(
+Operation node in the DAG of a factorable function.
+
+An `FFOp` links its input nodes (`varin`) to the output nodes it defines
+(`varout`). Operations are created implicitly while building expressions
+from `FFVar` operands; they are typically inspected via `FFVar.opdef` or
+by traversing an `FFSubgraph`.
+)doc");
+  py::enum_<mc::FFOp::TYPE>(pyFFOp, "TYPE",
+                            "Type of a DAG operation (see `FFOp.type`).")
+      .value("CNST", mc::FFOp::TYPE::CNST, "Constant.")
+      .value("VAR", mc::FFOp::TYPE::VAR, "Original variable.")
+      .value("PLUS", mc::FFOp::TYPE::PLUS, "Binary addition.")
+      .value("SHIFT", mc::FFOp::TYPE::SHIFT, "Addition of a constant.")
+      .value("NEG", mc::FFOp::TYPE::NEG, "Unary negation.")
+      .value("MINUS", mc::FFOp::TYPE::MINUS, "Binary subtraction.")
+      .value("TIMES", mc::FFOp::TYPE::TIMES, "Binary multiplication.")
+      .value("SCALE", mc::FFOp::TYPE::SCALE, "Multiplication by a constant.")
+      .value("DIV", mc::FFOp::TYPE::DIV, "Binary division.")
+      .value("INV", mc::FFOp::TYPE::INV, "Reciprocal 1/x.")
+      .value("PROD", mc::FFOp::TYPE::PROD, "N-ary product.")
+      .value("IPOW", mc::FFOp::TYPE::IPOW, "Power with integer exponent.")
+      .value("DPOW", mc::FFOp::TYPE::DPOW, "Power with real exponent.")
+      .value("CHEB", mc::FFOp::TYPE::CHEB,
+             "Chebyshev polynomial of the first kind.")
+      .value("SQR", mc::FFOp::TYPE::SQR, "Square x**2.")
+      .value("SQRT", mc::FFOp::TYPE::SQRT, "Square root.")
+      .value("EXP", mc::FFOp::TYPE::EXP, "Exponential.")
+      .value("LOG", mc::FFOp::TYPE::LOG, "Natural logarithm.")
+      .value("XLOG", mc::FFOp::TYPE::XLOG, "x*log(x).")
+      .value("SIN", mc::FFOp::TYPE::SIN, "Sine.")
+      .value("COS", mc::FFOp::TYPE::COS, "Cosine.")
+      .value("TAN", mc::FFOp::TYPE::TAN, "Tangent.")
+      .value("ASIN", mc::FFOp::TYPE::ASIN, "Inverse sine.")
+      .value("ACOS", mc::FFOp::TYPE::ACOS, "Inverse cosine.")
+      .value("ATAN", mc::FFOp::TYPE::ATAN, "Inverse tangent.")
+      .value("SINH", mc::FFOp::TYPE::SINH, "Hyperbolic sine.")
+      .value("COSH", mc::FFOp::TYPE::COSH, "Hyperbolic cosine.")
+      .value("TANH", mc::FFOp::TYPE::TANH, "Hyperbolic tangent.")
+      .value("ERF", mc::FFOp::TYPE::ERF, "Error function.")
+      .value("FABS", mc::FFOp::TYPE::FABS, "Absolute value.")
+      .value("FSTEP", mc::FFOp::TYPE::FSTEP, "Forward unit step at 0.")
+      .value("MINF", mc::FFOp::TYPE::MINF, "Binary minimum.")
+      .value("MAXF", mc::FFOp::TYPE::MAXF, "Binary maximum.")
+      .value("INTER", mc::FFOp::TYPE::INTER,
+             "Intersection of operands (set arithmetics).")
+      .value("EXTERN", mc::FFOp::TYPE::EXTERN,
+             "External (user-defined) operation.")
+      .export_values();
+  py::class_<mc::FFSubgraph> pyFFSubgraph(m, "FFSubgraph", R"doc(
+Subgraph of a DAG: the ordered list of operations needed to evaluate a
+given subset of dependents.
+
+Instances are created by `FFBase.subgraph` and can be passed to
+`FFGraph.eval`, `FFGraph.reval` and `FFGraph.veval` to avoid
+re-extracting the operation list on every evaluation of the same
+dependents.
+)doc");
+  py::class_<mc::FFBase> pyFFBase(m, "FFBase", R"doc(
+Base DAG environment of a factorable function.
+
+`FFBase` stores the nodes (`FFVar`) and operations (`FFOp`) of the
+directed acyclic graph and provides construction and inspection
+facilities: adding variables, extracting subgraphs, and printing or
+exporting them. Use the derived class `FFGraph` for differentiation and
+evaluation capabilities.
+)doc");
+  py::class_<mc::FFGraph, mc::FFBase> pyFFGraph(m, "FFGraph", R"doc(
+DAG environment for construction, differentiation and evaluation of
+factorable functions.
+
+An `FFGraph` records the directed acyclic graph (DAG) of factorable
+expressions built from its `FFVar` variables. On top of the storage and
+inspection facilities inherited from `FFBase`, it provides:
+
+- symbolic differentiation: `fdiff` (forward mode), `bdiff` (reverse
+  mode), both returning sparse Jacobians as DAG nodes, and `tdiff`
+  (Taylor expansion of ODE solutions);
+- DAG manipulation: `compose`, `insert`, `substitute`;
+- evaluation of any subset of dependents in a range of arithmetics via
+  `eval` (floats, `Interval`, `McCormick`, `Specbnd`, Taylor/Chebyshev
+  models, superposition models, polyhedral and ellipsoidal images,
+  dependency and invariant detection);
+- reverse (constraint) propagation via `reval` and vectorized
+  multi-scenario evaluation via `veval`.
+
+Behavior is controlled by the `options` attribute (`FFGraph.Options`).
+
+Examples
+--------
+>>> import pymcpp
+>>> DAG = pymcpp.FFGraph()
+>>> X = [pymcpp.FFVar(DAG, "X" + str(i)) for i in range(2)]
+>>> F = [X[0] * X[1] - 1, pymcpp.exp(X[0]) + X[1]]
+>>> DAG.eval(F, X, [1.0, 2.0])
+[1.0, 4.718281828459045]
+>>> rows, cols, jac = DAG.bdiff(F, X)  # sparse Jacobian nodes
+)doc");
+  py::class_<mc::FFGraph::Options> pyFFGraphOptions(pyFFGraph, "Options",
+                                                    R"doc(
+Option set of an `FFGraph`, accessed via the `FFGraph.options` attribute.
+
+Fields can be assigned directly, e.g. ``DAG.options.MAXTHREAD = 4``.
+)doc");
+}
+
+void
+mc_ffunc(py::module_& m)
+{
+  auto pyFFNum =
+      py::reinterpret_borrow<py::class_<mc::FFNum>>(m.attr("FFNum"));
   pyFFNum
       .def(py::init<int const>(), R"doc(
 Construct an integer constant (also the default constructor).
@@ -119,32 +274,44 @@ Constant value held by the numeric field, as a float.
              return Vss.str();
            });
 
-  py::class_<mc::FFVar> pyFFVar(m, "FFVar", R"doc(
-Variable node in the DAG of a factorable function.
+  auto pyFFVar =
+      py::reinterpret_borrow<py::class_<mc::FFVar>>(m.attr("FFVar"));
 
-An `FFVar` is a handle to a node of a directed acyclic graph (DAG)
-recorded in an `FFGraph` environment: an original variable, an auxiliary
-variable (the result of an operation), or an integer/real constant.
-Applying the overloaded arithmetic operators ``+``, ``-``, ``*``, ``/``,
-``**`` or the module functions (`pymcpp.exp`, `pymcpp.sqrt`, ...) to
-`FFVar` operands does not compute numerical values; it appends new
-auxiliary nodes to the DAG and returns `FFVar` handles to them. Common
-subexpressions are detected and reused automatically.
-
-Variables are typically created attached to a DAG with
-``pymcpp.FFVar(DAG, name)`` or via `FFGraph.add_var`. The resulting
-dependent expressions can then be differentiated symbolically
-(`FFGraph.fdiff`, `FFGraph.bdiff`, `FFGraph.tdiff`) and evaluated in a
-variety of arithmetics (`FFGraph.eval`).
-
-Examples
---------
->>> import pymcpp
->>> DAG = pymcpp.FFGraph()
->>> X = [pymcpp.FFVar(DAG, "X" + str(i)) for i in range(2)]
->>> F = X[0] * pymcpp.exp(X[0] * X[1]) + X[1] ** 2  # adds nodes to DAG
->>> DAG.eval([F], X, [1.0, 2.0])  # evaluate at X0=1, X1=2
-[11.38905609893065]
+  // Equality and hashing as the C++ maps keyed by lt_FFVar (and as FFMon,
+  // whose monomials are keyed by lt_FFVar): same type, then same index for a
+  // variable or same value for a constant -- the DAG is not compared. FFVar
+  // objects returned by C++ (the keys of a map converted to a dict, or the
+  // coordinates passed to a callback, keyed by a working model's copy of a
+  // variable) are new Python objects that the default identity-based
+  // __eq__ / __hash__ would not find.
+  pyFFVar
+      .def(
+          "__eq__", [](mc::FFVar const& V1, mc::FFVar const& V2)
+          { return !mc::lt_FFVar()(V1, V2) && !mc::lt_FFVar()(V2, V1); },
+          py::is_operator(), R"doc(
+True if both are the same variable (same type and index) or the same constant
+value, as for the keys of a C++ map ordered by lt_FFVar; the DAG is not
+compared.
+)doc")
+      .def(
+          "__ne__", [](mc::FFVar const& V1, mc::FFVar const& V2)
+          { return mc::lt_FFVar()(V1, V2) || mc::lt_FFVar()(V2, V1); },
+          py::is_operator(), R"doc(
+Negation of __eq__.
+)doc")
+      .def(
+          "__hash__",
+          [](mc::FFVar const& V)
+          {
+            auto const ty = V.id().first;
+            if (ty == mc::FFVar::VAR || ty == mc::FFVar::AUX)
+              return py::hash(py::make_tuple(static_cast<int>(ty), V.id().second));
+            return py::hash(py::make_tuple(static_cast<int>(ty)));  // constants
+          },
+          R"doc(
+Return a hash consistent with __eq__ (type and index of a variable), so that
+FFVar objects can be used as dictionary keys -- including the keys of
+dictionaries returned by C++.
 )doc");
   pyFFVar
       .def(py::init<int const>(), R"doc(
@@ -254,9 +421,9 @@ Returns
 cst : bool
     True if the node is a constant or was fixed with `set`.
 )doc")
-      .def("dag", &mc::FFVar::dag, R"doc(
+      .def("dag", &mc::FFVar::dag, py::return_value_policy::reference, R"doc(
 Return the DAG environment the variable is attached to, or None if the
-variable is unattached.
+variable is unattached. The DAG is not owned by the returned object.
 )doc")
       .def("str",
            [](mc::FFVar const& V) { return mc::FFExpr::dep(V).ostr().str(); },
@@ -451,23 +618,9 @@ Identifier of the node, as a tuple ``(type, index)`` with ``type`` an
         "arithmetic (e.g. intervals), and return it.",
         py::arg("x"), py::arg("y"));
 
-  py::enum_<mc::FFVar::TYPE>(pyFFVar, "TYPE",
-                             "Kind of a DAG node (see `FFVar.id`).")
-      .value("VAR", mc::FFVar::TYPE::VAR, "Original (independent) variable.")
-      .value("AUX", mc::FFVar::TYPE::AUX,
-             "Auxiliary variable, defined as the result of an operation.")
-      .value("CINT", mc::FFVar::TYPE::CINT, "Integer constant.")
-      .value("CREAL", mc::FFVar::TYPE::CREAL, "Real constant.")
-      .export_values();
 
-  py::class_<mc::FFOp> pyFFOp(m, "FFOp", R"doc(
-Operation node in the DAG of a factorable function.
-
-An `FFOp` links its input nodes (`varin`) to the output nodes it defines
-(`varout`). Operations are created implicitly while building expressions
-from `FFVar` operands; they are typically inspected via `FFVar.opdef` or
-by traversing an `FFSubgraph`.
-)doc");
+  auto pyFFOp =
+      py::reinterpret_borrow<py::class_<mc::FFOp>>(m.attr("FFOp"));
   pyFFOp
       .def_readwrite("type", &mc::FFOp::type,
                      "Operation type, as an `FFOp.TYPE` enumeration value.")
@@ -492,57 +645,9 @@ by traversing an `FFSubgraph`.
              return Oss.str();
            });
 
-  py::enum_<mc::FFOp::TYPE>(pyFFOp, "TYPE",
-                            "Type of a DAG operation (see `FFOp.type`).")
-      .value("CNST", mc::FFOp::TYPE::CNST, "Constant.")
-      .value("VAR", mc::FFOp::TYPE::VAR, "Original variable.")
-      .value("PLUS", mc::FFOp::TYPE::PLUS, "Binary addition.")
-      .value("SHIFT", mc::FFOp::TYPE::SHIFT, "Addition of a constant.")
-      .value("NEG", mc::FFOp::TYPE::NEG, "Unary negation.")
-      .value("MINUS", mc::FFOp::TYPE::MINUS, "Binary subtraction.")
-      .value("TIMES", mc::FFOp::TYPE::TIMES, "Binary multiplication.")
-      .value("SCALE", mc::FFOp::TYPE::SCALE, "Multiplication by a constant.")
-      .value("DIV", mc::FFOp::TYPE::DIV, "Binary division.")
-      .value("INV", mc::FFOp::TYPE::INV, "Reciprocal 1/x.")
-      .value("PROD", mc::FFOp::TYPE::PROD, "N-ary product.")
-      .value("IPOW", mc::FFOp::TYPE::IPOW, "Power with integer exponent.")
-      .value("DPOW", mc::FFOp::TYPE::DPOW, "Power with real exponent.")
-      .value("CHEB", mc::FFOp::TYPE::CHEB,
-             "Chebyshev polynomial of the first kind.")
-      .value("SQR", mc::FFOp::TYPE::SQR, "Square x**2.")
-      .value("SQRT", mc::FFOp::TYPE::SQRT, "Square root.")
-      .value("EXP", mc::FFOp::TYPE::EXP, "Exponential.")
-      .value("LOG", mc::FFOp::TYPE::LOG, "Natural logarithm.")
-      .value("XLOG", mc::FFOp::TYPE::XLOG, "x*log(x).")
-      .value("SIN", mc::FFOp::TYPE::SIN, "Sine.")
-      .value("COS", mc::FFOp::TYPE::COS, "Cosine.")
-      .value("TAN", mc::FFOp::TYPE::TAN, "Tangent.")
-      .value("ASIN", mc::FFOp::TYPE::ASIN, "Inverse sine.")
-      .value("ACOS", mc::FFOp::TYPE::ACOS, "Inverse cosine.")
-      .value("ATAN", mc::FFOp::TYPE::ATAN, "Inverse tangent.")
-      .value("SINH", mc::FFOp::TYPE::SINH, "Hyperbolic sine.")
-      .value("COSH", mc::FFOp::TYPE::COSH, "Hyperbolic cosine.")
-      .value("TANH", mc::FFOp::TYPE::TANH, "Hyperbolic tangent.")
-      .value("ERF", mc::FFOp::TYPE::ERF, "Error function.")
-      .value("FABS", mc::FFOp::TYPE::FABS, "Absolute value.")
-      .value("FSTEP", mc::FFOp::TYPE::FSTEP, "Forward unit step at 0.")
-      .value("MINF", mc::FFOp::TYPE::MINF, "Binary minimum.")
-      .value("MAXF", mc::FFOp::TYPE::MAXF, "Binary maximum.")
-      .value("INTER", mc::FFOp::TYPE::INTER,
-             "Intersection of operands (set arithmetics).")
-      .value("EXTERN", mc::FFOp::TYPE::EXTERN,
-             "External (user-defined) operation.")
-      .export_values();
 
-  py::class_<mc::FFSubgraph> pyFFSubgraph(m, "FFSubgraph", R"doc(
-Subgraph of a DAG: the ordered list of operations needed to evaluate a
-given subset of dependents.
-
-Instances are created by `FFBase.subgraph` and can be passed to
-`FFGraph.eval`, `FFGraph.reval` and `FFGraph.veval` to avoid
-re-extracting the operation list on every evaluation of the same
-dependents.
-)doc");
+  auto pyFFSubgraph =
+      py::reinterpret_borrow<py::class_<mc::FFSubgraph>>(m.attr("FFSubgraph"));
   pyFFSubgraph.def(py::init<>(), "Construct an empty subgraph.")
       .def(py::init<mc::FFSubgraph const&>(), "Copy constructor.")
       .def("clear", &mc::FFSubgraph::clear, R"doc(
@@ -555,15 +660,8 @@ Reset to an empty subgraph.
                     "Length of the extra work array used for moving n-ary "
                     "operations during evaluation.");
 
-  py::class_<mc::FFBase> pyFFBase(m, "FFBase", R"doc(
-Base DAG environment of a factorable function.
-
-`FFBase` stores the nodes (`FFVar`) and operations (`FFOp`) of the
-directed acyclic graph and provides construction and inspection
-facilities: adding variables, extracting subgraphs, and printing or
-exporting them. Use the derived class `FFGraph` for differentiation and
-evaluation capabilities.
-)doc");
+  auto pyFFBase =
+      py::reinterpret_borrow<py::class_<mc::FFBase>>(m.attr("FFBase"));
   pyFFBase.def(py::init<>(), "Construct an empty DAG environment.")
       .def(
           "add_var", [](mc::FFBase& G, std::string const& name)
@@ -706,43 +804,11 @@ fname : str
              return Gss.str();
            });
 
-  py::class_<mc::FFGraph, mc::FFBase> pyFFGraph(m, "FFGraph", R"doc(
-DAG environment for construction, differentiation and evaluation of
-factorable functions.
-
-An `FFGraph` records the directed acyclic graph (DAG) of factorable
-expressions built from its `FFVar` variables. On top of the storage and
-inspection facilities inherited from `FFBase`, it provides:
-
-- symbolic differentiation: `fdiff` (forward mode), `bdiff` (reverse
-  mode), both returning sparse Jacobians as DAG nodes, and `tdiff`
-  (Taylor expansion of ODE solutions);
-- DAG manipulation: `compose`, `insert`, `substitute`;
-- evaluation of any subset of dependents in a range of arithmetics via
-  `eval` (floats, `Interval`, `McCormick`, `Specbnd`, Taylor/Chebyshev
-  models, superposition models, polyhedral and ellipsoidal images,
-  dependency and invariant detection);
-- reverse (constraint) propagation via `reval` and vectorized
-  multi-scenario evaluation via `veval`.
-
-Behavior is controlled by the `options` attribute (`FFGraph.Options`).
-
-Examples
---------
->>> import pymcpp
->>> DAG = pymcpp.FFGraph()
->>> X = [pymcpp.FFVar(DAG, "X" + str(i)) for i in range(2)]
->>> F = [X[0] * X[1] - 1, pymcpp.exp(X[0]) + X[1]]
->>> DAG.eval(F, X, [1.0, 2.0])
-[1.0, 4.718281828459045]
->>> rows, cols, jac = DAG.bdiff(F, X)  # sparse Jacobian nodes
-)doc");
-  py::class_<mc::FFGraph::Options> pyFFGraphOptions(pyFFGraph, "Options",
-                                                    R"doc(
-Option set of an `FFGraph`, accessed via the `FFGraph.options` attribute.
-
-Fields can be assigned directly, e.g. ``DAG.options.MAXTHREAD = 4``.
-)doc");
+  auto pyFFGraph = py::reinterpret_borrow<py::class_<mc::FFGraph, mc::FFBase>>(
+      m.attr("FFGraph"));
+  auto pyFFGraphOptions =
+      py::reinterpret_borrow<py::class_<mc::FFGraph::Options>>(
+          pyFFGraph.attr("Options"));
 
   pyFFGraph.def(py::init<>(), "Construct an empty DAG environment.")
       .def_readwrite("options", &mc::FFGraph::options,

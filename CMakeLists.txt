@@ -453,6 +453,7 @@ set(PYMCPP_SOURCES
     src/pymcpp/ffdagext.cpp
     src/pymcpp/ffvect.cpp
     src/pymcpp/ffcustom.cpp
+    src/pymcpp/ocbase.cpp
     src/pymcpp/pymcpp.cpp)
 
 pybind11_add_module(pymcpp ${PYMCPP_SOURCES})

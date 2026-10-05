@@ -18,6 +18,7 @@
 #include <vector>
 #include <set>
 #include <map>
+#include <initializer_list>
 #include <tuple>
 #include <sstream>
 #include <iomanip>
@@ -240,10 +241,10 @@ class FFPartial;
 
 //! @brief Definition of domain and options for orthogonal collocation of distributed subexpressions
 ////////////////////////////////////////////////////////////////////////
-//! mc::OCDom is a C++ class defining the domain and options for
+//! mc::FFDom is a C++ class defining the domain and options for
 //! orthogonal collocation of distributed subexpressions
 ////////////////////////////////////////////////////////////////////////
-class OCDom
+class FFDom
 ////////////////////////////////////////////////////////////////////////
 : public virtual BASE_OC
 {
@@ -273,14 +274,14 @@ public:
     static std::string _message( TYPE ierr ){
       switch( ierr ){
       case BOUNDS:
-        return "OCDom::Exceptions  Invalid domain bounds";
+        return "FFDom::Exceptions  Invalid domain bounds";
       case ELEMENTS:
-        return "OCDom::Exceptions  Invalid number of elements";
+        return "FFDom::Exceptions  Invalid number of elements";
       case NODES:
-        return "OCDom::Exceptions  Invalid number of collocation points";
+        return "FFDom::Exceptions  Invalid number of collocation points";
       case UNDEF:
       default:
-        return "OCDom::Exceptions  Undocumented exception";
+        return "FFDom::Exceptions  Undocumented exception";
       }
     }
   private:
@@ -337,14 +338,14 @@ public:
   std::vector<double>  elem_len;
 
   //! @brief Default constructor
-  OCDom
+  FFDom
     ()
     {}
 
   //! @brief Uniform finite-element constructor
-  OCDom
+  FFDom
     ( double const& lo_dom, double const& up_dom,
-      size_t n_elem, TYPE const& type=LG, size_t n_node=4 )
+      size_t n_elem=1, TYPE const& type=LG, size_t n_node=4 )
     : type   ( type   ),
       n_node ( n_node )
     {
@@ -353,7 +354,7 @@ public:
     }
 
   //! @brief Nonuniform finite-element constructor from element boundaries
-  OCDom
+  FFDom
     ( std::vector<double> const& elem_bnd, TYPE const& type=LG, size_t n_node=4 )
     : type   ( type   ),
       n_node ( n_node )
@@ -363,7 +364,7 @@ public:
     }
 
   //! @brief Nonuniform finite-element constructor from lower bound and element lengths
-  OCDom
+  FFDom
     ( double const& lo_dom, std::vector<double> const& elem_len,
       TYPE const& type=LG, size_t n_node=4 )
     : type   ( type   ),
@@ -374,8 +375,8 @@ public:
     }
 
   //! @brief Copy constructor
-  OCDom
-    ( OCDom const& other )
+  FFDom
+    ( FFDom const& other )
     : BASE_OC  ( other          ),
       lo_dom   ( other.lo_dom   ),
       up_dom   ( other.up_dom   ),
@@ -390,8 +391,8 @@ public:
     }
 
   //! @brief Copy assignment
-  OCDom& operator=
-    ( OCDom const& other )
+  FFDom& operator=
+    ( FFDom const& other )
     {
       if( this == &other ) return *this;
       BASE_OC::operator=( other );
@@ -526,16 +527,16 @@ public:
 
 inline std::ostream&
 operator<<
-( std::ostream& os, OCDom const& opt )
+( std::ostream& os, FFDom const& opt )
 {
   os << std::scientific << std::setprecision(4)
      << "[" << opt.lo_dom << " : " << opt.up_dom << "], TYP=";
   switch( opt.type ){
     default:
-    case OCDom::TYPE::LG:  os << "LG";  break;
-    case OCDom::TYPE::LGR: os << "LGR"; break;
-    case OCDom::TYPE::LGL: os << "LGL"; break;
-    case OCDom::TYPE::CGL: os << "CGL"; break;
+    case FFDom::TYPE::LG:  os << "LG";  break;
+    case FFDom::TYPE::LGR: os << "LGR"; break;
+    case FFDom::TYPE::LGL: os << "LGL"; break;
+    case FFDom::TYPE::CGL: os << "CGL"; break;
   }
   os << ", ELE=" << opt.n_elem << ", NOD=" << opt.n_node;
   return os;
@@ -582,7 +583,7 @@ public:
     Exceptions( TYPE ierr=UNDEF ) : std::runtime_error( _message( ierr ) ), _ierr( ierr ){}
     int ierr() const { return _ierr; }
     //! @brief The message for a code, and what the INHERITED std::exception::what() reports -- the constructor
-    //! passes it to the std::runtime_error base.  See the note on OCDom::Exceptions above: a std::string what()
+    //! passes it to the std::runtime_error base.  See the note on FFDom::Exceptions above: a std::string what()
     //! here HIDES the base virtual instead of overriding it.
     static std::string _message( TYPE ierr ){
       switch( ierr ){
@@ -609,7 +610,7 @@ public:
     TYPE _ierr;
   };
 
-  typedef std::map< FFVar, OCDom, lt_FFVar >                         t_Dom;
+  typedef std::map< FFVar, FFDom, lt_FFVar >                         t_Dom;
   //typedef std::map< FFVar, t_Dom, lt_FFVar >                         t_Coll;
 
   virtual ~OCBase() {}
@@ -617,7 +618,7 @@ public:
   //! @brief The COLLOCATION grid of direction @p dir, or nullptr (no environment grid).  A nonlinear operation lifts
   //! a multi-node operand that is coarser onto it first (OCVar::_nl_lift), so nonlinear functions of inputs are formed
   //! at the collocation nodes; linear operations keep operands on their own grids (2026-09-28).
-  virtual OCDom const* colloc_dom
+  virtual FFDom const* colloc_dom
     ( FFVar const& dir )
     const
     { (void)dir; return nullptr; }
@@ -631,15 +632,15 @@ public:
 
   //! @brief Compute the stride for evaluating collocated expressions within multidimensional stacked arrays.
   static std::pair<size_t, size_t> stride
-    ( std::map<FFVar const*, OCDom const*, lt_FFVar> const& dom,
+    ( std::map<FFVar const*, FFDom const*, lt_FFVar> const& dom,
       FFVar const* index, bool const check=true );
 
   //! @brief Lift collocation array from one tensor-product domain map to another.
   template <typename T>
   static bool lift_colloc
     ( std::vector<T>& coeff_out, const std::vector<T>& coeff_in,
-      const std::map<FFVar const*, OCDom const*, lt_FFVar>& dom_out,
-      const std::map<FFVar const*, OCDom const*, lt_FFVar>& dom_in,
+      const std::map<FFVar const*, FFDom const*, lt_FFVar>& dom_out,
+      const std::map<FFVar const*, FFDom const*, lt_FFVar>& dom_in,
       const bool check = true );
 
 protected:
@@ -861,7 +862,7 @@ class OCVar
 
 public:
 
-  typedef std::map< FFVar const*, OCDom const*, lt_FFVar >   t_Dom;
+  typedef std::map< FFVar const*, FFDom const*, lt_FFVar >   t_Dom;
  
 private:
 
@@ -881,7 +882,7 @@ public:
   //! @brief Lift the coefficients onto FINER grids, direction by direction: @p target maps a direction to the grid to
   //! use where it has more nodes than this variable's own.
   OCVar& lift_to
-    ( std::map<FFVar const*, OCDom const*, lt_FFVar> const& target )
+    ( std::map<FFVar const*, FFDom const*, lt_FFVar> const& target )
     {
       auto domlift = _dom;  bool any = false;
       for( auto& [d, od] : domlift ){
@@ -898,15 +899,15 @@ private:
   //! @brief The collocation grids this variable must be lifted to BEFORE a nonlinear operation: directions where it
   //! has several nodes (a piecewise-constant value, n_node = 1, is exact under any function) but fewer than the
   //! environment's collocation grid.  Empty: nothing to do.
-  std::map<FFVar const*, OCDom const*, lt_FFVar> _nl_target
+  std::map<FFVar const*, FFDom const*, lt_FFVar> _nl_target
     ()
     const
     {
-      std::map<FFVar const*, OCDom const*, lt_FFVar> tgt;
+      std::map<FFVar const*, FFDom const*, lt_FFVar> tgt;
       if( !_env ) return tgt;
       for( auto const& [pd, od] : _dom ){
         if( !pd || !od || od->n_node <= 1 ) continue;
-        OCDom const* cd = _env->colloc_dom( *pd );
+        FFDom const* cd = _env->colloc_dom( *pd );
         if( cd && cd->n_node > od->n_node ) tgt[pd] = cd;
       }
       return tgt;
@@ -1330,13 +1331,16 @@ public:
       return Der;//std::move( Der );
     }
 
+  //! @brief Derivative of @p Var with the directions and orders given as a braced list, e.g. OpP( u, {{t,1},{z,1}} ),
+  //! OpP( u, {{z,2}} ).  (A std::map object converts through t_SMon.)
   FFVar operator()
-    ( FFVar const& Var, std::map<FFVar,unsigned,lt_FFVar> const& Indep )
+    ( FFVar const& Var, std::initializer_list<std::pair<FFVar,unsigned>> Indep )
     {
+      t_SMon const Mon( std::map<FFVar,unsigned,lt_FFVar>( Indep.begin(), Indep.end() ) );
 #ifdef MC__FFPARTIAL_CHECK
-      assert( Indep.tord );
+      assert( Mon.tord );
 #endif
-      return *(_set( 1, &Var, Indep )[0]);
+      return *(_set( 1, &Var, Mon )[0]);
     }
 
   FFVar operator()
@@ -1624,7 +1628,7 @@ const
     if( !env )
       throw std::runtime_error( "FFPartial::eval<OCVar<U>> ** No collocation environment\n" );
 
-    auto const& din = vVar[i].dom();   // std::map<FFVar const*, OCDom const*, lt_FFVar>
+    auto const& din = vVar[i].dom();   // std::map<FFVar const*, FFDom const*, lt_FFVar>
     std::vector<U> yin, yout;
     std::vector<U> const* pin = &vVar[i].coef();
 
@@ -1753,12 +1757,24 @@ public:
     ( std::vector<FFVar> const& Var, t_SMon const& Indep )
     {
 #ifdef MC__FFINTEGRAL_CHECK
-      assert( !Var.empty() && !Indep.empty() );
+      assert( !Var.empty() && Indep.tord );
 #endif
       FFVar** ppDer = _set( Var.size(), Var.data(), Indep );
       std::vector<FFVar> Der( Var.size() );
       for( size_t i=0; i<Var.size(); ++i ) Der[i] = *ppDer[i];
       return Der;//std::move( Der );
+    }
+
+  //! @brief Integral of @p Var over the directions of a braced list, e.g. OpI( u, {{t,1},{z,1}} ).
+  //! (A std::map object converts through t_SMon.)
+  FFVar operator()
+    ( FFVar const& Var, std::initializer_list<std::pair<FFVar,unsigned>> Indep )
+    {
+      t_SMon const Mon( std::map<FFVar,unsigned,lt_FFVar>( Indep.begin(), Indep.end() ) );
+#ifdef MC__FFINTEGRAL_CHECK
+      assert( Mon.tord );
+#endif
+      return *(_set( 1, &Var, Mon )[0]);
     }
 
   FFVar operator()
@@ -2045,7 +2061,7 @@ const
     if( !env )
       throw std::runtime_error( "FFIntegral::eval<OCVar<U>> ** No collocation environment\n" );
 
-    auto const& din = vVar[i].dom();   // std::map<FFVar const*, OCDom const*, lt_FFVar>
+    auto const& din = vVar[i].dom();   // std::map<FFVar const*, FFDom const*, lt_FFVar>
     auto dout = din;
     std::vector<U> yin, yout;
     std::vector<U> const* pin = &vVar[i].coef();
@@ -2116,7 +2132,7 @@ protected:
   //! @brief Target physical coordinate per consumed direction
   mutable std::map<FFVar,double,lt_FFVar>   _Coord;
 
-  //! @brief Side per consumed direction (OCDom::MINUS or OCDom::PLUS); a direction absent from the map is MINUS
+  //! @brief Side per consumed direction (FFDom::MINUS or FFDom::PLUS); a direction absent from the map is MINUS
   mutable std::map<FFVar,int,lt_FFVar>      _Side;
 
   //! @brief fold a nested point EVALUATION into one node when the two coordinate sets are DISJOINT.
@@ -2131,7 +2147,7 @@ protected:
     const
     {
       std::map<FFVar,int,lt_FFVar> side;                  // only PLUS is stored: MINUS is the default
-      for( auto const& [var, sd] : Side ) if( sd == OCDom::PLUS ) side[ var ] = OCDom::PLUS;
+      for( auto const& [var, sd] : Side ) if( sd == FFDom::PLUS ) side[ var ] = FFDom::PLUS;
       if( FFPartial::FOLD_NESTED && nVar == 1 && pVar && Indep.tord ){
         auto const& [pOp, ndx] = pVar->opdef();
         if( pOp && pOp->sameid( typeid(FFEval) ) && pOp->varin.size() == 1 && pOp->varin[0] ){
@@ -2205,7 +2221,7 @@ public:
 
   // Define operation
   std::vector<FFVar> operator()
-    ( std::vector<FFVar> const& Var, FFVar const& Indep, double const& Coord, int const side = OCDom::MINUS )
+    ( std::vector<FFVar> const& Var, FFVar const& Indep, double const& Coord, int const side = FFDom::MINUS )
     {
 #ifdef MC__FFEVAL_CHECK
       assert( !Var.empty() );
@@ -2219,7 +2235,7 @@ public:
     }
 
   FFVar operator()
-    ( FFVar const& Var, FFVar const& Indep, double const& Coord, int const side = OCDom::MINUS )
+    ( FFVar const& Var, FFVar const& Indep, double const& Coord, int const side = FFDom::MINUS )
     {
       std::map<FFVar,double,lt_FFVar> C{ { Indep, Coord } };
       std::map<FFVar,int,lt_FFVar> S{ { Indep, side } };
@@ -2232,12 +2248,26 @@ public:
       std::map<FFVar,int,lt_FFVar> const& Side = std::map<FFVar,int,lt_FFVar>() )
     {
 #ifdef MC__FFEVAL_CHECK
-      assert( !Var.empty() && !Indep.empty() );
+      assert( !Var.empty() && Indep.tord );
 #endif
       FFVar** ppDer = _set( Var.size(), Var.data(), Indep, Coord, Side );
       std::vector<FFVar> Der( Var.size() );
       for( size_t i=0; i<Var.size(); ++i ) Der[i] = *ppDer[i];
       return Der;
+    }
+
+  //! @brief Value of @p Var at a point, the directions given as a braced list, e.g.
+  //! OpE( u, {{t,1},{z,1}}, {{t,1.},{z,.5}} ).  (A std::map object converts through t_SMon.)
+  FFVar operator()
+    ( FFVar const& Var, std::initializer_list<std::pair<FFVar,unsigned>> Indep,
+      std::map<FFVar,double,lt_FFVar> const& Coord,
+      std::map<FFVar,int,lt_FFVar> const& Side = std::map<FFVar,int,lt_FFVar>() )
+    {
+      t_SMon const Mon( std::map<FFVar,unsigned,lt_FFVar>( Indep.begin(), Indep.end() ) );
+#ifdef MC__FFEVAL_CHECK
+      assert( Mon.tord );
+#endif
+      return *(_set( 1, &Var, Mon, Coord, Side )[0]);
     }
 
   FFVar operator()
@@ -2251,7 +2281,7 @@ public:
       return *(_set( 1, &Var, Indep, Coord, Side )[0]);
     }
 
-  //! @brief Side per consumed direction: OCDom::PLUS where given, OCDom::MINUS otherwise
+  //! @brief Side per consumed direction: FFDom::PLUS where given, FFDom::MINUS otherwise
   std::map<FFVar,int,lt_FFVar> const& Side
     ()
     const
@@ -2259,7 +2289,7 @@ public:
   int side
     ( FFVar const& dir )
     const
-    { auto const it = _Side.find( dir ); return it == _Side.end()? (int)OCDom::MINUS: it->second; }
+    { auto const it = _Side.find( dir ); return it == _Side.end()? (int)FFDom::MINUS: it->second; }
 
   //! @brief STRIP mode (thread-local): while a StripGuard is alive, a symbolic replay (eval on FFVar) of an evaluation
   //! returns its OPERANDS instead of building a new evaluation node -- how FFModel turns a transition declared through
@@ -2342,8 +2372,10 @@ public:
     {
       std::ostringstream os;
       os << "Eval";
-      for( auto const& [v,c] : _Coord )
-        os << "(" << v << "=" << c << ")";
+      for( auto const& [v,c] : _Coord ){
+        auto const is = _Side.find( v );
+        os << "(" << v << "=" << c << ( is != _Side.end() && is->second == FFDom::PLUS? "+": "" ) << ")";
+      }
       return os.str();
     }
 
@@ -2552,7 +2584,7 @@ const
     if( !env )
       throw std::runtime_error( "FFEval::eval<OCVar<U>> ** No collocation environment\n" );
 
-    auto const& din = vVar[i].dom();   // std::map<FFVar const*, OCDom const*, lt_FFVar>
+    auto const& din = vVar[i].dom();   // std::map<FFVar const*, FFDom const*, lt_FFVar>
     auto dout = din;
     std::vector<U> yin, yout;
     std::vector<U> const* pin = &vVar[i].coef();
@@ -4997,8 +5029,8 @@ template <typename T>
 inline bool
 OCBase::lift_colloc
 ( std::vector<T>& coeff_out, const std::vector<T>& coeff_in,
-  const std::map<FFVar const*, OCDom const*, lt_FFVar>& dom_out,
-  const std::map<FFVar const*, OCDom const*, lt_FFVar>& dom_in,
+  const std::map<FFVar const*, FFDom const*, lt_FFVar>& dom_out,
+  const std::map<FFVar const*, FFDom const*, lt_FFVar>& dom_in,
   const bool check )
 {
   if( check && dom_in.size() > dom_out.size() ) return false;
@@ -5019,8 +5051,8 @@ OCBase::lift_colloc
 
   if( check && dom_out.empty() ) return false;
 
-  std::vector<std::pair<FFVar const*,OCDom const*>> outdom;
-  std::vector<std::pair<FFVar const*,OCDom const*>> indom;
+  std::vector<std::pair<FFVar const*,FFDom const*>> outdom;
+  std::vector<std::pair<FFVar const*,FFDom const*>> indom;
   outdom.reserve( dom_out.size() );
   indom .reserve( dom_in .size() );
   for( auto const& d : dom_out ) outdom.push_back( d );
@@ -5087,7 +5119,7 @@ OCBase::lift_colloc
 
 inline std::pair<size_t, size_t>
 OCBase::stride
-( std::map<FFVar const*, OCDom const*, lt_FFVar> const& dom,
+( std::map<FFVar const*, FFDom const*, lt_FFVar> const& dom,
   FFVar const* index, bool const check )
 {
   auto itndx = dom.find( index );

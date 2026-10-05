@@ -1,203 +1,129 @@
-# Installation instructions for MC++/CRONOS/CANON/MAGNUS (last updated 2026-06-15)
+# Installing MC++
 
-## Windows: install WSL2 with default distribution (Ubuntu 26.04 LTS)
-- from Powershell or Command Prompt run `wsl --install`, then follow the instructions to set up a user account (a system restart might be required)
-- all subsequent commands are to be run from the **Ubuntu terminal** (use it via Windows Terminal)
-- `sudo apt update && sudo apt full-upgrade`
-- `explorer.exe .` lets you browse Ubuntu directories using the Windows file explorer
+## What MC++ is
 
-## Required compilers and build tools
-- `sudo apt install build-essential gfortran cmake`
+MC++ is a toolkit for the construction, manipulation and evaluation of factorable functions.  Expression trees
+are described by directed acyclic graphs (DAGs) and can comprise any finite combination of unary and binary
+operations from a default library; the DAGs can be extended with external operations -- affine and polynomial
+subexpressions, multi-layer perceptrons, nested DAGs, and through [CRONOS](https://github.com/omega-icl/cronos)
+systems of algebraic and differential equations.  Version 5 provides the construction and differentiation of
+expression trees (forward and reverse accumulation), their recursive decomposition into linear/polynomial
+subexpressions and transcendental operations, nested expression trees, and a range of bounding arithmetics:
+intervals, eigenvalues, ellipsoids, McCormick relaxations, Taylor and Chebyshev models, polyhedral and
+superposition relaxations.
 
-## Set up Git
-- `git config --global user.name "<NAME>"`
-- `git config --global user.email "<EMAIL>"`
-- change the default text editor: `git config --global core.editor <EDITOR>`
+MC++ is a header-only C++ library in the `mc::` namespace.  Its Python binders form the library PyMC++, built
+with [pybind11](https://pybind11.readthedocs.io/) and imported as the module `pymcpp`.  Expression trees built with MC++ are used by
+[CANON](https://github.com/omega-icl/canon) for local and global optimisation and by
+[MAGNUS](https://github.com/omega-icl/magnus) for model development and analysis.
 
-## SSH key
-- generate a new keypair: `ssh-keygen -t ed25519`, then press **Enter** a few times to continue with the default options
-- read the public key with `cat ~/.ssh/id_ed25519.pub`, copy and add it to the Github account settings
+## Option A: PyMC++ from PyPI
 
----
-## MC++ dependencies
-- `sudo apt install liblapack-dev libblas-dev`
-- Boost: `sudo apt install libboost-all-dev`, then verify that the boost libraries have been installed correctly with `cat /usr/include/boost/version.hpp | grep "BOOST_LIB_VERSION"`
-- obtain the HSL libraries [MC13](https://www.hsl.rl.ac.uk/catalogue/mc13.html), [MC21](https://www.hsl.rl.ac.uk/catalogue/mc21.html), [MC33](https://www.hsl.rl.ac.uk/catalogue/mc33.html); then `tar -xzf mc13-1.0.0.tar.gz`, `cd mc13-1.0.0`, `./configure` and `sudo make install` (repeat for MC21 and MC33)
-- Armadillo dependencies: `sudo apt install libopenblas-dev libarpack2-dev libsuperlu-dev`
-- Armadillo: download the latest release (currently [v15.2.7](https://sourceforge.net/projects/arma/files/armadillo-15.2.7.tar.xz)), extract it with `tar -xJf armadillo-15.2.7.tar.xz`, `cd armadillo-15.2.7` then `./configure` and `sudo make install`
-
-## MC++ downloads
-- clone the repository `git clone git@github.com:omega-icl/mcpp.git`
-- `cd mcpp`
-- `git checkout version-5.0`
-- `git submodule init && git submodule update`
-
-## MC++ install via CMake
-- `sudo apt install cmake build-essential ninja-build pkg-config`
-- With a python package manager such as [uv](https://docs.astral.sh/uv/) and pytorch installed, the recommended configuration command is:
-```bash
-cmake -S . -B build \
-  -DMC_INTERVAL_LIBRARY=BOOST \
-  -DENABLE_HSL=ON \
-  -DCUSTOM_PYTHON_PATH=/home/bchachua/Programs/uv/mcpp/.venv/bin/python \
-  -DENABLE_TORCH=ON \
-  -DTORCH_PYTHON_PREFIX=/home/bchachua/Programs/uv/mcpp/.venv/lib/python3.14/site-packages/torch \
-  -DENABLE_EXAMPLES=OFF
 ```
-- From the same MC++ root directory, build with:
-```bash
-cmake --build build --parallel $(nproc)
-```
-That compiles the pymcpp Python extension.
-- To install only the Python module into your selected uv environment run:
-```bash
-cmake --install build --component python_modules
-```
-- To install the Python module, for instance in /opt/mcpp, specify:
-```bash
-cmake -S . -B build \
-  -DCMAKE_INSTALL_PREFIX=/opt/mcpp \
-  -DMC_INTERVAL_LIBRARY=BOOST \
-  -DENABLE_HSL=ON \
-  -DCUSTOM_PYTHON_PATH=/home/bchachua/Programs/uv/mcpp/.venv/bin/python \
-  -DENABLE_TORCH=ON \
-  -DTORCH_PYTHON_PREFIX=/home/bchachua/Programs/uv/mcpp/.venv/lib/python3.14/site-packages/torch \
-  -DENABLE_EXAMPLES=OFF
-```
-followed by:
-```bash
-cmake --build build --parallel $(nproc)
-sudo cmake --install build
-```
-which will install to:
-This should install to:
-```
-/opt/mcpp/include/
-/opt/mcpp/lib/
-/opt/mcpp/notebook/
+pip install pymcpp
 ```
 
-## MC++ install via Make
-- `cd src && make install`
-- append the following lines to `~/.bashrc` using a text editor
-```
-export PYTHONPATH="${PYTHONPATH}: [...]/mcpp/src/pymcpp"
-```
-- restart the terminal for changes to take effect, or run `source ~/.bashrc`
+installs pre-built wheels for Python 3.10 to 3.14 on Linux x86-64 (glibc >= 2.27), macOS 14+ (Apple silicon)
+and Windows x86-64, with no further dependency.  The notebooks in `notebook/` run as they are.  Build from
+source when you need the C++ headers, a different interval backend, the HSL or Torch options, or a `pymcpp`
+built against the same headers and pybind11 release as another module that exchanges objects with it (CRONOS's
+`cronos`, for instance).
 
----
-## CRONOS dependencies
-- SuiteSparse: `sudo apt install libsuitesparse-dev`
-### SUNDIALS
-- download the latest release (currently [v7.4.0](https://github.com/LLNL/sundials/releases/download/v7.4.0/sundials-7.4.0.tar.gz)), then extract it with `tar -xzf sundials-7.4.0.tar.gz`
-- create a build directory with `mkdir sundials-build`
-- `cd sundials-build`
-- ```
-  cmake -DCMAKE_INSTALL_PREFIX=/opt/sundials-7.4.0 \
-        -DEXAMPLES_ENABLE_CXX=ON \
-        -DEXAMPLES_INSTALL_PATH=/opt/sundials-7.4.0/examples \
-        -DENABLE_LAPACK=ON \
-        -DENABLE_PTHREAD=ON \
-        -DENABLE_KLU=ON \
-        -DKLU_INCLUDE_DIR=/usr/include/suitesparse \
-        -DKLU_LIBRARY_DIR=/lib/x86_64-linux-gnu \
-        ../sundials-7.4.0
-  ```
-- `sudo make install`
-### Alternative: CVODES only, no examples
-- download the latest release (currently [v7.4.0](https://github.com/LLNL/sundials/releases/download/v7.4.0/cvodes-7.4.0.tar.gz)), extract it with `tar -xzf cvodes-7.4.0.tar.gz`
-- create a build directory with `mkdir cvodes-build`
-- `cd cvodes-build`
-- ```
-  cmake -DCMAKE_INSTALL_PREFIX=/opt/sundials-7.4.0 \
-        -DENABLE_LAPACK=ON \
-        -DENABLE_PTHREAD=ON \
-        -DENABLE_KLU=ON \
-        -DKLU_INCLUDE_DIR=/usr/include/suitesparse \
-        -DKLU_LIBRARY_DIR=/lib/x86_64-linux-gnu \
-        ../cvodes-7.4.0
-  ```
-- `sudo make install`
+## Option B: building from source with CMake
 
-## Environment variables
-- append the following lines to `~/.bashrc` using a text editor
-```
-export SUNDIALS_HOME="/opt/sundials-7.4.0"
-export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:/usr/lib/x86_64-linux-gnu:${SUNDIALS_HOME}/lib"
-export PYTHONPATH="${PYTHONPATH}:/opt/cronos/src/interface"
-```
-- restart the terminal for changes to take effect, or run `source ~/.bashrc`
+### Requirements
 
-## CRONOS
-- `cd /opt`
-- clone the repository: `git clone git@github.com:omega-icl/cronos.git`
-- `cd cronos/src`
-- `sudo make install`
+| dependency | version | role |
+|---|---|---|
+| C++ compiler | C++20 | GCC, Clang or MSVC (the PyPI wheels are built on Linux, macOS and Windows) |
+| CMake | >= 3.18 | |
+| Boost | | the default interval arithmetic (`MC_INTERVAL_LIBRARY=BOOST`) |
+| BLAS / LAPACK | | |
+| Armadillo | | dense linear algebra |
+| PROFIL/BIAS or FILIB++ | optional | alternative interval backends (`PROFIL_HOME`, `FILIB_HOME`) |
+| HSL MC13 / MC21 / MC33 | optional | structural analysis routines (`ENABLE_HSL`, needs a Fortran runtime) |
+| PyTorch (libtorch, CPU) | optional | the Torch interface (`ENABLE_TORCH`) |
+| Python | >= 3.10, development headers | for PyMC++ (`pymcpp`) |
+| pybind11 | **>= 3.0.3, not 3.1.0** (3.0.4 recommended) | the binders |
+| pybind11-stubgen | optional | generates the `pymcpp.pyi` type stub |
 
----
-## CANON dependencies: SNOPT
-- obtain [SNOPT7](https://ccom.ucsd.edu/~optimizers/solvers/snopt/)
-- `sudo apt install unzip`
-- unzip the file with `unzip snopt7.7.zip`, `cd snopt7`, `./configure --prefix=/opt/snopt77 --with-c --with-cpp` and finally `sudo make install`
+pybind11 is taken from the vendored `extern/pybind11` (a git submodule: `git submodule update --init`) if
+present, otherwise from an installed pybind11 package.  Release 3.1.0 has a `keep_alive` regression on rejected
+overloads that breaks the binders; 3.0.3 is the first release with the virtual-base detection and the
+string-ownership fix the binders rely on.
 
-## CANON dependencies: GAMS
-- download the latest [GAMS installer](https://www.gams.com/download/) (currently v51.1.0)
-- `sudo mkdir /opt/gams && cd /opt/gams`
-- move the installer into this directory `sudo mv <FILEPATH> /opt/gams/` (`<FILEPATH>` can be a Windows path, for example `/mnt/c/Users/<username>/Downloads/linux_x64_64_sfx.exe`)
-- make sure the file can be executed with `sudo chmod u+x linux_x64_64_sfx.exe` and run it `sudo ./linux_x64_64_sfx.exe`
+### Configure
 
-## CANON dependencies: Gurobi
-- get the latest [Gurobi Optimizer installer](https://www.gurobi.com/downloads/gurobi-software/) (currently v12.0.3)
-- move the installer `sudo mv <FILEPATH> /opt`
-- `sudo tar -xzf gurobi12.0.3_linux64.tar.gz`
-### Fix for Gurobi under WSL2
-- append the following lines to `~/.bashrc` to assign a fixed MAC address, otherwise the license does not work after WSL2 restarts
 ```
-# assign a persistent MAC address for adapter bond0 and rename it eth1
-mac=1a:2b:3c:4d:5e:6f
-if ! ip link show | grep -q $mac; then
-  sudo ip link add bond0 type bond  # only if no bond0 adapter present already
-  sudo ip link set dev bond0 down
-  sudo ip link set dev bond0 address $mac
-  sudo ip link set dev bond0 name eth1
-  sudo ip link set dev eth1 up
-fi
-```
-### Gurobi license
-- generate a **Named-User Academic** license on the website, run `grbgetkey <LICENSE_KEY>` and click enter to save it at the default location
-- add the following line to `~/.bashrc` and restart the terminal
-```
-export GRB_LICENSE_FILE="${HOME}/gurobi.lic"
+git clone --recurse-submodules https://github.com/omega-icl/mcpp.git
+cmake -S mcpp -B build
 ```
 
-## Environment variables
-- append the following lines to `~/.bashrc`
-```
-export GAMS_HOME="/opt/gams/gams51.1_linux_x64_64_sfx"
-export GUROBI_HOME="/opt/gurobi1203/linux64"
-export SNOPT_HOME="/opt/snopt77"
-export PATH="${PATH}:${GUROBI_HOME}/bin"
-export LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${GUROBI_HOME}/lib:${SNOPT_HOME}/lib"
-export PYTHONPATH="${PYTHONPATH}:/opt/canon/src/interface"
-```
-- restart the terminal for changes to take effect, or run `source ~/.bashrc`
+Everything is found without help when installed in standard places.  The main options:
 
-## CANON
-- `cd /opt`
-- clone the repository: `git clone git@github.com:omega-icl/canon.git`
-- `cd canon/src`
-- `sudo make install`
+| option | default | |
+|---|---|---|
+| `MC_INTERVAL_LIBRARY` | `BOOST` | interval backend: `BOOST`, `PROFIL` (set `PROFIL_HOME`), `FILIB` (set `FILIB_HOME`), `NONVERIFIED` |
+| `ENABLE_HSL` | OFF | link the HSL routines MC13, MC21, MC33 (found by `find_library`, else assumed on the linker path) |
+| `ENABLE_TORCH` | OFF | the Torch interface; `TORCH_PYTHON_PREFIX` points at the torch package or its CMake directory, else torch is imported from the build's Python |
+| `MC__USE_FADBAD` | OFF | FADBAD++ forward AD (`src/3rdparty/fadbad++`) in place of the default implementation -- FADBAD++ is restricted to non-commercial use, see Licence |
+| `ENABLE_EXAMPLES` | OFF | build every program under `test/` (the FADBAD ones need `MC__USE_FADBAD`) |
+| `PYMCPP_STUBS` | ON | generate and install `pymcpp.pyi` (skipped, with a warning, if `pybind11-stubgen` is not importable) |
+| `CUSTOM_PYTHON_PATH` | | a Python executable or a virtual-environment root, to build against a specific Python |
+| `CMAKE_BUILD_TYPE` | `Release` | `Release` is `-O2`; `Debug` is `-O0 -g` |
+| `PYMCPP_INSTALL_DIR`, `MCPP_NOTEBOOK_INSTALL_DIR` | `lib`, `notebook` | installation subdirectories |
 
----
-## Environment variables
-- append the following lines to `~/.bashrc`
-```
-export PYTHONPATH="${PYTHONPATH}:/opt/magnus/src/interface"
-```
-- restart the terminal for changes to take effect, or run `source ~/.bashrc`
+### Build, install, test
 
-## MAGNUS
-- `cd /opt`
-- clone the repository: `git clone git@github.com:omega-icl/magnus.git`
-- `cd magnus/src`
-- `sudo make install`
+```
+cmake --build build -j
+cmake --install build --prefix <prefix>
+```
+
+installs the headers in `<prefix>/include`, the `pymcpp` module and its `.pyi` stub in `<prefix>/lib`, and the
+notebooks and scripts in `<prefix>/notebook`.  Then, with `<prefix>/lib` on the Python path:
+
+```python
+import pymcpp
+```
+
+With `-DENABLE_EXAMPLES=ON`, every program under `test/` is built as an executable in the build directory.
+
+For a wheel build with scikit-build-core, pass `-DPYMCPP_INSTALL_DIR=.` and install only the `python_modules`
+component.
+
+### Using the headers in another project
+
+MC++ v5 installs its headers but exports no CMake package yet.  A project using them adds `<prefix>/include`
+(or `<MC++>/src/mc` from the source tree, plus `src/3rdparty/fadbad++` under `MC__USE_FADBAD`) to its include
+path, and defines the macros its MC++ build used: `MC__USE_THREAD`, `MC__USE_TADIFF`, `MC__USE_ARMADILLO`, the
+interval backend (`MC__USE_BOOST`, `MC__USE_PROFIL` or `MC__USE_FILIB`), and `MC__USE_HSL`, `MC__USE_TORCH` or
+`MC__USE_FADBAD` when enabled.  CRONOS does this through its `MCPP_ROOT` variable.
+
+### Modules that exchange objects with `pymcpp`
+
+A module built on `pymcpp`'s types (CRONOS's `cronos`, for one) receives `FFVar`, `FFGraph`, ... objects from it.
+pybind11 shares types between modules only when both were built against the same internals, so build the two
+modules with **the same pybind11 release** and **the same MC++ headers**, and rebuild both after any header
+change.  A mismatch typically shows as `free(): invalid pointer` or a segmentation fault the first time the two
+modules exchange an object.
+
+## Troubleshooting
+
+| symptom | cause |
+|---|---|
+| `extern/pybind11` is empty | the submodule is not checked out: `git submodule update --init`, or clone with `--recurse-submodules` |
+| `pybind11-stubgen` warning at configure time | `pip install pybind11-stubgen` into the build's Python, or `-DPYMCPP_STUBS=OFF` |
+| `ENABLE_TORCH=ON, but torch could not be imported` | install `torch` into the build's Python, or set `TORCH_PYTHON_PREFIX` |
+| `PROFIL_HOME not set` / `FILIB_HOME not set` | the chosen interval backend's prefix must be given (cache or environment variable) |
+| crash when another module exchanges objects with `pymcpp` | the two modules were built from different MC++ headers or pybind11 releases: rebuild both from clean |
+| the Python docstrings or stub look stale after a header change | rebuild `pymcpp` (the stub is regenerated after each build) |
+
+## Licence
+
+MC++ is published under the Eclipse Public License.
+
+**FADBAD++** (`MC__USE_FADBAD=ON`, off by default) is a separate work by Ole Stauning and Claus Bendtsen,
+distributed free of charge for non-commercial use only: commercial use requires a licence from its authors.  MC++
+is built and distributed without it, with its own forward-AD implementation; anyone enabling FADBAD++ takes on
+that restriction for the resulting binaries.

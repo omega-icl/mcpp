@@ -134,7 +134,7 @@ mlp : list of tuple of (list of list of float, int)
           [](mc::MLP<I>& self, std::vector<std::vector<double>> const& layer,
              int const activ, bool const reset)
           { self.append_data(layer, activ, reset); },
-          py::arg("layer"), py::arg("activ") = mc::MLP<I>::LINEAR,
+          py::arg("layer"), py::arg_v("activ", mc::MLP<I>::LINEAR, "MLP.ACTIV_TYPE.LINEAR"),
           py::arg("reset") = false, R"doc(
 Append a multi-neuron layer to the network data.
 
@@ -156,7 +156,7 @@ reset : bool, optional
           [](mc::MLP<I>& self, std::vector<double> const& layer,
              int const activ, bool const reset)
           { self.append_data(layer, activ, reset); },
-          py::arg("layer"), py::arg("activ") = mc::MLP<I>::LINEAR,
+          py::arg("layer"), py::arg_v("activ", mc::MLP<I>::LINEAR, "MLP.ACTIV_TYPE.LINEAR"),
           py::arg("reset") = false, R"doc(
 Append a single-neuron layer to the network data.
 

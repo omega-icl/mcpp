@@ -1,3 +1,7 @@
+// Copyright (C) Benoit Chachuat, Imperial College London.
+// All Rights Reserved.
+// This code is published under the Eclipse Public License.
+
 #include <pybind11/operators.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
@@ -657,6 +661,20 @@ rem : Interval
 
   // Nested class Options
 
+  py::enum_<SICM::Options::ALLOCATION>(pySICModelOptions, "ALLOCATION")
+      .value("NONE", SICM::Options::ALLOCATION::NONE,
+             "No split of HOT; allocate to constant coefficient")
+      .value("SIMPLE", SICM::Options::ALLOCATION::SIMPLE,
+             "Split HOT between current term and new variable")
+      .value("FULL", SICM::Options::ALLOCATION::FULL,
+             "Split HOT among all variables")
+      .export_values();
+
+  py::enum_<SICM::Options::MONBASIS>(pySICModelOptions, "MONBASIS")
+      .value("MONOM", SICM::Options::MONBASIS::MONOM, "Monomial basis")
+      .value("CHEB", SICM::Options::MONBASIS::CHEB, "Chebyshev basis")
+      .export_values();
+
   pySICModelOptions.def(py::init<>(), "Construct options with default values.")
       .def(py::init<SICM::Options const&>(), "Copy constructor.")
       .def(
@@ -756,20 +774,6 @@ Number of digits used when printing Chebyshev model coefficients
 (int). Default is 7.
 )doc");
 
-
-  py::enum_<SICM::Options::ALLOCATION>(pySICModelOptions, "ALLOCATION")
-      .value("NONE", SICM::Options::ALLOCATION::NONE,
-             "No split of HOT; allocate to constant coefficient")
-      .value("SIMPLE", SICM::Options::ALLOCATION::SIMPLE,
-             "Split HOT between current term and new variable")
-      .value("FULL", SICM::Options::ALLOCATION::FULL,
-             "Split HOT among all variables")
-      .export_values();
-
-  py::enum_<SICM::Options::MONBASIS>(pySICModelOptions, "MONBASIS")
-      .value("MONOM", SICM::Options::MONBASIS::MONOM, "Monomial basis")
-      .value("CHEB", SICM::Options::MONBASIS::CHEB, "Chebyshev basis")
-      .export_values();
 
   // Nested class Exceptions
   py::class_<SICM::Exceptions> pySICModelExceptions(pySICModel, "Exceptions",

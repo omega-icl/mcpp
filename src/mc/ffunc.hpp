@@ -779,6 +779,7 @@ McCormick relaxations</A>, <i>Journal of Global Optimization</i>,
 #include <typeindex>
 #include <typeinfo>
 #include <unordered_map>
+#include <memory>
 #include <utility>
 #include <vector>
 
@@ -1497,6 +1498,16 @@ class FFOp
   mutable bool owndata;
   //! @brief Flag for derivative sparsity
   mutable bool sparse;
+  //! @brief Repeated operands of an external operation (the same FFVar more than once in varin): -1 not yet
+  //! scanned, 0 none, 1 some -- then dupfirst[i] is the index of varin[i]'s first occurrence.  Scanned once,
+  //! when the operation is emitted into a subgraph (single-threaded), and used by evaluate_external().
+  mutable signed char dupstate = -1;                  // fits in the padding after the two bool flags
+  mutable std::unique_ptr<std::vector<unsigned>> dupfirst;   // allocated only when there ARE repeated operands
+  //! @brief Scan varin for repeated operands (sets dupstate / dupfirst)
+  void scan_repeated_operands() const;
+  //! @brief evaluate_external() for an operation with repeated operands (kept out of line: the cold path)
+  template <typename U>
+  void evaluate_external_repeated(U* resU, U* wkU, unsigned* wkmov) const;
 
   //! @brief Set operand copy
   FFOp& set(FFOp const& other);
@@ -5887,7 +5898,9 @@ inline FFOp::FFOp(FFOp const& other)
       info(other.info),
       data(other.data),
       owndata(false),
-      sparse(other.sparse)
+      sparse(other.sparse),
+      dupstate(-1),
+      dupfirst()
 {
 }
 
@@ -5901,7 +5914,42 @@ FFOp::set(FFOp const& other)
   data    = other.data;
   owndata = false;
   sparse  = other.sparse;
+  dupstate = -1;
+  dupfirst.reset();
   return *this;
+}
+
+#if defined(__GNUC__)
+__attribute__((noinline, cold))
+#endif
+inline void
+FFOp::scan_repeated_operands() const
+{
+  unsigned const nin = varin.size();
+  dupstate = 0;
+  dupfirst.reset();
+  if (nin < 2) return;
+  std::vector<unsigned> first(nin);
+  if (nin <= 16)
+  {
+    for (unsigned i = 0; i < nin; ++i)
+    {
+      first[i] = i;
+      for (unsigned k = 0; k < i; ++k)
+        if (varin[k] == varin[i]) { first[i] = k; dupstate = 1; break; }
+    }
+  }
+  else
+  {
+    std::unordered_map<FFVar const*, unsigned> seen;
+    seen.reserve(nin);
+    for (unsigned i = 0; i < nin; ++i)
+    {
+      first[i] = seen.emplace(varin[i], i).first->second;
+      if (first[i] != i) dupstate = 1;
+    }
+  }
+  if (dupstate) dupfirst.reset(new std::vector<unsigned>(std::move(first)));
 }
 
 inline FFOp&
@@ -6161,6 +6209,7 @@ FFOp::propagate_subgraph(unsigned const ndxDep,
     if (pushed) continue;
 
     // All operands processed - emit this op
+    if (op->type >= FFOp::EXTERN && op->dupstate < 0) op->scan_repeated_operands();
     l_ops.push_back(op);
     if (dag) dag->_dirty_ops.push_back(const_cast<FFOp*>(op));
     for (unsigned j = 0; j < op->varout.size(); ++j)
@@ -7147,23 +7196,69 @@ FFOp::evaluate_external(U* resU, unsigned const* resmov, U* wkU,
   {
     if (varin.size() && !wkU)
       throw typename FFBase::Exceptions(FFBase::Exceptions::INTERN);
-    // Move variable values into temporary storage
-    for (unsigned i = 0; i < varin.size(); ++i)
+    // Repeated operands (the same FFVar more than once in varin, e.g. an embedded solver fed one DAG
+    // expression for two degrees of freedom): moving each occurrence would hand the later ones a moved-from
+    // value -- harmless for double, empty for FFExpr and other stateful types.  The scan is cached on the
+    // operation (done at subgraph emission; here only as a fallback), so the common case costs nothing extra.
+#if defined(__GNUC__)
+    if (__builtin_expect(dupstate < 0, 0)) scan_repeated_operands();
+#else
+    if (dupstate < 0) scan_repeated_operands();
+#endif
+#if defined(__GNUC__)
+    if (__builtin_expect(dupstate != 0, 0))
+#else
+    if (dupstate)
+#endif
+      evaluate_external_repeated(resU, wkU, wkmov);
+    else
+    {
+      // Move variable values into temporary storage
+      for (unsigned i = 0; i < varin.size(); ++i)
+      {
+        wkU[i]   = std::move(*static_cast<U*>(varin[i]->val()));
+        wkmov[i] = varin[i]->mov();
+      }
+      feval(typeid(U), varout.size(), resU, varin.size(), wkU, wkmov);
+      // Move non-movable variable values back from temporary storage
+      for (unsigned i = 0; i < varin.size(); ++i)
+      {
+        if (!wkmov[i]) *static_cast<U*>(varin[i]->val()) = std::move(wkU[i]);
+      }
+    }
+
+  }
+
+  return;
+}
+
+template <typename U>
+#if defined(__GNUC__)
+__attribute__((noinline, cold))
+#endif
+void
+FFOp::evaluate_external_repeated(U* resU, U* wkU, unsigned* wkmov) const
+{
+  // First occurrences are moved, later ones COPY that slot and are never moved back
+  for (unsigned i = 0; i < varin.size(); ++i)
+  {
+    if ((*dupfirst)[i] == i)
     {
       wkU[i]   = std::move(*static_cast<U*>(varin[i]->val()));
       wkmov[i] = varin[i]->mov();
     }
-    feval(typeid(U), varout.size(), resU, varin.size(), wkU, wkmov);
-    // Move non-movable variable values back from temporary storage
-    for (unsigned i = 0; i < varin.size(); ++i)
+    else
     {
-      // std::cout << "Moving back variable " << *varin[i] << ": " << i <<
-      // std::endl;
-      if (!wkmov[i]) *static_cast<U*>(varin[i]->val()) = std::move(wkU[i]);
+      wkU[i]   = wkU[(*dupfirst)[i]];
+      wkmov[i] = 0;
     }
   }
-
-  return;
+  feval(typeid(U), varout.size(), resU, varin.size(), wkU, wkmov);
+  for (unsigned i = 0; i < varin.size(); ++i)
+  {
+    if ((*dupfirst)[i] == i && !wkmov[i])
+      *static_cast<U*>(varin[i]->val()) = std::move(wkU[i]);
+  }
 }
 
 inline void
