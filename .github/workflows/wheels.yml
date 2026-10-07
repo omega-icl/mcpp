@@ -89,6 +89,8 @@ jobs:
           CIBW_REPAIR_WHEEL_COMMAND_WINDOWS: >
             delvewheel repair --add-path C:/openblas/bin -w {dest_dir} {wheel}
 
+      - name: Every bundled library has a third-party notice
+        run: python3 tools/ci/check_notices.py THIRD_PARTY_NOTICES.txt wheelhouse/*.whl
       - uses: actions/upload-artifact@v4
         with:
           name: wheels-${{ matrix.os }}
@@ -129,7 +131,7 @@ jobs:
           CIBW_BUILD_FRONTEND: "build; args: --no-isolation"
           CIBW_BEFORE_BUILD_LINUX: >
             pip install torch --index-url https://download.pytorch.org/whl/cpu &&
-            pip install "scikit-build-core>=0.10" "pybind11>=2.13" "pybind11-stubgen>=2.5" ninja cmake
+            pip install "scikit-build-core>=0.10" "pybind11==3.0.4" "pybind11-stubgen>=2.5" ninja cmake
           # Override the pyproject default (ENABLE_TORCH=OFF) for this job only.
           CIBW_ENVIRONMENT_LINUX: SKBUILD_CMAKE_DEFINE="ENABLE_TORCH=ON"
           # Do NOT vendor libtorch into the wheel: it must come from the

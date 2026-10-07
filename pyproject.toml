@@ -1,16 +1,17 @@
 [build-system]
 requires = [
   "scikit-build-core>=0.10",
-  "pybind11>=2.13",
+  "pybind11==3.0.4",          # = the vendored extern/pybind11 the build uses; CRONOS pins the same (shared types)
   "pybind11-stubgen>=2.5"
 ]
 build-backend = "scikit_build_core.build"
 
 [project]
 name = "pymcpp"
-version = "5.0.2"
+version = "5.0.3"
 description = "Python interface to MC++"
 readme = "README.md"
+license = "EPL-2.0"
 license-files = ["LICENSE", "THIRD_PARTY_NOTICES.txt"]
 requires-python = ">=3.10"
 dependencies = []

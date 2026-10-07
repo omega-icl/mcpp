@@ -2,8 +2,8 @@
 Third-party notices for binary distributions of pymcpp
 ===============================================================================
 
-pymcpp (MC++) itself is published under the Eclipse Public License; see the
-LICENSE file. Binary distributions (wheels) of pymcpp additionally compile in
+pymcpp (MC++) itself is published under the Eclipse Public License 2.0, with the GNU
+General Public License, version 2 or later, as a Secondary License; see the LICENSE file. Binary distributions (wheels) of pymcpp additionally compile in
 or bundle the following third-party software.
 
 ###############################################################################
@@ -316,6 +316,150 @@ https://digitallibrary.un.org/record/3965290/files/A_RES_ES-11_1-RU.pdf
    limitations under the License.
 
 ###############################################################################
+Name: ARPACK-NG
+Files: bundled in the wheel as a dynamically linked library where Armadillo links it (all wheels)
+Availability: https://github.com/opencollab/arpack-ng
+License: BSD-3-Clause
+
+Copyright (c) 1996-2008 Rice University.
+Copyright (c) Developed by D.C. Sorensen, R.B. Lehoucq, C. Yang, K. Maschhoff,
+Copyright (c) Sylvestre Ledru, etc.
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are
+met:
+
+ - Redistributions of source code must retain the above copyright
+   notice, this list of conditions and the following disclaimer.
+
+ - Redistributions in binary form must reproduce the above copyright
+   notice, this list of conditions and the following disclaimer listed
+   in this license in the documentation and/or other materials
+   provided with the distribution.
+
+ - Neither the name of the copyright holders nor the names of its
+   contributors may be used to endorse or promote products derived from
+   this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+"AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
+LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
+A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT
+OWNER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT
+LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+(INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
+OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+###############################################################################
+Name: ATLAS
+Files: bundled in the wheel as a dynamically linked library where the build image's BLAS/LAPACK is ATLAS (e.g. the
+       manylinux_2_28 images)
+Availability: https://github.com/math-atlas/math-atlas
+License: BSD-3-Clause
+
+Copyright information is provided in the individual files, but all files
+are licensed according the 3-clause BSD license (see below).
+
+ Redistribution and use in source and binary forms, with or without
+ modification, are permitted provided that the following conditions
+ are met:
+   1. Redistributions of source code must retain the above copyright
+      notice, this list of conditions and the following disclaimer.
+   2. Redistributions in binary form must reproduce the above copyright
+      notice, this list of conditions, and the following disclaimer in the
+      documentation and/or other materials provided with the distribution.
+   3. The name of the ATLAS group or the names of its contributers may
+      not be used to endorse or promote products derived from this
+      software without specific written permission.
+
+ THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
+ ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
+ TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE ATLAS GROUP OR ITS CONTRIBUTORS
+ BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
+ POSSIBILITY OF SUCH DAMAGE.
+
+###############################################################################
+Name: SuperLU
+Files: bundled in the wheel as a dynamically linked library (all wheels; through Armadillo)
+Availability: https://github.com/xiaoyeli/superlu
+License: BSD-3-Clause variant (below)
+
+Copyright (c) 2003, The Regents of the University of California, through
+Lawrence Berkeley National Laboratory (subject to receipt of any required 
+approvals from U.S. Dept. of Energy) 
+
+All rights reserved. 
+
+Redistribution and use in source and binary forms, with or without
+modification, are permitted provided that the following conditions are met: 
+
+(1) Redistributions of source code must retain the above copyright notice,
+this list of conditions and the following disclaimer. 
+(2) Redistributions in binary form must reproduce the above copyright notice,
+this list of conditions and the following disclaimer in the documentation
+and/or other materials provided with the distribution. 
+(3) Neither the name of Lawrence Berkeley National Laboratory, U.S. Dept. of
+Energy nor the names of its contributors may be used to endorse or promote
+products derived from this software without specific prior written permission.
+
+THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS
+IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT OWNER OR
+CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
+EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
+PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
+PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
+LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
+NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+
+
+-----------------
+External software
+-----------------
+In the ILU preconditioner driver routine xGSISX, we use MC64 routine
+to pre-permute large entries to the main diagonal. This use path can
+be removed for commercial users. MC64 routine carries the following notice:
+
+  COPYRIGHT (c) 1999  Council for the Central Laboratory of the
+  Research Councils.    All rights reserved.
+  PACKAGE MC64A/AD
+  AUTHORS Iain Duff (i.duff@rl.ac.uk) and Jacko Koster (jak@ii.uib.no)
+  LAST UPDATE 20/09/99
+  
+  *** Conditions on external use ***
+ 
+  The user shall acknowledge the contribution of this
+  package in any publication of material dependent upon the use of
+  the package. The user shall use reasonable endeavours to notify
+  the authors of the package of this publication.
+  
+  The user can modify this code but, at no time
+  shall the right or title to all or any part of this package pass
+  to the user. The user shall make available free of charge
+  to the authors for any purpose all information relating to any
+  alteration or addition made to this package for the purposes of
+  extending the capabilities or enhancing the performance of this
+  package.
+  
+  The user shall not pass this code directly to a third party without the
+  express prior consent of the authors.  Users wanting to licence their
+  own copy of these routines should send email to hsl@aeat.co.uk
+  
+  None of the comments from the Copyright notice up to and including this
+  one shall be removed or altered in any way.
+
+###############################################################################
 Name: OpenBLAS
 Files: libopenblas bundled in the wheel as a dynamically linked library.
 Availability: https://github.com/OpenMathLib/OpenBLAS/
@@ -409,7 +553,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 
 ###############################################################################
-Name: GCC runtime libraries (libgfortran, libquadmath)
+Name: GCC runtime libraries (libgfortran, libquadmath, libgomp)
 Files: bundled in the wheel as dynamically linked libraries where required;
 Availability: https://gcc.gnu.org
 License: GPL-3.0-or-later WITH GCC-exception-3.1
