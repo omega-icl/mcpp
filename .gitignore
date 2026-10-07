@@ -1,35 +1,12 @@
-# Build artifacts
-/build
+# Generated documentation (cd docs && doxygen MC++.dox)
+doc/html/
 
-# Generated Doxygen documentation
-/doc/html
+# CMake build trees (cmake -S . -B build ...)
+build/
+build-*/
+build_*/
 
-# IDE config directories
-.idea/
-.vscode/
-.zed/
-
-# Compiled Python files
-*.py[cod]
+# Python
 __pycache__/
-
-# Python virtual environment
-.venv/
-
-# Jupyter
+*.pyc
 .ipynb_checkpoints/
-
-# Log files
-*.log
-
-# OS-specific generated files
-.DS_Store
-Thumbs.db
-
-# test generated files
-test/DAG/*.dot
-
-# python wheel builds
-dist/
-*.dot
-docs/generated/

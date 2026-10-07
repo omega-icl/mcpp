@@ -67,6 +67,7 @@ Everything is found without help when installed in standard places.  The main op
 | `ENABLE_HSL` | OFF | link the HSL routines MC13, MC21, MC33 (found by `find_library`, else assumed on the linker path) |
 | `ENABLE_TORCH` | OFF | the Torch interface; `TORCH_PYTHON_PREFIX` points at the torch package or its CMake directory, else torch is imported from the build's Python |
 | `MC__USE_FADBAD` | OFF | FADBAD++ forward AD (`src/3rdparty/fadbad++`) in place of the default implementation -- FADBAD++ is restricted to non-commercial use, see Licence |
+| `MC_ARMA_WRAPPER` | OFF | link Armadillo's runtime wrapper library instead of using Armadillo header-only with BLAS/LAPACK linked directly (the wrapper also pulls in whatever Armadillo was built with, e.g. ARPACK and MPI) |
 | `ENABLE_EXAMPLES` | OFF | build every program under `test/` (the FADBAD ones need `MC__USE_FADBAD`) |
 | `PYMCPP_STUBS` | ON | generate and install `pymcpp.pyi` (skipped, with a warning, if `pybind11-stubgen` is not importable) |
 | `CUSTOM_PYTHON_PATH` | | a Python executable or a virtual-environment root, to build against a specific Python |
@@ -121,7 +122,8 @@ modules exchange an object.
 
 ## Licence
 
-MC++ is published under the Eclipse Public License.
+MC++ is published under the Eclipse Public License 2.0, with the GNU General Public License, version 2 or later,
+as a Secondary License (see [LICENSE](LICENSE)).
 
 **FADBAD++** (`MC__USE_FADBAD=ON`, off by default) is a separate work by Ole Stauning and Claus Bendtsen,
 distributed free of charge for non-commercial use only: commercial use requires a licence from its authors.  MC++

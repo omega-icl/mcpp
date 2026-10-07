@@ -1,59 +1,88 @@
 /*!
 
-@mainpage MC++ (version 4.0): Toolkit for Construction, Manipulation and Evaluation of Factorable Functions
+@mainpage MC++ (version 5.0): Toolkit for Construction, Manipulation and Evaluation of Factorable Functions
 
-@author Benoit C. Chachuat <tt>(b.chachuat@imperial.ac.uk)</tt> and OMEGA Research Group
-@date 2025
+@author Benoit C. Chachuat <tt>(b.chachuat@imperial.ac.uk)</tt> and the OMEGA Research Group, Imperial College London
+@date 2026
 
-MC++ provides a collection of classes to support the construction and manipulation of factorable functions and their evaluation using a range of arithmetics. It is primarily written in C++ to promote execution speed, while the module pyMC includes Python binders through <A href="https://pybind11.readthedocs.io/en/stable/">pybind11</A>.
+MC++ provides a collection of classes to support the construction and manipulation of factorable functions and their evaluation using a range of arithmetics.  It is primarily written in C++ to promote execution speed, while the library PyMC++ provides Python binders through <A href="https://pybind11.readthedocs.io/en/stable/">pybind11</A> (the module is imported as <tt>pymcpp</tt>).
 
-Expression trees in MC++ can comprise any finite combination of unary and binary operations from a default library. MC++ also features a mechanism to extend expression trees with external operations, currently including affine and polynomial subexpressions as well as multi-layer perceptrons (MLP). Through the library <A href="https://github.com/omega-icl/cronos">CRONOS</A>, MC++ can also be extended with systems of algebraic and differential equations. Expression trees generated with MC++ can be used by the library <A href="https://github.com/omega-icl/canon">CANON</A> for local and global numerical optimization; and the library <A href="https://github.com/omega-icl/magnus">MAGNUS</A> for the development and analysis of mathematical models.
+Expression trees in MC++ can comprise any finite combination of unary and binary operations from a default library and are described by directed acyclic graphs (DAGs).  MC++ also features a mechanism to extend DAGs with <i>external operations</i>, currently including affine and polynomial subexpressions, multi-layer perceptrons (MLP) and nested DAGs.  Through the library <A href="https://github.com/omega-icl/cronos">CRONOS</A>, MC++ can also be extended with systems of algebraic and differential equations.  Expression trees generated with MC++ are used by the library <A href="https://github.com/omega-icl/canon">CANON</A> for local and global numerical optimization, and by the library <A href="https://github.com/omega-icl/magnus">MAGNUS</A> for the development and analysis of mathematical models.
 
-Information about the DAG construction and manipulation capability in MC++ can also be found under <A HREF="pages.html">Related Pages</A>:
-- \ref page_FFUNC
+
+\section sec_MC_capabilities What does MC++ do?
+
+Version 5 of MC++ supports:
+- <b>Expression trees</b> (\ref page_FFUNC): construction of factorable functions as DAGs, with common-subexpression elimination; differentiation in both forward and reverse accumulation modes; evaluation in any of the arithmetics below; vectorized and multi-threaded evaluation over many points.  Also: \ref page_FFEXPR, \ref page_FFDEP and \ref page_FFINV.
+- <b>Decomposition</b> (\ref page_SLIFT): recursive decomposition of factorable expressions into linear/polynomial subexpressions and transcendental operations, the basis for tailored relaxation and reformulation strategies.
+- <b>Nested expression trees</b>: a DAG as an operation of another DAG, to enable tailored bounding strategies.
+- <b>External operations</b>: user-defined operations with their own evaluation and differentiation rules -- the mechanism CRONOS uses to embed differential-equation solvers.
 .
 
-A description of the main bounding components of MC++ can also be found under <A HREF="pages.html">Related Pages</A>:
-- \ref page_INTERVAL
-- \ref page_MCCORMICK
-- \ref page_SPECBND
-- \ref page_TAYLOR
-- \ref page_CHEBYSHEV
-- \ref page_ELLIPSOID
-- \ref page_POLYHEDRAL
-- \ref page_SUPREL
+The bounding arithmetics, each a header that can be used on its own or through the DAGs:
+- <b>Interval arithmetic</b> (\ref page_INTERVAL): rigorous enclosures (Boost, PROFIL/BIAS or FILIB++ as backend);
+- <b>Eigenvalue arithmetic</b> (\ref page_SPECBND): spectral bounds of Hessians;
+- <b>Ellipsoidal arithmetic</b> (\ref page_ELLIPSOID): ellipsoidal enclosures of multivariate systems;
+- <b>McCormick relaxations</b> (\ref page_MCCORMICK): convex/concave relaxations and their subgradients;
+- <b>Taylor and Chebyshev models</b> (\ref page_TAYLOR, \ref page_CHEBYSHEV, \ref page_CHEBYSHEV_SPARSE): polynomial models with rigorous remainder bounds;
+- <b>Polyhedral relaxations</b> (\ref page_POLYHEDRAL): linear relaxations for use in LP/MILP solvers;
+- <b>Superposition relaxations</b> (\ref page_SUPREL): relaxation via separable estimators.
 .
 
-A range of python notebooks are provided in \link src/pymcpp \endlink to illustrate these capabilities.
+A range of Python scripts and notebooks in <tt>notebook/</tt> illustrate these capabilities.
 
 
 \section sec_MC_install Setting up MC++
 
-Refer to \link INSTALL.md \endlink for instructions.
+PyMC++ installs from PyPI, with pre-built wheels for Python 3.10 to 3.14 on Linux, macOS and Windows:
+
+<tt>
+$ pip install pymcpp
+</tt>
+
+To use the C++ headers, a different interval backend, or the HSL and Torch options, build from source with CMake; the file <tt>INSTALL.md</tt> in the main directory gives the requirements, options and instructions.  The main directory holds:
+- <tt>src/mc</tt>: the MC++ headers (header-only library);
+- <tt>src/3rdparty</tt>: bundled third-party headers (FADBAD++, used only with <tt>MC__USE_FADBAD</tt>);
+- <tt>src/pymcpp</tt>: the Python binders (PyMC++, module <tt>pymcpp</tt>);
+- <tt>test</tt>: C++ test and example programs;
+- <tt>notebook</tt>: Python scripts and Jupyter notebooks;
+- <tt>doc</tt>: this documentation -- generated with <tt>cd doc && doxygen MC++.dox</tt>, then opened at <tt>doc/html/index.html</tt>.
+.
 
 
-\section sec_MC_contacts
+\section sec_MC_license License
+
+MC++ is published under the Eclipse Public License 2.0, with the GNU General Public License, version 2 or later, as a Secondary License (see the file <tt>LICENSE</tt>).  The bundled FADBAD++ (<tt>MC__USE_FADBAD</tt>, off by default) is a separate work distributed for non-commercial use only: commercial use requires a license from its authors.
+
+
+\section sec_MC_contacts Contacts
 
 - Repo owner: <A href="https://profiles.imperial.ac.uk/b.chachuat">Benoit C. Chachuat</A>
-- OMEGA Research Group
+- OMEGA Research Group, Imperial College London
+.
 
 
 \section sec_MC_references References
 
-- Bompadre, A., A. Mitsos, <A href="http://dx.doi.org/10.1007/s10898-011-9685-2">Convergence rate of McCormick relaxations</A>, <I>Journal of Global Optimization</I> <B>52</B>(1):1-28, 2012
-- Bompadre, A., A. Mitsos, B. Chachuat, <A href="http://dx.doi.org/10.1007/s10898-012-9998-9">Convergence analysis of Taylor models and McCormick-Taylor models</A>, <i>Journal of Global Optimization</i>, <b>57</b>(1):75-114, 2013
-- Bongartz, D., J. Najman, S. Sass, A. Mitsos, <A HREF="http://permalink.avt.rwth-aachen.de/?id=729717"> MAiNGO – McCormick-based Algorithm for mixed-integer Nonlinear Global Optimization</A>, <I>Technical Report</I>, Process Systems Engineering (AVT.SVT), RWTH Aachen University, 2018
-- Chachuat, B, B. Houska, R. Paulen, N. Peric, J. Rajyaguru, M.E. Villanueva, <A href="http://dx.doi.org/10.1016/j.ifacol.2015.09.097">Set-Theoretic Approaches in Analysis, Estimation and Control of Nonlinear Systems</A>, <I>IFAC-PapersOnLine</I>, <b>48</b>(8):981-995, 2015
-- Houska, B., M.E. Villanueva, B. Chachuat, <A href="https://doi.org/10.1109/CDC.2013.6759928">A validated integration algorithm for nonlinear ODEs using Taylor models and ellipsoidal calculus</A>, <I>52nd IEEE Conference on Decision and Control (CDC)</I>, 484-489, 2013
-- Karia, T., C.S. Adjiman, B. Chachuat, <A href="https://doi.org/10.1016/j.compchemeng.2022.107909">Assessment of a Two-Step Approach for Global Optimization of Mixed-Integer Polynomial Programs using Quadratic Reformulation</A>, <i>Computers & Chemical Engineering</i>, <b>165</b>:107909, 2022
+Methods implemented in MC++:
+
 - Mitsos, A., B. Chachuat, P.I. Barton, <A href="http://dx.doi.org/10.1137/080717341">McCormick-based relaxations of algorithms</A>, <i>SIAM Journal on Optimization</i>, <b>20</b>(2):573-601, 2009
-- Rajyaguru, J., Villanueva M.E., Houska B., Chachuat B., <A href="http://dx.doi.org/10.1007/s10898-016-0474-9">Chebyshev model arithmetic for factorable functions</A>, <i>Journal of Global Optimization</i>, <b>68</b>, 413-438, 2017
-- Sahlodin, M.A., and B. Chachuat, <A href="http://dx.doi.org/10.1016/j.compchemeng.2011.01.031">Convex/concave relaxations of parametric ODEs using Taylor models</A>, <i>Computers & Chemical Engineering</i>, <b>35</b>(5):844-857, 2011
-- Scott, J.K., M.D. Stuber, P.I. Barton, <A href="http://dx.doi.org/10.1007/s10898-011-9664-7">Generalized McCormick relaxations</A>. <i>Journal of Global Optimization</i>, <b>51</b>(4), 569-606, 2011
-- Tsoukalas, A., A. Mitsos, <A href="https://doi.org/10.1007/s10898-014-0176-0">Multi-variate McCormick relaxations</A>, <i>Journal of Global Optimization</i>, <b>59</b>(2):633-662, 2014
+- Bompadre, A., A. Mitsos, <A href="http://dx.doi.org/10.1007/s10898-011-9685-2">Convergence rate of McCormick relaxations</A>, <i>Journal of Global Optimization</i> <b>52</b>(1), 1-28, 2012
+- Bompadre, A., A. Mitsos, B. Chachuat, <A href="http://dx.doi.org/10.1007/s10898-012-9998-9">Convergence analysis of Taylor models and McCormick-Taylor models</A>, <i>Journal of Global Optimization</i>, <b>57</b>(1), 75-114, 2013
+- Tsoukalas, A., A. Mitsos, <A href="https://doi.org/10.1007/s10898-014-0176-0">Multi-variate McCormick relaxations</A>, <i>Journal of Global Optimization</i>, <b>59</b>(2), 633-662, 2014
+- Wechsung, A., P.I. Barton, <A href="http://dx.doi.org/10.1007/s10898-013-0060-3">Global optimization of bounded factorable functions with discontinuities</A>, <i>Journal of Global Optimization</i>, <b>58</b>(1), 1-30, 2014
+- Villanueva, M.E., J. Rajyaguru, B. Houska, B. Chachuat, <A href="https://doi.org/10.1016/B978-0-444-63578-5.50123-7">Ellipsoidal arithmetic for multivariate systems</A>, <i>Computer Aided Chemical Engineering</i>, <b>37</b>, 767-772, 2015
+- Chachuat, B, B. Houska, R. Paulen, N. Peric, J. Rajyaguru, M.E. Villanueva, <A href="http://dx.doi.org/10.1016/j.ifacol.2015.09.097">Set-theoretic approaches in analysis, estimation and control of nonlinear systems</A>, <i>IFAC-PapersOnLine</i>, <b>48</b>(8), 981-995, 2015
 - Villanueva, M.E., <A href="https://doi.org/10.25560/32528">Set-Theoretic Methods for Analysis, Estimation and Control of Nonlinear Systems</A>, PhD Thesis, Department of Chemical Engineering, Imperial College London, 2016
-- Villanueva, M.E., J. Rajyaguru, B. Houska, B. Chachuat, <A href="https://doi.org/10.1016/B978-0-444-63578-5.50123-7">Ellipsoidal Arithmetic for Multivariate Systems</A>, <i>Computer Aided Chemical Engineering</i>, <b>37</b>, 767-772, 2015
-- Wechsung, A., P.I. Barton, <A href="http://dx.doi.org/10.1007/s10898-013-0060-3">Global optimization of bounded factorable functions with discontinuities</A>, <i>Journal of Global Optimization</i>, <b>58</b>(1):1-30, 2014
+- Rajyaguru, J., Villanueva M.E., Houska B., Chachuat B., <A href="http://dx.doi.org/10.1007/s10898-016-0474-9">Chebyshev model arithmetic for factorable functions</A>, <i>Journal of Global Optimization</i>, <b>68</b>, 413-438, 2017
+- Karia, T., C.S. Adjiman, B. Chachuat, <A href="https://doi.org/10.1016/j.compchemeng.2022.107909">Assessment of a two-step approach for global optimization of mixed-integer polynomial programs using quadratic reformulation</A>, <i>Computers &amp; Chemical Engineering</i>, <b>165</b>, 107909, 2022
+- Zha, Y., M.E. Villanueva, B. Houska, B. Chachuat, <A href="https://doi.org/10.1007/s10898-026-01648-z">Relaxation via separable estimators: Arithmetic and implementation</A>, <i>Journal of Global Optimization</i>, in press, 2026
+.
+
+Software building on MC++:
+
+- Bongartz, D., J. Najman, S. Sass, A. Mitsos, <A href="http://permalink.avt.rwth-aachen.de/?id=729717">MAiNGO -- McCormick-based Algorithm for mixed-integer Nonlinear Global Optimization</A>, <i>Technical Report</i>, Process Systems Engineering (AVT.SVT), RWTH Aachen University, 2018
+- <A href="https://pyomo.readthedocs.io/en/latest/explanation/solvers/mcpp.html">Pyomo</A>, whose MC++ interface bounds factorable functions with McCormick relaxations (built on an earlier MC++ release)
 .
 
 */

@@ -1,6 +1,7 @@
 // Copyright (C) Benoit Chachuat, Imperial College London.
 // All Rights Reserved.
-// This code is published under the Eclipse Public License.
+// This code is published under the EPL-2.0 with GPL-2.0-or-later as a Secondary License; see the LICENSE file.
+// SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 
 #ifndef MC__MCPROFIL_HPP
 #define MC__MCPROFIL_HPP

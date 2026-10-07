@@ -48,13 +48,13 @@ PROJECT_NAME           = MC++
 # could be handy for archiving the generated documentation or if some version
 # control system is used.
 
-PROJECT_NUMBER         =
+PROJECT_NUMBER         = 5.0.3
 
 # Using the PROJECT_BRIEF tag one can provide an optional one line description
 # for a project that appears at the top of each page and should give viewers a
 # quick idea about the purpose of the project. Keep the description short.
 
-PROJECT_BRIEF          =
+PROJECT_BRIEF          = "Toolkit for Construction, Manipulation and Evaluation of Factorable Functions"
 
 # With the PROJECT_LOGO tag one can specify a logo or an icon that is included
 # in the documentation. The maximum height of the logo should not exceed 55
@@ -996,37 +996,7 @@ WARN_LOGFILE           =
 # Note: If this tag is empty the current directory is searched.
 
 INPUT                  = MC++.txt \
-                         ../src/mc/mcfunc.hpp \
-                         ../src/mc/mcop.hpp \
-                         ../src/mc/mcprofil.hpp \
-                         ../src/mc/mcfilib.hpp \
-                         ../src/mc/mcboost.hpp \
-                         ../src/mc/mcfadbad.hpp \
-                         ../src/mc/mclapack.hpp \
-                         ../src/mc/mctime.hpp \
-                         ../src/mc/interval.hpp \
-                         ../src/mc/mccormick.hpp \
-                         ../src/mc/specbnd.hpp \
-                         ../src/mc/polymodel.hpp \
-                         ../src/mc/tmodel.hpp \
-                         ../src/mc/cmodel.hpp \
-                         ../src/mc/smon.hpp \
-                         ../src/mc/scmodel.hpp \
-                         ../src/mc/sicmodel.hpp \
-                         ../src/mc/ellipsoid.hpp \
-                         ../src/mc/ellimage.hpp \
-                         ../src/mc/polimage.hpp \
-                         ../src/mc/pwcu.hpp \
-                         ../src/mc/pwlu.hpp \
-                         ../src/mc/supmodel.hpp \
-                         ../src/mc/spoly.hpp \
-                         ../src/mc/squad.hpp \
-                         ../src/mc/ffdep.hpp \
-                         ../src/mc/ffinv.hpp \
-                         ../src/mc/ffunc.hpp \
-                         ../src/mc/slift.hpp \
-                         ../src/mc/selim.hpp \
-                         ../src/mc/sred.hpp
+                         ../src/mc
 
 # This tag can be used to specify the character encoding of the source files
 # that Doxygen parses. Internally Doxygen uses the UTF-8 encoding. Doxygen uses
@@ -1066,7 +1036,7 @@ INPUT_FILE_ENCODING    =
 # provided as Doxygen C comment), *.py, *.pyw, *.f90, *.f95, *.f03, *.f08,
 # *.f18, *.f, *.for, *.vhd, *.vhdl, *.ucf, *.qsf and *.ice.
 
-FILE_PATTERNS          =
+FILE_PATTERNS          = *.hpp
 
 # The RECURSIVE tag can be used to specify whether or not subdirectories should
 # be searched for input files as well.
@@ -2800,7 +2770,7 @@ INCLUDED_BY_GRAPH      = YES
 # The default value is: NO.
 # This tag requires that the tag HAVE_DOT is set to YES.
 
-CALL_GRAPH             = YES
+CALL_GRAPH             = NO
 
 # If the CALLER_GRAPH tag is set to YES then Doxygen will generate a caller
 # dependency graph for every global function or class method.
@@ -2812,7 +2782,7 @@ CALL_GRAPH             = YES
 # The default value is: NO.
 # This tag requires that the tag HAVE_DOT is set to YES.
 
-CALLER_GRAPH           = YES
+CALLER_GRAPH           = NO
 
 # If the GRAPHICAL_HIERARCHY tag is set to YES then Doxygen will graphical
 # hierarchy of all classes instead of a textual one.
