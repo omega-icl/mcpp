@@ -89,5 +89,6 @@ Software building on MC++:
 
 ## License
 
-MC++ is published under the Eclipse Public License.  The bundled FADBAD++ (`MC__USE_FADBAD`, off by default) is
+MC++ is published under the Eclipse Public License 2.0, with the GNU General Public License, version 2 or later,
+as a Secondary License (see [LICENSE](LICENSE)).  The bundled FADBAD++ (`MC__USE_FADBAD`, off by default) is
 a separate work distributed for non-commercial use only: commercial use requires a license from its authors.

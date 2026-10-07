@@ -136,6 +136,11 @@ find_package(Boost CONFIG REQUIRED)
 
 # Armadillo
 find_package(Armadillo REQUIRED)
+# Armadillo is used HEADER-ONLY (2026-10-07): ARMA_DONT_USE_WRAPPER, with BLAS and LAPACK linked directly (as the
+# Windows wheels already did).  Its runtime wrapper library, libarmadillo, also links whatever Armadillo was built
+# with -- e.g. Homebrew's ARPACK, itself built with MPI, which put a whole OpenMPI stack into the macOS wheels -- though
+# MC++ uses only its dense linear algebra (no ARPACK, no SuperLU).  MC_ARMA_WRAPPER=ON restores the wrapper.
+option(MC_ARMA_WRAPPER "Link Armadillo's runtime wrapper library instead of BLAS/LAPACK directly" OFF)
 
 # LAPACK / BLAS
 find_package(BLAS REQUIRED)
@@ -398,6 +403,11 @@ target_compile_definitions(
 if(MC__USE_FADBAD)
   target_compile_definitions(mc INTERFACE MC__USE_FADBAD)
 endif()
+if(NOT MC_ARMA_WRAPPER)
+  target_compile_definitions(
+    mc INTERFACE ARMA_DONT_USE_WRAPPER ARMA_USE_LAPACK ARMA_USE_BLAS ARMA_DONT_USE_ARPACK
+                 ARMA_DONT_USE_SUPERLU)
+endif()
 
 # Match the classical Make warning flags and add backend-specific compile
 # options such as -frounding-math only when required, e.g. with FILIB.
@@ -411,8 +421,11 @@ else()
 endif()
 
 # Link libraries
-target_link_libraries(mc INTERFACE ${ARMADILLO_LIBRARIES} ${BLAS_LIBRARIES}
-                                   ${LAPACK_LIBRARIES} ${INTERVAL_LIBRARIES})
+if(MC_ARMA_WRAPPER)
+  target_link_libraries(mc INTERFACE ${ARMADILLO_LIBRARIES})
+endif()
+target_link_libraries(mc INTERFACE ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES}
+                                   ${INTERVAL_LIBRARIES})
 
 if(ENABLE_HSL)
   target_link_libraries(mc INTERFACE ${HSL_LIBRARIES})

@@ -30,7 +30,7 @@ def bundled( wheel ):
         base = n.rsplit( "/", 1 )[ -1 ]
         if not LIB.search( base ): continue
         name = re.sub( r"-([0-9a-f]{32}|[0-9a-f]{8})(?=\.)", "", base )             # delvewheel's or auditwheel's hash
-        name = re.split( r"[.]", name, 1 )[ 0 ]                                     # extension and version
+        name = re.split( r"[.]", name, maxsplit = 1 )[ 0 ]                                     # extension and version
         name = re.sub( r"-[\d.]+$", "", name ).lower()                              # e.g. libgcc_s_seh-1
         out.add( name )
     return sorted( out )
