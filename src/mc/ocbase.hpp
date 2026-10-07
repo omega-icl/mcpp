@@ -1206,7 +1206,11 @@ public:
 class FFPartial
 : public FFOp
 {
+public:
+  //! @brief The map of directions (and orders) the operation is taken along.  Public so that a caller can build one
+  //! programmatically (FFEval::t_SMon dirs; dirs[t] = 1; ...); a braced list works without naming it.
   typedef SMon<FFVar,lt_FFVar> t_SMon;
+
 
 protected:
 
@@ -1671,7 +1675,11 @@ const
 class FFIntegral
 : public FFOp
 {
+public:
+  //! @brief The map of directions (and orders) the operation is taken along.  Public so that a caller can build one
+  //! programmatically (FFEval::t_SMon dirs; dirs[t] = 1; ...); a braced list works without naming it.
   typedef SMon<FFVar,lt_FFVar> t_SMon;
+
 
 protected:
 
@@ -2119,7 +2127,11 @@ const
 class FFEval
 : public FFOp
 {
+public:
+  //! @brief The map of directions (and orders) the operation is taken along.  Public so that a caller can build one
+  //! programmatically (FFEval::t_SMon dirs; dirs[t] = 1; ...); a braced list works without naming it.
   typedef SMon<FFVar,lt_FFVar> t_SMon;
+
 
 protected:
 
