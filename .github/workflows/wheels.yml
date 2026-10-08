@@ -23,7 +23,7 @@ jobs:
         # ubuntu-latest -> manylinux x86_64, macos-14 -> arm64,
         # windows-latest -> AMD64 (all via ARCHS auto64)
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
 
@@ -94,7 +94,7 @@ jobs:
         run: |
           PY=$(command -v python3 || command -v python)
           "$PY" tools/ci/check_notices.py THIRD_PARTY_NOTICES.txt wheelhouse
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: wheels-${{ matrix.os }}
           path: wheelhouse/*.whl
@@ -109,7 +109,7 @@ jobs:
     name: Build torch-enabled wheel (experimental, Linux)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
 
@@ -149,7 +149,7 @@ jobs:
           # process, which is where the pymcpp module resolves its symbols.
           CIBW_TEST_COMMAND: python -c "import torch, pymcpp; print(pymcpp.FFGraph())"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: torch-wheel-experimental
           path: wheelhouse/*.whl
@@ -162,13 +162,13 @@ jobs:
     name: Build sdist
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           submodules: recursive
 
       - run: pipx run build --sdist
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v6
         with:
           name: wheels-sdist # matches the publish job's wheels-* pattern
           path: dist/*.tar.gz
@@ -184,7 +184,7 @@ jobs:
     permissions:
       id-token: write # trusted publishing
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           pattern: wheels-*
           path: dist

@@ -616,7 +616,7 @@ FFExpr::dep(FFVar const& vdep)
   }
 
   FFExpr edep;
-  dynamic_cast<FFGraph*>(vdep.dag())
+  mc::type_cast<FFGraph>(vdep.dag())
       ->eval(sg, 1, &vdep, &edep, vvar.size(), vvar.data(), evar.data());
   return edep;
 }

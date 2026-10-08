@@ -8606,7 +8606,7 @@ FFOp::sameid(std::type_info const& id) const
 {
   // std::cout << "type: " << typeid(*this).name() << " == " << id.name() <<
   // std::endl;
-  return (typeid(*this) == id);
+  return mc::same_type( typeid(*this), id );
 }
 
 /////////////////////////////// FFSubgraph ////////////////////////////////////
@@ -9894,7 +9894,7 @@ FFBase::find_var(std::string const& str) const
 inline FFOp*
 FFBase::_find_extop(std::type_info const& id) const
 {
-  if (id == typeid(FFOp))
+  if (mc::same_type( id, typeid(FFOp) ))
     return nullptr;  // Intended for external operations only
 
   FFOp* pOp = nullptr;
@@ -9902,7 +9902,7 @@ FFBase::_find_extop(std::type_info const& id) const
        ritop != _Ops.rend() && (*ritop)->type == FFOp::TYPE::EXTERN; ++ritop)
   {
     FFOp const& op = **ritop;
-    if( typeid(op) != id ) continue;
+    if( !mc::same_type( typeid(op), id ) ) continue;
     //if (typeid(**ritop) != id) continue;
     pOp = *ritop;
     break;

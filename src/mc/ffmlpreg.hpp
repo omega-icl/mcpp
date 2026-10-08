@@ -435,7 +435,7 @@ class FFMLPREG
 
     _ownMLP   = false;
     FFOp* pOp = (*ppRes)->opdef().first;
-    _pMLP     = dynamic_cast<FFMLPREG<T>*>(pOp)->_pMLP;
+    _pMLP     = mc::type_cast<FFMLPREG<T>>(pOp)->_pMLP;
 #ifdef MC__FFMLPREG_TRACE
     std::cerr << "MLPREG address in DAG: " << _pMLP << std::endl;
 #endif
@@ -491,19 +491,19 @@ class FFMLPREG
   feval(std::type_info const& idU, unsigned const nRes, void* vRes,
         unsigned const nVar, void const* vVar, unsigned const* mVar) const
   {
-    if (idU == typeid(FFVar))
+    if (mc::same_type( idU, typeid(FFVar) ))
       return eval(nRes, static_cast<FFVar*>(vRes), nVar,
                   static_cast<FFVar const*>(vVar), mVar);
-    else if (idU == typeid(FADType<FFVar>))
+    else if (mc::same_type( idU, typeid(FADType<FFVar>) ))
       return eval(nRes, static_cast<FADType<FFVar>*>(vRes), nVar,
                   static_cast<FADType<FFVar> const*>(vVar), mVar);
-    else if (idU == typeid(FFDep))
+    else if (mc::same_type( idU, typeid(FFDep) ))
       return eval(nRes, static_cast<FFDep*>(vRes), nVar,
                   static_cast<FFDep const*>(vVar), mVar);
-    else if (idU == typeid(double))
+    else if (mc::same_type( idU, typeid(double) ))
       return eval(nRes, static_cast<double*>(vRes), nVar,
                   static_cast<double const*>(vVar), mVar);
-    else if (idU == typeid(FADType<double>))
+    else if (mc::same_type( idU, typeid(FADType<double>) ))
       return eval(nRes, static_cast<FADType<double>*>(vRes), nVar,
                   static_cast<FADType<double> const*>(vVar), mVar);
     //      else if( idU == typeid( T ) )
@@ -521,7 +521,7 @@ class FFMLPREG
     //      else if( idU == typeid( PolVar<T> ) )
     //        return eval( nRes, static_cast<PolVar<T>*>(vRes), nVar,
     //        static_cast<PolVar<T> const*>(vVar), mVar );
-    else if (idU == typeid(SLiftVar))
+    else if (mc::same_type( idU, typeid(SLiftVar) ))
       return eval(nRes, static_cast<SLiftVar*>(vRes), nVar,
                   static_cast<SLiftVar const*>(vVar), mVar);
 
@@ -624,7 +624,7 @@ class FFGRADMLPREG
 
     _ownMLP   = false;
     FFOp* pOp = (*ppRes)->opdef().first;
-    _pMLP     = dynamic_cast<FFGRADMLPREG<T>*>(pOp)->_pMLP;
+    _pMLP     = mc::type_cast<FFGRADMLPREG<T>>(pOp)->_pMLP;
 #ifdef MC__FFMLPREG_TRACE
     std::cerr << "GRADMLPREG address in DAG: " << _pMLP << std::endl;
 #endif
@@ -681,16 +681,16 @@ class FFGRADMLPREG
   feval(std::type_info const& idU, unsigned const nRes, void* vRes,
         unsigned const nVar, void const* vVar, unsigned const* mVar) const
   {
-    if (idU == typeid(FFVar))
+    if (mc::same_type( idU, typeid(FFVar) ))
       return eval(nRes, static_cast<FFVar*>(vRes), nVar,
                   static_cast<FFVar const*>(vVar), mVar);
-    else if (idU == typeid(FFDep))
+    else if (mc::same_type( idU, typeid(FFDep) ))
       return eval(nRes, static_cast<FFDep*>(vRes), nVar,
                   static_cast<FFDep const*>(vVar), mVar);
-    else if (idU == typeid(double))
+    else if (mc::same_type( idU, typeid(double) ))
       return eval(nRes, static_cast<double*>(vRes), nVar,
                   static_cast<double const*>(vVar), mVar);
-    else if (idU == typeid(SLiftVar))
+    else if (mc::same_type( idU, typeid(SLiftVar) ))
       return eval(nRes, static_cast<SLiftVar*>(vRes), nVar,
                   static_cast<SLiftVar const*>(vVar), mVar);
 

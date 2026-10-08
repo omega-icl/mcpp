@@ -328,64 +328,64 @@ class FFLin : public FFOp
   feval(std::type_info const& idU, unsigned const nRes, void* vRes,
         unsigned const nVar, void const* vVar, unsigned const* mVar) const
   {
-    if (idU == typeid(FFVar))
+    if (mc::same_type( idU, typeid(FFVar) ))
       return eval(nRes, static_cast<FFVar*>(vRes), nVar,
                   static_cast<FFVar const*>(vVar), mVar);
-    else if (idU == typeid(FADType<FFVar>))
+    else if (mc::same_type( idU, typeid(FADType<FFVar>) ))
       return _eval(nRes, static_cast<FADType<FFVar>*>(vRes), nVar,
                    static_cast<FADType<FFVar> const*>(vVar), mVar);
-    else if (idU == typeid(FFDep))
+    else if (mc::same_type( idU, typeid(FFDep) ))
       return _eval(nRes, static_cast<FFDep*>(vRes), nVar,
                    static_cast<FFDep const*>(vVar), mVar);
-    else if (idU == typeid(FFInv))
+    else if (mc::same_type( idU, typeid(FFInv) ))
       return _eval(nRes, static_cast<FFInv*>(vRes), nVar,
                    static_cast<FFInv const*>(vVar), mVar);
-    else if (idU == typeid(double))
+    else if (mc::same_type( idU, typeid(double) ))
       return _eval(nRes, static_cast<double*>(vRes), nVar,
                    static_cast<double const*>(vVar), mVar);
-    else if (idU == typeid(FADType<double>))
+    else if (mc::same_type( idU, typeid(FADType<double>) ))
       return _eval(nRes, static_cast<FADType<double>*>(vRes), nVar,
                    static_cast<FADType<double> const*>(vVar), mVar);
-    else if (idU == typeid(T))
+    else if (mc::same_type( idU, typeid(T) ))
       return _eval(nRes, static_cast<T*>(vRes), nVar,
                    static_cast<T const*>(vVar), mVar);
-    else if (idU == typeid(McCormick<T>))
+    else if (mc::same_type( idU, typeid(McCormick<T>) ))
       return _eval(nRes, static_cast<McCormick<T>*>(vRes), nVar,
                    static_cast<McCormick<T> const*>(vVar), mVar);
-    else if (idU == typeid(Specbnd<T>))
+    else if (mc::same_type( idU, typeid(Specbnd<T>) ))
       return _eval(nRes, static_cast<Specbnd<T>*>(vRes), nVar,
                    static_cast<Specbnd<T> const*>(vVar), mVar);
-    else if (idU == typeid(TVar<T>))
+    else if (mc::same_type( idU, typeid(TVar<T>) ))
       return _eval(nRes, static_cast<TVar<T>*>(vRes), nVar,
                    static_cast<TVar<T> const*>(vVar), mVar);
-    else if (idU == typeid(CVar<T>))
+    else if (mc::same_type( idU, typeid(CVar<T>) ))
       return _eval(nRes, static_cast<CVar<T>*>(vRes), nVar,
                    static_cast<CVar<T> const*>(vVar), mVar);
-    else if (idU == typeid(SCVar<T>))
+    else if (mc::same_type( idU, typeid(SCVar<T>) ))
       return _eval(nRes, static_cast<SCVar<T>*>(vRes), nVar,
                    static_cast<SCVar<T> const*>(vVar), mVar);
-    else if (idU == typeid(SupVar<PWCU>))
+    else if (mc::same_type( idU, typeid(SupVar<PWCU>) ))
       return _eval(nRes, static_cast<SupVar<PWCU>*>(vRes), nVar,
                    static_cast<SupVar<PWCU> const*>(vVar), mVar);
-    else if (idU == typeid(SupVar<PWLU>))
+    else if (mc::same_type( idU, typeid(SupVar<PWLU>) ))
       return _eval(nRes, static_cast<SupVar<PWLU>*>(vRes), nVar,
                    static_cast<SupVar<PWLU> const*>(vVar), mVar);
-    else if (idU == typeid(PolVar<T>))
+    else if (mc::same_type( idU, typeid(PolVar<T>) ))
       return eval(nRes, static_cast<PolVar<T>*>(vRes), nVar,
                   static_cast<PolVar<T> const*>(vVar), mVar);
-    else if (idU == typeid(OCVar<double>))
+    else if (mc::same_type( idU, typeid(OCVar<double>) ))
       return _eval(nRes, static_cast<OCVar<double>*>(vRes), nVar,
                   static_cast<OCVar<double> const*>(vVar), mVar);
-    else if (idU == typeid(OCVar<FADType<double>>))
+    else if (mc::same_type( idU, typeid(OCVar<FADType<double>>) ))
       return _eval(nRes, static_cast<OCVar<FADType<double>>*>(vRes), nVar,
                   static_cast<OCVar<FADType<double>> const*>(vVar), mVar);
-    else if (idU == typeid(OCVar<FFDep>))
+    else if (mc::same_type( idU, typeid(OCVar<FFDep>) ))
       return _eval(nRes, static_cast<OCVar<FFDep>*>(vRes), nVar,
                   static_cast<OCVar<FFDep> const*>(vVar), mVar);
-    else if (idU == typeid(SLiftVar))
+    else if (mc::same_type( idU, typeid(SLiftVar) ))
       return eval(nRes, static_cast<SLiftVar*>(vRes), nVar,
                   static_cast<SLiftVar const*>(vVar), mVar);
-    else if (idU == typeid(FFExpr))
+    else if (mc::same_type( idU, typeid(FFExpr) ))
       return _eval(nRes, static_cast<FFExpr*>(vRes), nVar,
                    static_cast<FFExpr const*>(vVar), mVar);
 
@@ -418,9 +418,9 @@ class FFLin : public FFOp
   reval(std::type_info const& idU, unsigned const nRes, void* vRes,
         unsigned const nVar, void* vVar) const
   {
-    if (idU == typeid(T))
+    if (mc::same_type( idU, typeid(T) ))
       return reval(nRes, static_cast<T*>(vRes), nVar, static_cast<T*>(vVar));
-    else if (idU == typeid(PolVar<T>))
+    else if (mc::same_type( idU, typeid(PolVar<T>) ))
       return reval(nRes, static_cast<PolVar<T>*>(vRes), nVar,
                    static_cast<PolVar<T>*>(vVar));
 
@@ -700,7 +700,7 @@ template <typename T>
 inline bool
 FFLin<T>::lt(FFOp const* other) const
 {
-  auto const* oprecast = dynamic_cast<FFLin<T> const*>(other);
+  auto const* oprecast = mc::type_cast<FFLin<T> const>(other);
 #ifdef MC__FFLin_TRACE
   std::cout << "FFLin<T>::lt\n";
   std::cout << _ptrCoef << " (" << data << ") <=> " << oprecast->_ptrCoef

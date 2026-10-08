@@ -8,6 +8,8 @@
 
 #include <cfloat>
 #include <cmath>
+#include <cstring>
+#include <typeinfo>
 #include <iostream>
 #include <utility>
 #include <vector>
@@ -15,6 +17,41 @@
 namespace mc
 {
 
+
+//! @brief Whether two std::type_info objects denote the same type -- also across shared libraries (MC++ 5.0.4)
+//!
+//! An object created in one Python extension module (e.g. an FFEval built in pymcpp) and used in another (e.g. cronos,
+//! built on MC++) carries the type_info of the module that created it: pybind11 modules hide their symbols, so each
+//! has its own copy of the type_info of MC++'s classes.  libstdc++ (Linux) compares type_info by NAME, so `==` still
+//! works; libc++ (macOS) compares by ADDRESS, so `typeid(FFVar) == idU` was false for an `idU` from the other module --
+//! external operations then failed to recognise the arithmetic they were asked to evaluate in.  This compares with
+//! `==` first, then by mangled name: exact type identity, as types with external linkage have unique mangled names.
+inline bool
+same_type
+( std::type_info const& a, std::type_info const& b )
+{
+  if( a == b ) return true;
+  char const* na = a.name();
+  char const* nb = b.name();
+  if( *na == '*' ) ++na;     // a leading '*' marks a name to be compared by address (GCC); not part of the name
+  if( *nb == '*' ) ++nb;
+  return std::strcmp( na, nb ) == 0;
+}
+
+//! @brief dynamic_cast to the EXACT class T -- also for an object created in another shared library (see same_type)
+//!
+//! dynamic_cast first (same module); otherwise, a static_cast when the dynamic type of *p is T by name.  Meant for
+//! classes without subclasses, such as MC++'s external operations; both modules must be compiled from the same MC++
+//! headers (same layout), which a pinned dependency guarantees.
+template <typename T, typename B>
+inline T*
+type_cast
+( B* p )
+{
+  if( !p ) return nullptr;
+  if( auto* q = dynamic_cast<T*>( p ) ) return q;
+  return same_type( typeid( *p ), typeid( T ) )? static_cast<T*>( p ): nullptr;
+}
 enum
 {
   ICUT = 0,

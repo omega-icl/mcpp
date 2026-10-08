@@ -1268,7 +1268,7 @@ protected:
         for( size_t i = 0; i < nVar && foldable; ++i ){
           auto const& [pOp, ndx] = pVar[i].opdef();
           if( !pOp || !pOp->sameid( typeid(FFPartial) ) || pOp->varin.size() != 1 || !pOp->varin[0] ){ foldable = false; break; }
-          auto const* inner = dynamic_cast<FFPartial const*>( pOp );
+          auto const* inner = mc::type_cast<FFPartial const>( pOp );
           if( !inner || !inner->Indep().tord ){ foldable = false; break; }
           if( i == 0 ) inner_indep = inner->Indep();
           else if( !( inner->Indep() == inner_indep ) ){ foldable = false; break; }   // not uniform
@@ -1463,7 +1463,7 @@ const
 #ifdef MC__FFPARTIAL_TRACE
   std::cout << "FFPartial::lt\n";
 #endif
-  FFPartial const* op = dynamic_cast<FFPartial const*>(other);
+  FFPartial const* op = mc::type_cast<FFPartial const>(other);
 
   // Compare independent variables
   return lt_SMon<lt_FFVar>()( _Indep, op->_Indep );
@@ -1475,21 +1475,21 @@ FFPartial::feval
   void const* vVar, unsigned const* mVar )
 const
 {
-  if( idU == typeid( FFVar ) )
+  if( mc::same_type( idU, typeid( FFVar ) ) )
     return eval( nRes, static_cast<FFVar*>(vRes), nVar, static_cast<FFVar const*>(vVar), mVar );
-  else if( idU == typeid( FFDep ) )
+  else if( mc::same_type( idU, typeid( FFDep ) ) )
     return eval( nRes, static_cast<FFDep*>(vRes), nVar, static_cast<FFDep const*>(vVar), mVar );
-  else if( idU == typeid( FFInv ) )
+  else if( mc::same_type( idU, typeid( FFInv ) ) )
     return eval( nRes, static_cast<FFInv*>(vRes), nVar, static_cast<FFInv const*>(vVar), mVar );
-  else if( idU == typeid( SLiftVar ) )
+  else if( mc::same_type( idU, typeid( SLiftVar ) ) )
     return eval( nRes, static_cast<SLiftVar*>(vRes), nVar, static_cast<SLiftVar const*>(vVar), mVar );
-  else if( idU == typeid( FFExpr ) )
+  else if( mc::same_type( idU, typeid( FFExpr ) ) )
     return eval( nRes, static_cast<FFExpr*>(vRes), nVar, static_cast<FFExpr const*>(vVar), mVar );
-  else if( idU == typeid( OCVar<double> ) )
+  else if( mc::same_type( idU, typeid( OCVar<double> ) ) )
     return eval( nRes, static_cast<OCVar<double>*>(vRes), nVar, static_cast<OCVar<double> const*>(vVar), mVar );
-  else if( idU == typeid( OCVar<FFDep> ) )
+  else if( mc::same_type( idU, typeid( OCVar<FFDep> ) ) )
     return eval( nRes, static_cast<OCVar<FFDep>*>(vRes), nVar, static_cast<OCVar<FFDep> const*>(vVar), mVar );
-  else if( idU == typeid( OCVar< FADType<double> > ) )
+  else if( mc::same_type( idU, typeid( OCVar< FADType<double> > ) ) )
     return eval( nRes, static_cast<OCVar< FADType<double> >*>(vRes),
                  nVar, static_cast<OCVar< FADType<double> > const*>(vVar), mVar );
 
@@ -1702,7 +1702,7 @@ protected:
       if( FFPartial::FOLD_NESTED && nVar == 1 && pVar && Indep.tord ){
         auto const& [pOp, ndx] = pVar->opdef();
         if( pOp && pOp->sameid( typeid(FFIntegral) ) && pOp->varin.size() == 1 && pOp->varin[0] ){
-          auto const* inner = dynamic_cast<FFIntegral const*>( pOp );
+          auto const* inner = mc::type_cast<FFIntegral const>( pOp );
           bool disjoint = ( inner && inner->Indep().tord );
           if( disjoint )
             for( auto const& [var, ord] : Indep.expr )
@@ -1901,7 +1901,7 @@ const
 #ifdef MC__FFINTEGRAL_TRACE
   std::cout << "FFIntegral::lt\n";
 #endif
-  FFIntegral const* op = dynamic_cast<FFIntegral const*>(other);
+  FFIntegral const* op = mc::type_cast<FFIntegral const>(other);
 
   // Compare independent variables
   return lt_SMon<lt_FFVar>()( _Indep, op->_Indep );
@@ -1913,21 +1913,21 @@ FFIntegral::feval
   void const* vVar, unsigned const* mVar )
 const
 {
-  if( idU == typeid( FFVar ) )
+  if( mc::same_type( idU, typeid( FFVar ) ) )
     return eval( nRes, static_cast<FFVar*>(vRes), nVar, static_cast<FFVar const*>(vVar), mVar );
-  else if( idU == typeid( FFDep ) )
+  else if( mc::same_type( idU, typeid( FFDep ) ) )
     return eval( nRes, static_cast<FFDep*>(vRes), nVar, static_cast<FFDep const*>(vVar), mVar );
-  else if( idU == typeid( FFInv ) )
+  else if( mc::same_type( idU, typeid( FFInv ) ) )
     return eval( nRes, static_cast<FFInv*>(vRes), nVar, static_cast<FFInv const*>(vVar), mVar );
-  else if( idU == typeid( SLiftVar ) )
+  else if( mc::same_type( idU, typeid( SLiftVar ) ) )
     return eval( nRes, static_cast<SLiftVar*>(vRes), nVar, static_cast<SLiftVar const*>(vVar), mVar );
-  else if( idU == typeid( FFExpr ) )
+  else if( mc::same_type( idU, typeid( FFExpr ) ) )
     return eval( nRes, static_cast<FFExpr*>(vRes), nVar, static_cast<FFExpr const*>(vVar), mVar );
-  else if( idU == typeid( OCVar<double> ) )
+  else if( mc::same_type( idU, typeid( OCVar<double> ) ) )
     return eval( nRes, static_cast<OCVar<double>*>(vRes), nVar, static_cast<OCVar<double> const*>(vVar), mVar );
-  else if( idU == typeid( OCVar<FFDep> ) )
+  else if( mc::same_type( idU, typeid( OCVar<FFDep> ) ) )
     return eval( nRes, static_cast<OCVar<FFDep>*>(vRes), nVar, static_cast<OCVar<FFDep> const*>(vVar), mVar );
-  else if( idU == typeid( OCVar< FADType<double> > ) )
+  else if( mc::same_type( idU, typeid( OCVar< FADType<double> > ) ) )
     return eval( nRes, static_cast<OCVar< FADType<double> >*>(vRes), nVar, static_cast<OCVar< FADType<double> > const*>(vVar), mVar );
 
   throw std::runtime_error( "FFIntegral::feval ** No evaluation method for type"+std::string(idU.name())+"\n" );
@@ -2164,7 +2164,7 @@ protected:
       if( FFPartial::FOLD_NESTED && nVar == 1 && pVar && Indep.tord ){
         auto const& [pOp, ndx] = pVar->opdef();
         if( pOp && pOp->sameid( typeid(FFEval) ) && pOp->varin.size() == 1 && pOp->varin[0] ){
-          auto const* inner = dynamic_cast<FFEval const*>( pOp );
+          auto const* inner = mc::type_cast<FFEval const>( pOp );
           bool disjoint = ( inner && inner->Indep().tord );
           if( disjoint )
             for( auto const& [var, ord] : Indep.expr )
@@ -2409,7 +2409,7 @@ const
 #ifdef MC__FFEVAL_TRACE
   std::cout << "FFEval::lt\n";
 #endif
-  FFEval const* op = dynamic_cast<FFEval const*>(other);
+  FFEval const* op = mc::type_cast<FFEval const>(other);
 
   // Compare independent directions first
   if( lt_SMon<lt_FFVar>()( _Indep, op->_Indep ) ) return true;
@@ -2436,21 +2436,21 @@ FFEval::feval
   void const* vVar, unsigned const* mVar )
 const
 {
-  if( idU == typeid( FFVar ) )
+  if( mc::same_type( idU, typeid( FFVar ) ) )
     return eval( nRes, static_cast<FFVar*>(vRes), nVar, static_cast<FFVar const*>(vVar), mVar );
-  else if( idU == typeid( FFDep ) )
+  else if( mc::same_type( idU, typeid( FFDep ) ) )
     return eval( nRes, static_cast<FFDep*>(vRes), nVar, static_cast<FFDep const*>(vVar), mVar );
-  else if( idU == typeid( FFInv ) )
+  else if( mc::same_type( idU, typeid( FFInv ) ) )
     return eval( nRes, static_cast<FFInv*>(vRes), nVar, static_cast<FFInv const*>(vVar), mVar );
-  else if( idU == typeid( SLiftVar ) )
+  else if( mc::same_type( idU, typeid( SLiftVar ) ) )
     return eval( nRes, static_cast<SLiftVar*>(vRes), nVar, static_cast<SLiftVar const*>(vVar), mVar );
-  else if( idU == typeid( FFExpr ) )
+  else if( mc::same_type( idU, typeid( FFExpr ) ) )
     return eval( nRes, static_cast<FFExpr*>(vRes), nVar, static_cast<FFExpr const*>(vVar), mVar );
-  else if( idU == typeid( OCVar<double> ) )
+  else if( mc::same_type( idU, typeid( OCVar<double> ) ) )
     return eval( nRes, static_cast<OCVar<double>*>(vRes), nVar, static_cast<OCVar<double> const*>(vVar), mVar );
-  else if( idU == typeid( OCVar<FFDep> ) )
+  else if( mc::same_type( idU, typeid( OCVar<FFDep> ) ) )
     return eval( nRes, static_cast<OCVar<FFDep>*>(vRes), nVar, static_cast<OCVar<FFDep> const*>(vVar), mVar );
-  else if( idU == typeid( OCVar< FADType<double> > ) )
+  else if( mc::same_type( idU, typeid( OCVar< FADType<double> > ) ) )
     return eval( nRes, static_cast<OCVar< FADType<double> >*>(vRes), nVar, static_cast<OCVar< FADType<double> > const*>(vVar), mVar );
 
   throw std::runtime_error( "FFEval::feval ** No evaluation method for type"+std::string(idU.name())+"\n" );
