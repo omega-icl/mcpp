@@ -173,12 +173,34 @@ jobs:
           name: wheels-sdist # matches the publish job's wheels-* pattern
           path: dist/*.tar.gz
 
+
+  abi:
+    # MC++'s patch-release rule (INSTALL.md, "Releasing"): a patch release keeps the binary layout of the classes that
+    # modules built on pymcpp share with it, and the pybind11 version.  The fingerprint is built with pymcpp's own
+    # definitions and compared with the one recorded for this minor version (tools/abi/).  publish needs it.
+    name: ABI fingerprint (patch releases keep the shared layout)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - name: Dependencies
+        run: sudo apt-get update && sudo apt-get install -y libboost-dev libarmadillo-dev libopenblas-dev
+      - name: Build the fingerprint
+        run: |
+          cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+          cmake --build build --target abi_fingerprint
+      - name: Check it against the recorded one
+        run: python tools/abi/check_abi.py build/abi_fingerprint
   publish:
     name: Publish to PyPI
     if: startsWith(github.ref, 'refs/tags/v')
     # The torch-enabled build must succeed for a release, even though its
     # wheel artifact is not published.
-    needs: [build_wheels, build_sdist, build_torch_wheel]
+    needs: [build_wheels, build_sdist, build_torch_wheel, abi]
     runs-on: ubuntu-latest
     environment: pypi
     permissions:

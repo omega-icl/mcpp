@@ -479,6 +479,23 @@ endif()
 
 target_link_libraries(pymcpp PRIVATE mc)
 
+# ABI fingerprint (2026-10-09): the binary layout of the classes that modules built on pymcpp share with it, built
+# with pymcpp's OWN definitions (the same `mc` target, the same pybind11).  tools/abi/check_abi.py compares it with
+# the fingerprint recorded for this minor version: a patch release must not change it (INSTALL.md, "Releasing").
+# Not built by default:  cmake --build build --target abi_fingerprint
+# (pybind11's headers use the Python C API inline, so the program links libpython: the embedding component, found
+# for this target only -- the module itself needs no libpython.)
+find_package(Python COMPONENTS Development.Embed QUIET)
+add_executable(abi_fingerprint EXCLUDE_FROM_ALL tools/abi/abi_fingerprint.cpp)
+target_link_libraries(abi_fingerprint PRIVATE mc pybind11::embed)
+if(TARGET Python::Python)
+  target_link_libraries(abi_fingerprint PRIVATE Python::Python)
+endif()
+if(PYMCPP_VENDORED_PYBIND11)
+  target_include_directories(
+    abi_fingerprint BEFORE PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}/extern/pybind11/include")
+endif()
+
 if(ENABLE_TORCH
    AND MC_TORCH_LIB_DIR
    AND EXISTS "${MC_TORCH_LIB_DIR}")

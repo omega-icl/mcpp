@@ -109,6 +109,40 @@ modules with **the same pybind11 release** and **the same MC++ headers**, and re
 change.  A mismatch typically shows as `free(): invalid pointer` or a segmentation fault the first time the two
 modules exchange an object.
 
+Layouts depend on the **configuration** as well as on the version: `MC__USE_THREADLOCAL` changes `FFBase` (and so
+`FFGraph`), `MC__USE_THREAD` changes `Vect`, `MC__USE_ARMADILLO` the Chebyshev and Taylor model classes, and the
+interval library the template operations.  Build a module that exchanges objects with `pymcpp` with the definitions of
+MC++'s `mc` CMake target (`MC__USE_THREAD MC__USE_TADIFF MC__USE_ARMADILLO`, the Boost interval library, not
+`MC__USE_THREADLOCAL`), as `pymcpp`'s wheels are.
+
+## Releasing
+
+A module built on `pymcpp` (CRONOS's `cronos` requires `pymcpp~=5.0.4`: any 5.0.x from 5.0.4) is compiled against
+MC++'s headers and then uses objects created by a separately compiled `pymcpp`.  That holds only if the two agree on
+those classes' binary layout, hence the rule for **patch releases** (x.y.z to x.y.z+1):
+
+* **allowed**: bug fixes inside functions, new free functions, new classes, documentation;
+* **a new minor version** (x.y+1.0) for anything else that a dependent module can see: a member added, removed or
+  reordered in a class shared with other modules (`FFBase`, `FFGraph`, `FFVar`, `FFNum`, `FFOp`, `FFSubgraph`, the
+  operation classes `FFPartial`, `FFEval`, `FFIntegral`, `FFCustom`, `FFDAGEXT`, `FFLin`, `FFMLP`, `FFVect`, ...), a
+  virtual function added or reordered in one, a change of the configuration macros above, or **another pybind11
+  release** (pinned in `pyproject.toml`).
+
+**The check.**  `tools/abi/abi_fingerprint.cpp` prints the layout of those classes (`sizeof`, `alignof`, whether
+polymorphic), the configuration and the pybind11 version, built with `pymcpp`'s own definitions:
+
+```bash
+cmake --build build --target abi_fingerprint
+python tools/abi/check_abi.py build/abi_fingerprint          # compares with tools/abi/fingerprint-X.Y-<platform>.txt
+```
+
+It passes when the fingerprint matches the one recorded for the minor version, and fails otherwise, showing what
+changed.  The CI job `abi` runs it on every push, and publishing a release requires it.  At a new minor version,
+record its fingerprint (`check_abi.py build/abi_fingerprint --record`) and commit the file.  Only Linux x86-64 is
+recorded: a source change shows on any platform.  The fingerprint cannot see everything -- a virtual function
+reordered without a size change, a member's type changed to one of the same size -- so the rule still applies where
+the check is silent.
+
 ## Troubleshooting
 
 | symptom | cause |
