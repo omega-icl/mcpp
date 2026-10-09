@@ -1257,7 +1257,7 @@ class TVar : public PolyVar<T>
   TVar(const TVar<T>& TV) : PolyVar<T>(TV), _TM(TV._TM)
   {
 #ifdef MC__TMODEL_CHECK_PMODEL
-    if (_TM != dynamic_cast<TModel<T>*>(PolyVar<T>::_PM)) assert(false);
+    assert(_TM == mc::type_cast<TModel<T>>(PolyVar<T>::_PM));  // debug only; cross-module safe (2026-10-09)
 #endif
   }
 
@@ -1265,7 +1265,7 @@ class TVar : public PolyVar<T>
   TVar(TVar<T>&& TV) : PolyVar<T>(std::move(TV)), _TM(TV._TM)
   {
 #ifdef MC__TMODEL_CHECK_PMODEL
-    if (_TM != dynamic_cast<TModel<T>*>(PolyVar<T>::_PM)) assert(false);
+    assert(_TM == mc::type_cast<TModel<T>>(PolyVar<T>::_PM));  // debug only; cross-module safe (2026-10-09)
 #endif
   }
 
@@ -2069,7 +2069,7 @@ TVar<T>::operator=(const TVar<T>& TV)
   _TM = TV._TM;
   _set(TV);
 #ifdef MC__TMODEL_CHECK_PMODEL
-  if (_TM != dynamic_cast<TModel<T>*>(PolyVar<T>::_PM)) assert(false);
+  assert(_TM == mc::type_cast<TModel<T>>(PolyVar<T>::_PM));  // debug only; cross-module safe (2026-10-09)
 #endif
   return *this;
 }
@@ -2081,7 +2081,7 @@ TVar<T>::operator=(TVar<T>&& TV)
   std::swap(_TM, TV._TM);
   _set(std::move(TV));
 #ifdef MC__TMODEL_CHECK_PMODEL
-  if (_TM != dynamic_cast<TModel<T>*>(PolyVar<T>::_PM)) assert(false);
+  assert(_TM == mc::type_cast<TModel<T>>(PolyVar<T>::_PM));  // debug only; cross-module safe (2026-10-09)
 #endif
   return *this;
 }

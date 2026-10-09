@@ -1043,7 +1043,7 @@ class CVar : public PolyVar<T>
     std::cerr << "-- CVar<T>( CVar<T> const& )\n";
 #endif
 #ifdef MC__CMODEL_CHECK_PMODEL
-    if (_CM != dynamic_cast<CModel<T>*>(PolyVar<T>::_CM)) assert(false);
+    assert(_CM == mc::type_cast<CModel<T>>(PolyVar<T>::_CM));  // debug only; cross-module safe (2026-10-09)
 #endif
   }
 
@@ -1055,7 +1055,7 @@ class CVar : public PolyVar<T>
     std::cerr << "-- CVar<T>( CVar<T> && )\n";
 #endif
 #ifdef MC__CMODEL_CHECK_PMODEL
-    if (_CM != dynamic_cast<CModel<T>*>(PolyVar<T>::_CM)) assert(false);
+    assert(_CM == mc::type_cast<CModel<T>>(PolyVar<T>::_CM));  // debug only; cross-module safe (2026-10-09)
 #endif
   }
 
@@ -2459,7 +2459,7 @@ CVar<T>::operator=(const CVar<T>& CV)
   _CM = CV._CM;
   _set(CV);
 #ifdef MC__CMODEL_CHECK_PMODEL
-  if (_CM != dynamic_cast<CModel<T>*>(PolyVar<T>::_PM)) assert(false);
+  assert(_CM == mc::type_cast<CModel<T>>(PolyVar<T>::_PM));  // debug only; cross-module safe (2026-10-09)
 #endif
   return *this;
 }
@@ -2474,7 +2474,7 @@ CVar<T>::operator=(CVar<T>&& CV)
   std::swap(_CM, CV._CM);
   _set(std::move(CV));
 #ifdef MC__CMODEL_CHECK_PMODEL
-  if (_CM != dynamic_cast<CModel<T>*>(PolyVar<T>::_PM)) assert(false);
+  assert(_CM == mc::type_cast<CModel<T>>(PolyVar<T>::_PM));  // debug only; cross-module safe (2026-10-09)
 #endif
   return *this;
 }
