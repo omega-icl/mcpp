@@ -659,7 +659,185 @@ Reset to an empty subgraph.
                     "evaluate the subgraph.")
       .def_readonly("len_wrk", &mc::FFSubgraph::len_wrk,
                     "Length of the extra work array used for moving n-ary "
-                    "operations during evaluation.");
+                    "operations during evaluation.")
+
+      // --- operations ---------------------------------------------------
+      // The FFOp objects are owned by the DAG, not by the subgraph, so they
+      // are handed out as non-owning references. reference_internal makes
+      // every returned FFOp keep this FFSubgraph alive, and the keep_alive
+      // on FFBase.subgraph makes the FFSubgraph keep the DAG alive, so the
+      // whole chain op -> subgraph -> DAG is pinned from Python.
+      .def_property_readonly(
+          "l_op", [](mc::FFSubgraph const& sg) { return sg.l_op; },
+          py::return_value_policy::reference_internal,
+          R"doc(
+Operations of the subgraph, in evaluation order (list of FFOp).
+
+Building this list allocates one wrapper per operation. For large DAGs,
+prefer ``len(sg)``, ``sg[i]`` or iteration over ``sg``, which are lazy,
+or `types` / `tape` for a wrapper-free structural dump.
+
+Notes
+-----
+The operations belong to the DAG, not to the subgraph: this is a view,
+and mutating the returned list has no effect on the subgraph.
+)doc")
+      .def(
+          "__len__", [](mc::FFSubgraph const& sg) { return sg.l_op.size(); },
+          "Number of operations in the subgraph.")
+      .def(
+          "__getitem__",
+          [](mc::FFSubgraph const& sg, py::ssize_t i) -> mc::FFOp const*
+          {
+            py::ssize_t const n = static_cast<py::ssize_t>(sg.l_op.size());
+            if (i < 0) i += n;                      // Python negative indexing
+            if (i < 0 || i >= n) throw py::index_error();
+            return sg.l_op[static_cast<size_t>(i)];
+          },
+          py::arg("index"), py::return_value_policy::reference_internal,
+          R"doc(
+Operation at a 0-based position in evaluation order.
+
+Note that `set_dep` takes a *1-based* tape position, as recorded by the
+DAG traversal: ``sg[ipos - 1]`` is the operation ``set_dep(ipos, ...)``
+refers to.
+)doc")
+      .def(
+          "__iter__",
+          [](mc::FFSubgraph const& sg)
+          { return py::make_iterator(sg.l_op.begin(), sg.l_op.end()); },
+          py::keep_alive<0, 1>(),
+          "Iterate over the operations in evaluation order.")
+
+      // --- wrapper-free structural views --------------------------------
+      .def(
+          "types",
+          [](mc::FFSubgraph const& sg)
+          {
+            std::vector<mc::FFOp::TYPE> v;
+            v.reserve(sg.l_op.size());
+            for (auto const* op : sg.l_op)
+              v.push_back(static_cast<mc::FFOp::TYPE>(op->type));
+            return v;
+          },
+          R"doc(
+Operation types in evaluation order (list of FFOp.TYPE).
+
+Returns inert data: no FFOp wrapper is created, so nothing retained from
+the result pins the subgraph.
+)doc")
+      .def(
+          "tape",
+          [](mc::FFSubgraph const& sg)
+          {
+            typedef std::vector<mc::FFVar::pt_idVar> idlist;
+            std::vector<std::tuple<mc::FFOp::TYPE, idlist, idlist>> v;
+            v.reserve(sg.l_op.size());
+            for (auto const* op : sg.l_op)
+            {
+              idlist in, out;
+              in.reserve(op->varin.size());
+              out.reserve(op->varout.size());
+              // The whole id pair is needed as the node key: the index
+              // restarts per FFVar::TYPE, so X0 is (VAR,0) and Z0 is (AUX,0)
+              // -- the index alone does not identify a node.
+              for (auto const* x : op->varin) in.push_back(x->id());
+              for (auto const* x : op->varout) out.push_back(x->id());
+              v.emplace_back(static_cast<mc::FFOp::TYPE>(op->type),
+                             std::move(in), std::move(out));
+            }
+            return v;
+          },
+          R"doc(
+Subgraph as a wrapper-free edge list: one ``(type, varin_ids,
+varout_ids)`` tuple per operation, in evaluation order, where each id is
+an ``(FFVar.TYPE, index)`` pair as returned by `FFVar.id`.
+
+Both fields are needed to identify a node: the index restarts per
+variable type, so ``X0`` is ``(VAR, 0)`` and ``Z0`` is ``(AUX, 0)``.
+
+Intended for structural analysis in Python (operation counts, fan-in
+histograms, adjacency) without materialising an FFOp or FFVar per node.
+)doc")
+
+      // --- dependents, independents, movability -------------------------
+      .def_property_readonly(
+          "v_dep", [](mc::FFSubgraph const& sg) { return sg.v_dep; },
+          py::return_value_policy::reference_internal,
+          R"doc(
+Dependent (output) FFVar nodes of the subgraph, in the order
+they were requested.
+
+Returned by value: this one is a copy, not a view.
+)doc")
+      .def_property_readonly(
+          "v_indep", [](mc::FFSubgraph const& sg) { return sg.v_indep; },
+          py::return_value_policy::reference_internal,
+          R"doc(
+Independent (input) FFVar nodes of the subgraph, in the order
+they were populated.
+
+Returned by value: this one is a copy, not a view.
+)doc")
+      .def_property_readonly(
+          "v_mov", [](mc::FFSubgraph const& sg) { return sg.v_mov; },
+          R"doc(
+Movability flag of each intermediate on the evaluation tape (list of
+int, length `len_tap`), populated by `set_wk`.
+
+Returned by value: this one is a copy, not a view.
+)doc")
+/*
+      // --- tape bookkeeping ---------------------------------------------
+      .def("set_wk", &mc::FFSubgraph::set_wk,
+           R"doc(
+Recompute the tape attributes from the operation list: `len_tap`,
+`len_wrk`, `v_indep` and `v_mov`.
+)doc")
+      .def("set_dep", &mc::FFSubgraph::set_dep, py::arg("ipos"),
+           py::arg("idep"),
+           R"doc(
+Append the ``idep``-th output of the operation at 1-based tape position
+``ipos`` to `v_dep`.
+
+Raises
+------
+RuntimeError
+    If ``ipos`` is zero or exceeds the number of operations.
+)doc")
+*/
+      // --- display -------------------------------------------------------
+      .def(
+          "output",
+          [](mc::FFSubgraph const& sg, std::string const& header)
+          {
+            std::ostringstream oss;
+            sg.output(header, oss);
+            py::print(oss.str(), py::arg("end") = "");
+          },
+          py::arg("header") = "",
+          R"doc(
+Print the subgraph, as `FFBase.output` does.
+)doc")
+      .def(
+          "__str__",
+          [](mc::FFSubgraph const& sg)
+          {
+            std::ostringstream oss;
+            sg.output("", oss);
+            return oss.str();
+          })
+      .def(
+          "__repr__",
+          [](mc::FFSubgraph const& sg)
+          {
+            std::ostringstream oss;
+            oss << "<FFSubgraph: " << sg.l_op.size() << " operations, "
+                << sg.v_dep.size() << " dependents, " << sg.v_indep.size()
+                << " independents, len_tap=" << sg.len_tap
+                << ", len_wrk=" << sg.len_wrk << ">";
+            return oss.str();
+          });
 
   auto pyFFBase =
       py::reinterpret_borrow<py::class_<mc::FFBase>>(m.attr("FFBase"));
@@ -708,6 +886,10 @@ Any FFVar handle referring to this DAG becomes invalid.
       .def(
           "subgraph", [](mc::FFBase& G, std::vector<mc::FFVar const*> const& V)
           { return G.subgraph(V); }, py::arg("vDep"),
+          // The returned subgraph holds raw pointers into the DAG, so it must
+          // keep the DAG alive: without this, `sg = f().subgraph(...)` leaves
+          // dangling FFOp*/FFVar* behind once the DAG is collected.
+          py::keep_alive<0, 1>(),
           R"doc(
 Extract the subgraph of operations needed to evaluate given dependents.
 
