@@ -1797,6 +1797,47 @@ struct FFSubgraph
   //! @brief Default constructor
   FFSubgraph() : len_tap(0), len_wrk(0) {}
 
+  //! @brief The _val slot of every node, saved at the START of an evaluation and put back by
+  //! unset_wk() at its end.  An evaluation owns those slots only for its duration: a NESTED
+  //! evaluation on the same DAG -- an external operation whose construction evaluates, e.g. a
+  //! solver copy set up inside insert_external_operation -- must leave them as it found them, or the
+  //! enclosing evaluation reads back through pointers the inner one cleared.  Every evaluation path
+  //! (eval, SDFAD, SDBAD, TAD, compose, substitute) used to NULL the slots on exit; they now call
+  //! save_val() on entry and unset_wk() where the nulling was.  Restoring is at least as safe as
+  //! nulling: with no enclosing evaluation the previous slot was null, and with one its work array
+  //! is still alive.  Stored positionally in l_op/varout order -- a void* and an unsigned per node,
+  //! and taken at evaluation time, not in set_wk(): a subgraph is built once and evaluated many
+  //! times, and the slots to restore are the ones bound when THIS evaluation began (2026-10-24).
+  mutable std::vector<void*> v_val;
+  mutable std::vector<unsigned> v_valmov;
+  void save_val() const
+  {
+    v_val.clear();  v_valmov.clear();
+    v_val.reserve(len_tap);  v_valmov.reserve(len_tap);
+    for (auto const& op : l_op)
+      for (auto const& pvar : op->varout)
+      {
+        v_val.push_back(pvar->val());
+        v_valmov.push_back(pvar->mov());
+      }
+  }
+  //! @brief Put the slots back as save_val() found them; clears the store.  _mov travels with _val:
+  //! FFOp::evaluate_external writes mov() on its outputs, so a nested evaluation would otherwise
+  //! leave an enclosing one's move flags changed -- which the former nulling loop did too, having
+  //! never restored _mov at all.
+  void unset_wk() const
+  {
+    auto itv = v_val.cbegin();
+    auto itm = v_valmov.cbegin();
+    for (auto const& op : l_op)
+      for (auto const& pvar : op->varout)
+      {
+        pvar->val() = (itv != v_val.cend() ? *itv++ : nullptr);
+        pvar->mov() = (itm != v_valmov.cend() ? *itm++ : 0);
+      }
+    v_val.clear();  v_valmov.clear();
+  }
+
   //! @brief Copy constructor
   FFSubgraph(FFSubgraph const& sg)
       : l_op(sg.l_op),
@@ -10738,6 +10779,7 @@ FFGraph::SDFAD(std::vector<FFVar const*> const& vDep,
 
   // Populate subgraph
   auto&& sgDep = subgraph(vDep);
+  sgDep.save_val();   // the slots as this evaluation finds them; unset_wk() puts them back
 #ifdef MC__FFUNC_SFAD_DEBUG
   // output( sgDep );
   std::cerr << "#wk " << sgDep.len_tap << std::endl;
@@ -10775,8 +10817,7 @@ FFGraph::SDFAD(std::vector<FFVar const*> const& vDep,
         delete[] p;
         p = nullptr;
       }
-      for (auto const& op : sgDep.l_op)
-        for (auto const& pvar : op->varout) pvar->val() = nullptr;
+      sgDep.unset_wk();   // restore, not null: see FFSubgraph::save_val
     }
   } _cleanup{vDep_deriv, vCol_deriv, sgDep};
 
@@ -11531,6 +11572,7 @@ FFGraph::SDBAD(std::vector<FFVar const*> const& vDep,
 
   // Populate subgraph
   auto sgDep = subgraph(vDep);
+  sgDep.save_val();   // the slots as this evaluation finds them; unset_wk() puts them back
 #ifdef MC__FFUNC_SBAD_DEBUG
   output(sgDep);
   std::cout << "l_op.size() = " << sgDep.l_op.size()
@@ -11573,8 +11615,7 @@ FFGraph::SDBAD(std::vector<FFVar const*> const& vDep,
         delete[] p;
         p = nullptr;
       }
-      for (auto const& op : sgDep.l_op)
-        for (auto const& pvar : op->varout) pvar->val() = nullptr;
+      sgDep.unset_wk();   // restore, not null: see FFSubgraph::save_val
     }
   } _cleanup{vDep_deriv, vCol_deriv, sgDep};
 
@@ -12037,6 +12078,7 @@ FFGraph::TAD(size_t const ordermax, std::vector<FFVar const*> const& vDep,
 
   // Obtain subgraph
   auto sgDep = subgraph(vDep);
+  sgDep.save_val();   // the slots as this evaluation finds them; unset_wk() puts them back
   std::vector<T_FFVar> wkAD(sgDep.len_tap);
   auto pwkTAD =
       (sgDep.len_wrk ? &wkAD[sgDep.len_tap - sgDep.len_wrk] : nullptr);
@@ -12145,8 +12187,7 @@ FFGraph::TAD(size_t const ordermax, std::vector<FFVar const*> const& vDep,
 
   // Null out all _val pointers set during the Taylor propagation pass before
   // wkAD (a local T_FFVar vector) goes out of scope.
-  for (auto const& op : sgDep.l_op)
-    for (auto const& pvar : op->varout) pvar->val() = nullptr;
+  sgDep.unset_wk();   // restore, not null: see FFSubgraph::save_val
 
 #ifdef MC__FFUNC_CPU_EVAL
   cputime += cpuclock();
@@ -12396,6 +12437,7 @@ FFGraph::compose(
 
   // Propagate composition through subgraph
   auto sgDep = subgraph(vDepOut);  // <- subgraph of current dependents
+  sgDep.save_val();   // the slots as this evaluation finds them; unset_wk() puts them back
   std::vector<const FFVar*> vDepComp(
       vDepOut.size());                      // <- vector to hold new dependents
   std::vector<FFVar> wkDep(sgDep.len_tap);  // <- vector to hold intermediates
@@ -12479,8 +12521,7 @@ FFGraph::compose(
   // Null out all _val pointers that were set during composition.
   // They point into the local wkDep vector; leaving them set would create
   // dangling pointers once wkDep is destroyed on return.
-  for (auto const& op : sgDep.l_op)
-    for (auto const& pvar : op->varout) pvar->val() = nullptr;
+  sgDep.unset_wk();   // restore, not null: see FFSubgraph::save_val
 
   // Fallback: any dependent unmatched by the walk is returned as-is,
   // preventing null entries that would crash the wrapper on dereference.
@@ -12672,6 +12713,7 @@ FFGraph::substitute(
     pOp->propagate_subgraph(ndx, sgDep.l_op);
     sgDep.set_dep(pOp->iflag, ndx);
   }
+  sgDep.save_val();   // the slots as this evaluation finds them; unset_wk() puts them back
   sgDep.set_wk();
 
   // --- Walk the pruned subgraph ---
@@ -12773,8 +12815,7 @@ FFGraph::substitute(
 
   // Null out all _val pointers set during the walk to prevent dangling
   // references into the local wkDep vector.
-  for (auto const& op : sgDep.l_op)
-    for (auto const& pvar : op->varout) pvar->val() = nullptr;
+  sgDep.unset_wk();   // restore, not null: see FFSubgraph::save_val
 
   // Fallback: any dependent that did not match an op in the pruned subgraph
   // (e.g. because it is unaffected by the substitution, or its defining op
@@ -13225,6 +13266,7 @@ FFGraph::eval(FFSubgraph& sgDep, std::vector<U>& wkDep, unsigned const nDep,
               std::vector<FFVar const*> const& l_pVar,
               std::vector<U const*> const& l_vVar, double const* scaladd)
 {
+  sgDep.save_val();   // the slots as this evaluation finds them; unset_wk() puts them back
   // Nothing to do!
   if (!nDep) return;
   assert(pDep && vDep);
@@ -13317,8 +13359,7 @@ FFGraph::eval(FFSubgraph& sgDep, std::vector<U>& wkDep, unsigned const nDep,
   // eval returns and wkDep may be resized or destroyed those pointers are
   // dangling.  Clearing them here prevents stale reads by any subsequent
   // subgraph traversal (reset_val_subgraph, reval, SDFAD, SDBAD, etc.).
-  for (auto const& op : sgDep.l_op)
-    for (auto const& pvar : op->varout) pvar->val() = nullptr;
+  sgDep.unset_wk();   // restore, not null: see FFSubgraph::save_val
 
 #ifdef MC__FFUNC_CPU_EVAL
   cputime += cpuclock();
@@ -13338,6 +13379,7 @@ FFGraph::eval(FFSubgraph& sgDep,
               std::vector<FFVar const*> const& l_pVar,
               std::vector<U const*> const& l_vVar, double const* scaladd)
 {
+  sgDep.save_val();   // the slots as this evaluation finds them; unset_wk() puts them back
   // Nothing to do!
   if (!nDep) return;
   assert(pDep && vDep);
@@ -13445,8 +13487,7 @@ FFGraph::eval(FFSubgraph& sgDep,
 
   // Null out all FFVar::_val pointers set during evaluation (same reason as
   // the primary eval terminal overload).
-  for (auto const& op : sgDep.l_op)
-    for (auto const& pvar : op->varout) pvar->val() = nullptr;
+  sgDep.unset_wk();   // restore, not null: see FFSubgraph::save_val
 
 #ifdef MC__FFUNC_CPU_EVAL
   cputime += cpuclock();
