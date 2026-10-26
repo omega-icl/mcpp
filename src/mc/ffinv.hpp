@@ -14,9 +14,9 @@ mc::FFInv is a C++ class that determines the structure of mathematical
 expressions with a view to inverting them, that is, express one of the
 participating variables as a function of the rest. It relies on the operator
 overloading and function overloading mechanisms of C++. The overloaded operators
-are: `+', `-', `*', and `/'; the overloaded functions include: `exp', `log',
-`sqr', `pow', `cheb', `sqrt', `fabs', `xlog', `min', `max', `cos', `sin', `tan',
-`acos', `asin', `atan', `cosh', `sinh', `tanh'.
+are: `+`, `-`, `*`, and `/`; the overloaded functions include: `exp`, `log`,
+`sqr`, `pow`, `cheb`, `sqrt`, `fabs`, `xlog`, `min`, `max`, `cos`, `sin`, `tan`,
+`acos`, `asin`, `atan`, `cosh`, `sinh`, `tanh`.
 
 This class may be used in combination with mc::FFDep for detecting the type of
 dependencies in factorable functions.

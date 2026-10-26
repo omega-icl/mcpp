@@ -117,7 +117,7 @@ MC++'s `mc` CMake target (`MC__USE_THREAD MC__USE_TADIFF MC__USE_ARMADILLO`, the
 
 ## Releasing
 
-A module built on `pymcpp` (CRONOS's `cronos` requires `pymcpp~=5.0.4`: any 5.0.x from 5.0.4) is compiled against
+A module built on `pymcpp` (CRONOS's `cronos` requires `pymcpp~=5.1.0`: any 5.1.x) is compiled against
 MC++'s headers and then uses objects created by a separately compiled `pymcpp`.  That holds only if the two agree on
 those classes' binary layout, hence the rule for **patch releases** (x.y.z to x.y.z+1):
 

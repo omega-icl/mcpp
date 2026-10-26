@@ -141,5 +141,5 @@ worked examples of each arithmetic.
   mc_ffcustom(m);
   mc_ffvect(m);
 
-  m.attr("__version__") = "5.0.4";
+  m.attr("__version__") = "5.1.0";
 }

@@ -1352,7 +1352,7 @@ class Specbnd
     method is selected via mc::Specbnd::Options::HESSBND. static
     std::pair<double,double> spectral_bound_im ( const unsigned N, const T*A );
   */
-  /** @} */
+  //  /** @} */
 };
 
 ////////////////////////////////////////////////////////////////////////

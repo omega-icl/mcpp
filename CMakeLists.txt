@@ -695,3 +695,51 @@ if(ENABLE_EXAMPLES)
     target_link_libraries("${EXEC_NAME}" PRIVATE mc)
   endforeach()
 endif()
+
+# ------------------------------------------------------------------------------------------------------------------
+# `make check` (or `cmake --build build --target check`): the release gate, as in CRONOS -- the pieces that
+# already exist on their own, run in order against the freshly built module, stopping at the first failure.
+#   1. the version written in three places agrees (tools/ci/check_version.py);
+#   2. the ABI fingerprint matches the one recorded for this minor version (tools/abi/check_abi.py), the rule
+#      INSTALL.md's "Releasing" states: a class shared with dependent modules may not change within a minor;
+#   3. the Python checks (src/pymcpp/check_*.py) pass against the built pymcpp;
+#   4. the Python examples run (notebook/*.py);
+#   5. Doxygen produces the pages with no warning (WARN_AS_ERROR), when Doxygen is installed.
+# A script exits non-zero when one of its checks fails, which stops the target.  (2026-10-26)
+find_package(Doxygen QUIET)
+set(_mc_check_scripts
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/pymcpp/check_ffgraph.py)
+set(_mc_example_scripts
+    ${CMAKE_CURRENT_SOURCE_DIR}/notebook/dag_incidence.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/notebook/ffcustom.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/notebook/fflin.py)
+set(_mc_check_commands
+    COMMAND ${CMAKE_COMMAND} -E echo "== check_version.py"
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/ci/check_version.py ${CMAKE_CURRENT_SOURCE_DIR}
+    COMMAND ${CMAKE_COMMAND} -E echo "== check_abi.py"
+    COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/abi/check_abi.py $<TARGET_FILE:abi_fingerprint>)
+foreach(_s IN LISTS _mc_check_scripts _mc_example_scripts)
+  get_filename_component(_n "${_s}" NAME)
+  list(APPEND _mc_check_commands
+       COMMAND ${CMAKE_COMMAND} -E echo "== ${_n}"
+       COMMAND ${CMAKE_COMMAND} -E env "PYTHONPATH=$<TARGET_FILE_DIR:pymcpp>" ${Python3_EXECUTABLE} ${_s})
+endforeach()
+if(DOXYGEN_FOUND)
+  set(_mc_dox_chk "${CMAKE_CURRENT_BINARY_DIR}/MC++-check.dox")
+  file(WRITE "${_mc_dox_chk}"
+       "@INCLUDE = ${CMAKE_CURRENT_SOURCE_DIR}/doc/MC++.dox\nOUTPUT_DIRECTORY = ${CMAKE_CURRENT_BINARY_DIR}/doc-check\n"
+       "GENERATE_HTML = YES\nGENERATE_LATEX = NO\nQUIET = YES\nWARN_AS_ERROR = FAIL_ON_WARNINGS_PRINT\n")
+  list(APPEND _mc_check_commands
+       COMMAND ${CMAKE_COMMAND} -E echo "== doxygen, no warning allowed"
+       COMMAND ${DOXYGEN_EXECUTABLE} "${_mc_dox_chk}")
+else()
+  list(APPEND _mc_check_commands
+       COMMAND ${CMAKE_COMMAND} -E echo "== doxygen: not found, skipped -- install it for the full check")
+endif()
+add_custom_target(check
+  ${_mc_check_commands}
+  DEPENDS pymcpp abi_fingerprint
+  WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/doc
+  USES_TERMINAL
+  VERBATIM                       # every argument shell-quoted: a message with parentheses broke /bin/sh without it
+  COMMENT "MC++ release checks")

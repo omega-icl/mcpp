@@ -53,15 +53,15 @@ class MLP
   bool read_data(std::string const& filename, bool const disp = false);
 
   //! @brief Append multi-neuron layer to MLP data: outer vector size is
-  //! #neurons in hidden layer; inner vector has scalar weights multiplying each
+  //! number of neurons in hidden layer; inner vector has scalar weights multiplying each
   //! neuron in previous (input or hidden) layer and a bias term and size
-  //! 1+#neuron in previous layer
+  //! 1 + the number of neurons in previous layer
   bool append_data(std::vector<std::vector<double>> const& layer,
                    int const activ = LINEAR, bool const reset = false);
 
   //! @brief Append single-neuron layer to MLP data: vector has scalar weights
   //! multiplying each neuron in previous (input or hidden) layer and a bias
-  //! term and size 1+#neuron in previous layer
+  //! term and size 1 + the number of neurons in previous layer
   bool append_data(std::vector<double> const& layer, int const activ = LINEAR,
                    bool const reset = false);
 

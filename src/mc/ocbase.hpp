@@ -571,6 +571,7 @@ public:
   class Exceptions : public std::runtime_error
   {
   public:
+    //! @brief Exception type
     enum TYPE{
       SETUP = 1,   //!< Incomplete setup before evaluation
       INDEX,       //!< Index mismatch in data access
@@ -3715,7 +3716,7 @@ OCVar<T>::_set
 template <class T>
 inline void
 OCVar<T>::_set
-( OCBase const* env, OCVar<T>::t_Dom const& dep, std::vector<T> && coef )
+( OCBase const* env, t_Dom const& dep, std::vector<T> && coef )
 {
   // Set environment
   _env = env;

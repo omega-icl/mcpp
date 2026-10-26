@@ -12,10 +12,10 @@
 
 mc::FFExpr is a C++ class that constructs strings representing mathematical
 expressions in factorable functions. It relies on the operator overloading and
-function overloading mechanisms of C++. The overloaded operators are: `+', `-',
-`*', and `/'; the overloaded functions include: `exp', `log', `sqr', `pow',
-`cheb', `sqrt', `fabs', `xlog', `min', `max', `cos', `sin', `tan', `acos',
-`asin', `atan', `cosh', `sinh', `tanh'.
+function overloading mechanisms of C++. The overloaded operators are: `+`, `-`,
+`*`, and `/`; the overloaded functions include: `exp`, `log`, `sqr`, `pow`,
+`cheb`, `sqrt`, `fabs`, `xlog`, `min`, `max`, `cos`, `sin`, `tan`, `acos`,
+`asin`, `atan`, `cosh`, `sinh`, `tanh`.
 
 This class may be used in combination with mc::FFGraph::eval for automatic
 string representation of subgraphs in DAGs.

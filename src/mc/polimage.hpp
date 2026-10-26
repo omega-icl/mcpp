@@ -96,22 +96,16 @@ U}-v_i^{\rm L}}(v_i-v_i^{\rm L})\\ v_k \leq \varphi(v_i) \end{array}\right.\\
 \xrightarrow{\displaystyle\text{relax}} \quad \left\{\begin{array}{l} v_k \geq
 \left\{\begin{array}{ll}
 \varphi(v_i), & \text{if $v_i\leq v_{\rm m}^{\rm cv}$}\\
-\varphi(v_i^{\rm U}) + \frac{\varphi(v_i^{\rm U})-\varphi(v_{\rm m}^{\rm
-cv})}{v_i^{\rm U}-v_{\rm m}^{\rm cv}}(v_i-v_i^{\rm U}), & \text{otherwise}
+\varphi(v_i^{\rm U}) + \frac{\varphi(v_i^{\rm U})-\varphi(v_{\rm m}^{\rm cv})}{v_i^{\rm U}-v_{\rm m}^{\rm cv}}(v_i-v_i^{\rm U}), & \text{otherwise}
 \end{array}\right.\\
 v_k \leq \left\{\begin{array}{ll}
 \varphi(v_i), & \text{if $v_i\geq v_{\rm m}^{\rm cc}$}\\
-\varphi(v_i^{\rm L}) + \frac{\varphi(v_i^{\rm L})-\varphi(v_{\rm m}^{\rm
-cc})}{v_i^{\rm L}-v_{\rm m}^{\rm cc}}(v_i-v_i^{\rm L}), & \text{otherwise}
+\varphi(v_i^{\rm L}) + \frac{\varphi(v_i^{\rm L})-\varphi(v_{\rm m}^{\rm cc})}{v_i^{\rm L}-v_{\rm m}^{\rm cc}}(v_i-v_i^{\rm L}), & \text{otherwise}
 \end{array}\right.
 \end{array}\right.\\
-& \quad \text{with:}\ v_{\rm m}^{\rm cv},v_{\rm m}^{\rm cc}\in[v_i^{\rm
-L},v_i^{\rm U}]:\ \varphi'(v_{\rm m}^{\rm cv}) =
-\textstyle\frac{\varphi(v_i^{\rm U})-\varphi(v_{\rm m}^{\rm cv})}{v_i^{\rm
-U}-v_{\rm m}^{\rm cv}} \text{ and } \varphi'(v_{\rm m}^{\rm cc}) =
-\textstyle\frac{\varphi(v_i^{\rm L})-\varphi(v_{\rm m}^{\rm cc})}{v_i^{\rm
-L}-v_{\rm m}^{\rm cc}} \f} \image html exm_uni.png \n
-  .
+& \quad \text{with:}\;v_{\rm m}^{\rm cv},v_{\rm m}^{\rm cc}\in[v_i^{\rm L},v_i^{\rm U}]:\;\varphi'(v_{\rm m}^{\rm cv}) =
+\textstyle\frac{\varphi(v_i^{\rm U})-\varphi(v_{\rm m}^{\rm cv})}{v_i^{\rm U}-v_{\rm m}^{\rm cv}} \text{ and } \varphi'(v_{\rm m}^{\rm cc}) =
+\textstyle\frac{\varphi(v_i^{\rm L})-\varphi(v_{\rm m}^{\rm cc})}{v_i^{\rm L}-v_{\rm m}^{\rm cc}} \f} \image html exm_uni.png
 
 - <B>Step 3. Polyhedral Outer-Approximation</B>\n
 Every convex, nonlinear univariate constraint generated in Step 2 is
@@ -466,7 +460,7 @@ class PolVar
   friend PolVar<U> rlmtd(const PolVar<U>&, const PolVar<U>&);
 
  public:
-  /** @ingroup POLYTOPE
+  /**
    *  @{
    */
   //! @brief Enumeration type for variables in factorable program
@@ -603,7 +597,7 @@ class PolVar
   }
 
  public:
-  /** @ingroup POLYTOPE
+  /**
    *  @{
    */
   //! @brief Constructor for a constant value <a>d</a> (default)
@@ -1323,7 +1317,7 @@ class PolCut
   friend std::ostream& operator<<(std::ostream&, PolCut<U> const&);
 
  public:
-  /** @ingroup LPRELAX
+  /**
    *  @{
    */
   //! @brief Enumeration type for cuts and special sets
@@ -1357,7 +1351,7 @@ class PolCut
   std::vector<double> _qcoef;
 
  public:
-  /** @ingroup LPRELAX
+  /**
    *  @{
    */
   //! @brief Retreive type of cut
@@ -2337,7 +2331,7 @@ class PolImg
   void _propagate_cuts(FFOp const* pOp, PolVar<T>* pPolVar);
 
  public:
-  /** @ingroup POLYTOPE
+  /**
    *  @{
    */
   //! @brief Default Constructor

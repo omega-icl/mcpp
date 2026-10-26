@@ -18,7 +18,7 @@ the variations of \f$f\f$ on \f${\bf X}\f$, \f{align*} \forall {\bf x}\in{\bf
 X}, \quad f^{\rm u}({\bf x}) =: \sum_{i=1}^n f^{\rm u}_i(x_i) \leq f({\bf x})
 \leq f^{\rm o}({\bf x}) =: \sum_{i=1}^n f^{\rm o}_i(x_i), \f} for some
 univariate real-valued functions \f$f^{\rm u}_i,f^{\rm o}_i:X_i\to\mathbb{R}\f$.
-We thus call the separable function \f$f^{\rm u}\f$ a </I>superposition
+We thus call the separable function \f$f^{\rm u}\f$ a <I>superposition
 underestimator</I> and \f$f^{\rm o}\f$, a <I>superposition overestimator</I>.
 
 The classes mc::SupModel and mc::SupVar provide an implementation of

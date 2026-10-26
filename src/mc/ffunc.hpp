@@ -34,10 +34,7 @@ spectral bounds (mc::Specbnd), polyhedral relaxations (mc::PolVar), and interval
 superposition models (mc::ISVar). They also enable their symbolic manipulation,
 including automatic differentiation, sparse factorization, and quadratization;
 see:
-- \subpage page_SQUAD
-- \subpage page_SRED
 - \subpage page_SLIFT
-- \subpage page_SELIM
 .
 
 \section sec_FFUNC_dag How do I construct the DAG of a factorable function?
@@ -2699,13 +2696,13 @@ class FFGraph : public FFBase
     //! @brief vector of dependent vector variables
     std::vector<FFVar> vDep;
 
-    //! @breif vector of independent variable sizes
+    //! @brief vector of independent variable sizes
     std::vector<size_t> l_nVar;
 
-    //! @breif vector of independent variable arrays
+    //! @brief vector of independent variable arrays
     std::vector<FFVar const*> l_pVar;
 
-    //! @breif list of independent variable values
+    //! @brief list of independent variable values
     // std::vector<U const*>     l_uVar;
   };
 
@@ -3200,7 +3197,7 @@ class FFGraph : public FFBase
   //! <a>vVar</a>, whose values are specified in vector <a>uVar</a>, and write
   //! the result into vector <a>uDep</a>. The function parameter pack
   //! <a>args</a> can be any number of extra vector pairs {std::vector<FFVar>
-  //! const& vVar, std::vector<U> const& uVar}. This function stores the results
+  //! const& vVar, std::vector\<U\> const& uVar}. This function stores the results
   //! of intermediate operations in the vector <a>wkDep</a>, resizing it as
   //! necessary. It creates the subgraph for the dependent variables internally.
   template <typename U, typename... Deps>
@@ -3214,7 +3211,7 @@ class FFGraph : public FFBase
   //! <a>vVar</a>, whose values are specified in vector <a>uVar</a>, and write
   //! the result into vector <a>uDep</a>. The function parameter pack
   //! <a>args</a> can be any number of extra vector pairs {std::vector<FFVar>
-  //! const& vVar, std::vector<U> const& uVar}. This function stores the results
+  //! const& vVar, std::vector\<U\> const& uVar}. This function stores the results
   //! of intermediate operations in the vector <a>wkDep</a>, resizing it as
   //! necessary. It uses / creates the subgraph for the dependent variables
   //! passed via <a>sgDep</a> (e.g. to reduce the computational burden in
@@ -3230,7 +3227,7 @@ class FFGraph : public FFBase
   //! <a>vVar</a>, whose values are specified in vector <a>uVar</a>, and write
   //! the result into vector <a>uDep</a>. The function parameter pack
   //! <a>args</a> can be any number of extra vector pairs {std::vector<FFVar>
-  //! const& vVar, std::vector<U> const& uVar}. This function allocates memory
+  //! const& vVar, std::vector\<U\> const& uVar}. This function allocates memory
   //! for intermediate operations internally. It creates the subgraph for the
   //! dependent variables internally.
   template <typename U, typename... Deps>
@@ -3243,7 +3240,7 @@ class FFGraph : public FFBase
   //! <a>vVar</a>, whose values are specified in vector <a>uVar</a>, and write
   //! the result into vector <a>uDep</a>. The function parameter pack
   //! <a>args</a> can be any number of extra vector pairs {std::vector<FFVar>
-  //! const& vVar, std::vector<U> const& uVar}. This function allocates memory
+  //! const& vVar, std::vector\<U\> const& uVar}. This function allocates memory
   //! for intermediate operations internally. It uses / creates the subgraph for
   //! the dependent variables passed via <a>sgDep</a> (e.g. to reduce the
   //! computational burden in repetitive evaluation of the same
@@ -3258,7 +3255,7 @@ class FFGraph : public FFBase
   //! for the variables in vector <a>vVar</a>, whose values are specified in
   //! vector <a>uVar</a>, and write the result into map <a>uDep</a>. The
   //! function parameter pack <a>args</a> can be any number of extra vector
-  //! pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}. This
+  //! pairs {std::vector<FFVar> const& vVar, std::vector\<U\> const& uVar}. This
   //! function stores the results of intermediate operations in the vector
   //! <a>wkDep</a>, resizing it as necessary. It creates the subgraph for the
   //! dependent variables internally.
@@ -3271,7 +3268,7 @@ class FFGraph : public FFBase
   //! for the variables in vector <a>vVar</a>, whose values are specified in
   //! vector <a>uVar</a>, and write the result into map <a>uDep</a>. The
   //! function parameter pack <a>args</a> can be any number of extra vector
-  //! pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}. This
+  //! pairs {std::vector<FFVar> const& vVar, std::vector\<U\> const& uVar}. This
   //! function stores the results of intermediate operations in the vector
   //! <a>wkDep</a>, resizing it as necessary. It uses / creates the subgraph for
   //! the dependent variables passed via <a>sgDep</a> (e.g. to reduce the
@@ -3287,7 +3284,7 @@ class FFGraph : public FFBase
   //! for the variables in vector <a>vVar</a>, whose values are specified in
   //! vector <a>uVar</a>, and write the result into map <a>uDep</a>. The
   //! function parameter pack <a>args</a> can be any number of extra vector
-  //! pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}. This
+  //! pairs {std::vector<FFVar> const& vVar, std::vector\<U\> const& uVar}. This
   //! function allocates memory for intermediate operations internally. It
   //! creates the subgraph for the dependent variables internally.
   template <typename U, typename V, typename COMP, typename... Deps>
@@ -3299,7 +3296,7 @@ class FFGraph : public FFBase
   //! for the variables in vector <a>vVar</a>, whose values are specified in
   //! vector <a>uVar</a>, and write the result into map <a>uDep</a>. The
   //! function parameter pack <a>args</a> can be any number of extra vector
-  //! pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}. This
+  //! pairs {std::vector<FFVar> const& vVar, std::vector\<U\> const& uVar}. This
   //! function allocates memory for intermediate operations internally.  It uses
   //! / creates the subgraph for the dependent variables passed via <a>sgDep</a>
   //! (e.g. to reduce the computational burden in repetitive evaluation of the
@@ -3313,7 +3310,7 @@ class FFGraph : public FFBase
   //! U for the variables in vector <a>vVar</a>, whose values are specified in
   //! vector <a>uVar</a>, and write the result into vector <a>uDep</a>. The
   //! function parameter pack <a>args</a> can be any number of extra vector
-  //! pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}, as
+  //! pairs {std::vector<FFVar> const& vVar, std::vector\<U\> const& uVar}, as
   //! well as a final, optional flag {const bool add} indicating if the
   //! dependent values are to overwrite (add=false) or be added to (add=true)
   //! those in <a>vDep</a>. This function stores the results of intermediate
@@ -3328,7 +3325,7 @@ class FFGraph : public FFBase
   //! U for the variables in vector <a>vVar</a>, whose values are specified in
   //! vector <a>uVar</a>, and write the result into vector <a>uDep</a>. The
   //! function parameter pack <a>args</a> can be any number of extra vector
-  //! pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}, as
+  //! pairs {std::vector<FFVar> const& vVar, std::vector\<U\> const& uVar}, as
   //! well as a final, optional flag {const bool add} indicating if the
   //! dependent values are to overwrite (add=false) or be added to (add=true)
   //! those in <a>vDep</a>. This function stores the results of intermediate
@@ -3346,7 +3343,7 @@ class FFGraph : public FFBase
   //! U for the variables in vector <a>vVar</a>, whose values are specified in
   //! vector <a>uVar</a>, and write the result into vector <a>uDep</a>. The
   //! function parameter pack <a>args</a> can be any number of extra vector
-  //! pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}, as
+  //! pairs {std::vector<FFVar> const& vVar, std::vector\<U\> const& uVar}, as
   //! well as a final, optional flag {const bool add} indicating if the
   //! dependent values are to overwrite (add=false) or be added to (add=true)
   //! those in <a>vDep</a>. This function allocates memory for intermediate
@@ -3361,7 +3358,7 @@ class FFGraph : public FFBase
   //! U for the variables in vector <a>vVar</a>, whose values are specified in
   //! vector <a>uVar</a>, and write the result into vector <a>uDep</a>. The
   //! function parameter pack <a>args</a> can be any number of extra vector
-  //! pairs {std::vector<FFVar> const& vVar, std::vector<U> const& uVar}, as
+  //! pairs {std::vector<FFVar> const& vVar, std::vector\<U\> const& uVar}, as
   //! well as a final, optional flag {const bool add} indicating if the
   //! dependent values are to overwrite (add=false) or be added to (add=true)
   //! those in <a>vDep</a>. This function allocates memory for intermediate
@@ -3612,7 +3609,7 @@ class FFGraph : public FFBase
   //! information about the dependents in <a>uDep</a> to refine the variables in
   //! <a>pVar</a> based on forward/backard propagation. The function parameter
   //! pack <a>args</a> can be any number of extra vector pairs
-  //! {std::vector<FFVar> const& vVar, std::vector<U>& vVar}, as well as
+  //! {std::vector<FFVar> const& vVar, std::vector\<U\>& vVar}, as well as
   //! optional flags {const unsigned MAXPASS, const double& THRESPASS}
   //! indicating the maximum number of forward/backward passes (default: 5) and
   //! minimum relative range reduction threshold (default: 0). This function
@@ -3631,7 +3628,7 @@ class FFGraph : public FFBase
   //! information about the dependents in <a>uDep</a> to refine the variables in
   //! <a>pVar</a> based on forward/backard propagation. The function parameter
   //! pack <a>args</a> can be any number of extra vector pairs
-  //! {std::vector<FFVar> const& vVar, std::vector<U>& vVar}, as well as
+  //! {std::vector<FFVar> const& vVar, std::vector\<U\>& vVar}, as well as
   //! optional flags {const unsigned MAXPASS, const double& THRESPASS}
   //! indicating the maximum number of forward/backward passes (default: 5) and
   //! minimum relative range reduction threshold (default: 0). This function
@@ -3650,7 +3647,7 @@ class FFGraph : public FFBase
   //! information about the dependents in <a>uDep</a> to refine the variables in
   //! <a>pVar</a> based on forward/backard propagation. The function parameter
   //! pack <a>args</a> can be any number of extra vector pairs
-  //! {std::vector<FFVar> const& vVar, std::vector<U>& vVar}, as well as
+  //! {std::vector<FFVar> const& vVar, std::vector\<U\>& vVar}, as well as
   //! optional flags {const unsigned MAXPASS, const double& THRESPASS}
   //! indicating the maximum number of forward/backward passes (default: 5) and
   //! minimum relative range reduction threshold (default: 0). This function
@@ -3670,7 +3667,7 @@ class FFGraph : public FFBase
   //! information about the dependents in <a>uDep</a> to refine the variables in
   //! <a>pVar</a> based on forward/backard propagation. The function parameter
   //! pack <a>args</a> can be any number of extra vector pairs
-  //! {std::vector<FFVar> const& vVar, std::vector<U>& vVar}, as well as
+  //! {std::vector<FFVar> const& vVar, std::vector\<U\>& vVar}, as well as
   //! optional flags {const unsigned MAXPASS, const double& THRESPASS}
   //! indicating the maximum number of forward/backward passes (default: 5) and
   //! minimum relative range reduction threshold (default: 0). This function
@@ -3692,7 +3689,7 @@ class FFGraph : public FFBase
   //! <a>uDep</a> to refine the variables in <a>pVar</a> based on
   //! forward/backard propagation. The function parameter pack <a>args</a> can
   //! be any number of extra vector pairs {std::vector<FFVar> const& vVar,
-  //! std::vector<U>& vVar}, as well as optional flags {const unsigned MAXPASS,
+  //! std::vector\<U\>& vVar}, as well as optional flags {const unsigned MAXPASS,
   //! const double& THRESPASS} indicating the maximum number of forward/backward
   //! passes (default: 5) and minimum relative range reduction threshold
   //! (default: 0). This function allocates memory for intermediate operations
@@ -3709,7 +3706,7 @@ class FFGraph : public FFBase
   //! <a>uDep</a> to refine the variables in <a>pVar</a> based on
   //! forward/backard propagation. The function parameter pack <a>args</a> can
   //! be any number of extra vector pairs {std::vector<FFVar> const& vVar,
-  //! std::vector<U>& vVar}, as well as optional flags {const unsigned MAXPASS,
+  //! std::vector\<U\>& vVar}, as well as optional flags {const unsigned MAXPASS,
   //! const double& THRESPASS} indicating the maximum number of forward/backward
   //! passes (default: 5) and minimum relative range reduction threshold
   //! (default: 0). This function stores the results of intermediate operations
@@ -3728,7 +3725,7 @@ class FFGraph : public FFBase
   //! <a>uDep</a> to refine the variables in <a>pVar</a> based on
   //! forward/backard propagation. The function parameter pack <a>args</a> can
   //! be any number of extra vector pairs {std::vector<FFVar> const& vVar,
-  //! std::vector<U>& vVar}, as well as optional flags {const unsigned MAXPASS,
+  //! std::vector\<U\>& vVar}, as well as optional flags {const unsigned MAXPASS,
   //! const double& THRESPASS} indicating the maximum number of forward/backward
   //! passes (default: 5) and minimum relative range reduction threshold
   //! (default: 0). This function allocates memory for intermediate operations
@@ -3748,7 +3745,7 @@ class FFGraph : public FFBase
   //! <a>uDep</a> to refine the variables in <a>pVar</a> based on
   //! forward/backard propagation. The function parameter pack <a>args</a> can
   //! be any number of extra vector pairs {std::vector<FFVar> const& vVar,
-  //! std::vector<U>& vVar}, as well as optional flags {const unsigned MAXPASS,
+  //! std::vector\<U\>& vVar}, as well as optional flags {const unsigned MAXPASS,
   //! const double& THRESPASS} indicating the maximum number of forward/backward
   //! passes (default: 5) and minimum relative range reduction threshold
   //! (default: 0). This function stores the results of intermediate operations
@@ -3965,7 +3962,7 @@ class FFGraph : public FFBase
   //! U for the variables in vector <a>vVar</a>, for all the values specified in
   //! the vector of vectors <a>v_uVar</a>, and write the results into the vector
   //! of vectors <a>v_uDep</a>. The parameter pack <a>args</a> can be any number
-  //! of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U>
+  //! of extra vector pairs {std::vector<FFVar> const& vVar, std::vector\<U\>
   //! const& uVar}, as well as a final, optional pointer {const double* scaladd}
   //! indicating if the dependent values are to be overwriten (scaladd=nullptr)
   //! or be added (and premultiplied by *scaladd) to those in <a>v_uDep</a>.
@@ -3983,7 +3980,7 @@ class FFGraph : public FFBase
   //! U for the variables in vector <a>vVar</a>, for all the values specified in
   //! the vector of vectors <a>v_uVar</a>, and write the results into the vector
   //! of vectors <a>v_uDep</a>. The parameter pack <a>args</a> can be any number
-  //! of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U>
+  //! of extra vector pairs {std::vector<FFVar> const& vVar, std::vector\<U\>
   //! const& uVar}, as well as a final, optional pointer {const double* scaladd}
   //! indicating if the dependent values are to be overwriten (scaladd=nullptr)
   //! or be added (and premultiplied by *scaladd) to those in <a>v_uDep</a>.
@@ -4001,7 +3998,7 @@ class FFGraph : public FFBase
   //! U for the variables in vector <a>vVar</a>, for all the values specified in
   //! the vector of vectors <a>v_uVar</a>, and write the results into the vector
   //! of vectors <a>v_uDep</a>. The parameter pack <a>args</a> can be any number
-  //! of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U>
+  //! of extra vector pairs {std::vector<FFVar> const& vVar, std::vector\<U\>
   //! const& uVar}, as well as a final, optional pointer {const double* scaladd}
   //! indicating if the dependent values are to be overwriten (scaladd=nullptr)
   //! or be added (and premultiplied by *scaladd) to those in <a>v_uDep</a>.
@@ -4021,7 +4018,7 @@ class FFGraph : public FFBase
   //! U for the variables in vector <a>vVar</a>, for all the values specified in
   //! the vector of vectors <a>v_uVar</a>, and write the results into the vector
   //! of vectors <a>v_uDep</a>. The parameter pack <a>args</a> can be any number
-  //! of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U>
+  //! of extra vector pairs {std::vector<FFVar> const& vVar, std::vector\<U\>
   //! const& uVar}, as well as a final, optional pointer {const double* scaladd}
   //! indicating if the dependent values are to be overwriten (scaladd=nullptr)
   //! or be added (and premultiplied by *scaladd) to those in <a>v_uDep</a>.
@@ -4063,7 +4060,7 @@ class FFGraph : public FFBase
   //! U for the variables in vector <a>vVar</a>, for all the values specified in
   //! the vector of vectors <a>v_uVar</a>, and write the results into the vector
   //! of vectors <a>v_uDep</a>. The parameter pack <a>args</a> can be any number
-  //! of extra vector pairs {std::vector<FFVar> const& vVar, std::vector<U>
+  //! of extra vector pairs {std::vector<FFVar> const& vVar, std::vector\<U\>
   //! const& uVar}, as well as a final, optional pointer {const double* scaladd}
   //! indicating if the dependent values are to be overwriten (scaladd=nullptr)
   //! or be added (and premultiplied by *scaladd) to those in <a>v_uDep</a>.
@@ -10001,7 +9998,7 @@ FFBase::_get_constant(FFVar const*& pVar)
 }
 
 inline FFSubgraph
-FFBase::subgraph(std::vector<FFVar const*> const& vDep)
+FFBase::subgraph(std::vector<const FFVar*> const& vDep)
 {
   _reset_operations();
   FFSubgraph sgDep;
@@ -10121,7 +10118,7 @@ FFBase::dot_script(const unsigned int nDep, const FFVar* pDep,
 }
 
 inline void
-FFBase::dot_script(const std::vector<const FFVar*>& vDep,
+FFBase::dot_script(std::vector<FFVar const*> const& vDep,
                    std::ostream& os) const
 {
   _reset_operations();
@@ -10850,43 +10847,9 @@ FFGraph::SDFAD(std::vector<FFVar const*> const& vDep,
   static FFVar FFZero = 0.;
   static FFVar FFOne  = 1.;
 
-  // Repeat forward differentiation for each independent or in selected
-  // direction
-  for (size_t ivar = 0; ivar < vIndep.size(); ++ivar)
-  {
-    if (ivar && !vDir.empty()) break;
-
-    // Forward differentiation through subgraph
-    size_t iwk = 0;
-    for (auto const& op : sgDep.l_op)
-    {
-      switch (op->type)
-      {
-        // Initialize constant
-        case FFOp::CNST:
-          op->varout[0]->val() = &FFZero;
-          break;
-
-        // Initialize variable
-        case FFOp::VAR:
-          if (vDir.size())
-          {
-            op->varout[0]->val() = &FFZero;
-            for (size_t j = 0; j < vIndep.size(); ++j)
-            {
-              if (op->varout[0]->id() != vIndep[j]->id()) continue;
-              op->varout[0]->val() = const_cast<FFVar*>(vDir[j]);
-              break;
-            }
-          }
-          else if (op->varout[0]->id() == vIndep[ivar]->id())
-            op->varout[0]->val() = &FFOne;
-          else
-            op->varout[0]->val() = &FFZero;
-          break;
-
-        // Propagate chain rule
-        default:
+  // The propagation of one operation's tangent, from its inputs' slots to its outputs' (the body the
+  // sweeps below share; a slot holding &FFZero is a structural zero and is skipped).
+  auto propagate = [&](FFOp const* op, size_t const iwk) {
           for (size_t iout = 0; iout < op->varout.size(); ++iout)
           {
             // std::cerr << "iwk+iout = " << iwk+iout << std::endl;
@@ -10950,15 +10913,9 @@ FFGraph::SDFAD(std::vector<FFVar const*> const& vDep,
             // Set derivative
             op->varout[iout]->val() = &wkAD[iwk + iout];
           }
-      }
-
-      // Increment tape
-      iwk += op->varout.size();
-    }
-
-    // Copy dependent values in vDep_F
-    for (size_t idep = 0; idep < sgDep.v_dep.size(); ++idep)
-    {
+  };
+  // The entry of one dependent in the current column, if it is not a structural zero.
+  auto extract = [&](size_t const idep, size_t const ivar) {
       FFVar const* pDep_F = static_cast<FFVar*>(sgDep.v_dep[idep]->val());
       auto vder           = _find_var(pDep_F->id());
       if (vder == nullptr)
@@ -10974,10 +10931,117 @@ FFGraph::SDFAD(std::vector<FFVar const*> const& vDep,
             break;
         }
       }
-      if (vder == nullptr) continue;
-      std::get<0>(vDep_F).push_back(idep);  // add row index (dependent)
-      std::get<1>(vDep_F).push_back(ivar);  // add column index (independent)
+      if (vder == nullptr) return;
+      std::get<0>(vDep_F).push_back((unsigned)idep);  // add row index (dependent)
+      std::get<1>(vDep_F).push_back((unsigned)ivar);  // add column index (independent)
       std::get<2>(vDep_F).push_back(vder);  // add Jacobian element
+  };
+
+  if (!vDir.empty())
+  {
+    // DIRECTIONAL: one sweep of the whole subgraph, the tangent of every variable set from vDir.
+    size_t iwk = 0;
+    for (auto const& op : sgDep.l_op)
+    {
+      switch (op->type)
+      {
+        case FFOp::CNST:
+          op->varout[0]->val() = &FFZero;
+          break;
+        case FFOp::VAR:
+          op->varout[0]->val() = &FFZero;
+          for (size_t j = 0; j < vIndep.size(); ++j)
+          {
+            if (op->varout[0]->id() != vIndep[j]->id()) continue;
+            op->varout[0]->val() = const_cast<FFVar*>(vDir[j]);
+            break;
+          }
+          break;
+        default:
+          propagate(op, iwk);
+      }
+      iwk += op->varout.size();
+    }
+    for (size_t idep = 0; idep < sgDep.v_dep.size(); ++idep) extract(idep, 0);
+  }
+  else
+  {
+    // ONE COLUMN PER INDEPENDENT, restricted to its FORWARD CONE (2026-10-26).  Until now each
+    // column swept every operation of the subgraph, n_indep x |ops| in all -- quadratic where the
+    // Jacobian's nonzero count is linear (DAG_sparsead_scaling: n^2.16 on a tridiagonal system).
+    // Only the operations reachable from the independent through consumer edges can carry a nonzero
+    // tangent: those are collected by a breadth-first walk over FFVar::opuse() within the subgraph,
+    // sorted by position in l_op (which is topological, so the cone is too), and the sweep visits
+    // them alone.  Every slot starts at &FFZero -- one pass -- and only the cone's slots are reset
+    // afterwards, so the per-column cost is the cone's size, O(nnz x depth) overall on sparse
+    // structure.  (A subexpression every cone shares keeps the sum of cone sizes large; that is the
+    // case colouring would cure, not this.)
+    size_t const nops = sgDep.l_op.size();
+    std::unordered_map<FFOp const*, size_t> opPos;
+    opPos.reserve(2 * nops + 1);
+    std::vector<size_t> wkOff(nops + 1, 0);
+    for (size_t k = 0; k < nops; ++k)
+    {
+      opPos.emplace(sgDep.l_op[k], k);
+      wkOff[k + 1] = wkOff[k] + sgDep.l_op[k]->varout.size();
+    }
+    // dependents by the operation that defines them
+    std::vector<std::vector<unsigned>> depsOf(nops);
+    for (size_t idep = 0; idep < sgDep.v_dep.size(); ++idep)
+    {
+      auto it = opPos.find(sgDep.v_dep[idep]->opdef().first);
+      if (it != opPos.end()) depsOf[it->second].push_back((unsigned)idep);
+    }
+    // the VAR operation of each independent, when it is in the subgraph
+    std::vector<size_t> varPos(vIndep.size(), nops);
+    for (size_t k = 0; k < nops; ++k)
+    {
+      auto const& op = sgDep.l_op[k];
+      if (op->type != FFOp::VAR) continue;
+      for (size_t j = 0; j < vIndep.size(); ++j)
+        if (op->varout[0]->id() == vIndep[j]->id()) { varPos[j] = k; break; }
+    }
+    // every slot a structural zero to begin with
+    for (auto const& op : sgDep.l_op)
+      for (auto& out : op->varout) out->val() = &FFZero;
+    std::vector<size_t> cone;
+    std::vector<char> inCone(nops, 0);
+    for (size_t ivar = 0; ivar < vIndep.size(); ++ivar)
+    {
+      size_t const k0 = varPos[ivar];
+      if (k0 == nops) continue;                    // not in the subgraph: an empty column
+      // the forward cone, by consumers, then in topological order
+      cone.clear();
+      cone.push_back(k0);  inCone[k0] = 1;
+      for (size_t q = 0; q < cone.size(); ++q)
+        for (auto const& out : sgDep.l_op[cone[q]]->varout)
+        {
+          auto const* use = out->opuse();
+          if (!use) continue;
+          for (auto const* cop : *use)
+          {
+            auto it = opPos.find(cop);
+            if (it == opPos.end() || inCone[it->second]) continue;
+            inCone[it->second] = 1;  cone.push_back(it->second);
+          }
+        }
+      std::sort(cone.begin(), cone.end());
+      // the sweep: the independent's tangent is one, the rest of the cone propagates
+      sgDep.l_op[k0]->varout[0]->val() = &FFOne;
+      for (size_t q = 1; q < cone.size(); ++q)
+      {
+        auto const& op = sgDep.l_op[cone[q]];
+        if (op->type == FFOp::VAR || op->type == FFOp::CNST) continue;
+        propagate(op, wkOff[cone[q]]);
+      }
+      for (size_t q = 0; q < cone.size(); ++q)
+        for (unsigned idep : depsOf[cone[q]]) extract(idep, ivar);
+      // back to structural zeros, cone only
+      for (size_t q = 0; q < cone.size(); ++q)
+      {
+        inCone[cone[q]] = 0;
+        for (auto& out : sgDep.l_op[cone[q]]->varout) out->val() = &FFZero;
+      }
     }
   }
 
@@ -11681,75 +11745,42 @@ FFGraph::SDBAD(std::vector<FFVar const*> const& vDep,
 #endif
 
   // Repeat backward differentiation for each dependent
-  for (unsigned int idep = 0; idep < vDep.size(); ++idep)
+  // Positions, tape offsets, and which operation each tape slot belongs to.
+  size_t const nops = sgDep.l_op.size();
+  std::unordered_map<FFOp const*, size_t> opPos;
+  opPos.reserve(2 * nops + 1);
+  std::vector<size_t> wkOff(nops + 1, 0);
+  for (size_t k = 0; k < nops; ++k)
   {
-    if (idep && !vDir.empty()) break;
-
-    // Initialize dependents
-    iwk = 0;
-    for (auto const& op : sgDep.l_op)
-    {
-      for (unsigned int iout = 0; iout < op->varout.size(); ++iout)
-        op->varout[iout]->val() =
-            nullptr;  // make sure only dependents are initialized
-      iwk += op->varout.size();
-    }
-    if (vDir.size())
-    {
-      for (auto const& pdep : sgDep.v_dep)
-        for (unsigned int jdep = 0; jdep < vDep.size(); ++jdep)
-        {
-          if (pdep->id() != vDep[jdep]->id()) continue;
-          pdep->val() = const_cast<FFVar*>(vDir[jdep]);
-          break;
-        }
-    }
-    else
-    {
-      if (vDep[idep]->id().first == FFVar::CREAL ||
-          vDep[idep]->id().first == FFVar::CINT)
-        continue;
-      for (auto const& pdep : sgDep.v_dep)
-        if (pdep->id() == vDep[idep]->id())
-          pdep->val() = &FFOne;
-        else
-          pdep->val() = &FFZero;
-    }
-
-    // Backpropagate derivatives
-    for (auto ito = sgDep.l_op.rbegin(); ito != sgDep.l_op.rend(); ++ito)
-    {
-      auto const& op = *ito;
-      iwk -= op->varout.size();
-
-      switch (op->type)
-      {
-        // Ignore constant
-        case FFOp::CNST:
-          op->varout[0]->val() = &FFZero;
-          wkAD[iwk]            = FFZero;
-          break;
-
-        // Backpropagate chain rule
-        default:
+    opPos.emplace(sgDep.l_op[k], k);
+    wkOff[k + 1] = wkOff[k] + sgDep.l_op[k]->varout.size();
+  }
+  std::vector<size_t> slotOp(wkOff[nops], 0);
+  for (size_t k = 0; k < nops; ++k)
+    for (size_t t = wkOff[k]; t < wkOff[k + 1]; ++t) slotOp[t] = k;
+  std::vector<char> inCone(nops, 1);                       // the directional sweep sees everything
+  // The chain rule through one operation, its outputs' adjoints from their consumers' (the body the
+  // sweeps below share); a consumer outside the current cone contributes nothing.
+  auto backprop = [&](FFOp const* op, size_t const iwk) {
           for (unsigned int iout = 0; iout < op->varout.size(); ++iout)
           {
-            // Is a dependent?
+            // A dependent's slot was SEEDED (FFOne for the row being formed, FFZero for the others)
+            // -- and until 2026-10-26 the seed was the whole adjoint: the sweep `continue`d past the
+            // contributions of the node's CONSUMERS.  Right only for a dependent nothing else reads.
+            // A dependent that another dependent's expression consumes (F = {s, t} with
+            // t = 2s + x0 x1: the row of t lost the 2s path, (6, 9) became (2, 1)), or that is itself
+            // an independent (F = {s, x1}: the row of s lost column 1), had its adjoint truncated to
+            // the seed.  The adjoint of any node is its seed PLUS what its consumers hand back; the
+            // seed starts the accumulation, it does not end it.
             if (op->varout[iout]->val())
-            {
               wkAD[iwk + iout] = *static_cast<FFVar*>(op->varout[iout]->val());
-#ifdef MC__FFUNC_SBAD_DEBUG
-              std::cout << "wkAD[" << iwk + iout << "] = " << wkAD[iwk + iout]
-                        << std::endl;
-#endif
-              continue;
-            }
-            // Not a dependent
-            wkAD[iwk + iout]      = 0.;
+            else
+              wkAD[iwk + iout]      = 0.;
             auto [itdep1, itdep2] = mapDep.equal_range(iwk + iout);
             for (auto itd = itdep1; itd != itdep2; ++itd)
             {
               auto const& [jwk, jin] = itd->second;
+              if (!inCone[slotOp[jwk]]) continue;    // a consumer outside the cone: no contribution
 #ifdef MC__FFUNC_SBAD_DEBUG
               std::cout << "itd: " << jwk << " <- " << itd->first << " [" << jin
                         << "]" << std::endl;
@@ -11770,14 +11801,9 @@ FFGraph::SDBAD(std::vector<FFVar const*> const& vDep,
             }
             op->varout[iout]->val() = &wkAD[iwk + iout];
           }
-          break;
-      }
-    }
-
-    // Copy derivatives in vDep_B
-    for (unsigned ivar = 0; ivar < vIndep.size(); ++ivar)
-    {
-      if (!setIndep.count(vIndep[ivar])) continue;
+  };
+  // The entry of one independent in the current row, if it is not a structural zero.
+  auto extract = [&](size_t const idep, size_t const ivar) {
       FFVar const* pVar_X = _find_var(vIndep[ivar]->id());
       FFVar const* pDer_X = static_cast<FFVar*>(pVar_X->val());
       auto vder           = _find_var(pDer_X->id());
@@ -11794,10 +11820,109 @@ FFGraph::SDBAD(std::vector<FFVar const*> const& vDep,
             break;
         }
       }
-      if (vder == nullptr) continue;
-      std::get<0>(vDep_B).push_back(idep);  // add row index (dependent)
-      std::get<1>(vDep_B).push_back(ivar);  // add column index (independent)
+      if (vder == nullptr) return;
+      std::get<0>(vDep_B).push_back((unsigned)idep);  // add row index (dependent)
+      std::get<1>(vDep_B).push_back((unsigned)ivar);  // add column index (independent)
       std::get<2>(vDep_B).push_back(vder);  // add Jacobian element
+  };
+
+  if (!vDir.empty())
+  {
+    // DIRECTIONAL: one sweep of the whole subgraph, the dependents seeded from vDir.
+    for (auto const& op : sgDep.l_op)
+      for (unsigned int iout = 0; iout < op->varout.size(); ++iout) op->varout[iout]->val() = nullptr;
+    for (auto const& pdep : sgDep.v_dep)
+      for (unsigned int jdep = 0; jdep < vDep.size(); ++jdep)
+      {
+        if (pdep->id() != vDep[jdep]->id()) continue;
+        pdep->val() = const_cast<FFVar*>(vDir[jdep]);
+        break;
+      }
+    for (size_t q = nops; q-- > 0;)
+    {
+      auto const& op = sgDep.l_op[q];
+      if (op->type == FFOp::CNST)
+      {
+        op->varout[0]->val() = &FFZero;  wkAD[wkOff[q]] = FFZero;
+        continue;
+      }
+      backprop(op, wkOff[q]);
+    }
+    for (unsigned ivar = 0; ivar < vIndep.size(); ++ivar)
+      if (setIndep.count(vIndep[ivar])) extract(0, ivar);
+  }
+  else
+  {
+    // ONE ROW PER DEPENDENT, restricted to its BACKWARD CONE (2026-10-26).  Until now each row swept
+    // every operation of the subgraph of ALL dependents -- n_dep x |ops| -- quadratic where the
+    // Jacobian's nonzero count is linear (DAG_sparsead_scaling: n^2.49 on a tridiagonal system).
+    // Only the operations the dependent is computed from can receive a nonzero adjoint: those are
+    // collected by a walk over the inputs' defining operations within the subgraph, visited in
+    // descending position (reverse topological), with the consumer filter in backprop() so that a
+    // consumer outside the cone -- whose slot holds another row's adjoint, or nothing -- adds
+    // nothing.  The row's entries are read off the cone's VAR operations alone.  Per-row cost: the
+    // cone's size, and a dense ROW (one dependent of every variable) costs O(n) here where forward
+    // mode's left-deep chain made it O(n^2) -- the asymmetry the two modes exist for.
+    std::vector<size_t> depPos(vDep.size(), nops);
+    for (size_t idep = 0; idep < vDep.size(); ++idep)
+    {
+      if (!vDep[idep]->opdef().first) continue;
+      auto it = opPos.find(vDep[idep]->opdef().first);
+      if (it != opPos.end()) depPos[idep] = it->second;
+    }
+    std::unordered_map<size_t, size_t> varOf;               // VAR position -> independent index
+    for (size_t k = 0; k < nops; ++k)
+    {
+      auto const& op = sgDep.l_op[k];
+      if (op->type != FFOp::VAR) continue;
+      for (size_t j = 0; j < vIndep.size(); ++j)
+        if (op->varout[0]->id() == vIndep[j]->id()) { varOf.emplace(k, j); break; }
+    }
+    std::fill(inCone.begin(), inCone.end(), 0);
+    std::vector<size_t> cone;
+    for (unsigned int idep = 0; idep < vDep.size(); ++idep)
+    {
+      if (vDep[idep]->id().first == FFVar::CREAL || vDep[idep]->id().first == FFVar::CINT) continue;
+      size_t const k0 = depPos[idep];
+      if (k0 == nops) continue;
+      // the backward cone: producers of inputs, within the subgraph; then reverse topological order
+      cone.clear();
+      cone.push_back(k0);  inCone[k0] = 1;
+      for (size_t q = 0; q < cone.size(); ++q)
+        for (auto const* in : sgDep.l_op[cone[q]]->varin)
+        {
+          auto const* pop = in->opdef().first;
+          if (!pop) continue;
+          auto it = opPos.find(pop);
+          if (it == opPos.end() || inCone[it->second]) continue;
+          inCone[it->second] = 1;  cone.push_back(it->second);
+        }
+      std::sort(cone.begin(), cone.end(), std::greater<size_t>());
+      // slots of the cone cleared; the dependent seeded with one; other dependents in the cone are
+      // intermediates of this row and start from zero, as any node does
+      for (size_t q = 0; q < cone.size(); ++q)
+        for (auto& out : sgDep.l_op[cone[q]]->varout) out->val() = nullptr;
+      sgDep.l_op[k0]->varout[vDep[idep]->opdef().second]->val() = &FFOne;   // the DAG's node, not the caller's copy
+      for (size_t q = 0; q < cone.size(); ++q)
+      {
+        auto const& op = sgDep.l_op[cone[q]];
+        if (op->type == FFOp::CNST)
+        {
+          op->varout[0]->val() = &FFZero;  wkAD[wkOff[cone[q]]] = FFZero;
+          continue;
+        }
+        backprop(op, wkOff[cone[q]]);
+      }
+      // the row's entries in ascending column order, as before (the cone is walked descending)
+      std::vector<size_t> cols;
+      for (size_t q = 0; q < cone.size(); ++q)
+      {
+        auto it = varOf.find(cone[q]);
+        if (it != varOf.end()) cols.push_back(it->second);
+      }
+      std::sort(cols.begin(), cols.end());
+      for (size_t const ivar : cols) extract(idep, ivar);
+      for (size_t q = 0; q < cone.size(); ++q) inCone[cone[q]] = 0;
     }
   }
 
@@ -12061,8 +12186,8 @@ FFGraph::TAD(size_t const ordermax, size_t const nDep, FFVar const* const pDep,
   return pDep_T;
 }
 
-inline std::vector<FFVar const*>
-FFGraph::TAD(size_t const ordermax, std::vector<FFVar const*> const& vDep,
+inline std::vector<const FFVar*>
+FFGraph::TAD(size_t const ordermax, const std::vector<const FFVar*>& vDep,
              std::vector<FFVar const*> const& vVar, FFVar const* const pIndep)
 {
   using T_FFVar = TADType<FFVar>;

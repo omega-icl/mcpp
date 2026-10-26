@@ -53,9 +53,9 @@ class MLPREG
   //! @brief Default constructor
   MLPREG() : _nin(0), _nout(0), _nhid(0), _nwei(0) {}
 
-  //! @brief Default constructor: {#inputs, {{#neurons fist hidden layer,
-  //! activation function}, ..., {#neurons last hidden layer, activation
-  //! function}, {#neurons output layer, activation function}}}
+  //! @brief Default constructor: {number of inputs, {{number of neurons fist hidden layer,
+  //! activation function}, ..., {number of neurons last hidden layer, activation
+  //! function}, {number of neurons output layer, activation function}}}
   MLPREG(
       std::pair<size_t, std::vector<std::pair<size_t, int>>> const& structure)
   {

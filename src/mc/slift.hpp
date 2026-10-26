@@ -969,7 +969,7 @@ SLiftEnv::_insert_expr(FFVar const* var, SLiftVar const* expr, bool const isdep)
 }
 
 inline void
-SLiftEnv::_insert_expr(FFOp const* pOp, std::vector<FFVar const*>& vAux)
+SLiftEnv::_insert_expr(FFOp const* pOp, std::vector<const FFVar*>& vAux)
 {
   // In NOAUXIL mode, inline the operation result itself into the rewritten DAG.
   // Inverse reformulations such as LOG2EXP/SQRT2SQR/TAN2ATAN are deliberately

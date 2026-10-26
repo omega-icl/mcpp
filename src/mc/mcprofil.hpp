@@ -215,7 +215,7 @@ struct Op< ::INTERVAL>
 namespace mc
 {
 
-//! @brief Specialization of the structure mc::Op for use of the type ::INTERVAL
+//! @brief Specialization of the structure mc::Op for use of the type INTERVAL
 //! of <A
 //! href="http://www.ti3.tu-harburg.de/Software/PROFILEnglisch.html">PROFIL</A>
 //! as a template parameter in the other MC++ types

@@ -12,10 +12,10 @@
 mc::FFDep is a C++ class that determines the structure of mathematical
 expressions, namely their sparsity pattern and linearity, for a given set of
 participating variables. It relies on the operator overloading and function
-overloading mechanisms of C++. The overloaded operators are: `+', `-', `*', and
-`/'; the overloaded functions include: `exp', `log', `sqr', `pow', `cheb',
-`sqrt', `fabs', `xlog', `min', `max', `cos', `sin', `tan', `acos', `asin',
-`atan', `cosh', `sinh', `tanh'.
+overloading mechanisms of C++. The overloaded operators are: `+`, `-`, `*`, and
+`/`; the overloaded functions include: `exp`, `log`, `sqr`, `pow`, `cheb`,
+`sqrt`, `fabs`, `xlog`, `min`, `max`, `cos`, `sin`, `tan`, `acos`, `asin`,
+`atan`, `cosh`, `sinh`, `tanh`.
 
 
 \section sec_FFDepEval How Do I Determine the Structure of a Factorable
