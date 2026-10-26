@@ -129,7 +129,7 @@ those classes' binary layout, hence the rule for **patch releases** (x.y.z to x.
   release** (pinned in `pyproject.toml`).
 
 **The check.**  `tools/abi/abi_fingerprint.cpp` prints the layout of those classes (`sizeof`, `alignof`, whether
-polymorphic), the configuration and the pybind11 version, built with `pymcpp`'s own definitions:
+polymorphic), the configuration and the pybind11 version and internals number, built with `pymcpp`'s own definitions:
 
 ```bash
 cmake --build build --target abi_fingerprint
@@ -137,8 +137,14 @@ python tools/abi/check_abi.py build/abi_fingerprint          # compares with too
 ```
 
 It passes when the fingerprint matches the one recorded for the minor version, and fails otherwise, showing what
-changed.  The CI job `abi` runs it on every push, and publishing a release requires it.  At a new minor version,
-record its fingerprint (`check_abi.py build/abi_fingerprint --record`) and commit the file.  Only Linux x86-64 is
+changed.  On the pybind11 line the INTERNALS number binds -- it is what decides whether two modules can exchange
+objects, and pybind11 keeps it across patch releases -- while a different pybind11 version with the same internals
+is noted, not failed: a Torch-enabled build compiles against PyTorch's bundled pybind11.  The CI job `abi` runs it on every push, and publishing a release requires it.  At a new minor version,
+record its fingerprint (`check_abi.py build/abi_fingerprint --record`) and commit the file.  Record it in the
+WHEELS' configuration -- no Torch, no HSL, the vendored pybind11 -- in a build directory of its own, since a
+Torch-enabled build takes pybind11 from PyTorch's include directory and the record would carry the wrong version:
+`cmake -S . -B build-abi -DENABLE_TORCH=OFF -DENABLE_HSL=OFF -DPYMCPP_VENDORED_PYBIND11=ON && cmake --build
+build-abi --target abi_fingerprint && python3 tools/abi/check_abi.py build-abi/abi_fingerprint --record`.  Only Linux x86-64 is
 recorded: a source change shows on any platform.  The fingerprint cannot see everything -- a virtual function
 reordered without a size change, a member's type changed to one of the same size -- so the rule still applies where
 the check is silent.
