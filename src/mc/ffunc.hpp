@@ -13518,36 +13518,18 @@ FFGraph::eval(FFSubgraph& sgDep,
   unsigned* pwkmov =
       (sgDep.len_wrk ? &sgDep.v_mov[sgDep.len_tap - sgDep.len_wrk] : nullptr);
 
-  // Build varValMap: variable id -> pointer into the current l_vVar arrays.
-  //
-  // ndxVar caches the structural mapping  id -> (group, within-group index)
-  // computed from l_pVar on the first call.  On subsequent calls where l_nVar
-  // and l_pVar are unchanged but l_vVar carries new numeric values, the cache
-  // is used directly so that varValMap is rebuilt in O(|ndxVar|) - the number
-  // of distinct variable IDs across all groups - rather than O(V_total) from a
-  // full rescan of l_pVar.
-  std::unordered_map<FFVar::pt_idVar, U const*, hash_FFVarId> varValMap;
-  varValMap.reserve(ndxVar.empty() ? 16 : ndxVar.size());
-
+  // ndxVar caches the structural mapping  id -> (group, within-group index), built from l_pVar on
+  // the first call and read on every later one.  It is the ONLY map: the first cut rebuilt a second
+  // one, id -> value pointer, on every call -- one insertion per variable, the same count as the
+  // plain overload's, so on a residual of 4,800 rows over 9,601 variables this overload cost 2.26 ms
+  // per call to the plain one's 2.37 (2026-10-27).  The lookup below reads ndxVar directly: no
+  // per-call allocation, no insertion.
   if (ndxVar.empty())
   {
-    // First call: scan l_pVar to build both the index cache and varValMap.
     for (size_t g = 0; g < nIndep; ++g)
       for (size_t i = 0; i < l_nVar[g]; ++i)
-      {
-        auto const& id = l_pVar[g][i].id();
-        ndxVar[id]     = {g, i};
-        varValMap[id]  = &l_vVar[g][i];
-      }
+        ndxVar[l_pVar[g][i].id()] = {g, i};
   }
-  else
-  {
-    // Subsequent call: rebuild varValMap from the cached (group, index) pairs
-    // and the new l_vVar data - O(|ndxVar|), no scan of l_pVar needed.
-    for (auto const& [id, gi] : ndxVar)
-      varValMap[id] = &l_vVar[gi.first][gi.second];
-  }
-
   // Propagate values in U arithmetic through subgraph
 #ifdef MC__FFUNC_CPU_EVAL
   double cputime = -cpuclock();
@@ -13561,8 +13543,8 @@ FFGraph::eval(FFSubgraph& sgDep,
     if (op->type == FFOp::VAR && !op->varout[0]->cst())
     {
       FFVar* pvar = op->varout[0];
-      auto it     = varValMap.find(pvar->id());
-      if (it == varValMap.end())
+      auto it     = ndxVar.find(pvar->id());
+      if (it == ndxVar.end())
       {
         std::cerr << "Subgraph evaluation failed -- missing variable " << *pvar
                   << " [nDep=" << nDep << ", vargroups=" << l_nVar.size()
@@ -13570,7 +13552,7 @@ FFGraph::eval(FFSubgraph& sgDep,
                   << ", subgraph_ops=" << sgDep.l_op.size() << "]" << std::endl;
         throw Exceptions(Exceptions::MISSVAR);
       }
-      wkDep[iwk] = *it->second;
+      wkDep[iwk] = l_vVar[it->second.first][it->second.second];
     }
 
     // Evaluate current operation
