@@ -1,5 +1,7 @@
 # MC++: Toolkit for Construction, Manipulation and Evaluation of Factorable Functions
 
+[![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/omega-icl/mcpp/blob/version-5/notebook/joss_paper.ipynb)
+
 MC++ provides a collection of classes to support the construction and manipulation of factorable functions and
 their evaluation using a range of arithmetics.  It is primarily written in C++ to promote execution speed, while the
 library PyMC++ provides Python binders through [pybind11](https://pybind11.readthedocs.io/en/stable/) (the module
@@ -38,7 +40,9 @@ The bounding arithmetics, each a header that can be used on its own or through t
 | Polyhedral relaxations | linear relaxations for use in LP/MILP solvers |
 | Superposition relaxations | relaxation via separable estimators |
 
-A range of Python scripts and notebooks in `notebook/` illustrate these capabilities.
+A range of Python scripts and notebooks in `notebook/` illustrate these capabilities.  The companion notebook
+[`notebook/joss_paper.ipynb`](notebook/joss_paper.ipynb) reproduces every listing in the JOSS paper and runs in
+the browser with no installation: [open it in Colab](https://colab.research.google.com/github/omega-icl/mcpp/blob/version-5/notebook/joss_paper.ipynb).
 
 ## Setting up MC++
 
