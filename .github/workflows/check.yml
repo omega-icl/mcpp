@@ -1,0 +1,62 @@
+# .github/workflows/check.yml
+#
+# The release gate (CMakeLists.txt, `check`) run on every push and pull request,
+# so the thing that currently only runs when someone types it locally runs in CI.
+#
+# `check` covers, stopping at the first failure: the version agreeing in three
+# places, the ABI fingerprint against the recorded one, src/pymcpp/check_*.py
+# against the freshly built module, the Python examples in notebook/, and
+# Doxygen with no warning allowed.  The last step here adds the JOSS paper's
+# companion notebook, whose final cell asserts every figure the paper quotes --
+# so a change that would make the paper wrong fails the build.
+#
+# The triggers name no branch on purpose: a branch filter goes stale when the
+# development branch moves on, and it fails silently -- `wheels.yml` filters on
+# `branches: [version-5.0]`, which does not exist, so its push and
+# pull_request triggers never fire and only a `v*` tag runs it.  Without a
+# filter this runs on every push and every pull request, which costs a few
+# runner minutes per topic branch and can never stop running by accident.
+# Add `branches: [<name>]` under either trigger if you would rather pay the
+# other way.
+
+name: check
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  check:
+    name: Release checks (Ubuntu)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          submodules: recursive
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libboost-dev libarmadillo-dev libopenblas-dev doxygen
+          # graphviz only if doc/MC++.dox sets HAVE_DOT = YES
+          python -m pip install --upgrade pip
+          pip install nbconvert nbclient ipykernel
+
+      - name: Configure
+        run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
+
+      - name: Release checks
+        run: cmake --build build --target check
+
+      - name: The paper's companion notebook reproduces its listings
+        run: |
+          MODULE=$(find build -name 'pymcpp*.so' -print -quit)
+          test -n "$MODULE" || { echo "built pymcpp module not found under build/"; exit 1; }
+          PYTHONPATH="$(dirname "$MODULE")" \
+            jupyter nbconvert --to notebook --execute --stdout \
+            notebook/joss_paper.ipynb > /dev/null

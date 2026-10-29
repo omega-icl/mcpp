@@ -1,4 +1,4 @@
-# Sphinx configuration for the PyMC user documentation (pymcpp).
+# Sphinx configuration for the PyMC++ user documentation (pymcpp).
 #
 # Local build:
 #   pip install pymcpp -r docs/requirements.txt && sphinx-build docs docs/_build
@@ -11,7 +11,7 @@ import os
 # executing the installed .pyi stub, which is not runnable Python.
 os.environ["SPHINX_AUTODOC_IGNORE_NATIVE_MODULE_TYPE_STUBS"] = "1"
 
-project = "PyMC"
+project = "PyMC++"
 author = "OMEGA Research Group, Imperial College London"
 
 extensions = [
@@ -53,4 +53,4 @@ autodoc_default_options = {
 exclude_patterns = ["notebooks/.venv", "notebooks/**/.*"]
 
 html_theme = "pydata_sphinx_theme"
-html_title = "PyMC"
+html_title = "PyMC++"

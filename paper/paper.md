@@ -114,12 +114,12 @@ their own search and not addressable from outside.
 Functions are defined on a DAG environment, an `FFGraph` object, with
 participating variables of type `FFVar` connected by operations of type `FFOp`;
 expressions are built by writing ordinary arithmetic on them. Identical
-subexpressions are detected and shared as they are created: a DAG for the two
-factorable functions $f(x,y) = e^{xy} - 2x^2y + 3$ and $g(x,y) = \sqrt{x^2y + 4}
-+ e^{xy}$ shares the subexpressions $xy$, $e^{xy}$ and $x^2$, and comprises 16
-operations rather than 21. A *subgraph* (`FFSubgraph`) --- the `FFOp` list for a
-chosen set of dependents, in topological order, what an
-automatic-differentiation tool would call a tape or a codelist --- is a
+subexpressions are detected and shared as they are created. For instance, a DAG
+for the two factorable functions $f(x,y) = e^{xy} - 2x^2y + 3$ and
+$g(x,y) = \sqrt{x^2y + 4} + e^{xy}$ shares the subexpressions $xy$, $e^{xy}$ and
+$x^2$, and comprises 16 operations rather than 21. A *subgraph* (`FFSubgraph`)
+--- the `FFOp` list for a chosen set of dependents, in topological order, what
+an automatic-differentiation tool would call a tape or a codelist --- is a
 first-class object that can be held, inspected and re-used, so a function
 evaluated many times is traversed once.
 
@@ -306,11 +306,11 @@ core design decisions: the architecture of the library, the arithmetics it
 implements and the interfaces it exposes are the authors' own. AI-assisted code
 was accepted only after passing the repository's `check` target, which gates
 version consistency across source, documentation and build metadata, the
-recorded ABI fingerprint, the Python check scripts in `src/pymcpp/`, the example
-programs, and a warning-free documentation build; derivative routines are
-additionally cross-checked forward against reverse accumulation. Every code
-listing in this paper was executed against the released `pymcpp` wheel, and the
-companion notebook asserts each quoted figure.
+recorded ABI fingerprint, the Python check scripts in `src/pymcpp/`, and a
+warning-free documentation build; derivative routines are additionally
+cross-checked forward against reverse accumulation. Every code listing in this
+paper was executed against the released `pymcpp` wheel, and the companion
+notebook asserts each quoted figure.
 
 # Acknowledgements
 

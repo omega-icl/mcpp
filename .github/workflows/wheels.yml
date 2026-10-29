@@ -2,10 +2,10 @@ name: wheels
 
 on:
   push:
-    branches: [version-5.0]
+    branches: [version-5]
     tags: ["v*"]
   pull_request:
-    branches: [version-5.0]
+    branches: [version-5]
   workflow_dispatch:
 
 jobs:
