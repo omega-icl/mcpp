@@ -1,0 +1,274 @@
+% paper.bib -- references for the MC++ / pyMC++ JOSS paper
+
+% ---------------------------------------------------------------- methods in MC++
+
+@article{mccormick1976,
+  author  = {McCormick, Garth P.},
+  title   = {Computability of global solutions to factorable nonconvex programs:
+             Part {I} -- Convex underestimating problems},
+  journal = {Mathematical Programming},
+  volume  = {10}, number = {1}, pages = {147--175}, year = {1976},
+  doi     = {10.1007/BF01580665}
+}
+
+@article{mitsos2009,
+  author  = {Mitsos, Alexander and Chachuat, Beno{\^i}t and Barton, Paul I.},
+  title   = {{McCormick}-based relaxations of algorithms},
+  journal = {SIAM Journal on Optimization},
+  volume  = {20}, number = {2}, pages = {573--601}, year = {2009},
+  doi     = {10.1137/080717341}
+}
+
+@article{tsoukalas2014,
+  author  = {Tsoukalas, Angelos and Mitsos, Alexander},
+  title   = {Multivariate {McCormick} relaxations},
+  journal = {Journal of Global Optimization},
+  volume  = {59}, number = {2}, pages = {633--662}, year = {2014},
+  doi     = {10.1007/s10898-014-0176-0}
+}
+
+@article{rajyaguru2017,
+  author  = {Rajyaguru, Jai and Villanueva, Mario E. and Houska, Boris and Chachuat, Beno{\^i}t},
+  title   = {{Chebyshev} model arithmetic for factorable functions},
+  journal = {Journal of Global Optimization},
+  volume  = {68}, pages = {413--438}, year = {2017},
+  doi     = {10.1007/s10898-016-0474-9}
+}
+
+@inproceedings{villanueva2015,
+  author    = {Villanueva, Mario E. and Rajyaguru, Jai and Houska, Boris and Chachuat, Beno{\^i}t},
+  title     = {Ellipsoidal arithmetic for multivariate systems},
+  booktitle = {Computer Aided Chemical Engineering},
+  volume    = {37}, pages = {767--772}, year = {2015},
+  doi       = {10.1016/B978-0-444-63578-5.50123-7}
+}
+
+@article{zha2026,
+  author  = {Zha, Yanlin and Villanueva, Mario E. and Houska, Boris and Chachuat, Beno{\^i}t},
+  title   = {Relaxation via separable estimators: arithmetic and implementation},
+  journal = {Journal of Global Optimization},
+  volume  = {96}, number = {2}, pages = {403--440}, year = {2026},
+  doi     = {10.1007/s10898-026-01648-z}
+}
+
+@article{sahlodin2011,
+  author  = {Sahlodin, Ali M. and Chachuat, Beno{\^i}t},
+  title   = {Convex/concave relaxations of parametric {ODEs} using {Taylor} models},
+  journal = {Computers \& Chemical Engineering},
+  volume  = {35}, number = {5}, pages = {844--857}, year = {2011},
+  doi     = {10.1016/j.compchemeng.2011.01.031}
+}
+
+@article{bompadre2013,
+  author  = {Bompadre, Agustin and Mitsos, Alexander and Chachuat, Beno{\^i}t},
+  title   = {Convergence analysis of {Taylor} models and {McCormick-Taylor} models},
+  journal = {Journal of Global Optimization},
+  volume  = {57}, number = {1}, pages = {75--114}, year = {2013},
+  doi     = {10.1007/s10898-012-9998-9}
+}
+
+@article{chachuat2015,
+  author  = {Chachuat, Beno{\^i}t and Houska, Boris and Paulen, Radoslav and Peri{\'c}, Nikola
+             and Rajyaguru, Jai and Villanueva, Mario E.},
+  title   = {Set-theoretic approaches in analysis, estimation and control of nonlinear systems},
+  journal = {IFAC-PapersOnLine},
+  volume  = {48}, number = {8}, pages = {981--995}, year = {2015},
+  doi     = {10.1016/j.ifacol.2015.09.097}
+}
+
+% ---------------------------------------------------------------- the binders
+
+@misc{pybind11,
+  author = {Jakob, Wenzel and Rhinelander, Jason and Moldovan, Dean},
+  title  = {{pybind11} -- Seamless operability between {C++11} and {Python}},
+  year   = {2017},
+  note   = {\url{https://github.com/pybind/pybind11}}
+}
+
+% ---------------------------------------------------------------- AD / modelling
+
+@article{casadi,
+  author  = {Andersson, Joel A. E. and Gillis, Joris and Horn, Greg
+             and Rawlings, James B. and Diehl, Moritz},
+  title   = {{CasADi}: a software framework for nonlinear optimization and optimal control},
+  journal = {Mathematical Programming Computation},
+  volume  = {11}, number = {1}, pages = {1--36}, year = {2019},
+  doi     = {10.1007/s12532-018-0139-4}
+}
+
+@article{adolc,
+  author  = {Griewank, Andreas and Juedes, David and Utke, Jean},
+  title   = {Algorithm 755: {ADOL-C}: A package for the automatic differentiation
+             of algorithms written in {C/C++}},
+  journal = {ACM Transactions on Mathematical Software},
+  volume  = {22}, number = {2}, pages = {131--167}, year = {1996},
+  doi     = {10.1145/229473.229474}
+}
+
+@article{pyomo,
+  author  = {Hart, William E. and Watson, Jean-Paul and Woodruff, David L.},
+  title   = {{Pyomo}: modeling and solving mathematical programs in {Python}},
+  journal = {Mathematical Programming Computation},
+  volume  = {3}, number = {3}, pages = {219--260}, year = {2011},
+  doi     = {10.1007/s12532-011-0026-8}
+}
+
+@book{pyomobook,
+  author    = {Bynum, Michael L. and Hackebeil, Gabriel A. and Hart, William E.
+               and Laird, Carl D. and Nicholson, Bethany L. and Siirola, John D.
+               and Watson, Jean-Paul and Woodruff, David L.},
+  title     = {Pyomo -- Optimization Modeling in Python},
+  edition   = {Third}, volume = {67}, publisher = {Springer}, year = {2021},
+  doi       = {10.1007/978-3-030-68928-5}
+}
+
+@article{jump,
+  author  = {Lubin, Miles and Dowson, Oscar and {Dias Garcia}, Joaquim and Huchette, Joey
+             and Legat, Beno{\^i}t and Vielma, Juan Pablo},
+  title   = {{JuMP} 1.0: recent improvements to a modeling language for mathematical optimization},
+  journal = {Mathematical Programming Computation},
+  volume  = {15}, number = {3}, pages = {581--589}, year = {2023},
+  doi     = {10.1007/s12532-023-00239-3}
+}
+
+% ---------------------------------------------------------------- interval arithmetic
+
+@article{filib,
+  author  = {Lerch, Michael and Tischler, German and {Wolff von Gudenberg}, J{\"u}rgen
+             and Hofschuster, Werner and Kr{\"a}mer, Walter},
+  title   = {{FILIB++}, a fast interval library supporting containment computations},
+  journal = {ACM Transactions on Mathematical Software},
+  volume  = {32}, number = {2}, pages = {299--324}, year = {2006},
+  doi     = {10.1145/1141885.1141893}
+}
+
+@article{profilbias,
+  author  = {Kn{\"u}ppel, Olaf},
+  title   = {{PROFIL/BIAS} -- a fast interval library},
+  journal = {Computing},
+  volume  = {53}, number = {3-4}, pages = {277--287}, year = {1994},
+  doi     = {10.1007/BF02307379}
+}
+
+@article{boostinterval,
+  author  = {Br{\"o}nnimann, Herv{\'e} and Melquiond, Guillaume and Pion, Sylvain},
+  title   = {The design of the {Boost} interval arithmetic library},
+  journal = {Theoretical Computer Science},
+  volume  = {351}, number = {1}, pages = {111--118}, year = {2006},
+  doi     = {10.1016/j.tcs.2005.09.062}
+}
+
+@article{ibex,
+  author  = {Chabert, Gilles and Jaulin, Luc},
+  title   = {Contractor programming},
+  journal = {Artificial Intelligence},
+  volume  = {173}, number = {11}, pages = {1079--1100}, year = {2009},
+  doi     = {10.1016/j.artint.2009.03.002}
+}
+
+% ---------------------------------------------------------------- Taylor / Chebyshev models
+
+@article{taylorseries_jl,
+  author  = {Benet, Luis and Sanders, David P.},
+  title   = {{TaylorSeries.jl}: {Taylor} expansions in one and several variables in {Julia}},
+  journal = {Journal of Open Source Software},
+  volume  = {4}, number = {36}, pages = {1043}, year = {2019},
+  doi     = {10.21105/joss.01043}
+}
+
+@misc{taylormodels_jl,
+  author = {Benet, Luis and Sanders, David P. and {contributors}},
+  title  = {{TaylorModels.jl}: rigorous {Taylor} models in {Julia}},
+  year   = {2026},
+  note   = {\url{https://github.com/JuliaIntervals/TaylorModels.jl}}
+  % the package has no paper of its own; cite taylorseries_jl alongside
+}
+
+@inproceedings{cora,
+  author    = {Althoff, Matthias},
+  title     = {An introduction to {CORA} 2015},
+  booktitle = {Proceedings of the Workshop on Applied Verification for Continuous
+               and Hybrid Systems (ARCH14-15)},
+  series    = {EPiC Series in Computing}, volume = {34},
+  pages     = {120--151}, year = {2015},
+  doi       = {10.29007/zbkv}
+}
+
+@inproceedings{flowstar,
+  author    = {Chen, Xin and {\'A}brah{\'a}m, Erika and Sankaranarayanan, Sriram},
+  title     = {{Flow*}: An analyzer for non-linear hybrid systems},
+  booktitle = {Computer Aided Verification (CAV)},
+  series    = {Lecture Notes in Computer Science}, volume = {8044},
+  pages     = {258--263}, year = {2013},
+  doi       = {10.1007/978-3-642-39799-8_18}
+}
+
+% ---------------------------------------------------------------- solvers
+
+@article{baron,
+  author  = {Tawarmalani, Mohit and Sahinidis, Nikolaos V.},
+  title   = {A polyhedral branch-and-cut approach to global optimization},
+  journal = {Mathematical Programming},
+  volume  = {103}, number = {2}, pages = {225--249}, year = {2005},
+  doi     = {10.1007/s10107-005-0581-8}
+}
+
+@article{antigone,
+  author  = {Misener, Ruth and Floudas, Christodoulos A.},
+  title   = {{ANTIGONE}: Algorithms for co{NT}inuous/{I}nteger Global Optimization
+             of Nonlinear Equations},
+  journal = {Journal of Global Optimization},
+  volume  = {59}, number = {2-3}, pages = {503--526}, year = {2014},
+  doi     = {10.1007/s10898-014-0166-2}
+}
+
+@article{couenne,
+  author  = {Belotti, Pietro and Lee, Jon and Liberti, Leo and Margot, Fran{\c c}ois
+             and W{\"a}chter, Andreas},
+  title   = {Branching and bounds tightening techniques for non-convex {MINLP}},
+  journal = {Optimization Methods and Software},
+  volume  = {24}, number = {4-5}, pages = {597--634}, year = {2009},
+  doi     = {10.1080/10556780903087124}
+}
+
+@misc{scip,
+  author        = {Hojny, Christopher and Besan{\c c}on, Mathieu and Bestuzheva, Ksenia
+                   and Borst, Sander and others},
+  title         = {The {SCIP} Optimization Suite 10.0},
+  year          = {2025},
+  eprint        = {2511.18580},
+  archivePrefix = {arXiv},
+  primaryClass  = {math.OC}
+}
+
+@misc{gurobi,
+  author = {{Gurobi Optimization, LLC}},
+  title  = {{Gurobi Optimizer Reference Manual}},
+  year   = {2026},
+  note   = {\url{https://www.gurobi.com}}
+}
+
+@article{alpine,
+  author  = {Nagarajan, Harsha and Lu, Mowen and Wang, Site and Bent, Russell and Sundar, Kaarthik},
+  title   = {An adaptive, multivariate partitioning algorithm for global optimization
+             of nonconvex programs},
+  journal = {Journal of Global Optimization},
+  volume  = {74}, number = {4}, pages = {639--675}, year = {2019},
+  doi     = {10.1007/s10898-018-00734-1}
+}
+
+@article{eago,
+  author  = {Wilhelm, Matthew E. and Stuber, Matthew D.},
+  title   = {{EAGO.jl}: easy advanced global optimization in {Julia}},
+  journal = {Optimization Methods and Software},
+  volume  = {37}, number = {2}, pages = {425--450}, year = {2022},
+  doi     = {10.1080/10556788.2020.1786566}
+}
+
+@techreport{maingo,
+  author      = {Bongartz, Dominik and Najman, Jaromi{\l} and Sass, Susanne and Mitsos, Alexander},
+  title       = {{MAiNGO} -- {McCormick}-based Algorithm for mixed-integer Nonlinear Global Optimization},
+  institution = {Process Systems Engineering (AVT.SVT), RWTH Aachen University},
+  year        = {2018},
+  note        = {\url{http://permalink.avt.rwth-aachen.de/?id=729717}}
+}
