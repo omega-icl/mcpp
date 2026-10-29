@@ -271,8 +271,7 @@ notebooks covering each arithmetic accompany the source, among them a companion
 notebook that reproduces every listing in this paper and runs in the browser
 without installation.[^colab]
 
-[^colab]: <https://colab.research.google.com/github/omega-icl/mcpp/blob/v5.1.0/notebook/joss_paper.ipynb>
-    <!-- TODO: point the tag at the release archived for JOSS -->
+[^colab]: <https://colab.research.google.com/github/omega-icl/mcpp/blob/version-5/notebook/joss_paper.ipynb>
 
 
 # Research impact statement
