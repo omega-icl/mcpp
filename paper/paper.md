@@ -111,49 +111,56 @@ their own search and not addressable from outside.
 
 # Capability
 
-Functions are defined on a DAG environment, an `FFGraph` object, with
-participating variables of type `FFVar` connected by operations of type `FFOp`;
-expressions are built by writing ordinary arithmetic on them. Identical
-subexpressions are detected and shared as they are created. For instance, a DAG
-for the two factorable functions $f(x,y) = e^{xy} - 2x^2y + 3$ and
-$g(x,y) = \sqrt{x^2y + 4} + e^{xy}$ shares the subexpressions $xy$, $e^{xy}$ and
-$x^2$, and comprises 16 operations rather than 21. A *subgraph* (`FFSubgraph`)
---- the `FFOp` list for a chosen set of dependents, in topological order, what
-an automatic-differentiation tool would call a tape or a codelist --- is a
+Functions are defined on a DAG environment, with participating variables
+connected by operations; expressions are built by writing ordinary arithmetic on
+them. Identical subexpressions are detected and shared as they are created. For
+instance, a DAG for the two factorable functions $f(x,y) = e^{xy} - 2x^2y + 3$
+and $g(x,y) = \sqrt{x^2y + 4} + e^{xy}$ shares the subexpressions $xy$, $e^{xy}$
+and $x^2$, and comprises 16 operations rather than 21. A *subgraph* --- the
+operation list for a chosen set of dependents, in topological order, what an
+automatic-differentiation tool would call a tape or a codelist --- is a
 first-class object that can be held, inspected and re-used, so a function
 evaluated many times is traversed once.
 
-`eval` sweeps a subgraph once and returns the values of its dependents; `veval`
-does the same for many points at once, over up to `DAG.options.MAXTHREAD`
-threads; and `reval` sweeps in both directions, contracting the variable ranges
-against prescribed bounds on the dependents by reverse interval propagation.
+A single evaluation routine sweeps a subgraph once and returns the values of its
+dependents. A vectorized form does the same for many points at once, over a
+configurable number of threads, and a reverse form contracts the variable ranges
+against prescribed bounds on the dependents by interval propagation.
 
-What `eval` computes is decided by the type of the values it is given, not by
-the function called. Floats evaluate $f$; intervals enclose its range over the
-host set; and the relaxation types return convex and concave estimators with
+What that routine computes is decided by the type of the values it is given, not
+by the function called. Floats evaluate $f$; intervals enclose its range over
+the host set; and the relaxation types return convex and concave estimators with
 their subgradients, polynomial models with remainder bounds, separable
 superposition estimators, or the linear cuts of a polyhedral relaxation.
 Spectral bounds on Hessians and ellipsoidal enclosures of multivariate systems
 propagate the same way.
 
-Derivatives are generated symbolically, in forward (`fdiff`) or reverse
-(`bdiff`) accumulation, as a sparse triplet of *new DAG nodes*. Being
-expressions in the same graph, the entries can be differentiated again for
-Hessians, and evaluated in any of the arithmetics above.
+Derivatives are generated symbolically, in forward or reverse accumulation, as a
+sparse triplet of *new DAG nodes*. Being expressions in the same graph, the
+entries can be differentiated again for Hessians, and evaluated in any of the
+arithmetics above.
 
-A DAG can also be rewritten. `SLift` decomposes the dependents recursively into
-sparse polynomial or rational subexpressions and transcendental ones,
-introducing an auxiliary variable for each lifted term --- the reformulation
-step that precedes tailored relaxation or quadratic reformulation in global
-optimization. `FFPoly` and `FFMon` expose the sparse polynomial arithmetic
-directly, with conversion between monomial and Chebyshev bases and factorization
-in a chosen variable.
+A DAG can also be rewritten, through recursive decomposition of the dependents
+into sparse polynomial or rational subexpressions and transcendental ones, with
+an auxiliary variable introduced for each lifted term --- the reformulation step
+that precedes tailored relaxation or quadratic reformulation in global
+optimization. The sparse polynomial arithmetic is also exposed directly, with
+conversion between monomial and Chebyshev bases and factorization in a chosen
+variable.
 
 # User interface
 
 The listings below build the DAG of $f$ and $g$, evaluate and bound $f$,
-differentiate $f$, and decompose both dependents. Each was executed against
-`pymcpp` 5.1.0; the values in the comments are what it returned.
+differentiate $f$, and decompose both dependents. A DAG is an `FFGraph`, its
+variables are `FFVar` objects connected by `FFOp` operations, and `subgraph`
+returns the `FFSubgraph` that `eval`, `veval` and `reval` take; derivatives come
+from `fdiff` or `bdiff`. Each listing was executed against `pymcpp` 5.1.0; the
+values in the comments are what it returned.
+
+The listings are Python. The C++ interface exposes the same classes and calls in
+the `mc` namespace, with each arithmetic's template arguments written out where
+Python has a single bound type, so it is in C++ that the composition described
+in the next section is chosen.
 
 ```python
 import pymcpp as mc
@@ -170,10 +177,7 @@ DAG.veval(SGF, [F], [X, Y], [[0.5, 1.], [1., 2.]])    # one entry per point
 ```
 
 Bounding uses the very same call: only the type of the values changes. All of
-the following describe $f$ over the host set $x \in [-1,1]$, $y \in [0,2]$. A
-`McCormick` object carries the convex and concave relaxations of $f$ on the box
-evaluated at a given point --- here $(0.5, 1.0)$, the second constructor
-argument.
+the following describe $f$ over the host set $x \in [-1,1]$, $y \in [0,2]$.
 
 ```python
 IX, IY = mc.Interval(-1., 1.), mc.Interval(0., 2.)
@@ -202,12 +206,13 @@ XP, YP = mc.PolVar(IMG, X, IX, True), mc.PolVar(IMG, Y, IY, True)
 IMG.generate_cuts([FP])                       # 23 cuts over 9 lifted variables
 ```
 
-Each brackets $f(0.5,1) = 4.1487$, at a different cost: the order-3 Chebyshev
-model narrows the range estimate from a width of 11.25 to 9.25, and the
-superposition relaxation brackets the point within $[2.97, 4.81]$ where
-McCormick gives $[2.00, 8.58]$. The subgradient `cvsub` supplies the cut a
-bundle method or an LP relaxation needs, and the `PolCut` objects are ready for
-an LP or MILP model.
+Where a McCormick relaxation carries the convex and concave relaxations of $f$
+on the box evaluated at a given point, a Taylor or Chebyshev model and a
+superposition relaxation describe their enclosure over the whole host set and
+can also be evaluated pointwise. The subgradients from a McCormick relaxation
+additionally supply the cut a bundle method or an LP relaxation needs, and the
+cuts generated by a polyhedral relaxation are ready for an LP or MILP bounding
+model.
 
 Differentiation and decomposition are called on the DAG in the same way:
 
