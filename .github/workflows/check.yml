@@ -1,23 +1,34 @@
 # .github/workflows/check.yml
 #
 # The release gate (CMakeLists.txt, `check`) run on every push and pull request,
-# so the thing that currently only runs when someone types it locally runs in CI.
+# so the thing that otherwise only runs when someone types it locally runs in CI.
 #
 # `check` covers, stopping at the first failure: the version agreeing in three
 # places, the ABI fingerprint against the recorded one, src/pymcpp/check_*.py
-# against the freshly built module, the Python examples in notebook/, and
-# Doxygen with no warning allowed.  The last step here adds the JOSS paper's
-# companion notebook, whose final cell asserts every figure the paper quotes --
-# so a change that would make the paper wrong fails the build.
+# against the freshly built module, and Doxygen with no warning allowed.  The
+# last step here adds the JOSS paper's companion notebook, whose final cell
+# asserts every figure the paper quotes -- so a change that would make the paper
+# wrong fails the build.
 #
 # The triggers name no branch on purpose: a branch filter goes stale when the
-# development branch moves on, and it fails silently -- `wheels.yml` filters on
-# `branches: [version-5.0]`, which does not exist, so its push and
-# pull_request triggers never fire and only a `v*` tag runs it.  Without a
-# filter this runs on every push and every pull request, which costs a few
-# runner minutes per topic branch and can never stop running by accident.
-# Add `branches: [<name>]` under either trigger if you would rather pay the
-# other way.
+# development branch moves on, and it fails silently -- wheels.yml filtered on
+# `branches: [version-5.0]`, which did not exist, so its push and pull_request
+# triggers never fired.  Without a filter this runs on every push and every pull
+# request, which costs a few runner minutes per topic branch and can never stop
+# running by accident.  Add `branches: [<name>]` under either trigger if you
+# would rather pay the other way.
+#
+# TWO THINGS THE DOXYGEN STEP NEEDS, both learned from a red run:
+#   * graphviz.  doc/MC++.dox sets HAVE_DOT = YES with DOT_PATH empty, so
+#     Doxygen expects `dot` on PATH; without it every one of ~300 graphs fails
+#     with exit 127 and the missing .map files are errors.
+#   * Doxygen 1.15.x, not the distro's.  doc/MC++.dox is a "Doxyfile 1.15.0",
+#     and the check writes WARN_AS_ERROR = FAIL_ON_WARNINGS_PRINT over the
+#     Doxyfile's own WARN_AS_ERROR = NO.  An older Doxygen (ubuntu-24.04 ships
+#     1.9.8) prints "ignoring unsupported tag" for PROJECT_ICON,
+#     PAGE_OUTLINE_PANEL, SHOW_ENUM_VALUES and eleven others, and those
+#     warnings alone fail the step.  DOXYGEN_VERSION below should track the
+#     version in the Doxyfile's first line.
 
 name: check
 
@@ -25,6 +36,9 @@ on:
   push:
   pull_request:
   workflow_dispatch:
+
+env:
+  DOXYGEN_VERSION: "1.15.0"   # keep in step with doc/MC++.dox line 1
 
 jobs:
   check:
@@ -42,10 +56,24 @@ jobs:
       - name: Dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y libboost-dev libarmadillo-dev libopenblas-dev doxygen
-          # graphviz only if doc/MC++.dox sets HAVE_DOT = YES
+          sudo apt-get install -y libboost-dev libarmadillo-dev libopenblas-dev graphviz
           python -m pip install --upgrade pip
           pip install nbconvert nbclient ipykernel
+
+      - name: Doxygen ${{ env.DOXYGEN_VERSION }}
+        run: |
+          V="${DOXYGEN_VERSION}"
+          TAG="Release_${V//./_}"
+          curl -fsSL -o /tmp/doxygen.tar.gz \
+            "https://github.com/doxygen/doxygen/releases/download/${TAG}/doxygen-${V}.linux.bin.tar.gz"
+          sudo tar -xzf /tmp/doxygen.tar.gz -C /opt
+          echo "/opt/doxygen-${V}/bin" >> "$GITHUB_PATH"
+
+      - name: Versions
+        run: |
+          doxygen --version
+          dot -V
+          cmake --version | head -1
 
       - name: Configure
         run: cmake -S . -B build -DCMAKE_BUILD_TYPE=Release
