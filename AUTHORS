@@ -1,33 +1,62 @@
-Main developer:
+MC++ -- authors and contributors
 
-- Benoit Chachuat, project lead (Imperial College London)
+Affiliations are those held while contributing, earliest first.
 
-Contributors:
 
-- Ali Sahlodin (McMaster University, MIT)
+Project lead:
 
-  Coding, testing, debugging of Taylor model
+- Benoit Chachuat (Imperial College London)
 
-- Jai Rajyaguru, Nikola Peric, Akshay Shah (Imperial)
-  Mario Eduardo Villanueva (Imperial College London, ShanghaiTech, IMT Lucca)
 
-  Coding, testing, debugging of spectral bound, ellipsoidal bound, Chebyshev model
+Arithmetics and algorithms:
 
-- Yanlin Zha (Imperial)
+- Ali M. Sahlodin (McMaster University, MIT, Amirkabir University of Technology)
 
-  Coding, testing, debugging of interval superposition arithmetic
+  Taylor model arithmetic: coding, testing, debugging
 
 - Alexander Mitsos (MIT, RWTH Aachen)
-  Joe Scott (MIT, Clemson University)
-  Paul Barton (MIT)
+  Joe Scott (MIT, Clemson University, Georgia Institute of Technology)
+  Paul I. Barton (MIT)
   Angelos Tsoukalas (MIT, American University of Beirut)
-  Jaromil Najman, Dominik Bongartz (RWTH Aachen)
+  Jaromil Najman (RWTH Aachen)
   Dominik Bongartz (RWTH Aachen, KU Leuven)
 
-  Testing, installation
+  McCormick relaxations: coding, testing, debugging
 
-- Mario Eduardo Villanueva (ShanghaiTech, IMT Lucca)
-  Marco Sandrin (Imperial)
-  Kai Ruth (ETH Zurich, Imperial)
+- Jai Rajyaguru, Nikola Peric, Akshay Shah (Imperial College London)
+  Mario E. Villanueva (Imperial College London, ShanghaiTech, IMT Lucca)
+  Boris Houska (Imperial College London, ShanghaiTech)
 
-  Releasing MC++ in GitHub and mantaining the GitHub site
+  Spectral bounds, ellipsoidal bounds and Chebyshev models:
+  coding, testing, debugging
+
+- Yanlin Zha (Imperial College London)
+
+  Superposition relaxations: coding, testing, debugging
+
+
+Maintenance and release:
+
+- Marco Sandrin (Imperial College London)
+  Kai Ruth (ETH Zurich, Imperial College London)
+
+  Code maintenance, packaging and release
+
+
+How to be listed here:
+
+This file records contributions to the code.  Testing, bug reports, feedback and
+other help that did not produce commits are acknowledged in the papers
+describing the library instead.
+
+Code contributions arrive through pull requests on
+https://github.com/omega-icl/mcpp.  Add yourself to the group that fits your
+contribution, in the same form as the entries above, as part of the pull request
+that makes it.
+
+
+License:
+
+MC++ is distributed under the Eclipse Public License 2.0 with the GNU General
+Public License v2 or later as a Secondary License; see LICENSE.  Third-party
+components and their terms are listed in THIRD_PARTY_NOTICES.txt.

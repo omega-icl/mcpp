@@ -10,3 +10,8 @@ build_*/
 __pycache__/
 *.pyc
 .ipynb_checkpoints/
+
+# Libraries
+notebook/*.so
+src/pymcpp/interface/*.so
+
