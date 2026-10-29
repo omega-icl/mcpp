@@ -1,0 +1,58 @@
+cff-version: 1.2.0
+message: "If you use MC++ or PyMC++ in your research, please cite it as below."
+title: "MC++: a toolkit for the construction, manipulation and bounding of factorable functions"
+abstract: >-
+  MC++ represents factorable functions as directed acyclic graphs and propagates
+  through them not only numbers and derivatives but sets: interval enclosures,
+  McCormick convex/concave relaxations with subgradients, Taylor and Chebyshev
+  models with rigorous remainders, spectral and ellipsoidal bounds, polyhedral
+  relaxations, and superposition relaxations.  PyMC++ (the module pymcpp)
+  exposes the toolkit to Python.
+type: software
+authors:
+  # The people credited when citing the software; AUTHORS lists every contributor.
+  - given-names: Benoit
+    family-names: Chachuat
+    orcid: "https://orcid.org/0000-0003-4780-9686"
+    affiliation: "Imperial College London"
+  - given-names: Kai
+    family-names: Ruth
+    orcid: "https://orcid.org/0009-0002-4371-3484"
+    affiliation: "ETH Zurich and Imperial College London"
+  - given-names: Marco
+    family-names: Sandrin
+    orcid: "https://orcid.org/0009-0007-0157-4152"
+    affiliation: "Imperial College London"
+version: "5.1.0"
+date-released: "2026-10-26"
+license: EPL-2.0   # with GPL-2.0-or-later as a Secondary License; see LICENSE
+repository-code: "https://github.com/omega-icl/mcpp"
+url: "https://pymcpp.readthedocs.io"
+keywords:
+  - factorable functions
+  - expression graphs
+  - automatic differentiation
+  - interval arithmetic
+  - convex relaxation
+  - global optimization
+# TODO at acceptance: add the archive DOI of the released version, e.g.
+# doi: "10.5281/zenodo.XXXXXXX"
+#
+# TODO at acceptance: fill in the JOSS volume, issue, page and DOI.  Until the
+# paper is published, GitHub's "Cite this repository" offers the software entry
+# above; once preferred-citation is complete it offers the paper instead.
+preferred-citation:
+  type: article
+  title: "MC++ and pyMC++: construction, manipulation and bounding of factorable functions in C++ and Python"
+  authors:
+    - given-names: Benoit
+      family-names: Chachuat
+      orcid: "https://orcid.org/0000-0003-4780-9686"
+    - given-names: Kai
+      family-names: Ruth
+      orcid: "https://orcid.org/0009-0002-4371-3484"
+    - given-names: Marco
+      family-names: Sandrin
+      orcid: "https://orcid.org/0009-0007-0157-4152"
+  journal: "Journal of Open Source Software"
+  year: 2026

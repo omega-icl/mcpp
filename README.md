@@ -70,6 +70,25 @@ notebook/            Python scripts and Jupyter notebooks
 * Repo owner: [Benoit C. Chachuat](https://profiles.imperial.ac.uk/b.chachuat)
 * OMEGA Research Group, Imperial College London
 
+## Citing MC++
+
+If MC++ or PyMC++ supports your research, please cite it.  A paper describing the library is under review at the
+[Journal of Open Source Software](https://joss.theoj.org/); until it appears, cite the software release:
+
+```bibtex
+@software{mcpp,
+  author  = {Chachuat, Beno{\^i}t and Ruth, Kai and Sandrin, Marco},
+  title   = {{MC++}: a toolkit for the construction, manipulation and bounding of factorable functions},
+  version = {5.1.0},
+  year    = {2026},
+  url     = {https://github.com/omega-icl/mcpp}
+}
+```
+
+[`CITATION.cff`](CITATION.cff) carries the same metadata, so GitHub's "Cite this repository" button stays
+current; it will offer the paper once that is published.  The methods MC++ implements have papers of their own,
+listed under [References](#references) below -- please cite the one your results rest on alongside the software.
+
 ## References
 
 Methods implemented in MC++:
