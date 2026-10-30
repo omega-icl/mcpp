@@ -31,39 +31,36 @@ bibliography: paper.bib
 
 # Summary
 
-A *factorable* function is one obtained by finite recursive composition of
-binary sums and products with a library of univariate intrinsics. Nearly every
-algebraic model written in science and engineering is factorable, and it is the
-class on which rigorous bounding theory is built: interval arithmetic, convex
-and concave relaxations, polynomial models with remainder bounds, and polyhedral
-relaxations all propagate operation by operation through a factored expression
-[@chachuat2015].
+Evaluating a mathematical model, however many times, cannot answer every
+question about it: what values a quantity can take over a whole range of inputs,
+whether a constraint can be violated anywhere in that range, or where the global
+optimum of a nonconvex problem lies. Those questions need guaranteed bounds and
+convex relaxations, obtained by propagating sets rather than numbers through the
+model's expressions.
 
-MC++ is a C++ toolkit that represents factorable functions as directed acyclic
-graphs (DAGs) and propagates through them not only numbers and derivatives but
-*sets*. The same expression graph can be evaluated in real arithmetic,
-differentiated symbolically in forward or reverse mode, decomposed into sparse
-polynomial and transcendental subexpressions, enclosed in intervals, relaxed by
-McCormick convex/concave estimators with subgradients [@mccormick1976;
-@mitsos2009; @tsoukalas2014], approximated by Taylor or Chebyshev models with
-rigorous remainders [@bompadre2013; @rajyaguru2017], bounded by ellipsoids
-[@villanueva2015] or Hessian spectra, and relaxed into polyhedra or by separable
-estimators [@zha2026]. The companion library pyMC++ (module `pymcpp`) exposes
-all of this to Python through pybind11 [@pybind11], as prebuilt wheels for
-CPython 3.10--3.14 on Linux, macOS and Windows: the whole toolkit is `pip
-install pymcpp` away.
+MC++ is a C++ toolkit that does this for factorable functions, the class
+obtained by composing arithmetic operations with standard intrinsic functions,
+which covers most algebraic models in science and engineering. A function is
+represented once, as a directed acyclic graph (DAG) of its operations, and that
+graph is then evaluated in whichever arithmetic a task needs: real numbers,
+derivatives, interval enclosures, convex and concave relaxations, polynomial
+models with rigorous remainder bounds, and others. The companion library pyMC++
+(module `pymcpp`) brings the toolkit to Python as prebuilt wheels, one
+`pip install pymcpp` away.
 
 # Statement of need
 
 Deterministic global optimization, reachability analysis of dynamic systems and
 rigorous model validation all rest on the same primitive: given a factorable
 function and a host set for its variables, produce a guaranteed enclosure of its
-range, or a convex relaxation a solver can minimize. These are neither point
-evaluations nor derivatives. They are set-valued computations, propagated
-operation by operation through the expression, each step carrying a correctness
-guarantee.
+range, or a convex relaxation a solver can minimize. These are set-valued
+computations, propagated operation by operation through the expression with a
+correctness guarantee at each step [@chachuat2015].
 
-Researchers needing them have had to choose between implementing an arithmetic
+The audience is researchers and practitioners in global and robust
+optimization, optimal control and estimation, and reachability and
+verification, together with the developers of the solvers and modeling tools
+that serve them. They have had to choose between implementing an arithmetic
 themselves and working inside a solver that keeps its own private. What has been
 missing is a library offering several such arithmetics over one shared
 expression graph, composable and extensible, and reachable from Python, where
@@ -77,7 +74,7 @@ On one side are expression-graph and automatic-differentiation tools: CasADi
 [@casadi], CppAD, ADOL-C [@adolc], and the algebraic modeling languages Pyomo
 [@pyomo; @pyomobook], JuMP [@jump], AMPL and GAMS, together with the tracing
 autodiff of PyTorch and JAX. All build expression graphs and differentiate them
-efficiently; none propagates set-valued information. They answer what $f(x)$ and
+efficiently; none provides set-valued arithmetics. They answer what $f(x)$ and
 $\nabla f(x)$ are *here*, never what values $f$ can take over a set, or what
 convex function underestimates it there.
 
@@ -87,21 +84,19 @@ PROFIL/BIAS [@profilbias], Boost.Interval [@boostinterval] and IBEX [@ibex], the
 last pairing them with contractor programming. Taylor models are served by COSY
 Infinity, which is not openly licensed, by TaylorModels.jl [@taylormodels_jl;
 @taylorseries_jl], and inside reachability tools such as Flow\* [@flowstar] and
-CORA [@cora]; in those the set arithmetic serves reachable sets of dynamic
-systems rather than arbitrary factorable expressions. Chebyshev-model arithmetic
-has essentially no open alternative.
+CORA [@cora], where the arithmetic serves reachable sets of dynamic systems
+rather than arbitrary expressions. Chebyshev-model arithmetic has, to our
+knowledge, no open alternative.
 
 Deterministic global optimization solvers --- BARON [@baron], ANTIGONE
 [@antigone], SCIP [@scip], Couenne [@couenne], Alpine [@alpine], Gurobi
 [@gurobi], EAGO [@eago] and MAiNGO [@maingo] --- do relax factorable functions,
 but inside a branch-and-bound loop, and several are closed source.
 
-The nearest reusable multi-arithmetic alternative is the Julia stack around
-EAGO.jl, McCormick.jl and IntervalArithmetic.jl --- separate packages rather
-than one DAG shared by every arithmetic, with no Chebyshev, ellipsoidal,
-spectral or polyhedral relaxation, and no Python interface. For Python users the
-only prior route has been Pyomo's `contrib.mcpp` module, which wraps an earlier
-MC++ release through a shim the user compiles by hand.
+The nearest reusable alternative, the Julia stack around EAGO.jl, McCormick.jl
+and IntervalArithmetic.jl, offers fewer arithmetics as separate packages rather
+than over one DAG, and no Python interface; there, the only prior route has been
+Pyomo's `contrib.mcpp`, a hand-compiled shim around an earlier MC++ release.
 
 Contributing these arithmetics to an existing package was not a realistic
 alternative to building a library. The differentiation tools have no set-valued
@@ -119,34 +114,37 @@ and $g(x,y) = \sqrt{x^2y + 4} + e^{xy}$ shares the subexpressions $xy$, $e^{xy}$
 and $x^2$, and comprises 16 operations rather than 21. A *subgraph* --- the
 operation list for a chosen set of dependents, in topological order, what an
 automatic-differentiation tool would call a tape or a codelist --- is a
-first-class object that can be held, inspected and re-used, so a function
-evaluated many times is traversed once.
+first-class object that can be held, inspected and re-used, so repeated
+evaluation reuses one precomputed sequence instead of re-extracting it from the
+graph.
 
-A single evaluation routine sweeps a subgraph once and returns the values of its
-dependents. A vectorized form does the same for many points at once, over a
-configurable number of threads, and a reverse form contracts the variable ranges
-against prescribed bounds on the dependents by interval propagation.
+A single evaluation routine sweeps a subgraph and returns its dependents; a
+vectorized form handles many points at once over several threads, and a reverse
+form contracts the variable ranges against bounds on the dependents by interval
+propagation.
 
 What that routine computes is decided by the type of the values it is given, not
 by the function called. Floats evaluate $f$; intervals enclose its range over
-the host set; and the relaxation types return convex and concave estimators with
-their subgradients, polynomial models with remainder bounds, separable
+the host set; and the relaxation types return convex and concave estimators
+[@mccormick1976] with their subgradients, polynomial models with remainder
+bounds, separable
 superposition estimators, or the linear cuts of a polyhedral relaxation.
 Spectral bounds on Hessians and ellipsoidal enclosures of multivariate systems
 propagate the same way.
 
 Derivatives are generated symbolically, in forward or reverse accumulation, as a
-sparse triplet of *new DAG nodes*. Being expressions in the same graph, the
-entries can be differentiated again for Hessians, and evaluated in any of the
-arithmetics above.
+sparse triplet of *DAG nodes* that share subexpressions with the function they
+differentiate. Being expressions in the same graph, the entries can be
+differentiated again for Hessians, and evaluated in any of the arithmetics
+above. Underneath lie MC++'s own operator-overloading differentiation types
+templated on the evaluation type.
 
 A DAG can also be rewritten, through recursive decomposition of the dependents
 into sparse polynomial or rational subexpressions and transcendental ones, with
 an auxiliary variable introduced for each lifted term --- the reformulation step
 that precedes tailored relaxation or quadratic reformulation in global
-optimization. The sparse polynomial arithmetic is also exposed directly, with
-conversion between monomial and Chebyshev bases and factorization in a chosen
-variable.
+optimization. The sparse polynomial arithmetic, in a monomial or a Chebyshev
+basis, is also exposed directly.
 
 # User interface
 
@@ -241,21 +239,19 @@ print(env)
 
 MC++ is header-only, and each arithmetic is usable on its own, through the DAGs,
 or as the coefficient type of another. The hinge is a single traits class,
-`mc::Op<T>`, declaring what an arithmetic must provide: an interval hull, a
-midpoint, a diameter, and the intrinsics. Any type specializing `mc::Op` can be
-propagated through a DAG. Composing arithmetics is supported in C++ as a
-template choice. Examples include McCormick relaxations and Taylor or Chebyshev
-models templated on a chosen interval backend; Taylor and Chebyshev models
-propagating their remainder in McCormick arithmetic rather than in intervals
-[@sahlodin2011; @bompadre2013]; superposition relaxations parameterizing their
-univariate summands as piecewise-constant or continuous piecewise-linear
-functions [@zha2026]. Each header (`interval.hpp`, `mccormick.hpp`,
-`scmodel.hpp`, `polimage.hpp`, ...) can equally be included alone and used
-without any DAG. In contrast, pyMC++ binds a fixed selection of these
-instantiations --- McCormick relaxations and the polynomial models over the
-default interval backend, sparse Chebyshev models with interval coefficients,
-and both superposition variants --- while the full template space is open to C++
-users.
+`mc::Op<T>`: any type specializing it can be propagated through a DAG.
+Composing arithmetics is supported in C++ as a template choice. Examples include
+Taylor and Chebyshev models propagating their remainder in McCormick arithmetic
+rather than in intervals [@sahlodin2011; @bompadre2013], and superposition
+relaxations parameterizing their univariate summands as piecewise-constant or
+continuous piecewise-linear functions [@zha2026]. Each header (`interval.hpp`,
+`mccormick.hpp`, `scmodel.hpp`, `polimage.hpp`, `fdiff.hpp`, ...) can equally
+be included alone and used without any DAG, and the interval type beneath them
+all is interchangeable --- MC++'s own, Boost, PROFIL/BIAS or FILIB++. In
+contrast, pyMC++, built with pybind11 [@pybind11], binds a fixed selection of
+these instantiations --- the relaxations and polynomial models over the default
+interval backend, and both superposition variants --- while the full template
+space is open to C++ users.
 
 The DAG is itself extensible, through *external operations*: user-defined nodes
 carrying their own evaluation and differentiation rules in each arithmetic. The
@@ -263,12 +259,10 @@ mechanism supports affine and polynomial subexpressions, multilayer perceptrons
 imported from PyTorch, and nested DAGs, and it is how the companion library
 CRONOS (<https://github.com/omega-icl/cronos>, `pip install cronos-mcpp`) embeds
 solvers for systems of algebraic, differential and partial differential
-equations as single DAG nodes. CANON (<https://github.com/omega-icl/canon>), for
-local and global search in nonlinear optimization, and MAGNUS
-(<https://github.com/omega-icl/magnus>), for modeling, analysis and design of
-uncertain systems, build on the same graphs. At build time the interval backend
-is interchangeable --- Boost by default, PROFIL/BIAS or FILIB++ on request ---
-and the PyTorch interface is optional.
+equations as single DAG nodes. CANON (<https://github.com/omega-icl/canon>,
+local and global optimization) and MAGNUS
+(<https://github.com/omega-icl/magnus>, modeling and analysis of uncertain
+systems) build on the same graphs.
 
 MC++ is released under the Eclipse Public License 2.0, with the GNU GPL v2 or
 later as a secondary license. Documentation, Python scripts and Jupyter
@@ -294,10 +288,14 @@ described.
 Its use extends well beyond its authors. MAiNGO [@maingo] is built on MC++ and
 vendors it as a dependency; Pyomo [@pyomo] wraps it to bound factorable
 functions with McCormick relaxations; and the companion libraries CRONOS, CANON
-and MAGNUS build on its DAGs. Despite more than a decade of such use, MC++ has
-never been described in a software paper, and users have cited method papers in
-its place --- a gap this paper closes. The PyPI wheels remove the last barrier
-for Python users.
+and MAGNUS build on its DAGs. Applications include model-based design of
+experiments, whose computations run entirely on MC++ DAGs [@sandrin2025], and
+deterministic global optimization with trained neural networks
+[@schweidtmann2019] and Gaussian processes [@schweidtmann2021] embedded, through
+MeLOn (<https://git.rwth-aachen.de/avt-svt/public/MeLOn>), which builds on
+MAiNGO. Despite more than a decade of such use, MC++ has never had a software
+paper, and users have cited method papers in its place --- the gap this paper
+closes.
 
 # AI usage disclosure
 
@@ -310,12 +308,11 @@ The authors reviewed, edited and validated all AI-assisted output, and made the
 core design decisions: the architecture of the library, the arithmetics it
 implements and the interfaces it exposes are the authors' own. AI-assisted code
 was accepted only after passing the repository's `check` target, which gates
-version consistency across source, documentation and build metadata, the
-recorded ABI fingerprint, the Python check scripts in `src/pymcpp/`, and a
-warning-free documentation build; derivative routines are additionally
-cross-checked forward against reverse accumulation. Every code listing in this
-paper was executed against the released `pymcpp` wheel, and the companion
-notebook asserts each quoted figure.
+version consistency, the recorded ABI fingerprint, the Python check scripts in
+`src/pymcpp/` and a warning-free documentation build, with forward and reverse
+derivatives cross-checked against each other. Every code listing in this paper
+was executed against the released `pymcpp` wheel, and the companion notebook
+asserts each quoted figure.
 
 # Acknowledgements
 
