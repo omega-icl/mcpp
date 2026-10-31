@@ -32,7 +32,7 @@ bibliography: paper.bib
 # Summary
 
 Some questions about a mathematical model cannot be settled by merely
-evaluating it, however many times: the range of values a quantity can take over
+evaluating it, however many times: the range of values an output can take over
 a whole set of inputs, whether a constraint holds throughout a prescribed
 domain, or provable bounds on the global optimum of a nonconvex problem. They
 call for enclosures and convex relaxations, obtained by propagating sets rather
