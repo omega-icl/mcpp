@@ -31,12 +31,12 @@ bibliography: paper.bib
 
 # Summary
 
-Evaluating a mathematical model, however many times, cannot answer every
-question about it: what values a quantity can take over a whole range of inputs,
-whether a constraint can be violated anywhere in that range, or where the global
-optimum of a nonconvex problem lies. Those questions need guaranteed bounds and
-convex relaxations, obtained by propagating sets rather than numbers through the
-model's expressions.
+Some questions about a mathematical model cannot be settled by merely
+evaluating it, however many times: the range of values a quantity can take over
+a whole set of inputs, whether a constraint holds throughout a prescribed
+domain, or provable bounds on the global optimum of a nonconvex problem. They
+call for enclosures and convex relaxations, obtained by propagating sets rather
+than numbers through the model's expressions.
 
 MC++ is a C++ toolkit that does this for factorable functions, the class
 obtained by composing arithmetic operations with standard intrinsic functions,
@@ -44,7 +44,7 @@ which covers most algebraic models in science and engineering. A function is
 represented once, as a directed acyclic graph (DAG) of its operations, and that
 graph is then evaluated in whichever arithmetic a task needs: real numbers,
 derivatives, interval enclosures, convex and concave relaxations, polynomial
-models with rigorous remainder bounds, and others. The companion library pyMC++
+models with remainder bounds, and others. The companion library pyMC++
 (module `pymcpp`) brings the toolkit to Python as prebuilt wheels, one
 `pip install pymcpp` away.
 
@@ -74,9 +74,10 @@ On one side are expression-graph and automatic-differentiation tools: CasADi
 [@casadi], CppAD, ADOL-C [@adolc], and the algebraic modeling languages Pyomo
 [@pyomo; @pyomobook], JuMP [@jump], AMPL and GAMS, together with the tracing
 autodiff of PyTorch and JAX. All build expression graphs and differentiate them
-efficiently; none provides set-valued arithmetics. They answer what $f(x)$ and
-$\nabla f(x)$ are *here*, never what values $f$ can take over a set, or what
-convex function underestimates it there.
+efficiently: they answer what $f(x)$ and $\nabla f(x)$ are *here*. What values
+$f$ can take over a set, or what convex function underestimates it there, is at
+most the business of an extension; none offers a breadth of independently usable
+and interchangeable set-valued arithmetics.
 
 On the other side are rigorous-bounding libraries, each specialized to one
 arithmetic and most of them ageing. Intervals are served by filib++ [@filib],
@@ -96,13 +97,18 @@ but inside a branch-and-bound loop, and several are closed source.
 The nearest reusable alternative, the Julia stack around EAGO.jl, McCormick.jl
 and IntervalArithmetic.jl, offers fewer arithmetics as separate packages rather
 than over one DAG, and no Python interface; there, the only prior route has been
-Pyomo's `contrib.mcpp`, a hand-compiled shim around an earlier MC++ release.
+Pyomo, which exposes an earlier MC++ release through a separately compiled
+`contrib.mcpp` extension.
 
 Contributing these arithmetics to an existing package was not a realistic
-alternative to building a library. The differentiation tools have no set-valued
-type to extend: propagating an enclosure changes what a node computes rather
-than adding an intrinsic. The solvers do have the machinery, but specialized to
-their own search and not addressable from outside.
+alternative to building a library. Several of the graph-building tools admit
+user-defined value types, so an enclosure could in principle be propagated
+through them; but none was designed to host a collection of independently
+usable, interchangeable and composable bounding arithmetics, with one serving
+as the coefficient type of another --- which is why Pyomo delegates its
+bounding to MC++ rather than to its own expression system. The solvers do have
+the machinery, but specialized to their own search and not addressable from
+outside.
 
 # Capability
 
@@ -251,13 +257,19 @@ all is interchangeable --- MC++'s own, Boost, PROFIL/BIAS or FILIB++. In
 contrast, pyMC++, built with pybind11 [@pybind11], binds a fixed selection of
 these instantiations --- the relaxations and polynomial models over the default
 interval backend, and both superposition variants --- while the full template
-space is open to C++ users.
+space is open to C++ users. When supported by the selected interval backend,
+directed rounding provides verified interval enclosures. However, the rest of
+the enclosures remain subject to rounding errors.
 
 The DAG is itself extensible, through *external operations*: user-defined nodes
-carrying their own evaluation and differentiation rules in each arithmetic. The
-mechanism supports affine and polynomial subexpressions, multilayer perceptrons
-imported from PyTorch, and nested DAGs, and it is how the companion library
-CRONOS (<https://github.com/omega-icl/cronos>, `pip install cronos-mcpp`) embeds
+carrying their own evaluation and differentiation rules in each arithmetic.
+One such operation encapsulates external code that the DAG treats as opaque,
+such as a Python function or a proprietary numerical routine, provided that
+suitable evaluation rules are supplied for the required arithmetics and,
+optionally, a differentiation rule. The same mechanism supports affine and
+polynomial subexpressions, multilayer perceptrons imported from PyTorch, and
+nested DAGs, and it is how the companion library CRONOS
+(<https://github.com/omega-icl/cronos>, `pip install cronos-mcpp`) embeds
 solvers for systems of algebraic, differential and partial differential
 equations as single DAG nodes. CANON (<https://github.com/omega-icl/canon>,
 local and global optimization) and MAGNUS
@@ -288,21 +300,22 @@ described.
 Its use extends well beyond its authors. MAiNGO [@maingo] is built on MC++ and
 vendors it as a dependency; Pyomo [@pyomo] wraps it to bound factorable
 functions with McCormick relaxations; and the companion libraries CRONOS, CANON
-and MAGNUS build on its DAGs. Applications include model-based design of
-experiments, whose computations run entirely on MC++ DAGs [@sandrin2025], and
-deterministic global optimization with trained neural networks
-[@schweidtmann2019] and Gaussian processes [@schweidtmann2021] embedded, through
-MeLOn (<https://git.rwth-aachen.de/avt-svt/public/MeLOn>), which builds on
-MAiNGO. Despite more than a decade of such use, MC++ has never had a software
-paper, and users have cited method papers in its place --- the gap this paper
-closes.
+and MAGNUS build on its DAGs. Applications include surrogate-based global
+optimization, with trained neural networks [@schweidtmann2019] and Gaussian
+processes [@schweidtmann2021] embedded through MeLOn
+(<https://git.rwth-aachen.de/avt-svt/public/MeLOn>), which builds on MAiNGO,
+and model-based design of experiments, whose computations run entirely on MC++
+DAGs [@sandrin2025]. Despite more than a decade of such use, MC++ has never had
+a software paper, and users have cited method papers in its place --- the gap
+this paper closes.
 
 # AI usage disclosure
 
 Generative AI was used in both the software and this manuscript. Anthropic's
 Claude models --- Claude Opus 4.8, Claude Opus 5, Claude Opus 5.5 and Claude
 Fable 5.1 --- assisted in debugging and improving parts of the C++ code,
-including the Python binders, and in drafting sections of this paper.
+including the Python binders, and in drafting sections of this paper; OpenAI's
+ChatGPT was used to review drafts of the manuscript.
 
 The authors reviewed, edited and validated all AI-assisted output, and made the
 core design decisions: the architecture of the library, the arithmetics it
