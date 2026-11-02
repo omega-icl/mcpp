@@ -1,5 +1,5 @@
 ---
-title: 'MC++ and pyMC++: construction, manipulation and bounding of factorable functions in C++ and Python'
+title: 'MC^++^ and pyMC^++^: construction, manipulation and bounding of factorable functions'
 tags:
   - C++
   - Python
@@ -32,21 +32,21 @@ bibliography: paper.bib
 # Summary
 
 Some questions about a mathematical model cannot be settled by merely
-evaluating it, however many times: the range of values an output can take over
-a whole set of inputs, whether a constraint holds throughout a prescribed
-domain, or provable bounds on the global optimum of a nonconvex problem. They
-call for enclosures and convex relaxations, obtained by propagating sets rather
-than numbers through the model's expressions.
+evaluating it, however many times: what values an output can take over a whole
+set of inputs, whether a constraint holds throughout a prescribed domain, or
+within what bounds the global optimum of a nonconvex problem provably lies. Such
+questions call for enclosures and convex relaxations, obtained by propagating
+sets rather than numbers through the model's expressions.
 
-MC++ is a C++ toolkit that does this for factorable functions, the class
+MC^++^ is a C++ toolkit that does this for factorable functions, the class
 obtained by composing arithmetic operations with standard intrinsic functions,
 which covers most algebraic models in science and engineering. A function is
 represented once, as a directed acyclic graph (DAG) of its operations, and that
 graph is then evaluated in whichever arithmetic a task needs: real numbers,
 derivatives, interval enclosures, convex and concave relaxations, polynomial
-models with remainder bounds, and others. The companion library pyMC++
-(module `pymcpp`) brings the toolkit to Python as prebuilt wheels, one
-`pip install pymcpp` away.
+models with remainder bounds, and others. The companion library pyMC^++^
+(module `pymcpp`) brings the toolkit to Python and is available on PyPI as
+prebuilt wheels.
 
 # Statement of need
 
@@ -60,11 +60,12 @@ correctness guarantee at each step [@chachuat2015].
 The audience is researchers and practitioners in global and robust
 optimization, optimal control and estimation, and reachability and
 verification, together with the developers of the solvers and modeling tools
-that serve them. They have had to choose between implementing an arithmetic
-themselves and working inside a solver that keeps its own private. What has been
-missing is a library offering several such arithmetics over one shared
-expression graph, composable and extensible, and reachable from Python, where
-much of the modeling work that now needs rigorous bounds is done.
+that serve them. So far, the choice has been between implementing an arithmetic
+from scratch and using one locked inside a solver. What has been missing is a
+library that offers several such arithmetics, composable and extensible, over
+one shared expression graph and is reachable from Python, where much of the
+modeling work that needs rigorous bounds is done.
+
 
 # State of the field
 
@@ -76,7 +77,7 @@ On one side are expression-graph and automatic-differentiation tools: CasADi
 autodiff of PyTorch and JAX. All build expression graphs and differentiate them
 efficiently: they answer what $f(x)$ and $\nabla f(x)$ are *here*. What values
 $f$ can take over a set, or what convex function underestimates it there, is at
-most the business of an extension; none offers a breadth of independently usable
+best handled by an extension; none offers a choice of independently usable
 and interchangeable set-valued arithmetics.
 
 On the other side are rigorous-bounding libraries, each specialized to one
@@ -97,7 +98,7 @@ but inside a branch-and-bound loop, and several are closed source.
 The nearest reusable alternative, the Julia stack around EAGO.jl, McCormick.jl
 and IntervalArithmetic.jl, offers fewer arithmetics as separate packages rather
 than over one DAG, and no Python interface; there, the only prior route has been
-Pyomo, which exposes an earlier MC++ release through a separately compiled
+Pyomo, which exposes an earlier MC^++^ release through a separately compiled
 `contrib.mcpp` extension.
 
 Contributing these arithmetics to an existing package was not a realistic
@@ -106,9 +107,10 @@ user-defined value types, so an enclosure could in principle be propagated
 through them; but none was designed to host a collection of independently
 usable, interchangeable and composable bounding arithmetics, with one serving
 as the coefficient type of another --- which is why Pyomo delegates its
-bounding to MC++ rather than to its own expression system. The solvers do have
-the machinery, but specialized to their own search and not addressable from
-outside.
+bounding to MC^++^ rather than to its own expression system. The global
+solvers do implement bounding arithmetics, but specialized to their own
+search and not addressable from outside.
+
 
 # Capability
 
@@ -142,7 +144,7 @@ Derivatives are generated symbolically, in forward or reverse accumulation, as a
 sparse triplet of *DAG nodes* that share subexpressions with the function they
 differentiate. Being expressions in the same graph, the entries can be
 differentiated again for Hessians, and evaluated in any of the arithmetics
-above. Underneath lie MC++'s own operator-overloading differentiation types
+above. Underneath lie MC^++^'s own operator-overloading differentiation types
 templated on the evaluation type.
 
 A DAG can also be rewritten, through recursive decomposition of the dependents
@@ -185,29 +187,30 @@ the following describe $f$ over the host set $x \in [-1,1]$, $y \in [0,2]$.
 
 ```python
 IX, IY = mc.Interval(-1., 1.), mc.Interval(0., 2.)
-DAG.eval(SGF, [F], [X, Y], [IX, IY])          # [-0.8647, 10.3891]
+DAG.eval(SGF, [F], [X, Y], [IX, IY])     # [-0.8647, 10.3891]
 
-xMC = mc.McCormick(IX, 0.5)                   # range [-1,1], point x = 0.5
-yMC = mc.McCormick(IY, 1.0)                   # range  [0,2], point y = 1.0
-xMC.sub(2, 0); yMC.sub(2, 1)                  # seed subgradients
+xMC = mc.McCormick(IX, 0.5)              # range [-1,1], point x = 0.5
+yMC = mc.McCormick(IY, 1.0)              # range  [0,2], point y = 1.0
+xMC.sub(2, 0); yMC.sub(2, 1)             # seed subgradients
 [FMC] = DAG.eval(SGF, [F], [X, Y], [xMC, yMC])
-FMC.cv, FMC.cc, FMC.cvsub                     # 2.0, 8.5756, [2.0, -1.0]
+FMC.cv, FMC.cc, FMC.cvsub                # 2.0, 8.5756, [2.0, -1.0]
 
-CM = mc.SCModel(3)                            # sparse Chebyshev model, order 3
+CM = mc.SCModel(3)                       # sparse Chebyshev model, order 3
 [FCM] = DAG.eval(SGF, [F], [X, Y],
                  [mc.SCVar(CM, 0, IX), mc.SCVar(CM, 1, IY)])
-FCM.B, FCM.R                                  # [-1.5230, 7.7258], [-0.6674, 0.6674]
+FCM.B, FCM.R                             # [-1.5230, 7.7258], [-0.6674, 0.6674]
 
-SUP = mc.PWLSModel(2)                         # superposition relaxation,
-[FSU] = DAG.eval(SGF, [F], [X, Y],            #   8 segments per variable
+SUP = mc.PWLSModel(2)                    # superposition relaxation,
+[FSU] = DAG.eval(SGF, [F], [X, Y],       #   8 segments per variable
                  [mc.PWLSVar(SUP, 0, IX, 8), mc.PWLSVar(SUP, 1, IY, 8)])
-FSU.l(), FSU.u()                              # -0.8647, 9.3891
-FSU.uval({0: 0.5, 1: 1.0}), FSU.oval({0: 0.5, 1: 1.0})    # 2.9699, 4.8069
+FSU.l(), FSU.u()                         # -0.8647, 9.3891
+FSU.uval({0: 0.5, 1: 1.0}), 
+         FSU.oval({0: 0.5, 1: 1.0})      # 2.9699, 4.8069
 
-IMG = mc.PolImg()                             # polyhedral relaxation
+IMG = mc.PolImg()                        # polyhedral relaxation
 XP, YP = mc.PolVar(IMG, X, IX, True), mc.PolVar(IMG, Y, IY, True)
 [FP] = DAG.eval([F], [X, Y], [XP, YP])
-IMG.generate_cuts([FP])                       # 23 cuts over 9 lifted variables
+IMG.generate_cuts([FP])                  # 23 cuts over 9 lifted variables
 ```
 
 Where a McCormick relaxation carries the convex and concave relaxations of $f$
@@ -221,11 +224,11 @@ model.
 Differentiation and decomposition are called on the DAG in the same way:
 
 ```python
-rows, cols, dF = DAG.bdiff([F], [X, Y])   # sparse Jacobian as DAG nodes
+rows, cols, dF = DAG.bdiff([F], [X, Y]) # sparse Jacobian as DAG nodes
 [e.str() for e in dF]
 # ['Y * EXP( X * Y ) + ( X * 2 ) * ( - Y ) * 2',
 #  'X * EXP( X * Y ) + ( - SQR( X ) * 2 )']
-DAG.eval(dF, [X, Y], [0.5, 1.0])          # [-0.35127872929987, 0.32436063535006]
+DAG.eval(dF, [X, Y], [0.5, 1.0])        # [-0.35127872929987, 0.32436063535006]
 
 env = mc.SLift(DAG)
 env.process([F, G])
@@ -243,7 +246,7 @@ print(env)
 
 # Software design
 
-MC++ is header-only, and each arithmetic is usable on its own, through the DAGs,
+MC^++^ is header-only, and each arithmetic is usable on its own, through the DAGs,
 or as the coefficient type of another. The hinge is a single traits class,
 `mc::Op<T>`: any type specializing it can be propagated through a DAG.
 Composing arithmetics is supported in C++ as a template choice. Examples include
@@ -253,8 +256,8 @@ relaxations parameterizing their univariate summands as piecewise-constant or
 continuous piecewise-linear functions [@zha2026]. Each header (`interval.hpp`,
 `mccormick.hpp`, `scmodel.hpp`, `polimage.hpp`, `fdiff.hpp`, ...) can equally
 be included alone and used without any DAG, and the interval type beneath them
-all is interchangeable --- MC++'s own, Boost, PROFIL/BIAS or FILIB++. In
-contrast, pyMC++, built with pybind11 [@pybind11], binds a fixed selection of
+all is interchangeable --- MC^++^'s own, Boost, PROFIL/BIAS or FILIB++. In
+contrast, pyMC^++^, built with pybind11 [@pybind11], binds a fixed selection of
 these instantiations --- the relaxations and polynomial models over the default
 interval backend, and both superposition variants --- while the full template
 space is open to C++ users. When supported by the selected interval backend,
@@ -276,7 +279,7 @@ local and global optimization) and MAGNUS
 (<https://github.com/omega-icl/magnus>, modeling and analysis of uncertain
 systems) build on the same graphs.
 
-MC++ is released under the Eclipse Public License 2.0, with the GNU GPL v2 or
+MC^++^ is released under the Eclipse Public License 2.0, with the GNU GPL v2 or
 later as a secondary license. Documentation, Python scripts and Jupyter
 notebooks covering each arithmetic accompany the source, among them a companion
 notebook that reproduces every listing in this paper and runs in the browser
@@ -287,25 +290,25 @@ without installation.[^colab]
 
 # Research impact statement
 
-MC++ is the implementation of record for a line of set arithmetics first
+MC^++^ is the implementation of record for a line of set arithmetics first
 published in peer-reviewed journals: McCormick-based relaxations of algorithms
 [@mitsos2009], multivariate McCormick relaxations [@tsoukalas2014],
 McCormick--Taylor models [@sahlodin2011; @bompadre2013], Chebyshev model
 arithmetic [@rajyaguru2017], ellipsoidal arithmetic [@villanueva2015] and, most
 recently, relaxation via separable estimators [@zha2026]. Each was developed and
-validated in MC++ --- in its predecessor libMC in the earliest case --- so the
+validated in MC^++^ --- in its predecessor libMC in the earliest case --- so the
 library is where these methods are available to others rather than only
 described.
 
-Its use extends well beyond its authors. MAiNGO [@maingo] is built on MC++ and
+Its use extends well beyond its authors. MAiNGO [@maingo] is built on MC^++^ and
 vendors it as a dependency; Pyomo [@pyomo] wraps it to bound factorable
 functions with McCormick relaxations; and the companion libraries CRONOS, CANON
 and MAGNUS build on its DAGs. Applications include surrogate-based global
 optimization, with trained neural networks [@schweidtmann2019] and Gaussian
 processes [@schweidtmann2021] embedded through MeLOn
 (<https://git.rwth-aachen.de/avt-svt/public/MeLOn>), which builds on MAiNGO,
-and model-based design of experiments, whose computations run entirely on MC++
-DAGs [@sandrin2025]. Despite more than a decade of such use, MC++ has never had
+and model-based design of experiments, whose computations run entirely on MC^++^
+DAGs [@sandrin2025]. Despite more than a decade of such use, MC^++^ has never had
 a software paper, and users have cited method papers in its place --- the gap
 this paper closes.
 
