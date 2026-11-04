@@ -43,7 +43,7 @@ keywords:
 # above; once preferred-citation is complete it offers the paper instead.
 preferred-citation:
   type: article
-  title: "MC++ and pyMC++: construction, manipulation and bounding of factorable functions"
+  title: "MC++ and PyMC++: construction, manipulation and bounding of factorable functions"
   authors:
     - given-names: Benoit
       family-names: Chachuat
