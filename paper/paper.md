@@ -132,19 +132,20 @@ form contracts the variable ranges against bounds on the dependents by interval
 propagation.
 
 What that routine computes is decided by the type of the values it is given, not
-by the function called. Floats evaluate $f$; intervals enclose its range over
-the host set; and the relaxation types return convex and concave estimators
-[@mccormick1976] with their subgradients, polynomial models with remainder
-bounds, separable
-superposition estimators, or the linear cuts of a polyhedral relaxation.
-Spectral bounds on Hessians and ellipsoidal enclosures of multivariate systems
-propagate the same way.
+by the function called. Floats evaluate the function; intervals enclose its
+range over the host set [@moore2009]; and the relaxation types return convex and
+concave estimators [@mccormick1976] with their subgradients [@mitsos2009],
+polynomial models with remainder bounds [@neumaier2003; @rajyaguru2017],
+separable superposition estimators [@zha2026], or the linear cuts of a
+polyhedral relaxation [@smith1999; @baron]. Spectral bounds on Hessians
+[@monnigmann2011] and ellipsoidal enclosures [@villanueva2015] of multivariate
+systems propagate the same way.
 
-Derivatives are generated symbolically, in forward or reverse accumulation, as a
-sparse triplet of *DAG nodes* that share subexpressions with the function they
-differentiate. Being expressions in the same graph, the entries can be
-differentiated again for Hessians, and evaluated in any of the arithmetics
-above. Underneath lie MC^++^'s own operator-overloading differentiation types
+Derivatives are generated symbolically, in forward or reverse accumulation
+[@griewank2008], as a sparse triplet of *DAG nodes* that share subexpressions
+with the function they differentiate. Being expressions in the same graph, the
+entries can be differentiated again for Hessians, and evaluated in any of the
+arithmetics above. Underneath lie MC^++^'s own operator-overloading differentiation types
 templated on the evaluation type.
 
 A DAG can also be rewritten, through recursive decomposition of the dependents
@@ -189,7 +190,7 @@ DAG.veval(SGF, [F], [X, Y],
 Differentiation is called on the DAG in the same way: the interface provides
 symbolic forward and reverse differentiation, `fdiff` and `bdiff`, both
 returning sparse derivatives as nodes in the same DAG. The listing below
-applies reverse differentiation to $f$ and evaluates the resulting expression
+applies reverse differentiation to $f$ and evaluates the resulting derivative
 at the point $(x,y)=(0.5,1)$.
 
 ```python
