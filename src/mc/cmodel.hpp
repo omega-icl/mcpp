@@ -1705,7 +1705,8 @@ inline void
 CModel<T>::_interpolation(std::vector<double>& coefmon, const unsigned nord,
                           const T& X, puniv f)
 {
-  double b(Op<T>::mid(X)), a(Op<T>::u(X) - b), x[nord + 1], fx[nord + 1];
+  double b(Op<T>::mid(X)), a(Op<T>::u(X) - b);
+  std::vector<double> x(nord + 1), fx(nord + 1);
   double mulconst(PI / (2. * double(nord + 1)));
   for (unsigned i(0); i <= nord; i++)
   {

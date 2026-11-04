@@ -220,13 +220,13 @@ class FFnorm2 : public FFOp
   {
     assert(nRes == 1);
     std::cout << "NORM2 FFVar differentiation\n";
-    FADType<FFVar> vFVar[nVar], vFRes[nRes];
+    std::vector<FADType<FFVar>> vFVar(nVar), vFRes(nRes);
     for (unsigned i = 0; i < nVar; ++i)
     {
       vFVar[i] = vVar[i];
       vFVar[i].diff(i, nVar);
     }
-    eval(nRes, vFRes, nVar, vFVar, nullptr);
+    eval(nRes, vFRes.data(), nVar, vFVar.data(), nullptr);
     for (unsigned j = 0; j < nRes; ++j)
       for (unsigned i = 0; i < nVar; ++i) vDer[j][i] = vFRes[j].d(i);
   }

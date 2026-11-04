@@ -1797,7 +1797,7 @@ TModel<T>::_scale_bernstein(const unsigned ivar, C* coef) const
   if (ivar >= _nvar || !_nord) return;
   double dscale = Op<T>::diam(_bndpow[ivar][1]);
   double fscale = Op<T>::l(_bndpow[ivar][1]) / dscale;
-  unsigned iexp[_nvar];
+  std::vector<unsigned> iexp(_nvar);
   for (unsigned imon = 0; imon < _nmon; imon++)
   {
     unsigned iord = 0;
@@ -1811,7 +1811,7 @@ TModel<T>::_scale_bernstein(const unsigned ivar, C* coef) const
     for (unsigned k = 1; k <= _nord - iord; k++, iexp[ivar]++)
     {
       coefmod +=
-          coef[_loc_expmon(iexp)] * _get_binom(iexp[ivar], k) *
+          coef[_loc_expmon(iexp.data())] * _get_binom(iexp[ivar], k) *
           std::pow(fscale, k) *
           std::pow(dscale, iexp[ivar]);  // double-check binomial coefficient...
     }

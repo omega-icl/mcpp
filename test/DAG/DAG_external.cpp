@@ -160,13 +160,13 @@ class FFnorm2 : public FFOp
   {
     assert(nRes == 1);
     std::cout << "NORM2 FFVar differentiation\n";
-    FADType<FFVar> vFVar[nVar], vFRes[nRes];
+    std::vector<FADType<FFVar>> vFVar(nVar), vFRes(nRes);
     for (unsigned i = 0; i < nVar; ++i)
     {
       vFVar[i] = vVar[i];
       vFVar[i].diff(i, nVar);
     }
-    eval(nRes, vFRes, nVar, vFVar, nullptr);
+    eval(nRes, vFRes.data(), nVar, vFVar.data(), nullptr);
     for (unsigned j = 0; j < nRes; ++j)
       for (unsigned i = 0; i < nVar; ++i) vDer[j][i] = vFRes[j].d(i);
   }
@@ -288,13 +288,13 @@ class FFnorm12 : public FFOp
   {
     assert(nRes == 2);
     std::cout << "NORM12 FFVar differentiation\n";
-    FADType<FFVar> vFVar[nVar], vFRes[nRes];
+    std::vector<FADType<FFVar>> vFVar(nVar), vFRes(nRes);
     for (unsigned i = 0; i < nVar; ++i)
     {
       vFVar[i] = vVar[i];
       vFVar[i].diff(i, nVar);
     }
-    eval(nRes, vFRes, nVar, vFVar, nullptr);
+    eval(nRes, vFRes.data(), nVar, vFVar.data(), nullptr);
     for (unsigned j = 0; j < nRes; ++j)
       for (unsigned i = 0; i < nVar; ++i) vDer[j][i] = vFRes[j].d(i);
   }
@@ -1412,31 +1412,31 @@ test_external6()
   mc::FFGraph DAG;
   const unsigned NP = 4;
   const unsigned NS = mc::FFDOptBase::read(NP, "fims.txt", false);
-  mc::FFVar S[NS];
+  std::vector<mc::FFVar> S(NS);
   for (unsigned int i = 0; i < NS; i++) S[i].set(&DAG);
   mc::FFDOpt DOpt;
-  mc::FFVar F = DOpt(NS, S);
+  mc::FFVar F = DOpt(NS, S.data());
   // std::cout << DAG;
 
   // Forward AD
-  const mc::FFVar* dFdS = DAG.FAD(1, &F, NS, S);
+  const mc::FFVar* dFdS = DAG.FAD(1, &F, NS, S.data());
   std::cout << DAG;
   auto dFdS_op = DAG.subgraph(NS, dFdS);
   DAG.output(dFdS_op, " dFdS");
 
   // Evaluation in real arithmetic
   std::vector<double> dwk;
-  double dS[NS];
+  std::vector<double> dS(NS);
   for (unsigned i = 0; i < NS; ++i) dS[i] = 1. / NS;
 
   auto F_op = DAG.subgraph(1, &F);
   // DAG.output( F_op, " dFdS" );
   double dF;
-  DAG.eval(F_op, dwk, 1, &F, &dF, NS, S, dS);
+  DAG.eval(F_op, dwk, 1, &F, &dF, NS, S.data(), dS.data());
   std::cout << "F = " << dF << std::endl;
 
-  double ddFdS[NS];
-  DAG.eval(dFdS_op, dwk, NS, dFdS, ddFdS, NS, S, dS);
+  std::vector<double> ddFdS(NS);
+  DAG.eval(dFdS_op, dwk, NS, dFdS, ddFdS.data(), NS, S.data(), dS.data());
   for (unsigned i = 0; i < NS; ++i)
     std::cout << "dFdS[" << i << "] = " << ddFdS[i] << std::endl;
 

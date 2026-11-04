@@ -4263,8 +4263,8 @@ PolImg<T>::_pwmccormick_cuts(FFOp* pOp, const PolVar<T>& X1, const double X1L,
       const unsigned NINTS             = XKNOT.size() - 1;
       if (NINTS > 1)
       {
-        double coef[NINTS];
-        PolVar<T> auxr[NINTS];
+        std::vector<double> coef(NINTS);
+        std::vector<PolVar<T>> auxr(NINTS);
         for (unsigned k = 0; k < NINTS; k++)
         {
           coef[k] = XKNOT[k + 1] - XKNOT[k];
@@ -4273,7 +4273,7 @@ PolImg<T>::_pwmccormick_cuts(FFOp* pOp, const PolVar<T>& X1, const double X1L,
         // Represent variable subdivision using linear binary transformation
         const std::vector<PolVar<T>>& aux1 = X1.BIN_subdiv(pOp);
         // Cut (46) in Gounaris et al. (2009), DOI: 10.1021/ie8016048
-        add_cut(pOp, PolCut<T>::EQ, X1L * X2L, NINTS, auxr, coef, X1, X2L, X2,
+        add_cut(pOp, PolCut<T>::EQ, X1L * X2L, NINTS, auxr.data(), coef.data(), X1, X2L, X2,
                 X1L, Y, -1.);
         // Cuts (50) in Gounaris et al. (2009), DOI: 10.1021/ie8016048
         for (unsigned k = 0; k < NINTS; k++)
@@ -4314,8 +4314,8 @@ PolImg<T>::_pwmccormick_cuts(FFOp* pOp, const PolVar<T>& X1, const double X1L,
 
       if (NX1INTS > 1 && NX2INTS == 1)
       {
-        double coef[NX1INTS];
-        PolVar<T> auxr[NX1INTS];
+        std::vector<double> coef(NX1INTS);
+        std::vector<PolVar<T>> auxr(NX1INTS);
         for (unsigned k = 0; k < NX1INTS; k++)
         {
           coef[k] = X1KNOT[k + 1] - X1KNOT[k];
@@ -4324,7 +4324,7 @@ PolImg<T>::_pwmccormick_cuts(FFOp* pOp, const PolVar<T>& X1, const double X1L,
         // Represent variable subdivision using linear binary transformation
         const std::vector<PolVar<T>>& aux1 = X1.BIN_subdiv(pOp);
         // Cut (46) in Gounaris et al. (2009), DOI: 10.1021/ie8016048
-        add_cut(pOp, PolCut<T>::EQ, X1L * X2L, NX1INTS, auxr, coef, X1, X2L, X2,
+        add_cut(pOp, PolCut<T>::EQ, X1L * X2L, NX1INTS, auxr.data(), coef.data(), X1, X2L, X2,
                 X1L, Y, -1.);
         // Cuts (50) in Gounaris et al. (2009), DOI: 10.1021/ie8016048
         for (unsigned k = 0; k < NX1INTS; k++)
@@ -4342,8 +4342,8 @@ PolImg<T>::_pwmccormick_cuts(FFOp* pOp, const PolVar<T>& X1, const double X1L,
 
       else if (NX1INTS == 1 && NX2INTS > 1)
       {
-        double coef[NX2INTS];
-        PolVar<T> auxr[NX2INTS];
+        std::vector<double> coef(NX2INTS);
+        std::vector<PolVar<T>> auxr(NX2INTS);
         for (unsigned k = 0; k < NX2INTS; k++)
         {
           coef[k] = X2KNOT[k + 1] - X2KNOT[k];
@@ -4352,7 +4352,7 @@ PolImg<T>::_pwmccormick_cuts(FFOp* pOp, const PolVar<T>& X1, const double X1L,
         // Represent variable subdivision using linear binary transformation
         const std::vector<PolVar<T>>& aux2 = X2.BIN_subdiv(pOp);
         // Cut (46) in Gounaris et al. (2009), DOI: 10.1021/ie8016048
-        add_cut(pOp, PolCut<T>::EQ, X1L * X2L, NX2INTS, auxr, coef, X1, X2L, X2,
+        add_cut(pOp, PolCut<T>::EQ, X1L * X2L, NX2INTS, auxr.data(), coef.data(), X1, X2L, X2,
                 X1L, Y, -1.);
         // Cuts (50) in Gounaris et al. (2009), DOI: 10.1021/ie8016048
         for (unsigned k = 0; k < NX2INTS; k++)
@@ -4370,8 +4370,8 @@ PolImg<T>::_pwmccormick_cuts(FFOp* pOp, const PolVar<T>& X1, const double X1L,
 
       else if (NX1INTS > 1 && NX2INTS > 1)
       {
-        double coef[NX1INTS * NX2INTS];
-        PolVar<T> auxr[NX1INTS * NX2INTS];
+        std::vector<double> coef(NX1INTS * NX2INTS);
+        std::vector<PolVar<T>> auxr(NX1INTS * NX2INTS);
         for (unsigned i = 0, k = 0; i < NX1INTS; i++)
         {
           for (unsigned j = 0; j < NX2INTS; j++, k++)
@@ -4384,7 +4384,7 @@ PolImg<T>::_pwmccormick_cuts(FFOp* pOp, const PolVar<T>& X1, const double X1L,
         const std::vector<PolVar<T>>& aux1 = X1.BIN_subdiv(pOp);
         const std::vector<PolVar<T>>& aux2 = X2.BIN_subdiv(pOp);
         // Cut (46) in Gounaris et al. (2009), DOI: 10.1021/ie8016048
-        add_cut(pOp, PolCut<T>::EQ, X1L * X2L, NX1INTS * NX2INTS, auxr, coef,
+        add_cut(pOp, PolCut<T>::EQ, X1L * X2L, NX1INTS * NX2INTS, auxr.data(), coef.data(),
                 X1, X2L, X2, X1L, Y, -1.);
         // Cuts (50) in Gounaris et al. (2009), DOI: 10.1021/ie8016048
         for (unsigned i = 0, k = 0; i < NX1INTS; i++)
