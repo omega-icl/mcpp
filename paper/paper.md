@@ -73,9 +73,9 @@ Two mature software ecosystems sit either side of this gap.
 
 On one side are expression-graph and automatic-differentiation tools: CasADi
 [@casadi], CppAD [@cppad], ADOL-C [@adolc], and the algebraic modeling languages
-Pyomo [@pyomo; @pyomobook], JuMP [@jump], AMPL and GAMS, together with the
-tracing autodiff of PyTorch and JAX. All build expression graphs and
-differentiate them efficiently: they answer what $f(x)$ and $\nabla f(x)$ are
+Pyomo [@pyomo; @pyomobook], JuMP [@jump], AMPL [@ampl] and GAMS [@gams],
+together with the tracing autodiff of PyTorch [@pytorch] and JAX [@jax]. All
+build expression graphs and differentiate them efficiently: they answer what $f(x)$ and $\nabla f(x)$ are
 *here*. What values $f$ can take over a set, or what convex function
 underestimates it there, is at best handled by an extension; none offers a
 choice of independently usable and interchangeable set-valued arithmetics.
@@ -84,7 +84,7 @@ On the other side are rigorous-bounding libraries, each specialized to one
 arithmetic and most of them ageing. Intervals are served by filib++ [@filib],
 PROFIL/BIAS [@profilbias], Boost.Interval [@boostinterval] and IBEX [@ibex], the
 last pairing them with contractor programming. Taylor models are served by COSY
-Infinity, which is not openly licensed, by TaylorModels.jl [@taylormodels_jl;
+Infinity [@cosy], which is not openly licensed, by TaylorModels.jl [@taylormodels_jl;
 @taylorseries_jl], and inside reachability tools such as Flow\* [@flowstar] and
 CORA [@cora], where the arithmetic serves reachable sets of dynamic systems
 rather than arbitrary expressions. Chebyshev model arithmetic has, to our
@@ -96,7 +96,7 @@ Deterministic global optimization solvers --- BARON [@baron], ANTIGONE
 but inside a branch-and-bound loop, and several are closed source.
 
 The nearest reusable alternative, the Julia stack around EAGO.jl, McCormick.jl
-and IntervalArithmetic.jl, offers fewer arithmetics as separate packages rather
+[@eago] and IntervalArithmetic.jl [@intervalarithmetic_jl], offers fewer arithmetics as separate packages rather
 than over one DAG, and no Python interface. For Python users, the only prior
 route has been Pyomo, which exposes an earlier MC^++^ release through a
 separately compiled `contrib.mcpp` extension.
@@ -106,7 +106,7 @@ alternative to building a library. Several of the graph-building tools admit
 user-defined value types, so an enclosure could in principle be propagated
 through them; but none was designed to host a collection of independently
 usable, interchangeable and composable bounding arithmetics, with one serving
-as the coefficient type of another --- which is why Pyomo delegates its
+as the bounding type of another --- which is why Pyomo delegates its
 bounding to MC^++^ rather than to its own expression system. The global
 solvers do implement bounding arithmetics, but ones specialized to their own
 search and not addressable from outside.
