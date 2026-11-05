@@ -93,14 +93,13 @@ delegates its bounding to MC^++^.
 # Software design
 
 Expressions are built by writing ordinary arithmetic on the variables of a DAG,
-and identical subexpressions are shared as they are created: the DAG of
-$f(x,y) = e^{xy} - 2x^2y + 3$ and $g(x,y) = \sqrt{x^2y + 4} + e^{xy}$ shares
-$xy$, $e^{xy}$ and $x^2$, and comprises 16 operations rather than 21. A
-*subgraph*, the operation list for chosen dependents in topological order, is a
-first-class object, so repeated evaluation reuses one precomputed sequence. A
-single routine sweeps it, with a vectorized, multithreaded form for many points
-and a reverse form that contracts variable ranges against bounds on the
-dependents.
+and identical subexpressions are shared as they are created. For instance, the
+DAG of $f(x,y) = e^{xy} - 2x^2y + 3$ and $g(x,y) = \sqrt{x^2y + 4} + e^{xy}$
+shares $xy$, $e^{xy}$ and $x^2$. A *subgraph*, the operation list for chosen
+dependents in topological order, is a first-class object, so repeated evaluation
+reuses one precomputed sequence. A single routine sweeps it, with a vectorized,
+multithreaded form for many points and a reverse form that contracts variable
+ranges against bounds on the dependents.
 
 What that routine computes is decided by the type of the values it is given.
 Floats evaluate the function; intervals enclose its range over the host set
