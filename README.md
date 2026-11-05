@@ -46,7 +46,7 @@ the browser with no installation: [open it in Colab](https://colab.research.goog
 
 ## Setting up MC++
 
-PyMC++ installs from PyPI, with pre-built wheels for Python 3.10 to 3.14 on Linux, macOS and Windows:
+PyMC++ installs from PyPI, with pre-built wheels for Python 3.10 to 3.15 on Linux, macOS and Windows:
 
 ```
 pip install pymcpp

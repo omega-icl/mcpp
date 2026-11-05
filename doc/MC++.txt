@@ -34,7 +34,7 @@ A range of Python scripts and notebooks in <tt>notebook/</tt> illustrate these c
 
 \section sec_MC_install Setting up MC++
 
-PyMC++ installs from PyPI, with pre-built wheels for Python 3.10 to 3.14 on Linux, macOS and Windows:
+PyMC++ installs from PyPI, with pre-built wheels for Python 3.10 to 3.15 on Linux, macOS and Windows:
 
 <tt>
 $ pip install pymcpp
