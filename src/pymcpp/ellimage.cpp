@@ -6,6 +6,7 @@
 #include <pybind11/numpy.h>
 #include <pybind11/operators.h>
 #include <pybind11/pybind11.h>
+#include <pybind11/pytypes.h>
 #include <pybind11/stl.h>
 
 #ifdef MC__USE_PROFIL
@@ -186,8 +187,10 @@ mc_ellimage(py::module& m)
   // Surface the C++ ellipsoid/ellimage exceptions -- which are NOT derived from
   // std::exception -- as informative Python exceptions, instead of the opaque
   // "Caught an unknown exception!" that pybind's default handler would raise.
-  static py::exception<ELL::Exceptions> pyEllipsoidError(m, "EllipsoidError");
-  static py::exception<EI::Exceptions> pyEllImgError(m, "EllImgError");
+  static py::handle pyEllipsoidError;
+  pyEllipsoidError = py::exception<ELL::Exceptions>(m, "EllipsoidError").release();
+  static py::handle pyEllImgError;
+  pyEllImgError =  py::exception<EI::Exceptions> (m, "EllImgError").release();
   py::register_exception_translator(
       [](std::exception_ptr p)
       {

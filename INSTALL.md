@@ -23,7 +23,7 @@ with [pybind11](https://pybind11.readthedocs.io/) and imported as the module `py
 pip install pymcpp
 ```
 
-installs pre-built wheels for Python 3.10 to 3.14 on Linux x86-64 (glibc >= 2.27), macOS 14+ (Apple silicon)
+installs pre-built wheels for Python 3.10 to 3.15 on Linux x86-64 (glibc >= 2.27), macOS 14+ (Apple silicon)
 and Windows x86-64, with no further dependency.  The notebooks in `notebook/` run as they are.  Build from
 source when you need the C++ headers, a different interval backend, the HSL or Torch options, or a `pymcpp`
 built against the same headers and pybind11 release as another module that exchanges objects with it (CRONOS's
