@@ -58,7 +58,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y libboost-dev libarmadillo-dev libopenblas-dev graphviz
           python -m pip install --upgrade pip
-          pip install nbconvert nbclient ipykernel
+          pip install nbconvert nbclient ipykernel numpy matplotlib
 
       - name: Doxygen ${{ env.DOXYGEN_VERSION }}
         run: |
