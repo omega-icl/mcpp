@@ -4261,10 +4261,8 @@ fabs(const CVar<T>& CV)
   auto& coefmon = CV._coefinterp();
   CV._interpolation(coefmon, std::fabs);
 
-  double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B()) - m), rem, fact(1);
-  for (unsigned i(1); i <= CV.nord() + 1; i++) fact *= double(i);
+  double m(Op<T>::mid(CV.B())), r(Op<T>::u(CV.B()) - m), rem;
   rem = 2. / mc::PI * r / double(CV.nord() - 1);
-  // rem = 4.*std::pow(a/2.,double(CV.nord()+1))/fact;
 
   CVI = CV._rescale(r, m);
   CV2 = CVI._composition(coefmon);

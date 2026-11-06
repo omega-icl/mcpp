@@ -1394,7 +1394,7 @@ public:
   virtual void feval
     ( std::type_info const& idU, unsigned const nRes, void* vRes, unsigned const nVar,
       void const* vVar, unsigned const* mVar )
-    const;
+    const override;
 
   void eval
     ( size_t const nRes, FFVar* vRes, size_t const nVar, FFVar const* vVar, unsigned const* mVar )
@@ -1437,12 +1437,12 @@ public:
   // Ordering
   bool lt
     ( FFOp const* other )
-    const;
+    const override;
 
   // Properties
   std::string name
     ()
-    const
+    const override
     {
       return "Partial" + _Indep.display(0);
     }
@@ -1450,7 +1450,7 @@ public:
   // Commutativity
   bool commutative
     ()
-    const
+    const override
     {
       return false;
     }
@@ -1832,7 +1832,7 @@ public:
   virtual void feval
     ( std::type_info const& idU, unsigned const nRes, void* vRes, unsigned const nVar,
       void const* vVar, unsigned const* mVar )
-    const;
+    const override;
 
   void eval
     ( size_t const nRes, FFVar* vRes, size_t const nVar, FFVar const* vVar, unsigned const* mVar )
@@ -1875,12 +1875,12 @@ public:
   // Ordering
   bool lt
     ( FFOp const* other )
-    const;
+    const override;
 
   // Properties
   std::string name
     ()
-    const
+    const override
     {
       return "Integral" + _Indep.display(0);
     }
@@ -1888,7 +1888,7 @@ public:
   // Commutativity
   bool commutative
     ()
-    const
+    const override
     {
       return false;
     }
@@ -2344,7 +2344,7 @@ public:
   virtual void feval
     ( std::type_info const& idU, unsigned const nRes, void* vRes, unsigned const nVar,
       void const* vVar, unsigned const* mVar )
-    const;
+    const override;
 
   void eval
     ( size_t const nRes, FFVar* vRes, size_t const nVar, FFVar const* vVar, unsigned const* mVar )
@@ -2377,12 +2377,12 @@ public:
   // Ordering
   bool lt
     ( FFOp const* other )
-    const;
+    const override;
 
   // Properties
   std::string name
     ()
-    const
+    const override
     {
       std::ostringstream os;
       os << "Eval";
@@ -2396,7 +2396,7 @@ public:
   // Commutativity
   bool commutative
     ()
-    const
+    const override
     {
       return false;
     }
@@ -3291,8 +3291,8 @@ const
     yout[i] = _D[ORD](i,0) * yin[0];
     for( size_t j = 1; j < n; ++j )
       yout[i] += _D[ORD](i,j) * yin[j];
-      if( RESCALE != 1 )
-        yout[i] *= RESCALE;
+    if( RESCALE != 1 )
+      yout[i] *= RESCALE;
   }
 
   return true;

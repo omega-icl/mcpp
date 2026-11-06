@@ -98,7 +98,7 @@ _to_arma_mat(py::handle obj)
 py::array_t<double>
 _from_arma_vec(arma::vec const& v)
 {
-  py::array_t<double> out({static_cast<py::ssize_t>(v.n_elem)});
+  py::array_t<double> out(static_cast<py::ssize_t>(v.n_elem));
   auto buf = out.mutable_unchecked<1>();
   for (arma::uword i = 0; i < v.n_elem; ++i)
     buf(static_cast<py::ssize_t>(i)) = v(i);
