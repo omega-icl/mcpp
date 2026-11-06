@@ -16,11 +16,14 @@ jobs:
       fail-fast: false
       matrix:
         # macos pinned (not -latest): brew libs target the runner's OS version,
-        # which must match MACOSX_DEPLOYMENT_TARGET below or delocate refuses.
-        # macos-13 (Intel) was retired by GitHub; macos-15-intel is the only
-        # remaining Intel label if x86_64 macOS wheels are ever wanted again.
-        os: [ubuntu-latest, macos-14, windows-latest]
-        # ubuntu-latest -> manylinux x86_64, macos-14 -> arm64,
+        # which must match MACOSX_DEPLOYMENT_TARGET below or delocate refuses,
+        # and -latest moves between OS versions, which would silently raise the
+        # wheel's minimum macOS. macos-14 was retired on 2026-11-02; macos-15
+        # is the oldest supported arm64 label, so it gives the widest wheel
+        # compatibility. Intel labels (macos-15-intel, macos-26-intel) exist if
+        # x86_64 macOS wheels are ever wanted again.
+        os: [ubuntu-latest, macos-15, windows-latest]
+        # ubuntu-latest -> manylinux x86_64, macos-15 -> arm64,
         # windows-latest -> AMD64 (all via ARCHS auto64)
     steps:
       - uses: actions/checkout@v5
@@ -57,7 +60,7 @@ jobs:
           # must target at least that; without this delocate rejects the wheel.
           CIBW_BEFORE_ALL_MACOS: brew install boost armadillo
           CIBW_ENVIRONMENT_MACOS: >
-            MACOSX_DEPLOYMENT_TARGET=14.0
+            MACOSX_DEPLOYMENT_TARGET=15.0
 
           # --- Windows ---
           # No Fortran anywhere: vcpkg's armadillo port drags in
