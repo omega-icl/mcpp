@@ -1,5 +1,53 @@
 # Changes
 
+## 5.1.1 (2026-11-12)
+
+A patch release, by the rule INSTALL.md's "Releasing" states: no class shared with dependent modules changed
+layout and pybind11 is still 3.0.4, so the 5.1 ABI fingerprint holds (`check_abi.py`: "MC++ 5.1.1 keeps the 5.1
+fingerprint") and a module built against 5.1.0 -- CRONOS's `cronos` -- needs no rebuild.
+
+### Wheels for Python 3.15; macOS 15 as the floor
+
+Wheels are built for CPython 3.10 to 3.15 (cibuildwheel 4.3).  Under 3.15 the interpreter aborted at exit
+once `pymcpp` had been imported: the `EllipsoidError` and `EllImgError` types were held in function-local
+`static py::exception` objects, destroyed after the interpreter had finalized.  They are held as released
+handles now, as pybind11's `docs/advanced/exceptions.rst` prescribes.
+
+GitHub retired its macOS 14 runner image on 2026-11-02, so the macOS wheels are built on `macos-15` and
+`MACOSX_DEPLOYMENT_TARGET` follows to 15.0: the Homebrew Boost and Armadillo bottles target the runner's OS,
+and delocate refuses a wheel that claims less.  **The macOS wheels need macOS 15 or later.**  On macOS 14,
+`pip install pymcpp` picks the 5.1.1 sdist over the 5.1.0 wheel and builds from source, which needs Boost and
+Armadillo; `pip install --prefer-binary pymcpp`, or `pymcpp==5.1.0`, keeps the wheel.
+
+`wheels.yml` filtered its push and pull-request triggers on `branches: [version-5.0]`, which does not exist,
+so only tags and manual runs ever built wheels.  It names `version-5` now.
+
+### Variable-length arrays removed
+
+`CModel::_interpolation`, `TModel::_scale_bernstein` and both variants of `PolImg::_pwmccormick_cuts`
+declared arrays sized at run time: a GCC/Clang extension, not C++, which `cl.exe` rejects -- the reason the
+Windows wheels are pinned to clang-cl.  In `_pwmccormick_cuts` they held `PolVar<T>` (168 bytes with
+`Interval`), as many as the product of the two variables' breakpoint counts, on the stack, where an overflow
+is silent.  They are `std::vector`s now, and the library and its tests compile clean under `-Werror=vla`.
+The external operation in `test/DAG/DAG_external.cpp` and `DAG_doxygen.cpp`, which the Doxygen pages
+reproduce, did the same in `deriv()` and is fixed likewise.  Results are unchanged: the tests that reach
+these paths (`CM-1D`, `CM-2D`, `TM-1D`, `TM-2D`, `SCM-Bernstein`, `LINREL_1d`, `LINREL_2d`, `PWLREL_1d`,
+`DAG_external`) print byte-identical output.
+
+### Compiler warnings
+
+`override` on the overriding members of `FFPartial`, `FFIntegral` and `FFEval` (`ocbase.hpp`); the unused
+`fact` in `fabs(CVar)` (`cmodel.hpp`) removed; the misleading indentation in `BASE_OC::eval_lagrange`
+corrected.  No change in behaviour: the `RESCALE` scaling already ran once per row, after the inner loop, as
+the indentation now shows.
+
+### The release gate, CI and documentation
+
+`check` no longer runs the `notebook/*.py` examples: they print rather than assert.  `check.yml` runs the gate
+in CI on every push and pull request, followed by the JOSS paper's notebook, whose last cell asserts every
+figure the paper quotes.  `CONTRIBUTING.md`, `CODE_OF_CONDUCT.md` and `CITATION.cff` are added, the JOSS paper
+sources are under `paper/`, and the Sphinx documentation is titled PyMC++.
+
 ## 5.1.0 (2026-10-26)
 
 A minor version, by the rule INSTALL.md's "Releasing" states: a class shared with dependent modules changed
