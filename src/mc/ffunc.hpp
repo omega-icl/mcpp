@@ -833,8 +833,10 @@ Each mode falls back on mc::FFOp::deriv for an operation without the matching
 hook, and an operation defining neither that hook nor mc::FFOp::deriv cannot be
 differentiated in that mode. Giving the tangent and adjoint operations hooks of
 their own, with respect to all of their operands, provides derivatives of
-higher order. The hooks are not called by the legacy engines selected with
-MC__DAG_FADIFF and MC__DAG_BADIFF.
+higher order. A linear operator (mc::FFOp::linear) without an adjoint is
+differentiated in the backward mode through the forward mode with respect to
+the independent variables. The hooks are not called by the legacy engines
+selected with MC__DAG_FADIFF and MC__DAG_BADIFF.
 
 
 \section sec_FFUNC_err What errors may I encounter while creating or
@@ -1776,8 +1778,10 @@ class FFOp
   //! (every other captured datum unchanged), returning output iout.  Only called when linear() is true.
   virtual FFVar apply(unsigned const iout, unsigned const iin,
                       FFVar const& tangent) const;
-  //! @brief Whether any (iout,iin) pair is linear -- the backward engine refuses such an operation, since
-  //! its adjoint needs the operator's transpose, which is not an operation on this DAG.
+  //! @brief Whether any (iout,iin) pair is linear.  The adjoint of such an operation needs the operator's
+  //! transpose, which is not an operation on this DAG.  Unless adjoint() provides it, the backward engine
+  //! differentiates the operation in forward mode with respect to the independents, and hands its result
+  //! adjoints straight to them.
   bool has_linear() const
   {
     for (unsigned io = 0; io < varout.size(); ++io)
@@ -1812,12 +1816,12 @@ class FFOp
   //! with the adjoints of its results: they call adjoint() once per sweep, with the adjoints of ALL the
   //! results.  For an operation whose transposed derivative is cheaper as a product -- a transposed linear
   //! solve, an adjoint sensitivity integration, a backward pass through a network -- than as its whole
-  //! Jacobian.  It also covers a linear operator, which backward mode otherwise refuses for want of its
-  //! transpose.  @p nSweep is the number of sweeps that will go through the operation, so that it can
-  //! decline where its whole Jacobian is the cheaper: 1 for a directional derivative (DBAD), otherwise the
-  //! number of dependents that are computed from it.  The engines ask with @p nSweep = 1 first: an operation
-  //! that declines for some number of sweeps is expected to decline for any larger number.  Forward mode is
-  //! not concerned: it calls tangent() or deriv().  Default false.
+  //! Jacobian.  It also gives a linear operator its transpose, which backward mode otherwise replaces by
+  //! forward mode upstream of the operator.  @p nSweep is the number of sweeps that will go through the
+  //! operation, so that it can decline where its whole Jacobian is the cheaper: 1 for a directional
+  //! derivative (DBAD), otherwise the number of dependents that are computed from it.  The engines ask with
+  //! @p nSweep = 1 first: an operation that declines for some number of sweeps is expected to decline for
+  //! any larger number.  Forward mode is not concerned: it calls tangent() or deriv().  Default false.
   virtual bool has_adjoint(unsigned const nSweep) const
   {
     return false;
@@ -11135,8 +11139,11 @@ FFGraph::SDFAD(std::vector<FFVar const*> const& vDep,
                 {
                   // a linear OPERATOR: its tangent is the operator applied to the input's tangent
                   if (op->varin[iin]->val() == &FFZero) continue;
-                  wkAD[iwk + iout] += op->apply(
-                      iout, iin, *static_cast<FFVar*>(op->varin[iin]->val()));
+                  // a constant that is not attached to the DAG -- a seed -- as a DAG constant
+                  FFVar const* pTan = static_cast<FFVar const*>(op->varin[iin]->val());
+                  if (!pTan->dag())
+                    pTan = (pTan->num().t == FFNum::INT ? _add_constant(pTan->num().n) : _add_constant(pTan->num().x));
+                  wkAD[iwk + iout] += op->apply(iout, iin, *pTan);
                   continue;
                 }
                 if (op->varin[iin]->val() == &FFZero ||
@@ -11162,8 +11169,11 @@ FFGraph::SDFAD(std::vector<FFVar const*> const& vDep,
                 {
                   // a linear OPERATOR: its tangent is the operator applied to the input's tangent
                   if (op->varin[iin]->val() == &FFZero) continue;
-                  wkAD[iwk + iout] += op->apply(
-                      iout, iin, *static_cast<FFVar*>(op->varin[iin]->val()));
+                  // a constant that is not attached to the DAG -- a seed -- as a DAG constant
+                  FFVar const* pTan = static_cast<FFVar const*>(op->varin[iin]->val());
+                  if (!pTan->dag())
+                    pTan = (pTan->num().t == FFNum::INT ? _add_constant(pTan->num().n) : _add_constant(pTan->num().x));
+                  wkAD[iwk + iout] += op->apply(iout, iin, *pTan);
                   continue;
                 }
                 if (op->varin[iin]->val() == &FFZero ||
@@ -12004,10 +12014,12 @@ FFGraph::SDBAD(std::vector<FFVar const*> const& vDep,
         unsigned const nSweep = (!reach ? 0 : vDir.empty() ? nDepOf(op) : 1);
         adj = (nSweep <= 1 || op->has_adjoint(nSweep));
       }
-      opAdj[iop++] = (adj ? (reach ? 1 : 2) : 0);
+      // A linear operator without an adjoint of its own: differentiated in forward mode, below
+      bool const lin = (!adj && op->type >= FFOp::EXTERN && op->has_linear());
+      opAdj[iop++]   = (adj ? (reach ? 1 : 2) : 0);
       for (unsigned int iout = 0; iout < op->varout.size(); ++iout)
       {
-        if (!op->sparse && !adj) vDep_deriv[iwk + iout] = new FFVar[op->varin.size()];
+        if (!op->sparse && !adj && !lin) vDep_deriv[iwk + iout] = new FFVar[op->varin.size()];
         vDep_index[iwk + iout]  = iwk + iout;
         slotReach[iwk + iout]   = reach;
         op->varout[iout]->val() = &vDep_index[iwk + iout];
@@ -12027,14 +12039,44 @@ FFGraph::SDBAD(std::vector<FFVar const*> const& vDep,
         iwk += op->varout.size();
         continue;
       }
+      if (lin)
+      {
+        // Backward mode through a linear OPERATOR needs its transpose, which is not an operation on
+        // this DAG.  Its results are differentiated with respect to the independents in FORWARD mode
+        // instead, where the operator is applied to the tangents: these derivatives make the
+        // independents direct consumers of the results, whose adjoints go straight to them, and the
+        // operation hands nothing back to its operands -- the paths through them are all accounted
+        // for.  An operator that no independent reaches needs none of this.  (Until 2026-11-17 any
+        // linear operator in the subgraph was refused.)
+        if (reach)
+        {
+          size_t const nout = op->varout.size();
+          std::vector<FFVar const*> vOut(op->varout.begin(), op->varout.end());
+          auto const [vRow, vCol, vDer] = SDFAD(vOut, vIndep, std::vector<FFVar const*>());
+          _curOp = op;
+          std::vector<size_t> nDer(nout, 0);
+          for (unsigned const irow : vRow) ++nDer[irow];
+          for (size_t iout = 0; iout < nout; ++iout)
+          {
+            if (nDer[iout]) vDep_deriv[iwk + iout] = new FFVar[nDer[iout]];
+            nDer[iout] = 0;
+          }
+          for (size_t ie = 0; ie < vRow.size(); ++ie)
+          {
+            size_t const iout = vRow[ie], jin = nDer[iout]++;
+            vDep_deriv[iwk + iout][jin] = *vDer[ie];
+            FFVar const* pIndep = _find_var(vIndep[vCol[ie]]->id());
+            mapDep.insert(std::make_pair(*static_cast<unsigned*>(pIndep->val()),
+                                         std::make_pair(iwk + iout, jin)));
+          }
+        }
+        iwk += op->varout.size();
+        continue;
+      }
       if (op->type < FFOp::EXTERN)
         op->differentiate(vDep_deriv[iwk]);
       else
       {
-        // Backward mode through a linear OPERATOR needs its transpose, which is not an
-        // operation on this DAG: refuse rather than silently drop the contribution.
-        if (op->has_linear())
-          throw typename FFBase::Exceptions(FFBase::Exceptions::EXTERN);
         // vDep/vCol/vDim need to be sized/set by external operation if sparse
         // operation
         op->differentiate_external(vDep_deriv.data() + iwk,
