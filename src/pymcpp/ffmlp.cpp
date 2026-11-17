@@ -268,6 +268,21 @@ Reset all options to their default values.
                      "MLP.Options.AD_TYPE: Whether to apply forward (F) or "
                      "backward (B) automatic differentiation when computing "
                      "network gradients. Default is F.")
+      .def_readwrite("TANGENT", &mc::MLP<I>::Options::TANGENT,
+                     "bool: Whether the forward symbolic differentiation of "
+                     "the network in a DAG inserts its directional derivative "
+                     "along the tangents of its inputs, evaluated in one "
+                     "forward pass (True), or its whole Jacobian (False). The "
+                     "Jacobian is still used where more than 5 + nin/4 sweeps "
+                     "go through the network. Default is False.")
+      .def_readwrite("ADJOINT", &mc::MLP<I>::Options::ADJOINT,
+                     "bool: Whether the backward symbolic differentiation of "
+                     "the network in a DAG inserts the product of its "
+                     "transposed Jacobian with the adjoints of its outputs, "
+                     "evaluated in one backward pass (True), or its whole "
+                     "Jacobian (False). The Jacobian is still used where more "
+                     "than 4 + nin/5 sweeps go through the network. Default "
+                     "is False.")
       .def_readwrite("CPMAX", &mc::MLP<I>::Options::CPMAX,
                      "int: Maximum rounds of interval constraint propagation "
                      "in reverse evaluation. Default is 1.")

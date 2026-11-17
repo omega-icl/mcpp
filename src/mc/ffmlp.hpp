@@ -80,6 +80,8 @@ class MLP
       RELU2ABS  = other.RELU2ABS;
       SIG2EXP   = other.SIG2EXP;
       AUTODIFF  = other.AUTODIFF;
+      TANGENT   = other.TANGENT;
+      ADJOINT   = other.ADJOINT;
       CPMAX     = other.CPMAX;
       CPTHRES   = other.CPTHRES;
       CPINF     = other.CPINF;
@@ -96,6 +98,8 @@ class MLP
       RELU2ABS  = false;
       SIG2EXP   = false;
       AUTODIFF  = F;
+      TANGENT   = false;
+      ADJOINT   = false;
       CPMAX =
           1;  // Leave it to the outer DAG to iterate as necessary by default
       CPTHRES = 1e4 * DBL_EPSILON;
@@ -119,6 +123,24 @@ class MLP
     bool SIG2EXP;
     //! @brief Whether to apply forward or reverse automatic differentiation
     int AUTODIFF;
+    //! @brief Whether the forward symbolic differentiation of an MLP operation
+    //! in a DAG (FAD, SFAD, DFAD) inserts its directional derivative along the
+    //! tangents of its operands, mc::FFTanMLP -- one operation with as many
+    //! results as the MLP has outputs per sweep, evaluated in one forward pass
+    //! -- in place of its whole Jacobian, mc::FFGradMLP (false). The Jacobian
+    //! is still inserted where more than 5 + nin/4 sweeps go through the
+    //! operation -- as many as the independents it depends on, one for a
+    //! directional derivative
+    bool TANGENT;
+    //! @brief Whether the backward symbolic differentiation of an MLP operation
+    //! in a DAG (BAD, SBAD, DBAD) inserts the product of its transposed
+    //! Jacobian with the adjoints of its results, mc::FFAdjMLP -- one operation
+    //! with as many results as the MLP has inputs per sweep, evaluated in one
+    //! backward pass -- in place of its whole Jacobian, mc::FFGradMLP (false).
+    //! The Jacobian is still inserted where more than 4 + nin/5 sweeps go
+    //! through the operation -- as many as the dependents computed from it,
+    //! one for a directional derivative
+    bool ADJOINT;
     //! @brief Maximum rounds of constraint propagation
     size_t CPMAX;
     //! @brief Threshold for repeating constraint propagation (minimum relative
@@ -204,6 +226,16 @@ class MLP
   //! @brief Evaluate MLP through expression tree
   template <typename U>
   void _eval(U const* valin, U* valout, std::vector<U>& wk);
+
+  //! @brief Evaluate MLP directional derivative: forward pass with the values
+  //! and the tangents of the neurons
+  template <typename U>
+  void _tang(U const* valin, U const* dirin, U* tanout, U* valout) const;
+
+  //! @brief Evaluate MLP adjoint: forward pass keeping the derivative of each
+  //! activation, then backward pass through the layers
+  template <typename U>
+  void _adj(U const* valin, U const* wout, U* adjin, U* valout) const;
   //    const;
 
   //! @brief Reverse evaluate MLP through expression tree
@@ -451,6 +483,65 @@ class MLP
                   << "] = " << gradout[k * _nin + i] << std::endl;
     }
 #endif
+  }
+
+  //! @brief MLP directional derivative: tanout (size nout) is the derivative
+  //! of the outputs at valin along the direction dirin (size nin)
+  void
+  tang(double const* valin, double const* dirin, double* tanout,
+       double* const valout = nullptr)
+  {
+#if defined(MC__USE_TORCH)
+    if (_hasmodule && options.EVALTORCH)
+    {
+      // from the Jacobian that Torch computes
+      std::vector<double> J(_nout * _nin);
+      grad(valin, J.data(), valout);
+      for (size_t k = 0; k < _nout; ++k)
+      {
+        tanout[k] = 0.;
+        for (size_t i = 0; i < _nin; ++i) tanout[k] += J[k * _nin + i] * dirin[i];
+      }
+      return;
+    }
+#endif
+    _tang(valin, dirin, tanout, valout);
+  }
+  template <typename U>
+  void
+  tang(U const* valin, U const* dirin, U* tanout, U* const valout = nullptr)
+  {
+    _tang(valin, dirin, tanout, valout);
+  }
+
+  //! @brief MLP adjoint: adjin (size nin) is the product of the transposed
+  //! Jacobian of the outputs at valin with the weights wout (size nout), i.e.
+  //! the gradient of the weighted sum of the outputs
+  void
+  adj(double const* valin, double const* wout, double* adjin,
+      double* const valout = nullptr)
+  {
+#if defined(MC__USE_TORCH)
+    if (_hasmodule && options.EVALTORCH)
+    {
+      // from the Jacobian that Torch computes
+      std::vector<double> J(_nout * _nin);
+      grad(valin, J.data(), valout);
+      for (size_t i = 0; i < _nin; ++i)
+      {
+        adjin[i] = 0.;
+        for (size_t k = 0; k < _nout; ++k) adjin[i] += J[k * _nin + i] * wout[k];
+      }
+      return;
+    }
+#endif
+    _adj(valin, wout, adjin, valout);
+  }
+  template <typename U>
+  void
+  adj(U const* valin, U const* wout, U* adjin, U* const valout = nullptr)
+  {
+    _adj(valin, wout, adjin, valout);
   }
 
   //! @brief MLP evaluation
@@ -1142,6 +1233,142 @@ MLP<T>::_eval(U const* valin, U* valout,
 template <typename T>
 template <typename U>
 inline void
+MLP<T>::_tang(U const* valin, U const* dirin, U* tanout, U* valout) const
+{
+  // Work arrays: values and tangents of the neurons of two consecutive layers
+  static thread_local std::vector<U> wkval, wktan, wkvalprv, wktanprv;
+  size_t const nlay = _data.size();
+
+  for (size_t l = 0; l < nlay; ++l)
+  {
+    auto const& [layer, activ] = _data[l];
+    size_t const nneu = layer.size();
+    wkval.swap(wkvalprv);
+    wktan.swap(wktanprv);
+    wkval.resize(nneu);
+    wktan.resize(nneu);
+    for (size_t i = 0; i < nneu; ++i)
+    {
+      U& val = wkval[i];
+      U& tan = wktan[i];
+      val    = layer[i][0];  // bias term
+      tan    = 0.;
+      for (size_t j = 0; j + 1 < layer[i].size(); ++j)
+      {
+        if (std::fabs(layer[i][1 + j]) < options.ZEROTOL) continue;
+        val += (l ? wkvalprv[j] : valin[j]) * layer[i][1 + j];
+        tan += (l ? wktanprv[j] : dirin[j]) * layer[i][1 + j];
+      }
+      switch (activ)
+      {
+        case LINEAR:
+        default:
+          break;
+        case RELU:
+          tan *= Op<U>::fstep(val);
+          val = ReLU(val);
+          break;
+        case TANH:
+          val = Op<U>::tanh(val);
+          tan *= -Op<U>::sqr(val) + 1.;
+          break;
+        case SIGMOID:
+          val = (options.SIG2EXP ? Op<U>::inv(Op<U>::exp(-val) + 1.)
+                                 : Op<U>::tanh(val * 0.5) * 0.5 + 0.5);
+          // s (1-s), written with a single occurrence of s
+          tan *= (-Op<U>::sqr(val * 2. - 1.) + 1.) * 0.25;
+          break;
+      }
+    }
+  }
+  for (size_t k = 0; k < _nout; ++k)
+  {
+    if (valout) valout[k] = wkval[k];
+    tanout[k] = wktan[k];
+  }
+}
+
+template <typename T>
+template <typename U>
+inline void
+MLP<T>::_adj(U const* valin, U const* wout, U* adjin, U* valout) const
+{
+  // Work arrays: values and activation derivatives of the neurons, layer by
+  // layer, and the adjoints of two consecutive layers
+  static thread_local std::vector<std::vector<U>> wkval, wkder;
+  static thread_local std::vector<U> wkadj, wkprv;
+  size_t const nlay = _data.size();
+  wkval.resize(nlay);
+  wkder.resize(nlay);
+
+  // Forward pass, as in _eval
+  for (size_t l = 0; l < nlay; ++l)
+  {
+    auto const& [layer, activ] = _data[l];
+    size_t const nneu = layer.size();
+    wkval[l].resize(nneu);
+    wkder[l].resize(nneu);
+    for (size_t i = 0; i < nneu; ++i)
+    {
+      U& val = wkval[l][i];
+      val    = layer[i][0];  // bias term
+      for (size_t j = 0; j + 1 < layer[i].size(); ++j)
+      {
+        if (std::fabs(layer[i][1 + j]) < options.ZEROTOL) continue;
+        val += (l ? wkval[l - 1][j] : valin[j]) * layer[i][1 + j];
+      }
+      switch (activ)
+      {
+        case LINEAR:
+        default:
+          break;
+        case RELU:
+          wkder[l][i] = Op<U>::fstep(val);
+          val         = ReLU(val);
+          break;
+        case TANH:
+          val         = Op<U>::tanh(val);
+          wkder[l][i] = -Op<U>::sqr(val) + 1.;
+          break;
+        case SIGMOID:
+          val = (options.SIG2EXP ? Op<U>::inv(Op<U>::exp(-val) + 1.)
+                                 : Op<U>::tanh(val * 0.5) * 0.5 + 0.5);
+          // s (1-s), written with a single occurrence of s
+          wkder[l][i] = (-Op<U>::sqr(val * 2. - 1.) + 1.) * 0.25;
+          break;
+      }
+    }
+  }
+  if (valout)
+    for (size_t k = 0; k < _nout; ++k) valout[k] = wkval[nlay - 1][k];
+
+  // Backward pass: the adjoints of the outputs of a layer give those of its
+  // inputs
+  wkadj.assign(wout, wout + _nout);
+  for (size_t l = nlay; l-- > 0;)
+  {
+    auto const& [layer, activ] = _data[l];
+    size_t const nneu = layer.size(), nprv = layer[0].size() - 1;
+    if (activ == RELU || activ == TANH || activ == SIGMOID)
+      for (size_t i = 0; i < nneu; ++i) wkadj[i] *= wkder[l][i];
+    wkprv.resize(nprv);
+    for (size_t j = 0; j < nprv; ++j)
+    {
+      wkprv[j] = 0.;
+      for (size_t i = 0; i < nneu; ++i)
+      {
+        if (std::fabs(layer[i][1 + j]) < options.ZEROTOL) continue;
+        wkprv[j] += wkadj[i] * layer[i][1 + j];
+      }
+    }
+    wkadj.swap(wkprv);
+  }
+  for (size_t i = 0; i < _nin; ++i) adjin[i] = wkadj[i];
+}
+
+template <typename T>
+template <typename U>
+inline void
 MLP<T>::_eval(U const* valin, U* valout, std::vector<U>& wk)
 // const
 {
@@ -1405,6 +1632,37 @@ class FFMLP
   void deriv(unsigned const nRes, FFVar const* vRes, unsigned const nVar,
              FFVar const* vVar, FFVar** vDer) const;
 
+  // Tangents: with MLP<T>::Options::TANGENT, the forward symbolic
+  // differentiation inserts the directional derivative operation FFTanMLP
+  // along the tangents of the operands, in place of the Jacobian FFGradMLP
+  // -- unless the sweeps through the operation are so many that the Jacobian,
+  // which takes all its directions in one pass, is the cheaper: a threshold
+  // from timings in double arithmetic with the forward-mode Jacobian
+  bool
+  has_tangent(unsigned const nSweep) const
+  {
+    return _ptrObj && _ptrObj->options.TANGENT &&
+           nSweep <= 5 + _ptrObj->nin() / 4;
+  }
+  void tangent(unsigned const nRes, FFVar const* vRes, unsigned const nVar,
+               FFVar const* vVar, FFVar const* const* vTan,
+               FFVar* vResTan) const;
+
+  // Adjoints: with MLP<T>::Options::ADJOINT, the backward symbolic
+  // differentiation inserts the adjoint operation FFAdjMLP for the adjoints
+  // of the results, in place of the Jacobian FFGradMLP
+  // -- unless the sweeps through the operation are so many that the Jacobian
+  // is the cheaper, as for the tangents
+  bool
+  has_adjoint(unsigned const nSweep) const
+  {
+    return _ptrObj && _ptrObj->options.ADJOINT &&
+           nSweep <= 4 + _ptrObj->nin() / 5;
+  }
+  void adjoint(unsigned const nRes, FFVar const* vRes, unsigned const nVar,
+               FFVar const* vVar, FFVar const* const* vResAdj,
+               FFVar* vVarAdj) const;
+
   // Properties
   std::string
   name() const
@@ -1638,6 +1896,635 @@ class FFGradMLP
     return false;
   }
 };
+
+//! @brief C++ class defining directional derivatives of neural networks as
+//! external DAG operations in MC++.
+////////////////////////////////////////////////////////////////////////
+//! mc::FFTanMLP is a C++ class for defining the directional derivative
+//! of a neural network as an external DAG operation in MC++: its
+//! operands are the inputs of the network followed by a direction of
+//! the same size, and its results are the derivatives of the outputs
+//! of the network along that direction, evaluated in a single forward
+//! pass. It is inserted by the forward symbolic differentiation of
+//! mc::FFMLP when mc::MLP::Options::TANGENT is set (FFOp::tangent),
+//! and can also be defined directly. It has no derivative of its own.
+////////////////////////////////////////////////////////////////////////
+template <typename T>
+class FFTanMLP
+    ////////////////////////////////////////////////////////////////////////
+    : public FFEXTERN<T, MLP<T>>
+{
+  friend class FFMLP<T>;
+
+ protected:
+  using FFEXTERN<T, MLP<T>>::_ptrObj;
+  using FFEXTERN<T, MLP<T>>::_ownObj;
+
+  // set the object and related operation in DAG; the operands are the inputs
+  // followed by the direction
+  FFVar**
+  _set(size_t const nVar, FFVar const* pVar, MLP<T>* pMLP, int policy)
+  {
+#ifdef MC__FFMLP_CHECK
+    assert(nVar == 2 * pMLP->nin());
+#endif
+    if (_ownObj && _ptrObj) delete _ptrObj;
+    _ownObj = (policy > 0 ? true : false);  // copy;
+    this->owndata = false;
+    this->data = _ptrObj = pMLP;
+
+    FFVar** ppRes =
+        this->insert_external_operation(*this, pMLP->nout(), nVar, pVar);
+
+    _ownObj   = false;
+    FFOp* pOp = (*ppRes)->opdef().first;
+    if (policy > 0)
+      _ptrObj = static_cast<FFTanMLP<T>*>(pOp)
+                    ->_ptrObj;  // set MLP pointer to DAG copy
+    else if (policy < 0)
+      static_cast<FFTanMLP<T>*>(pOp)->_ownObj = true;  // transfer ownership
+      // nothing to do if policy = 0
+    return ppRes;
+  }
+
+ public:
+  //! @brief Enumeration type for copy policy of MLP object
+  enum POLICY_TYPE
+  {
+    SHALLOW = 0,  //!< Shallow copy of MLP object in FFGraph (without ownership)
+    COPY    = 1,  //!< Deep copy of MLP object in FFGraph (with ownership)
+    TRANSFER =
+        -1  //!< Shallow copy of MLP object in FFGraph (with ownership transfer)
+  };
+
+  //! @brief Default constructor
+  FFTanMLP() : FFEXTERN<T, MLP<T>>() {}
+
+  // Destructor
+  virtual ~FFTanMLP() {}
+
+  // Copy constructor
+  FFTanMLP(FFTanMLP<T> const& Other) : FFEXTERN<T, MLP<T>>(Other) {}
+
+  // Define operation: derivatives of the outputs at vVar along vDir
+  std::vector<FFVar>
+  operator()(std::vector<FFVar> const& vVar, std::vector<FFVar> const& vDir,
+             MLP<T>* pMLP, int policy = COPY)
+  {
+#ifdef MC__FFMLP_CHECK
+    assert(vVar.size() == pMLP->nin() && vDir.size() == pMLP->nin());
+#endif
+    std::vector<FFVar> vOpd(vVar);
+    vOpd.insert(vOpd.end(), vDir.begin(), vDir.end());
+    FFVar** ppTan = _set(vOpd.size(), vOpd.data(), pMLP, policy);
+    std::vector<FFVar> vTan(pMLP->nout());
+    for (size_t k = 0; k < vTan.size(); ++k) vTan[k] = *ppTan[k];
+    return vTan;
+  }
+
+  // MLP pointer
+  MLP<T>*
+  pMLP() const
+  {
+    return _ptrObj;
+  }
+
+  // Forward evaluation overloads
+  virtual void
+  feval(std::type_info const& idU, unsigned const nRes, void* vRes,
+        unsigned const nVar, void const* vVar, unsigned const* mVar) const
+  {
+    if (mc::same_type( idU, typeid(FFVar) ))
+      return eval(nRes, static_cast<FFVar*>(vRes), nVar,
+                  static_cast<FFVar const*>(vVar), mVar);
+    else if (mc::same_type( idU, typeid(FFDep) ))
+      return eval(nRes, static_cast<FFDep*>(vRes), nVar,
+                  static_cast<FFDep const*>(vVar), mVar);
+    else if (mc::same_type( idU, typeid(FFInv) ))
+      return eval(nRes, static_cast<FFInv*>(vRes), nVar,
+                  static_cast<FFInv const*>(vVar), mVar);
+    else if (mc::same_type( idU, typeid(double) ))
+      return eval(nRes, static_cast<double*>(vRes), nVar,
+                  static_cast<double const*>(vVar), mVar);
+    else if (mc::same_type( idU, typeid(T) ))
+      return eval(nRes, static_cast<T*>(vRes), nVar,
+                  static_cast<T const*>(vVar), mVar);
+    else if (mc::same_type( idU, typeid(Specbnd<T>) ))
+      return eval(nRes, static_cast<Specbnd<T>*>(vRes), nVar,
+                  static_cast<Specbnd<T> const*>(vVar), mVar);
+    else if (mc::same_type( idU, typeid(SCVar<T>) ))
+      return eval(nRes, static_cast<SCVar<T>*>(vRes), nVar,
+                  static_cast<SCVar<T> const*>(vVar), mVar);
+    else if (mc::same_type( idU, typeid(McCormick<T>) ))
+      return eval(nRes, static_cast<McCormick<T>*>(vRes), nVar,
+                  static_cast<McCormick<T> const*>(vVar), mVar);
+    else if (mc::same_type( idU, typeid(SupVar<PWCU>) ))
+      return eval(nRes, static_cast<SupVar<PWCU>*>(vRes), nVar,
+                  static_cast<SupVar<PWCU> const*>(vVar), mVar);
+    else if (mc::same_type( idU, typeid(SupVar<PWLU>) ))
+      return eval(nRes, static_cast<SupVar<PWLU>*>(vRes), nVar,
+                  static_cast<SupVar<PWLU> const*>(vVar), mVar);
+    else if (mc::same_type( idU, typeid(OCVar<double>) ))
+      return eval(nRes, static_cast<OCVar<double>*>(vRes), nVar,
+                  static_cast<OCVar<double> const*>(vVar), mVar);
+    else if (mc::same_type( idU, typeid(OCVar<FADType<double>>) ))
+      return eval(nRes, static_cast<OCVar<FADType<double>>*>(vRes), nVar,
+                  static_cast<OCVar<FADType<double>> const*>(vVar), mVar);
+    else if (mc::same_type( idU, typeid(OCVar<FFDep>) ))
+      return eval(nRes, static_cast<OCVar<FFDep>*>(vRes), nVar,
+                  static_cast<OCVar<FFDep> const*>(vVar), mVar);
+    else if (mc::same_type( idU, typeid(SLiftVar) ))
+      return eval(nRes, static_cast<SLiftVar*>(vRes), nVar,
+                  static_cast<SLiftVar const*>(vVar), mVar);
+    else if (mc::same_type( idU, typeid(FFExpr) ))
+      return eval(nRes, static_cast<FFExpr*>(vRes), nVar,
+                  static_cast<FFExpr const*>(vVar), mVar);
+
+    throw std::runtime_error(
+        "FFTanMLP::feval: **ERROR** No evaluation method with type" +
+        std::string(idU.name()) + "\n");
+  }
+
+  template <typename U>
+  void eval(size_t const nRes, U* vRes, size_t const nVar, U const* vVar,
+            unsigned const* mVar) const;
+
+  void eval(size_t const nRes, FFDep* vRes, size_t const nVar,
+            FFDep const* vVar, unsigned const* mVar) const;
+
+  void eval(size_t const nRes, FFInv* vRes, size_t const nVar,
+            FFInv const* vVar, unsigned const* mVar) const;
+
+  void eval(size_t const nRes, FFExpr* vRes, size_t const nVar,
+            FFExpr const* vVar, unsigned const* mVar) const;
+
+  void eval(size_t const nRes, FFVar* vRes, size_t const nVar,
+            FFVar const* vVar, unsigned const* mVar) const;
+
+  void eval(size_t const nRes, SLiftVar* vRes, size_t const nVar,
+            SLiftVar const* vVar, unsigned const* mVar) const;
+
+  // Backward evaluation overloads
+  virtual bool
+  reval(std::type_info const& idU, unsigned const nRes, void* vRes,
+        unsigned const nVar, void* vVar) const
+  {
+    throw std::runtime_error(
+        "FFTanMLP::reval: **ERROR** No evaluation method with type" +
+        std::string(idU.name()) + "\n");
+  }
+
+  // Properties
+  std::string
+  name() const
+  {
+    std::ostringstream oss;
+    oss << this->data;
+    return "TanMLP[" + oss.str() + "]";
+  }
+
+  //! @brief Return whether or not operation is commutative
+  bool
+  commutative() const
+  {
+    return false;
+  }
+};
+
+template <typename T>
+template <typename U>
+inline void
+FFTanMLP<T>::eval(size_t const nRes, U* vRes, size_t const nVar, U const* vVar,
+                  unsigned const* mVar) const
+{
+#ifdef MC__FFMLP_TRACE
+  std::cout << "FFTanMLP::eval: " << typeid(vRes[0]).name() << " (generic)\n";
+#endif
+#ifdef MC__FFMLP_CHECK
+  assert(_ptrObj && nRes == _ptrObj->nout() && nVar == 2 * _ptrObj->nin());
+#endif
+
+  _ptrObj->tang(vVar, vVar + _ptrObj->nin(), vRes);
+}
+
+template <typename T>
+inline void
+FFTanMLP<T>::eval(size_t const nRes, FFDep* vRes, size_t const nVar,
+                  FFDep const* vVar, unsigned const* mVar) const
+{
+#ifdef MC__FFMLP_CHECK
+  assert(_ptrObj && nRes == _ptrObj->nout() && nVar == 2 * _ptrObj->nin());
+#endif
+
+  vRes[0] = 0;
+  for (unsigned i = 0; i < nVar; ++i) vRes[0] += vVar[i];
+  vRes[0].update(FFDep::TYPE::N);
+  for (unsigned j = 1; j < nRes; ++j) vRes[j] = vRes[0];
+}
+
+template <typename T>
+inline void
+FFTanMLP<T>::eval(size_t const nRes, FFInv* vRes, size_t const nVar,
+                  FFInv const* vVar, unsigned const* mVar) const
+{
+#ifdef MC__FFMLP_CHECK
+  assert(_ptrObj && nRes == _ptrObj->nout() && nVar == 2 * _ptrObj->nin());
+#endif
+
+  vRes[0] = 0;
+  for (unsigned i = 0; i < nVar; ++i) vRes[0] += vVar[i];
+  vRes[0].update(FFInv::TYPE::U);  // Not a candidate for inversion
+  for (unsigned j = 1; j < nRes; ++j) vRes[j] = vRes[0];
+}
+
+template <typename T>
+inline void
+FFTanMLP<T>::eval(size_t const nRes, FFVar* vRes, size_t const nVar,
+                  FFVar const* vVar, unsigned const* mVar) const
+{
+#ifdef MC__FFMLP_CHECK
+  assert(_ptrObj && nRes == _ptrObj->nout() && nVar == 2 * _ptrObj->nin());
+#endif
+
+  FFVar** ppRes = this->insert_external_operation(*this, nRes, nVar, vVar);
+  for (unsigned j = 0; j < nRes; ++j) vRes[j] = *(ppRes[j]);
+}
+
+template <typename T>
+inline void
+FFTanMLP<T>::eval(size_t const nRes, SLiftVar* vRes, size_t const nVar,
+                  SLiftVar const* vVar, unsigned const* mVar) const
+{
+#ifdef MC__FFMLP_CHECK
+  assert(_ptrObj && nRes == _ptrObj->nout() && nVar == 2 * _ptrObj->nin());
+#endif
+
+  vVar->env()->lift(nRes, vRes, nVar, vVar);
+}
+
+template <typename T>
+inline void
+FFTanMLP<T>::eval(size_t const nRes, FFExpr* vRes, size_t const nVar,
+                  FFExpr const* vVar, unsigned const* mVar) const
+{
+  switch (FFExpr::options.LANG)
+  {
+    case FFExpr::Options::DAG:
+      for (unsigned j = 0; j < nRes; ++j)
+      {
+        std::ostringstream os;
+        os << name() << "[" << j << "]";
+        vRes[j] = FFExpr::compose(os.str(), nVar, vVar);
+      }
+      break;
+    case FFExpr::Options::GAMS:
+    default:
+      throw typename FFExpr::Exceptions(FFExpr::Exceptions::UNDEF);
+  }
+}
+
+//! @brief C++ class defining adjoints of neural networks as external
+//! DAG operations in MC++.
+////////////////////////////////////////////////////////////////////////
+//! mc::FFAdjMLP is a C++ class for defining the adjoint of a neural
+//! network as an external DAG operation in MC++: its operands are the
+//! inputs of the network followed by one weight per output, and its
+//! results are the derivatives of the weighted sum of the outputs with
+//! respect to the inputs -- the product of the transposed Jacobian with
+//! the weights -- evaluated in a single backward pass. It is inserted
+//! by the backward symbolic differentiation of mc::FFMLP when
+//! mc::MLP::Options::ADJOINT is set (FFOp::adjoint), and can also be
+//! defined directly. It has no derivative of its own.
+////////////////////////////////////////////////////////////////////////
+template <typename T>
+class FFAdjMLP
+    ////////////////////////////////////////////////////////////////////////
+    : public FFEXTERN<T, MLP<T>>
+{
+  friend class FFMLP<T>;
+
+ protected:
+  using FFEXTERN<T, MLP<T>>::_ptrObj;
+  using FFEXTERN<T, MLP<T>>::_ownObj;
+
+  // set the object and related operation in DAG; the operands are the inputs
+  // followed by the weights of the outputs
+  FFVar**
+  _set(size_t const nVar, FFVar const* pVar, MLP<T>* pMLP, int policy)
+  {
+#ifdef MC__FFMLP_CHECK
+    assert(nVar == pMLP->nin() + pMLP->nout());
+#endif
+    if (_ownObj && _ptrObj) delete _ptrObj;
+    _ownObj = (policy > 0 ? true : false);  // copy;
+    this->owndata = false;
+    this->data = _ptrObj = pMLP;
+
+    FFVar** ppRes =
+        this->insert_external_operation(*this, pMLP->nin(), nVar, pVar);
+
+    _ownObj   = false;
+    FFOp* pOp = (*ppRes)->opdef().first;
+    if (policy > 0)
+      _ptrObj = static_cast<FFAdjMLP<T>*>(pOp)
+                    ->_ptrObj;  // set MLP pointer to DAG copy
+    else if (policy < 0)
+      static_cast<FFAdjMLP<T>*>(pOp)->_ownObj = true;  // transfer ownership
+      // nothing to do if policy = 0
+    return ppRes;
+  }
+
+ public:
+  //! @brief Enumeration type for copy policy of MLP object
+  enum POLICY_TYPE
+  {
+    SHALLOW = 0,  //!< Shallow copy of MLP object in FFGraph (without ownership)
+    COPY    = 1,  //!< Deep copy of MLP object in FFGraph (with ownership)
+    TRANSFER =
+        -1  //!< Shallow copy of MLP object in FFGraph (with ownership transfer)
+  };
+
+  //! @brief Default constructor
+  FFAdjMLP() : FFEXTERN<T, MLP<T>>() {}
+
+  // Destructor
+  virtual ~FFAdjMLP() {}
+
+  // Copy constructor
+  FFAdjMLP(FFAdjMLP<T> const& Other) : FFEXTERN<T, MLP<T>>(Other) {}
+
+  // Define operation: derivatives in vVar of the sum of the outputs weighted
+  // by vWei
+  std::vector<FFVar>
+  operator()(std::vector<FFVar> const& vVar, std::vector<FFVar> const& vWei,
+             MLP<T>* pMLP, int policy = COPY)
+  {
+#ifdef MC__FFMLP_CHECK
+    assert(vVar.size() == pMLP->nin() && vWei.size() == pMLP->nout());
+#endif
+    std::vector<FFVar> vOpd(vVar);
+    vOpd.insert(vOpd.end(), vWei.begin(), vWei.end());
+    FFVar** ppAdj = _set(vOpd.size(), vOpd.data(), pMLP, policy);
+    std::vector<FFVar> vAdj(pMLP->nin());
+    for (size_t i = 0; i < vAdj.size(); ++i) vAdj[i] = *ppAdj[i];
+    return vAdj;
+  }
+
+  // MLP pointer
+  MLP<T>*
+  pMLP() const
+  {
+    return _ptrObj;
+  }
+
+  // Forward evaluation overloads
+  virtual void
+  feval(std::type_info const& idU, unsigned const nRes, void* vRes,
+        unsigned const nVar, void const* vVar, unsigned const* mVar) const
+  {
+    if (mc::same_type( idU, typeid(FFVar) ))
+      return eval(nRes, static_cast<FFVar*>(vRes), nVar,
+                  static_cast<FFVar const*>(vVar), mVar);
+    else if (mc::same_type( idU, typeid(FFDep) ))
+      return eval(nRes, static_cast<FFDep*>(vRes), nVar,
+                  static_cast<FFDep const*>(vVar), mVar);
+    else if (mc::same_type( idU, typeid(FFInv) ))
+      return eval(nRes, static_cast<FFInv*>(vRes), nVar,
+                  static_cast<FFInv const*>(vVar), mVar);
+    else if (mc::same_type( idU, typeid(double) ))
+      return eval(nRes, static_cast<double*>(vRes), nVar,
+                  static_cast<double const*>(vVar), mVar);
+    else if (mc::same_type( idU, typeid(T) ))
+      return eval(nRes, static_cast<T*>(vRes), nVar,
+                  static_cast<T const*>(vVar), mVar);
+    else if (mc::same_type( idU, typeid(Specbnd<T>) ))
+      return eval(nRes, static_cast<Specbnd<T>*>(vRes), nVar,
+                  static_cast<Specbnd<T> const*>(vVar), mVar);
+    else if (mc::same_type( idU, typeid(SCVar<T>) ))
+      return eval(nRes, static_cast<SCVar<T>*>(vRes), nVar,
+                  static_cast<SCVar<T> const*>(vVar), mVar);
+    else if (mc::same_type( idU, typeid(McCormick<T>) ))
+      return eval(nRes, static_cast<McCormick<T>*>(vRes), nVar,
+                  static_cast<McCormick<T> const*>(vVar), mVar);
+    else if (mc::same_type( idU, typeid(SupVar<PWCU>) ))
+      return eval(nRes, static_cast<SupVar<PWCU>*>(vRes), nVar,
+                  static_cast<SupVar<PWCU> const*>(vVar), mVar);
+    else if (mc::same_type( idU, typeid(SupVar<PWLU>) ))
+      return eval(nRes, static_cast<SupVar<PWLU>*>(vRes), nVar,
+                  static_cast<SupVar<PWLU> const*>(vVar), mVar);
+    else if (mc::same_type( idU, typeid(OCVar<double>) ))
+      return eval(nRes, static_cast<OCVar<double>*>(vRes), nVar,
+                  static_cast<OCVar<double> const*>(vVar), mVar);
+    else if (mc::same_type( idU, typeid(OCVar<FADType<double>>) ))
+      return eval(nRes, static_cast<OCVar<FADType<double>>*>(vRes), nVar,
+                  static_cast<OCVar<FADType<double>> const*>(vVar), mVar);
+    else if (mc::same_type( idU, typeid(OCVar<FFDep>) ))
+      return eval(nRes, static_cast<OCVar<FFDep>*>(vRes), nVar,
+                  static_cast<OCVar<FFDep> const*>(vVar), mVar);
+    else if (mc::same_type( idU, typeid(SLiftVar) ))
+      return eval(nRes, static_cast<SLiftVar*>(vRes), nVar,
+                  static_cast<SLiftVar const*>(vVar), mVar);
+    else if (mc::same_type( idU, typeid(FFExpr) ))
+      return eval(nRes, static_cast<FFExpr*>(vRes), nVar,
+                  static_cast<FFExpr const*>(vVar), mVar);
+
+    throw std::runtime_error(
+        "FFAdjMLP::feval: **ERROR** No evaluation method with type" +
+        std::string(idU.name()) + "\n");
+  }
+
+  template <typename U>
+  void eval(size_t const nRes, U* vRes, size_t const nVar, U const* vVar,
+            unsigned const* mVar) const;
+
+  void eval(size_t const nRes, FFDep* vRes, size_t const nVar,
+            FFDep const* vVar, unsigned const* mVar) const;
+
+  void eval(size_t const nRes, FFInv* vRes, size_t const nVar,
+            FFInv const* vVar, unsigned const* mVar) const;
+
+  void eval(size_t const nRes, FFExpr* vRes, size_t const nVar,
+            FFExpr const* vVar, unsigned const* mVar) const;
+
+  void eval(size_t const nRes, FFVar* vRes, size_t const nVar,
+            FFVar const* vVar, unsigned const* mVar) const;
+
+  void eval(size_t const nRes, SLiftVar* vRes, size_t const nVar,
+            SLiftVar const* vVar, unsigned const* mVar) const;
+
+  // Backward evaluation overloads
+  virtual bool
+  reval(std::type_info const& idU, unsigned const nRes, void* vRes,
+        unsigned const nVar, void* vVar) const
+  {
+    throw std::runtime_error(
+        "FFAdjMLP::reval: **ERROR** No evaluation method with type" +
+        std::string(idU.name()) + "\n");
+  }
+
+  // Properties
+  std::string
+  name() const
+  {
+    std::ostringstream oss;
+    oss << this->data;
+    return "AdjMLP[" + oss.str() + "]";
+  }
+
+  //! @brief Return whether or not operation is commutative
+  bool
+  commutative() const
+  {
+    return false;
+  }
+};
+
+template <typename T>
+template <typename U>
+inline void
+FFAdjMLP<T>::eval(size_t const nRes, U* vRes, size_t const nVar, U const* vVar,
+                  unsigned const* mVar) const
+{
+#ifdef MC__FFMLP_TRACE
+  std::cout << "FFAdjMLP::eval: " << typeid(vRes[0]).name() << " (generic)\n";
+#endif
+#ifdef MC__FFMLP_CHECK
+  assert(_ptrObj && nRes == _ptrObj->nin() &&
+         nVar == _ptrObj->nin() + _ptrObj->nout());
+#endif
+
+  _ptrObj->adj(vVar, vVar + _ptrObj->nin(), vRes);
+}
+
+template <typename T>
+inline void
+FFAdjMLP<T>::eval(size_t const nRes, FFDep* vRes, size_t const nVar,
+                  FFDep const* vVar, unsigned const* mVar) const
+{
+#ifdef MC__FFMLP_CHECK
+  assert(_ptrObj && nRes == _ptrObj->nin() &&
+         nVar == _ptrObj->nin() + _ptrObj->nout());
+#endif
+
+  vRes[0] = 0;
+  for (unsigned i = 0; i < nVar; ++i) vRes[0] += vVar[i];
+  vRes[0].update(FFDep::TYPE::N);
+  for (unsigned j = 1; j < nRes; ++j) vRes[j] = vRes[0];
+}
+
+template <typename T>
+inline void
+FFAdjMLP<T>::eval(size_t const nRes, FFInv* vRes, size_t const nVar,
+                  FFInv const* vVar, unsigned const* mVar) const
+{
+#ifdef MC__FFMLP_CHECK
+  assert(_ptrObj && nRes == _ptrObj->nin() &&
+         nVar == _ptrObj->nin() + _ptrObj->nout());
+#endif
+
+  vRes[0] = 0;
+  for (unsigned i = 0; i < nVar; ++i) vRes[0] += vVar[i];
+  vRes[0].update(FFInv::TYPE::U);  // Not a candidate for inversion
+  for (unsigned j = 1; j < nRes; ++j) vRes[j] = vRes[0];
+}
+
+template <typename T>
+inline void
+FFAdjMLP<T>::eval(size_t const nRes, FFVar* vRes, size_t const nVar,
+                  FFVar const* vVar, unsigned const* mVar) const
+{
+#ifdef MC__FFMLP_CHECK
+  assert(_ptrObj && nRes == _ptrObj->nin() &&
+         nVar == _ptrObj->nin() + _ptrObj->nout());
+#endif
+
+  FFVar** ppRes = this->insert_external_operation(*this, nRes, nVar, vVar);
+  for (unsigned j = 0; j < nRes; ++j) vRes[j] = *(ppRes[j]);
+}
+
+template <typename T>
+inline void
+FFAdjMLP<T>::eval(size_t const nRes, SLiftVar* vRes, size_t const nVar,
+                  SLiftVar const* vVar, unsigned const* mVar) const
+{
+#ifdef MC__FFMLP_CHECK
+  assert(_ptrObj && nRes == _ptrObj->nin() &&
+         nVar == _ptrObj->nin() + _ptrObj->nout());
+#endif
+
+  vVar->env()->lift(nRes, vRes, nVar, vVar);
+}
+
+template <typename T>
+inline void
+FFAdjMLP<T>::eval(size_t const nRes, FFExpr* vRes, size_t const nVar,
+                  FFExpr const* vVar, unsigned const* mVar) const
+{
+  switch (FFExpr::options.LANG)
+  {
+    case FFExpr::Options::DAG:
+      for (unsigned j = 0; j < nRes; ++j)
+      {
+        std::ostringstream os;
+        os << name() << "[" << j << "]";
+        vRes[j] = FFExpr::compose(os.str(), nVar, vVar);
+      }
+      break;
+    case FFExpr::Options::GAMS:
+    default:
+      throw typename FFExpr::Exceptions(FFExpr::Exceptions::UNDEF);
+  }
+}
+
+template <typename T>
+inline void
+FFMLP<T>::tangent(unsigned const nRes, FFVar const* vRes, unsigned const nVar,
+                  FFVar const* vVar, FFVar const* const* vTan,
+                  FFVar* vResTan) const
+{
+#ifdef MC__FFMLP_TRACE
+  std::cout << "FFMLP::tangent\n";
+#endif
+#ifdef MC__FFMLP_CHECK
+  assert(_ptrObj && nRes == _ptrObj->nout() && nVar == _ptrObj->nin());
+#endif
+
+  // Operands of the directional derivative: the inputs, then their tangents
+  // -- zero where the tangent of an input is a structural zero
+  std::vector<FFVar> vOpd(vVar, vVar + nVar);
+  vOpd.reserve(2 * nVar);
+  for (unsigned i = 0; i < nVar; ++i)
+    vOpd.push_back(vTan[i] ? *vTan[i] : FFVar(0.));
+
+  FFTanMLP<T> ResTan;
+  FFVar const* const* vResDer = ResTan._set(vOpd.size(), vOpd.data(), _ptrObj, COPY);
+  for (unsigned k = 0; k < nRes; ++k) vResTan[k] = *vResDer[k];
+}
+
+template <typename T>
+inline void
+FFMLP<T>::adjoint(unsigned const nRes, FFVar const* vRes, unsigned const nVar,
+                  FFVar const* vVar, FFVar const* const* vResAdj,
+                  FFVar* vVarAdj) const
+{
+#ifdef MC__FFMLP_TRACE
+  std::cout << "FFMLP::adjoint\n";
+#endif
+#ifdef MC__FFMLP_CHECK
+  assert(_ptrObj && nRes == _ptrObj->nout() && nVar == _ptrObj->nin());
+#endif
+
+  // Operands of the adjoint operation: the inputs, then the adjoints of the
+  // outputs -- zero where the adjoint of an output is a structural zero
+  std::vector<FFVar> vOpd(vVar, vVar + nVar);
+  vOpd.reserve(nVar + nRes);
+  for (unsigned k = 0; k < nRes; ++k)
+    vOpd.push_back(vResAdj[k] ? *vResAdj[k] : FFVar(0.));
+
+  FFAdjMLP<T> ResAdj;
+  FFVar const* const* vResDer = ResAdj._set(vOpd.size(), vOpd.data(), _ptrObj, COPY);
+  for (unsigned i = 0; i < nVar; ++i) vVarAdj[i] = *vResDer[i];
+}
 
 template <typename T>
 inline void
