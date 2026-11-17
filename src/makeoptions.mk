@@ -41,7 +41,7 @@ PATH_TORCH = $(LIBTORCH_HOME)
 LIB_TORCH  = -L$(PATH_TORCH)/lib -ltorch_cpu -lc10
 #-Wl,-rpath,$(LIBTORCH_HOME)/lib
 INC_TORCH  = -I$(PATH_TORCH)/include -I$(PATH_TORCH)/include/torch/csrc/api/include
-FLAG_TORCH = #-DMC__USE_TORCH
+FLAG_TORCH = -DMC__USE_TORCH
 
 INC_PYTHON = $(shell python3 -c "from sysconfig import get_paths; print(get_paths()['include'])")
 INC_PYBIND11 = -I$(INC_PYTHON) -I$(PATH_EXTERN)/pybind11/include

@@ -704,6 +704,138 @@ This evaluation produces the following result:
       Z0 = [  1.28062e+00 :  2.29129e+00 ]
 \endverbatim
 
+An external operation takes part in the symbolic differentiation of a DAG
+(mc::FFGraph::FAD, mc::FFGraph::BAD and their sparse and directional variants)
+by overriding one or several of the following members of mc::FFOp:
+- mc::FFOp::deriv returns the partial derivatives of every result with respect
+to every operand, as DAG expressions. Both the forward and the backward mode
+use it, and form the products with the tangents or adjoints themselves.
+- mc::FFOp::tangent, together with mc::FFOp::has_tangent returning true,
+returns the tangents of the results for given tangents of the operands. The
+forward mode then calls it in place of mc::FFOp::deriv, once per sweep: once
+for a directional derivative (mc::FFGraph::DFAD), and once per independent
+variable that the operation depends on otherwise.
+- mc::FFOp::adjoint, together with mc::FFOp::has_adjoint returning true, is
+the counterpart in the backward mode: it returns the contributions of the
+operation to the adjoints of its operands for given adjoints of its results --
+the product of the transposed Jacobian with the result adjoints. The backward
+mode then calls it in place of mc::FFOp::deriv, once per sweep: once for a
+directional derivative (mc::FFGraph::DBAD), and once per dependent variable
+computed from the operation otherwise.
+
+The two hooks suit operations whose derivative along a direction, or whose
+transposed derivative applied to a vector, is cheaper to compute than their
+whole Jacobian -- the solution of a system of equations, the integration of
+sensitivity or adjoint equations, a pass through a network. What they return
+is typically another external operation, defined like any other. For the
+2-norm above, the directional derivative \f$({\bf x},{\bf t})\mapsto
+{\bf x}^{\sf T}{\bf t}/\|{\bf x}\|_2\f$ is an operation whose operands are
+those of the norm followed by their tangents:
+
+\code
+      namespace mc
+      {
+        class FFnorm2Tan
+        : public FFOp
+        {
+        public:
+          FFnorm2Tan() : FFOp( (int)EXTERN ) {}
+
+          // Functor: operands (x,t)
+          FFVar& operator()
+            ( unsigned const nVar, FFVar const* pVar )
+            const
+            { return *insert_external_operation( *this, 1, nVar, pVar )[0]; }
+
+          // Evaluation: insertion in a DAG, and value in double arithmetic
+          void feval
+            ( std::type_info const& idU, unsigned const nRes, void* vRes,
+              unsigned const nVar, void const* vVar, unsigned const* mVar )
+            const
+            {
+              if( idU == typeid(FFVar) ){
+                *static_cast<FFVar*>(vRes) = operator()( nVar, static_cast<FFVar const*>(vVar) );
+                return;
+              }
+              if( idU != typeid(double) )
+                throw std::runtime_error( "FFnorm2Tan: no evaluation in this type" );
+              double const* x = static_cast<double const*>(vVar), *t = x + nVar/2;
+              double xt = 0., xx = 0.;
+              for( unsigned i=0; i<nVar/2; ++i ){ xt += x[i]*t[i]; xx += x[i]*x[i]; }
+              *static_cast<double*>(vRes) = xt / std::sqrt(xx);
+            }
+
+          std::string name() const { return "NORM2TAN"; }
+          bool commutative() const { return false; }
+        };
+      }
+\endcode
+
+and the norm hands it over in its tangent hook:
+
+\code
+          // In class FFnorm2
+          bool has_tangent
+            ( unsigned const nSweep )
+            const
+            { return true; }
+          void tangent
+            ( unsigned const nRes, FFVar const* vRes, unsigned const nVar,
+              FFVar const* vVar, FFVar const* const* vTan, FFVar* vResTan )
+            const
+            {
+              // vTan[i] is the tangent of operand i, or nullptr where it is
+              // a structural zero; vResTan[j] holds the constant 0 on entry
+              std::vector<FFVar> vOpd( vVar, vVar+nVar );
+              for( unsigned i=0; i<nVar; ++i )
+                vOpd.push_back( vTan[i]? *vTan[i]: FFVar(0.) );
+              vResTan[0] = FFnorm2Tan()( vOpd.size(), vOpd.data() );
+            }
+\endcode
+
+Likewise, the adjoint \f$({\bf x},w)\mapsto w\,{\bf x}/\|{\bf x}\|_2\f$ is an
+operation FFnorm2Adj whose operands are those of the norm followed by the
+adjoint of its result, and which has as many results as the norm has operands:
+
+\code
+          // In class FFnorm2
+          bool has_adjoint
+            ( unsigned const nSweep )
+            const
+            { return true; }
+          void adjoint
+            ( unsigned const nRes, FFVar const* vRes, unsigned const nVar,
+              FFVar const* vVar, FFVar const* const* vResAdj, FFVar* vVarAdj )
+            const
+            {
+              // vResAdj[j] is the adjoint of result j, or nullptr where it is
+              // a structural zero; vVarAdj[i] holds the constant 0 on entry
+              std::vector<FFVar> vOpd( vVar, vVar+nVar );
+              vOpd.push_back( *vResAdj[0] );
+              FFVar** ppAdj = FFnorm2Adj()( vOpd.size(), vOpd.data() );
+              for( unsigned i=0; i<nVar; ++i ) vVarAdj[i] = *ppAdj[i];
+            }
+\endcode
+
+The complete example is in <tt>test/DAG/DAG_doxygen_hooks.cpp</tt>. With these
+hooks, <tt>DAG.FAD</tt> inserts one NORM2TAN operation per independent
+variable, <tt>DAG.DFAD</tt> a single one, and <tt>DAG.BAD</tt> a single
+NORM2ADJ operation.
+
+The argument of mc::FFOp::has_tangent and mc::FFOp::has_adjoint is the number of
+sweeps that will go through the operation -- one for a directional derivative,
+otherwise the number of independent variables that the operation depends on
+(forward) or of dependent variables computed from it (backward). An operation
+may return false beyond some number, where its whole Jacobian is the cheaper;
+mc::FFOp::deriv is then called as usual.
+
+Each mode falls back on mc::FFOp::deriv for an operation without the matching
+hook, and an operation defining neither that hook nor mc::FFOp::deriv cannot be
+differentiated in that mode. Giving the tangent and adjoint operations hooks of
+their own, with respect to all of their operands, provides derivatives of
+higher order. The hooks are not called by the legacy engines selected with
+MC__DAG_FADIFF and MC__DAG_BADIFF.
+
 
 \section sec_FFUNC_err What errors may I encounter while creating or
 manipulating the DAG of a factorable function?
@@ -777,6 +909,7 @@ McCormick relaxations</A>, <i>Journal of Global Optimization</i>,
 #include <typeindex>
 #include <typeinfo>
 #include <unordered_map>
+#include <unordered_set>
 #include <memory>
 #include <utility>
 #include <vector>
@@ -1652,6 +1785,53 @@ class FFOp
         if (linear(io, ii)) return true;
     return false;
   }
+  //! @brief Whether the operation propagates TANGENTS itself in forward-mode symbolic differentiation.  When
+  //! true, the FAD/DFAD/SFAD engines neither call deriv() nor form the products of its partial derivatives
+  //! with the tangents of its operands: they call tangent() once per sweep, with the tangents of ALL the
+  //! operands.  For an operation whose derivative is cheaper as a product -- a linear solve, a sensitivity
+  //! integration, a forward pass through a network -- than as its whole Jacobian.  Unlike linear()/apply(),
+  //! which replace ONE operand of a linear operator by its tangent, this covers any operation and any number
+  //! of operands.  @p nSweep is the number of sweeps that will go through the operation, so that it can
+  //! decline where its whole Jacobian is the cheaper: 1 for a directional derivative (DFAD), otherwise the
+  //! number of independents that it depends on.  The engines ask with @p nSweep = 1 first: an operation that
+  //! declines for some number of sweeps is expected to decline for any larger number.  Backward mode is
+  //! not concerned: it calls adjoint() or deriv().  Default false.
+  virtual bool has_tangent(unsigned const nSweep) const
+  {
+    return false;
+  }
+  //! @brief Tangents of the results for given tangents of the operands: @p vTan[i] is the tangent of operand
+  //! i -- a variable or a constant of the DAG -- or nullptr where it is a structural zero (never for all of
+  //! them); @p vResTan[r] receives the tangent of result r, and holds the constant 0 on entry -- to be left
+  //! so where it is a structural zero.  Only called when has_tangent() is true.
+  virtual void tangent(unsigned const nRes, FFVar const* vRes,
+                       unsigned const nVar, FFVar const* vVar,
+                       FFVar const* const* vTan, FFVar* vResTan) const;
+  //! @brief Whether the operation propagates ADJOINTS itself in backward-mode symbolic differentiation.  When
+  //! true, the BAD/DBAD/SBAD engines neither call deriv() nor form the products of its partial derivatives
+  //! with the adjoints of its results: they call adjoint() once per sweep, with the adjoints of ALL the
+  //! results.  For an operation whose transposed derivative is cheaper as a product -- a transposed linear
+  //! solve, an adjoint sensitivity integration, a backward pass through a network -- than as its whole
+  //! Jacobian.  It also covers a linear operator, which backward mode otherwise refuses for want of its
+  //! transpose.  @p nSweep is the number of sweeps that will go through the operation, so that it can
+  //! decline where its whole Jacobian is the cheaper: 1 for a directional derivative (DBAD), otherwise the
+  //! number of dependents that are computed from it.  The engines ask with @p nSweep = 1 first: an operation
+  //! that declines for some number of sweeps is expected to decline for any larger number.  Forward mode is
+  //! not concerned: it calls tangent() or deriv().  Default false.
+  virtual bool has_adjoint(unsigned const nSweep) const
+  {
+    return false;
+  }
+  //! @brief Contributions to the adjoints of the operands for given adjoints of the results: @p vResAdj[r]
+  //! is the adjoint of result r -- a variable or a constant of the DAG -- or nullptr where it is a structural
+  //! zero (never for all of them); @p vVarAdj[i] receives the contribution of this operation to the adjoint
+  //! of operand i -- the sum over the results r of vResAdj[r] times the partial derivative of result r in
+  //! operand i -- and holds the constant 0 on entry, to be left so where it is a structural zero.  An
+  //! operand that is repeated receives one contribution per position.  Only called when has_adjoint() is
+  //! true.
+  virtual void adjoint(unsigned const nRes, FFVar const* vRes,
+                       unsigned const nVar, FFVar const* vVar,
+                       FFVar const* const* vResAdj, FFVar* vVarAdj) const;
   //! @brief Virtual forward evaluation function for external operations
   virtual void feval(std::type_info const& idU, unsigned const nRes, void* vRes,
                      unsigned const nVar, void const* vVar,
@@ -6536,6 +6716,20 @@ FFOp::apply(unsigned const iout, unsigned const iin, FFVar const& tangent) const
 }
 
 inline void
+FFOp::tangent(unsigned const nRes, FFVar const* vRes, unsigned const nVar,
+              FFVar const* vVar, FFVar const* const* vTan, FFVar* vResTan) const
+{
+  throw typename FFBase::Exceptions(FFBase::Exceptions::EXTERN);
+}
+
+inline void
+FFOp::adjoint(unsigned const nRes, FFVar const* vRes, unsigned const nVar,
+              FFVar const* vVar, FFVar const* const* vResAdj, FFVar* vVarAdj) const
+{
+  throw typename FFBase::Exceptions(FFBase::Exceptions::EXTERN);
+}
+
+inline void
 FFOp::deriv(unsigned const nRes, FFVar const* vRes, unsigned const nVar,
             FFVar const* vVar, FFVar** vDer, size_t* nnz, size_t** colnz) const
 {
@@ -10818,12 +11012,48 @@ FFGraph::SDFAD(std::vector<FFVar const*> const& vDep,
     }
   } _cleanup{vDep_deriv, vCol_deriv, sgDep};
 
+  // Operations that propagate tangents themselves (FFOp::has_tangent), by first slot.  The question is put
+  // with the number of sweeps that will go through the operation -- one for a directional derivative,
+  // otherwise the number of independents among its ancestors -- so that it can decline.
+  std::vector<char> slotTan(sgDep.len_tap, 0);
+  std::set<FFVar const*, lt_FFVar> sIndep;
+  auto nIndepOf = [&](FFOp const* op0) -> unsigned {
+    if (sIndep.empty()) sIndep.insert(vIndep.begin(), vIndep.end());
+    std::unordered_set<FFOp const*> seen{op0};
+    std::vector<FFOp const*> todo{op0};
+    unsigned n = 0;
+    while (!todo.empty())
+    {
+      FFOp const* pop = todo.back();
+      todo.pop_back();
+      if (pop->type == FFOp::VAR && sIndep.count(pop->varout[0])) ++n;
+      for (auto const& pvar : pop->varin)
+      {
+        FFOp const* pin = pvar->opdef().first;
+        if (pin && seen.insert(pin).second) todo.push_back(pin);
+      }
+    }
+    return n;
+  };
+
   {
     size_t iwk = 0;
     for (auto const& op : sgDep.l_op)
     {
       // Differentiate current operation
       _curOp = op;
+      // An operation that propagates tangents itself has no partial derivatives to gather: it is
+      // called in the sweeps, with the tangents of its operands
+      if (op->type >= FFOp::EXTERN && op->has_tangent(1))
+      {
+        unsigned const nSweep = (vDir.empty() ? nIndepOf(op) : 1);
+        if (nSweep <= 1 || op->has_tangent(nSweep))
+        {
+          slotTan[iwk] = 1;
+          iwk += op->varout.size();
+          continue;
+        }
+      }
       for (size_t iout = 0; !op->sparse && iout < op->varout.size(); ++iout)
         vDep_deriv[iwk + iout] = new FFVar[op->varin.size()];
       if (op->type < FFOp::EXTERN)
@@ -10850,6 +11080,46 @@ FFGraph::SDFAD(std::vector<FFVar const*> const& vDep,
   // The propagation of one operation's tangent, from its inputs' slots to its outputs' (the body the
   // sweeps below share; a slot holding &FFZero is a structural zero and is skipped).
   auto propagate = [&](FFOp const* op, size_t const iwk) {
+          // An operation that propagates tangents itself: one call with the tangents of all its
+          // operands, a null pointer standing for a structural zero.  With every operand tangent a
+          // structural zero the operation is not called, and its result tangents are zero.
+          if (slotTan[iwk])
+          {
+            size_t const nin = op->varin.size(), nout = op->varout.size();
+            std::vector<FFVar const*> vTan(nin, nullptr);
+            bool anyTan = false;
+            for (size_t iin = 0; iin < nin; ++iin)
+            {
+              FFVar const* pTan = static_cast<FFVar const*>(op->varin[iin]->val());
+              if (!pTan || pTan == &FFZero ||
+                  ((pTan->id().first == FFVar::CREAL || pTan->id().first == FFVar::CINT) &&
+                   pTan->num().val() == 0.))
+                continue;
+              // a constant that is not attached to the DAG -- a seed -- is handed over as a DAG constant,
+              // so that the operation can be re-applied to the tangents alone
+              if (!pTan->dag())
+                pTan = (pTan->num().t == FFNum::INT ? _add_constant(pTan->num().n) : _add_constant(pTan->num().x));
+              vTan[iin] = pTan;
+              anyTan    = true;
+            }
+            std::vector<FFVar> vResTan(nout, FFZero);
+            if (anyTan)
+            {
+              std::vector<FFVar> ops_res, ops_val;
+              ops_res.reserve(nout);
+              for (auto const& pvar : op->varout) ops_res.push_back(*pvar);
+              ops_val.reserve(nin);
+              for (auto const& pvar : op->varin) ops_val.push_back(*pvar);
+              _curOp = op;
+              op->tangent(nout, ops_res.data(), nin, ops_val.data(), vTan.data(), vResTan.data());
+            }
+            for (size_t iout = 0; iout < nout; ++iout)
+            {
+              wkAD[iwk + iout]        = vResTan[iout];
+              op->varout[iout]->val() = &wkAD[iwk + iout];
+            }
+            return;
+          }
           for (size_t iout = 0; iout < op->varout.size(); ++iout)
           {
             // std::cerr << "iwk+iout = " << iwk+iout << std::endl;
@@ -11657,6 +11927,43 @@ FFGraph::SDBAD(std::vector<FFVar const*> const& vDep,
   std::multimap<unsigned, std::pair<unsigned, unsigned>>
       mapDep;  // [ pos_indep, [ pos_dep, index_indep ] ]
   std::set<FFVar const*, lt_FFVar> setIndep;
+  // Operations that propagate adjoints themselves (FFOp::has_adjoint), by position in the subgraph: they
+  // have no partial derivatives, and hand back the contributions to their operands' adjoints in each sweep
+  // (1).  Such an operation that none of the independents reaches is never called (2): the adjoints of
+  // its operands are not part of any result.
+  std::vector<char> opAdj(sgDep.l_op.size(), 0);
+  std::vector<std::vector<FFVar>> wkAdj(sgDep.l_op.size());
+  std::set<FFVar const*, lt_FFVar> const sIndep(vIndep.begin(), vIndep.end());
+  std::vector<char> slotReach(sgDep.len_tap, 0);  // whether a slot depends on one of the independents
+  // The number of sweeps that will go through an operation, put to FFOp::has_adjoint so that it can
+  // decline: the number of dependents among its descendants within the subgraph, itself included
+  std::unordered_set<FFOp const*> sgOps;
+  std::unordered_map<FFOp const*, unsigned> depsOf;
+  auto nDepOf = [&](FFOp const* op0) -> unsigned {
+    if (sgOps.empty())
+    {
+      sgOps.insert(sgDep.l_op.begin(), sgDep.l_op.end());
+      for (auto const& pdep : vDep)
+        if (pdep->opdef().first) ++depsOf[pdep->opdef().first];
+    }
+    std::unordered_set<FFOp const*> seen{op0};
+    std::vector<FFOp const*> todo{op0};
+    unsigned n = 0;
+    while (!todo.empty())
+    {
+      FFOp const* pop = todo.back();
+      todo.pop_back();
+      auto itd = depsOf.find(pop);
+      if (itd != depsOf.end()) n += itd->second;
+      for (auto const& pvar : pop->varout)
+      {
+        if (!pvar->opuse()) continue;
+        for (auto const* puse : *pvar->opuse())
+          if (sgOps.count(puse) && seen.insert(puse).second) todo.push_back(puse);
+      }
+    }
+    return n;
+  };
 
   // RAII guard: frees derivative arrays and nulls all _val pointers on any
   // exit - whether normal return or exception thrown anywhere in this function.
@@ -11685,17 +11992,41 @@ FFGraph::SDBAD(std::vector<FFVar const*> const& vDep,
 
   unsigned int iwk = 0;
   {
+    size_t iop = 0;
     for (auto const& op : sgDep.l_op)
     {
+      bool reach = (op->type == FFOp::VAR && sIndep.count(op->varout[0]));
+      for (auto const& pvar : op->varin)
+        if (!reach) reach = slotReach[*static_cast<unsigned*>(pvar->val())];
+      bool adj = false;
+      if (op->type >= FFOp::EXTERN && op->has_adjoint(1))
+      {
+        unsigned const nSweep = (!reach ? 0 : vDir.empty() ? nDepOf(op) : 1);
+        adj = (nSweep <= 1 || op->has_adjoint(nSweep));
+      }
+      opAdj[iop++] = (adj ? (reach ? 1 : 2) : 0);
       for (unsigned int iout = 0; iout < op->varout.size(); ++iout)
       {
-        if (!op->sparse) vDep_deriv[iwk + iout] = new FFVar[op->varin.size()];
+        if (!op->sparse && !adj) vDep_deriv[iwk + iout] = new FFVar[op->varin.size()];
         vDep_index[iwk + iout]  = iwk + iout;
+        slotReach[iwk + iout]   = reach;
         op->varout[iout]->val() = &vDep_index[iwk + iout];
       }
 
       // Differentiate current operation
       _curOp = op;
+      if (adj)
+      {
+        // An operation that propagates adjoints itself has no partial derivatives to gather.  Each of
+        // its operands is recorded ONCE as consumed by the operation -- under its first result slot,
+        // with the operand's position -- rather than once per result
+        for (unsigned int iin = 0; reach && iin < op->varin.size(); ++iin)
+          mapDep.insert(
+              std::make_pair(*static_cast<unsigned*>(op->varin[iin]->val()),
+                             std::make_pair(iwk, iin)));
+        iwk += op->varout.size();
+        continue;
+      }
       if (op->type < FFOp::EXTERN)
         op->differentiate(vDep_deriv[iwk]);
       else
@@ -11781,6 +12112,17 @@ FFGraph::SDBAD(std::vector<FFVar const*> const& vDep,
             {
               auto const& [jwk, jin] = itd->second;
               if (!inCone[slotOp[jwk]]) continue;    // a consumer outside the cone: no contribution
+              if (opAdj[slotOp[jwk]])
+              {
+                // a consumer that propagates adjoints itself: its contribution to operand jin, formed
+                // when the sweep went through it -- before this operation, in reverse topological order
+                FFVar const& adj = wkAdj[slotOp[jwk]][jin];
+                if ((adj.id().first == FFVar::CREAL || adj.id().first == FFVar::CINT) &&
+                    adj.num().val() == 0.)
+                  continue;
+                wkAD[iwk + iout] += adj;
+                continue;
+              }
 #ifdef MC__FFUNC_SBAD_DEBUG
               std::cout << "itd: " << jwk << " <- " << itd->first << " [" << jin
                         << "]" << std::endl;
@@ -11801,6 +12143,36 @@ FFGraph::SDBAD(std::vector<FFVar const*> const& vDep,
             }
             op->varout[iout]->val() = &wkAD[iwk + iout];
           }
+          // An operation that propagates adjoints itself: now that the adjoints of its results are
+          // complete, one call with all of them, a null pointer standing for a structural zero.  With
+          // every result adjoint a structural zero the operation is not called, and contributes nothing.
+          if (opAdj[slotOp[iwk]] != 1) return;
+          size_t const nin = op->varin.size(), nout = op->varout.size();
+          std::vector<FFVar>& vVarAdj = wkAdj[slotOp[iwk]];
+          vVarAdj.assign(nin, FFZero);
+          std::vector<FFVar const*> vResAdj(nout, nullptr);
+          bool anyAdj = false;
+          for (size_t iout = 0; iout < nout; ++iout)
+          {
+            FFVar const& adj = wkAD[iwk + iout];
+            if ((adj.id().first == FFVar::CREAL || adj.id().first == FFVar::CINT) &&
+                adj.num().val() == 0.)
+              continue;
+            // a constant that is not attached to the DAG -- a seed -- is handed over as a DAG constant,
+            // so that the operation can be re-applied to the adjoints alone
+            vResAdj[iout] = (adj.dag() ? &adj
+                             : adj.num().t == FFNum::INT ? _add_constant(adj.num().n)
+                                                         : _add_constant(adj.num().x));
+            anyAdj        = true;
+          }
+          if (!anyAdj) return;
+          std::vector<FFVar> ops_res, ops_val;
+          ops_res.reserve(nout);
+          for (auto const& pvar : op->varout) ops_res.push_back(*pvar);
+          ops_val.reserve(nin);
+          for (auto const& pvar : op->varin) ops_val.push_back(*pvar);
+          _curOp = op;
+          op->adjoint(nout, ops_res.data(), nin, ops_val.data(), vResAdj.data(), vVarAdj.data());
   };
   // The entry of one independent in the current row, if it is not a structural zero.
   auto extract = [&](size_t const idep, size_t const ivar) {

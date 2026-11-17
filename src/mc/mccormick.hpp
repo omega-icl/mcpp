@@ -819,7 +819,7 @@ class McCormick
   };
 
   //! @brief Default constructor (needed to declare arrays of McCormick class)
-  McCormick() : _nsub(0), _cvsub(nullptr), _ccsub(nullptr), _const(true) {}
+  McCormick() : _nsub(0), _cv(0.), _cc(0.), _cvsub(nullptr), _ccsub(nullptr), _const(true) {}
   //! @brief Constructor for a constant value <a>c</a>
   McCormick(const double c)
       : _nsub(0), _cv(c), _cc(c), _cvsub(nullptr), _ccsub(nullptr), _const(true)
