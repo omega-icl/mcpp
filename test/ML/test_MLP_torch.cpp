@@ -226,16 +226,22 @@ main()
     return {ok1 && !ok2 && ok3 && nquiet == 0 && !out.str().empty(), std::to_string(nquiet) + " characters printed"};
   });
 
-  run("copies of the MLP evaluate through Torch too", []() -> Result {
-    mc::MLP<I> ANN;
-    if (!ANN.read_data("torch_out_activ.pt")) return {false, "not read"};
+  run("copies and assigned MLPs evaluate through Torch too", []() -> Result {
+    mc::MLP<I> ANN, ANN3;
+    if (!ANN.read_data("torch_out_activ.pt") || !ANN3.read_data("torch_tanh.pt")) return {false, "not read"};
     mc::MLP<I> ANN2(ANN);
+    ANN3 = ANN;
     for (auto const& x : points(2))
-    {
-      if (derivatives(ANN2, x, true) != derivatives(ANN, x, true)) return {false, "Torch evaluation of the copy"};
-      if (derivatives(ANN2, x, false) != derivatives(ANN, x, false)) return {false, "MC++ evaluation of the copy"};
-    }
-    return {true, ""};
+      for (mc::MLP<I>* pANN : {&ANN2, &ANN3})
+      {
+        if (derivatives(*pANN, x, true) != derivatives(ANN, x, true)) return {false, "Torch evaluation of the copy"};
+        if (derivatives(*pANN, x, false) != derivatives(ANN, x, false)) return {false, "MC++ evaluation of the copy"};
+      }
+    // reading another module in the original leaves the copies with theirs
+    std::vector<double> const x = points(2)[0];
+    auto const der = derivatives(ANN2, x, true);
+    if (!ANN.read_data("torch_tanh.pt")) return {false, "not read"};
+    return {derivatives(ANN2, x, true) == der && derivatives(ANN3, x, true) == der, "copies after the original read another module"};
   });
 
   run("evaluation through Torch from several threads", []() -> Result {

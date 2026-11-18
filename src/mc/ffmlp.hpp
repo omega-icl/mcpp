@@ -336,6 +336,51 @@ class MLP
 
   virtual ~MLP() { delete _dag; }
 
+  //! @brief Assignment operator: takes the network, the options and the Torch
+  //! Module of another MLP. The expression tree is not copied but built again
+  //! when it is needed, as in the copy constructor. (The implicit operator is
+  //! deleted, FFSubgraph not being copy-assignable.)
+  MLP&
+  operator=(MLP const& other)
+  {
+    if (this == &other) return *this;
+    options = other.options;
+    delete _dag;
+    _dag    = nullptr;
+    _update = false;
+    _nin    = other._nin;
+    _nout   = other._nout;
+    _nhid   = other._nhid;
+    _varin.clear();
+    _varout.clear();
+    _codelist.clear();
+    _hasmodule = other._hasmodule;
+#if defined(MC__USE_TORCH)
+    _device  = other._device;
+    _module  = other._module;
+    _dtype   = other._dtype;
+    _batched = other._batched;
+#endif
+    _data = other._data;
+    // The work arrays hold variables of the previous expression tree, and
+    // have the sizes of the previous network
+    _wkFF.clear();
+    _wkD.clear();
+    _wkFD.clear();
+    _wkBD.clear();
+    _wkI.clear();
+    _wkMC.clear();
+    _wkSB.clear();
+    _wkPWCS.clear();
+    _wkPWLS.clear();
+    _wkSC.clear();
+    _wkOCD.clear();
+    _wkOCFD.clear();
+    _wkPOL.clear();
+    _wkCPI.clear();
+    return *this;
+  }
+
   //! @brief Set MLP DAG
   // void set_dag
   //   ()
