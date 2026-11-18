@@ -79,7 +79,7 @@ If MC++ or PyMC++ supports your research, please cite it.  A paper describing th
 @software{mcpp,
   author  = {Chachuat, Beno{\^i}t and Ruth, Kai and Sandrin, Marco},
   title   = {{MC++}: a toolkit for the construction, manipulation and bounding of factorable functions},
-  version = {5.1.1},
+  version = {5.2.0},
   year    = {2026},
   url     = {https://github.com/omega-icl/mcpp}
 }

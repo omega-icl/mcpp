@@ -1,5 +1,81 @@
 # Changes
 
+## 5.2.0 (2026-11-18)
+
+A minor version, by the rule INSTALL.md's "Releasing" states: classes shared with dependent modules changed.
+`FFOp` has four more virtual functions (the tangent and adjoint hooks below), and `FFMLP` and `FFDAGEXT`
+changed layout (1632 to 1152 bytes).  A module built on `pymcpp` (CRONOS's `cronos`) must be rebuilt against
+5.2 and require `pymcpp~=5.2.0`.  The ABI fingerprint for 5.2 is recorded in `tools/abi/`.
+
+### Tangent and adjoint hooks for external operations
+
+An external operation could only give its partial derivatives, entry by entry, and the differentiation
+formed the products with them: an operation whose natural derivative is a product -- a linear solve, a
+sensitivity system, a pass through a network -- had to build its whole Jacobian.  `FFOp` gains two
+optional hooks: `tangent()`, which inserts the directional derivative of the results along the tangents
+of the operands, and `adjoint()`, which inserts the contribution of the operation to the adjoints of its
+operands.  `has_tangent(nSweep)` and `has_adjoint(nSweep)` say whether to use them, given the number of
+sweeps that will go through the operation, so that an operation can keep its Jacobian where that is the
+cheaper.  The forward engines (`FAD`, `SFAD`, `DFAD`) and the backward ones (`BAD`, `SBAD`, `DBAD`) call
+them; an operation without them is differentiated as before.  The Doxygen section on external operations
+has a complete example, which is also `test/DAG/DAG_doxygen_hooks.cpp`.
+
+`BAD` and its variants refused any subgraph holding a linear operator without an adjoint (`ocbase.hpp`).
+Such an operator is now differentiated with respect to the independents in forward mode, inside the
+backward sweep: in `DAG_linear_operator` the line "BAD d E/du (evolution, thru OpP)" goes from an
+exception to the result `FAD` gives.
+
+### Multilayer perceptrons
+
+* `MLP::Options::TANGENT` and `ADJOINT` (off by default) have the differentiation of an `FFMLP` insert
+  `FFTanMLP` and `FFAdjMLP` -- one pass through the network per sweep -- in place of the Jacobian
+  `FFGradMLP`, where that is estimated to be the cheaper from the sizes of the network and the number of
+  sweeps.  `MLP::tang` and `MLP::adj` are the passes.
+* `MLP::grad` in double computes the Jacobian by passes through the layers -- forward, or one evaluation
+  with the rows carried backward where the outputs are no more than the inputs -- instead of FADBAD++'s
+  forward mode: 88 to 10 us for 2 inputs and 4 layers of 40, 6.9 to 0.14 ms for 200 inputs and 5 outputs,
+  1.1 s to 8 ms for 500 inputs and layers of 1000.  `grad` in interval and other arithmetics is unchanged.
+* Torch (`read_data`, `EVALTORCH`): a read that failed left the new module attached to the previous
+  network; activations were matched by substring (`LeakyReLU` read as ReLU, `Tanhshrink` as Tanh); two
+  `Linear` layers in a row had their activations shifted; a layer without bias was refused; a bias read
+  before its weight wrote out of bounds.  All fixed, and a module is now checked against the network read
+  from it at two points.  The parameters no longer accumulate gradients, the Jacobian takes one backward
+  pass where the module takes batches, and modules are evaluated in double precision.
+* `MLP` has an assignment operator (the implicit one was deleted).
+
+### External operations: one home per object and per DAG
+
+* An `FFMLP` or `FFDAGEXT` operation held its own copy of its network or expression tree, taken at the
+  insertion, and was identified by the address of the object passed: a network changed and inserted again
+  returned the operation of the former network, and **two different expression trees of the same shape on
+  the same operands were taken for one operation** (`x0*x1` and `x0+x1` both evaluated to `x0*x1`).
+  Silent.  An object now has one home per DAG -- the object, copied once (policy `COPY`) or the one given
+  (`SHALLOW`, `TRANSFER`), and the options of the operations on it -- shared by all its operations,
+  derivative operations included.  An object is found again by a stamp of its content (`MLP::uid()`,
+  `DAGEXT::uid()`), so a changed object is another operation.
+* The options can be changed after the insertion, and every operation of the home follows: the
+  relaxation options through the handle's `options`, the network's or tree's own through `MLP()` or
+  `DAGEXT()`, which return the object of the DAG by reference (`pMLP()` and `pDAGEXT()` are deprecated).
+  The Jacobian of an expression tree is differentiated once per tree instead of at every call.
+* Python: `FFMLP.options` and `FFDAGEXT.options` can be changed after the call; `FFMLP.MLP`,
+  `FFDAGEXT.DAGEXT` and `attached` are new.  `options` is a reference member now: a binding of a class
+  derived from `FFEXTERN` by `def_readwrite("options", ...)` must become a property.
+
+### Compiler warnings
+
+`-Wmaybe-uninitialized` from the default constructor of `mc::B<T>` (`bdiff.hpp`) wherever an `MLP` was
+differentiated in interval or McCormick arithmetic, and from `inter()` of two `SCVar` (`scmodel.hpp`);
+`-Walloc-size-larger-than=` from GCC 15 on the allocation in the backward sweep through linear operators
+(`ffunc.hpp`).
+
+### Tests
+
+`test/DAG/DAG_tangent`, `DAG_adjoint`, `DAG_doxygen_hooks`, `DAG_dagext_home`; `test/ML/test_MLP_tangent`,
+`test_MLP_adjoint`, `test_MLP_grad`, `test_MLP_copy`, `test_MLP_torch` (with `test_MLP_torch.py` and the
+modules it generates), `test_MLP_ident`, `test_MLP_home`; `src/pymcpp/check_ffextern.py` in the release
+gate.  `test_MLP`, `test_MLPREG`, `DAG_external`, `DAG_unittests` and `FFDAGEXT_2d` print the same output
+as 5.1.1.
+
 ## 5.1.1 (2026-11-12)
 
 A patch release, by the rule INSTALL.md's "Releasing" states: no class shared with dependent modules changed

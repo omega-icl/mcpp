@@ -1,7 +1,7 @@
 # This is the main makefile for MC++
 # Run `make help' for a list of available targets
 
-export version = 5.1.1
+export version = 5.2.0
 
 export rootpath = $(shell cd .. ; pwd)
 export srcpath  = $(rootpath)/src
