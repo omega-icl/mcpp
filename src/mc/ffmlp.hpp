@@ -10,6 +10,7 @@
 #if defined(MC__USE_TORCH)
 #include <torch/script.h>  // One-stop header for TorchScript
                            // #include <ATen/cuda/CUDAContext.h>
+#include <torch/autograd.h>  // torch::autograd::grad, forward-mode AD
 #endif
 
 #include "ffextern.hpp"
@@ -177,6 +178,8 @@ class MLP
   torch::jit::script::Module _module;
   //! @brief Torch data type
   torch::Dtype _dtype;
+  //! @brief Whether the Torch Module takes a batch of inputs, one per row
+  bool _batched;
 #endif
 
   //! @brief MLP data
@@ -247,6 +250,44 @@ class MLP
   //! @brief Convert Torch tensor to std::vector
   bool _tensor_to_vector(std::vector<std::vector<double>>& v,
                          at::Tensor const& t, size_t offset, bool disp = false);
+
+  //! @brief Torch tensor of n elements in a given data type, from an array of
+  //! doubles -- which it shares where that type is double precision
+  static torch::Tensor
+  _tensor(double const* val, size_t const n, torch::Dtype const dtype)
+  {
+    return torch::from_blob(const_cast<double*>(val), {(int64_t)n},
+                            torch::TensorOptions().dtype(torch::kFloat64))
+        .to(dtype);
+  }
+
+  //! @brief Torch tensor of n elements in the data type of the Module
+  torch::Tensor
+  _tensor(double const* val, size_t const n) const
+  {
+    return _tensor(val, n, _dtype);
+  }
+
+  //! @brief Check that a Torch tensor has n elements
+  static void
+  _check(torch::Tensor const& t, size_t const n)
+  {
+    if (!t.defined() || (size_t)t.numel() != n)
+      throw std::runtime_error(
+          "MLP: Torch Module returns " +
+          std::to_string(t.defined() ? t.numel() : 0) + " values where " +
+          std::to_string(n) + " are expected\n");
+  }
+
+  //! @brief Copy the n elements of a Torch tensor into an array of doubles
+  static void
+  _copy(torch::Tensor const& t, size_t const n, double* val)
+  {
+    _check(t, n);
+    torch::Tensor const td =
+        t.detach().to(torch::kCPU, torch::kFloat64).contiguous();
+    std::copy(td.data_ptr<double>(), td.data_ptr<double>() + n, val);
+  }
 #endif
 
  public:
@@ -261,7 +302,8 @@ class MLP
 #if defined(MC__USE_TORCH)
         ,
         _device(torch::kCPU),
-        _dtype(torch::kFloat32)
+        _dtype(torch::kFloat32),
+        _batched(false)
 #endif
   {
     // Decide device once
@@ -286,6 +328,7 @@ class MLP
         _device(other._device),
         _module(other._module),
         _dtype(other._dtype),
+        _batched(other._batched),
 #endif
         _data(other._data)
   {
@@ -307,48 +350,36 @@ class MLP
 #if defined(MC__USE_TORCH)
     if (_hasmodule && options.EVALTORCH)
     {
-      // 1) Wrap input and make it a leaf with grad
-      auto base =
-          torch::from_blob(const_cast<double*>(valin), {(int64_t)_nin},
-                           torch::TensorOptions().dtype(torch::kFloat64));
-      torch::Tensor tensin = base.to(_dtype).detach();
-      tensin.set_requires_grad(true);  // now a leaf
-
-      // 2) Forward
-      auto tensout = _module.forward({tensin}).toTensor().to(
-          torch::kFloat64);          // shape (_nout) or (_nout,1)
-      tensout = tensout.view({-1});  // ( _nout )
-
-      if (valout)
+      // The parameters of the Module do not require gradients (read_data), so
+      // that the backward passes stop at the inputs
+      if (_batched && _nout > 1)
       {
-        double* ptensout = tensout.data_ptr<double>();
-        std::copy(ptensout, ptensout + _nout, valout);
+        // One forward pass on as many copies of the inputs as there are
+        // outputs, and one backward pass from the sum of output i of copy i:
+        // the gradient in copy i is the gradient of output i
+        torch::Tensor tensin =
+            _tensor(valin, _nin).repeat({(int64_t)_nout, 1});
+        tensin.set_requires_grad(true);
+        torch::Tensor tensout = _module.forward({tensin}).toTensor();
+        _check(tensout, _nout * _nout);
+        tensout = tensout.view({(int64_t)_nout, (int64_t)_nout});
+        if (valout) _copy(tensout[0], _nout, valout);
+        _copy(torch::autograd::grad({tensout.diagonal().sum()}, {tensin})[0],
+              _nout * _nin, gradout);  // row-major: [i * _nin + j]
       }
-
-      // Storage for full Jacobian d y_i / d x_j
-      // Row-major: [i * _nin + j]
-      std::vector<double> J(_nout * _nin);
-
-      for (size_t i = 0; i < _nout; ++i)
+      else
       {
-        // Clear previous grad on tensin
-        if (tensin.grad().defined()) tensin.grad().zero_();
-
-        // 3) Take scalar output y_i
-        torch::Tensor yi = tensout[i];  // scalar
-
-        // 4) Backward from this scalar
-        //    gradient (first arg) left empty, keep_graph set explicitly
-        yi.backward(
-            /*gradient=*/torch::Tensor(),    // equivalent to default {}
-            /*keep_graph=*/(i + 1 < _nout),  // keep graph until last iteration
-            /*create_graph=*/false);
-
-        // 5) Gradient wrt input: d y_i / d x
-        torch::Tensor grad = tensin.grad().to(torch::kFloat64);  // shape (_nin)
-
-        double* gptr = grad.data_ptr<double>();
-        std::copy(gptr, gptr + _nin, gradout + i * _nin);
+        // One backward pass per output
+        torch::Tensor tensin = _tensor(valin, _nin);
+        tensin.set_requires_grad(true);
+        torch::Tensor tensout = _module.forward({tensin}).toTensor();
+        _check(tensout, _nout);
+        tensout = tensout.view({-1});
+        if (valout) _copy(tensout, _nout, valout);
+        for (size_t i = 0; i < _nout; ++i)
+          _copy(torch::autograd::grad({tensout[i]}, {tensin}, {},
+                                      /*retain_graph=*/(i + 1 < _nout))[0],
+                _nin, gradout + i * _nin);
       }
 
 #ifdef MC__FFMLP_DEBUG_EVAL
@@ -494,14 +525,37 @@ class MLP
 #if defined(MC__USE_TORCH)
     if (_hasmodule && options.EVALTORCH)
     {
-      // from the Jacobian that Torch computes
-      std::vector<double> J(_nout * _nin);
-      grad(valin, J.data(), valout);
-      for (size_t k = 0; k < _nout; ++k)
+      // By backward passes only, which are safe across threads -- the dual
+      // level of the forward-mode AD of Torch is global to the process. With
+      // few outputs, the product with the Jacobian
+      if (_nout == 1 || (_batched && _nout <= 8))
       {
-        tanout[k] = 0.;
-        for (size_t i = 0; i < _nin; ++i) tanout[k] += J[k * _nin + i] * dirin[i];
+        std::vector<double> J(_nout * _nin);
+        grad(valin, J.data(), valout);
+        for (size_t k = 0; k < _nout; ++k)
+        {
+          tanout[k] = 0.;
+          for (size_t i = 0; i < _nin; ++i)
+            tanout[k] += J[k * _nin + i] * dirin[i];
+        }
+        return;
       }
+      // Otherwise two backward passes: the adjoint J^T v as a function of the
+      // weights v, then its derivative in v along the direction, which is J d
+      torch::Tensor tensin = _tensor(valin, _nin);
+      tensin.set_requires_grad(true);
+      torch::Tensor tensout = _module.forward({tensin}).toTensor();
+      _check(tensout, _nout);
+      tensout = tensout.view({-1});
+      if (valout) _copy(tensout, _nout, valout);
+      torch::Tensor v = torch::zeros({(int64_t)_nout},
+                                     torch::TensorOptions().dtype(_dtype));
+      v.set_requires_grad(true);
+      torch::Tensor const adj = torch::autograd::grad(
+          {tensout}, {tensin}, {v}, /*retain_graph=*/true,
+          /*create_graph=*/true)[0];
+      _copy(torch::autograd::grad({adj}, {v}, {_tensor(dirin, _nin)})[0], _nout,
+            tanout);
       return;
     }
 #endif
@@ -524,14 +578,17 @@ class MLP
 #if defined(MC__USE_TORCH)
     if (_hasmodule && options.EVALTORCH)
     {
-      // from the Jacobian that Torch computes
-      std::vector<double> J(_nout * _nin);
-      grad(valin, J.data(), valout);
-      for (size_t i = 0; i < _nin; ++i)
-      {
-        adjin[i] = 0.;
-        for (size_t k = 0; k < _nout; ++k) adjin[i] += J[k * _nin + i] * wout[k];
-      }
+      // One backward pass from the outputs, with the weights as their
+      // gradient
+      torch::Tensor tensin = _tensor(valin, _nin);
+      tensin.set_requires_grad(true);
+      torch::Tensor tensout = _module.forward({tensin}).toTensor();
+      _check(tensout, _nout);
+      tensout = tensout.view({-1});
+      if (valout) _copy(tensout, _nout, valout);
+      _copy(torch::autograd::grad({tensout}, {tensin},
+                                  {_tensor(wout, _nout)})[0],
+            _nin, adjin);
       return;
     }
 #endif
@@ -551,19 +608,9 @@ class MLP
 #if defined(MC__USE_TORCH)
     if (_hasmodule && options.EVALTORCH)
     {
-      // 1) Wrap input and make it a leaf
-      auto base =
-          torch::from_blob(const_cast<double*>(valin), {(int64_t)_nin},
-                           torch::TensorOptions().dtype(torch::kFloat64));
-      torch::Tensor tensin = base.to(_dtype).detach();
-
-      // 2) Forward
-      auto tensout = _module.forward({tensin}).toTensor().to(
-          torch::kFloat64);          // shape (_nout) or (_nout,1)
-      tensout = tensout.view({-1});  // ( _nout )
-
-      double* ptensout = tensout.data_ptr<double>();
-      std::copy(ptensout, ptensout + _nout, valout);
+      // No graph is needed for the value alone
+      torch::NoGradGuard nograd;
+      _copy(_module.forward({_tensor(valin, _nin)}).toTensor(), _nout, valout);
 
 #ifdef MC__FFMLP_DEBUG_EVAL
       for (size_t i = 0; i < _nout; ++i)
@@ -697,141 +744,174 @@ template <typename T>
 inline bool
 MLP<T>::read_data(std::string const& filename, bool const disp)
 {
-  _hasmodule = false;
+  // The Module is read into local objects, and the MLP is only changed once
+  // it has been read in full and checked: a failure leaves the MLP as it was
+  torch::jit::script::Module module;
+  torch::Dtype dtype = torch::kFloat32;
+  std::vector<std::pair<std::vector<std::vector<double>>, int>> data;
+  bool batched = false;
+
   try
   {
     if (disp) std::cout << "Loading Torch Module from " << filename << "...\n";
-    _module = torch::jit::load(filename);
-    _module.to(_device);
-    _hasmodule = true;
+    module = torch::jit::load(filename);
+    module.to(_device);
+    // Evaluation mode, and no gradients with respect to the parameters: the
+    // backward passes of grad and adj stop at the inputs, and a forward pass
+    // records no graph unless the inputs require one
+    module.eval();
+    for (auto const& p : module.parameters()) p.set_requires_grad(false);
     if (disp) std::cout << "Model loaded successfully.\n\n";
+
+    if (!module.hasattr("net"))
+    {
+      if (disp)
+        std::cerr << "Module has no 'net' submodule; cannot inspect layers "
+                     "and activation functions.\n";
+      return false;
+    }
+
+    // 'net' is the Sequential defined in Python: Linear submodules, each
+    // followed by at most one activation function
+    torch::jit::script::Module net = module.attr("net").toModule();
+    if (disp) std::cout << "ANN Parameters (weights and biases)\n";
+    bool pending = false;  // a Linear layer without activation function yet
+    for (auto const& child : net.named_children())
+    {
+      // Class name of the submodule, without its qualifiers: a name that
+      // merely contains "ReLU" or "Tanh" (LeakyReLU, Tanhshrink, ...) is
+      // another function
+      std::string const type_str = child.value.type()->str();
+      std::string const type = type_str.substr(type_str.rfind('.') + 1);
+      if (disp)
+        std::cout << "Submodule '" << child.name << "'  type: " << type_str
+                  << "\n";
+
+      if (type == "Linear")
+      {
+        if (!child.value.hasattr("weight"))
+        {
+          if (disp) std::cerr << "Linear submodule without weight\n";
+          return false;
+        }
+        at::Tensor const weight = child.value.attr("weight").toTensor();
+        if (weight.dim() != 2 || !weight.size(0) || !weight.size(1) ||
+            (!data.empty() &&
+             data.back().first.size() != (size_t)weight.size(1)))
+        {
+          if (disp) std::cerr << "Linear submodule with inconsistent size\n";
+          return false;
+        }
+        if (data.empty()) dtype = weight.scalar_type();
+
+        // Each neuron holds its bias followed by its weights; a layer without
+        // bias has zero biases
+        std::vector<std::vector<double>> layer;
+        if (!_tensor_to_vector(layer, weight, 1, disp)) return false;
+        if (child.value.hasattr("bias"))
+        {
+          c10::IValue const bias = child.value.attr("bias");
+          if (bias.isTensor() &&
+              !_tensor_to_vector(layer, bias.toTensor(), 0, disp))
+            return false;
+        }
+        data.push_back(std::make_pair(layer, (int)LINEAR));
+        pending = true;
+      }
+
+      else if (type == "Tanh" || type == "ReLU" || type == "Sigmoid")
+      {
+        if (!pending)
+        {
+          if (disp)
+            std::cerr << "Activation function without a Linear layer before "
+                         "it\n";
+          return false;
+        }
+        data.back().second =
+            (type == "Tanh" ? TANH : type == "ReLU" ? RELU : SIGMOID);
+        pending = false;
+      }
+
+      // No effect in evaluation mode
+      else if (type == "Identity" || type == "Dropout")
+        continue;
+
+      else
+      {
+        if (disp) std::cerr << "Non-supported submodule: " << type_str << "\n";
+        return false;
+      }
+    }
+    if (data.empty())
+    {
+      if (disp) std::cerr << "Module has no Linear submodule\n";
+      return false;
+    }
+
+    // Check that the Module computes what was read from it, at two points:
+    // its forward method may do more than go through 'net'. The second check
+    // is whether it takes a batch of inputs, one per row
+    MLP<T> mlp;
+    mlp.options           = options;
+    mlp.options.EVALTORCH = false;
+    if (!mlp.set_data(data)) return false;
+    size_t const nin = mlp.nin(), nout = mlp.nout();
+    std::vector<double> valin(2 * nin, 0.), valout(2 * nout), refout(2 * nout);
+    for (size_t i = 0; i < nin; ++i) valin[nin + i] = 0.5 * std::cos(i + 1.);
+    torch::NoGradGuard nograd;
+    for (size_t k = 0; k < 2; ++k)
+    {
+      mlp.eval(valin.data() + k * nin, refout.data() + k * nout);
+      _copy(module.forward({_tensor(valin.data() + k * nin, nin, dtype)})
+                .toTensor(),
+            nout, valout.data() + k * nout);
+    }
+    for (size_t k = 0; k < 2 * nout; ++k)
+      if (!(std::fabs(valout[k] - refout[k]) <=
+            1e-4 * (1. + std::fabs(refout[k]))))
+      {
+        if (disp)
+          std::cerr << "Module does not evaluate as its 'net' submodule: "
+                    << valout[k] << " against " << refout[k] << "\n";
+        return false;
+      }
+    try
+    {
+      torch::Tensor const tensin =
+          _tensor(valin.data(), 2 * nin, dtype).view({2, (int64_t)nin});
+      std::vector<double> batout(2 * nout);
+      _copy(module.forward({tensin}).toTensor(), 2 * nout, batout.data());
+      batched = true;
+      for (size_t k = 0; k < 2 * nout; ++k)
+        if (!(std::fabs(batout[k] - refout[k]) <=
+              1e-4 * (1. + std::fabs(refout[k]))))
+          batched = false;
+    }
+    catch (std::exception const&)
+    {
+      batched = false;
+    }
+    if (disp)
+      std::cout << "Model parameter dtype: " << dtype
+                << (batched ? "; takes" : "; does not take")
+                << " batches of inputs\n";
   }
 
-  catch (const c10::Error& e)
+  catch (std::exception const& e)  // c10::Error among them
   {
     if (disp)
-      std::cerr << "Error loading Torch Module from " << filename << ":\n"
-                << e.msg() << std::endl;
+      std::cerr << "Error reading Torch Module from " << filename << ":\n"
+                << e.what() << std::endl;
     return false;
   }
 
-  if (!_module.hasattr("net"))
-  {
-    if (disp)
-      std::cout << "Module has no 'net' submodule; cannot inspect activation "
-                   "functions.\n";
-    return false;
-  }
-
-  // Get data type
-  for (const auto& p : _module.named_parameters())
-  {
-    _dtype = p.value.scalar_type();
-    if (disp) std::cout << "Model parameter dtype: " << _dtype << "\n";
-    break;
-  }
-
-  // 'net' is the Sequential defined in Python
-  torch::jit::script::Module net = _module.attr("net").toModule();
-
-  reset_data();
-  if (disp) std::cout << "ANN Parameters (weights and biases)\n";
-
-  // Populate _data
-  std::vector<std::vector<double>> layer;
-  size_t offset;
-  bool bias = false, weight = false;
-  for (const auto& p : _module.named_parameters())
-  {
-    if (disp) std::cout << "Parameter name: " << p.name << "\n";
-    if (p.name.find("bias") != std::string::npos)
-    {
-      if (bias)
-      {
-        if (disp) std::cerr << "Module has multiple bias as parameter name\n";
-        return false;
-      }
-      offset = 0;
-      bias   = true;
-    }
-    else if (p.name.find("weight") != std::string::npos)
-    {
-      if (weight)
-      {
-        if (disp) std::cerr << "Module has multiple weight as parameter name\n";
-        return false;
-      }
-      offset = 1;
-      weight = true;
-    }
-    else
-    {
-      if (disp)
-        std::cerr << "Module has unrecognized parameter name: " << p.name
-                  << "\n";
-      return false;
-    }
-
-    // p.value is an at::Tensor (PyTorch tensor in the C++/ATen API).
-    if (!_tensor_to_vector(layer, p.value, offset, disp)) return false;
-    if (bias && weight)
-    {
-      append_data(layer);
-      bias = weight = false;
-      layer.clear();
-    }
-  }
-
-  // Retrieve activation functions
-  size_t i0   = 0;
-  bool linear = false;
-  for (const auto& child : net.named_children())
-  {
-    if (i0 == _data.size())
-    {
-      if (disp)
-        std::cerr << "Module has too many submodules for " << _data.size()
-                  << " layers\n";
-      return false;
-    }
-
-    const auto& submod   = child.value;
-    std::string type_str = submod.type()->str();
-    if (disp)
-      std::cout << "Submodule '" << child.name << "'  type: " << type_str;
-    if (type_str.find("Linear") != std::string::npos)
-    {
-      if (disp) std::cout << "  (Linear layer)\n";
-      if (linear || i0 + 1 == _data.size()) _data[i0++].second = LINEAR;
-    }
-    else if (type_str.find("Tanh") != std::string::npos)
-    {
-      if (disp) std::cout << "  (Activation: Tanh)\n";
-      _data[i0++].second = TANH;
-      linear             = false;
-    }
-    else if (type_str.find("ReLU") != std::string::npos)
-    {
-      if (disp) std::cout << "  (Activation: ReLU)\n";
-      _data[i0++].second = RELU;
-      linear             = false;
-    }
-    else if (type_str.find("Sigmoid") != std::string::npos)
-    {
-      if (disp) std::cout << "  (Activation: Sigmoid)\n";
-      _data[i0++].second = SIGMOID;
-      linear             = false;
-    }
-    else
-    {
-      if (disp)
-        std::cerr << "\nNon-supported activation function: " << type_str
-                  << "\n";
-      return false;
-    }
-  }
-  std::cout << "\n";
-
+  // Commit
+  if (!set_data(data)) return false;
+  _module    = module;
+  _dtype     = dtype;
+  _batched   = batched;
+  _hasmodule = true;
   return true;
 }
 
@@ -851,83 +931,33 @@ MLP<T>::_tensor_to_vector(std::vector<std::vector<double>>& v,
     std::cout << "]\n";
     std::cout << t << "\n\n";
   }
-  if (t.sizes().size() > 2) return false;
-  at::Tensor tc = t.contiguous();
-
-  // 1D tensor
-  if (t.sizes().size() == 1)
+  if (t.dim() < 1 || t.dim() > 2 || !t.is_floating_point())
   {
-    size_t n0 = t.sizes()[0];  // size of dim 0
-    if (v.size() < n0) v.resize(n0);
-
-    switch (tc.scalar_type())
-    {
-      case at::kFloat:
-      {
-        float* data_ptr = tc.data_ptr<float>();
-        for (size_t i0 = 0; i0 < n0; ++i0)
-        {
-          if (v[i0].size() < offset) v[i0].resize(offset);
-          v[i0][offset] = static_cast<double>(data_ptr[i0]);
-        }
-        break;
-      }
-      case at::kDouble:
-      {
-        double* data_ptr = tc.data_ptr<double>();
-        for (size_t i0 = 0; i0 < n0; ++i0)
-        {
-          if (v[i0].size() < offset) v[i0].resize(offset);
-          v[i0][offset] = data_ptr[i0];
-        }
-        break;
-      }
-      // add kInt, kLong, ... as needed
-      default:
-        if (disp)
-          std::cerr << "Unsupported tensor type " << tc.scalar_type() << "\n";
-        return false;
-    }
-
-    return true;
+    if (disp)
+      std::cerr << "Unsupported tensor: " << t.dim() << " dimensions, type "
+                << t.scalar_type() << "\n";
+    return false;
   }
 
-  // 2D tensor
-  size_t n0 = t.sizes()[0];  // size of dim 0
-  size_t n1 = t.sizes()[1];  // size of dim 1
-  if (v.size() < n0) v.resize(n0);
+  // In double precision on the CPU, whatever the type and device of the tensor
+  at::Tensor const tc =
+      t.detach().to(torch::kCPU, torch::kFloat64).contiguous();
+  double const* data_ptr = tc.data_ptr<double>();
 
-  switch (tc.scalar_type())
+  // One row of v per element along dimension 0; rows that exist already --
+  // from the other tensor of the layer -- must be as many
+  size_t const n0 = t.size(0), n1 = (t.dim() == 2 ? t.size(1) : 1);
+  if (v.empty())
+    v.resize(n0);
+  else if (v.size() != n0)
+    return false;
+
+  for (size_t i0 = 0; i0 < n0; ++i0)
   {
-    case at::kFloat:
-    {
-      float* data_ptr = tc.data_ptr<float>();
-      for (size_t i0 = 0, i01 = 0; i0 < n0; ++i0, i01 += n1)
-      {
-        if (v[i0].size() < offset + n1) v[i0].resize(offset + n1);
-        for (size_t i1 = 0; i1 < n1; ++i1)
-          v[i0][offset + i1] = static_cast<double>(data_ptr[i01 + i1]);
-      }
-      break;
-    }
-    case at::kDouble:
-    {
-      double* data_ptr = tc.data_ptr<double>();
-      for (size_t i0 = 0, i01 = 0; i0 < n0; ++i0, i01 += n1)
-      {
-        if (v[i0].size() < offset + n1) v[i0].resize(offset + n1);
-        for (size_t i1 = 0; i1 < n1; ++i1)
-          v[i0][offset + i1] = data_ptr[i01 + i1];
-      }
-      break;
-    }
-    // add kInt, kLong, ... as needed
-    default:
-      if (disp)
-        std::cerr << "Unsupported tensor type " << tc.scalar_type() << "\n";
-      return false;
+    if (v[i0].size() < offset + n1) v[i0].resize(offset + n1, 0.);
+    for (size_t i1 = 0; i1 < n1; ++i1)
+      v[i0][offset + i1] = data_ptr[i0 * n1 + i1];
   }
-
   return true;
 }
 
