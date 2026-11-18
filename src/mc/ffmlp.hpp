@@ -124,6 +124,9 @@ class MLP
     //! @brief Whether to convert sigmoid to exp (true) or tanh (false)
     bool SIG2EXP;
     //! @brief Whether to apply forward or reverse automatic differentiation
+    //! for the Jacobian (grad). In double arithmetic the reverse mode is also
+    //! applied with the default (F) where the outputs are no more than the
+    //! inputs, both modes giving the same Jacobian to rounding errors
     int AUTODIFF;
     //! @brief Whether the forward symbolic differentiation of an MLP operation
     //! in a DAG (FAD, SFAD, DFAD) inserts its directional derivative along the
@@ -240,6 +243,42 @@ class MLP
   //! activation, then backward pass through the layers
   template <typename U>
   void _adj(U const* valin, U const* wout, U* adjin, U* valout) const;
+
+  //! @brief Evaluate MLP Jacobian in reverse mode: forward pass keeping the
+  //! derivative of each activation, then all the rows of the Jacobian
+  //! backward through the layers together
+  void _jacrev(double const* valin, double* gradout, double* valout) const;
+
+  //! @brief Evaluate MLP Jacobian in forward mode: one pass through the
+  //! layers with the values of the neurons and their derivatives in all the
+  //! inputs together
+  void _jacfwd(double const* valin, double* gradout, double* valout) const;
+
+  //! @brief Value and derivative of an activation function in double: val
+  //! holds the argument on entry and the value on exit, as _eval computes it
+  double
+  _activate(int const activ, double& val) const
+  {
+    switch (activ)
+    {
+      case LINEAR:
+      default:
+        return 1.;
+      case RELU:
+      {
+        double const der = Op<double>::fstep(val);
+        val              = ReLU(val);
+        return der;
+      }
+      case TANH:
+        val = Op<double>::tanh(val);
+        return 1. - val * val;
+      case SIGMOID:
+        val = (options.SIG2EXP ? Op<double>::inv(Op<double>::exp(-val) + 1.)
+                               : Op<double>::tanh(val * 0.5) * 0.5 + 0.5);
+        return val * (1. - val);
+    }
+  }
   //    const;
 
   //! @brief Reverse evaluate MLP through expression tree
@@ -445,51 +484,16 @@ class MLP
 #ifdef MC__FFMLP_DEBUG_EVAL
     std::cout << "Gradient evaluation separate from Torch\n";
 #endif
-    switch (options.AUTODIFF)
-    {
-      default:
-      case Options::AD_TYPE::F:
-      {
-        std::vector<FADType<double>> vFvalin(_nin);
-        for (size_t i = 0; i < _nin; ++i)
-        {
-          vFvalin[i] = valin[i];
-          vFvalin[i].diff(i, _nin);
-        }
-        std::vector<FADType<double>> vFvalout(_nout);
-        _eval(vFvalin.data(), vFvalout.data(), _wkFD);
-        for (size_t k = 0; k < _nout; ++k)
-        {
-          if (valout) valout[k] = vFvalout[k].x();
-          for (size_t i = 0; i < _nin; ++i)
-            gradout[k * _nin + i] = vFvalout[k].d(i);
-          // gradout[i*_nout+k] = vFvalout[k].d(i);
-        }
-        break;
-      }
-
-      case Options::AD_TYPE::B:
-      {
-        std::vector<BADType<double>> vBvalin(_nin);
-        for (size_t i = 0; i < _nin; ++i) vBvalin[i] = valin[i];
-        std::vector<BADType<double>> vBvalout(_nout);
-        _eval(vBvalin.data(), vBvalout.data(), _wkBD);
-        for (size_t k = 0; k < _nout; ++k) vBvalout[k].diff(k, _nout);
-        // FADBAD++ reverse mode propagates adjoints when expression nodes
-        // are released. The persistent hidden-layer work array holds
-        // references to those nodes, so release it before reading input
-        // derivatives.
-        _wkBD.clear();
-        for (size_t k = 0; k < _nout; ++k)
-        {
-          if (valout) valout[k] = vBvalout[k].x();
-          for (size_t i = 0; i < _nin; ++i)
-            gradout[k * _nin + i] = vBvalin[i].d(k);
-          // gradout[i*_nout+k] = vBvalin[i].d(k);
-        }
-        break;
-      }
-    }
+    // In double arithmetic the Jacobian is computed by passes through the
+    // layers, and the mode follows the sizes: the forward mode costs about a
+    // pass per input, the reverse mode a pass per output. AUTODIFF = B asks
+    // for the reverse mode whatever the sizes -- it used to select the tape
+    // of BADType here, a hundred times or so slower. The two modes agree to
+    // rounding errors
+    if (_nout <= _nin || options.AUTODIFF == Options::AD_TYPE::B)
+      _jacrev(valin, gradout, valout);
+    else
+      _jacfwd(valin, gradout, valout);
 
 #ifdef MC__FFMLP_DEBUG_EVAL
     for (size_t k = 0; k < _nout; ++k)
@@ -1439,18 +1443,129 @@ MLP<T>::_adj(U const* valin, U const* wout, U* adjin, U* valout) const
     if (activ == RELU || activ == TANH || activ == SIGMOID)
       for (size_t i = 0; i < nneu; ++i) wkadj[i] *= wkder[l][i];
     wkprv.resize(nprv);
-    for (size_t j = 0; j < nprv; ++j)
-    {
-      wkprv[j] = 0.;
-      for (size_t i = 0; i < nneu; ++i)
+    for (size_t j = 0; j < nprv; ++j) wkprv[j] = 0.;
+    // one neuron after the other, along its weights: each adjoint is still
+    // summed over the neurons in their order
+    for (size_t i = 0; i < nneu; ++i)
+      for (size_t j = 0; j < nprv; ++j)
       {
         if (std::fabs(layer[i][1 + j]) < options.ZEROTOL) continue;
         wkprv[j] += wkadj[i] * layer[i][1 + j];
       }
-    }
     wkadj.swap(wkprv);
   }
   for (size_t i = 0; i < _nin; ++i) adjin[i] = wkadj[i];
+}
+
+template <typename T>
+inline void
+MLP<T>::_jacrev(double const* valin, double* gradout, double* valout) const
+{
+  // Work arrays: values and activation derivatives of the neurons, layer by
+  // layer, and the adjoints of two consecutive layers for every output -- a
+  // row per output
+  static thread_local std::vector<std::vector<double>> wkval, wkder;
+  static thread_local std::vector<double> wkadj, wkprv;
+  size_t const nlay = _data.size();
+  wkval.resize(nlay);
+  wkder.resize(nlay);
+
+  // Forward pass, with the operations of _eval so that the values are the same
+  for (size_t l = 0; l < nlay; ++l)
+  {
+    auto const& [layer, activ] = _data[l];
+    size_t const nneu = layer.size();
+    wkval[l].resize(nneu);
+    wkder[l].resize(nneu);
+    double const* prv = (l ? wkval[l - 1].data() : valin);
+    for (size_t i = 0; i < nneu; ++i)
+    {
+      double val = layer[i][0];  // bias term
+      for (size_t j = 0; j + 1 < layer[i].size(); ++j)
+      {
+        if (std::fabs(layer[i][1 + j]) < options.ZEROTOL) continue;
+        val += prv[j] * layer[i][1 + j];
+      }
+      wkder[l][i] = _activate(activ, val);
+      wkval[l][i] = val;
+    }
+  }
+  if (valout)
+    for (size_t k = 0; k < _nout; ++k) valout[k] = wkval[nlay - 1][k];
+
+  // Backward pass: row k holds the adjoints of the outputs of a layer for
+  // output k -- the identity to begin with -- and gives those of its inputs
+  size_t ncur = _nout;
+  wkadj.assign(_nout * _nout, 0.);
+  for (size_t k = 0; k < _nout; ++k) wkadj[k * _nout + k] = 1.;
+  for (size_t l = nlay; l-- > 0;)
+  {
+    auto const& [layer, activ] = _data[l];
+    size_t const nneu = layer.size(), nprv = layer[0].size() - 1;
+    wkprv.assign(_nout * nprv, 0.);
+    for (size_t k = 0; k < _nout; ++k)
+    {
+      double const* adj = wkadj.data() + k * ncur;
+      double* prv       = wkprv.data() + k * nprv;
+      for (size_t i = 0; i < nneu; ++i)
+      {
+        // a neuron that does not reach output k, or whose activation is flat
+        double const a = adj[i] * wkder[l][i];
+        if (a == 0.) continue;
+        double const* weight = layer[i].data() + 1;
+        for (size_t j = 0; j < nprv; ++j) prv[j] += a * weight[j];
+      }
+    }
+    wkadj.swap(wkprv);
+    ncur = nprv;
+  }
+  std::copy(wkadj.begin(), wkadj.begin() + _nout * _nin, gradout);
+}
+
+template <typename T>
+inline void
+MLP<T>::_jacfwd(double const* valin, double* gradout, double* valout) const
+{
+  // Work arrays: values of the neurons of two consecutive layers, and their
+  // derivatives in the inputs -- a row per neuron
+  static thread_local std::vector<double> wkval, wkprv, wktan, wktanprv;
+  size_t const nlay = _data.size();
+
+  for (size_t l = 0; l < nlay; ++l)
+  {
+    auto const& [layer, activ] = _data[l];
+    size_t const nneu = layer.size(), nprv = layer[0].size() - 1;
+    wkval.swap(wkprv);
+    wktan.swap(wktanprv);
+    wkval.resize(nneu);
+    wktan.assign(nneu * _nin, 0.);
+    double const* prv = (l ? wkprv.data() : valin);
+    for (size_t i = 0; i < nneu; ++i)
+    {
+      double val  = layer[i][0];  // bias term
+      double* tan = wktan.data() + i * _nin;
+      double const* weight = layer[i].data() + 1;
+      for (size_t j = 0; j < nprv; ++j)
+      {
+        if (std::fabs(weight[j]) < options.ZEROTOL) continue;
+        val += prv[j] * weight[j];
+        // the derivatives of the inputs themselves are the identity
+        if (!l)
+        {
+          tan[j] = weight[j];
+          continue;
+        }
+        double const* tanprv = wktanprv.data() + j * _nin;
+        for (size_t c = 0; c < _nin; ++c) tan[c] += weight[j] * tanprv[c];
+      }
+      double const der = _activate(activ, val);
+      if (der != 1.)
+        for (size_t c = 0; c < _nin; ++c) tan[c] *= der;
+      wkval[i] = val;
+    }
+  }
+  if (valout) std::copy(wkval.begin(), wkval.begin() + _nout, valout);
+  std::copy(wktan.begin(), wktan.begin() + _nout * _nin, gradout);
 }
 
 template <typename T>
