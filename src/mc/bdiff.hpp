@@ -57,6 +57,7 @@ class Bimpl
     std::vector< std::pair<std::shared_ptr<Node>, T> >  _edge;     // (operand, d(this)/d(operand))
     AdjT                                                _adj;      // accumulated adjoint(s)
     unsigned                                            _mark = 0; // DFS epoch stamp
+    Node() : _v() {}                       // value built in place, as mc::F does
     explicit Node( const T& v ) : _v(v) {}
   };
 
@@ -132,7 +133,11 @@ class Bimpl
 
 public:
   // ---------------- construction / assignment (handle semantics) ------------
-  Bimpl() : _n( std::make_shared<Node>( T() ) ) {}
+  // The value of a default-constructed variable is built in place, not copied
+  // from a temporary T(): for a type whose default constructor leaves its
+  // members unset (mc::Interval, mc::McCormick) the copy read them, and every
+  // std::vector<B<T>>(n) or resize() drew a -Wmaybe-uninitialized warning.
+  Bimpl() : _n( std::make_shared<Node>() ) {}
   template <typename V> Bimpl( const V& v ) : _n( std::make_shared<Node>( T(v) ) ) {}
   Bimpl( const Bimpl& ) = default;                 // shares the node
   Bimpl& operator=( const Bimpl& ) = default;      // rebinds to shared node

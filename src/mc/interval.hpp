@@ -468,9 +468,9 @@ class Interval
 
  private:
   //! @brief Lower bound
-  double _l;
+  double _l = 0.;
   //! @brief Upper bound
-  double _u;
+  double _u = 0.;
 };
 
 ////////////////////////////////////////////////////////////////////////
