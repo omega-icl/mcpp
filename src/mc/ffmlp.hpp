@@ -133,18 +133,20 @@ class MLP
     //! tangents of its operands, mc::FFTanMLP -- one operation with as many
     //! results as the MLP has outputs per sweep, evaluated in one forward pass
     //! -- in place of its whole Jacobian, mc::FFGradMLP (false). The Jacobian
-    //! is still inserted where more than 5 + nin/4 sweeps go through the
-    //! operation -- as many as the independents it depends on, one for a
-    //! directional derivative
+    //! is still inserted where it is estimated to be the cheaper, from the
+    //! sizes of the MLP and the number of sweeps through the operation -- as
+    //! many as the independents it depends on, one for a directional
+    //! derivative: see mc::FFMLP::has_tangent
     bool TANGENT;
     //! @brief Whether the backward symbolic differentiation of an MLP operation
     //! in a DAG (BAD, SBAD, DBAD) inserts the product of its transposed
     //! Jacobian with the adjoints of its results, mc::FFAdjMLP -- one operation
     //! with as many results as the MLP has inputs per sweep, evaluated in one
     //! backward pass -- in place of its whole Jacobian, mc::FFGradMLP (false).
-    //! The Jacobian is still inserted where more than 4 + nin/5 sweeps go
-    //! through the operation -- as many as the dependents computed from it,
-    //! one for a directional derivative
+    //! The Jacobian is still inserted where it is estimated to be the cheaper,
+    //! from the sizes of the MLP and the number of sweeps through the
+    //! operation -- as many as the dependents computed from it, one for a
+    //! directional derivative: see mc::FFMLP::has_adjoint
     bool ADJOINT;
     //! @brief Maximum rounds of constraint propagation
     size_t CPMAX;
@@ -760,6 +762,15 @@ class MLP
   nout() const
   {
     return _nout;
+  }
+  //! @brief Number of weights, biases aside
+  size_t
+  nwei() const
+  {
+    size_t n = 0;
+    for (auto const& [layer, activ] : _data)
+      n += layer.size() * (layer[0].size() - 1);
+    return n;
   }
   size_t
   nhid() const
@@ -1834,17 +1845,41 @@ class FFMLP
   void deriv(unsigned const nRes, FFVar const* vRes, unsigned const nVar,
              FFVar const* vVar, FFVar** vDer) const;
 
+  // Whether nSweep passes through the network, each costing npass
+  // evaluations, are estimated to be cheaper in a DAG than the Jacobian
+  // operation and the products that the differentiation forms with its
+  // entries in each sweep. In units of one weight in an evaluation of the
+  // network, with W weights, nin inputs and nout outputs, timings of the
+  // derivative DAG in double arithmetic give about
+  //  - a pass:       npass W + 100, the latter for the operation itself
+  //  - the Jacobian: W (1/2 + min(nin,nout)/4)
+  //  - the products: 35 nin nout, when the Jacobian is evaluated and again
+  //                  in each sweep
+  // The passes are always the cheaper where the Jacobian has many entries
+  // for the size of the network, and never, even for a single sweep, where
+  // it has few -- a network with a single output above all. Over networks
+  // of 2 to 200 inputs and 1 to 50 outputs and 1 to 32 sweeps, the choice
+  // came within 4% of the better of the two in total; where it was the
+  // wrong one it lost tens of microseconds, and 0.2 to 0.7 ms (16 to 34%)
+  // at worst, with 200 inputs for 5 outputs and 12 to 16 sweeps
+  bool
+  passes_pay(unsigned const nSweep, double const npass) const
+  {
+    double const W = _ptrObj->nwei(), E = _ptrObj->nin() * _ptrObj->nout(),
+                 R = std::min(_ptrObj->nin(), _ptrObj->nout());
+    return nSweep * (npass * W + 100. - 35. * E) <=
+           W * (0.5 + 0.25 * R) + 35. * E;
+  }
+
   // Tangents: with MLP<T>::Options::TANGENT, the forward symbolic
   // differentiation inserts the directional derivative operation FFTanMLP
   // along the tangents of the operands, in place of the Jacobian FFGradMLP
-  // -- unless the sweeps through the operation are so many that the Jacobian,
-  // which takes all its directions in one pass, is the cheaper: a threshold
-  // from timings in double arithmetic with the forward-mode Jacobian
+  // -- where that is estimated to be the cheaper for nSweep sweeps, a
+  // tangent pass costing about 1.1 evaluations of the network
   bool
   has_tangent(unsigned const nSweep) const
   {
-    return _ptrObj && _ptrObj->options.TANGENT &&
-           nSweep <= 5 + _ptrObj->nin() / 4;
+    return _ptrObj && _ptrObj->options.TANGENT && passes_pay(nSweep, 1.1);
   }
   void tangent(unsigned const nRes, FFVar const* vRes, unsigned const nVar,
                FFVar const* vVar, FFVar const* const* vTan,
@@ -1852,14 +1887,13 @@ class FFMLP
 
   // Adjoints: with MLP<T>::Options::ADJOINT, the backward symbolic
   // differentiation inserts the adjoint operation FFAdjMLP for the adjoints
-  // of the results, in place of the Jacobian FFGradMLP
-  // -- unless the sweeps through the operation are so many that the Jacobian
-  // is the cheaper, as for the tangents
+  // of the results, in place of the Jacobian FFGradMLP -- where that is
+  // estimated to be the cheaper for nSweep sweeps, an adjoint pass costing
+  // about 1.3 evaluations of the network
   bool
   has_adjoint(unsigned const nSweep) const
   {
-    return _ptrObj && _ptrObj->options.ADJOINT &&
-           nSweep <= 4 + _ptrObj->nin() / 5;
+    return _ptrObj && _ptrObj->options.ADJOINT && passes_pay(nSweep, 1.3);
   }
   void adjoint(unsigned const nRes, FFVar const* vRes, unsigned const nVar,
                FFVar const* vVar, FFVar const* const* vResAdj,

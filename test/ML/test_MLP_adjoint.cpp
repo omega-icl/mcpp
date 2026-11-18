@@ -118,6 +118,24 @@ network2(mc::MLP<I>& ANN)
   ANN.options.SIG2EXP = true;
 }
 
+// Network with 2 inputs, two hidden layers of 20 tanh neurons, and nout linear outputs
+static void
+network3(mc::MLP<I>& ANN, size_t const nout)
+{
+  std::vector<std::vector<double>> layer1(20, std::vector<double>(3)), layer2(20, std::vector<double>(21)),
+      layer3(nout, std::vector<double>(21));
+  for (size_t i = 0; i < 20; ++i)
+  {
+    for (size_t j = 0; j < 3; ++j) layer1[i][j] = std::cos(1. + 2. * i + 3. * j);
+    for (size_t j = 0; j < 21; ++j) layer2[i][j] = 0.3 * std::cos(2. + 5. * i + 7. * j);
+  }
+  for (size_t i = 0; i < nout; ++i)
+    for (size_t j = 0; j < 21; ++j) layer3[i][j] = 0.3 * std::cos(3. + 11. * i + 13. * j);
+  ANN.append_data(layer1, ANN.TANH, true);
+  ANN.append_data(layer2, ANN.TANH);
+  ANN.append_data(layer3, ANN.LINEAR);
+}
+
 static std::vector<double>
 evaluate(FFGraph& DAG, std::vector<FFVar> const& F, std::vector<FFVar> const& Q,
          std::vector<double> const& q)
@@ -247,27 +265,47 @@ main()
     return {true, ""};
   });
 
-  run("the Jacobian operation is kept where the sweeps through the network are many", []() -> Result {
-    mc::MLP<I> ANN, ANNA;
-    network(ANN, false);
-    network(ANNA, true);
-    FFGraph DAG;
-    std::vector<FFVar> Q = DAG.add_vars(2), W = DAG.add_vars(5);
-    mc::FFMLP<I> Op, OpA;
-    std::vector<FFVar> const X = {Q[0] * Q[1], Q[1]};
-    std::vector<FFVar> const Y = OpA(X, &ANNA), Z = Op(X, &ANN);
-    // with 2 inputs the adjoint is used for up to 4 sweeps: here 4, then 5 dependents
-    std::vector<FFVar> const F5 = {Y[0], Y[1], Y[0] * Y[1], exp(Y[0]), sqr(Y[1]) + Q[0]}, F4(F5.begin(), F5.begin() + 4);
-    std::vector<FFVar> const G5 = {Z[0], Z[1], Z[0] * Z[1], exp(Z[0]), sqr(Z[1]) + Q[0]};
-    std::vector<FFVar> const dF4 = DAG.BAD(F4, Q), dF5 = DAG.BAD(F5, Q), dG5 = DAG.BAD(G5, Q), dirF5 = DAG.DBAD(F5, W, Q);
-    std::string ops = operations(DAG, dF4);
-    if (ops.find("AdjMLP") == std::string::npos || ops.find("GradMLP") != std::string::npos) return {false, "4 sweeps: " + ops};
-    ops = operations(DAG, dF5);
-    if (ops.find("GradMLP") == std::string::npos || ops.find("AdjMLP") != std::string::npos) return {false, "5 sweeps: " + ops};
-    ops = operations(DAG, dirF5);
-    if (ops.find("AdjMLP") == std::string::npos || ops.find("GradMLP") != std::string::npos) return {false, "one weighted sum: " + ops};
-    for (auto const& q : points)
-      if (!near(evaluate(DAG, dF5, Q, q), evaluate(DAG, dG5, Q, q))) return {false, "derivatives differ"};
+  run("the Jacobian operation is kept where it is estimated to be the cheaper", []() -> Result {
+    // {outputs, sweeps up to which the adjoint is used}: with 2 inputs and 2 layers of 20 neurons,
+    // never for a single output, whose Jacobian is a gradient; for one sweep with a few outputs;
+    // always with many, the products with the Jacobian then costing more than the passes
+    for (auto const& [nout, nmax] : std::vector<std::pair<size_t, unsigned>>{{1, 0}, {4, 1}, {20, 4}})
+    {
+      // a DAG per network: an operation is identified by the address of its network, including after
+      // the DAG has taken a copy, and the networks of this loop succeed each other at the same address
+      FFGraph DAG;
+      std::vector<FFVar> Q = DAG.add_vars(2), W = DAG.add_vars(4);
+      mc::MLP<I> ANN, ANNA;
+      network3(ANN, nout);
+      network3(ANNA, nout);
+      ANNA.options.ADJOINT = true;
+      mc::FFMLP<I> Op, OpA;
+      std::vector<FFVar> const X = {Q[0] * Q[1], Q[1]};
+      std::vector<FFVar> const Y = Op(X, &ANN), YA = OpA(X, &ANNA);
+      for (unsigned nsweep = 1; nsweep <= 4; ++nsweep)
+      {
+        // nsweep dependents, each computed from the operation
+        std::vector<FFVar> F(nsweep), FA(nsweep);
+        for (unsigned d = 0; d < nsweep; ++d)
+        {
+          F[d]  = (d + 1.) * Y[0] + sqr(Y[nout - 1]) + Q[0];
+          FA[d] = (d + 1.) * YA[0] + sqr(YA[nout - 1]) + Q[0];
+        }
+        if (OpA.has_adjoint(nsweep) != (nsweep <= nmax))
+          return {false, std::to_string(nout) + " outputs, " + std::to_string(nsweep) + " sweeps: has_adjoint"};
+        std::vector<FFVar> const dF = DAG.BAD(F, Q), dFA = DAG.BAD(FA, Q);
+        std::string const ops = operations(DAG, dFA);
+        bool const adj = (ops.find("AdjMLP") != std::string::npos), grad = (ops.find("GradMLP") != std::string::npos);
+        if (adj != (nsweep <= nmax) || grad == adj)
+          return {false, std::to_string(nout) + " outputs, " + std::to_string(nsweep) + " sweeps: " + ops};
+        for (auto const& q : points)
+          if (!near(evaluate(DAG, dFA, Q, q), evaluate(DAG, dF, Q, q))) return {false, "derivatives differ"};
+        // a weighted sum of the dependents is one sweep, whatever their number
+        std::string const opsdir = operations(DAG, DAG.DBAD(FA, std::vector<FFVar>(W.begin(), W.begin() + nsweep), Q));
+        if ((opsdir.find("AdjMLP") != std::string::npos) != (nmax >= 1))
+          return {false, std::to_string(nout) + " outputs, one weighted sum: " + opsdir};
+      }
+    }
     return {true, ""};
   });
 

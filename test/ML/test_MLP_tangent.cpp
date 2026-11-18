@@ -117,6 +117,24 @@ network2(mc::MLP<I>& ANN)
   ANN.options.SIG2EXP = true;
 }
 
+// Network with 2 inputs, two hidden layers of 20 tanh neurons, and nout linear outputs
+static void
+network3(mc::MLP<I>& ANN, size_t const nout)
+{
+  std::vector<std::vector<double>> layer1(20, std::vector<double>(3)), layer2(20, std::vector<double>(21)),
+      layer3(nout, std::vector<double>(21));
+  for (size_t i = 0; i < 20; ++i)
+  {
+    for (size_t j = 0; j < 3; ++j) layer1[i][j] = std::cos(1. + 2. * i + 3. * j);
+    for (size_t j = 0; j < 21; ++j) layer2[i][j] = 0.3 * std::cos(2. + 5. * i + 7. * j);
+  }
+  for (size_t i = 0; i < nout; ++i)
+    for (size_t j = 0; j < 21; ++j) layer3[i][j] = 0.3 * std::cos(3. + 11. * i + 13. * j);
+  ANN.append_data(layer1, ANN.TANH, true);
+  ANN.append_data(layer2, ANN.TANH);
+  ANN.append_data(layer3, ANN.LINEAR);
+}
+
 static std::vector<double>
 evaluate(FFGraph& DAG, std::vector<FFVar> const& F, std::vector<FFVar> const& Q,
          std::vector<double> const& q)
@@ -243,25 +261,47 @@ main()
     return {true, ""};
   });
 
-  run("the Jacobian operation is kept where the sweeps through the network are many", []() -> Result {
-    mc::MLP<I> ANN, ANNT;
-    network(ANN, false);
-    network(ANNT, true);
-    FFGraph DAG;
-    std::vector<FFVar> Q = DAG.add_vars(7), D = DAG.add_vars(7);
-    mc::FFMLP<I> Op, OpT;
-    // with 2 inputs the directional derivative is used for up to 5 sweeps: here 5, then 7 independents
-    std::vector<FFVar> const X5 = {Q[0] + Q[1] * Q[2], Q[3] * Q[4]}, X7 = {Q[0] + Q[1] * Q[2], Q[3] * Q[4] + Q[5] * Q[6]};
-    std::vector<FFVar> const F5 = OpT(X5, &ANNT), F7 = OpT(X7, &ANNT), G7 = Op(X7, &ANN);
-    std::vector<FFVar> const dF5 = DAG.FAD(F5, Q), dF7 = DAG.FAD(F7, Q), dG7 = DAG.FAD(G7, Q), dirF7 = DAG.DFAD(F7, Q, D);
-    std::string ops = operations(DAG, dF5);
-    if (ops.find("TanMLP") == std::string::npos || ops.find("GradMLP") != std::string::npos) return {false, "5 sweeps: " + ops};
-    ops = operations(DAG, dF7);
-    if (ops.find("GradMLP") == std::string::npos || ops.find("TanMLP") != std::string::npos) return {false, "7 sweeps: " + ops};
-    ops = operations(DAG, dirF7);
-    if (ops.find("TanMLP") == std::string::npos || ops.find("GradMLP") != std::string::npos) return {false, "one direction: " + ops};
-    std::vector<double> const q = {0.3, -0.7, 1.1, 0.4, -2., 0.8, 0.1};
-    return {near(evaluate(DAG, dF7, Q, q), evaluate(DAG, dG7, Q, q)), "derivatives differ"};
+  run("the Jacobian operation is kept where it is estimated to be the cheaper", []() -> Result {
+    std::vector<double> const q = {0.3, -0.7, 1.1, 0.4};
+    // {outputs, sweeps up to which the directional derivative is used}: with 2 inputs and 2 layers of
+    // 20 neurons, never for a single output, whose Jacobian is a gradient; for a few sweeps with a few
+    // outputs; always with many, the products with the Jacobian then costing more than the passes
+    for (auto const& [nout, nmax] : std::vector<std::pair<size_t, unsigned>>{{1, 0}, {4, 2}, {20, 4}})
+    {
+      // a DAG per network: an operation is identified by the address of its network, including after
+      // the DAG has taken a copy, and the networks of this loop succeed each other at the same address
+      FFGraph DAG;
+      std::vector<FFVar> Q = DAG.add_vars(4), D = DAG.add_vars(4);
+      mc::MLP<I> ANN, ANNT;
+      network3(ANN, nout);
+      network3(ANNT, nout);
+      ANNT.options.TANGENT = true;
+      for (unsigned nsweep = 1; nsweep <= 4; ++nsweep)
+      {
+        // every input of the network depends on the first nsweep independents
+        std::vector<FFVar> X = {Q[0] * Q[0], sin(Q[0])};
+        for (unsigned j = 1; j < nsweep; ++j)
+        {
+          X[0] += Q[j] * Q[0];
+          X[1] *= Q[j];
+        }
+        mc::FFMLP<I> Op, OpT;
+        std::vector<FFVar> const F = Op(X, &ANN), FT = OpT(X, &ANNT);
+        if (OpT.has_tangent(nsweep) != (nsweep <= nmax))
+          return {false, std::to_string(nout) + " outputs, " + std::to_string(nsweep) + " sweeps: has_tangent"};
+        std::vector<FFVar> const dF = DAG.FAD(F, Q), dFT = DAG.FAD(FT, Q);
+        std::string const ops = operations(DAG, dFT);
+        bool const tan = (ops.find("TanMLP") != std::string::npos), grad = (ops.find("GradMLP") != std::string::npos);
+        if (tan != (nsweep <= nmax) || grad == tan)
+          return {false, std::to_string(nout) + " outputs, " + std::to_string(nsweep) + " sweeps: " + ops};
+        if (!near(evaluate(DAG, dFT, Q, q), evaluate(DAG, dF, Q, q))) return {false, "derivatives differ"};
+        // a directional derivative is one sweep, whatever the number of independents
+        std::string const opsdir = operations(DAG, DAG.DFAD(FT, Q, D));
+        if ((opsdir.find("TanMLP") != std::string::npos) != (nmax >= 1))
+          return {false, std::to_string(nout) + " outputs, one direction: " + opsdir};
+      }
+    }
+    return {true, ""};
   });
 
   run("BAD: the Jacobian operation either way", []() -> Result {
