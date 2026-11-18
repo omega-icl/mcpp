@@ -709,7 +709,8 @@ endif()
 # A script exits non-zero when one of its checks fails, which stops the target.  (2026-10-26)
 find_package(Doxygen QUIET)
 set(_mc_check_scripts
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/pymcpp/check_ffgraph.py)
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/pymcpp/check_ffgraph.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/pymcpp/check_ffextern.py)
 set(_mc_check_commands
     COMMAND ${CMAKE_COMMAND} -E echo "== check_version.py"
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/ci/check_version.py ${CMAKE_CURRENT_SOURCE_DIR}

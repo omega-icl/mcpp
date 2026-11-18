@@ -43,7 +43,7 @@ PYBIND11_MAKE_OPAQUE(std::set<mc::FFDAGEXT<I>::Options::RELAX_TYPE>);
 void
 mc_ffdagext(py::module_& m)
 {
-  py::class_<mc::DAGEXT<I>> pyDAGEXT(m, "DAGEXT", R"doc(
+  py::class_<mc::DAGEXT<I>, std::shared_ptr<mc::DAGEXT<I>>> pyDAGEXT(m, "DAGEXT", R"doc(
 Subgraph of a DAG packaged for embedding as a single external operation.
 
 A ``DAGEXT`` object copies a set of expressions -- given by input
@@ -200,22 +200,30 @@ superposition models), symbolic differentiation, polyhedral relaxation,
 and reverse interval constraint propagation. The relaxation strategy for
 the node is selected through :attr:`options` (field ``RELAX``).
 
-The DAGEXT object passed to ``__call__`` is deep-copied into the DAG, so
-later modifications of the original object do not affect the DAG node.
+The DAGEXT object passed to ``__call__`` is copied into the DAG, once per
+DAG: every operation on that object in that DAG shares the copy, which
+:attr:`dagext` returns, and its Jacobian is differentiated once. Later
+modifications of the original object do not affect the DAG; an object set
+to other expressions and passed again is inserted as another operation.
+
+Options can be changed after the insertion, and the operations follow:
+the relaxation options through :attr:`options`, the options of the
+expression tree in the DAG through ``dagext.options``.
 
 See Also
 --------
 DAGEXT : the encapsulated expression tree inserted by this operation.
 )doc");
 
-  py::class_<mc::FFDAGEXT<I>::Options> pyFFDAGEXTOptions(pyFFDAGEXT, "Options",
-                                                         R"doc(
+  py::class_<mc::FFDAGEXT<I>::Options,
+             std::shared_ptr<mc::FFDAGEXT<I>::Options>>
+      pyFFDAGEXTOptions(pyFFDAGEXT, "Options", R"doc(
 Options controlling the relaxation of an FFDAGEXT operation.
 
 The field ``RELAX`` selects one or more relaxation strategies used when
 building polyhedral cuts for the node; the remaining fields tune the
 individual strategies. Set the fields on the :attr:`FFDAGEXT.options`
-attribute.
+attribute, before or after the operation is inserted in a DAG.
 )doc");
 
   pyFFDAGEXT
@@ -302,8 +310,38 @@ str: Name of this operation as displayed in the DAG.
              Oss << self;
              return Oss.str();
            })
-      .def_readwrite("options", &mc::FFDAGEXT<I>::options, R"doc(
+      .def_property(
+          "options",
+          [](mc::FFDAGEXT<I>& self) { return self.share_options(); },
+          [](mc::FFDAGEXT<I>& self, mc::FFDAGEXT<I>::Options const& opt)
+          { self.home_options() = opt; },
+          R"doc(
 FFDAGEXT.Options: Options controlling the relaxation of the node.
+
+Before the first call, the options that the operations inserted through
+this object will have. After a call, the options of the DAGEXT object
+inserted last, in its DAG: they are shared by every operation on that
+object in that DAG, those on its Jacobian included, and a change takes
+effect at the next relaxation. (An object that another FFDAGEXT inserted
+first in the DAG keeps the options of that one; they are the ones
+returned here.)
+)doc")
+      .def_property_readonly(
+          "dagext",
+          [](mc::FFDAGEXT<I>& self) { return self.share_object(); },
+          R"doc(
+DAGEXT or None: The copy held by the DAG of the object inserted last,
+None before the first call.
+
+The copy is shared by every operation on that object in that DAG. Its
+options can be changed, e.g. ``Op.dagext.options.CPMAX = 5``; the
+expression tree of the Jacobian takes them at the next differentiation.
+)doc")
+      .def_property_readonly(
+          "attached",
+          [](mc::FFDAGEXT<I> const& self) { return self.attached(); },
+          R"doc(
+bool: Whether the object has inserted an operation in a DAG.
 )doc");
 
 

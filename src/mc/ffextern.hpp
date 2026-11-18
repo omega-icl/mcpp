@@ -12,6 +12,10 @@
 #include <armadillo>
 #include <atomic>
 #include <bitset>
+#include <cstdint>
+#include <map>
+#include <memory>
+#include <mutex>
 
 #include "ffdep.hpp"
 #include "ffexpr.hpp"
@@ -50,20 +54,67 @@ ffextern_uid()
 //! mc::FFEXTERN is a C++ class for defining an external DAG operations
 //! in MC++ for a generic template-type object O. The other template
 //! parameter T specifies the type for interval arithmetic.
+//!
+//! <b>Home of an object in a DAG.</b> A class of operations that calls
+//! _attach before an insertion (mc::FFMLP, mc::FFDAGEXT) gives its object a
+//! home in the DAG: the object -- a copy made for that DAG, or the object
+//! itself, according to the policy of the insertion -- and the options of
+//! the operations on it. There is one home per object and per DAG, shared
+//! by every operation on that object in that DAG: on whichever operands,
+//! from whichever handle, and the operations that differentiation makes on
+//! the same object (_join) or on an object derived from it
+//! (_attach_derived). Hence
+//! - one copy of the object per DAG, however many operations use it, made
+//!   at its first insertion there; a copy of the DAG takes a copy of its
+//!   own, and of the options;
+//! - the member options of a handle, given to the homes that the handle
+//!   makes, <i>are</i> the options of those homes: changed after the
+//!   insertion, they change how every operation of the home is relaxed from
+//!   the next relaxation on. The options are not part of what identifies an
+//!   operation. A handle that inserts an object which another handle has
+//!   inserted in the DAG before is attached to the existing home, whose
+//!   options are then reached with home_options();
+//! - the object of the home is returned by object(), for the options that
+//!   it holds itself: they too apply to every operation of the home, from
+//!   the next evaluation or differentiation that reads them.
+//!
+//! An object is found again in a DAG by its key: the stamp of its content
+//! where the DAG holds a copy and the object has a stamp (see
+//! mc::ffextern_uid), so that an object changed since, or another one at
+//! the same address, gets a home and operations of its own; its address
+//! otherwise. Neither the objects nor the homes are protected against
+//! concurrent use: the operations of a home, like any single operation,
+//! are to be evaluated by one thread at a time unless the object allows
+//! otherwise.
+//!
+//! A class that sets _ptrObj and _ownObj itself, without _attach, keeps an
+//! object and a copy of the options per operation, as before.
 ////////////////////////////////////////////////////////////////////////
 template <typename T, typename O>
 class FFEXTERN
     ////////////////////////////////////////////////////////////////////////
     : public FFOp
 {
+ public:
+  struct Options;
+  struct Home;
+
+  //! @brief What identifies an object in a DAG: the stamp of its content
+  //! where the DAG holds a copy of an object that has one (see
+  //! mc::ffextern_uid), the address of the object otherwise
+  typedef std::pair<size_t, std::uintptr_t> t_Key;
+
  protected:
-  // pointer to the object
+  // pointer to the object: the one of the home where the operation has one
   O* _ptrObj;
-  // whether this class owns the object
+  // whether this operation owns the object -- operations without a home only
   bool _ownObj;
-  // stamp of the content of the object where the operation holds a copy of
-  // it, 0 where it refers to the object itself: see _identify and lt
-  size_t _stamp;
+  // home of the object in the DAG, shared with every operation on that
+  // object in that DAG
+  std::shared_ptr<Home> _home;
+  // options that the member options refers to: those of the home for an
+  // operation in a DAG, those given to the homes it makes for a handle
+  std::shared_ptr<Options> _popt;
   // whether the internal arrays need resizing
   mutable bool _reset;
 
@@ -156,14 +207,171 @@ class FFEXTERN
     return 0;
   }
 
-  //! @brief Set what identifies the operation in a DAG beside its operands
-  //! (see lt), before it is inserted: the content of the object where the DAG
-  //! takes a copy of it (<a>copy</a>) and the object has a stamp; the address
-  //! of the object otherwise, held in the field data
-  void
-  _identify(O const* pObj, bool const copy)
+  //! @brief Key of an object, whether or not the DAG holds a copy of it
+  static t_Key
+  _key(O const* pObj, bool const copy)
   {
-    _stamp = (copy && pObj ? _stamp_of(pObj, 0) : 0);
+    size_t const stamp = (copy ? _stamp_of(pObj, 0) : 0);
+    return stamp ? t_Key(stamp, 0) : t_Key(0, reinterpret_cast<std::uintptr_t>(pObj));
+  }
+
+  //! @brief Homes by DAG and key. A home leaves the register when the last
+  //! operation or handle that shares it is destroyed
+  typedef std::map<std::pair<FFBase const*, t_Key>, std::weak_ptr<Home>> t_Register;
+  // (neither is ever destroyed: a home may outlive them at exit)
+  static t_Register&
+  _register()
+  {
+    static t_Register* reg = new t_Register;
+    return *reg;
+  }
+  static std::recursive_mutex&
+  _mutex()
+  {
+    static std::recursive_mutex* mtx = new std::recursive_mutex;
+    return *mtx;
+  }
+
+  //! @brief Home with key <a>key</a> in <a>dag</a>, if any
+  static std::shared_ptr<Home>
+  _home_find(FFBase const* dag, t_Key const& key)
+  {
+    std::lock_guard<std::recursive_mutex> lock(_mutex());
+    auto it = _register().find(std::make_pair(dag, key));
+    return it != _register().end() ? it->second.lock() : nullptr;
+  }
+
+  //! @brief New home in the register
+  static std::shared_ptr<Home>
+  _home_make(FFBase const* dag, t_Key const& key, O* pObj, bool const own,
+             std::shared_ptr<Options> const& popt,
+             std::shared_ptr<Home> const& parent)
+  {
+    std::shared_ptr<Home> home(new Home(dag, key, pObj, own, popt, parent));
+    std::lock_guard<std::recursive_mutex> lock(_mutex());
+    _register()[std::make_pair(dag, key)] = home;
+    return home;
+  }
+
+  //! @brief Home in <a>dag</a> of the object of <a>home</a>, a home of
+  //! another DAG: found by its key, or made on the first visit. An object
+  //! that its home owns is copied, an object that is referred to is not; the
+  //! options are copied, so that each DAG has its own
+  static std::shared_ptr<Home>
+  _home_image(std::shared_ptr<Home> const& home, FFBase const* dag)
+  {
+    size_t const stamp = (home->own ? _stamp_of(home->obj, 0) : 0);
+    t_Key const key    = (stamp ? t_Key(stamp, 0) : home->key);
+    std::lock_guard<std::recursive_mutex> lock(_mutex());
+    std::shared_ptr<Home> image = _home_find(dag, key);
+    if (image) return image;
+    std::shared_ptr<Home> parent;
+    if (home->parent) parent = _home_image(home->parent, dag);
+    return _home_make(dag, key, home->own ? new O(*home->obj) : home->obj,
+                      home->own,
+                      parent ? parent->popt
+                             : std::make_shared<Options>(*home->popt),
+                      parent);
+  }
+
+  //! @brief Take a home
+  void
+  _set_home(std::shared_ptr<Home> const& home)
+  {
+    if (_ownObj && _ptrObj) delete _ptrObj;
+    _ownObj    = false;
+    _home      = home;
+    _ptrObj    = home->obj;
+    this->data = home->obj;
+  }
+
+  //! @brief DAG of the operands, null if none of them is in a DAG
+  static FFBase*
+  _dag_of(size_t const nVar, FFVar const* pVar)
+  {
+    for (size_t i = 0; i < nVar; ++i)
+      if (pVar[i].dag()) return pVar[i].dag();
+    return nullptr;
+  }
+
+  //! @brief Attach a handle to the home of the object <a>pObj</a> in
+  //! <a>dag</a>, before the operation is inserted. The home is made on the
+  //! first insertion of the object in that DAG -- with a copy of the object
+  //! (<a>policy</a> > 0), the object itself (0), or the object itself, to be
+  //! deleted with the home (< 0) -- and with the options of this handle,
+  //! which stay those of the home. A later insertion finds the home again:
+  //! by the stamp of the object where a copy was made and the object has one
+  //! (see mc::ffextern_uid), by its address otherwise
+  void
+  _attach(FFBase const* dag, O* pObj, int const policy)
+  {
+    if (!dag) throw FFBase::Exceptions(FFBase::Exceptions::DAG);
+    if (!pObj)
+      throw std::runtime_error(
+          "FFEXTERN::_attach ** Null pointer to external object\n");
+    t_Key const key = _key(pObj, policy > 0);
+    std::shared_ptr<Home> home;
+    if (_home && _home->dag == dag && _home->key == key)
+      home = _home;
+    else
+    {
+      std::lock_guard<std::recursive_mutex> lock(_mutex());
+      home = _home_find(dag, key);
+      if (!home)
+        home = _home_make(dag, key, policy > 0 ? new O(*pObj) : pObj,
+                          policy != 0, _popt, nullptr);
+    }
+    // an object handed over is deleted with its home, or now if the home
+    // holds another object
+    if (policy < 0)
+    {
+      if (home->obj == pObj)
+        home->own = true;
+      else
+        delete pObj;
+    }
+    _set_home(home);
+  }
+
+  //! @brief Attach a handle to the home of another operation: for the
+  //! operations that differentiation makes on the same object
+  void
+  _join(FFEXTERN<T, O> const& parent)
+  {
+    if (!parent._home)
+      throw std::runtime_error("FFEXTERN::_join ** Operation without a home\n");
+    _set_home(parent._home);
+  }
+
+  //! @brief Attach a handle to a new home for <a>pObj</a>, an object made
+  //! from the object of <a>parent</a> -- its derivative, say -- and deleted
+  //! with its home. The home is in the DAG of the parent, has its options,
+  //! and keeps the home of the parent alive
+  void
+  _attach_derived(FFEXTERN<T, O> const& parent, O* pObj)
+  {
+    if (!parent._home)
+      throw std::runtime_error(
+          "FFEXTERN::_attach_derived ** Operation without a home\n");
+    _set_home(_home_make(parent._home->dag, _key(pObj, true), pObj, true,
+                         parent._home->popt, parent._home));
+  }
+
+  //! @brief Insert the operation <a>self</a>, this one, on other operands
+  //! -- as its evaluation in the arithmetic of DAG variables does. Where the
+  //! operands belong to another DAG, the operation is inserted there with
+  //! the home of its object in that DAG: see _home_image
+  template <typename ExtOp>
+  FFVar**
+  _reinsert(ExtOp const& self, unsigned const nRes, unsigned const nVar,
+            FFVar const* pVar) const
+  {
+    FFBase const* dag = _dag_of(nVar, pVar);
+    if (!_home || !dag || _home->dag == dag)
+      return this->insert_external_operation(self, nRes, nVar, pVar);
+    ExtOp other(self);
+    other._set_home(_home_image(_home, dag));
+    return other.insert_external_operation(other, nRes, nVar, pVar);
   }
 
  private:
@@ -387,19 +595,116 @@ class FFEXTERN
     //! @brief Options for superposition model with adaptive piecewise-linear
     //! univariate estimators
     typename SupModel<PWLU>::Options PWLSUP;
-  } options;
+  };
+
+  //! @brief Home of an object in a DAG: the object and the options of the
+  //! operations on it, shared by every operation on that object in that DAG
+  //! -- on whichever operands, and the operations that differentiation makes
+  //! on the same object -- and by the handles attached to it
+  struct Home
+  {
+    //! @brief DAG of the home
+    FFBase const* dag;
+    //! @brief Key of the object in the DAG
+    t_Key key;
+    //! @brief Object: a copy made for the DAG, or the object given
+    O* obj;
+    //! @brief Whether the object is deleted with the home
+    bool own;
+    //! @brief Options of the operations on the object
+    std::shared_ptr<Options> popt;
+    //! @brief Home of the object that this one was made from, if any
+    std::shared_ptr<Home> parent;
+    //! @brief For the class of the operation: what it keeps about the
+    //! object for all its operations -- the home of its derivative, say
+    std::shared_ptr<void> aux;
+
+    Home(FFBase const* dag_, t_Key const& key_, O* obj_, bool const own_,
+         std::shared_ptr<Options> const& popt_,
+         std::shared_ptr<Home> const& parent_)
+        : dag(dag_), key(key_), obj(obj_), own(own_), popt(popt_),
+          parent(parent_)
+    {
+    }
+
+    ~Home()
+    {
+      {
+        std::lock_guard<std::recursive_mutex> lock(_mutex());
+        auto it = _register().find(std::make_pair(dag, key));
+        if (it != _register().end() && it->second.expired())
+          _register().erase(it);
+      }
+      aux.reset();
+      if (own) delete obj;
+    }
+
+   private:
+    Home(Home const&);
+    Home& operator=(Home const&);
+  };
+
+  //! @brief Options of the operation. For a handle, they are given to the
+  //! homes that it makes -- the same options, not a copy: they may be
+  //! changed after the insertion, and the operations follow. For an
+  //! operation in a DAG, they are those of its home
+  Options& options;
+
+  //! @brief Options of the home that the handle is attached to -- the object
+  //! it inserted last: the member options, unless another handle had inserted
+  //! that object in the DAG first, the options of a home being those of the
+  //! handle that made it. The member options before any insertion
+  Options&
+  home_options()
+  {
+    return _home ? *_home->popt : *_popt;
+  }
+
+  //! @brief Options of home_options(), shared: they are kept alive for as
+  //! long as the pointer is held -- for interfaces to other languages
+  std::shared_ptr<Options>
+  share_options() const
+  {
+    return _home ? _home->popt : _popt;
+  }
+
+  //! @brief Object of the home, shared: the home is kept alive for as long
+  //! as the pointer is held -- for interfaces to other languages. Null
+  //! without a home
+  std::shared_ptr<O>
+  share_object() const
+  {
+    return _home ? std::shared_ptr<O>(_home, _home->obj) : nullptr;
+  }
+
+  //! @brief Object of the operation: that of its home where it has one --
+  //! the copy made for the DAG, or the object given
+  O*
+  object() const
+  {
+    return _ptrObj;
+  }
+
+  //! @brief Whether the handle is attached to a home, or the operation has
+  //! one
+  bool
+  attached() const
+  {
+    return bool(_home);
+  }
 
   //! @brief Default Constructor
   FFEXTERN()
       : FFOp(EXTERN),
         _ptrObj(nullptr),
         _ownObj(false),
-        _stamp(0),
+        _popt(std::make_shared<Options>()),
         _reset(true),
         _POLEnv(nullptr),
         _SCEnv(nullptr),
         _PWCSEnv(nullptr),
-        _PWLSEnv(nullptr)
+        _PWLSEnv(nullptr),
+        options(*_popt)
   {
   }
 
@@ -413,20 +718,31 @@ class FFEXTERN
     if (_PWLSEnv) delete _PWLSEnv;
   }
 
-  // Copy constructor
+  // Copy constructor: the copy of an operation with a home shares it
   FFEXTERN(FFEXTERN<T, O> const& other)
       : FFOp(other),
-        _stamp(other._stamp),
+        _ptrObj(nullptr),
+        _ownObj(false),
+        _home(other._home),
+        _popt(other._home ? other._home->popt
+                          : std::make_shared<Options>(*other._popt)),
         _reset(true),
         _POLEnv(nullptr),
         _SCEnv(nullptr),
         _PWCSEnv(nullptr),
         _PWLSEnv(nullptr),
-        options(other.options)
+        options(*_popt)
   {
 #ifdef MC__FFEXTERN_TRACE
     std::cout << "FFEXTERN::copy constructor\n";
 #endif
+    if (_home)
+    {
+      _ptrObj = _home->obj;
+      return;
+    }
+
+    // Operation without a home: its own object, or a copy of it
     if (!other._ptrObj)
       throw std::runtime_error(
           "FFEXTERN::copy constructor ** Null pointer to external object\n");
@@ -438,22 +754,23 @@ class FFEXTERN
       _ptrObj = other._ptrObj;
   }
 
-  //! @brief Ordering of operations of the same class on the same operands.
-  //! An operation that holds a copy of an object with a stamp is identified
-  //! by that stamp, that is by the content it copied: the original may since
-  //! have changed, or been destroyed and another object created at its
-  //! address, and an insertion of either is another operation; an unchanged
-  //! original, or a copy of it, is the same one. An operation that refers to
-  //! the object itself, or whose object has no stamp, is identified by the
-  //! address of the object, as with mc::FFOp::lt. The stamped operations come
-  //! after the others
+  //! @brief Ordering of operations of the same class on the same operands:
+  //! by the key of their home in the DAG. With a home that holds a copy of
+  //! an object with a stamp, the key is that stamp, that is the content
+  //! copied: the original may since have changed, or been destroyed and
+  //! another object created at its address, and an insertion of either is
+  //! another operation; an unchanged original, or a copy of it, is the same
+  //! one. Otherwise the key is the address of the object. Operations without
+  //! a home come first, ordered by the address in the field data, as with
+  //! mc::FFOp::lt
   virtual bool
   lt(FFOp const* op) const
   {
     // lt_FFOp compares operations of the same class only
     auto const* other = static_cast<FFEXTERN<T, O> const*>(op);
-    if (_stamp != other->_stamp) return _stamp < other->_stamp;
-    return _stamp ? false : this->data < op->data;
+    if (!_home || !other->_home)
+      return (_home || other->_home) ? !_home : this->data < op->data;
+    return _home->key < other->_home->key;
   }
 };
 

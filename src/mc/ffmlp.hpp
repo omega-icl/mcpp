@@ -1656,39 +1656,35 @@ class FFMLP
 #ifdef MC__FFMLP_CHECK
     assert(nVar == pMLP->nin());
 #endif
-    if (_ownObj && _ptrObj) delete _ptrObj;
-    _ownObj = (policy > 0 ? true : false);  // copy;
-    //_ownObj = true;
+    // home of the network in the DAG of the operands: made on its first
+    // insertion there, with a copy of the network (policy > 0), found again
+    // afterwards -- see mc::FFEXTERN::_attach
     this->owndata = false;
-    this->data = _ptrObj = pMLP;
-    this->_identify(pMLP, policy > 0);
-
+    this->_attach(this->_dag_of(nVar, pVar), pMLP, policy);
     FFVar** ppRes =
-        this->insert_external_operation(*this, pMLP->nout(), nVar, pVar);
-
-    _ownObj   = false;
-    FFOp* pOp = (*ppRes)->opdef().first;
-    if (policy > 0)
-      _ptrObj =
-          static_cast<FFMLP<T>*>(pOp)->_ptrObj;  // set MLP pointer to DAG copy
-    else if (policy < 0)
-      static_cast<FFMLP<T>*>(pOp)->_ownObj = true;  // transfer ownership
-      // nothing to do if policy = 0
-#ifdef MC__FFMLP_DEBUG
-    std::cerr << "MLP operation address: " << this << std::endl;
-    std::cerr << "MLP address in DAG: " << _ptrObj << std::endl;
-#endif
+        this->insert_external_operation(*this, _ptrObj->nout(), nVar, pVar);
     return ppRes;
+  }
+
+  // set the operation in DAG on the network of another operation, whose home
+  // it shares
+  FFVar**
+  _set(size_t const nVar, FFVar const* pVar,
+       FFEXTERN<T, MLP<T>> const& parent)
+  {
+    this->owndata = false;
+    this->_join(parent);
+    return this->insert_external_operation(*this, _ptrObj->nout(), nVar, pVar);
   }
 
  public:
   //! @brief Enumeration type for copy policy of MLP object
   enum POLICY_TYPE
   {
-    SHALLOW = 0,  //!< Shallow copy of MLP object in FFGraph (without ownership)
-    COPY    = 1,  //!< Deep copy of MLP object in FFGraph (with ownership)
+    SHALLOW = 0,  //!< The DAG refers to the MLP object, which it does not own
+    COPY    = 1,  //!< The DAG holds a copy of the MLP object: one per DAG
     TRANSFER =
-        -1  //!< Shallow copy of MLP object in FFGraph (with ownership transfer)
+        -1  //!< The DAG refers to the MLP object, and deletes it in the end
   };
 
   //! @brief Default constructor
@@ -1745,7 +1741,8 @@ class FFMLP
     return *(_set(nVar, pVar, pMLP, policy)[idep]);
   }
 
-  // MLP pointer
+  // MLP pointer: after an insertion, the MLP object of the DAG -- the copy
+  // that it holds (COPY), or the object given
   MLP<T>*
   pMLP() const
   {
@@ -1963,39 +1960,35 @@ class FFGradMLP
 #ifdef MC__FFMLP_CHECK
     assert(nVar == pMLP->nin());
 #endif
-    if (_ownObj && _ptrObj) delete _ptrObj;
-    _ownObj = (policy > 0 ? true : false);  // copy;
-    //_ownObj = true;
+    // home of the network in the DAG of the operands: made on its first
+    // insertion there, with a copy of the network (policy > 0), found again
+    // afterwards -- see mc::FFEXTERN::_attach
     this->owndata = false;
-    this->data = _ptrObj = pMLP;
-    this->_identify(pMLP, policy > 0);
-
+    this->_attach(this->_dag_of(nVar, pVar), pMLP, policy);
     FFVar** ppRes =
-        this->insert_external_operation(*this, nVar * pMLP->nout(), nVar, pVar);
-
-    _ownObj   = false;
-    FFOp* pOp = (*ppRes)->opdef().first;
-    if (policy > 0)
-      _ptrObj = static_cast<FFGradMLP<T>*>(pOp)
-                    ->_ptrObj;  // set MLP pointer to DAG copy
-    else if (policy < 0)
-      static_cast<FFGradMLP<T>*>(pOp)->_ownObj = true;  // transfer ownership
-      // nothing to do if policy = 0
-#ifdef MC__FFMLP_DEBUG
-    std::cerr << "GradMLP operation address: " << this << std::endl;
-    std::cerr << "MLP address in DAG: " << _ptrObj << std::endl;
-#endif
+        this->insert_external_operation(*this, nVar * _ptrObj->nout(), nVar, pVar);
     return ppRes;
+  }
+
+  // set the operation in DAG on the network of another operation, whose home
+  // it shares
+  FFVar**
+  _set(size_t const nVar, FFVar const* pVar,
+       FFEXTERN<T, MLP<T>> const& parent)
+  {
+    this->owndata = false;
+    this->_join(parent);
+    return this->insert_external_operation(*this, nVar * _ptrObj->nout(), nVar, pVar);
   }
 
  public:
   //! @brief Enumeration type for copy policy of MLP object
   enum POLICY_TYPE
   {
-    SHALLOW = 0,  //!< Shallow copy of MLP object in FFGraph (without ownership)
-    COPY    = 1,  //!< Deep copy of MLP object in FFGraph (with ownership)
+    SHALLOW = 0,  //!< The DAG refers to the MLP object, which it does not own
+    COPY    = 1,  //!< The DAG holds a copy of the MLP object: one per DAG
     TRANSFER =
-        -1  //!< Shallow copy of MLP object in FFGraph (with ownership transfer)
+        -1  //!< The DAG refers to the MLP object, and deletes it in the end
   };
 
   //! @brief Default constructor
@@ -2047,7 +2040,8 @@ class FFGradMLP
     return *(_set(nVar, pVar, pMLP, policy)[idep]);
   }
 
-  // MLP pointer
+  // MLP pointer: after an insertion, the MLP object of the DAG -- the copy
+  // that it holds (COPY), or the object given
   MLP<T>*
   pMLP() const
   {
@@ -2188,34 +2182,35 @@ class FFTanMLP
 #ifdef MC__FFMLP_CHECK
     assert(nVar == 2 * pMLP->nin());
 #endif
-    if (_ownObj && _ptrObj) delete _ptrObj;
-    _ownObj = (policy > 0 ? true : false);  // copy;
+    // home of the network in the DAG of the operands: made on its first
+    // insertion there, with a copy of the network (policy > 0), found again
+    // afterwards -- see mc::FFEXTERN::_attach
     this->owndata = false;
-    this->data = _ptrObj = pMLP;
-    this->_identify(pMLP, policy > 0);
-
+    this->_attach(this->_dag_of(nVar, pVar), pMLP, policy);
     FFVar** ppRes =
-        this->insert_external_operation(*this, pMLP->nout(), nVar, pVar);
-
-    _ownObj   = false;
-    FFOp* pOp = (*ppRes)->opdef().first;
-    if (policy > 0)
-      _ptrObj = static_cast<FFTanMLP<T>*>(pOp)
-                    ->_ptrObj;  // set MLP pointer to DAG copy
-    else if (policy < 0)
-      static_cast<FFTanMLP<T>*>(pOp)->_ownObj = true;  // transfer ownership
-      // nothing to do if policy = 0
+        this->insert_external_operation(*this, _ptrObj->nout(), nVar, pVar);
     return ppRes;
+  }
+
+  // set the operation in DAG on the network of another operation, whose home
+  // it shares
+  FFVar**
+  _set(size_t const nVar, FFVar const* pVar,
+       FFEXTERN<T, MLP<T>> const& parent)
+  {
+    this->owndata = false;
+    this->_join(parent);
+    return this->insert_external_operation(*this, _ptrObj->nout(), nVar, pVar);
   }
 
  public:
   //! @brief Enumeration type for copy policy of MLP object
   enum POLICY_TYPE
   {
-    SHALLOW = 0,  //!< Shallow copy of MLP object in FFGraph (without ownership)
-    COPY    = 1,  //!< Deep copy of MLP object in FFGraph (with ownership)
+    SHALLOW = 0,  //!< The DAG refers to the MLP object, which it does not own
+    COPY    = 1,  //!< The DAG holds a copy of the MLP object: one per DAG
     TRANSFER =
-        -1  //!< Shallow copy of MLP object in FFGraph (with ownership transfer)
+        -1  //!< The DAG refers to the MLP object, and deletes it in the end
   };
 
   //! @brief Default constructor
@@ -2243,7 +2238,8 @@ class FFTanMLP
     return vTan;
   }
 
-  // MLP pointer
+  // MLP pointer: after an insertion, the MLP object of the DAG -- the copy
+  // that it holds (COPY), or the object given
   MLP<T>*
   pMLP() const
   {
@@ -2407,7 +2403,7 @@ FFTanMLP<T>::eval(size_t const nRes, FFVar* vRes, size_t const nVar,
   assert(_ptrObj && nRes == _ptrObj->nout() && nVar == 2 * _ptrObj->nin());
 #endif
 
-  FFVar** ppRes = this->insert_external_operation(*this, nRes, nVar, vVar);
+  FFVar** ppRes = this->_reinsert(*this, nRes, nVar, vVar);
   for (unsigned j = 0; j < nRes; ++j) vRes[j] = *(ppRes[j]);
 }
 
@@ -2476,34 +2472,35 @@ class FFAdjMLP
 #ifdef MC__FFMLP_CHECK
     assert(nVar == pMLP->nin() + pMLP->nout());
 #endif
-    if (_ownObj && _ptrObj) delete _ptrObj;
-    _ownObj = (policy > 0 ? true : false);  // copy;
+    // home of the network in the DAG of the operands: made on its first
+    // insertion there, with a copy of the network (policy > 0), found again
+    // afterwards -- see mc::FFEXTERN::_attach
     this->owndata = false;
-    this->data = _ptrObj = pMLP;
-    this->_identify(pMLP, policy > 0);
-
+    this->_attach(this->_dag_of(nVar, pVar), pMLP, policy);
     FFVar** ppRes =
-        this->insert_external_operation(*this, pMLP->nin(), nVar, pVar);
-
-    _ownObj   = false;
-    FFOp* pOp = (*ppRes)->opdef().first;
-    if (policy > 0)
-      _ptrObj = static_cast<FFAdjMLP<T>*>(pOp)
-                    ->_ptrObj;  // set MLP pointer to DAG copy
-    else if (policy < 0)
-      static_cast<FFAdjMLP<T>*>(pOp)->_ownObj = true;  // transfer ownership
-      // nothing to do if policy = 0
+        this->insert_external_operation(*this, _ptrObj->nin(), nVar, pVar);
     return ppRes;
+  }
+
+  // set the operation in DAG on the network of another operation, whose home
+  // it shares
+  FFVar**
+  _set(size_t const nVar, FFVar const* pVar,
+       FFEXTERN<T, MLP<T>> const& parent)
+  {
+    this->owndata = false;
+    this->_join(parent);
+    return this->insert_external_operation(*this, _ptrObj->nin(), nVar, pVar);
   }
 
  public:
   //! @brief Enumeration type for copy policy of MLP object
   enum POLICY_TYPE
   {
-    SHALLOW = 0,  //!< Shallow copy of MLP object in FFGraph (without ownership)
-    COPY    = 1,  //!< Deep copy of MLP object in FFGraph (with ownership)
+    SHALLOW = 0,  //!< The DAG refers to the MLP object, which it does not own
+    COPY    = 1,  //!< The DAG holds a copy of the MLP object: one per DAG
     TRANSFER =
-        -1  //!< Shallow copy of MLP object in FFGraph (with ownership transfer)
+        -1  //!< The DAG refers to the MLP object, and deletes it in the end
   };
 
   //! @brief Default constructor
@@ -2532,7 +2529,8 @@ class FFAdjMLP
     return vAdj;
   }
 
-  // MLP pointer
+  // MLP pointer: after an insertion, the MLP object of the DAG -- the copy
+  // that it holds (COPY), or the object given
   MLP<T>*
   pMLP() const
   {
@@ -2700,7 +2698,7 @@ FFAdjMLP<T>::eval(size_t const nRes, FFVar* vRes, size_t const nVar,
          nVar == _ptrObj->nin() + _ptrObj->nout());
 #endif
 
-  FFVar** ppRes = this->insert_external_operation(*this, nRes, nVar, vVar);
+  FFVar** ppRes = this->_reinsert(*this, nRes, nVar, vVar);
   for (unsigned j = 0; j < nRes; ++j) vRes[j] = *(ppRes[j]);
 }
 
@@ -2759,7 +2757,7 @@ FFMLP<T>::tangent(unsigned const nRes, FFVar const* vRes, unsigned const nVar,
     vOpd.push_back(vTan[i] ? *vTan[i] : FFVar(0.));
 
   FFTanMLP<T> ResTan;
-  FFVar const* const* vResDer = ResTan._set(vOpd.size(), vOpd.data(), _ptrObj, COPY);
+  FFVar const* const* vResDer = ResTan._set(vOpd.size(), vOpd.data(), *this);
   for (unsigned k = 0; k < nRes; ++k) vResTan[k] = *vResDer[k];
 }
 
@@ -2784,7 +2782,7 @@ FFMLP<T>::adjoint(unsigned const nRes, FFVar const* vRes, unsigned const nVar,
     vOpd.push_back(vResAdj[k] ? *vResAdj[k] : FFVar(0.));
 
   FFAdjMLP<T> ResAdj;
-  FFVar const* const* vResDer = ResAdj._set(vOpd.size(), vOpd.data(), _ptrObj, COPY);
+  FFVar const* const* vResDer = ResAdj._set(vOpd.size(), vOpd.data(), *this);
   for (unsigned i = 0; i < nVar; ++i) vVarAdj[i] = *vResDer[i];
 }
 
@@ -2876,7 +2874,7 @@ FFMLP<T>::eval(size_t const nRes, FFVar* vRes, size_t const nVar,
   assert(_ptrObj && nRes == _ptrObj->nout() && nVar == _ptrObj->nin());
 #endif
 
-  FFVar** ppRes = this->insert_external_operation(*this, nRes, nVar, vVar);
+  FFVar** ppRes = this->_reinsert(*this, nRes, nVar, vVar);
   for (unsigned j = 0; j < nRes; ++j) vRes[j] = *(ppRes[j]);
 }
 
@@ -2895,7 +2893,7 @@ FFGradMLP<T>::eval(size_t const nRes, FFVar* vRes, size_t const nVar,
          nVar == _ptrObj->nin());
 #endif
 
-  FFVar** ppRes = this->insert_external_operation(*this, nRes, nVar, vVar);
+  FFVar** ppRes = this->_reinsert(*this, nRes, nVar, vVar);
   for (unsigned j = 0; j < nRes; ++j) vRes[j] = *(ppRes[j]);
 }
 
@@ -2947,11 +2945,11 @@ FFMLP<T>::eval(size_t const nRes, FADType<FFVar>* vRes, size_t const nVar,
   std::vector<FFVar> vVarVal(nVar);
   for (unsigned i = 0; i < nVar; ++i) vVarVal[i] = vVar[i].val();
   FFVar const* const* vResVal =
-      this->insert_external_operation(*this, nRes, nVar, vVarVal.data());
+      this->_reinsert(*this, nRes, nVar, vVarVal.data());
 
   FFGradMLP<T> ResDer;
   FFVar const* const* vResDer =
-      ResDer._set(nVar, vVarVal.data(), _ptrObj, COPY);
+      ResDer._set(nVar, vVarVal.data(), *this);
 
   for (unsigned k = 0; k < nRes; ++k)
   {
@@ -2983,7 +2981,7 @@ FFMLP<T>::deriv(unsigned const nRes, FFVar const* vRes, unsigned const nVar,
 #endif
 
   FFGradMLP<T> ResDer;
-  FFVar const* const* vResDer = ResDer._set(nVar, vVar, _ptrObj, COPY);
+  FFVar const* const* vResDer = ResDer._set(nVar, vVar, *this);
   for (unsigned k = 0; k < nRes; ++k)
     for (unsigned i = 0; i < nVar; ++i)
       // vDer[k][i] = *vResDer[k+nRes*i];

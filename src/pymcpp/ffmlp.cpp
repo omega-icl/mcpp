@@ -43,7 +43,7 @@ PYBIND11_MAKE_OPAQUE(std::set<mc::FFMLP<I>::Options::RELAX_TYPE>);
 void
 mc_ffmlp(py::module_& m)
 {
-  py::class_<mc::MLP<I>> pyMLP(m, "MLP", R"doc(
+  py::class_<mc::MLP<I>, std::shared_ptr<mc::MLP<I>>> pyMLP(m, "MLP", R"doc(
 Trained multilayer perceptron (MLP) for evaluation and relaxation.
 
 An ``MLP`` object stores the weights, biases and activation functions of a
@@ -315,8 +315,17 @@ reverse interval constraint propagation.
 The relaxation strategy used when constructing polyhedral cuts for the
 network node is selected through :attr:`options` (field ``RELAX``).
 
-The MLP object passed to ``__call__`` is deep-copied into the DAG, so
-later modifications of the original network do not affect the DAG node.
+The MLP object passed to ``__call__`` is copied into the DAG, once per
+DAG: every operation on that network in that DAG -- on whichever
+variables, and the gradient operations that differentiation inserts --
+shares the copy, which :attr:`mlp` returns. Later modifications of the
+original network do not affect the DAG; a network modified with
+``set_data`` or ``append_data`` and passed again is inserted as another
+operation, with a copy of its own.
+
+Options can be changed after the insertion, and the operations follow:
+the relaxation options through :attr:`options`, the options of the
+network in the DAG through ``mlp.options``.
 
 Examples
 --------
@@ -334,13 +343,15 @@ Examples
 [[  0.0000000000000000e+00 :  4.0000000000000000e+00 ]]
 )doc");
 
-  py::class_<mc::FFMLP<I>::Options> pyFFMLPOptions(pyFFMLP, "Options", R"doc(
+  py::class_<mc::FFMLP<I>::Options, std::shared_ptr<mc::FFMLP<I>::Options>>
+      pyFFMLPOptions(pyFFMLP, "Options", R"doc(
 Options controlling the relaxation of an FFMLP operation.
 
 The field ``RELAX`` selects one or more relaxation strategies used when
 building polyhedral cuts for the network node; the remaining fields tune
 the individual strategies. Set the fields on the :attr:`FFMLP.options`
-attribute, e.g. ``OpNN.options.RELAX = {OpNN.Options.INT}``.
+attribute, e.g. ``OpNN.options.RELAX = {OpNN.Options.INT}``, before or
+after the operation is inserted in a DAG.
 )doc");
 
   pyFFMLP
@@ -459,8 +470,37 @@ str: Name of this operation as displayed in the DAG.
              Oss << self;
              return Oss.str();
            })
-      .def_readwrite("options", &mc::FFMLP<I>::options, R"doc(
+      .def_property(
+          "options",
+          [](mc::FFMLP<I>& self) { return self.share_options(); },
+          [](mc::FFMLP<I>& self, mc::FFMLP<I>::Options const& opt)
+          { self.home_options() = opt; },
+          R"doc(
 FFMLP.Options: Options controlling the relaxation of the network node.
+
+Before the first call, the options that the operations inserted through
+this object will have. After a call, the options of the network inserted
+last, in its DAG: they are shared by every operation on that network in
+that DAG, the gradient operations included, and a change takes effect at
+the next relaxation. (A network that another FFMLP object inserted first
+in the DAG keeps the options of that object; they are the ones returned
+here.)
+)doc")
+      .def_property_readonly(
+          "mlp", [](mc::FFMLP<I>& self) { return self.share_object(); },
+          R"doc(
+MLP or None: The copy held by the DAG of the network inserted last, None
+before the first call.
+
+The copy is shared by every operation on that network in that DAG. Its
+options can be changed, e.g. ``OpNN.mlp.options.TANGENT = True``: the
+operations follow at their next evaluation or differentiation. The copy
+is not meant to have its weights modified.
+)doc")
+      .def_property_readonly(
+          "attached", [](mc::FFMLP<I> const& self) { return self.attached(); },
+          R"doc(
+bool: Whether the object has inserted an operation in a DAG.
 )doc");
 
 

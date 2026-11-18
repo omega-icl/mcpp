@@ -5304,7 +5304,7 @@ inter(SCVar<T, KEY, COMP>& CVR, SCVar<T, KEY, COMP> const& CV1,
         SCModel<T, KEY, COMP>::Exceptions::MODEL);
 
   // First intersect in T arithmetic
-  T BR;
+  T BR(0.);
   if (CV1._CM->options.MIXED_IA && !Op<T>::inter(BR, CV1.B(), CV2.B()))
     return false;
 

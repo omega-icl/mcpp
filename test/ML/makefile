@@ -5,7 +5,7 @@ include $(PATH_MC)/src/makeoptions.mk
 
 #####
 
-all : test_MLP test_Torch test_MLPREG test_MLP_tangent test_MLP_adjoint test_MLP_grad test_MLP_copy test_MLP_ident test_MLP_torch
+all : test_MLP test_Torch test_MLPREG test_MLP_tangent test_MLP_adjoint test_MLP_grad test_MLP_copy test_MLP_ident test_MLP_home test_MLP_torch
 
 test_MLP : test_MLP.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
@@ -31,6 +31,9 @@ test_MLP_copy : test_MLP_copy.o
 test_MLP_ident : test_MLP_ident.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
 
+test_MLP_home : test_MLP_home.o
+	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
+
 test_MLP_torch : test_MLP_torch.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
 
@@ -54,5 +57,5 @@ gensvg :
 #####
 
 clean :
-	rm -f test_MLP test_Torch test_MLPREG test_MLP_tangent test_MLP_adjoint test_MLP_grad test_MLP_copy test_MLP_ident test_MLP_torch
+	rm -f test_MLP test_Torch test_MLPREG test_MLP_tangent test_MLP_adjoint test_MLP_grad test_MLP_copy test_MLP_ident test_MLP_home test_MLP_torch
 	-(rm -f *.o *.out *.eps *.dot *.png *.lp *~)
