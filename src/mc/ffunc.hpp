@@ -12058,8 +12058,16 @@ FFGraph::SDBAD(std::vector<FFVar const*> const& vDep,
           for (unsigned const irow : vRow) ++nDer[irow];
           for (size_t iout = 0; iout < nout; ++iout)
           {
-            if (nDer[iout]) vDep_deriv[iwk + iout] = new FFVar[nDer[iout]];
-            nDer[iout] = 0;
+            size_t const n = nDer[iout];
+            nDer[iout]     = 0;
+            if (!n) continue;
+            // n is at most the number of independents.  The explicit cap gives the compiler a bound
+            // under which n*sizeof(FFVar) cannot overflow -- as in FFDAGEXT::deriv -- which GCC 15
+            // needs under link-time optimization, or it warns (-Walloc-size-larger-than=) on the
+            // overflow branch of new[]
+            if (n > std::numeric_limits<std::ptrdiff_t>::max() / sizeof(FFVar))
+              throw std::bad_alloc();
+            vDep_deriv[iwk + iout] = new FFVar[n];
           }
           for (size_t ie = 0; ie < vRow.size(); ++ie)
           {
