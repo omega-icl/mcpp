@@ -152,11 +152,10 @@ main()
   std::printf("Torch code paths of multilayer perceptrons\n");
 
   run("modules that are read: values and derivatives through Torch against MC++", []() -> Result {
-    // {file, tolerance}: single precision, except one module
-    std::vector<std::pair<std::string, double>> const models = {
-        {"peak_Tanh_40L4.pt", 1e-5}, {"peak_ReLU_40L4.pt", 1e-5}, {"peak_Tanh_20L2.pt", 1e-5}, {"peak_ReLU_20L2.pt", 1e-5},
-        {"torch_tanh.pt", 1e-5},     {"torch_tanh_double.pt", 1e-12}};
-    for (auto const& [file, tol] : models)
+    // modules in single precision, except the last: all are evaluated in double precision
+    double const tol = 1e-11;
+    for (std::string const file : {"peak_Tanh_40L4.pt", "peak_ReLU_40L4.pt", "peak_Tanh_20L2.pt", "peak_ReLU_20L2.pt",
+                                   "torch_tanh.pt", "torch_tanh_double.pt"})
     {
       mc::MLP<I> ANN;
       if (!ANN.read_data(file)) return {false, file + " not read"};
@@ -184,7 +183,7 @@ main()
       {
         auto const ref = derivatives(ANN, x, false), der = derivatives(ANN, x, true);
         for (size_t k = 0; k < 4; ++k)
-          if (!near(der[k], ref[k], 1e-5)) return {false, file + ": " + what[k]};
+          if (!near(der[k], ref[k], 1e-11)) return {false, file + ": " + what[k]};
         // dropout has no effect in evaluation: the same values again
         if (derivatives(ANN, x, true) != der) return {false, file + ": not repeatable"};
       }
@@ -210,7 +209,7 @@ main()
     // and a module that is read replaces the previous one
     if (!ANN.read_data("torch_out_activ.pt") || ANN.nout() != 3) return {false, "torch_out_activ.pt not read"};
     auto const ref2 = derivatives(ANN, x, false), der2 = derivatives(ANN, x, true);
-    return {near(der2[0], ref2[0], 1e-5) && near(der2[1], ref2[1], 1e-5), "after reading another module"};
+    return {near(der2[0], ref2[0], 1e-11) && near(der2[1], ref2[1], 1e-11), "after reading another module"};
   });
 
   run("read_data prints nothing unless asked", []() -> Result {
@@ -312,10 +311,10 @@ main()
       std::vector<double> d(dF[k].size()), dT(dFT[k].size()), f(2), fT(2);
       DAG.eval(dF[k], d, QW, qw);
       DAG.eval(dFT[k], dT, QW, qw);
-      if (!near(dT, d, 1e-5)) return {false, "derivatives " + std::to_string(k)};
+      if (!near(dT, d, 1e-11)) return {false, "derivatives " + std::to_string(k)};
       DAG.eval(F, f, QW, qw);
       DAG.eval(FT, fT, QW, qw);
-      if (!near(fT, f, 1e-5)) return {false, "values"};
+      if (!near(fT, f, 1e-11)) return {false, "values"};
     }
     return {true, ""};
   });

@@ -114,7 +114,8 @@ class MLP
       B       //!< Backward differentiation
     };
 
-    //! @brief Whether to evaluate ANN in floating-point arithemic using Torch
+    //! @brief Whether to evaluate ANN in floating-point arithemic using Torch,
+    //! in double precision whatever the precision of the Module that was read
     bool EVALTORCH;
     //! @brief Threshold for zero coefficient in neural network
     double ZEROTOL;
@@ -792,7 +793,7 @@ MLP<T>::read_data(std::string const& filename, bool const disp)
   // The Module is read into local objects, and the MLP is only changed once
   // it has been read in full and checked: a failure leaves the MLP as it was
   torch::jit::script::Module module;
-  torch::Dtype dtype = torch::kFloat32;
+  torch::Dtype const dtype = torch::kFloat64;
   std::vector<std::pair<std::vector<std::vector<double>>, int>> data;
   bool batched = false;
 
@@ -801,6 +802,19 @@ MLP<T>::read_data(std::string const& filename, bool const disp)
     if (disp) std::cout << "Loading Torch Module from " << filename << "...\n";
     module = torch::jit::load(filename);
     module.to(_device);
+    // Double precision, whatever the precision of the Module: the conversion
+    // of its parameters is exact, and Torch then evaluates the very network
+    // that MC++ bounds and relaxes, to rounding errors -- in single
+    // precision its values lie some 1e-7 off, outside the bounds of MC++ at
+    // the same point
+    if (disp)
+      for (auto const& p : module.parameters())
+      {
+        std::cout << "Model parameter dtype: " << p.scalar_type()
+                  << ", converted to " << dtype << "\n";
+        break;
+      }
+    module.to(dtype);
     // Evaluation mode, and no gradients with respect to the parameters: the
     // backward passes of grad and adj stop at the inputs, and a forward pass
     // records no graph unless the inputs require one
@@ -847,7 +861,6 @@ MLP<T>::read_data(std::string const& filename, bool const disp)
           if (disp) std::cerr << "Linear submodule with inconsistent size\n";
           return false;
         }
-        if (data.empty()) dtype = weight.scalar_type();
 
         // Each neuron holds its bias followed by its weights; a layer without
         // bias has zero biases
@@ -914,7 +927,7 @@ MLP<T>::read_data(std::string const& filename, bool const disp)
     }
     for (size_t k = 0; k < 2 * nout; ++k)
       if (!(std::fabs(valout[k] - refout[k]) <=
-            1e-4 * (1. + std::fabs(refout[k]))))
+            1e-8 * (1. + std::fabs(refout[k]))))
       {
         if (disp)
           std::cerr << "Module does not evaluate as its 'net' submodule: "
@@ -930,7 +943,7 @@ MLP<T>::read_data(std::string const& filename, bool const disp)
       batched = true;
       for (size_t k = 0; k < 2 * nout; ++k)
         if (!(std::fabs(batout[k] - refout[k]) <=
-              1e-4 * (1. + std::fabs(refout[k]))))
+              1e-8 * (1. + std::fabs(refout[k]))))
           batched = false;
     }
     catch (std::exception const&)
@@ -938,8 +951,7 @@ MLP<T>::read_data(std::string const& filename, bool const disp)
       batched = false;
     }
     if (disp)
-      std::cout << "Model parameter dtype: " << dtype
-                << (batched ? "; takes" : "; does not take")
+      std::cout << "Model " << (batched ? "takes" : "does not take")
                 << " batches of inputs\n";
   }
 
