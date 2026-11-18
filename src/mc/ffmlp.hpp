@@ -191,6 +191,9 @@ class MLP
   //! @brief MLP data
   std::vector<std::pair<std::vector<std::vector<double>>, int>> _data;
 
+  //! @brief Stamp of the network: see uid()
+  size_t _uid;
+
   //! @brief Intermediate storage for DAG evaluation
   std::vector<std::vector<FFVar>> _wkFF;
   std::vector<std::vector<double>> _wkD;
@@ -347,6 +350,8 @@ class MLP
         _dtype(torch::kFloat32),
         _batched(false)
 #endif
+        ,
+        _uid(ffextern_uid())
   {
     // Decide device once
     // if( torch::cuda::is_available() ){
@@ -372,7 +377,8 @@ class MLP
         _dtype(other._dtype),
         _batched(other._batched),
 #endif
-        _data(other._data)
+        _data(other._data),
+        _uid(other._uid)
   {
   }
 
@@ -404,6 +410,7 @@ class MLP
     _batched = other._batched;
 #endif
     _data = other._data;
+    _uid  = other._uid;
     // The work arrays hold variables of the previous expression tree, and
     // have the sizes of the previous network
     _wkFF.clear();
@@ -763,6 +770,18 @@ class MLP
   {
     return _nout;
   }
+  //! @brief Stamp of the network -- its layers, and its Torch Module if any:
+  //! a number that no other network has had, drawn again whenever the network
+  //! is set, appended to, read or reset, and kept by the copies and by an MLP
+  //! the network is assigned to. The options are not part of it. An MLP
+  //! operation that holds a copy of the network is identified in a DAG by
+  //! this stamp: see mc::FFEXTERN::lt
+  size_t
+  uid() const
+  {
+    return _uid;
+  }
+
   //! @brief Number of weights, biases aside
   size_t
   nwei() const
@@ -1057,6 +1076,7 @@ MLP<T>::set_data(
   _nout   = _data.back().first.size();
   _nhid   = _data.size() - 1;
   _update = true;
+  _uid    = ffextern_uid();
 
   // Cleanse data
   for (auto& [layer, activ] : _data)
@@ -1075,6 +1095,7 @@ MLP<T>::reset_data()
   _nin = _nout = _nhid = 0;
   _data.clear();
   _update = true;
+  _uid    = ffextern_uid();
 }
 
 template <typename T>
@@ -1097,6 +1118,7 @@ MLP<T>::append_data(std::vector<std::vector<double>> const& layer,
   _nout   = _data.back().first.size();
   _nhid   = _data.size() - 1;
   _update = true;
+  _uid    = ffextern_uid();
 
   // Cleanse data
   for (auto& neuron : _data.back().first)
@@ -1639,6 +1661,7 @@ class FFMLP
     //_ownObj = true;
     this->owndata = false;
     this->data = _ptrObj = pMLP;
+    this->_identify(pMLP, policy > 0);
 
     FFVar** ppRes =
         this->insert_external_operation(*this, pMLP->nout(), nVar, pVar);
@@ -1945,6 +1968,7 @@ class FFGradMLP
     //_ownObj = true;
     this->owndata = false;
     this->data = _ptrObj = pMLP;
+    this->_identify(pMLP, policy > 0);
 
     FFVar** ppRes =
         this->insert_external_operation(*this, nVar * pMLP->nout(), nVar, pVar);
@@ -2168,6 +2192,7 @@ class FFTanMLP
     _ownObj = (policy > 0 ? true : false);  // copy;
     this->owndata = false;
     this->data = _ptrObj = pMLP;
+    this->_identify(pMLP, policy > 0);
 
     FFVar** ppRes =
         this->insert_external_operation(*this, pMLP->nout(), nVar, pVar);
@@ -2455,6 +2480,7 @@ class FFAdjMLP
     _ownObj = (policy > 0 ? true : false);  // copy;
     this->owndata = false;
     this->data = _ptrObj = pMLP;
+    this->_identify(pMLP, policy > 0);
 
     FFVar** ppRes =
         this->insert_external_operation(*this, pMLP->nin(), nVar, pVar);

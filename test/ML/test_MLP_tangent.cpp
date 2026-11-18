@@ -268,8 +268,6 @@ main()
     // outputs; always with many, the products with the Jacobian then costing more than the passes
     for (auto const& [nout, nmax] : std::vector<std::pair<size_t, unsigned>>{{1, 0}, {4, 2}, {20, 4}})
     {
-      // a DAG per network: an operation is identified by the address of its network, including after
-      // the DAG has taken a copy, and the networks of this loop succeed each other at the same address
       FFGraph DAG;
       std::vector<FFVar> Q = DAG.add_vars(4), D = DAG.add_vars(4);
       mc::MLP<I> ANN, ANNT;

@@ -10,6 +10,7 @@
 #define MC__FFEXTERN_CHECK
 
 #include <armadillo>
+#include <atomic>
 #include <bitset>
 
 #include "ffdep.hpp"
@@ -30,6 +31,19 @@
 namespace mc
 {
 
+//! @brief Stamp for the content of an object held by external operations: a
+//! number that no other content has had. An object that defines
+//! <tt>size_t uid() const</tt> -- a stamp drawn here on construction and
+//! again whenever its content changes, and kept by its copies -- has the
+//! operations holding a copy of it (see mc::FFEXTERN) identified by that
+//! content, whatever becomes of the original
+inline size_t
+ffextern_uid()
+{
+  static std::atomic<size_t> count{0};
+  return ++count;
+}
+
 //! @brief C++ class defining external DAG operations in MC++ for template-type
 //! objects
 ////////////////////////////////////////////////////////////////////////
@@ -47,6 +61,9 @@ class FFEXTERN
   O* _ptrObj;
   // whether this class owns the object
   bool _ownObj;
+  // stamp of the content of the object where the operation holds a copy of
+  // it, 0 where it refers to the object itself: see _identify and lt
+  size_t _stamp;
   // whether the internal arrays need resizing
   mutable bool _reset;
 
@@ -123,6 +140,31 @@ class FFEXTERN
   //! @brief Append polyhedral image cuts for the object
   void _backpropagate_relax(PolImg<T>* img, FFOp* pOp, PolVar<T>* vRes,
                             PolVar<T>* vVar) const;
+
+  //! @brief Stamp of the content of an object: its uid() where it has one, 0
+  //! otherwise
+  template <typename OBJ>
+  static auto
+  _stamp_of(OBJ const* pObj, int) -> decltype(size_t(pObj->uid()))
+  {
+    return pObj->uid();
+  }
+  template <typename OBJ>
+  static size_t
+  _stamp_of(OBJ const*, long)
+  {
+    return 0;
+  }
+
+  //! @brief Set what identifies the operation in a DAG beside its operands
+  //! (see lt), before it is inserted: the content of the object where the DAG
+  //! takes a copy of it (<a>copy</a>) and the object has a stamp; the address
+  //! of the object otherwise, held in the field data
+  void
+  _identify(O const* pObj, bool const copy)
+  {
+    _stamp = (copy && pObj ? _stamp_of(pObj, 0) : 0);
+  }
 
  private:
   //! @brief Initialize LHS sampling
@@ -352,6 +394,7 @@ class FFEXTERN
       : FFOp(EXTERN),
         _ptrObj(nullptr),
         _ownObj(false),
+        _stamp(0),
         _reset(true),
         _POLEnv(nullptr),
         _SCEnv(nullptr),
@@ -373,6 +416,7 @@ class FFEXTERN
   // Copy constructor
   FFEXTERN(FFEXTERN<T, O> const& other)
       : FFOp(other),
+        _stamp(other._stamp),
         _reset(true),
         _POLEnv(nullptr),
         _SCEnv(nullptr),
@@ -392,6 +436,24 @@ class FFEXTERN
       _ptrObj = new O(*other._ptrObj);
     else
       _ptrObj = other._ptrObj;
+  }
+
+  //! @brief Ordering of operations of the same class on the same operands.
+  //! An operation that holds a copy of an object with a stamp is identified
+  //! by that stamp, that is by the content it copied: the original may since
+  //! have changed, or been destroyed and another object created at its
+  //! address, and an insertion of either is another operation; an unchanged
+  //! original, or a copy of it, is the same one. An operation that refers to
+  //! the object itself, or whose object has no stamp, is identified by the
+  //! address of the object, as with mc::FFOp::lt. The stamped operations come
+  //! after the others
+  virtual bool
+  lt(FFOp const* op) const
+  {
+    // lt_FFOp compares operations of the same class only
+    auto const* other = static_cast<FFEXTERN<T, O> const*>(op);
+    if (_stamp != other->_stamp) return _stamp < other->_stamp;
+    return _stamp ? false : this->data < op->data;
   }
 };
 
