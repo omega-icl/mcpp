@@ -932,9 +932,6 @@ McCormick relaxations</A>, <i>Journal of Global Optimization</i>,
 #include "mctime.hpp"
 #endif
 
-// Map DAG variables to values for DAG vectorized evaluation
-#undef MC__VEVAL_USE_NDXVAR
-
 namespace mc
 {
 class FFOp;
@@ -3757,7 +3754,10 @@ class FFGraph : public FFBase
   //! intermediate operations in the vector <a>wkDep</a>, resizing it as
   //! necessary. It uses / creates the subgraph for the dependent variables
   //! passed via <a>sgDep</a> (e.g. to reduce the computational burden in
-  //! repetitive evaluation of the same dependents/functions).
+  //! repetitive evaluation of the same dependents/functions). The values of
+  //! the variables are looked up in a map built afresh at every call; for
+  //! repeated calls with the same variables, the overload below keeps that map
+  //! in <a>ndxVar</a> between calls.
   template <typename U>
   void eval(FFSubgraph& sgDep, std::vector<U>& wkDep, unsigned const nDep,
             FFVar const* pDep, U* vDep, std::vector<size_t> const& l_nVar,
@@ -3776,7 +3776,9 @@ class FFGraph : public FFBase
   //! necessary. It uses / creates the subgraph for the dependent variables
   //! passed via <a>sgDep</a> and variable index cache <a>ndxVar</a> to avoid
   //! rescanning l_pVar on repeated calls where l_nVar and l_pVar are unchanged
-  //! but l_vVar carries new values.
+  //! but l_vVar carries new values. The cache is built when <a>ndxVar</a> is
+  //! empty and is otherwise used as is: clear it whenever l_nVar or l_pVar
+  //! change, or the values will be read from the wrong places.
   template <typename U>
   void eval(FFSubgraph& sgDep,
             std::unordered_map<FFVar::pt_idVar, std::pair<size_t, size_t>,
@@ -14270,10 +14272,10 @@ FFGraph::_veval(size_t const CURTHREAD, size_t const NOTHREADS, Worker<U>& wk,
   std::advance(ituVar, CURTHREAD);
   std::advance(ituDep, CURTHREAD);
   std::advance(ituErr, CURTHREAD);
-#ifdef MC__VEVAL_USE_NDXVAR
+  // id -> (group, index) of the variables given, built at the first scenario
+  // and kept for the others: the variable lists are the same in every one
   std::unordered_map<FFVar::pt_idVar, std::pair<size_t, size_t>, hash_FFVarId>
       ndxVar;
-#endif
 
   for (size_t s = CURTHREAD; s < v_uVar.size(); s += NOTHREADS)
   {
@@ -14285,13 +14287,8 @@ FFGraph::_veval(size_t const CURTHREAD, size_t const NOTHREADS, Worker<U>& wk,
     l_uVar.back() = ituVar->data();
     try
     {
-#ifdef MC__VEVAL_USE_NDXVAR
       wk.dag->eval(wk.sgDep, ndxVar, wk.wkDep, wk.vDep.size(), wk.vDep.data(),
                    ituDep->data(), wk.l_nVar, wk.l_pVar, l_uVar, scaladd);
-#else
-      wk.dag->eval(wk.sgDep, wk.wkDep, wk.vDep.size(), wk.vDep.data(),
-                   ituDep->data(), wk.l_nVar, wk.l_pVar, l_uVar, scaladd);
-#endif
       *ituErr = true;  // record successful evaluation
     }
     catch (...)
@@ -14324,10 +14321,10 @@ FFGraph::_veval0(size_t const NOTHREADS, FFSubgraph& sgDep,
   auto ituDep = v_uDep.begin();
   auto ituVar = v_uVar.cbegin();
   auto ituErr = _vevalErr.begin();
-#ifdef MC__VEVAL_USE_NDXVAR
+  // id -> (group, index) of the variables given, built at the first scenario
+  // and kept for the others: the variable lists are the same in every one
   std::unordered_map<FFVar::pt_idVar, std::pair<size_t, size_t>, hash_FFVarId>
       ndxVar;
-#endif
 
   for (size_t s = 0; s < v_uVar.size(); s += NOTHREADS)
   {
@@ -14339,13 +14336,8 @@ FFGraph::_veval0(size_t const NOTHREADS, FFSubgraph& sgDep,
     l_uVar.back() = ituVar->data();
     try
     {
-#ifdef MC__VEVAL_USE_NDXVAR
       eval(sgDep, ndxVar, wkDep, vDep.size(), vDep.data(), ituDep->data(),
            l_nVar, l_pVar, l_uVar, scaladd);
-#else
-      eval(sgDep, wkDep, vDep.size(), vDep.data(), ituDep->data(), l_nVar,
-           l_pVar, l_uVar, scaladd);
-#endif
       *ituErr = true;  // record successful evaluation
     }
     catch (...)

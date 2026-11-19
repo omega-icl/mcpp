@@ -111,6 +111,16 @@ exception to the result `FAD` gives.
   a Jacobian).  `FFEXTERN<T, O>::Options` is `FFEXTERN_OPTIONS<T, O>`, now at namespace scope, and
   `ffextern_uid()` is `ffhome_uid()`.
 
+### DAG evaluation
+
+`FFGraph::veval` evaluated each scenario with the `FFGraph::eval` that builds, at every call, a hash map from
+the variables to their values, with one allocation per variable: on a subgraph with thousands of variables -- a
+network whose weights are variables -- this cost more than the evaluation itself.  Each thread of `veval` now
+builds that map once and keeps it for all its scenarios, through the overload of `eval` that takes it
+(`ndxVar`), which `veval` used only when `MC__VEVAL_USE_NDXVAR` was defined; the macro is gone.  For one
+`FFMLPREG` operation on 3,443 variables, 300 to 130 us per scenario for the loss and its gradient in the
+weights.  For repeated calls of `eval` with the same variables, pass `ndxVar` likewise.
+
 ### Compiler warnings
 
 `-Wmaybe-uninitialized` from the default constructor of `mc::B<T>` (`bdiff.hpp`) wherever an `MLP` was
