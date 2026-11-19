@@ -42,6 +42,17 @@ exception to the result `FAD` gives.
   from it at two points.  The parameters no longer accumulate gradients, the Jacobian takes one backward
   pass where the module takes batches, and modules are evaluated in double precision.
 * `MLP` has an assignment operator (the implicit one was deleted).
+* **ONNX as a second front end.** `MLP::read_data` reads a file whose name ends with `.onnx` with a protobuf
+  decoder of its own (`mc::MLPIO`, `mlpio.hpp`) and no other library, so that the pymcpp wheels, built
+  without Torch, read trained networks too.  The graph must be a chain from its input to its output: `Gemm`
+  (`transA` = 0, any `alpha`, `beta`, `transB`), or `MatMul` and `Add`, for each dense layer, with the weights
+  as initializers or `Constant` nodes in float, double or float16; `BatchNormalization` after a dense layer,
+  folded into it; `Relu`, `Tanh`, `Sigmoid`; and `Identity`, `Dropout`, `Flatten`, `Reshape`, `Squeeze`,
+  `Unsqueeze`, `Cast`.  Anything else -- another node, a skip connection, a second input, weights stored
+  outside the file -- is refused with the reason, and the MLP is left as it was.  This reads the exports of
+  PyTorch (`torch.onnx.export`, Gemm or MatMul and Add), scikit-learn (skl2onnx) and Keras (tf2onnx), whose
+  values agree with ONNX Runtime to its precision.  A network read from ONNX is evaluated by MC++
+  (`EVALTORCH` has no effect).  The reader of TorchScript Modules moved to `MLPIO` as well, unchanged.
 
 ### External operations: one home per object and per DAG
 
@@ -79,7 +90,8 @@ differentiated in interval or McCormick arithmetic, and from `inter()` of two `S
 
 `test/DAG/DAG_tangent`, `DAG_adjoint`, `DAG_doxygen_hooks`, `DAG_dagext_home`; `test/ML/test_MLP_tangent`,
 `test_MLP_adjoint`, `test_MLP_grad`, `test_MLP_copy`, `test_MLP_torch` (with `test_MLP_torch.py` and the
-modules it generates), `test_MLP_ident`, `test_MLP_home`; `src/pymcpp/check_ffextern.py` in the release
+modules it generates), `test_MLP_ident`, `test_MLP_home`, `test_MLP_onnx` (with `test_MLP_onnx.py` and the ONNX
+models it generates); `src/pymcpp/check_ffextern.py` in the release
 gate.  `test_MLP`, `test_MLPREG`, `DAG_external`, `DAG_unittests` and `FFDAGEXT_2d` print the same output
 as 5.1.1.
 

@@ -56,8 +56,11 @@ tightened by interval constraint propagation.
 
 The network data can be populated in two ways:
 
-- :meth:`read_data` imports a network exported from PyTorch as a
-  TorchScript file (``torch.jit.script(model).save("model.pt")``);
+- :meth:`read_data` imports a trained network from an ONNX file, as
+  exported by PyTorch (``torch.onnx.export``), scikit-learn (skl2onnx),
+  Keras (tf2onnx) and others, or from a TorchScript file
+  (``torch.jit.script(model).save("model.pt")``) where pymcpp was built
+  with Torch;
 - :meth:`set_data`/:meth:`append_data` supply the layers explicitly, one
   weight matrix per layer where each neuron row reads
   ``[bias, w_1, ..., w_n]`` with one weight per neuron of the previous
@@ -179,20 +182,27 @@ reset : bool, optional
           {
             if (!self.read_data(filename, disp))
               throw std::runtime_error(
-                  "MLP.read_data: failed to load network data (was pymcpp "
-                  "compiled with Torch support?)");
+                  "MLP.read_data: failed to load network data from " +
+                  filename +
+                  " (call with disp=True for the reason; a TorchScript file "
+                  "needs pymcpp compiled with Torch support)");
           },
           py::arg("filename"), py::arg("disp") = false, R"doc(
-Load the network data from a TorchScript file.
+Load the network data from an ONNX file or a TorchScript file.
 
 Reads the weights, biases and activation functions of a feedforward
-network saved with PyTorch (``torch.jit.script(model).save(...)``); the
-supported activations are ReLU, Tanh, Sigmoid and Linear.
+network: from an ONNX file (name ending with ``.onnx``) -- a chain of dense
+layers (Gemm, or MatMul and Add, with BatchNormalization folded in) and
+Relu, Tanh or Sigmoid activations -- with no other library; or from a
+network saved with PyTorch (``torch.jit.script(model).save(...)``), whose
+attribute ``net`` is a Sequential of Linear layers and ReLU, Tanh or
+Sigmoid activations, where pymcpp was built with Torch. The supported
+activations are ReLU, Tanh, Sigmoid and Linear.
 
 Parameters
 ----------
 filename : str
-    Path to the TorchScript (.pt) file.
+    Path to the ONNX (.onnx) or TorchScript (.pt) file.
 disp : bool, optional
     Whether to print information about the loaded modules and tensors.
     Default is False.
@@ -200,8 +210,9 @@ disp : bool, optional
 Raises
 ------
 RuntimeError
-    If the file cannot be read, or if pymcpp was compiled without
-    Torch support.
+    If the file cannot be read or holds anything else than such a
+    network, or if a TorchScript file is read by pymcpp compiled without
+    Torch support. The MLP is then left as it was.
 )doc")
       .def_property_readonly(
           "dag", [](mc::MLP<I>& self) { return self.dag(); },

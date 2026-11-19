@@ -1,0 +1,28 @@
+pytorch2.5.1:¯
+K
+x
+onnx::MatMul_12/net/net.0/MatMul_output_0/net/net.0/MatMul"MatMul
+V
+
+net.0.bias
+/net/net.0/MatMul_output_0/net/net.0/Add_output_0/net/net.0/Add"Add
+S
+/net/net.0/Add_output_0/net/net.1/Sigmoid_output_0/net/net.1/Sigmoid"Sigmoid
+e
+/net/net.1/Sigmoid_output_0
+onnx::MatMul_13/net/net.2/MatMul_output_0/net/net.2/MatMul"MatMul
+@
+
+net.2.bias
+/net/net.2/MatMul_output_0y/net/net.2/Add"Add
+main_graph*&B
+net.0.biasJB	‚=‡}ˆ>ª˜¾Ï×>CÅ>*B
+net.2.biasJ‚Q8;ÿ¾Ú>*UBonnx::MatMul_12J<(ŠV¾	y$>”¿§±¼O<Ã=Aðì¾@¨”>¾¨Œ>´e¾Þ¿Mb=uô÷¾a¸ì½ŽÙœ:HZ>*ABonnx::MatMul_13J(Wüe¾@¤=6|È>È”=Á¿k=’l>„&Ê>M“>ß"Ð>’Ñ¾Z
+x
+
+
+b
+y
+
+
+B

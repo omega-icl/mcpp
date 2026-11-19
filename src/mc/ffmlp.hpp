@@ -16,6 +16,7 @@
 #include "ffextern.hpp"
 #include "fflin.hpp"
 #include "interval.hpp"
+#include "mlpio.hpp"
 
 // #define MC__FFMLP_DEBUG
 #define MC__FFMLP_CHECK
@@ -50,7 +51,13 @@ class MLP
   bool set_data(
       std::vector<std::pair<std::vector<std::vector<double>>, int>> const& mlp);
 
-  //! @brief Read MLP data from TorchScript
+  //! @brief Read MLP data from an ONNX file (name ending with .onnx), or
+  //! from a TorchScript Module (with Torch). A network read from a Torch
+  //! Module may be evaluated by Torch (Options::EVALTORCH); the network of an
+  //! ONNX file is evaluated by MC++. False, with the MLP unchanged, where the
+  //! file cannot be read or holds anything else than dense layers with ReLU,
+  //! tanh or sigmoid activations (see mc::MLPIO); the reason is displayed with
+  //! disp
   bool read_data(std::string const& filename, bool const disp = false);
 
   //! @brief Append multi-neuron layer to MLP data: outer vector size is
@@ -291,10 +298,10 @@ class MLP
   bool _reval(U* valin, U* valout, std::vector<U>& wk, U const& inf);
   //    const;
 
+  //! @brief Read MLP data from a TorchScript Module
+  bool _read_torch(std::string const& filename, bool const disp);
+
 #if defined(MC__USE_TORCH)
-  //! @brief Convert Torch tensor to std::vector
-  bool _tensor_to_vector(std::vector<std::vector<double>>& v,
-                         at::Tensor const& t, size_t offset, bool disp = false);
 
   //! @brief Torch tensor of n elements in a given data type, from an array of
   //! doubles -- which it shares where that type is double precision
@@ -819,10 +826,36 @@ class MLP
   }
 };
 
-#if defined(MC__USE_TORCH)
 template <typename T>
 inline bool
 MLP<T>::read_data(std::string const& filename, bool const disp)
+{
+  if (!MLPIO::is_onnx(filename)) return _read_torch(filename, disp);
+
+  // The network of an ONNX file, without Torch Module
+  MLPIO::t_Data data;
+  std::string msg;
+  if (!MLPIO::read_onnx(filename, data, msg))
+  {
+    if (disp) std::cerr << "Error reading ONNX model: " << msg << "\n";
+    return false;
+  }
+  if (disp)
+    std::cout << "ONNX model read from " << filename << ": " << data.size()
+              << " dense layers\n";
+  if (!set_data(data)) return false;
+  _hasmodule = false;
+#if defined(MC__USE_TORCH)
+  _module  = torch::jit::script::Module();
+  _batched = false;
+#endif
+  return true;
+}
+
+#if defined(MC__USE_TORCH)
+template <typename T>
+inline bool
+MLP<T>::_read_torch(std::string const& filename, bool const disp)
 {
   // The Module is read into local objects, and the MLP is only changed once
   // it has been read in full and checked: a failure leaves the MLP as it was
@@ -856,88 +889,10 @@ MLP<T>::read_data(std::string const& filename, bool const disp)
     for (auto const& p : module.parameters()) p.set_requires_grad(false);
     if (disp) std::cout << "Model loaded successfully.\n\n";
 
-    if (!module.hasattr("net"))
+    std::string msg;
+    if (!MLPIO::read_torch_net(module, data, msg, disp))
     {
-      if (disp)
-        std::cerr << "Module has no 'net' submodule; cannot inspect layers "
-                     "and activation functions.\n";
-      return false;
-    }
-
-    // 'net' is the Sequential defined in Python: Linear submodules, each
-    // followed by at most one activation function
-    torch::jit::script::Module net = module.attr("net").toModule();
-    if (disp) std::cout << "ANN Parameters (weights and biases)\n";
-    bool pending = false;  // a Linear layer without activation function yet
-    for (auto const& child : net.named_children())
-    {
-      // Class name of the submodule, without its qualifiers: a name that
-      // merely contains "ReLU" or "Tanh" (LeakyReLU, Tanhshrink, ...) is
-      // another function
-      std::string const type_str = child.value.type()->str();
-      std::string const type = type_str.substr(type_str.rfind('.') + 1);
-      if (disp)
-        std::cout << "Submodule '" << child.name << "'  type: " << type_str
-                  << "\n";
-
-      if (type == "Linear")
-      {
-        if (!child.value.hasattr("weight"))
-        {
-          if (disp) std::cerr << "Linear submodule without weight\n";
-          return false;
-        }
-        at::Tensor const weight = child.value.attr("weight").toTensor();
-        if (weight.dim() != 2 || !weight.size(0) || !weight.size(1) ||
-            (!data.empty() &&
-             data.back().first.size() != (size_t)weight.size(1)))
-        {
-          if (disp) std::cerr << "Linear submodule with inconsistent size\n";
-          return false;
-        }
-
-        // Each neuron holds its bias followed by its weights; a layer without
-        // bias has zero biases
-        std::vector<std::vector<double>> layer;
-        if (!_tensor_to_vector(layer, weight, 1, disp)) return false;
-        if (child.value.hasattr("bias"))
-        {
-          c10::IValue const bias = child.value.attr("bias");
-          if (bias.isTensor() &&
-              !_tensor_to_vector(layer, bias.toTensor(), 0, disp))
-            return false;
-        }
-        data.push_back(std::make_pair(layer, (int)LINEAR));
-        pending = true;
-      }
-
-      else if (type == "Tanh" || type == "ReLU" || type == "Sigmoid")
-      {
-        if (!pending)
-        {
-          if (disp)
-            std::cerr << "Activation function without a Linear layer before "
-                         "it\n";
-          return false;
-        }
-        data.back().second =
-            (type == "Tanh" ? TANH : type == "ReLU" ? RELU : SIGMOID);
-        pending = false;
-      }
-
-      // No effect in evaluation mode
-      else if (type == "Identity" || type == "Dropout")
-        continue;
-
-      else
-      {
-        if (disp) std::cerr << "Non-supported submodule: " << type_str << "\n";
-        return false;
-      }
-    }
-    if (data.empty())
-    {
-      if (disp) std::cerr << "Module has no Linear submodule\n";
+      if (disp) std::cerr << msg << "\n";
       return false;
     }
 
@@ -1006,58 +961,14 @@ MLP<T>::read_data(std::string const& filename, bool const disp)
   return true;
 }
 
-template <typename T>
-inline bool
-MLP<T>::_tensor_to_vector(std::vector<std::vector<double>>& v,
-                          at::Tensor const& t, size_t offset, bool disp)
-{
-  if (disp)
-  {
-    std::cout << "  Size: [";
-    for (size_t i = 0; i < t.sizes().size(); ++i)
-    {
-      std::cout << t.sizes()[i];
-      if (i + 1 < t.sizes().size()) std::cout << ", ";
-    }
-    std::cout << "]\n";
-    std::cout << t << "\n\n";
-  }
-  if (t.dim() < 1 || t.dim() > 2 || !t.is_floating_point())
-  {
-    if (disp)
-      std::cerr << "Unsupported tensor: " << t.dim() << " dimensions, type "
-                << t.scalar_type() << "\n";
-    return false;
-  }
-
-  // In double precision on the CPU, whatever the type and device of the tensor
-  at::Tensor const tc =
-      t.detach().to(torch::kCPU, torch::kFloat64).contiguous();
-  double const* data_ptr = tc.data_ptr<double>();
-
-  // One row of v per element along dimension 0; rows that exist already --
-  // from the other tensor of the layer -- must be as many
-  size_t const n0 = t.size(0), n1 = (t.dim() == 2 ? t.size(1) : 1);
-  if (v.empty())
-    v.resize(n0);
-  else if (v.size() != n0)
-    return false;
-
-  for (size_t i0 = 0; i0 < n0; ++i0)
-  {
-    if (v[i0].size() < offset + n1) v[i0].resize(offset + n1, 0.);
-    for (size_t i1 = 0; i1 < n1; ++i1)
-      v[i0][offset + i1] = data_ptr[i0 * n1 + i1];
-  }
-  return true;
-}
-
 #else
 template <typename T>
 inline bool
-MLP<T>::read_data(std::string const& filename, bool const disp)
+MLP<T>::_read_torch(std::string const& filename, bool const disp)
 {
-  if (disp) std::cout << "Program compiled without Torch library.\n";
+  if (disp)
+    std::cout << "Program compiled without Torch library: " << filename
+              << " cannot be read.\n";
   return false;
 }
 #endif

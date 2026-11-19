@@ -637,6 +637,7 @@ set(MC_HEADERS
     ffdagext.hpp
     ffmlp.hpp
     ffmlpreg.hpp
+    mlpio.hpp
     ffcustom.hpp)
 
 # Prefix headers with source path
