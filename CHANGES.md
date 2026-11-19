@@ -85,6 +85,12 @@ exception to the result `FAD` gives.
   `MLPREG::Options::ACTIVTYPE` (same values); `nvar()`, `uid()`, `layers()`; `FFGRADMLPREG` is
   `FFGradMLPREG`.  The call operators of `FFMLPREG` keep their arguments, with a copy policy and vector
   forms added.
+* Python: `MLPREG` and `FFMLPREG` are bound as `MLP` and `FFMLP` are (`FFMLPREG.MLPREG` and `options` after
+  the insertion, `MLPREG.data` for `MLP.set_data`), and checked by `check_ffextern.py`.  The notebook
+  `notebook/tutorial_mlp.ipynb` samples MATLAB's `peaks` at Sobol points, reads the network from ONNX as an
+  `MLPREG`, trains its 3,441 weights with PyTorch's Adam on the loss and gradient of the MC++ DAG (`bdiff` with
+  `ADJOINT`, `veval` over mini-batches), then evaluates, differentiates, bounds and relaxes the trained `MLP`
+  in a DAG.
 
 ### External operations: one home per object and per DAG
 

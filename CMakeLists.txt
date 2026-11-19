@@ -463,6 +463,7 @@ set(PYMCPP_SOURCES
     src/pymcpp/slift.cpp
     src/pymcpp/fflin.cpp
     src/pymcpp/ffmlp.cpp
+    src/pymcpp/ffmlpreg.cpp
     src/pymcpp/ffdagext.cpp
     src/pymcpp/ffvect.cpp
     src/pymcpp/ffcustom.cpp

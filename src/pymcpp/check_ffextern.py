@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""check_ffextern.py -- external operations on an object (FFMLP on an MLP, FFDAGEXT on a DAGEXT) from
+"""check_ffextern.py -- external operations on an object (FFMLP on an MLP, FFDAGEXT on a DAGEXT, FFMLPREG on
+an MLPREG) from
 Python: the home of the object in a DAG, and options changed after the insertion.
 
 Run against the freshly built module (the `check` CMake target does), it exits non-zero when any check
@@ -255,6 +256,39 @@ opt, tree = Op.options, Op.DAGEXT
 del Op, Y, W, dY, bY, X, Z, G
 gc.collect()
 check("options and tree still valid once the DAG is gone", (opt.SCMODORD, tree.nin, tree.nout), (3, 2, 1))
+
+# ------------------------------------------------------------------ MLPREG: a network whose weights are variables
+section("FFMLPREG on an MLPREG: operands, derivatives in the weights, options after insertion, MLP from the weights")
+R = mc.MLPREG(2, [(3, mc.MLPREG.TANH), (2, mc.MLPREG.LINEAR)])
+check("sizes: inputs, outputs, weights with biases, operands", (R.nin, R.nout, R.nwei, R.nvar), (2, 2, 17, 19))
+wR = [0.3 * math.cos(1.7 * i) for i in range(R.nwei)]
+xR = [0.4, -0.6]
+G = mc.FFGraph()
+X, Wv = G.add_vars(2), G.add_vars(R.nwei)
+Op = mc.FFMLPREG()
+Y = Op(X, Wv, R)
+check("MLPREG is a copy held by the DAG", Op.MLPREG is not None and Op.MLPREG.uid == R.uid, True)
+yD, yR = G.eval(Y, X + Wv, xR + wR), R.eval(xR + wR)
+NN = mc.MLP()
+NN.set_data(R.data(wR))
+H = mc.FFGraph()
+Z = H.add_vars(2)
+yM = H.eval(mc.FFMLP()(Z, NN), Z, xR)
+check("values: DAG, MLPREG and the MLP of its weights", max(abs(u - v) for u, v in zip(yD + yM, yR + yR)), 0., 1e-15)
+J = R.grad(xR + wR)
+for adjoint in (False, True):
+    Op.MLPREG.options.ADJOINT = adjoint
+    rows, cols, ent = G.bdiff(Y, X + Wv)
+    val = G.eval(list(ent), X + Wv, xR + wR)
+    err = max(abs(v - J[r * R.nvar + c]) for r, c, v in zip(rows, cols, val))
+    check("backward derivatives of two outputs, ADJOINT=%s" % adjoint, err, 0., 1e-13)
+IY = G.eval(Y, X + Wv, [mc.Interval(v - 0.1, v + 0.1) for v in xR + wR])
+check("interval bounds contain the values", all(I.l <= v <= I.u for I, v in zip(IY, yR)), True)
+try:
+    R.read_data("missing.onnx")
+    check("read_data of a missing file raises", False, True)
+except RuntimeError:
+    check("read_data of a missing file raises, the MLPREG unchanged", R.nwei, 17)
 
 print("\n%d passed, %d failed" % (n_pass, n_fail))
 sys.exit(1 if n_fail else 0)

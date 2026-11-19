@@ -15,3 +15,6 @@ __pycache__/
 notebook/*.so
 src/pymcpp/interface/*.so
 
+
+# Written by notebook/tutorial_mlp.ipynb
+notebook/peaks_mlp.onnx
