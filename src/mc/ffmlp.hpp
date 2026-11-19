@@ -351,7 +351,7 @@ class MLP
         _batched(false)
 #endif
         ,
-        _uid(ffextern_uid())
+        _uid(ffhome_uid())
   {
     // Decide device once
     // if( torch::cuda::is_available() ){
@@ -1076,7 +1076,7 @@ MLP<T>::set_data(
   _nout   = _data.back().first.size();
   _nhid   = _data.size() - 1;
   _update = true;
-  _uid    = ffextern_uid();
+  _uid    = ffhome_uid();
 
   // Cleanse data
   for (auto& [layer, activ] : _data)
@@ -1095,7 +1095,7 @@ MLP<T>::reset_data()
   _nin = _nout = _nhid = 0;
   _data.clear();
   _update = true;
-  _uid    = ffextern_uid();
+  _uid    = ffhome_uid();
 }
 
 template <typename T>
@@ -1118,7 +1118,7 @@ MLP<T>::append_data(std::vector<std::vector<double>> const& layer,
   _nout   = _data.back().first.size();
   _nhid   = _data.size() - 1;
   _update = true;
-  _uid    = ffextern_uid();
+  _uid    = ffhome_uid();
 
   // Cleanse data
   for (auto& neuron : _data.back().first)

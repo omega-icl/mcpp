@@ -4,8 +4,8 @@
 
 A minor version, by the rule INSTALL.md's "Releasing" states: classes shared with dependent modules changed.
 `FFOp` has four more virtual functions (the tangent and adjoint hooks below), and `FFMLP` and `FFDAGEXT`
-changed layout (1632 to 1152 bytes).  A module built on `pymcpp` (CRONOS's `cronos`) must be rebuilt against
-5.2 and require `pymcpp~=5.2.0`.  The ABI fingerprint for 5.2 is recorded in `tools/abi/`.
+changed layout (1632 to 1168 bytes, now derived from `FFHOME`).  A module built on `pymcpp` (CRONOS's
+`cronos`) must be rebuilt against 5.2 and require `pymcpp~=5.2.0`.  The ABI fingerprint for 5.2 is recorded in `tools/abi/`.
 
 ### Tangent and adjoint hooks for external operations
 
@@ -60,6 +60,13 @@ exception to the result `FAD` gives.
 * Python: `FFMLP.options` and `FFDAGEXT.options` can be changed after the call; `FFMLP.MLP`,
   `FFDAGEXT.DAGEXT` and `attached` are new.  `options` is a reference member now: a binding of a class
   derived from `FFEXTERN` by `def_readwrite("options", ...)` must become a property.
+* The homes are a base class of their own, `mc::FFHOME<O, OPT>` (`ffhome.hpp`), from which `FFEXTERN`
+  derives, so that the external operations of the libraries built on MC++ that hold an object get the
+  same homes -- CANON's `FFNLPSLV` holds its NLP solver this way.  `ffhome_traits<O>::copy` copies an
+  object that its copy constructor cannot (a solver that needs a DAG of its own for its copy, say), and
+  `Home::aux` keeps what the operations of a class share on the object (a cache of solutions, the tree of
+  a Jacobian).  `FFEXTERN<T, O>::Options` is `FFEXTERN_OPTIONS<T, O>`, now at namespace scope, and
+  `ffextern_uid()` is `ffhome_uid()`.
 
 ### Compiler warnings
 

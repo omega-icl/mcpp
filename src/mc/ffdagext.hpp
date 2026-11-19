@@ -63,7 +63,7 @@ class DAGEXT
   {
     delete _dag;
     _dag = new FFGraph;
-    _uid = ffextern_uid();
+    _uid = ffhome_uid();
 #ifdef MC__DAGEXT_DEBUG
     std::cout << "DAGEXT:: Original DAG: " << dag << std::endl;
     std::cout << "DAGEXT:: Copied DAG:   " << _dag << std::endl;
@@ -87,7 +87,7 @@ class DAGEXT
   {
     delete _dag;
     _dag = new FFGraph;
-    _uid = ffextern_uid();
+    _uid = ffhome_uid();
 #ifdef MC__DAGEXT_DEBUG
     std::cout << "DAGEXT:: Original DAG: " << dag << std::endl;
     std::cout << "DAGEXT:: Copied DAG:   " << _dag << std::endl;
@@ -117,7 +117,7 @@ class DAGEXT
   {
     delete _dag;
     _dag = new FFGraph;
-    _uid = ffextern_uid();
+    _uid = ffhome_uid();
 #ifdef MC__DAGEXT_DEBUG
     std::cout << "DAGEXT:: Original DAG: " << dag << std::endl;
     std::cout << "DAGEXT:: Copied DAG:   " << _dag << std::endl;
@@ -148,7 +148,7 @@ class DAGEXT
   {
     delete _dag;
     _dag = new FFGraph;
-    _uid = ffextern_uid();
+    _uid = ffhome_uid();
 #ifdef MC__DAGEXT_DEBUG
     std::cout << "DAGEXT:: Original DAG: " << dag << std::endl;
     std::cout << "DAGEXT:: Copied DAG:   " << _dag << std::endl;
@@ -258,7 +258,7 @@ class DAGEXT
   } options;
 
   //! @brief Default constructor
-  DAGEXT() : _dag(nullptr), _uid(ffextern_uid()) {}
+  DAGEXT() : _dag(nullptr), _uid(ffhome_uid()) {}
 
   //! @brief Data constructor
   DAGEXT(FFGraph* dag, std::vector<FFVar> const& varin,

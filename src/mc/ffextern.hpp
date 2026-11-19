@@ -20,6 +20,7 @@
 #include "ffdep.hpp"
 #include "ffexpr.hpp"
 #include "ffinv.hpp"
+#include "ffhome.hpp"
 #include "ffunc.hpp"
 #include "mccormick.hpp"
 #include "mcfunc.hpp"
@@ -35,18 +36,147 @@
 namespace mc
 {
 
-//! @brief Stamp for the content of an object held by external operations: a
-//! number that no other content has had. An object that defines
-//! <tt>size_t uid() const</tt> -- a stamp drawn here on construction and
-//! again whenever its content changes, and kept by its copies -- has the
-//! operations holding a copy of it (see mc::FFEXTERN) identified by that
-//! content, whatever becomes of the original
-inline size_t
-ffextern_uid()
+//! @brief Options of the external operations of mc::FFEXTERN on an object of
+//! type O, for the interval type T: the relaxation of the operations
+template <typename T, typename O>
+struct FFEXTERN_OPTIONS
 {
-  static std::atomic<size_t> count{0};
-  return ++count;
-}
+  //! @brief Relaxation type
+  enum RELAX_TYPE
+  {
+    INT = 0,  //!< Interval bounds
+    AUX,      //!< Auxiliary variable polyhedral relaxation
+    MC,       //!< McCormick relaxation with interval bounds
+    SB,       //!< Convexification using spectral bounds
+    SCM,      //!< Sparse Chebyshev model relaxation
+    PWCS,     //!< Piecewise-constant superposition bounds
+    PWLS      //!< Piecewise-linear superposition bounds
+  };
+
+  //! @brief Default constructor
+  FFEXTERN_OPTIONS() { reset(); }
+
+  //! @brief Assignment operator
+  template <typename OPT>
+  FFEXTERN_OPTIONS&
+  operator=(OPT const& opt)
+  {
+    RELAX.clear();
+    for (const auto& r : opt.RELAX) RELAX.insert(static_cast<RELAX_TYPE>(r));
+    // RELAX      = opt.RELAX;
+
+    POLDEF = opt.POLDEF;
+    POLIMG = opt.POLIMG;
+
+    SBLIN  = opt.SBLIN;
+    SBSEED = opt.SBSEED;
+
+    SCMODORD  = opt.SCMODORD;
+    SCBERNORD = opt.SCBERNORD;
+    SCMODEL   = opt.SCMODEL;
+    // CMODCUTS
+    // CMODPROP
+    // CMODDMAX
+    // MONSCALE
+    // SCQUAD.BASIS
+    // MIG_ATOL
+    // MIG_RTOL
+
+    PWCDIV    = opt.PWCDIV;
+    PWCREL    = opt.PWCREL;
+    PWCSLOPE  = opt.PWCSLOPE;
+    PWCSHADOW = opt.PWCSHADOW;
+    PWCSUP    = opt.PWCSUP;
+
+    PWLINI    = opt.PWLINI;
+    PWLMAX    = opt.PWLMAX;
+    PWLREL    = opt.PWLREL;
+    PWLSHADOW = opt.PWLSHADOW;
+    PWLSUP    = opt.PWLSUP;
+
+    return *this;
+  }
+
+  //! @brief Reset options
+  void
+  reset()
+  {
+    RELAX = {RELAX_TYPE::MC};
+
+    POLDEF = 1;
+    POLIMG.reset();
+
+    SBLIN  = 0;
+    SBSEED = 42;
+
+    SCMODORD  = 3;
+    SCBERNORD = 0;
+    SCMODEL.reset();
+
+    PWCDIV    = 16;
+    PWCREL    = 0;
+    PWCSLOPE  = 1;
+    PWCSHADOW = 1;
+    PWCSUP.reset();
+
+    PWLINI    = 16;
+    PWLMAX    = 16;
+    PWLREL    = 0;
+    PWLSHADOW = 1;
+    PWLSUP.reset();
+  }
+
+  //! @brief Type of relaxation
+  std::set<RELAX_TYPE> RELAX;
+  //! @brief Whether options default to the parent polyhedral relaxation
+  //! environment
+  bool POLDEF;
+  //! @brief Options for polyhedral relaxation environment
+  typename PolImg<T>::Options POLIMG;
+
+  //! @brief Number of linearization points of spectral bound relaxation - 0:
+  //! N+1 points (centre point + N LHS points)
+  size_t SBLIN;
+  //! @brief Random number generator seed in LHS sampler for linearization
+  //! points of spectral bound relaxation
+  int SBSEED;
+
+  //! @brief Maximal order of sparse Chebyshef model
+  size_t SCMODORD;
+  //! @brief Degree of Bernstein basis conversion
+  size_t SCBERNORD;
+  //! @brief Options for sparse Chebyshev model environment
+  typename SCModel<T>::Options SCMODEL;
+
+  //! @brief Equipartition size in piecewise-constant superposition model
+  size_t PWCDIV;
+  //! @brief Representation of piecewise-constant univariates - 0: continuous
+  //! relaxation; 1: binary encoding
+  int PWCREL;
+  //! @brief Whether to append cuts from slopes in piecewise-constant
+  //! superposition model relaxation
+  bool PWCSLOPE;
+  //! @brief Whether to append cuts from shadow estimators in
+  //! piecewise-constant superposition model relaxation
+  bool PWCSHADOW;
+  //! @brief Options for superposition model with piecewise-constant
+  //! univariate estimators
+  typename SupModel<PWCU>::Options PWCSUP;
+
+  //! @brief Initial partition size in piecewise-linear superposition model
+  size_t PWLINI;
+  //! @brief Maximal partition size in piecewise-linear superposition model
+  size_t PWLMAX;
+  //! @brief Representation of piecewise-linear univariates - 0: continuous
+  //! relaxation; 1: binary encoding; 2: SOS2 encoding
+  int PWLREL;
+  //! @brief Whether to append cuts from shadow estimators in piecewise-linear
+  //! superposition model relaxation
+  bool PWLSHADOW;
+  //! @brief Options for superposition model with adaptive piecewise-linear
+  //! univariate estimators
+  typename SupModel<PWLU>::Options PWLSUP;
+};
 
 //! @brief C++ class defining external DAG operations in MC++ for template-type
 //! objects
@@ -55,71 +185,35 @@ ffextern_uid()
 //! in MC++ for a generic template-type object O. The other template
 //! parameter T specifies the type for interval arithmetic.
 //!
-//! <b>Home of an object in a DAG.</b> A class of operations that calls
-//! _attach before an insertion (mc::FFMLP, mc::FFDAGEXT) gives its object a
-//! home in the DAG: the object -- a copy made for that DAG, or the object
-//! itself, according to the policy of the insertion -- and the options of
-//! the operations on it. There is one home per object and per DAG, shared
-//! by every operation on that object in that DAG: on whichever operands,
-//! from whichever handle, and the operations that differentiation makes on
-//! the same object (_join) or on an object derived from it
-//! (_attach_derived). Hence
-//! - one copy of the object per DAG, however many operations use it, made
-//!   at its first insertion there; a copy of the DAG takes a copy of its
-//!   own, and of the options;
-//! - the member options of a handle, given to the homes that the handle
-//!   makes, <i>are</i> the options of those homes: changed after the
-//!   insertion, they change how every operation of the home is relaxed from
-//!   the next relaxation on. The options are not part of what identifies an
-//!   operation. A handle that inserts an object which another handle has
-//!   inserted in the DAG before is attached to the existing home, whose
-//!   options are then reached with home_options();
-//! - the object of the home is returned by object() -- MLP() for mc::FFMLP,
-//!   DAGEXT() for mc::FFDAGEXT -- for the options that it holds itself:
-//!   they too apply to every operation of the home, from the next
-//!   evaluation or differentiation that reads them. Should the content of a
-//!   copy be changed that way, the operations of its home follow it, and
-//!   the original object, inserted again, gets a home of its own: a home
-//!   whose copy no longer has the stamp it was filed under is not found any
-//!   more (_current).
-//!
-//! An object is found again in a DAG by its key: the stamp of its content
-//! where the DAG holds a copy and the object has a stamp (see
-//! mc::ffextern_uid), so that an object changed since, or another one at
-//! the same address, gets a home and operations of its own; its address
-//! otherwise. Neither the objects nor the homes are protected against
-//! concurrent use: the operations of a home, like any single operation,
-//! are to be evaluated by one thread at a time unless the object allows
-//! otherwise.
-//!
-//! A class that sets _ptrObj and _ownObj itself, without _attach, keeps an
-//! object and a copy of the options per operation, as before.
+//! The object and the options of the operations -- the relaxation options
+//! FFEXTERN_OPTIONS -- have one home per object and per DAG, shared by all
+//! the operations on that object in that DAG: see mc::FFHOME.
 ////////////////////////////////////////////////////////////////////////
 template <typename T, typename O>
 class FFEXTERN
     ////////////////////////////////////////////////////////////////////////
-    : public FFOp
+    : public FFHOME<O, FFEXTERN_OPTIONS<T, O>>
 {
  public:
-  struct Options;
-  struct Home;
-
-  //! @brief What identifies an object in a DAG: the stamp of its content
-  //! where the DAG holds a copy of an object that has one (see
-  //! mc::ffextern_uid), the address of the object otherwise
-  typedef std::pair<size_t, std::uintptr_t> t_Key;
+  typedef FFHOME<O, FFEXTERN_OPTIONS<T, O>> t_Base;
+  //! @brief Options of the relaxation of the operations
+  typedef FFEXTERN_OPTIONS<T, O> Options;
+  using typename t_Base::Home;
+  using typename t_Base::t_Key;
+  using t_Base::options;
+  using t_Base::home_options;
+  using t_Base::share_options;
+  using t_Base::share_object;
+  using t_Base::object;
+  using t_Base::attached;
+  using t_Base::varin;
+  using t_Base::varout;
 
  protected:
-  // pointer to the object: the one of the home where the operation has one
-  O* _ptrObj;
-  // whether this operation owns the object -- operations without a home only
-  bool _ownObj;
-  // home of the object in the DAG, shared with every operation on that
-  // object in that DAG
-  std::shared_ptr<Home> _home;
-  // options that the member options refers to: those of the home for an
-  // operation in a DAG, those given to the homes it makes for a handle
-  std::shared_ptr<Options> _popt;
+  using t_Base::_ptrObj;
+  using t_Base::_ownObj;
+  using t_Base::_home;
+  using t_Base::_popt;
   // whether the internal arrays need resizing
   mutable bool _reset;
 
@@ -196,205 +290,6 @@ class FFEXTERN
   //! @brief Append polyhedral image cuts for the object
   void _backpropagate_relax(PolImg<T>* img, FFOp* pOp, PolVar<T>* vRes,
                             PolVar<T>* vVar) const;
-
-  //! @brief Stamp of the content of an object: its uid() where it has one, 0
-  //! otherwise
-  template <typename OBJ>
-  static auto
-  _stamp_of(OBJ const* pObj, int) -> decltype(size_t(pObj->uid()))
-  {
-    return pObj->uid();
-  }
-  template <typename OBJ>
-  static size_t
-  _stamp_of(OBJ const*, long)
-  {
-    return 0;
-  }
-
-  //! @brief Key of an object, whether or not the DAG holds a copy of it
-  static t_Key
-  _key(O const* pObj, bool const copy)
-  {
-    size_t const stamp = (copy ? _stamp_of(pObj, 0) : 0);
-    return stamp ? t_Key(stamp, 0) : t_Key(0, reinterpret_cast<std::uintptr_t>(pObj));
-  }
-
-  //! @brief Homes by DAG and key. A home leaves the register when the last
-  //! operation or handle that shares it is destroyed
-  typedef std::map<std::pair<FFBase const*, t_Key>, std::weak_ptr<Home>> t_Register;
-  // (neither is ever destroyed: a home may outlive them at exit)
-  static t_Register&
-  _register()
-  {
-    static t_Register* reg = new t_Register;
-    return *reg;
-  }
-  static std::recursive_mutex&
-  _mutex()
-  {
-    static std::recursive_mutex* mtx = new std::recursive_mutex;
-    return *mtx;
-  }
-
-  //! @brief Whether a home still holds the content it is filed under: false
-  //! for a copy whose content was changed in the DAG, through object()
-  static bool
-  _current(Home const& home)
-  {
-    return !home.key.first || _stamp_of(home.obj, 0) == home.key.first;
-  }
-
-  //! @brief Home with key <a>key</a> in <a>dag</a>, if any. A home that no
-  //! longer holds the content of its key leaves the register: its operations
-  //! keep it, and the next insertion of that content makes another one
-  static std::shared_ptr<Home>
-  _home_find(FFBase const* dag, t_Key const& key)
-  {
-    std::lock_guard<std::recursive_mutex> lock(_mutex());
-    auto it = _register().find(std::make_pair(dag, key));
-    if (it == _register().end()) return nullptr;
-    std::shared_ptr<Home> home = it->second.lock();
-    if (home && !_current(*home))
-    {
-      _register().erase(it);
-      return nullptr;
-    }
-    return home;
-  }
-
-  //! @brief New home in the register
-  static std::shared_ptr<Home>
-  _home_make(FFBase const* dag, t_Key const& key, O* pObj, bool const own,
-             std::shared_ptr<Options> const& popt,
-             std::shared_ptr<Home> const& parent)
-  {
-    std::shared_ptr<Home> home(new Home(dag, key, pObj, own, popt, parent));
-    std::lock_guard<std::recursive_mutex> lock(_mutex());
-    _register()[std::make_pair(dag, key)] = home;
-    return home;
-  }
-
-  //! @brief Home in <a>dag</a> of the object of <a>home</a>, a home of
-  //! another DAG: found by its key, or made on the first visit. An object
-  //! that its home owns is copied, an object that is referred to is not; the
-  //! options are copied, so that each DAG has its own
-  static std::shared_ptr<Home>
-  _home_image(std::shared_ptr<Home> const& home, FFBase const* dag)
-  {
-    size_t const stamp = (home->own ? _stamp_of(home->obj, 0) : 0);
-    t_Key const key    = (stamp ? t_Key(stamp, 0) : home->key);
-    std::lock_guard<std::recursive_mutex> lock(_mutex());
-    std::shared_ptr<Home> image = _home_find(dag, key);
-    if (image) return image;
-    std::shared_ptr<Home> parent;
-    if (home->parent) parent = _home_image(home->parent, dag);
-    return _home_make(dag, key, home->own ? new O(*home->obj) : home->obj,
-                      home->own,
-                      parent ? parent->popt
-                             : std::make_shared<Options>(*home->popt),
-                      parent);
-  }
-
-  //! @brief Take a home
-  void
-  _set_home(std::shared_ptr<Home> const& home)
-  {
-    if (_ownObj && _ptrObj) delete _ptrObj;
-    _ownObj    = false;
-    _home      = home;
-    _ptrObj    = home->obj;
-    this->data = home->obj;
-  }
-
-  //! @brief DAG of the operands, null if none of them is in a DAG
-  static FFBase*
-  _dag_of(size_t const nVar, FFVar const* pVar)
-  {
-    for (size_t i = 0; i < nVar; ++i)
-      if (pVar[i].dag()) return pVar[i].dag();
-    return nullptr;
-  }
-
-  //! @brief Attach a handle to the home of the object <a>pObj</a> in
-  //! <a>dag</a>, before the operation is inserted. The home is made on the
-  //! first insertion of the object in that DAG -- with a copy of the object
-  //! (<a>policy</a> > 0), the object itself (0), or the object itself, to be
-  //! deleted with the home (< 0) -- and with the options of this handle,
-  //! which stay those of the home. A later insertion finds the home again:
-  //! by the stamp of the object where a copy was made and the object has one
-  //! (see mc::ffextern_uid), by its address otherwise
-  void
-  _attach(FFBase const* dag, O* pObj, int const policy)
-  {
-    if (!dag) throw FFBase::Exceptions(FFBase::Exceptions::DAG);
-    if (!pObj)
-      throw std::runtime_error(
-          "FFEXTERN::_attach ** Null pointer to external object\n");
-    t_Key const key = _key(pObj, policy > 0);
-    std::shared_ptr<Home> home;
-    if (_home && _home->dag == dag && _home->key == key && _current(*_home))
-      home = _home;
-    else
-    {
-      std::lock_guard<std::recursive_mutex> lock(_mutex());
-      home = _home_find(dag, key);
-      if (!home)
-        home = _home_make(dag, key, policy > 0 ? new O(*pObj) : pObj,
-                          policy != 0, _popt, nullptr);
-    }
-    // an object handed over is deleted with its home, or now if the home
-    // holds another object
-    if (policy < 0)
-    {
-      if (home->obj == pObj)
-        home->own = true;
-      else
-        delete pObj;
-    }
-    _set_home(home);
-  }
-
-  //! @brief Attach a handle to the home of another operation: for the
-  //! operations that differentiation makes on the same object
-  void
-  _join(FFEXTERN<T, O> const& parent)
-  {
-    if (!parent._home)
-      throw std::runtime_error("FFEXTERN::_join ** Operation without a home\n");
-    _set_home(parent._home);
-  }
-
-  //! @brief Attach a handle to a new home for <a>pObj</a>, an object made
-  //! from the object of <a>parent</a> -- its derivative, say -- and deleted
-  //! with its home. The home is in the DAG of the parent, has its options,
-  //! and keeps the home of the parent alive
-  void
-  _attach_derived(FFEXTERN<T, O> const& parent, O* pObj)
-  {
-    if (!parent._home)
-      throw std::runtime_error(
-          "FFEXTERN::_attach_derived ** Operation without a home\n");
-    _set_home(_home_make(parent._home->dag, _key(pObj, true), pObj, true,
-                         parent._home->popt, parent._home));
-  }
-
-  //! @brief Insert the operation <a>self</a>, this one, on other operands
-  //! -- as its evaluation in the arithmetic of DAG variables does. Where the
-  //! operands belong to another DAG, the operation is inserted there with
-  //! the home of its object in that DAG: see _home_image
-  template <typename ExtOp>
-  FFVar**
-  _reinsert(ExtOp const& self, unsigned const nRes, unsigned const nVar,
-            FFVar const* pVar) const
-  {
-    FFBase const* dag = _dag_of(nVar, pVar);
-    if (!_home || !dag || _home->dag == dag)
-      return this->insert_external_operation(self, nRes, nVar, pVar);
-    ExtOp other(self);
-    other._set_home(_home_image(_home, dag));
-    return other.insert_external_operation(other, nRes, nVar, pVar);
-  }
 
  private:
   //! @brief Initialize LHS sampling
@@ -479,332 +374,39 @@ class FFEXTERN
                        bool const first) const;
 
  public:
-  //! @brief FFEXTERN options
-  struct Options
-  {
-    //! @brief Relaxation type
-    enum RELAX_TYPE
-    {
-      INT = 0,  //!< Interval bounds
-      AUX,      //!< Auxiliary variable polyhedral relaxation
-      MC,       //!< McCormick relaxation with interval bounds
-      SB,       //!< Convexification using spectral bounds
-      SCM,      //!< Sparse Chebyshev model relaxation
-      PWCS,     //!< Piecewise-constant superposition bounds
-      PWLS      //!< Piecewise-linear superposition bounds
-    };
-
-    //! @brief Default constructor
-    Options() { reset(); }
-
-    //! @brief Assignment operator
-    template <typename OPT>
-    Options&
-    operator=(OPT const& opt)
-    {
-      RELAX.clear();
-      for (const auto& r : opt.RELAX) RELAX.insert(static_cast<RELAX_TYPE>(r));
-      // RELAX      = opt.RELAX;
-
-      POLDEF = opt.POLDEF;
-      POLIMG = opt.POLIMG;
-
-      SBLIN  = opt.SBLIN;
-      SBSEED = opt.SBSEED;
-
-      SCMODORD  = opt.SCMODORD;
-      SCBERNORD = opt.SCBERNORD;
-      SCMODEL   = opt.SCMODEL;
-      // CMODCUTS
-      // CMODPROP
-      // CMODDMAX
-      // MONSCALE
-      // SCQUAD.BASIS
-      // MIG_ATOL
-      // MIG_RTOL
-
-      PWCDIV    = opt.PWCDIV;
-      PWCREL    = opt.PWCREL;
-      PWCSLOPE  = opt.PWCSLOPE;
-      PWCSHADOW = opt.PWCSHADOW;
-      PWCSUP    = opt.PWCSUP;
-
-      PWLINI    = opt.PWLINI;
-      PWLMAX    = opt.PWLMAX;
-      PWLREL    = opt.PWLREL;
-      PWLSHADOW = opt.PWLSHADOW;
-      PWLSUP    = opt.PWLSUP;
-
-      return *this;
-    }
-
-    //! @brief Reset options
-    void
-    reset()
-    {
-      RELAX = {RELAX_TYPE::MC};
-
-      POLDEF = 1;
-      POLIMG.reset();
-
-      SBLIN  = 0;
-      SBSEED = 42;
-
-      SCMODORD  = 3;
-      SCBERNORD = 0;
-      SCMODEL.reset();
-
-      PWCDIV    = 16;
-      PWCREL    = 0;
-      PWCSLOPE  = 1;
-      PWCSHADOW = 1;
-      PWCSUP.reset();
-
-      PWLINI    = 16;
-      PWLMAX    = 16;
-      PWLREL    = 0;
-      PWLSHADOW = 1;
-      PWLSUP.reset();
-    }
-
-    //! @brief Type of relaxation
-    std::set<RELAX_TYPE> RELAX;
-    //! @brief Whether options default to the parent polyhedral relaxation
-    //! environment
-    bool POLDEF;
-    //! @brief Options for polyhedral relaxation environment
-    typename PolImg<T>::Options POLIMG;
-
-    //! @brief Number of linearization points of spectral bound relaxation - 0:
-    //! N+1 points (centre point + N LHS points)
-    size_t SBLIN;
-    //! @brief Random number generator seed in LHS sampler for linearization
-    //! points of spectral bound relaxation
-    int SBSEED;
-
-    //! @brief Maximal order of sparse Chebyshef model
-    size_t SCMODORD;
-    //! @brief Degree of Bernstein basis conversion
-    size_t SCBERNORD;
-    //! @brief Options for sparse Chebyshev model environment
-    typename SCModel<T>::Options SCMODEL;
-
-    //! @brief Equipartition size in piecewise-constant superposition model
-    size_t PWCDIV;
-    //! @brief Representation of piecewise-constant univariates - 0: continuous
-    //! relaxation; 1: binary encoding
-    int PWCREL;
-    //! @brief Whether to append cuts from slopes in piecewise-constant
-    //! superposition model relaxation
-    bool PWCSLOPE;
-    //! @brief Whether to append cuts from shadow estimators in
-    //! piecewise-constant superposition model relaxation
-    bool PWCSHADOW;
-    //! @brief Options for superposition model with piecewise-constant
-    //! univariate estimators
-    typename SupModel<PWCU>::Options PWCSUP;
-
-    //! @brief Initial partition size in piecewise-linear superposition model
-    size_t PWLINI;
-    //! @brief Maximal partition size in piecewise-linear superposition model
-    size_t PWLMAX;
-    //! @brief Representation of piecewise-linear univariates - 0: continuous
-    //! relaxation; 1: binary encoding; 2: SOS2 encoding
-    int PWLREL;
-    //! @brief Whether to append cuts from shadow estimators in piecewise-linear
-    //! superposition model relaxation
-    bool PWLSHADOW;
-    //! @brief Options for superposition model with adaptive piecewise-linear
-    //! univariate estimators
-    typename SupModel<PWLU>::Options PWLSUP;
-  };
-
-  //! @brief Home of an object in a DAG: the object and the options of the
-  //! operations on it, shared by every operation on that object in that DAG
-  //! -- on whichever operands, and the operations that differentiation makes
-  //! on the same object -- and by the handles attached to it
-  struct Home
-  {
-    //! @brief DAG of the home
-    FFBase const* dag;
-    //! @brief Key of the object in the DAG: how the home is found
-    t_Key key;
-    //! @brief Number of the home, unique: how the operations of the home are
-    //! told from those of any other (see lt), even one with the same key
-    size_t serial;
-    //! @brief Object: a copy made for the DAG, or the object given
-    O* obj;
-    //! @brief Whether the object is deleted with the home
-    bool own;
-    //! @brief Options of the operations on the object
-    std::shared_ptr<Options> popt;
-    //! @brief Home of the object that this one was made from, if any
-    std::shared_ptr<Home> parent;
-    //! @brief For the class of the operation: what it keeps about the
-    //! object for all its operations -- the home of its derivative, say
-    std::shared_ptr<void> aux;
-
-    Home(FFBase const* dag_, t_Key const& key_, O* obj_, bool const own_,
-         std::shared_ptr<Options> const& popt_,
-         std::shared_ptr<Home> const& parent_)
-        : dag(dag_), key(key_), serial(ffextern_uid()), obj(obj_), own(own_),
-          popt(popt_), parent(parent_)
-    {
-    }
-
-    ~Home()
-    {
-      {
-        std::lock_guard<std::recursive_mutex> lock(_mutex());
-        auto it = _register().find(std::make_pair(dag, key));
-        if (it != _register().end() && it->second.expired())
-          _register().erase(it);
-      }
-      aux.reset();
-      if (own) delete obj;
-    }
-
-   private:
-    Home(Home const&);
-    Home& operator=(Home const&);
-  };
-
-  //! @brief Options of the operation. For a handle, they are given to the
-  //! homes that it makes -- the same options, not a copy: they may be
-  //! changed after the insertion, and the operations follow. For an
-  //! operation in a DAG, they are those of its home
-  Options& options;
-
-  //! @brief Options of the home that the handle is attached to -- the object
-  //! it inserted last: the member options, unless another handle had inserted
-  //! that object in the DAG first, the options of a home being those of the
-  //! handle that made it. The member options before any insertion
-  Options&
-  home_options()
-  {
-    return _home ? *_home->popt : *_popt;
-  }
-
-  //! @brief Options of home_options(), shared: they are kept alive for as
-  //! long as the pointer is held -- for interfaces to other languages
-  std::shared_ptr<Options>
-  share_options() const
-  {
-    return _home ? _home->popt : _popt;
-  }
-
-  //! @brief Object of the home, shared: the home is kept alive for as long
-  //! as the pointer is held -- for interfaces to other languages. Null
-  //! without a home
-  std::shared_ptr<O>
-  share_object() const
-  {
-    return _home ? std::shared_ptr<O>(_home, _home->obj) : nullptr;
-  }
-
-  //! @brief Object of the operation: that of its home where it has one --
-  //! the copy made for the DAG (policy COPY), or the object given. For a
-  //! handle, the object of the home of its last insertion. Throws before
-  //! any insertion
-  O&
-  object() const
-  {
-    if (!_ptrObj)
-      throw std::runtime_error(
-          "FFEXTERN::object ** No object: the operation was not inserted in a "
-          "DAG\n");
-    return *_ptrObj;
-  }
-
-  //! @brief Whether the handle is attached to a home, or the operation has
-  //! one
-  bool
-  attached() const
-  {
-    return bool(_home);
-  }
-
   //! @brief Default Constructor
   FFEXTERN()
-      : FFOp(EXTERN),
-        _ptrObj(nullptr),
-        _ownObj(false),
-        _popt(std::make_shared<Options>()),
+      : FFHOME<O, FFEXTERN_OPTIONS<T, O>>(),
         _reset(true),
         _POLEnv(nullptr),
         _SCEnv(nullptr),
         _PWCSEnv(nullptr),
-        _PWLSEnv(nullptr),
-        options(*_popt)
+        _PWLSEnv(nullptr)
   {
   }
 
   // Destructor
   virtual ~FFEXTERN()
   {
-    if (_ownObj && _ptrObj) delete _ptrObj;
     if (_POLEnv) delete _POLEnv;
     if (_SCEnv) delete _SCEnv;
     if (_PWCSEnv) delete _PWCSEnv;
     if (_PWLSEnv) delete _PWLSEnv;
   }
 
-  // Copy constructor: the copy of an operation with a home shares it
+  // Copy constructor: the copy of an operation with a home shares it (see
+  // mc::FFHOME); the relaxation environments are not copied
   FFEXTERN(FFEXTERN<T, O> const& other)
-      : FFOp(other),
-        _ptrObj(nullptr),
-        _ownObj(false),
-        _home(other._home),
-        _popt(other._home ? other._home->popt
-                          : std::make_shared<Options>(*other._popt)),
+      : FFHOME<O, FFEXTERN_OPTIONS<T, O>>(other),
         _reset(true),
         _POLEnv(nullptr),
         _SCEnv(nullptr),
         _PWCSEnv(nullptr),
-        _PWLSEnv(nullptr),
-        options(*_popt)
+        _PWLSEnv(nullptr)
   {
 #ifdef MC__FFEXTERN_TRACE
     std::cout << "FFEXTERN::copy constructor\n";
 #endif
-    if (_home)
-    {
-      _ptrObj = _home->obj;
-      return;
-    }
-
-    // Operation without a home: its own object, or a copy of it
-    if (!other._ptrObj)
-      throw std::runtime_error(
-          "FFEXTERN::copy constructor ** Null pointer to external object\n");
-
-    _ownObj = other._ownObj;
-    if (_ownObj)
-      _ptrObj = new O(*other._ptrObj);
-    else
-      _ptrObj = other._ptrObj;
-  }
-
-  //! @brief Ordering of operations of the same class on the same operands:
-  //! by their home in the DAG, that is by the object they were attached to
-  //! by its key (see _attach). With a home that holds a copy of an object
-  //! with a stamp, the key is that stamp, that is the content copied: the
-  //! original may since have changed, or been destroyed and another object
-  //! created at its address, and an insertion of either is another
-  //! operation; an unchanged original, or a copy of it, is the same one.
-  //! Otherwise the key is the address of the object. Two homes are told
-  //! apart by their number -- also two with the same key, which arises when
-  //! the copy of a home was changed (see _current). Operations without a
-  //! home come first, ordered by the address in the field data, as with
-  //! mc::FFOp::lt
-  virtual bool
-  lt(FFOp const* op) const
-  {
-    // lt_FFOp compares operations of the same class only
-    auto const* other = static_cast<FFEXTERN<T, O> const*>(op);
-    if (!_home || !other->_home)
-      return (_home || other->_home) ? !_home : this->data < op->data;
-    return _home->serial < other->_home->serial;
   }
 };
 
