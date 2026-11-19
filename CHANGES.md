@@ -5,7 +5,8 @@
 A minor version, by the rule INSTALL.md's "Releasing" states: classes shared with dependent modules changed.
 `FFOp` has four more virtual functions (the tangent and adjoint hooks below), and `FFMLP` and `FFDAGEXT`
 changed layout (1632 to 1168 bytes, now derived from `FFHOME`).  A module built on `pymcpp` (CRONOS's
-`cronos`) must be rebuilt against 5.2 and require `pymcpp~=5.2.0`.  The ABI fingerprint for 5.2 is recorded in `tools/abi/`.
+`cronos`) must be rebuilt against 5.2 and require `pymcpp~=5.2.0`.  Code using `MLPREG` follows its new
+interface (below).  The ABI fingerprint for 5.2 is recorded in `tools/abi/`.
 
 ### Tangent and adjoint hooks for external operations
 
@@ -54,6 +55,37 @@ exception to the result `FAD` gives.
   values agree with ONNX Runtime to its precision.  A network read from ONNX is evaluated by MC++
   (`EVALTORCH` has no effect).  The reader of TorchScript Modules moved to `MLPIO` as well, unchanged.
 
+### Networks whose weights are variables: `MLPREG` and `FFMLPREG` mirror `MLP` and `FFMLP`
+
+* **Wrong derivatives, silently.**  The Jacobian operation of `FFMLPREG` wrote its entries row-wise and
+  `FFMLPREG::deriv` read them column-wise: with more than one output, `FAD`, `BAD` and their variants
+  returned the derivatives of other outputs in other operands (off by 2.5 on a 2-output test network).  And
+  `FFMLPREG` had no bounds or relaxations at all: an interval or McCormick evaluation threw.
+* `FFMLPREG` derives from `FFEXTERN`, as `FFMLP`: interval bounds, McCormick, polyhedral (AUX), spectral,
+  Chebyshev and superposition relaxations by the options of the handle, constraint propagation, one home per
+  `MLPREG` and per DAG, `MLPREG()` by reference, options changed after the insertion.  Its differentiation
+  inserts the Jacobian `FFGradMLPREG`, or with `MLPREG::Options::TANGENT` and `ADJOINT` (off by default, as
+  for `MLP`) the directional derivative `FFTanMLPREG` and the adjoint `FFAdjMLPREG`, one pass through the
+  network per sweep -- always the cheaper here, the Jacobian having `nout*(nin+nwei)` entries.
+* `MLPREG::grad`, `tang` and `adj` work by passes through the layers: the Jacobian in the inputs and the
+  weights costs one backward pass per output, in place of `FADType` with `nin+nwei` directions (a cost in
+  the square of the number of weights).  `AUTODIFF` selects the mode in other arithmetics; its default is
+  `B` for `MLPREG`.
+* `MLPREG::read_data` reads the structure and the weights of a trained network from ONNX or TorchScript, as
+  `MLP::read_data` does; `weights()` holds the weights read, in the ordering of the operands, and
+  `data(w)` gives the layers of `MLP::set_data` for any weights -- a trained `MLPREG` becomes an `MLP`.
+* Torch (`MLPREG::Options::EVALTORCH`, for a Module whose layers have biases): the weights of the operands
+  are written into a copy of the Module per thread, and the Jacobian, tangent and adjoint come from Torch's
+  backward passes; they agree with MC++ to 1e-15.  Writing the weights in costs as much as the pass, and MC++
+  is the faster: 63 against 514 us for the Jacobian of 12,705 weights and 5 outputs, 6.7 against 15 ms for
+  a million weights.
+* **Interface changed** to that of `MLP`: an `MLPREG` is evaluated on its operands, the inputs then the
+  weights -- `eval(valin, valout)` in place of `eval(y, x, w)`; `set_structure(nin, {{nneu, activ}, ...})`
+  in place of the pair, and `append_layer`; `MLPREG::ACTIV_TYPE` in place of
+  `MLPREG::Options::ACTIVTYPE` (same values); `nvar()`, `uid()`, `layers()`; `FFGRADMLPREG` is
+  `FFGradMLPREG`.  The call operators of `FFMLPREG` keep their arguments, with a copy policy and vector
+  forms added.
+
 ### External operations: one home per object and per DAG
 
 * An `FFMLP` or `FFDAGEXT` operation held its own copy of its network or expression tree, taken at the
@@ -91,8 +123,8 @@ differentiated in interval or McCormick arithmetic, and from `inter()` of two `S
 `test/DAG/DAG_tangent`, `DAG_adjoint`, `DAG_doxygen_hooks`, `DAG_dagext_home`; `test/ML/test_MLP_tangent`,
 `test_MLP_adjoint`, `test_MLP_grad`, `test_MLP_copy`, `test_MLP_torch` (with `test_MLP_torch.py` and the
 modules it generates), `test_MLP_ident`, `test_MLP_home`, `test_MLP_onnx` (with `test_MLP_onnx.py` and the ONNX
-models it generates); `src/pymcpp/check_ffextern.py` in the release
-gate.  `test_MLP`, `test_MLPREG`, `DAG_external`, `DAG_unittests` and `FFDAGEXT_2d` print the same output
+models it generates), `test_MLPREG` (rewritten), `test_MLPREG_torch`; `src/pymcpp/check_ffextern.py` in the release
+gate.  `test_MLP`, `DAG_external`, `DAG_unittests` and `FFDAGEXT_2d` print the same output
 as 5.1.1.
 
 ## 5.1.1 (2026-11-12)

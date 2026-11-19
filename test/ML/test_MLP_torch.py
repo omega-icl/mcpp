@@ -80,3 +80,5 @@ save("softplus", Net(mlp(nn.Softplus())))
 save("scaled", Scaled(mlp(nn.Tanh())))
 save("nonet", NoNet(mlp(nn.Tanh())))
 save("mylinear", Net(nn.Sequential(MyLinear(2, 5), nn.Tanh(), MyLinear(5, 2))))
+# read by test_MLPREG_torch.cpp, for timings: 20 inputs, 2 layers of 100, 5 outputs
+save("wide", Net(nn.Sequential(nn.Linear(20, 100), nn.Tanh(), nn.Linear(100, 100), nn.Tanh(), nn.Linear(100, 5))))
