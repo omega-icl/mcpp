@@ -534,6 +534,43 @@ main()
     return {true, ""};
   });
 
+  run("RELU2ABS and SIG2EXP changed after a relaxation: the expression tree of the network follows", []() -> Result {
+    // operations of each type in the expression tree of a network
+    auto count = [](mc::MLP<I>& NN, int const type) {
+      size_t n = 0;
+      auto sg = NN.dag()->subgraph(NN.varout());
+      for (auto const& op : sg.l_op) n += (op->type == type);
+      return n;
+    };
+    mc::MLP<I> ANN;
+    ANN.append_data({{0.1, 1., -0.5}, {-0.2, 0.3, 0.8}}, ANN.RELU, true);
+    ANN.append_data({{0.0, 1., 1.}, {0.5, -1., 2.}}, ANN.SIGMOID);
+    FFGraph DAG;
+    std::vector<FFVar> X = DAG.add_vars(2);
+    mc::FFMLP<I> Op;
+    Op.options.RELAX = {Op.options.AUX};
+    std::vector<FFVar> Y = Op(X, &ANN);
+    auto const r0 = relax(DAG, Y, X);
+    mc::MLP<I>& NN = Op.MLP();
+    bool ok = count(NN, mc::FFOp::MAXF) == 2 && count(NN, mc::FFOp::FABS) == 0 &&
+              count(NN, mc::FFOp::TANH) == 2 && count(NN, mc::FFOp::EXP) == 0;
+    NN.options.RELU2ABS = true;
+    NN.options.SIG2EXP  = true;
+    auto const r1 = relax(DAG, Y, X);
+    ok = ok && count(NN, mc::FFOp::MAXF) == 0 && count(NN, mc::FFOp::FABS) == 2 &&
+         count(NN, mc::FFOp::TANH) == 0 && count(NN, mc::FFOp::EXP) == 2 && r1 != r0;
+    // and back
+    NN.options.RELU2ABS = false;
+    NN.options.SIG2EXP  = false;
+    ok = ok && relax(DAG, Y, X) == r0 && count(NN, mc::FFOp::MAXF) == 2;
+    // the values are the same with either form
+    std::vector<double> const x = {0.3, -0.7};
+    std::vector<double> const y0 = evaluate(DAG, Y, X, x);
+    NN.options.RELU2ABS = NN.options.SIG2EXP = true;
+    ok = ok && near(evaluate(DAG, Y, X, x), y0);
+    return {ok, "cuts " + std::to_string(r0.first) + " then " + std::to_string(r1.first)};
+  });
+
   std::printf("\n=== Results: %d/%d passed ===\n", test::passed, test::total);
   return test::failed ? 1 : 0;
 }

@@ -458,6 +458,40 @@ main()
     return {err <= 1e-7 && adj, "relative error " + sci(err)};
   });
 
+  run("RELU2ABS and SIG2EXP changed after a relaxation: the expression tree follows", []() -> Result {
+    auto count = [](REG& reg, int const type) {
+      size_t n = 0;
+      auto sg = reg.dag()->subgraph(reg.varout());
+      for (auto const& op : sg.l_op) n += (op->type == type);
+      return n;
+    };
+    REG reg(2, {{3, REG::RELU}, {1, REG::SIGMOID}});
+    FFGraph DAG;
+    std::vector<FFVar> X = DAG.add_vars(reg.nin()), W = DAG.add_vars(reg.nwei());
+    std::vector<FFVar> const V = join(X, W);
+    mc::FFMLPREG<I> Op;
+    Op.options.RELAX = {Op.options.AUX};
+    std::vector<FFVar> Y = Op(X, W, &reg);
+    std::vector<double> c = operands(reg, 0.2);
+    auto relax = [&]() {
+      mc::PolImg<I> PolEnv;
+      std::vector<mc::PolVar<I>> PolV, PolY(1);
+      for (size_t i = 0; i < V.size(); ++i)
+        PolV.push_back(mc::PolVar<I>(&PolEnv, V[i], I(c[i] - 0.1, c[i] + 0.1)));
+      DAG.eval(Y, PolY, V, PolV);
+      PolEnv.generate_cuts(PolY);
+      return PolEnv.Cuts().size();
+    };
+    size_t const n0 = relax();
+    REG& R = Op.MLPREG();
+    bool ok = count(R, mc::FFOp::MAXF) == 3 && count(R, mc::FFOp::TANH) == 1;
+    R.options.RELU2ABS = R.options.SIG2EXP = true;
+    size_t const n1 = relax();
+    ok = ok && count(R, mc::FFOp::MAXF) == 0 && count(R, mc::FFOp::FABS) == 3 &&
+         count(R, mc::FFOp::TANH) == 0 && count(R, mc::FFOp::EXP) == 1;
+    return {ok && n0 > 0 && n1 > 0, std::to_string(n0) + " then " + std::to_string(n1) + " cuts"};
+  });
+
   run("evaluations from several threads on one MLPREG", []() -> Result {
     REG reg = structure();
     std::vector<double> const v = operands(reg, 0.9), y0 = reference(reg, v);

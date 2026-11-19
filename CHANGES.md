@@ -43,6 +43,11 @@ exception to the result `FAD` gives.
   from it at two points.  The parameters no longer accumulate gradients, the Jacobian takes one backward
   pass where the module takes batches, and modules are evaluated in double precision.
 * `MLP` has an assignment operator (the implicit one was deleted).
+* `MLP::Options::RELU2ABS` and `SIG2EXP` changed after the expression tree of the network was built -- after
+  a polyhedral relaxation or a constraint propagation, say -- were ignored by these, which kept the former
+  forms of the ReLU and sigmoid activations while the other evaluations used the new ones.  The tree is built
+  again when they change, in `MLP` and `MLPREG`; all the options of an `MLP` in a DAG can now be changed after
+  the insertion (`Op.MLP().options`).
 * **ONNX as a second front end.** `MLP::read_data` reads a file whose name ends with `.onnx` with a protobuf
   decoder of its own (`mc::MLPIO`, `mlpio.hpp`) and no other library, so that the pymcpp wheels, built
   without Torch, read trained networks too.  The graph must be a chain from its input to its output: `Gemm`

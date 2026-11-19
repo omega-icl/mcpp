@@ -119,9 +119,12 @@ class MLPREG
     //! thread works on a copy of its own of the Module, into which the
     //! weights of each evaluation are written
     bool EVALTORCH;
-    //! @brief Whether to convert ReLU to abs (true) or max (false) function
+    //! @brief Whether to convert ReLU to abs (true) or max (false) function. It
+    //! may be changed at any time, also on the object of an operation in a DAG:
+    //! the expression tree of the network is built again
     bool RELU2ABS;
-    //! @brief Whether to convert sigmoid to exp (true) or tanh (false)
+    //! @brief Whether to convert sigmoid to exp (true) or tanh (false). It may
+    //! be changed at any time, as RELU2ABS
     bool SIG2EXP;
     //! @brief Mode of the Jacobian (grad) in arithmetics other than double:
     //! one backward pass through the layers per output (B, default), or the
@@ -173,6 +176,9 @@ class MLPREG
   FFGraph* _dag;
   //! @brief Expression tree needs updating
   bool _update;
+  //! @brief Options RELU2ABS and SIG2EXP with which the expression tree was built: the tree is
+  //! built again when they change
+  std::pair<bool, bool> _dagopt{false, false};
   //! @brief Variables of the expression tree: inputs, then weights
   std::vector<FFVar> _varin;
   //! @brief Dependents of the expression tree
@@ -803,7 +809,11 @@ template <typename T>
 inline void
 MLPREG<T>::_set_dag()
 {
-  if (_dag && !_update) return;
+  // Nothing to be updated: the same network, and the same forms of ReLU and
+  // sigmoid activations
+  std::pair<bool, bool> const dagopt(options.RELU2ABS, options.SIG2EXP);
+  if (_dag && !_update && _dagopt == dagopt) return;
+  _dagopt = dagopt;
 
   delete _dag;
   _dag = nullptr;
