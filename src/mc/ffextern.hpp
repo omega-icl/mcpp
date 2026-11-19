@@ -74,9 +74,14 @@ ffextern_uid()
 //!   operation. A handle that inserts an object which another handle has
 //!   inserted in the DAG before is attached to the existing home, whose
 //!   options are then reached with home_options();
-//! - the object of the home is returned by object(), for the options that
-//!   it holds itself: they too apply to every operation of the home, from
-//!   the next evaluation or differentiation that reads them.
+//! - the object of the home is returned by object() -- MLP() for mc::FFMLP,
+//!   DAGEXT() for mc::FFDAGEXT -- for the options that it holds itself:
+//!   they too apply to every operation of the home, from the next
+//!   evaluation or differentiation that reads them. Should the content of a
+//!   copy be changed that way, the operations of its home follow it, and
+//!   the original object, inserted again, gets a home of its own: a home
+//!   whose copy no longer has the stamp it was filed under is not found any
+//!   more (_current).
 //!
 //! An object is found again in a DAG by its key: the stamp of its content
 //! where the DAG holds a copy and the object has a stamp (see
@@ -232,13 +237,30 @@ class FFEXTERN
     return *mtx;
   }
 
-  //! @brief Home with key <a>key</a> in <a>dag</a>, if any
+  //! @brief Whether a home still holds the content it is filed under: false
+  //! for a copy whose content was changed in the DAG, through object()
+  static bool
+  _current(Home const& home)
+  {
+    return !home.key.first || _stamp_of(home.obj, 0) == home.key.first;
+  }
+
+  //! @brief Home with key <a>key</a> in <a>dag</a>, if any. A home that no
+  //! longer holds the content of its key leaves the register: its operations
+  //! keep it, and the next insertion of that content makes another one
   static std::shared_ptr<Home>
   _home_find(FFBase const* dag, t_Key const& key)
   {
     std::lock_guard<std::recursive_mutex> lock(_mutex());
     auto it = _register().find(std::make_pair(dag, key));
-    return it != _register().end() ? it->second.lock() : nullptr;
+    if (it == _register().end()) return nullptr;
+    std::shared_ptr<Home> home = it->second.lock();
+    if (home && !_current(*home))
+    {
+      _register().erase(it);
+      return nullptr;
+    }
+    return home;
   }
 
   //! @brief New home in the register
@@ -311,7 +333,7 @@ class FFEXTERN
           "FFEXTERN::_attach ** Null pointer to external object\n");
     t_Key const key = _key(pObj, policy > 0);
     std::shared_ptr<Home> home;
-    if (_home && _home->dag == dag && _home->key == key)
+    if (_home && _home->dag == dag && _home->key == key && _current(*_home))
       home = _home;
     else
     {
@@ -605,8 +627,11 @@ class FFEXTERN
   {
     //! @brief DAG of the home
     FFBase const* dag;
-    //! @brief Key of the object in the DAG
+    //! @brief Key of the object in the DAG: how the home is found
     t_Key key;
+    //! @brief Number of the home, unique: how the operations of the home are
+    //! told from those of any other (see lt), even one with the same key
+    size_t serial;
     //! @brief Object: a copy made for the DAG, or the object given
     O* obj;
     //! @brief Whether the object is deleted with the home
@@ -622,8 +647,8 @@ class FFEXTERN
     Home(FFBase const* dag_, t_Key const& key_, O* obj_, bool const own_,
          std::shared_ptr<Options> const& popt_,
          std::shared_ptr<Home> const& parent_)
-        : dag(dag_), key(key_), obj(obj_), own(own_), popt(popt_),
-          parent(parent_)
+        : dag(dag_), key(key_), serial(ffextern_uid()), obj(obj_), own(own_),
+          popt(popt_), parent(parent_)
     {
     }
 
@@ -678,11 +703,17 @@ class FFEXTERN
   }
 
   //! @brief Object of the operation: that of its home where it has one --
-  //! the copy made for the DAG, or the object given
-  O*
+  //! the copy made for the DAG (policy COPY), or the object given. For a
+  //! handle, the object of the home of its last insertion. Throws before
+  //! any insertion
+  O&
   object() const
   {
-    return _ptrObj;
+    if (!_ptrObj)
+      throw std::runtime_error(
+          "FFEXTERN::object ** No object: the operation was not inserted in a "
+          "DAG\n");
+    return *_ptrObj;
   }
 
   //! @brief Whether the handle is attached to a home, or the operation has
@@ -755,13 +786,16 @@ class FFEXTERN
   }
 
   //! @brief Ordering of operations of the same class on the same operands:
-  //! by the key of their home in the DAG. With a home that holds a copy of
-  //! an object with a stamp, the key is that stamp, that is the content
-  //! copied: the original may since have changed, or been destroyed and
-  //! another object created at its address, and an insertion of either is
-  //! another operation; an unchanged original, or a copy of it, is the same
-  //! one. Otherwise the key is the address of the object. Operations without
-  //! a home come first, ordered by the address in the field data, as with
+  //! by their home in the DAG, that is by the object they were attached to
+  //! by its key (see _attach). With a home that holds a copy of an object
+  //! with a stamp, the key is that stamp, that is the content copied: the
+  //! original may since have changed, or been destroyed and another object
+  //! created at its address, and an insertion of either is another
+  //! operation; an unchanged original, or a copy of it, is the same one.
+  //! Otherwise the key is the address of the object. Two homes are told
+  //! apart by their number -- also two with the same key, which arises when
+  //! the copy of a home was changed (see _current). Operations without a
+  //! home come first, ordered by the address in the field data, as with
   //! mc::FFOp::lt
   virtual bool
   lt(FFOp const* op) const
@@ -770,7 +804,7 @@ class FFEXTERN
     auto const* other = static_cast<FFEXTERN<T, O> const*>(op);
     if (!_home || !other->_home)
       return (_home || other->_home) ? !_home : this->data < op->data;
-    return _home->key < other->_home->key;
+    return _home->serial < other->_home->serial;
   }
 };
 

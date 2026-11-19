@@ -176,7 +176,7 @@ networks(FFGraph& DAG, std::vector<FFVar> const& F)
   std::set<mc::MLP<I>*> nets;
   auto sg = DAG.subgraph(F);
   for (auto const& op : sg.l_op)
-    if (op->type >= mc::FFOp::EXTERN) nets.insert(static_cast<EXT const*>(op)->object());
+    if (op->type >= mc::FFOp::EXTERN) nets.insert(&static_cast<EXT const*>(op)->object());
   return nets;
 }
 
@@ -191,6 +191,15 @@ relax(FFGraph& DAG, std::vector<FFVar> const& Y, std::vector<FFVar> const& X)
   DAG.eval(Y, PolY, X, PolX);
   PolEnv.generate_cuts(PolY);
   return {PolEnv.Cuts().size(), PolEnv.Aux().size()};
+}
+
+static bool
+same(std::vector<FFVar> const& A, std::vector<FFVar> const& B)
+{
+  if (A.size() != B.size()) return false;
+  for (size_t i = 0; i < A.size(); ++i)
+    if (A[i].id() != B[i].id()) return false;
+  return true;
 }
 
 static std::vector<FFVar>
@@ -216,13 +225,13 @@ main()
     ANN.options.TANGENT = true;  // tangent operations too
     mc::FFMLP<I> Op, Op2;
     std::vector<FFVar> const Y = Op(X, &ANN), W = Op(Z, &ANN);
-    mc::MLP<I>* const net = Op.pMLP();
+    mc::MLP<I>* const net = &Op.MLP();
     if (!net || net == &ANN) return {false, "the handle does not point to a copy"};
-    if (opof(Y[0])->object() != net || opof(W[0])->object() != net) return {false, "operations on other operands"};
+    if (&opof(Y[0])->object() != net || &opof(W[0])->object() != net) return {false, "operations on other operands"};
     // a second handle, a copy of the network, the outputs one by one
     mc::MLP<I> COPY(ANN);
-    if (opof(Op2(1, X, &ANN))->object() != net || Op2.pMLP() != net) return {false, "second handle"};
-    if (opof(Op2(X, &COPY)[0])->object() != net) return {false, "copy of the network"};
+    if (&opof(Op2(1, X, &ANN))->object() != net || &Op2.MLP() != net) return {false, "second handle"};
+    if (&opof(Op2(X, &COPY)[0])->object() != net) return {false, "copy of the network"};
     // Jacobian, tangent and adjoint operations
     std::vector<FFVar> const XZ = join(X, Z), F = {Y[0] * W[1], Y[1] + W[0]};
     std::vector<FFVar> const dF = DAG.BAD(F, XZ), tF = DAG.FAD(F, XZ);
@@ -239,13 +248,13 @@ main()
     // a changed network has another home, and the first one is left alone
     network(ANN, 2, 2.);
     std::vector<FFVar> const Y2 = Op(X, &ANN);
-    if (opof(Y2[0])->object() == net || Op.pMLP() != opof(Y2[0])->object()) return {false, "changed network"};
-    if (opof(Y[0])->object() != net) return {false, "first network after the change"};
+    if (&opof(Y2[0])->object() == net || &Op.MLP() != &opof(Y2[0])->object()) return {false, "changed network"};
+    if (&opof(Y[0])->object() != net) return {false, "first network after the change"};
     // another DAG has its own copy
     FFGraph DAGB;
     std::vector<FFVar> XB = DAGB.add_vars(2);
     std::vector<FFVar> const YB = Op(XB, &COPY);
-    if (opof(YB[0])->object() == net || opof(YB[0])->object() == &COPY) return {false, "another DAG"};
+    if (&opof(YB[0])->object() == net || &opof(YB[0])->object() == &COPY) return {false, "another DAG"};
     return {evaluate(DAGB, YB, XB, x0) == y, "values in another DAG"};
   });
 
@@ -300,12 +309,12 @@ main()
     if (operations(DAG, DAG.FAD(W, Z)).find("TanMLP") != std::string::npos) return {false, "option of the original taken"};
     // the network of the home: the next differentiation of any of its operations follows
     ANN.options.TANGENT        = false;
-    Op.pMLP()->options.TANGENT = true;
+    Op.MLP().options.TANGENT = true;
     std::vector<FFVar> const tY = DAG.FAD(Y, X), tW = DAG.FAD(W, Z);
     if (operations(DAG, tY).find("TanMLP") == std::string::npos || operations(DAG, tW).find("TanMLP") == std::string::npos)
       return {false, "option of the home not taken: " + operations(DAG, tY) + "| " + operations(DAG, tW)};
     // the tangent operations see the options too, being on the same network
-    if (!opof(tY[0])->object()->options.TANGENT) return {false, "tangent operation on another network"};
+    if (!opof(tY[0])->object().options.TANGENT) return {false, "tangent operation on another network"};
     // derivatives already made are left as they are, and all agree
     if (operations(DAG, dY).find("TanMLP") != std::string::npos) return {false, "existing derivatives changed"};
     return {near(evaluate(DAG, tY, X, x0), evaluate(DAG, dY, X, x0)) && near(evaluate(DAG, tY, X, x0), jacobian(ANN, x0)), "values"};
@@ -344,7 +353,7 @@ main()
     mc::FFMLP<I> Op;
     std::vector<FFVar> const Y = Op(X, &ANN, Op.SHALLOW), dY = DAG.FAD(Y, X), bY = DAG.BAD(Y, X);
     std::set<mc::MLP<I>*> const nets = networks(DAG, join(join(Y, dY), bY));
-    if (Op.pMLP() != &ANN || nets.size() != 1 || *nets.begin() != &ANN) return {false, "network of the operations"};
+    if (&Op.MLP() != &ANN || nets.size() != 1 || *nets.begin() != &ANN) return {false, "network of the operations"};
     // a change of the network is seen by the value and by the derivatives already made
     network(ANN, 2, 2.);
     if (evaluate(DAG, Y, X, x0) != direct(ANN, x0)) return {false, "values after the change"};
@@ -355,14 +364,14 @@ main()
     if (operations(DAG, DAG.FAD(Y, X)).find("TanMLP") == std::string::npos) return {false, "option of the network"};
     // a copy in the same DAG has another home, with its own network
     std::vector<FFVar> const YC = Op(X, &ANN);
-    if (Op.pMLP() == &ANN || opof(YC[0])->object() == &ANN) return {false, "copy in the same DAG"};
+    if (&Op.MLP() == &ANN || &opof(YC[0])->object() == &ANN) return {false, "copy in the same DAG"};
     // a network handed over to the DAG: held as given, and deleted with its home
     mc::MLP<I>* pANN = new mc::MLP<I>;
     network(*pANN, 2, 3.);
     std::vector<double> const y3 = direct(*pANN, x0), J3 = jacobian(*pANN, x0);
     mc::FFMLP<I> OpT;
     std::vector<FFVar> const YT = OpT(X, pANN, OpT.TRANSFER), dYT = DAG.FAD(YT, X);
-    if (OpT.pMLP() != pANN || opof(dYT[0])->object() != pANN) return {false, "network handed over"};
+    if (&OpT.MLP() != pANN || &opof(dYT[0])->object() != pANN) return {false, "network handed over"};
     return {evaluate(DAG, YT, X, x0) == y3 && near(evaluate(DAG, dYT, X, x0), J3), "values of the network handed over"};
   });
 
@@ -379,7 +388,7 @@ main()
       FFGraph DAG;
       std::vector<FFVar> X = DAG.add_vars(2);
       std::vector<FFVar> const Y = Op(X, &ANN), dY = DAG.FAD(Y, X);
-      net = Op.pMLP();
+      net = &Op.MLP();
       DAG2.insert(&DAG, 2, X.data(), X2.data());
       DAG2.insert(&DAG, 2, Y.data(), Y2.data());
       DAG2.insert(&DAG, 4, dY.data(), dY2.data());
@@ -392,14 +401,14 @@ main()
       Op.options.SCMODORD = 9;
       if (opof(Y[0])->options.SCMODORD != 9 || opof(Y2[0])->options.SCMODORD != 7) return {false, "change in the first DAG"};
       opof(Y2[0])->options.SCMODORD      = 5;
-      opof(Y2[0])->object()->options.TANGENT = true;
+      opof(Y2[0])->object().options.TANGENT = true;
       if (opof(Y[0])->options.SCMODORD != 9 || net->options.TANGENT) return {false, "change in the copy"};
     }
     // the first DAG is gone
     if (evaluate(DAG2, Y2, X2, x0) != y || !near(evaluate(DAG2, dY2, X2, x0), J)) return {false, "values in the copy"};
     // the handle finds the home of the network in the copy, and is then attached to it
     std::vector<FFVar> const Y2again = Op(X2, &ANN);
-    if (Y2again[0].id() != Y2[0].id() || Op.pMLP() != opof(Y2[0])->object()) return {false, "network not found in the copy"};
+    if (Y2again[0].id() != Y2[0].id() || &Op.MLP() != &opof(Y2[0])->object()) return {false, "network not found in the copy"};
     return {Op.home_options().SCMODORD == 5 && operations(DAG2, DAG2.FAD(Y2again, X2)).find("TanMLP") != std::string::npos,
             "options of the home in the copy"};
   });
@@ -420,12 +429,80 @@ main()
           mc::FFMLP<I> Op;
           mc::MLP<I> copy(ANN);
           std::vector<FFVar> const Y = Op(X, &copy), dY = DAG.FAD(Y, X);
-          good = (evaluate(DAG, Y, X, x0) == y) && near(evaluate(DAG, dY, X, x0), J) && Op.pMLP() != &copy;
+          good = (evaluate(DAG, Y, X, x0) == y) && near(evaluate(DAG, dY, X, x0), J) && &Op.MLP() != &copy;
         }
         ok[t] = good;
       });
     for (auto& th : threads) th.join();
     return {ok[0] && ok[1] && ok[2] && ok[3], "values"};
+  });
+
+  run("MLP(): the network of the DAG by reference, from every class of MLP operation", []() -> Result {
+    mc::FFMLP<I> Op;
+    mc::FFGradMLP<I> OpG;
+    mc::FFTanMLP<I> OpT;
+    mc::FFAdjMLP<I> OpA;
+    // before any insertion: an exception, and a null pointer from the deprecated accessor
+    int thrown = 0;
+    for (std::function<void()> f : std::vector<std::function<void()>>{[&]() { Op.MLP(); }, [&]() { OpG.MLP(); },
+                                                                      [&]() { OpT.MLP(); }, [&]() { OpA.MLP(); }})
+    {
+      try { f(); }
+      catch (std::runtime_error const&) { ++thrown; }
+    }
+    if (thrown != 4) return {false, "no exception before an insertion: " + std::to_string(4 - thrown) + " classes"};
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+    if (Op.pMLP()) return {false, "pMLP() before an insertion"};
+    FFGraph DAG;
+    std::vector<FFVar> X = DAG.add_vars(2);
+    mc::MLP<I> ANN;
+    network(ANN, 2, 1.);
+    ANN.options.TANGENT = ANN.options.ADJOINT = true;
+    std::vector<FFVar> const Y = Op(X, &ANN);
+    if (Op.pMLP() != &Op.MLP()) return {false, "pMLP() and MLP() differ"};
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
+    // the derivative operations of every class hold the same network
+    std::vector<FFVar> const F = {Y[0] * Y[1]};
+    std::vector<FFVar> const dJ = DAG.FAD(Y, X), dT = DAG.FAD(F, X), dA = DAG.BAD(F, X);
+    std::string const ops = operations(DAG, join(join(dJ, dT), dA));
+    if (ops.find("TanMLP") == std::string::npos || ops.find("AdjMLP") == std::string::npos) return {false, "test: operations " + ops};
+    for (auto const& V : join(join(dJ, dT), dA))
+      if (V.opdef().first && V.opdef().first->type >= mc::FFOp::EXTERN && &opof(V)->object() != &Op.MLP())
+        return {false, "a derivative operation holds another network"};
+    // const access
+    mc::FFMLP<I> const& cOp = Op;
+    return {&cOp.MLP() == &Op.MLP() && cOp.MLP().nout() == 2, "const access"};
+  });
+
+  run("a network of the DAG given other weights: its operations follow, the original gets another one", []() -> Result {
+    FFGraph DAG;
+    std::vector<FFVar> X = DAG.add_vars(2);
+    mc::MLP<I> ANN;
+    network(ANN, 2, 1.);
+    std::vector<double> const y1 = direct(ANN, x0);
+    mc::FFMLP<I> Op;
+    std::vector<FFVar> const Y = Op(X, &ANN);
+    mc::MLP<I>& net = Op.MLP();
+    network(net, 2, 2.);  // the copy of the DAG, given other weights
+    std::vector<double> const y2 = direct(net, x0);
+    if (y1 == y2) return {false, "test networks"};
+    if (evaluate(DAG, Y, X, x0) != y2) return {false, "the operation does not follow its network"};
+    if (!near(evaluate(DAG, DAG.FAD(Y, X), X, x0), jacobian(net, x0))) return {false, "derivatives made after the change"};
+    // the original, unchanged, inserted again: another operation, with a copy of the original
+    mc::FFMLP<I> Op2;
+    std::vector<FFVar> const Y1 = Op2(X, &ANN);
+    if (same(Y, Y1) || &Op2.MLP() == &net || evaluate(DAG, Y1, X, x0) != y1) return {false, "the original inserted again"};
+    // through the same handle, and again: found each time
+    if (!same(Op(X, &ANN), Y1) || !same(Op2(X, &ANN), Y1)) return {false, "the original inserted a third time"};
+    // a copy of the changed network is another operation too, with the same values
+    mc::MLP<I> copy(net);
+    std::vector<FFVar> const Y2 = Op(X, &copy);
+    return {!same(Y2, Y) && !same(Y2, Y1) && evaluate(DAG, Y2, X, x0) == y2, "a copy of the changed network"};
   });
 
   run("vector evaluation on several threads: values and derivatives, through the DAG copies of the threads", []() -> Result {

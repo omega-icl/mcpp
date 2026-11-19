@@ -514,13 +514,13 @@ struct lt_DAGEXT
 template <typename T = mc::Interval>
 class FFDAGEXT
     ////////////////////////////////////////////////////////////////////////
-    : public FFEXTERN<T, DAGEXT<T>>
+    : public FFEXTERN<T, mc::DAGEXT<T>>
 {
  protected:
-  using FFEXTERN<T, DAGEXT<T>>::_ptrObj;
-  using FFEXTERN<T, DAGEXT<T>>::_ownObj;
+  using FFEXTERN<T, mc::DAGEXT<T>>::_ptrObj;
+  using FFEXTERN<T, mc::DAGEXT<T>>::_ownObj;
 
-  using typename FFEXTERN<T, DAGEXT<T>>::Home;
+  using typename FFEXTERN<T, mc::DAGEXT<T>>::Home;
 
   // Jacobian of the expression tree of a home, kept there for all the
   // operations on that tree
@@ -562,7 +562,7 @@ class FFDAGEXT
       jac->row          = std::get<0>(sdervarout);
       jac->col          = std::get<1>(sdervarout);
       this->_attach_derived(
-          parent, new DAGEXT<T>(home.obj->dag(), home.obj->varin(),
+          parent, new mc::DAGEXT<T>(home.obj->dag(), home.obj->varin(),
                                 std::get<2>(sdervarout)));
       jac->home = this->_home;
       home.aux  = jac;
@@ -587,7 +587,7 @@ class FFDAGEXT
 
   // set the object and related operation in DAG
   FFVar**
-  _set(size_t const nVar, FFVar const* pVar, DAGEXT<T>* pDAG, int policy)
+  _set(size_t const nVar, FFVar const* pVar, mc::DAGEXT<T>* pDAG, int policy)
   {
 #ifdef MC__FFDAGEXT_CHECK
     assert(nVar == pDAG->nin());
@@ -604,7 +604,7 @@ class FFDAGEXT
 
   // set the object and related operation in DAG
   FFVar**
-  _set(std::set<unsigned> const& ndxVar, FFVar const* pVar, DAGEXT<T>* pDAG,
+  _set(std::set<unsigned> const& ndxVar, FFVar const* pVar, mc::DAGEXT<T>* pDAG,
        int policy)
   {
 #ifdef MC__FFDAGEXT_CHECK
@@ -634,7 +634,7 @@ class FFDAGEXT
   };
 
   //! @brief Default constructor
-  FFDAGEXT(bool const sparse = true) : FFEXTERN<T, DAGEXT<T>>()
+  FFDAGEXT(bool const sparse = true) : FFEXTERN<T, mc::DAGEXT<T>>()
   {
     this->sparse = sparse;
   }
@@ -643,12 +643,12 @@ class FFDAGEXT
   virtual ~FFDAGEXT() {}
 
   // Copy constructor
-  FFDAGEXT(FFDAGEXT<T> const& Other) : FFEXTERN<T, DAGEXT<T>>(Other) {}
+  FFDAGEXT(FFDAGEXT<T> const& Other) : FFEXTERN<T, mc::DAGEXT<T>>(Other) {}
 
   // Define operation
   std::vector<FFVar>
   operator()(std::set<unsigned> const& ndxVar, std::vector<FFVar> const& vVar,
-             DAGEXT<T>* pDAG, int policy = COPY)
+             mc::DAGEXT<T>* pDAG, int policy = COPY)
   {
     // return _set( vVar.size(), vVar.data(), pDAG, policy );
     FFVar** ppDep = _set(ndxVar, vVar.data(), pDAG, policy);
@@ -658,7 +658,7 @@ class FFDAGEXT
   }
 
   std::vector<FFVar>
-  operator()(std::vector<FFVar> const& vVar, DAGEXT<T>* pDAG, int policy = COPY)
+  operator()(std::vector<FFVar> const& vVar, mc::DAGEXT<T>* pDAG, int policy = COPY)
   {
     // return _set( vVar.size(), vVar.data(), pDAG, policy );
     FFVar** ppDep = _set(vVar.size(), vVar.data(), pDAG, policy);
@@ -668,7 +668,7 @@ class FFDAGEXT
   }
 
   FFVar&
-  operator()(size_t const idep, std::vector<FFVar> const& vVar, DAGEXT<T>* pDAG,
+  operator()(size_t const idep, std::vector<FFVar> const& vVar, mc::DAGEXT<T>* pDAG,
              int policy = COPY)
   {
 #ifdef MC__FFDAGEXT_CHECK
@@ -678,7 +678,7 @@ class FFDAGEXT
   }
 
   FFVar**
-  operator()(size_t const nVar, FFVar const* pVar, DAGEXT<T>* pDAG,
+  operator()(size_t const nVar, FFVar const* pVar, mc::DAGEXT<T>* pDAG,
              int policy = COPY)
   {
     return _set(nVar, pVar, pDAG, policy);
@@ -686,14 +686,14 @@ class FFDAGEXT
 
   FFVar**
   operator()(std::set<unsigned> const& ndxVar, FFVar const* pVar,
-             DAGEXT<T>* pDAG, int policy = COPY)
+             mc::DAGEXT<T>* pDAG, int policy = COPY)
   {
     return _set(ndxVar, pVar, pDAG, policy);
   }
 
   FFVar&
   operator()(size_t const idep, size_t const nVar, FFVar const* pVar,
-             DAGEXT<T>* pDAG, int policy = COPY)
+             mc::DAGEXT<T>* pDAG, int policy = COPY)
   {
 #ifdef MC__FFDAGEXT_CHECK
     assert(idep < pDAG->nout());
@@ -701,12 +701,21 @@ class FFDAGEXT
     return *(_set(nVar, pVar, pDAG, policy)[idep]);
   }
 
-  // DAGEXT pointer: after an insertion, the DAGEXT object of the DAG -- the
-  // copy that it holds (COPY), or the object given
-  DAGEXT<T>*
+  //! @brief DAGEXT object of the DAG: after an insertion, the copy that the
+  //! DAG holds (policy COPY) or the object given, shared by every operation
+  //! on that expression tree in that DAG -- see mc::FFEXTERN::object. Throws
+  //! before any insertion
+  mc::DAGEXT<T>&
+  DAGEXT() const
+  {
+    return this->object();
+  }
+
+  //! @brief Pointer to the DAGEXT object of the DAG, null before any
+  //! insertion
+  [[deprecated("use DAGEXT(), which returns a reference")]] mc::DAGEXT<T>*
   pDAGEXT() const
   {
-    // std::cerr << "DAGEXT address retreived: " << _ptrObj << std::endl;
     return _ptrObj;
   }
 

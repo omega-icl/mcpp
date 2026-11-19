@@ -1643,15 +1643,15 @@ MLP<T>::_reval(U* valin, U* valout, std::vector<U>& wk, U const& inf)
 template <typename T = mc::Interval>
 class FFMLP
     ////////////////////////////////////////////////////////////////////////
-    : public FFEXTERN<T, MLP<T>>
+    : public FFEXTERN<T, mc::MLP<T>>
 {
  protected:
-  using FFEXTERN<T, MLP<T>>::_ptrObj;
-  using FFEXTERN<T, MLP<T>>::_ownObj;
+  using FFEXTERN<T, mc::MLP<T>>::_ptrObj;
+  using FFEXTERN<T, mc::MLP<T>>::_ownObj;
 
   // set the object and related operation in DAG
   FFVar**
-  _set(size_t const nVar, FFVar const* pVar, MLP<T>* pMLP, int policy)
+  _set(size_t const nVar, FFVar const* pVar, mc::MLP<T>* pMLP, int policy)
   {
 #ifdef MC__FFMLP_CHECK
     assert(nVar == pMLP->nin());
@@ -1670,7 +1670,7 @@ class FFMLP
   // it shares
   FFVar**
   _set(size_t const nVar, FFVar const* pVar,
-       FFEXTERN<T, MLP<T>> const& parent)
+       FFEXTERN<T, mc::MLP<T>> const& parent)
   {
     this->owndata = false;
     this->_join(parent);
@@ -1688,18 +1688,18 @@ class FFMLP
   };
 
   //! @brief Default constructor
-  FFMLP() : FFEXTERN<T, MLP<T>>() {}
+  FFMLP() : FFEXTERN<T, mc::MLP<T>>() {}
 
   // Destructor
   virtual ~FFMLP() {}
 
   // Copy constructor
-  FFMLP(FFMLP<T> const& Other) : FFEXTERN<T, MLP<T>>(Other) {}
+  FFMLP(FFMLP<T> const& Other) : FFEXTERN<T, mc::MLP<T>>(Other) {}
 
   // Define operation
   // FFVar** operator()
   std::vector<FFVar>
-  operator()(std::vector<FFVar> const& vVar, MLP<T>* pMLP, int policy = COPY)
+  operator()(std::vector<FFVar> const& vVar, mc::MLP<T>* pMLP, int policy = COPY)
   {
 #ifdef MC__FFMLP_CHECK
     assert(vVar.size() == pMLP->nin());
@@ -1712,7 +1712,7 @@ class FFMLP
   }
 
   FFVar&
-  operator()(size_t const idep, std::vector<FFVar> const& vVar, MLP<T>* pMLP,
+  operator()(size_t const idep, std::vector<FFVar> const& vVar, mc::MLP<T>* pMLP,
              int policy = COPY)
   {
 #ifdef MC__FFMLP_CHECK
@@ -1722,7 +1722,7 @@ class FFMLP
   }
 
   FFVar**
-  operator()(size_t const nVar, FFVar const* pVar, MLP<T>* pMLP,
+  operator()(size_t const nVar, FFVar const* pVar, mc::MLP<T>* pMLP,
              int policy = COPY)
   {
 #ifdef MC__FFMLP_CHECK
@@ -1733,7 +1733,7 @@ class FFMLP
 
   FFVar&
   operator()(size_t const idep, size_t const nVar, FFVar const* pVar,
-             MLP<T>* pMLP, int policy = COPY)
+             mc::MLP<T>* pMLP, int policy = COPY)
   {
 #ifdef MC__FFMLP_CHECK
     assert(nVar == pMLP->nin() && idep < pMLP->nout());
@@ -1741,12 +1741,20 @@ class FFMLP
     return *(_set(nVar, pVar, pMLP, policy)[idep]);
   }
 
-  // MLP pointer: after an insertion, the MLP object of the DAG -- the copy
-  // that it holds (COPY), or the object given
-  MLP<T>*
+  //! @brief MLP object of the DAG: after an insertion, the copy that the DAG
+  //! holds (policy COPY) or the object given, shared by every operation on
+  //! that network in that DAG -- see mc::FFEXTERN::object. Throws before any
+  //! insertion
+  mc::MLP<T>&
+  MLP() const
+  {
+    return this->object();
+  }
+
+  //! @brief Pointer to the MLP object of the DAG, null before any insertion
+  [[deprecated("use MLP(), which returns a reference")]] mc::MLP<T>*
   pMLP() const
   {
-    // std::cerr << "MLP address retreived: " << _ptrObj << std::endl;
     return _ptrObj;
   }
 
@@ -1891,7 +1899,7 @@ class FFMLP
            W * (0.5 + 0.25 * R) + 35. * E;
   }
 
-  // Tangents: with MLP<T>::Options::TANGENT, the forward symbolic
+  // Tangents: with mc::MLP<T>::Options::TANGENT, the forward symbolic
   // differentiation inserts the directional derivative operation FFTanMLP
   // along the tangents of the operands, in place of the Jacobian FFGradMLP
   // -- where that is estimated to be the cheaper for nSweep sweeps, a
@@ -1905,7 +1913,7 @@ class FFMLP
                FFVar const* vVar, FFVar const* const* vTan,
                FFVar* vResTan) const;
 
-  // Adjoints: with MLP<T>::Options::ADJOINT, the backward symbolic
+  // Adjoints: with mc::MLP<T>::Options::ADJOINT, the backward symbolic
   // differentiation inserts the adjoint operation FFAdjMLP for the adjoints
   // of the results, in place of the Jacobian FFGradMLP -- where that is
   // estimated to be the cheaper for nSweep sweeps, an adjoint pass costing
@@ -1945,17 +1953,17 @@ class FFMLP
 template <typename T>
 class FFGradMLP
     ////////////////////////////////////////////////////////////////////////
-    : public FFEXTERN<T, MLP<T>>
+    : public FFEXTERN<T, mc::MLP<T>>
 {
   friend class FFMLP<T>;
 
  protected:
-  using FFEXTERN<T, MLP<T>>::_ptrObj;
-  using FFEXTERN<T, MLP<T>>::_ownObj;
+  using FFEXTERN<T, mc::MLP<T>>::_ptrObj;
+  using FFEXTERN<T, mc::MLP<T>>::_ownObj;
 
   // set the object and related operation in DAG
   FFVar**
-  _set(size_t const nVar, FFVar const* pVar, MLP<T>* pMLP, int policy)
+  _set(size_t const nVar, FFVar const* pVar, mc::MLP<T>* pMLP, int policy)
   {
 #ifdef MC__FFMLP_CHECK
     assert(nVar == pMLP->nin());
@@ -1974,7 +1982,7 @@ class FFGradMLP
   // it shares
   FFVar**
   _set(size_t const nVar, FFVar const* pVar,
-       FFEXTERN<T, MLP<T>> const& parent)
+       FFEXTERN<T, mc::MLP<T>> const& parent)
   {
     this->owndata = false;
     this->_join(parent);
@@ -1992,17 +2000,17 @@ class FFGradMLP
   };
 
   //! @brief Default constructor
-  FFGradMLP() : FFEXTERN<T, MLP<T>>() {}
+  FFGradMLP() : FFEXTERN<T, mc::MLP<T>>() {}
 
   // Destructor
   virtual ~FFGradMLP() {}
 
   // Copy constructor
-  FFGradMLP(FFGradMLP<T> const& Other) : FFEXTERN<T, MLP<T>>(Other) {}
+  FFGradMLP(FFGradMLP<T> const& Other) : FFEXTERN<T, mc::MLP<T>>(Other) {}
 
   // Define operation
   FFVar**
-  operator()(std::vector<FFVar> const& vVar, MLP<T>* pMLP, int policy = COPY)
+  operator()(std::vector<FFVar> const& vVar, mc::MLP<T>* pMLP, int policy = COPY)
   {
 #ifdef MC__FFMLP_CHECK
     assert(vVar.size() == pMLP->nin());
@@ -2011,7 +2019,7 @@ class FFGradMLP
   }
 
   FFVar&
-  operator()(size_t const idep, std::vector<FFVar> const& vVar, MLP<T>* pMLP,
+  operator()(size_t const idep, std::vector<FFVar> const& vVar, mc::MLP<T>* pMLP,
              int policy = COPY)
   {
 #ifdef MC__FFMLP_CHECK
@@ -2021,7 +2029,7 @@ class FFGradMLP
   }
 
   FFVar**
-  operator()(size_t const nVar, FFVar const* pVar, MLP<T>* pMLP,
+  operator()(size_t const nVar, FFVar const* pVar, mc::MLP<T>* pMLP,
              int policy = COPY)
   {
 #ifdef MC__FFMLP_CHECK
@@ -2032,7 +2040,7 @@ class FFGradMLP
 
   FFVar&
   operator()(size_t const idep, size_t const nVar, FFVar const* pVar,
-             MLP<T>* pMLP, int policy = COPY)
+             mc::MLP<T>* pMLP, int policy = COPY)
   {
 #ifdef MC__FFMLP_CHECK
     assert(nVar == pMLP->nin() && idep < pMLP->nout() * pMLP->nin());
@@ -2040,12 +2048,20 @@ class FFGradMLP
     return *(_set(nVar, pVar, pMLP, policy)[idep]);
   }
 
-  // MLP pointer: after an insertion, the MLP object of the DAG -- the copy
-  // that it holds (COPY), or the object given
-  MLP<T>*
+  //! @brief MLP object of the DAG: after an insertion, the copy that the DAG
+  //! holds (policy COPY) or the object given, shared by every operation on
+  //! that network in that DAG -- see mc::FFEXTERN::object. Throws before any
+  //! insertion
+  mc::MLP<T>&
+  MLP() const
+  {
+    return this->object();
+  }
+
+  //! @brief Pointer to the MLP object of the DAG, null before any insertion
+  [[deprecated("use MLP(), which returns a reference")]] mc::MLP<T>*
   pMLP() const
   {
-    // std::cerr << "MLP address retreived: " << _ptrObj << std::endl;
     return _ptrObj;
   }
 
@@ -2166,18 +2182,18 @@ class FFGradMLP
 template <typename T>
 class FFTanMLP
     ////////////////////////////////////////////////////////////////////////
-    : public FFEXTERN<T, MLP<T>>
+    : public FFEXTERN<T, mc::MLP<T>>
 {
   friend class FFMLP<T>;
 
  protected:
-  using FFEXTERN<T, MLP<T>>::_ptrObj;
-  using FFEXTERN<T, MLP<T>>::_ownObj;
+  using FFEXTERN<T, mc::MLP<T>>::_ptrObj;
+  using FFEXTERN<T, mc::MLP<T>>::_ownObj;
 
   // set the object and related operation in DAG; the operands are the inputs
   // followed by the direction
   FFVar**
-  _set(size_t const nVar, FFVar const* pVar, MLP<T>* pMLP, int policy)
+  _set(size_t const nVar, FFVar const* pVar, mc::MLP<T>* pMLP, int policy)
   {
 #ifdef MC__FFMLP_CHECK
     assert(nVar == 2 * pMLP->nin());
@@ -2196,7 +2212,7 @@ class FFTanMLP
   // it shares
   FFVar**
   _set(size_t const nVar, FFVar const* pVar,
-       FFEXTERN<T, MLP<T>> const& parent)
+       FFEXTERN<T, mc::MLP<T>> const& parent)
   {
     this->owndata = false;
     this->_join(parent);
@@ -2214,18 +2230,18 @@ class FFTanMLP
   };
 
   //! @brief Default constructor
-  FFTanMLP() : FFEXTERN<T, MLP<T>>() {}
+  FFTanMLP() : FFEXTERN<T, mc::MLP<T>>() {}
 
   // Destructor
   virtual ~FFTanMLP() {}
 
   // Copy constructor
-  FFTanMLP(FFTanMLP<T> const& Other) : FFEXTERN<T, MLP<T>>(Other) {}
+  FFTanMLP(FFTanMLP<T> const& Other) : FFEXTERN<T, mc::MLP<T>>(Other) {}
 
   // Define operation: derivatives of the outputs at vVar along vDir
   std::vector<FFVar>
   operator()(std::vector<FFVar> const& vVar, std::vector<FFVar> const& vDir,
-             MLP<T>* pMLP, int policy = COPY)
+             mc::MLP<T>* pMLP, int policy = COPY)
   {
 #ifdef MC__FFMLP_CHECK
     assert(vVar.size() == pMLP->nin() && vDir.size() == pMLP->nin());
@@ -2238,9 +2254,18 @@ class FFTanMLP
     return vTan;
   }
 
-  // MLP pointer: after an insertion, the MLP object of the DAG -- the copy
-  // that it holds (COPY), or the object given
-  MLP<T>*
+  //! @brief MLP object of the DAG: after an insertion, the copy that the DAG
+  //! holds (policy COPY) or the object given, shared by every operation on
+  //! that network in that DAG -- see mc::FFEXTERN::object. Throws before any
+  //! insertion
+  mc::MLP<T>&
+  MLP() const
+  {
+    return this->object();
+  }
+
+  //! @brief Pointer to the MLP object of the DAG, null before any insertion
+  [[deprecated("use MLP(), which returns a reference")]] mc::MLP<T>*
   pMLP() const
   {
     return _ptrObj;
@@ -2456,18 +2481,18 @@ FFTanMLP<T>::eval(size_t const nRes, FFExpr* vRes, size_t const nVar,
 template <typename T>
 class FFAdjMLP
     ////////////////////////////////////////////////////////////////////////
-    : public FFEXTERN<T, MLP<T>>
+    : public FFEXTERN<T, mc::MLP<T>>
 {
   friend class FFMLP<T>;
 
  protected:
-  using FFEXTERN<T, MLP<T>>::_ptrObj;
-  using FFEXTERN<T, MLP<T>>::_ownObj;
+  using FFEXTERN<T, mc::MLP<T>>::_ptrObj;
+  using FFEXTERN<T, mc::MLP<T>>::_ownObj;
 
   // set the object and related operation in DAG; the operands are the inputs
   // followed by the weights of the outputs
   FFVar**
-  _set(size_t const nVar, FFVar const* pVar, MLP<T>* pMLP, int policy)
+  _set(size_t const nVar, FFVar const* pVar, mc::MLP<T>* pMLP, int policy)
   {
 #ifdef MC__FFMLP_CHECK
     assert(nVar == pMLP->nin() + pMLP->nout());
@@ -2486,7 +2511,7 @@ class FFAdjMLP
   // it shares
   FFVar**
   _set(size_t const nVar, FFVar const* pVar,
-       FFEXTERN<T, MLP<T>> const& parent)
+       FFEXTERN<T, mc::MLP<T>> const& parent)
   {
     this->owndata = false;
     this->_join(parent);
@@ -2504,19 +2529,19 @@ class FFAdjMLP
   };
 
   //! @brief Default constructor
-  FFAdjMLP() : FFEXTERN<T, MLP<T>>() {}
+  FFAdjMLP() : FFEXTERN<T, mc::MLP<T>>() {}
 
   // Destructor
   virtual ~FFAdjMLP() {}
 
   // Copy constructor
-  FFAdjMLP(FFAdjMLP<T> const& Other) : FFEXTERN<T, MLP<T>>(Other) {}
+  FFAdjMLP(FFAdjMLP<T> const& Other) : FFEXTERN<T, mc::MLP<T>>(Other) {}
 
   // Define operation: derivatives in vVar of the sum of the outputs weighted
   // by vWei
   std::vector<FFVar>
   operator()(std::vector<FFVar> const& vVar, std::vector<FFVar> const& vWei,
-             MLP<T>* pMLP, int policy = COPY)
+             mc::MLP<T>* pMLP, int policy = COPY)
   {
 #ifdef MC__FFMLP_CHECK
     assert(vVar.size() == pMLP->nin() && vWei.size() == pMLP->nout());
@@ -2529,9 +2554,18 @@ class FFAdjMLP
     return vAdj;
   }
 
-  // MLP pointer: after an insertion, the MLP object of the DAG -- the copy
-  // that it holds (COPY), or the object given
-  MLP<T>*
+  //! @brief MLP object of the DAG: after an insertion, the copy that the DAG
+  //! holds (policy COPY) or the object given, shared by every operation on
+  //! that network in that DAG -- see mc::FFEXTERN::object. Throws before any
+  //! insertion
+  mc::MLP<T>&
+  MLP() const
+  {
+    return this->object();
+  }
+
+  //! @brief Pointer to the MLP object of the DAG, null before any insertion
+  [[deprecated("use MLP(), which returns a reference")]] mc::MLP<T>*
   pMLP() const
   {
     return _ptrObj;

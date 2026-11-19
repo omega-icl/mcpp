@@ -318,14 +318,14 @@ network node is selected through :attr:`options` (field ``RELAX``).
 The MLP object passed to ``__call__`` is copied into the DAG, once per
 DAG: every operation on that network in that DAG -- on whichever
 variables, and the gradient operations that differentiation inserts --
-shares the copy, which :attr:`mlp` returns. Later modifications of the
+shares the copy, which :attr:`MLP` returns. Later modifications of the
 original network do not affect the DAG; a network modified with
 ``set_data`` or ``append_data`` and passed again is inserted as another
 operation, with a copy of its own.
 
 Options can be changed after the insertion, and the operations follow:
 the relaxation options through :attr:`options`, the options of the
-network in the DAG through ``mlp.options``.
+network in the DAG through ``MLP.options``.
 
 Examples
 --------
@@ -487,15 +487,17 @@ in the DAG keeps the options of that object; they are the ones returned
 here.)
 )doc")
       .def_property_readonly(
-          "mlp", [](mc::FFMLP<I>& self) { return self.share_object(); },
+          "MLP", [](mc::FFMLP<I>& self) { return self.share_object(); },
           R"doc(
 MLP or None: The copy held by the DAG of the network inserted last, None
 before the first call.
 
 The copy is shared by every operation on that network in that DAG. Its
-options can be changed, e.g. ``OpNN.mlp.options.TANGENT = True``: the
-operations follow at their next evaluation or differentiation. The copy
-is not meant to have its weights modified.
+options can be changed, e.g. ``OpNN.MLP.options.TANGENT = True``: the
+operations follow at their next evaluation or differentiation. Should its
+weights be changed (``set_data``, ``append_data``), the operations on it
+follow too, and the original network passed again is inserted as another
+operation, with a copy of its own.
 )doc")
       .def_property_readonly(
           "attached", [](mc::FFMLP<I> const& self) { return self.attached(); },

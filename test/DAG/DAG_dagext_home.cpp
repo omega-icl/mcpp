@@ -123,7 +123,7 @@ trees(FFGraph& DAG, std::vector<FFVar> const& F)
   std::set<TREE*> all;
   auto sg = DAG.subgraph(F);
   for (auto const& op : sg.l_op)
-    if (op->type >= mc::FFOp::EXTERN) all.insert(static_cast<OPTREE const*>(op)->object());
+    if (op->type >= mc::FFOp::EXTERN) all.insert(&static_cast<OPTREE const*>(op)->object());
   return all;
 }
 
@@ -243,14 +243,14 @@ main()
     TREE D = tree(G, U);
     OPTREE Op, Op2;
     std::vector<FFVar> const Y = Op(X, &D), W = Op2(Z, &D);
-    TREE* const obj = Op.pDAGEXT();
-    if (!obj || obj == &D || Op2.pDAGEXT() != obj || opof(Y[0])->object() != obj || opof(W[0])->object() != obj)
+    TREE* const obj = &Op.DAGEXT();
+    if (!obj || obj == &D || &Op2.DAGEXT() != obj || &opof(Y[0])->object() != obj || &opof(W[0])->object() != obj)
       return {false, "tree of the operations"};
     // Jacobian operations on either operands, by either mode: one further tree
     std::vector<FFVar> const dY = DAG.FAD(Y, X), dW = DAG.FAD(W, Z), bY = DAG.BAD(Y, X);
     std::set<TREE*> const all = trees(DAG, join(join(join(Y, W), join(dY, dW)), bY));
     if (all.size() != 2 || !all.count(obj)) return {false, std::to_string(all.size()) + " trees for the value and the Jacobian"};
-    if (opof(dY[0])->object() == obj || opof(dY[0])->object() != opof(dW[0])->object()) return {false, "tree of the Jacobian operations"};
+    if (&opof(dY[0])->object() == obj || &opof(dY[0])->object() != &opof(dW[0])->object()) return {false, "tree of the Jacobian operations"};
     // differentiated again: the same operations
     if (!same(dY, DAG.FAD(Y, X)) || !same(bY, DAG.BAD(Y, X))) return {false, "differentiated again"};
     std::vector<double> const z0 = {-1.2, 0.4};
@@ -294,17 +294,17 @@ main()
     Op.options.RELAX = {Op.options.INT};
     if (relax(DAG, Y, X) != rINT) return {false, "options changed back"};
     // the tree of the Jacobian has the options of its parent, as of each differentiation
-    if (opof(dY[0])->object()->options.CPMAX != 3) return {false, "options of the Jacobian tree"};
+    if (opof(dY[0])->object().options.CPMAX != 3) return {false, "options of the Jacobian tree"};
     D.options.CPMAX = 4;  // the original: no effect
     DAG.FAD(Y, X);
-    if (opof(dY[0])->object()->options.CPMAX != 3) return {false, "options of the original taken"};
-    Op.pDAGEXT()->options.CPMAX = 5;
-    if (!same(dY, DAG.FAD(Y, X)) || opof(dY[0])->object()->options.CPMAX != 5) return {false, "options of the tree of the home"};
+    if (opof(dY[0])->object().options.CPMAX != 3) return {false, "options of the original taken"};
+    Op.DAGEXT().options.CPMAX = 5;
+    if (!same(dY, DAG.FAD(Y, X)) || opof(dY[0])->object().options.CPMAX != 5) return {false, "options of the tree of the home"};
     // another AD strategy: the Jacobian is differentiated again, in a new home with the same options
-    TREE* const jac = opof(dY[0])->object();
-    Op.pDAGEXT()->options.AUTODIFF = TREE::Options::B;
+    TREE* const jac = &opof(dY[0])->object();
+    Op.DAGEXT().options.AUTODIFF = TREE::Options::B;
     std::vector<FFVar> const bY = DAG.FAD(Y, X);
-    if (opof(bY[0])->object() == jac || &opof(bY[0])->options != &Op.options) return {false, "Jacobian after a change of AD strategy"};
+    if (&opof(bY[0])->object() == jac || &opof(bY[0])->options != &Op.options) return {false, "Jacobian after a change of AD strategy"};
     return {near(evaluate(DAG, bY, X, x0), evaluate(DAG, dY, X, x0)), "derivative values"};
   });
 
@@ -314,7 +314,7 @@ main()
     TREE D = tree(G, U);
     OPTREE Op;
     std::vector<FFVar> const Y = Op(X, &D, Op.SHALLOW), dY = DAG.FAD(Y, X);
-    if (Op.pDAGEXT() != &D || opof(Y[0])->object() != &D) return {false, "tree of the operation"};
+    if (&Op.DAGEXT() != &D || &opof(Y[0])->object() != &D) return {false, "tree of the operation"};
     if (!same(Y, Op(X, &D, Op.SHALLOW)) || evaluate(DAG, Y, X, x0) != values(x0)) return {false, "inserted again, or values"};
     // the tree set again: the operation follows, and its next differentiation is that of the new tree
     D.set(&G, U, {U[0] - U[1], sqr(U[1])});
@@ -323,12 +323,12 @@ main()
     if (!near(evaluate(DAG, DAG.BAD(Y, X), X, x0), {1., -1., 0., 10.})) return {false, "BAD of the tree set again"};
     // a copy in the same DAG has another home
     std::vector<FFVar> const YC = Op(X, &D);
-    if (same(Y, YC) || Op.pDAGEXT() == &D) return {false, "copy in the same DAG"};
+    if (same(Y, YC) || &Op.DAGEXT() == &D) return {false, "copy in the same DAG"};
     // a tree handed over to the DAG: held as given, deleted with its home
     TREE* pD = new TREE(&G, U, {U[0] * U[1], exp(U[0])});
     OPTREE OpT;
     std::vector<FFVar> const YT = OpT(X, pD, OpT.TRANSFER);
-    if (OpT.pDAGEXT() != pD || !same(YT, OpT(X, pD, OpT.SHALLOW))) return {false, "tree handed over"};
+    if (&OpT.DAGEXT() != pD || !same(YT, OpT(X, pD, OpT.SHALLOW))) return {false, "tree handed over"};
     return {evaluate(DAG, YT, X, x0) == values(x0) && near(evaluate(DAG, DAG.FAD(YT, X), X, x0), jacobian(x0)), "values of the tree handed over"};
   });
 
@@ -349,7 +349,7 @@ main()
       DAG2.insert(&DAG, 4, dY.data(), dY2.data());
       // the tree and its Jacobian tree, copied; one set of options for both, copied too
       std::set<TREE*> const all = trees(DAG2, join(Y2, dY2));
-      if (all.size() != 2 || all.count(Op.pDAGEXT()) || all.count(opof(dY[0])->object())) return {false, "trees of the copy"};
+      if (all.size() != 2 || all.count(&Op.DAGEXT()) || all.count(&opof(dY[0])->object())) return {false, "trees of the copy"};
       if (&opof(Y2[0])->options == &Op.options || &opof(dY2[0])->options != &opof(Y2[0])->options) return {false, "options of the copy"};
       Op.options.SCMODORD = 9;
       if (opof(Y2[0])->options.SCMODORD != 7 || opof(dY2[0])->options.SCMODORD != 7) return {false, "change in the first DAG"};
@@ -357,8 +357,41 @@ main()
     // the first DAG is gone
     if (evaluate(DAG2, Y2, X2, x0) != values(x0) || !near(evaluate(DAG2, dY2, X2, x0), jacobian(x0))) return {false, "values in the copy"};
     // the handle finds the home of the tree in the copy; differentiation there gives the same values
-    if (!same(Op(X2, &D), Y2) || Op.pDAGEXT() != opof(Y2[0])->object()) return {false, "tree not found in the copy"};
+    if (!same(Op(X2, &D), Y2) || &Op.DAGEXT() != &opof(Y2[0])->object()) return {false, "tree not found in the copy"};
     return {near(evaluate(DAG2, DAG2.BAD(Y2, X2), X2, x0), jacobian(x0)), "differentiation in the copy"};
+  });
+
+  run("DAGEXT(): the tree of the DAG by reference; a tree of the DAG set to other expressions", []() -> Result {
+    OPTREE Op;
+    bool thrown = false;
+    try { Op.DAGEXT(); }
+    catch (std::runtime_error const&) { thrown = true; }
+    if (!thrown) return {false, "no exception before an insertion"};
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+    if (Op.pDAGEXT()) return {false, "pDAGEXT() before an insertion"};
+    FFGraph DAG, G;
+    std::vector<FFVar> X = DAG.add_vars(2), U = G.add_vars(2);
+    TREE D = tree(G, U);
+    std::vector<FFVar> const Y = Op(X, &D);
+    if (Op.pDAGEXT() != &Op.DAGEXT() || &Op.DAGEXT() == &D) return {false, "pDAGEXT() and DAGEXT()"};
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
+    std::vector<FFVar> const dY = DAG.FAD(Y, X);
+    // the copy of the DAG set to other expressions: its operations follow, its Jacobian is made again
+    Op.DAGEXT().set(&G, U, {U[0] - U[1], sqr(U[1])});
+    if (evaluate(DAG, Y, X, x0) != std::vector<double>{-2., 25.}) return {false, "the operation does not follow its tree"};
+    if (!near(evaluate(DAG, DAG.FAD(Y, X), X, x0), {1., -1., 0., 10.})) return {false, "FAD after the change"};
+    if (!near(evaluate(DAG, DAG.BAD(Y, X), X, x0), {1., -1., 0., 10.})) return {false, "BAD after the change"};
+    // the original, unchanged, inserted again: another operation, with a copy of the original
+    OPTREE Op2;
+    std::vector<FFVar> const Y1 = Op2(X, &D);
+    if (same(Y, Y1) || &Op2.DAGEXT() == &Op.DAGEXT() || evaluate(DAG, Y1, X, x0) != values(x0)) return {false, "the original inserted again"};
+    if (!same(Op(X, &D), Y1)) return {false, "the original inserted a third time"};
+    return {near(evaluate(DAG, DAG.FAD(Y1, X), X, x0), jacobian(x0)), "derivatives of the original"};
   });
 
   run("vector evaluation on several threads: values and derivatives, through the DAG copies of the threads", []() -> Result {

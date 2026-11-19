@@ -202,13 +202,13 @@ the node is selected through :attr:`options` (field ``RELAX``).
 
 The DAGEXT object passed to ``__call__`` is copied into the DAG, once per
 DAG: every operation on that object in that DAG shares the copy, which
-:attr:`dagext` returns, and its Jacobian is differentiated once. Later
+`DAGEXT` returns, and its Jacobian is differentiated once. Later
 modifications of the original object do not affect the DAG; an object set
 to other expressions and passed again is inserted as another operation.
 
 Options can be changed after the insertion, and the operations follow:
 the relaxation options through :attr:`options`, the options of the
-expression tree in the DAG through ``dagext.options``.
+expression tree in the DAG through ``DAGEXT.options``.
 
 See Also
 --------
@@ -327,15 +327,18 @@ first in the DAG keeps the options of that one; they are the ones
 returned here.)
 )doc")
       .def_property_readonly(
-          "dagext",
+          "DAGEXT",
           [](mc::FFDAGEXT<I>& self) { return self.share_object(); },
           R"doc(
 DAGEXT or None: The copy held by the DAG of the object inserted last,
 None before the first call.
 
 The copy is shared by every operation on that object in that DAG. Its
-options can be changed, e.g. ``Op.dagext.options.CPMAX = 5``; the
+options can be changed, e.g. ``Op.DAGEXT.options.CPMAX = 5``; the
 expression tree of the Jacobian takes them at the next differentiation.
+Should it be set to other expressions (``set``), the operations on it
+follow, and the original object passed again is inserted as another
+operation, with a copy of its own.
 )doc")
       .def_property_readonly(
           "attached",
