@@ -40,7 +40,6 @@ set(CMAKE_CXX_FLAGS_RELEASE
     CACHE STRING "Release flags" FORCE)
 
 # Options
-option(ENABLE_HSL "Enable HSL libraries" OFF)
 option(ENABLE_EXAMPLES "Build examples" OFF)
 option(ENABLE_TORCH "Enable Torch interface" OFF)
 option(MC__USE_FADBAD "Use the FADBAD++ forward-AD implementation" OFF)
@@ -277,48 +276,6 @@ if(ENABLE_TORCH)
   message(STATUS "Torch ABI defs:     ${MC_TORCH_COMPILE_DEFINITIONS}")
 endif()
 
-# HSL (Optional)
-if(ENABLE_HSL)
-  message(STATUS "Enabling HSL support")
-  find_library(LIB_MC13 NAMES mc13)
-  find_library(LIB_MC21 NAMES mc21)
-  find_library(LIB_MC33 NAMES mc33)
-
-  set(HSL_LIBRARIES "")
-  if(LIB_MC13)
-    message(STATUS "  Found MC13: ${LIB_MC13}")
-    list(APPEND HSL_LIBRARIES ${LIB_MC13})
-  else()
-    message(
-      STATUS
-        "  MC13 not found via find_library, assuming 'mc13' is in linker path")
-    list(APPEND HSL_LIBRARIES mc13)
-  endif()
-
-  if(LIB_MC21)
-    message(STATUS "  Found MC21: ${LIB_MC21}")
-    list(APPEND HSL_LIBRARIES ${LIB_MC21})
-  else()
-    message(
-      STATUS
-        "  MC21 not found via find_library, assuming 'mc21' is in linker path")
-    list(APPEND HSL_LIBRARIES mc21)
-  endif()
-
-  if(LIB_MC33)
-    message(STATUS "  Found MC33: ${LIB_MC33}")
-    list(APPEND HSL_LIBRARIES ${LIB_MC33})
-  else()
-    message(
-      STATUS
-        "  MC33 not found via find_library, assuming 'mc33' is in linker path")
-    list(APPEND HSL_LIBRARIES mc33)
-  endif()
-
-  list(APPEND HSL_LIBRARIES gfortran)
-  add_compile_definitions(MC__USE_HSL)
-endif()
-
 # Interval Library Configuration
 message(STATUS "--------------------------------------------------------")
 message(STATUS "Active Interval Library Backend: ${MC_INTERVAL_LIBRARY}")
@@ -426,10 +383,6 @@ if(MC_ARMA_WRAPPER)
 endif()
 target_link_libraries(mc INTERFACE ${LAPACK_LIBRARIES} ${BLAS_LIBRARIES}
                                    ${INTERVAL_LIBRARIES})
-
-if(ENABLE_HSL)
-  target_link_libraries(mc INTERFACE ${HSL_LIBRARIES})
-endif()
 
 if(ENABLE_TORCH)
   target_include_directories(mc INTERFACE ${MC_TORCH_INCLUDE_DIRS})
@@ -626,7 +579,6 @@ set(MC_HEADERS
     ffinv.hpp
     ffunc.hpp
     ffexpr.hpp
-    mchsl.hpp
     slift.hpp
     spoly.hpp
     ocbase.hpp

@@ -1,5 +1,14 @@
 # Changes
 
+## Unreleased
+
+### HSL removed
+
+`mchsl.hpp` (`mc::FFHSL`, wrapping the HSL routines MC13, MC21 and MC33) is removed, with the CMake option
+`ENABLE_HSL`, the macro `MC__USE_HSL` and the `FLAG_HSL`/`LIB_HSL` settings of `makeoptions.mk`: nothing in MC++
+used it.  Its successor is CRONOS's `mcblock.hpp` (`mc::FFBLOCK`), which uses HSL under `CRONOS__WITH_HSL` and
+SuiteSparse BTF otherwise.
+
 ## 5.2.0 (2026-11-18)
 
 A minor version, by the rule INSTALL.md's "Releasing" states: classes shared with dependent modules changed.

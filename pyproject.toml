@@ -27,7 +27,6 @@ sdist.exclude = ["src/3rdparty", "build", "dist", ".cache"]
 
 [tool.scikit-build.cmake.define]
 ENABLE_TORCH = "OFF"
-ENABLE_HSL = "OFF"
 ENABLE_EXAMPLES = "OFF"
 MC_INTERVAL_LIBRARY = "BOOST"
 PYMCPP_INSTALL_DIR = "."

@@ -52,7 +52,7 @@ PyMC++ installs from PyPI, with pre-built wheels for Python 3.10 to 3.15 on Linu
 pip install pymcpp
 ```
 
-To use the C++ headers, a different interval backend, or the HSL and Torch options, build from source with CMake;
+To use the C++ headers, a different interval backend, or the Torch option, build from source with CMake;
 refer to [INSTALL.md](INSTALL.md) for the requirements, options and instructions.
 
 ## Layout

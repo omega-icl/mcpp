@@ -32,11 +32,6 @@ INC_BOOST  = -I/usr/include #-I$(PATH_BOOST)
 #FLAG_BOOST = -DBOOST_UBLAS_NO_STD_CERR -DMC__USE_BOOST
 FLAG_BOOST = -DMC__USE_BOOST
 
-PATH_HSL =
-LIB_HSL  = -lmc13 -lmc21 -lmc33 -lgfortran
-INC_HSL  =
-FLAG_HSL = -DMC__USE_HSL
-
 PATH_TORCH = $(LIBTORCH_HOME)
 LIB_TORCH  = -L$(PATH_TORCH)/lib -ltorch_cpu -lc10
 #-Wl,-rpath,$(LIBTORCH_HOME)/lib
@@ -67,12 +62,6 @@ FLAG_LINK = $(PROF)
 FLAG_MC  = -DMC__USE_THREAD $(FLAG_FADBAD) $(FLAG_LAPACK) $(FLAG_BOOST)
 LIB_MC   = $(LIB_FADBAD) $(LIB_LAPACK) $(LIB_BOOST)
 INC_MC   = -I$(PATH_MC)/src/mc $(INC_FADBAD) $(INC_LAPACK) $(INC_BOOST)
-
-ifneq (,$(findstring -DMC__USE_HSL, $(FLAG_HSL)))
- FLAG_MC += $(FLAG_HSL)
- INC_MC  += $(INC_HSL)
- LIB_MC  += $(LIB_HSL)
-endif
 
 ifneq (,$(findstring -DMC__USE_PROFIL, $(FLAG_PROFIL)))
  FLAG_MC += $(FLAG_PROFIL)

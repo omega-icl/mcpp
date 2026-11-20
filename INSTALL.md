@@ -25,7 +25,7 @@ pip install pymcpp
 
 installs pre-built wheels for Python 3.10 to 3.15 on Linux x86-64 (glibc >= 2.27), macOS 15+ (Apple silicon)
 and Windows x86-64, with no further dependency.  The notebooks in `notebook/` run as they are.  Build from
-source when you need the C++ headers, a different interval backend, the HSL or Torch options, or a `pymcpp`
+source when you need the C++ headers, a different interval backend, the Torch option, or a `pymcpp`
 built against the same headers and pybind11 release as another module that exchanges objects with it (CRONOS's
 `cronos`, for instance).
 
@@ -41,7 +41,6 @@ built against the same headers and pybind11 release as another module that excha
 | BLAS / LAPACK | | |
 | Armadillo | | dense linear algebra |
 | PROFIL/BIAS or FILIB++ | optional | alternative interval backends (`PROFIL_HOME`, `FILIB_HOME`) |
-| HSL MC13 / MC21 / MC33 | optional | structural analysis routines (`ENABLE_HSL`, needs a Fortran runtime) |
 | PyTorch (libtorch, CPU) | optional | the Torch interface (`ENABLE_TORCH`) |
 | Python | >= 3.10, development headers | for PyMC++ (`pymcpp`) |
 | pybind11 | **>= 3.0.3, not 3.1.0** (3.0.4 recommended) | the binders |
@@ -64,7 +63,6 @@ Everything is found without help when installed in standard places.  The main op
 | option | default | |
 |---|---|---|
 | `MC_INTERVAL_LIBRARY` | `BOOST` | interval backend: `BOOST`, `PROFIL` (set `PROFIL_HOME`), `FILIB` (set `FILIB_HOME`), `NONVERIFIED` |
-| `ENABLE_HSL` | OFF | link the HSL routines MC13, MC21, MC33 (found by `find_library`, else assumed on the linker path) |
 | `ENABLE_TORCH` | OFF | the Torch interface; `TORCH_PYTHON_PREFIX` points at the torch package or its CMake directory, else torch is imported from the build's Python |
 | `MC__USE_FADBAD` | OFF | FADBAD++ forward AD (`src/3rdparty/fadbad++`) in place of the default implementation -- FADBAD++ is restricted to non-commercial use, see Licence |
 | `MC_ARMA_WRAPPER` | OFF | link Armadillo's runtime wrapper library instead of using Armadillo header-only with BLAS/LAPACK linked directly (the wrapper also pulls in whatever Armadillo was built with, e.g. ARPACK and MPI) |
@@ -98,7 +96,7 @@ component.
 MC++ v5 installs its headers but exports no CMake package yet.  A project using them adds `<prefix>/include`
 (or `<MC++>/src/mc` from the source tree, plus `src/3rdparty/fadbad++` under `MC__USE_FADBAD`) to its include
 path, and defines the macros its MC++ build used: `MC__USE_THREAD`, `MC__USE_TADIFF`, `MC__USE_ARMADILLO`, the
-interval backend (`MC__USE_BOOST`, `MC__USE_PROFIL` or `MC__USE_FILIB`), and `MC__USE_HSL`, `MC__USE_TORCH` or
+interval backend (`MC__USE_BOOST`, `MC__USE_PROFIL` or `MC__USE_FILIB`), and `MC__USE_TORCH` or
 `MC__USE_FADBAD` when enabled.  CRONOS does this through its `MCPP_ROOT` variable.
 
 ### Modules that exchange objects with `pymcpp`
@@ -141,9 +139,9 @@ changed.  On the pybind11 line the INTERNALS number binds -- it is what decides 
 objects, and pybind11 keeps it across patch releases -- while a different pybind11 version with the same internals
 is noted, not failed: a Torch-enabled build compiles against PyTorch's bundled pybind11.  The CI job `abi` runs it on every push, and publishing a release requires it.  At a new minor version,
 record its fingerprint (`check_abi.py build/abi_fingerprint --record`) and commit the file.  Record it in the
-WHEELS' configuration -- no Torch, no HSL, the vendored pybind11 -- in a build directory of its own, since a
+WHEELS' configuration -- no Torch, the vendored pybind11 -- in a build directory of its own, since a
 Torch-enabled build takes pybind11 from PyTorch's include directory and the record would carry the wrong version:
-`cmake -S . -B build-abi -DENABLE_TORCH=OFF -DENABLE_HSL=OFF -DPYMCPP_VENDORED_PYBIND11=ON && cmake --build
+`cmake -S . -B build-abi -DENABLE_TORCH=OFF -DPYMCPP_VENDORED_PYBIND11=ON && cmake --build
 build-abi --target abi_fingerprint && python3 tools/abi/check_abi.py build-abi/abi_fingerprint --record`.  Only Linux x86-64 is
 recorded: a source change shows on any platform.  The fingerprint cannot see everything -- a virtual function
 reordered without a size change, a member's type changed to one of the same size -- so the rule still applies where
