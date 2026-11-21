@@ -581,6 +581,19 @@ is, types that account for round-off errors. Otherwise, the behavior could be
 unreliable and unpredictable; e.g., a feasible set of constraints might be
 declared infeasible.
 
+The arithmetic <a>U</a> in a backward propagation is an enclosure arithmetic:
+mc::Op<U>::l and mc::Op<U>::u bound the set that a value of type <a>U</a>
+encloses, and mc::Op<U>::inter, mc::Op<U>::hull, mc::Op<U>::sqrt and the other
+operations used enclose the intersection, the union, the square root, etc. of
+such sets. A backward step that cannot be justified from these bounds is skipped
+rather than approximated. For instance, a factor of \f$x\cdot y = z\f$ is not
+tightened when \f$z\f$ and the other factor both contain zero, since the factor
+is then unconstrained. The propagation therefore does not depend on what
+<a>U</a> returns for a division by a range containing zero: mc::Interval throws,
+whereas Boost returns \f$[0,0]/[0,1] = [0,0]\f$. A backward step during which
+<a>U</a> throws is skipped as well. An external operation that tightens its
+operands in mc::FFOp::reval should follow the same rule.
+
 
 \section sec_FFUNC_ext How do I add an external operation in the DAG of a
 factorable function?
@@ -1676,9 +1689,20 @@ class FFOp
   //! @brief Forward operation propagation in U arithmetic
   template <typename U>
   bool tighten_forward(const U* dumU) const;
-  //! @brief Backward operation propagation in U arithmetic
+  //! @brief Backward operation propagation in U arithmetic -- U is an enclosure
+  //! arithmetic, whose bounds Op<U>::l and Op<U>::u justify each tightening; a
+  //! tightening that they cannot justify is skipped (see the section on the
+  //! evaluation of the DAG)
   template <typename U>
   bool tighten_backward(const U* dumU) const;
+
+  //! @brief Whether interval <a>x</a> contains zero
+  template <typename U>
+  static bool
+  _zero_in(U const& x)
+  {
+    return Op<U>::l(x) <= 0. && Op<U>::u(x) >= 0.;
+  }
 
   //! @brief Differentiate external operation
   void differentiate_external(FFVar** grad, size_t* nnz, size_t** colnz) const;
@@ -1837,7 +1861,10 @@ class FFOp
   virtual void feval(std::type_info const& idU, unsigned const nRes, void* vRes,
                      unsigned const nVar, void const* vVar,
                      unsigned const* mVar = nullptr) const;
-  //! @brief Virtual forward evaluation function for external operations
+  //! @brief Virtual backward evaluation function for external operations --
+  //! tightens the operands <a>vVar</a> given the results <a>vRes</a>, skipping
+  //! any tightening that the bounds of the arithmetic cannot justify (see
+  //! tighten_backward); returns false if the intersection is empty
   virtual bool reval(std::type_info const& idU, unsigned const nRes, void* vRes,
                      unsigned const nVar, void* vVar) const;
 
@@ -8043,12 +8070,19 @@ FFOp::tighten_backward(U const* dumU) const
           break;
         //*itU = *static_cast<U*>( varin[0]->val() ) * *static_cast<U*>(
         // varin[1]->val() );
-        if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+        // x0 * x1 = r holds for any x0 when r and x1 both contain zero (take
+        // x1 = 0), so x0 is not tightened then. The quotient r / x1 cannot be
+        // relied upon there: an interval library may ignore a zero divisor --
+        // Boost gives [0,0] / [0,1] = [0,0] -- whereas mc::Interval throws.
+        bool const zres = _zero_in(*static_cast<U*>(pres->val()));
+        if (!(zres && _zero_in(*static_cast<U*>(varin[1]->val()))) &&
+            !Op<U>::inter(*static_cast<U*>(varin[0]->val()),
                           *static_cast<U*>(pres->val()) /
                               *static_cast<U*>(varin[1]->val()),
                           *static_cast<U*>(varin[0]->val())))
           return false;
-        if (!Op<U>::inter(*static_cast<U*>(varin[1]->val()),
+        if (!(zres && _zero_in(*static_cast<U*>(varin[0]->val()))) &&
+            !Op<U>::inter(*static_cast<U*>(varin[1]->val()),
                           *static_cast<U*>(pres->val()) /
                               *static_cast<U*>(varin[0]->val()),
                           *static_cast<U*>(varin[1]->val())))
@@ -8078,7 +8112,11 @@ FFOp::tighten_backward(U const* dumU) const
               *static_cast<U*>(pres->val()) * *static_cast<U*>(varin[1]->val()),
               *static_cast<U*>(varin[0]->val())))
         return false;
-      if (!Op<U>::inter(
+      // x0 = r * x1 holds for any x1 when x0 and r both contain zero (take
+      // r = 0), so x1 is not tightened then (see TIMES)
+      if (!(_zero_in(*static_cast<U*>(varin[0]->val())) &&
+            _zero_in(*static_cast<U*>(pres->val()))) &&
+          !Op<U>::inter(
               *static_cast<U*>(varin[1]->val()),
               *static_cast<U*>(varin[0]->val()) / *static_cast<U*>(pres->val()),
               *static_cast<U*>(varin[1]->val())))

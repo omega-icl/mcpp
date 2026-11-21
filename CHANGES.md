@@ -6,8 +6,18 @@
 
 `mchsl.hpp` (`mc::FFHSL`, wrapping the HSL routines MC13, MC21 and MC33) is removed, with the CMake option
 `ENABLE_HSL`, the macro `MC__USE_HSL` and the `FLAG_HSL`/`LIB_HSL` settings of `makeoptions.mk`: nothing in MC++
-used it.  Its successor is CRONOS's `mcblock.hpp` (`mc::FFBLOCK`), which uses HSL under `CRONOS__WITH_HSL` and
+used it.  Its successor is CRONOS's `ffblock.hpp` (`mc::FFBLOCK`), which uses HSL under `CRONOS__WITH_HSL` and
 SuiteSparse BTF otherwise.
+
+### Constraint propagation through products with Boost intervals
+
+The backward propagation of `FFGraph::reval` tightened each factor of `z = x*y` with `z/y` (and the divisor
+of `z = x/y` with `x/z`).  When the result and the other operand both contain zero, the tightened operand is
+unconstrained, since `y` may be zero.  `mc::Interval` throws on a divisor containing zero, and the operation
+was skipped; Boost returns `[0,0]/[0,1] = [0,0]`, and the factor was forced to zero.  With Boost intervals,
+constraint propagation could then report a feasible model as infeasible, e.g. with complementarity
+constraints `mu*g = 0` and `mu` in `[0,1]` (CANON's first-order optimality cuts).  The tightening is now
+skipped in that case, whatever the interval arithmetic; results with `mc::Interval` are unchanged.
 
 ## 5.2.0 (2026-11-18)
 
