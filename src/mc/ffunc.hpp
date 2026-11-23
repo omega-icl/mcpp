@@ -8308,28 +8308,56 @@ FFOp::tighten_backward(U const* dumU) const
       break;
 
     case FFOp::COS:
+    {
       //*itU = Op<U>::cos( *static_cast<U*>( varin[0]->val() ) );
-      if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
-                        Op<U>::acos(*static_cast<U*>(pres->val())),
-                        *static_cast<U*>(varin[0]->val())))
-        return false;
+      // cos is inverted on the branch [k*pi,(k+1)*pi] that holds the operand range, where
+      // x = k*pi + acos((-1)^k*y); an operand range across several branches is left as it is
+      U& opnd        = *static_cast<U*>(varin[0]->val());
+      double const k = std::floor(Op<U>::l(opnd) / PI);
+      if (Op<U>::u(opnd) <= (k + 1.) * PI)
+      {
+        bool const odd = std::fmod(std::fabs(k), 2.) > 0.5;
+        U const res    = odd ? -*static_cast<U*>(pres->val())
+                             : *static_cast<U*>(pres->val());
+        if (!Op<U>::inter(opnd, Op<U>::acos(res) + k * PI, opnd)) return false;
+      }
       break;
+    }
 
     case FFOp::SIN:
+    {
       //*itU = Op<U>::sin( *static_cast<U*>( varin[0]->val() ) );
-      if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
-                        Op<U>::asin(*static_cast<U*>(pres->val())),
-                        *static_cast<U*>(varin[0]->val())))
-        return false;
+      // sin is inverted on the branch [(k-1/2)*pi,(k+1/2)*pi] that holds the operand range,
+      // where x = k*pi + asin((-1)^k*y); an operand range across several branches is left as
+      // it is
+      U& opnd        = *static_cast<U*>(varin[0]->val());
+      double const k = std::floor(Op<U>::l(opnd) / PI + 0.5);
+      if (Op<U>::u(opnd) <= (k + 0.5) * PI)
+      {
+        bool const odd = std::fmod(std::fabs(k), 2.) > 0.5;
+        U const res    = odd ? -*static_cast<U*>(pres->val())
+                             : *static_cast<U*>(pres->val());
+        if (!Op<U>::inter(opnd, Op<U>::asin(res) + k * PI, opnd)) return false;
+      }
       break;
+    }
 
     case FFOp::TAN:
+    {
       //*itU = Op<U>::tan( *static_cast<U*>( varin[0]->val() ) );
-      if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
-                        Op<U>::atan(*static_cast<U*>(pres->val())),
-                        *static_cast<U*>(varin[0]->val())))
-        return false;
+      // tan is inverted on the branch ((k-1/2)*pi,(k+1/2)*pi) that holds the operand range,
+      // where x = k*pi + atan(y)
+      U& opnd        = *static_cast<U*>(varin[0]->val());
+      double const k = std::floor(Op<U>::l(opnd) / PI + 0.5);
+      if (Op<U>::u(opnd) <= (k + 0.5) * PI)
+      {
+        if (!Op<U>::inter(opnd,
+                          Op<U>::atan(*static_cast<U*>(pres->val())) + k * PI,
+                          opnd))
+          return false;
+      }
       break;
+    }
 
     case FFOp::ACOS:
       //*itU = Op<U>::acos( *static_cast<U*>( varin[0]->val() ) );
@@ -8403,20 +8431,26 @@ FFOp::tighten_backward(U const* dumU) const
       break;
 
     case FFOp::FSTEP:
+    {
       //*itU = Op<U>::fstep( *static_cast<U*>( varin[0]->val() ) );
-      if (Op<U>::l(*static_cast<U*>(varin[0]->val())) >= 0.)
+      // the operand is nonnegative if the result is 1, and negative if it is 0
+      U& opnd = *static_cast<U*>(varin[0]->val());
+      if (Op<U>::l(*static_cast<U*>(pres->val())) > 0.)
       {
-        if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()), 1.,
-                          *static_cast<U*>(varin[0]->val())))
+        if (Op<U>::u(opnd) < 0.) return false;
+        if (Op<U>::l(opnd) < 0. &&
+            !Op<U>::inter(opnd, Op<U>::zeroone() * Op<U>::u(opnd), opnd))
           return false;
       }
-      else if (Op<U>::u(*static_cast<U*>(varin[0]->val())) <= 0.)
+      else if (Op<U>::u(*static_cast<U*>(pres->val())) < 1.)
       {
-        if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()), 0.,
-                          *static_cast<U*>(varin[0]->val())))
+        if (Op<U>::l(opnd) >= 0.) return false;
+        if (Op<U>::u(opnd) > 0. &&
+            !Op<U>::inter(opnd, Op<U>::zeroone() * Op<U>::l(opnd), opnd))
           return false;
       }
       break;
+    }
 
     case FFOp::MINF:
       // if( &varin[0] == &varin[1] )

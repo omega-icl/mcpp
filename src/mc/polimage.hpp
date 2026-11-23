@@ -3913,8 +3913,16 @@ PolImg<T>::add_sandwich_cuts(FFOp* pOp, const PolVar<T>& X, const double& XL,
     case Options::BIN:
     case Options::SOS2:
     {
-      const std::vector<double>& XKNOT = X.create_subdiv(XL, XU);
-      const unsigned NKNOTS            = XKNOT.size();
+      // Knots: XL, XU and the breakpoints of X in between. The subdivision of the variable
+      // (create_subdiv) is not used here: it is kept from its first call, spans the range
+      // given then, and is shared by all the operations on that variable, whereas [XL,XU]
+      // may be a part of the range only, e.g. the convex part of a convexo-concave function
+      std::vector<double> XKNOT(1, XL);
+      for (auto it = X.breakpts().upper_bound(XL);
+           it != X.breakpts().end() && *it < XU; ++it)
+        XKNOT.push_back(*it);
+      XKNOT.push_back(XU);
+      const unsigned NKNOTS = XKNOT.size();
       if (NKNOTS > 2)
       {
         for (; NBCUTS < NKNOTS; NBCUTS++)
@@ -5474,9 +5482,14 @@ PolImg<T>::_add_cuts_COS(const PolVar<T>* VarR, FFVar* pVar1)
                 options.ROOT_TOL, options.ROOT_MAXIT, &xJcv1, 0);
     if (mc::isequal(xJcv1, Op<T>::u(IVar1)))
     {
-      add_semilinear_cuts(VarR->_var->opdef().first, *itVar1->second,
-                          Op<T>::l(IVar1), Op<T>::u(IVar1), *VarR,
-                          PolCut<T>::GE, loc::cos);
+      // Secant between the ends of the range: the function is not concave (convex) over the
+      // whole range here, so that a piecewise-linear interpolation through the breakpoints
+      // of the operand would not be a valid relaxation
+      double const Xk[2] = {Op<T>::l(IVar1), Op<T>::u(IVar1)},
+                   Yk[2] = {loc::cos(Xk[0], nullptr, nullptr).first,
+                            loc::cos(Xk[1], nullptr, nullptr).first};
+      add_semilinear_cuts(VarR->_var->opdef().first, 2, *itVar1->second, Xk,
+                          *VarR, Yk, PolCut<T>::GE, 0);
     }
     else
     {
@@ -5494,9 +5507,14 @@ PolImg<T>::_add_cuts_COS(const PolVar<T>* VarR, FFVar* pVar1)
                 options.ROOT_TOL, options.ROOT_MAXIT, &xJcv1, 0);
     if (mc::isequal(xJcv1, Op<T>::l(IVar1)))
     {
-      add_semilinear_cuts(VarR->_var->opdef().first, *itVar1->second,
-                          Op<T>::l(IVar1), Op<T>::u(IVar1), *VarR,
-                          PolCut<T>::GE, loc::cos);
+      // Secant between the ends of the range: the function is not concave (convex) over the
+      // whole range here, so that a piecewise-linear interpolation through the breakpoints
+      // of the operand would not be a valid relaxation
+      double const Xk[2] = {Op<T>::l(IVar1), Op<T>::u(IVar1)},
+                   Yk[2] = {loc::cos(Xk[0], nullptr, nullptr).first,
+                            loc::cos(Xk[1], nullptr, nullptr).first};
+      add_semilinear_cuts(VarR->_var->opdef().first, 2, *itVar1->second, Xk,
+                          *VarR, Yk, PolCut<T>::GE, 0);
     }
     else
     {
@@ -5559,9 +5577,14 @@ PolImg<T>::_add_cuts_COS(const PolVar<T>* VarR, FFVar* pVar1)
                 options.ROOT_TOL, options.ROOT_MAXIT, &xJcc1, 0);
     if (mc::isequal(xJcc1, Op<T>::u(IVar1)))
     {
-      add_semilinear_cuts(VarR->_var->opdef().first, *itVar1->second,
-                          Op<T>::l(IVar1), Op<T>::u(IVar1), *VarR,
-                          PolCut<T>::LE, loc::cos);
+      // Secant between the ends of the range: the function is not concave (convex) over the
+      // whole range here, so that a piecewise-linear interpolation through the breakpoints
+      // of the operand would not be a valid relaxation
+      double const Xk[2] = {Op<T>::l(IVar1), Op<T>::u(IVar1)},
+                   Yk[2] = {loc::cos(Xk[0], nullptr, nullptr).first,
+                            loc::cos(Xk[1], nullptr, nullptr).first};
+      add_semilinear_cuts(VarR->_var->opdef().first, 2, *itVar1->second, Xk,
+                          *VarR, Yk, PolCut<T>::LE, 0);
     }
     else
     {
@@ -5579,9 +5602,14 @@ PolImg<T>::_add_cuts_COS(const PolVar<T>* VarR, FFVar* pVar1)
                 options.ROOT_TOL, options.ROOT_MAXIT, &xJcc1, 0);
     if (mc::isequal(xJcc1, Op<T>::l(IVar1)))
     {
-      add_semilinear_cuts(VarR->_var->opdef().first, *itVar1->second,
-                          Op<T>::l(IVar1), Op<T>::u(IVar1), *VarR,
-                          PolCut<T>::LE, loc::cos);
+      // Secant between the ends of the range: the function is not concave (convex) over the
+      // whole range here, so that a piecewise-linear interpolation through the breakpoints
+      // of the operand would not be a valid relaxation
+      double const Xk[2] = {Op<T>::l(IVar1), Op<T>::u(IVar1)},
+                   Yk[2] = {loc::cos(Xk[0], nullptr, nullptr).first,
+                            loc::cos(Xk[1], nullptr, nullptr).first};
+      add_semilinear_cuts(VarR->_var->opdef().first, 2, *itVar1->second, Xk,
+                          *VarR, Yk, PolCut<T>::LE, 0);
     }
     else
     {
@@ -5703,9 +5731,14 @@ PolImg<T>::_add_cuts_SIN(const PolVar<T>* VarR, FFVar* pVar1)
                 options.ROOT_TOL, options.ROOT_MAXIT, &xJcv1, 0);
     if (mc::isequal(xJcv1, Op<T>::u(IVar1)))
     {
-      add_semilinear_cuts(VarR->_var->opdef().first, *itVar1->second,
-                          Op<T>::l(IVar1), Op<T>::u(IVar1), *VarR,
-                          PolCut<T>::GE, loc::sin);
+      // Secant between the ends of the range: the function is not concave (convex) over the
+      // whole range here, so that a piecewise-linear interpolation through the breakpoints
+      // of the operand would not be a valid relaxation
+      double const Xk[2] = {Op<T>::l(IVar1), Op<T>::u(IVar1)},
+                   Yk[2] = {loc::sin(Xk[0], nullptr, nullptr).first,
+                            loc::sin(Xk[1], nullptr, nullptr).first};
+      add_semilinear_cuts(VarR->_var->opdef().first, 2, *itVar1->second, Xk,
+                          *VarR, Yk, PolCut<T>::GE, 0);
     }
     else
     {
@@ -5723,9 +5756,14 @@ PolImg<T>::_add_cuts_SIN(const PolVar<T>* VarR, FFVar* pVar1)
                 options.ROOT_TOL, options.ROOT_MAXIT, &xJcv1, 0);
     if (mc::isequal(xJcv1, Op<T>::l(IVar1)))
     {
-      add_semilinear_cuts(VarR->_var->opdef().first, *itVar1->second,
-                          Op<T>::l(IVar1), Op<T>::u(IVar1), *VarR,
-                          PolCut<T>::GE, loc::sin);
+      // Secant between the ends of the range: the function is not concave (convex) over the
+      // whole range here, so that a piecewise-linear interpolation through the breakpoints
+      // of the operand would not be a valid relaxation
+      double const Xk[2] = {Op<T>::l(IVar1), Op<T>::u(IVar1)},
+                   Yk[2] = {loc::sin(Xk[0], nullptr, nullptr).first,
+                            loc::sin(Xk[1], nullptr, nullptr).first};
+      add_semilinear_cuts(VarR->_var->opdef().first, 2, *itVar1->second, Xk,
+                          *VarR, Yk, PolCut<T>::GE, 0);
     }
     else
     {
@@ -5789,9 +5827,14 @@ PolImg<T>::_add_cuts_SIN(const PolVar<T>* VarR, FFVar* pVar1)
                 options.ROOT_TOL, options.ROOT_MAXIT, &xJcc1, 0);
     if (mc::isequal(xJcc1, Op<T>::u(IVar1)))
     {
-      add_semilinear_cuts(VarR->_var->opdef().first, *itVar1->second,
-                          Op<T>::l(IVar1), Op<T>::u(IVar1), *VarR,
-                          PolCut<T>::LE, loc::sin);
+      // Secant between the ends of the range: the function is not concave (convex) over the
+      // whole range here, so that a piecewise-linear interpolation through the breakpoints
+      // of the operand would not be a valid relaxation
+      double const Xk[2] = {Op<T>::l(IVar1), Op<T>::u(IVar1)},
+                   Yk[2] = {loc::sin(Xk[0], nullptr, nullptr).first,
+                            loc::sin(Xk[1], nullptr, nullptr).first};
+      add_semilinear_cuts(VarR->_var->opdef().first, 2, *itVar1->second, Xk,
+                          *VarR, Yk, PolCut<T>::LE, 0);
     }
     else
     {
@@ -5809,9 +5852,14 @@ PolImg<T>::_add_cuts_SIN(const PolVar<T>* VarR, FFVar* pVar1)
                 options.ROOT_TOL, options.ROOT_MAXIT, &xJcc1, 0);
     if (mc::isequal(xJcc1, Op<T>::l(IVar1)))
     {
-      add_semilinear_cuts(VarR->_var->opdef().first, *itVar1->second,
-                          Op<T>::l(IVar1), Op<T>::u(IVar1), *VarR,
-                          PolCut<T>::LE, loc::sin);
+      // Secant between the ends of the range: the function is not concave (convex) over the
+      // whole range here, so that a piecewise-linear interpolation through the breakpoints
+      // of the operand would not be a valid relaxation
+      double const Xk[2] = {Op<T>::l(IVar1), Op<T>::u(IVar1)},
+                   Yk[2] = {loc::sin(Xk[0], nullptr, nullptr).first,
+                            loc::sin(Xk[1], nullptr, nullptr).first};
+      add_semilinear_cuts(VarR->_var->opdef().first, 2, *itVar1->second, Xk,
+                          *VarR, Yk, PolCut<T>::LE, 0);
     }
     else
     {

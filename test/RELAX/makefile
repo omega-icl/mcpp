@@ -10,7 +10,8 @@ FLAG_MIP    = -DMC__USE_GUROBI
 
 #####
 
-all: LINREL_Doxygen LINREL_build LINREL_build2 LINREL_build3 LINREL_1d LINREL_2d FFDAGEXT_2d PWLREL_1d
+all: LINREL_aux LINREL_breakpoints LINREL_Doxygen LINREL_build LINREL_build2 LINREL_build3 \
+     LINREL_1d LINREL_2d FFDAGEXT_2d PWLREL_1d
 
 LINREL_% : LINREL_%.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC) $(LIB_MIP)
@@ -40,5 +41,7 @@ gensvg :
 #####
 
 clean :
-	rm -f LINREL_Doxygen LINREL_build LINREL_build2 LINREL_build3 LINREL_?d PWLREL_?d FFDAGEXT_?d
+	rm -f LINREL_aux LINREL_breakpoints LINREL_Doxygen LINREL_build LINREL_build2 LINREL_build3 \
+              LINREL_1d LINREL_2d FFDAGEXT_2d PWLREL_1d
 	rm -f *.o *~ *.eps *.lp *.dot *.svg *.out
+
