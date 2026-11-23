@@ -19,6 +19,19 @@ constraint propagation could then report a feasible model as infeasible, e.g. wi
 constraints `mu*g = 0` and `mu` in `[0,1]` (CANON's first-order optimality cuts).  The tightening is now
 skipped in that case, whatever the interval arithmetic; results with `mc::Interval` are unchanged.
 
+### Cuts for squares and products of auxiliary variables in a polyhedral image
+
+`PolImg::append_cuts_SQR` and `PolImg::append_cuts_TIMES` add the cuts of a square or a product between
+variables of an image, outside the evaluation of a DAG.  They found their operands through the DAG variable,
+so an operand that is an auxiliary variable of the image (`PolVar(PolImg*, range)`, e.g. a linear combination
+of variables defined by a cut) failed an assertion, and was a null pointer dereference under `NDEBUG`.  Each
+operand may now be a DAG variable, an auxiliary variable or a constant (`PolVar(double)`); a variable that
+does not belong to the image throws `PolImg::Exceptions::ENVMIS`.  An auxiliary variable now holds the
+subdivision of its own range: without it the semilinear cuts failed on such a variable with
+`BREAKPOINT_TYPE` `CONT` or `BIN` (the default).  The cuts for DAG variables are unchanged, and no class
+changes layout.  `test/RELAX/LINREL_aux.cpp` checks the new cuts on a grid of points.  CANON's cuts from the
+eigenvalue decomposition of quadratic forms (`MINLPBND::Options::DCQUADCUTS`) need this.
+
 ## 5.2.0 (2026-11-18)
 
 A minor version, by the rule INSTALL.md's "Releasing" states: classes shared with dependent modules changed.

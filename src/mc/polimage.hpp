@@ -579,7 +579,13 @@ class PolVar
   void
   _push_subdiv(double pt) const
   {
-    if (!_img || !_var) return;
+    if (!_img) return;
+    // Auxiliary variable: no counterpart in the DAG, subdivision kept locally
+    if (!_var)
+    {
+      _subdiv.first.push_back(pt);
+      return;
+    }
     auto itVar = _img->_Vars.find(_var->id());
     if (itVar == _img->_Vars.end()) return;
     itVar->second->_subdiv.first.push_back(pt);
@@ -589,7 +595,13 @@ class PolVar
   void
   _push_subdiv(PolVar<T> var) const
   {
-    if (!_img || !_var) return;
+    if (!_img) return;
+    // Auxiliary variable: no counterpart in the DAG, subdivision kept locally
+    if (!_var)
+    {
+      _subdiv.second.push_back(var);
+      return;
+    }
     auto itVar = _img->_Vars.find(_var->id());
     if (itVar == _img->_Vars.end()) return;
     itVar->second->_subdiv.second.push_back(var);
@@ -2139,6 +2151,11 @@ class PolImg
   //! @brief Erase all entries in _Aux
   void _erase_aux();
 
+  //! @brief Find operand <a>Var</a> of a cut in polytopic image: returns the
+  //! DAG or auxiliary variable held in the image, or a null pointer for a
+  //! constant operand, whose value is copied to <a>cst</a>
+  PolVar<T> const* _find_operand(PolVar<T> const& Var, double& cst) const;
+
   //! @brief List of linear-quadratic expressions in polytopic image
   t_LQExpr _LQExpr;
   //! @brief Appends new term to linear-quadratic expression in polytopic image
@@ -2257,6 +2274,10 @@ class PolImg
                        FFOp* pOp);
   //! @brief Append linear cuts for binary * operation
   void _add_cuts_TIMES(const PolVar<T>* VarR, FFVar* pVar1, FFVar* pVar2);
+  //! @brief Append linear cuts for binary * operation between variables
+  //! <a>Var1</a> and <a>Var2</a> in polytopic image (DAG or auxiliary)
+  void _add_cuts_TIMES(const PolVar<T>* VarR, const PolVar<T>* Var1,
+                       const PolVar<T>* Var2, FFOp* pOp);
   //! @brief Append linear cuts for binary / operation
   void _add_cuts_DIV(const PolVar<T>* VarR, FFVar* pVar1, FFVar* pVar2);
   //! @brief Append linear cuts for ipow function
@@ -2279,6 +2300,9 @@ class PolImg
   void _add_cuts_SQR(const PolVar<T>* VarR, FFVar* pVar, FFOp* pOp);
   //! @brief Append linear cuts for sqr function
   void _add_cuts_SQR(const PolVar<T>* VarR, FFVar* pVar);
+  //! @brief Append linear cuts for sqr function of variable <a>Var1</a> in
+  //! polytopic image (DAG or auxiliary)
+  void _add_cuts_SQR(const PolVar<T>* VarR, const PolVar<T>* Var1, FFOp* pOp);
   //! @brief Append linear cuts for sqrt function
   void _add_cuts_SQRT(const PolVar<T>* VarR, FFVar* pVar);
   //! @brief Append linear cuts for fabs function
@@ -2733,9 +2757,13 @@ class PolImg
                            int const type);
 
   //! @brief Append new relaxation cuts for product term
+  //! <a>VarR</a>=<a>Var1</a>*<a>Var2</a>, where either operand is a DAG
+  //! variable, an auxiliary variable or a constant
   void append_cuts_TIMES(PolVar<T> const& VarR, PolVar<T> const& Var1,
                          PolVar<T> const& Var2, FFOp* pOp = nullptr);
   //! @brief Append new relaxation cuts for square term
+  //! <a>VarR</a>=<a>Var1</a>^2, where the operand is a DAG variable, an
+  //! auxiliary variable or a constant
   void append_cuts_SQR(PolVar<T> const& VarR, PolVar<T> const& Var1,
                        FFOp* pOp = nullptr);
 
@@ -2862,6 +2890,34 @@ PolImg<T>::_erase_aux()
 {
   for (auto pv : _Aux) delete pv;
   _Aux.clear();
+}
+
+template <typename T>
+inline PolVar<T> const*
+PolImg<T>::_find_operand(PolVar<T> const& Var, double& cst) const
+{
+  // Constant operand, either auxiliary or in DAG
+  if (Var._id.first == PolVar<T>::AUXCST)
+  {
+    cst = Var._cst.val();
+    return nullptr;
+  }
+  if (Var._var && Var._var->cst())
+  {
+    cst = Var._var->num().val();
+    return nullptr;
+  }
+
+  // Variable operand must participate in this polytopic image
+  if (Var._img != this) throw Exceptions(Exceptions::ENVMIS);
+  if (Var._var)
+  {
+    auto itVar = _Vars.find(Var._var->id());
+    if (itVar == _Vars.end()) throw Exceptions(Exceptions::ENVMIS);
+    return itVar->second;
+  }
+  if (Var._id.second >= _Aux.size()) throw Exceptions(Exceptions::ENVMIS);
+  return _Aux[Var._id.second];
 }
 
 template <typename T>
@@ -3472,48 +3528,47 @@ PolImg<T>::_add_cuts_TIMES(const PolVar<T>* VarR, FFVar* pVar1, FFVar* pVar2,
             -pVar1->num().val());
   }
 
-  else if (options.ALLOW_QUAD)
-  {
-    auto itVar1 = _Vars.find(pVar1->id());
-    auto itVar2 = _Vars.find(pVar2->id());
-    assert(itVar1 != _Vars.end() && itVar2 != _Vars.end());
-    auto itCut = add_cut(pOp, PolCut<T>::EQ, 0., *VarR, -1.);
-    (*itCut)->append(*itVar1->second, *itVar2->second, 1.);
-  }
-
   else
   {
     auto itVar1 = _Vars.find(pVar1->id());
     auto itVar2 = _Vars.find(pVar2->id());
     assert(itVar1 != _Vars.end() && itVar2 != _Vars.end());
+    _add_cuts_TIMES(VarR, itVar1->second, itVar2->second, pOp);
+  }
+}
+
+template <typename T>
+inline void
+PolImg<T>::_add_cuts_TIMES(const PolVar<T>* VarR, const PolVar<T>* Var1,
+                           const PolVar<T>* Var2, FFOp* pOp)
+{
+  assert(VarR && Var1 && Var2);
+  if (options.ALLOW_QUAD)
+  {
+    auto itCut = add_cut(pOp, PolCut<T>::EQ, 0., *VarR, -1.);
+    (*itCut)->append(*Var1, *Var2, 1.);
+  }
+
+  else
+  {
 #ifndef MC__POLIMG_PWMCCORMICK_1D
     if (options.BREAKPOINT_TYPE == Options::NONE ||
-        !_pwmccormick_cuts(pOp, *itVar1->second,
-                           Op<T>::l(itVar1->second->_range),
-                           Op<T>::u(itVar1->second->_range), *itVar2->second,
-                           Op<T>::l(itVar2->second->_range),
-                           Op<T>::u(itVar2->second->_range), *VarR))
+        !_pwmccormick_cuts(
+            pOp, *Var1, Op<T>::l(Var1->_range), Op<T>::u(Var1->_range), *Var2,
+            Op<T>::l(Var2->_range), Op<T>::u(Var2->_range), *VarR))
     {
-      add_cut(
-          pOp, PolCut<T>::GE,
-          -Op<T>::u(itVar1->second->_range) * Op<T>::u(itVar2->second->_range),
-          *VarR, 1., *itVar1->second, -Op<T>::u(itVar2->second->_range),
-          *itVar2->second, -Op<T>::u(itVar1->second->_range));
-      add_cut(
-          pOp, PolCut<T>::GE,
-          -Op<T>::l(itVar1->second->_range) * Op<T>::l(itVar2->second->_range),
-          *VarR, 1., *itVar1->second, -Op<T>::l(itVar2->second->_range),
-          *itVar2->second, -Op<T>::l(itVar1->second->_range));
-      add_cut(
-          pOp, PolCut<T>::LE,
-          -Op<T>::u(itVar1->second->_range) * Op<T>::l(itVar2->second->_range),
-          *VarR, 1., *itVar1->second, -Op<T>::l(itVar2->second->_range),
-          *itVar2->second, -Op<T>::u(itVar1->second->_range));
-      add_cut(
-          pOp, PolCut<T>::LE,
-          -Op<T>::l(itVar1->second->_range) * Op<T>::u(itVar2->second->_range),
-          *VarR, 1., *itVar1->second, -Op<T>::u(itVar2->second->_range),
-          *itVar2->second, -Op<T>::l(itVar1->second->_range));
+      add_cut(pOp, PolCut<T>::GE,
+              -Op<T>::u(Var1->_range) * Op<T>::u(Var2->_range), *VarR, 1.,
+              *Var1, -Op<T>::u(Var2->_range), *Var2, -Op<T>::u(Var1->_range));
+      add_cut(pOp, PolCut<T>::GE,
+              -Op<T>::l(Var1->_range) * Op<T>::l(Var2->_range), *VarR, 1.,
+              *Var1, -Op<T>::l(Var2->_range), *Var2, -Op<T>::l(Var1->_range));
+      add_cut(pOp, PolCut<T>::LE,
+              -Op<T>::u(Var1->_range) * Op<T>::l(Var2->_range), *VarR, 1.,
+              *Var1, -Op<T>::l(Var2->_range), *Var2, -Op<T>::u(Var1->_range));
+      add_cut(pOp, PolCut<T>::LE,
+              -Op<T>::l(Var1->_range) * Op<T>::u(Var2->_range), *VarR, 1.,
+              *Var1, -Op<T>::u(Var2->_range), *Var2, -Op<T>::l(Var1->_range));
     }
 #else
     switch (options.BREAKPOINT_TYPE)
@@ -3522,27 +3577,19 @@ PolImg<T>::_add_cuts_TIMES(const PolVar<T>* VarR, FFVar* pVar1, FFVar* pVar2,
       case PolImg<T>::Options::SOS2:
       {
         const unsigned NKNOTS1 =
-            itVar1->second
-                ->create_subdiv(Op<T>::l(itVar1->second->_range),
-                                Op<T>::u(itVar1->second->_range))
+            Var1->create_subdiv(Op<T>::l(Var1->_range), Op<T>::u(Var1->_range))
                 .size();
         if (NKNOTS1 > 2)
-          _pwmccormick_cuts(pOp, *itVar1->second,
-                            Op<T>::l(itVar1->second->_range),
-                            Op<T>::u(itVar1->second->_range), *itVar2->second,
-                            Op<T>::l(itVar2->second->_range),
-                            Op<T>::u(itVar2->second->_range), *VarR);
+          _pwmccormick_cuts(
+              pOp, *Var1, Op<T>::l(Var1->_range), Op<T>::u(Var1->_range), *Var2,
+              Op<T>::l(Var2->_range), Op<T>::u(Var2->_range), *VarR);
         const unsigned NKNOTS2 =
-            itVar2->second
-                ->create_subdiv(Op<T>::l(itVar2->second->_range),
-                                Op<T>::u(itVar2->second->_range))
+            Var2->create_subdiv(Op<T>::l(Var2->_range), Op<T>::u(Var2->_range))
                 .size();
         if (NKNOTS2 > 2)
-          _pwmccormick_cuts(pOp, *itVar2->second,
-                            Op<T>::l(itVar2->second->_range),
-                            Op<T>::u(itVar2->second->_range), *itVar1->second,
-                            Op<T>::l(itVar1->second->_range),
-                            Op<T>::u(itVar1->second->_range), *VarR);
+          _pwmccormick_cuts(
+              pOp, *Var2, Op<T>::l(Var2->_range), Op<T>::u(Var2->_range), *Var1,
+              Op<T>::l(Var1->_range), Op<T>::u(Var1->_range), *VarR);
         if (NKNOTS1 > 2 || NKNOTS2 > 2)
           break;  // The standard McCormick cuts are implied
       }
@@ -3550,25 +3597,17 @@ PolImg<T>::_add_cuts_TIMES(const PolVar<T>* VarR, FFVar* pVar1, FFVar* pVar2,
       case PolImg<T>::Options::NONE:
       default:
         add_cut(pOp, PolCut<T>::GE,
-                -Op<T>::u(itVar1->second->_range) *
-                    Op<T>::u(itVar2->second->_range),
-                *VarR, 1., *itVar1->second, -Op<T>::u(itVar2->second->_range),
-                *itVar2->second, -Op<T>::u(itVar1->second->_range));
+                -Op<T>::u(Var1->_range) * Op<T>::u(Var2->_range), *VarR, 1.,
+                *Var1, -Op<T>::u(Var2->_range), *Var2, -Op<T>::u(Var1->_range));
         add_cut(pOp, PolCut<T>::GE,
-                -Op<T>::l(itVar1->second->_range) *
-                    Op<T>::l(itVar2->second->_range),
-                *VarR, 1., *itVar1->second, -Op<T>::l(itVar2->second->_range),
-                *itVar2->second, -Op<T>::l(itVar1->second->_range));
+                -Op<T>::l(Var1->_range) * Op<T>::l(Var2->_range), *VarR, 1.,
+                *Var1, -Op<T>::l(Var2->_range), *Var2, -Op<T>::l(Var1->_range));
         add_cut(pOp, PolCut<T>::LE,
-                -Op<T>::u(itVar1->second->_range) *
-                    Op<T>::l(itVar2->second->_range),
-                *VarR, 1., *itVar1->second, -Op<T>::l(itVar2->second->_range),
-                *itVar2->second, -Op<T>::u(itVar1->second->_range));
+                -Op<T>::u(Var1->_range) * Op<T>::l(Var2->_range), *VarR, 1.,
+                *Var1, -Op<T>::l(Var2->_range), *Var2, -Op<T>::u(Var1->_range));
         add_cut(pOp, PolCut<T>::LE,
-                -Op<T>::l(itVar1->second->_range) *
-                    Op<T>::u(itVar2->second->_range),
-                *VarR, 1., *itVar1->second, -Op<T>::u(itVar2->second->_range),
-                *itVar2->second, -Op<T>::l(itVar1->second->_range));
+                -Op<T>::l(Var1->_range) * Op<T>::u(Var2->_range), *VarR, 1.,
+                *Var1, -Op<T>::u(Var2->_range), *Var2, -Op<T>::l(Var1->_range));
     }
 #endif
   }
@@ -3586,9 +3625,18 @@ inline void
 PolImg<T>::append_cuts_TIMES(PolVar<T> const& VarR, PolVar<T> const& Var1,
                              PolVar<T> const& Var2, FFOp* pOp)
 {
-  assert(Var1._var && Var2._var);
-  return _add_cuts_TIMES(&VarR, const_cast<FFVar*>(Var1._var),
-                         const_cast<FFVar*>(Var2._var), pOp);
+  double cst1 = 0., cst2 = 0.;
+  PolVar<T> const* pVar1 = _find_operand(Var1, cst1);
+  PolVar<T> const* pVar2 = _find_operand(Var2, cst2);
+
+  if (!pVar1 && !pVar2)
+    add_cut(pOp, PolCut<T>::EQ, cst1 * cst2, VarR, 1.);
+  else if (!pVar2)
+    add_cut(pOp, PolCut<T>::EQ, 0., VarR, 1., *pVar1, -cst2);
+  else if (!pVar1)
+    add_cut(pOp, PolCut<T>::EQ, 0., VarR, 1., *pVar2, -cst1);
+  else
+    _add_cuts_TIMES(&VarR, pVar1, pVar2, pOp);
 }
 
 template <typename T>
@@ -4450,25 +4498,33 @@ PolImg<T>::_add_cuts_SQR(const PolVar<T>* VarR, FFVar* pVar1, FFOp* pOp)
   if (pVar1->cst())
     add_cut(pOp, PolCut<T>::EQ, mc::sqr(pVar1->num().val()), *VarR, 1.);
 
-  else if (pOp && options.ALLOW_NLIN.count(FFOp::SQR))
-  {
-    auto itVar1 = _Vars.find(pVar1->id());
-    assert(itVar1 != _Vars.end());
-    add_cut(pOp, *VarR, *itVar1->second);
-  }
-
-  else if (options.ALLOW_QUAD)
-  {
-    auto itVar1 = _Vars.find(pVar1->id());
-    assert(itVar1 != _Vars.end());
-    auto itCut = add_cut(pOp, PolCut<T>::EQ, 0., *VarR, -1.);
-    (*itCut)->append(*itVar1->second, *itVar1->second, 1.);
-  }
-
   else
   {
     auto itVar1 = _Vars.find(pVar1->id());
     assert(itVar1 != _Vars.end());
+    _add_cuts_SQR(VarR, itVar1->second, pOp);
+  }
+}
+
+template <typename T>
+inline void
+PolImg<T>::_add_cuts_SQR(const PolVar<T>* VarR, const PolVar<T>* Var1,
+                         FFOp* pOp)
+{
+  assert(VarR && Var1);
+  if (pOp && options.ALLOW_NLIN.count(FFOp::SQR))
+  {
+    add_cut(pOp, *VarR, *Var1);
+  }
+
+  else if (options.ALLOW_QUAD)
+  {
+    auto itCut = add_cut(pOp, PolCut<T>::EQ, 0., *VarR, -1.);
+    (*itCut)->append(*Var1, *Var1, 1.);
+  }
+
+  else
+  {
     struct loc
     {
       static std::pair<double, double>
@@ -4477,13 +4533,11 @@ PolImg<T>::_add_cuts_SQR(const PolVar<T>* VarR, FFVar* pVar1, FFOp* pOp)
         return std::make_pair(x * x, 2. * x);
       }
     };
-    add_semilinear_cuts(pOp, *itVar1->second, Op<T>::l(itVar1->second->_range),
-                        Op<T>::u(itVar1->second->_range), *VarR, PolCut<T>::LE,
-                        loc::sqr);
-    add_sandwich_cuts(pOp, *itVar1->second, Op<T>::l(itVar1->second->_range),
-                      Op<T>::u(itVar1->second->_range), *VarR,
-                      Op<T>::l(VarR->_range), Op<T>::u(VarR->_range),
-                      PolCut<T>::GE, loc::sqr);
+    add_semilinear_cuts(pOp, *Var1, Op<T>::l(Var1->_range),
+                        Op<T>::u(Var1->_range), *VarR, PolCut<T>::LE, loc::sqr);
+    add_sandwich_cuts(pOp, *Var1, Op<T>::l(Var1->_range),
+                      Op<T>::u(Var1->_range), *VarR, Op<T>::l(VarR->_range),
+                      Op<T>::u(VarR->_range), PolCut<T>::GE, loc::sqr);
   }
 }
 
@@ -4499,8 +4553,13 @@ inline void
 PolImg<T>::append_cuts_SQR(PolVar<T> const& VarR, PolVar<T> const& Var1,
                            FFOp* pOp)
 {
-  assert(Var1._var);
-  return _add_cuts_SQR(&VarR, const_cast<FFVar*>(Var1._var), pOp);
+  double cst1            = 0.;
+  PolVar<T> const* pVar1 = _find_operand(Var1, cst1);
+
+  if (!pVar1)
+    add_cut(pOp, PolCut<T>::EQ, mc::sqr(cst1), VarR, 1.);
+  else
+    _add_cuts_SQR(&VarR, pVar1, pOp);
 }
 
 template <typename T>
