@@ -768,9 +768,25 @@ FFEXTERN<T, O>::_propagate_relax(PolImg<T>* img, FFVar** pRes, PolVar<T>* vRes,
       std::cerr << "Set-arithmetic propagation failed" << std::endl;
       // #endif
       _excpEval.insert(relax);
+      // The inputs of this method may have been partly reset to the current box: its stored
+      // ranges no longer describe them, so that the next call evaluates it afresh
+      switch (relax)
+      {
+        case Options::AUX:  _POLRng.clear();  break;
+        case Options::MC:   _MCRng.clear();   break;
+        case Options::SB:   _SBRng.clear();   break;
+        case Options::SCM:  _SCRng.clear();   break;
+        case Options::PWCS: _PWCSRng.clear(); break;
+        case Options::PWLS: _PWLSRng.clear(); break;
+        default: break;
+      }
       continue;
     }
   }
+
+  // No relaxation could be evaluated in this box: the bounds in _IRes are those of an earlier
+  // call (or default-constructed) and do not hold here
+  if (firstEval) throw typename PolImg<T>::Exceptions(PolImg<T>::Exceptions::EXTERNAL);
 
   // Set intersected bounds
   for (unsigned j = 0; j < nout; ++j) vRes[j].set(img, *pRes[j], _IRes[j]);
@@ -792,7 +808,7 @@ FFEXTERN<T, O>::_backpropagate_relax(PolImg<T>* img, FFOp* pOp, PolVar<T>* vRes,
   // Back-propagate relaxations through object
   for (auto relax : options.RELAX)
   {
-    if (_excpEval.count(relax)) break;
+    if (_excpEval.count(relax)) continue;
     switch (relax)
     {
       // Interval bounds
