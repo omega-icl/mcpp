@@ -764,9 +764,9 @@ FFEXTERN<T, O>::_propagate_relax(PolImg<T>* img, FFVar** pRes, PolVar<T>* vRes,
 
     catch (...)
     {
-      // #ifdef MC__FFEXTERN_DEBUG
+#ifdef MC__FFEXTERN_DEBUG
       std::cerr << "Set-arithmetic propagation failed" << std::endl;
-      // #endif
+#endif
       _excpEval.insert(relax);
       // The inputs of this method may have been partly reset to the current box: its stored
       // ranges no longer describe them, so that the next call evaluates it afresh
