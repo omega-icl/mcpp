@@ -32,6 +32,28 @@ subdivision of its own range: without it the semilinear cuts failed on such a va
 changes layout.  `test/RELAX/LINREL_aux.cpp` checks the new cuts on a grid of points.  CANON's cuts from the
 eigenvalue decomposition of quadratic forms (`MINLPBND::Options::DCQUADCUTS`) need this.
 
+### Functions that do not depend on the variables in a polyhedral image or a sparse lifting
+
+`PolImg::generate_cuts` reached the subtree of each dependent through its DAG variable, which a constant
+dependent -- the zero objective of a feasibility problem, say -- does not have: a null pointer dereference.
+A dependent without DAG variable, a constant or an auxiliary variable of the image, is now skipped, as there
+are no cuts to generate for it.  `SLiftEnv::insert_dag` asserted on the zero polynomial, which it now
+inserts as the constant 0.  No class changes layout.  `test/RELAX/LINREL_constant.cpp` checks both (it
+crashed before the change).  CANON's models without objective (`MINLPBND`, `MINLPREF`) rely on this.
+
+### Multilayer perceptrons in the reverse mode of AD
+
+`FFMLP` and `FFMLPREG` could not be evaluated in `BADType<double>` (`mc::B`, or `fadbad::B` under
+`MC__USE_FADBAD`): a numeric reverse-mode gradient of a DAG holding either threw, so that CANON's `NLPSLV`
+with `GRADMETH = BAD` stopped before its first iteration.  Each output of the network is now one node of the
+tape, whose partial derivatives are the Jacobian of the network computed by `MLP::grad` or `MLPREG::grad` in
+double precision, rather than one node per neuron.  `mc::B::_nary` makes a node with n operands, and
+`mc::bad_node` does so for either reverse-mode type.  On the training loss of a network with 2 inputs, 3
+layers of 40 and one output over 100 samples (3441 weights), the gradient takes 7 ms, against 53 ms for the
+symbolic gradient `FFGraph::BAD` (345,000 operations, 1.8 s to build); the two agree to 2e-17.  No class
+changes layout.  `test/ML/test_MLP_reverse.cpp` compares the reverse mode with the forward mode and the
+symbolic gradient, also under `MC__USE_FADBAD`.
+
 ## 5.2.0 (2026-11-18)
 
 A minor version, by the rule INSTALL.md's "Releasing" states: classes shared with dependent modules changed.
