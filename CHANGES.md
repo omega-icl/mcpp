@@ -54,6 +54,53 @@ symbolic gradient `FFGraph::BAD` (345,000 operations, 1.8 s to build); the two a
 changes layout.  `test/ML/test_MLP_reverse.cpp` compares the reverse mode with the forward mode and the
 symbolic gradient, also under `MC__USE_FADBAD`.
 
+### Piecewise-linear univariates on the whole real line; shared subdivisions in polyhedral images
+
+`mc::PWLU` also holds a continuous piecewise-linear function on the whole real line, such as an edge
+of a Kolmogorov-Arnold network.  A constructor from breakpoints, values and end slopes, and
+`PWLU::relu` from a sum of ReLU terms, build one whose first and last segments carry the end slopes.
+`val(x, true)`, `slope(x)` and `restrict(xL, xU)` extend it linearly beyond its domain; `restrict`
+returns it on any interval, with its exact range there by `l()` and `u()`; `hull(under)` gives its
+convex or concave envelope, `bkpts()` its breakpoints where the slope changes, and `compose(g)` the
+exact composite of a piecewise-linear `g` with the estimator, with the crossings of the breakpoints
+of `g` added.  The estimators of
+the superposition models are unaffected: `val(x)` still throws outside the domain, and no class
+changes layout.
+
+`PolImg::add_semilinear_cuts` is split into `add_subdivision`, which subdivides a variable at given
+breakpoints with continuous, binary or SOS2 auxiliary variables, and `add_subdivision_cut`, which
+adds the cut of one function from its values at the knots kept, so that several functions can share
+one subdivision.  Both forms of `add_semilinear_cuts` now call them.  The cuts are unchanged on the
+univariate relaxations with breakpoints and on the piecewise-linear superposition relaxation of an
+`FFMLP` (identical output for every encoding), except that a subdivision left on a variable by an
+earlier call is now discarded, rather than reused, when none of the new breakpoints is kept.
+
+### Piecewise-linear univariates as external operations
+
+`ffpwlu.hpp` adds `mc::FFPWLU`, an external operation for one or several continuous
+piecewise-linear functions of the same operand, each an `mc::PWLU` extended linearly beyond its
+domain (see above).  In interval arithmetic the ranges are exact (`PWLU::restrict`), and the
+backward propagation contracts the operand to the hull of the preimage of each range.  The McCormick
+relaxations are the convex and concave envelopes on the range of the operand (`PWLU::hull`).
+Derivatives are right derivatives at a breakpoint; symbolic ones are sums of `fstep`.  In a
+polyhedral image each function is encoded exactly on the range of its operand
+(`FFPWLU::Options::ENCODING`): by the convex hull of its graph, with cuts only, or on a subdivision
+of the operand at its breakpoints (`PolImg::add_subdivision`), with continuous, binary or SOS2
+auxiliary variables, as set by `PolImg::Options::BREAKPOINT_TYPE` by default.  The functions of an
+operation share one subdivision, at the union of their breakpoints, unless
+`FFPWLU::Options::SEPARATE` is set.  In a superposition model the
+result is exact where the operand is a single-dependency estimator whose under- and overestimators
+coincide, a variable of the model say: a `PWLU` summand is the composite of the function with the
+operand's (`PWLU::compose`), a `PWCU` summand holds the exact range of the function on each cell.  As
+after any composition, the summands are then reduced to `SupModel::Options::MAX_SUBDIV` segments,
+which leaves them exact as long as the composite has no more segments (`SupVar::mod()` is new, to
+read the options).  Other operands, and Chebyshev models, go through the abs-normal form
+`y_0 + s_0 (x - x_0) + sum_k ds_k (z_k + |z_k|)/2`, with `z_k = x - x_k`.  `FFPWLU` is meant as the edge operation of
+Kolmogorov-Arnold networks with piecewise-linear edges.  `test/DAG/DAG_pwlu.cpp` checks every
+evaluation and the new `PWLU` methods (35 checks); `test/RELAX/LINREL_pwlu.cpp` checks the polyhedral
+encodings: every cut holds on the graph of the functions, the HULL cuts give the envelopes, and, with
+Gurobi, the relaxations at a fixed operand give the function (BIN, SOS2) or its envelopes (HULL, CONT).
+
 ## 5.2.0 (2026-11-18)
 
 A minor version, by the rule INSTALL.md's "Releasing" states: classes shared with dependent modules changed.

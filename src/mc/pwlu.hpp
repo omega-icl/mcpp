@@ -12,6 +12,16 @@ estimators for use within a superposition relaxation (see \ref page_SUPREL). It
 support the definition of such estimators, their propagation through linear
 operations and compositions with convex/concave monotonic terms, their
 simplification or reduction, and their bounding and evaluation.
+
+An mc::PWLU also holds a continuous piecewise-linear function on the whole real
+line, such as an edge of a Kolmogorov-Arnold network (see \ref page_FFPWLU):
+it is built from its breakpoints, its values there and its end slopes, or by
+mc::PWLU::relu from a sum of ReLU terms, and is extended linearly beyond its
+domain by its first and last segments in mc::PWLU::val(x,true),
+mc::PWLU::slope and mc::PWLU::restrict. Its restriction to an interval gives its
+exact range there (mc::PWLU::l, mc::PWLU::u), and mc::PWLU::hull its convex and
+concave envelopes. The estimator itself is not extended: mc::PWLU::val(x)
+throws outside its domain.
 */
 
 #ifndef MC__PWLU_HPP
@@ -207,6 +217,73 @@ class PWLU
         _dx(std::move(var._dx)),
         _dy(std::move(var._dy))
   {
+  }
+
+  //! @brief Constructor of a continuous piecewise-linear function on the whole
+  //! real line, from its breakpoints <a>x</a> in increasing order, its values
+  //! <a>y</a> there, and its slopes <a>sL</a> before the first breakpoint and
+  //! <a>sR</a> after the last: the estimator has a first segment of slope
+  //! <a>sL</a> and a last segment of slope <a>sR</a>, each as long as the span
+  //! of the breakpoints (at least 1), and is extended beyond its domain by
+  //! val(x,true), slope and restrict
+  PWLU(std::vector<double> const& x, std::vector<double> const& y,
+       double const& sL, double const& sR)
+  {
+    if (x.empty() || x.size() != y.size()) throw Exceptions(Exceptions::SIZE);
+    double const pad = std::max(1., x.back() - x.front());
+    _x0 = x.front() - pad;
+    _y0 = y.front() - sL * pad;
+    _dx.reserve(x.size() + 1);
+    _dy.reserve(x.size() + 1);
+    _dx.push_back(pad);
+    _dy.push_back(sL);
+    for (size_t k = 1; k < x.size(); ++k)
+    {
+      if (!(x[k] > x[k - 1])) throw Exceptions(Exceptions::RANGE);
+      _dx.push_back(x[k] - x[k - 1]);
+      _dy.push_back((y[k] - y[k - 1]) / (x[k] - x[k - 1]));
+    }
+    _dx.push_back(pad);
+    _dy.push_back(sR);
+  }
+
+  //! @brief Continuous piecewise-linear function \f$c + v x + \sum_{r<R} a_r
+  //! \max(w_r x + b_r, 0)\f$ on the whole real line (see the constructor from
+  //! breakpoints): breakpoints at \f$-b_r/w_r\f$ for the terms with \f$a_r\f$
+  //! and \f$w_r\f$ nonzero, merged where they coincide, and the values there
+  //! computed from this form
+  static PWLU
+  relu(double const& c, double const& v, size_t const R, double const* a,
+       double const* w, double const* b)
+  {
+    double sL = v, sR = v;
+    std::vector<double> x, y;
+    for (size_t r = 0; r < R; ++r)
+    {
+      if (a[r] == 0. || w[r] == 0.) continue;
+      x.push_back(-b[r] / w[r]);
+      (w[r] < 0. ? sL : sR) += a[r] * w[r];
+    }
+    std::sort(x.begin(), x.end());
+    x.erase(std::unique(x.begin(), x.end()), x.end());
+    if (x.empty()) x.push_back(0.);
+    for (double const t : x)
+    {
+      double f = c + v * t;
+      for (size_t r = 0; r < R; ++r) f += a[r] * std::max(w[r] * t + b[r], 0.);
+      y.push_back(f);
+    }
+    return PWLU(x, y, sL, sR);
+  }
+
+  //! @brief Same as above, with the terms in vectors
+  static PWLU
+  relu(double const& c, double const& v, std::vector<double> const& a,
+       std::vector<double> const& w, std::vector<double> const& b)
+  {
+    if (a.size() != w.size() || a.size() != b.size())
+      throw Exceptions(Exceptions::SIZE);
+    return relu(c, v, a.size(), a.data(), w.data(), b.data());
   }
 
   //! @brief Set constant estimator
@@ -409,6 +486,183 @@ class PWLU
   w() const
   {
     return u() - l();
+  }
+
+  //! @brief Evaluate at point, extended linearly beyond the domain by the end
+  //! segments if <a>extend</a> (otherwise as val(x))
+  double
+  val(double const& x, bool const extend) const
+  {
+    if (!extend) return val(x);
+#ifdef MC__PWLU_CHECK
+    if (_dx.empty()) throw Exceptions(Exceptions::RANGE);
+    if (_dx.size() != _dy.size()) throw Exceptions(Exceptions::SIZE);
+#endif
+    if (x <= _x0) return _y0 + _dy.front() * (x - _x0);
+    double xi = _x0, yi = _y0;
+    for (size_t k = 0; k < _dx.size(); ++k)
+    {
+      if (k + 1 == _dx.size() || x <= xi + _dx[k]) return yi + _dy[k] * (x - xi);
+      xi += _dx[k];
+      yi += _dx[k] * _dy[k];
+    }
+    return yi;  // not reached
+  }
+
+  //! @brief Right derivative at point, with the end segments extended
+  //! linearly beyond the domain
+  double
+  slope(double const& x) const
+  {
+#ifdef MC__PWLU_CHECK
+    if (_dx.empty()) throw Exceptions(Exceptions::RANGE);
+#endif
+    double xi = _x0;
+    for (size_t k = 0; k + 1 < _dx.size(); ++k)
+    {
+      xi += _dx[k];
+      if (x < xi) return _dy[k];
+    }
+    return _dy.back();
+  }
+
+  //! @brief Estimator on [<a>xL</a>,<a>xU</a>], with the end segments extended
+  //! linearly where this goes beyond the domain: its breakpoints are those of
+  //! the estimator strictly between <a>xL</a> and <a>xU</a>, so that l() and
+  //! u() give its exact range on [<a>xL</a>,<a>xU</a>]
+  PWLU
+  restrict(double const& xL, double const& xU) const
+  {
+#ifdef MC__PWLU_CHECK
+    if (_dx.empty()) throw Exceptions(Exceptions::RANGE);
+    if (_dx.size() != _dy.size()) throw Exceptions(Exceptions::SIZE);
+#endif
+    if (xU < xL) throw Exceptions(Exceptions::RANGE);
+    PWLU res;
+    res._x0 = xL;
+    res._y0 = val(xL, true);
+    double x = xL, xi = _x0;
+    for (size_t k = 0; k < _dx.size(); ++k)
+    {
+      xi += _dx[k];  // upper end of segment k, ignored for the last segment
+      if (k + 1 < _dx.size() && xi <= x) continue;
+      double const xe = (k + 1 < _dx.size() ? std::min(xi, xU) : xU);
+      res._dx.push_back(xe - x);
+      res._dy.push_back(_dy[k]);
+      x = xe;
+      if (x >= xU) break;
+    }
+    return res;
+  }
+
+  //! @brief Convex envelope (<a>under</a>) or concave envelope of the
+  //! estimator on its domain, as an estimator with breakpoints at some of its
+  //! own
+  PWLU
+  hull(bool const under) const
+  {
+#ifdef MC__PWLU_CHECK
+    if (_dx.empty()) throw Exceptions(Exceptions::RANGE);
+    if (_dx.size() != _dy.size()) throw Exceptions(Exceptions::SIZE);
+#endif
+    // Vertices, then their lower (upper) hull by a monotone chain
+    std::vector<double> X(1, _x0), Y(1, _y0), HX, HY;
+    for (size_t k = 0; k < _dx.size(); ++k)
+    {
+      X.push_back(X.back() + _dx[k]);
+      Y.push_back(Y.back() + _dx[k] * _dy[k]);
+    }
+    double const sgn = (under ? 1. : -1.);
+    for (size_t k = 0; k < X.size(); ++k)
+    {
+      while (HX.size() >= 2)
+      {
+        size_t const n     = HX.size();
+        double const cross = (HX[n - 1] - HX[n - 2]) * (Y[k] - HY[n - 2]) -
+                             (HY[n - 1] - HY[n - 2]) * (X[k] - HX[n - 2]);
+        if (sgn * cross > 0.) break;
+        HX.pop_back();
+        HY.pop_back();
+      }
+      HX.push_back(X[k]);
+      HY.push_back(Y[k]);
+    }
+    PWLU res;
+    res._x0 = HX.front();
+    res._y0 = HY.front();
+    for (size_t k = 1; k < HX.size(); ++k)
+    {
+      res._dx.push_back(HX[k] - HX[k - 1]);
+      res._dy.push_back(HX[k] > HX[k - 1] ? (HY[k] - HY[k - 1]) / (HX[k] - HX[k - 1])
+                                          : _dy[k - 1]);
+    }
+    if (res._dx.empty())
+    {
+      res._dx.push_back(0.);
+      res._dy.push_back(0.);
+    }
+    return res;
+  }
+
+  //! @brief Composition with a continuous piecewise-linear function <a>g</a>
+  //! extended beyond its domain (see val(x,true)): the estimator becomes the
+  //! exact composite of <a>g</a> with itself, with breakpoints added where it
+  //! crosses those of <a>g</a>
+  PWLU&
+  compose(PWLU const& g)
+  {
+#ifdef MC__PWLU_CHECK
+    if (_dx.empty()) throw Exceptions(Exceptions::RANGE);
+    if (_dx.size() != _dy.size()) throw Exceptions(Exceptions::SIZE);
+#endif
+    std::vector<double> const bk = g.bkpts();
+    std::vector<double> dx, dy;
+    dx.reserve(_dx.size() + bk.size());
+    dy.reserve(_dy.size() + bk.size());
+    double ya = _y0;
+    for (size_t k = 0; k < _dx.size(); ++k)
+    {
+      double const yb = ya + _dx[k] * _dy[k];
+      // Points of the segment where the estimator crosses a breakpoint of g,
+      // in the order they are met
+      std::vector<double> t(1, 0.);
+      if (_dy[k] != 0.)
+      {
+        auto const lo = std::upper_bound(bk.cbegin(), bk.cend(), std::min(ya, yb));
+        auto const up = std::lower_bound(bk.cbegin(), bk.cend(), std::max(ya, yb));
+        for (auto it = lo; it != up; ++it) t.push_back((*it - ya) / _dy[k]);
+        std::sort(t.begin(), t.end());
+      }
+      t.push_back(_dx[k]);
+      for (size_t i = 0; i + 1 < t.size(); ++i)
+      {
+        if (!(t[i + 1] > t[i])) continue;
+        // g is affine between consecutive crossings: its slope at the middle
+        double const ym = ya + 0.5 * (t[i] + t[i + 1]) * _dy[k];
+        dx.push_back(t[i + 1] - t[i]);
+        dy.push_back(g.slope(ym) * _dy[k]);
+      }
+      ya = yb;
+    }
+    _y0 = g.val(_y0, true);
+    _dx.swap(dx);
+    _dy.swap(dy);
+    return *this;
+  }
+
+  //! @brief Breakpoints of the estimator where its slope changes, strictly
+  //! inside its domain
+  std::vector<double>
+  bkpts() const
+  {
+    std::vector<double> x;
+    double xi = _x0;
+    for (size_t k = 0; k + 1 < _dx.size(); ++k)
+    {
+      xi += _dx[k];
+      if (_dy[k + 1] != _dy[k]) x.push_back(xi);
+    }
+    return x;
   }
 
   //! @brief Display estimator

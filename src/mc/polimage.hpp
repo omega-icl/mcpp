@@ -2755,6 +2755,23 @@ class PolImg
                            double const* Yk,
                            typename PolCut<T>::TYPE const sense,
                            int const type);
+  //! @brief Subdivide the range [<a>Xk</a>[0],<a>Xk</a>[<a>Nk</a>-1]] of
+  //! <a>X</a> at the breakpoints <a>Xk</a>, with auxiliary variables of
+  //! encoding <a>type</a> (0: continuous, 1: binary, 2: SOS2) and the cuts
+  //! linking them to <a>X</a>; any former subdivision of <a>X</a> is discarded.
+  //! Breakpoints within Options::BREAKPOINT_ATOL and BREAKPOINT_RTOL of one
+  //! another or of the bounds are merged. Returns the knots of the
+  //! subdivision: the bounds and the breakpoints kept
+  std::vector<double> const& add_subdivision(FFOp* pOp, unsigned const Nk,
+                                             PolVar<T> const& X,
+                                             double const* Xk, int const type);
+  //! @brief Append the cut <a>Y</a> (<a>sense</a>) the interpolant of the
+  //! values <a>Yk</a> at the knots of the subdivision of <a>X</a> created by
+  //! add_subdivision with encoding <a>type</a>
+  void add_subdivision_cut(FFOp* pOp, PolVar<T> const& X, PolVar<T> const& Y,
+                           double const* Yk,
+                           typename PolCut<T>::TYPE const sense,
+                           int const type);
 
   //! @brief Append new relaxation cuts for product term
   //! <a>VarR</a>=<a>Var1</a>*<a>Var2</a>, where either operand is a DAG
@@ -4119,74 +4136,91 @@ PolImg<T>::add_semilinear_cuts(FFOp* pOp, PolVar<T> const& X, double const& XL,
                                typename PolCut<T>::TYPE const sense, p_dUniv f,
                                double const* rpar, int const* ipar)
 {
-  switch (options.BREAKPOINT_TYPE)
+  // Subdivision of X at its breakpoints, with continuous, binary or SOS2
+  // auxiliaries, and the cut of the interpolant of f at its knots
+  int const type = (options.BREAKPOINT_TYPE == Options::CONT   ? 0
+                    : options.BREAKPOINT_TYPE == Options::BIN  ? 1
+                    : options.BREAKPOINT_TYPE == Options::SOS2 ? 2
+                                                               : -1);
+  if (type >= 0)
   {
-    case Options::CONT:
+    std::vector<double> const& XKNOT = X.create_subdiv(XL, XU);
+    if (XKNOT.size() > 2)
     {
-      std::vector<double> const& XKNOT = X.create_subdiv(XL, XU);
-      size_t const NKNOTS              = XKNOT.size() - 1;
-      if (NKNOTS > 1)
+      switch (type)
       {
-        // Represent variable range using linear binary transformation
-        std::vector<PolVar<T>> const& subvar = X.CONT_subdiv(pOp);
-        // Append semilinear cuts
-        _coef.resize(NKNOTS);
-        double const& rhs = f(XKNOT[0], rpar, ipar).first;
-        for (unsigned isub = 0; isub < NKNOTS; isub++)
-          _coef[isub] = f(XKNOT[isub], rpar, ipar).first -
-                        f(XKNOT[isub + 1], rpar, ipar).first;
-        add_cut(pOp, sense, rhs, NKNOTS, subvar.data(), _coef.data(), Y, 1.);
-        return;
+        case 0: X.CONT_subdiv(pOp); break;
+        case 1: X.BIN_subdiv(pOp); break;
+        case 2: X.SOS2_subdiv(pOp); break;
       }
-      break;
+      std::vector<double> YKNOT(XKNOT.size());
+      for (size_t k = 0; k < XKNOT.size(); ++k) YKNOT[k] = f(XKNOT[k], rpar, ipar).first;
+      add_subdivision_cut(pOp, X, Y, YKNOT.data(), sense, type);
+      return;
     }
-
-    case Options::BIN:
-    {
-      std::vector<double> const& XKNOT = X.create_subdiv(XL, XU);
-      size_t const NKNOTS              = XKNOT.size() - 1;
-      if (NKNOTS > 1)
-      {
-        // Represent variable range using linear binary transformation
-        const std::vector<PolVar<T>>& subvar = X.BIN_subdiv(pOp);
-        // Append semilinear cuts
-        _coef.resize(NKNOTS);
-        double const& rhs = f(XKNOT[0], rpar, ipar).first;
-        for (unsigned isub = 0; isub < NKNOTS; isub++)
-          _coef[isub] = f(XKNOT[isub], rpar, ipar).first -
-                        f(XKNOT[isub + 1], rpar, ipar).first;
-        add_cut(pOp, sense, rhs, NKNOTS, subvar.data(), _coef.data(), Y, 1.);
-        return;
-      }
-      break;
-    }
-
-    case Options::SOS2:
-    {
-      std::vector<double> const& XKNOT = X.create_subdiv(XL, XU);
-      size_t const NKNOTS              = XKNOT.size();
-      if (NKNOTS > 2)
-      {
-        // Represent variable range using SOS2 transformation
-        std::vector<PolVar<T>> const& subvar = X.SOS2_subdiv(pOp);
-        // Append semilinear cuts
-        _coef.resize(NKNOTS);
-        for (unsigned isub = 0; isub < NKNOTS; isub++)
-          _coef[isub] = -f(XKNOT[isub], rpar, ipar).first;
-        add_cut(pOp, sense, 0., NKNOTS, subvar.data(), _coef.data(), Y, 1.);
-        return;
-      }
-      break;
-    }
-
-    default:
-      break;
   }
 
   // Append secant cut
   double dX = XU - XL, YL = f(XL, rpar, ipar).first,
          dY = f(XU, rpar, ipar).first - YL;
   add_cut(pOp, sense, dX * YL - dY * XL, Y, dX, X, -dY);
+}
+
+template <typename T>
+inline std::vector<double> const&
+PolImg<T>::add_subdivision(FFOp* pOp, unsigned const Nk, PolVar<T> const& X,
+                           double const* Xk, int const type)
+{
+  // Local save of any preexisting breakpoints, reset and redefine
+  std::set<double> Xbkpts = X.breakpts();
+  X.breakpts().clear();
+  X.reset_subdiv();
+  for (unsigned i = 1; i + 1 < Nk; ++i) X.add_breakpt(Xk[i]);
+  X.create_subdiv(Xk[0], Xk[Nk - 1]);
+
+  // Represent variable range using linear continuous, linear binary or SOS2
+  // encoding
+  switch (type)
+  {
+    default:
+    case 0: X.CONT_subdiv(pOp); break;
+    case 1: X.BIN_subdiv(pOp); break;
+    case 2: X.SOS2_subdiv(pOp); break;
+  }
+
+  // Restore any preexisting breakpoints
+  X.breakpts() = Xbkpts;
+  return X.subdiv().first;
+}
+
+template <typename T>
+inline void
+PolImg<T>::add_subdivision_cut(FFOp* pOp, PolVar<T> const& X,
+                               PolVar<T> const& Y, double const* Yk,
+                               typename PolCut<T>::TYPE const sense,
+                               int const type)
+{
+  auto const& [XKNOT, subvar] = X.subdiv();
+  size_t const NK             = XKNOT.size();
+  switch (type)
+  {
+    default:
+    case 0:
+    case 1:
+      // Y = Yk[0] + sum_i (Yk[i+1]-Yk[i]) delta_i
+      _coef.resize(NK - 1);
+      for (size_t i = 0; i + 1 < NK; ++i) _coef[i] = Yk[i] - Yk[i + 1];
+      add_cut(pOp, sense, Yk[0], _coef.size(), subvar.data(), _coef.data(), Y,
+              1.);
+      break;
+
+    case 2:
+      // Y = sum_i Yk[i] lambda_i
+      _coef.resize(NK);
+      for (size_t i = 0; i < NK; ++i) _coef[i] = -Yk[i];
+      add_cut(pOp, sense, 0., _coef.size(), subvar.data(), _coef.data(), Y, 1.);
+      break;
+  }
 }
 
 template <typename T>
@@ -4207,100 +4241,15 @@ PolImg<T>::add_semilinear_cuts(FFOp* pOp, unsigned const Nk, PolVar<T> const& X,
     return;
   }
 
-  // Local save of any preexisting breakpoints, reset and redefine
-  std::set<double> Xbkpts = X.breakpts();
-  X.breakpts().clear();
-  for (unsigned i = 1; i < Nk - 1; ++i) X.add_breakpt(Xk[i]);
-
-  switch (type)
-  {
-    default:
-    case 0:
-    {
-      std::vector<double> const& XKNOT = X.create_subdiv(Xk[0], Xk[Nk - 1]);
-      // assert( Nk == XKNOT.size() );
-      //  Represent variable range using linear continuous encoding
-      std::vector<PolVar<T>> const& subvar = X.CONT_subdiv(pOp);
-      // Append piecewise-linear cuts
-      _coef.resize(XKNOT.size() - 1);
-      for (unsigned i = 0, k = 0; k < Nk; ++k)
-      {
-        if (Xk[k] != XKNOT[i]) continue;
-        if (k < Nk - 1) _coef[i] = Yk[k];
-        if (i > 0) _coef[i - 1] -= Yk[k];
-        ++i;
-      }
-      add_cut(pOp, sense, Yk[0], _coef.size(), subvar.data(), _coef.data(), Y,
-              1.);
-      break;
-    }
-
-    case 1:
-    {
-      std::vector<double> const& XKNOT = X.create_subdiv(Xk[0], Xk[Nk - 1]);
-      // if( Nk != XKNOT.size() ){
-      //   std::cerr << "Size mismatch: Nk = " << Nk << ", XKNOT = " <<
-      //   XKNOT.size() << std::endl; std::cerr << "Xk = [ "; for( unsigned i=0;
-      //   i<Nk; ++i ) std::cerr << Xk[i] << " "; std::cerr << "]" << std::endl;
-      //   std::cerr << "XKNOT = [ ";
-      //   for( auto const& XKNOTk : XKNOT ) std::cerr << XKNOTk << " ";
-      //   std::cerr << "]" << std::endl;
-      // }
-      // assert( Nk == XKNOT.size() );
-      //  Represent variable range using linear binary encoding
-      std::vector<PolVar<T>> const& subvar = X.BIN_subdiv(pOp);
-      // Append piecewise-linear cuts
-      _coef.resize(XKNOT.size() - 1);
-      for (unsigned i = 0, k = 0; k < Nk; ++k)
-      {
-        if (Xk[k] != XKNOT[i]) continue;
-        if (k < Nk - 1) _coef[i] = Yk[k];
-        if (i > 0) _coef[i - 1] -= Yk[k];
-        ++i;
-      }
-      // if( Nk != XKNOT.size() ){
-      //   std::cerr << "Yk = [ ";
-      //   for( unsigned i=0; i<Nk; ++i ) std::cerr << Yk[i] << " ";
-      //   std::cerr << "]" << std::endl;
-      //   std::cerr << "coef = [ ";
-      //   for( unsigned i=0; i<XKNOT.size()-1; ++i ) std::cerr << coef[i] << "
-      //   "; std::cerr << "]" << std::endl; int dum; std::cout << "PAuSED";
-      //   std::cin >> dum;
-      // }
-      add_cut(pOp, sense, Yk[0], _coef.size(), subvar.data(), _coef.data(), Y,
-              1.);
-      break;
-    }
-
-    case 2:
-    {
-      std::vector<double> const& XKNOT = X.create_subdiv(Xk[0], Xk[Nk - 1]);
-      // if( Nk != XKNOT.size() ){
-      //   std::cerr << "Size mismatch: Nk = " << Nk << ", XKNOT = " <<
-      //   XKNOT.size() << std::endl; std::cerr << "Xk = [ "; for( unsigned i=0;
-      //   i<Nk; ++i ) std::cerr << Xk[i] << " "; std::cerr << "]" << std::endl;
-      //   std::cerr << "XKNOT = [ ";
-      //   for( auto const& XKNOTk : XKNOT ) std::cerr << XKNOTk << " ";
-      //   std::cerr << "]" << std::endl;
-      // }
-      // assert( Nk == XKNOT.size() );
-      //  Represent variable range using SOS2 encoding
-      std::vector<PolVar<T>> const& subvar = X.SOS2_subdiv(pOp);
-      // Append piecewise-linear cuts
-      _coef.resize(XKNOT.size());
-      for (unsigned i = 0, k = 0; k < Nk; ++k)
-      {
-        if (Xk[k] != XKNOT[i]) continue;
-        _coef[i] = -Yk[k];
-        ++i;
-      }
-      add_cut(pOp, sense, 0., _coef.size(), subvar.data(), _coef.data(), Y, 1.);
-      break;
-    }
-  }
-
-  // Restore any preexisting breakpoints
-  X.breakpts() = Xbkpts;
+  // Subdivision at the breakpoints, then values at its knots, which are among
+  // the breakpoints
+  std::vector<double> const& XKNOT = add_subdivision(pOp, Nk, X, Xk, type);
+  std::vector<double> YKNOT;
+  YKNOT.reserve(XKNOT.size());
+  for (unsigned k = 0; k < Nk && YKNOT.size() < XKNOT.size(); ++k)
+    if (Xk[k] == XKNOT[YKNOT.size()]) YKNOT.push_back(Yk[k]);
+  if (YKNOT.size() != XKNOT.size()) throw Exceptions(Exceptions::INTERNAL);
+  add_subdivision_cut(pOp, X, Y, YKNOT.data(), sense, type);
 }
 
 #ifdef MC__POLIMG_PWMCCORMICK_1D

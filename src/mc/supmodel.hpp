@@ -3549,6 +3549,13 @@ class SupVar
     return _sdep;
   }
 
+  //! @brief Retrieve superposition model, nullptr for a constant
+  SupModel<Summand>*
+  mod() const
+  {
+    return _mod;
+  }
+
   //! @brief Lower bound on superposition underestimator. 0: primal estimator
   //! only; 1: shadow estimator only; 2: best estimator (default); >=3: best
   //! estimator recomputed
