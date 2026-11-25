@@ -1256,7 +1256,9 @@ SLiftEnv::_insert_aux(FFVar const* aux, bool const ins)
 inline FFVar
 SLiftEnv::insert_dag(t_poly const& pol, bool const useprod, bool const dagaux)
 {
-  assert(!pol.mapmon().empty());
+  // The zero polynomial, e.g. a function that is identically zero, is the
+  // constant 0
+  if (pol.mapmon().empty()) return FFVar(0.);
 
   FFVar var;
   bool first = true;

@@ -8595,9 +8595,12 @@ PolImg<T>::generate_cuts(unsigned const ndep, PolVar<T> const* pdep,
   if (reset) reset_cuts();
   _erase_LQ();
 
-  // Propagate cuts through all dependent subtrees
+  // Propagate cuts through all dependent subtrees; a dependent without DAG
+  // variable -- a constant, e.g. a function that does not depend on the
+  // variables, or an auxiliary variable -- has none
   for (unsigned i = 0; i < ndep; i++)
   {
+    if (!pdep[i]._var) continue;
     auto itDep = _Vars.find(pdep[i].var().id());
     if (itDep == _Vars.end()) continue;
     _propagate_cuts(itDep->second->var().opdef().first, itDep->second);
@@ -8617,6 +8620,7 @@ PolImg<T>::generate_cuts(std::set<unsigned> const& ndxdep,
   for (auto const& i : ndxdep)
   {
     assert(i < vdep.size());
+    if (!vdep[i]._var) continue;  // constant or auxiliary dependent: no subtree
     auto itDep = _Vars.find(vdep[i].var().id());
     if (itDep == _Vars.end()) continue;
     _propagate_cuts(itDep->second->var().opdef().first, itDep->second);
@@ -8636,6 +8640,7 @@ PolImg<T>::generate_cuts(std::map<KEY, PolVar<T>, COMP> const& mdep,
   // Propagate cuts through all dependent subtrees
   for (auto const& [dum, dep] : mdep)
   {
+    if (!dep._var) continue;  // constant or auxiliary dependent: no subtree
     auto itDep = _Vars.find(dep.var().id());
     if (itDep == _Vars.end()) continue;
     _propagate_cuts(itDep->second->var().opdef().first, itDep->second);
