@@ -1701,6 +1701,9 @@ class FFMLP
     else if (mc::same_type( idU, typeid(FADType<double>) ))
       return eval(nRes, static_cast<FADType<double>*>(vRes), nVar,
                   static_cast<FADType<double> const*>(vVar), mVar);
+    else if (mc::same_type( idU, typeid(BADType<double>) ))
+      return evalbad(nRes, static_cast<BADType<double>*>(vRes), nVar,
+                     static_cast<BADType<double> const*>(vVar));
     else if (mc::same_type( idU, typeid(T) ))
       return eval(nRes, static_cast<T*>(vRes), nVar,
                   static_cast<T const*>(vVar), mVar);
@@ -1741,6 +1744,23 @@ class FFMLP
     throw std::runtime_error(
         "FFMLP::feval: **ERROR** No evaluation method with type" +
         std::string(idU.name()) + "\n");
+  }
+
+  //! @brief Evaluation in the reverse mode of AD: each output is a single
+  //! node whose partial derivatives are the Jacobian of the network, computed
+  //! in double precision by passes through the layers (see MLP::grad), in
+  //! place of a tape of every neuron
+  void evalbad(size_t const nRes, BADType<double>* vRes, size_t const nVar,
+               BADType<double> const* vVar) const
+  {
+#ifdef MC__FFMLP_CHECK
+    assert(_ptrObj && nRes == _ptrObj->nout() && nVar == _ptrObj->nin());
+#endif
+    std::vector<double> x(nVar), y(nRes), J(nRes * nVar);
+    for (size_t i = 0; i < nVar; ++i) x[i] = vVar[i].val();
+    _ptrObj->grad(x.data(), J.data(), y.data());
+    for (size_t k = 0; k < nRes; ++k)
+      vRes[k] = bad_node(y[k], nVar, vVar, J.data() + k * nVar);
   }
 
   template <typename U>

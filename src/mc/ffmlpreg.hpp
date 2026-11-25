@@ -1678,7 +1678,28 @@ class FFMLPREG
     else if (mc::same_type(idU, typeid(PolVar<T>)))
       return eval(nRes, static_cast<PolVar<T>*>(vRes), nVar,
                   static_cast<PolVar<T> const*>(vVar), mVar);
+    else if (mc::same_type(idU, typeid(BADType<double>)))
+      return evalbad(nRes, static_cast<BADType<double>*>(vRes), nVar,
+                     static_cast<BADType<double> const*>(vVar));
     return t_Op::feval(idU, nRes, vRes, nVar, vVar, mVar);
+  }
+
+  //! @brief Evaluation in the reverse mode of AD: each output is a single
+  //! node whose partial derivatives with respect to the inputs and the
+  //! weights are the Jacobian of the network, computed in double precision by
+  //! passes through the layers (see MLPREG::grad), in place of a tape of every
+  //! neuron. The gradient of a training loss in the weights then costs one
+  //! evaluation and one reverse pass per sample
+  void
+  evalbad(size_t const nRes, BADType<double>* vRes, size_t const nVar,
+          BADType<double> const* vVar) const
+  {
+    this->_check(nRes, nVar);
+    std::vector<double> x(nVar), y(nRes), J(nRes * nVar);
+    for (size_t i = 0; i < nVar; ++i) x[i] = vVar[i].val();
+    this->_ptrObj->grad(x.data(), J.data(), y.data());
+    for (size_t k = 0; k < nRes; ++k)
+      vRes[k] = bad_node(y[k], nVar, vVar, J.data() + k * nVar);
   }
 
   void eval(size_t const nRes, FADType<FFVar>* vRes, size_t const nVar,

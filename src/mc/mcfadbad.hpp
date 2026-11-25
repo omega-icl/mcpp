@@ -20,6 +20,13 @@ namespace mc
   template <typename U> using FADType = mc::F<U>;
   template <typename U> using BADType = mc::B<U>;
   template <typename U> using TADType = mc::T<U>;
+
+  //! @brief Value of an operation in the reverse mode of AD, from its value fv and its partial
+  //!        derivatives fa with respect to its n operands a -- e.g. an output of an external
+  //!        operation whose Jacobian is computed otherwise, in place of a tape of its expression
+  template <typename U>
+  inline BADType<U> bad_node( U const& fv, std::size_t const n, BADType<U> const* a, U const* fa )
+  { return BADType<U>::_nary( fv, n, a, fa ); }
 } // namespace mc
 
 // Use FADBAD classes for forward/backward AD and Taylor expansion
@@ -357,6 +364,18 @@ erf(const FTypeName<T, 0>& a)
 namespace mc
 {
   template <typename U> using BADType = fadbad::B<U>;
+
+  //! @brief Value of an operation in the reverse mode of AD, from its value fv and its partial
+  //!        derivatives fa with respect to its n operands a -- e.g. an output of an external
+  //!        operation whose Jacobian is computed otherwise, in place of a tape of its expression
+  template <typename U>
+  inline BADType<U> bad_node( U const& fv, std::size_t const n, BADType<U> const* a, U const* fa )
+  {
+    BADType<U> r( 0. );
+    for( std::size_t i=0; i<n; ++i ) r += fa[i] * a[i];
+    r.x() = fv;
+    return r;
+  }
 } // namespace mc
 
 namespace fadbad

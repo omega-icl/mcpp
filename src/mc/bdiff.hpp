@@ -175,6 +175,15 @@ public:
     nd->_edge.emplace_back( b._n, fb );
     return Bimpl( nd );
   }
+  //! @brief node of value fv depending on the n operands a with the partial derivatives fa, e.g.
+  //!        an output of an external operation whose Jacobian is known (see mc::bad_node)
+  static Bimpl _nary( const T& fv, const std::size_t n, const Bimpl* a, const T* fa )
+  {
+    auto nd = std::make_shared<Node>( fv );
+    nd->_edge.reserve( n );
+    for( std::size_t i=0; i<n; ++i ) nd->_edge.emplace_back( a[i]._n, fa[i] );
+    return Bimpl( nd );
+  }
 
   // ---------------- compound assignment -------------------------------------
   Bimpl& operator+=( const Bimpl& b ){ *this = *this + b; return *this; }
