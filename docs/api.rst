@@ -95,6 +95,8 @@ Machine-learning models
 
    MLP
    FFMLP
+   KAN
+   FFKAN
    DAGEXT
    FFDAGEXT
 

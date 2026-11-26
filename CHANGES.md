@@ -1,6 +1,13 @@
 # Changes
 
-## Unreleased
+## 5.2.0 (2026-11-18)
+
+A minor version, by the rule INSTALL.md's "Releasing" states: classes shared with dependent modules changed.
+`FFOp` has four more virtual functions (the tangent and adjoint hooks below), and `FFMLP` and `FFDAGEXT`
+changed layout (1632 to 1168 bytes, now derived from `FFHOME`); `FFMLP` is also another type, an alias of
+`FFMAP` (below).  A module built on `pymcpp` (CRONOS's
+`cronos`) must be rebuilt against 5.2 and require `pymcpp~=5.2.0`.  Code using `MLPREG` follows its new
+interface (below).  The ABI fingerprint for 5.2 is recorded in `tools/abi/`.
 
 ### HSL removed
 
@@ -54,124 +61,70 @@ symbolic gradient `FFGraph::BAD` (345,000 operations, 1.8 s to build); the two a
 changes layout.  `test/ML/test_MLP_reverse.cpp` compares the reverse mode with the forward mode and the
 symbolic gradient, also under `MC__USE_FADBAD`.
 
-### Piecewise-linear univariates on the whole real line; shared subdivisions in polyhedral images
+### Piecewise-linear univariates: `PWLU` on the real line, `FFPWLU`
 
-`mc::PWLU` also holds a continuous piecewise-linear function on the whole real line, such as an edge
-of a Kolmogorov-Arnold network.  A constructor from breakpoints, values and end slopes, and
-`PWLU::relu` from a sum of ReLU terms, build one whose first and last segments carry the end slopes;
-`relu` gives each segment the sum of the slopes of the terms active on it, rather than a difference of
-values, so that breakpoints close to one another cost no accuracy.
-`val(x, true)`, `slope(x)` and `restrict(xL, xU)` extend it linearly beyond its domain; `restrict`
-returns it on any interval, with its exact range there by `l()` and `u()`; `hull(under)` gives its
-convex or concave envelope, `bkpts()` its breakpoints where the slope changes, and `compose(g)` the
-exact composite of a piecewise-linear `g` with the estimator, with the crossings of the breakpoints
-of `g` added.  The estimators of
-the superposition models are unaffected: `val(x)` still throws outside the domain, and no class
-changes layout.
+* `mc::PWLU` also holds a continuous piecewise-linear function on the whole real line, extended beyond
+  its end breakpoints by its end segments: a constructor from breakpoints, values and end slopes,
+  `relu` (from a sum of ReLU terms), `val(x, true)`, `slope`, `restrict` (exact range on an interval),
+  `hull` (convex or concave envelope), `bkpts` and `compose`.
+* `mc::FFPWLU` (`ffpwlu.hpp`) is the external operation for such functions of one operand, with one
+  result per function.  It is exact where the arithmetic allows: the range in interval arithmetic, the
+  envelopes in McCormick arithmetic, and the summand of a variable in superposition models (reduced to
+  `SupModel::Options::MAX_SUBDIV` segments); other operands and Chebyshev models go through the
+  abs-normal form.  The static `FFPWLU::value` and `slope` evaluate a single function.
+* In a polyhedral image, `FFPWLU::Options::ENCODING` selects the convex hull of each function by cuts
+  (`HULL`), or a subdivision of the operand at the breakpoints with continuous, binary or SOS2
+  variables (`CONT`, `BIN`, `SOS2`); `DEFAULT` follows `PolImg::Options::BREAKPOINT_TYPE`.  The
+  functions of an operation share one subdivision, unless `SEPARATE` is set.  A function with a
+  breakpoint that the image leaves out, within its tolerances of another one, is enclosed between two
+  piecewise-linear functions on the subdivision, so that the relaxation remains valid.
+* `PolImg::add_subdivision` and `add_subdivision_cut` build a subdivision once and express several
+  functions on it; `add_semilinear_cuts` calls them, with the same cuts as before.
+* Tests: `test/DAG/DAG_pwlu.cpp` (35 checks), `test/RELAX/LINREL_pwlu.cpp` (104 relaxations).
 
-`PolImg::add_semilinear_cuts` is split into `add_subdivision`, which subdivides a variable at given
-breakpoints with continuous, binary or SOS2 auxiliary variables, and `add_subdivision_cut`, which
-adds the cut of one function from its values at the knots kept, so that several functions can share
-one subdivision.  Both forms of `add_semilinear_cuts` now call them.  The cuts are unchanged on the
-univariate relaxations with breakpoints and on the piecewise-linear superposition relaxation of an
-`FFMLP` (identical output for every encoding), except that a subdivision left on a variable by an
-earlier call is now discarded, rather than reused, when none of the new breakpoints is kept.
+### Kolmogorov-Arnold networks: `KAN`
 
-### Piecewise-linear univariates as external operations
+`mc::KAN` (`ffkan.hpp`) mirrors `mc::MLP` for networks whose layers sum edge functions of one variable:
+`set_data`, `append_data` (a layer given as its edges) and `read_data`; evaluation in the arithmetics
+of MC++, each edge as in `FFPWLU`; `grad`, `tang` and `adj`; `reval`; and an expression tree with one
+`FFPWLU` per input of a layer and one `FFLin` per output, whose encoding in a polyhedral image is set
+by `KAN::Options::ENCODING` and `SEPARATE`.  The edges are piecewise linear (`mc::PWLU`); `KAN::Layer`
+is where other types -- splines, polynomials -- would be added.  On a network with widths 2-5-5-5-1
+and 520 segments: 0.4 us for a value, 0.8 us for the Jacobian, 12 us for interval bounds.  Test:
+`test/ML/test_KAN.cpp` (57 checks).
 
-`ffpwlu.hpp` adds `mc::FFPWLU`, an external operation for one or several continuous
-piecewise-linear functions of the same operand, each an `mc::PWLU` extended linearly beyond its
-domain (see above).  In interval arithmetic the ranges are exact (`PWLU::restrict`), and the
-backward propagation contracts the operand to the hull of the preimage of each range.  The McCormick
-relaxations are the convex and concave envelopes on the range of the operand (`PWLU::hull`).
-Derivatives are right derivatives at a breakpoint; symbolic ones are sums of `fstep`.  In a
-polyhedral image each function is encoded exactly on the range of its operand
-(`FFPWLU::Options::ENCODING`): by the convex hull of its graph, with cuts only, or on a subdivision
-of the operand at its breakpoints (`PolImg::add_subdivision`), with continuous, binary or SOS2
-auxiliary variables, as set by `PolImg::Options::BREAKPOINT_TYPE` by default (`DEFAULT`).  The
-functions of an operation share one subdivision, at the union of their breakpoints, unless
-`FFPWLU::Options::SEPARATE` is set: one set of auxiliary variables for all of them, and with `CONT`
-the convex hull of their graphs jointly, where `HULL` gives the convex hull of each.  The image
-leaves out of a subdivision the breakpoints within its tolerances (`BREAKPOINT_ATOL`,
-`BREAKPOINT_RTOL`) of another one or of a bound; a function with a breakpoint left out is not its
-interpolant on the subdivision, and is enclosed between two piecewise-linear functions there, so
-that the relaxation remains valid (and by its convex hull where no breakpoint is kept).  In a
-superposition model the
-result is exact where the operand is a single-dependency estimator whose under- and overestimators
-coincide, a variable of the model say: a `PWLU` summand is the composite of the function with the
-operand's (`PWLU::compose`), a `PWCU` summand holds the exact range of the function on each cell.  As
-after any composition, the summands are then reduced to `SupModel::Options::MAX_SUBDIV` segments,
-which leaves them exact as long as the composite has no more segments (`SupVar::mod()` is new, to
-read the options).  Other operands, and Chebyshev models, go through the abs-normal form
-`y_0 + s_0 (x - x_0) + sum_k ds_k (z_k + |z_k|)/2`, with `z_k = x - x_k`.  Each evaluation is also there for a single function, as
-the static `FFPWLU::value` (`slope` for the derivative), which `mc::KAN` uses for its edges.  `test/DAG/DAG_pwlu.cpp` checks every
-evaluation and the new `PWLU` methods (35 checks); `test/RELAX/LINREL_pwlu.cpp` checks the polyhedral
-encodings: every cut holds on the graph of the functions, the HULL cuts give the envelopes, and, with
-Gurobi, the relaxations at a fixed operand give the function (BIN, SOS2) or its envelopes (HULL, CONT).
+### Networks as external operations: `FFMAP`, with `FFMLP` and `FFKAN`
 
-### Kolmogorov-Arnold networks
+`mc::FFMAP<T, MAP>` (`ffmap.hpp`), with `FFGradMAP`, `FFTanMAP` and `FFAdjMAP`, is the external operation
+on a network held by an object of class `MAP`: the former classes `FFMLP`, `FFGradMLP`, `FFTanMLP` and
+`FFAdjMLP`, with the network as a template argument.  `mc::FFMLP<T>` is the alias `FFMAP<T, MLP<T>>`
+and `mc::FFKAN<T>` is `FFMAP<T, KAN<T>>`, likewise for the derivative operations, so that a
+Kolmogorov-Arnold network is inserted in a DAG, differentiated, relaxed and propagated backward as a
+multilayer perceptron is.  The network of the DAG is returned by `map()`; `MLP()` remains for an
+`mc::MLP`.  A forward declaration `template <typename T> class FFMLP;` no longer matches the alias.
+With `Options::RELAX` set to `AUX`, the relaxation of an `FFKAN` goes through the encodings of its
+edges; it is by McCormick relaxations by default.  Test: `test/ML/test_FFKAN.cpp` (14 checks).
 
-`ffkan.hpp` adds `mc::KAN`, a Kolmogorov-Arnold network: layers whose outputs are the sums over their
-inputs of edge functions of one variable.  It mirrors `mc::MLP`: `append_data` (a layer given as its
-edges), `set_data`, `read_data`; evaluation in the arithmetics of MC++, each edge with
-`FFPWLU::value` -- exact range of each edge in interval arithmetic, envelopes in McCormick
-arithmetic, exact summands of a variable in superposition models; Jacobian (`grad`, accumulated
-forward or backward through the layers), directional derivative (`tang`) and adjoint (`adj`);
-expression tree (`dag`), with one `FFPWLU` operation per input of a layer and one `FFLin` per output,
-through which the polyhedral image and the backward propagation (`reval`) go.  The encoding of the
-edges in a polyhedral relaxation is set by `KAN::Options::ENCODING` and `SEPARATE`.  The edges of a
-layer are of one type; the type available is piecewise linear (`mc::PWLU`), and `KAN::Layer` is where
-others -- splines, polynomials -- would be added.  The external operation on a `mc::KAN` in a DAG
-is `mc::FFKAN` (see the entry on `mc::FFMAP` below).  On a network with widths 2-5-5-5-1 and
-520 segments: 0.4 us for a value, 0.8 us for the Jacobian, 12 us for interval bounds.
-`test/ML/test_KAN.cpp` checks the above (57 checks with the entry below).
+### Network files: `NETIO`
 
-### Networks saved as dictionaries by torch.save, read without Torch
+`mc::NETIO` (`netio.hpp`) holds the readers of network files, with no other library: ONNX files and
+TorchScript Modules as before, and now the dictionaries saved by `torch.save` (`model_type`, `config`,
+`state_dict`, `normalization`), with a reader of the zip archive and of the pickle format of its own
+(`read_pickle`, `read_dict`).  A `KANmodel` is read by `KAN::read_data` and an `ANNmodel` by
+`MLP::read_data`, which tells a dictionary from a TorchScript Module by its content.  The min-max
+scalings of the file are folded into the first and last layers, so that the network maps raw inputs to
+raw outputs.  The activation of a dense network is the one named in `config`, else the one matching
+the bounds held in the file, else the one given to `read_dict`.  Test: `test/ML/test_KAN.cpp`, on
+files made by `test/ML/test_KAN_dict.py`.
 
-`mc::NETIO::read_dict` reads a network saved by `torch.save` as a dictionary -- `model_type`,
-`config`, `state_dict`, `normalization` -- with a reader of the zip archive and of the pickle format
-of its own (`NETIO::read_pickle`, which returns the whole content as a tree of `NETIO::PValue`), as
-`read_onnx` does for ONNX files: a Kolmogorov-Arnold network with edges `c + v u + sum_r a_r max(w_r
-u + b_r, 0)` (`KANmodel`), read by `KAN::read_data`, or a dense network (`ANNmodel`), read by
-`MLP::read_data`, which tells such a file from a TorchScript Module by its content
-(`NETIO::is_torch_dict`).  The min-max scalings of the file are folded into the first and last
-layers, so that the network read maps raw inputs to raw outputs; the layers in the scaled coordinates
-of the file and the scalings are those returned by `read_dict`, for `set_data`.  The arguments of
-`MLP::read_data` are unchanged.  The activation of the hidden layers of a dense network is the one
-named in `config` (`activation`), else the one that matches the bounds held in the file, else the
-one given to `read_dict`.  Files that are not such dictionaries, hold tensors of other shapes, or
-are compressed or truncated are refused with the reason.  `test/ML/test_KAN_dict.py` generates the
-files of the test and their values and bounds.
+### Python: `KAN` and `FFKAN`
 
-### FFMAP: networks as external operations, FFMLP and FFKAN
-
-`ffmap.hpp` holds `mc::FFMAP<T, MAP>`, the external operation on a network held by an object of
-class `MAP`, and `FFGradMAP`, `FFTanMAP`, `FFAdjMAP` for its Jacobian, directional derivative and
-adjoint: the classes `FFMLP`, `FFGradMLP`, `FFTanMLP` and `FFAdjMLP` of `ffmlp.hpp`, which used
-nothing of `mc::MLP` beyond `nin`, `nout`, `nwei`, `uid`, `eval`, `reval`, `grad`, `tang`, `adj` and
-the options `TANGENT` and `ADJOINT`, with the network as a template argument.  `mc::FFMLP<T>` is now
-the alias `FFMAP<T, MLP<T>>` (likewise `FFGradMLP`, `FFTanMLP`, `FFAdjMLP`), and `mc::FFKAN<T>` is
-`FFMAP<T, KAN<T>>` (`FFGradKAN`, `FFTanKAN`, `FFAdjKAN`): a Kolmogorov-Arnold network is inserted
-in a DAG, differentiated, relaxed and propagated backward as a multilayer perceptron is, with the
-same policies for the network that the DAG holds.  Code on `FFMLP` is unchanged, with two
-provisos: the network of the DAG is returned by `map()` -- `MLP()` remains for an `mc::MLP`, and
-`pMLP()`, deprecated -- and a forward declaration `template <typename T> class FFMLP;` no longer
-matches the alias.  The name of the operations is given by the static `tag()` of the network
-("MLP", "KAN").  The polyhedral relaxation of an `FFKAN` is by McCormick relaxations by default, as
-for any external operation; with `Options::RELAX` set to `AUX`, it goes through the expression tree
-of the network, with the encodings of its edges.  `test/ML/test_FFKAN.cpp` checks the operation
-against the network (14 checks).
-
-`mc::MLPIO` (`mlpio.hpp`), which now reads Kolmogorov-Arnold networks as well, is renamed
-`mc::NETIO` (`netio.hpp`).
-
-## 5.2.0 (2026-11-18)
-
-A minor version, by the rule INSTALL.md's "Releasing" states: classes shared with dependent modules changed.
-`FFOp` has four more virtual functions (the tangent and adjoint hooks below), and `FFMLP` and `FFDAGEXT`
-changed layout (1632 to 1168 bytes, now derived from `FFHOME`).  A module built on `pymcpp` (CRONOS's
-`cronos`) must be rebuilt against 5.2 and require `pymcpp~=5.2.0`.  Code using `MLPREG` follows its new
-interface (below).  The ABI fingerprint for 5.2 is recorded in `tools/abi/`.
+`pymcpp.KAN` and `pymcpp.FFKAN` mirror `MLP` and `FFMLP`: a network is given by its layers of `PWLU`
+edges or read from a dictionary of `torch.save`, and inserted in a DAG by `FFKAN()(X, NN)`.  The
+network that the DAG holds is `FFKAN.map` (also `FFKAN.KAN`); `FFMLP.map` is added beside `FFMLP.MLP`.
+`PWLU` gains the constructor from breakpoints, values and end slopes, `relu`, `val(x, extend)`, `slope`
+and `bkpts`.  `src/pymcpp/check_ffmap.py`, in the `check` target, runs the same checks on `FFMLP` and
+`FFKAN` against their networks evaluated in plain Python.
 
 ### Tangent and adjoint hooks for external operations
 
@@ -214,7 +167,7 @@ exception to the result `FAD` gives.
   again when they change, in `MLP` and `MLPREG`; all the options of an `MLP` in a DAG can now be changed after
   the insertion (`Op.MLP().options`).
 * **ONNX as a second front end.** `MLP::read_data` reads a file whose name ends with `.onnx` with a protobuf
-  decoder of its own (`mc::MLPIO`, `mlpio.hpp`) and no other library, so that the pymcpp wheels, built
+  decoder of its own (`mc::NETIO`, `netio.hpp`) and no other library, so that the pymcpp wheels, built
   without Torch, read trained networks too.  The graph must be a chain from its input to its output: `Gemm`
   (`transA` = 0, any `alpha`, `beta`, `transB`), or `MatMul` and `Add`, for each dense layer, with the weights
   as initializers or `Constant` nodes in float, double or float16; `BatchNormalization` after a dense layer,
@@ -223,7 +176,7 @@ exception to the result `FAD` gives.
   outside the file -- is refused with the reason, and the MLP is left as it was.  This reads the exports of
   PyTorch (`torch.onnx.export`, Gemm or MatMul and Add), scikit-learn (skl2onnx) and Keras (tf2onnx), whose
   values agree with ONNX Runtime to its precision.  A network read from ONNX is evaluated by MC++
-  (`EVALTORCH` has no effect).  The reader of TorchScript Modules moved to `MLPIO` as well, unchanged.
+  (`EVALTORCH` has no effect).  The reader of TorchScript Modules moved to `NETIO` as well, unchanged.
 
 ### Networks whose weights are variables: `MLPREG` and `FFMLPREG` mirror `MLP` and `FFMLP`
 

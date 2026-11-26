@@ -416,6 +416,7 @@ set(PYMCPP_SOURCES
     src/pymcpp/slift.cpp
     src/pymcpp/fflin.cpp
     src/pymcpp/ffmlp.cpp
+    src/pymcpp/ffkan.cpp
     src/pymcpp/ffmlpreg.cpp
     src/pymcpp/ffdagext.cpp
     src/pymcpp/ffvect.cpp
@@ -668,7 +669,8 @@ endif()
 find_package(Doxygen QUIET)
 set(_mc_check_scripts
     ${CMAKE_CURRENT_SOURCE_DIR}/src/pymcpp/check_ffgraph.py
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/pymcpp/check_ffextern.py)
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/pymcpp/check_ffextern.py
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/pymcpp/check_ffmap.py)
 set(_mc_check_commands
     COMMAND ${CMAKE_COMMAND} -E echo "== check_version.py"
     COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tools/ci/check_version.py ${CMAKE_CURRENT_SOURCE_DIR}

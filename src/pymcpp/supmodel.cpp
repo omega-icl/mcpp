@@ -762,6 +762,85 @@ dx : list of float
       .def(py::init<PWLU const&>(), R"doc(
 Construct a copy of another estimator.
 )doc")
+      .def(py::init<std::vector<double> const&, std::vector<double> const&,
+                    double const&, double const&>(),
+           py::arg("x"), py::arg("y"), py::arg("sL"), py::arg("sR"), R"doc(
+Construct a continuous piecewise-linear function on the real line from its
+breakpoints.
+
+The function takes the values ``y`` at the breakpoints ``x``, and has the
+slopes ``sL`` before the first breakpoint and ``sR`` after the last. It is
+stored with one segment added at each end, which carry these slopes: the
+function is extended beyond them by its end segments (see :meth:`val`
+with ``extend``, :meth:`slope`).
+
+Parameters
+----------
+x : list of float
+    Breakpoints, increasing; at least one.
+y : list of float
+    Values at the breakpoints.
+sL : float
+    Slope before the first breakpoint.
+sR : float
+    Slope after the last breakpoint.
+)doc")
+      .def_static(
+          "relu",
+          [](double const& c, double const& v, std::vector<double> const& a,
+             std::vector<double> const& w, std::vector<double> const& b)
+          { return PWLU::relu(c, v, a, w, b); },
+          py::arg("c"), py::arg("v"), py::arg("a"), py::arg("w"), py::arg("b"),
+          R"doc(
+Continuous piecewise-linear function on the real line from a sum of ReLU
+terms: ``c + v x + sum_r a[r] max(w[r] x + b[r], 0)``.
+
+Parameters
+----------
+c : float
+    Constant term.
+v : float
+    Slope of the linear term.
+a, w, b : list of float
+    Output weights, input weights and biases of the ReLU terms, of the
+    same length.
+
+Returns
+-------
+f : PWLU
+    The function, with breakpoints at ``-b[r] / w[r]``.
+)doc")
+      .def(
+          "val",
+          [](PWLU const& self, double const& x, bool const extend)
+          { return self.val(x, extend); },
+          py::arg("x"), py::arg("extend") = false, R"doc(
+Evaluate the function at abscissa x.
+
+Parameters
+----------
+x : float
+    Evaluation point.
+extend : bool, optional
+    Whether the function is extended beyond its range by its end
+    segments. Default is False: x must lie within the range.
+
+Returns
+-------
+y : float
+    Function value at x.
+)doc")
+      .def(
+          "slope", [](PWLU const& self, double const& x) { return self.slope(x); },
+          py::arg("x"), R"doc(
+Slope of the function at abscissa x -- its right derivative at a
+breakpoint -- the function being extended beyond its range by its end
+segments.
+)doc")
+      .def_property_readonly(
+          "bkpts", [](PWLU const& self) { return self.bkpts(); }, R"doc(
+list of float: Breakpoints inside the range, where the slope changes.
+)doc")
       .def_readwrite_static("options", &PWLU::options, R"doc(
 Class-level option set (a ``PWLU.Options`` instance) shared by all PWLU
 instances.

@@ -505,6 +505,12 @@ in the DAG keeps the options of that object; they are the ones returned
 here.)
 )doc")
       .def_property_readonly(
+          "map", [](mc::FFMLP<I>& self) { return self.share_object(); },
+          R"doc(
+MLP or None: The network of the operation in the DAG, as :attr:`MLP` --
+the name that every operation on a network has for it.
+)doc")
+      .def_property_readonly(
           "MLP", [](mc::FFMLP<I>& self) { return self.share_object(); },
           R"doc(
 MLP or None: The copy held by the DAG of the network inserted last, None

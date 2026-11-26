@@ -75,6 +75,7 @@ void mc_spoly(py::module_&);
 void mc_slift(py::module_&);
 void mc_fflin(py::module_&);
 void mc_ffmlp(py::module_&);
+void mc_ffkan(py::module_&);
 void mc_ffmlpreg(py::module_&);
 void mc_ffdagext(py::module_&);
 void mc_ffcustom(py::module_&);
@@ -138,6 +139,7 @@ worked examples of each arithmetic.
   mc_slift(m);
   mc_fflin(m);
   mc_ffmlp(m);
+  mc_ffkan(m);
   mc_ffmlpreg(m);
   mc_ffdagext(m);
   mc_ffcustom(m);

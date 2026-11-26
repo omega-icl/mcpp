@@ -13,7 +13,9 @@ manipulating and bounding factorable functions. It provides:
   models (``TModel``, ``CModel``, ``SCModel``), spectral bounds (``Specbnd``),
   interval superposition models and polyhedral relaxations (``PolImg``).
 - **Machine-learning models in DAGs**: multilayer perceptrons imported from
-  PyTorch (``MLP``, ``FFMLP``), for evaluation, differentiation and bounding
+  PyTorch (``MLP``, ``FFMLP``) and Kolmogorov-Arnold networks with
+  piecewise-linear edges (``KAN``, ``FFKAN``), for evaluation,
+  differentiation and bounding
   (requires a torch-enabled build, see below).
 
 Why PyMC++
