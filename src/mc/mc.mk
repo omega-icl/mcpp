@@ -13,7 +13,7 @@ incobjs = mcfunc.hpp mctime.hpp mclapack.hpp \
 	  polymodel.hpp tmodel.hpp cmodel.hpp smon.hpp scmodel.hpp sicmodel.hpp \
 	  ffdep.hpp ffinv.hpp ffunc.hpp ffexpr.hpp slift.hpp spoly.hpp \
 	  fflin.hpp ffpwlu.hpp ffspol.hpp ffvect.hpp ffcustom.hpp \
-	  ffhome.hpp ffextern.hpp ffdagext.hpp ffmlp.hpp ffmlpreg.hpp ffkan.hpp mlpio.hpp 
+	  ffhome.hpp ffextern.hpp ffdagext.hpp ffmlp.hpp ffmlpreg.hpp ffkan.hpp netio.hpp 
 
 #####
 

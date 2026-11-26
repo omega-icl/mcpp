@@ -3,8 +3,8 @@
 // This code is published under the EPL-2.0 with GPL-2.0-or-later as a Secondary License; see the LICENSE file.
 // SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 
-#ifndef MC__MLPIO_HPP
-#define MC__MLPIO_HPP
+#ifndef MC__NETIO_HPP
+#define MC__NETIO_HPP
 
 #include <algorithm>
 #include <cmath>
@@ -27,9 +27,10 @@
 namespace mc
 {
 
-//! @brief C++ class reading the layers of a multilayer perceptron from a file
+//! @brief C++ class reading the layers of a network -- a multilayer perceptron
+//! or a Kolmogorov-Arnold network -- from a file
 ////////////////////////////////////////////////////////////////////////
-//! mc::MLPIO reads the dense layers of a multilayer perceptron, and their
+//! mc::NETIO reads the dense layers of a multilayer perceptron, and their
 //! activation functions, for mc::MLP and mc::MLPREG:
 //! - from an ONNX file (read_onnx), with a decoder of the protobuf format
 //!   of its own and no other library. The graph must be a chain of nodes
@@ -57,7 +58,7 @@ namespace mc
 //! and its activation function (LINEAR, RELU, TANH, SIGMOID, with the
 //! values of mc::MLP::ACTIV_TYPE and mc::MLPREG::ACTIV_TYPE).
 ////////////////////////////////////////////////////////////////////////
-class MLPIO
+class NETIO
 ////////////////////////////////////////////////////////////////////////
 {
  public:
@@ -76,7 +77,7 @@ class MLPIO
 
   //! @brief Read the layers of the network in the ONNX file filename into
   //! data: false, with the reason in msg, where the file cannot be read or
-  //! holds anything else than a network of dense layers (see mc::MLPIO)
+  //! holds anything else than a network of dense layers (see mc::NETIO)
   static bool
   read_onnx(std::string const& filename, t_Data& data, std::string& msg);
 
@@ -219,7 +220,7 @@ class MLPIO
   //! @brief Read the object saved by torch.save in the file filename into
   //! root, without Torch: false, with the reason in msg, where the file is not
   //! such an archive, is compressed, or holds values other than those of
-  //! mc::MLPIO::PValue -- tensors of floats, doubles, half floats, integers
+  //! mc::NETIO::PValue -- tensors of floats, doubles, half floats, integers
   //! and booleans, as contiguous or strided views of their storage
   static bool read_pickle(std::string const& filename, std::shared_ptr<PValue>& root,
                           std::string& msg);
@@ -472,7 +473,7 @@ class MLPIO
 };
 
 inline bool
-MLPIO::check(t_Data const& data, std::string& msg)
+NETIO::check(t_Data const& data, std::string& msg)
 {
   if (data.empty())
   {
@@ -505,7 +506,7 @@ MLPIO::check(t_Data const& data, std::string& msg)
 }
 
 inline void
-MLPIO::_read_tensor(PB pb, Tensor& t)
+NETIO::_read_tensor(PB pb, Tensor& t)
 {
   std::string raw;
   std::vector<double> fdata, ddata, idata;
@@ -629,7 +630,7 @@ MLPIO::_read_tensor(PB pb, Tensor& t)
 }
 
 inline void
-MLPIO::_read_attr(PB pb, Attr& a)
+NETIO::_read_attr(PB pb, Attr& a)
 {
   uint32_t num, wt;
   while (pb.field(num, wt))
@@ -677,7 +678,7 @@ MLPIO::_read_attr(PB pb, Attr& a)
 }
 
 inline void
-MLPIO::_read_node(PB pb, Node& n)
+NETIO::_read_node(PB pb, Node& n)
 {
   uint32_t num, wt;
   while (pb.field(num, wt))
@@ -710,7 +711,7 @@ MLPIO::_read_node(PB pb, Node& n)
 }
 
 inline void
-MLPIO::_read_valueinfo(PB pb, std::string& name, std::vector<int64_t>& shape)
+NETIO::_read_valueinfo(PB pb, std::string& name, std::vector<int64_t>& shape)
 {
   uint32_t num, wt;
   while (pb.field(num, wt))
@@ -766,7 +767,7 @@ MLPIO::_read_valueinfo(PB pb, std::string& name, std::vector<int64_t>& shape)
 }
 
 inline void
-MLPIO::_read_graph(PB pb, Graph& g)
+NETIO::_read_graph(PB pb, Graph& g)
 {
   uint32_t num, wt;
   while (pb.field(num, wt))
@@ -806,7 +807,7 @@ MLPIO::_read_graph(PB pb, Graph& g)
 }
 
 inline bool
-MLPIO::_chain(Graph const& g, t_Data& data, std::string& msg)
+NETIO::_chain(Graph const& g, t_Data& data, std::string& msg)
 {
   // Constant tensors: the initializers, and the outputs of Constant nodes
   std::map<std::string, Tensor> cst = g.init;
@@ -1071,7 +1072,7 @@ MLPIO::_chain(Graph const& g, t_Data& data, std::string& msg)
 }
 
 inline bool
-MLPIO::read_onnx_bytes(std::string const& bytes, t_Data& data, std::string& msg)
+NETIO::read_onnx_bytes(std::string const& bytes, t_Data& data, std::string& msg)
 {
   t_Data res;
   try
@@ -1112,7 +1113,7 @@ MLPIO::read_onnx_bytes(std::string const& bytes, t_Data& data, std::string& msg)
 }
 
 inline bool
-MLPIO::read_onnx(std::string const& filename, t_Data& data, std::string& msg)
+NETIO::read_onnx(std::string const& filename, t_Data& data, std::string& msg)
 {
   std::ifstream is(filename, std::ios::binary);
   if (!is)
@@ -1132,7 +1133,7 @@ MLPIO::read_onnx(std::string const& filename, t_Data& data, std::string& msg)
 
 #if defined(MC__USE_TORCH)
 inline bool
-MLPIO::tensor_to_rows(std::vector<std::vector<double>>& v, at::Tensor const& t,
+NETIO::tensor_to_rows(std::vector<std::vector<double>>& v, at::Tensor const& t,
                       size_t const offset, bool const disp)
 {
   if (disp)
@@ -1175,7 +1176,7 @@ MLPIO::tensor_to_rows(std::vector<std::vector<double>>& v, at::Tensor const& t,
 }
 
 inline bool
-MLPIO::read_torch_net(torch::jit::script::Module const& module, t_Data& data,
+NETIO::read_torch_net(torch::jit::script::Module const& module, t_Data& data,
                       std::string& msg, bool const disp)
 {
   data.clear();
@@ -1266,7 +1267,7 @@ MLPIO::read_torch_net(torch::jit::script::Module const& module, t_Data& data,
 }
 
 inline std::vector<std::pair<at::Tensor, at::Tensor>>
-MLPIO::torch_linear(torch::jit::script::Module const& module)
+NETIO::torch_linear(torch::jit::script::Module const& module)
 {
   std::vector<std::pair<at::Tensor, at::Tensor>> lin;
   torch::jit::script::Module net = module.attr("net").toModule();
@@ -1287,7 +1288,7 @@ MLPIO::torch_linear(torch::jit::script::Module const& module)
 // Dictionaries saved by torch.save
 
 inline bool
-MLPIO::_file_bytes(std::string const& filename, std::string& bytes)
+NETIO::_file_bytes(std::string const& filename, std::string& bytes)
 {
   std::ifstream is(filename, std::ios::binary);
   if (!is) return false;
@@ -1296,7 +1297,7 @@ MLPIO::_file_bytes(std::string const& filename, std::string& bytes)
 }
 
 inline bool
-MLPIO::_zip_entries(std::string const& bytes,
+NETIO::_zip_entries(std::string const& bytes,
                     std::map<std::string, std::pair<size_t, size_t>>& entries, std::string& msg)
 {
   auto const* p   = reinterpret_cast<uint8_t const*>(bytes.data());
@@ -1403,7 +1404,7 @@ MLPIO::_zip_entries(std::string const& bytes,
 }
 
 inline bool
-MLPIO::is_torch_dict(std::string const& filename)
+NETIO::is_torch_dict(std::string const& filename)
 {
   std::string bytes, msg;
   std::map<std::string, std::pair<size_t, size_t>> entries;
@@ -1421,7 +1422,7 @@ MLPIO::is_torch_dict(std::string const& filename)
 }
 
 inline bool
-MLPIO::read_pickle(std::string const& filename, std::shared_ptr<PValue>& root, std::string& msg)
+NETIO::read_pickle(std::string const& filename, std::shared_ptr<PValue>& root, std::string& msg)
 {
   typedef std::shared_ptr<PValue> t_P;
   std::string bytes;
@@ -1823,7 +1824,7 @@ MLPIO::read_pickle(std::string const& filename, std::shared_ptr<PValue>& root, s
 }
 
 inline bool
-MLPIO::read_dict(std::string const& filename, Dict& dict, std::string& msg, int const activ)
+NETIO::read_dict(std::string const& filename, Dict& dict, std::string& msg, int const activ)
 {
   Dict D;
   if (!read_pickle(filename, D.root, msg)) return false;
@@ -1971,7 +1972,7 @@ MLPIO::read_dict(std::string const& filename, Dict& dict, std::string& msg, int 
 }
 
 inline bool
-MLPIO::fold_scaling(t_Data& data, Dict const& dict, std::string& msg)
+NETIO::fold_scaling(t_Data& data, Dict const& dict, std::string& msg)
 {
   if (data.empty()) return true;
   // Inputs: u = (x - lower) / (upper - lower) in the neurons of the first layer

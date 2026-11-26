@@ -128,13 +128,13 @@ comes with the generalisation of `mc::FFMLP`, not yet there.  On a network with 
 
 ### Networks saved as dictionaries by torch.save, read without Torch
 
-`mc::MLPIO::read_dict` reads a network saved by `torch.save` as a dictionary -- `model_type`,
+`mc::NETIO::read_dict` reads a network saved by `torch.save` as a dictionary -- `model_type`,
 `config`, `state_dict`, `normalization` -- with a reader of the zip archive and of the pickle format
-of its own (`MLPIO::read_pickle`, which returns the whole content as a tree of `MLPIO::PValue`), as
+of its own (`NETIO::read_pickle`, which returns the whole content as a tree of `NETIO::PValue`), as
 `read_onnx` does for ONNX files: a Kolmogorov-Arnold network with edges `c + v u + sum_r a_r max(w_r
 u + b_r, 0)` (`KANmodel`), read by `KAN::read_data`, or a dense network (`ANNmodel`), read by
 `MLP::read_data`, which tells such a file from a TorchScript Module by its content
-(`MLPIO::is_torch_dict`).  The min-max scalings of the file are folded into the first and last
+(`NETIO::is_torch_dict`).  The min-max scalings of the file are folded into the first and last
 layers, so that the network read maps raw inputs to raw outputs; the layers in the scaled coordinates
 of the file and the scalings are those returned by `read_dict`, for `set_data`.  The arguments of
 `MLP::read_data` are unchanged.  The activation of the hidden layers of a dense network is the one
@@ -142,6 +142,9 @@ named in `config` (`activation`), else the one that matches the bounds held in t
 one given to `read_dict`.  Files that are not such dictionaries, hold tensors of other shapes, or
 are compressed or truncated are refused with the reason.  `test/ML/test_KAN_dict.py` generates the
 files of the test and their values and bounds.
+
+`mc::MLPIO` (`mlpio.hpp`), which now reads Kolmogorov-Arnold networks as well, is renamed
+`mc::NETIO` (`netio.hpp`).
 
 ## 5.2.0 (2026-11-18)
 

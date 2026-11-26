@@ -6,7 +6,7 @@
 // Kolmogorov-Arnold networks (mc::KAN): data, evaluation in double, interval, McCormick and
 // superposition arithmetics, Jacobian, directional derivative and adjoint, expression tree,
 // polyhedral image and backward propagation; and the networks read without Torch from
-// dictionaries of torch.save (mc::MLPIO::read_dict) by mc::KAN::read_data and mc::MLP::read_data,
+// dictionaries of torch.save (mc::NETIO::read_dict) by mc::KAN::read_data and mc::MLP::read_data,
 // against their values and bounds computed in Python (dict_values.txt, from test_KAN_dict.py),
 // with the files that must be refused.
 
@@ -377,20 +377,20 @@ main()
         // the activation given
         if (name == "dict_ann_plain.pt")
         {
-          mc::MLPIO::Dict D;
+          mc::NETIO::Dict D;
           std::string msg;
-          bool const refused = !mlp.read_data(name) && !mc::MLPIO::read_dict(name, D, msg);
-          read               = mc::MLPIO::read_dict(name, D, msg, mc::MLPIO::RELU) && mlpm.set_data(D.ann) &&
-                 mc::MLPIO::fold_scaling(D.ann, D, msg) && mlp.set_data(D.ann);
+          bool const refused = !mlp.read_data(name) && !mc::NETIO::read_dict(name, D, msg);
+          read               = mc::NETIO::read_dict(name, D, msg, mc::NETIO::RELU) && mlpm.set_data(D.ann) &&
+                 mc::NETIO::fold_scaling(D.ann, D, msg) && mlp.set_data(D.ann);
           check(refused && read, name + ": refused where the activation is neither named nor given, read with it given");
         }
         else
         {
           // the network with the scalings of the file folded in (read_data), and the one in the
           // scaled coordinates of the file, from its layers as read_dict returns them
-          mc::MLPIO::Dict D;
+          mc::NETIO::Dict D;
           std::string msg;
-          read = mc::MLPIO::read_dict(name, D, msg);
+          read = mc::NETIO::read_dict(name, D, msg);
           if (read && iskan)
           {
             std::vector<mc::KAN<I>::Layer> L(D.kan.size());
@@ -424,9 +424,9 @@ main()
         for (auto& zi : z) ls >> zi;
         for (auto& yi : y) ls >> yi;
         // inputs in the scaled coordinates, from the scalings of the file
-        mc::MLPIO::Dict D;
+        mc::NETIO::Dict D;
         std::string msg;
-        mc::MLPIO::read_dict(name, D, msg, mc::MLPIO::RELU);
+        mc::NETIO::read_dict(name, D, msg, mc::NETIO::RELU);
         for (size_t i = 0; i < nin; ++i)
           u[i] = (D.xlower.empty() ? x[i] : (x[i] - D.xlower[i]) / (D.xupper[i] - D.xlower[i]));
         if (iskan)
@@ -479,9 +479,9 @@ main()
                                    "dict_bad_truncated.pt", "dict_bad_deflated.pt", "dict_missing.pt",
                                    "torch_tanh.pt", "onnx_torch_tanh.onnx"})
     {
-      mc::MLPIO::Dict D;
+      mc::NETIO::Dict D;
       std::string msg;
-      bool const refused = !mc::MLPIO::read_dict(name, D, msg);
+      bool const refused = !mc::NETIO::read_dict(name, D, msg);
       check(refused && !msg.empty(), name + ": " + msg);
     }
     KAN kan;
@@ -495,8 +495,8 @@ main()
     size_t const uid2 = mlp.uid();
     check(!mlp.read_data("dict_kan_two.pt") && mlp.uid() == uid2 && mlp.nin() == 3,
           "a Kolmogorov-Arnold network leaves the MLP as it was");
-    check(mc::MLPIO::is_torch_dict("dict_kan_two.pt") && !mc::MLPIO::is_torch_dict("torch_tanh.pt") &&
-              !mc::MLPIO::is_torch_dict("onnx_torch_tanh.onnx") && !mc::MLPIO::is_torch_dict("dict_missing.pt"),
+    check(mc::NETIO::is_torch_dict("dict_kan_two.pt") && !mc::NETIO::is_torch_dict("torch_tanh.pt") &&
+              !mc::NETIO::is_torch_dict("onnx_torch_tanh.onnx") && !mc::NETIO::is_torch_dict("dict_missing.pt"),
           "a dictionary is told from a TorchScript Module, an ONNX file and a missing file");
   }
 

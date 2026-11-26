@@ -34,7 +34,7 @@ continuous piecewise-linear edges held as mc::PWLU objects extended beyond their
   NN.eval( IX, &IY );                      // exact range of each edge, summed
 \endcode
 
-mc::KAN::read_data reads a network saved as a dictionary by torch.save (mc::MLPIO::read_dict),
+mc::KAN::read_data reads a network saved as a dictionary by torch.save (mc::NETIO::read_dict),
 without Torch.
 
 The network is evaluated edge by edge with the evaluations of mc::FFPWLU (mc::FFPWLU::value): exact
@@ -57,7 +57,7 @@ edges in a polyhedral relaxation is set by mc::KAN::Options::ENCODING and SEPARA
 #include "fflin.hpp"
 #include "ffpwlu.hpp"
 #include "interval.hpp"
-#include "mlpio.hpp"
+#include "netio.hpp"
 #include "specbnd.hpp"
 
 namespace mc
@@ -126,7 +126,7 @@ class KAN
   //! (for each layer l, the tensors layers.l.edge_bias c, linear_weight v,
   //! relu_output_weight a, relu_weight w and relu_bias b of the edges \f$c + v
   //! u + \sum_r a_r \max(w_r u + b_r, 0)\f$) and normalization (see
-  //! mc::MLPIO::read_dict), read without Torch. The min-max scalings of the
+  //! mc::NETIO::read_dict), read without Torch. The min-max scalings of the
   //! file are folded into the first and last layers: the network maps the raw
   //! inputs to the raw outputs. False, with the network unchanged, where the
   //! file cannot be read or holds anything else; the reason is displayed with
@@ -538,9 +538,9 @@ template <typename T>
 inline bool
 KAN<T>::read_data(std::string const& filename, bool const disp)
 {
-  MLPIO::Dict dict;
+  NETIO::Dict dict;
   std::string msg;
-  if (!MLPIO::read_dict(filename, dict, msg))
+  if (!NETIO::read_dict(filename, dict, msg))
   {
     if (disp) std::cerr << "Error reading " << filename << ": " << msg << "\n";
     return false;

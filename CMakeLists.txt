@@ -592,7 +592,7 @@ set(MC_HEADERS
     ffmlp.hpp
     ffmlpreg.hpp
     ffkan.hpp
-    mlpio.hpp
+    netio.hpp
     ffcustom.hpp)
 
 # Prefix headers with source path

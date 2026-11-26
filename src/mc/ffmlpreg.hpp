@@ -19,7 +19,7 @@
 
 #include "ffextern.hpp"
 #include "interval.hpp"
-#include "mlpio.hpp"
+#include "netio.hpp"
 
 // #define MC__FFMLPREG_DEBUG
 #define MC__FFMLPREG_CHECK
@@ -481,7 +481,7 @@ class MLPREG
   //! A Module whose layers all have biases may then be evaluated by Torch
   //! (Options::EVALTORCH). False, with the MLPREG unchanged, where the file
   //! cannot be read or holds anything else than dense layers with ReLU, tanh
-  //! or sigmoid activations (see mc::MLPIO); the reason is displayed with
+  //! or sigmoid activations (see mc::NETIO); the reason is displayed with
   //! disp
   bool read_data(std::string const& filename, bool const disp = false);
 
@@ -495,10 +495,10 @@ class MLPREG
 
   //! @brief Layers of the network for the weights wei, in the form of
   //! mc::MLP::set_data
-  MLPIO::t_Data
+  NETIO::t_Data
   data(double const* wei) const
   {
-    MLPIO::t_Data dat;
+    NETIO::t_Data dat;
     size_t nprv = _nin;
     for (size_t l = 0; l < _layers.size(); ++l)
     {
@@ -688,16 +688,16 @@ template <typename T>
 inline bool
 MLPREG<T>::read_data(std::string const& filename, bool const disp)
 {
-  MLPIO::t_Data dat;
+  NETIO::t_Data dat;
   std::string msg;
   bool hasmodule = false;
 #if defined(MC__USE_TORCH)
   torch::jit::script::Module module;
 #endif
 
-  if (MLPIO::is_onnx(filename))
+  if (NETIO::is_onnx(filename))
   {
-    if (!MLPIO::read_onnx(filename, dat, msg))
+    if (!NETIO::read_onnx(filename, dat, msg))
     {
       if (disp) std::cerr << "Error reading ONNX model: " << msg << "\n";
       return false;
@@ -711,7 +711,7 @@ MLPREG<T>::read_data(std::string const& filename, bool const disp)
       module = torch::jit::load(filename);
       module.to(torch::kFloat64);
       module.eval();
-      if (!MLPIO::read_torch_net(module, dat, msg, disp))
+      if (!NETIO::read_torch_net(module, dat, msg, disp))
       {
         if (disp) std::cerr << msg << "\n";
         return false;
@@ -719,7 +719,7 @@ MLPREG<T>::read_data(std::string const& filename, bool const disp)
       // Torch evaluates the network with the weights of the operands where
       // every layer has a bias to write them into
       hasmodule = true;
-      for (auto const& [weight, bias] : MLPIO::torch_linear(module))
+      for (auto const& [weight, bias] : NETIO::torch_linear(module))
         if (!bias.defined()) hasmodule = false;
     }
     catch (std::exception const& e)  // c10::Error among them
@@ -748,7 +748,7 @@ MLPREG<T>::read_data(std::string const& filename, bool const disp)
   MLPREG<T> reg;
   reg.options           = options;
   reg.options.EVALTORCH = false;
-  if (!MLPIO::check(dat, msg) ||
+  if (!NETIO::check(dat, msg) ||
       !reg.set_structure(dat[0].first[0].size() - 1, layers))
   {
     if (disp) std::cerr << "Inconsistent network: " << msg << "\n";
@@ -758,7 +758,7 @@ MLPREG<T>::read_data(std::string const& filename, bool const disp)
 #if defined(MC__USE_TORCH)
   // Check that the Module computes what was read from it, at two points: its
   // forward method may do more than go through 'net'
-  if (!MLPIO::is_onnx(filename))
+  if (!NETIO::is_onnx(filename))
   {
     try
     {
@@ -1230,7 +1230,7 @@ MLPREG<T>::_slot() const
     slot         = std::make_unique<TorchSlot>();
     slot->module = _module.clone();
     slot->module.eval();
-    slot->lin = MLPIO::torch_linear(slot->module);
+    slot->lin = NETIO::torch_linear(slot->module);
     for (auto const& [weight, bias] : slot->lin)
     {
       slot->param.push_back(weight);

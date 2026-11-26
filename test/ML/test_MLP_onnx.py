@@ -1,7 +1,7 @@
 # Generates the ONNX models read by test_MLP_onnx.cpp and test_MLPREG.cpp, and the values of the
 # networks they hold at sample points, computed by ONNX Runtime:
 #   python3 test_MLP_onnx.py
-# needs torch, onnx, onnxruntime, scikit-learn and skl2onnx. Models that mc::MLPIO::read_onnx reads
+# needs torch, onnx, onnxruntime, scikit-learn and skl2onnx. Models that mc::NETIO::read_onnx reads
 # (onnx_*.onnx, values in onnx_values.txt), and models that it must refuse (onnx_bad_*.onnx).
 import warnings
 import numpy as np

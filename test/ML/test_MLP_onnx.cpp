@@ -3,7 +3,7 @@
 // This code is published under the EPL-2.0 with GPL-2.0-or-later as a Secondary License; see the LICENSE file.
 // SPDX-License-Identifier: EPL-2.0 OR GPL-2.0-or-later
 
-// Networks read from ONNX files by mc::MLP::read_data (mc::MLPIO::read_onnx), against their values computed
+// Networks read from ONNX files by mc::MLP::read_data (mc::NETIO::read_onnx), against their values computed
 // by ONNX Runtime (onnx_values.txt, from test_MLP_onnx.py), and the models that must be refused.
 
 #include <cmath>
@@ -79,9 +79,9 @@ main()
         "onnx_bad_size.onnx", "onnx_bad_external.onnx", "onnx_bad_truncated.onnx",
         "onnx_missing.onnx"})
   {
-    mc::MLPIO::t_Data data;
+    mc::NETIO::t_Data data;
     std::string msg;
-    bool const ok = mc::MLPIO::read_onnx(name, data, msg);
+    bool const ok = mc::NETIO::read_onnx(name, data, msg);
     check(!ok && !msg.empty(), name + ": " + msg);
   }
 

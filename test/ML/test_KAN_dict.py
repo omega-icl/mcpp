@@ -1,7 +1,7 @@
 # Generates the dictionaries of torch.save read by test_KAN.cpp without Torch, and the values and
 # bounds of the networks they hold:
 #   python3 test_KAN_dict.py
-# needs torch and numpy. Networks that mc::MLPIO::read_dict reads (dict_*.pt, values and bounds in
+# needs torch and numpy. Networks that mc::NETIO::read_dict reads (dict_*.pt, values and bounds in
 # dict_values.txt), and files that it must refuse (dict_bad_*.pt).
 # A dictionary holds model_type, config, state_dict, normalization and bounds: a Kolmogorov-Arnold
 # network with edges c + v u + sum_r a_r relu(w_r u + b_r) ("KANmodel"), or a dense network
