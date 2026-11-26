@@ -93,6 +93,10 @@ is where other types -- splines, polynomials -- would be added.  On a network wi
 and 520 segments: 0.4 us for a value, 0.8 us for the Jacobian, 12 us for interval bounds.  Test:
 `test/ML/test_KAN.cpp` (60 checks).
 
+`test/ML/sim_NN.cpp` and `notebook/sim_NN.ipynb` simulate surrogates of the Ackley function of two
+variables -- three Kolmogorov-Arnold networks and three dense networks, `test/ML/ackley2d_*.pt` -- as
+`FFKAN` and `FFMLP` operations, against the function itself.
+
 ### Networks as external operations: `FFMAP`, with `FFMLP` and `FFKAN`
 
 `mc::FFMAP<T, MAP>` (`ffmap.hpp`), with `FFGradMAP`, `FFTanMAP` and `FFAdjMAP`, is the external operation
