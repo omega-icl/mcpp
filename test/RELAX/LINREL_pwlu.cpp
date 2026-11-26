@@ -15,7 +15,9 @@
 //     the minimum and maximum of each result over the relaxation are f(x) for
 //     BIN and SOS2, and the envelopes for HULL and CONT.
 // Cases: four functions of one operand on ranges inside, across and outside
-// their breakpoints, a single point, bounds at breakpoints; and a two-layer
+// their breakpoints, a single point, bounds at breakpoints; the same with two
+// breakpoints closer than the tolerances of the image, one of which it leaves
+// out of its subdivision (validity only); and a two-layer
 // Kolmogorov-Arnold network whose second layer acts on intermediate variables.
 // The program returns the number of failed cases.
 // =============================================================================
@@ -186,17 +188,23 @@ main()
   // Functions of one operand: a hat, a ReLU form (merged breakpoints, a
   // constant term), a steep piece between breakpoints 1e-4 apart, an affine
   // function
-  std::vector<PWLU> const F = {
-      PWLU({-1., 0., 2.}, {1., 0., 1.}, 0., 0.5),
-      PWLU::relu(0.1, -0.5, {1.2, -0.4, 0.7, 0.3}, {1., -2., 0., 2.}, {0.3, 0.2, 0.5, 0.6}),
-      PWLU({-0.2, -0.1999, 0.4}, {0., 3., -2.}, -1., 0.),
-      PWLU({0.}, {0.25}, 1.5, 1.5)};
+  std::vector<std::vector<PWLU>> FS(2);
+  FS[0] = {PWLU({-1., 0., 2.}, {1., 0., 1.}, 0., 0.5),
+           PWLU::relu(0.1, -0.5, {1.2, -0.4, 0.7, 0.3}, {1., -2., 0., 2.}, {0.3, 0.2, 0.5, 0.6}),
+           PWLU({-0.2, -0.1999, 0.4}, {0., 3., -2.}, -1., 0.),
+           PWLU({0.}, {0.25}, 1.5, 1.5)};
+  // The same with the breakpoints of the steep piece 1e-7 apart, within the tolerances of the
+  // image, which leaves one out of its subdivision: the relaxation is to remain valid
+  FS[1]    = FS[0];
+  FS[1][2] = PWLU({-0.2, -0.2 + 1e-7, 0.4}, {0., 0.5, -2.}, -1., 0.);
   std::vector<std::pair<double, double>> const ranges = {
       {-1.5, 2.5}, {-0.25, 0.45}, {-0.2, 0.4}, {0.5, 1.5}, {-3., -2.}, {0.3, 0.3}};
 
   std::cout << "Four functions of one operand" << std::endl;
+  for (int is = 0; is < 2; ++is)
   for (auto const& [xl, xu] : ranges)
   {
+    std::vector<PWLU> const& F = FS[is];
     std::ostringstream msg;
     for (unsigned ie = 0; ie < 4; ++ie)
       for (bool sep : {false, true})
@@ -327,7 +335,8 @@ main()
               }
             }
           }
-          if (gapg > 1e-6)
+          // (not for the breakpoints left out: the encodings then enclose the function)
+          if (is == 0 && gapg > 1e-6)
           {
             ++nfail;
             msg << "  " << ENCNAME[ie] << (sep ? "/sep" : "") << ": Gurobi bounds off by " << gapg << ";";
@@ -341,8 +350,8 @@ main()
 #endif
       }
     std::ostringstream name;
-    name << "X in [" << xl << "," << xu << "]";
-    std::cout << (msg.str().empty() ? "  ok    " : "  FAIL  ") << std::left << std::setw(22) << name.str() << msg.str()
+    name << "X in [" << xl << "," << xu << "]" << (is ? ", close breakpoints" : "");
+    std::cout << (msg.str().empty() ? "  ok    " : "  FAIL  ") << std::left << std::setw(40) << name.str() << msg.str()
               << std::endl;
   }
 

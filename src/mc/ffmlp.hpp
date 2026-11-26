@@ -8,9 +8,9 @@
 
 #include <algorithm>
 #if defined(MC__USE_TORCH)
-#include <torch/script.h>  // One-stop header for TorchScript
-                           // #include <ATen/cuda/CUDAContext.h>
-#include <torch/autograd.h>  // torch::autograd::grad, forward-mode AD
+  #include <torch/script.h>  // One-stop header for TorchScript
+                             // #include <ATen/cuda/CUDAContext.h>
+  #include <torch/autograd.h>  // torch::autograd::grad, forward-mode AD
 #endif
 
 #include "ffextern.hpp"
@@ -51,13 +51,17 @@ class MLP
   bool set_data(
       std::vector<std::pair<std::vector<std::vector<double>>, int>> const& mlp);
 
-  //! @brief Read MLP data from an ONNX file (name ending with .onnx), or
-  //! from a TorchScript Module (with Torch). A network read from a Torch
-  //! Module may be evaluated by Torch (Options::EVALTORCH); the network of an
-  //! ONNX file is evaluated by MC++. False, with the MLP unchanged, where the
-  //! file cannot be read or holds anything else than dense layers with ReLU,
-  //! tanh or sigmoid activations (see mc::MLPIO); the reason is displayed with
-  //! disp
+  //! @brief Read MLP data from an ONNX file (name ending with .onnx), from a
+  //! dictionary saved by torch.save (model of type "ANNmodel", see
+  //! mc::MLPIO::read_dict; read without Torch), or from a TorchScript Module
+  //! (with Torch). A network read from a Torch Module may be evaluated by
+  //! Torch (Options::EVALTORCH); the network of an ONNX file or of a
+  //! dictionary is evaluated by MC++. The min-max scalings held by a dictionary
+  //! are folded into the first and last layers: the network maps the raw
+  //! inputs to the raw outputs. False, with the MLP unchanged, where the file
+  //! cannot be read or holds anything else than dense layers with ReLU, tanh
+  //! or sigmoid activations (see mc::MLPIO); the reason is displayed with
+  //! <a>disp</a>
   bool read_data(std::string const& filename, bool const disp = false);
 
   //! @brief Append multi-neuron layer to MLP data: outer vector size is
@@ -836,19 +840,45 @@ template <typename T>
 inline bool
 MLP<T>::read_data(std::string const& filename, bool const disp)
 {
-  if (!MLPIO::is_onnx(filename)) return _read_torch(filename, disp);
+  bool const onnx = MLPIO::is_onnx(filename);
+  if (!onnx && !MLPIO::is_torch_dict(filename)) return _read_torch(filename, disp);
 
-  // The network of an ONNX file, without Torch Module
+  // The network of an ONNX file or of a dictionary of torch.save, without Torch Module
   MLPIO::t_Data data;
   std::string msg;
-  if (!MLPIO::read_onnx(filename, data, msg))
+  if (onnx)
   {
-    if (disp) std::cerr << "Error reading ONNX model: " << msg << "\n";
-    return false;
+    if (!MLPIO::read_onnx(filename, data, msg))
+    {
+      if (disp) std::cerr << "Error reading ONNX model: " << msg << "\n";
+      return false;
+    }
+    if (disp)
+      std::cout << "ONNX model read from " << filename << ": " << data.size()
+                << " dense layers\n";
   }
-  if (disp)
-    std::cout << "ONNX model read from " << filename << ": " << data.size()
-              << " dense layers\n";
+  else
+  {
+    MLPIO::Dict dict;
+    bool ok = MLPIO::read_dict(filename, dict, msg);
+    if (ok && dict.type != "ANNmodel")
+    {
+      ok  = false;
+      msg = "model of type '" + dict.type + "' where ANNmodel is expected";
+    }
+    if (ok)
+    {
+      data = dict.ann;
+      ok   = MLPIO::fold_scaling(data, dict, msg);
+    }
+    if (!ok)
+    {
+      if (disp) std::cerr << "Error reading " << filename << ": " << msg << "\n";
+      return false;
+    }
+    if (disp)
+      std::cout << "Network read from " << filename << ": " << data.size() << " dense layers\n";
+  }
   if (!set_data(data)) return false;
   _hasmodule = false;
 #if defined(MC__USE_TORCH)

@@ -591,6 +591,7 @@ set(MC_HEADERS
     ffdagext.hpp
     ffmlp.hpp
     ffmlpreg.hpp
+    ffkan.hpp
     mlpio.hpp
     ffcustom.hpp)
 

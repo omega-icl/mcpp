@@ -5,7 +5,7 @@ include $(PATH_MC)/src/makeoptions.mk
 
 #####
 
-all : test_MLP test_Torch test_MLPREG test_MLP_tangent test_MLP_adjoint test_MLP_grad test_MLP_copy test_MLP_ident test_MLP_home test_MLP_torch test_MLP_onnx test_MLPREG_torch test_MLP_reverse
+all : test_MLP test_Torch test_MLPREG test_MLP_tangent test_MLP_adjoint test_MLP_grad test_MLP_copy test_MLP_ident test_MLP_home test_MLP_torch test_MLP_onnx test_MLPREG_torch test_MLP_reverse test_KAN
 
 test_MLP : test_MLP.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
@@ -46,6 +46,9 @@ test_MLPREG_torch : test_MLPREG_torch.o
 test_MLP_reverse : test_MLP_reverse.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
 
+test_KAN : test_KAN.o
+	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
+
 %.o: %.cpp
 	$(CPP) -c $(FLAG_CPP) $(FLAG_MC) $(INC_MC) $< -o $@
 
@@ -66,5 +69,5 @@ gensvg :
 #####
 
 clean :
-	rm -f test_MLP test_Torch test_MLPREG test_MLP_tangent test_MLP_adjoint test_MLP_grad test_MLP_copy test_MLP_ident test_MLP_home test_MLP_torch test_MLP_onnx test_MLPREG_torch test_MLP_reverse
+	rm -f test_MLP test_Torch test_MLPREG test_MLP_tangent test_MLP_adjoint test_MLP_grad test_MLP_copy test_MLP_ident test_MLP_home test_MLP_torch test_MLP_onnx test_MLPREG_torch test_MLP_reverse test_KAN
 	-(rm -f *.o *.out *.eps *.dot *.png *.lp *~)

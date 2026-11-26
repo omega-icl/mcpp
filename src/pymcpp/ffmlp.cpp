@@ -58,7 +58,8 @@ The network data can be populated in two ways:
 
 - :meth:`read_data` imports a trained network from an ONNX file, as
   exported by PyTorch (``torch.onnx.export``), scikit-learn (skl2onnx),
-  Keras (tf2onnx) and others, or from a TorchScript file
+  Keras (tf2onnx) and others, from a dictionary saved by ``torch.save``,
+  or from a TorchScript file
   (``torch.jit.script(model).save("model.pt")``) where pymcpp was built
   with Torch;
 - :meth:`set_data`/:meth:`append_data` supply the layers explicitly, one
@@ -188,12 +189,18 @@ reset : bool, optional
                   "needs pymcpp compiled with Torch support)");
           },
           py::arg("filename"), py::arg("disp") = false, R"doc(
-Load the network data from an ONNX file or a TorchScript file.
+Load the network data from an ONNX file, a dictionary saved by torch.save,
+or a TorchScript file.
 
 Reads the weights, biases and activation functions of a feedforward
 network: from an ONNX file (name ending with ``.onnx``) -- a chain of dense
 layers (Gemm, or MatMul and Add, with BatchNormalization folded in) and
-Relu, Tanh or Sigmoid activations -- with no other library; or from a
+Relu, Tanh or Sigmoid activations -- with no other library; from a
+dictionary saved with ``torch.save`` -- entries ``model_type``
+(``"ANNmodel"``), ``config``, ``state_dict`` (tensors ``layers.l.weight``
+and ``layers.l.bias``) and ``normalization``, whose min-max scalings are
+folded into the first and last layers so that the network maps the raw
+inputs to the raw outputs -- with no other library either; or from a
 network saved with PyTorch (``torch.jit.script(model).save(...)``), whose
 attribute ``net`` is a Sequential of Linear layers and ReLU, Tanh or
 Sigmoid activations, where pymcpp was built with Torch. The supported
@@ -202,7 +209,7 @@ activations are ReLU, Tanh, Sigmoid and Linear.
 Parameters
 ----------
 filename : str
-    Path to the ONNX (.onnx) or TorchScript (.pt) file.
+    Path to the ONNX (.onnx), dictionary or TorchScript (.pt) file.
 disp : bool, optional
     Whether to print information about the loaded modules and tensors.
     Default is False.

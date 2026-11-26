@@ -58,7 +58,9 @@ symbolic gradient, also under `MC__USE_FADBAD`.
 
 `mc::PWLU` also holds a continuous piecewise-linear function on the whole real line, such as an edge
 of a Kolmogorov-Arnold network.  A constructor from breakpoints, values and end slopes, and
-`PWLU::relu` from a sum of ReLU terms, build one whose first and last segments carry the end slopes.
+`PWLU::relu` from a sum of ReLU terms, build one whose first and last segments carry the end slopes;
+`relu` gives each segment the sum of the slopes of the terms active on it, rather than a difference of
+values, so that breakpoints close to one another cost no accuracy.
 `val(x, true)`, `slope(x)` and `restrict(xL, xU)` extend it linearly beyond its domain; `restrict`
 returns it on any interval, with its exact range there by `l()` and `u()`; `hull(under)` gives its
 convex or concave envelope, `bkpts()` its breakpoints where the slope changes, and `compose(g)` the
@@ -86,20 +88,60 @@ Derivatives are right derivatives at a breakpoint; symbolic ones are sums of `fs
 polyhedral image each function is encoded exactly on the range of its operand
 (`FFPWLU::Options::ENCODING`): by the convex hull of its graph, with cuts only, or on a subdivision
 of the operand at its breakpoints (`PolImg::add_subdivision`), with continuous, binary or SOS2
-auxiliary variables, as set by `PolImg::Options::BREAKPOINT_TYPE` by default.  The functions of an
-operation share one subdivision, at the union of their breakpoints, unless
-`FFPWLU::Options::SEPARATE` is set.  In a superposition model the
+auxiliary variables, as set by `PolImg::Options::BREAKPOINT_TYPE` by default (`DEFAULT`).  The
+functions of an operation share one subdivision, at the union of their breakpoints, unless
+`FFPWLU::Options::SEPARATE` is set: one set of auxiliary variables for all of them, and with `CONT`
+the convex hull of their graphs jointly, where `HULL` gives the convex hull of each.  The image
+leaves out of a subdivision the breakpoints within its tolerances (`BREAKPOINT_ATOL`,
+`BREAKPOINT_RTOL`) of another one or of a bound; a function with a breakpoint left out is not its
+interpolant on the subdivision, and is enclosed between two piecewise-linear functions there, so
+that the relaxation remains valid (and by its convex hull where no breakpoint is kept).  In a
+superposition model the
 result is exact where the operand is a single-dependency estimator whose under- and overestimators
 coincide, a variable of the model say: a `PWLU` summand is the composite of the function with the
 operand's (`PWLU::compose`), a `PWCU` summand holds the exact range of the function on each cell.  As
 after any composition, the summands are then reduced to `SupModel::Options::MAX_SUBDIV` segments,
 which leaves them exact as long as the composite has no more segments (`SupVar::mod()` is new, to
 read the options).  Other operands, and Chebyshev models, go through the abs-normal form
-`y_0 + s_0 (x - x_0) + sum_k ds_k (z_k + |z_k|)/2`, with `z_k = x - x_k`.  `FFPWLU` is meant as the edge operation of
-Kolmogorov-Arnold networks with piecewise-linear edges.  `test/DAG/DAG_pwlu.cpp` checks every
+`y_0 + s_0 (x - x_0) + sum_k ds_k (z_k + |z_k|)/2`, with `z_k = x - x_k`.  Each evaluation is also there for a single function, as
+the static `FFPWLU::value` (`slope` for the derivative), which `mc::KAN` uses for its edges.  `test/DAG/DAG_pwlu.cpp` checks every
 evaluation and the new `PWLU` methods (35 checks); `test/RELAX/LINREL_pwlu.cpp` checks the polyhedral
 encodings: every cut holds on the graph of the functions, the HULL cuts give the envelopes, and, with
 Gurobi, the relaxations at a fixed operand give the function (BIN, SOS2) or its envelopes (HULL, CONT).
+
+### Kolmogorov-Arnold networks
+
+`ffkan.hpp` adds `mc::KAN`, a Kolmogorov-Arnold network: layers whose outputs are the sums over their
+inputs of edge functions of one variable.  It mirrors `mc::MLP`: `append_data` (a layer given as its
+edges), `set_data`, `read_data`; evaluation in the arithmetics of MC++, each edge with
+`FFPWLU::value` -- exact range of each edge in interval arithmetic, envelopes in McCormick
+arithmetic, exact summands of a variable in superposition models; Jacobian (`grad`, accumulated
+forward or backward through the layers), directional derivative (`tang`) and adjoint (`adj`);
+expression tree (`dag`), with one `FFPWLU` operation per input of a layer and one `FFLin` per output,
+through which the polyhedral image and the backward propagation (`reval`) go.  The encoding of the
+edges in a polyhedral relaxation is set by `KAN::Options::ENCODING` and `SEPARATE`.  The edges of a
+layer are of one type; the type available is piecewise linear (`mc::PWLU`), and `KAN::Layer` is where
+others -- splines, polynomials -- would be added.  The external operation on a `mc::KAN` in a DAG
+comes with the generalisation of `mc::FFMLP`, not yet there.  On a network with widths 2-5-5-5-1 and
+520 segments: 0.4 us for a value, 0.8 us for the Jacobian, 12 us for interval bounds.
+`test/ML/test_KAN.cpp` checks the above (57 checks with the entry below).
+
+### Networks saved as dictionaries by torch.save, read without Torch
+
+`mc::MLPIO::read_dict` reads a network saved by `torch.save` as a dictionary -- `model_type`,
+`config`, `state_dict`, `normalization` -- with a reader of the zip archive and of the pickle format
+of its own (`MLPIO::read_pickle`, which returns the whole content as a tree of `MLPIO::PValue`), as
+`read_onnx` does for ONNX files: a Kolmogorov-Arnold network with edges `c + v u + sum_r a_r max(w_r
+u + b_r, 0)` (`KANmodel`), read by `KAN::read_data`, or a dense network (`ANNmodel`), read by
+`MLP::read_data`, which tells such a file from a TorchScript Module by its content
+(`MLPIO::is_torch_dict`).  The min-max scalings of the file are folded into the first and last
+layers, so that the network read maps raw inputs to raw outputs; the layers in the scaled coordinates
+of the file and the scalings are those returned by `read_dict`, for `set_data`.  The arguments of
+`MLP::read_data` are unchanged.  The activation of the hidden layers of a dense network is the one
+named in `config` (`activation`), else the one that matches the bounds held in the file, else the
+one given to `read_dict`.  Files that are not such dictionaries, hold tensors of other shapes, or
+are compressed or truncated are refused with the reason.  `test/ML/test_KAN_dict.py` generates the
+files of the test and their values and bounds.
 
 ## 5.2.0 (2026-11-18)
 

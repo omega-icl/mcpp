@@ -250,30 +250,52 @@ class PWLU
   //! @brief Continuous piecewise-linear function \f$c + v x + \sum_{r<R} a_r
   //! \max(w_r x + b_r, 0)\f$ on the whole real line (see the constructor from
   //! breakpoints): breakpoints at \f$-b_r/w_r\f$ for the terms with \f$a_r\f$
-  //! and \f$w_r\f$ nonzero, merged where they coincide, and the values there
-  //! computed from this form
+  //! and \f$w_r\f$ nonzero, merged where they coincide; the slope of each
+  //! segment is the sum of \f$v\f$ and of the \f$a_r w_r\f$ of the terms
+  //! active on it, and the value at the first breakpoint is computed from
+  //! this form
   static PWLU
   relu(double const& c, double const& v, size_t const R, double const* a,
        double const* w, double const* b)
   {
-    double sL = v, sR = v;
-    std::vector<double> x, y;
+    std::vector<double> x;
     for (size_t r = 0; r < R; ++r)
-    {
-      if (a[r] == 0. || w[r] == 0.) continue;
-      x.push_back(-b[r] / w[r]);
-      (w[r] < 0. ? sL : sR) += a[r] * w[r];
-    }
+      if (a[r] != 0. && w[r] != 0.) x.push_back(-b[r] / w[r]);
     std::sort(x.begin(), x.end());
     x.erase(std::unique(x.begin(), x.end()), x.end());
     if (x.empty()) x.push_back(0.);
-    for (double const t : x)
+
+    // Slope of the segment from breakpoint x[k-1] to x[k] (before x[0] for
+    // k=0, after the last for k=x.size()): term r is active on it if its
+    // breakpoint is at or below x[k-1] with w_r > 0, at or above x[k] with
+    // w_r < 0
+    auto slope = [&](size_t const k) {
+      double s = v;
+      for (size_t r = 0; r < R; ++r)
+      {
+        if (a[r] == 0. || w[r] == 0.) continue;
+        double const xr = -b[r] / w[r];
+        if (w[r] > 0. ? (k > 0 && xr <= x[k - 1]) : (k < x.size() && xr >= x[k]))
+          s += a[r] * w[r];
+      }
+      return s;
+    };
+
+    double const pad = std::max(1., x.back() - x.front());
+    double y0        = c + v * x.front();
+    for (size_t r = 0; r < R; ++r)
+      y0 += a[r] * std::max(w[r] * x.front() + b[r], 0.);
+    PWLU F;
+    F._x0 = x.front() - pad;
+    F._y0 = y0 - slope(0) * pad;
+    F._dx.reserve(x.size() + 1);
+    F._dy.reserve(x.size() + 1);
+    for (size_t k = 0; k <= x.size(); ++k)
     {
-      double f = c + v * t;
-      for (size_t r = 0; r < R; ++r) f += a[r] * std::max(w[r] * t + b[r], 0.);
-      y.push_back(f);
+      F._dx.push_back(k == 0 || k == x.size() ? pad : x[k] - x[k - 1]);
+      F._dy.push_back(slope(k));
     }
-    return PWLU(x, y, sL, sR);
+    return F;
   }
 
   //! @brief Same as above, with the terms in vectors

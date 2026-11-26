@@ -43,7 +43,13 @@ The operation is evaluated:
   auxiliary variables (HULL); or on a subdivision of the operand at the breakpoints, with
   continuous (CONT), binary (BIN) or SOS2 (SOS2) auxiliary variables (see
   mc::PolImg::add_subdivision). The functions of an operation share one subdivision, at the union
-  of their breakpoints, unless FFPWLU::Options::SEPARATE is set;
+  of their breakpoints, unless FFPWLU::Options::SEPARATE is set: one set of auxiliary variables
+  for all of them, and, with CONT, the convex hull of their graphs jointly, where HULL and
+  SEPARATE give the convex hull of each. The polyhedral image leaves out of a subdivision the
+  breakpoints within its tolerances (mc::PolImg::Options::BREAKPOINT_ATOL and BREAKPOINT_RTOL)
+  of another one or of a bound; a function with a breakpoint left out is then enclosed between
+  two piecewise-linear functions on the subdivision, within its largest deviation from its
+  interpolant there, in place of the exact encoding;
 - in superposition models (mc::SupVar), exactly where the operand is a single-dependency
   estimator whose under- and overestimators coincide, such as a variable of the model: each result
   is then the composite of the function with that estimator, as an mc::PWLU summand with the
@@ -108,20 +114,20 @@ class FFPWLU : public FFOp
     //! mc::PolImg::Options::REFINE
     enum ENCODING_TYPE
     {
-      IMAGE = -1,  //!< As set by mc::PolImg::Options::BREAKPOINT_TYPE, with HULL for NONE
-      HULL  = 0,   //!< Convex hull of the graph by cuts, without auxiliary variables
-      CONT,        //!< Subdivision with continuous auxiliary variables
-      BIN,         //!< Subdivision with binary auxiliary variables
-      SOS2         //!< Subdivision with SOS2 auxiliary variables
+      DEFAULT = -1,  //!< As set by mc::PolImg::Options::BREAKPOINT_TYPE, with HULL for NONE
+      HULL    = 0,   //!< Convex hull of the graph of each function by cuts, without auxiliary variables
+      CONT,          //!< Subdivision with continuous auxiliary variables: convex hull of the graph of the functions jointly -- of each function with SEPARATE, which is HULL with auxiliary variables
+      BIN,           //!< Subdivision with binary auxiliary variables: the graph of the functions
+      SOS2           //!< Subdivision with SOS2 auxiliary variables: the graph of the functions
     };
     //! @brief Reset to default options
     void
     reset()
     {
-      ENCODING = IMAGE;
+      ENCODING = DEFAULT;
       SEPARATE = false;
     }
-    //! @brief Encoding in a polyhedral relaxation - Default: IMAGE
+    //! @brief Encoding in a polyhedral relaxation - Default: DEFAULT
     int ENCODING;
     //! @brief Whether each function of an operation is encoded on its own
     //! subdivision, at its own breakpoints, rather than all on one, at the
@@ -170,6 +176,93 @@ class FFPWLU : public FFOp
     return _F;
   }
 
+  //! @brief Value at <a>x</a> of the function <a>f</a>, extended beyond its
+  //! domain, in the arithmetic of <a>x</a>: the evaluations of the operation,
+  //! one function at a time, also used by mc::KAN. In double precision
+  static double
+  value(PWLU const& f, double const& x)
+  {
+    return f.val(x, true);
+  }
+
+  //! @brief In interval arithmetic: the exact range of <a>f</a> on <a>x</a>
+  static T
+  value(PWLU const& f, T const& x)
+  {
+    PWLU const R = f.restrict(Op<T>::l(x), Op<T>::u(x));
+    return T(R.l(), R.u());
+  }
+
+  //! @brief In McCormick arithmetic: the convex and concave envelopes of
+  //! <a>f</a> on the range of <a>x</a>
+  static McCormick<T> value(PWLU const& f, McCormick<T> const& x);
+
+  //! @brief In superposition arithmetic: where <a>x</a> is a single-dependency
+  //! estimator whose under- and overestimators coincide (a variable of the
+  //! superposition model, say), the summand of <a>f</a> composed with it,
+  //! reduced to mc::SupModel::Options::MAX_SUBDIV segments; otherwise through
+  //! the abs-normal form
+  template <typename S>
+  static SupVar<S> value(PWLU const& f, SupVar<S> const& x);
+
+  //! @brief In the forward mode of AD: value and right derivative of
+  //! <a>f</a> in the underlying arithmetic
+  template <typename U>
+  static FADType<U>
+  value(PWLU const& f, FADType<U> const& x)
+  {
+    FADType<U> z = value(f, x.val());
+    z.setDepend(x);
+    U const d = slope(f, x.val());
+    for (unsigned j = 0; j < z.size(); ++j) z[j] = d * x[j];
+    return z;
+  }
+
+  //! @brief In the reverse mode of AD: a node with the right derivative of
+  //! <a>f</a> as partial derivative
+  template <typename U>
+  static BADType<U>
+  value(PWLU const& f, BADType<U> const& x)
+  {
+    U const d = slope(f, x.val());
+    return bad_node(value(f, x.val()), 1, &x, &d);
+  }
+
+  //! @brief In any other arithmetic with fabs (Chebyshev models, mc::OCVar,
+  //! ...): through the abs-normal form \f$y_0 + s_0 (x - x_0) + \sum_k
+  //! \Delta s_k (z_k + |z_k|)/2\f$, \f$z_k = x - x_k\f$
+  template <typename U>
+  static U
+  value(PWLU const& f, U const& x)
+  {
+    return _absnormal(f, x);
+  }
+
+  //! @brief Right derivative of <a>f</a> at <a>x</a> in double precision
+  static double
+  slope(PWLU const& f, double const& x)
+  {
+    return f.slope(x);
+  }
+
+  //! @brief Derivative of <a>f</a> at <a>x</a> in any other arithmetic with
+  //! fstep: \f$s_0 + \sum_k \Delta s_k\, {\rm fstep}(x - x_k)\f$
+  template <typename U>
+  static U
+  slope(PWLU const& f, U const& x)
+  {
+    U D           = f.dy().front();
+    double xk     = f.xL();
+    for (size_t k = 0; k + 1 < f.size(); ++k)
+    {
+      xk += f.dx()[k];
+      double const ds = f.dy()[k + 1] - f.dy()[k];
+      if (ds == 0.) continue;
+      D += ds * Op<U>::fstep(x - xk);
+    }
+    return D;
+  }
+
   // Forward evaluation overloads
   virtual void
   feval(std::type_info const& idU, unsigned const nRes, void* vRes,
@@ -185,24 +278,24 @@ class FFPWLU : public FFOp
     else if (mc::same_type(idU, typeid(FFInv)))
       return eval(nRes, static_cast<FFInv*>(vRes), nVar, static_cast<FFInv const*>(vVar), mVar);
     else if (mc::same_type(idU, typeid(double)))
-      return eval(nRes, static_cast<double*>(vRes), nVar, static_cast<double const*>(vVar), mVar);
+      return _eval(nRes, static_cast<double*>(vRes), static_cast<double const*>(vVar));
     else if (mc::same_type(idU, typeid(FADType<double>)))
-      return _evallin(nRes, static_cast<FADType<double>*>(vRes),
-                      static_cast<FADType<double> const*>(vVar));
+      return _eval(nRes, static_cast<FADType<double>*>(vRes),
+                   static_cast<FADType<double> const*>(vVar));
     else if (mc::same_type(idU, typeid(BADType<double>)))
-      return _evallin(nRes, static_cast<BADType<double>*>(vRes),
-                      static_cast<BADType<double> const*>(vVar));
+      return _eval(nRes, static_cast<BADType<double>*>(vRes),
+                   static_cast<BADType<double> const*>(vVar));
     else if (mc::same_type(idU, typeid(T)))
-      return eval(nRes, static_cast<T*>(vRes), nVar, static_cast<T const*>(vVar), mVar);
+      return _eval(nRes, static_cast<T*>(vRes), static_cast<T const*>(vVar));
     else if (mc::same_type(idU, typeid(SCVar<T>)))
       return _eval(nRes, static_cast<SCVar<T>*>(vRes), static_cast<SCVar<T> const*>(vVar));
     else if (mc::same_type(idU, typeid(McCormick<T>)))
-      return eval(nRes, static_cast<McCormick<T>*>(vRes), nVar,
-                  static_cast<McCormick<T> const*>(vVar), mVar);
+      return _eval(nRes, static_cast<McCormick<T>*>(vRes),
+                   static_cast<McCormick<T> const*>(vVar));
     else if (mc::same_type(idU, typeid(SupVar<PWCU>)))
-      return _evalsup(nRes, static_cast<SupVar<PWCU>*>(vRes), static_cast<SupVar<PWCU> const*>(vVar));
+      return _eval(nRes, static_cast<SupVar<PWCU>*>(vRes), static_cast<SupVar<PWCU> const*>(vVar));
     else if (mc::same_type(idU, typeid(SupVar<PWLU>)))
-      return _evalsup(nRes, static_cast<SupVar<PWLU>*>(vRes), static_cast<SupVar<PWLU> const*>(vVar));
+      return _eval(nRes, static_cast<SupVar<PWLU>*>(vRes), static_cast<SupVar<PWLU> const*>(vVar));
     else if (mc::same_type(idU, typeid(PolVar<T>)))
       return eval(nRes, static_cast<PolVar<T>*>(vRes), nVar, static_cast<PolVar<T> const*>(vVar), mVar);
     else if (mc::same_type(idU, typeid(OCVar<double>)))
@@ -232,15 +325,6 @@ class FFPWLU : public FFOp
 
   void eval(size_t const nRes, FFInv* vRes, size_t const nVar, FFInv const* vVar,
             unsigned const* mVar) const;
-
-  void eval(size_t const nRes, double* vRes, size_t const nVar, double const* vVar,
-            unsigned const* mVar) const;
-
-  void eval(size_t const nRes, T* vRes, size_t const nVar, T const* vVar,
-            unsigned const* mVar) const;
-
-  void eval(size_t const nRes, McCormick<T>* vRes, size_t const nVar,
-            McCormick<T> const* vVar, unsigned const* mVar) const;
 
   void eval(size_t const nRes, PolVar<T>* vRes, size_t const nVar, PolVar<T> const* vVar,
             unsigned const* mVar) const;
@@ -310,28 +394,33 @@ class FFPWLU : public FFOp
     return this->insert_external_operation(*this, F.size(), X);
   }
 
-  // Evaluation in arithmetic U through the form y0 + s0 (x-x0) + sum_k ds_k max(x-xk,0), with
-  // max(z,0) = (z+|z|)/2: Chebyshev models and mc::OCVar have fabs but no max with a constant, and
-  // in superposition models fabs (a convex non-monotonic composition) gives tighter estimators
-  // than max with a constant where the operand depends on several variables
+  // Evaluation in arithmetic U: each function applied to the operand
   template <typename U>
   void
   _eval(size_t const nRes, U* vRes, U const* vVar) const
   {
-    for (size_t j = 0; j < nRes; ++j)
+    for (size_t j = 0; j < nRes; ++j) vRes[j] = value(_F[j], vVar[0]);
+  }
+
+  // Value in arithmetic U through the abs-normal form y0 + s0 (x-x0) + sum_k ds_k (z_k+|z_k|)/2,
+  // z_k = x - x_k: Chebyshev models and mc::OCVar have fabs but no max with a constant, and in
+  // superposition models fabs (a convex non-monotonic composition) gives tighter estimators than
+  // max with a constant where the operand depends on several variables
+  template <typename U>
+  static U
+  _absnormal(PWLU const& f, U const& x)
+  {
+    U y       = f.yL() + f.dy().front() * (x - f.xL());
+    double xk = f.xL();
+    for (size_t k = 0; k + 1 < f.size(); ++k)
     {
-      PWLU const& f = _F[j];
-      vRes[j]       = f.yL() + f.dy().front() * (vVar[0] - f.xL());
-      double xk     = f.xL();
-      for (size_t k = 0; k + 1 < f.size(); ++k)
-      {
-        xk += f.dx()[k];
-        double const ds = f.dy()[k + 1] - f.dy()[k];
-        if (ds == 0.) continue;
-        U const z = vVar[0] - xk;
-        vRes[j] += (0.5 * ds) * (z + fabs(z));
-      }
+      xk += f.dx()[k];
+      double const ds = f.dy()[k + 1] - f.dy()[k];
+      if (ds == 0.) continue;
+      U const z = x - xk;
+      y += (0.5 * ds) * (z + fabs(z));
     }
+    return y;
   }
 
   // Summand of a function of an exact univariate estimator: the PWLU composite, exact
@@ -385,53 +474,6 @@ class FFPWLU : public FFOp
            a.sUU() == b.sUU();
   }
 
-  // Evaluation in superposition arithmetic: where the operand is a single-dependency estimator
-  // whose under- and overestimators coincide (a variable of the superposition model, say), each
-  // result is the summand of g composed with it; otherwise through the form of _eval
-  template <typename S>
-  void
-  _evalsup(size_t const nRes, SupVar<S>* vRes, SupVar<S> const* vVar) const
-  {
-    SupVar<S> const& X = vVar[0];
-    if (X.ndep() == 1 && X.uest(1).empty() && X.oest(1).empty() && X.l(2) == X.l(0) &&
-        X.u(2) == X.u(0))
-    {
-      unsigned const i = *X.sdep().cbegin();
-      if (_same(X.uest()[i], X.oest()[i]))
-      {
-        size_t const nseg = X.mod()->options.MAX_SUBDIV;
-        for (size_t j = 0; j < nRes; ++j)
-        {
-          // reduced to SupModel::Options::MAX_SUBDIV segments, as after any composition: the
-          // under- and overestimators then differ where the composite has more segments
-          S const est = _summand(_F[j], X.uest()[i]);
-          vRes[j]     = X;
-          vRes[j].uest()[i] = est;
-          vRes[j].uest()[i].reduce(true, nseg);
-          vRes[j].oest()[i] = est;
-          vRes[j].oest()[i].reduce(false, nseg);
-          vRes[j].l(3);  // bounds recomputed from the new summands
-          vRes[j].u(3);
-        }
-        return;
-      }
-    }
-    _eval(nRes, vRes, vVar);
-  }
-
-  // Evaluation in AD arithmetic U: tangent of each function at the value of the operand
-  template <typename U>
-  void
-  _evallin(size_t const nRes, U* vRes, U const* vVar) const
-  {
-    double const x = vVar[0].val();
-    for (size_t j = 0; j < nRes; ++j)
-    {
-      double const s = _F[j].slope(x);
-      vRes[j]        = s * vVar[0] + (_F[j].val(x, true) - s * x);
-    }
-  }
-
   // Value and slope of the envelope H at t; at a breakpoint, the slope of the piece towards ref
   static std::pair<double, double>
   _hull_eval(PWLU const& H, double const t, double const ref)
@@ -444,7 +486,7 @@ class FFPWLU : public FFOp
   int
   _encoding(PolImg<T> const* img) const
   {
-    if (options.ENCODING != Options::IMAGE) return options.ENCODING;
+    if (options.ENCODING != Options::DEFAULT) return options.ENCODING;
     switch (img->options.BREAKPOINT_TYPE)
     {
       case PolImg<T>::Options::CONT: return Options::CONT;
@@ -458,6 +500,11 @@ class FFPWLU : public FFOp
   void _subdiv_cuts(PolImg<T>* img, FFOp* pOp, PolVar<T> const& X, double const l,
                     double const u, std::vector<PWLU> const& R, std::vector<size_t> const& J,
                     PolVar<T> const* vRes, int const enc) const;
+
+  //! @brief Cuts of the convex hull of the graph of the function R over its
+  //! domain: the segments of its convex and concave envelopes
+  void _hull_cuts(PolImg<T>* img, FFOp* pOp, PolVar<T> const& X, PWLU const& R,
+                  PolVar<T> const& Y) const;
 };
 
 ////////////////////////////////////////////////////////////////////////
@@ -501,20 +548,7 @@ inline void
 FFPWLU<T>::deriv(unsigned const nRes, FFVar const* vRes, unsigned const nVar, FFVar const* vVar,
                  FFVar** vDer) const
 {
-  for (size_t j = 0; j < nRes; ++j)
-  {
-    PWLU const& f = _F[j];
-    FFVar D       = f.dy().front();
-    double xk     = f.xL();
-    for (size_t k = 0; k + 1 < f.size(); ++k)
-    {
-      xk += f.dx()[k];
-      double const ds = f.dy()[k + 1] - f.dy()[k];
-      if (ds == 0.) continue;
-      D += ds * fstep(vVar[0] - xk);
-    }
-    vDer[j][0] = D;
-  }
+  for (size_t j = 0; j < nRes; ++j) vDer[j][0] = slope(_F[j], vVar[0]);
 }
 
 template <typename T>
@@ -538,27 +572,6 @@ FFPWLU<T>::eval(size_t const nRes, FFInv* vRes, size_t const nVar, FFInv const* 
   {
     vRes[j] = vVar[0];
     vRes[j].update(FFInv::TYPE::U);  // Not a candidate for inversion
-  }
-}
-
-template <typename T>
-inline void
-FFPWLU<T>::eval(size_t const nRes, double* vRes, size_t const nVar, double const* vVar,
-                unsigned const* mVar) const
-{
-  for (size_t j = 0; j < nRes; ++j) vRes[j] = _F[j].val(vVar[0], true);
-}
-
-template <typename T>
-inline void
-FFPWLU<T>::eval(size_t const nRes, T* vRes, size_t const nVar, T const* vVar,
-                unsigned const* mVar) const
-{
-  double const l = Op<T>::l(vVar[0]), u = Op<T>::u(vVar[0]);
-  for (size_t j = 0; j < nRes; ++j)
-  {
-    PWLU const R = _F[j].restrict(l, u);
-    vRes[j]      = T(R.l(), R.u());
   }
 }
 
@@ -601,43 +614,67 @@ FFPWLU<T>::reval(size_t const nRes, T* vRes, size_t const nVar, T* vVar) const
 }
 
 template <typename T>
-inline void
-FFPWLU<T>::eval(size_t const nRes, McCormick<T>* vRes, size_t const nVar,
-                McCormick<T> const* vVar, unsigned const* mVar) const
+inline McCormick<T>
+FFPWLU<T>::value(PWLU const& f, McCormick<T> const& MX)
 {
-  McCormick<T> const& MX = vVar[0];
-  unsigned const nsub    = MX.nsub();
+  unsigned const nsub = MX.nsub();
   std::vector<double> cvsub(nsub), ccsub(nsub);
   auto mid = [](double const a, double const b, double const c) {
     return std::max(std::min(a, b), std::min(std::max(a, b), c));
   };
-  for (size_t j = 0; j < nRes; ++j)
+  PWLU const R = f.restrict(MX.l(), MX.u());
+
+  // Minimizer and maximizer among the vertices
+  double xmin = R.xL(), xmax = R.xL(), fmin = R.yL(), fmax = R.yL(), xk = R.xL(), yk = R.yL();
+  for (size_t k = 0; k < R.size(); ++k)
   {
-    PWLU const R = _F[j].restrict(MX.l(), MX.u());
-
-    // Minimizer and maximizer among the vertices
-    double xmin = R.xL(), xmax = R.xL(), fmin = R.yL(), fmax = R.yL(), xk = R.xL(), yk = R.yL();
-    for (size_t k = 0; k < R.size(); ++k)
-    {
-      xk += R.dx()[k];
-      yk += R.dx()[k] * R.dy()[k];
-      if (yk < fmin) { fmin = yk; xmin = xk; }
-      if (yk > fmax) { fmax = yk; xmax = xk; }
-    }
-
-    // Convex envelope at mid(cv,cc,xmin), concave envelope at mid(cv,cc,xmax)
-    double const zcv      = mid(MX.cv(), MX.cc(), xmin);
-    auto const [fcv, scv] = _hull_eval(R.hull(true), zcv, xmin);
-    double const zcc      = mid(MX.cv(), MX.cc(), xmax);
-    auto const [fcc, scc] = _hull_eval(R.hull(false), zcc, xmax);
-    for (unsigned i = 0; i < nsub; ++i)
-    {
-      cvsub[i] = (zcv == xmin ? 0. : zcv == MX.cv() ? scv * MX.cvsub(i) : scv * MX.ccsub(i));
-      ccsub[i] = (zcc == xmax ? 0. : zcc == MX.cv() ? scc * MX.cvsub(i) : scc * MX.ccsub(i));
-    }
-    vRes[j] = McCormick<T>(T(fmin, fmax), fcv, fcc);
-    vRes[j].sub(nsub, cvsub.data(), ccsub.data()).cut();
+    xk += R.dx()[k];
+    yk += R.dx()[k] * R.dy()[k];
+    if (yk < fmin) { fmin = yk; xmin = xk; }
+    if (yk > fmax) { fmax = yk; xmax = xk; }
   }
+
+  // Convex envelope at mid(cv,cc,xmin), concave envelope at mid(cv,cc,xmax)
+  double const zcv      = mid(MX.cv(), MX.cc(), xmin);
+  auto const [fcv, scv] = _hull_eval(R.hull(true), zcv, xmin);
+  double const zcc      = mid(MX.cv(), MX.cc(), xmax);
+  auto const [fcc, scc] = _hull_eval(R.hull(false), zcc, xmax);
+  for (unsigned i = 0; i < nsub; ++i)
+  {
+    cvsub[i] = (zcv == xmin ? 0. : zcv == MX.cv() ? scv * MX.cvsub(i) : scv * MX.ccsub(i));
+    ccsub[i] = (zcc == xmax ? 0. : zcc == MX.cv() ? scc * MX.cvsub(i) : scc * MX.ccsub(i));
+  }
+  McCormick<T> res(T(fmin, fmax), fcv, fcc);
+  res.sub(nsub, cvsub.data(), ccsub.data()).cut();
+  return res;
+}
+
+template <typename T>
+template <typename S>
+inline SupVar<S>
+FFPWLU<T>::value(PWLU const& f, SupVar<S> const& X)
+{
+  if (X.ndep() == 1 && X.uest(1).empty() && X.oest(1).empty() && X.l(2) == X.l(0) &&
+      X.u(2) == X.u(0))
+  {
+    unsigned const i = *X.sdep().cbegin();
+    if (_same(X.uest()[i], X.oest()[i]))
+    {
+      // reduced to SupModel::Options::MAX_SUBDIV segments, as after any composition: the under-
+      // and overestimators then differ where the composite has more segments
+      size_t const nseg = X.mod()->options.MAX_SUBDIV;
+      S const est       = _summand(f, X.uest()[i]);
+      SupVar<S> res(X);
+      res.uest()[i] = est;
+      res.uest()[i].reduce(true, nseg);
+      res.oest()[i] = est;
+      res.oest()[i].reduce(false, nseg);
+      res.l(3);  // bounds recomputed from the new summands
+      res.u(3);
+      return res;
+    }
+  }
+  return _absnormal(f, X);
 }
 
 template <typename T>
@@ -651,6 +688,25 @@ FFPWLU<T>::eval(size_t const nRes, PolVar<T>* vRes, size_t const nVar, PolVar<T>
   {
     PWLU const R = _F[j].restrict(l, u);
     vRes[j].set(img, *this->varout[j], T(R.l(), R.u()));
+  }
+}
+
+template <typename T>
+inline void
+FFPWLU<T>::_hull_cuts(PolImg<T>* img, FFOp* pOp, PolVar<T> const& X, PWLU const& R,
+                      PolVar<T> const& Y) const
+{
+  for (bool under : {true, false})
+  {
+    PWLU const H = R.hull(under);
+    double xk = H.xL(), yk = H.yL();
+    for (size_t k = 0; k < H.size(); ++k)
+    {
+      double const s = H.dy()[k];
+      img->add_cut(pOp, under ? PolCut<T>::GE : PolCut<T>::LE, yk - s * xk, Y, 1., X, -s);
+      xk += H.dx()[k];
+      yk += H.dx()[k] * s;
+    }
   }
 }
 
@@ -670,15 +726,60 @@ FFPWLU<T>::_subdiv_cuts(PolImg<T>* img, FFOp* pOp, PolVar<T> const& X, double co
   Xk.push_back(u);
   std::sort(Xk.begin(), Xk.end());
   Xk.erase(std::unique(Xk.begin(), Xk.end()), Xk.end());
+
+  // No breakpoint that the image would keep -- all within its tolerances of the bounds: the
+  // convex hull of each function, without subdivision
+  double const atol = img->options.BREAKPOINT_ATOL, rtol = img->options.BREAKPOINT_RTOL;
+  bool kept = false;
+  for (size_t k = 1; k + 1 < Xk.size() && !kept; ++k)
+    kept = !isequal(l, Xk[k], atol, rtol) && !isequal(u, Xk[k], atol, rtol);
+  if (!kept)
+  {
+    for (size_t j : J) _hull_cuts(img, pOp, X, R[j], vRes[j]);
+    return;
+  }
   int const type = (enc == Options::SOS2 ? 2 : enc == Options::BIN ? 1 : 0);
   std::vector<double> const XKNOT = img->add_subdivision(pOp, Xk.size(), X, Xk.data(), type);
 
-  // Each function as the interpolant of its values at the knots of the subdivision
-  std::vector<double> Yk(XKNOT.size());
+  // Each function as the interpolant of its values at the knots of the subdivision. The image
+  // leaves out the breakpoints within its tolerances (PolImg::Options::BREAKPOINT_ATOL, RTOL) of
+  // another one or of a bound: a function with a breakpoint left out is not its interpolant, and
+  // is enclosed between two interpolants instead, the values at the knots moved by the largest
+  // deviations of the function from its interpolant on the adjacent intervals
+  size_t const NK = XKNOT.size();
+  std::vector<double> Yk(NK), Dup(NK), Dlo(NK);
   for (size_t j : J)
   {
-    for (size_t k = 0; k < XKNOT.size(); ++k) Yk[k] = R[j].val(XKNOT[k], true);
-    img->add_subdivision_cut(pOp, X, vRes[j], Yk.data(), PolCut<T>::EQ, type);
+    for (size_t k = 0; k < NK; ++k) Yk[k] = R[j].val(XKNOT[k], true);
+    bool exact = true;
+    Dup.assign(NK, 0.);
+    Dlo.assign(NK, 0.);
+    for (double const xb : R[j].bkpts())
+    {
+      if (std::binary_search(XKNOT.begin(), XKNOT.end(), xb)) continue;
+      exact = false;
+      size_t k = std::upper_bound(XKNOT.begin(), XKNOT.end(), xb) - XKNOT.begin();
+      k        = std::min(std::max(k, size_t(1)), NK - 1) - 1;  // xb in [XKNOT[k], XKNOT[k+1]]
+      double const t = (xb - XKNOT[k]) / (XKNOT[k + 1] - XKNOT[k]);
+      double const d = R[j].val(xb, true) - ((1. - t) * Yk[k] + t * Yk[k + 1]);
+      for (size_t i : {k, k + 1})
+      {
+        Dup[i] = std::max(Dup[i], d);
+        Dlo[i] = std::max(Dlo[i], -d);
+      }
+    }
+    if (exact)
+    {
+      img->add_subdivision_cut(pOp, X, vRes[j], Yk.data(), PolCut<T>::EQ, type);
+      continue;
+    }
+    // Outward rounding of the moved values, for the rounding of the deviations
+    for (size_t k = 0; k < NK; ++k)
+      Dup[k] = Yk[k] + Dup[k] + 4. * DBL_EPSILON * (std::fabs(Yk[k]) + Dup[k]);
+    img->add_subdivision_cut(pOp, X, vRes[j], Dup.data(), PolCut<T>::LE, type);
+    for (size_t k = 0; k < NK; ++k)
+      Dlo[k] = Yk[k] - Dlo[k] - 4. * DBL_EPSILON * (std::fabs(Yk[k]) + Dlo[k]);
+    img->add_subdivision_cut(pOp, X, vRes[j], Dlo.data(), PolCut<T>::GE, type);
   }
 }
 
@@ -717,21 +818,7 @@ FFPWLU<T>::reval(size_t const nRes, PolVar<T>* vRes, size_t const nVar, PolVar<T
   int const enc = _encoding(img);
   if (enc == Options::HULL)
   {
-    // Convex hull of the graph of each function: the segments of its convex and concave envelopes
-    for (size_t j : J)
-      for (bool under : {true, false})
-      {
-        PWLU const H = R[j].hull(under);
-        double xk = H.xL(), yk = H.yL();
-        for (size_t k = 0; k < H.size(); ++k)
-        {
-          double const s = H.dy()[k];
-          img->add_cut(pOp, under ? PolCut<T>::GE : PolCut<T>::LE, yk - s * xk, vRes[j], 1.,
-                       vVar[0], -s);
-          xk += H.dx()[k];
-          yk += H.dx()[k] * s;
-        }
-      }
+    for (size_t j : J) _hull_cuts(img, pOp, vVar[0], R[j], vRes[j]);
     return true;
   }
 
