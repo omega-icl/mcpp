@@ -125,6 +125,31 @@ ValueError
     If the layers are inconsistent. The network is then left as it was.
 )doc")
       .def(
+          "set_data",
+          [](KAN& self, mc::NETIO::Dict const& dict)
+          {
+            std::string msg;
+            if (!self.set_data(dict, &msg))
+              throw std::invalid_argument("KAN.set_data: " + msg);
+          },
+          py::arg("dict"), R"doc(
+Set the network from a dictionary read by :meth:`NETIO.read_dict` (type
+``"KANmodel"``): the file is then read once, where its type, sizes or
+scalings are also wanted. The min-max scalings of the dictionary are folded
+into the first and last layers, as by :meth:`read_data`.
+
+Parameters
+----------
+dict : NETIO.Dict
+    The network read.
+
+Raises
+------
+ValueError
+    If the dictionary holds anything else than a Kolmogorov-Arnold network.
+    The KAN is then left as it was.
+)doc")
+      .def(
           "append_data",
           [](KAN& self, std::vector<std::vector<mc::PWLU>> const& layer, bool const reset)
           {

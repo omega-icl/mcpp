@@ -415,6 +415,7 @@ set(PYMCPP_SOURCES
     src/pymcpp/ffpoly.cpp
     src/pymcpp/slift.cpp
     src/pymcpp/fflin.cpp
+    src/pymcpp/netio.cpp
     src/pymcpp/ffmlp.cpp
     src/pymcpp/ffkan.cpp
     src/pymcpp/ffmlpreg.cpp

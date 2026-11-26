@@ -500,6 +500,36 @@ main()
           "a dictionary is told from a TorchScript Module, an ONNX file and a missing file");
   }
 
+  // A dictionary read once, then given to the network: set_data(dict) is read_data without the file
+  {
+    mc::NETIO::Dict DK, DA;
+    std::string msg;
+    bool const read = mc::NETIO::read_dict("dict_kan_scaled.pt", DK, msg) && mc::NETIO::read_dict("dict_ann_relu.pt", DA, msg);
+    KAN kanf, kand;
+    mc::MLP<I> mlpf, mlpd;
+    bool const set = read && kanf.read_data("dict_kan_scaled.pt") && kand.set_data(DK) && mlpf.read_data("dict_ann_relu.pt") &&
+                     mlpd.set_data(DA);
+    double d = 0.;
+    if (set)
+    {
+      std::vector<double> x(kanf.nin(), 0.3), yf(kanf.nout()), yd(kanf.nout());
+      for (size_t i = 0; i < x.size(); ++i) x[i] = DK.xlower.empty() ? 0.3 + 0.1 * i : DK.xlower[i] + (0.3 + 0.1 * i) * (DK.xupper[i] - DK.xlower[i]);
+      kanf.eval(x.data(), yf.data());
+      kand.eval(x.data(), yd.data());
+      for (size_t k = 0; k < yf.size(); ++k) d = std::max(d, std::fabs(yf[k] - yd[k]));
+      std::vector<double> u(mlpf.nin(), 0.4), zf(mlpf.nout()), zd(mlpf.nout());
+      mlpf.eval(u.data(), zf.data());
+      mlpd.eval(u.data(), zd.data());
+      for (size_t k = 0; k < zf.size(); ++k) d = std::max(d, std::fabs(zf[k] - zd[k]));
+    }
+    check(set && d == 0., "set_data(dict): the network of read_data, for a KAN and for a dense network");
+    size_t const nk = kand.nwei(), nm = mlpd.nin();
+    std::string why;
+    bool const refused = !kand.set_data(DA, &why) && !why.empty() && kand.nwei() == nk && !mlpd.set_data(DK) && mlpd.nin() == nm;
+    check(refused, "set_data(dict) of the other type of network is refused: " + why);
+    check(!kand.set_data({}) && kand.nwei() == nk, "set_data({}) remains a call with layers, refused");
+  }
+
   std::cout << "\n=== Results: " << npass << "/" << npass + nfail << " passed ===\n";
   return nfail ? 1 : 0;
 }

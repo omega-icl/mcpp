@@ -10,7 +10,7 @@ libobjs = mcfunc.o interval.o mccormick.o specbnd.o \
           supmodel.o polimage.o ellimage.o \
           smon.o spoly.o \
           ffdep.o ffinv.o ffunc.o ffmon.o ffpoly.o slift.o \
-          fflin.o ffmlp.o ffkan.o ffmlpreg.o ffdagext.o ffvect.o ffcustom.o \
+          fflin.o netio.o ffmlp.o ffkan.o ffmlpreg.o ffdagext.o ffvect.o ffcustom.o \
           ocbase.o \
           pymcpp.o
 libname = pymcpp.so

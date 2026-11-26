@@ -91,7 +91,7 @@ of MC++, each edge as in `FFPWLU`; `grad`, `tang` and `adj`; `reval`; and an exp
 by `KAN::Options::ENCODING` and `SEPARATE`.  The edges are piecewise linear (`mc::PWLU`); `KAN::Layer`
 is where other types -- splines, polynomials -- would be added.  On a network with widths 2-5-5-5-1
 and 520 segments: 0.4 us for a value, 0.8 us for the Jacobian, 12 us for interval bounds.  Test:
-`test/ML/test_KAN.cpp` (57 checks).
+`test/ML/test_KAN.cpp` (60 checks).
 
 ### Networks as external operations: `FFMAP`, with `FFMLP` and `FFKAN`
 
@@ -114,7 +114,9 @@ TorchScript Modules as before, and now the dictionaries saved by `torch.save` (`
 `MLP::read_data`, which tells a dictionary from a TorchScript Module by its content.  The min-max
 scalings of the file are folded into the first and last layers, so that the network maps raw inputs to
 raw outputs.  The activation of a dense network is the one named in `config`, else the one matching
-the bounds held in the file, else the one given to `read_dict`.  Test: `test/ML/test_KAN.cpp`, on
+the bounds held in the file, else the one given to `read_dict`.  Where the type, the sizes or the
+scalings of the file are also wanted, the file is read once with `NETIO::read_dict` and the dictionary
+given to `KAN::set_data` or `MLP::set_data`; `read_data` does both.  Test: `test/ML/test_KAN.cpp`, on
 files made by `test/ML/test_KAN_dict.py`.
 
 ### Python: `KAN` and `FFKAN`
@@ -123,7 +125,8 @@ files made by `test/ML/test_KAN_dict.py`.
 edges or read from a dictionary of `torch.save`, and inserted in a DAG by `FFKAN()(X, NN)`.  The
 network that the DAG holds is `FFKAN.map` (also `FFKAN.KAN`); `FFMLP.map` is added beside `FFMLP.MLP`.
 `PWLU` gains the constructor from breakpoints, values and end slopes, `relu`, `val(x, extend)`, `slope`
-and `bkpts`.  `src/pymcpp/check_ffmap.py`, in the `check` target, runs the same checks on `FFMLP` and
+and `bkpts`.  `pymcpp.NETIO.read_dict` returns the dictionary of a file (`type`, `widths`, scalings),
+which `KAN.set_data` and `MLP.set_data` accept.  `src/pymcpp/check_ffmap.py`, in the `check` target, runs the same checks on `FFMLP` and
 `FFKAN` against their networks evaluated in plain Python.
 
 ### Tangent and adjoint hooks for external operations

@@ -97,6 +97,7 @@ Machine-learning models
    FFMLP
    KAN
    FFKAN
+   NETIO
    DAGEXT
    FFDAGEXT
 

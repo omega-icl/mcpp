@@ -135,6 +135,31 @@ mlp : list of tuple of (list of list of float, int)
     with magnitude below ``options.ZEROTOL`` are zeroed out.
 )doc")
       .def(
+          "set_data",
+          [](mc::MLP<I>& self, mc::NETIO::Dict const& dict)
+          {
+            std::string msg;
+            if (!self.set_data(dict, &msg))
+              throw std::invalid_argument("MLP.set_data: " + msg);
+          },
+          py::arg("dict"), R"doc(
+Set the network from a dictionary read by :meth:`NETIO.read_dict` (type
+``"ANNmodel"``): the file is then read once, where its type, sizes or
+scalings are also wanted. The min-max scalings of the dictionary are folded
+into the first and last layers, as by :meth:`read_data`.
+
+Parameters
+----------
+dict : NETIO.Dict
+    The network read.
+
+Raises
+------
+ValueError
+    If the dictionary holds anything else than a dense network. The MLP is
+    then left as it was.
+)doc")
+      .def(
           "append_data",
           [](mc::MLP<I>& self, std::vector<std::vector<double>> const& layer,
              int const activ, bool const reset)

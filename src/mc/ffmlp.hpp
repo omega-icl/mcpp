@@ -7,6 +7,7 @@
 #define MC__FFMLP_HPP
 
 #include <algorithm>
+#include <type_traits>
 #if defined(MC__USE_TORCH)
   #include <torch/script.h>  // One-stop header for TorchScript
                              // #include <ATen/cuda/CUDAContext.h>
@@ -51,6 +52,20 @@ class MLP
   //! @brief Set MLP data
   bool set_data(
       std::vector<std::pair<std::vector<std::vector<double>>, int>> const& mlp);
+
+  //! @brief Set MLP data from a dictionary saved by torch.save, as read by
+  //! mc::NETIO::read_dict (model of type "ANNmodel"): the file is then read
+  //! once, where its type, sizes or scalings are also wanted. The min-max
+  //! scalings of the dictionary are folded into the first and last layers, as
+  //! by read_data. False, with the MLP unchanged and the reason in <a>msg</a>
+  //! if given, where the dictionary holds anything else
+  //! (a template only so that set_data({}) remains a call with layers)
+  template <typename DICT, typename = typename std::enable_if<std::is_same<DICT, NETIO::Dict>::value>::type>
+  bool
+  set_data(DICT const& dict, std::string* msg = nullptr)
+  {
+    return _set_dict(dict, msg);
+  }
 
   //! @brief Read MLP data from an ONNX file (name ending with .onnx), from a
   //! dictionary saved by torch.save (model of type "ANNmodel", see
@@ -311,6 +326,9 @@ class MLP
 
   //! @brief Read MLP data from a TorchScript Module
   bool _read_torch(std::string const& filename, bool const disp);
+
+  //! @brief Set MLP data from a dictionary read by mc::NETIO::read_dict
+  bool _set_dict(NETIO::Dict const& dict, std::string* msg);
 
 #if defined(MC__USE_TORCH)
 
@@ -846,6 +864,32 @@ class MLP
 
 template <typename T>
 inline bool
+MLP<T>::_set_dict(NETIO::Dict const& dict, std::string* msg)
+{
+  std::string why;
+  NETIO::t_Data data = dict.ann;
+  bool ok = (dict.type == "ANNmodel");
+  if (!ok)
+    why = "model of type '" + dict.type + "' where ANNmodel is expected";
+  else if (!(ok = NETIO::fold_scaling(data, dict, why)))
+    ;
+  else if (!(ok = set_data(data)))
+    why = "inconsistent layers";
+  if (!ok)
+  {
+    if (msg) *msg = why;
+    return false;
+  }
+  _hasmodule = false;
+#if defined(MC__USE_TORCH)
+  _module  = torch::jit::script::Module();
+  _batched = false;
+#endif
+  return true;
+}
+
+template <typename T>
+inline bool
 MLP<T>::read_data(std::string const& filename, bool const disp)
 {
   bool const onnx = NETIO::is_onnx(filename);
@@ -868,24 +912,14 @@ MLP<T>::read_data(std::string const& filename, bool const disp)
   else
   {
     NETIO::Dict dict;
-    bool ok = NETIO::read_dict(filename, dict, msg);
-    if (ok && dict.type != "ANNmodel")
-    {
-      ok  = false;
-      msg = "model of type '" + dict.type + "' where ANNmodel is expected";
-    }
-    if (ok)
-    {
-      data = dict.ann;
-      ok   = NETIO::fold_scaling(data, dict, msg);
-    }
-    if (!ok)
+    if (!NETIO::read_dict(filename, dict, msg) || !set_data(dict, &msg))
     {
       if (disp) std::cerr << "Error reading " << filename << ": " << msg << "\n";
       return false;
     }
     if (disp)
-      std::cout << "Network read from " << filename << ": " << data.size() << " dense layers\n";
+      std::cout << "Network read from " << filename << ": " << dict.ann.size() << " dense layers\n";
+    return true;
   }
   if (!set_data(data)) return false;
   _hasmodule = false;

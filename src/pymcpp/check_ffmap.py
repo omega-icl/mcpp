@@ -12,10 +12,11 @@ interval bounds; the Jacobian, forward and backward, and the tangent and adjoint
 options of the network ask for; the polyhedral relaxations selected by `options.RELAX`; and what Python
 holds of a DAG after the DAG is gone.  Then what is specific to a KAN: its layers given as PWLU edges, the
 PWLU methods that define an edge on the real line, the encodings of the edges, and the data that are
-refused.
+refused.  Last, `NETIO.read_dict`: a file read once, then given to a KAN or an MLP by `set_data`.
 """
 import gc
 import math
+import os
 import sys
 
 import pymcpp as mc
@@ -275,6 +276,41 @@ Op.map.options.ENCODING = NN.Options.BIN
 Op.map.options.SEPARATE = True
 r_sep = relax(G, F, X)
 check("SEPARATE: more auxiliary variables than on one subdivision", r_sep[1] > res["BIN"][1], True)
+
+# ------------------------------------------------------------------ H. NETIO: a file read once
+section("H. NETIO: a dictionary read once, then given to the network")
+data = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "..", "test", "ML")
+for fname, Net, Op, kind in (("dict_kan_scaled.pt", mc.KAN, mc.FFKAN, "KANmodel"), ("dict_ann_tanh.pt", mc.MLP, mc.FFMLP, "ANNmodel")):
+    D = mc.NETIO.read_dict(os.path.join(data, fname))
+    check("%s: type" % fname, D.type, kind)
+    NF, ND = Net(), Net()
+    NF.read_data(os.path.join(data, fname))
+    ND.set_data(D)
+    check("%s: sizes, from widths" % fname, (ND.nin, ND.nout), (D.widths[0], D.widths[-1]))
+    check("%s: scaling of the inputs, one pair of bounds per input or none" % fname,
+          len(D.xlower) in (0, ND.nin) and len(D.xupper) == len(D.xlower), True)
+    G = mc.FFGraph()
+    X = G.add_vars(ND.nin)
+    x = [(D.xlower[i] + 0.3 * (D.xupper[i] - D.xlower[i])) if D.xlower else 0.3 for i in range(ND.nin)]
+    check("%s: set_data(D) is the network of read_data" % fname, G.eval(Op()(X, ND), X, x) == G.eval(Op()(X, NF), X, x), True)
+DK, DA = mc.NETIO.read_dict(os.path.join(data, "dict_kan_scaled.pt")), mc.NETIO.read_dict(os.path.join(data, "dict_ann_tanh.pt"))
+NK = mc.KAN()
+NK.set_data(DK)
+try:
+    NK.set_data(DA)
+    check("KAN.set_data of a dense network raises", False, True)
+except ValueError:
+    check("KAN.set_data of a dense network raises, the KAN unchanged", NK.nin, DK.widths[0])
+try:
+    mc.MLP().set_data(DK)
+    check("MLP.set_data of a Kolmogorov-Arnold network raises", False, True)
+except ValueError:
+    check("MLP.set_data of a Kolmogorov-Arnold network raises", True, True)
+try:
+    mc.NETIO.read_dict(os.path.join(data, "missing.pt"))
+    check("read_dict of a missing file raises", False, True)
+except RuntimeError:
+    check("read_dict of a missing file raises", True, True)
 
 print("\n%d passed, %d failed" % (n_pass, n_fail))
 sys.exit(1 if n_fail else 0)

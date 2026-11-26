@@ -68,6 +68,7 @@ and ADJOINT, its directional derivative (mc::FFTanKAN) and its adjoint (mc::FFAd
 #define MC__FFKAN_HPP
 
 #include <algorithm>
+#include <type_traits>
 #include <cfloat>
 #include <string>
 #include <vector>
@@ -135,6 +136,20 @@ class KAN
   //! empty, has outputs with different numbers of edges, an edge without
   //! segment, or fewer or more inputs than the previous layer has outputs
   bool set_data(std::vector<Layer> const& kan);
+
+  //! @brief Set KAN data from a dictionary saved by torch.save, as read by
+  //! mc::NETIO::read_dict (model of type "KANmodel"): the file is then read
+  //! once, where its type, sizes or scalings are also wanted. The min-max
+  //! scalings of the dictionary are folded into the first and last layers, as
+  //! by read_data. False, with the network unchanged and the reason in
+  //! <a>msg</a> if given, where the dictionary holds anything else
+  //! (a template only so that set_data({}) remains a call with layers)
+  template <typename DICT, typename = typename std::enable_if<std::is_same<DICT, NETIO::Dict>::value>::type>
+  bool
+  set_data(DICT const& dict, std::string* msg = nullptr)
+  {
+    return _set_dict(dict, msg);
+  }
 
   //! @brief Append a layer of piecewise-linear edges to KAN data: layer[j][i]
   //! is the edge from input i to output j, extended beyond its domain (see
@@ -290,6 +305,9 @@ class KAN
 
   //! @brief Insert the network in the DAG of its inputs
   void _build(FFVar const* varin, FFVar* varout) const;
+
+  //! @brief Set KAN data from a dictionary read by mc::NETIO::read_dict
+  bool _set_dict(NETIO::Dict const& dict, std::string* msg);
 
   //! @brief Set expression tree
   void _set_dag();
@@ -577,19 +595,11 @@ KAN<T>::relu_layer(size_t const nout, size_t const nin, size_t const R, double c
 
 template <typename T>
 inline bool
-KAN<T>::read_data(std::string const& filename, bool const disp)
+KAN<T>::_set_dict(NETIO::Dict const& dict, std::string* msg)
 {
-  NETIO::Dict dict;
-  std::string msg;
-  if (!NETIO::read_dict(filename, dict, msg))
-  {
-    if (disp) std::cerr << "Error reading " << filename << ": " << msg << "\n";
-    return false;
-  }
   if (dict.type != "KANmodel" || dict.kan.empty())
   {
-    if (disp) std::cerr << "Error reading " << filename << ": model of type '" << dict.type
-                        << "' where KANmodel is expected\n";
+    if (msg) *msg = "model of type '" + dict.type + "' where KANmodel is expected";
     return false;
   }
 
@@ -621,7 +631,21 @@ KAN<T>::read_data(std::string const& filename, bool const disp)
     }
   if (!set_data(data))
   {
-    if (disp) std::cerr << "Error reading " << filename << ": inconsistent layers\n";
+    if (msg) *msg = "inconsistent layers";
+    return false;
+  }
+  return true;
+}
+
+template <typename T>
+inline bool
+KAN<T>::read_data(std::string const& filename, bool const disp)
+{
+  NETIO::Dict dict;
+  std::string msg;
+  if (!NETIO::read_dict(filename, dict, msg) || !set_data(dict, &msg))
+  {
+    if (disp) std::cerr << "Error reading " << filename << ": " << msg << "\n";
     return false;
   }
   if (disp)
