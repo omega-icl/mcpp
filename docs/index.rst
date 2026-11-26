@@ -12,11 +12,10 @@ manipulating and bounding factorable functions. It provides:
   McCormick relaxations (``McCormick``), dense and sparse Taylor/Chebyshev
   models (``TModel``, ``CModel``, ``SCModel``), spectral bounds (``Specbnd``),
   interval superposition models and polyhedral relaxations (``PolImg``).
-- **Machine-learning models in DAGs**: multilayer perceptrons imported from
-  PyTorch (``MLP``, ``FFMLP``) and Kolmogorov-Arnold networks with
-  piecewise-linear edges (``KAN``, ``FFKAN``), for evaluation,
-  differentiation and bounding
-  (requires a torch-enabled build, see below).
+- **Machine-learning models in DAGs**: multilayer perceptrons (``MLP``,
+  ``FFMLP``), read from ONNX or PyTorch files, and Kolmogorov-Arnold networks
+  with piecewise-linear edges (``KAN``, ``FFKAN``), for evaluation,
+  differentiation and bounding.
 
 Why PyMC++
 ----------
@@ -52,11 +51,15 @@ Installation
 
    pip install pymcpp
 
-Prebuilt wheels cover Linux (x86_64) and macOS (arm64) for Python 3.10+.
+Prebuilt wheels cover Python 3.10 to 3.15 on Linux (x86-64, glibc 2.27 or
+later), macOS 15 or later (Apple silicon) and Windows (x86-64), with no
+further dependency.
 
-To use the PyTorch features, pymcpp must be compiled locally against your
-installed torch (binary wheels are torch-free, since libtorch is only
-ABI-compatible with the exact torch version it was built against):
+The wheels are built without PyTorch, since libtorch is only ABI-compatible
+with the exact torch version it was built against. They read networks from
+ONNX files and from dictionaries saved by ``torch.save`` with no other
+library. To read TorchScript modules, or to evaluate a network by PyTorch,
+pymcpp must be compiled locally against your installed torch:
 
 .. code-block:: bash
 
@@ -64,7 +67,7 @@ ABI-compatible with the exact torch version it was built against):
    pip install scikit-build-core pybind11 pybind11-stubgen ninja cmake
    pip install pymcpp --no-binary pymcpp --no-build-isolation -C cmake.define.ENABLE_TORCH=ON
 
-A local build requires a C++17 compiler plus Boost, Armadillo and a
+A local build requires a C++20 compiler plus Boost, Armadillo and a
 BLAS/LAPACK on the system.
 
 Contents

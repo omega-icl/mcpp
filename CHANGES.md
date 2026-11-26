@@ -133,6 +133,12 @@ and `bkpts`.  `pymcpp.NETIO.read_dict` returns the dictionary of a file (`type`,
 which `KAN.set_data` and `MLP.set_data` accept.  `src/pymcpp/check_ffmap.py`, in the `check` target, runs the same checks on `FFMLP` and
 `FFKAN` against their networks evaluated in plain Python.
 
+### The page of `pymcpp` on PyPI
+
+`README_PYPI.md` is the page of `pymcpp` on PyPI, written for Python users: installation, what the
+module does class by class, an example, the notebooks.  `README.md` remains the page of the
+repository, C++ first.
+
 ### Tangent and adjoint hooks for external operations
 
 An external operation could only give its partial derivatives, entry by entry, and the differentiation
