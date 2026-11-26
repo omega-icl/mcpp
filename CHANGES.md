@@ -122,7 +122,7 @@ through which the polyhedral image and the backward propagation (`reval`) go.  T
 edges in a polyhedral relaxation is set by `KAN::Options::ENCODING` and `SEPARATE`.  The edges of a
 layer are of one type; the type available is piecewise linear (`mc::PWLU`), and `KAN::Layer` is where
 others -- splines, polynomials -- would be added.  The external operation on a `mc::KAN` in a DAG
-comes with the generalisation of `mc::FFMLP`, not yet there.  On a network with widths 2-5-5-5-1 and
+is `mc::FFKAN` (see the entry on `mc::FFMAP` below).  On a network with widths 2-5-5-5-1 and
 520 segments: 0.4 us for a value, 0.8 us for the Jacobian, 12 us for interval bounds.
 `test/ML/test_KAN.cpp` checks the above (57 checks with the entry below).
 
@@ -142,6 +142,25 @@ named in `config` (`activation`), else the one that matches the bounds held in t
 one given to `read_dict`.  Files that are not such dictionaries, hold tensors of other shapes, or
 are compressed or truncated are refused with the reason.  `test/ML/test_KAN_dict.py` generates the
 files of the test and their values and bounds.
+
+### FFMAP: networks as external operations, FFMLP and FFKAN
+
+`ffmap.hpp` holds `mc::FFMAP<T, MAP>`, the external operation on a network held by an object of
+class `MAP`, and `FFGradMAP`, `FFTanMAP`, `FFAdjMAP` for its Jacobian, directional derivative and
+adjoint: the classes `FFMLP`, `FFGradMLP`, `FFTanMLP` and `FFAdjMLP` of `ffmlp.hpp`, which used
+nothing of `mc::MLP` beyond `nin`, `nout`, `nwei`, `uid`, `eval`, `reval`, `grad`, `tang`, `adj` and
+the options `TANGENT` and `ADJOINT`, with the network as a template argument.  `mc::FFMLP<T>` is now
+the alias `FFMAP<T, MLP<T>>` (likewise `FFGradMLP`, `FFTanMLP`, `FFAdjMLP`), and `mc::FFKAN<T>` is
+`FFMAP<T, KAN<T>>` (`FFGradKAN`, `FFTanKAN`, `FFAdjKAN`): a Kolmogorov-Arnold network is inserted
+in a DAG, differentiated, relaxed and propagated backward as a multilayer perceptron is, with the
+same policies for the network that the DAG holds.  Code on `FFMLP` is unchanged, with two
+provisos: the network of the DAG is returned by `map()` -- `MLP()` remains for an `mc::MLP`, and
+`pMLP()`, deprecated -- and a forward declaration `template <typename T> class FFMLP;` no longer
+matches the alias.  The name of the operations is given by the static `tag()` of the network
+("MLP", "KAN").  The polyhedral relaxation of an `FFKAN` is by McCormick relaxations by default, as
+for any external operation; with `Options::RELAX` set to `AUX`, it goes through the expression tree
+of the network, with the encodings of its edges.  `test/ML/test_FFKAN.cpp` checks the operation
+against the network (14 checks).
 
 `mc::MLPIO` (`mlpio.hpp`), which now reads Kolmogorov-Arnold networks as well, is renamed
 `mc::NETIO` (`netio.hpp`).

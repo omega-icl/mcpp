@@ -589,6 +589,7 @@ set(MC_HEADERS
     ffhome.hpp
     ffextern.hpp
     ffdagext.hpp
+    ffmap.hpp
     ffmlp.hpp
     ffmlpreg.hpp
     ffkan.hpp

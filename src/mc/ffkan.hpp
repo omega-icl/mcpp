@@ -43,6 +43,25 @@ of a variable in superposition models. Its expression tree (mc::KAN::dag), which
 relaxations and the backward propagation go through, holds one mc::FFPWLU operation per input of
 a layer, for the edges leaving it, and one mc::FFLin operation per output; the encoding of the
 edges in a polyhedral relaxation is set by mc::KAN::Options::ENCODING and SEPARATE.
+
+mc::FFKAN defines the network as an external operation of a DAG -- it is mc::FFMAP on an mc::KAN,
+as mc::FFMLP is mc::FFMAP on an mc::MLP:
+
+\code
+  mc::FFGraph DAG;
+  std::vector<mc::FFVar> X(2);
+  for (auto& Xi : X) Xi.set(&DAG);
+  mc::FFKAN<I> Op;
+  std::vector<mc::FFVar> Y = Op(X, &NN);   // the DAG holds a copy of NN: Op.map()
+  Op.options.RELAX = {Op.options.AUX};     // polyhedral relaxations through the expression tree
+                                           // of the network, with the encoding of the edges
+\endcode
+
+The operation is evaluated by the network in the arithmetics of MC++; its polyhedral relaxation
+is by McCormick relaxations by default, and through the expression tree of the network -- the
+encodings of the edges -- with mc::FFEXTERN::Options::RELAX set to AUX. The differentiation of
+the DAG inserts the Jacobian of the network (mc::FFGradKAN), or, with mc::KAN::Options::TANGENT
+and ADJOINT, its directional derivative (mc::FFTanKAN) and its adjoint (mc::FFAdjKAN).
 */
 
 #ifndef MC__FFKAN_HPP
@@ -55,6 +74,7 @@ edges in a polyhedral relaxation is set by mc::KAN::Options::ENCODING and SEPARA
 
 #include "ffhome.hpp"
 #include "fflin.hpp"
+#include "ffmap.hpp"
 #include "ffpwlu.hpp"
 #include "interval.hpp"
 #include "netio.hpp"
@@ -251,6 +271,20 @@ class KAN
     }
   }
 
+  //! @brief Spectral bounds are not available for piecewise-linear edges: the
+  //! values and derivatives of the network in that arithmetic -- which an
+  //! external operation on the network (mc::FFMAP) may be asked for -- throw
+  static Specbnd<T>
+  _edge(Layer const& L, size_t const j, size_t const i, Specbnd<T> const& x)
+  {
+    throw std::runtime_error("mc::KAN ** No spectral bounds for piecewise-linear edges\n");
+  }
+  static Specbnd<T>
+  _dedge(Layer const& L, size_t const j, size_t const i, Specbnd<T> const& x)
+  {
+    throw std::runtime_error("mc::KAN ** No spectral bounds for piecewise-linear edges\n");
+  }
+
   //! @brief Check a layer
   static bool _check(Layer const& L);
 
@@ -388,6 +422,13 @@ class KAN
                                  _varin.size(), _varin.data(), valin, options.CPINF * T(-1, 1),
                                  options.CPMAX, options.CPTHRES);
     return flag >= 0;
+  }
+
+  //! @brief Name of the external operations on the network (mc::FFMAP)
+  static std::string
+  tag()
+  {
+    return "KAN";
   }
 
   //! @brief Number of inputs
@@ -848,6 +889,25 @@ KAN<T>::_adj(U const* valin, U const* wout, U* adjin, U* valout) const
   wkadjprv.clear();
   for (auto& der : wkder) der.clear();
 }
+
+//! @brief Kolmogorov-Arnold network as an external DAG operation: mc::FFMAP
+//! on an mc::KAN
+template <typename T = mc::Interval>
+using FFKAN = FFMAP<T, KAN<T>>;
+
+//! @brief Jacobian of a Kolmogorov-Arnold network as an external DAG
+//! operation
+template <typename T = mc::Interval>
+using FFGradKAN = FFGradMAP<T, KAN<T>>;
+
+//! @brief Directional derivative of a Kolmogorov-Arnold network as an
+//! external DAG operation
+template <typename T = mc::Interval>
+using FFTanKAN = FFTanMAP<T, KAN<T>>;
+
+//! @brief Adjoint of a Kolmogorov-Arnold network as an external DAG operation
+template <typename T = mc::Interval>
+using FFAdjKAN = FFAdjMAP<T, KAN<T>>;
 
 }  // namespace mc
 
