@@ -36,6 +36,15 @@ a model built on it could be reported infeasible.  Both are now bounded from the
 PROFIL's rounded arithmetic: the end points for `tanh`, kept within `[-1,1]`, and the points of least and
 greatest magnitude for `cosh`.
 
+### Constraint propagation through a linear sum in linear time
+
+The backward propagation through `FFLin` summed the terms of the other operands afresh for each operand: a
+number of interval operations quadratic in the number of operands.  The constraint propagation of an `MLP`
+runs through such sums, about 127,000 interval operations a pass for three hidden layers of 40 neurons.  The
+terms are now summed once, backwards then forwards, which gives the same bounds in a linear number of
+operations.  In CANON's `ann_peaks` example, for the same search, constraint propagation takes 10 s instead
+of 68 s with Boost intervals, and 1.9 s instead of 7.5 s with `mc::Interval`.
+
 ### Cuts for squares and products of auxiliary variables in a polyhedral image
 
 `PolImg::append_cuts_SQR` and `PolImg::append_cuts_TIMES` add the cuts of a square or a product between

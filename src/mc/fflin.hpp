@@ -681,17 +681,31 @@ FFLin<T>::reval(size_t const nRes, T* vRes, size_t const nVar, T* vVar) const
   assert(_nCoef && _ptrCoef && nRes == 1);
 #endif
 
-  for (unsigned i = 0; i < nVar; ++i)
+  // Each operand is tightened with the result minus the terms of the other
+  // operands. The terms after an operand are summed once, backwards, and the
+  // terms before it as the loop proceeds, with the operands already tightened:
+  // the same bounds as summing the other terms afresh for each operand, in a
+  // number of operations linear, not quadratic, in the number of operands
+  auto const coef = [&](size_t const j)
+  { return _nCoef < nVar ? _ptrCoef[0] : _ptrCoef[j]; };
+  static thread_local std::vector<T> vAfter;
+  vAfter.resize(nVar);
+  T Sum(0.);
+  for (size_t j = nVar; j-- > 0;)
   {
-    if (isequal(_nCoef < nVar ? _ptrCoef[0] : _ptrCoef[i], 0.)) continue;
-    T Var_i(vRes[0] - _valBias);
-    for (unsigned j = 0; j < nVar; ++j)
+    vAfter[j] = Sum;
+    Sum += coef(j) * vVar[j];
+  }
+  Sum = vRes[0] - _valBias;
+  for (size_t i = 0; i < nVar; ++i)
+  {
+    if (!isequal(coef(i), 0.))
     {
-      if (i == j) continue;
-      Var_i -= (_nCoef < nVar ? _ptrCoef[0] : _ptrCoef[j]) * vVar[j];
+      T Var_i(Sum - vAfter[i]);
+      Var_i /= coef(i);
+      if (!Op<T>::inter(vVar[i], Var_i, vVar[i])) return false;
     }
-    Var_i /= (_nCoef < nVar ? _ptrCoef[0] : _ptrCoef[i]);
-    if (!Op<T>::inter(vVar[i], Var_i, vVar[i])) return false;
+    Sum -= coef(i) * vVar[i];
   }
   return true;
 }
