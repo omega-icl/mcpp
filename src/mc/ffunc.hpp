@@ -4658,6 +4658,8 @@ inline FFVar::FFVar(FFBase* dag, std::string const& name)
       _val(nullptr),
       _mov(0),
       _cst(false),
+      _opdef(nullptr, 0),
+      _opuse(nullptr),
       _nam(name)
 {
   // Insert new variable in set FFBase::_Vars and corresponding operation in set
@@ -4682,6 +4684,8 @@ inline FFVar::FFVar(FFBase* dag, double const& d)
       _val(nullptr),
       _mov(0),
       _cst(true),
+      _opdef(nullptr, 0),
+      _opuse(nullptr),
       _nam("")
 {
   // Insert new variable in set FFBase::_Vars and corresponding operation in set
@@ -4704,6 +4708,8 @@ inline FFVar::FFVar(FFBase* dag, int const i)
       _val(nullptr),
       _mov(0),
       _cst(true),
+      _opdef(nullptr, 0),
+      _opuse(nullptr),
       _nam("")
 {
   // Insert new variable in set FFBase::_Vars and corresponding operation in set
@@ -4739,6 +4745,8 @@ inline FFVar::FFVar(FFBase* dag, pt_idVar const& id, std::string const& name)
       _val(nullptr),
       _mov(0),
       _cst(false),
+      _opdef(nullptr, 0),
+      _opuse(nullptr),
       _nam(name)
 {
   // Insert new variable in set FFBase::_Vars and corresponding operation in set

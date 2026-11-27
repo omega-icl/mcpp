@@ -278,7 +278,8 @@ weights.  For repeated calls of `eval` with the same variables, pass `ndxVar` li
 `-Wmaybe-uninitialized` from the default constructor of `mc::B<T>` (`bdiff.hpp`) wherever an `MLP` was
 differentiated in interval or McCormick arithmetic, and from `inter()` of two `SCVar` (`scmodel.hpp`);
 `-Walloc-size-larger-than=` from GCC 15 on the allocation in the backward sweep through linear operators
-(`ffunc.hpp`).
+(`ffunc.hpp`); `-Wmaybe-uninitialized` from the constructors of a variable or constant in a DAG (`ffunc.hpp`),
+which copied the object before two of its members were set.
 
 ### Tests
 
