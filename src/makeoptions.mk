@@ -48,7 +48,7 @@ PROF = #-pg
 OPTIM = -O2
 DEBUG = #-g
 WARN  = -Wall -Wno-misleading-indentation -Wno-unknown-pragmas -Wno-parentheses -Wno-return-type
-CPP17 = -std=c++17
+CPP17 = -std=c++20
 CC    = gcc
 CPP   = g++
 # CPP   = icpc

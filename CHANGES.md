@@ -164,6 +164,15 @@ and `bkpts`.  `pymcpp.NETIO.read_dict` returns the dictionary of a file (`type`,
 which `KAN.set_data` and `MLP.set_data` accept.  `src/pymcpp/check_ffmap.py`, in the `check` target, runs the same checks on `FFMLP` and
 `FFKAN` against their networks evaluated in plain Python.
 
+### Logo
+
+`doc/mcpp-logo.svg`, `doc/mcpp-logo-dark.svg` (the two colours swapped, for dark backgrounds),
+`doc/mcpp-logo-55.svg` (55 pixels high, its colours following the colour scheme of the browser) and
+`doc/mcpp-logo-256.png`.  The logo is at the top of `README.md` (light or dark with the GitHub theme) and of
+`README_PYPI.md` (the PNG by its address on GitHub, since PyPI resolves no relative path), in the header and as
+the icon of the Doxygen pages (`PROJECT_LOGO`, `PROJECT_ICON`), and in the Sphinx documentation
+(`html_theme_options["logo"]`, `html_favicon`).
+
 ### The page of `pymcpp` on PyPI
 
 `README_PYPI.md` is the page of `pymcpp` on PyPI, written for Python users: installation, what the

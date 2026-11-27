@@ -1,3 +1,10 @@
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="doc/mcpp-logo-dark.svg">
+    <img src="doc/mcpp-logo.svg" alt="MC++ logo" width="180">
+  </picture>
+</p>
+
 # MC++: Toolkit for Construction, Manipulation and Evaluation of Factorable Functions
 
 [![Open in Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/omega-icl/mcpp/blob/version-5/notebook/joss_paper.ipynb)

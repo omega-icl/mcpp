@@ -54,3 +54,16 @@ exclude_patterns = ["notebooks/.venv", "notebooks/**/.*"]
 
 html_theme = "pydata_sphinx_theme"
 html_title = "PyMC++"
+
+# Logo of MC++ (doc/ at the repository root): the theme shows the light or the
+# dark variant with its colour mode; the icon follows the browser's colour
+# scheme by itself.
+html_theme_options = {
+    "logo": {
+        "image_light": "../doc/mcpp-logo.svg",
+        "image_dark": "../doc/mcpp-logo-dark.svg",
+        "text": "PyMC++",
+        "alt_text": "PyMC++ documentation - Home",
+    },
+}
+html_favicon = "../doc/mcpp-logo-55.svg"

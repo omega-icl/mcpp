@@ -1,6 +1,6 @@
 /*!
 
-@mainpage MC++ (version 5.0): Toolkit for Construction, Manipulation and Evaluation of Factorable Functions
+@mainpage MC++: Toolkit for Construction, Manipulation and Evaluation of Factorable Functions
 
 @author Benoit C. Chachuat <tt>(b.chachuat@imperial.ac.uk)</tt> and the OMEGA Research Group, Imperial College London
 @date 2026
