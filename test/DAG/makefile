@@ -5,7 +5,7 @@ include $(PATH_MC)/src/makeoptions.mk
 
 #####
 
-all: DAG_doxygen DAG_unittests DAG_compose DAG_differentiate DAG_evaluate DAG_analyze DAG_external DAG_store DAG_linear_operator DAG_sparsead_scaling DAG_tangent DAG_adjoint DAG_doxygen_hooks DAG_dagext_home DAG_reval_univariate DAG_pwlu
+all: DAG_doxygen DAG_unittests DAG_compose DAG_differentiate DAG_evaluate DAG_analyze DAG_external DAG_store DAG_linear_operator DAG_sparsead_scaling DAG_tangent DAG_adjoint DAG_doxygen_hooks DAG_dagext_home DAG_reval_univariate DAG_reval_nan DAG_pwlu
 
 DAG_doxygen : DAG_doxygen.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
@@ -52,6 +52,9 @@ DAG_doxygen_hooks : DAG_doxygen_hooks.o
 DAG_reval_univariate : DAG_reval_univariate.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
 
+DAG_reval_nan : DAG_reval_nan.o
+	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
+
 DAG_pwlu : DAG_pwlu.o
 	$(LINK) $(FLAG_LINK) -o $@ $< $(LIB_MC)
 
@@ -75,6 +78,6 @@ gensvg :
 #####
 
 clean :
-	rm -f DAG_doxygen DAG_unittests DAG_compose DAG_differentiate DAG_evaluate DAG_analyze DAG_external DAG_store DAG_linear_operator DAG_sparsead_scaling DAG_tangent DAG_adjoint DAG_doxygen_hooks DAG_dagext_home DAG_reval_univariate DAG_pwlu
+	rm -f DAG_doxygen DAG_unittests DAG_compose DAG_differentiate DAG_evaluate DAG_analyze DAG_external DAG_store DAG_linear_operator DAG_sparsead_scaling DAG_tangent DAG_adjoint DAG_doxygen_hooks DAG_dagext_home DAG_reval_univariate DAG_reval_nan DAG_pwlu
 	rm -f *.o *.out *.eps *.dot *.png *.lp *~
 

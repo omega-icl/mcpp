@@ -703,7 +703,7 @@ FFLin<T>::reval(size_t const nRes, T* vRes, size_t const nVar, T* vVar) const
     {
       T Var_i(Sum - vAfter[i]);
       Var_i /= coef(i);
-      if (!Op<T>::inter(vVar[i], Var_i, vVar[i])) return false;
+      if (!FFOp::_inter(vVar[i], Var_i, vVar[i])) return false;
     }
     Sum -= coef(i) * vVar[i];
   }

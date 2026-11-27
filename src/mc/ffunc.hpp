@@ -591,8 +591,12 @@ tightened when \f$z\f$ and the other factor both contain zero, since the factor
 is then unconstrained. The propagation therefore does not depend on what
 <a>U</a> returns for a division by a range containing zero: mc::Interval throws,
 whereas Boost returns \f$[0,0]/[0,1] = [0,0]\f$. A backward step during which
-<a>U</a> throws is skipped as well. An external operation that tightens its
-operands in mc::FFOp::reval should follow the same rule.
+<a>U</a> throws is skipped as well, and so is a forward or backward step whose
+result has a bound that is not a number: an operation that fails in <a>U</a>,
+e.g. by overflow, leaves its result unbounded and never makes the propagation
+infeasible. An external operation that tightens its operands in
+mc::FFOp::reval should follow the same rules, with mc::FFOp::_inter in place
+of <a>Op<U>::inter</a>.
 
 
 \section sec_FFUNC_ext How do I add an external operation in the DAG of a
@@ -1702,6 +1706,39 @@ class FFOp
   _zero_in(U const& x)
   {
     return Op<U>::l(x) <= 0. && Op<U>::u(x) >= 0.;
+  }
+
+  //! @brief Whether a bound of <a>x</a> is not a number
+  template <typename U>
+  static bool
+  _has_nan(U const& x)
+  {
+    return Op<U>::l(x) != Op<U>::l(x) || Op<U>::u(x) != Op<U>::u(x);
+  }
+
+  //! @brief Intersection of <a>x</a> and <a>y</a> in constraint propagation:
+  //! as Op<U>::inter, except that an argument with a bound that is not a
+  //! number carries no information, and the other argument is returned -- an
+  //! operation that failed in the arithmetic of U does not make the
+  //! propagation infeasible (see the section on the evaluation of the DAG).
+  //! U is deduced from <a>xIy</a> only, so that <a>x</a> or <a>y</a> may be
+  //! a number
+  template <typename U>
+  static bool
+  _inter(U& xIy, typename std::common_type<U>::type const& x,
+         typename std::common_type<U>::type const& y)
+  {
+    if (_has_nan(y))
+    {
+      if (&xIy != &x) xIy = x;
+      return true;
+    }
+    if (_has_nan(x))
+    {
+      if (&xIy != &y) xIy = y;
+      return true;
+    }
+    return Op<U>::inter(xIy, x, y);
   }
 
   //! @brief Differentiate external operation
@@ -7557,7 +7594,7 @@ FFOp::tighten_forward(U const* dumU) const
 
     case FFOp::SHIFT:
       //*itU = *static_cast<U*>( varin[0]->val() ) + varin[1]->num().val();
-      if (!Op<U>::inter(
+      if (!FFOp::_inter(
               *static_cast<U*>(pres->val()),
               *static_cast<U*>(varin[0]->val()) + varin[1]->num().val(),
               *static_cast<U*>(pres->val())))
@@ -7568,7 +7605,7 @@ FFOp::tighten_forward(U const* dumU) const
       if (&varin[0] == &varin[1])
       {
         //*itU = *static_cast<U*>( varin[0]->val() ) * 2.;
-        if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+        if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                           *static_cast<U*>(varin[0]->val()) * 2.,
                           *static_cast<U*>(pres->val())))
           return false;
@@ -7577,7 +7614,7 @@ FFOp::tighten_forward(U const* dumU) const
       {
         //*itU = *static_cast<U*>( varin[0]->val() ) + *static_cast<U*>(
         // varin[1]->val() );
-        if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+        if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                           *static_cast<U*>(varin[0]->val()) +
                               *static_cast<U*>(varin[1]->val()),
                           *static_cast<U*>(pres->val())))
@@ -7587,7 +7624,7 @@ FFOp::tighten_forward(U const* dumU) const
 
     case FFOp::NEG:
       //*itU = - *static_cast<U*>( varin[0]->val() );
-      if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+      if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                         -*static_cast<U*>(varin[0]->val()),
                         *static_cast<U*>(pres->val())))
         return false;
@@ -7597,7 +7634,7 @@ FFOp::tighten_forward(U const* dumU) const
       if (&varin[0] == &varin[1])
       {
         //*itU = 0.;
-        if (!Op<U>::inter(*static_cast<U*>(pres->val()), 0.,
+        if (!FFOp::_inter(*static_cast<U*>(pres->val()), 0.,
                           *static_cast<U*>(pres->val())))
           return false;
       }
@@ -7605,7 +7642,7 @@ FFOp::tighten_forward(U const* dumU) const
       {
         //*itU = *static_cast<U*>( varin[0]->val() ) - *static_cast<U*>(
         // varin[1]->val() );
-        if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+        if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                           *static_cast<U*>(varin[0]->val()) -
                               *static_cast<U*>(varin[1]->val()),
                           *static_cast<U*>(pres->val())))
@@ -7615,7 +7652,7 @@ FFOp::tighten_forward(U const* dumU) const
 
     case FFOp::SCALE:
       //*itU = *static_cast<U*>( varin[0]->val() ) * varin[1]->num().val();
-      if (!Op<U>::inter(
+      if (!FFOp::_inter(
               *static_cast<U*>(pres->val()),
               *static_cast<U*>(varin[0]->val()) * varin[1]->num().val(),
               *static_cast<U*>(pres->val())))
@@ -7626,7 +7663,7 @@ FFOp::tighten_forward(U const* dumU) const
       if (&varin[0] == &varin[1])
       {
         //*itU = Op<U>::sqr( *static_cast<U*>( varin[0]->val() ) );
-        if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+        if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                           Op<U>::sqr(*static_cast<U*>(varin[0]->val())),
                           *static_cast<U*>(pres->val())))
           return false;
@@ -7635,7 +7672,7 @@ FFOp::tighten_forward(U const* dumU) const
       {
         //*itU = *static_cast<U*>( varin[0]->val() ) * *static_cast<U*>(
         // varin[1]->val() );
-        if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+        if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                           *static_cast<U*>(varin[0]->val()) *
                               *static_cast<U*>(varin[1]->val()),
                           *static_cast<U*>(pres->val())))
@@ -7645,7 +7682,7 @@ FFOp::tighten_forward(U const* dumU) const
 
     case FFOp::INV:
       //*itU = varin[0]->num().val() / *static_cast<U*>( varin[1]->val() );
-      if (!Op<U>::inter(
+      if (!FFOp::_inter(
               *static_cast<U*>(pres->val()),
               varin[0]->num().val() / *static_cast<U*>(varin[1]->val()),
               *static_cast<U*>(pres->val())))
@@ -7656,7 +7693,7 @@ FFOp::tighten_forward(U const* dumU) const
       if (&varin[0] == &varin[1])
       {
         //*itU = 1.;
-        if (!Op<U>::inter(*static_cast<U*>(pres->val()), 1.,
+        if (!FFOp::_inter(*static_cast<U*>(pres->val()), 1.,
                           *static_cast<U*>(pres->val())))
           return false;
       }
@@ -7664,7 +7701,7 @@ FFOp::tighten_forward(U const* dumU) const
       {
         //*itU = *static_cast<U*>( varin[0]->val() ) / *static_cast<U*>(
         // varin[1]->val() );
-        if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+        if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                           *static_cast<U*>(varin[0]->val()) /
                               *static_cast<U*>(varin[1]->val()),
                           *static_cast<U*>(pres->val())))
@@ -7675,7 +7712,7 @@ FFOp::tighten_forward(U const* dumU) const
     case FFOp::IPOW:
       //*itU = Op<U>::pow( *static_cast<U*>( varin[0]->val() ),
       // varin[1]->num().n );
-      if (!Op<U>::inter(
+      if (!FFOp::_inter(
               *static_cast<U*>(pres->val()),
               Op<U>::pow(*static_cast<U*>(varin[0]->val()), varin[1]->num().n),
               *static_cast<U*>(pres->val())))
@@ -7685,7 +7722,7 @@ FFOp::tighten_forward(U const* dumU) const
     case FFOp::DPOW:
       //*itU = Op<U>::pow( *static_cast<U*>( varin[0]->val() ),
       // varin[1]->num().x );
-      if (!Op<U>::inter(
+      if (!FFOp::_inter(
               *static_cast<U*>(pres->val()),
               Op<U>::pow(*static_cast<U*>(varin[0]->val()), varin[1]->num().x),
               *static_cast<U*>(pres->val())))
@@ -7695,7 +7732,7 @@ FFOp::tighten_forward(U const* dumU) const
     case FFOp::CHEB:
       //*itU = Op<U>::cheb( *static_cast<U*>( varin[0]->val() ),
       // varin[1]->num().n );
-      if (!Op<U>::inter(
+      if (!FFOp::_inter(
               *static_cast<U*>(pres->val()),
               Op<U>::cheb(*static_cast<U*>(varin[0]->val()), varin[1]->num().n),
               *static_cast<U*>(pres->val())))
@@ -7704,7 +7741,7 @@ FFOp::tighten_forward(U const* dumU) const
 
     case FFOp::SQR:
       //*itU = Op<U>::sqr( *static_cast<U*>( varin[0]->val() ) );
-      if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+      if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                         Op<U>::sqr(*static_cast<U*>(varin[0]->val())),
                         *static_cast<U*>(pres->val())))
         return false;
@@ -7712,7 +7749,7 @@ FFOp::tighten_forward(U const* dumU) const
 
     case FFOp::SQRT:
       //*itU = Op<U>::sqrt( *static_cast<U*>( varin[0]->val() ) );
-      if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+      if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                         Op<U>::sqrt(*static_cast<U*>(varin[0]->val())),
                         *static_cast<U*>(pres->val())))
         return false;
@@ -7720,7 +7757,7 @@ FFOp::tighten_forward(U const* dumU) const
 
     case FFOp::EXP:
       //*itU = Op<U>::exp( *static_cast<U*>( varin[0]->val() ) );
-      if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+      if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                         Op<U>::exp(*static_cast<U*>(varin[0]->val())),
                         *static_cast<U*>(pres->val())))
         return false;
@@ -7728,7 +7765,7 @@ FFOp::tighten_forward(U const* dumU) const
 
     case FFOp::LOG:
       //*itU = Op<U>::log( *static_cast<U*>( varin[0]->val() ) );
-      if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+      if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                         Op<U>::log(*static_cast<U*>(varin[0]->val())),
                         *static_cast<U*>(pres->val())))
         return false;
@@ -7736,7 +7773,7 @@ FFOp::tighten_forward(U const* dumU) const
 
     case FFOp::XLOG:
       //*itU = Op<U>::xlog( *static_cast<U*>( varin[0]->val() ) );
-      if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+      if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                         Op<U>::xlog(*static_cast<U*>(varin[0]->val())),
                         *static_cast<U*>(pres->val())))
         return false;
@@ -7744,7 +7781,7 @@ FFOp::tighten_forward(U const* dumU) const
 
     case FFOp::COS:
       //*itU = Op<U>::cos( *static_cast<U*>( varin[0]->val() ) );
-      if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+      if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                         Op<U>::cos(*static_cast<U*>(varin[0]->val())),
                         *static_cast<U*>(pres->val())))
         return false;
@@ -7752,7 +7789,7 @@ FFOp::tighten_forward(U const* dumU) const
 
     case FFOp::SIN:
       //*itU = Op<U>::sin( *static_cast<U*>( varin[0]->val() ) );
-      if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+      if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                         Op<U>::sin(*static_cast<U*>(varin[0]->val())),
                         *static_cast<U*>(pres->val())))
         return false;
@@ -7760,7 +7797,7 @@ FFOp::tighten_forward(U const* dumU) const
 
     case FFOp::TAN:
       //*itU = Op<U>::tan( *static_cast<U*>( varin[0]->val() ) );
-      if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+      if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                         Op<U>::tan(*static_cast<U*>(varin[0]->val())),
                         *static_cast<U*>(pres->val())))
         return false;
@@ -7768,7 +7805,7 @@ FFOp::tighten_forward(U const* dumU) const
 
     case FFOp::ACOS:
       //*itU = Op<U>::acos( *static_cast<U*>( varin[0]->val() ) );
-      if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+      if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                         Op<U>::acos(*static_cast<U*>(varin[0]->val())),
                         *static_cast<U*>(pres->val())))
         return false;
@@ -7776,7 +7813,7 @@ FFOp::tighten_forward(U const* dumU) const
 
     case FFOp::ASIN:
       //*itU = Op<U>::asin( *static_cast<U*>( varin[0]->val() ) );
-      if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+      if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                         Op<U>::asin(*static_cast<U*>(varin[0]->val())),
                         *static_cast<U*>(pres->val())))
         return false;
@@ -7784,7 +7821,7 @@ FFOp::tighten_forward(U const* dumU) const
 
     case FFOp::ATAN:
       //*itU = Op<U>::atan( *static_cast<U*>( varin[0]->val() ) );
-      if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+      if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                         Op<U>::atan(*static_cast<U*>(varin[0]->val())),
                         *static_cast<U*>(pres->val())))
         return false;
@@ -7792,7 +7829,7 @@ FFOp::tighten_forward(U const* dumU) const
 
     case FFOp::COSH:
       //*itU = Op<U>::cosh( *static_cast<U*>( varin[0]->val() ) );
-      if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+      if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                         Op<U>::cosh(*static_cast<U*>(varin[0]->val())),
                         *static_cast<U*>(pres->val())))
         return false;
@@ -7800,7 +7837,7 @@ FFOp::tighten_forward(U const* dumU) const
 
     case FFOp::SINH:
       //*itU = Op<U>::sinh( *static_cast<U*>( varin[0]->val() ) );
-      if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+      if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                         Op<U>::sinh(*static_cast<U*>(varin[0]->val())),
                         *static_cast<U*>(pres->val())))
         return false;
@@ -7808,7 +7845,7 @@ FFOp::tighten_forward(U const* dumU) const
 
     case FFOp::TANH:
       //*itU = Op<U>::tanh( *static_cast<U*>( varin[0]->val() ) );
-      if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+      if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                         Op<U>::tanh(*static_cast<U*>(varin[0]->val())),
                         *static_cast<U*>(pres->val())))
         return false;
@@ -7816,7 +7853,7 @@ FFOp::tighten_forward(U const* dumU) const
 
     case FFOp::ERF:
       //*itU = Op<U>::erf( *static_cast<U*>( varin[0]->val() ) );
-      if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+      if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                         Op<U>::erf(*static_cast<U*>(varin[0]->val())),
                         *static_cast<U*>(pres->val())))
         return false;
@@ -7824,7 +7861,7 @@ FFOp::tighten_forward(U const* dumU) const
 
     case FFOp::FABS:
       //*itU = Op<U>::fabs( *static_cast<U*>( varin[0]->val() ) );
-      if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+      if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                         Op<U>::fabs(*static_cast<U*>(varin[0]->val())),
                         *static_cast<U*>(pres->val())))
         return false;
@@ -7832,7 +7869,7 @@ FFOp::tighten_forward(U const* dumU) const
 
     case FFOp::FSTEP:
       //*itU = Op<U>::fstep( *static_cast<U*>( varin[0]->val() ) );
-      if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+      if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                         Op<U>::fstep(*static_cast<U*>(varin[0]->val())),
                         *static_cast<U*>(pres->val())))
         return false;
@@ -7842,7 +7879,7 @@ FFOp::tighten_forward(U const* dumU) const
       if (&varin[0] == &varin[1])
       {
         //*itU = *static_cast<U*>( varin[0]->val() );
-        if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+        if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                           *static_cast<U*>(varin[0]->val()),
                           *static_cast<U*>(pres->val())))
           return false;
@@ -7851,7 +7888,7 @@ FFOp::tighten_forward(U const* dumU) const
       {
         //*itU = Op<U>::min( *static_cast<U*>( varin[0]->val() ),
         //*static_cast<U*>( varin[1]->val() ) );
-        if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+        if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                           Op<U>::min(*static_cast<U*>(varin[0]->val()),
                                      *static_cast<U*>(varin[1]->val())),
                           *static_cast<U*>(pres->val())))
@@ -7863,7 +7900,7 @@ FFOp::tighten_forward(U const* dumU) const
       if (&varin[0] == &varin[1])
       {
         //*itU = *static_cast<U*>( varin[0]->val() );
-        if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+        if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                           *static_cast<U*>(varin[0]->val()),
                           *static_cast<U*>(pres->val())))
           return false;
@@ -7872,7 +7909,7 @@ FFOp::tighten_forward(U const* dumU) const
       {
         //*itU = Op<U>::max( *static_cast<U*>( varin[0]->val() ),
         //*static_cast<U*>( varin[1]->val() ) );
-        if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+        if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                           Op<U>::max(*static_cast<U*>(varin[0]->val()),
                                      *static_cast<U*>(varin[1]->val())),
                           *static_cast<U*>(pres->val())))
@@ -7884,18 +7921,18 @@ FFOp::tighten_forward(U const* dumU) const
       if (&varin[0] == &varin[1])
       {
         //*itU = *static_cast<U*>( varin[0]->val() );
-        if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+        if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                           *static_cast<U*>(varin[0]->val()),
                           *static_cast<U*>(pres->val())))
           return false;
       }
       else
       {
-        if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+        if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                           *static_cast<U*>(varin[0]->val()),
                           *static_cast<U*>(pres->val())))
           return false;
-        if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+        if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                           *static_cast<U*>(varin[1]->val()),
                           *static_cast<U*>(pres->val())))
           return false;
@@ -7909,7 +7946,7 @@ FFOp::tighten_forward(U const* dumU) const
       for (auto it = varin.begin(); it != varin.end(); ++it)
         ops_val.push_back(*static_cast<U*>((*it)->val()));
       //*itU = Op<U>::prod( ops_val.size(), ops_val.data() );
-      if (!Op<U>::inter(*static_cast<U*>(pres->val()),
+      if (!FFOp::_inter(*static_cast<U*>(pres->val()),
                         Op<U>::prod(ops_val.size(), ops_val.data()),
                         *static_cast<U*>(pres->val())))
         return false;
@@ -7958,7 +7995,7 @@ FFOp::tighten_forward_external(U const* dumU) const
   }
 
   for (unsigned j = 0; j < varout.size(); ++j)
-    if (!Op<U>::inter(*static_cast<U*>(varout[j]->val()), valout[j],
+    if (!FFOp::_inter(*static_cast<U*>(varout[j]->val()), valout[j],
                       *static_cast<U*>(varout[j]->val())))
       return false;
   return true;
@@ -7979,7 +8016,7 @@ FFOp::tighten_backward(U const* dumU) const
 
     case FFOp::SHIFT:
       //*itU = *static_cast<U*>( varin[0]->val() ) + varin[1]->num().val();
-      if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+      if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                         *static_cast<U*>(pres->val()) - varin[1]->num().val(),
                         *static_cast<U*>(varin[0]->val())))
         return false;
@@ -7989,7 +8026,7 @@ FFOp::tighten_backward(U const* dumU) const
       if (&varin[0] == &varin[1])
       {
         //*itU = *static_cast<U*>( varin[0]->val() ) * 2.;
-        if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+        if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                           *static_cast<U*>(pres->val()) / 2.,
                           *static_cast<U*>(varin[0]->val())))
           return false;
@@ -7998,12 +8035,12 @@ FFOp::tighten_backward(U const* dumU) const
       {
         //*itU = *static_cast<U*>( varin[0]->val() ) + *static_cast<U*>(
         // varin[1]->val() );
-        if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+        if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                           *static_cast<U*>(pres->val()) -
                               *static_cast<U*>(varin[1]->val()),
                           *static_cast<U*>(varin[0]->val())))
           return false;
-        if (!Op<U>::inter(*static_cast<U*>(varin[1]->val()),
+        if (!FFOp::_inter(*static_cast<U*>(varin[1]->val()),
                           *static_cast<U*>(pres->val()) -
                               *static_cast<U*>(varin[0]->val()),
                           *static_cast<U*>(varin[1]->val())))
@@ -8013,7 +8050,7 @@ FFOp::tighten_backward(U const* dumU) const
 
     case FFOp::NEG:
       //*itU = - *static_cast<U*>( varin[0]->val() );
-      if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+      if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                         -*static_cast<U*>(pres->val()),
                         *static_cast<U*>(varin[0]->val())))
         return false;
@@ -8023,12 +8060,12 @@ FFOp::tighten_backward(U const* dumU) const
       if (&varin[0] == &varin[1]) break;  // nothing to tighten
       //*itU = *static_cast<U*>( varin[0]->val() ) - *static_cast<U*>(
       // varin[1]->val() );
-      if (!Op<U>::inter(
+      if (!FFOp::_inter(
               *static_cast<U*>(varin[0]->val()),
               *static_cast<U*>(pres->val()) + *static_cast<U*>(varin[1]->val()),
               *static_cast<U*>(varin[0]->val())))
         return false;
-      if (!Op<U>::inter(
+      if (!FFOp::_inter(
               *static_cast<U*>(varin[1]->val()),
               *static_cast<U*>(varin[0]->val()) - *static_cast<U*>(pres->val()),
               *static_cast<U*>(varin[1]->val())))
@@ -8037,7 +8074,7 @@ FFOp::tighten_backward(U const* dumU) const
 
     case FFOp::SCALE:
       //*itU = *static_cast<U*>( varin[0]->val() ) * varin[1]->num().val();
-      if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+      if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                         *static_cast<U*>(pres->val()) / varin[1]->num().val(),
                         *static_cast<U*>(varin[0]->val())))
         return false;
@@ -8049,21 +8086,21 @@ FFOp::tighten_backward(U const* dumU) const
         //*itU = Op<U>::sqr( *static_cast<U*>( varin[0]->val() ) );
         if (Op<U>::l(*static_cast<U*>(varin[0]->val())) >= 0.)
         {
-          if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+          if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                             Op<U>::sqrt(*static_cast<U*>(pres->val())),
                             *static_cast<U*>(varin[0]->val())))
             return false;
         }
         else if (Op<U>::u(*static_cast<U*>(varin[0]->val())) <= 0.)
         {
-          if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+          if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                             -Op<U>::sqrt(*static_cast<U*>(pres->val())),
                             *static_cast<U*>(varin[0]->val())))
             return false;
         }
         else
         {
-          if (!Op<U>::inter(
+          if (!FFOp::_inter(
                   *static_cast<U*>(varin[0]->val()),
                   Op<U>::hull(-Op<U>::sqrt(*static_cast<U*>(pres->val())),
                               Op<U>::sqrt(*static_cast<U*>(pres->val()))),
@@ -8084,13 +8121,13 @@ FFOp::tighten_backward(U const* dumU) const
         // Boost gives [0,0] / [0,1] = [0,0] -- whereas mc::Interval throws.
         bool const zres = _zero_in(*static_cast<U*>(pres->val()));
         if (!(zres && _zero_in(*static_cast<U*>(varin[1]->val()))) &&
-            !Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+            !FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                           *static_cast<U*>(pres->val()) /
                               *static_cast<U*>(varin[1]->val()),
                           *static_cast<U*>(varin[0]->val())))
           return false;
         if (!(zres && _zero_in(*static_cast<U*>(varin[0]->val()))) &&
-            !Op<U>::inter(*static_cast<U*>(varin[1]->val()),
+            !FFOp::_inter(*static_cast<U*>(varin[1]->val()),
                           *static_cast<U*>(pres->val()) /
                               *static_cast<U*>(varin[0]->val()),
                           *static_cast<U*>(varin[1]->val())))
@@ -8105,7 +8142,7 @@ FFOp::tighten_backward(U const* dumU) const
       if (Op<U>::l(*static_cast<U*>(varin[0]->val())) < 0. &&
           Op<U>::u(*static_cast<U*>(varin[0]->val())) > 0.)
         throw typename FFBase::Exceptions(FFBase::Exceptions::EVAL);
-      if (!Op<U>::inter(*static_cast<U*>(varin[1]->val()),
+      if (!FFOp::_inter(*static_cast<U*>(varin[1]->val()),
                         varin[0]->num().val() / *static_cast<U*>(pres->val()),
                         *static_cast<U*>(varin[1]->val())))
         return false;
@@ -8115,7 +8152,7 @@ FFOp::tighten_backward(U const* dumU) const
       if (&varin[0] == &varin[1]) break;  // nothing to tighten
       //*itU = *static_cast<U*>( varin[0]->val() ) / *static_cast<U*>(
       // varin[1]->val() );
-      if (!Op<U>::inter(
+      if (!FFOp::_inter(
               *static_cast<U*>(varin[0]->val()),
               *static_cast<U*>(pres->val()) * *static_cast<U*>(varin[1]->val()),
               *static_cast<U*>(varin[0]->val())))
@@ -8124,7 +8161,7 @@ FFOp::tighten_backward(U const* dumU) const
       // r = 0), so x1 is not tightened then (see TIMES)
       if (!(_zero_in(*static_cast<U*>(varin[0]->val())) &&
             _zero_in(*static_cast<U*>(pres->val()))) &&
-          !Op<U>::inter(
+          !FFOp::_inter(
               *static_cast<U*>(varin[1]->val()),
               *static_cast<U*>(varin[0]->val()) / *static_cast<U*>(pres->val()),
               *static_cast<U*>(varin[1]->val())))
@@ -8138,7 +8175,7 @@ FFOp::tighten_backward(U const* dumU) const
       {  // positive odd exponent
         if (Op<U>::l(*static_cast<U*>(pres->val())) >= 0.)
         {
-          if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+          if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                             Op<U>::pow(*static_cast<U*>(pres->val()),
                                        1. / varin[1]->num().n),
                             *static_cast<U*>(varin[0]->val())))
@@ -8146,7 +8183,7 @@ FFOp::tighten_backward(U const* dumU) const
         }
         else if (Op<U>::u(*static_cast<U*>(pres->val())) <= 0.)
         {
-          if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+          if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                             -Op<U>::pow(-*static_cast<U*>(pres->val()),
                                         1. / varin[1]->num().n),
                             *static_cast<U*>(varin[0]->val())))
@@ -8156,10 +8193,10 @@ FFOp::tighten_backward(U const* dumU) const
         {
           U bndL = Op<U>::zeroone() * Op<U>::l(*static_cast<U*>(pres->val())),
             bndU = Op<U>::zeroone() * Op<U>::u(*static_cast<U*>(pres->val()));
-          if (!Op<U>::inter(bndL, *static_cast<U*>(pres->val()), bndL) ||
-              !Op<U>::inter(bndU, *static_cast<U*>(pres->val()), bndU))
+          if (!FFOp::_inter(bndL, *static_cast<U*>(pres->val()), bndL) ||
+              !FFOp::_inter(bndU, *static_cast<U*>(pres->val()), bndU))
             throw typename FFBase::Exceptions(FFBase::Exceptions::EVAL);
-          if (!Op<U>::inter(
+          if (!FFOp::_inter(
                   *static_cast<U*>(varin[0]->val()),
                   Op<U>::hull(-Op<U>::pow(-bndL, 1. / varin[1]->num().n),
                               Op<U>::pow(bndU, 1. / varin[1]->num().n)),
@@ -8171,7 +8208,7 @@ FFOp::tighten_backward(U const* dumU) const
       {  // positive even exponent
         if (Op<U>::l(*static_cast<U*>(varin[0]->val())) >= 0.)
         {
-          if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+          if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                             Op<U>::pow(*static_cast<U*>(pres->val()),
                                        1. / varin[1]->num().n),
                             *static_cast<U*>(varin[0]->val())))
@@ -8179,7 +8216,7 @@ FFOp::tighten_backward(U const* dumU) const
         }
         else if (Op<U>::u(*static_cast<U*>(varin[0]->val())) <= 0.)
         {
-          if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+          if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                             -Op<U>::pow(*static_cast<U*>(pres->val()),
                                         1. / varin[1]->num().n),
                             *static_cast<U*>(varin[0]->val())))
@@ -8187,7 +8224,7 @@ FFOp::tighten_backward(U const* dumU) const
         }
         else
         {
-          if (!Op<U>::inter(
+          if (!FFOp::_inter(
                   *static_cast<U*>(varin[0]->val()),
                   Op<U>::hull(-Op<U>::pow(*static_cast<U*>(pres->val()),
                                           1. / varin[1]->num().n),
@@ -8201,7 +8238,7 @@ FFOp::tighten_backward(U const* dumU) const
       {  // negative odd exponent
         if (Op<U>::l(*static_cast<U*>(varin[0]->val())) > 0.)
         {
-          if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+          if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                             Op<U>::pow(*static_cast<U*>(pres->val()),
                                        1. / varin[1]->num().n),
                             *static_cast<U*>(varin[0]->val())))
@@ -8209,7 +8246,7 @@ FFOp::tighten_backward(U const* dumU) const
         }
         else if (Op<U>::u(*static_cast<U*>(varin[0]->val())) < 0.)
         {
-          if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+          if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                             -Op<U>::pow(-*static_cast<U*>(pres->val()),
                                         1. / varin[1]->num().n),
                             *static_cast<U*>(varin[0]->val())))
@@ -8223,7 +8260,7 @@ FFOp::tighten_backward(U const* dumU) const
       {  // negative even exponent
         if (Op<U>::l(*static_cast<U*>(varin[0]->val())) > 0.)
         {
-          if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+          if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                             Op<U>::pow(*static_cast<U*>(pres->val()),
                                        1. / varin[1]->num().n),
                             *static_cast<U*>(varin[0]->val())))
@@ -8231,7 +8268,7 @@ FFOp::tighten_backward(U const* dumU) const
         }
         else if (Op<U>::u(*static_cast<U*>(varin[0]->val())) < 0.)
         {
-          if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+          if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                             -Op<U>::pow(*static_cast<U*>(pres->val()),
                                         1. / varin[1]->num().n),
                             *static_cast<U*>(varin[0]->val())))
@@ -8246,7 +8283,7 @@ FFOp::tighten_backward(U const* dumU) const
     case FFOp::DPOW:
       //*itU = Op<U>::pow( *static_cast<U*>( varin[0]->val() ),
       // varin[1]->num().x );
-      if (!Op<U>::inter(
+      if (!FFOp::_inter(
               *static_cast<U*>(varin[0]->val()),
               Op<U>::pow(*static_cast<U*>(pres->val()), 1. / varin[1]->num().x),
               *static_cast<U*>(varin[0]->val())))
@@ -8263,21 +8300,21 @@ FFOp::tighten_backward(U const* dumU) const
       //*itU = Op<U>::sqr( *static_cast<U*>( varin[0]->val() ) );
       if (Op<U>::l(*static_cast<U*>(varin[0]->val())) >= 0.)
       {
-        if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+        if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                           Op<U>::sqrt(*static_cast<U*>(pres->val())),
                           *static_cast<U*>(varin[0]->val())))
           return false;
       }
       else if (Op<U>::u(*static_cast<U*>(varin[0]->val())) <= 0.)
       {
-        if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+        if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                           -Op<U>::sqrt(*static_cast<U*>(pres->val())),
                           *static_cast<U*>(varin[0]->val())))
           return false;
       }
       else
       {
-        if (!Op<U>::inter(
+        if (!FFOp::_inter(
                 *static_cast<U*>(varin[0]->val()),
                 Op<U>::hull(-Op<U>::sqrt(*static_cast<U*>(pres->val())),
                             Op<U>::sqrt(*static_cast<U*>(pres->val()))),
@@ -8288,7 +8325,7 @@ FFOp::tighten_backward(U const* dumU) const
 
     case FFOp::SQRT:
       //*itU = Op<U>::sqrt( *static_cast<U*>( varin[0]->val() ) );
-      if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+      if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                         Op<U>::sqr(*static_cast<U*>(pres->val())),
                         *static_cast<U*>(varin[0]->val())))
         return false;
@@ -8296,7 +8333,7 @@ FFOp::tighten_backward(U const* dumU) const
 
     case FFOp::EXP:
       //*itU = Op<U>::exp( *static_cast<U*>( varin[0]->val() ) );
-      if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+      if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                         Op<U>::log(*static_cast<U*>(pres->val())),
                         *static_cast<U*>(varin[0]->val())))
         return false;
@@ -8304,7 +8341,7 @@ FFOp::tighten_backward(U const* dumU) const
 
     case FFOp::LOG:
       //*itU = Op<U>::log( *static_cast<U*>( varin[0]->val() ) );
-      if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+      if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                         Op<U>::exp(*static_cast<U*>(pres->val())),
                         *static_cast<U*>(varin[0]->val())))
         return false;
@@ -8327,7 +8364,7 @@ FFOp::tighten_backward(U const* dumU) const
         bool const odd = std::fmod(std::fabs(k), 2.) > 0.5;
         U const res    = odd ? -*static_cast<U*>(pres->val())
                              : *static_cast<U*>(pres->val());
-        if (!Op<U>::inter(opnd, Op<U>::acos(res) + k * PI, opnd)) return false;
+        if (!FFOp::_inter(opnd, Op<U>::acos(res) + k * PI, opnd)) return false;
       }
       break;
     }
@@ -8345,7 +8382,7 @@ FFOp::tighten_backward(U const* dumU) const
         bool const odd = std::fmod(std::fabs(k), 2.) > 0.5;
         U const res    = odd ? -*static_cast<U*>(pres->val())
                              : *static_cast<U*>(pres->val());
-        if (!Op<U>::inter(opnd, Op<U>::asin(res) + k * PI, opnd)) return false;
+        if (!FFOp::_inter(opnd, Op<U>::asin(res) + k * PI, opnd)) return false;
       }
       break;
     }
@@ -8359,7 +8396,7 @@ FFOp::tighten_backward(U const* dumU) const
       double const k = std::floor(Op<U>::l(opnd) / PI + 0.5);
       if (Op<U>::u(opnd) <= (k + 0.5) * PI)
       {
-        if (!Op<U>::inter(opnd,
+        if (!FFOp::_inter(opnd,
                           Op<U>::atan(*static_cast<U*>(pres->val())) + k * PI,
                           opnd))
           return false;
@@ -8369,7 +8406,7 @@ FFOp::tighten_backward(U const* dumU) const
 
     case FFOp::ACOS:
       //*itU = Op<U>::acos( *static_cast<U*>( varin[0]->val() ) );
-      if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+      if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                         Op<U>::cos(*static_cast<U*>(pres->val())),
                         *static_cast<U*>(varin[0]->val())))
         return false;
@@ -8377,7 +8414,7 @@ FFOp::tighten_backward(U const* dumU) const
 
     case FFOp::ASIN:
       //*itU = Op<U>::asin( *static_cast<U*>( varin[0]->val() ) );
-      if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+      if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                         Op<U>::sin(*static_cast<U*>(pres->val())),
                         *static_cast<U*>(varin[0]->val())))
         return false;
@@ -8385,7 +8422,7 @@ FFOp::tighten_backward(U const* dumU) const
 
     case FFOp::ATAN:
       //*itU = Op<U>::atan( *static_cast<U*>( varin[0]->val() ) );
-      if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+      if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                         Op<U>::tan(*static_cast<U*>(pres->val())),
                         *static_cast<U*>(varin[0]->val())))
         return false;
@@ -8416,21 +8453,21 @@ FFOp::tighten_backward(U const* dumU) const
       //*itU = Op<U>::fabs( *static_cast<U*>( varin[0]->val() ) );
       if (Op<U>::l(*static_cast<U*>(varin[0]->val())) >= 0.)
       {
-        if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+        if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                           *static_cast<U*>(pres->val()),
                           *static_cast<U*>(varin[0]->val())))
           return false;
       }
       else if (Op<U>::u(*static_cast<U*>(varin[0]->val())) <= 0.)
       {
-        if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+        if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                           -*static_cast<U*>(pres->val()),
                           *static_cast<U*>(varin[0]->val())))
           return false;
       }
       else
       {
-        if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+        if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                           Op<U>::hull(-*static_cast<U*>(pres->val()),
                                       *static_cast<U*>(pres->val())),
                           *static_cast<U*>(varin[0]->val())))
@@ -8447,14 +8484,14 @@ FFOp::tighten_backward(U const* dumU) const
       {
         if (Op<U>::u(opnd) < 0.) return false;
         if (Op<U>::l(opnd) < 0. &&
-            !Op<U>::inter(opnd, Op<U>::zeroone() * Op<U>::u(opnd), opnd))
+            !FFOp::_inter(opnd, Op<U>::zeroone() * Op<U>::u(opnd), opnd))
           return false;
       }
       else if (Op<U>::u(*static_cast<U*>(pres->val())) < 1.)
       {
         if (Op<U>::l(opnd) >= 0.) return false;
         if (Op<U>::u(opnd) > 0. &&
-            !Op<U>::inter(opnd, Op<U>::zeroone() * Op<U>::l(opnd), opnd))
+            !FFOp::_inter(opnd, Op<U>::zeroone() * Op<U>::l(opnd), opnd))
           return false;
       }
       break;
@@ -8471,14 +8508,14 @@ FFOp::tighten_backward(U const* dumU) const
         if (Op<U>::u(*static_cast<U*>(varin[1]->val())) <=
             varin[0]->num().val())
         {
-          if (!Op<U>::inter(*static_cast<U*>(varin[1]->val()),
+          if (!FFOp::_inter(*static_cast<U*>(varin[1]->val()),
                             *static_cast<U*>(pres->val()),
                             *static_cast<U*>(varin[1]->val())))
             return false;
         }
         else
         {
-          if (!Op<U>::inter(*static_cast<U*>(varin[1]->val()),
+          if (!FFOp::_inter(*static_cast<U*>(varin[1]->val()),
                             Op<U>::max(*static_cast<U*>(varin[1]->val()),
                                        *static_cast<U*>(pres->val())),
                             *static_cast<U*>(varin[1]->val())))
@@ -8490,14 +8527,14 @@ FFOp::tighten_backward(U const* dumU) const
         if (Op<U>::u(*static_cast<U*>(varin[0]->val())) <=
             varin[1]->num().val())
         {
-          if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+          if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                             *static_cast<U*>(pres->val()),
                             *static_cast<U*>(varin[0]->val())))
             return false;
         }
         else
         {
-          if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+          if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                             Op<U>::max(*static_cast<U*>(varin[0]->val()),
                                        *static_cast<U*>(pres->val())),
                             *static_cast<U*>(varin[0]->val())))
@@ -8506,12 +8543,12 @@ FFOp::tighten_backward(U const* dumU) const
       }
       else
       {
-        if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+        if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                           Op<U>::max(*static_cast<U*>(varin[0]->val()),
                                      *static_cast<U*>(pres->val())),
                           *static_cast<U*>(varin[0]->val())))
           return false;
-        if (!Op<U>::inter(*static_cast<U*>(varin[1]->val()),
+        if (!FFOp::_inter(*static_cast<U*>(varin[1]->val()),
                           Op<U>::max(*static_cast<U*>(varin[1]->val()),
                                      *static_cast<U*>(pres->val())),
                           *static_cast<U*>(varin[1]->val())))
@@ -8530,14 +8567,14 @@ FFOp::tighten_backward(U const* dumU) const
         if (Op<U>::l(*static_cast<U*>(varin[1]->val())) >=
             varin[0]->num().val())
         {
-          if (!Op<U>::inter(*static_cast<U*>(varin[1]->val()),
+          if (!FFOp::_inter(*static_cast<U*>(varin[1]->val()),
                             *static_cast<U*>(pres->val()),
                             *static_cast<U*>(varin[1]->val())))
             return false;
         }
         else
         {
-          if (!Op<U>::inter(*static_cast<U*>(varin[1]->val()),
+          if (!FFOp::_inter(*static_cast<U*>(varin[1]->val()),
                             Op<U>::min(*static_cast<U*>(varin[1]->val()),
                                        *static_cast<U*>(pres->val())),
                             *static_cast<U*>(varin[1]->val())))
@@ -8549,14 +8586,14 @@ FFOp::tighten_backward(U const* dumU) const
         if (Op<U>::l(*static_cast<U*>(varin[0]->val())) >=
             varin[1]->num().val())
         {
-          if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+          if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                             *static_cast<U*>(pres->val()),
                             *static_cast<U*>(varin[0]->val())))
             return false;
         }
         else
         {
-          if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+          if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                             Op<U>::min(*static_cast<U*>(varin[0]->val()),
                                        *static_cast<U*>(pres->val())),
                             *static_cast<U*>(varin[0]->val())))
@@ -8565,12 +8602,12 @@ FFOp::tighten_backward(U const* dumU) const
       }
       else
       {
-        if (!Op<U>::inter(*static_cast<U*>(varin[0]->val()),
+        if (!FFOp::_inter(*static_cast<U*>(varin[0]->val()),
                           Op<U>::min(*static_cast<U*>(varin[0]->val()),
                                      *static_cast<U*>(pres->val())),
                           *static_cast<U*>(varin[0]->val())))
           return false;
-        if (!Op<U>::inter(*static_cast<U*>(varin[1]->val()),
+        if (!FFOp::_inter(*static_cast<U*>(varin[1]->val()),
                           Op<U>::min(*static_cast<U*>(varin[1]->val()),
                                      *static_cast<U*>(pres->val())),
                           *static_cast<U*>(varin[1]->val())))
@@ -8581,7 +8618,7 @@ FFOp::tighten_backward(U const* dumU) const
     case FFOp::INTER:
       // if( &varin[0] == &varin[1] )
       //   *itU = *static_cast<U*>( varin[0]->val() );
-      // else if( !Op<U>::inter( *itU, *static_cast<U*>( varin[0]->val() ),
+      // else if( !FFOp::_inter( *itU, *static_cast<U*>( varin[0]->val() ),
       // *static_cast<U*>( varin[1]->val() ) ) )
       //   throw typename FFBase::Exceptions( FFBase::Exceptions::INTER );
       //  TBC
@@ -14896,6 +14933,11 @@ FFGraph::reval(FFSubgraph& sgDep, std::vector<U>& wkDep, unsigned const nDep,
         }  // continue; }
       }
       if (!is_feasible) return -ipass - 1;
+      // A result with a bound that is not a number is left unbounded, as when
+      // the operation throws
+      if (!ipass)
+        for (size_t j = 0; j < op->varout.size(); ++j)
+          if (FFOp::_has_nan(wkDep[iwk + j])) wkDep[iwk + j] = InfVal;
       // Increment tape
       iwk += op->varout.size();
     }
@@ -14909,7 +14951,7 @@ FFGraph::reval(FFSubgraph& sgDep, std::vector<U>& wkDep, unsigned const nDep,
                 << *static_cast<U*>(pdep->val()) << " ^ " << vDep[i]
                 << std::endl;
 #endif
-      if (!Op<U>::inter(*static_cast<U*>(pdep->val()),
+      if (!FFOp::_inter(*static_cast<U*>(pdep->val()),
                         *static_cast<U*>(pdep->val()), vDep[i]))
       {
 #ifdef MC__REVAL_DEBUG
@@ -15020,7 +15062,7 @@ FFGraph::reval(FFSubgraph& sgDep, std::vector<U>& wkDep, unsigned const nDep,
       std::cout << "mapVar[" << *pvar.first << "] = " << *pvar.second
                 << std::endl;
 #endif
-      if (!Op<U>::inter(*pvar.first, *pvar.first, *pvar.second))
+      if (!FFOp::_inter(*pvar.first, *pvar.first, *pvar.second))
         return -ipass - 1;
       *pvar.second = *pvar.first;  // to avoid NaN if intersection is empty
     }

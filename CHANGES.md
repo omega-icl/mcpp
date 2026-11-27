@@ -45,6 +45,18 @@ terms are now summed once, backwards then forwards, which gives the same bounds 
 operations.  In CANON's `ann_peaks` example, for the same search, constraint propagation takes 10 s instead
 of 68 s with Boost intervals, and 1.9 s instead of 7.5 s with `mc::Interval`.
 
+### Constraint propagation: a bound that is not a number is no information
+
+`FFGraph::reval` intersected the ranges it propagates with whatever an operation returned.  A result with a
+NaN bound -- an operation that fails in the arithmetic: infinity over infinity after an overflow, zero times
+an unbounded range, `tanh` of a wide range with PROFIL before the fix above -- made the propagation report
+infeasibility with Boost and PROFIL intervals, and put NaN bounds on the variables with `mc::Interval`.  Such
+a result is now left unbounded in the forward pass and skipped in the backward pass, as when the operation
+throws.  `FFOp::_inter` is the intersection to use in the `reval` of an external operation, as `FFLin` does.
+Boost also returns such bounds for an operation undefined on a whole range, e.g. the square root of a
+negative range: this alone no longer makes the propagation infeasible, as with `mc::Interval` and PROFIL,
+where the operation throws.  Test: `test/DAG/DAG_reval_nan`.
+
 ### Cuts for squares and products of auxiliary variables in a polyhedral image
 
 `PolImg::append_cuts_SQR` and `PolImg::append_cuts_TIMES` add the cuts of a square or a product between
