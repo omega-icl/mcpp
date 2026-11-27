@@ -26,6 +26,16 @@ constraint propagation could then report a feasible model as infeasible, e.g. wi
 constraints `mu*g = 0` and `mu` in `[0,1]` (CANON's first-order optimality cuts).  The tightening is now
 skipped in that case, whatever the interval arithmetic; results with `mc::Interval` are unchanged.
 
+### Hyperbolic tangent and cosine with PROFIL intervals
+
+`mcprofil.hpp` passed `tanh` and `cosh` on to PROFIL, which evaluates them from `exp` in interval arithmetic,
+`tanh` as `(e^x-e^-x)/(e^x+e^-x)`.  On an interval this overestimates without limit (`tanh([-2,2])` came out as
+`[-26.8,26.8]`, `tanh([-400,400])` as `[-inf,inf]`) and gives NaN once `exp` overflows; `cosh` was up to twice
+too wide and could go below one.  A network with `tanh` activations then had infinite or NaN bounds, and
+a model built on it could be reported infeasible.  Both are now bounded from their values at points, still in
+PROFIL's rounded arithmetic: the end points for `tanh`, kept within `[-1,1]`, and the points of least and
+greatest magnitude for `cosh`.
+
 ### Cuts for squares and products of auxiliary variables in a polyhedral image
 
 `PolImg::append_cuts_SQR` and `PolImg::append_cuts_TIMES` add the cuts of a square or a product between

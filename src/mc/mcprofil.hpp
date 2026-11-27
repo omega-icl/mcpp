@@ -11,6 +11,38 @@
 #include <Interval.h>
 #include "mcfunc.hpp"
 
+namespace mc
+{
+
+//! @brief Hyperbolic cosine of a PROFIL interval. PROFIL evaluates (e^x+e^-x)/2 in interval
+//! arithmetic, which is only sharp at a point: the range is bounded from the point of least
+//! magnitude and the one of greatest magnitude instead
+inline ::INTERVAL
+profil_cosh(const ::INTERVAL& x)
+{
+  double const xmin = mc::mid(::Inf(x), ::Sup(x), 0.);
+  double const cmin = ::Inf(::Cosh(::INTERVAL(xmin)));
+  return ::INTERVAL(cmin > 1. ? cmin : 1., ::Sup(::Cosh(::INTERVAL(::Abs(x)))));
+}
+
+//! @brief Hyperbolic tangent of a PROFIL interval. PROFIL evaluates (e^x-e^-x)/(e^x+e^-x) in
+//! interval arithmetic, which overestimates on an interval (e.g. [-26.8,26.8] on [-2,2]) and
+//! overflows for large arguments: the two end points are bounded instead, tanh being increasing,
+//! and the bounds are 1 or -1 within one unit in the last place beyond 20 in magnitude
+inline ::INTERVAL
+profil_tanh(const ::INTERVAL& x)
+{
+  auto const bnd = [](double const a) -> ::INTERVAL {
+    if (a >= 20.) return ::INTERVAL(::Pred(1.), 1.);
+    if (a <= -20.) return ::INTERVAL(-1., ::Succ(-1.));
+    return ::Tanh(::INTERVAL(a));
+  };
+  double const tinf = ::Inf(bnd(::Inf(x))), tsup = ::Sup(bnd(::Sup(x)));
+  return ::INTERVAL(tinf > -1. ? tinf : -1., tsup < 1. ? tsup : 1.);
+}
+
+}  // namespace mc
+
 /////////////////
 
 #ifdef MC__USE_FADBAD
@@ -165,12 +197,12 @@ struct Op< ::INTERVAL>
   static T
   myCosh(const T& x)
   {
-    return ::Cosh(x);
+    return mc::profil_cosh(x);
   }
   static T
   myTanh(const T& x)
   {
-    return ::Tanh(x);
+    return mc::profil_tanh(x);
   }
   static bool
   myEq(const T& x, const T& y)
@@ -374,12 +406,12 @@ struct Op< ::INTERVAL>
   static T
   cosh(const T& x)
   {
-    return ::Cosh(x);
+    return mc::profil_cosh(x);
   }
   static T
   tanh(const T& x)
   {
-    return ::Tanh(x);
+    return mc::profil_tanh(x);
   }
   static T
   erf(const T& x)
